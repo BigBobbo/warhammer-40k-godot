@@ -6,6 +6,10 @@ const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 # Phase 1 MVP: Basic ordering with up/down arrows, fast roll option
 
 signal weapon_order_confirmed(weapon_order: Array, fast_roll: bool)
+# Staged sequential resolution (non-networked): the dialog stays open through the
+# hit roll and wound roll of the current weapon, driving these:
+signal staged_continue_requested(next_step: String)      # "wounds" or "saves"
+signal staged_reroll_requested(stage: String, die_index: int)  # Command Re-roll a hit/wound die
 
 # Weapon ordering data
 var weapon_assignments: Array = []  # Original assignments from shooting phase
@@ -25,8 +29,16 @@ var start_sequence_button: Button
 var close_button: Button
 var dice_log_rich_text: RichTextLabel
 
+# Staged-resolution UI
+var staged_continue_button: Button   # "Roll to Wound ▶" / "Continue to Saving Throws ▶"
+var reroll_label: Label              # "Command Re-roll available (1 CP)…"
+var reroll_row: HBoxContainer        # one button per die to re-roll
+var current_stage: String = ""       # "hits" | "wounds" while paused
+
 func _ready() -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
+	# Stable node name so windowed scenarios can address the dialog + its buttons.
+	name = "WeaponOrderDialog"
 	# Set dialog properties
 	title = "Choose Weapon Order"
 	dialog_hide_on_ok = false
@@ -90,7 +102,20 @@ func _ready() -> void:
 	WhiteDwarfTheme.apply_primary_button(start_sequence_button)
 	button_hbox.add_child(start_sequence_button)
 
+	# Staged-resolution continue button ("Roll to Wound ▶" / "Continue to Saving
+	# Throws ▶"). This REPLACES the old bare "Close" during staged resolution so
+	# the player always knows what the next step actually is.
+	staged_continue_button = Button.new()
+	staged_continue_button.name = "StagedContinueButton"
+	staged_continue_button.text = "Continue ▶"
+	staged_continue_button.pressed.connect(_on_staged_continue_pressed)
+	staged_continue_button.custom_minimum_size = Vector2(240, 42)
+	WhiteDwarfTheme.apply_primary_button(staged_continue_button)
+	button_hbox.add_child(staged_continue_button)
+	staged_continue_button.visible = false
+
 	close_button = Button.new()
+	close_button.name = "CloseButton"
 	close_button.text = "Close"
 	close_button.pressed.connect(_on_close_pressed)
 	close_button.custom_minimum_size = Vector2(100, 42)
@@ -110,6 +135,24 @@ func _ready() -> void:
 	continue_button.visible = false
 
 	_add_weapon_order_gold_separator(vbox)
+
+	# Command Re-roll affordance (staged resolution): a row of per-die buttons the
+	# attacker can click to re-roll a single hit/wound die with Command Re-roll.
+	reroll_label = Label.new()
+	reroll_label.name = "RerollLabel"
+	reroll_label.add_theme_font_size_override("font_size", 12)
+	reroll_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	reroll_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	reroll_label.visible = false
+	vbox.add_child(reroll_label)
+
+	reroll_row = HBoxContainer.new()
+	reroll_row.name = "RerollRow"
+	reroll_row.visible = false
+	var reroll_scroll = ScrollContainer.new()
+	reroll_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 44)
+	reroll_scroll.add_child(reroll_row)
+	vbox.add_child(reroll_scroll)
 
 	# Dice log section
 	var log_label = Label.new()
@@ -154,6 +197,11 @@ func setup(assignments: Array, phase = null) -> void:
 		if not current_phase.dice_rolled.is_connected(_on_dice_rolled):
 			current_phase.dice_rolled.connect(_on_dice_rolled)
 			print("║ Connected to phase dice_rolled signal")
+	# Staged sequential resolution pause signal (hit-roll / wound-roll pauses)
+	if current_phase and current_phase.has_signal("shooting_stage_paused"):
+		if not current_phase.shooting_stage_paused.is_connected(_on_stage_paused):
+			current_phase.shooting_stage_paused.connect(_on_stage_paused)
+			print("║ Connected to phase shooting_stage_paused signal")
 
 	# Group assignments by weapon type
 	var weapon_groups = {}
@@ -410,40 +458,151 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	var context = dice_data.get("context", "")
 
 	if context == "weapon_progress":
-		# Weapon progress message
+		# Verbose weapon header — the phase now names the weapon + target.
 		var message = dice_data.get("message", "")
-		_add_to_dice_log("[b]>>> %s <<<[/b]" % message, Color.YELLOW)
+		_add_to_dice_log("", Color.WHITE)
+		_add_to_dice_log("[b]━━━ %s ━━━[/b]" % message, WhiteDwarfTheme.WH_GOLD)
 	elif context == "resolution_start":
-		# Resolution starting
 		var message = dice_data.get("message", "Beginning resolution...")
 		_add_to_dice_log(message, Color.CYAN)
+	elif context == "reroll_note":
+		_add_to_dice_log("[b][color=orange]↻ %s[/color][/b]" % dice_data.get("message", "Re-roll"), Color.ORANGE)
+	elif context == "auto_hit":
+		# Torrent: automatic hits, no roll.
+		var total = dice_data.get("total_attacks", dice_data.get("successes", 0))
+		_add_to_dice_log("[b]Rolling to Hit:[/b] [color=cyan]Torrent — %d automatic hits[/color]" % total, Color.WHITE)
+	elif context == "to_hit" or context == "to_wound":
+		_add_to_dice_log(_format_roll_line(context, dice_data), Color.WHITE)
 	else:
-		# Dice roll results
+		# Fallback for any other dice block.
 		var rolls_raw = dice_data.get("rolls_raw", [])
 		var rolls_modified = dice_data.get("rolls_modified", [])
-		var rerolls = dice_data.get("rerolls", [])
-		var successes = dice_data.get("successes", -1)
-		var threshold = dice_data.get("threshold", "")
-
-		# Format the display text
-		var log_text = "[b]%s[/b] (need %s): " % [context.capitalize().replace("_", " "), threshold]
-
-		# Show re-rolls if any
-		if not rerolls.is_empty():
-			log_text += "[color=orange]Re-rolled:[/color] "
-			for reroll in rerolls:
-				log_text += "[s]%d[/s]→%d " % [reroll.original, reroll.rerolled_to]
-			log_text += "| "
-
-		# Show rolls
 		var display_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
-		log_text += "Rolls: %s" % str(display_rolls)
-
-		# Show successes
+		var successes = dice_data.get("successes", -1)
+		var line = "[b]%s[/b] (need %s): Rolls: %s" % [context.capitalize().replace("_", " "), dice_data.get("threshold", ""), _dice_str(display_rolls)]
 		if successes >= 0:
-			log_text += " → [b][color=green]%d successes[/color][/b]" % successes
+			line += " → [b][color=green]%d successes[/color][/b]" % successes
+		_add_to_dice_log(line, Color.WHITE)
 
-		_add_to_dice_log(log_text, Color.WHITE)
+func _format_roll_line(context: String, dice_data: Dictionary) -> String:
+	# Verbose, human-readable hit / wound line.
+	var threshold = str(dice_data.get("threshold", ""))
+	var rolls_raw = dice_data.get("rolls_raw", [])
+	var rolls_modified = dice_data.get("rolls_modified", [])
+	var display_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
+	var total = (display_rolls as Array).size()
+	var successes = int(dice_data.get("successes", 0))
+	var rerolls = dice_data.get("rerolls", [])
+
+	var label = "Rolling to Hit" if context == "to_hit" else "Rolling to Wound"
+	var noun = "hit" if context == "to_hit" else "wound"
+	var line = "[b]%s[/b] (need %s): %s" % [label, threshold, _dice_str(display_rolls)]
+	if not (rerolls as Array).is_empty():
+		line += "  [color=orange]("
+		for rr in rerolls:
+			line += "%d→%d " % [rr.get("original", 0), rr.get("rerolled_to", 0)]
+		line = line.strip_edges() + ")[/color]"
+	# "→ 4 hits, 1 miss" (or wounds)
+	var fails = max(0, total - successes)
+	var success_word = noun if successes == 1 else noun + "s"
+	line += " → [b][color=green]%d %s[/color][/b]" % [successes, success_word]
+	if context == "to_hit" and total > 0:
+		var miss_word = "miss" if fails == 1 else "misses"
+		line += "[color=gray], %d %s[/color]" % [fails, miss_word]
+	# Crit / sustained annotations
+	var crits = int(dice_data.get("critical_hits", dice_data.get("critical_wounds", 0)))
+	if crits > 0:
+		var crit_kind = "critical hit" if context == "to_hit" else "critical wound"
+		line += "  [color=#c8a24a](%d %s%s)[/color]" % [crits, crit_kind, "" if crits == 1 else "s"]
+	var sustained = int(dice_data.get("sustained_bonus_hits", 0))
+	if context == "to_hit" and sustained > 0:
+		line += "  [color=#c8a24a](+%d Sustained)[/color]" % sustained
+	return line
+
+func _dice_str(rolls: Array) -> String:
+	# Render dice as spaced values, highlighting 6s (gold) and 1s (red).
+	if rolls.is_empty():
+		return "[color=gray]—[/color]"
+	var parts = []
+	for r in rolls:
+		var v = int(r)
+		if v == 6:
+			parts.append("[color=#d4af37]6[/color]")
+		elif v == 1:
+			parts.append("[color=#a04040]1[/color]")
+		else:
+			parts.append(str(v))
+	return "[ " + " ".join(parts) + " ]"
+
+# --- Staged sequential resolution (hit pause / wound pause) -------------------
+
+func _on_stage_paused(stage: String, info: Dictionary) -> void:
+	current_stage = stage
+	var reroll_available = bool(info.get("reroll_available", false))
+	if stage == "hits":
+		staged_continue_button.text = "Roll to Wound ▶"
+		staged_continue_button.tooltip_text = "Proceed to the wound roll for this weapon"
+	elif stage == "wounds":
+		staged_continue_button.text = "Continue to Saving Throws ▶"
+		staged_continue_button.tooltip_text = "Hand off to the defender to make saving throws"
+	staged_continue_button.visible = true
+	close_button.visible = false
+	# Command Re-roll affordance
+	if reroll_available:
+		var rolls = info.get("modified_rolls", [])
+		if (rolls as Array).is_empty():
+			rolls = info.get("hit_rolls", info.get("wound_rolls", []))
+		_populate_reroll_row(stage, rolls, info.get("threshold", ""))
+	else:
+		reroll_label.visible = false
+		reroll_row.visible = false
+		_clear_reroll_row()
+
+func _populate_reroll_row(stage: String, rolls: Array, _threshold: String) -> void:
+	_clear_reroll_row()
+	if rolls.is_empty():
+		reroll_label.visible = false
+		reroll_row.visible = false
+		return
+	reroll_label.text = "Command Re-roll (1 CP) — click a %s die to re-roll it (once per phase):" % ("hit" if stage == "hits" else "wound")
+	reroll_label.visible = true
+	reroll_row.visible = true
+	for i in range(rolls.size()):
+		var die_btn = Button.new()
+		die_btn.text = str(int(rolls[i]))
+		die_btn.custom_minimum_size = Vector2(38, 38)
+		die_btn.tooltip_text = "Re-roll this die with Command Re-roll (1 CP)"
+		_WhiteDwarfTheme.apply_to_button(die_btn)
+		die_btn.pressed.connect(_on_reroll_die_pressed.bind(i))
+		reroll_row.add_child(die_btn)
+
+func _clear_reroll_row() -> void:
+	if not reroll_row:
+		return
+	for child in reroll_row.get_children():
+		child.queue_free()
+
+func _on_reroll_die_pressed(die_index: int) -> void:
+	print("WeaponOrderDialog: re-roll %s die %d requested" % [current_stage, die_index])
+	# Disable further clicks immediately (once per phase); the phase will confirm.
+	reroll_label.visible = false
+	reroll_row.visible = false
+	_clear_reroll_row()
+	emit_signal("staged_reroll_requested", current_stage, die_index)
+
+func _on_staged_continue_pressed() -> void:
+	staged_continue_button.visible = false
+	reroll_label.visible = false
+	reroll_row.visible = false
+	_clear_reroll_row()
+	if current_stage == "hits":
+		emit_signal("staged_continue_requested", "wounds")
+	elif current_stage == "wounds":
+		# Hand off to the defender's saving throws — free the dialog so the
+		# wound-allocation overlay underneath becomes interactive.
+		emit_signal("staged_continue_requested", "saves")
+		hide()
+		queue_free()
 
 func _add_to_dice_log(text: String, color: Color) -> void:
 	"""Add colored text to dice log"""
@@ -453,11 +612,11 @@ func _add_to_dice_log(text: String, color: Color) -> void:
 	var color_hex = color.to_html(false)
 	dice_log_rich_text.append_text("[color=#%s]%s[/color]\n" % [color_hex, text])
 
-	# Check if sequence is complete (ShootingPhase will emit shooting_resolved or saves_required)
-	# For now, we'll show the close button after the first weapon progress
-	# A more robust solution would be to connect to shooting_resolved signal
-	if is_resolving and not close_button.visible:
-		# Show close button after first dice roll (user can close anytime during resolution)
+	# The staged flow drives progression via the staged continue button (shown by
+	# _on_stage_paused), so we no longer surface a bare "Close" mid-resolution.
+	# Fallback: if we are resolving but no stage pause ever arrives (e.g. the
+	# networked one-shot path), reveal Close so the player is never stuck.
+	if is_resolving and current_stage == "" and not close_button.visible and not staged_continue_button.visible:
 		close_button.visible = true
 
 

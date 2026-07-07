@@ -894,6 +894,223 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 	return result
 
 # ==========================================
+# STAGED SHOOTING (interactive Command Re-roll between hit and wound rolls)
+# resolve_shoot_hits() rolls ONLY the hit roll for a single weapon and returns a
+# hit_context; the caller may pause (offer Command Re-roll on a hit die via
+# reroll_hit_die), then call resolve_shoot_wounds(hit_context) which rolls the
+# wound roll and prepares save data. This lets a player re-roll a hit die BEFORE
+# the wound roll is made — the whole point of the staged sequence. The composed
+# resolve_shoot_until_wounds() above stays behaviour-identical for the fast /
+# networked paths (golden tests guard it).
+# ==========================================
+
+static func resolve_shoot_hits(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+	if not rng_service:
+		rng_service = make_rng()
+	var result = {"success": true, "phase": "SHOOTING", "dice": [], "log_text": "", "no_hits": true}
+	var actor_unit_id = action.get("actor_unit_id", "")
+	var assignments = action.get("payload", {}).get("assignments", [])
+	if assignments.is_empty():
+		result.success = false
+		result.log_text = "No weapon assignments provided"
+		return result
+	# Staged path resolves ONE weapon at a time.
+	var assignment = assignments[0]
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	if actor_unit.is_empty():
+		result.success = false
+		result.log_text = "Actor unit not found"
+		return result
+
+	var hit_res = _resolve_assignment_hits(assignment, actor_unit_id, board, rng_service)
+	result.dice = hit_res.get("dice", [])
+	result.log_text = hit_res.get("log_text", "")
+	result.no_hits = hit_res.get("no_hits", true)
+	# Always propagate hit_context (present even on a miss) so the staged path can
+	# Command Re-roll a missed die and continue to wounds if it becomes a hit.
+	result["hit_context"] = hit_res.get("hit_context", {})
+
+	# The weapon HAS fired once the hit roll is made — mirror the one-shot /
+	# hazardous bookkeeping resolve_shoot_until_wounds() performs per assignment.
+	var weapon_id = assignment.get("weapon_id", "")
+	if is_hazardous_weapon(weapon_id, board):
+		result["hazardous_weapons"] = [{
+			"weapon_id": weapon_id,
+			"models_that_fired": assignment.get("model_ids", []).size()
+		}]
+	if is_one_shot_weapon(weapon_id, board):
+		var one_shot_diffs = []
+		for model_id in assignment.get("model_ids", []):
+			one_shot_diffs.append_array(mark_one_shot_fired_diffs(actor_unit_id, actor_unit, model_id, weapon_id))
+		result["one_shot_diffs"] = one_shot_diffs
+	return result
+
+static func resolve_shoot_wounds(hit_context: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+	if not rng_service:
+		rng_service = make_rng()
+	var w = _resolve_assignment_wounds(hit_context, board, rng_service)
+	var result = {
+		"success": true,
+		"phase": "SHOOTING",
+		"dice": w.get("dice", []),
+		"log_text": w.get("log_text", ""),
+		"no_wounds": w.get("no_wounds", false),
+		"save_data_list": []
+	}
+	if w.has("save_data") and w["save_data"].get("success", false):
+		result["save_data_list"] = [w["save_data"]]
+	if w.has("wound_context"):
+		result["wound_context"] = w["wound_context"]
+	return result
+
+# COMMAND RE-ROLL — re-roll a single hit die and recompute totals in place.
+# Only the chosen die is re-rolled; the untouched dice keep their result. A die
+# re-rolled here is not auto-re-rolled again (re-roll modifiers masked off — a
+# dice can only be re-rolled once). Returns an updated to_hit display block.
+static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service: RNGService = null) -> Dictionary:
+	if not rng_service:
+		rng_service = make_rng()
+	if hit_context.get("is_torrent", false):
+		return {"success": false, "error": "Torrent weapons make no hit roll to re-roll"}
+	var evals = hit_context.get("hit_evals", [])
+	if die_index < 0 or die_index >= evals.size():
+		return {"success": false, "error": "Invalid hit die index %d" % die_index}
+	var old_crits = int(hit_context.get("critical_hits", 0))
+	var bs_per_attack = hit_context.get("bs_per_attack", [])
+	var attack_bs = int(bs_per_attack[die_index]) if die_index < bs_per_attack.size() else int(hit_context.get("bs", 4))
+	var mods_no_reroll = int(hit_context.get("hit_modifiers", 0)) & ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
+	var new_raw = rng_service.roll_d6(1)[0]
+	var ev = AttackSequence.evaluate_hit_roll(new_raw, attack_bs, mods_no_reroll, int(hit_context.get("critical_hit_threshold", 6)), rng_service, int(hit_context.get("hit_fail_band", 1)))
+	var old_eval = evals[die_index]
+	evals[die_index] = {"raw": new_raw, "final": ev.final_roll, "is_hit": ev.is_hit, "is_crit": ev.is_crit}
+	hit_context["hit_rolls"][die_index] = new_raw
+	hit_context["modified_rolls"][die_index] = ev.final_roll
+
+	# Re-tally from the per-die evals, then re-apply DAKKASTORM (all hits -> crits)
+	var hits = 0
+	var crits = 0
+	var regular = 0
+	for e in evals:
+		if e.get("is_hit", false):
+			hits += 1
+			if e.get("is_crit", false):
+				crits += 1
+			else:
+				regular += 1
+	if has_dakkastorm(hit_context.get("actor_unit", {})) and regular > 0:
+		crits += regular
+		regular = 0
+	hit_context["hits"] = hits
+	hit_context["critical_hits"] = crits
+	hit_context["regular_hits"] = regular
+	# Sustained bonus hits depend on the crit count — only re-roll them if the
+	# crit count actually changed, so re-rolling a plain miss->hit doesn't churn
+	# an unrelated Sustained bonus.
+	if crits != old_crits:
+		var sr = roll_sustained_hits(crits, hit_context.get("sustained_data", {"value": 0, "is_dice": false}), rng_service)
+		hit_context["sustained_bonus_hits"] = sr.bonus_hits
+	hit_context["total_hits_for_wounds"] = hits + int(hit_context.get("sustained_bonus_hits", 0))
+
+	var block = {
+		"context": "to_hit",
+		"threshold": str(hit_context.get("bs", 4)) + "+",
+		"rolls_raw": hit_context["hit_rolls"],
+		"rolls_modified": hit_context["modified_rolls"],
+		"rerolls": hit_context.get("reroll_data", []),
+		"successes": hits,
+		"critical_hits": crits,
+		"sustained_bonus_hits": int(hit_context.get("sustained_bonus_hits", 0)),
+		"total_hits_for_wounds": hit_context["total_hits_for_wounds"],
+		"command_rerolled_index": die_index
+	}
+	return {
+		"success": true,
+		"hit_context": hit_context,
+		"dice_block": block,
+		"old_value": old_eval.get("raw", 0),
+		"new_value": new_raw,
+		# Modified (post-BS-modifier) values — what the log / die buttons display.
+		"old_display": old_eval.get("final", old_eval.get("raw", 0)),
+		"new_display": ev.final_roll
+	}
+
+# COMMAND RE-ROLL — re-roll a single wound die, recompute wounds and rebuild the
+# save data (wounds_to_save / devastating crits) from the new tally.
+static func reroll_wound_die(wound_context: Dictionary, die_index: int, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+	if not rng_service:
+		rng_service = make_rng()
+	var evals = wound_context.get("wound_evals", [])
+	if die_index < 0 or die_index >= evals.size():
+		return {"success": false, "error": "Invalid wound die index %d" % die_index}
+	var mods_no_reroll = int(wound_context.get("wound_modifiers", 0)) & ~(WoundModifier.REROLL_ONES | WoundModifier.REROLL_FAILED)
+	var new_raw = rng_service.roll_d6(1)[0]
+	var ev = AttackSequence.evaluate_wound_roll(new_raw, mods_no_reroll, int(wound_context.get("wound_threshold", 4)), int(wound_context.get("critical_wound_threshold", 6)), rng_service)
+	var old_eval = evals[die_index]
+	evals[die_index] = {"raw": new_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail}
+	wound_context["wound_rolls"][die_index] = new_raw
+
+	var has_dev = bool(wound_context.get("weapon_has_devastating_wounds", false))
+	var wounds_from_rolls = 0
+	var crit_wounds = 0
+	var regular_wounds = 0
+	for e in evals:
+		if e.get("auto_fail", false):
+			continue
+		if e.get("is_wound", false):
+			wounds_from_rolls += 1
+			if has_dev and e.get("is_crit", false):
+				crit_wounds += 1
+			else:
+				regular_wounds += 1
+	var auto_wounds = int(wound_context.get("auto_wounds", 0))
+	regular_wounds += auto_wounds  # Lethal Hits auto-wounds count as regular wounds
+	var wounds_caused = auto_wounds + wounds_from_rolls
+
+	var dev_data = {
+		"has_devastating_wounds": has_dev,
+		"critical_wounds": crit_wounds,
+		"regular_wounds": regular_wounds
+	}
+	var precision_data = {}
+	if bool(wound_context.get("weapon_has_precision", false)):
+		precision_data = {
+			"has_precision": true,
+			"critical_hits": int(wound_context.get("critical_hits", 0)),
+			"precision_wounds": mini(int(wound_context.get("critical_hits", 0)), wounds_caused)
+		}
+	var save_data = {}
+	if wounds_caused > 0:
+		save_data = prepare_save_resolution(
+			wounds_caused,
+			wound_context.get("target_unit_id", ""),
+			wound_context.get("actor_unit_id", ""),
+			wound_context.get("weapon_profile", {}),
+			board,
+			dev_data,
+			wound_context.get("melta_data", {}),
+			precision_data
+		)
+	var block = {
+		"context": "to_wound",
+		"threshold": str(wound_context.get("wound_threshold", 4)) + "+",
+		"rolls_raw": wound_context["wound_rolls"],
+		"successes": wounds_caused,
+		"critical_wounds": crit_wounds,
+		"regular_wounds": regular_wounds,
+		"command_rerolled_index": die_index
+	}
+	return {
+		"success": true,
+		"wound_context": wound_context,
+		"dice_block": block,
+		"wounds_caused": wounds_caused,
+		"save_data": save_data,
+		"old_value": old_eval.get("raw", 0),
+		"new_value": new_raw
+	}
+
+# ==========================================
 # OVERWATCH SHOOTING (Fire Overwatch Stratagem)
 # Only unmodified 6s hit. All other shooting mechanics (wound, save, damage) are normal.
 # ==========================================
@@ -1392,6 +1609,23 @@ static func _apply_diff_to_board(board: Dictionary, diff: Dictionary) -> void:
 # SUSTAINED HITS (PRP-011): This function is modified to handle Sustained Hits
 # BLAST (PRP-013): This function is modified to handle Blast keyword
 static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
+	# Composed from the hit half + wound half so the staged (interactive
+	# re-roll) path can pause between them. Behaviour is identical to the
+	# original monolith (golden/replay tests guard the RNG order).
+	var h = _resolve_assignment_hits(assignment, actor_unit_id, board, rng)
+	var result = {"dice": (h.get("dice", []) as Array).duplicate(), "log_text": h.get("log_text", "")}
+	if h.get("no_hits", false):
+		return result
+	var w = _resolve_assignment_wounds(h["hit_context"], board, rng)
+	for wb in w.get("dice", []):
+		result.dice.append(wb)
+	result.log_text = w.get("log_text", result.log_text)
+	if w.has("save_data"):
+		result["save_data"] = w["save_data"]
+	return result
+
+static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
+	var hit_fail_band := 1
 	var result = {
 		"dice": [],
 		"log_text": ""
@@ -1607,6 +1841,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	var hit_rolls = []
 	var modified_rolls = []
 	var reroll_data = []
+	# Per-die classification (raw/final/is_hit/is_crit), captured so a single-die
+	# Command Re-roll (staged shooting) can recompute totals without re-rolling
+	# the untouched dice. Empty for Torrent (no hit roll).
+	var hit_evals = []
 	var weapon_has_lethal_hits = false
 	var sustained_data = {"value": 0, "is_dice": false}
 	var sustained_result = {"bonus_hits": 0, "rolls": []}
@@ -1869,7 +2107,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# (AttackSequence.evaluate_hit_roll). INDIRECT FIRE's unmodified-1-3
 		# fail band (#371, unseen targets only) and CONVERSION's crit
 		# threshold (T4-16) are parameters.
-		var hit_fail_band = 1
+		hit_fail_band = 1
 		if is_indirect_fire and not indirect_target_visible:
 			# 11e (10.07): unmodified 1-5 fails (need a 6), unless the firing unit
 			# remained stationary AND the target is visible to a friendly unit, in
@@ -1886,6 +2124,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			var attack_bs = bs_per_attack[i] if i < bs_per_attack.size() else bs
 			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band)
 			modified_rolls.append(hit_eval.final_roll)
+			hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit})
 			if hit_eval.rerolled:
 				reroll_data.append({
 					"original": hit_eval.reroll_from,
@@ -1971,14 +2210,87 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			"dakkastorm_active": has_dakkastorm(actor_unit)
 		})
 
+	# Build the hit context up-front so it is available even on a full miss —
+	# the staged shooting path may Command Re-roll a MISSED die (turning it into
+	# a hit), which needs the per-die evals/modifiers preserved here.
+	var hit_context = {
+		"assignment": assignment,
+		"actor_unit_id": actor_unit_id,
+		"weapon_id": weapon_id,
+		"weapon_profile": weapon_profile,
+		"actor_unit": actor_unit,
+		"target_unit": target_unit,
+		"target_unit_id": target_unit_id,
+		"model_ids": model_ids,
+		"hits": hits,
+		"critical_hits": critical_hits,
+		"regular_hits": regular_hits,
+		"sustained_bonus_hits": sustained_bonus_hits,
+		"total_hits_for_wounds": total_hits_for_wounds,
+		"weapon_has_lethal_hits": weapon_has_lethal_hits,
+		"is_torrent": is_torrent,
+		"hit_rolls": hit_rolls,
+		"modified_rolls": modified_rolls,
+		"hit_evals": hit_evals,
+		"reroll_data": reroll_data,
+		"bs": bs,
+		"bs_per_attack": bs_per_attack,
+		"total_attacks": total_attacks,
+		"heavy_bonus_applied": heavy_bonus_applied,
+		"bgnt_penalty_applied": bgnt_penalty_applied,
+		"indirect_fire_applied": indirect_fire_applied,
+		"models_in_half_range": models_in_half_range,
+		"rapid_fire_value": rapid_fire_value,
+		"hit_modifiers": hit_modifiers,
+		"critical_hit_threshold": critical_hit_threshold,
+		"hit_fail_band": hit_fail_band,
+		"sustained_data": sustained_data,
+	}
+	result["hit_context"] = hit_context
+
 	if hits == 0 and sustained_bonus_hits == 0:
 		var miss_weapon_name = weapon_profile.get("name", weapon_id)
 		var miss_log = "%s → %s with %s - No hits" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), miss_weapon_name]
 		if not hit_rolls.is_empty():
 			miss_log += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
 		result.log_text = miss_log
+		result["no_hits"] = true
 		return result
 
+	result["no_hits"] = false
+	return result
+
+static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionary, rng: RNGService) -> Dictionary:
+	var result = {"dice": [], "log_text": ""}
+	var assignment = hit_context["assignment"]
+	var actor_unit_id = hit_context["actor_unit_id"]
+	var weapon_id = hit_context["weapon_id"]
+	var weapon_profile = hit_context["weapon_profile"]
+	var actor_unit = hit_context["actor_unit"]
+	var target_unit = hit_context["target_unit"]
+	var target_unit_id = hit_context["target_unit_id"]
+	var model_ids = hit_context["model_ids"]
+	var hits = hit_context["hits"]
+	var critical_hits = hit_context["critical_hits"]
+	var regular_hits = hit_context["regular_hits"]
+	var sustained_bonus_hits = hit_context["sustained_bonus_hits"]
+	var total_hits_for_wounds = hit_context["total_hits_for_wounds"]
+	var weapon_has_lethal_hits = hit_context["weapon_has_lethal_hits"]
+	var is_torrent = hit_context["is_torrent"]
+	var hit_rolls = hit_context["hit_rolls"]
+	var modified_rolls = hit_context["modified_rolls"]
+	var reroll_data = hit_context["reroll_data"]
+	var bs = hit_context["bs"]
+	var bs_per_attack = hit_context["bs_per_attack"]
+	var total_attacks = hit_context["total_attacks"]
+	var heavy_bonus_applied = hit_context["heavy_bonus_applied"]
+	var bgnt_penalty_applied = hit_context["bgnt_penalty_applied"]
+	var indirect_fire_applied = hit_context["indirect_fire_applied"]
+	var models_in_half_range = hit_context["models_in_half_range"]
+	var rapid_fire_value = hit_context["rapid_fire_value"]
+	var hit_modifiers = hit_context["hit_modifiers"]
+	var critical_hit_threshold = hit_context["critical_hit_threshold"]
+	var sustained_data = hit_context["sustained_data"]
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011) + DEVASTATING WOUNDS (PRP-012)
 	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
 	var strength = weapon_profile.get("strength", 4)
@@ -2146,6 +2458,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	var critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
 	var regular_wound_count = 0   # Non-critical wounds
 	var wound_reroll_data = []  # Track twin-linked / modifier re-rolls
+	# Per-die classification, captured so a single-die Command Re-roll (staged
+	# shooting) can recompute wound totals without re-rolling untouched dice.
+	var wound_evals = []
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
@@ -2162,6 +2477,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			for roll in wound_rolls:
 				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, wound_modifiers, wound_threshold, critical_wound_threshold, rng)
+				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail})
 				if wound_eval.rerolled:
 					wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -2181,6 +2497,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		for roll in wound_rolls:
 			# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 			var wound_eval = AttackSequence.evaluate_wound_roll(roll, wound_modifiers, wound_threshold, critical_wound_threshold, rng)
+			wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail})
 			if wound_eval.rerolled:
 				wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 			if wound_eval.auto_fail:
@@ -2242,6 +2559,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		else:
 			no_wound_log += " - no wounds"
 		result.log_text = no_wound_log
+		result["no_wounds"] = true
 		return result
 
 	# STOP HERE - Prepare save data instead of auto-resolving
@@ -2296,6 +2614,24 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	)
 
 	result["save_data"] = save_data
+	# Everything a single-die Command Re-roll (staged shooting) needs to re-tally
+	# wounds and rebuild save_data without re-rolling the untouched dice.
+	result["wound_context"] = {
+		"weapon_id": weapon_id,
+		"weapon_profile": weapon_profile,
+		"actor_unit_id": actor_unit_id,
+		"target_unit_id": target_unit_id,
+		"wound_rolls": wound_rolls,
+		"wound_evals": wound_evals,
+		"wound_threshold": wound_threshold,
+		"wound_modifiers": wound_modifiers,
+		"critical_wound_threshold": critical_wound_threshold,
+		"weapon_has_devastating_wounds": weapon_has_devastating_wounds,
+		"weapon_has_precision": weapon_has_precision,
+		"auto_wounds": auto_wounds,
+		"critical_hits": critical_hits,
+		"melta_data": melta_data,
+	}
 	# Build verbose log text with dice roll details
 	var int_weapon_name = weapon_profile.get("name", weapon_id)
 	var log_parts = []
@@ -2364,6 +2700,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 # WOUNDS] — rolling the wound preserves the critical-wound trigger (the
 # 24.23 designer's-note trade-off). assignment.lethal_hits_choice
 # ("auto"/"roll") overrides the default. 10e always auto-wounds.
+
 static func lethal_hits_auto_wound_11e(weapon_id: String, board: Dictionary, assignment: Dictionary) -> bool:
 	if GameConstants.edition < 11:
 		return true
