@@ -55,7 +55,8 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	var phase_name = PHASE_NAMES.get(new_phase, "Unknown")
 	var turn = GameState.get_battle_round()
 	var player = GameState.get_active_player()
-	var header = "--- %s Phase (Round %d, P%d) ---" % [phase_name, turn, player]
+	# Clearer, spelled-out header (was "--- Movement Phase (Round 2, P1) ---")
+	var header = "--- %s Phase — Battle Round %d, Player %d's turn ---" % [phase_name, turn, player]
 	_add_entry(header, "phase_header")
 
 func _on_action_taken(action: Dictionary) -> void:
@@ -85,7 +86,21 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 		"DEPLOY_UNIT":
 			if ai_desc != "":
 				return prefix + ai_desc
-			return prefix + "Deployed %s" % unit_name
+			return prefix + "Deployed %s%s" % [unit_name, _model_suffix(unit_id)]
+		"CHOOSE_DEPLOYMENT", "ROLL_OFF_DEPLOYMENT":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			if ai_desc != "":
+				return prefix + ai_desc
+			var role = str(_af(action, "role", _af(action, "choice", "")))
+			if role != "":
+				return prefix + "Chose to deploy as %s" % role.capitalize()
+			return prefix + "Chose deployment order"
+		"DESIGNATE_WARLORD":
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "Designated %s as Warlord" % unit_name
 		"BEGIN_NORMAL_MOVE", "CONFIRM_UNIT_MOVE":
 			if action_type == "CONFIRM_UNIT_MOVE":
 				if ai_desc != "":
@@ -189,11 +204,86 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			var log_text = action.get("_log_text", "")
 			if log_text != "":
 				return prefix + log_text
-			return ""
-		"FALL_BACK":
 			if ai_desc != "":
 				return prefix + ai_desc
-			return prefix + "%s fell back" % unit_name
+			return prefix + "%s Advances" % unit_name
+		"BEGIN_SURGE_MOVE":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s makes a Surge move" % unit_name
+		"FALL_BACK", "BEGIN_FALL_BACK":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s Falls Back" % unit_name
+		"EMBARK_UNIT", "DECLARE_TRANSPORT_EMBARKATION", "EMBARK_UNITS_DEPLOYMENT":
+			if ai_desc != "":
+				return prefix + ai_desc
+			var transport_name = _get_unit_name(str(_af(action, "transport_id", _af(action, "target_unit_id", ""))))
+			if transport_name != "Unknown" and transport_name != "":
+				return prefix + "%s embarked aboard %s" % [unit_name, transport_name]
+			return prefix + "%s embarked" % unit_name
+		"CONFIRM_DISEMBARK":
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s disembarked" % unit_name
+		"DISEMBARK_UNIT":
+			# Opens the disembark dialog only; the actual move is CONFIRM_DISEMBARK.
+			return ""
+		"PLACE_REINFORCEMENT", "SCOUT_RESERVES_DEPLOY":
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s arrived from Reserves (Deep Strike)%s" % [unit_name, _model_suffix(unit_id)]
+		"PLACE_RAPID_INGRESS_REINFORCEMENT":
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s arrived via Rapid Ingress" % unit_name
+		"DECLARE_RESERVES", "PLACE_IN_RESERVES", "SEND_TO_STRATEGIC_RESERVES":
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s placed in Strategic Reserves" % unit_name
+		"BEGIN_SCOUT_MOVE", "CONFIRM_SCOUT_MOVE":
+			if action_type == "BEGIN_SCOUT_MOVE":
+				return ""
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s made a Scout move" % unit_name
+		"SKIP_SCOUT_MOVE", "SKIP_SCOUT_UNIT":
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s did not Scout" % unit_name
+		"SELECT_COMBAT_DOCTRINE":
+			if ai_desc != "":
+				return prefix + ai_desc
+			var doctrine = str(_af(action, "doctrine_key", "")).replace("_", " ")
+			if doctrine != "":
+				return prefix + "Activated the %s doctrine" % doctrine.capitalize()
+			return prefix + "Selected a Combat Doctrine"
+		"SELECT_KATAH_STANCE":
+			if ai_desc != "":
+				return prefix + ai_desc
+			var stance = str(_af(action, "stance", ""))
+			if stance == "both":
+				return prefix + "%s adopts BOTH Ka'tah stances (Master of the Stances)" % unit_name
+			elif stance != "":
+				return prefix + "%s adopts the %s Ka'tah stance" % [unit_name, stance.capitalize()]
+			return prefix + "%s selects a Ka'tah stance" % unit_name
+		"SELECT_MARTIAL_MASTERY":
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s uses Martial Mastery" % unit_name
+		"PERFORM_SECONDARY_ACTION", "START_ACTION", "PERFORM_RITUAL_ACTION", "PERFORM_TERRAFORM_ACTION":
+			if ai_desc != "":
+				return prefix + ai_desc
+			var action_name = str(_af(action, "action_name", _af(action, "mission_name", "")))
+			if action_name != "":
+				return prefix + "%s performs action: %s" % [unit_name, action_name]
+			return prefix + "%s performs a mission action" % unit_name
 		"SWEEPING_ADVANCE":
 			if ai_desc != "":
 				return prefix + ai_desc
@@ -228,6 +318,37 @@ func _get_unit_name(unit_id: String) -> String:
 	if name != "":
 		return name
 	return unit_id
+
+func _af(action: Dictionary, key: String, default = ""):
+	"""Read a field from an action, checking the top level first and then the
+	nested `payload` dict — action shapes vary (some carry fields at the top,
+	others under payload)."""
+	if action.has(key):
+		return action[key]
+	var payload = action.get("payload", {})
+	if typeof(payload) == TYPE_DICTIONARY and payload.has(key):
+		return payload[key]
+	return default
+
+func _get_alive_model_count(unit_id: String) -> int:
+	"""Number of models in a unit that are still alive (for verbose log detail)."""
+	if unit_id == "":
+		return 0
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var models = unit.get("models", [])
+	var n := 0
+	for m in models:
+		if m.get("alive", true):
+			n += 1
+	return n
+
+func _model_suffix(unit_id: String) -> String:
+	"""' (N models)' suffix, or '' when the count is unknown/singular-agnostic."""
+	var n = _get_alive_model_count(unit_id)
+	if n <= 0:
+		return ""
+	var label = "model" if n == 1 else "models"
+	return " (%d %s)" % [n, label]
 
 func _add_entry(text: String, entry_type: String) -> void:
 	entries.append({"text": text, "type": entry_type})

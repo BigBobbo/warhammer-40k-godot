@@ -60,6 +60,46 @@ const ICON_CHARS = {
 	EntryCategory.COMBAT: "X",
 }
 
+# --- Filters ---
+# Categories exposed as filter chips, in the order they appear in the filter bar.
+# COMBAT is intentionally absent: combat cards are tagged SHOOTING or MELEE so
+# they filter alongside the matching phase.
+const FILTER_ORDER = [
+	EntryCategory.PHASE,
+	EntryCategory.MOVEMENT,
+	EntryCategory.SHOOTING,
+	EntryCategory.MELEE,
+	EntryCategory.CHARGE,
+	EntryCategory.OVERWATCH,
+	EntryCategory.SCORING,
+	EntryCategory.INFO,
+	EntryCategory.AI_THINKING,
+]
+# Short chip labels (the icon badge already carries the letter).
+const FILTER_LABELS = {
+	EntryCategory.PHASE: "Phase",
+	EntryCategory.MOVEMENT: "Move",
+	EntryCategory.SHOOTING: "Shoot",
+	EntryCategory.MELEE: "Fight",
+	EntryCategory.CHARGE: "Charge",
+	EntryCategory.OVERWATCH: "Overwatch",
+	EntryCategory.SCORING: "VP",
+	EntryCategory.INFO: "Info",
+	EntryCategory.AI_THINKING: "AI",
+}
+# Stable string keys for tests / external callers to name a category.
+const FILTER_KEYS = {
+	EntryCategory.PHASE: "phase",
+	EntryCategory.MOVEMENT: "move",
+	EntryCategory.SHOOTING: "shoot",
+	EntryCategory.MELEE: "fight",
+	EntryCategory.CHARGE: "charge",
+	EntryCategory.OVERWATCH: "overwatch",
+	EntryCategory.SCORING: "vp",
+	EntryCategory.INFO: "info",
+	EntryCategory.AI_THINKING: "ai",
+}
+
 # --- State ---
 var _scroll: ScrollContainer
 var _card_container: VBoxContainer
@@ -68,6 +108,14 @@ var _collapse_button: Button
 var _ai_filter_button: Button
 var _show_ai_thinking: bool = true
 var _ai_cards: Array[PanelContainer] = []
+
+# --- Filter state ---
+# category (EntryCategory) -> bool. Missing key means visible (default on).
+var _category_visible: Dictionary = {}
+var _filter_button: Button = null       # header button that expands/collapses the chip bar
+var _filter_bar: HFlowContainer = null  # holds the per-category toggle chips
+var _filter_chips: Dictionary = {}      # category:int -> Button
+var _filters_expanded: bool = false
 # Board-linked thinking cards (carry ai_link_context metadata) + pin state
 var _linked_ai_cards: Array[PanelContainer] = []
 var _pinned_link_card: PanelContainer = null
@@ -93,6 +141,9 @@ func _ready() -> void:
 	_dice_regex.compile("\\[([0-9, ]+)\\]")
 	_threshold_regex = RegEx.new()
 	_threshold_regex.compile("(?:needed |Save |Pain |vs )(\\d+)\\+")
+	# Every filterable category starts visible.
+	for cat in FILTER_ORDER:
+		_category_visible[cat] = true
 
 func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 105.0, offset_bottom: float = 0.0) -> void:
 	name = "GameLogPanel"
@@ -128,6 +179,7 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 
 	# --- Header row ---
 	var header = HBoxContainer.new()
+	header.name = "HeaderRow"
 	header.custom_minimum_size = Vector2(0, 28)
 	vbox.add_child(header)
 
@@ -138,7 +190,17 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 
-	# AI filter toggle
+	# Filters toggle — expands/collapses the per-category chip bar below.
+	_filter_button = Button.new()
+	_filter_button.name = "FilterToggle"
+	_filter_button.text = "Filters"
+	_filter_button.tooltip_text = "Show/hide the event-type filter chips"
+	_filter_button.custom_minimum_size = Vector2(54, 24)
+	_filter_button.add_theme_font_size_override("font_size", 10)
+	_filter_button.pressed.connect(_on_filter_button_pressed)
+	header.add_child(_filter_button)
+
+	# AI filter toggle (quick-access shortcut; also present as a chip in the bar)
 	_ai_filter_button = Button.new()
 	_ai_filter_button.text = "AI"
 	_ai_filter_button.tooltip_text = "Toggle AI thinking entries"
@@ -162,6 +224,9 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 	sep.color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.4)
 	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(sep)
+
+	# --- Filter chip bar (collapsible) ---
+	_build_filter_bar(vbox)
 
 	# --- Scroll area with card container ---
 	_scroll = ScrollContainer.new()
@@ -581,8 +646,10 @@ func _start_combat_card(header_text: String, animate: bool) -> void:
 
 	_card_container.add_child(card)
 	_card_count += 1
+	# Combat cards filter alongside their phase (Shoot / Fight).
+	_register_card(card, category)
 
-	if animate:
+	if animate and card.visible:
 		_animate_card_in(card)
 
 func _append_combat_detail(text: String, animate: bool) -> void:
@@ -597,7 +664,8 @@ func _append_combat_detail(text: String, animate: bool) -> void:
 		var card = _make_simple_entry_card(text, "combat_detail", EntryCategory.COMBAT)
 		_card_container.add_child(card)
 		_card_count += 1
-		if animate:
+		_register_card(card, _combat_category_from_text(text))
+		if animate and card.visible:
 			_animate_card_in(card)
 
 func _build_combat_detail_line(text: String) -> Control:
@@ -675,7 +743,8 @@ func _finalize_combat_card(text: String, animate: bool) -> void:
 		var card = _make_combat_result_card(text)
 		_card_container.add_child(card)
 		_card_count += 1
-		if animate:
+		_register_card(card, _combat_category_from_text(text))
+		if animate and card.visible:
 			_animate_card_in(card)
 
 # ==========================================================================
@@ -688,14 +757,18 @@ func _create_simple_card(text: String, entry_type: String, animate: bool) -> voi
 	category = _refine_category_from_text(text, category)
 
 	var card: PanelContainer
+	var final_category = category
 
 	match entry_type:
 		"phase_header":
 			card = _make_phase_card(text)
+			final_category = EntryCategory.PHASE
 		"overwatch":
 			card = _make_simple_entry_card(text, entry_type, EntryCategory.OVERWATCH)
+			final_category = EntryCategory.OVERWATCH
 		"ai_thinking":
 			card = _make_simple_entry_card(text, entry_type, EntryCategory.AI_THINKING)
+			final_category = EntryCategory.AI_THINKING
 		"ai_thinking_block":
 			# Board-link context (unit + candidate positions) travels alongside
 			# the entry — read it synchronously from the emitting autoload.
@@ -704,18 +777,21 @@ func _create_simple_card(text: String, entry_type: String, animate: bool) -> voi
 			if gel and gel.has_method("get_last_entry_context"):
 				block_context = gel.get_last_entry_context()
 			card = _make_ai_thinking_block_card(text, block_context)
+			final_category = EntryCategory.AI_THINKING
 		_:
 			card = _make_simple_entry_card(text, entry_type, category)
+			final_category = category
 
 	_card_container.add_child(card)
 	_card_count += 1
+	# Tag with its category + apply the current filter (also sets AI-card visibility).
+	_register_card(card, final_category)
 
 	# Track AI cards for filtering
 	if entry_type == "ai_thinking" or entry_type == "ai_thinking_block":
 		_ai_cards.append(card)
-		card.visible = _show_ai_thinking
 
-	if animate:
+	if animate and card.visible:
 		_animate_card_in(card)
 
 # ==========================================================================
@@ -1105,21 +1181,50 @@ func _categorize_entry_type(entry_type: String) -> int:
 			return EntryCategory.INFO
 
 func _refine_category_from_text(text: String, current_category: int) -> int:
-	if current_category != EntryCategory.MOVEMENT:
+	# Only loosely-typed player actions (MOVEMENT base) and general info lines
+	# (INFO base) get content-based routing; already-specific categories
+	# (phase, overwatch, ai, combat…) pass straight through.
+	if current_category != EntryCategory.MOVEMENT and current_category != EntryCategory.INFO:
 		return current_category
 
-	var lower_text = text.to_lower()
-	if "shot" in lower_text or "shoots" in lower_text or "shooting" in lower_text:
-		return EntryCategory.SHOOTING
-	elif "fought" in lower_text or "fights" in lower_text or "fight" in lower_text:
-		return EntryCategory.MELEE
-	elif "charged" in lower_text or "charge" in lower_text or "pile" in lower_text or "consolidat" in lower_text:
-		return EntryCategory.CHARGE
-	elif "score" in lower_text or "vp" in lower_text or "point" in lower_text:
-		return EntryCategory.SCORING
-	elif "overwatch" in lower_text:
+	var t = text.to_lower()
+
+	# Distinctive reactions / events first.
+	if "overwatch" in t:
 		return EntryCategory.OVERWATCH
+	if "charge" in t or "charged" in t:
+		return EntryCategory.CHARGE
+	if "shot" in t or "shoot" in t or "fires at" in t or "firing" in t:
+		return EntryCategory.SHOOTING
+	if "fought" in t or "fights" in t or "fight " in t or "melee" in t \
+		or "pile in" in t or "piled in" in t or "consolidat" in t:
+		return EntryCategory.MELEE
+	if "scored" in t or "score " in t or "vp" in t or "victory point" in t:
+		return EntryCategory.SCORING
+
+	# Command / abilities / stratagems / mission bookkeeping → Info.
+	if "stratagem" in t or "waaagh" in t or "oath" in t or "doctrine" in t or "stance" in t \
+		or "banner" in t or "warlord" in t or "secondar" in t or "mission" in t \
+		or "battle-shock" in t or "battle shock" in t or "command re-roll" in t \
+		or " cp" in t or "cp " in t or "objective" in t or "ability" in t:
+		return EntryCategory.INFO
+
+	# Movement-family verbs → Move (also covers deploy / reserves / transport).
+	if "moved" in t or "moves" in t or " move" in t or "advanc" in t \
+		or "fall back" in t or "falls back" in t or "fell back" in t \
+		or "deploy" in t or "embark" in t or "disembark" in t or "reserve" in t \
+		or "deep strike" in t or "ingress" in t or "stationary" in t or "scout" in t \
+		or "surge" in t:
+		return EntryCategory.MOVEMENT
+
 	return current_category
+
+func _combat_category_from_text(text: String) -> int:
+	"""Map an orphaned combat line to Fight or Shoot by its wording."""
+	var t = text.to_lower()
+	if "fight" in t or "fought" in t or "melee" in t or "pile in" in t or "consolidat" in t:
+		return EntryCategory.MELEE
+	return EntryCategory.SHOOTING
 
 # ==========================================================================
 # Combat detail styling (dice rolls, keywords)
@@ -1218,15 +1323,119 @@ func _trim_old_cards(count: int) -> void:
 		_card_count -= 1
 
 # ==========================================================================
-# Filter & visibility (AI toggle from xBfRG)
+# Filter & visibility — per-category toggle chips + AI quick-toggle
 # ==========================================================================
 
-func _on_ai_filter_pressed() -> void:
-	_show_ai_thinking = !_show_ai_thinking
-	for card in _ai_cards:
-		if is_instance_valid(card):
-			card.visible = _show_ai_thinking
+func _build_filter_bar(parent: VBoxContainer) -> void:
+	"""Build the collapsible bar of per-category toggle chips. Hidden until the
+	'Filters' header button is pressed so it costs no vertical space by default."""
+	_filter_bar = HFlowContainer.new()
+	_filter_bar.name = "FilterBar"
+	_filter_bar.add_theme_constant_override("h_separation", 3)
+	_filter_bar.add_theme_constant_override("v_separation", 3)
+	_filter_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_filter_bar.visible = false
+	parent.add_child(_filter_bar)
+
+	# A tiny "all/none" pair keeps bulk toggling one click away.
+	var all_btn = Button.new()
+	all_btn.text = "All"
+	all_btn.tooltip_text = "Show every event type"
+	all_btn.custom_minimum_size = Vector2(30, 22)
+	all_btn.add_theme_font_size_override("font_size", 9)
+	all_btn.pressed.connect(func(): _set_all_categories_visible(true))
+	_filter_bar.add_child(all_btn)
+
+	var none_btn = Button.new()
+	none_btn.text = "None"
+	none_btn.tooltip_text = "Hide every event type"
+	none_btn.custom_minimum_size = Vector2(38, 22)
+	none_btn.add_theme_font_size_override("font_size", 9)
+	none_btn.pressed.connect(func(): _set_all_categories_visible(false))
+	_filter_bar.add_child(none_btn)
+
+	for cat in FILTER_ORDER:
+		var chip = _make_filter_chip(cat)
+		_filter_chips[cat] = chip
+		_filter_bar.add_child(chip)
+		_update_chip_visual(cat)
+
+func _make_filter_chip(category: int) -> Button:
+	var chip = Button.new()
+	chip.name = "Chip_%s" % FILTER_KEYS.get(category, str(category))
+	chip.text = FILTER_LABELS.get(category, "?")
+	chip.toggle_mode = false  # we drive the on/off look ourselves via modulate
+	chip.custom_minimum_size = Vector2(0, 22)
+	chip.add_theme_font_size_override("font_size", 9)
+	chip.tooltip_text = "Toggle %s events" % FILTER_LABELS.get(category, "")
+	# Tint the chip with the category's accent so it reads like the cards it controls.
+	var accent = BORDER_COLORS.get(category, Color.GRAY)
+	chip.add_theme_color_override("font_color", accent)
+	chip.add_theme_color_override("font_hover_color", accent.lightened(0.3))
+	chip.pressed.connect(func(): _toggle_category(category))
+	return chip
+
+func _toggle_category(category: int) -> void:
+	_set_category_visible(category, not _category_visible.get(category, true))
+
+func _set_category_visible(category: int, visible_flag: bool) -> void:
+	_category_visible[category] = visible_flag
+	# Keep the AI quick-toggle + legacy bool in sync with the AI chip.
+	if category == EntryCategory.AI_THINKING:
+		_show_ai_thinking = visible_flag
+		_update_ai_filter_button()
+	_apply_filters()
+	_update_chip_visual(category)
+
+func _set_all_categories_visible(visible_flag: bool) -> void:
+	for cat in FILTER_ORDER:
+		_category_visible[cat] = visible_flag
+		_update_chip_visual(cat)
+	_show_ai_thinking = visible_flag
 	_update_ai_filter_button()
+	_apply_filters()
+
+func _apply_filters() -> void:
+	"""Walk every card and set its visibility from its tagged category."""
+	if _card_container == null:
+		return
+	for card in _card_container.get_children():
+		if not is_instance_valid(card):
+			continue
+		var cat = card.get_meta("log_category", EntryCategory.INFO)
+		card.visible = _category_visible.get(cat, true)
+
+func _update_chip_visual(category: int) -> void:
+	var chip = _filter_chips.get(category, null)
+	if chip == null or not is_instance_valid(chip):
+		return
+	var on = _category_visible.get(category, true)
+	if on:
+		chip.modulate = Color(1, 1, 1, 1)
+		chip.text = "%s" % FILTER_LABELS.get(category, "?")
+	else:
+		# Dim + strike-through style cue when a category is hidden.
+		chip.modulate = Color(1, 1, 1, 0.4)
+		chip.text = "%s ✕" % FILTER_LABELS.get(category, "?")
+
+func _on_filter_button_pressed() -> void:
+	_filters_expanded = not _filters_expanded
+	if _filter_bar:
+		_filter_bar.visible = _filters_expanded
+	if _filter_button:
+		_filter_button.modulate = Color(1, 1, 1, 1.0) if _filters_expanded else Color(1, 1, 1, 0.7)
+
+func _register_card(card: Control, category: int) -> void:
+	"""Tag a freshly-created card with its category and apply the current filter
+	so it appears/hides consistently with cards already in the log."""
+	if card == null:
+		return
+	card.set_meta("log_category", category)
+	card.visible = _category_visible.get(category, true)
+
+func _on_ai_filter_pressed() -> void:
+	# The header 'AI' shortcut drives the same state as the AI chip.
+	_set_category_visible(EntryCategory.AI_THINKING, not _category_visible.get(EntryCategory.AI_THINKING, true))
 
 func _update_ai_filter_button() -> void:
 	if _ai_filter_button:
@@ -1236,6 +1445,69 @@ func _update_ai_filter_button() -> void:
 		else:
 			_ai_filter_button.modulate = Color(1, 1, 1, 0.4)
 			_ai_filter_button.tooltip_text = "AI thinking hidden - click to show"
+
+# --- Introspection helpers (windowed scenarios) ---
+
+func is_category_visible(category_key: String) -> bool:
+	"""True if the named category ('phase','move','shoot','fight','charge',
+	'overwatch','vp','info','ai') is currently shown."""
+	var cat = _category_from_key(category_key)
+	if cat < 0:
+		return true
+	return _category_visible.get(cat, true)
+
+func set_category_filter(category_key: String, visible_flag: bool) -> bool:
+	"""Programmatic toggle by name — same code path as clicking a chip."""
+	var cat = _category_from_key(category_key)
+	if cat < 0:
+		return false
+	_set_category_visible(cat, visible_flag)
+	return true
+
+func toggle_filter_bar(expand = null) -> void:
+	"""Show/hide the chip bar. Pass true/false to force a state."""
+	if expand == null:
+		_on_filter_button_pressed()
+		return
+	_filters_expanded = bool(expand)
+	if _filter_bar:
+		_filter_bar.visible = _filters_expanded
+
+func is_filter_bar_expanded() -> bool:
+	return _filters_expanded
+
+func count_visible_cards_in_category(category_key: String) -> int:
+	"""How many cards of the named category are currently visible. Used by
+	scenarios to assert a filter actually hid/showed the right rows."""
+	var cat = _category_from_key(category_key)
+	if _card_container == null:
+		return 0
+	var n := 0
+	for card in _card_container.get_children():
+		if not is_instance_valid(card):
+			continue
+		if card.get_meta("log_category", EntryCategory.INFO) == cat and card.visible:
+			n += 1
+	return n
+
+func count_cards_in_category(category_key: String) -> int:
+	"""Total cards of the named category regardless of visibility."""
+	var cat = _category_from_key(category_key)
+	if _card_container == null:
+		return 0
+	var n := 0
+	for card in _card_container.get_children():
+		if not is_instance_valid(card):
+			continue
+		if card.get_meta("log_category", EntryCategory.INFO) == cat:
+			n += 1
+	return n
+
+func _category_from_key(category_key: String) -> int:
+	for cat in FILTER_KEYS:
+		if FILTER_KEYS[cat] == category_key:
+			return cat
+	return -1
 
 func _on_collapse_pressed() -> void:
 	_is_visible = false
