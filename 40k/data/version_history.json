@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.7.1",
+			"date": "2026-07-07",
+			"summary": "Fixed the Game Log drawing on top of the Save & Load menu — the menu now always sits above the log and other side panels while it's open.",
+			"changes": [
+				"Opening Save & Load while the Game Log was visible used to leave the log rendered over the left edge of the menu, hiding part of it and intercepting clicks meant for the dialog. The Save & Load menu is now raised to the front whenever it opens, so it always sits above the Game Log (and the roster strip) and receives your clicks."
+			]
+		},
+		{
 			"version": "0.7.0",
 			"date": "2026-07-07",
 			"summary": "The Shooting Phase 'Choose Weapon Order' sequence is now step-by-step and much clearer — it names each weapon, pauses after the hit roll and again after the wound roll, and lets you spend a Command Re-roll on a single die at each pause.",

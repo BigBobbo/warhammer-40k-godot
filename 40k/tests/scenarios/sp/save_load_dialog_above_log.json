@@ -1,0 +1,26 @@
+{
+  "id": "save_load_dialog_above_log",
+  "covers": [
+    "ui.save_load_dialog.z_order"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "rng_seed": 42,
+  "description": "The Save & Load dialog is a modal menu and must render ABOVE the Game Log panel. Reproduces the z-order bug where GameLogPanel (set up later in Main._ready) drew over the earlier-set-up SaveLoadDialog. With the log visible, the dialog is opened via its real entry point (show_dialog — the same call the Settings 'Save / Load' button makes). Asserts the dialog sits at UI_MODAL_Z (2000), strictly above the log's panel layer, AND that it is the front-most sibling so it also receives input in the region overlapping the log.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "GameEventLog.add_info_entry(\"Charge Phase — Battle Round 3, Player 1's turn\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, \"P1: Vertus Praetors declare charge against Painboy\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, \"P1: Telemon Heavy Dreadnought declares charge against Stormboyz\")" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "expect_node_property", "node": "/root/Main/GameLogPanel", "property": "visible", "equals": true },
+    { "act": "screenshot", "label": "01_ingame_log_visible" },
+    { "act": "execute_script", "script": "main.save_load_dialog.show_dialog()" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "expect_node_property", "node": "/root/Main/SaveLoadDialog", "property": "visible", "equals": true },
+    { "act": "screenshot", "label": "02_dialog_above_log" },
+    { "act": "execute_script", "script": "main.save_load_dialog.z_index", "equals": 2000 },
+    { "act": "execute_script", "script": "main.game_log_panel.visible", "equals": true },
+    { "act": "execute_script", "script": "main.save_load_dialog.z_index > main.game_log_panel.z_index", "equals": true },
+    { "act": "execute_script", "script": "main.save_load_dialog.get_index() > main.game_log_panel.get_index()", "equals": true }
+  ]
+}
