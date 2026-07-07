@@ -2445,6 +2445,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "charge.range_overlay_cleanup",
+      "description": "The 12\" charge-range overlay (ChargeRangeVisual) is fully cleared when the charging-unit selection changes, so bubbles do not accumulate across re-selections (child count stays at one bubble's worth).",
+      "scenarios": [
+        "charge_range_bubble_cleanup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ChargeController._clear_charge_range_circle",
+      "description": "ChargeController._clear_charge_range_circle frees every child of the dedicated range_visual container, robust against Godot's auto-rename of colliding sibling names.",
+      "scenarios": [
+        "charge_range_bubble_cleanup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
