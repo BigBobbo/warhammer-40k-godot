@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.5.1",
+			"date": "2026-07-07",
+			"summary": "Movement phase no longer nags you to click 'Confirm Move' — moving on auto-confirms.",
+			"changes": [
+				"In the Movement phase, if you move a unit's models but forget to click 'Confirm Move', the move is now confirmed automatically the moment you select a different unit or end the phase. No more 'There are active moves that need to be confirmed or reset' blocking you.",
+				"Auto-confirm runs the same checks as the button (coherency, Fall Back engagement range, Fire Overwatch), so an illegal position still won't be silently committed."
+			]
+		},
+		{
 			"version": "0.5.0",
 			"date": "2026-07-06",
 			"summary": "11th-edition secondary missions are now fully playable: every card that needs your input asks for it, and every card action has a button.",
