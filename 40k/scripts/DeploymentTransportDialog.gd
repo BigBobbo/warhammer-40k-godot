@@ -80,8 +80,8 @@ func show_for_unit(unit_id_: String, deployment_controller: Node) -> void:
 			transport_list.add_item(text)
 			transport_list.set_item_metadata(transport_list.get_item_count() - 1, transport.id)
 
-	# Show dialog
-	popup_centered()
+	# Show dialog (capped to the viewport so the Deploy buttons stay on-screen)
+	DialogUtils.popup_centered_capped(self)
 
 func _on_transport_selected(index: int) -> void:
 	selected_transport_id = transport_list.get_item_metadata(index)

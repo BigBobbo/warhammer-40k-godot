@@ -201,6 +201,12 @@ static func apply_to_dialog(dialog: Window) -> void:
 	_apply_common_theme_entries(theme)
 	dialog.theme = theme
 
+	# Safety net: if this dialog ever opens larger than the viewport (e.g. a tall
+	# autowrap Label ballooned its minimum height), clamp it back on-screen so its
+	# action buttons can never end up unreachable. Only fires on actual overflow,
+	# so correctly-sized dialogs are untouched.
+	DialogUtils.arm_overflow_guard(dialog)
+
 # Apply the White Dwarf chrome to a Control-based overlay (not a Window).
 # Cascades to every Button / Label / OptionButton / ItemList descendant so a
 # hand-built overlay matches the AcceptDialog-based dialogs without theming

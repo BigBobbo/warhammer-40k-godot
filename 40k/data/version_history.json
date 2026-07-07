@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.6.3",
+			"date": "2026-07-07",
+			"summary": "Fixed a whole family of pop-up windows that could stretch off the bottom of the screen and hide their buttons — the same bug as the Burden of Trust window, across many other prompts.",
+			"changes": [
+				"Several pop-up windows could balloon far taller than the screen (a long description line inside them was mis-measured), pushing their action buttons off the bottom where you couldn't click them. Fixed the secondary-mission prompts (A Tempting Target, Marked for Death, Beacon, Extract Relic, Condemn), the 'Deploy Unit in Transport' window, the out-of-coherency model-removal prompt, the shooting action prompt, the transport firing-deck picker, and more.",
+				"Added a global safety net so ANY pop-up window is automatically kept within the screen and re-centered if it would ever open too tall — its confirm/cancel buttons can no longer end up unreachable. Windows that already fit are left exactly as they were."
+			]
+		},
+		{
 			"version": "0.6.2",
 			"date": "2026-07-07",
 			"summary": "Fixed the Burden of Trust guard-assignment window overflowing off the bottom of the screen so its Confirm / Keep buttons were unreachable.",
