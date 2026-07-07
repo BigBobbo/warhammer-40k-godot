@@ -18,6 +18,17 @@ signal end_pile_in(player: int)
 var dialog_data: Dictionary = {}
 var phase_reference = null
 
+# Factory: build a ready-to-show dialog (script attached + UI built). The caller
+# connects the signals, adds it to the tree, and calls popup_centered(). Shared
+# by FightController and the windowed regression scenario so both exercise one
+# construction path (and the autowrap-Label height guard in _build_ui).
+static func create(data: Dictionary, phase) -> AcceptDialog:
+	var dialog := AcceptDialog.new()
+	dialog.set_script(load("res://dialogs/PileInStepDialog.gd"))
+	dialog.name = "PileInStepDialog"
+	dialog.setup(data, phase)
+	return dialog
+
 func setup(data: Dictionary, phase) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
 	dialog_data = data
@@ -47,6 +58,12 @@ func _build_ui() -> void:
 	var instructions = Label.new()
 	instructions.text = "The Fight phase opens with pile-ins. Pick a unit to make its pile-in move (up to 3\", each model closer to its pile-in target), or end your pile-in. Piling in is optional — units you don't pick simply stay put."
 	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Constrain the wrapped label's width so it reports a correct minimum HEIGHT.
+	# An autowrap Label with no bounded width is measured at ~zero width while the
+	# dialog pops up and returns a towering minimum height (~5500px), which inflates
+	# the whole AcceptDialog to span/overflow the screen — the oversized embedded
+	# window then renders as a black rectangle for the player.
+	instructions.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 40, 0)
 	instructions.add_theme_color_override("font_color", Color.YELLOW)
 	content.add_child(instructions)
 	content.add_child(HSeparator.new())
