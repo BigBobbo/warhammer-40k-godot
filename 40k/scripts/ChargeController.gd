@@ -24,6 +24,7 @@ var awaiting_roll: bool = false
 var awaiting_movement: bool = false
 var last_processed_charge_roll: Dictionary = {}  # Tracks last processed roll to prevent duplicates
 var _pending_complete_unit_id: String = ""  # Unit awaiting COMPLETE_UNIT_CHARGE after charge_resolved
+var _last_apply_rejection: Dictionary = {}  # Set by Main via on_charge_move_rejected when APPLY_CHARGE_MOVE fails validation
 
 # Charge movement tracking
 var models_to_move: Array = []  # Models that still need to move
@@ -967,9 +968,9 @@ func _is_charge_successful(unit_id: String, rolled_distance: int, target_ids: Ar
 				if target_pos == null:
 					continue
 
-				# Edge-to-edge distance in inches, minus engagement range (1")
+				# Edge-to-edge distance in inches, minus the edition's engagement range
 				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
-				var distance_to_close = distance_inches - 1.0  # 1" engagement range
+				var distance_to_close = distance_inches - GameConstants.engagement_range_inches()
 
 				# T2-8: Add terrain penalty for straight-line path
 				var terrain_penalty = _calculate_terrain_penalty_for_path(model_pos, target_pos)
@@ -1105,7 +1106,7 @@ func _show_target_engagement_visuals(unit_id: String) -> void:
 			var er_visual = preload("res://scripts/EngagementRangeVisual.gd").new()
 			var base_mm = target_model.get("base_mm", 32)
 			var base_radius_px = Measurement.base_radius_px(base_mm)
-			var er_px = Measurement.inches_to_px(1.0)  # 1" engagement range
+			var er_px = Measurement.inches_to_px(GameConstants.engagement_range_inches())  # edition-aware ER
 			er_visual.setup_engagement_range(base_radius_px + er_px, Color(1.0, 0.5, 0.0, 0.5))
 			er_visual.position = target_pos
 			board_root.add_child(er_visual)
@@ -1867,8 +1868,37 @@ func _on_confirm_charge_moves() -> void:
 		}
 	}
 
+	# ISS-049 (11e 11.02): targets are SELECTED WITH THE MOVE — send the enemy
+	# units the final positions actually engage. Without this the server keeps
+	# whatever survived the pre-roll declaration; if the roll dropped them all,
+	# the confirm was rejected ("No charge targets selected") with no UI to fix it.
+	if GameConstants.edition >= 11 and not is_hi_move:
+		var inferred_targets = _infer_11e_targets_from_moves(per_model_paths)
+		if not inferred_targets.is_empty():
+			action.payload["target_unit_ids"] = inferred_targets
+			print("ChargeController: [11e] targets selected with the move: ", inferred_targets)
+
 	print("Requesting apply charge move: ", action)
+	_last_apply_rejection = {}
 	charge_action_requested.emit(action)
+
+	# Single-player processes the action synchronously — if the server rejected
+	# the move (Main calls on_charge_move_rejected), the charge and its roll are
+	# still pending: keep movement mode alive so the player can re-position,
+	# instead of silently pretending the charge concluded.
+	if not _last_apply_rejection.is_empty():
+		_last_apply_rejection = {}
+		moved_models.clear()
+		_moved_model_order.clear()
+		# Token visuals are re-synced to GameState (pre-drag origins) by
+		# Main.update_after_charge_action(); drag ghosts/lines are stale now.
+		_clear_movement_visuals()
+		awaiting_movement = true
+		_pending_complete_unit_id = ""
+		if is_instance_valid(confirm_button):
+			confirm_button.visible = true
+		_update_button_states()
+		return
 
 	# Clear the movement state
 	moved_models.clear()
@@ -1882,6 +1912,71 @@ func _on_confirm_charge_moves() -> void:
 
 	# Update UI for next charge selection
 	_update_ui_for_next_charge()
+
+func on_charge_move_rejected(action: Dictionary, result: Dictionary) -> void:
+	"""Called by Main when the server rejects APPLY_CHARGE_MOVE validation.
+	Records the rejection (consumed by _on_confirm_charge_moves to keep the
+	movement mode alive) and tells the player why in the dice log."""
+	_last_apply_rejection = {"action": action, "result": result}
+	var errs: Array = result.get("errors", [])
+	var msg: String = str(errs[0]) if not errs.is_empty() else str(result.get("error", "move does not satisfy charge constraints"))
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=red]Charge move rejected:[/color] %s — re-position the models and confirm again.\n" % msg)
+	if is_instance_valid(charge_info_label):
+		charge_info_label.text = "Move rejected: %s" % msg
+	print("ChargeController: charge move rejected — %s" % msg)
+
+func _infer_11e_targets_from_moves(per_model_paths: Dictionary) -> Array:
+	"""11e 11.02: the charge targets are the enemy units the unit actually ends
+	engaged with. Derive them from the final model positions; when the phase's
+	selectable list is available (host), filter to it so an accidental brush
+	against a non-selectable unit still surfaces as a non-target-ER error."""
+	var unit = GameState.get_unit(active_unit_id)
+	if unit.is_empty():
+		return []
+
+	# Final-position model dicts for the shape-aware ER test
+	var final_models: Array = []
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if path is Array and path.size() > 0:
+			for model in unit.get("models", []):
+				if model.get("id", "") == model_id:
+					var at_final = model.duplicate()
+					at_final["position"] = Vector2(path[-1][0], path[-1][1])
+					final_models.append(at_final)
+					break
+	if final_models.is_empty():
+		return []
+
+	var selectable: Array = []
+	if current_phase != null and current_phase.has_method("get_pending_charges"):
+		var pending = current_phase.get_pending_charges()
+		if pending.has(active_unit_id):
+			selectable = pending[active_unit_id].get("selectable_targets", [])
+
+	var my_owner = int(unit.get("owner", 0))
+	var out: Array = []
+	var er_inches = GameConstants.engagement_range_inches()
+	for enemy_id in GameState.state.get("units", {}):
+		var enemy = GameState.state.units[enemy_id]
+		if int(enemy.get("owner", 0)) == my_owner:
+			continue
+		if not selectable.is_empty() and not (enemy_id in selectable):
+			continue
+		var engaged := false
+		for fm in final_models:
+			for em in enemy.get("models", []):
+				if not em.get("alive", true) or em.get("position") == null:
+					continue
+				if Measurement.is_in_engagement_range_shape_aware(fm, em, er_inches):
+					engaged = true
+					break
+			if engaged:
+				break
+		if engaged:
+			out.append(enemy_id)
+	return out
 
 func _on_declare_charge_pressed() -> void:
 	if active_unit_id == "" or selected_targets.is_empty():
@@ -2382,12 +2477,13 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		# Server determined charge roll insufficient — show failure, let charge_resolved
 		# (re-emitted by NetworkManager) handle the full UI update.
 		awaiting_movement = false
-		var needed = max(0.0, min_distance - 1.0)
+		var er_inches = GameConstants.engagement_range_inches()
+		var needed = max(0.0, min_distance - er_inches)
 
 		if is_instance_valid(charge_info_label):
 			charge_info_label.text = "Failed! Rolled %d\" but needed ~%.1f\" to reach engagement range" % [total, needed]
 		if is_instance_valid(dice_log_display):
-			dice_log_display.append_text("[color=red][INSUFFICIENT_ROLL] Charge failed![/color] Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach 1\" engagement range).\n" % [total, min_distance, needed])
+			dice_log_display.append_text("[color=red][INSUFFICIENT_ROLL] Charge failed![/color] Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach %.0f\" engagement range).\n" % [total, min_distance, needed, er_inches])
 
 		# T7-58: Update arrows with failure result
 		_update_charge_arrow_roll_results(total, false)
@@ -3345,8 +3441,8 @@ func _update_charge_trajectory_preview(unit: Dictionary, unit_center: Vector2) -
 					closest_target_pos = target_pos
 
 		if closest_target_pos != Vector2.ZERO and closest_dist_inches < INF:
-			# Distance needed = edge-to-edge minus 1" engagement range
-			var charge_distance_needed = maxf(closest_dist_inches - 1.0, 0.0)
+			# Distance needed = edge-to-edge minus the edition's engagement range
+			var charge_distance_needed = maxf(closest_dist_inches - GameConstants.engagement_range_inches(), 0.0)
 
 			# Add terrain penalty for straight-line path
 			var terrain_penalty = _calculate_terrain_penalty_for_path(model_pos, closest_target_pos)

@@ -85,11 +85,12 @@ const FAIL_MUST_END_CLOSER = "MUST_END_CLOSER"
 const FAIL_WALL = "WALL"
 
 # Human-readable explanations for each failure category (teaches players the rules)
+# "{er}" is substituted with the edition's engagement range by get_failure_category_tooltip.
 const FAIL_CATEGORY_TOOLTIPS = {
-	FAIL_INSUFFICIENT_ROLL: "The 2D6 charge roll was too low for any model to reach engagement range (1\") of the declared targets. Try charging closer targets or units with fewer declared targets.",
+	FAIL_INSUFFICIENT_ROLL: "The 2D6 charge roll was too low for any model to reach engagement range ({er}) of the declared targets. Try charging closer targets or units with fewer declared targets.",
 	FAIL_DISTANCE: "A model's movement path exceeded the rolled charge distance. Each model can move at most the rolled distance in inches during a charge move.",
-	FAIL_ENGAGEMENT: "The charging unit must end its move with at least one model within engagement range (1\") of EVERY declared target. If you declared multiple targets, you must reach all of them.",
-	FAIL_NON_TARGET_ER: "No charging model may end within engagement range (1\") of an enemy unit that was NOT declared as a charge target. Plan your movement to avoid non-target enemies.",
+	FAIL_ENGAGEMENT: "The charging unit must end its move with at least one model within engagement range ({er}) of EVERY declared target. If you declared multiple targets, you must reach all of them.",
+	FAIL_NON_TARGET_ER: "No charging model may end within engagement range ({er}) of an enemy unit that was NOT declared as a charge target. Plan your movement to avoid non-target enemies.",
 	FAIL_COHERENCY: "All models in the unit must maintain unit coherency (within 2\" horizontally and 5\" vertically of at least one other model) after the charge move completes.",
 	FAIL_OVERLAP: "Models cannot end their charge movement overlapping with other models (friendly or enemy). Reposition to avoid base overlaps.",
 	FAIL_BASE_CONTACT: "If a charging model CAN make base-to-base contact with an enemy model while still satisfying all other charge conditions, it MUST do so (10e core rule).",
@@ -340,6 +341,16 @@ func _validate_declare_charge(action: Dictionary) -> Dictionary:
 	if unit_id in completed_charges:
 		return {"valid": false, "errors": ["Unit has already charged this phase"]}
 
+	# A unit whose 2D6 are already rolled must resolve that charge (move or
+	# skip) — re-declaring would grant a free re-roll of the charge dice.
+	if pending_charges.has(unit_id) and pending_charges[unit_id].has("distance"):
+		return {"valid": false, "errors": ["Charge roll already made — complete the charge move or skip the unit"]}
+
+	# No new declarations while a Fire Overwatch decision is pending (it would
+	# clobber the overwatch bookkeeping for the charge that triggered it).
+	if awaiting_fire_overwatch:
+		return {"valid": false, "errors": ["Awaiting Fire Overwatch decision"]}
+
 	# T2-9: Check if charging unit has FLY keyword (needed to charge AIRCRAFT targets)
 	var charger_keywords = unit.get("meta", {}).get("keywords", [])
 	var charger_has_fly = "FLY" in charger_keywords
@@ -366,13 +377,24 @@ func _validate_declare_charge(action: Dictionary) -> Dictionary:
 
 func _validate_charge_roll(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
-	
+
 	if unit_id == "":
 		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	
+
 	if not pending_charges.has(unit_id):
 		return {"valid": false, "errors": ["No charge declared for unit"]}
-	
+
+	# Reaction windows pause the flow — no rolling while a decision is pending.
+	if awaiting_ability_reroll or awaiting_reroll_decision:
+		return {"valid": false, "errors": ["Awaiting re-roll decision"]}
+	if awaiting_fire_overwatch:
+		return {"valid": false, "errors": ["Awaiting Fire Overwatch decision"]}
+
+	# The 2D6 are rolled once per declared charge — a repeat CHARGE_ROLL would
+	# grant a free re-roll (only Command Re-roll / abilities may re-roll).
+	if pending_charges[unit_id].has("distance"):
+		return {"valid": false, "errors": ["Charge roll already made for this unit"]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_apply_charge_move(action: Dictionary) -> Dictionary:
@@ -472,9 +494,12 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var target_ids = action.get("payload", {}).get("target_unit_ids", [])
 
-	# Store charge declaration
+	# Store charge declaration. declared_targets preserves the original
+	# declaration so the 11e roll-resolution can re-filter it against the
+	# FINAL roll total (after re-rolls / +N bonuses), not the first raw 2D6.
 	pending_charges[unit_id] = {
 		"targets": target_ids,
+		"declared_targets": target_ids.duplicate(),
 		"declared_at": Time.get_unix_time_from_system()
 	}
 
@@ -575,24 +600,15 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	charge_data.distance = total_distance
 	charge_data.dice_rolls = rolls
 
-	# ISS-049 step 2 (11e 11.02): the roll IS the maximum distance —
-	# targets are selected after the roll, from enemies within 12" AND
-	# within the roll (the pg-37 example). Pre-declared targets that the
-	# roll cannot reach are dropped.
+	# ISS-049 step 2 (11e 11.02): the roll IS the maximum distance — targets
+	# are selected after the roll, from enemies within 12" AND within the
+	# roll (the pg-37 example). This list is PROVISIONAL so paused re-roll
+	# flows can introspect it; _resolve_charge_roll recomputes it from the
+	# FINAL total (after re-rolls / +N charge bonuses) — resolving from the
+	# raw first 2D6 made re-rolled/bonused charges fail against a stale list.
 	if GameConstants.edition >= 11:
 		var tmpl_11e = MoveTypes.get_type("charge")
-		var selectable: Array = tmpl_11e._targets_within(unit_id, GameState.state, min(12.0, float(total_distance)))
-		charge_data["selectable_targets"] = selectable
-		if not charge_data.targets.is_empty():
-			var kept: Array = []
-			for tid in charge_data.targets:
-				if tid in selectable:
-					kept.append(tid)
-				else:
-					log_phase_message("[11e] Charge target %s beyond the roll (%d\") — dropped" % [tid, total_distance])
-			charge_data.targets = kept
-		log_phase_message("[11e] Selectable charge targets after roll of %d: %s" % [total_distance, str(selectable)])
-		emit_signal("charge_targets_available", unit_id, selectable)
+		charge_data["selectable_targets"] = tmpl_11e._targets_within(unit_id, GameState.state, min(12.0, float(total_distance)))
 
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var target_ids = charge_data.targets
@@ -714,6 +730,28 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 			unit_name, charge_data.dice_rolls[0] + charge_data.dice_rolls[1], charge_bonus, total_distance
 		]))
 
+	# ISS-049 step 2 (11e 11.02): targets are selected after the roll, from
+	# enemies within 12" AND within the roll. Computed HERE — from the FINAL
+	# total (after re-rolls and +N bonuses) — and the original declaration is
+	# re-filtered against it. Pre-declared targets the roll cannot reach are
+	# dropped; ones a re-roll newly reaches come back.
+	if GameConstants.edition >= 11:
+		var tmpl_11e = MoveTypes.get_type("charge")
+		var selectable: Array = tmpl_11e._targets_within(unit_id, GameState.state, min(12.0, float(total_distance)))
+		charge_data["selectable_targets"] = selectable
+		var declared: Array = charge_data.get("declared_targets", charge_data.targets)
+		if not declared.is_empty():
+			var kept: Array = []
+			for tid in declared:
+				if tid in selectable:
+					kept.append(tid)
+				else:
+					log_phase_message("[11e] Charge target %s beyond the roll (%d\") — dropped" % [tid, total_distance])
+			charge_data.targets = kept
+			target_ids = kept
+		log_phase_message("[11e] Selectable charge targets after roll of %d: %s" % [total_distance, str(selectable)])
+		emit_signal("charge_targets_available", unit_id, selectable)
+
 	# Server-side feasibility check: can any model reach engagement range?
 	var roll_sufficient = _is_charge_roll_sufficient(unit_id, total_distance)
 	var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
@@ -725,7 +763,13 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	if GameConstants.edition >= 11 and target_ids.is_empty():
 		var selectable_11e: Array = charge_data.get("selectable_targets", [])
 		roll_sufficient = not selectable_11e.is_empty()
-		min_distance = _get_min_distance_to_any_target(unit_id, selectable_11e)
+		# For the log/failure record, measure against something meaningful:
+		# the selectable list, or (if the roll reached nothing) the original
+		# declaration — an empty list read as "nearest target is inf\" away".
+		var md_ids: Array = selectable_11e
+		if md_ids.is_empty():
+			md_ids = charge_data.get("declared_targets", [])
+		min_distance = _get_min_distance_to_any_target(unit_id, md_ids)
 		log_phase_message("[11e] No pre-declared targets — charge %s (selectable: %s)" % [
 			"continues, select targets with the move" if roll_sufficient else "FAILED (nothing reachable)",
 			str(selectable_11e)])
@@ -1808,6 +1852,9 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 		if enemy_unit_id in target_ids:
 			continue  # Skip declared targets
 
+		if not _is_unit_on_board(enemy_unit):
+			continue  # Issue #320: Reserves units have no board position — they'd read as (0,0)
+
 		# Check if any charging model ends in ER of this non-target
 		for model_id in per_model_paths:
 			var path = per_model_paths[model_id]
@@ -1841,13 +1888,31 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 
 	# Build model dicts with final positions for shape-aware distance checks
 	var final_models = []
+	var moved_ids := {}
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
 		if path is Array and path.size() > 0:
+			moved_ids[model_id] = true
 			var model = _get_model_in_unit(unit_id, model_id)
 			var model_at_final = model.duplicate()
 			model_at_final["position"] = Vector2(path[-1][0], path[-1][1])
 			final_models.append(model_at_final)
+
+	# Coherency is a whole-unit condition: include the UNMOVED alive models at
+	# their current positions. Checking only the moved subset let a single
+	# dragged model legally break away from the rest of its unit.
+	var unit = get_unit(unit_id)
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		if model.get("position") == null:
+			continue
+		var mid = model.get("id", "")
+		if moved_ids.has(mid):
+			continue
+		var model_at_current = model.duplicate()
+		model_at_current["position"] = _get_model_position(model)
+		final_models.append(model_at_current)
 
 	if final_models.size() < 2:
 		return {"valid": true, "errors": []}  # Single model or no movement
@@ -1874,7 +1939,10 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 	# with an enemy model while satisfying all other constraints, it MUST.
 	var errors = []
 	var all_units = game_state_snapshot.get("units", {})
-	var current_player = get_current_player()
+	# "Friendly" is relative to the CHARGING UNIT's owner, not the active
+	# player — a Heroic Intervention charge is made by the DEFENDER (same
+	# fix as _validate_engagement_range_constraints).
+	var charging_owner = int(get_unit(unit_id).get("owner", get_current_player()))
 
 	# Threshold for considering models in base-to-base contact (inches)
 	# Accounts for floating-point imprecision in shape-aware distance calculations
@@ -1978,10 +2046,12 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 			var non_target_er_ok = true
 			for enemy_unit_id in all_units:
 				var enemy_unit = all_units[enemy_unit_id]
-				if enemy_unit.get("owner", 0) == current_player:
+				if int(enemy_unit.get("owner", 0)) == charging_owner:
 					continue
 				if enemy_unit_id in target_ids:
 					continue
+				if not _is_unit_on_board(enemy_unit):
+					continue  # Issue #320: Reserves units have no board position
 
 				for enemy_model in enemy_unit.get("models", []):
 					if not enemy_model.get("alive", true):
@@ -2554,11 +2624,13 @@ func get_failed_charge_attempts() -> Array:
 	return failed_charge_attempts
 
 func get_failure_category_tooltip(category: String) -> String:
-	return FAIL_CATEGORY_TOOLTIPS.get(category, "Charge failed due to an unknown constraint.")
+	var text: String = FAIL_CATEGORY_TOOLTIPS.get(category, "Charge failed due to an unknown constraint.")
+	return text.replace("{er}", "%.0f\"" % GameConstants.engagement_range_inches())
 
 func record_insufficient_roll_failure(unit_id: String, rolled_distance: int, dice: Array, target_ids: Array, min_distance: float) -> void:
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	var detail = "Rolled %d\" but nearest target is %.1f\" away (need to close to within 1\" engagement range)" % [rolled_distance, min_distance]
+	var er_in = GameConstants.engagement_range_inches()
+	var detail = "Rolled %d\" but nearest target is %.1f\" away (need to close to within %.0f\" engagement range)" % [rolled_distance, min_distance, er_in]
 	var failure_record = {
 		"unit_id": unit_id,
 		"unit_name": unit_name,
@@ -2578,9 +2650,21 @@ func has_pending_charge(unit_id: String) -> bool:
 
 func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 	"""Check if the rolled distance is sufficient for at least one model to reach
-	engagement range (1") of at least one target model in any declared target unit.
+	engagement range of at least one target model in any declared target unit.
 	This is the server-side feasibility check performed immediately after the roll.
-	T2-8: Now accounts for terrain vertical distance penalties along the charge path."""
+	T2-8: Accounts for terrain vertical distance penalties along the charge path.
+
+	Charge-fix (false INSUFFICIENT_ROLL): the old check penalized the full
+	straight line from model centre to target centre. But (a) a charging model
+	stops as soon as it reaches engagement range — terrain beyond that point is
+	never crossed — and (b) the real charge move validator scores the PLAYER'S
+	drawn path, which may legally go around terrain. Both made this pre-check
+	strictly harsher than the move it gates, failing makeable charges (e.g. a
+	6\" roll vs a target 2.5\" away with a ruin corner clipping the line).
+	Now: cost = distance travelled to the ER stop point + penalties on that
+	travelled portion, and if the straight approach pays a penalty we also try
+	detour paths around the offending terrain, mirroring what
+	_validate_charge_movement_constraints would accept."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return false
@@ -2596,11 +2680,13 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 	var has_fly = "FLY" in unit_keywords
 
+	# Pass 1 (cheap): straight approach, stopping at engagement range.
+	# Collect pairs whose raw distance fits the roll but whose straight
+	# approach pays a terrain penalty — those get the detour pass.
+	var detour_candidates: Array = []
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
-
-		var model_pos = _get_model_position(model)
 
 		for target_id in target_ids:
 			var target_unit = get_unit(target_id)
@@ -2611,22 +2697,90 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 				if not target_model.get("alive", true):
 					continue
 
-				# Edge-to-edge distance in inches, minus engagement range
-				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
-				# T3-9: Use barricade-aware engagement range
-				var target_pos = _get_model_position(target_model)
-				var effective_er = _get_effective_engagement_range(model_pos, target_pos)
-				var distance_to_close = distance_inches - effective_er
-
-				# T2-8: Add terrain penalty for the straight-line path
-				var terrain_penalty = _calculate_path_terrain_penalty(
-					[model_pos, target_pos], has_fly, unit_keywords)
-				var effective_distance = distance_to_close + terrain_penalty
-
-				if effective_distance <= rolled_distance:
+				var direct = _direct_charge_cost(model, target_model, has_fly, unit_keywords)
+				if direct.cost <= float(rolled_distance) + MOVEMENT_CAP_EPSILON:
 					return true
+				# Any path is at least `required` long, so only pairs whose raw
+				# required distance fits the roll can be saved by a detour.
+				if direct.required <= float(rolled_distance) + MOVEMENT_CAP_EPSILON:
+					detour_candidates.append({
+						"model": model, "target_model": target_model,
+						"required": direct.required,
+					})
+
+	# Pass 2: try paths around the penalizing terrain for the closest few pairs.
+	detour_candidates.sort_custom(func(a, b): return a.required < b.required)
+	var tried := 0
+	for cand in detour_candidates:
+		if tried >= 4:
+			break
+		tried += 1
+		var around_cost = _detour_charge_cost(cand.model, cand.target_model, has_fly, unit_keywords, float(rolled_distance))
+		DebugLogger.info(str("ChargePhase: charge feasibility detour cost %.2f\" (roll %d\", required %.2f\")" % [around_cost, rolled_distance, cand.required]))
+		if around_cost <= float(rolled_distance) + MOVEMENT_CAP_EPSILON:
+			return true
 
 	return false
+
+func _direct_charge_cost(model: Dictionary, target_model: Dictionary, has_fly: bool, unit_keywords: Array) -> Dictionary:
+	"""Effective cost (inches) for `model` to charge straight at `target_model`,
+	stopping as soon as its base reaches engagement range. Returns
+	{required: raw distance to close, cost: required + terrain penalties on the
+	travelled portion of the line}."""
+	var a = _get_model_position(model)
+	var b = _get_model_position(target_model)
+	var edge_dist_in = Measurement.model_to_model_distance_inches(model, target_model)
+	var er_in = _get_effective_engagement_range(a, b)
+	var required_in = maxf(0.0, edge_dist_in - er_in)
+	if required_in <= 0.0:
+		return {"required": 0.0, "cost": 0.0}
+	var dir = b - a
+	if dir.length() < 0.001:
+		return {"required": required_in, "cost": required_in}
+	# Penalties only accrue on the portion of the line actually travelled.
+	var stop_pt = a + dir.normalized() * Measurement.inches_to_px(required_in)
+	var penalty = _calculate_path_terrain_penalty([a, stop_pt], has_fly, unit_keywords)
+	return {"required": required_in, "cost": required_in + penalty}
+
+func _detour_charge_cost(model: Dictionary, target_model: Dictionary, has_fly: bool, unit_keywords: Array, budget_inches: float) -> float:
+	"""Cheapest cost (inches, straight-drag length + terrain penalties) over
+	candidate FINAL positions sampled on the engagement ring around
+	`target_model`. Both the drag UI and the AI submit 2-point paths
+	(origin -> final), so this is exactly the cost model
+	_validate_charge_movement_constraints will apply — a sample within the
+	budget means a confirmable move exists (e.g. angling around a ruin corner
+	instead of over it)."""
+	var a = _get_model_position(model)
+	var b = _get_model_position(target_model)
+	var edge_dist_in = Measurement.model_to_model_distance_inches(model, target_model)
+	var er_in = _get_effective_engagement_range(a, b)
+	var required_in = maxf(0.0, edge_dist_in - er_in)
+	if required_in <= 0.0:
+		return 0.0
+	var center_dist_px = a.distance_to(b)
+	# Centre distance at which the bases are exactly ER apart along this
+	# bearing (base-shape allowance baked in) — the "stop ring" around b.
+	var ring_px = maxf(0.0, center_dist_px - Measurement.inches_to_px(required_in))
+	if ring_px <= 0.0:
+		return required_in + _calculate_path_terrain_penalty([a, b], has_fly, unit_keywords)
+	var budget_px = Measurement.inches_to_px(budget_inches)
+
+	var best := INF
+	const RING_SAMPLES := 24
+	for i in range(RING_SAMPLES):
+		var ang = TAU * float(i) / float(RING_SAMPLES)
+		var final_pos = b + Vector2(cos(ang), sin(ang)) * ring_px
+		# Cheap lower-bound cull before the terrain-penalty sweep
+		if a.distance_to(final_pos) > budget_px + 1.0:
+			continue
+		var cost = _charge_segment_cost(a, final_pos, has_fly, unit_keywords)
+		best = minf(best, cost)
+		if best <= budget_inches:
+			break
+	return best
+
+func _charge_segment_cost(p: Vector2, q: Vector2, has_fly: bool, unit_keywords: Array) -> float:
+	return Measurement.px_to_inches(p.distance_to(q)) + _calculate_path_terrain_penalty([p, q], has_fly, unit_keywords)
 
 func _get_charge_reroll_ability_name(unit_id: String) -> String:
 	"""OA-23: Determine which ability granted the charge reroll flag for display purposes."""
@@ -2672,7 +2826,10 @@ func get_charge_distance(unit_id: String) -> int:
 
 func _validate_use_fire_overwatch(action: Dictionary) -> Dictionary:
 	var errors = []
-	var unit_id = action.get("unit_id", "")
+	# The overwatching unit arrives as `unit_id` from the AI but as
+	# `actor_unit_id` from the human dialog / get_available_actions — accept
+	# both (reading only `unit_id` made human Fire Overwatch always reject).
+	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
 	var player = action.get("player", fire_overwatch_player)
 
 	if not awaiting_fire_overwatch:
@@ -2715,7 +2872,7 @@ func _validate_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
+	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
 	var player = action.get("player", fire_overwatch_player)
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var enemy_unit_id = fire_overwatch_enemy_unit_id

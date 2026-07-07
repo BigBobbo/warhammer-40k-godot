@@ -552,10 +552,16 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 		if is_infantry and can_move_through.get("INFANTRY", false):
 			unit_can_traverse = true
 
+		# A segment wholly inside one footprint crosses no wall — ground-floor
+		# movement within the same ruin pays no climb (matches movement phase).
+		var wholly_inside = starts_inside and ends_inside and not crosses_edge
+
 		# Units that can move through terrain at ground level (e.g. Infantry through ruins)
 		# don't pay height climbing penalties — same as movement phase rules.
 		if unit_can_traverse:
 			print("[TerrainManager] Charge: %s traversable by INFANTRY — no height penalty (ground floor)" % terrain.get("id", "unknown"))
+		elif wholly_inside:
+			print("[TerrainManager] Charge segment wholly inside %s: no height penalty (ground floor)" % terrain.get("id", "unknown"))
 		else:
 			var from_inside = not polygon.is_empty() and starts_inside
 			var to_inside = not polygon.is_empty() and ends_inside

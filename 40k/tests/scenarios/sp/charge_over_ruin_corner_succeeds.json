@@ -1,0 +1,77 @@
+{
+  "id": "charge_over_ruin_corner_succeeds",
+  "covers": ["charge.bug.false_insufficient_roll", "charge.terrain.stop_at_engagement_range", "charge.terrain.path_around_corner"],
+  "fixture": "audit_372_charge_modifier",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Regression for the false [INSUFFICIENT_ROLL] failure: a Battlewagon (VEHICLE, non-INFANTRY) sits 2.5\" edge-to-edge from a Blade Champion with an injected 6\"-tall ruin strip clipping the straight centre-to-centre line (straight-line climb penalty 12\"). Before the fix, a charge roll of 6 was declared failed ('Rolled 6\" but nearest target is 2.5\" away') even though the model only needs ~0.5\" of movement to reach the 11e 2\" engagement range and never touches the ruin. After the fix the roll succeeds and the charge completes into base contact.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_BATTLEWAGON_G\"].models[0].merge({\"position\": {\"x\": 700.0, \"y\": 2150.0}, \"rotation\": 0.0}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"position\": {\"x\": 973.0, \"y\": 2150.0}}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.append({\"id\": \"repro_tall_ruin\", \"type\": \"ruins\", \"polygon\": PackedVector2Array([Vector2(900, 2060), Vector2(940, 2060), Vector2(940, 2155), Vector2(900, 2155)]), \"height_category\": \"tall\", \"position\": Vector2(920, 2107), \"size\": Vector2(40, 95), \"rotation\": 0.0, \"can_move_through\": {\"INFANTRY\": true, \"VEHICLE\": false, \"MONSTER\": false}})" },
+
+    { "act": "execute_script",
+      "script": "Measurement.model_to_model_distance_inches(GameState.state.units[\"U_BATTLEWAGON_G\"].models[0], GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0])",
+      "expect_max": 2.6 },
+    { "act": "execute_script",
+      "script": "TerrainManager.calculate_charge_terrain_penalty(Vector2(700, 2150), Vector2(973, 2150), false, [\"VEHICLE\"])",
+      "expect_min": 12.0 },
+    { "act": "screenshot", "label": "01_setup_ruin_between" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_CHARGE",
+      "actor_unit_id": "U_BATTLEWAGON_G",
+      "payload": { "target_unit_ids": ["U_BLADE_CHAMPION_A"] }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "CHARGE_ROLL",
+      "actor_unit_id": "U_BATTLEWAGON_G",
+      "payload": { "rng_seed": 15 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_action_result", "path": "charge_failed", "equals": false },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_charge(\"U_BATTLEWAGON_G\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_failed_charge_attempts().size()",
+      "equals": 0 },
+    { "act": "screenshot", "label": "02_roll_of_6_succeeded" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "APPLY_CHARGE_MOVE",
+      "actor_unit_id": "U_BATTLEWAGON_G",
+      "payload": {
+        "per_model_paths": { "m1": [[700.0, 2150.0], [799.7716, 2150.0]] },
+        "per_model_rotations": {}
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_BATTLEWAGON_G.flags.charged_this_turn", "equals": true },
+    { "act": "expect_state", "path": "units.U_BATTLEWAGON_G.flags.fights_first", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "COMPLETE_UNIT_CHARGE",
+      "actor_unit_id": "U_BATTLEWAGON_G"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_token_visible", "unit_id": "U_BATTLEWAGON_G" },
+    { "act": "screenshot", "label": "03_charge_completed_base_contact" }
+  ]
+}
