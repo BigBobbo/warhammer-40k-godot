@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.7.7",
+			"date": "2026-07-08",
+			"summary": "Charging models are now required to close into base contact where they can reach it, and a one-click 'Snap to Contact' button makes lining them up effortless.",
+			"changes": [
+				"Charge moves now enforce the 11th-edition rule per model: any charging model that CAN end its move within 1\" of a charge target MUST do so. Previously the check was satisfied the moment a SINGLE model in the unit reached the enemy, which let the rest of the unit hang back out of contact — now every model that is able to close, must.",
+				"The charge-move 'Auto-Path' button is now 'Snap to Contact': it places every remaining model in true base-to-base contact with its nearest charge target (falling back to the closest legal position only if base contact is blocked by another model, the board edge, or the charge distance).",
+				"Dragging a charging model still auto-snaps it into base contact when you release near an enemy. Base contact always satisfies the new 'within 1 inch' requirement, so snapping is the easy way to make a legal charge.",
+				"If you try to confirm a charge while a model could have reached closer, the game now explains which model must move in, instead of quietly accepting a position that leaves it short."
+			]
+		},
+		{
 			"version": "0.7.6",
 			"date": "2026-07-08",
 			"summary": "The Fight phase 'Pile In' and 'Consolidate' windows now dock to the bottom of the screen instead of sitting in the middle of the battlefield, and match the rest of the game's menus.",
