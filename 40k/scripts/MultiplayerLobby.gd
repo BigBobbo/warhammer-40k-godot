@@ -248,6 +248,17 @@ func _do_start_game() -> void:
 		# Re-initialize with selected deployment type if state already exists
 		GameState.initialize_default_state(selected_deployment)
 
+	# Re-mirror terrain into the fresh state on the HOST. initialize_default_state
+	# wipes board.terrain; clients rebuild theirs in load_from_snapshot (the
+	# snapshot carries terrain_layout), but nothing reloaded it host-side — so the
+	# host adjudicated terrain rules (movement through ruins walls etc.) against
+	# an EMPTY terrain list while the client saw 14 pieces.
+	var terrain_mgr = get_node_or_null("/root/TerrainManager")
+	if terrain_mgr and terrain_mgr.current_layout != "":
+		terrain_mgr.load_terrain_layout(terrain_mgr.current_layout)
+		print("MultiplayerLobby: Reloaded terrain layout '%s' into fresh game state (%d pieces)" % [
+			terrain_mgr.current_layout, terrain_mgr.terrain_features.size()])
+
 	# Clear existing units
 	GameState.state.units.clear()
 

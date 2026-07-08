@@ -73,6 +73,8 @@ TESTS=(
     "tests/test_iss013_signal_registry.gd"
     "tests/test_iss014_shared_ai_math.gd"
     "tests/test_iss015_mp_seed_sync.gd"
+    "tests/test_mp_v1_launch_fixes.gd"
+    "tests/test_mp_relay_json_roundtrip.gd"
     "tests/test_iss020_public_api.gd"
     "tests/test_iss017_state_schema.gd"
     "tests/test_iss021_action_replay.gd"

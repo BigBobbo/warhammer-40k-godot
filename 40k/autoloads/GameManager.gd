@@ -230,7 +230,15 @@ func process_action(action: Dictionary) -> Dictionary:
 			return process_debug_move(action)
 
 		_:
-			return {"success": false, "error": "Unknown action type: " + str(action.get("type", "UNKNOWN"))}
+			# Not handled directly by GameManager — delegate to the current
+			# phase. Phases own many phase-local action types (END_SCOUT_PHASE,
+			# redeployment ops, katah stances, ...) that single-player reaches
+			# via phase.execute_action directly; the MULTIPLAYER path routes
+			# every action through here and used to hard-fail on them with
+			# "Unknown action type". The phase's own validate/process still
+			# rejects genuinely unknown types, so nothing becomes laxer.
+			print("GameManager: '%s' not handled directly — delegating to current phase" % str(action.get("type", "UNKNOWN")))
+			return _delegate_to_current_phase(action)
 
 func _get_pos_xy(pos) -> Dictionary:
 	"""Extract x,y from a position that may be Vector2 or Dictionary (from JSON relay)."""

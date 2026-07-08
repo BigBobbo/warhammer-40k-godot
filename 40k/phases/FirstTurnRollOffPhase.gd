@@ -21,6 +21,10 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 # Placed between REDEPLOYMENT and SCOUT so the first-turn player is known
 # before pre-game Scout moves (which are made in first-turn order).
 
+# Same contract as RollOffPhase.roll_off_result — the single UI-facing channel
+# for roll results (works identically in single-player and multiplayer).
+signal roll_off_result(p1_roll: int, p2_roll: int, winner: int, tied: bool)
+
 var _rng  # RulesEngine.RNGService — honours static test_mode_seed
 var _player1_roll: int = 0
 var _player2_roll: int = 0
@@ -121,6 +125,7 @@ func _handle_roll_off(action: Dictionary) -> Dictionary:
 		_player1_roll = 0
 		_player2_roll = 0
 		_roll_complete = false
+		emit_signal("roll_off_result", p1_roll, p2_roll, 0, true)
 		return {
 			"success": true,
 			"player1_roll": p1_roll,
@@ -146,6 +151,7 @@ func _handle_roll_off(action: Dictionary) -> Dictionary:
 		{"op": "set", "path": "meta.active_player", "value": _first_turn_player}
 	]
 
+	emit_signal("roll_off_result", p1_roll, p2_roll, _first_turn_player, false)
 	return {
 		"success": true,
 		"changes": changes,
