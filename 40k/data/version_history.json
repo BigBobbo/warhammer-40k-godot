@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.7.8",
+			"date": "2026-07-08",
+			"summary": "Charges that declare more targets than the roll can reach are now clearly reported instead of showing a misleading 'SUCCESS', and the charge panel now tells you the roll needed to reach every target you've picked.",
+			"changes": [
+				"A charge must end within Engagement Range of EVERY unit you declared it against. Previously the '2D6 = X vs Y needed — SUCCESS' line only measured the CLOSEST declared target, so declaring three units when your roll could only reach one still said SUCCESS — then the move silently failed and your unit ended up not in combat with anything, unable to fight. The roll result now checks ALL declared targets: if any is out of reach the charge is reported FAILED, naming the target(s) you couldn't reach and the distance you actually needed (e.g. 'FAILED — out of range: Shield-Captain; you needed to roll 7.9\"').",
+				"New declaration-time hint: as you pick charge targets, the charge panel shows the 2D6 roll needed to reach ALL of them, calls out the farthest (hardest) target, and lists each target's distance — colour-coded from likely to impossible — so an out-of-reach target is obvious BEFORE you commit and roll.",
+				"11th-edition charges that can only reach some of the declared targets now say so in the game log (which targets were engaged and which were beyond the roll), instead of quietly dropping the far ones with no explanation."
+			]
+		},
+		{
 			"version": "0.7.7",
 			"date": "2026-07-08",
 			"summary": "Charging models are now required to close into base contact where they can reach it, and a one-click 'Snap to Contact' button makes lining them up effortless.",
@@ -94,7 +104,8 @@
 			"changes": [
 				"When you shot a weapon, the Game Log entry summarising the attack (e.g. 'Telemon Heavy Dreadnought → Boyz … Hit: 7/9 … Wound: 0/7 …') could balloon to nearly the entire height of the log, with the dice icons floating far out to the right and a huge empty gap. The trailing part of the line was being squeezed into a one-character-wide column and wrapped down the whole card.",
 				"These log lines now flow naturally like a sentence — the text wraps across a few lines and the dice icons sit inline exactly where the rolls happened, so the entry is a tidy, compact card.",
-				"Both sets of dice on a combined hit-and-wound line now render as icons (previously only the hit dice became icons and the wound dice stayed as raw '[2, 2, 3, …]' numbers), each coloured against its own target — the hit dice vs the hit roll needed and the wound dice vs the wound roll needed."			]
+				"Both sets of dice on a combined hit-and-wound line now render as icons (previously only the hit dice became icons and the wound dice stayed as raw '[2, 2, 3, …]' numbers), each coloured against its own target — the hit dice vs the hit roll needed and the wound dice vs the wound roll needed."
+			]
 		},
 		{
 			"version": "0.6.8",

@@ -63,6 +63,7 @@ var charge_trajectory_preview: ChargeTrajectoryPreview = null
 # UI Elements
 var unit_selector: ItemList
 var target_list: ItemList
+var charge_requirement_label: RichTextLabel  # Option 2: pre-roll "needs 2D6 >= N to reach ALL targets" hint
 var charge_info_label: Label
 var charge_distance_label: Label
 var charge_used_label: Label
@@ -350,6 +351,17 @@ func _setup_right_panel() -> void:
 	_WhiteDwarfTheme.apply_to_item_list(target_list)
 	print("DEBUG: Created target_list with signal connected to _on_target_selected")
 	charge_panel.add_child(target_list)
+
+	# Option 2: declaration-time reachability hint. Updates as targets are
+	# (de)selected to show the roll needed to reach EVERY selected target — so an
+	# out-of-reach declared target is obvious BEFORE rolling.
+	charge_requirement_label = RichTextLabel.new()
+	charge_requirement_label.bbcode_enabled = true
+	charge_requirement_label.fit_content = true
+	charge_requirement_label.custom_minimum_size = Vector2(200, 0)
+	charge_requirement_label.scroll_active = false
+	charge_requirement_label.add_theme_font_size_override("normal_font_size", 12)
+	charge_panel.add_child(charge_requirement_label)
 
 	_add_charge_gold_separator(charge_panel)
 
@@ -678,7 +690,10 @@ func _update_button_states() -> void:
 	
 	# Update charge status
 	_update_charge_status()
-	
+
+	# Option 2: refresh the pre-roll reachability hint for the current selection.
+	_update_charge_requirement_hint()
+
 	if is_instance_valid(declare_button):
 		print("DEBUG: Declare button disabled:", declare_button.disabled)
 	
@@ -790,6 +805,61 @@ func _on_target_selected(index: int) -> void:
 		_update_visuals()
 	else:
 		print("DEBUG: Invalid index - index:", index, " item_count:", target_list.get_item_count())
+
+func _update_charge_requirement_hint() -> void:
+	"""Option 2: show the roll needed to reach EVERY selected target before the
+	player commits, so an out-of-reach declared target is obvious pre-roll and
+	the 'a charge must reach ALL declared targets' rule is taught in context.
+	Uses the raw edge distance minus engagement range as a terrain-free pre-roll
+	estimate (the actual path — and any terrain penalty — is unknown until the
+	player draws the move)."""
+	if not is_instance_valid(charge_requirement_label):
+		return
+	# Only meaningful while choosing targets (before the roll / the move).
+	if selected_targets.is_empty() or awaiting_roll or awaiting_movement:
+		charge_requirement_label.text = ""
+		charge_requirement_label.visible = false
+		return
+	charge_requirement_label.visible = true
+
+	var er: float = GameConstants.engagement_range_inches()
+	var worst_name: String = ""
+	var worst_need: float = -1.0
+	var per_lines: Array = []
+	for tid in selected_targets:
+		var data: Dictionary = eligible_targets.get(tid, {})
+		var dist: float = float(data.get("distance", 0.0))
+		var need: float = maxf(0.0, dist - er)
+		var tname: String = str(data.get("name", tid))
+		per_lines.append("  • %s — %.1f\" away, needs roll ≥ %.1f\"" % [tname, dist, need])
+		if need > worst_need:
+			worst_need = need
+			worst_name = tname
+
+	# Probability-informed colour (2D6: ≥7 ≈ 58%, ≥9 ≈ 28%, ≥11 ≈ 8%, >12 impossible).
+	var color_hex: String = "#5fe36a"  # green — likely
+	var tail: String = ""
+	if worst_need > 12.0:
+		color_hex = "#f25a5a"  # red — impossible on a raw 2D6
+		tail = "  ✖ beyond a 2D6 charge — this WILL fail"
+	elif worst_need >= 11.0:
+		color_hex = "#f0803c"  # orange — very unlikely
+		tail = "  ⚠ needs 11+ — very unlikely"
+	elif worst_need >= 8.0:
+		color_hex = "#f0d84a"  # yellow — risky
+		tail = "  ⚠ risky"
+
+	var verdict: String
+	if selected_targets.size() == 1:
+		verdict = "Needs 2D6 ≥ %.1f\" to reach %s%s" % [worst_need, worst_name, tail]
+	else:
+		verdict = "Needs 2D6 ≥ %.1f\" to reach ALL %d targets (farthest: %s)%s" % [
+			worst_need, selected_targets.size(), worst_name, tail]
+
+	var bb: String = "[color=%s]%s[/color]" % [color_hex, verdict]
+	if selected_targets.size() > 1:
+		bb += "\n[color=#b9b9b9]%s\nA charge must end within engagement range of EVERY declared target.[/color]" % "\n".join(per_lines)
+	charge_requirement_label.text = bb
 
 func _update_visuals() -> void:
 	# Clear existing visuals
