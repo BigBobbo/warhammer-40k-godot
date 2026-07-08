@@ -9058,16 +9058,17 @@ static func _validate_unit_coherency_for_charge_rules(unit_id: String, per_model
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
-# Validate base-to-base if possible for charge
-# Per 10e core rules: if a charging model CAN make base-to-base contact
-# with an enemy model while satisfying all other constraints, it MUST.
+# Charge close-distance enforcement (11e Charge Move 11.04, "WHILE MOVING").
+# Per-model rule: every charging model that CAN end its move within 1" of a
+# charge target — while still satisfying coherency, overlap, non-target ER and
+# all-target coverage — MUST do so. Base-to-base contact (0") over-satisfies the
+# 1" band and is what the UI snap assist places models at. Function name kept for
+# call-site stability; it now enforces "within 1 inch", not literal base contact.
 static func _validate_base_to_base_possible_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary, rolled_distance: int = 0) -> Dictionary:
 	var errors = []
 	var units = board.get("units", {})
 	var unit = units.get(unit_id, {})
 	var unit_owner = unit.get("owner", 0)
-
-	const B2B_THRESHOLD_INCHES = 0.1
 
 	if unit.is_empty():
 		return {"valid": true, "errors": []}
@@ -9098,19 +9099,28 @@ static func _validate_base_to_base_possible_rules(unit_id: String, per_model_pat
 	if target_models.is_empty():
 		return {"valid": true, "errors": []}
 
-	# Check if ANY charging model already has B2B with any target model
-	for model_id in final_models:
-		var final_model = final_models[model_id]
-		for target_entry in target_models:
-			var distance = Measurement.model_to_model_distance_inches(final_model, target_entry.model)
-			if distance <= B2B_THRESHOLD_INCHES:
-				return {"valid": true, "errors": []}
-
-	# No model achieved B2B. Check if any COULD have while satisfying all constraints.
+	# 11.04 WHILE MOVING (11e): each model that CAN end within 1" of one or more
+	# charge targets MUST do so — a PER-MODEL obligation. The old 10e reading was
+	# wrongly satisfied by a SINGLE model reaching base contact; here every model
+	# is judged. Base-to-base (0") is the UI snap assist and over-satisfies the band.
 	if rolled_distance <= 0:
 		return {"valid": true, "errors": []}
 
+	# Distance band a model must close into if it can (11e "within 1 inch").
+	# Named so a stricter "must base up" (0") house rule is a one-line change.
+	var close_inches: float = 1.0
+	var band_tol: float = 0.05  # fp / snap-noise slack on the band
+
 	for model_id in final_models:
+		# A model already within 1" of any target satisfies its own obligation.
+		var already_close := false
+		for target_entry in target_models:
+			if Measurement.model_to_model_distance_inches(final_models[model_id], target_entry.model) <= close_inches + band_tol:
+				already_close = true
+				break
+		if already_close:
+			continue
+
 		var path = per_model_paths[model_id]
 		if not (path is Array and path.size() > 0):
 			continue
@@ -9129,22 +9139,27 @@ static func _validate_base_to_base_possible_rules(unit_id: String, per_model_pat
 			if target_pos == null or target_pos == Vector2.ZERO:
 				continue
 
-			# Edge-to-edge distance from start to target = gap the model must close
-			var distance_to_b2b = Measurement.model_to_model_distance_inches(model_at_start, target_model)
+			# Inches the model must travel to close into the 1" band (edge-to-edge).
+			var distance_to_close = Measurement.model_to_model_distance_inches(model_at_start, target_model) - close_inches
+			if distance_to_close > rolled_distance:
+				continue  # cannot reach within 1" of this target with the roll
+			distance_to_close = max(0.0, distance_to_close)
 
-			if distance_to_b2b > rolled_distance:
-				continue
-
-			# Compute B2B position: move model center toward target to close the gap
+			# Candidate within-1" endpoint: move centre toward target to close the gap.
 			var direction = (target_pos - start_pos)
 			if direction.length() < 0.001:
 				continue
 			direction = direction.normalized()
-			var move_px = Measurement.inches_to_px(distance_to_b2b)
+			var move_px = Measurement.inches_to_px(distance_to_close)
 			var b2b_pos = start_pos + direction * move_px
 
 			var b2b_model = model.duplicate()
 			b2b_model["position"] = b2b_pos
+
+			# Straight-line-to-centre is approximate for non-circular bases; only
+			# flag when the candidate really does land within 1" of the target.
+			if Measurement.model_to_model_distance_inches(b2b_model, target_model) > close_inches + 0.25:
+				continue
 
 			# Constraint 1: Coherency
 			var coherency_ok = true
@@ -9237,14 +9252,14 @@ static func _validate_base_to_base_possible_rules(unit_id: String, per_model_pat
 			if not all_targets_covered:
 				continue
 
-			# All constraints pass — B2B was achievable but not taken
+			# A legal within-1" endpoint existed but was not taken.
 			errors.append(
-				"Base-to-base contact is achievable and must be made when possible (10e core rules)"
+				"Model %s could end within 1\" of a charge target and must do so (11.04)" % model_id
 			)
-			print("RulesEngine: B2B enforcement - %s" % errors[-1])
-			return {"valid": false, "errors": errors}
+			print("RulesEngine: charge close-distance enforcement - %s" % errors[-1])
+			break  # this model is flagged; evaluate the next model
 
-	return {"valid": true, "errors": []}
+	return {"valid": errors.is_empty(), "errors": errors}
 
 # Helper to get model in unit for charge calculations
 static func _get_model_in_unit_rules(unit: Dictionary, model_id: String) -> Dictionary:
