@@ -1080,6 +1080,10 @@ func _send_action_to_host(action: Dictionary) -> void:
 
 		# Broadcast the result to all clients (but not back to host since it already applied)
 		print("NetworkManager: Host broadcasting client action result to all clients")
+		# ISS-015: client-submitted actions get the same post-action state hash
+		# host-submitted ones do — previously only host actions were checked,
+		# leaving half the action stream uncovered by the desync detector.
+		result["_state_hash"] = compute_state_hash()
 		_broadcast_result.rpc(result)
 	else:
 		print("NetworkManager: GameManager returned failure: ", result.get("error", "Unknown"))
@@ -1155,6 +1159,43 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				var dest_vec = Vector2(dest[0], dest[1])
 				print("NetworkManager: Client emitting model_drop_committed for ", unit_id, "/", model_id, " at ", dest_vec, " rotation: ", rotation)
 				phase.emit_signal("model_drop_committed", unit_id, model_id, dest_vec, rotation)
+
+	# ====================================================================
+	# ROLL-OFF PHASES — sync client phase-internal state + re-emit result
+	# ====================================================================
+	# The host's RollOffPhase/FirstTurnRollOffPhase processed the action and
+	# emitted roll_off_result locally. The client only applied meta diffs, so
+	# its phase instance still thinks the roll is pending — sync the internal
+	# fields (otherwise get_available_actions/validation diverge) and re-emit
+	# the signal so the client's dialog animates the result.
+	if action_type == "ROLL_OFF_DEPLOYMENT" or action_type == "ROLL_OFF_FIRST_TURN":
+		var ro_p1 = int(result.get("player1_roll", 0))
+		var ro_p2 = int(result.get("player2_roll", 0))
+		var ro_tied = result.get("tied", false)
+		var ro_winner = int(result.get("winner", 0))
+		if "_player1_roll" in phase:
+			phase._player1_roll = ro_p1
+			phase._player2_roll = ro_p2
+		if not ro_tied:
+			if "_roll_complete" in phase:
+				phase._roll_complete = true
+			if action_type == "ROLL_OFF_DEPLOYMENT" and "_roll_off_winner" in phase:
+				phase._roll_off_winner = ro_winner
+			if action_type == "ROLL_OFF_FIRST_TURN" and "_first_turn_player" in phase:
+				phase._first_turn_player = ro_winner
+		if phase.has_signal("roll_off_result"):
+			print("NetworkManager: Client re-emitting roll_off_result (p1=%d, p2=%d, winner=%d, tied=%s)" % [ro_p1, ro_p2, ro_winner, str(ro_tied)])
+			phase.emit_signal("roll_off_result", ro_p1, ro_p2, ro_winner, ro_tied)
+
+	# CHOOSE_DEPLOYMENT / CONFIRM_FIRST_TURN — keep the client's phase-internal
+	# completion flags in lockstep so a duplicate submission from this client
+	# validates the same way it would on the host.
+	if action_type == "CHOOSE_DEPLOYMENT":
+		if "_choice_made" in phase:
+			phase._choice_made = true
+	if action_type == "CONFIRM_FIRST_TURN":
+		if "_confirmed" in phase:
+			phase._confirmed = true
 
 	# Handle shooting phase SELECT_SHOOTER visual updates
 	if action_type == "SELECT_SHOOTER":
@@ -1387,6 +1428,17 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 		else:
 			print("NetworkManager: ⚠️ Missing fight_selection_data or phase doesn't support signal")
 
+	# Handle epic_challenge_opportunity (after SELECT_FIGHTER of a CHARACTER).
+	# The phase stamped the trigger metadata for exactly this purpose but it
+	# was never re-emitted client-side — the prompt only ever appeared on the
+	# host, so a remote player's Epic Challenge decision was unreachable.
+	if result.get("trigger_epic_challenge", false):
+		var ec_unit_id = result.get("epic_challenge_unit_id", "")
+		var ec_player = int(result.get("epic_challenge_player", 0))
+		if ec_unit_id != "" and ec_player > 0 and phase.has_signal("epic_challenge_opportunity"):
+			print("NetworkManager: Client re-emitting epic_challenge_opportunity for %s (player %d)" % [ec_unit_id, ec_player])
+			phase.emit_signal("epic_challenge_opportunity", ec_unit_id, ec_player)
+
 	# Handle pile_in_required signal (after SELECT_FIGHTER)
 	# Handle katah_stance_required signal (Martial Ka'tah, after SELECT_FIGHTER)
 	if result.get("trigger_katah_stance", false):
@@ -1497,6 +1549,17 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 		var unit_id = action_data.get("actor_unit_id", "")
 		var target_ids = action_data.get("payload", {}).get("target_unit_ids", [])
 		if unit_id != "" and not target_ids.is_empty():
+			# Mirror the host's pending-charge record into the client's phase.
+			# The client never processes DECLARE_CHARGE itself, so without this
+			# its ChargeController later sees an empty pending_charges and
+			# misreads the subsequent CHARGE_ROLL as an already-failed charge.
+			if "pending_charges" in phase:
+				phase.pending_charges[unit_id] = {
+					"targets": target_ids.duplicate(),
+					"declared_targets": target_ids.duplicate(),
+					"selectable_targets": target_ids.duplicate(),
+				}
+				print("NetworkManager: Client mirrored pending charge for %s (targets: %s)" % [unit_id, str(target_ids)])
 			if phase.has_signal("targets_declared"):
 				print("NetworkManager: Client re-emitting targets_declared for %s with %d targets" % [unit_id, target_ids.size()])
 				phase.emit_signal("targets_declared", unit_id, target_ids)
@@ -1552,7 +1615,11 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 						if "current_charging_unit" in phase:
 							phase.current_charging_unit = null
 					else:
-						# Charge roll sufficient — enable movement tools
+						# Charge roll sufficient — sync the roll into the client's
+						# mirrored pending-charge record and enable movement tools
+						if "pending_charges" in phase and phase.pending_charges.has(unit_id):
+							phase.pending_charges[unit_id]["distance"] = total
+							phase.pending_charges[unit_id]["dice_rolls"] = rolls
 						if phase.has_signal("charge_path_tools_enabled"):
 							print("NetworkManager: Client re-emitting charge_path_tools_enabled for %s (distance=%d)" % [unit_id, total])
 							phase.emit_signal("charge_path_tools_enabled", unit_id, total)
@@ -2115,6 +2182,10 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"EMBARK_UNITS_DEPLOYMENT",
 		"PLACE_IN_RESERVES",  # Part of deployment alternation flow
 		"APPLY_SAVES",  # Reactive action - defender responds during attacker's turn
+		# Roll-off completions: the roll-off WINNER acts, who is often not the
+		# active player (RollOffPhase validates the winner server-side).
+		"CHOOSE_DEPLOYMENT",
+		"CONFIRM_FIRST_TURN",
 		"APPLY_MELEE_SAVES",  # P0-58: Reactive action - defender allocates melee wounds
 		# Formations actions - both players declare simultaneously
 		"DECLARE_LEADER_ATTACHMENT",
@@ -2142,7 +2213,19 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"DECLINE_HEROIC_INTERVENTION",
 		"HEROIC_INTERVENTION_CHARGE_ROLL",
 		"APPLY_HEROIC_INTERVENTION_MOVE",
-		"END_FIGHT"
+		"END_FIGHT",
+		# Reactive stratagem windows — the deciding player is frequently NOT
+		# the active player (opponent's fight activation, opponent's charge),
+		# so these must skip turn validation like APPLY_SAVES does. Authority
+		# (claimed player == sending peer) is still enforced.
+		"USE_EPIC_CHALLENGE",
+		"DECLINE_EPIC_CHALLENGE",
+		"USE_COUNTER_OFFENSIVE",
+		"DECLINE_COUNTER_OFFENSIVE",
+		"USE_FIRE_OVERWATCH",
+		"DECLINE_FIRE_OVERWATCH",
+		"USE_COMMAND_REROLL",
+		"DECLINE_COMMAND_REROLL"
 	]
 	var is_exempt = action_type in exempt_actions
 
@@ -2462,11 +2545,34 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 # PHASE 4: DETERMINISTIC RNG - Seed Generation
 # ============================================================================
 
-## ISS-015: canonical hash of the full game state. JSON.stringify sorts
+## ISS-015: canonical hash of the game state. JSON.stringify sorts
 ## dictionary keys by default, so insertion-order differences between host
 ## and client do not produce false positives.
+##
+## Hash only the action-mutated gameplay subset, NOT the full state:
+## - create_snapshot() enriches snapshots with manager keys (mission_manager,
+##   secondary_missions, stratagem_manager, ...) that exist only on peers that
+##   loaded a snapshot (clients), never in the host's live state — hashing the
+##   full state guaranteed a false DESYNC on every check after the first sync.
+## - history / phase_log / unit_visuals evolve locally per peer.
+## - board.terrain is static after load and its typed values serialize
+##   differently depending on load path.
+const _HASH_META_EXCLUDE := ["created_at", "game_id", "version"]
+
 func compute_state_hash() -> int:
-	return JSON.stringify(game_state.state).hash()
+	var s = game_state.state
+	var meta_canon := {}
+	for k in s.get("meta", {}):
+		if k in _HASH_META_EXCLUDE:
+			continue
+		meta_canon[k] = s.meta[k]
+	var canon := {
+		"units": s.get("units", {}),
+		"players": s.get("players", {}),
+		"factions": s.get("factions", {}),
+		"meta": meta_canon,
+	}
+	return JSON.stringify(canon).hash()
 
 func get_next_rng_seed() -> int:
 	if not is_networked():
@@ -2587,6 +2693,13 @@ func _receive_phase_change(new_phase: GameStateData.Phase) -> void:
 	# Get PhaseManager and trigger transition on client
 	var phase_manager = get_node_or_null("/root/PhaseManager")
 	if phase_manager:
+		# Dedup: the same transition can also arrive as a meta.phase diff in a
+		# broadcast result (Main._on_network_result_applied transitions from
+		# that). Re-transitioning would create a second phase instance.
+		var inst = phase_manager.current_phase_instance
+		if inst != null and "phase_type" in inst and inst.phase_type == new_phase:
+			print("NetworkManager: Client already in phase %s — skipping duplicate transition" % GameStateData.Phase.keys()[new_phase])
+			return
 		print("NetworkManager: Transitioning client to phase: ", GameStateData.Phase.keys()[new_phase])
 		phase_manager.transition_to_phase(new_phase)
 	else:
