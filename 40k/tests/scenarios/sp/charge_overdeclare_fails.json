@@ -6,36 +6,36 @@
   "rng_seed": 42,
   "transition_to_phase": 9,
   "disable_ai": true,
-  "description": "Over-declared charge fix: a charge must end within engagement range of EVERY declared target, but the old roll check only tested the NEAREST. Warboss (owner 2) declares BOTH a near enemy (~2.4\" edge, reachable) and a far enemy (~8.9\" edge, unreachable with a low roll). Before the fix the roll logged a false SUCCESS (measured against the near target) and the charge then silently failed at move-apply, leaving the unit out of engagement range with no fight target. After the fix the roll is reported FAILED at roll time, the structured failure names the unreachable target, and the pending charge is cleaned up.",
+  "description": "Over-declared charge fix: a charge must end within engagement range of EVERY declared target, but the old roll check only tested the NEAREST. A Battlewagon (owner 2) declares BOTH a near enemy (~2.5\" edge, reachable) and a far enemy (~9\" edge, unreachable with a low roll). Before the fix the roll logged a false SUCCESS (measured against the near target) and the charge then silently failed at move-apply, leaving the unit out of engagement range with no fight target. After the fix the roll is reported FAILED at roll time, the structured failure names the unreachable target, and the pending charge is cleaned up.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
     { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
 
     { "act": "execute_script",
-      "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"position\": {\"x\": 700.0, \"y\": 2150.0}}, true)" },
+      "script": "GameState.state.units[\"U_BATTLEWAGON_G\"].models[0].merge({\"position\": {\"x\": 700.0, \"y\": 2150.0}, \"rotation\": 0.0}, true)" },
     { "act": "execute_script",
-      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"position\": {\"x\": 860.0, \"y\": 2150.0}}, true)" },
+      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"position\": {\"x\": 973.0, \"y\": 2150.0}}, true)" },
     { "act": "execute_script",
-      "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].merge({\"position\": {\"x\": 1120.0, \"y\": 2150.0}}, true)" },
+      "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].merge({\"position\": {\"x\": 1240.0, \"y\": 2150.0}}, true)" },
     { "act": "execute_script",
       "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
     { "act": "execute_script",
       "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
 
     { "act": "execute_script",
-      "script": "Measurement.model_to_model_distance_inches(GameState.state.units[\"U_WARBOSS_B\"].models[0], GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0])",
-      "expect_max": 4.0 },
+      "script": "Measurement.model_to_model_distance_inches(GameState.state.units[\"U_BATTLEWAGON_G\"].models[0], GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0])",
+      "expect_max": 3.5 },
     { "act": "execute_script",
-      "script": "Measurement.model_to_model_distance_inches(GameState.state.units[\"U_WARBOSS_B\"].models[0], GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0])",
+      "script": "Measurement.model_to_model_distance_inches(GameState.state.units[\"U_BATTLEWAGON_G\"].models[0], GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0])",
       "expect_min": 7.5 },
     { "act": "execute_script",
-      "script": "Measurement.model_to_model_distance_inches(GameState.state.units[\"U_WARBOSS_B\"].models[0], GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0])",
+      "script": "Measurement.model_to_model_distance_inches(GameState.state.units[\"U_BATTLEWAGON_G\"].models[0], GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0])",
       "expect_max": 12.0 },
 
     { "act": "dispatch_action", "action": {
       "type": "DECLARE_CHARGE",
-      "actor_unit_id": "U_WARBOSS_B",
+      "actor_unit_id": "U_BATTLEWAGON_G",
       "payload": { "target_unit_ids": ["U_BLADE_CHAMPION_A", "U_SHIELD_CAPTAIN_A"] }
     }},
     { "act": "expect_action_result", "path": "success", "equals": true },
@@ -43,7 +43,7 @@
 
     { "act": "dispatch_action", "action": {
       "type": "CHARGE_ROLL",
-      "actor_unit_id": "U_WARBOSS_B",
+      "actor_unit_id": "U_BATTLEWAGON_G",
       "payload": { "rng_seed": 15 }
     }},
     { "act": "expect_action_result", "path": "success", "equals": true },
@@ -59,7 +59,7 @@
       "script": "PhaseManager.get_current_phase_instance().get_failed_charge_attempts()[0][\"errors\"][0].to_lower().find(\"all\") != -1",
       "equals": true },
     { "act": "execute_script",
-      "script": "PhaseManager.get_current_phase_instance().has_pending_charge(\"U_WARBOSS_B\")",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_charge(\"U_BATTLEWAGON_G\")",
       "equals": false },
     { "act": "screenshot", "label": "02_over_declared_charge_failed" }
   ]

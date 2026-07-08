@@ -6,23 +6,23 @@
   "rng_seed": 42,
   "transition_to_phase": 9,
   "disable_ai": true,
-  "description": "Declaration-time reachability hint (Option 2): while selecting charge targets, the ChargeController shows the 2D6 roll needed to reach EVERY selected target, naming the farthest/binding target, so an out-of-reach declared target is obvious BEFORE rolling. Selects a near enemy (~2.4\" edge) and a far enemy (~8.9\" edge) for the Warboss and asserts the rendered charge_requirement_label text reports the all-targets requirement and names the farthest target.",
+  "description": "Declaration-time reachability hint (Option 2): while selecting charge targets, the ChargeController shows the 2D6 roll needed to reach EVERY selected target, naming the farthest/binding target, so an out-of-reach declared target is obvious BEFORE rolling. Selects a near enemy (~2.5\" edge) and a far enemy (~9\" edge) for a Battlewagon and asserts the rendered charge_requirement_label text reports the all-targets requirement and names the farthest target.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
 
     { "act": "execute_script",
-      "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"position\": {\"x\": 700.0, \"y\": 2150.0}}, true)" },
+      "script": "GameState.state.units[\"U_BATTLEWAGON_G\"].models[0].merge({\"position\": {\"x\": 700.0, \"y\": 2150.0}, \"rotation\": 0.0}, true)" },
     { "act": "execute_script",
-      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"position\": {\"x\": 860.0, \"y\": 2150.0}}, true)" },
+      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"position\": {\"x\": 973.0, \"y\": 2150.0}}, true)" },
     { "act": "execute_script",
-      "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].merge({\"position\": {\"x\": 1120.0, \"y\": 2150.0}}, true)" },
+      "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].merge({\"position\": {\"x\": 1240.0, \"y\": 2150.0}}, true)" },
 
     { "act": "execute_script",
       "script": "is_instance_valid(main.charge_controller)", "equals": true },
 
     { "act": "execute_script",
-      "script": "main.charge_controller.eligible_targets.merge(RulesEngine.charge_targets_within_12(\"U_WARBOSS_B\", GameState.create_snapshot()), true)" },
+      "script": "main.charge_controller.eligible_targets.merge(RulesEngine.charge_targets_within_12(\"U_BATTLEWAGON_G\", GameState.create_snapshot()), true)" },
     { "act": "execute_script",
       "script": "main.charge_controller.selected_targets.append(\"U_BLADE_CHAMPION_A\")" },
     { "act": "execute_script",
