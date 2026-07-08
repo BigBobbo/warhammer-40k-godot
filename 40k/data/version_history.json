@@ -2,6 +2,33 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.7.4",
+			"date": "2026-07-08",
+			"summary": "Fixed online (game-code) multiplayer: joining with a code and deploying your first unit permanently desynced the two players. Online games now play through correctly.",
+			"changes": [
+				"Fixed the #1 online multiplayer bug: in an online game (host shares a code, opponent joins with it), the moment the joining player deployed their first unit the two games silently fell out of sync forever — the unit showed up for the joiner but never for the host. Online play sends moves as text (JSON), which turned every board position into a plain object; the host then crashed while checking the move and never told the joiner it failed, so the joiner kept a move the host never accepted. Positions are now converted back correctly before the host processes an online move, and a failed check is reported instead of silently dropped.",
+				"Fixed the same empty-battlefield terrain bug as the LAN fix, but for online games: the host of an online game was judging movement and line-of-sight against a board with no terrain on it.",
+				"Hardened online move handling so a single malformed message can no longer take down the host's processing of the rest of the game."
+			]
+		},
+		{
+			"version": "0.7.3",
+			"date": "2026-07-08",
+			"summary": "Major multiplayer hardening pass: LAN games no longer soft-lock at the pre-deployment roll-off, phases no longer get skipped or run ahead on one player's screen, and a large family of actions (stratagems, reactions, phase steps) that silently failed online now work.",
+			"changes": [
+				"Fixed every LAN multiplayer game soft-locking at the 'Who Deploys First?' roll-off: the dice result and the winner's 'deploy first / deploy second' choice now appear on BOTH players' screens, and the winner (not the player who happened to click Roll) makes the choice. The same fix covers the 'Determine First Turn' roll-off after deployment.",
+				"Fixed multiplayer phase desyncs: the 'Determine First Turn' step could be skipped entirely on the host, while the other player's game raced ahead through Command → Movement → Shooting → Charge on its own. Phases now advance exactly once, on both screens, in lockstep.",
+				"Fixed a large family of actions that hard-failed with 'Unknown action type' ONLY in multiplayer: ending the Scout phase, declining/using a Command Re-roll, Counter-Offensive, Fire Overwatch, Epic Challenge, the Fight phase's End Pile In / End Consolidation buttons, warlord designation, secondary-mission steps (e.g. Beacon), and more.",
+				"Reactive decisions are now shown to the right player: the Epic Challenge prompt used to appear on the OTHER player's screen (where it could only be mis-clicked and rejected) — it now opens for the player whose decision it is. Stratagem windows that belong to the non-active player (Counter-Offensive, Overwatch, re-rolls) are no longer rejected as 'not your turn'.",
+				"Clicking your opponent's buttons no longer half-works: the phase button and roll-off dice are turn-gated with a friendly 'It's Player N's turn' message instead of firing actions that get rejected after the UI already reacted.",
+				"Fixed the host adjudicating terrain rules against an EMPTY battlefield in multiplayer (walls/ruins existed visually but not in the host's rules state — the joining player had the real list).",
+				"Fixed the multiplayer desync detector crying wolf: it compared incompatible views of the game state, so it reported a desync after nearly every action; it now compares the actual gameplay state on both sides (and also covers actions submitted by the joining player, which were previously unchecked).",
+				"Fixed the charge phase forgetting a declared charge on the opponent's screen, and a broken signal that dropped the post-roll target list update.",
+				"The game log now names the Battle Formations / Redeployment / Scout phases instead of showing 'Unknown Phase'.",
+				"Test infrastructure: scenario fixtures now load on fresh checkouts (CI/containers), and a new regression test pins all of the multiplayer contracts above."
+			]
+		},
+		{
 			"version": "0.7.2",
 			"date": "2026-07-07",
 			"summary": "Fixed the 12\" charge-range bubble not disappearing when you selected a different unit in the Charge phase, so old bubbles stacked up and cluttered the board.",
@@ -36,8 +63,7 @@
 			"changes": [
 				"When you shot a weapon, the Game Log entry summarising the attack (e.g. 'Telemon Heavy Dreadnought → Boyz … Hit: 7/9 … Wound: 0/7 …') could balloon to nearly the entire height of the log, with the dice icons floating far out to the right and a huge empty gap. The trailing part of the line was being squeezed into a one-character-wide column and wrapped down the whole card.",
 				"These log lines now flow naturally like a sentence — the text wraps across a few lines and the dice icons sit inline exactly where the rolls happened, so the entry is a tidy, compact card.",
-				"Both sets of dice on a combined hit-and-wound line now render as icons (previously only the hit dice became icons and the wound dice stayed as raw '[2, 2, 3, …]' numbers), each coloured against its own target — the hit dice vs the hit roll needed and the wound dice vs the wound roll needed."
-			]
+				"Both sets of dice on a combined hit-and-wound line now render as icons (previously only the hit dice became icons and the wound dice stayed as raw '[2, 2, 3, …]' numbers), each coloured against its own target — the hit dice vs the hit roll needed and the wound dice vs the wound roll needed."			]
 		},
 		{
 			"version": "0.6.8",

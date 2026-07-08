@@ -19,6 +19,13 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 #
 # If the dice tie, players must re-roll (per the core rules).
 
+# Emitted whenever a roll-off resolves (win or tie). This is the ONLY channel
+# the UI listens on — in multiplayer the submitting peer gets {pending:true}
+# back from route_action, so reading roll results from the return value never
+# worked networked. The host emits during processing; NetworkManager re-emits
+# on clients from the broadcast result.
+signal roll_off_result(p1_roll: int, p2_roll: int, winner: int, tied: bool)
+
 var _rng  # RulesEngine.RNGService — picks up test_mode_seed via PR #346
 var _player1_roll: int = 0
 var _player2_roll: int = 0
@@ -92,6 +99,14 @@ func validate_action(action: Dictionary) -> Dictionary:
 				errors.append("Roll-off has not been completed yet")
 			if _choice_made:
 				errors.append("Deployment choice has already been made")
+			# Only the roll-off winner may pick the deploy order. Without this,
+			# any peer could submit the choice (it bypasses turn validation as
+			# an exempt reactive action). Only enforced when the action claims
+			# a player: the networked path always injects one (NetworkIntegration
+			# stamps the local player), while direct SP/test dispatches may omit it.
+			var choosing_player = action.get("player", -1)
+			if _roll_off_winner > 0 and choosing_player != -1 and choosing_player != _roll_off_winner:
+				errors.append("Only Player %d (roll-off winner) may choose the deployment order" % _roll_off_winner)
 			var choice = action.get("choice", "")
 			if choice != "first" and choice != "second":
 				errors.append("Invalid choice: must be 'first' (deploy first) or 'second' (deploy second)")
@@ -140,6 +155,7 @@ func _handle_roll_off(action: Dictionary) -> Dictionary:
 		_player2_roll = 0
 		_roll_complete = false
 
+		emit_signal("roll_off_result", p1_roll, p2_roll, 0, true)
 		return {
 			"success": true,
 			"player1_roll": p1_roll,
@@ -166,6 +182,7 @@ func _handle_roll_off(action: Dictionary) -> Dictionary:
 		{"op": "set", "path": "meta.roll_off_winner", "value": _roll_off_winner}
 	]
 
+	emit_signal("roll_off_result", p1_roll, p2_roll, _roll_off_winner, false)
 	return {
 		"success": true,
 		"changes": changes,

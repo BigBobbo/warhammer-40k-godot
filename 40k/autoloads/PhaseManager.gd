@@ -114,6 +114,15 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 	# Exit current phase if one exists
 	if current_phase_instance != null:
 		print("[PhaseManager] Exiting current phase: ", current_phase_instance.get_class())
+		# Sever signals BEFORE queue_free: the node stays alive until end of
+		# frame, so a deferred phase_completed from the outgoing instance (e.g.
+		# RedeploymentPhase's auto-skip call_deferred) would otherwise fire
+		# _on_phase_completed against the NEW phase and silently skip it.
+		# This is how FIRST_TURN_ROLLOFF got skipped in multiplayer games.
+		if current_phase_instance.has_signal("phase_completed") and current_phase_instance.phase_completed.is_connected(_on_phase_completed):
+			current_phase_instance.phase_completed.disconnect(_on_phase_completed)
+		if current_phase_instance.has_signal("action_taken") and current_phase_instance.action_taken.is_connected(_on_phase_action_taken):
+			current_phase_instance.action_taken.disconnect(_on_phase_action_taken)
 		current_phase_instance.exit_phase()
 		current_phase_instance.queue_free()
 		current_phase_instance = null
@@ -321,6 +330,16 @@ func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
 
 func _on_phase_completed() -> void:
 	if game_ended:
+		return
+
+	# Multiplayer: only the HOST advances phases. A phase instance on a client
+	# can auto-complete locally (Redeployment/Scout with nothing to do) but the
+	# client must wait for the host's phase-change RPC / broadcast diffs —
+	# otherwise the client free-runs ahead of the host (observed: client raced
+	# through COMMAND→MOVEMENT→SHOOTING→CHARGE while the host sat in SCOUT).
+	var network_mgr = get_node_or_null("/root/NetworkManager")
+	if network_mgr and network_mgr.is_networked() and not network_mgr.is_host():
+		print("PhaseManager: phase_completed on CLIENT — waiting for host to advance")
 		return
 
 	var completed_phase = get_current_phase()
