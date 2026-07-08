@@ -4240,7 +4240,15 @@ func _setup_save_load_dialog() -> void:
 	
 	# Add to scene tree
 	add_child(save_load_dialog)
-	
+
+	# Z-ORDER: This is a modal menu — it must render above every HUD panel
+	# (GameLogPanel, LeftRosterStrip, etc.). Those panels are bumped to UI_PANEL_Z
+	# by _ensure_ui_panels_on_top(); without an explicit z_index this dialog is
+	# bumped to the SAME level and, being set up EARLIER, loses the tree-order
+	# tie-break and gets drawn underneath. UI_MODAL_Z (2000) is the documented
+	# layer for save/load (see the constant above), matching SettingsMenu et al.
+	save_load_dialog.z_index = UI_MODAL_Z
+
 	# Connect dialog signals
 	save_load_dialog.save_requested.connect(_on_save_requested)
 	save_load_dialog.load_requested.connect(_on_load_requested)
@@ -7206,6 +7214,17 @@ func _show_roll_off_dialog(local_player: int) -> void:
 	roll_off_dialog.popup_centered()
 	print("Main: Showed %s roll-off dialog for Player %d" % [_roll_off_context(), local_player])
 
+	# The roll RESULT arrives via the phase's roll_off_result signal — emitted
+	# synchronously in single-player, and re-emitted by NetworkManager on the
+	# peer that didn't process the action in multiplayer. The route_action
+	# return value carries no roll data in MP ({success, pending}), so this
+	# signal is the only correct display driver on BOTH peers.
+	var roll_phase_inst = PhaseManager.get_current_phase_instance()
+	if roll_phase_inst and roll_phase_inst.has_signal("roll_off_result"):
+		if not roll_phase_inst.roll_off_result.is_connected(_on_roll_off_result):
+			roll_phase_inst.roll_off_result.connect(_on_roll_off_result)
+			print("Main: Connected to %s.roll_off_result" % roll_phase_inst.get_class())
+
 func _roll_off_context() -> String:
 	# "first_turn" for the post-deployment "who goes first" roll-off,
 	# "deploy" for the pre-deployment "who deploys first" roll-off.
@@ -7215,6 +7234,12 @@ func _roll_off_context() -> String:
 
 func _on_roll_off_roll_pressed() -> void:
 	print("Main: Roll-off dialog — Roll pressed")
+	# In multiplayer only the active player may submit the roll. Give the other
+	# player feedback instead of sending an action that will be rejected (it
+	# would go out stamped with the ACTIVE player's id — a spoof).
+	if NetworkManager.is_networked() and not NetworkManager.is_local_player_turn():
+		_show_toast("Waiting for Player %d to roll..." % GameState.get_active_player(), 2.0)
+		return
 	var is_first_turn := _roll_off_context() == "first_turn"
 	var action := {
 		"type": "ROLL_OFF_FIRST_TURN" if is_first_turn else "ROLL_OFF_DEPLOYMENT",
@@ -7223,17 +7248,22 @@ func _on_roll_off_roll_pressed() -> void:
 	var result = NetworkIntegration.route_action(action)
 	if not result.get("success", false):
 		print("Main: Roll-off failed: ", result.get("error", "unknown"))
-		return
-	# The phase emitted result fields p1/p2 rolls + winner OR tied=true.
-	# Update the dialog to show what happened.
+	# Display is driven by the phase's roll_off_result signal (see
+	# _on_roll_off_result) — NOT by this return value, which in multiplayer is
+	# just {success:true, pending:true} with no roll data.
+
+func _on_roll_off_result(p1: int, p2: int, winner: int, tied: bool) -> void:
+	# Single handler for roll-off results on every peer (SP: synchronous emit
+	# during route_action; MP host: emit while processing; MP client: re-emit
+	# from the broadcast result via NetworkManager).
+	print("Main: roll_off_result received — p1=%d p2=%d winner=%d tied=%s" % [p1, p2, winner, str(tied)])
 	if not (roll_off_dialog and is_instance_valid(roll_off_dialog)):
+		print("Main: roll_off_result with no dialog — ignoring")
 		return
-	var p1: int = int(result.get("player1_roll", 0))
-	var p2: int = int(result.get("player2_roll", 0))
-	if result.get("tied", false):
+	if tied:
 		roll_off_dialog.show_tie(p1, p2)
 		return
-	var winner: int = int(result.get("winner", 0))
+	var is_first_turn := _roll_off_context() == "first_turn"
 	# Decide what the local human does at the result screen:
 	#   "choose"      — (deploy roll-off only) they won and pick deploy order
 	#   "acknowledge" — they must click Continue to proceed: the first-turn
@@ -7253,27 +7283,40 @@ func _on_roll_off_roll_pressed() -> void:
 	else:
 		local_action = "choose"
 	roll_off_dialog.show_result(p1, p2, winner, local_action)
+	# Keep the top-bar button consistent on both peers (it may still read
+	# "[Enter] Roll the dice" on the peer that didn't submit).
+	if phase_action_button:
+		phase_action_button.text = "[Enter] Continue"
 
 func _on_roll_off_acknowledged() -> void:
 	# The human dismissed a result that needed no choice from them.
 	if _roll_off_context() == "first_turn":
-		# Confirm the first turn and start the battle.
+		# Confirm the first turn and start the battle. Stamp the LOCAL player in
+		# multiplayer — CONFIRM_FIRST_TURN is turn-exempt but still authority-
+		# checked (claimed player must match the sending peer).
 		print("Main: First-turn roll-off — human acknowledged; confirming first turn")
+		var confirming_player = NetworkManager.get_local_player() if NetworkManager.is_networked() else GameState.get_active_player()
 		_dispatch_roll_off_completion({"type": "CONFIRM_FIRST_TURN",
-			"player": GameState.get_active_player()})
+			"player": confirming_player})
 	else:
 		# Deploy roll-off, AI won: apply the AI's choice (it deploys second / Attacker).
+		# The choice is made BY the winner — stamp the winner, not the active player.
 		print("Main: Deploy roll-off — human acknowledged AI result; AI deploys second")
+		var ai_winner = int(GameState.state.get("meta", {}).get("roll_off_winner", GameState.get_active_player()))
 		_dispatch_roll_off_completion({"type": "CHOOSE_DEPLOYMENT", "choice": "second",
-			"player": GameState.get_active_player()})
+			"player": ai_winner})
 
 func _on_roll_off_choice_made(choice: String) -> void:
 	# Deploy roll-off only: the winning human picked their deploy role.
 	#   choice "first"  = deploy first  (Defender)
 	#   choice "second" = deploy second (Attacker)
+	# The action is stamped with the WINNER: the phase rejects a choice from
+	# anyone else, and in multiplayer the winner is frequently not the active
+	# player (the active player merely triggered the roll).
 	print("Main: Deploy roll-off — choice=%s" % choice)
+	var choosing_player = int(GameState.state.get("meta", {}).get("roll_off_winner", GameState.get_active_player()))
 	_dispatch_roll_off_completion({"type": "CHOOSE_DEPLOYMENT", "choice": choice,
-		"player": GameState.get_active_player()})
+		"player": choosing_player})
 
 func _dispatch_roll_off_completion(action: Dictionary) -> void:
 	var result = NetworkIntegration.route_action(action)
@@ -8121,10 +8164,18 @@ func _on_network_result_applied(result: Dictionary) -> void:
 		print("Main: Phase changed via network to: ", new_phase)
 		current_phase = new_phase
 
-		# Transition PhaseManager to new phase
+		# Transition PhaseManager to new phase — but only if it isn't already
+		# there. PhaseManager transitions itself on the host (phase_completed →
+		# advance_to_next_phase) and on clients (host phase-change RPC); doing
+		# it again here created a SECOND phase instance whose deferred
+		# auto-complete then skipped the following phase in multiplayer.
 		if PhaseManager and PhaseManager.has_method("transition_to_phase"):
-			print("Main: Transitioning PhaseManager to phase: ", new_phase)
-			PhaseManager.transition_to_phase(new_phase)
+			var inst = PhaseManager.current_phase_instance
+			if inst != null and "phase_type" in inst and inst.phase_type == new_phase:
+				print("Main: PhaseManager already in phase %s — skipping duplicate transition" % str(new_phase))
+			else:
+				print("Main: Transitioning PhaseManager to phase: ", new_phase)
+				PhaseManager.transition_to_phase(new_phase)
 
 		# Wait for phase transition
 		await get_tree().process_frame
@@ -8809,6 +8860,17 @@ func _on_phase_action_pressed() -> void:
 		"timestamp": Time.get_ticks_msec()
 	})
 
+	# Multiplayer: the phase-driving button belongs to the ACTIVE player. The
+	# waiting overlay covers the board but never blocked this button, so the
+	# non-active player could fire phase actions stamped with the opponent's
+	# player id (host rejected them, but only AFTER local UI already reacted).
+	# FORMATIONS is exempt — both players confirm their own formations dialog.
+	if NetworkManager.is_networked() and current_phase != GameStateData.Phase.FORMATIONS:
+		if not NetworkManager.is_local_player_turn():
+			_show_toast("It's Player %d's turn" % GameState.get_active_player(), 2.0)
+			print("Main: Phase action button blocked — not local player's turn")
+			return
+
 	# For multiplayer sync, we need to route phase end actions through the network system
 	var action = {}
 	var active_player = GameState.get_active_player()
@@ -8833,8 +8895,19 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.SCOUT_MOVES:
 			action = {"type": "END_SCOUT_MOVES", "player": active_player}
 		GameStateData.Phase.ROLL_OFF:
+			# Post-roll this button reads "Continue" — reopen the dialog (the
+			# choice/acknowledgement lives there); re-submitting the roll would
+			# just be rejected as already completed.
+			if int(GameState.state.get("meta", {}).get("roll_off_winner", 0)) > 0:
+				if roll_off_dialog and is_instance_valid(roll_off_dialog):
+					roll_off_dialog.popup_centered()
+				return
 			action = {"type": "ROLL_OFF_DEPLOYMENT", "player": active_player}
 		GameStateData.Phase.FIRST_TURN_ROLLOFF:
+			if int(GameState.state.get("meta", {}).get("first_turn_player", 0)) > 0:
+				if roll_off_dialog and is_instance_valid(roll_off_dialog):
+					roll_off_dialog.popup_centered()
+				return
 			action = {"type": "ROLL_OFF_FIRST_TURN", "player": active_player}
 		GameStateData.Phase.COMMAND:
 			# P3-94: Check for untested battle-shock units and show confirmation dialog
@@ -8918,16 +8991,24 @@ func _on_phase_action_pressed() -> void:
 		if not NetworkManager.is_networked():
 			print("Main: Falling back to local phase advance")
 			PhaseManager.advance_to_next_phase()
-	else:
-		# Update button text after a successful roll-off (no longer need to roll)
-		if action.get("type") == "ROLL_OFF_DEPLOYMENT" or action.get("type") == "ROLL_OFF_FIRST_TURN":
-			if not result.get("tied", false):
-				phase_action_button.text = "[Enter] Continue"
-				print("Main: Roll-off complete, button text updated to 'Continue'")
+	# NOTE: the roll-off "Continue" button text is set by _on_roll_off_result
+	# (signal-driven, fires on both peers). It must NOT be set here: in
+	# multiplayer route_action returns {success:true, pending:true} BEFORE
+	# validation, so flipping the text here showed "Continue" on a peer whose
+	# roll was subsequently rejected.
 
 func update_ui_for_phase() -> void:
 	# Clear any phase-specific UI artifacts first
 	_clear_phase_ui_artifacts()
+
+	# Tear down a stale roll-off dialog when leaving the roll-off phases. The
+	# submitting peer closes it in _dispatch_roll_off_completion, but the OTHER
+	# peer (multiplayer) only learns about the completion via the phase change.
+	if current_phase != GameStateData.Phase.ROLL_OFF and current_phase != GameStateData.Phase.FIRST_TURN_ROLLOFF:
+		if roll_off_dialog and is_instance_valid(roll_off_dialog):
+			print("Main: Closing stale roll-off dialog on phase change")
+			roll_off_dialog.queue_free()
+			roll_off_dialog = null
 
 	print("Main: ========== UPDATE UI FOR PHASE ==========")
 	print("Main: Current phase: ", GameStateData.Phase.keys()[current_phase])

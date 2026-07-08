@@ -2721,6 +2721,7 @@ func _on_weapon_order_required(assignments: Array) -> void:
 
 	# Connect to weapon_order_confirmed signal
 	dialog.weapon_order_confirmed.connect(_on_weapon_order_confirmed)
+	_connect_staged_dialog_signals(dialog)
 
 	# Add to scene tree FIRST (so _ready() runs)
 	get_tree().root.add_child(dialog)
@@ -2733,6 +2734,28 @@ func _on_weapon_order_required(assignments: Array) -> void:
 
 	print("ShootingController: WeaponOrderDialog shown and connected to phase signals")
 	print("========================================")
+
+func _connect_staged_dialog_signals(dialog) -> void:
+	# Wire the staged hit/wound pause controls (non-networked sequential mode).
+	if dialog.has_signal("staged_continue_requested") and not dialog.staged_continue_requested.is_connected(_on_staged_continue_requested):
+		dialog.staged_continue_requested.connect(_on_staged_continue_requested)
+	if dialog.has_signal("staged_reroll_requested") and not dialog.staged_reroll_requested.is_connected(_on_staged_reroll_requested):
+		dialog.staged_reroll_requested.connect(_on_staged_reroll_requested)
+
+func _on_staged_continue_requested(next_step: String) -> void:
+	# next_step: "wounds" (roll to wound) or "saves" (hand off to saving throws)
+	print("ShootingController: staged continue → %s" % next_step)
+	if next_step == "wounds":
+		emit_signal("shoot_action_requested", {"type": "CONTINUE_TO_WOUNDS"})
+	elif next_step == "saves":
+		emit_signal("shoot_action_requested", {"type": "CONTINUE_TO_SAVES"})
+
+func _on_staged_reroll_requested(stage: String, die_index: int) -> void:
+	print("ShootingController: staged Command Re-roll → stage=%s die=%d" % [stage, die_index])
+	emit_signal("shoot_action_requested", {
+		"type": "USE_SHOOTING_REROLL",
+		"payload": {"stage": stage, "die_index": die_index}
+	})
 
 func _on_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> void:
 	"""Handle weapon order confirmation from WeaponOrderDialog"""
@@ -2975,6 +2998,7 @@ func _on_show_weapon_order_from_next_weapon_dialog(remaining_weapons: Array, fas
 
 	# Connect to weapon_order_confirmed signal
 	dialog.weapon_order_confirmed.connect(_on_next_weapon_order_confirmed)
+	_connect_staged_dialog_signals(dialog)
 
 	# Add to scene tree
 	get_tree().root.add_child(dialog)

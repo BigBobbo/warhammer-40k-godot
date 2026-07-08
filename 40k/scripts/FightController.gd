@@ -789,13 +789,15 @@ func _on_select_fighter_pressed(unit_id: String) -> void:
 		"type": "SELECT_FIGHTER",
 		"unit_id": unit_id
 	}
-	
-	# Send the action to the phase
-	if current_phase and current_phase.has_method("execute_action"):
-		print("DEBUG: Executing SELECT_FIGHTER action: %s" % str(action))
-		var result = current_phase.execute_action(action)
+
+	# Route through NetworkIntegration: in multiplayer a direct
+	# current_phase.execute_action() ran only on the clicking peer — the host
+	# never validated or broadcast it, desyncing the fight sequence.
+	if current_phase:
+		print("DEBUG: Routing SELECT_FIGHTER action: %s" % str(action))
+		var result = NetworkIntegration.route_action(action)
 		print("DEBUG: SELECT_FIGHTER result: %s" % str(result))
-		
+
 		# Refresh the UI after executing action
 		_refresh_available_actions()
 	else:
@@ -811,13 +813,13 @@ func _on_select_melee_weapon_pressed(unit_id: String, weapon_id: String) -> void
 		"unit_id": unit_id,
 		"weapon_id": weapon_id
 	}
-	
-	# Send the action to the phase
-	if current_phase and current_phase.has_method("execute_action"):
-		print("DEBUG: Executing SELECT_MELEE_WEAPON action: %s" % str(action))
-		var result = current_phase.execute_action(action)
+
+	# Route through NetworkIntegration (see _on_select_fighter_pressed).
+	if current_phase:
+		print("DEBUG: Routing SELECT_MELEE_WEAPON action: %s" % str(action))
+		var result = NetworkIntegration.route_action(action)
 		print("DEBUG: SELECT_MELEE_WEAPON result: %s" % str(result))
-		
+
 		# Refresh the UI after executing action
 		_refresh_available_actions()
 	else:
@@ -1574,6 +1576,14 @@ func _on_epic_challenge_opportunity(unit_id: String, player: int) -> void:
 	"""Show Epic Challenge dialog when a CHARACTER unit is selected to fight"""
 	print("[FightController] Epic Challenge opportunity for unit %s (player %d)" % [unit_id, player])
 
+	# Multiplayer: the decision belongs to `player` — only THEIR peer shows the
+	# dialog. The phase runs on the host, so without this gate the host showed
+	# (and could only fail to answer) the remote player's stratagem prompt.
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.is_networked() and nm.get_local_player() != player:
+		print("[FightController] Epic Challenge decision belongs to remote player %d — not showing dialog here" % player)
+		return
+
 	# Skip dialog for AI players — AIPlayer handles via signal
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(player):
@@ -2022,10 +2032,7 @@ func _on_pile_in_step_required(data: Dictionary) -> void:
 		push_error("Failed to load PileInStepDialog.gd")
 		return
 
-	var dialog = AcceptDialog.new()
-	dialog.set_script(dialog_script)
-	dialog.name = "PileInStepDialog"
-	dialog.setup(data, current_phase)
+	var dialog = dialog_script.create(data, current_phase)
 	dialog.pile_in_unit_chosen.connect(_on_pile_in_step_unit_chosen)
 	dialog.end_pile_in.connect(_on_end_pile_in)
 	get_tree().root.add_child(dialog)
@@ -2085,10 +2092,7 @@ func _on_consolidation_step_required(data: Dictionary) -> void:
 		push_error("Failed to load ConsolidationStepDialog.gd")
 		return
 
-	var dialog = AcceptDialog.new()
-	dialog.set_script(dialog_script)
-	dialog.name = "ConsolidationStepDialog"
-	dialog.setup(data, current_phase)
+	var dialog = dialog_script.create(data, current_phase)
 	dialog.consolidate_unit_chosen.connect(_on_consolidation_unit_chosen)
 	dialog.end_consolidation.connect(_on_end_consolidation)
 	get_tree().root.add_child(dialog)

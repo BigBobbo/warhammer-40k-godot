@@ -1,0 +1,34 @@
+{
+  "id": "gamelog_dice_line_height",
+  "covers": ["ui.log.inline_dice_graphics", "ui.log.dice_line_wrapping"],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Regression guard for the game-log dice skyscraper bug. A long combined shooting summary line ('… Hit: n/m [rolls] vs 3+ - Wound: 0/m [rolls] vs 4+') used to split into a fixed [prefix][dice][suffix] HBox where the non-wrapping prefix hogged the 340px width and starved the trailing autowrap label into a ~1px-wide, full-card-height column — blowing the card up to ~700px tall. The line now flows as word cells + inline dice icons in an HFlowContainer that wraps to the panel width. This scenario adds the exact line as a p1_action simple card via the real _create_card entry point, waits for layout, and asserts the resulting card is compact (30 <= height <= 140px; the bug produced ~706px) while still rendering the dice as inline DiceRowVisual icons.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._create_card('P1: Telemon Heavy Dreadnought → Boyz with Spiculus bolt launcher - Hit: 7/9 [1, 1, 3, 3, 4, 5, 5, 5, 5] vs 3+ - Wound: 0/7 [2, 2, 3, 4, 4, 5, 6] vs 4+', 'p1_action', false)" },
+
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.last_simple_card_has_dice_visual()",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._card_container.get_child(main.game_log_panel._card_container.get_child_count() - 1).size.y",
+      "expect_max": 140 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._card_container.get_child(main.game_log_panel._card_container.get_child_count() - 1).size.y",
+      "expect_min": 30 },
+
+    { "act": "screenshot", "label": "gamelog_dice_line_compact" }
+  ]
+}

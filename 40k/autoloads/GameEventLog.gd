@@ -33,7 +33,11 @@ const FILTERED_ACTIONS = [
 ]
 
 const PHASE_NAMES = {
+	GameStateData.Phase.FORMATIONS: "Battle Formations",
 	GameStateData.Phase.DEPLOYMENT: "Deployment",
+	GameStateData.Phase.REDEPLOYMENT: "Redeployment",
+	GameStateData.Phase.SCOUT: "Scout",
+	GameStateData.Phase.SCOUT_MOVES: "Scout Moves",
 	GameStateData.Phase.ROLL_OFF: "Roll-Off",
 	GameStateData.Phase.FIRST_TURN_ROLLOFF: "First-Turn Roll-Off",
 	GameStateData.Phase.COMMAND: "Command",

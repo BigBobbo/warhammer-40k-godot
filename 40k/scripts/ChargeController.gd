@@ -3461,9 +3461,16 @@ func _show_charge_range_circle(center: Vector2) -> void:
 func _clear_charge_range_circle() -> void:
 	if not is_instance_valid(range_visual):
 		return
+	# range_visual (ChargeRangeVisual) is a dedicated container used ONLY for the
+	# 12" overlay, so free every child. We deliberately do NOT filter by
+	# name == "ChargeRangeCircle": _show_charge_range_circle() adds ~11 children
+	# (10 dash arcs + the label) all named "ChargeRangeCircle", and Godot
+	# auto-renames colliding siblings ("ChargeRangeCircle2", "ChargeRangeCircle3",
+	# …). An exact-name match therefore only removed ONE node per clear, so the
+	# rest leaked and accumulated on every unit re-selection — leaving stale
+	# bubbles cluttering the board (mirrors _clear_highlights on target_highlights).
 	for child in range_visual.get_children():
-		if child.name == "ChargeRangeCircle":
-			child.queue_free()
+		child.queue_free()
 
 # --- P3-127: Charge Trajectory Preview Management ---
 

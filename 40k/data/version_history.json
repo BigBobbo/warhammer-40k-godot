@@ -2,13 +2,86 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.7.0",
+			"version": "0.7.5",
 			"date": "2026-07-08",
 			"summary": "Charges that declare more targets than the roll can reach are now clearly reported instead of showing a misleading 'SUCCESS', and the charge panel now tells you the roll needed to reach every target you've picked.",
 			"changes": [
 				"A charge must end within Engagement Range of EVERY unit you declared it against. Previously the '2D6 = X vs Y needed — SUCCESS' line only measured the CLOSEST declared target, so declaring three units when your roll could only reach one still said SUCCESS — then the move silently failed and your unit ended up not in combat with anything, unable to fight. The roll result now checks ALL declared targets: if any is out of reach the charge is reported FAILED, naming the target(s) you couldn't reach and the distance you actually needed (e.g. 'FAILED — out of range: Shield-Captain; you needed to roll 7.9\"').",
 				"New declaration-time hint: as you pick charge targets, the charge panel shows the 2D6 roll needed to reach ALL of them, calls out the farthest (hardest) target, and lists each target's distance — colour-coded from likely to impossible — so an out-of-reach target is obvious BEFORE you commit and roll.",
 				"11th-edition charges that can only reach some of the declared targets now say so in the game log (which targets were engaged and which were beyond the roll), instead of quietly dropping the far ones with no explanation."
+			]
+		},
+		{
+			"version": "0.7.4",
+			"date": "2026-07-08",
+			"summary": "Fixed online (game-code) multiplayer: joining with a code and deploying your first unit permanently desynced the two players. Online games now play through correctly.",
+			"changes": [
+				"Fixed the #1 online multiplayer bug: in an online game (host shares a code, opponent joins with it), the moment the joining player deployed their first unit the two games silently fell out of sync forever — the unit showed up for the joiner but never for the host. Online play sends moves as text (JSON), which turned every board position into a plain object; the host then crashed while checking the move and never told the joiner it failed, so the joiner kept a move the host never accepted. Positions are now converted back correctly before the host processes an online move, and a failed check is reported instead of silently dropped.",
+				"Fixed the same empty-battlefield terrain bug as the LAN fix, but for online games: the host of an online game was judging movement and line-of-sight against a board with no terrain on it.",
+				"Hardened online move handling so a single malformed message can no longer take down the host's processing of the rest of the game."
+			]
+		},
+		{
+			"version": "0.7.3",
+			"date": "2026-07-08",
+			"summary": "Major multiplayer hardening pass: LAN games no longer soft-lock at the pre-deployment roll-off, phases no longer get skipped or run ahead on one player's screen, and a large family of actions (stratagems, reactions, phase steps) that silently failed online now work.",
+			"changes": [
+				"Fixed every LAN multiplayer game soft-locking at the 'Who Deploys First?' roll-off: the dice result and the winner's 'deploy first / deploy second' choice now appear on BOTH players' screens, and the winner (not the player who happened to click Roll) makes the choice. The same fix covers the 'Determine First Turn' roll-off after deployment.",
+				"Fixed multiplayer phase desyncs: the 'Determine First Turn' step could be skipped entirely on the host, while the other player's game raced ahead through Command → Movement → Shooting → Charge on its own. Phases now advance exactly once, on both screens, in lockstep.",
+				"Fixed a large family of actions that hard-failed with 'Unknown action type' ONLY in multiplayer: ending the Scout phase, declining/using a Command Re-roll, Counter-Offensive, Fire Overwatch, Epic Challenge, the Fight phase's End Pile In / End Consolidation buttons, warlord designation, secondary-mission steps (e.g. Beacon), and more.",
+				"Reactive decisions are now shown to the right player: the Epic Challenge prompt used to appear on the OTHER player's screen (where it could only be mis-clicked and rejected) — it now opens for the player whose decision it is. Stratagem windows that belong to the non-active player (Counter-Offensive, Overwatch, re-rolls) are no longer rejected as 'not your turn'.",
+				"Clicking your opponent's buttons no longer half-works: the phase button and roll-off dice are turn-gated with a friendly 'It's Player N's turn' message instead of firing actions that get rejected after the UI already reacted.",
+				"Fixed the host adjudicating terrain rules against an EMPTY battlefield in multiplayer (walls/ruins existed visually but not in the host's rules state — the joining player had the real list).",
+				"Fixed the multiplayer desync detector crying wolf: it compared incompatible views of the game state, so it reported a desync after nearly every action; it now compares the actual gameplay state on both sides (and also covers actions submitted by the joining player, which were previously unchecked).",
+				"Fixed the charge phase forgetting a declared charge on the opponent's screen, and a broken signal that dropped the post-roll target list update.",
+				"The game log now names the Battle Formations / Redeployment / Scout phases instead of showing 'Unknown Phase'.",
+				"Test infrastructure: scenario fixtures now load on fresh checkouts (CI/containers), and a new regression test pins all of the multiplayer contracts above."
+			]
+		},
+		{
+			"version": "0.7.2",
+			"date": "2026-07-07",
+			"summary": "Fixed the 12\" charge-range bubble not disappearing when you selected a different unit in the Charge phase, so old bubbles stacked up and cluttered the board.",
+			"changes": [
+				"In the Charge phase, selecting a unit shows a dashed 12\" range bubble around it. Previously, switching to a different charging unit left the old bubble on the board and drew a new one on top, so after picking a few units the board filled up with overlapping bubbles. Now only the currently selected unit's bubble is shown — the previous one is fully cleared each time you change your selection."
+			]
+		},
+		{
+			"version": "0.7.1",
+			"date": "2026-07-07",
+			"summary": "Fixed the Game Log drawing on top of the Save & Load menu — the menu now always sits above the log and other side panels while it's open.",
+			"changes": [
+				"Opening Save & Load while the Game Log was visible used to leave the log rendered over the left edge of the menu, hiding part of it and intercepting clicks meant for the dialog. The Save & Load menu is now raised to the front whenever it opens, so it always sits above the Game Log (and the roster strip) and receives your clicks."
+			]
+		},
+		{
+			"version": "0.7.0",
+			"date": "2026-07-07",
+			"summary": "The Shooting Phase 'Choose Weapon Order' sequence is now step-by-step and much clearer — it names each weapon, pauses after the hit roll and again after the wound roll, and lets you spend a Command Re-roll on a single die at each pause.",
+			"changes": [
+				"The resolution log is now verbose and readable. Each weapon gets its own header naming the weapon and target (e.g. 'Weapon 1 of 2 — Bolt Rifle → Ork Boyz'), and each step reads 'Rolling to Hit (need 2+): [ 5 4 4 2 ] → 3 hits, 1 miss' then 'Rolling to Wound (need 3+): [ 6 1 5 6 ] → 3 wounds' — instead of a terse summary that never said which weapon fired.",
+				"Sequential resolution now pauses after the hit roll and waits for you to click 'Roll to Wound ▶', then pauses again after the wound roll and waits for 'Continue to Saving Throws ▶'. You can read each result before moving on.",
+				"At each pause you can use the Command Re-roll stratagem (1 CP) on a single die: click a hit die (or a wound die) to re-roll it. It spends 1 CP, is limited to once per phase, and the wound roll is only made after you've finished with the hit roll — so re-rolling a hit correctly changes how many wound dice you roll.",
+				"Fixed the confusing button: after a weapon caused wounds, the only option used to be a bare 'Close' that actually took you to the defender's saving throws. It now reads 'Continue to Saving Throws ▶' so it's clear what happens next.",
+				"This staged flow applies to local/hotseat games; online multiplayer keeps the existing one-shot sequential resolution."
+			]
+		},
+		{
+			"version": "0.6.9",
+			"date": "2026-07-07",
+			"summary": "Fixed a shooting entry in the Game Log stretching to almost the full height of the screen instead of showing as a compact line of dice.",
+			"changes": [
+				"When you shot a weapon, the Game Log entry summarising the attack (e.g. 'Telemon Heavy Dreadnought → Boyz … Hit: 7/9 … Wound: 0/7 …') could balloon to nearly the entire height of the log, with the dice icons floating far out to the right and a huge empty gap. The trailing part of the line was being squeezed into a one-character-wide column and wrapped down the whole card.",
+				"These log lines now flow naturally like a sentence — the text wraps across a few lines and the dice icons sit inline exactly where the rolls happened, so the entry is a tidy, compact card.",
+				"Both sets of dice on a combined hit-and-wound line now render as icons (previously only the hit dice became icons and the wound dice stayed as raw '[2, 2, 3, …]' numbers), each coloured against its own target — the hit dice vs the hit roll needed and the wound dice vs the wound roll needed."			]
+		},
+		{
+			"version": "0.6.8",
+			"date": "2026-07-07",
+			"summary": "Fixed the Fight phase 'Pile In' and 'Consolidate' step windows opening as a giant blacked-out box instead of showing the unit picker.",
+			"changes": [
+				"When the Fight phase opened, the 'Pile In Step' pop-up (and the end-of-phase 'Consolidate Step' pop-up) could appear as a huge, mostly-black window that filled the screen with no visible content. The window was being stretched to roughly 5,500 pixels tall — far bigger than the screen — because a long description line inside it was mis-measured, and an off-screen-sized window renders as a black rectangle.",
+				"Both windows now size to their content: a compact picker showing the banner, the instructions, the list of eligible units to pile in / consolidate (each as a button), and the 'End Pile In' / 'End Consolidation' button — all visible and clickable."
 			]
 		},
 		{

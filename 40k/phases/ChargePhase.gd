@@ -750,7 +750,16 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 			charge_data.targets = kept
 			target_ids = kept
 		log_phase_message("[11e] Selectable charge targets after roll of %d: %s" % [total_distance, str(selectable)])
-		emit_signal("charge_targets_available", unit_id, selectable)
+		# charge_targets_available carries a Dictionary (target_id -> data) —
+		# passing the raw `selectable` Array made Godot drop the signal call
+		# ("Cannot convert argument 2 from Array to Dictionary") on every
+		# post-roll re-target, so the controller never saw the filtered list.
+		var selectable_dict = {}
+		var all_eligible_after_roll = _get_eligible_targets_for_unit(unit_id)
+		for tid in selectable:
+			if all_eligible_after_roll.has(tid):
+				selectable_dict[tid] = all_eligible_after_roll[tid]
+		emit_signal("charge_targets_available", unit_id, selectable_dict)
 
 	# ── Per-target reachability verdict ─────────────────────────────────
 	# A charge must end engaged with EVERY declared target (10e move validator +

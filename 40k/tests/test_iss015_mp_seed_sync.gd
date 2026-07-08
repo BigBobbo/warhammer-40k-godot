@@ -47,15 +47,23 @@ func _run_tests():
 		src.find('if not action.get("payload", {}).has("rng_seed"):') != -1)
 
 	print("\n-- B: canonical state hash --")
+	# compute_state_hash now hashes the CANONICAL gameplay subset
+	# (units/players/factions/meta minus volatile keys) — full-state hashing
+	# could never match between a host (raw state) and a client (snapshot-
+	# enriched state). Exercise order-insensitivity and content-sensitivity
+	# within that subset, and confirm non-canonical keys are ignored.
 	var gs = root.get_node_or_null("GameState")
 	var prev = gs.state.duplicate(true)
-	gs.state = {"b": 2, "a": 1, "nested": {"y": [1, 2], "x": "v"}}
+	gs.state = {"units": {"b": {"hp": 2}, "a": {"hp": 1}}, "meta": {"y": [1, 2], "x": "v"}}
 	var h1 = nm.compute_state_hash()
-	gs.state = {"a": 1, "nested": {"x": "v", "y": [1, 2]}, "b": 2}
+	gs.state = {"meta": {"x": "v", "y": [1, 2]}, "units": {"a": {"hp": 1}, "b": {"hp": 2}}}
 	var h2 = nm.compute_state_hash()
 	_check("insertion order does not change the hash", h1 == h2, "%d vs %d" % [h1, h2])
-	gs.state = {"a": 1, "nested": {"x": "v", "y": [1, 2]}, "b": 3}
+	gs.state = {"units": {"a": {"hp": 1}, "b": {"hp": 3}}, "meta": {"x": "v", "y": [1, 2]}}
 	_check("content change changes the hash", nm.compute_state_hash() != h1)
+	gs.state = {"units": {"b": {"hp": 2}, "a": {"hp": 1}}, "meta": {"y": [1, 2], "x": "v"}, "phase_log": ["local-only noise"]}
+	_check("non-canonical keys (snapshot enrichment / local logs) do not change the hash",
+		nm.compute_state_hash() == h1)
 	gs.state = prev
 
 	print("\n-- C: desync detector wiring --")

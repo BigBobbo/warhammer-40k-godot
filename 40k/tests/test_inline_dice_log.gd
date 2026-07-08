@@ -28,6 +28,7 @@ func _initialize() -> void:
 	_test_game_log_panel_records_dice_row()
 	_test_game_log_panel_detail_dice_row()
 	_test_game_log_panel_simple_card_dice_icons()
+	_test_dice_aware_line_multi_array_flow()
 	_test_game_log_panel_skips_when_no_combat()
 
 	print("\n=== Result: %d passed / %d failed ===" % [_passed, _failed])
@@ -220,6 +221,35 @@ func _test_game_log_panel_simple_card_dice_icons() -> void:
 	# line_has_dice_array helper sanity.
 	_check("line_has_dice_array true for [4]", panel.line_has_dice_array("rolled [4]"))
 	_check("line_has_dice_array false for [+1 STRENGTH]", not panel.line_has_dice_array("gain [+1 STRENGTH]"))
+
+	panel.queue_free()
+
+func _test_dice_aware_line_multi_array_flow() -> void:
+	# A long combined shooting summary carries TWO dice arrays (hit + wound). The
+	# dice-aware builder must render BOTH as inline DiceRowVisual icons inside a
+	# wrapping HFlowContainer. The previous [prefix][dice][suffix] HBox rendered
+	# only the first array (the second stayed as literal "[2, 4, 5, 6]" text) and
+	# starved the non-wrapping suffix into a full-card-height 1px column.
+	var panel = GameLogPanelScript.new()
+	get_root().add_child(panel)
+	panel._ready()
+
+	var line := "Telemon → Boyz - Hit: 7/9 [1, 1, 3, 5] vs 3+ - Wound: 0/4 [2, 4, 5, 6] vs 4+"
+	var control = panel._build_dice_aware_line(line, "#6699CC", 11, 12)
+	_check("dice-aware multi-array line is an HFlowContainer", control is HFlowContainer,
+		"got %s" % control.get_class())
+
+	var dice_count := 0
+	for c in control.get_children():
+		if c is DiceRowVisualScript:
+			dice_count += 1
+	_check("both dice arrays render as inline DiceRowVisual", dice_count == 2,
+		"got %d" % dice_count)
+
+	# A no-dice line still collapses to a single wrapping label (not a flow).
+	var plain = panel._build_dice_aware_line("Telemon holds position", "#6699CC", 11, 12)
+	_check("dice-free line stays a single RichTextLabel", plain is RichTextLabel,
+		"got %s" % plain.get_class())
 
 	panel.queue_free()
 

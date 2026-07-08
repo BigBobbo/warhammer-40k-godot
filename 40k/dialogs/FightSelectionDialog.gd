@@ -133,16 +133,31 @@ func _add_subphase_units(container: VBoxContainer, subphase_name: String, units_
 				" (Fought)" if has_fought else ""
 			]
 
+			# Multiplayer: this dialog is shown on BOTH peers for visibility,
+			# but only the selecting player may pick. Without this gate the
+			# other player saw enabled buttons whose clicks were then rejected
+			# by the host ("Player ID mismatch") — confusing dead UI.
+			var is_local_players_pick = true
+			# NOTE: setup() runs before this dialog enters the tree, so
+			# get_node_or_null("/root/...") would return null — resolve the
+			# autoload through the main loop instead.
+			var nm = Engine.get_main_loop().root.get_node_or_null("NetworkManager")
+			if nm and nm.is_networked():
+				is_local_players_pick = (nm.get_local_player() == int(dialog_data.selecting_player))
+
 			# Style based on state
 			if has_fought:
 				unit_button.disabled = true
 				unit_button.modulate = Color.GRAY
 			elif not is_eligible:
 				unit_button.disabled = true
+			elif not is_local_players_pick:
+				unit_button.disabled = true
+				unit_button.tooltip_text = "Player %d is selecting" % int(dialog_data.selecting_player)
 			elif is_current:
 				unit_button.modulate = Color.LIGHT_GREEN
 
-			if is_eligible and not has_fought:
+			if is_eligible and not has_fought and is_local_players_pick:
 				unit_button.pressed.connect(_on_unit_selected.bind(unit_id))
 
 			container.add_child(unit_button)
