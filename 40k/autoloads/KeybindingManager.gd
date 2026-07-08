@@ -60,6 +60,7 @@ func _register_defaults() -> void:
 	_register("toggle_unit_labels", "Toggle Unit Labels", CATEGORY_GAMEPLAY, KEY_N)
 	_register("shortcut_overlay", "Shortcut Overlay", CATEGORY_GAMEPLAY, KEY_SLASH, {"shift": true})
 	_register("toggle_mathhammer", "Toggle Mathhammer", CATEGORY_GAMEPLAY, KEY_H)
+	_register("ai_suggestion", "AI Suggestion (hint)", CATEGORY_GAMEPLAY, KEY_K)
 
 	# Shooting phase (T5-UX12 → KeybindingManager registration 2026-05-05)
 	# These were previously hardcoded keycode matches in ShootingController; promoting

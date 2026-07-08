@@ -99,6 +99,7 @@ func _build_ui() -> void:
 	var _rb = KeybindingManager.get_key_display_name("rotate_board") if KeybindingManager else "V"
 	var _mh = KeybindingManager.get_key_display_name("toggle_mathhammer") if KeybindingManager else "H"
 	var _ul = KeybindingManager.get_key_display_name("toggle_unit_labels") if KeybindingManager else "N"
+	var _as = KeybindingManager.get_key_display_name("ai_suggestion") if KeybindingManager else "K"
 	_add_shortcut(_dz, "Toggle deployment zones")
 	_add_shortcut(_tt, "Toggle terrain")
 	_add_shortcut(_ul, "Toggle unit labels")
@@ -108,6 +109,7 @@ func _build_ui() -> void:
 	_add_shortcut("%s  /  %s" % [_zu, _zd], "Zoom in/out")
 	_add_shortcut(_rb, "Rotate board view")
 	_add_shortcut(_mh, "Toggle Mathhammer")
+	_add_shortcut(_as, "AI suggestion (vs AI — shows its reasoning)")
 
 	# Separator before shooting section (2026-05-05 — task: register shooting shortcuts)
 	var sep_shoot = HSeparator.new()

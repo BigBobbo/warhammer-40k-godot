@@ -2463,6 +2463,42 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ai.suggestion.on_demand_hint",
+      "description": "On-demand AI suggestion: the human player can ask the AI what it would do on the current turn (AI Suggestion HUD button + rebindable K hotkey) and get a recommended action without executing it.",
+      "scenarios": [
+        "ai_suggestion_on_demand"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.suggestion.reasoning_in_log",
+      "description": "The AI suggestion posts its full reasoning to the game log as a thinking card (chosen action plus scored, rejected alternatives), reusing the same AI-thinking display path.",
+      "scenarios": [
+        "ai_suggestion_on_demand"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.suggestion.pure_preview",
+      "description": "Requesting an AI suggestion is side-effect-free: it dispatches no action, does not advance the phase or active player, leaves the AI action log empty, and (via AIDecisionMaker.suggest_action) does not disturb the opponent AI's planning caches.",
+      "scenarios": [
+        "ai_suggestion_on_demand"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.HUD.ai_suggestion_button",
+      "description": "The 'AI Suggestion' button appears in the bottom HUD only for human-vs-AI games and triggers a suggestion for the active player when clicked.",
+      "scenarios": [
+        "ai_suggestion_on_demand"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
