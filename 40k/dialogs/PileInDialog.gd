@@ -4,6 +4,11 @@ class_name PileInDialog
 signal pile_in_confirmed(movements: Dictionary)
 signal pile_in_skipped()
 
+# Shared muted tones so the neutral status line and the legend read the same
+# way the other White Dwarf menus do (readable, but subordinate to the gold).
+const _NEUTRAL_STATUS := Color(0.7, 0.7, 0.8)
+const _LEGEND_COLOR := Color(0.7, 0.7, 0.8)
+
 var unit_id: String = ""
 var max_distance: float = 3.0
 var phase_reference = null
@@ -30,30 +35,39 @@ func setup(fighter_id: String, max_dist: float, phase, controller = null) -> voi
 func _build_ui() -> void:
 	var container = VBoxContainer.new()
 	container.name = "Content"
-	container.add_theme_constant_override("separation", 10)
+	container.add_theme_constant_override("separation", 8)
 
+	# Heading — gold, to match the gold section headers used across the menus.
 	var instruction = Label.new()
-	instruction.text = "Drag models on the battlefield to pile in\nUp to %.1f\" toward closest enemy" % max_distance
+	instruction.name = "Instruction"
+	instruction.text = "Drag models on the battlefield to pile in\nUp to %.1f\" toward the closest enemy" % max_distance
 	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	instruction.add_theme_font_size_override("font_size", 15)
+	instruction.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	container.add_child(instruction)
 
 	# Status label to show validation feedback
 	status_label = Label.new()
-	status_label.text = "Ready - Click and drag models to move them"
+	status_label.name = "Status"
+	status_label.text = "Ready — click and drag models to move them"
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.add_theme_font_size_override("font_size", 12)
-	status_label.add_theme_color_override("font_color", Color.GRAY)
+	status_label.add_theme_color_override("font_color", _NEUTRAL_STATUS)
 	container.add_child(status_label)
 
-	# Button container
+	WhiteDwarfTheme.add_gold_separator(container)
+
+	# Button container — centered, evenly spaced action row like the other menus.
 	var button_container = HBoxContainer.new()
 	button_container.name = "Buttons"
+	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	button_container.add_theme_constant_override("separation", 10)
 
 	# Reset button
 	reset_button = Button.new()
 	reset_button.name = "ResetButton"
 	reset_button.text = "Reset Positions"
+	reset_button.custom_minimum_size = Vector2(0, 36)
 	reset_button.pressed.connect(_on_reset_pressed)
 	button_container.add_child(reset_button)
 
@@ -61,29 +75,42 @@ func _build_ui() -> void:
 	var skip_button = Button.new()
 	skip_button.name = "SkipButton"
 	skip_button.text = "Skip (No Movement)"
+	skip_button.custom_minimum_size = Vector2(0, 36)
 	skip_button.pressed.connect(_on_skip_pressed)
 	button_container.add_child(skip_button)
 
 	# Explicit confirm button with a stable path (the built-in AcceptDialog
-	# OK button lives under auto-named internal containers)
+	# OK button lives under auto-named internal containers). Styled as the
+	# primary (red) action so it reads as the main affordance like Start Game.
 	var confirm_button = Button.new()
 	confirm_button.name = "ConfirmButton"
 	confirm_button.text = "Confirm Move"
+	confirm_button.custom_minimum_size = Vector2(0, 36)
 	confirm_button.pressed.connect(_on_confirmed)
 	button_container.add_child(confirm_button)
+	WhiteDwarfTheme.apply_primary_button(confirm_button)
 
 	container.add_child(button_container)
 
-	# Info label
+	WhiteDwarfTheme.add_gold_separator(container)
+
+	# Legend — muted but readable. (Was Color.DARK_GRAY, near-invisible on the
+	# dark parchment-on-black dialog background.)
 	var info = Label.new()
+	info.name = "Legend"
 	info.text = "• Green arrow = valid (closer to enemy, within 3\")\n• Red arrow = invalid (too far or wrong direction)\n• Dashed line = movement path with distance\n• Green dots = unit coherency maintained\n• Red X (B2B) = model in base contact, cannot move"
 	info.add_theme_font_size_override("font_size", 11)
-	info.add_theme_color_override("font_color", Color.DARK_GRAY)
+	info.add_theme_color_override("font_color", _LEGEND_COLOR)
 	container.add_child(info)
 
 	add_child(container)
 
 	confirmed.connect(_on_confirmed)
+
+	# Redundant with the explicit "Confirm Move" button and out of keeping with
+	# the menu-style action row — hide the built-in AcceptDialog OK button.
+	# (Enter still confirms via the `confirmed` signal above.)
+	get_ok_button().visible = false
 
 	# Set minimum size for dialog
 	min_size = DialogConstants.SMALL
@@ -104,7 +131,7 @@ func _update_status() -> void:
 
 	if model_movements.is_empty():
 		status_label.text = "No models moved yet"
-		status_label.add_theme_color_override("font_color", Color.GRAY)
+		status_label.add_theme_color_override("font_color", _NEUTRAL_STATUS)
 		return
 
 	# Validate movements

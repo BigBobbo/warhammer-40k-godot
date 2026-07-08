@@ -61,6 +61,58 @@ static func _refit_to_viewport(dialog: Window) -> void:
 	dialog.popup_centered(Vector2i(w, h))
 
 
+## Show `dialog` anchored to the BOTTOM-CENTER of the screen instead of the
+## middle. Used by the interactive drag-to-move Fight steps (Pile In /
+## Consolidate): their modal must stay OUT of the way of the battlefield the
+## player is dragging models across, so it hugs the bottom edge like a docked
+## control bar rather than sitting on top of the action.
+##
+## Clamped to the viewport, then re-anchored one frame later (once the content
+## has settled its real height) so the window keeps hugging the bottom no matter
+## how its content measures. `margin_bottom` is the gap left below the window.
+static func popup_at_bottom(dialog: Window, base_size: Vector2 = DialogConstants.SMALL, margin_bottom: int = 24) -> void:
+	if dialog == null:
+		return
+	if not dialog.is_inside_tree():
+		# Can't resolve the screen size before the dialog is in the tree; fall
+		# back to a plain popup rather than doing nothing.
+		dialog.popup(Rect2i(Vector2i.ZERO, Vector2i(int(base_size.x), int(base_size.y))))
+		return
+	var vp_size: Vector2 = _screen_size(dialog)
+	var max_w: int = int(vp_size.x * 0.95)
+	var max_h: int = int(vp_size.y * 0.9)
+	# Hard ceiling so the window can never exceed the viewport.
+	dialog.max_size = Vector2i(max_w, max_h)
+	var w: int = min(int(base_size.x), max_w)
+	var h: int = min(int(base_size.y), max_h)
+	dialog.popup(Rect2i(_bottom_position(vp_size, w, h, margin_bottom), Vector2i(w, h)))
+	# Re-anchor once the content has been laid out to its real height.
+	var t := dialog.get_tree()
+	if t != null:
+		t.process_frame.connect(DialogUtils._reanchor_bottom.bind(dialog, margin_bottom), CONNECT_ONE_SHOT)
+
+
+static func _reanchor_bottom(dialog: Window, margin_bottom: int) -> void:
+	if not is_instance_valid(dialog) or not dialog.visible or not dialog.is_inside_tree():
+		return
+	var vp_size: Vector2 = _screen_size(dialog)
+	var max_w: int = int(vp_size.x * 0.95)
+	var max_h: int = int(vp_size.y * 0.9)
+	# Snap to the real content size, clamp to the viewport, then re-pin to the
+	# bottom edge so it never spills off-screen and never drifts to the middle.
+	dialog.reset_size()
+	var w: int = min(int(dialog.size.x), max_w)
+	var h: int = min(int(dialog.size.y), max_h)
+	dialog.size = Vector2i(w, h)
+	dialog.position = _bottom_position(vp_size, w, h, margin_bottom)
+
+
+static func _bottom_position(vp_size: Vector2, w: int, h: int, margin_bottom: int) -> Vector2i:
+	var x: int = int((vp_size.x - w) / 2.0)
+	var y: int = int(vp_size.y - h - margin_bottom)
+	return Vector2i(max(x, 0), max(y, 0))
+
+
 ## The size of the screen/root viewport the `dialog` popup is embedded in.
 ## NOTE: a Window is itself a Viewport, so `dialog.get_viewport()` returns the
 ## dialog, not the screen — use the SceneTree root viewport instead.
