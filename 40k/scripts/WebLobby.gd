@@ -488,6 +488,17 @@ func _start_game() -> void:
 	else:
 		GameState.initialize_default_state(selected_deployment)
 
+	# Re-mirror terrain into the fresh state. initialize_default_state wipes
+	# board.terrain and nothing reloads it here — the HOST then adjudicates
+	# terrain rules against an empty list while the guest gets the real one
+	# via the initial_state snapshot (same bug as the LAN lobby, fixed there
+	# in _do_start_game).
+	var terrain_mgr = get_node_or_null("/root/TerrainManager")
+	if terrain_mgr and terrain_mgr.current_layout != "":
+		terrain_mgr.load_terrain_layout(terrain_mgr.current_layout)
+		print("WebLobby: Reloaded terrain layout '%s' into fresh game state (%d pieces)" % [
+			terrain_mgr.current_layout, terrain_mgr.terrain_features.size()])
+
 	# Load selected armies for both host and client
 	# (Client receives army selections from host via start_game message)
 	print("WebLobby: Loading selected armies - P1: ", selected_player1_army, ", P2: ", selected_player2_army)

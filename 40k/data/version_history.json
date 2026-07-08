@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.7.4",
+			"date": "2026-07-08",
+			"summary": "Fixed online (game-code) multiplayer: joining with a code and deploying your first unit permanently desynced the two players. Online games now play through correctly.",
+			"changes": [
+				"Fixed the #1 online multiplayer bug: in an online game (host shares a code, opponent joins with it), the moment the joining player deployed their first unit the two games silently fell out of sync forever — the unit showed up for the joiner but never for the host. Online play sends moves as text (JSON), which turned every board position into a plain object; the host then crashed while checking the move and never told the joiner it failed, so the joiner kept a move the host never accepted. Positions are now converted back correctly before the host processes an online move, and a failed check is reported instead of silently dropped.",
+				"Fixed the same empty-battlefield terrain bug as the LAN fix, but for online games: the host of an online game was judging movement and line-of-sight against a board with no terrain on it.",
+				"Hardened online move handling so a single malformed message can no longer take down the host's processing of the rest of the game."
+			]
+		},
+		{
 			"version": "0.7.3",
 			"date": "2026-07-08",
 			"summary": "Major multiplayer hardening pass: LAN games no longer soft-lock at the pre-deployment roll-off, phases no longer get skipped or run ahead on one player's screen, and a large family of actions (stratagems, reactions, phase steps) that silently failed online now work.",

@@ -535,11 +535,20 @@ func _handle_relayed_action(action: Dictionary) -> void:
 		print("NetworkManager: Ignoring relayed action - not host")
 		return
 
+	# The relay is JSON: _sanitize_for_json turned every Vector2 in the guest's
+	# action into an {x, y} dict. Phase handlers take typed Vector2 parameters
+	# (e.g. DeploymentPhase._validate_model_position), which hard-crash on the
+	# dict — validation died mid-call, no rejection was sent, and the guest
+	# kept its optimistic apply forever (permanent desync). Restore Vector2s
+	# before the phase sees the action. (ENet never hits this: Godot RPCs
+	# serialize Variants natively.)
+	action = _desanitize_from_json(action)
+
 	# Validate the action (use player 2's ID since it came from the guest)
 	var peer_id = 2
 	var validation = validate_action(action, peer_id)
 
-	if not validation.valid:
+	if not validation.get("valid", false):
 		var reason = validation.get("reason", "Validation failed")
 		if reason == "Validation failed" and validation.has("errors") and validation.errors.size() > 0:
 			reason = validation.errors[0]
@@ -657,6 +666,28 @@ func _send_via_relay(data: Dictionary) -> void:
 	# Sanitize data for JSON serialization (Vector2/Vector3 etc. are not JSON-safe)
 	var safe_data = _sanitize_for_json(data)
 	web_relay.send_game_data(safe_data)
+
+func _desanitize_from_json(value) -> Variant:
+	"""Inverse of _sanitize_for_json: convert {x, y} dicts (produced from
+	Vector2 when crossing the JSON relay) back into Vector2, recursively.
+	Only dicts with EXACTLY the numeric keys x and y are converted — that
+	shape is only ever produced by the sanitizer."""
+	if value is Dictionary:
+		if value.size() == 2 and value.has("x") and value.has("y") \
+				and (value.x is float or value.x is int) \
+				and (value.y is float or value.y is int):
+			return Vector2(value.x, value.y)
+		var result = {}
+		for key in value:
+			result[key] = _desanitize_from_json(value[key])
+		return result
+	elif value is Array:
+		var result = []
+		for item in value:
+			result.append(_desanitize_from_json(item))
+		return result
+	else:
+		return value
 
 func _sanitize_for_json(value) -> Variant:
 	"""Recursively convert Godot types (Vector2, Vector3, etc.) to JSON-safe types."""
@@ -865,7 +896,7 @@ func submit_action(action: Dictionary) -> void:
 		var peer_id = 1  # Host's own peer ID
 		var validation = validate_action(action, peer_id)
 
-		if not validation.valid:
+		if not validation.get("valid", false):
 			# Get error message from either "reason" or first "errors" entry
 			var error_msg = validation.get("reason", "Validation failed")
 			if error_msg == "Validation failed" and validation.has("errors") and validation.errors.size() > 0:
@@ -918,7 +949,7 @@ func _submit_action_via_relay(action: Dictionary) -> void:
 		var peer_id = 1  # Host's own player ID
 		var validation = validate_action(action, peer_id)
 
-		if not validation.valid:
+		if not validation.get("valid", false):
 			var error_msg = validation.get("reason", "Validation failed")
 			if error_msg == "Validation failed" and validation.has("errors") and validation.errors.size() > 0:
 				error_msg = validation.errors[0]
@@ -952,7 +983,7 @@ func _submit_action_via_relay(action: Dictionary) -> void:
 
 			# Step 1: Validate locally (as player 2)
 			var validation = validate_action(action, 2)
-			if not validation.valid:
+			if not validation.get("valid", false):
 				var error_msg = validation.get("reason", "Validation failed")
 				if error_msg == "Validation failed" and validation.has("errors") and validation.errors.size() > 0:
 					error_msg = validation.errors[0]
@@ -1022,7 +1053,7 @@ func _send_action_to_host(action: Dictionary) -> void:
 	var validation = validate_action(action, peer_id)
 	print("NetworkManager: Validation result: ", validation)
 
-	if not validation.valid:
+	if not validation.get("valid", false):
 		# Get reason from either "reason" field or first error in "errors" array
 		var reason = validation.get("reason", "Unknown validation error")
 		if reason == "Unknown validation error" and validation.has("errors") and validation.errors.size() > 0:
