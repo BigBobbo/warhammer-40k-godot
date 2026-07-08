@@ -752,27 +752,61 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 		log_phase_message("[11e] Selectable charge targets after roll of %d: %s" % [total_distance, str(selectable)])
 		emit_signal("charge_targets_available", unit_id, selectable)
 
-	# Server-side feasibility check: can any model reach engagement range?
-	var roll_sufficient = _is_charge_roll_sufficient(unit_id, total_distance)
-	var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
+	# ── Per-target reachability verdict ─────────────────────────────────
+	# A charge must end engaged with EVERY declared target (10e move validator +
+	# 11e 11.04). The previous check only asked whether the NEAREST target was
+	# reachable, so an over-declared charge (e.g. 3 targets, roll reaches only 1)
+	# logged a false SUCCESS and then either silently failed at move-apply (10e)
+	# or had its far targets quietly dropped (11e). Decompose per declared target
+	# so the verdict, the displayed "needed" distance, and the player-facing
+	# message reflect the binding (farthest) target.
+	var declared_targets: Array = charge_data.get("declared_targets", target_ids)
+	var per_target := _per_target_charge_requirements(unit_id, declared_targets, float(total_distance))
+	var unreachable_targets: Array = []
+	var needed_for_all: float = 0.0
+	for tid in declared_targets:
+		var info: Dictionary = per_target.get(tid, {})
+		needed_for_all = maxf(needed_for_all, float(info.get("cost", INF)))
+		if not info.get("reachable", false):
+			unreachable_targets.append(tid)
 
-	# ISS-049 step 2 (11e 11.02): with no pre-declared targets, success is
-	# judged against the SELECTABLE list (enemies within 12" AND the roll)
-	# — the player picks targets with the move. Only an empty selectable
-	# list is a failed charge.
-	if GameConstants.edition >= 11 and target_ids.is_empty():
-		var selectable_11e: Array = charge_data.get("selectable_targets", [])
-		roll_sufficient = not selectable_11e.is_empty()
-		# For the log/failure record, measure against something meaningful:
-		# the selectable list, or (if the roll reached nothing) the original
-		# declaration — an empty list read as "nearest target is inf\" away".
-		var md_ids: Array = selectable_11e
-		if md_ids.is_empty():
-			md_ids = charge_data.get("declared_targets", [])
-		min_distance = _get_min_distance_to_any_target(unit_id, md_ids)
-		log_phase_message("[11e] No pre-declared targets — charge %s (selectable: %s)" % [
-			"continues, select targets with the move" if roll_sufficient else "FAILED (nothing reachable)",
-			str(selectable_11e)])
+	var roll_sufficient: bool
+	var min_distance: float
+
+	if GameConstants.edition >= 11:
+		# 11e (11.02): targets beyond the roll were already filtered out of
+		# target_ids above; the charge proceeds against the reachable subset.
+		# Preserve the original cost-based verdict exactly and only ADD the
+		# dropped-target reporting so a partial charge is never a silent surprise.
+		roll_sufficient = _is_charge_roll_sufficient(unit_id, total_distance)
+		min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
+		if target_ids.is_empty():
+			# ISS-049 step 2 (11e 11.02): with no pre-declared targets, success is
+			# judged against the SELECTABLE list (enemies within 12" AND the roll)
+			# — the player picks targets with the move. Only an empty selectable
+			# list is a failed charge.
+			var selectable_11e: Array = charge_data.get("selectable_targets", [])
+			roll_sufficient = not selectable_11e.is_empty()
+			var md_ids: Array = selectable_11e
+			if md_ids.is_empty():
+				md_ids = charge_data.get("declared_targets", [])
+			min_distance = _get_min_distance_to_any_target(unit_id, md_ids)
+			log_phase_message("[11e] No pre-declared targets — charge %s (selectable: %s)" % [
+				"continues, select targets with the move" if roll_sufficient else "FAILED (nothing reachable)",
+				str(selectable_11e)])
+		# Report declared targets dropped as out-of-reach (partial charge).
+		var dropped: Array = []
+		for tid in declared_targets:
+			if not tid in target_ids:
+				dropped.append(tid)
+		if roll_sufficient and not dropped.is_empty() and not target_ids.is_empty():
+			_report_partial_charge(unit_id, target_ids, dropped, total_distance, per_target)
+	else:
+		# 10e: every declared target must be reachable or the whole charge fails
+		# (the move validator would reject it anyway — fail it here, with a clear
+		# reason, instead of logging a false SUCCESS the player cannot act on).
+		roll_sufficient = not declared_targets.is_empty() and unreachable_targets.is_empty()
+		min_distance = needed_for_all if needed_for_all < INF else _get_min_distance_to_any_target(unit_id, declared_targets)
 
 	# Build dice result with success/failure flag so clients don't need to recompute
 	var dice_result = {
@@ -806,6 +840,14 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 			charge_event_log.add_player_entry(charge_owner,
 				"%s charge roll: [%d, %d] = %d\" vs %.1f\" needed - SUCCESS" % [
 					unit_name, rolls[0], rolls[1], total_distance, min_distance])
+		elif GameConstants.edition < 11 and unreachable_targets.size() > 0 and declared_targets.size() > 1:
+			# 10e over-declared multi-target charge: name the unreachable target(s)
+			# so the player learns a charge must reach EVERY declared target. (In
+			# 11e unreachable targets are dropped and the charge proceeds against
+			# the subset, so a FAILED there means nothing was reachable.)
+			charge_event_log.add_player_entry(charge_owner,
+				"%s charge roll: [%d, %d] = %d\" - FAILED (need %.1f\" to reach ALL targets; out of range: %s)" % [
+					unit_name, rolls[0], rolls[1], total_distance, min_distance, _format_target_names(unreachable_targets)])
 		else:
 			charge_event_log.add_player_entry(charge_owner,
 				"%s charge roll: [%d, %d] = %d\" vs %.1f\" needed - FAILED" % [
@@ -814,7 +856,7 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	if not roll_sufficient:
 		# Charge roll failed — record structured failure, clean up state, broadcast
 		DebugLogger.info(str("ChargePhase: Charge roll INSUFFICIENT for %s (rolled %d, min dist %.1f\")" % [unit_name, total_distance, min_distance]))
-		record_insufficient_roll_failure(unit_id, total_distance, rolls, target_ids, min_distance)
+		record_insufficient_roll_failure(unit_id, total_distance, rolls, target_ids, min_distance, _target_names_array(unreachable_targets))
 
 		# Clean up phase state so unit can't retry
 		units_that_charged.append(unit_id)
@@ -2627,10 +2669,17 @@ func get_failure_category_tooltip(category: String) -> String:
 	var text: String = FAIL_CATEGORY_TOOLTIPS.get(category, "Charge failed due to an unknown constraint.")
 	return text.replace("{er}", "%.0f\"" % GameConstants.engagement_range_inches())
 
-func record_insufficient_roll_failure(unit_id: String, rolled_distance: int, dice: Array, target_ids: Array, min_distance: float) -> void:
+func record_insufficient_roll_failure(unit_id: String, rolled_distance: int, dice: Array, target_ids: Array, min_distance: float, unreachable_names: Array = []) -> void:
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var er_in = GameConstants.engagement_range_inches()
-	var detail = "Rolled %d\" but nearest target is %.1f\" away (need to close to within %.0f\" engagement range)" % [rolled_distance, min_distance, er_in]
+	var detail: String
+	if unreachable_names.size() > 0 and target_ids.size() > 1:
+		# Over-declared multi-target charge: name the target(s) the roll can't
+		# reach so the player learns a charge must reach EVERY declared target.
+		detail = "Rolled %d\" — cannot reach every declared target (out of range: %s). A charge must end within %.0f\" engagement range of ALL targets; you needed to roll %.1f\"." % [
+			rolled_distance, ", ".join(unreachable_names), er_in, min_distance]
+	else:
+		detail = "Rolled %d\" but nearest target is %.1f\" away (need to close to within %.0f\" engagement range)" % [rolled_distance, min_distance, er_in]
 	var failure_record = {
 		"unit_id": unit_id,
 		"unit_name": unit_name,
@@ -2721,6 +2770,89 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 			return true
 
 	return false
+
+func _per_target_charge_requirements(unit_id: String, target_ids: Array, rolled_distance: float) -> Dictionary:
+	"""Decompose a charge into its per-target reachability. For each target in
+	`target_ids`, find the cheapest terrain-aware charge cost (inches) for any
+	alive model of `unit_id` to reach engagement range of that target, using the
+	same direct+detour cost model as _is_charge_roll_sufficient and the move
+	validator. Returns { target_id: {required, cost, reachable, name} } where:
+	  • required  = raw distance-to-ER of the closest model pair (roll needed on
+	                open ground, ignoring terrain);
+	  • cost      = required + terrain penalties along the cheapest reaching path;
+	  • reachable = cost <= rolled_distance (+ epsilon).
+
+	This is the per-target decomposition the SUCCESS/FAILED verdict, the displayed
+	'needed' distance, and the declaration-time hint are all built on. A charge is
+	only makeable if EVERY declared target is reachable — both 10e's move
+	validator and 11e 11.04 require the move to end engaged with every declared
+	target. The old feasibility check only asked whether the NEAREST target was
+	reachable, which let an over-declared charge log a false SUCCESS."""
+	var out := {}
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return out
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
+	for target_id in target_ids:
+		var target_unit = get_unit(target_id)
+		if target_unit.is_empty():
+			continue
+		var best_required := INF
+		var best_cost := INF
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				var direct = _direct_charge_cost(model, target_model, has_fly, unit_keywords)
+				best_required = minf(best_required, direct.required)
+				best_cost = minf(best_cost, direct.cost)
+				# Straight approach pays a terrain penalty but the raw distance
+				# fits the roll — angling around the obstacle may be cheaper
+				# (mirrors _is_charge_roll_sufficient's pass-2 detour + what the
+				# move validator will accept).
+				if direct.cost > direct.required + MOVEMENT_CAP_EPSILON and direct.required <= rolled_distance + MOVEMENT_CAP_EPSILON:
+					var around = _detour_charge_cost(model, target_model, has_fly, unit_keywords, rolled_distance)
+					best_cost = minf(best_cost, around)
+		out[target_id] = {
+			"required": best_required,
+			"cost": best_cost,
+			"reachable": best_cost <= rolled_distance + MOVEMENT_CAP_EPSILON,
+			"name": target_unit.get("meta", {}).get("name", target_id),
+		}
+	return out
+
+func _target_names_array(target_ids: Array) -> Array:
+	"""Display names for a list of target unit ids."""
+	var names: Array = []
+	for tid in target_ids:
+		names.append(get_unit(tid).get("meta", {}).get("name", tid))
+	return names
+
+func _format_target_names(target_ids: Array) -> String:
+	"""Comma-joined display names for a list of target unit ids."""
+	return ", ".join(_target_names_array(target_ids))
+
+func _report_partial_charge(unit_id: String, kept_ids: Array, dropped_ids: Array, roll: int, per_target: Dictionary) -> void:
+	"""11e: a successful roll that only reaches a SUBSET of the declared targets
+	drops the rest. That drop is otherwise silent (debug log only), so from the
+	player's side a 3-target declaration that fights only 1 unit looks like a bug.
+	Emit a visible entry naming what is engaged and what fell out of reach."""
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var dropped_desc: Array = []
+	for tid in dropped_ids:
+		var need = float(per_target.get(tid, {}).get("cost", INF))
+		var nm = get_unit(tid).get("meta", {}).get("name", tid)
+		dropped_desc.append("%s (needs %.1f\")" % [nm, need] if need < INF else nm)
+	var msg = "%s charge reaches %s; beyond the %d\" roll: %s" % [
+		unit_name, _format_target_names(kept_ids), roll, ", ".join(dropped_desc)]
+	log_phase_message("[11e] " + msg)
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(int(get_unit(unit_id).get("owner", 0)), msg)
 
 func _direct_charge_cost(model: Dictionary, target_model: Dictionary, has_fly: bool, unit_keywords: Array) -> Dictionary:
 	"""Effective cost (inches) for `model` to charge straight at `target_model`,
