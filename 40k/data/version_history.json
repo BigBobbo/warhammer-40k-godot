@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.7.2",
+			"date": "2026-07-08",
+			"summary": "The Fight phase 'Pile In' and 'Consolidate' windows now dock to the bottom of the screen instead of sitting in the middle of the battlefield, and match the rest of the game's menus.",
+			"changes": [
+				"When you pile in or consolidate, the pop-up used to open centered right over the board — covering the very models you were trying to drag. It now docks to the bottom-centre of the screen with the battlefield fully visible above it, so you can see and drag your models while the controls stay out of the way.",
+				"Restyled both windows to match the rest of the menus: a gold heading, a gold divider between sections, and a red 'Confirm Move' button like 'Start Game'. The legend at the bottom (green arrow / red arrow / dashed line / green dots / red X) was almost unreadable dark-grey text and is now a legible muted tone.",
+				"Removed the redundant extra 'OK' button — the window's own 'Confirm Move', 'Skip / Confirm (No Models Move)' and 'Reset Positions' buttons are the controls (pressing Enter still confirms)."
+			]
+		},
+		{
 			"version": "0.7.1",
 			"date": "2026-07-07",
 			"summary": "Fixed the Game Log drawing on top of the Save & Load menu — the menu now always sits above the log and other side panels while it's open.",
