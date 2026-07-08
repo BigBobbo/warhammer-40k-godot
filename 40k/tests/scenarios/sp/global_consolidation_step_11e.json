@@ -9,6 +9,11 @@
     "movetypes.ConsolidationMove",
     "dialogs.PileInStepDialog",
     "dialogs.ConsolidationStepDialog",
+    "dialogs.PileInDialog",
+    "dialogs.ConsolidateDialog",
+    "ui.layout.PileInDialog_bottom_dock",
+    "ui.layout.ConsolidateDialog_bottom_dock",
+    "scripts.DialogUtils.popup_at_bottom",
     "scenario_runner.drag_board"
   ],
   "fixture": "co_pretrigger",
@@ -16,7 +21,7 @@
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "The FULL 11e fight-phase structure (12.02-12.08), played end-to-end as a human. The phase OPENS with the global Pile In step: the active player (P2) passes with End Pile In, then P1 picks the Custodian Guard and DRAGS a model with real mouse-motion events, confirms, and ends their half with the Telemon unmoved. The Fight step then runs three activations through the real dialogs (Warboss P2, Custodian Guard and Telemon P1 — all engaged from the start, so NO per-activation pile-in dialog appears). End Fight Phase enters the global Consolidate step: P2 passes (optional per unit), P1 consolidates the Telemon by drag, ends their half with the Custodians unmoved, and the phase completes. Setup-only privileges: CP zeroed to suppress stratagem prompts not under test; model wounds inflated so no unit dies (deterministic aliveness for the drag targets). Every in-game decision is a real click or drag.",
+  "description": "The FULL 11e fight-phase structure (12.02-12.08), played end-to-end as a human. The phase OPENS with the global Pile In step: the active player (P2) passes with End Pile In, then P1 picks the Custodian Guard and DRAGS a model with real mouse-motion events, confirms, and ends their half with the Telemon unmoved. The Fight step then runs three activations through the real dialogs (Warboss P2, Custodian Guard and Telemon P1 — all engaged from the start, so NO per-activation pile-in dialog appears). End Fight Phase enters the global Consolidate step: P2 passes (optional per unit), P1 consolidates the Telemon by drag, ends their half with the Custodians unmoved, and the phase completes. Setup-only privileges: CP zeroed to suppress stratagem prompts not under test; model wounds inflated so no unit dies (deterministic aliveness for the drag targets). Every in-game decision is a real click or drag. Also guards the interactive-move dialog placement: when the live PileInDialog / ConsolidateDialog open, they must be docked near the BOTTOM of the screen (position.y in the lower half) and fully on-screen, so they no longer sit centered on top of the battlefield the player is dragging models across.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
@@ -42,6 +47,8 @@
     { "act": "click_node", "node": "/root/PileInStepDialog/Content/UnitScroll/UnitList/PileIn_U_CUSTODIAN_GUARD_B", "emit_pressed": true },
 
     { "act": "expect_node_visible", "node": "/root/PileInDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"PileInDialog\").position.y", "expect_min": 500 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"PileInDialog\").position.y + main.get_tree().root.get_node(\"PileInDialog\").size.y <= main.get_viewport().get_visible_rect().size.y", "equals": true },
     { "act": "drag_board", "from_x": 200, "from_y": 100, "to_x": 255, "to_y": 170 },
     { "act": "screenshot", "label": "03_pile_in_model_dragged" },
     { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/ConfirmButton", "emit_pressed": true },
@@ -102,6 +109,8 @@
     { "act": "click_node", "node": "/root/ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_TELEMON_HEAVY_DREADNOUGHT_I", "emit_pressed": true },
 
     { "act": "expect_node_visible", "node": "/root/ConsolidateDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"ConsolidateDialog\").position.y", "expect_min": 500 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"ConsolidateDialog\").position.y + main.get_tree().root.get_node(\"ConsolidateDialog\").size.y <= main.get_viewport().get_visible_rect().size.y", "equals": true },
     { "act": "drag_board", "from_x": 600, "from_y": 250, "to_x": 573, "to_y": 208 },
     { "act": "screenshot", "label": "07_consolidate_model_dragged" },
     { "act": "click_node", "node": "/root/ConsolidateDialog/Content/Buttons/ConfirmButton", "emit_pressed": true },

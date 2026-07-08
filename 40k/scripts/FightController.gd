@@ -1801,7 +1801,9 @@ func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
 	dialog.pile_in_skipped.connect(_on_pile_in_skipped.bind(unit_id))
 	dialog.tree_exiting.connect(_on_pile_in_dialog_closed)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	# Dock to the bottom of the screen so it doesn't cover the battlefield the
+	# player is dragging models across.
+	DialogUtils.popup_at_bottom(dialog, DialogConstants.SMALL)
 
 	# Enable pile-in mode
 	_enable_pile_in_mode(unit_id, dialog)
@@ -1948,7 +1950,9 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	dialog.consolidate_skipped.connect(_on_consolidate_skipped.bind(unit_id))
 	dialog.tree_exiting.connect(_on_consolidate_dialog_closed)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	# Dock to the bottom of the screen so it doesn't cover the battlefield the
+	# player is dragging models across (same treatment as the Pile In dialog).
+	DialogUtils.popup_at_bottom(dialog, DialogConstants.SMALL)
 
 	# Enable consolidate mode (uses same system as pile-in)
 	_enable_consolidate_mode(unit_id, dialog)
