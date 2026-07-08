@@ -156,6 +156,10 @@ var _ai_speed_panel: PanelContainer = null
 var _ai_speed_label: Label = null
 var _ai_step_continue_button: Button = null
 
+# On-demand "AI Suggestion" button (human-vs-AI mode) — asks the AI what it would
+# do and shows its reasoning without taking the action. Hidden until an AI game.
+var _ai_suggestion_button: Button = null
+
 # P2-44: Player turn screen-edge color indicator
 var _player_turn_border: PlayerTurnBorder = null
 var _last_active_player: int = -1  # Track player changes for flash animation
@@ -510,6 +514,9 @@ func _ready() -> void:
 	# T7-36: Setup AI speed controls HUD
 	_setup_ai_speed_hud()
 
+	# On-demand AI suggestion button (revealed later for human-vs-AI games)
+	_setup_ai_suggestion_button()
+
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
 
@@ -611,6 +618,9 @@ func _initialize_ai_player() -> void:
 		_update_ai_speed_label(ai_player.get_ai_speed_name())
 		if _ai_speed_panel:
 			_ai_speed_panel.visible = true
+
+	# Reveal the on-demand AI suggestion button for human-vs-AI games
+	refresh_ai_suggestion_button()
 
 	# T7-55: Setup spectator mode if both players are AI
 	if _is_spectator_mode:
@@ -2007,6 +2017,52 @@ func _setup_reserves_button() -> void:
 	hud_right.move_child(reserves_button, unit_list_idx + 1)
 
 	print("Main: Reserves button created and added to HUD_Right")
+
+func _setup_ai_suggestion_button() -> void:
+	"""Create the on-demand 'AI Suggestion' button in the bottom HUD. Hidden until
+	an AI game is confirmed (revealed by refresh_ai_suggestion_button). Lets a human
+	ask the AI what it would do on the current turn — surfacing its reasoning in the
+	game log for hints and for debugging the AI — without taking the action."""
+	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if not hud_container:
+		print("Main: HUD_Bottom/HBoxContainer not found for AI suggestion button")
+		return
+
+	_ai_suggestion_button = Button.new()
+	_ai_suggestion_button.name = "AISuggestionButton"
+	var _hint_key = KeybindingManager.get_key_display_name("ai_suggestion") if KeybindingManager else "K"
+	_ai_suggestion_button.text = "AI Suggestion (%s)" % _hint_key
+	_ai_suggestion_button.tooltip_text = "Ask the AI what it would do on this turn. Shows its reasoning in the log — it does NOT take the action. Hotkey: %s" % _hint_key
+	_ai_suggestion_button.visible = false
+	_ai_suggestion_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_WhiteDwarfTheme.apply_to_button(_ai_suggestion_button)
+	# Cyan-tinted font to distinguish the advisory action from phase controls.
+	_ai_suggestion_button.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+	_ai_suggestion_button.add_theme_color_override("font_hover_color", Color(0.8, 0.97, 1.0))
+	_ai_suggestion_button.pressed.connect(_on_ai_suggestion_pressed)
+	hud_container.add_child(_ai_suggestion_button)
+	print("Main: AI suggestion button created")
+
+func refresh_ai_suggestion_button() -> void:
+	"""Show the AI-suggestion button only for single-viewer AI games (an AI player
+	present, not AI-vs-AI spectator). Safe to call repeatedly; also invoked by
+	windowed test scenarios after configuring the AI."""
+	if not _ai_suggestion_button:
+		return
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	var should_show := false
+	if ai_player and ai_player.enabled and not ai_player.is_spectator_mode():
+		if ai_player.is_ai_player(1) or ai_player.is_ai_player(2):
+			should_show = true
+	_ai_suggestion_button.visible = should_show
+
+func _on_ai_suggestion_pressed() -> void:
+	"""Ask the AI for a suggestion on the current turn and show its reasoning in the
+	game log. Pure preview — nothing is dispatched."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if not ai_player:
+		return
+	ai_player.request_suggestion()
 
 func _on_reserves_button_pressed() -> void:
 	if _selected_unit_for_reserves == "":
@@ -4951,6 +5007,15 @@ func _input(event: InputEvent) -> void:
 		_toggle_army_panel()
 		get_viewport().set_input_as_handled()
 		return
+
+	# AI suggestion hint (default KEY_K, rebindable) — only when the button is
+	# available, i.e. a human-vs-AI game. Registered in KeybindingManager so it
+	# never collides with H (Toggle Mathhammer) and shows in the shortcut overlay.
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "ai_suggestion"):
+		if _ai_suggestion_button and _ai_suggestion_button.visible:
+			_on_ai_suggestion_pressed()
+			get_viewport().set_input_as_handled()
+			return
 
 	# T-095/T-110: Hotkey help overlay - KEY_QUESTION (?) or KEY_SLASH with shift
 	if event is InputEventKey and event.pressed and not event.echo and (event.keycode == KEY_QUESTION or (event.keycode == KEY_SLASH and event.shift_pressed)):

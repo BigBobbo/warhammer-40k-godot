@@ -1051,6 +1051,91 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 	return result
 
 # =============================================================================
+# ON-DEMAND SUGGESTION — human-facing "what would you do?" preview
+# =============================================================================
+
+# Preview the decision the AI would make for `player` in the current situation
+# WITHOUT mutating the persistent planning caches the live AI opponent relies on.
+# decide() writes several static caches (multi-phase plan, focus-fire plan,
+# charge/fight coordination, secondary/primary awareness, bodyguard pairing,
+# current player & difficulty). Those are round-keyed, so a human asking for a
+# hint on their own turn — the same battle round as the AI's upcoming turn —
+# could otherwise leave a stale plan behind that the AI then reuses. We snapshot
+# the caches, run the decision, and restore them, so a suggestion is truly
+# side-effect-free. Returns the same dict decide() returns, including the
+# _ai_thinking_steps / _ai_decision_records / _ai_thinking_context reasoning.
+static func suggest_action(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
+	var saved := _snapshot_planning_state()
+	var decision := decide(phase, snapshot, available_actions, player, difficulty)
+	_restore_planning_state(saved)
+	return decision
+
+static func _snapshot_planning_state() -> Dictionary:
+	# Deep-copy every static cache decide() may write that outlives a single call
+	# and is consulted on later turns. Config/profile state (_config_overrides,
+	# _player_profiles) is intentionally left out — decide() never mutates it.
+	return {
+		"focus_fire_plan": _focus_fire_plan.duplicate(true),
+		"focus_fire_plan_built": _focus_fire_plan_built,
+		"focus_fire_plan_logged": _focus_fire_plan_logged,
+		"grenade_evaluated": _grenade_evaluated,
+		"phase_plan": _phase_plan.duplicate(true),
+		"phase_plan_built": _phase_plan_built,
+		"phase_plan_round": _phase_plan_round,
+		"fight_order_plan": _fight_order_plan.duplicate(true),
+		"fight_order_plan_built": _fight_order_plan_built,
+		"fight_order_logged": _fight_order_logged,
+		"fight_attack_retry_count": _fight_attack_retry_count.duplicate(true),
+		"charge_coordination": _charge_coordination.duplicate(true),
+		"charge_coordination_round": _charge_coordination_round,
+		"fight_coordination": _fight_coordination.duplicate(true),
+		"fight_coordination_round": _fight_coordination_round,
+		"bodyguards_with_leaders": _bodyguards_with_leaders.duplicate(true),
+		"movement_plan_logged": _movement_plan_logged,
+		"secondary_awareness_p1": _secondary_awareness_p1.duplicate(true),
+		"secondary_awareness_p2": _secondary_awareness_p2.duplicate(true),
+		"secondary_awareness_round_p1": _secondary_awareness_round_p1,
+		"secondary_awareness_round_p2": _secondary_awareness_round_p2,
+		"primary_awareness_p1": _primary_awareness_p1.duplicate(true),
+		"primary_awareness_p2": _primary_awareness_p2.duplicate(true),
+		"primary_awareness_round_p1": _primary_awareness_round_p1,
+		"primary_awareness_round_p2": _primary_awareness_round_p2,
+		"active_rule_overrides": _active_rule_overrides.duplicate(true),
+		"current_player": _current_player,
+		"current_difficulty": _current_difficulty,
+	}
+
+static func _restore_planning_state(s: Dictionary) -> void:
+	_focus_fire_plan = s["focus_fire_plan"]
+	_focus_fire_plan_built = s["focus_fire_plan_built"]
+	_focus_fire_plan_logged = s["focus_fire_plan_logged"]
+	_grenade_evaluated = s["grenade_evaluated"]
+	_phase_plan = s["phase_plan"]
+	_phase_plan_built = s["phase_plan_built"]
+	_phase_plan_round = s["phase_plan_round"]
+	_fight_order_plan = s["fight_order_plan"]
+	_fight_order_plan_built = s["fight_order_plan_built"]
+	_fight_order_logged = s["fight_order_logged"]
+	_fight_attack_retry_count = s["fight_attack_retry_count"]
+	_charge_coordination = s["charge_coordination"]
+	_charge_coordination_round = s["charge_coordination_round"]
+	_fight_coordination = s["fight_coordination"]
+	_fight_coordination_round = s["fight_coordination_round"]
+	_bodyguards_with_leaders = s["bodyguards_with_leaders"]
+	_movement_plan_logged = s["movement_plan_logged"]
+	_secondary_awareness_p1 = s["secondary_awareness_p1"]
+	_secondary_awareness_p2 = s["secondary_awareness_p2"]
+	_secondary_awareness_round_p1 = s["secondary_awareness_round_p1"]
+	_secondary_awareness_round_p2 = s["secondary_awareness_round_p2"]
+	_primary_awareness_p1 = s["primary_awareness_p1"]
+	_primary_awareness_p2 = s["primary_awareness_p2"]
+	_primary_awareness_round_p1 = s["primary_awareness_round_p1"]
+	_primary_awareness_round_p2 = s["primary_awareness_round_p2"]
+	_active_rule_overrides = s["active_rule_overrides"]
+	_current_player = s["current_player"]
+	_current_difficulty = s["current_difficulty"]
+
+# =============================================================================
 # T7-40: EASY DIFFICULTY — RANDOM VALID ACTIONS
 # =============================================================================
 

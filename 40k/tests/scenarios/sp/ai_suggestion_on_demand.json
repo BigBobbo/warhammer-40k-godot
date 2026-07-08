@@ -1,0 +1,58 @@
+{
+  "id": "ai_suggestion_on_demand",
+  "covers": [
+    "ai.suggestion.on_demand_hint",
+    "ai.suggestion.reasoning_in_log",
+    "ai.suggestion.pure_preview",
+    "ui.HUD.ai_suggestion_button"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "On-demand AI suggestion for the human player. P1 (human) vs P2 (AI). During P1's Movement phase, revealing and clicking the 'AI Suggestion' HUD button (a) logs the AI's reasoning as a thinking card in the left game log, and (b) executes NOTHING — the AI action log stays empty and the phase/active-player do not advance. Proves the feature is a pure, side-effect-free preview driven from the real UI button (plus KEY_H hotkey path).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
+    { "act": "execute_script", "script": "AIPlayer.clear_action_log()" },
+    { "act": "execute_script", "script": "GameState.set_active_player(1)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(7)" },
+    { "act": "execute_script", "script": "main.refresh_ai_suggestion_button()" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISuggestionButton", "timeout_s": 2.0 },
+    { "act": "expect_node_property", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISuggestionButton", "property": "disabled", "equals": false },
+
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "AIPlayer.get_action_log().size()", "equals": 0 },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISuggestionButton" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "screenshot", "label": "01_suggestion_in_left_log", "region": [0, 105, 400, 720] },
+
+    { "act": "execute_script", "script": "GameEventLog.count_ai_thinking_entries()", "expect_min": 1 },
+    { "act": "execute_script", "script": "GameEventLog.has_ai_entry_containing_any([\"Suggestion\"])", "equals": true },
+    { "act": "execute_script", "script": "main.game_log_panel.get_ai_card_count()", "expect_min": 1 },
+
+    { "act": "execute_script", "script": "AIPlayer.get_action_log().size()", "equals": 0 },
+    { "act": "execute_script", "script": "GameState.get_active_player()", "equals": 1 },
+    { "act": "expect_phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "AIPlayer.request_suggestion().size()", "expect_min": 1 },
+    { "act": "execute_script", "script": "AIPlayer.request_suggestion().get(\"type\", \"\")" },
+    { "act": "execute_script", "script": "AIPlayer.get_action_log().size()", "equals": 0 },
+    { "act": "execute_script", "script": "GameState.get_active_player()", "equals": 1 },
+    { "act": "expect_phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "simulate_key", "keycode": "K" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "GameEventLog.count_ai_thinking_entries()", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_ai_card_count()", "expect_min": 1 },
+    { "act": "execute_script", "script": "AIPlayer.get_action_log().size()", "equals": 0 },
+    { "act": "screenshot", "label": "03_hotkey_suggestion", "region": [0, 105, 400, 720] },
+
+    { "act": "screenshot", "label": "02_full_screen" }
+  ]
+}

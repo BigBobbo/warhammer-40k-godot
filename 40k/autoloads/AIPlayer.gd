@@ -96,6 +96,7 @@ signal spectator_phase_summary(player: int, phase: int, summary: Dictionary)
 # T7-56: Turn history signal — emitted when a turn's actions are stored
 signal turn_history_updated()
 signal ai_alpha_targets_selected(drawing_player: int, alpha_targets: Array, eligible_units: Array)  # AI opponent selected alphas; human card holder needs to pick gamma
+signal ai_suggestion_ready(player: int, decision: Dictionary, description: String)  # On-demand hint computed (preview only — not executed)
 
 func _ready() -> void:
 	# ISS-032: AI cache policy is reset-by-design across save/load — the
@@ -475,6 +476,77 @@ func get_action_log() -> Array:
 
 func clear_action_log() -> void:
 	_action_log.clear()
+
+# =============================================================================
+# ON-DEMAND AI SUGGESTION — human-facing hint / AI-reasoning inspector
+# =============================================================================
+
+func request_suggestion() -> Dictionary:
+	"""Compute what the AI would do for the CURRENT active player and surface its
+	reasoning in the game log — WITHOUT executing anything. Built for a human
+	playing against the AI who wants a hint, or for debugging the AI's reasoning
+	on any board position. Pure preview: dispatches no action, advances no phase,
+	appends nothing to the AI action log, and (via AIDecisionMaker.suggest_action)
+	does not disturb the opponent AI's planning caches. Returns the decision dict
+	(with _ai_* reasoning fields), or an empty dict if no suggestion is available."""
+	# Don't interleave with the AI actively taking its own turn — that path owns
+	# the decision caches while it runs.
+	if _processing_turn:
+		_log_ai_thinking(GameState.get_active_player(), "Suggestion unavailable — the AI is currently taking its turn.")
+		return {}
+
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	var phase_manager = _phase_manager_ref
+	if not phase_manager or not phase_manager.current_phase_instance:
+		push_warning("AIPlayer.request_suggestion: no active phase to reason about")
+		return {}
+
+	# Whose decision is it? Normally the active player; in the fight phase the
+	# alternating-activation selecting player may differ from the active player.
+	var player = GameState.get_active_player()
+	var phase = GameState.get_current_phase()
+	if phase == GameStateData.Phase.FIGHT:
+		var sel = _get_fight_phase_selecting_player()
+		if sel > 0:
+			player = sel
+
+	var snapshot = GameState.create_snapshot()
+	var available = phase_manager.get_available_actions()
+	if available.is_empty():
+		_log_ai_thinking(player, "No actions available to suggest right now.")
+		emit_signal("ai_suggestion_ready", player, {}, "No actions available")
+		return {}
+
+	# Preview at the difficulty of the AI the player is actually facing, so the
+	# hint reflects that specific opponent. If the active player is themselves an
+	# AI, use their own difficulty. Never preview at Easy (random picks, no scored
+	# rationale) — bump to Normal so there is an actual reasoning trace to show.
+	var difficulty = get_difficulty(player)
+	if not is_ai_player(player):
+		var opponent = 2 if player == 1 else 1
+		difficulty = get_difficulty(opponent) if is_ai_player(opponent) else AIDifficultyConfigData.Difficulty.NORMAL
+	if AIDifficultyConfigData.use_random_actions(difficulty):
+		difficulty = AIDifficultyConfigData.Difficulty.NORMAL
+
+	var decision = AIDecisionMaker.suggest_action(phase, snapshot, available, player, difficulty)
+	if decision.is_empty():
+		_log_ai_thinking(player, "The AI could not find a recommended action here.")
+		emit_signal("ai_suggestion_ready", player, {}, "No recommendation")
+		return {}
+
+	# Surface the reasoning in the game log using the same collapsible thinking-card
+	# path the live AI uses, so the player sees the chosen action, the rejected
+	# alternatives, and (when available) the considered options highlighted on the board.
+	var description = decision.get("_ai_description", str(decision.get("type", "unknown")))
+	var steps = decision.get("_ai_thinking_steps", [])
+	var context = decision.get("_ai_thinking_context", {})
+	var phase_name = PHASE_DISPLAY_NAMES.get(phase, "Unknown")
+	_log_ai_thinking_block(player, "Suggestion (%s): %s" % [phase_name, description], steps, context)
+	emit_signal("ai_suggestion_ready", player, decision, description)
+	print("AIPlayer: Suggestion for P%d in %s phase -> %s" % [player, phase_name, description])
+	DebugLogger.info("AIPlayer suggestion", {"player": player, "phase": phase_name, "type": decision.get("type", ""), "description": description})
+	return decision
 
 # T7-56: Per-turn action history for AI turn replay panel
 

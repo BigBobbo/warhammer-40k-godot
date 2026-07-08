@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.8.0",
+			"date": "2026-07-08",
+			"summary": "When playing against the AI you can now ask it for a suggestion on your own turn — a new 'AI Suggestion' button (hotkey K) shows what the AI would do and why, without taking the action for you.",
+			"changes": [
+				"New 'AI Suggestion' button in the bottom HUD (and hotkey K) for games against the AI. Press it on your turn and the AI reasons about your current position — the phase you're in, your units, the enemy, the objectives — and posts its recommended action to the game log, e.g. 'Suggestion (Movement): Witchseekers advances aggressively toward Kommandos (28.0\" away)'.",
+				"The suggestion is a full reasoning card: it shows the chosen action plus the alternatives it considered and rejected, each with a score, and (where it applies) highlights the options it weighed on the board. Great for learning the game, or for understanding and debugging how the AI thinks.",
+				"It only suggests — it never acts for you. Asking for a hint takes no game action, doesn't end your turn or phase, and has no effect on the AI opponent. The advice reflects the difficulty of the AI you're actually facing.",
+				"The button appears only in games with an AI opponent; the K hotkey is rebindable and listed in the shortcut overlay (press ? )."
+			]
+		},
+		{
 			"version": "0.7.8",
 			"date": "2026-07-08",
 			"summary": "Charges that declare more targets than the roll can reach are now clearly reported instead of showing a misleading 'SUCCESS', and the charge panel now tells you the roll needed to reach every target you've picked.",
