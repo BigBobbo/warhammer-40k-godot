@@ -1,0 +1,87 @@
+{
+  "id": "charge_base_contact_enforced",
+  "covers": ["charge.base_contact.per_model_enforced", "charge.base_contact.within_1_inch", "charge.base_contact.reject_short_move", "chargephase.apply_charge_move.b2b"],
+  "fixture": "audit_372_charge_modifier",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Windowed proof of the 11e Charge Move 11.04 close-distance rule (per-model 'within 1 inch'). A Battlewagon sits ~2.5\" edge-to-edge from a Blade Champion with a clean straight path; the charge distance is forced to 12\" so base contact is well within reach. FIRST an APPLY_CHARGE_MOVE that only closes to ~1.5\" edge (inside the 2\" engagement range but OUTSIDE 1\") is REJECTED by the base-contact enforcement — the model stays put (distance unchanged ~2.5\"). THEN an APPLY into full base contact is accepted and the charge completes. This exercises the real APPLY_CHARGE_MOVE action pipeline in the running game, proving the enforcement (fixed to be per-model, not 'one model suffices') is live for players.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_BATTLEWAGON_G\"].models[0].merge({\"position\": {\"x\": 700.0, \"y\": 2150.0}, \"rotation\": 0.0}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"position\": {\"x\": 973.0, \"y\": 2150.0}}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+
+    { "act": "execute_script",
+      "script": "Measurement.model_to_model_distance_inches(GameState.state.units[\"U_BATTLEWAGON_G\"].models[0], GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0])",
+      "expect_min": 2.3, "expect_max": 2.7 },
+    { "act": "screenshot", "label": "01_setup_2p5in_apart" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_CHARGE",
+      "actor_unit_id": "U_BATTLEWAGON_G",
+      "payload": { "target_unit_ids": ["U_BLADE_CHAMPION_A"] }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "CHARGE_ROLL",
+      "actor_unit_id": "U_BATTLEWAGON_G",
+      "payload": { "rng_seed": 15 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_action_result", "path": "charge_failed", "equals": false },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_charges[\"U_BATTLEWAGON_G\"].merge({\"distance\": 12}, true)" },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_charge_distance(\"U_BATTLEWAGON_G\")",
+      "equals": 12 },
+
+    { "act": "dispatch_action", "action": {
+      "type": "APPLY_CHARGE_MOVE",
+      "actor_unit_id": "U_BATTLEWAGON_G",
+      "payload": {
+        "per_model_paths": { "m1": [[700.0, 2150.0], [739.77, 2150.0]] },
+        "per_model_rotations": {}
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "execute_script",
+      "script": "Measurement.model_to_model_distance_inches(GameState.state.units[\"U_BATTLEWAGON_G\"].models[0], GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0])",
+      "expect_min": 2.3 },
+    { "act": "screenshot", "label": "02_short_move_rejected_model_stayed" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "APPLY_CHARGE_MOVE",
+      "actor_unit_id": "U_BATTLEWAGON_G",
+      "payload": {
+        "per_model_paths": { "m1": [[700.0, 2150.0], [799.77, 2150.0]] },
+        "per_model_rotations": {}
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_BATTLEWAGON_G.flags.charged_this_turn", "equals": true },
+    { "act": "execute_script",
+      "script": "Measurement.model_to_model_distance_inches(GameState.state.units[\"U_BATTLEWAGON_G\"].models[0], GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0])",
+      "expect_max": 0.35 },
+    { "act": "screenshot", "label": "03_base_contact_accepted" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "COMPLETE_UNIT_CHARGE",
+      "actor_unit_id": "U_BATTLEWAGON_G"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_token_visible", "unit_id": "U_BATTLEWAGON_G" },
+    { "act": "screenshot", "label": "04_charge_completed" }
+  ]
+}

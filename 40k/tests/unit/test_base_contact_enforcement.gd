@@ -1,9 +1,11 @@
 extends "res://addons/gut/test.gd"
 
-# Tests for T1-7: Base-to-base contact enforcement in charge
+# Tests for charge close-distance enforcement (11e Charge Move 11.04).
 #
-# 10e rule: If a charging model CAN make base-to-base contact with an enemy
-# model while still satisfying all other charge conditions, it MUST do so.
+# 11e rule: every charging model that CAN end its move within 1" of a charge
+# target (while satisfying all other charge conditions) MUST do so — a PER-MODEL
+# obligation, NOT satisfied by a single model reaching base contact. Base-to-base
+# (0") over-satisfies the 1" band, so a model in contact is always fine.
 #
 # Position math for 32mm circular bases:
 #   base_radius_px ≈ 25.2 px  (32mm / 25.4 * 40 / 2)
@@ -84,11 +86,12 @@ func test_model_in_b2b_is_valid():
 # Test: Model CAN reach b2b but DOES NOT — invalid
 # ==========================================
 
-func test_model_could_reach_b2b_but_didnt():
-	# Charging model starts 3" away, rolled 7 (plenty to reach b2b),
-	# but stops 0.8" away from target — violation
+func test_model_could_reach_within_1in_but_didnt():
+	# Charging model starts 3" away, rolled 7 (plenty), but stops 1.5" away — a
+	# violation under 11e because it could have ended within 1" of the target.
+	# (A stop within 1" would be perfectly legal; only >1" triggers the rule.)
 	var target_x = 170.4  # ~3" edge-to-edge
-	var stop_x = target_x - 82.4  # ~0.8" edge-to-edge (not b2b, still in ER)
+	var stop_x = target_x - 110.4  # ~1.5" edge-to-edge (>1", could have closed)
 
 	var charger = _make_model("marine_1", 0, 0)
 	var target = _make_model("ork_1", target_x, 0)
@@ -98,7 +101,7 @@ func test_model_could_reach_b2b_but_didnt():
 		"target_unit": _make_unit(1, [target])
 	})
 
-	# Path: model stops short of b2b
+	# Path: model stops >1" short
 	var per_model_paths = {
 		"marine_1": [[0, 0], [stop_x, 0]]
 	}
@@ -107,9 +110,62 @@ func test_model_could_reach_b2b_but_didnt():
 		"charger_unit", per_model_paths, ["target_unit"], board, 7
 	)
 
-	assert_false(result.valid, "Should be invalid when model could reach b2b but didn't")
+	assert_false(result.valid, "Should be invalid when model could reach within 1\" but didn't")
 	assert_eq(result.errors.size(), 1, "Should have exactly one error")
-	assert_true("base-to-base contact" in result.errors[0], "Error should mention base-to-base contact")
+	assert_true("within 1" in result.errors[0], "Error should mention the 1\" requirement")
+
+# ==========================================
+# Test: PER-MODEL — one model in contact does NOT excuse a second that could close.
+# This is the core 11e fix: the old rule passed as soon as ANY model based up.
+# ==========================================
+
+func test_per_model_second_model_must_close():
+	# Target unit has two models. Charger A bases with ork_1 (satisfied); charger B
+	# stops ~2.5" short of ork_2 even though it could reach within 1" of it. Under
+	# the old "one model suffices" rule this passed; under 11e it must FAIL.
+	var ork_1 = _make_model("ork_1", 300, 0)
+	var ork_2 = _make_model("ork_2", 300, 80)
+	var marine_a = _make_model("marine_a", 0, 0)
+	var marine_b = _make_model("marine_b", 0, 80)
+
+	var board = _make_board({
+		"charger_unit": _make_unit(0, [marine_a, marine_b]),
+		"target_unit": _make_unit(1, [ork_1, ork_2])
+	})
+
+	var per_model_paths = {
+		"marine_a": [[0, 0], [300 - 50.4, 0]],   # base contact with ork_1
+		"marine_b": [[0, 80], [150, 80]]         # stops ~2.5" from ork_2
+	}
+
+	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+		"charger_unit", per_model_paths, ["target_unit"], board, 10
+	)
+
+	assert_false(result.valid, "Second model that could close must be flagged: %s" % str(result.errors))
+	assert_true("marine_b" in str(result.errors), "The unclosed model (marine_b) should be named: %s" % str(result.errors))
+
+# ==========================================
+# Test: PER-MODEL — both models close → valid
+# ==========================================
+
+func test_per_model_both_models_close_is_valid():
+	var ork_1 = _make_model("ork_1", 300, 0)
+	var ork_2 = _make_model("ork_2", 300, 80)
+	var marine_a = _make_model("marine_a", 0, 0)
+	var marine_b = _make_model("marine_b", 0, 80)
+	var board = _make_board({
+		"charger_unit": _make_unit(0, [marine_a, marine_b]),
+		"target_unit": _make_unit(1, [ork_1, ork_2])
+	})
+	var per_model_paths = {
+		"marine_a": [[0, 0], [300 - 50.4, 0]],   # base contact with ork_1
+		"marine_b": [[0, 80], [300 - 50.4, 80]]  # base contact with ork_2
+	}
+	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+		"charger_unit", per_model_paths, ["target_unit"], board, 10
+	)
+	assert_true(result.valid, "Both models in contact should be valid: %s" % str(result.errors))
 
 # ==========================================
 # Test: Model CANNOT reach b2b (too far) — valid even without b2b

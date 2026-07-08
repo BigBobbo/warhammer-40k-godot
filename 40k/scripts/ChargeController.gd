@@ -1235,9 +1235,12 @@ func _add_confirm_button() -> void:
 	undo_charge_model_button.pressed.connect(_on_undo_last_charge_model)
 	confirm_row.add_child(undo_charge_model_button)
 
-	# T-092: auto-path button — suggests valid charge positions for unmoved models
+	# T-092: bulk-snap button — places every unmoved model in base-to-base contact
+	# with its nearest declared target (falls back to a legal gap if contact is
+	# blocked). Satisfies the 11.04 "within 1 inch" rule in one click.
 	auto_path_charge_button = Button.new()
-	auto_path_charge_button.text = "Auto-Path"
+	auto_path_charge_button.text = "Snap to Contact"
+	auto_path_charge_button.tooltip_text = "Move all remaining models into base-to-base contact with the nearest charge target"
 	_WhiteDwarfTheme.apply_to_button(auto_path_charge_button)
 	auto_path_charge_button.pressed.connect(_on_auto_path_charge)
 	confirm_row.add_child(auto_path_charge_button)
@@ -3600,17 +3603,23 @@ func _on_auto_path_charge() -> void:
 			if d < closest_dist:
 				closest_dist = d
 				closest_target = tp_data
-		# Compute placement: 0.5" from target's base on the line origin→target
-		var er_inches: float = 0.5  # Just inside engagement range
-		var er_px: float = Measurement.inches_to_px(er_inches)
+		# Prefer BASE-TO-BASE contact (0" gap) on the line origin→target; fall back
+		# to progressively larger gaps only if contact is blocked (overlap / off
+		# board / out of charge range). Base contact always satisfies the 11.04
+		# "within 1 inch" requirement and produces the cleanest engagement. A larger
+		# gap == candidate nearer the origin == shorter move, so the fallback also
+		# rescues cases where reaching contact would exceed the charge budget.
 		var dir_vec: Vector2 = (closest_target["pos"] - origin)
 		if dir_vec.length() < 1.0:
 			dir_vec = Vector2(1, 0)
 		dir_vec = dir_vec.normalized()
-		var place_distance_from_target: float = closest_target["radius"] + own_radius + er_px
-		var candidate: Vector2 = closest_target["pos"] - dir_vec * place_distance_from_target
-		# Validate position via existing helper
-		if _validate_charge_position(model, candidate):
+		var placed := false
+		for gap_inches in [0.0, 0.25, 0.5, 0.9]:
+			var gap_px: float = Measurement.inches_to_px(gap_inches)
+			var place_distance_from_target: float = closest_target["radius"] + own_radius + gap_px
+			var candidate: Vector2 = closest_target["pos"] - dir_vec * place_distance_from_target
+			if not _validate_charge_position(model, candidate):
+				continue
 			# Stage the move (mirroring _end_model_drag behavior)
 			moved_models[model_id] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
 			if model_id in _moved_model_order:
@@ -3619,8 +3628,10 @@ func _on_auto_path_charge() -> void:
 			_update_model_position_in_gamestate(active_unit_id, model_id, candidate)
 			_move_token_visual(active_unit_id, model_id, candidate, model.get("rotation", 0.0))
 			models_to_move.erase(model_id)
-			print("[T-092 auto-path] Placed %s at %s (target dist=%.1f\")" % [model_id, str(candidate), Measurement.px_to_inches(candidate.distance_to(closest_target["pos"]))])
-		else:
+			print("[T-092 auto-path] Placed %s at %s (gap=%.2f\", target dist=%.1f\")" % [model_id, str(candidate), gap_inches, Measurement.px_to_inches(candidate.distance_to(closest_target["pos"]))])
+			placed = true
+			break
+		if not placed:
 			print("[T-092 auto-path] No valid placement found for %s" % model_id)
 	# Refresh button states
 	if confirm_button and is_instance_valid(confirm_button):
