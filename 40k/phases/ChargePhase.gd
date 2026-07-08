@@ -1325,6 +1325,12 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 			"value": true
 		})
 
+	# Attached CHARACTER(s) ride the charge with their bodyguard — the whole
+	# Attached unit moves as one (e.g. a Shield-Captain leading Vertus Praetors).
+	# Appended before the tank-shock / heroic-intervention snapshots below so
+	# their distance checks see the character's new position too.
+	changes.append_array(_charge_attached_character_changes(unit_id, per_model_paths))
+
 	# Clean up charge state
 	units_that_charged.append(unit_id)
 	pending_charges.erase(unit_id)
@@ -1457,6 +1463,84 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 
 	return create_result(true, changes)
 
+# ── Attached characters ride the charge ─────────────────────────────
+# An Attached unit (bodyguard + CHARACTER leader, e.g. Vertus Praetors led by
+# a Shield-Captain) is a single unit: when the bodyguard makes its Charge move
+# the attached character(s) move with it. ChargePhase's drag UI only positions
+# the bodyguard's own models, so — mirroring MovementPhase._move_attached_
+# characters — we ride the character models along by the bodyguard's movement
+# delta and grant them the same charge flags. Without this the character is
+# left behind, splitting the unit apart (it looks like the attachment broke).
+func _charge_attached_character_changes(bodyguard_id: String, per_model_paths: Dictionary, grant_fights_first: bool = true) -> Array:
+	var changes = []
+	var bodyguard = get_unit(bodyguard_id)
+	if bodyguard.is_empty():
+		return changes
+	var attached_chars = bodyguard.get("attachment_data", {}).get("attached_characters", [])
+	if attached_chars.is_empty():
+		return changes
+
+	var move_delta = _charge_bodyguard_delta(bodyguard_id, per_model_paths)
+	if move_delta == null:
+		DebugLogger.info(str("ChargePhase: could not determine charge delta for attached characters of %s" % bodyguard_id))
+		return changes
+
+	for char_id in attached_chars:
+		var char_unit = get_unit(str(char_id))
+		if char_unit.is_empty():
+			continue
+		var char_models = char_unit.get("models", [])
+		for i in range(char_models.size()):
+			var model = char_models[i]
+			if not model.get("alive", true):
+				continue
+			if model.get("position") == null:
+				continue
+			var model_pos = _get_model_position(model)
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.position" % [str(char_id), i],
+				"value": {"x": model_pos.x + move_delta.x, "y": model_pos.y + move_delta.y}
+			})
+		# The whole Attached unit charged — the character gets the same flags.
+		# Heroic Intervention grants charged_this_turn but NOT fights_first.
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.charged_this_turn" % str(char_id),
+			"value": true
+		})
+		if grant_fights_first:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.flags.fights_first" % str(char_id),
+				"value": true
+			})
+		var char_name = char_unit.get("meta", {}).get("name", str(char_id))
+		DebugLogger.info(str("ChargePhase: attached character %s rode the charge of %s (delta %s)" % [char_name, bodyguard_id, str(move_delta)]))
+	return changes
+
+# Movement delta of a charging bodyguard: (end - start) of its first moved
+# model in model order. Returns null if no model had a usable path.
+func _charge_bodyguard_delta(unit_id: String, per_model_paths: Dictionary):
+	var unit = get_unit(unit_id)
+	for model in unit.get("models", []):
+		var mid = model.get("id", "")
+		if not per_model_paths.has(mid):
+			continue
+		var path = per_model_paths[mid]
+		if not (path is Array and path.size() > 0):
+			continue
+		var end_vec = Vector2(path[-1][0], path[-1][1])
+		var start_vec
+		if path.size() >= 2:
+			start_vec = Vector2(path[0][0], path[0][1])
+		else:
+			if model.get("position") == null:
+				return null
+			start_vec = _get_model_position(model)
+		return end_vec - start_vec
+	return null
+
 func _process_skip_charge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 
@@ -1523,6 +1607,12 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 
 	# Check if unit is destroyed (all models dead)
 	if _is_unit_destroyed_check(unit):
+		return false
+
+	# Attached CHARACTERs charge as part of their bodyguard unit — they are
+	# not independently selectable (they ride the bodyguard's charge move).
+	# Mirrors MovementPhase._validate_begin_normal_move.
+	if unit.get("attached_to", null) != null:
 		return false
 
 	# Check if unit is deployed
@@ -3502,6 +3592,10 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 		"path": "units.%s.flags.heroic_intervention" % unit_id,
 		"value": true
 	})
+
+	# Attached CHARACTER(s) ride the Heroic Intervention with their bodyguard.
+	# HI does NOT grant Fights First, so neither does the character.
+	changes.append_array(_charge_attached_character_changes(unit_id, per_model_paths, false))
 
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	log_phase_message("HEROIC INTERVENTION successful: %s counter-charged into engagement range" % unit_name)

@@ -2,13 +2,23 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.7.5",
+			"version": "0.7.6",
 			"date": "2026-07-08",
 			"summary": "Charges that declare more targets than the roll can reach are now clearly reported instead of showing a misleading 'SUCCESS', and the charge panel now tells you the roll needed to reach every target you've picked.",
 			"changes": [
 				"A charge must end within Engagement Range of EVERY unit you declared it against. Previously the '2D6 = X vs Y needed — SUCCESS' line only measured the CLOSEST declared target, so declaring three units when your roll could only reach one still said SUCCESS — then the move silently failed and your unit ended up not in combat with anything, unable to fight. The roll result now checks ALL declared targets: if any is out of reach the charge is reported FAILED, naming the target(s) you couldn't reach and the distance you actually needed (e.g. 'FAILED — out of range: Shield-Captain; you needed to roll 7.9\"').",
 				"New declaration-time hint: as you pick charge targets, the charge panel shows the 2D6 roll needed to reach ALL of them, calls out the farthest (hardest) target, and lists each target's distance — colour-coded from likely to impossible — so an out-of-reach target is obvious BEFORE you commit and roll.",
 				"11th-edition charges that can only reach some of the declared targets now say so in the game log (which targets were engaged and which were beyond the roll), instead of quietly dropping the far ones with no explanation."
+			]
+		},
+		{
+			"version": "0.7.5",
+			"date": "2026-07-08",
+			"summary": "Fixed attached units (a Character leading a unit, e.g. a Shield-Captain with Vertus Praetors) getting left behind when they charged — the leader now charges in with its unit and can pile in and fight instead of being stranded.",
+			"changes": [
+				"When an attached unit charged, only the bodyguard unit moved and the leader Character was left behind, breaking the unit apart and making it look like the attachment had come undone. The attached Character now moves in with the bodyguard during a Charge move (and a Heroic Intervention), so it arrives in combat and stays attached.",
+				"Because the leader now reaches combat, it can pile in, consolidate and fight in the Fight phase — previously it was stranded out of range and could do none of these.",
+				"An attached leader Character can no longer be selected to charge on its own — it charges as part of its unit, matching how it already moves in the Movement phase."
 			]
 		},
 		{
