@@ -2042,6 +2042,10 @@ func _setup_ai_suggestion_button() -> void:
 	_ai_suggestion_button.pressed.connect(_on_ai_suggestion_pressed)
 	hud_container.add_child(_ai_suggestion_button)
 	print("Main: AI suggestion button created")
+	# _ready() calls _initialize_ai_player() (which reveals this button) BEFORE this
+	# setup runs, so that earlier refresh no-ops on the still-null button. Refresh now
+	# that the button exists so it becomes visible immediately for human-vs-AI games.
+	refresh_ai_suggestion_button()
 
 func refresh_ai_suggestion_button() -> void:
 	"""Show the AI-suggestion button only for single-viewer AI games (an AI player

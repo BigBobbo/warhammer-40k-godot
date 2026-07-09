@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.8.1",
+			"date": "2026-07-09",
+			"summary": "Fix: the 'AI Suggestion' button now actually appears when you start a game against the AI (it was being created hidden and never shown).",
+			"changes": [
+				"The 'AI Suggestion' button (and its K hotkey path) is now visible from the moment a human-vs-AI game starts. Previously the button was built after the code that reveals it had already run, so it stayed hidden for the whole game and the feature could not be used from the UI.",
+				"Added a regression test that starts a human-vs-AI game through the normal flow and fails if the button is not shown, so this cannot silently break again."
+			]
+		},
+		{
 			"version": "0.8.0",
 			"date": "2026-07-08",
 			"summary": "When playing against the AI you can now ask it for a suggestion on your own turn — a new 'AI Suggestion' button (hotkey K) shows what the AI would do and why, without taking the action for you.",

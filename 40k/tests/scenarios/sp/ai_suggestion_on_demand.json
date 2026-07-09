@@ -9,9 +9,14 @@
   "fixture": "audit_382_cp_grant",
   "edition": 11,
   "rng_seed": 7,
-  "description": "On-demand AI suggestion for the human player. P1 (human) vs P2 (AI). During P1's Movement phase, revealing and clicking the 'AI Suggestion' HUD button (a) logs the AI's reasoning as a thinking card in the left game log, and (b) executes NOTHING — the AI action log stays empty and the phase/active-player do not advance. Proves the feature is a pure, side-effect-free preview driven from the real UI button (plus KEY_H hotkey path).",
+  "description": "On-demand AI suggestion for the human player. P1 (human) vs P2 (AI). The fixture's game_config is already human-vs-AI, so the button must reveal itself through the NATURAL Main._ready() flow (regression guard for the _initialize_ai_player/_setup ordering bug where the button was created after the reveal call and stayed hidden). Then, during P1's Movement phase, clicking the 'AI Suggestion' HUD button (a) logs the AI's reasoning as a thinking card in the left game log, and (b) executes NOTHING — the AI action log stays empty and the phase/active-player do not advance. Proves the feature is a pure, side-effect-free preview driven from the real UI button (plus KEY_K hotkey path).",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script", "script": "get_node('/root/AIPlayer').is_ai_player(2)", "equals": true },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_suggestion_button != null", "equals": true },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_suggestion_button.visible", "equals": true },
+
     { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
     { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
     { "act": "execute_script", "script": "AIPlayer.clear_action_log()" },
