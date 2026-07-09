@@ -1750,6 +1750,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	# MA-10: Track rapid fire attacks with per-model BS
 	# MA-14: Only models in this assignment's model_ids count for RF (per-model weapons)
 	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
+	# DAKKAMEK (Speedwaaagh!): the Mekaniak-selected Vehicle's ranged weapons gain
+	# [RAPID FIRE 1] until the start of the bearer's next turn.
+	if rapid_fire_value < 1 and str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
+			and actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false):
+		rapid_fire_value = 1
+		print("RulesEngine: DAKKAMEK — [RAPID FIRE 1] granted to %s's ranged weapon %s" % [actor_unit_id, weapon_id])
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
@@ -3292,6 +3298,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# MA-10: Track rapid fire attacks with per-model BS
 	# MA-14: Only models in this assignment's model_ids count for RF (per-model weapons)
 	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
+	# DAKKAMEK (Speedwaaagh!): the Mekaniak-selected Vehicle's ranged weapons gain
+	# [RAPID FIRE 1] until the start of the bearer's next turn.
+	if rapid_fire_value < 1 and str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
+			and actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false):
+		rapid_fire_value = 1
+		print("RulesEngine: DAKKAMEK — [RAPID FIRE 1] granted to %s's ranged weapon %s" % [actor_unit_id, weapon_id])
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:

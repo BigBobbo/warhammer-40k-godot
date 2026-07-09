@@ -11,7 +11,8 @@
 				"Four Speedwaaagh! Stratagems are now fully playable: ON DA MOVE (shoot/charge after Advancing or Falling Back), DUST TRAILS (Benefit of Cover), SPESHUL AMMO (Anti-Monster 4+ and Anti-Vehicle 4+ on non-Torrent ranged weapons), and DED KILLY CONSTRUCTION (melee LANCE, plus +1 Damage if the unit charged).",
 				"The remaining two — MOBILE DAKKASTORM and EVASIVE MANOOVA — appear in the Stratagem list with their full rules text but their effects are not yet automated.",
 				"Kustom Shokk Box now works in-game: when the Deffkilla Wartrike turbos (Advances), it can move through dense terrain that would otherwise block it.",
-				"Note: the Dakkamek Enhancement is selectable in the Army Builder but its in-game effect is not yet automated."
+				"Dakkamek now works in-game: when a Mek with this Enhancement uses its Mekaniak ability on a Vehicle, that Vehicle's ranged weapons gain [RAPID FIRE 1] until your next turn.",
+				"All four Speedwaaagh! Enhancements are now fully implemented in-game."
 			]
 		},
 		{
