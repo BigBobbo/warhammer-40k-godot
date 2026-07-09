@@ -8819,7 +8819,12 @@
   "name": "Speedwaaagh!",
   "faction_id": "orks",
   "detachment_rule_id": "turbo-boostas",
-  "enhancement_ids": [],
+  "enhancement_ids": [
+   "kustom-shokk-box-speedwaaagh",
+   "dakkamek-speedwaaagh",
+   "supa-burny-fuel-speedwaaagh",
+   "master-meknologist-speedwaaagh"
+  ],
   "stratagem_ids": [],
   "game_version": {
    "edition": "11th",

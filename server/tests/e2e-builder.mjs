@@ -145,6 +145,25 @@ Boyz (150 Points)
   check('imported detachment selected',
     (await page.locator('.topbar-config select').nth(1).inputValue()) === 'war-horde');
 
+  // --- Speedwaaagh! enhancement dropdown (regression: upstream ships it empty) --
+  await page.locator('button', { hasText: 'New' }).click();
+  page.once('dialog', d => d.accept());
+  await page.locator('.topbar-config select').first().selectOption('orks');
+  await page.locator('.topbar-config select').nth(1).selectOption('speedwaaagh');
+  await page.locator('.search').fill('Deffkilla');
+  await page.locator('.browser-unit', { hasText: 'Deffkilla Wartrike' }).first().click();
+  await page.locator('.roster-unit', { hasText: 'Deffkilla Wartrike' }).first().click();
+  const enhRow = page.locator('.field-row', { hasText: 'Enhancement' });
+  check('Speedwaaagh! Deffkilla shows an Enhancement row', await enhRow.count() === 1);
+  const enhOptions = await enhRow.locator('select option').allTextContents();
+  check('Kustom Shokk Box is offered', enhOptions.some(o => /Kustom Shokk Box/.test(o)),
+    enhOptions.join(' | '));
+  await enhRow.locator('select').selectOption({ label: enhOptions.find(o => /Kustom Shokk Box/.test(o)) });
+  // Deffkilla Wartrike is 70 base; Kustom Shokk Box adds +10 -> 80.
+  check('selecting the enhancement adds its +10 pts',
+    /80 \/ 2000 pts/.test(await page.locator('.points-badge').textContent()),
+    await page.locator('.points-badge').textContent());
+
   check('no uncaught page errors', pageErrors.length === 0, pageErrors.join(' | '));
 
   await browser.close();

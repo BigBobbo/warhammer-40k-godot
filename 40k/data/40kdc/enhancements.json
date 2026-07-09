@@ -28304,5 +28304,77 @@
   "points_provisional": false,
   "upgrade_tag": true,
   "max_targets": 1
+ },
+ {
+  "id": "kustom-shokk-box-speedwaaagh",
+  "name": "Kustom Shokk Box",
+  "detachment_id": "speedwaaagh",
+  "cost": 10,
+  "keyword_restrictions": [
+   "Orks"
+  ],
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1
+ },
+ {
+  "id": "dakkamek-speedwaaagh",
+  "name": "Dakkamek",
+  "detachment_id": "speedwaaagh",
+  "cost": 25,
+  "keyword_restrictions": [
+   "Orks"
+  ],
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1
+ },
+ {
+  "id": "supa-burny-fuel-speedwaaagh",
+  "name": "Supa-burny Fuel",
+  "detachment_id": "speedwaaagh",
+  "cost": 15,
+  "keyword_restrictions": [
+   "Orks"
+  ],
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1
+ },
+ {
+  "id": "master-meknologist-speedwaaagh",
+  "name": "Master Meknologist",
+  "detachment_id": "speedwaaagh",
+  "cost": 20,
+  "keyword_restrictions": [
+   "Orks"
+  ],
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1
  }
 ]
