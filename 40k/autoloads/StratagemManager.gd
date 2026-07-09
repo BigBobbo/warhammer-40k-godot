@@ -522,6 +522,10 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "MOBILE DAKKASTORM":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# EVASIVE MANOOVA (Speedwaaagh!): remove a unit to Strategic Reserves
+		if name_upper == "EVASIVE MANOOVA":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -1329,6 +1333,18 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Speshul Ammo to %s (Anti-Monster/Vehicle 4+ on non-Torrent ranged weapons)" % target_unit_id)
 		return diffs_sa
 
+	# EVASIVE MANOOVA (Speedwaaagh!): remove the target unit from the battlefield
+	# and place it into Strategic Reserves (it can arrive again on a later turn via
+	# the normal reserves flow). Mirrors GameState.return_aircraft_to_reserves.
+	if strat.get("name", "").to_upper() == "EVASIVE MANOOVA":
+		var diffs_em = [
+			{"op": "set", "path": "units.%s.status" % target_unit_id, "value": GameState.UnitStatus.IN_RESERVES},
+			{"op": "set", "path": "units.%s.reserve_type" % target_unit_id, "value": "strategic_reserves"},
+			{"op": "set", "path": "units.%s.flags.evasive_manoova_reserved" % target_unit_id, "value": true},
+		]
+		print("StratagemManager: Applied Evasive Manoova — %s removed to Strategic Reserves" % target_unit_id)
+		return diffs_em
+
 	# MOBILE DAKKASTORM (Speedwaaagh!): mark one enemy unit; until end of phase,
 	# attacks from the user's SPEED FREEKS/TRUKK units targeting it get +2 Strength.
 	# (target_unit_id is the marked enemy unit.)
@@ -1516,6 +1532,11 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 		if flags.has("effect_speshul_ammo"):
 			flags.erase("effect_speshul_ammo")
 			print("StratagemManager: Cleared effect_speshul_ammo from %s" % unit_id)
+		return
+
+	# EVASIVE MANOOVA (Speedwaaagh!): instant removal to Strategic Reserves — the
+	# unit STAYS in reserves, so there is nothing to undo at end of phase.
+	if strat.get("name", "").to_upper() == "EVASIVE MANOOVA":
 		return
 
 	# MOBILE DAKKASTORM (Speedwaaagh!): Clear the enemy mark

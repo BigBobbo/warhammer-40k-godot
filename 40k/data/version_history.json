@@ -4,16 +4,14 @@
 		{
 			"version": "0.8.3",
 			"date": "2026-07-09",
-			"summary": "Speedwaaagh! (Orks) rules: two of its Enhancements now change your weapons in-game, and all six of its Stratagems are in the game — four of them fully playable.",
+			"summary": "Speedwaaagh! (Orks) is now fully implemented: all four of its Enhancements and all six of its Stratagems work in-game.",
 			"changes": [
 				"Master Meknologist now improves the Ballistic Skill of the bearer's ranged weapons by 1 (e.g. a Big Mek's Shokk Attack Gun hits on 4+ instead of 5+).",
 				"Supa-burny Fuel now changes the Deffkilla Wartrike's killa jet weapons: the burna profile fires 3D6 Attacks and the cutta profile fires 3 Attacks. (Also taught the dice engine to roll multi-dice values like 3D6.)",
-				"Four Speedwaaagh! Stratagems are now fully playable: ON DA MOVE (shoot/charge after Advancing or Falling Back), DUST TRAILS (Benefit of Cover), SPESHUL AMMO (Anti-Monster 4+ and Anti-Vehicle 4+ on non-Torrent ranged weapons), and DED KILLY CONSTRUCTION (melee LANCE, plus +1 Damage if the unit charged).",
-				"MOBILE DAKKASTORM now works: mark an enemy unit and, until end of phase, your Speed Freeks / Trukk units get +2 Strength on attacks against it. (The mark is chosen when you use the Stratagem rather than auto-picked from what was just hit.)",
-				"The last Stratagem — EVASIVE MANOOVA — appears in the list with its full rules text but its effect (pulling a unit back into Strategic Reserves mid-battle) is not yet automated.",
-				"Kustom Shokk Box now works in-game: when the Deffkilla Wartrike turbos (Advances), it can move through dense terrain that would otherwise block it.",
-				"Dakkamek now works in-game: when a Mek with this Enhancement uses its Mekaniak ability on a Vehicle, that Vehicle's ranged weapons gain [RAPID FIRE 1] until your next turn.",
-				"All four Speedwaaagh! Enhancements are now fully implemented in-game."
+				"Kustom Shokk Box: when the Deffkilla Wartrike turbos (Advances), it can move through dense terrain that would otherwise block it.",
+				"Dakkamek: when a Mek with this Enhancement uses its Mekaniak ability on a Vehicle, that Vehicle's ranged weapons gain [RAPID FIRE 1] until your next turn.",
+				"All six Speedwaaagh! Stratagems now work: ON DA MOVE (shoot/charge after Advancing or Falling Back), DUST TRAILS (Benefit of Cover), SPESHUL AMMO (Anti-Monster 4+ and Anti-Vehicle 4+ on non-Torrent ranged weapons), DED KILLY CONSTRUCTION (melee LANCE, plus +1 Damage if the unit charged), MOBILE DAKKASTORM (+2 Strength for your Speed Freeks / Trukk units against a marked enemy), and EVASIVE MANOOVA (pull a Speed Freeks / Trukk unit off the table into Strategic Reserves).",
+				"Two small faithful simplifications: MOBILE DAKKASTORM's marked enemy is chosen when you use the Stratagem rather than auto-picked from what was just hit, and Kustom Shokk Box applies on any Advance (turbo is not a separate action in-game)."
 			]
 		},
 		{
