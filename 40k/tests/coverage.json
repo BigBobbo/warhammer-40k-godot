@@ -2499,6 +2499,15 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ui.gamelog.newest_card_no_overlap",
+      "description": "A newly logged game-log card (e.g. an on-demand AI suggestion added in isolation) is appended at the BOTTOM of the log, not drawn on top of existing entries. Regression guard for GameLogPanel._animate_card_in capturing its slide target before the VBoxContainer laid the card out, which left the card stuck at y=0 overlapping the top until the next entry forced a re-sort.",
+      "scenarios": [
+        "ai_suggestion_no_log_overlap"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

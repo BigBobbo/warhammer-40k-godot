@@ -293,6 +293,28 @@ func get_ai_card_count() -> int:
 			n += 1
 	return n
 
+func newest_card_is_below_earlier_cards() -> bool:
+	"""True when the most-recently-added card sits BELOW every earlier visible card
+	— i.e. it was appended at the bottom of the log rather than left overlapping the
+	top. Guards the AI-advice overlap regression: a card whose slide-in animation
+	captured its target position before the VBoxContainer laid it out would stick at
+	y=0 and cover existing entries. Returns true when there are fewer than two
+	visible cards (nothing to overlap)."""
+	if _card_container == null:
+		return false
+	var visible_cards: Array = []
+	for c in _card_container.get_children():
+		if is_instance_valid(c) and c.visible:
+			visible_cards.append(c)
+	if visible_cards.size() < 2:
+		return true
+	var last: Control = visible_cards[visible_cards.size() - 1]
+	var last_y: float = last.position.y
+	for i in range(visible_cards.size() - 1):
+		if visible_cards[i].position.y >= last_y:
+			return false
+	return true
+
 # ==========================================================================
 # Board-linked thinking — hover/click a card to see the options on the board
 # ==========================================================================
@@ -1186,14 +1208,26 @@ func _create_icon(category: int) -> PanelContainer:
 # ==========================================================================
 
 func _animate_card_in(card: Control) -> void:
+	# The card lives in a VBoxContainer, which positions its children on a
+	# DEFERRED sort (queue_sort), NOT synchronously on add_child. If we captured
+	# card.position.y right now it would still be the pre-sort default (0), so the
+	# tween would animate the card toward y=0 and LEAVE it there — overlapping the
+	# top of the log — because the container never re-asserts the layout until the
+	# next entry triggers another sort. (This is exactly why an on-demand AI
+	# suggestion card, added in isolation with nothing after it, was drawn on top
+	# of existing entries until something else was logged.) Wait one frame for the
+	# container to lay the card out at its real position, then slide into THAT.
 	card.modulate.a = 0.0
-	var original_pos = card.position.y
-	card.position.y += 15.0
+	await get_tree().process_frame
+	if not is_instance_valid(card):
+		return
+	var target_y := card.position.y
+	card.position.y = target_y + 15.0
 
 	var tween = card.create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(card, "modulate:a", 1.0, 0.25).set_ease(Tween.EASE_OUT)
-	tween.tween_property(card, "position:y", original_pos, 0.25).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tween.tween_property(card, "position:y", target_y, 0.25).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 # ==========================================================================
 # Text formatting

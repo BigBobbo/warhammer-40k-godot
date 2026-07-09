@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.8.6",
+			"date": "2026-07-09",
+			"summary": "Fixed the AI 'AI Suggestion' hint (and any log entry added on its own) drawing on top of the existing game log instead of slotting in at the bottom.",
+			"changes": [
+				"Asking the AI for a suggestion no longer covers earlier game-log entries: the new card is now appended at the bottom of the log where it belongs. Previously the card's slide-in animation left it stuck at the top overlapping older entries until the next thing was logged, which then bumped it into place.",
+				"This also fixes the same glitch for any single game-log entry added in isolation (not just AI suggestions)."
+			]
+		},
+		{
 			"version": "0.8.5",
 			"date": "2026-07-09",
 			"summary": "Speedwaaagh! (Orks) is now fully implemented: all four of its Enhancements and all six of its Stratagems work in-game.",
