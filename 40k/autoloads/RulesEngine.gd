@@ -1341,6 +1341,14 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 			critical_wound_threshold = mini(critical_wound_threshold, 4)
 			print("RulesEngine: ROLLING LOOT-HEAP (overwatch) — Anti-Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
 
+	# SPESHUL AMMO (Speedwaaagh!): non-Torrent ranged weapons gain
+	# [ANTI-MONSTER 4+] and [ANTI-VEHICLE 4+].
+	if shooter_unit.get("flags", {}).get("effect_speshul_ammo", false):
+		var ow_sa_torrent = "torrent" in str(get_weapon_profile(weapon_id, board).get("special_rules", "")).to_lower()
+		if not ow_sa_torrent and (unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE")):
+			critical_wound_threshold = mini(critical_wound_threshold, 4)
+			print("RulesEngine: SPESHUL AMMO (overwatch) — Anti-Monster/Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
+
 	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit (overwatch)
 	var ow_da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)
 	var ow_wound_modifier = 0
@@ -2348,6 +2356,14 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		if unit_has_keyword(target_unit, "VEHICLE"):
 			critical_wound_threshold = mini(critical_wound_threshold, 4)
 			print("RulesEngine: ROLLING LOOT-HEAP — Anti-Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
+
+	# SPESHUL AMMO (Speedwaaagh!): non-Torrent ranged weapons gain
+	# [ANTI-MONSTER 4+] and [ANTI-VEHICLE 4+] (critical wound on 4+ vs those).
+	if actor_unit.get("flags", {}).get("effect_speshul_ammo", false):
+		var sa_is_torrent = "torrent" in str(get_weapon_profile(weapon_id, board).get("special_rules", "")).to_lower()
+		if not sa_is_torrent and (unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE")):
+			critical_wound_threshold = mini(critical_wound_threshold, 4)
+			print("RulesEngine: SPESHUL AMMO — Anti-Monster/Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
 
 	var anti_keyword_active = critical_wound_threshold < 6
 
@@ -3775,6 +3791,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if unit_has_keyword(target_unit, "VEHICLE"):
 			ar_critical_wound_threshold = mini(ar_critical_wound_threshold, 4)
 			print("RulesEngine: ROLLING LOOT-HEAP (auto-resolve) — Anti-Vehicle 4+ active (critical wound threshold %d+)" % ar_critical_wound_threshold)
+
+	# SPESHUL AMMO (Speedwaaagh!): non-Torrent ranged weapons gain
+	# [ANTI-MONSTER 4+] and [ANTI-VEHICLE 4+].
+	if actor_unit.get("flags", {}).get("effect_speshul_ammo", false):
+		var ar_sa_torrent = "torrent" in str(get_weapon_profile(weapon_id, board).get("special_rules", "")).to_lower()
+		if not ar_sa_torrent and (unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE")):
+			ar_critical_wound_threshold = mini(ar_critical_wound_threshold, 4)
+			print("RulesEngine: SPESHUL AMMO (auto-resolve) — Anti-Monster/Vehicle 4+ active (critical wound threshold %d+)" % ar_critical_wound_threshold)
 
 	var ar_anti_keyword_active = ar_critical_wound_threshold < 6
 
@@ -10490,8 +10514,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		else:
 			print("RulesEngine: BASH AND GRAB active but target %s not within range of loot objective — no re-roll" % target_name)
 
-	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons)
-	if is_lance_weapon(weapon_id, board):
+	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons).
+	# DED KILLY CONSTRUCTION (Speedwaaagh!) grants melee LANCE for the phase via
+	# the effect_grant_lance flag.
+	if is_lance_weapon(weapon_id, board) or attacker_unit.get("flags", {}).get("effect_grant_lance", false):
 		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
 			melee_wound_modifiers |= WoundModifier.PLUS_ONE

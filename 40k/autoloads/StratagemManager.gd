@@ -510,6 +510,14 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "UNLEASH THE LIONS":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# SPESHUL AMMO (Speedwaaagh!): Anti-Monster/Vehicle 4+ on non-Torrent ranged weapons
+		if name_upper == "SPESHUL AMMO":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# DED KILLY CONSTRUCTION (Speedwaaagh!): melee LANCE + conditional +1 Damage on charge
+		if name_upper == "DED KILLY CONSTRUCTION":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -1304,6 +1312,38 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 			print("StratagemManager: CAREEN! used without context.destination — no pending move queued")
 		return []
 
+	# SPESHUL AMMO (Speedwaaagh!): non-Torrent ranged weapons gain
+	# [ANTI-MONSTER 4+] and [ANTI-VEHICLE 4+] until end of phase. RulesEngine
+	# lowers the critical wound threshold to 4+ vs MONSTER/VEHICLE for this
+	# unit's non-Torrent ranged weapons while the flag is set.
+	if strat.get("name", "").to_upper() == "SPESHUL AMMO":
+		var diffs_sa = [{
+			"op": "set",
+			"path": "units.%s.flags.effect_speshul_ammo" % target_unit_id,
+			"value": true
+		}]
+		print("StratagemManager: Applied Speshul Ammo to %s (Anti-Monster/Vehicle 4+ on non-Torrent ranged weapons)" % target_unit_id)
+		return diffs_sa
+
+	# DED KILLY CONSTRUCTION (Speedwaaagh!): melee weapons gain [LANCE]; if the
+	# unit made a Charge move this turn, also +1 Damage to those weapons.
+	if strat.get("name", "").to_upper() == "DED KILLY CONSTRUCTION":
+		var ded_unit = GameState.state.get("units", {}).get(target_unit_id, {})
+		var ded_charged = ded_unit.get("flags", {}).get("charged_this_turn", false)
+		var diffs_dk = [{
+			"op": "set",
+			"path": "units.%s.flags.effect_grant_lance" % target_unit_id,
+			"value": true
+		}]
+		if ded_charged:
+			diffs_dk.append({
+				"op": "set",
+				"path": "units.%s.flags.effect_plus_damage" % target_unit_id,
+				"value": 1
+			})
+		print("StratagemManager: Applied Ded Killy Construction to %s (LANCE%s)" % [target_unit_id, " + charged: +1 Damage" if ded_charged else ""])
+		return diffs_dk
+
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
@@ -1453,6 +1493,22 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 		if flags.has("effect_unleash_the_lions"):
 			flags.erase("effect_unleash_the_lions")
 			print("StratagemManager: Cleared effect_unleash_the_lions from %s" % unit_id)
+		return
+
+	# SPESHUL AMMO (Speedwaaagh!): Clear Anti-Monster/Vehicle flag
+	if strat.get("name", "").to_upper() == "SPESHUL AMMO":
+		if flags.has("effect_speshul_ammo"):
+			flags.erase("effect_speshul_ammo")
+			print("StratagemManager: Cleared effect_speshul_ammo from %s" % unit_id)
+		return
+
+	# DED KILLY CONSTRUCTION (Speedwaaagh!): Clear LANCE grant + any charge damage
+	if strat.get("name", "").to_upper() == "DED KILLY CONSTRUCTION":
+		if flags.has("effect_grant_lance"):
+			flags.erase("effect_grant_lance")
+		if flags.has("effect_plus_damage"):
+			flags.erase("effect_plus_damage")
+		print("StratagemManager: Cleared Ded Killy Construction flags from %s" % unit_id)
 		return
 
 	var effects = strat.get("effects", [])
