@@ -1,0 +1,47 @@
+{
+  "id": "game_log_ability_filter",
+  "covers": [
+    "ui.GameLogPanel.ability_filter",
+    "log.ability.tagging",
+    "log.ability.hidden_by_default",
+    "log.ability.real_manager_path"
+  ],
+  "fixture": "audit_367_warlord",
+  "transition_to_phase": 0,
+  "description": "Passive always-on ability activations (e.g. 'Stand Vigil active', 'Guardian Eternal active') repeat at the start of every phase for every unit that has one, flooding the game log. This scenario proves the new 'Abilities' filter. Part A drives the real logging API (GameEventLog.add_ability_entry, the exact call UnitAbilityManager now makes): the entry is tagged type 'ability', lands in the ABILITY category, and is HIDDEN by default while an ordinary shooting entry stays visible. It then opens the filter bar with a real click, confirms the 'Abilities' chip exists, clicks it, and the ability card appears. Part B drives the REAL UnitAbilityManager.on_phase_start(SHOOTING) path against a Custodes/Ork fixture and asserts the always-on abilities it re-applies are logged with type 'ability' (not p1_action/charge/info), so they filter as a group regardless of phase.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "main.game_log_panel.is_category_visible('ability')", "equals": false },
+
+    { "act": "execute_script", "script": "GameEventLog.add_ability_entry(1, \"Custodian Guard ability 'Stand Vigil' active (Re-roll Wound rolls of 1)\")" },
+    { "act": "execute_script", "script": "str(GameEventLog.entries.back().get('type',''))", "equals": "ability" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, 'Custodian Guard shot at Ork Boyz')" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script", "script": "main.game_log_panel.count_cards_in_category('ability')", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('ability')", "equals": 0 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('shoot')", "expect_min": 1 },
+    { "act": "screenshot", "label": "01_ability_hidden_by_default", "region": [0, 100, 360, 760] },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/FilterToggle", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/FilterBar", "timeout_s": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/FilterBar/Chip_ability", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "02_filter_bar_shows_abilities_chip", "region": [0, 100, 360, 760] },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/FilterBar/Chip_ability", "emit_pressed": true },
+    { "act": "execute_script", "script": "main.game_log_panel.is_category_visible('ability')", "equals": true },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('ability')", "expect_min": 1 },
+    { "act": "screenshot", "label": "03_ability_shown_after_toggle", "region": [0, 100, 360, 760] },
+
+    { "act": "execute_script", "script": "main.game_log_panel.set_category_filter('ability', false)" },
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "UnitAbilityManager.on_phase_start(8)" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "GameEventLog.count_entries_of_type('ability')", "expect_min": 1 },
+    { "act": "execute_script", "script": "GameEventLog.count_entries_of_type('p1_action')", "equals": 0 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('ability')", "equals": 0 },
+    { "act": "screenshot", "label": "04_real_manager_ability_entries_hidden", "region": [0, 100, 360, 760] }
+  ]
+}

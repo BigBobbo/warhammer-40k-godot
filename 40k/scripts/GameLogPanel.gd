@@ -26,6 +26,7 @@ enum EntryCategory {
 	INFO,
 	SCORING,
 	COMBAT,
+	ABILITY,
 }
 
 # --- Color Palette ---
@@ -44,6 +45,7 @@ const BORDER_COLORS = {
 	EntryCategory.INFO: Color(0.6, 0.6, 0.6),              # Gray
 	EntryCategory.SCORING: Color(0.3, 0.8, 0.4),           # Green
 	EntryCategory.COMBAT: Color(0.91, 0.77, 0.47),         # Gold (combat header)
+	EntryCategory.ABILITY: Color(0.36, 0.75, 0.72),        # Teal (passive abilities)
 }
 
 # Icon characters for each category
@@ -58,6 +60,7 @@ const ICON_CHARS = {
 	EntryCategory.INFO: "i",
 	EntryCategory.SCORING: "VP",
 	EntryCategory.COMBAT: "X",
+	EntryCategory.ABILITY: "A",
 }
 
 # --- Filters ---
@@ -73,7 +76,14 @@ const FILTER_ORDER = [
 	EntryCategory.OVERWATCH,
 	EntryCategory.SCORING,
 	EntryCategory.INFO,
+	EntryCategory.ABILITY,
 	EntryCategory.AI_THINKING,
+]
+# Categories hidden by default (off until the player turns them on). Passive
+# always-on ability activations re-fire every phase for every unit that has one,
+# so they flood the log with repeated lines — hide them unless explicitly wanted.
+const DEFAULT_HIDDEN_CATEGORIES = [
+	EntryCategory.ABILITY,
 ]
 # Short chip labels (the icon badge already carries the letter).
 const FILTER_LABELS = {
@@ -85,6 +95,7 @@ const FILTER_LABELS = {
 	EntryCategory.OVERWATCH: "Overwatch",
 	EntryCategory.SCORING: "VP",
 	EntryCategory.INFO: "Info",
+	EntryCategory.ABILITY: "Abilities",
 	EntryCategory.AI_THINKING: "AI",
 }
 # Stable string keys for tests / external callers to name a category.
@@ -97,6 +108,7 @@ const FILTER_KEYS = {
 	EntryCategory.OVERWATCH: "overwatch",
 	EntryCategory.SCORING: "vp",
 	EntryCategory.INFO: "info",
+	EntryCategory.ABILITY: "ability",
 	EntryCategory.AI_THINKING: "ai",
 }
 
@@ -141,9 +153,12 @@ func _ready() -> void:
 	_dice_regex.compile("\\[([0-9, ]+)\\]")
 	_threshold_regex = RegEx.new()
 	_threshold_regex.compile("(?:needed |Save |Pain |vs )(\\d+)\\+")
-	# Every filterable category starts visible.
+	# Every filterable category starts visible, except those in the default-hidden
+	# list (passive ability activations) which are off until the player opts in.
 	for cat in FILTER_ORDER:
 		_category_visible[cat] = true
+	for cat in DEFAULT_HIDDEN_CATEGORIES:
+		_category_visible[cat] = false
 
 func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 105.0, offset_bottom: float = 0.0) -> void:
 	name = "GameLogPanel"
@@ -1198,6 +1213,8 @@ func _entry_text_color(entry_type: String) -> String:
 			return "#8899AA"
 		"overwatch":
 			return "#FF6600"
+		"ability":
+			return "#6FC7C0"
 		_:
 			return "#B0B8C0"
 
@@ -1213,6 +1230,8 @@ func _format_entry_text(text: String, entry_type: String) -> String:
 			return "[i][color=#8899AA]%s[/color][/i]" % text
 		"overwatch":
 			return "[b][color=#FF6600]%s[/color][/b]" % text
+		"ability":
+			return "[i][color=#6FC7C0]%s[/color][/i]" % text
 		"combat_result":
 			if "destroyed" in text and "No models" not in text:
 				return "[b][color=#FF6B6B]%s[/color][/b]" % text
@@ -1255,6 +1274,8 @@ func _categorize_entry_type(entry_type: String) -> int:
 			return EntryCategory.AI_THINKING
 		"overwatch":
 			return EntryCategory.OVERWATCH
+		"ability":
+			return EntryCategory.ABILITY
 		"combat_header", "combat_detail", "combat_result":
 			return EntryCategory.COMBAT
 		"info":

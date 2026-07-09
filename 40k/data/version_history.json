@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.8.3",
+			"date": "2026-07-09",
+			"summary": "New 'Abilities' filter in the game log groups the repeating passive-ability lines (e.g. 'Stand Vigil active', 'Guardian Eternal active') and hides them by default, so the log stays focused on what actually happened.",
+			"changes": [
+				"Passive, always-on ability activations are re-checked at the start of every phase, so lines like \"Custodian Guard ability 'Stand Vigil' active\", \"Telemon Heavy Dreadnought ability 'Guardian Eternal' active\" and aura effects were repeated in the game log every turn. They are now all tagged as 'Abilities' — no matter which phase they fire in — instead of being scattered across the Move / Charge / Info buckets by chance wording in their description.",
+				"Added an 'Abilities' filter chip (teal 'A' badge) to the game-log filter bar. It is OFF by default, so these repetitive passive-ability lines no longer clutter the log. Open Filters and toggle 'Abilities' on any time you want to see exactly which passive abilities are active.",
+				"Only the repeating passive/aura activations moved under this filter — one-off actions you take (Waaagh!, Oath of Moment, stratagems, mission actions) stay in their normal categories."
+			]
+		},
+		{
 			"version": "0.8.2",
 			"date": "2026-07-09",
 			"summary": "Army Builder: the Orks 'Speedwaaagh!' detachment now offers its four Enhancements. They were missing from the dataset, so the builder showed no Enhancement option and imported lists silently dropped enhancements like Kustom Shokk Box.",
