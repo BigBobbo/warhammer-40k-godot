@@ -63,6 +63,13 @@ func _ready() -> void:
 	_rng.randomize()
 	print("SecondaryMissionManager: Initialized")
 
+func set_test_seed(seed_value: int) -> void:
+	"""Deterministic deck shuffles for scenarios/tests. Without this the deck
+	RNG stays randomize()'d and 'AI plays a turn' scenarios flake whenever the
+	AI randomly draws a requires-interaction card while its opponent is HUMAN."""
+	_rng.seed = seed_value
+	print("SecondaryMissionManager: test seed set to %d" % seed_value)
+
 static func _create_default_player_state() -> Dictionary:
 	return {
 		"mode": "tactical",  # "tactical" or "fixed"

@@ -3413,7 +3413,7 @@ func _get_bomb_squigs_targets(unit_id: String) -> Array:
 		if other_pos == null:
 			continue
 
-		var dist_inches = unit_pos.distance_to(other_pos) / GameState.PIXELS_PER_INCH
+		var dist_inches = unit_pos.distance_to(other_pos) / Measurement.PX_PER_INCH
 		if dist_inches <= 12.0:
 			targets.append({
 				"target_unit_id": other_id,
@@ -5986,7 +5986,7 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 		if unit_pos == null:
 			continue
 
-		var dist_inches = unit_pos.distance_to(trigger_pos) / GameState.PIXELS_PER_INCH
+		var dist_inches = unit_pos.distance_to(trigger_pos) / Measurement.PX_PER_INCH
 		if dist_inches > 9.0:
 			continue
 

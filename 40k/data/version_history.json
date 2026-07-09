@@ -2,6 +2,22 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.9.0",
+			"date": "2026-07-09",
+			"summary": "The AI now coordinates its movement phase like an army: units know what their squadmates are already doing, and the whole battle plan is narrated in the game log.",
+			"changes": [
+				"Coordinated movement: units that already moved this phase count as 'en route' to their objective, so later units reinforce objectives that still need help instead of stacking onto the same one. Redirects are explained in the log ('obj_3 is already covered (Boyz en route) — redirecting to obj_4').",
+				"At the start of the AI's movement phase the game log shows its full army battle plan as its own card: one line per unit with its role (HOLD / MOVE / ADVANCE / SCREEN), target objective, distance and reason.",
+				"Each unit's detailed decision card (chosen option plus the top rejected alternatives with scores) now appears once, at the moment that unit acts — the log no longer repeats every unit's reasoning on every single action.",
+				"Fixed AI-vs-AI games where the second player each round silently played without its multi-phase plan (no charge intents, no 'lock the shooters' targets): the plan is now built per player.",
+				"Fixed AI reasoning leaking between decisions: a Command Re-roll card no longer swallows the previous decision's thinking lines.",
+				"The AI is now hand-tunable without touching code: edit data/ai_config.json (ships with the game) to override any of its ~90 scoring weights; per-player profiles and conditional rules layer on top. Full guide: docs/AI_TUNING.md. Also fixed profile rules firing in the wrong phase (a stale phase-name map meant 'MOVEMENT' rules ran during Scout).",
+				"Fixed AI-vs-AI games freezing in the fight phase: when a forced fight interrupted the global Consolidate step, the wrong AI kept trying to end the other player's half forever. The AI now always acts as whoever's half of the pile-in/consolidate step it actually is.",
+				"Fixed a script error in Bomb Squigs / Scatter targeting (wrong pixels-per-inch constant).",
+				"Windowed scenarios that let the AI play a turn are no longer flaky: the secondary-mission deck shuffle now respects the scenario's RNG seed, so the AI can't randomly draw a card that pauses it behind a human-only dialog mid-test."
+			]
+		},
+		{
 			"version": "0.8.6",
 			"date": "2026-07-09",
 			"summary": "Fixed the AI 'AI Suggestion' hint (and any log entry added on its own) drawing on top of the existing game log instead of slotting in at the bottom.",
