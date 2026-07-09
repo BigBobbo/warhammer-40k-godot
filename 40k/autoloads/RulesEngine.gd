@@ -797,7 +797,8 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 
 		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage
 		var weapon_id = assignment.get("weapon_id", "")
-		if is_hazardous_weapon(weapon_id, board):
+		if is_hazardous_weapon(weapon_id, board) \
+				or board.get("units", {}).get(actor_unit_id, {}).get("flags", {}).get("effect_grant_hazardous", false):
 			var models_that_fired = assignment.get("model_ids", []).size()
 			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fired, board, rng_service)
 			if hazardous_result.hazardous_triggered:
@@ -868,7 +869,7 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 
 		# HAZARDOUS (T2-3): Track hazardous weapons for post-save resolution
 		var weapon_id = assignment.get("weapon_id", "")
-		if is_hazardous_weapon(weapon_id, board):
+		if is_hazardous_weapon(weapon_id, board) or actor_unit.get("flags", {}).get("effect_grant_hazardous", false):
 			hazardous_weapons.append({
 				"weapon_id": weapon_id,
 				"models_that_fired": assignment.get("model_ids", []).size()
@@ -934,7 +935,8 @@ static func resolve_shoot_hits(action: Dictionary, board: Dictionary, rng_servic
 	# The weapon HAS fired once the hit roll is made — mirror the one-shot /
 	# hazardous bookkeeping resolve_shoot_until_wounds() performs per assignment.
 	var weapon_id = assignment.get("weapon_id", "")
-	if is_hazardous_weapon(weapon_id, board):
+	if is_hazardous_weapon(weapon_id, board) \
+			or actor_unit.get("flags", {}).get("effect_grant_hazardous", false):
 		result["hazardous_weapons"] = [{
 			"weapon_id": weapon_id,
 			"models_that_fired": assignment.get("model_ids", []).size()
@@ -1115,9 +1117,12 @@ static func reroll_wound_die(wound_context: Dictionary, die_index: int, board: D
 # Only unmodified 6s hit. All other shooting mechanics (wound, save, damage) are normal.
 # ==========================================
 
-static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng_service: RNGService = null, hit_on_six: bool = true) -> Dictionary:
 	"""Resolve overwatch shooting: all weapons fire at the target, but only unmodified 6s count as hits.
 	No hit modifiers are applied. Wound rolls, saves, and damage work normally.
+	With hit_on_six=false the weapons hit on their normal (unmodified) BS instead —
+	used by CALL DAT DAKKA? (More Dakka!) to shoot back 'as if it were your
+	Shooting phase' outside the shooting flow.
 	Returns { success, diffs, dice, log_text, total_hits, total_wounds, total_damage, total_casualties, weapon_results }
 	"""
 	if not rng_service:
@@ -1172,7 +1177,7 @@ static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: 
 			print("RulesEngine: OVERWATCH — skipping remaining weapons, target %s destroyed" % target_name)
 			break
 
-		var wa_result = _resolve_overwatch_assignment(wa, shooter_unit_id, target_unit_id, board, rng_service)
+		var wa_result = _resolve_overwatch_assignment(wa, shooter_unit_id, target_unit_id, board, rng_service, hit_on_six)
 		result.diffs.append_array(wa_result.get("diffs", []))
 		result.dice.append_array(wa_result.get("dice", []))
 		result.total_hits += wa_result.get("hits", 0)
@@ -1235,9 +1240,10 @@ static func _build_overwatch_weapon_assignments(shooter_unit: Dictionary, shoote
 
 	return assignments
 
-static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
+static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService, hit_on_six: bool = true) -> Dictionary:
 	"""Resolve a single weapon assignment during overwatch.
-	Key difference: only unmodified 6s count as hits. No hit modifiers apply."""
+	Key difference: only unmodified 6s count as hits (hit_on_six=false uses the
+	weapon's unmodified BS instead — CALL DAT DAKKA?). No hit modifiers apply."""
 	var result = {
 		"diffs": [],
 		"dice": [],
@@ -1282,18 +1288,23 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if total_attacks <= 0:
 		return result
 
-	# --- PHASE 2: Hit rolls (OVERWATCH: only unmodified 6s hit) ---
+	# --- PHASE 2: Hit rolls (OVERWATCH: only unmodified 6s hit; CALL DAT
+	# DAKKA? shoots back at the weapon's normal unmodified BS instead) ---
 	var hit_rolls = rng.roll_d6(total_attacks)
 	var hits = 0
+	var ow_threshold = 6
+	if not hit_on_six:
+		var bs_str = str(weapon_profile.get("ballistic_skill", "6"))
+		ow_threshold = int(bs_str) if bs_str.is_valid_int() else 6
 
 	for roll in hit_rolls:
-		if roll == 6:  # ONLY unmodified 6s — no modifiers applied
+		if roll >= ow_threshold and roll > 1:  # unmodified; 1s always fail
 			hits += 1
 
 	result.dice.append({
 		"context": "overwatch_to_hit",
 		"weapon_name": weapon_name,
-		"threshold": "6 (Overwatch)",
+		"threshold": ("6 (Overwatch)" if hit_on_six else "%d+ (unmodified BS)" % ow_threshold),
 		"rolls_raw": hit_rolls,
 		"total_attacks": total_attacks,
 		"successes": hits,
@@ -1419,6 +1430,11 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var pre_ap_dbd = ap
 		ap = ap + ow_dbd_bonus
 		print("RulesEngine: Drive-by Dakka (Overwatch) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ow_dbd_bonus])
+	# SPESHUL SHELLS (More Dakka!): +1 AP vs targets within 18"
+	var ow_ss_bonus = get_speshul_shells_ap_bonus(shooter_unit, target_unit)
+	if ow_ss_bonus > 0:
+		ap = ap + ow_ss_bonus
+		print("RulesEngine: SPESHUL SHELLS (Overwatch) — AP improved by %d (target within 18\")" % ow_ss_bonus)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ow_worsen_ap > 0 and ap > 0:
@@ -1753,7 +1769,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	# DAKKAMEK (Speedwaaagh!): the Mekaniak-selected Vehicle's ranged weapons gain
 	# [RAPID FIRE 1] until the start of the bearer's next turn.
 	if rapid_fire_value < 1 and str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
-			and actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false):
+			and (actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false) or actor_unit.get("flags", {}).get("effect_grant_rapid_fire_1", false)):
 		rapid_fire_value = 1
 		print("RulesEngine: DAKKAMEK — [RAPID FIRE 1] granted to %s's ranged weapon %s" % [actor_unit_id, weapon_id])
 	var rapid_fire_attacks = 0
@@ -2011,6 +2027,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		# BIG AN' SHOOTY (OA-41): +1 to Hit for ranged attacks while Waaagh! active (Morkanaut)
 		if UnitAbilityManager.has_big_an_shooty(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+		# TARGETIN' SQUIGS / HUGE SHOW-OFFS: effect-granted +1 to hit on ranged attacks
+		if actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_ONE_HIT_RANGED, false):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: +1 to hit (ranged) — effect_plus_one_hit_ranged on %s" % actor_unit_id)
 			print("RulesEngine: BIG AN' SHOOTY — +1 to hit (ranged) for %s (Waaagh! active)" % actor_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
@@ -3356,7 +3376,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# DAKKAMEK (Speedwaaagh!): the Mekaniak-selected Vehicle's ranged weapons gain
 	# [RAPID FIRE 1] until the start of the bearer's next turn.
 	if rapid_fire_value < 1 and str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
-			and actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false):
+			and (actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false) or actor_unit.get("flags", {}).get("effect_grant_rapid_fire_1", false)):
 		rapid_fire_value = 1
 		print("RulesEngine: DAKKAMEK — [RAPID FIRE 1] granted to %s's ranged weapon %s" % [actor_unit_id, weapon_id])
 	var rapid_fire_attacks = 0
@@ -3605,6 +3625,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# BIG AN' SHOOTY (OA-41): +1 to Hit for ranged attacks while Waaagh! active (Morkanaut, auto-resolve)
 		if UnitAbilityManager.has_big_an_shooty(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+		# TARGETIN' SQUIGS / HUGE SHOW-OFFS: effect-granted +1 to hit on ranged attacks
+		if actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_ONE_HIT_RANGED, false):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: +1 to hit (ranged) — effect_plus_one_hit_ranged on %s" % actor_unit_id)
 			print("RulesEngine: BIG AN' SHOOTY (auto-resolve) — +1 to hit (ranged) for %s (Waaagh! active)" % actor_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
@@ -4089,6 +4113,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_ap_dbd = ap
 		ap = ap + ar_dbd_bonus
 		print("RulesEngine: Drive-by Dakka (auto-resolve) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ar_dbd_bonus])
+	# SPESHUL SHELLS (More Dakka!): +1 AP vs targets within 18"
+	var ar_ss_bonus = get_speshul_shells_ap_bonus(actor_unit, target_unit)
+	if ar_ss_bonus > 0:
+		ap = ap + ar_ss_bonus
+		print("RulesEngine: SPESHUL SHELLS (auto-resolve) — AP improved by %d (target within 18\")" % ar_ss_bonus)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ar_worsen_ap > 0 and ap > 0:
@@ -7573,6 +7602,17 @@ static func get_drive_by_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dic
 		return 1
 	return 0
 
+# SPESHUL SHELLS (More Dakka!): +1 AP on the unit's ranged attacks vs targets
+# within 18" while the stratagem flag is set. Simplification: applies against
+# any target within 18" (the 'closest eligible target' clause is not tracked
+# per attack).
+static func get_speshul_shells_ap_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get("effect_speshul_shells_md", false):
+		return 0
+	if is_target_within_range_inches(actor_unit, target_unit, 18.0):
+		return 1
+	return 0
+
 # WALL OF DAKKA (OA-50): Check if a unit has the "Wall of Dakka" ability (Bonebreaka).
 # +1 to Hit rolls for ranged attacks when target is within half the weapon's range.
 static func has_wall_of_dakka(unit: Dictionary) -> bool:
@@ -10639,6 +10679,16 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		else:
 			print("RulesEngine: BASH AND GRAB active but target %s not within range of loot objective — no re-roll" % target_name)
 
+	# ORKS IS STILL ORKS (More Dakka!): re-roll wound rolls of 1; full re-roll
+	# when the target is within range of an objective marker.
+	if attacker_unit.get("flags", {}).get("effect_orks_is_still_orks", false):
+		if is_unit_near_any_objective(target_unit, board):
+			melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+			print("RulesEngine: ORKS IS STILL ORKS (melee) — full wound re-roll vs %s (near objective)" % target_name)
+		else:
+			melee_wound_modifiers |= WoundModifier.REROLL_ONES
+			print("RulesEngine: ORKS IS STILL ORKS (melee) — re-roll wound 1s vs %s" % target_name)
+
 	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons).
 	# DED KILLY CONSTRUCTION (Speedwaaagh!) grants melee LANCE for the phase via
 	# the effect_grant_lance flag.
@@ -11477,6 +11527,11 @@ static func prepare_save_resolution(
 		var pre_ap_dbd = ap
 		ap = ap + int_dbd_bonus
 		print("RulesEngine: Drive-by Dakka (interactive) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, int_dbd_bonus])
+	# SPESHUL SHELLS (More Dakka!): +1 AP vs targets within 18"
+	var int_ss_bonus = get_speshul_shells_ap_bonus(shooter_unit, target_unit)
+	if int_ss_bonus > 0:
+		ap = ap + int_ss_bonus
+		print("RulesEngine: SPESHUL SHELLS (interactive) — AP improved by %d (target within 18\")" % int_ss_bonus)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if int_worsen_ap > 0 and ap > 0:

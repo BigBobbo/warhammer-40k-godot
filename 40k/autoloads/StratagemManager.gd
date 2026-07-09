@@ -50,6 +50,9 @@ const _CUSTOM_IMPLEMENTED_NAMES: Array = [
 	# Green Tide
 	"BRAGGIN' RIGHTS", "BULLDOZER BRUTALITY", "COME ON LADZ!",
 	"COMPETITIVE STREAK", "GO GET 'EM!", "TIDE OF MUSCLE",
+	# More Dakka!
+	"CALL DAT DAKKA?", "ORKS IS STILL ORKS", "SPESHUL SHELLS",
+	"GET STUCK IN, LADZ!", "HUGE SHOW-OFFS",
 ]
 
 # Out-of-Phase Rules Restriction (P1-59)
@@ -1817,6 +1820,49 @@ func _apply_ork_sweep_effects(strat: Dictionary, target_unit_id: String, context
 				tm_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_CHARGE], "value": true})
 			print("StratagemManager: TIDE OF MUSCLE — %s +1 to charge rolls%s" % [target_unit_id, " + re-roll (10+ models)" if tm_big else ""])
 			return tm_diffs
+		# ---- MORE DAKKA! ---------------------------------------------------
+		"CALL DAT DAKKA?":
+			# Shoot back at the unit that just shot: full shooting sequence at
+			# unmodified BS (no hit modifiers — documented simplification),
+			# resolved through the overwatch machinery with hit_on_six=false.
+			var cdd_enemy := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+			if cdd_enemy == "" or target_unit_id == "":
+				print("StratagemManager: CALL DAT DAKKA? used without context.enemy_unit_id — no shots fired")
+				return []
+			var cdd = RulesEngine.resolve_overwatch_shooting(target_unit_id, cdd_enemy, GameState.create_snapshot(), RulesEngine.make_rng(), false)
+			print("StratagemManager: CALL DAT DAKKA? — %s shoots back at %s: %d hits, %d casualties" % [
+				target_unit_id, cdd_enemy, int(cdd.get("total_hits", 0)), int(cdd.get("total_casualties", 0))])
+			return cdd.get("diffs", [])
+		"ORKS IS STILL ORKS":
+			# Melee wound re-roll 1s (full vs targets near objectives) — the
+			# per-target scope is resolved live in the melee wound block.
+			print("StratagemManager: ORKS IS STILL ORKS — %s re-rolls melee wounds this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_orks_is_still_orks" % target_unit_id, "value": true}]
+		"SPESHUL SHELLS":
+			print("StratagemManager: SPESHUL SHELLS — %s +1 AP on ranged attacks vs targets within 18\" this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_speshul_shells_md" % target_unit_id, "value": true}]
+		"GET STUCK IN, LADZ!":
+			# Unit-scoped Waaagh! until the start of your next Command phase —
+			# mirrors GRAB AND BASH (Freebooter Krew).
+			var gsl_diffs = [
+				{"op": "set", "path": "units.%s.flags.waaagh_active" % target_unit_id, "value": true},
+				{"op": "set", "path": "units.%s.flags.get_stuck_in_ladz_active" % target_unit_id, "value": true},
+				{"op": "set", "path": "units.%s.flags.effect_invuln" % target_unit_id, "value": 5},
+				{"op": "set", "path": "units.%s.flags.effect_invuln_source" % target_unit_id, "value": "Get Stuck In, Ladz!"},
+				{"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % target_unit_id, "value": true},
+			]
+			print("StratagemManager: GET STUCK IN, LADZ! — Waaagh! active for %s until your next Command phase" % target_unit_id)
+			return gsl_diffs
+		"HUGE SHOW-OFFS":
+			# +1 Move / Leadership / OC and +1 to Hit until your next Command phase.
+			var hso_diffs = [
+				{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_PLUS_MOVE], "value": 1},
+				{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_PLUS_OC], "value": 1},
+				{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_PLUS_ONE_HIT], "value": true},
+				{"op": "set", "path": "units.%s.flags.effect_improve_leadership" % target_unit_id, "value": 1},
+			]
+			print("StratagemManager: HUGE SHOW-OFFS — %s +1 Move/Ld/OC and +1 to hit until your next Command phase" % target_unit_id)
+			return hso_diffs
 	return null
 
 func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictionary) -> bool:
@@ -1839,6 +1885,30 @@ func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictiona
 		"TIDE OF MUSCLE":
 			flags.erase(EffectPrimitivesData.FLAG_PLUS_CHARGE)
 			flags.erase(EffectPrimitivesData.FLAG_REROLL_CHARGE)
+			return true
+		# ---- MORE DAKKA! ---------------------------------------------------
+		"CALL DAT DAKKA?":
+			return true  # instant shoot-back — nothing to clear
+		"ORKS IS STILL ORKS":
+			flags.erase("effect_orks_is_still_orks")
+			return true
+		"SPESHUL SHELLS":
+			flags.erase("effect_speshul_shells_md")
+			return true
+		"GET STUCK IN, LADZ!":
+			if flags.has("get_stuck_in_ladz_active"):
+				flags.erase("get_stuck_in_ladz_active")
+				flags.erase("waaagh_active")
+				flags.erase("effect_advance_and_charge")
+				if flags.get("effect_invuln_source", "") == "Get Stuck In, Ladz!":
+					flags.erase("effect_invuln")
+					flags.erase("effect_invuln_source")
+			return true
+		"HUGE SHOW-OFFS":
+			flags.erase(EffectPrimitivesData.FLAG_PLUS_MOVE)
+			flags.erase(EffectPrimitivesData.FLAG_PLUS_OC)
+			flags.erase(EffectPrimitivesData.FLAG_PLUS_ONE_HIT)
+			flags.erase("effect_improve_leadership")
 			return true
 	return false
 
@@ -1879,9 +1949,13 @@ func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String)
 	var out: Array = []
 	# KRUNCHIN' DESCENT (Taktikal Brigade) shares the crushing_impact target
 	# rule: enemy units the friendly unit is in Engagement Range of.
+	# CALL DAT DAKKA? (More Dakka!) may target any enemy unit (weapons out of
+	# range simply produce no shots when the shoot-back resolves).
 	var _strat_name = str(stratagems.get(stratagem_id, {}).get("name", "")).replace("’", "'").to_upper()
 	if _strat_name == "KRUNCHIN' DESCENT":
 		stratagem_id = "krunchin_descent"
+	elif _strat_name == "CALL DAT DAKKA?":
+		stratagem_id = "any_enemy"
 	var snapshot = GameState.create_snapshot()
 	var friendly = snapshot.get("units", {}).get(friendly_unit_id, {})
 	if friendly.is_empty():
@@ -1905,6 +1979,8 @@ func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String)
 			"crushing_impact", "krunchin_descent":
 				if RulesEngine.check_units_in_engagement_range(friendly, enemy, snapshot):
 					out.append(uid)
+			"any_enemy":
+				out.append(uid)
 			"explosives":
 				if RulesEngine.is_unit_engaged(uid, snapshot):
 					continue

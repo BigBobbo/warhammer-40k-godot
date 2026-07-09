@@ -42,6 +42,40 @@ func _load_detachment(SM, GS, detachment: String) -> Dictionary:
 	return out
 
 
+func _sum_wounds(result: Dictionary) -> int:
+	var total := 0
+	for d in result.get("dice", []):
+		var ctx = str(d.get("context", "")).to_lower()
+		if "wound" in ctx and d.has("successes"):
+			total += int(d.get("successes", 0))
+	return total
+
+
+func _fight(rules, flags: Dictionary, seed_val: int, tgt_toughness: int = 8, tgt_save: int = 3) -> int:
+	var atk = []
+	for i in range(10):
+		atk.append({"id": "ma%d" % i, "position": {"x": 10.0, "y": 10.0 + i * 30},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 1, "current_wounds": 1})
+	var tgt = []
+	for i in range(10):
+		tgt.append({"id": "mt%d" % i, "position": {"x": 30.0, "y": 10.0 + i * 30},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 3, "current_wounds": 3,
+			"stats": {"toughness": tgt_toughness, "save": tgt_save}})
+	var board = {"units": {
+		"U_ATK": {"id": "U_ATK", "owner": 1,
+			"meta": {"keywords": ["INFANTRY", "ORKS"], "stats": {"toughness": 5, "save": 6, "wounds": 1}, "abilities": []},
+			"flags": flags, "models": atk},
+		"U_TGT": {"id": "U_TGT", "owner": 2,
+			"meta": {"keywords": ["INFANTRY"], "stats": {"toughness": tgt_toughness, "save": tgt_save, "wounds": 3}, "abilities": []},
+			"flags": {}, "models": tgt}
+	}, "meta": {"phase": 10, "active_player": 1, "battle_round": 1}}
+	rules.set_test_seed(seed_val)
+	var rng = rules.RNGService.new()
+	var action := {"type": "FIGHT", "actor_unit_id": "U_ATK",
+		"payload": {"assignments": [{"attacker": "U_ATK", "target": "U_TGT", "weapon": "choppa"}]}}
+	return _sum_wounds(rules.resolve_melee_attacks(action, board, rng))
+
+
 func _boyz_unit(id: String, n_models: int, owner: int = 1, dead: int = 0) -> Dictionary:
 	var models = []
 	for i in range(n_models):
@@ -64,6 +98,122 @@ func _run():
 		return
 
 	_green_tide(SM, GS, FAM, rules)
+	_more_dakka(SM, GS, FAM, rules)
+
+
+# ==========================================================================
+# MORE DAKKA!
+# ==========================================================================
+func _more_dakka(SM, GS, FAM, rules):
+	print("\n===== MORE DAKKA! =====")
+	var md = _load_detachment(SM, GS, "More Dakka!")
+	_check("More Dakka!: 6 stratagems loaded", md.count == 6)
+	_check("More Dakka!: all 6 implemented", md.implemented == 6)
+	_check("GET STUCK IN, LADZ! costs 2 CP",
+		int(md.by_name.get("GET STUCK IN, LADZ!", {}).get("cp_cost", 0)) == 2)
+	_check("HUGE SHOW-OFFS excludes Killa Kans",
+		"not_keyword:KILLA KANS" in md.by_name.get("HUGE SHOW-OFFS", {}).get("target", {}).get("conditions", []))
+
+	# GET STUCK IN, LADZ! — unit-scoped Waaagh!
+	GS.state["units"] = {"U_GSL": _boyz_unit("U_GSL", 10)}
+	var strat_gsl = {"id": "t_gsl", "name": "GET STUCK IN, LADZ!", "effects": [{"type": "custom:get_stuck_in_ladz"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_gsl", "U_GSL", strat_gsl, {}))
+	var gsl_flags = GS.get_unit("U_GSL")["flags"]
+	_check("GET STUCK IN, LADZ! activates Waaagh! for the unit",
+		gsl_flags.get("waaagh_active", false) and int(gsl_flags.get("effect_invuln", 0)) == 5)
+	SM.stratagems["t_gsl"] = strat_gsl
+	SM._clear_stratagem_flags("U_GSL", "t_gsl")
+	_check("GET STUCK IN, LADZ! clear removes the Waaagh! flags",
+		not GS.get_unit("U_GSL")["flags"].has("waaagh_active"))
+
+	# HUGE SHOW-OFFS — stat flags land
+	GS.state["units"] = {"U_HSO": _boyz_unit("U_HSO", 1)}
+	var strat_hso = {"id": "t_hso", "name": "HUGE SHOW-OFFS", "effects": [{"type": "custom:huge_show_offs"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_hso", "U_HSO", strat_hso, {}))
+	var hso_flags = GS.get_unit("U_HSO")["flags"]
+	_check("HUGE SHOW-OFFS sets +1 Move/OC/Hit/Ld flags",
+		int(hso_flags.get("effect_plus_move", 0)) == 1 and int(hso_flags.get("effect_plus_oc", 0)) == 1
+		and hso_flags.get("effect_plus_one_hit", false) and int(hso_flags.get("effect_improve_leadership", 0)) == 1)
+
+	# SPESHUL SHELLS — AP bonus only within 18"
+	var near_shooter = {"meta": {}, "flags": {"effect_speshul_shells_md": true},
+		"models": [{"id": "m0", "position": {"x": 10.0, "y": 10.0}, "base_mm": 32, "alive": true}]}
+	var near_target = {"meta": {}, "flags": {},
+		"models": [{"id": "t0", "position": {"x": 400.0, "y": 10.0}, "base_mm": 32, "alive": true}]}   # ~9"
+	var far_target = {"meta": {}, "flags": {},
+		"models": [{"id": "t1", "position": {"x": 900.0, "y": 10.0}, "base_mm": 32, "alive": true}]}   # ~22"
+	_check("SPESHUL SHELLS +1 AP within 18\"", rules.get_speshul_shells_ap_bonus(near_shooter, near_target) == 1)
+	_check("SPESHUL SHELLS no bonus beyond 18\"", rules.get_speshul_shells_ap_bonus(near_shooter, far_target) == 0)
+	near_shooter["flags"] = {}
+	_check("SPESHUL SHELLS requires the flag", rules.get_speshul_shells_ap_bonus(near_shooter, near_target) == 0)
+
+	# ORKS IS STILL ORKS — melee wound reroll flag improves output (seeded)
+	var oso_better := 0
+	for s in [11, 42, 77]:
+		var off = _fight(rules, {}, s, 3, 6)
+		var on = _fight(rules, {"effect_orks_is_still_orks": true}, s, 3, 6)
+		if on > off:
+			oso_better += 1
+	_check("ORKS IS STILL ORKS improves melee wounds on some seeds", oso_better >= 1)
+
+	# CALL DAT DAKKA? — shoot-back at normal BS beats overwatch 6s (aggregate)
+	var total_ow := 0
+	var total_cdd := 0
+	for s in [3, 42, 99, 123]:
+		rules.set_test_seed(s)
+		var ow = rules.resolve_overwatch_shooting("U_SHOOTBACK", "U_ATTACKER", _shootback_board(), rules.RNGService.new())
+		rules.set_test_seed(s)
+		var cdd = rules.resolve_overwatch_shooting("U_SHOOTBACK", "U_ATTACKER", _shootback_board(), rules.RNGService.new(), false)
+		total_ow += int(ow.get("total_hits", 0))
+		total_cdd += int(cdd.get("total_hits", 0))
+	print("  CALL DAT DAKKA?: hits at BS=%d vs overwatch-6s=%d" % [total_cdd, total_ow])
+	_check("CALL DAT DAKKA? shoots at normal BS (more hits than overwatch 6s)", total_cdd > total_ow)
+
+	# Enhancements: flags via UnitAbilityManager entries
+	var UAM = root.get_node("UnitAbilityManager")
+	GS.state["units"] = {"U_GITZ_MD": _boyz_unit("U_GITZ_MD", 5)}
+	GS.state["units"]["U_GITZ_MD"]["meta"]["enhancements"] = ["Targetin' Squigs", "Dead Shiny Shootas", "Zog Off and Eat Dakka!"]
+	UAM._applied_this_phase = {}
+	UAM._apply_enhancement_abilities(8)  # ranged entries apply in the SHOOTING phase
+	var md_flags = GS.get_unit("U_GITZ_MD")["flags"]
+	_check("Targetin' Squigs sets effect_plus_one_hit_ranged", md_flags.get("effect_plus_one_hit_ranged", false))
+	_check("Dead Shiny Shootas sets effect_grant_rapid_fire_1", md_flags.get("effect_grant_rapid_fire_1", false))
+	_check("Zog Off and Eat Dakka! sets effect_fall_back_and_shoot", md_flags.get("effect_fall_back_and_shoot", false))
+
+	# HUGE SHOW-OFFS leadership improvement is read by battle-shock tests via
+	# CommandPhase._get_effective_leadership (static).
+	GS.state["units"] = {"U_LD": _boyz_unit("U_LD", 5)}
+	GS.state["units"]["U_LD"]["meta"]["stats"]["leadership"] = 7
+	var CommandPhaseScript = load("res://phases/CommandPhase.gd")
+	var ld_before = CommandPhaseScript._get_effective_leadership("U_LD")
+	GS.state["units"]["U_LD"]["flags"]["effect_improve_leadership"] = 1
+	var ld_after = CommandPhaseScript._get_effective_leadership("U_LD")
+	_check("effect_improve_leadership lowers the required battle-shock roll", ld_before == 7 and ld_after == 6)
+
+
+func _shootback_board() -> Dictionary:
+	var shooters = []
+	for i in range(6):
+		shooters.append({"id": "ms%d" % i, "position": {"x": 10.0, "y": 10.0 + i * 35},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 1, "current_wounds": 1,
+			"weapons": ["bolt_rifle"]})
+	var attackers = []
+	for i in range(5):
+		attackers.append({"id": "ma%d" % i, "position": {"x": 300.0, "y": 10.0 + i * 35},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 2, "current_wounds": 2,
+			"stats": {"toughness": 4, "save": 3}})
+	return {"units": {
+		"U_SHOOTBACK": {"id": "U_SHOOTBACK", "owner": 1,
+			"meta": {"name": "Lootas", "keywords": ["ORKS", "INFANTRY"], "abilities": [],
+				"stats": {"toughness": 5, "save": 6, "wounds": 1},
+				"weapons": [{"name": "Bolt Rifle", "type": "Ranged", "range": "24", "attacks": "2",
+					"ballistic_skill": "5", "strength": "4", "ap": "1", "damage": "1"}]},
+			"flags": {}, "models": shooters},
+		"U_ATTACKER": {"id": "U_ATTACKER", "owner": 2,
+			"meta": {"name": "Marines", "keywords": ["INFANTRY"], "abilities": [],
+				"stats": {"toughness": 4, "save": 3, "wounds": 2}},
+			"flags": {}, "models": attackers}
+	}, "meta": {"phase": 8, "active_player": 2, "battle_round": 1}}
 
 
 # ==========================================================================

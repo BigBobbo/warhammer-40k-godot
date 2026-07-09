@@ -1278,6 +1278,55 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# MORE DAKKA! ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Da Gobshot Thunderbuss — bearer's ranged weapons gain [DEVASTATING
+	# WOUNDS] and [HAZARDOUS]. Same unit-wide approximation as Headwoppa's
+	# Killchoppa (per-model weapon scoping is a future refactor).
+	"Da Gobshot Thunderbuss": {
+		"condition": "enhancement",
+		"effects": [
+			{"type": EffectPrimitivesData.GRANT_DEVASTATING_WOUNDS},
+			{"type": EffectPrimitivesData.GRANT_HAZARDOUS}
+		],
+		"target": "bearer_model",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "ORKS only. Bearer's ranged weapons gain DEVASTATING WOUNDS + HAZARDOUS (effect_devastating_wounds, effect_grant_hazardous)"
+	},
+
+	# Dead Shiny Shootas — ranged weapons in the bearer's unit gain [RAPID FIRE 1].
+	"Dead Shiny Shootas": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.GRANT_RAPID_FIRE_1}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "ORKS only. Bearer's unit ranged weapons gain RAPID FIRE 1 (effect_grant_rapid_fire_1 — same consumer as Dakkamek)"
+	},
+
+	# Targetin' Squigs — +1 to Hit on the bearer's unit's ranged attacks.
+	"Targetin' Squigs": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.PLUS_ONE_HIT_RANGED}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "ORKS only. +1 to Hit on the bearer's unit's ranged attacks (effect_plus_one_hit_ranged)"
+	},
+
+	# Zog Off and Eat Dakka! — the bearer's unit can shoot after Falling Back.
+	"Zog Off and Eat Dakka!": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.FALL_BACK_AND_SHOOT}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "ORKS only. The bearer's unit is eligible to shoot in a turn in which it Fell Back (effect_fall_back_and_shoot)"
+	},
+
+	# ======================================================================
 	# GREEN TIDE ENHANCEMENT ABILITIES
 	# ======================================================================
 

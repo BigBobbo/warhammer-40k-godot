@@ -841,6 +841,9 @@ static func _get_effective_leadership(unit_id: String) -> int:
 		var char_ld = int(char_unit.get("meta", {}).get("stats", {}).get("leadership", 7))
 		if char_ld > ld:
 			ld = char_ld
+	# HUGE SHOW-OFFS (More Dakka!): 'improve the Leadership characteristic by
+	# 1' — the test passes on roll >= Ld, so improving lowers the requirement.
+	ld -= int(unit.get("flags", {}).get("effect_improve_leadership", 0))
 	return ld
 
 func _handle_battle_shock_test(action: Dictionary) -> Dictionary:

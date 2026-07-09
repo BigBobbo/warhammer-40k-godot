@@ -78,6 +78,10 @@ const GRANT_TWIN_LINKED = "grant_twin_linked"
 
 # Hit/wound stat modifiers (persistent flags)
 const PLUS_ONE_HIT = "plus_one_hit"
+const PLUS_ONE_HIT_RANGED = "plus_one_hit_ranged"  # ranged attacks only (Targetin' Squigs)
+# Weapon-keyword grants for the whole unit's ranged weapons
+const GRANT_RAPID_FIRE_1 = "grant_rapid_fire_1"    # Dead Shiny Shootas / Dakkamek-style
+const GRANT_HAZARDOUS = "grant_hazardous"          # Da Gobshot Thunderbuss; Dread Mob 'push it'
 const MINUS_ONE_HIT = "minus_one_hit"
 const PLUS_ONE_WOUND = "plus_one_wound"
 const MINUS_ONE_WOUND = "minus_one_wound"
@@ -178,6 +182,9 @@ const FLAG_IGNORES_COVER = "effect_ignores_cover"
 const FLAG_LANCE = "effect_lance"
 const FLAG_TWIN_LINKED = "effect_twin_linked"
 const FLAG_PLUS_ONE_HIT = "effect_plus_one_hit"
+const FLAG_PLUS_ONE_HIT_RANGED = "effect_plus_one_hit_ranged"
+const FLAG_GRANT_RAPID_FIRE_1 = "effect_grant_rapid_fire_1"
+const FLAG_GRANT_HAZARDOUS = "effect_grant_hazardous"
 const FLAG_MINUS_ONE_HIT = "effect_minus_one_hit"
 const FLAG_PLUS_ONE_WOUND = "effect_plus_one_wound"
 const FLAG_MINUS_ONE_WOUND = "effect_minus_one_wound"
@@ -256,6 +263,9 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	GRANT_LANCE: [{"flag": FLAG_LANCE, "value": true}],
 	GRANT_TWIN_LINKED: [{"flag": FLAG_TWIN_LINKED, "value": true}],
 	PLUS_ONE_HIT: [{"flag": FLAG_PLUS_ONE_HIT, "value": true}],
+	PLUS_ONE_HIT_RANGED: [{"flag": FLAG_PLUS_ONE_HIT_RANGED, "value": true}],
+	GRANT_RAPID_FIRE_1: [{"flag": FLAG_GRANT_RAPID_FIRE_1, "value": true}],
+	GRANT_HAZARDOUS: [{"flag": FLAG_GRANT_HAZARDOUS, "value": true}],
 	MINUS_ONE_HIT: [{"flag": FLAG_MINUS_ONE_HIT, "value": true}],
 	PLUS_ONE_WOUND: [{"flag": FLAG_PLUS_ONE_WOUND, "value": true}],
 	MINUS_ONE_WOUND: [{"flag": FLAG_MINUS_ONE_WOUND, "value": true}],
