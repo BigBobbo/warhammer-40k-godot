@@ -1879,7 +1879,7 @@ func _apply_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictiona
 				if game_event_log:
 					var owner = int(bodyguard_unit.get("owner", 0))
 					var desc = effect_def.get("description", ability_name)
-					game_event_log.add_player_entry(owner,
+					game_event_log.add_ability_entry(owner,
 						"%s ability '%s' active on %s (%s)" % [char_name, ability_name, bg_name, desc])
 
 func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> void:
@@ -1971,7 +1971,7 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 			if game_event_log:
 				var owner = int(unit.get("owner", 0))
 				var desc = effect_def.get("description", ability_name)
-				game_event_log.add_player_entry(owner,
+				game_event_log.add_ability_entry(owner,
 					"%s ability '%s' active (%s)" % [unit_name, ability_name, desc])
 
 # ============================================================================
@@ -2315,7 +2315,7 @@ func _apply_aura_to_unit(target_unit_id: String, target_unit: Dictionary,
 	if game_event_log:
 		var owner = int(target_unit.get("owner", 0))
 		var desc = effect_def.get("description", ability_name)
-		game_event_log.add_player_entry(owner,
+		game_event_log.add_ability_entry(owner,
 			"Aura '%s' from %s active on %s (%s)" % [ability_name, source_name, target_name, desc])
 
 func _closest_model_distance(unit_a: Dictionary, unit_b: Dictionary) -> float:

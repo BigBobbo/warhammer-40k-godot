@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.8.3",
+			"version": "0.8.5",
 			"date": "2026-07-09",
 			"summary": "Speedwaaagh! (Orks) is now fully implemented: all four of its Enhancements and all six of its Stratagems work in-game.",
 			"changes": [
@@ -12,6 +12,25 @@
 				"Dakkamek: when a Mek with this Enhancement uses its Mekaniak ability on a Vehicle, that Vehicle's ranged weapons gain [RAPID FIRE 1] until your next turn.",
 				"All six Speedwaaagh! Stratagems now work: ON DA MOVE (shoot/charge after Advancing or Falling Back), DUST TRAILS (Benefit of Cover), SPESHUL AMMO (Anti-Monster 4+ and Anti-Vehicle 4+ on non-Torrent ranged weapons), DED KILLY CONSTRUCTION (melee LANCE, plus +1 Damage if the unit charged), MOBILE DAKKASTORM (+2 Strength for your Speed Freeks / Trukk units against a marked enemy), and EVASIVE MANOOVA (pull a Speed Freeks / Trukk unit off the table into Strategic Reserves).",
 				"Two small faithful simplifications: MOBILE DAKKASTORM's marked enemy is chosen when you use the Stratagem rather than auto-picked from what was just hit, and Kustom Shokk Box applies on any Advance (turbo is not a separate action in-game)."
+			]
+		},
+		{
+			"version": "0.8.4",
+			"date": "2026-07-09",
+			"summary": "The Stompa now fields on a proper 180mm round base. The dataset ships no base for it ('Use model'), so it was falling back to a tiny 32mm base.",
+			"changes": [
+				"Building or importing an army with a Stompa now gives its model a 180mm round base instead of the 32mm default, so it deploys, blocks movement, and fights at the correct footprint.",
+				"Added a curated base-size override in the army-format converter for models the 40kdc dataset leaves as a dimensionless 'draft' base; the Stompa is the first entry. Added a converter test that fails if the Stompa ever regresses to the 32mm fallback."
+			]
+		},
+		{
+			"version": "0.8.3",
+			"date": "2026-07-09",
+			"summary": "New 'Abilities' filter in the game log groups the repeating passive-ability lines (e.g. 'Stand Vigil active', 'Guardian Eternal active') and hides them by default, so the log stays focused on what actually happened.",
+			"changes": [
+				"Passive, always-on ability activations are re-checked at the start of every phase, so lines like \"Custodian Guard ability 'Stand Vigil' active\", \"Telemon Heavy Dreadnought ability 'Guardian Eternal' active\" and aura effects were repeated in the game log every turn. They are now all tagged as 'Abilities' — no matter which phase they fire in — instead of being scattered across the Move / Charge / Info buckets by chance wording in their description.",
+				"Added an 'Abilities' filter chip (teal 'A' badge) to the game-log filter bar. It is OFF by default, so these repetitive passive-ability lines no longer clutter the log. Open Filters and toggle 'Abilities' on any time you want to see exactly which passive abilities are active.",
+				"Only the repeating passive/aura activations moved under this filter — one-off actions you take (Waaagh!, Oath of Moment, stratagems, mission actions) stay in their normal categories."
 			]
 		},
 		{

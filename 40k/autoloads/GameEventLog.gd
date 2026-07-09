@@ -404,6 +404,15 @@ func add_player_entry(player: int, text: String) -> void:
 	var entry_type = "p1_action" if player == 1 else "p2_action"
 	_add_entry(prefix + text, entry_type)
 
+func add_ability_entry(player: int, text: String) -> void:
+	"""Log a passive / always-on ability activation (e.g. 'Stand Vigil active').
+	These re-fire at the start of every phase for every unit that has the ability,
+	so they are tagged with the dedicated 'ability' type. GameLogPanel groups them
+	under the 'Abilities' filter, which is hidden by default to keep the log from
+	being flooded with the same passive-ability lines every turn."""
+	var prefix = "P%d: " % player
+	_add_entry(prefix + text, "ability")
+
 func add_entry(text: String, entry_type: String) -> void:
 	"""Add an entry with an explicit entry type."""
 	_add_entry(text, entry_type)
