@@ -648,6 +648,13 @@ func _unit_has_scout_own(unit_id: String) -> bool:
 		# even when the name field is mis-tagged.
 		if "scouts " in description.to_lower() and "scouts x" in description.to_lower():
 			return true
+	# Glory Hog (Da Big Hunt): models in the bearer's unit have Scouts 9" —
+	# the bearer's own unit, and the bodyguard unit while attached.
+	if _unit_meta_has_enhancement(unit, "Glory Hog"):
+		return true
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		if _unit_meta_has_enhancement(get_unit(str(char_id)), "Glory Hog"):
+			return true
 	return false
 
 func _get_scout_distance_from_abilities(abilities: Array) -> float:
@@ -713,6 +720,12 @@ func get_scout_distance(unit_id: String) -> float:
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return 0.0
+	# Glory Hog (Da Big Hunt): Scouts 9" for the bearer's unit.
+	if _unit_meta_has_enhancement(unit, "Glory Hog"):
+		return 9.0
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		if _unit_meta_has_enhancement(get_unit(str(char_id)), "Glory Hog"):
+			return 9.0
 	# Check own abilities first
 	var own_abilities = unit.get("meta", {}).get("abilities", [])
 	var own_distance = _get_scout_distance_from_abilities(own_abilities)

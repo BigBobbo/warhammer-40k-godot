@@ -1366,6 +1366,10 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if ow_da_boss_ladz_mod == WoundModifier.MINUS_ONE:
 		ow_wound_modifier = -1
 		print("RulesEngine: DA BOSS' LADZ (overwatch) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
+	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	if ow_wound_modifier == 0 and get_s_gt_t_wound_penalty(target_unit, board, strength, toughness) == WoundModifier.MINUS_ONE:
+		ow_wound_modifier = -1
+		print("RulesEngine: S>T wound penalty (overwatch) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
 	# DEFENDER FLAG ('ARD AS NAILS): -1 to wound for attacks targeting the flagged unit
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		ow_wound_modifier = -1
@@ -1435,6 +1439,11 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if ow_ss_bonus > 0:
 		ap = ap + ow_ss_bonus
 		print("RulesEngine: SPESHUL SHELLS (Overwatch) — AP improved by %d (target within 18\")" % ow_ss_bonus)
+	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
+	var ow_prey_bonus = get_prey_ap_bonus(shooter_unit, target_unit)
+	if ow_prey_bonus > 0:
+		ap = ap + ow_prey_bonus
+		print("RulesEngine: PREY (Overwatch) — AP improved by %d (target is Prey)" % ow_prey_bonus)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ow_worsen_ap > 0 and ap > 0:
@@ -2476,6 +2485,11 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	if da_boss_ladz_mod != WoundModifier.NONE:
 		wound_modifiers |= da_boss_ladz_mod
 		print("RulesEngine: DA BOSS' LADZ — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
+	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	var sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
+	if sgt_mod != WoundModifier.NONE:
+		wound_modifiers |= sgt_mod
+		print("RulesEngine: S>T wound penalty — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
 	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6"
 	# Full Wound re-roll if target is also within range of an objective marker.
 	var pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
@@ -3986,6 +4000,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if ar_da_boss_ladz_mod != WoundModifier.NONE:
 		ar_wound_modifiers |= ar_da_boss_ladz_mod
 		print("RulesEngine: DA BOSS' LADZ (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
+	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	var ar_sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
+	if ar_sgt_mod != WoundModifier.NONE:
+		ar_wound_modifiers |= ar_sgt_mod
+		print("RulesEngine: S>T wound penalty (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
 	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6" (auto-resolve)
 	# Full Wound re-roll if target is also within range of an objective marker.
 	var ar_pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
@@ -4137,6 +4156,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if ar_ss_bonus > 0:
 		ap = ap + ar_ss_bonus
 		print("RulesEngine: SPESHUL SHELLS (auto-resolve) — AP improved by %d (target within 18\")" % ar_ss_bonus)
+	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
+	var ar_prey_bonus = get_prey_ap_bonus(actor_unit, target_unit)
+	if ar_prey_bonus > 0:
+		ap = ap + ar_prey_bonus
+		print("RulesEngine: PREY (auto-resolve) — AP improved by %d (target is Prey)" % ar_prey_bonus)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ar_worsen_ap > 0 and ap > 0:
@@ -7651,6 +7675,30 @@ static func get_speshul_shells_ap_bonus(actor_unit: Dictionary, target_unit: Dic
 		return 1
 	return 0
 
+# PREY (Da Big Hunt detachment rule): each time a BEAST SNAGGA model makes an
+# attack (ranged or melee) that targets its owner's Prey, improve the AP of
+# that attack by 1. The Prey marker lives on the target unit's flags
+# (is_prey_of_<player>, set by FactionAbilityManager at Command phase start).
+static func get_prey_ap_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	var prey_owner = int(actor_unit.get("owner", 0))
+	if prey_owner <= 0:
+		return 0
+	if not target_unit.get("flags", {}).get("is_prey_of_%d" % prey_owner, false):
+		return 0
+	if not unit_has_keyword(actor_unit, "BEAST SNAGGA"):
+		return 0
+	return 1
+
+# SURLY AS A SQUIGGOTH (Da Big Hunt enhancement) + the generic
+# effect_minus_wound_s_gt_t defender flag: -1 to incoming Wound rolls when the
+# attack's Strength is greater than the target unit's Toughness.
+static func get_s_gt_t_wound_penalty(target_unit: Dictionary, board: Dictionary, strength: int, toughness: int) -> int:
+	if strength <= toughness:
+		return WoundModifier.NONE
+	if not FactionAbilityManager.unit_has_s_gt_t_wound_penalty(target_unit, board.get("units", {})):
+		return WoundModifier.NONE
+	return WoundModifier.MINUS_ONE
+
 # WALL OF DAKKA (OA-50): Check if a unit has the "Wall of Dakka" ability (Bonebreaka).
 # +1 to Hit rolls for ranged attacks when target is within half the weapon's range.
 static func has_wall_of_dakka(unit: Dictionary) -> bool:
@@ -10424,6 +10472,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var pre_ap_mm = ap
 		ap = ap + 1
 		print("RulesEngine: Martial Mastery (Improve AP) — melee AP %d → %d" % [pre_ap_mm, ap])
+	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
+	var melee_prey_bonus = get_prey_ap_bonus(attacker_unit, target_unit)
+	if melee_prey_bonus > 0:
+		ap = ap + melee_prey_bonus
+		print("RulesEngine: PREY (melee) — AP improved by %d (target is Prey)" % melee_prey_bonus)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var melee_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if melee_worsen_ap > 0 and ap > 0:
@@ -10548,6 +10601,13 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if effect_crit > 0 and effect_crit < melee_crit_threshold:
 			melee_crit_threshold = effect_crit
 			print("RulesEngine: Effect crit_hit_on %d+ active — melee critical hit threshold: %d+" % [effect_crit, effect_crit])
+		# DRAG IT DOWN (Da Big Hunt): melee crits on 5+ when the target is the
+		# attacker's Prey (per-target live check on the Prey marker flag).
+		if attacker_unit.get("flags", {}).get("effect_drag_it_down", false) and melee_crit_threshold > 5:
+			var did_owner = int(attacker_unit.get("owner", 0))
+			if did_owner > 0 and target_unit.get("flags", {}).get("is_prey_of_%d" % did_owner, false):
+				melee_crit_threshold = 5
+				print("RulesEngine: DRAG IT DOWN — melee critical hits on 5+ (target is Prey)")
 
 		# Build melee hit modifiers using the HitModifier system
 		var melee_hit_modifiers = HitModifier.NONE
@@ -10770,6 +10830,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if melee_da_boss_ladz_mod != WoundModifier.NONE:
 		melee_wound_modifiers |= melee_da_boss_ladz_mod
 		print("RulesEngine: DA BOSS' LADZ (melee) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_id, strength, toughness])
+	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	var melee_sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
+	if melee_sgt_mod != WoundModifier.NONE:
+		melee_wound_modifiers |= melee_sgt_mod
+		print("RulesEngine: S>T wound penalty (melee) — -1 to wound for attacks against %s (S %d > T %d)" % [target_id, strength, toughness])
 
 	# SLAYERS OF TYRANTS: Re-roll Wound rolls vs CHARACTER/MONSTER/VEHICLE (melee)
 	if has_slayers_of_tyrants_vs_target(attacker_unit, target_unit):
@@ -11599,6 +11664,11 @@ static func prepare_save_resolution(
 	if int_ss_bonus > 0:
 		ap = ap + int_ss_bonus
 		print("RulesEngine: SPESHUL SHELLS (interactive) — AP improved by %d (target within 18\")" % int_ss_bonus)
+	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
+	var int_prey_bonus = get_prey_ap_bonus(shooter_unit, target_unit)
+	if int_prey_bonus > 0:
+		ap = ap + int_prey_bonus
+		print("RulesEngine: PREY (interactive) — AP improved by %d (target is Prey)" % int_prey_bonus)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if int_worsen_ap > 0 and ap > 0:
@@ -11792,6 +11862,11 @@ static func prepare_melee_save_resolution(
 		var pre_ap_mm = ap
 		ap = ap + 1
 		print("RulesEngine: Martial Mastery (Improve AP) — melee interactive AP %d → %d" % [pre_ap_mm, ap])
+	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
+	var mi_prey_bonus = get_prey_ap_bonus(attacker_unit, target_unit)
+	if mi_prey_bonus > 0:
+		ap = ap + mi_prey_bonus
+		print("RulesEngine: PREY (melee interactive) — AP improved by %d (target is Prey)" % mi_prey_bonus)
 
 	var damage = weapon_profile.get("damage", 1)
 

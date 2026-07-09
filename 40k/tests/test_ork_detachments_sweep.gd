@@ -100,6 +100,7 @@ func _run():
 	_green_tide(SM, GS, FAM, rules)
 	_more_dakka(SM, GS, FAM, rules)
 	_bully_boyz(SM, GS, FAM, rules)
+	_da_big_hunt(SM, GS, FAM, rules)
 
 
 # ==========================================================================
@@ -248,6 +249,240 @@ func _bully_boyz(SM, GS, FAM, rules):
 	FAM.process_big_gob(1)
 	_check("Big Gob battle-shocks the engaged enemy (Ld 12 unreachable)",
 		GS.get_unit("U_BG_TGT")["flags"].get("battle_shocked", false))
+
+
+# ==========================================================================
+# DA BIG HUNT
+# ==========================================================================
+func _fight_vs(rules, atk_flags: Dictionary, tgt_flags: Dictionary, seed_val: int) -> int:
+	"""_fight variant with target flags (for Prey-marker sensitive effects)."""
+	var atk = []
+	for i in range(10):
+		atk.append({"id": "ma%d" % i, "position": {"x": 10.0, "y": 10.0 + i * 30},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 1, "current_wounds": 1})
+	var tgt = []
+	for i in range(10):
+		tgt.append({"id": "mt%d" % i, "position": {"x": 30.0, "y": 10.0 + i * 30},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 3, "current_wounds": 3,
+			"stats": {"toughness": 3, "save": 6}})
+	var board = {"units": {
+		"U_ATK": {"id": "U_ATK", "owner": 1,
+			"meta": {"keywords": ["INFANTRY", "ORKS"], "stats": {"toughness": 5, "save": 6, "wounds": 1}, "abilities": []},
+			"flags": atk_flags, "models": atk},
+		"U_TGT": {"id": "U_TGT", "owner": 2,
+			"meta": {"keywords": ["INFANTRY"], "stats": {"toughness": 3, "save": 6, "wounds": 3}, "abilities": []},
+			"flags": tgt_flags, "models": tgt}
+	}, "meta": {"phase": 10, "active_player": 1, "battle_round": 1}}
+	rules.set_test_seed(seed_val)
+	var rng = rules.RNGService.new()
+	var action := {"type": "FIGHT", "actor_unit_id": "U_ATK",
+		"payload": {"assignments": [{"attacker": "U_ATK", "target": "U_TGT", "weapon": "choppa"}]}}
+	return _sum_wounds(rules.resolve_melee_attacks(action, board, rng))
+
+
+func _da_big_hunt(SM, GS, FAM, rules):
+	print("\n===== DA BIG HUNT =====")
+	var dbh = _load_detachment(SM, GS, "Da Big Hunt")
+	_check("Da Big Hunt: 6 stratagems loaded", dbh.count == 6)
+	_check("Da Big Hunt: all 6 implemented", dbh.implemented == 6)
+	var st_strat = dbh.by_name.get("STALKIN' TAKTIKS", {})
+	_check("STALKIN' TAKTIKS has keyword_any INFANTRY/MOUNTED",
+		"keyword_any:INFANTRY,MOUNTED" in st_strat.get("target", {}).get("conditions", []))
+	_check("STALKIN' TAKTIKS requires BEAST SNAGGA",
+		"keyword:BEAST SNAGGA" in st_strat.get("target", {}).get("conditions", []))
+	_check("INSTINCTIVE HUNTERS requires the unit to be unengaged",
+		"not_in_engagement_range" in dbh.by_name.get("INSTINCTIVE HUNTERS", {}).get("target", {}).get("conditions", []))
+	# The MovementPhase reactive-move candidates list uses the straight-apostrophe
+	# name; the CSV stores typographic apostrophes.
+	_check("WHERE D'YA FINK YOU'RE GOING? findable by straight-apostrophe name",
+		SM.find_faction_stratagem_by_name(1, "Where D'ya Fink You're Going?") != "")
+
+	# ---- Prey (detachment rule): selection lifecycle -------------------------
+	var snagga = _boyz_unit("U_SNAGGA", 5)
+	snagga["meta"]["keywords"] = ["ORKS", "BEAST SNAGGA", "MOUNTED"]
+	var near_char = _boyz_unit("U_PREY_CHAR", 1, 2)
+	near_char["meta"]["keywords"] = ["CHARACTER", "INFANTRY"]
+	near_char["models"][0]["position"] = {"x": 150.0, "y": 20.0}
+	var far_veh = _boyz_unit("U_PREY_VEH", 1, 2)
+	far_veh["meta"]["keywords"] = ["VEHICLE"]
+	far_veh["models"][0]["position"] = {"x": 2000.0, "y": 20.0}
+	var plain = _boyz_unit("U_PLAIN", 5, 2)
+	plain["meta"]["keywords"] = ["INFANTRY"]
+	GS.state["units"] = {"U_SNAGGA": snagga, "U_PREY_CHAR": near_char, "U_PREY_VEH": far_veh, "U_PLAIN": plain}
+	FAM._select_prey_for_player(1)
+	_check("Prey auto-select picks the nearest MONSTER/VEHICLE/CHARACTER",
+		GS.get_unit("U_PREY_CHAR")["flags"].get("is_prey_of_1", false))
+	_check("get_prey_unit_id reads the marker", FAM.get_prey_unit_id(1) == "U_PREY_CHAR")
+	_check("set_prey rejects a non-eligible unit", not FAM.set_prey(1, "U_PLAIN"))
+	_check("set_prey accepts another eligible enemy", FAM.set_prey(1, "U_PREY_VEH"))
+	_check("set_prey clears the previous marker",
+		not GS.get_unit("U_PREY_CHAR")["flags"].get("is_prey_of_1", false))
+	FAM._select_prey_for_player(1)
+	_check("Prey persists across re-selection while alive", FAM.get_prey_unit_id(1) == "U_PREY_VEH")
+	for m in GS.get_unit("U_PREY_VEH")["models"]:
+		m["alive"] = false
+	FAM._select_prey_for_player(1)
+	_check("Dead Prey is replaced at the next Command phase", FAM.get_prey_unit_id(1) == "U_PREY_CHAR")
+
+	# ---- Prey rule effects: +1 AP and charge re-roll --------------------------
+	var atk_bs = {"owner": 1, "meta": {"keywords": ["ORKS", "BEAST SNAGGA"]}, "flags": {}, "models": []}
+	var atk_plain = {"owner": 1, "meta": {"keywords": ["ORKS"]}, "flags": {}, "models": []}
+	var prey_tgt = {"owner": 2, "meta": {}, "flags": {"is_prey_of_1": true}, "models": []}
+	var not_prey = {"owner": 2, "meta": {}, "flags": {}, "models": []}
+	_check("Prey rule: +1 AP for BEAST SNAGGA vs Prey", rules.get_prey_ap_bonus(atk_bs, prey_tgt) == 1)
+	_check("Prey rule: no AP bonus vs non-Prey", rules.get_prey_ap_bonus(atk_bs, not_prey) == 0)
+	_check("Prey rule: AP bonus needs BEAST SNAGGA", rules.get_prey_ap_bonus(atk_plain, prey_tgt) == 0)
+	var prey_units_map = {"E1": {"flags": {"is_prey_of_1": true}}}
+	_check("Prey rule: charge re-roll when a target is Prey",
+		FAM.unit_has_prey_charge_reroll(atk_bs, ["E1"], prey_units_map))
+	_check("Prey rule: no charge re-roll vs non-Prey targets",
+		not FAM.unit_has_prey_charge_reroll(atk_bs, ["E2"], prey_units_map))
+	_check("Prey rule: charge re-roll needs BEAST SNAGGA",
+		not FAM.unit_has_prey_charge_reroll(atk_plain, ["E1"], prey_units_map))
+
+	# ---- DAT ONE'S EVEN BIGGA! ------------------------------------------------
+	GS.state["units"] = {"U_DB": _boyz_unit("U_DB", 5)}
+	GS.get_unit("U_DB")["meta"]["keywords"] = ["ORKS", "BEAST SNAGGA", "MOUNTED"]
+	var strat_db = {"id": "t_db", "name": "DAT ONE’S EVEN BIGGA!", "effects": [{"type": "custom:dat_ones_even_bigga"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_db", "U_DB", strat_db, {}))
+	var db_flags = GS.get_unit("U_DB")["flags"]
+	_check("DAT ONE'S EVEN BIGGA! grants advance+charge and fall-back+charge",
+		db_flags.get("effect_advance_and_charge", false) and db_flags.get("effect_fall_back_and_charge", false))
+	SM.stratagems["t_db"] = strat_db
+	SM._clear_stratagem_flags("U_DB", "t_db")
+	_check("DAT ONE'S EVEN BIGGA! clear removes the flags",
+		not GS.get_unit("U_DB")["flags"].has("effect_advance_and_charge")
+		and not GS.get_unit("U_DB")["flags"].has("effect_fall_back_and_charge"))
+
+	# ---- DRAG IT DOWN ----------------------------------------------------------
+	var strat_did = {"id": "t_did", "name": "DRAG IT DOWN", "effects": [{"type": "custom:drag_it_down"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_did", "U_DB", strat_did, {}))
+	_check("DRAG IT DOWN sets melee SUSTAINED HITS + Prey-crit flags",
+		GS.get_unit("U_DB")["flags"].get("effect_sustained_hits_melee", false)
+		and GS.get_unit("U_DB")["flags"].get("effect_drag_it_down", false))
+	# Crit on 5+ vs Prey: sustained bonus hits proc twice as often — aggregate
+	# wound successes over seeds (per-seed monotonic checks are invalid because
+	# extra hits shift the RNG stream).
+	var did_flags = {"effect_sustained_hits_melee": true, "effect_drag_it_down": true}
+	var did_on := 0
+	var did_off := 0
+	for s in [7, 11, 23, 42, 59, 77, 101, 131]:
+		did_off += _fight_vs(rules, did_flags, {}, s)
+		did_on += _fight_vs(rules, did_flags, {"is_prey_of_1": true}, s)
+	print("  DRAG IT DOWN: aggregate wounds vs Prey=%d, vs non-Prey=%d" % [did_on, did_off])
+	_check("DRAG IT DOWN crit-5+ raises aggregate melee wounds vs Prey", did_on > did_off)
+
+	# ---- INSTINCTIVE HUNTERS ----------------------------------------------------
+	var strat_ih = {"id": "t_ih", "name": "INSTINCTIVE HUNTERS", "effects": [{"type": "custom:instinctive_hunters"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_ih", "U_DB", strat_ih, {}))
+	_check("INSTINCTIVE HUNTERS moves the unit into Strategic Reserves",
+		int(GS.get_unit("U_DB").get("status", -1)) == int(GameStateData.UnitStatus.IN_RESERVES)
+		and str(GS.get_unit("U_DB").get("reserve_type", "")) == "strategic_reserves")
+
+	# ---- UNSTOPPABLE MOMENTUM ---------------------------------------------------
+	var um_models = []
+	for i in range(5):
+		um_models.append({"id": "umm%d" % i, "position": {"x": 10.0, "y": 10.0 + i * 28},
+			"base_mm": 40, "base_type": "circular", "alive": true, "wounds": 3, "current_wounds": 3})
+	var um_enemy_models = []
+	for i in range(5):
+		um_enemy_models.append({"id": "ume%d" % i, "position": {"x": 60.0, "y": 10.0 + i * 28},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 2, "current_wounds": 2,
+			"stats": {"toughness": 4, "save": 3}})
+	GS.state["units"] = {
+		"U_UM": {"id": "U_UM", "owner": 1, "status": 2,
+			"meta": {"name": "Squighogs", "keywords": ["ORKS", "BEAST SNAGGA", "MOUNTED"], "stats": {}, "abilities": [], "enhancements": []},
+			"flags": {"charged_this_turn": true}, "models": um_models},
+		"U_UM_TGT": {"id": "U_UM_TGT", "owner": 2, "status": 2,
+			"meta": {"name": "Marines", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 3, "wounds": 2}, "abilities": [], "enhancements": []},
+			"flags": {"is_prey_of_1": true}, "models": um_enemy_models},
+	}
+	# er_only=false + Prey: one die per model (5) + 3 bonus dice = 8
+	rules.set_test_seed(42)
+	var um_probe = rules.resolve_krunchin_descent("U_UM", "U_UM_TGT", GS.create_snapshot(), rules.RNGService.new(), 4, false, 3)
+	_check("UNSTOPPABLE MOMENTUM rolls one die per model +3 vs Prey", int(um_probe.get("models_in_er", 0)) == 8)
+	rules.set_test_seed(42)
+	var strat_um = {"id": "t_um", "name": "UNSTOPPABLE MOMENTUM", "effects": [{"type": "custom:unstoppable_momentum"}]}
+	var um_diffs = SM._apply_stratagem_effects("t_um", "U_UM", strat_um, {"enemy_unit_id": "U_UM_TGT"})
+	_check("UNSTOPPABLE MOMENTUM handler rolled dice and returned diffs or none", um_diffs != null)
+
+	# ---- STALKIN' TAKTIKS ---------------------------------------------------------
+	GS.state["units"] = {"U_ST_INF": _boyz_unit("U_ST_INF", 5), "U_ST_MNT": _boyz_unit("U_ST_MNT", 3)}
+	GS.get_unit("U_ST_INF")["meta"]["keywords"] = ["ORKS", "BEAST SNAGGA", "INFANTRY"]
+	GS.get_unit("U_ST_MNT")["meta"]["keywords"] = ["ORKS", "BEAST SNAGGA", "MOUNTED"]
+	var strat_st = {"id": "t_st", "name": "STALKIN’ TAKTIKS", "effects": [{"type": "custom:stalkin_taktiks"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_st", "U_ST_INF", strat_st, {}))
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_st", "U_ST_MNT", strat_st, {}))
+	_check("STALKIN' TAKTIKS: INFANTRY get cover + Stealth",
+		GS.get_unit("U_ST_INF")["flags"].get("effect_cover", false)
+		and GS.get_unit("U_ST_INF")["flags"].get("effect_stealth", false))
+	_check("STALKIN' TAKTIKS: MOUNTED get cover only",
+		GS.get_unit("U_ST_MNT")["flags"].get("effect_cover", false)
+		and not GS.get_unit("U_ST_MNT")["flags"].get("effect_stealth", false))
+
+	# ---- Enhancements ---------------------------------------------------------------
+	# Glory Hog — Scouts 9" for the bearer's unit (and the bearer while attached)
+	GS.state["units"] = {
+		"U_BB_SQ": {"id": "U_BB_SQ", "owner": 1, "attached_to": "U_SQUIGHOGS",
+			"meta": {"name": "Beastboss on Squigosaur", "keywords": ["CHARACTER", "ORKS", "BEAST SNAGGA", "MOUNTED"],
+				"enhancements": ["Glory Hog"], "abilities": []},
+			"flags": {}, "models": [{"id": "m0", "alive": true}]},
+		"U_SQUIGHOGS": {"id": "U_SQUIGHOGS", "owner": 1,
+			"meta": {"name": "Squighog Boyz", "keywords": ["ORKS", "BEAST SNAGGA", "MOUNTED"], "enhancements": [], "abilities": []},
+			"flags": {}, "attachment_data": {"attached_characters": ["U_BB_SQ"]},
+			"models": [{"id": "m0", "alive": true}]},
+	}
+	_check("Glory Hog: led unit has Scouts", GS.unit_has_scout("U_SQUIGHOGS"))
+	_check("Glory Hog: led unit Scout distance is 9\"", GS.get_scout_distance("U_SQUIGHOGS") == 9.0)
+	_check("Glory Hog: bearer has Scouts 9\"",
+		GS.unit_has_scout("U_BB_SQ") and GS.get_scout_distance("U_BB_SQ") == 9.0)
+
+	# Surly as a Squiggoth — -1 to incoming wounds while S > T (and the generic flag)
+	var surly_board = {"units": {
+		"U_SURLY_CHAR": {"id": "U_SURLY_CHAR", "owner": 1,
+			"meta": {"enhancements": ["Surly as a Squiggoth"], "keywords": ["CHARACTER"]}, "flags": {}, "models": [{"alive": true}]},
+		"U_SURLY_UNIT": {"id": "U_SURLY_UNIT", "owner": 1,
+			"meta": {"enhancements": [], "keywords": ["ORKS"]}, "flags": {},
+			"attachment_data": {"attached_characters": ["U_SURLY_CHAR"]}, "models": [{"alive": true}]},
+	}}
+	var surly_unit = surly_board["units"]["U_SURLY_UNIT"]
+	_check("Surly as a Squiggoth: -1 wound when S > T",
+		rules.get_s_gt_t_wound_penalty(surly_unit, surly_board, 6, 5) == rules.WoundModifier.MINUS_ONE)
+	_check("Surly as a Squiggoth: no penalty when S <= T",
+		rules.get_s_gt_t_wound_penalty(surly_unit, surly_board, 5, 5) == rules.WoundModifier.NONE)
+	var flag_unit = {"owner": 2, "meta": {"enhancements": []}, "flags": {"effect_minus_wound_s_gt_t": true}, "models": []}
+	_check("effect_minus_wound_s_gt_t flag triggers the same penalty",
+		rules.get_s_gt_t_wound_penalty(flag_unit, {"units": {}}, 6, 5) == rules.WoundModifier.MINUS_ONE)
+	var plain_unit = {"owner": 2, "meta": {"enhancements": []}, "flags": {}, "models": []}
+	_check("No S>T penalty without the enhancement or flag",
+		rules.get_s_gt_t_wound_penalty(plain_unit, {"units": {}}, 6, 5) == rules.WoundModifier.NONE)
+
+	# Proper Killy — +1 melee Damage flag via UnitAbilityManager (Fight phase)
+	var UAM_DBH = root.get_node("UnitAbilityManager")
+	GS.state["units"] = {"U_PK": _boyz_unit("U_PK", 3)}
+	GS.get_unit("U_PK")["meta"]["keywords"] = ["ORKS", "BEAST SNAGGA", "INFANTRY"]
+	GS.get_unit("U_PK")["meta"]["enhancements"] = ["Proper Killy"]
+	UAM_DBH._applied_this_phase = {}
+	UAM_DBH._apply_enhancement_abilities(10)  # melee entries apply in the FIGHT phase
+	_check("Proper Killy sets effect_plus_damage in the Fight phase",
+		int(GS.get_unit("U_PK")["flags"].get("effect_plus_damage", 0)) == 1)
+
+	# Skrag Every Stash! — end-of-Command-phase sticky objective lock
+	var MM = root.get_node("MissionManager")
+	var skrag_models = [{"id": "m0", "position": {"x": 100.0, "y": 100.0}, "base_mm": 40, "base_type": "circular", "alive": true, "wounds": 6, "current_wounds": 6}]
+	GS.state["units"] = {"U_SKRAG": {"id": "U_SKRAG", "owner": 1, "status": 2,
+		"meta": {"name": "Beastboss", "keywords": ["CHARACTER", "ORKS", "BEAST SNAGGA"],
+			"enhancements": ["Skrag Every Stash!"], "abilities": []},
+		"flags": {}, "models": skrag_models}}
+	if not GS.state.has("board"):
+		GS.state["board"] = {}
+	GS.state["board"]["objectives"] = [{"id": "obj_skrag", "position": {"x": 120.0, "y": 100.0}}]
+	MM.objective_control_state["obj_skrag"] = 1
+	MM._sticky_objectives.erase("obj_skrag")
+	FAM.process_skrag_every_stash(1)
+	_check("Skrag Every Stash! locks the bearer's objective (sticky)",
+		MM._sticky_objectives.has("obj_skrag")
+		and GS.get_unit("U_SKRAG")["flags"].get("effect_sticky_objective_control", "") == "obj_skrag")
 
 
 # ==========================================================================

@@ -5755,11 +5755,13 @@ func _check_krump_and_run_opportunity(fell_back_unit_id: String, snapshot_overri
 		return {"triggered": false}
 
 	# Find the reactive fall-back stratagem for the defending player:
-	# KRUMP AND RUN (Freebooter Krew) or ON TO DA NEXT (Taktikal Brigade) —
-	# identical effect (6" Normal move after an enemy Falls Back).
+	# KRUMP AND RUN (Freebooter Krew), ON TO DA NEXT (Taktikal Brigade) or
+	# WHERE D'YA FINK YOU'RE GOING? (Da Big Hunt) — identical effect
+	# (6" Normal move after an enemy Falls Back; per-unit targeting rules
+	# differ and are enforced by can_use_stratagem below).
 	var kar_strat_id = ""
 	var kar_strat_name = "Krump and Run"
-	for candidate in ["Krump and Run", "On to da Next"]:
+	for candidate in ["Krump and Run", "On to da Next", "Where D'ya Fink You're Going?"]:
 		kar_strat_id = strat_manager.find_faction_stratagem_by_name(defending_player, candidate)
 		if kar_strat_id != "":
 			kar_strat_name = candidate

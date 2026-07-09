@@ -1380,6 +1380,56 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# DA BIG HUNT ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Glory Hog — models in the bearer's unit have Scouts 9". Live hooks in
+	# GameState.unit_has_scout / get_scout_distance (deployment-time rule).
+	"Glory Hog": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Beastboss on Squigosaur only. Bearer's unit has Scouts 9\" (GameState.unit_has_scout / get_scout_distance)"
+	},
+
+	# Proper Killy — +1 Damage on the bearer's melee weapons. Same unit-wide
+	# approximation as Headwoppa's Killchoppa / Da Gobshot Thunderbuss
+	# (per-model weapon scoping is a future refactor).
+	"Proper Killy": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.PLUS_DAMAGE, "value": 1}],
+		"target": "bearer_model",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "Beast Snagga model only. +1 Damage on the bearer's melee weapons (effect_plus_damage, Fight phase)"
+	},
+
+	# Skrag Every Stash! — end-of-Command-phase sticky objective. Resolved by
+	# FactionAbilityManager.process_skrag_every_stash (CommandPhase exit hook).
+	"Skrag Every Stash!": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Beast Snagga model only. End of your Command phase: the objective the bearer is on stays yours until the opponent controls it (sticky lock)"
+	},
+
+	# Surly as a Squiggoth — while the bearer is leading a unit, attacks with
+	# S > T against that unit get -1 to wound. Live check in the four
+	# RulesEngine wound-modifier sites (get_s_gt_t_wound_penalty).
+	"Surly as a Squiggoth": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Beastboss on Squigosaur only. While leading: -1 to incoming Wound rolls when attack S > unit T (live check)"
+	},
+
+	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
 	# ======================================================================

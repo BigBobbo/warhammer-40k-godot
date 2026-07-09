@@ -619,11 +619,13 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	ability_reroll_used = false
 
 	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught,
-	# Plummeting Descent, or Green Tide's Bloodthirsty Belligerence while the
-	# bearer's unit counts as 10+ models)
+	# Plummeting Descent, Green Tide's Bloodthirsty Belligerence while the
+	# bearer's unit counts as 10+ models, or the Prey rule / DAT ONE'S EVEN
+	# BIGGA! for a BEAST SNAGGA unit charging its owner's Prey)
 	var unit_data = get_unit(unit_id)
 	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
-		or FactionAbilityManager.unit_has_green_tide_charge_reroll(unit_data, GameState.state.get("units", {}))
+		or FactionAbilityManager.unit_has_green_tide_charge_reroll(unit_data, GameState.state.get("units", {})) \
+		or FactionAbilityManager.unit_has_prey_charge_reroll(unit_data, target_ids, GameState.state.get("units", {}))
 
 	if has_ability_reroll:
 		# Offer free ability reroll first (before Command Re-roll)
@@ -2834,6 +2836,12 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 				for effect in entry.get("effects", []):
 					if effect.get("type", "") == "reroll_charge":
 						return entry.get("ability_name", "ability")
+	# Prey rule (Da Big Hunt): reroll granted live vs the owner's Prey
+	var unit_data = get_unit(unit_id)
+	var declared_targets: Array = pending_charges.get(unit_id, {}).get("targets", [])
+	if not EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
+			and FactionAbilityManager.unit_has_prey_charge_reroll(unit_data, declared_targets, GameState.state.get("units", {})):
+		return "Prey"
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:

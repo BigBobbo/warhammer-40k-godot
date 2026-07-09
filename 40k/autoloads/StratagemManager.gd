@@ -56,6 +56,9 @@ const _CUSTOM_IMPLEMENTED_NAMES: Array = [
 	# Bully Boyz (HULKING BRUTES is auto via effects_json worsen_ap)
 	"ALWAYS LOOKIN' FER A FIGHT", "ARMED TO DA TEEF", "CRUSHING IMPACT",
 	"CUT' EM DOWN", "TOO ARROGANT TO DIE",
+	# Da Big Hunt
+	"DAT ONE'S EVEN BIGGA!", "DRAG IT DOWN", "INSTINCTIVE HUNTERS",
+	"UNSTOPPABLE MOMENTUM", "STALKIN' TAKTIKS", "WHERE D'YA FINK YOU'RE GOING?",
 ]
 
 # Out-of-Phase Rules Restriction (P1-59)
@@ -1120,12 +1123,14 @@ func get_stratagem(stratagem_id: String) -> Dictionary:
 
 func find_faction_stratagem_by_name(player: int, stratagem_name: String) -> String:
 	"""Find a faction stratagem ID by its display name for a given player.
-	Returns the stratagem ID or empty string if not found."""
-	var name_upper = stratagem_name.to_upper()
+	Returns the stratagem ID or empty string if not found. Typographic
+	apostrophes are normalized so "Where D'ya Fink You're Going?" matches the
+	CSV's "WHERE D’YA FINK YOU’RE GOING?"."""
+	var name_upper = stratagem_name.replace("’", "'").to_upper()
 	var player_key = str(player)
 	for strat_id in _player_faction_stratagems.get(player_key, []):
 		if stratagems.has(strat_id):
-			if stratagems[strat_id].get("name", "").to_upper() == name_upper:
+			if stratagems[strat_id].get("name", "").replace("’", "'").to_upper() == name_upper:
 				return strat_id
 	return ""
 
@@ -1924,6 +1929,63 @@ func _apply_ork_sweep_effects(strat: Dictionary, target_unit_id: String, context
 		"TOO ARROGANT TO DIE":
 			print("StratagemManager: TOO ARROGANT TO DIE — %s's dying models swing back on 5+ (+2 in Waaagh!) this phase" % target_unit_id)
 			return [{"op": "set", "path": "units.%s.flags.effect_too_arrogant_to_die" % target_unit_id, "value": true}]
+		# ---- DA BIG HUNT ---------------------------------------------------
+		"DAT ONE'S EVEN BIGGA!":
+			# Eligible to charge after Advancing or Falling Back this phase.
+			# The "re-roll Charge rolls vs your Prey" clause is the Prey rule's
+			# own re-roll (FactionAbilityManager.unit_has_prey_charge_reroll),
+			# which ChargePhase already offers to every BEAST SNAGGA unit.
+			print("StratagemManager: DAT ONE'S EVEN BIGGA! — %s can charge after Advancing/Falling Back this phase" % target_unit_id)
+			return [
+				{"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % target_unit_id, "value": true},
+				{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_FALL_BACK_AND_CHARGE], "value": true},
+			]
+		"DRAG IT DOWN":
+			# Melee weapons gain SUSTAINED HITS 1; melee crits on 5+ vs your
+			# Prey (live per-target check in the melee resolver).
+			print("StratagemManager: DRAG IT DOWN — %s melee SUSTAINED HITS 1 + crit 5+ vs Prey this phase" % target_unit_id)
+			return [
+				{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE], "value": true},
+				{"op": "set", "path": "units.%s.flags.effect_drag_it_down" % target_unit_id, "value": true},
+			]
+		"INSTINCTIVE HUNTERS":
+			# Remove the unengaged Beast Snagga unit into Strategic Reserves
+			# (DED SNEAKY / EVASIVE MANOOVA pattern).
+			print("StratagemManager: INSTINCTIVE HUNTERS — %s removed to Strategic Reserves" % target_unit_id)
+			return [
+				{"op": "set", "path": "units.%s.status" % target_unit_id, "value": GameState.UnitStatus.IN_RESERVES},
+				{"op": "set", "path": "units.%s.reserve_type" % target_unit_id, "value": "strategic_reserves"},
+				{"op": "set", "path": "units.%s.flags.instinctive_hunters_reserved" % target_unit_id, "value": true},
+			]
+		"UNSTOPPABLE MOMENTUM":
+			# D6 per model in the unit (not just those in ER); 4+ = 1 MW, max
+			# 6. Three extra dice when the chosen enemy is your Prey.
+			var um_enemy := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+			if um_enemy == "" or target_unit_id == "":
+				print("StratagemManager: UNSTOPPABLE MOMENTUM used without context.enemy_unit_id — no dice rolled")
+				return []
+			var um_unit = GameState.get_unit(target_unit_id)
+			var um_owner = int(um_unit.get("owner", 0))
+			var um_is_prey = GameState.get_unit(um_enemy).get("flags", {}).get("is_prey_of_%d" % um_owner, false)
+			var um_bonus = 3 if um_is_prey else 0
+			var um = RulesEngine.resolve_krunchin_descent(target_unit_id, um_enemy, GameState.create_snapshot(), RulesEngine.make_rng(), 4, false, um_bonus)
+			print("StratagemManager: UNSTOPPABLE MOMENTUM — %d mortal wounds to %s%s" % [
+				int(um.get("mortal_wounds", 0)), um_enemy, " (Prey: +3 dice)" if um_is_prey else ""])
+			return um.get("diffs", [])
+		"STALKIN' TAKTIKS":
+			# Benefit of Cover vs ranged attacks; INFANTRY additionally gain
+			# Stealth. Both until end of phase.
+			var st_diffs = [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_COVER], "value": true}]
+			var st_infantry = RulesEngine.unit_has_keyword(GameState.get_unit(target_unit_id), "INFANTRY")
+			if st_infantry:
+				st_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_STEALTH], "value": true})
+			print("StratagemManager: STALKIN' TAKTIKS — %s gains Benefit of Cover%s this phase" % [target_unit_id, " + Stealth (INFANTRY)" if st_infantry else ""])
+			return st_diffs
+		"WHERE D'YA FINK YOU'RE GOING?":
+			# Reactive 6" Normal move after an enemy Falls Back — offered and
+			# resolved by MovementPhase via the Krump-and-Run scaffolding.
+			print("StratagemManager: WHERE D'YA FINK YOU'RE GOING? applied to %s (reactive move handled by MovementPhase)" % target_unit_id)
+			return []
 	return null
 
 func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictionary) -> bool:
@@ -1987,6 +2049,21 @@ func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictiona
 		"TOO ARROGANT TO DIE":
 			flags.erase("effect_too_arrogant_to_die")
 			return true
+		# ---- DA BIG HUNT ---------------------------------------------------
+		"DAT ONE'S EVEN BIGGA!":
+			flags.erase("effect_advance_and_charge")
+			flags.erase(EffectPrimitivesData.FLAG_FALL_BACK_AND_CHARGE)
+			return true
+		"DRAG IT DOWN":
+			flags.erase(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE)
+			flags.erase("effect_drag_it_down")
+			return true
+		"INSTINCTIVE HUNTERS", "UNSTOPPABLE MOMENTUM", "WHERE D'YA FINK YOU'RE GOING?":
+			return true  # instant effects — nothing to clear
+		"STALKIN' TAKTIKS":
+			flags.erase(EffectPrimitivesData.FLAG_COVER)
+			flags.erase(EffectPrimitivesData.FLAG_STEALTH)
+			return true
 	return false
 
 func _find_nearest_friendly_keyword_unit(unit_id: String, keyword: String, max_inches: float) -> String:
@@ -2024,12 +2101,14 @@ func _find_nearest_friendly_keyword_unit(unit_id: String, keyword: String, max_i
 ## units the friendly MONSTER/VEHICLE is engaged with.
 func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String) -> Array:
 	var out: Array = []
-	# KRUNCHIN' DESCENT (Taktikal Brigade) shares the crushing_impact target
-	# rule: enemy units the friendly unit is in Engagement Range of.
+	# KRUNCHIN' DESCENT (Taktikal Brigade), CRUSHING IMPACT / CUT' EM DOWN
+	# (Bully Boyz) and UNSTOPPABLE MOMENTUM (Da Big Hunt) share the
+	# crushing_impact target rule: enemy units the friendly unit is in
+	# Engagement Range of.
 	# CALL DAT DAKKA? (More Dakka!) may target any enemy unit (weapons out of
 	# range simply produce no shots when the shoot-back resolves).
 	var _strat_name = str(stratagems.get(stratagem_id, {}).get("name", "")).replace("’", "'").to_upper()
-	if _strat_name in ["KRUNCHIN' DESCENT", "CRUSHING IMPACT", "CUT' EM DOWN"]:
+	if _strat_name in ["KRUNCHIN' DESCENT", "CRUSHING IMPACT", "CUT' EM DOWN", "UNSTOPPABLE MOMENTUM"]:
 		# Enemy units the friendly unit is in Engagement Range of.
 		stratagem_id = "krunchin_descent"
 	elif _strat_name == "CALL DAT DAKKA?":

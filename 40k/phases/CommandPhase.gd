@@ -196,6 +196,12 @@ func _on_phase_exit() -> void:
 	if strat_manager:
 		strat_manager.on_phase_end(GameStateData.Phase.COMMAND)
 
+	# Skrag Every Stash! (Da Big Hunt): "at the end of your Command phase" —
+	# lock the bearer's nearest controlled objective (sticky control).
+	var fam_exit = get_node_or_null("/root/FactionAbilityManager")
+	if fam_exit:
+		fam_exit.process_skrag_every_stash(get_current_player())
+
 	_units_needing_test.clear()
 	_units_tested.clear()
 	_units_auto_passed.clear()

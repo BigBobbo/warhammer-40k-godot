@@ -1853,6 +1853,156 @@ static func unit_has_green_tide_charge_reroll(unit: Dictionary, units: Dictionar
 		return false
 	return unit_counts_as_10(unit)
 
+# ============================================================================
+# DA BIG HUNT — PREY (detachment rule)
+# ============================================================================
+# "At the start of your Command phase, select one MONSTER, VEHICLE or
+# CHARACTER unit from your opponent's army. Until the start of your next
+# Command phase, that enemy unit is your Prey:
+#  - Each time a Beast Snagga unit from your army declares a charge that
+#    includes your Prey as one of the targets, you can re-roll the Charge roll.
+#  - Each time a BEAST SNAGGA model from your army makes an attack that
+#    targets your Prey, improve the Armour Penetration characteristic of that
+#    attack by 1."
+# The marker lives on the ENEMY unit as flags.is_prey_of_<player> so it
+# survives save/load and is readable from RulesEngine's static resolvers.
+# Selection is automatic (nearest eligible enemy to a friendly BEAST SNAGGA
+# unit, keeping the previous Prey while it lives) — override via set_prey().
+
+func get_prey_unit_id(player: int) -> String:
+	"""Return the unit id currently marked as this player's Prey, or ""."""
+	var flag_key = "is_prey_of_%d" % player
+	var units = GameState.state.get("units", {})
+	for uid in units:
+		if units[uid].get("flags", {}).get(flag_key, false):
+			return uid
+	return ""
+
+static func unit_is_prey_of(unit: Dictionary, player: int) -> bool:
+	return unit.get("flags", {}).get("is_prey_of_%d" % player, false)
+
+func _is_valid_prey_choice(unit: Dictionary, player: int) -> bool:
+	"""Eligible Prey: an enemy MONSTER, VEHICLE or CHARACTER unit with at
+	least one alive model."""
+	if unit.is_empty() or int(unit.get("owner", 0)) == player or int(unit.get("owner", 0)) == 0:
+		return false
+	if not (RulesEngine.unit_has_keyword(unit, "MONSTER")
+			or RulesEngine.unit_has_keyword(unit, "VEHICLE")
+			or RulesEngine.unit_has_keyword(unit, "CHARACTER")):
+		return false
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			return true
+	return false
+
+func set_prey(player: int, enemy_unit_id: String) -> bool:
+	"""Mark an enemy unit as this player's Prey (clearing any previous marker).
+	Returns false if the unit is not a legal Prey choice."""
+	var units = GameState.state.get("units", {})
+	var choice = units.get(enemy_unit_id, {})
+	if not _is_valid_prey_choice(choice, player):
+		print("FactionAbilityManager: set_prey — %s is not a legal Prey for Player %d (needs enemy MONSTER/VEHICLE/CHARACTER with alive models)" % [enemy_unit_id, player])
+		return false
+	var flag_key = "is_prey_of_%d" % player
+	for uid in units:
+		if units[uid].get("flags", {}).has(flag_key):
+			units[uid]["flags"].erase(flag_key)
+	if not choice.has("flags"):
+		choice["flags"] = {}
+	choice["flags"][flag_key] = true
+	print("FactionAbilityManager: Da Big Hunt — %s (%s) is now Player %d's Prey" % [
+		enemy_unit_id, choice.get("meta", {}).get("name", enemy_unit_id), player])
+	return true
+
+func _select_prey_for_player(player: int) -> void:
+	"""Da Big Hunt: (re-)select this player's Prey at the start of their
+	Command phase. Keeps the previous Prey while it is still legal; otherwise
+	auto-picks the eligible enemy unit nearest to any friendly BEAST SNAGGA
+	unit (documented simplification — set_prey() allows a manual override)."""
+	var units = GameState.state.get("units", {})
+	var current = get_prey_unit_id(player)
+	if current != "" and _is_valid_prey_choice(units.get(current, {}), player):
+		# Re-assert (refreshes the marker; also covers loaded saves)
+		set_prey(player, current)
+		return
+	var best_id = ""
+	var best_dist = INF
+	for uid in units:
+		var enemy = units[uid]
+		if not _is_valid_prey_choice(enemy, player):
+			continue
+		var d = _min_distance_to_friendly_beast_snagga(enemy, player)
+		if best_id == "" or d < best_dist:
+			best_id = uid
+			best_dist = d
+	if best_id == "":
+		print("FactionAbilityManager: Da Big Hunt — no eligible enemy MONSTER/VEHICLE/CHARACTER for Player %d's Prey" % player)
+		return
+	set_prey(player, best_id)
+
+func _min_distance_to_friendly_beast_snagga(enemy_unit: Dictionary, player: int) -> float:
+	"""Smallest model-to-model distance (px) from the enemy unit to any of the
+	player's BEAST SNAGGA units. INF when no positioned pair exists."""
+	var best = INF
+	for uid in GameState.state.get("units", {}):
+		var friendly = GameState.state["units"][uid]
+		if int(friendly.get("owner", 0)) != player:
+			continue
+		if not RulesEngine.unit_has_keyword(friendly, "BEAST SNAGGA"):
+			continue
+		for fm in friendly.get("models", []):
+			if not fm.get("alive", true) or fm.get("position") == null:
+				continue
+			for em in enemy_unit.get("models", []):
+				if not em.get("alive", true) or em.get("position") == null:
+					continue
+				best = minf(best, Measurement.model_to_model_distance_px(fm, em))
+	return best
+
+static func unit_has_prey_charge_reroll(unit: Dictionary, target_ids: Array, units: Dictionary) -> bool:
+	"""Prey rule, first bullet: a BEAST SNAGGA unit charging its owner's Prey
+	can re-roll the Charge roll. Also covers DAT ONE'S EVEN BIGGA! (whose
+	re-roll clause has the identical condition)."""
+	if not RulesEngine.unit_has_keyword(unit, "BEAST SNAGGA"):
+		return false
+	var owner = int(unit.get("owner", 0))
+	if owner <= 0:
+		return false
+	for tid in target_ids:
+		if unit_is_prey_of(units.get(str(tid), {}), owner):
+			return true
+	return false
+
+static func unit_has_s_gt_t_wound_penalty(unit: Dictionary, units: Dictionary) -> bool:
+	"""Surly as a Squiggoth (Da Big Hunt enhancement) and the generic
+	effect_minus_wound_s_gt_t flag: -1 to incoming Wound rolls while the
+	attack's Strength exceeds the unit's Toughness. The S>T comparison itself
+	happens at the call site (RulesEngine.get_s_gt_t_wound_penalty)."""
+	if unit.get("flags", {}).get("effect_minus_wound_s_gt_t", false):
+		return true
+	return _unit_or_attached_has_enhancement(unit, "Surly as a Squiggoth", units)
+
+func process_skrag_every_stash(player: int) -> void:
+	"""Skrag Every Stash! (Da Big Hunt): at the end of your Command phase, if
+	the bearer is within range of an objective marker you control, that
+	objective sticks (stays yours until the opponent controls it) — reuses the
+	Vigilance Eternal sticky-objective mechanism in MissionManager."""
+	var bearer = _find_enhancement_bearer(player, "Skrag Every Stash!")
+	if bearer.is_empty():
+		return
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm == null:
+		return
+	var obj_id: String = mm.find_nearest_controlled_objective(bearer.combined_unit_id)
+	if obj_id.is_empty():
+		print("FactionAbilityManager: Skrag Every Stash! — bearer %s is not in range of a controlled objective" % bearer.combined_unit_id)
+		return
+	if mm.lock_objective_via_stratagem(obj_id, player, bearer.combined_unit_id):
+		var unit = GameState.state.get("units", {}).get(bearer.combined_unit_id, {})
+		if unit.has("flags"):
+			unit["flags"]["effect_sticky_objective_control"] = obj_id
+		print("FactionAbilityManager: Skrag Every Stash! — %s locked %s for Player %d" % [bearer.combined_unit_id, obj_id, player])
+
 func process_command_phase_cp_enhancements(player: int) -> void:
 	"""Command-phase CP-generating enhancements:
 	 - Brutal But Kunnin' (Green Tide): D6 (+2 if bearer's unit counts as 10+
@@ -2255,6 +2405,12 @@ func on_command_phase_start(player: int) -> void:
 	if detachment == "Freebooter Krew":
 		_clear_loot_objective(player)
 		print("FactionAbilityManager: Player %d has Freebooter Krew — awaiting loot objective selection" % player)
+
+	# Da Big Hunt — Prey (detachment rule): (re-)select an enemy MONSTER/
+	# VEHICLE/CHARACTER unit as this player's Prey until their next Command
+	# phase.
+	if detachment == "Da Big Hunt":
+		_select_prey_for_player(player)
 
 	# CP-generating enhancements (Brutal But Kunnin' / Speed Makes Right)
 	process_command_phase_cp_enhancements(player)
