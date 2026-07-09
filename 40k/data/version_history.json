@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.8.5",
+			"date": "2026-07-09",
+			"summary": "Speedwaaagh! (Orks) is now fully implemented: all four of its Enhancements and all six of its Stratagems work in-game.",
+			"changes": [
+				"Master Meknologist now improves the Ballistic Skill of the bearer's ranged weapons by 1 (e.g. a Big Mek's Shokk Attack Gun hits on 4+ instead of 5+).",
+				"Supa-burny Fuel now changes the Deffkilla Wartrike's killa jet weapons: the burna profile fires 3D6 Attacks and the cutta profile fires 3 Attacks. (Also taught the dice engine to roll multi-dice values like 3D6.)",
+				"Kustom Shokk Box: when the Deffkilla Wartrike turbos (Advances), it can move through dense terrain that would otherwise block it.",
+				"Dakkamek: when a Mek with this Enhancement uses its Mekaniak ability on a Vehicle, that Vehicle's ranged weapons gain [RAPID FIRE 1] until your next turn.",
+				"All six Speedwaaagh! Stratagems now work: ON DA MOVE (shoot/charge after Advancing or Falling Back), DUST TRAILS (Benefit of Cover), SPESHUL AMMO (Anti-Monster 4+ and Anti-Vehicle 4+ on non-Torrent ranged weapons), DED KILLY CONSTRUCTION (melee LANCE, plus +1 Damage if the unit charged), MOBILE DAKKASTORM (+2 Strength for your Speed Freeks / Trukk units against a marked enemy), and EVASIVE MANOOVA (pull a Speed Freeks / Trukk unit off the table into Strategic Reserves).",
+				"Two small faithful simplifications: MOBILE DAKKASTORM's marked enemy is chosen when you use the Stratagem rather than auto-picked from what was just hit, and Kustom Shokk Box applies on any Advance (turbo is not a separate action in-game)."
+			]
+		},
+		{
 			"version": "0.8.4",
 			"date": "2026-07-09",
 			"summary": "The Stompa now fields on a proper 180mm round base. The dataset ships no base for it ('Use model'), so it was falling back to a tiny 32mm base.",

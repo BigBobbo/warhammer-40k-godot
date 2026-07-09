@@ -980,14 +980,20 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	if GameConstants.edition >= 11:
 		# Take-to-the-skies movers pass over models and terrain (21.03).
 		var flying_54: bool = active_moves.has(unit_id) and active_moves[unit_id].get("took_to_skies", false)
+		# Kustom Shokk Box (Speedwaaagh!): the bearer can move horizontally through
+		# terrain features when it uses its turbo (i.e. Advances) — bypass the
+		# 13.06 dense-terrain path block.
+		var ksb_54: bool = str(move_data.get("mode", "")) == "ADVANCE" and _unit_has_kustom_shokk_box(unit_id)
 		var tm_54 = get_node_or_null("/root/TerrainManager")
-		if not flying_54 and tm_54 != null and tm_54.has_method("can_move_through_11e"):
+		if not flying_54 and not ksb_54 and tm_54 != null and tm_54.has_method("can_move_through_11e"):
 			var kw_54 = GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
 			# ISS-073 (24.35): the SHW MOBILE gamble grants MOBILE for the move.
 			var extra_kw_54: Array = ["MOBILE"] if active_moves[unit_id].get("shw_mobile", false) else []
 			var trav = tm_54.can_move_through_11e(kw_54, current_pos, dest_vec, extra_kw_54)
 			if not trav.allowed:
 				return {"valid": false, "errors": ["Dense terrain blocks this model's path (13.06): %s" % str(trav.blockers)]}
+		elif ksb_54:
+			log_phase_message("  Kustom Shokk Box — turbo through dense terrain (13.06 bypass)")
 
 	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
 	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
@@ -3003,6 +3009,17 @@ func _process_use_mekaniak(action: Dictionary) -> Dictionary:
 		log_phase_message("MEKANIAK: +1 to Hit buff applied to %s until start of next Movement phase" % target_unit_id)
 		DebugLogger.info(str("MovementPhase: Mekaniak +1 Hit buff set on vehicle %s" % target_unit_id))
 
+		# DAKKAMEK (Speedwaaagh!): if the Mek using Mekaniak bears this enhancement,
+		# the selected Vehicle's ranged weapons also gain [RAPID FIRE 1] until the
+		# start of your next turn (cleared alongside the +1 Hit buff).
+		if _unit_has_enhancement(_mekaniak_mek_id, "Dakkamek"):
+			mekaniak_changes.append({
+				"op": "set",
+				"path": "units.%s.flags.dakkamek_rapid_fire" % target_unit_id,
+				"value": true
+			})
+			log_phase_message("DAKKAMEK: %s's ranged weapons gain [RAPID FIRE 1] until start of next turn" % target_unit_id)
+
 	# Mark this vehicle as used for Mekaniak this turn (once per vehicle per turn)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
@@ -3054,6 +3071,13 @@ func _clear_mekaniak_buffs(player: int) -> void:
 				"path": "units.%s.flags.mekaniak_buffed" % unit_id
 			})
 			DebugLogger.info(str("MovementPhase: Clearing Mekaniak buff from vehicle %s at start of Movement phase" % unit_id))
+		# DAKKAMEK (Speedwaaagh!): clear the granted RAPID FIRE alongside the buff.
+		if unit.get("flags", {}).get("dakkamek_rapid_fire", false):
+			changes.append({
+				"op": "remove",
+				"path": "units.%s.flags.dakkamek_rapid_fire" % unit_id
+			})
+			DebugLogger.info(str("MovementPhase: Clearing Dakkamek RAPID FIRE from vehicle %s" % unit_id))
 
 	if changes.size() > 0:
 		PhaseManager.apply_state_changes(changes)
@@ -6455,6 +6479,28 @@ func _get_terrain_height_inches(terrain_piece: Dictionary) -> float:
 		_:
 			return 6.0  # Default to tall
 
+# Speedwaaagh! Kustom Shokk Box: Deffkilla Wartrike model only. Each time the
+# bearer uses its turbo, its unit can move horizontally through terrain
+# features. Turbo is not a distinct modelled action (it is an Advance variant),
+# so the bearer is treated as ignoring horizontal terrain restrictions for its
+# moves: the 13.06 dense-terrain block is bypassed on an Advance (see
+# _validate_set_model_dest) and the difficult-ground penalty is waived here.
+func _unit_has_enhancement(unit_id: String, enh_name: String) -> bool:
+	if unit_id == "":
+		return false
+	var target := enh_name.strip_edges().to_lower()
+	var u = GameState.get_unit(unit_id)
+	for e in u.get("meta", {}).get("enhancements", []):
+		var nm = e if e is String else (e.get("name", "") if e is Dictionary else "")
+		if String(nm).strip_edges().to_lower() == target:
+			return true
+	return false
+
+
+func _unit_has_kustom_shokk_box(unit_id: String) -> bool:
+	return _unit_has_enhancement(unit_id, "Kustom Shokk Box")
+
+
 func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: String) -> float:
 	# Calculate terrain penalty for movement.
 	# - Difficult ground: flat 2" per piece crossed (TerrainManager).
@@ -6463,6 +6509,10 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 	#   and the unit is not on its ground floor already.
 	# FLY units ignore both penalties (return 0).
 	if _unit_has_fly_keyword(unit_id):
+		return 0.0
+	# Kustom Shokk Box (Speedwaaagh!): the bearer moves through terrain features,
+	# so it pays no horizontal difficult-ground penalty.
+	if _unit_has_kustom_shokk_box(unit_id):
 		return 0.0
 	var penalty = 0.0
 	var terrain_manager = get_node_or_null("/root/TerrainManager")

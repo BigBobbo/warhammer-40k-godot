@@ -1341,6 +1341,14 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 			critical_wound_threshold = mini(critical_wound_threshold, 4)
 			print("RulesEngine: ROLLING LOOT-HEAP (overwatch) — Anti-Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
 
+	# SPESHUL AMMO (Speedwaaagh!): non-Torrent ranged weapons gain
+	# [ANTI-MONSTER 4+] and [ANTI-VEHICLE 4+].
+	if shooter_unit.get("flags", {}).get("effect_speshul_ammo", false):
+		var ow_sa_torrent = "torrent" in str(get_weapon_profile(weapon_id, board).get("special_rules", "")).to_lower()
+		if not ow_sa_torrent and (unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE")):
+			critical_wound_threshold = mini(critical_wound_threshold, 4)
+			print("RulesEngine: SPESHUL AMMO (overwatch) — Anti-Monster/Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
+
 	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit (overwatch)
 	var ow_da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)
 	var ow_wound_modifier = 0
@@ -1742,6 +1750,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	# MA-10: Track rapid fire attacks with per-model BS
 	# MA-14: Only models in this assignment's model_ids count for RF (per-model weapons)
 	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
+	# DAKKAMEK (Speedwaaagh!): the Mekaniak-selected Vehicle's ranged weapons gain
+	# [RAPID FIRE 1] until the start of the bearer's next turn.
+	if rapid_fire_value < 1 and str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
+			and actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false):
+		rapid_fire_value = 1
+		print("RulesEngine: DAKKAMEK — [RAPID FIRE 1] granted to %s's ranged weapon %s" % [actor_unit_id, weapon_id])
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
@@ -2304,6 +2318,14 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	# MOBILE DAKKASTORM (Speedwaaagh!): +2 Strength for a SPEED FREEKS/TRUKK unit's
+	# ranged attacks against the marked enemy unit (marker holds the user's player).
+	if target_unit.get("flags", {}).get("mobile_dakkastorm_marked", false) \
+			and int(actor_unit.get("owner", 0)) != int(target_unit.get("owner", -1)) \
+			and (unit_has_keyword(actor_unit, "SPEED FREEKS") or unit_has_keyword(actor_unit, "TRUKK")):
+		var pre_s_md = strength
+		strength += 2
+		print("RulesEngine: MOBILE DAKKASTORM — ranged strength %d → %d (+2 vs marked %s)" % [pre_s_md, strength, target_unit_id])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk
 	var ded_glowy_penalty = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -2348,6 +2370,14 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		if unit_has_keyword(target_unit, "VEHICLE"):
 			critical_wound_threshold = mini(critical_wound_threshold, 4)
 			print("RulesEngine: ROLLING LOOT-HEAP — Anti-Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
+
+	# SPESHUL AMMO (Speedwaaagh!): non-Torrent ranged weapons gain
+	# [ANTI-MONSTER 4+] and [ANTI-VEHICLE 4+] (critical wound on 4+ vs those).
+	if actor_unit.get("flags", {}).get("effect_speshul_ammo", false):
+		var sa_is_torrent = "torrent" in str(get_weapon_profile(weapon_id, board).get("special_rules", "")).to_lower()
+		if not sa_is_torrent and (unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE")):
+			critical_wound_threshold = mini(critical_wound_threshold, 4)
+			print("RulesEngine: SPESHUL AMMO — Anti-Monster/Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
 
 	var anti_keyword_active = critical_wound_threshold < 6
 
@@ -3276,6 +3306,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# MA-10: Track rapid fire attacks with per-model BS
 	# MA-14: Only models in this assignment's model_ids count for RF (per-model weapons)
 	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
+	# DAKKAMEK (Speedwaaagh!): the Mekaniak-selected Vehicle's ranged weapons gain
+	# [RAPID FIRE 1] until the start of the bearer's next turn.
+	if rapid_fire_value < 1 and str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
+			and actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false):
+		rapid_fire_value = 1
+		print("RulesEngine: DAKKAMEK — [RAPID FIRE 1] granted to %s's ranged weapon %s" % [actor_unit_id, weapon_id])
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
@@ -3740,6 +3776,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip (auto-resolve) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	# MOBILE DAKKASTORM (Speedwaaagh!): +2 Strength for a SPEED FREEKS/TRUKK unit's
+	# ranged attacks against the marked enemy unit (marker holds the user's player).
+	if target_unit.get("flags", {}).get("mobile_dakkastorm_marked", false) \
+			and int(actor_unit.get("owner", 0)) != int(target_unit.get("owner", -1)) \
+			and (unit_has_keyword(actor_unit, "SPEED FREEKS") or unit_has_keyword(actor_unit, "TRUKK")):
+		var pre_s_md = strength
+		strength += 2
+		print("RulesEngine: MOBILE DAKKASTORM (auto-resolve) — ranged strength %d → %d (+2 vs marked %s)" % [pre_s_md, strength, target_unit_id])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (auto-resolve)
 	var ded_glowy_penalty_ar = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -3775,6 +3819,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if unit_has_keyword(target_unit, "VEHICLE"):
 			ar_critical_wound_threshold = mini(ar_critical_wound_threshold, 4)
 			print("RulesEngine: ROLLING LOOT-HEAP (auto-resolve) — Anti-Vehicle 4+ active (critical wound threshold %d+)" % ar_critical_wound_threshold)
+
+	# SPESHUL AMMO (Speedwaaagh!): non-Torrent ranged weapons gain
+	# [ANTI-MONSTER 4+] and [ANTI-VEHICLE 4+].
+	if actor_unit.get("flags", {}).get("effect_speshul_ammo", false):
+		var ar_sa_torrent = "torrent" in str(get_weapon_profile(weapon_id, board).get("special_rules", "")).to_lower()
+		if not ar_sa_torrent and (unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE")):
+			ar_critical_wound_threshold = mini(ar_critical_wound_threshold, 4)
+			print("RulesEngine: SPESHUL AMMO (auto-resolve) — Anti-Monster/Vehicle 4+ active (critical wound threshold %d+)" % ar_critical_wound_threshold)
 
 	var ar_anti_keyword_active = ar_critical_wound_threshold < 6
 
@@ -9386,6 +9438,18 @@ static func roll_variable_characteristic(value_str: String, rng: RNGService) -> 
 		var total = rolls[0] + rolls[1]
 		return {"value": total, "rolled": true, "notation": "2D6", "roll": total}
 
+	# Generic NdN six-sided dice (e.g. "3D6" for Supa-burny Fuel's killa jet burna).
+	# Generalizes the 2D6 case above; excludes bare "D6" (begins with a digit).
+	if upper.ends_with("D6") and not upper.begins_with("D"):
+		var n_part = upper.substr(0, upper.length() - 2)
+		if n_part.is_valid_int() and int(n_part) > 0:
+			var n = int(n_part)
+			var ndn_rolls = rng.roll_d6(n)
+			var ndn_total = 0
+			for r in ndn_rolls:
+				ndn_total += r
+			return {"value": ndn_total, "rolled": true, "notation": upper, "roll": ndn_total}
+
 	# D6+N or D3+N
 	if "+" in upper:
 		var parts = upper.split("+")
@@ -10478,8 +10542,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		else:
 			print("RulesEngine: BASH AND GRAB active but target %s not within range of loot objective — no re-roll" % target_name)
 
-	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons)
-	if is_lance_weapon(weapon_id, board):
+	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons).
+	# DED KILLY CONSTRUCTION (Speedwaaagh!) grants melee LANCE for the phase via
+	# the effect_grant_lance flag.
+	if is_lance_weapon(weapon_id, board) or attacker_unit.get("flags", {}).get("effect_grant_lance", false):
 		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
 			melee_wound_modifiers |= WoundModifier.PLUS_ONE
