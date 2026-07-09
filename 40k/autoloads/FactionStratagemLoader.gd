@@ -536,9 +536,11 @@ func _parse_target(target_text: String) -> Dictionary:
 		["mounted", "keyword:MOUNTED"],
 		["kommandos", "keyword:KOMMANDOS"],
 		["stormboyz", "keyword:STORMBOYZ"],
+		["meganobz", "keyword:MEGANOBZ"],
 		# Leading space keeps "Stormboyz"/"Meganobz" from matching the
 		# bare-name patterns (substring matching).
 		[" boyz", "keyword:BOYZ"],
+		[" nobz", "keyword:NOBZ"],
 		["gretchin", "keyword:GRETCHIN"],
 		["beast snagga", "keyword:BEAST SNAGGA"],
 	]
@@ -550,7 +552,7 @@ func _parse_target(target_text: String) -> Dictionary:
 	# skip the individual keyword matches for the two alternated terms.
 	var alternated_terms: Array = []
 	var alt_regex = RegEx.new()
-	alt_regex.compile("(infantry|mounted|vehicle|monster|kommandos|stormboyz) or (orks )?(infantry|mounted|vehicle|monster|kommandos|stormboyz)")
+	alt_regex.compile("(infantry|mounted|vehicle|monster|kommandos|stormboyz|meganobz|nobz) or (orks |beast snagga )?(infantry|mounted|vehicle|monster|kommandos|stormboyz|meganobz|nobz)")
 	var alt_match = alt_regex.search(inclusive_t)
 	if alt_match:
 		var kw_a = alt_match.get_string(1)
@@ -559,7 +561,7 @@ func _parse_target(target_text: String) -> Dictionary:
 		alternated_terms = [kw_a, kw_b]
 
 	for pattern in keyword_patterns:
-		if pattern[0] in alternated_terms:
+		if pattern[0].strip_edges() in alternated_terms:
 			continue
 		if pattern[0] in inclusive_t:
 			result.conditions.append(pattern[1])

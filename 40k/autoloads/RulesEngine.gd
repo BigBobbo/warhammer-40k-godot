@@ -2442,6 +2442,12 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		wound_modifiers |= WoundModifier.MINUS_ONE
 		print("RulesEngine: Defender effect -1 to wound (attacks vs %s)" % target_unit_id)
+	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets
+	var eadstompa_scope = get_eadstompa_reroll_scope(actor_unit, target_unit)
+	if eadstompa_scope == "failed":
+		wound_modifiers |= WoundModifier.REROLL_FAILED
+	elif eadstompa_scope == "ones":
+		wound_modifiers |= WoundModifier.REROLL_ONES
 	var reroll_wounds_scope = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if reroll_wounds_scope == "ones":
 		wound_modifiers |= WoundModifier.REROLL_ONES
@@ -2982,7 +2988,10 @@ static func resolve_crushing_impact_11e(unit_id: String, target_unit_id: String,
 ## KRUNCHIN' DESCENT (Taktikal Brigade): just after a Stormboyz unit ends a
 ## Charge move, roll one D6 for each of its models within Engagement Range of
 ## the selected enemy unit — each 4+ inflicts 1 mortal wound (max 6).
-static func resolve_krunchin_descent(unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+## CRUSHING IMPACT (Bully Boyz) reuses this with threshold 5 (4 while a
+## Waaagh! is active); UNSTOPPABLE MOMENTUM (Da Big Hunt) with er_only=false
+## (one die per model in the unit) and bonus dice vs the Prey.
+static func resolve_krunchin_descent(unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService = null, threshold: int = 4, er_only: bool = true, bonus_dice: int = 0) -> Dictionary:
 	if rng == null:
 		rng = make_rng()
 	var unit = board.get("units", {}).get(unit_id, {})
@@ -2994,6 +3003,9 @@ static func resolve_krunchin_descent(unit_id: String, target_unit_id: String, bo
 		var pos1 = _get_model_position(model)
 		if pos1 == Vector2.ZERO:
 			continue
+		if not er_only:
+			dice_count += 1
+			continue
 		for enemy_model in target.get("models", []):
 			if not enemy_model.get("alive", true):
 				continue
@@ -3004,10 +3016,11 @@ static func resolve_krunchin_descent(unit_id: String, target_unit_id: String, bo
 			if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
 				dice_count += 1
 				break
+	dice_count += maxi(bonus_dice, 0)
 	var rolls = rng.roll_d6(dice_count) if dice_count > 0 else []
 	var mw := 0
 	for r in rolls:
-		if r >= 4:
+		if r >= threshold:
 			mw += 1
 	mw = mini(mw, 6)
 	var result = {"diffs": [], "dice": [{"context": "krunchin_descent", "rolls": rolls, "mortal_wounds": mw}],
@@ -3942,6 +3955,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		ar_wound_modifiers |= WoundModifier.MINUS_ONE
 		print("RulesEngine: Defender effect -1 to wound (auto-resolve, attacks vs %s)" % target_unit_id)
+	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets
+	var eadstompa_scope_ar = get_eadstompa_reroll_scope(actor_unit, target_unit)
+	if eadstompa_scope_ar == "failed":
+		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+	elif eadstompa_scope_ar == "ones":
+		ar_wound_modifiers |= WoundModifier.REROLL_ONES
 	var reroll_wounds_scope_ar = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if reroll_wounds_scope_ar == "ones":
 		ar_wound_modifiers |= WoundModifier.REROLL_ONES
@@ -7460,6 +7479,25 @@ static func _meta_has_enhancement(unit: Dictionary, enh_name: String) -> bool:
 			return true
 	return false
 
+
+# 'EADSTOMPA (Bully Boyz enhancement): the bearer re-rolls Wound rolls of 1
+# against units below their Starting Strength; full Wound re-roll while the
+# target is Below Half-strength. Unit-wide approximation (bearer-only scope
+# needs per-model attack state — same caveat as Hall of Armouries).
+static func get_eadstompa_reroll_scope(attacker_unit: Dictionary, target_unit: Dictionary) -> String:
+	if not (_meta_has_enhancement(attacker_unit, "'Eadstompa") or _meta_has_enhancement(attacker_unit, "\u2019Eadstompa")):
+		return ""
+	var total: int = target_unit.get("models", []).size()
+	var alive := 0
+	for m in target_unit.get("models", []):
+		if m.get("alive", true):
+			alive += 1
+	if total <= 0 or alive >= total:
+		return ""
+	if alive * 2 < total:
+		return "failed"
+	return "ones"
+
 # DAT'S OUR LOOT! (OA-12): Get the re-roll scope for a Lootas unit's ranged attacks.
 # Returns "failed" if target is within range of any objective marker (full re-roll),
 # "ones" if the unit has the ability but target is not near an objective,
@@ -9891,15 +9929,19 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 		# (and need to swing back before being removed from play).
 		var target_unit_id_pre: String = assignment.get("target", "")
 		var swing_back_pre_alive: Array = []
-		var swing_back_is_defiant: bool = false
+		var swing_back_mode: String = "always"
 		if not target_unit_id_pre.is_empty():
 			var pre_target_unit = units.get(target_unit_id_pre, {})
 			var pre_flags = pre_target_unit.get("flags", {})
 			if pre_flags.get(EffectPrimitivesData.FLAG_SWING_BACK_BEFORE_REMOVE, false) \
-					or pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false):
+					or pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false) \
+					or pre_flags.get("effect_too_arrogant_to_die", false):
 				for m in pre_target_unit.get("models", []):
 					swing_back_pre_alive.append(m.get("alive", true))
-				swing_back_is_defiant = pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false)
+				if pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false):
+					swing_back_mode = "defiant"
+				elif pre_flags.get("effect_too_arrogant_to_die", false):
+					swing_back_mode = "too_arrogant"
 
 		var assignment_result = _resolve_melee_assignment(assignment, actor_unit_id, board, rng_service)
 		result.diffs.append_array(assignment_result.diffs)
@@ -9911,7 +9953,7 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 		# original assignment has resolved (and may have killed models), trigger
 		# the deferred swing-back attack from the dying-but-not-yet-removed models.
 		if not swing_back_pre_alive.is_empty():
-			var sb_diffs_dice = _resolve_swing_back_before_remove(target_unit_id_pre, actor_unit_id, swing_back_pre_alive, board, rng_service, swing_back_is_defiant)
+			var sb_diffs_dice = _resolve_swing_back_before_remove(target_unit_id_pre, actor_unit_id, swing_back_pre_alive, board, rng_service, swing_back_mode)
 			result.diffs.append_array(sb_diffs_dice.get("diffs", []))
 			result.dice.append_array(sb_diffs_dice.get("dice", []))
 			if sb_diffs_dice.get("log_text", "") != "":
@@ -9936,7 +9978,14 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 # / engagement checks in `_resolve_melee_assignment` accept them, then we
 # re-apply alive=false. Models that already fought this phase do NOT swing back
 # (per Wahapedia: "if that model has not fought this phase").
-static func _resolve_swing_back_before_remove(target_unit_id: String, original_attacker_id: String, pre_alive: Array, board: Dictionary, rng: RNGService, is_defiant: bool = false) -> Dictionary:
+static func _resolve_swing_back_before_remove(target_unit_id: String, original_attacker_id: String, pre_alive: Array, board: Dictionary, rng: RNGService, swing_back_mode = "always") -> Dictionary:
+	# swing_back_mode: "always" (ORKS IS NEVER BEATEN), "defiant" (DEFIANT TO
+	# THE LAST: D6 +2 CHARACTER, 4+) or "too_arrogant" (TOO ARROGANT TO DIE,
+	# Bully Boyz: D6 +2 while a Waaagh! is active for the unit, 5+). Legacy
+	# bool callers map true -> "defiant".
+	if swing_back_mode is bool:
+		swing_back_mode = "defiant" if swing_back_mode else "always"
+	var is_defiant: bool = swing_back_mode == "defiant"
 	var sb_result := {"diffs": [], "dice": [], "log_text": ""}
 	var units = board.get("units", {})
 	var defender = units.get(target_unit_id, {})
@@ -9977,6 +10026,18 @@ static func _resolve_swing_back_before_remove(target_unit_id: String, original_a
 					print("RulesEngine: DEFIANT TO THE LAST — model %d rolled %d+%d=%d (4+ needed), PASSES — will swing back" % [idx, roll, modifier, total])
 				else:
 					print("RulesEngine: DEFIANT TO THE LAST — model %d rolled %d+%d=%d (4+ needed), FAILS — removed normally" % [idx, roll, modifier, total])
+			elif swing_back_mode == "too_arrogant":
+				# TOO ARROGANT TO DIE (Bully Boyz): roll D6, +2 while a
+				# Waaagh! is active for the unit, need 5+.
+				var ta_roll = rng.randi_range(1, 6)
+				var ta_mod = 2 if FactionAbilityManager.is_waaagh_active_for_unit(defender) else 0
+				var ta_total = ta_roll + ta_mod
+				sb_result.dice.append({"type": "too_arrogant_to_die", "roll": ta_roll, "modifier": ta_mod, "total": ta_total, "passed": ta_total >= 5})
+				if ta_total >= 5:
+					dying_models.append(idx)
+					print("RulesEngine: TOO ARROGANT TO DIE — model %d rolled %d+%d=%d (5+ needed), PASSES — will swing back" % [idx, ta_roll, ta_mod, ta_total])
+				else:
+					print("RulesEngine: TOO ARROGANT TO DIE — model %d rolled %d+%d=%d (5+ needed), FAILS — removed normally" % [idx, ta_roll, ta_mod, ta_total])
 			else:
 				dying_models.append(idx)
 
@@ -10663,6 +10724,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		melee_wound_modifiers |= WoundModifier.MINUS_ONE
 		print("RulesEngine: Defender effect -1 to wound (melee attacks vs %s)" % target_name)
+	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets (melee)
+	var eadstompa_scope_m = get_eadstompa_reroll_scope(attacker_unit, target_unit)
+	if eadstompa_scope_m == "failed":
+		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+	elif eadstompa_scope_m == "ones":
+		melee_wound_modifiers |= WoundModifier.REROLL_ONES
 	var melee_reroll_wounds_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if melee_reroll_wounds_scope == "ones":
 		melee_wound_modifiers |= WoundModifier.REROLL_ONES

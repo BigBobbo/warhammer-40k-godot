@@ -497,7 +497,19 @@ func unit_has_ability(unit_id: String, ability_name: String) -> bool:
 	return false
 
 func unit_has_deep_strike(unit_id: String) -> bool:
-	return unit_has_ability(unit_id, "Deep Strike")
+	if unit_has_ability(unit_id, "Deep Strike"):
+		return true
+	# Tellyporta (Bully Boyz): models in the bearer's unit have Deep Strike —
+	# the bearer's own unit, and the bodyguard unit while attached.
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	if _unit_meta_has_enhancement(unit, "Tellyporta"):
+		return true
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		if _unit_meta_has_enhancement(get_unit(str(char_id)), "Tellyporta"):
+			return true
+	return false
 
 func unit_has_infiltrators(unit_id: String) -> bool:
 	if unit_has_ability(unit_id, "Infiltrators"):

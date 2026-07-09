@@ -887,6 +887,13 @@ const ENHANCEMENT_STAT_BONUSES: Dictionary = {
 		"bonus": 2,
 		"apply_to_models": true,
 		"description": "+2 Wounds to bearer (Shield-Captain or Blade Champion only)"
+	},
+	# Bully Boyz (Orks): Infantry Warboss only. Add 2 to the bearer's Wounds.
+	"Da Biggest Boss": {
+		"stat": "wounds",
+		"bonus": 2,
+		"apply_to_models": true,
+		"description": "+2 Wounds to bearer (Infantry Warboss only)"
 	}
 }
 

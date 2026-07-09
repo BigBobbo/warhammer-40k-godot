@@ -53,6 +53,9 @@ const _CUSTOM_IMPLEMENTED_NAMES: Array = [
 	# More Dakka!
 	"CALL DAT DAKKA?", "ORKS IS STILL ORKS", "SPESHUL SHELLS",
 	"GET STUCK IN, LADZ!", "HUGE SHOW-OFFS",
+	# Bully Boyz (HULKING BRUTES is auto via effects_json worsen_ap)
+	"ALWAYS LOOKIN' FER A FIGHT", "ARMED TO DA TEEF", "CRUSHING IMPACT",
+	"CUT' EM DOWN", "TOO ARROGANT TO DIE",
 ]
 
 # Out-of-Phase Rules Restriction (P1-59)
@@ -1863,6 +1866,64 @@ func _apply_ork_sweep_effects(strat: Dictionary, target_unit_id: String, context
 			]
 			print("StratagemManager: HUGE SHOW-OFFS — %s +1 Move/Ld/OC and +1 to hit until your next Command phase" % target_unit_id)
 			return hso_diffs
+		# ---- BULLY BOYZ ----------------------------------------------------
+		"ALWAYS LOOKIN' FER A FIGHT":
+			# Consolidation cap D3+3" (flat 6" while a Waaagh! is active).
+			var alf_unit = GameState.get_unit(target_unit_id)
+			var alf_cap := 6.0
+			var alf_roll := 0
+			if not FactionAbilityManager.is_waaagh_active_for_unit(alf_unit):
+				var alf_rng = RulesEngine.make_rng()
+				alf_roll = alf_rng.rng.randi_range(1, 3)
+				alf_cap = float(alf_roll + 3)
+			print("StratagemManager: ALWAYS LOOKIN' FER A FIGHT — %s consolidates up to %.0f\"%s" % [
+				target_unit_id, alf_cap, " (D3=%d +3)" % alf_roll if alf_roll > 0 else " (Waaagh! active)"])
+			return [{"op": "set", "path": "units.%s.flags.effect_consolidate_max" % target_unit_id, "value": alf_cap}]
+		"ARMED TO DA TEEF":
+			var att_unit = GameState.get_unit(target_unit_id)
+			var att_scope = "failed" if FactionAbilityManager.is_waaagh_active_for_unit(att_unit) else "ones"
+			print("StratagemManager: ARMED TO DA TEEF — %s re-rolls hit rolls (%s) this phase" % [target_unit_id, att_scope])
+			return [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_HITS], "value": att_scope}]
+		"CRUSHING IMPACT":
+			# Bully Boyz variant: D6 per Nobz/Meganobz model in ER of the chosen
+			# enemy; 5+ = 1 MW (4+ while a Waaagh! is active), max 6.
+			var ci_enemy := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+			if ci_enemy == "" or target_unit_id == "":
+				print("StratagemManager: CRUSHING IMPACT (Bully Boyz) used without context.enemy_unit_id — no dice rolled")
+				return []
+			var ci_unit = GameState.get_unit(target_unit_id)
+			var ci_threshold = 4 if FactionAbilityManager.is_waaagh_active_for_unit(ci_unit) else 5
+			var ci = RulesEngine.resolve_krunchin_descent(target_unit_id, ci_enemy, GameState.create_snapshot(), RulesEngine.make_rng(), ci_threshold)
+			print("StratagemManager: CRUSHING IMPACT (Bully Boyz) — %d mortal wounds to %s (threshold %d+)" % [int(ci.get("mortal_wounds", 0)), ci_enemy, ci_threshold])
+			return ci.get("diffs", [])
+		"CUT' EM DOWN":
+			# Mark the falling-back enemy: it must take Desperate Escape tests
+			# for all models (FallBackMove.select_mode), at -1 while a Waaagh!
+			# is active for the Nobz/Meganobz unit.
+			var ced_enemy := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+			if ced_enemy == "":
+				print("StratagemManager: CUT' EM DOWN used without context.enemy_unit_id — no effect")
+				return []
+			var ced_unit = GameState.get_unit(target_unit_id)
+			var ced_diffs = [{"op": "set", "path": "units.%s.flags.effect_cut_em_down" % ced_enemy, "value": true}]
+			if FactionAbilityManager.is_waaagh_active_for_unit(ced_unit):
+				ced_diffs.append({"op": "set", "path": "units.%s.flags.effect_cut_em_down_minus1" % ced_enemy, "value": true})
+			# Register the enemy for end-of-phase flag clearing.
+			add_active_effect({
+				"stratagem_id": strat.get("id", "cut_em_down"),
+				"player": int(ced_unit.get("owner", 0)),
+				"target_unit_id": ced_enemy,
+				"effects": [{"type": "custom:cut_em_down"}],
+				"expires": "end_of_phase",
+				"applied_turn": GameState.get_battle_round(),
+				"applied_phase": GameState.get_current_phase()
+			})
+			print("StratagemManager: CUT' EM DOWN — %s must take Desperate Escape tests when it Falls Back%s" % [
+				ced_enemy, " (-1, Waaagh! active)" if ced_diffs.size() > 1 else ""])
+			return ced_diffs
+		"TOO ARROGANT TO DIE":
+			print("StratagemManager: TOO ARROGANT TO DIE — %s's dying models swing back on 5+ (+2 in Waaagh!) this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_too_arrogant_to_die" % target_unit_id, "value": true}]
 	return null
 
 func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictionary) -> bool:
@@ -1910,6 +1971,22 @@ func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictiona
 			flags.erase(EffectPrimitivesData.FLAG_PLUS_ONE_HIT)
 			flags.erase("effect_improve_leadership")
 			return true
+		# ---- BULLY BOYZ ----------------------------------------------------
+		"ALWAYS LOOKIN' FER A FIGHT":
+			flags.erase("effect_consolidate_max")
+			return true
+		"ARMED TO DA TEEF":
+			flags.erase(EffectPrimitivesData.FLAG_REROLL_HITS)
+			return true
+		"CRUSHING IMPACT":
+			return true  # instant mortal wounds — nothing to clear
+		"CUT' EM DOWN":
+			flags.erase("effect_cut_em_down")
+			flags.erase("effect_cut_em_down_minus1")
+			return true
+		"TOO ARROGANT TO DIE":
+			flags.erase("effect_too_arrogant_to_die")
+			return true
 	return false
 
 func _find_nearest_friendly_keyword_unit(unit_id: String, keyword: String, max_inches: float) -> String:
@@ -1952,7 +2029,8 @@ func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String)
 	# CALL DAT DAKKA? (More Dakka!) may target any enemy unit (weapons out of
 	# range simply produce no shots when the shoot-back resolves).
 	var _strat_name = str(stratagems.get(stratagem_id, {}).get("name", "")).replace("’", "'").to_upper()
-	if _strat_name == "KRUNCHIN' DESCENT":
+	if _strat_name in ["KRUNCHIN' DESCENT", "CRUSHING IMPACT", "CUT' EM DOWN"]:
+		# Enemy units the friendly unit is in Engagement Range of.
 		stratagem_id = "krunchin_descent"
 	elif _strat_name == "CALL DAT DAKKA?":
 		stratagem_id = "any_enemy"

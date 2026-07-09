@@ -1915,6 +1915,73 @@ func _unit_within_inches_of_enemy(unit: Dictionary, player: int, inches: float) 
 					return true
 	return false
 
+# ============================================================================
+# FORCED BATTLE-SHOCK TESTS (Big Gob, SQUIG FLINGIN', Supa-glowy Fing)
+# ============================================================================
+
+func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: String = "") -> Dictionary:
+	"""Roll 2D6 (+modifier) against the unit's effective Leadership; the unit
+	becomes Battle-shocked on a failure. Out-of-Command-phase tests forced by
+	Ork abilities/stratagems."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {"success": false, "error": "unit not found"}
+	var CommandPhaseScript = load("res://phases/CommandPhase.gd")
+	var ld = CommandPhaseScript._get_effective_leadership(unit_id)
+	var rng = RulesEngine.make_rng()
+	var d1 = rng.rng.randi_range(1, 6)
+	var d2 = rng.rng.randi_range(1, 6)
+	var total = d1 + d2 + roll_modifier
+	var passed = total >= ld
+	if not passed:
+		if not unit.has("flags"):
+			unit["flags"] = {}
+		unit["flags"]["battle_shocked"] = true
+	print("FactionAbilityManager: %s — forced Battle-shock test for %s: %d+%d%+d=%d vs Ld %d -> %s" % [
+		source if source != "" else "Forced test", unit_id, d1, d2, roll_modifier, total, ld,
+		"PASSED" if passed else "FAILED (battle-shocked)"])
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		game_event_log.add_player_entry(int(unit.get("owner", 0)),
+			"%s: %s takes a Battle-shock test (%d vs Ld %d) — %s" % [
+				source, unit_name, total, ld, "passed" if passed else "FAILED"])
+	return {"success": true, "passed": passed, "total": total, "leadership": ld, "dice": [d1, d2]}
+
+func process_big_gob(player: int) -> void:
+	"""Big Gob (Bully Boyz): at the start of the Fight phase, one enemy unit
+	within Engagement Range of the bearer takes a Battle-shock test at -1.
+	Auto-picks the nearest engaged enemy (logged)."""
+	var bearer_info = _find_enhancement_bearer(player, "Big Gob")
+	if bearer_info.is_empty():
+		return
+	var units = GameState.state.get("units", {})
+	var bearer = units.get(bearer_info.combined_unit_id, units.get(bearer_info.bearer_id, {}))
+	if bearer.is_empty():
+		return
+	var best_id := ""
+	var best_dist := INF
+	for uid in units:
+		var enemy = units[uid]
+		if int(enemy.get("owner", 0)) == player:
+			continue
+		if not RulesEngine.check_units_in_engagement_range(bearer, enemy, GameState.state):
+			continue
+		for m in bearer.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			for em in enemy.get("models", []):
+				if not em.get("alive", true) or em.get("position") == null:
+					continue
+				var d = Measurement.model_to_model_distance_px(m, em)
+				if d < best_dist:
+					best_dist = d
+					best_id = uid
+	if best_id == "":
+		return
+	print("FactionAbilityManager: BIG GOB — nearest engaged enemy %s takes a Battle-shock test at -1" % best_id)
+	force_battle_shock_test(best_id, -1, "Big Gob")
+
 static func _status_is_deployed(status) -> bool:
 	"""Unit status can be an int enum (live game) or a String (army JSON that
 	has not been through a save round-trip). int != String is a runtime error

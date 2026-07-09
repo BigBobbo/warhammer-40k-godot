@@ -11385,10 +11385,11 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	var sid_resolved := str(strat_manager._resolve_core_id(stratagem_id)) if strat_manager.has_method("_resolve_core_id") else stratagem_id
 	var strat: Dictionary = strat_manager.get_stratagem(sid_resolved)
 	var strat_name := str(strat.get("name", "")).replace("’", "'").to_upper()
-	# KRUNCHIN' DESCENT (Taktikal Brigade) and CALL DAT DAKKA? (More Dakka!)
-	# also need friendly + enemy picks.
+	# Faction stratagems that also need friendly + enemy picks: KRUNCHIN'
+	# DESCENT (Taktikal Brigade), CALL DAT DAKKA? (More Dakka!), CRUSHING
+	# IMPACT + CUT' EM DOWN (Bully Boyz).
 	if sid_resolved in ["explosives", "crushing_impact"] \
-			or strat_name == "KRUNCHIN' DESCENT" or strat_name == "CALL DAT DAKKA?":
+			or strat_name in ["KRUNCHIN' DESCENT", "CALL DAT DAKKA?", "CRUSHING IMPACT", "CUT' EM DOWN"]:
 		_prompt_stratagem_targets(sid_resolved, active_player)
 		return
 	# FIGHT PROPPA (Taktikal Brigade): pick the friendly unit, then choose

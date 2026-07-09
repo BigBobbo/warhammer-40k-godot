@@ -38,7 +38,9 @@ func select_mode(unit_id: String, board: Dictionary, _context: Dictionary = {}) 
 		return {"mode": "", "mandatory": false, "available": []}
 	var unit = _unit(board, unit_id)
 	var shocked: bool = unit.get("flags", {}).get("battle_shocked", false)
-	if shocked:
+	# CUT' EM DOWN (Bully Boyz): the marked enemy unit must take Desperate
+	# Escape tests for all models when it Falls Back.
+	if shocked or unit.get("flags", {}).get("effect_cut_em_down", false):
 		# 09.07: "Otherwise, you must select this mode."
 		return {"mode": "desperate_escape", "mandatory": true, "available": ["desperate_escape"]}
 	# Ordered retreat is selectable but NOT mandatory (sidebar): the player
@@ -54,7 +56,10 @@ func before_moving(unit_id: String, board: Dictionary, rng, context: Dictionary)
 	for m in unit.get("models", []):
 		if m.get("alive", true):
 			alive += 1
-	var hz = AttackSequence.hazard_rolls(unit, alive, rng)
+	# CUT' EM DOWN (Bully Boyz): -1 to each test while a Waaagh! was active
+	# for the Nobz/Meganobz unit when the stratagem was used.
+	var cut_mod: int = -1 if unit.get("flags", {}).get("effect_cut_em_down_minus1", false) else 0
+	var hz = AttackSequence.hazard_rolls(unit, alive, rng, cut_mod)
 	return {
 		"hazard": hz,
 		"mortal_wounds": hz.mortal_wounds,

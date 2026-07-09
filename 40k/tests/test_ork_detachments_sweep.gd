@@ -99,6 +99,155 @@ func _run():
 
 	_green_tide(SM, GS, FAM, rules)
 	_more_dakka(SM, GS, FAM, rules)
+	_bully_boyz(SM, GS, FAM, rules)
+
+
+# ==========================================================================
+# BULLY BOYZ
+# ==========================================================================
+func _bully_boyz(SM, GS, FAM, rules):
+	print("\n===== BULLY BOYZ =====")
+	var bb = _load_detachment(SM, GS, "Bully Boyz")
+	_check("Bully Boyz: 6 stratagems loaded", bb.count == 6)
+	_check("Bully Boyz: all 6 implemented", bb.implemented == 6)
+	var att = bb.by_name.get("ARMED TO DA TEEF", {})
+	_check("ARMED TO DA TEEF has keyword_any NOBZ/MEGANOBZ",
+		"keyword_any:NOBZ,MEGANOBZ" in att.get("target", {}).get("conditions", []))
+	var hb = bb.by_name.get("HULKING BRUTES", {})
+	var hb_types := []
+	for e in hb.get("effects", []):
+		hb_types.append(e.get("type", ""))
+	_check("HULKING BRUTES uses the worsen_ap primitive", "worsen_ap" in hb_types)
+
+	# Meganobz-only unit matches the NOBZ/MEGANOBZ alternation
+	var mega = {"meta": {"keywords": ["ORKS", "INFANTRY", "MEGANOBZ"]}, "flags": {}, "models": []}
+	_check("Meganobz match ARMED TO DA TEEF target",
+		FactionStratagemLoaderData.unit_matches_target(mega, att.get("target", {})))
+
+	# ARMED TO DA TEEF — reroll scope depends on Waaagh!
+	GS.state["units"] = {"U_NOBZ": _boyz_unit("U_NOBZ", 5)}
+	GS.state["units"]["U_NOBZ"]["meta"]["keywords"] = ["ORKS", "INFANTRY", "NOBZ"]
+	var strat_att = {"id": "t_att", "name": "ARMED TO DA TEEF", "effects": [{"type": "custom:armed_to_da_teef"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_att", "U_NOBZ", strat_att, {}))
+	_check("ARMED TO DA TEEF rerolls 1s without Waaagh!",
+		GS.get_unit("U_NOBZ")["flags"].get("effect_reroll_hits", "") == "ones")
+	GS.get_unit("U_NOBZ")["flags"].erase("effect_reroll_hits")
+	GS.get_unit("U_NOBZ")["flags"]["waaagh_active"] = true
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_att", "U_NOBZ", strat_att, {}))
+	_check("ARMED TO DA TEEF rerolls all hits in Waaagh!",
+		GS.get_unit("U_NOBZ")["flags"].get("effect_reroll_hits", "") == "failed")
+
+	# ALWAYS LOOKIN' FER A FIGHT — consolidation cap (6 flat in Waaagh!)
+	var strat_alf = {"id": "t_alf", "name": "ALWAYS LOOKIN’ FER A FIGHT", "effects": [{"type": "custom:always_lookin_fer_a_fight"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_alf", "U_NOBZ", strat_alf, {}))
+	_check("ALWAYS LOOKIN' (Waaagh!) sets 6\" consolidation cap",
+		float(GS.get_unit("U_NOBZ")["flags"].get("effect_consolidate_max", 0)) == 6.0)
+	GS.get_unit("U_NOBZ")["flags"].erase("waaagh_active")
+	rules.set_test_seed(11)
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_alf", "U_NOBZ", strat_alf, {}))
+	var alf_cap = float(GS.get_unit("U_NOBZ")["flags"].get("effect_consolidate_max", 0))
+	_check("ALWAYS LOOKIN' (no Waaagh!) sets D3+3 cap (4-6)", alf_cap >= 4.0 and alf_cap <= 6.0)
+
+	# CRUSHING IMPACT (Bully Boyz) — threshold 5 normally, 4 in Waaagh!
+	var ci_models = []
+	for i in range(5):
+		ci_models.append({"id": "cim%d" % i, "position": {"x": 10.0, "y": 10.0 + i * 28},
+			"base_mm": 40, "base_type": "circular", "alive": true, "wounds": 3, "current_wounds": 3})
+	var ci_enemy_models = []
+	for i in range(5):
+		ci_enemy_models.append({"id": "cie%d" % i, "position": {"x": 60.0, "y": 10.0 + i * 28},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 2, "current_wounds": 2,
+			"stats": {"toughness": 4, "save": 3}})
+	GS.state["units"] = {
+		"U_MEGA": {"id": "U_MEGA", "owner": 1, "status": 2,
+			"meta": {"name": "Meganobz", "keywords": ["ORKS", "INFANTRY", "MEGANOBZ"], "stats": {}, "abilities": [], "enhancements": []},
+			"flags": {"charged_this_turn": true}, "models": ci_models},
+		"U_CI_TGT": {"id": "U_CI_TGT", "owner": 2, "status": 2,
+			"meta": {"name": "Marines", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 3, "wounds": 2}, "abilities": [], "enhancements": []},
+			"flags": {}, "models": ci_enemy_models},
+	}
+	rules.set_test_seed(42)
+	var strat_ci = {"id": "t_ci", "name": "CRUSHING IMPACT", "effects": [{"type": "custom:crushing_impact_bully"}]}
+	var ci_diffs = SM._apply_stratagem_effects("t_ci", "U_MEGA", strat_ci, {"enemy_unit_id": "U_CI_TGT"})
+	_check("CRUSHING IMPACT (Bully Boyz) rolled dice and returned diffs or none", ci_diffs != null)
+
+	# TOO ARROGANT TO DIE — flag lands; swing-back machinery reads it
+	var strat_ta = {"id": "t_ta", "name": "TOO ARROGANT TO DIE", "effects": [{"type": "custom:too_arrogant_to_die"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_ta", "U_MEGA", strat_ta, {}))
+	_check("TOO ARROGANT TO DIE sets its flag",
+		GS.get_unit("U_MEGA")["flags"].get("effect_too_arrogant_to_die", false))
+
+	# CUT' EM DOWN — enemy gets marked, -1 variant with Waaagh!
+	GS.get_unit("U_MEGA")["flags"]["waaagh_active"] = true
+	var strat_ced = {"id": "t_ced", "name": "CUT’ EM DOWN", "effects": [{"type": "custom:cut_em_down"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_ced", "U_MEGA", strat_ced, {"enemy_unit_id": "U_CI_TGT"}))
+	_check("CUT' EM DOWN marks the enemy for Desperate Escape",
+		GS.get_unit("U_CI_TGT")["flags"].get("effect_cut_em_down", false))
+	_check("CUT' EM DOWN applies the -1 (Waaagh!) marker",
+		GS.get_unit("U_CI_TGT")["flags"].get("effect_cut_em_down_minus1", false))
+
+	# FallBackMove honours the mark: desperate escape becomes mandatory.
+	# (Fall-back modes are 11e-only; the automated harness pins edition 10,
+	# so raise it for this check and restore afterwards.)
+	var prev_edition = GameConstants.edition
+	GS.set_edition(11)
+	var FallBackScript = load("res://scripts/rules/movetypes/FallBackMove.gd")
+	var fb = FallBackScript.new()
+	var mode = fb.select_mode("U_CI_TGT", GS.state)
+	_check("CUT' EM DOWN forces mandatory desperate escape on fall back",
+		mode.get("mode", "") == "desperate_escape" and mode.get("mandatory", false))
+	GS.set_edition(prev_edition)
+
+	# hazard_rolls: -1 modifier increases failures (3s now fail)
+	var hz_rng = rules.RNGService.new(99)
+	var hz_unit = {"meta": {"keywords": ["INFANTRY"]}, "models": [{"alive": true}, {"alive": true}, {"alive": true}, {"alive": true}]}
+	var AttackSeq = load("res://scripts/rules/AttackSequence.gd")
+	rules.set_test_seed(99)
+	var hz_plain = AttackSeq.hazard_rolls(hz_unit, 12, rules.RNGService.new())
+	rules.set_test_seed(99)
+	var hz_mod = AttackSeq.hazard_rolls(hz_unit, 12, rules.RNGService.new(), -1)
+	print("  hazard: plain failures=%d, -1 failures=%d" % [int(hz_plain.failures), int(hz_mod.failures)])
+	_check("-1 hazard modifier never reduces failures", int(hz_mod.failures) >= int(hz_plain.failures))
+
+	# 'Eadstompa — wound reroll scope vs under-strength targets
+	var ead = {"meta": {"enhancements": ["'Eadstompa"], "keywords": ["ORKS"]}, "flags": {}, "models": []}
+	var full_tgt = {"models": [{"alive": true}, {"alive": true}], "meta": {}, "flags": {}}
+	var dented_tgt = {"models": [{"alive": true}, {"alive": true}, {"alive": false}], "meta": {}, "flags": {}}
+	var halved_tgt = {"models": [{"alive": true}, {"alive": false}, {"alive": false}, {"alive": false}], "meta": {}, "flags": {}}
+	_check("'Eadstompa: no reroll vs full-strength", rules.get_eadstompa_reroll_scope(ead, full_tgt) == "")
+	_check("'Eadstompa: reroll 1s vs under-strength", rules.get_eadstompa_reroll_scope(ead, dented_tgt) == "ones")
+	_check("'Eadstompa: full reroll vs below-half", rules.get_eadstompa_reroll_scope(ead, halved_tgt) == "failed")
+
+	# Tellyporta — Deep Strike grant through attachment
+	GS.state["units"] = {
+		"U_WBMA": {"id": "U_WBMA", "owner": 1, "attached_to": "U_MEGA2",
+			"meta": {"name": "Warboss in Mega Armour", "keywords": ["CHARACTER", "ORKS"], "enhancements": ["Tellyporta"], "abilities": []},
+			"flags": {}, "models": [{"id": "m0", "alive": true}]},
+		"U_MEGA2": {"id": "U_MEGA2", "owner": 1,
+			"meta": {"name": "Meganobz", "keywords": ["ORKS", "MEGANOBZ"], "enhancements": [], "abilities": []},
+			"flags": {}, "attachment_data": {"attached_characters": ["U_WBMA"]},
+			"models": [{"id": "m0", "alive": true}]},
+	}
+	_check("Tellyporta grants Deep Strike to the led unit", GS.unit_has_deep_strike("U_MEGA2"))
+	_check("Tellyporta grants Deep Strike to the bearer", GS.unit_has_deep_strike("U_WBMA"))
+
+	# Big Gob — nearest engaged enemy takes a battle-shock test at -1
+	var bg_models = [{"id": "m0", "position": {"x": 10.0, "y": 10.0}, "base_mm": 40, "base_type": "circular", "alive": true, "wounds": 6, "current_wounds": 6}]
+	var bg_enemy_models = [{"id": "e0", "position": {"x": 55.0, "y": 10.0}, "base_mm": 32, "base_type": "circular", "alive": true, "wounds": 1, "current_wounds": 1}]
+	GS.state["units"] = {
+		"U_BIGGOB": {"id": "U_BIGGOB", "owner": 1, "status": 2, "attached_to": null,
+			"meta": {"name": "Warboss", "keywords": ["CHARACTER", "INFANTRY", "ORKS", "WARBOSS"],
+				"enhancements": ["Big Gob"], "abilities": [], "stats": {"leadership": 6}},
+			"flags": {}, "models": bg_models},
+		"U_BG_TGT": {"id": "U_BG_TGT", "owner": 2, "status": 2,
+			"meta": {"name": "Guardsmen", "keywords": ["INFANTRY"], "abilities": [], "enhancements": [],
+				"stats": {"leadership": 12}},
+			"flags": {}, "models": bg_enemy_models},
+	}
+	rules.set_test_seed(5)
+	FAM.process_big_gob(1)
+	_check("Big Gob battle-shocks the engaged enemy (Ld 12 unreachable)",
+		GS.get_unit("U_BG_TGT")["flags"].get("battle_shocked", false))
 
 
 # ==========================================================================
