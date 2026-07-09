@@ -1,0 +1,49 @@
+{
+  "id": "ai_suggestion_no_log_overlap",
+  "covers": [
+    "ui.gamelog.newest_card_no_overlap"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "Regression guard for the AI-advice game-log overlap. With a populated game log, asking the AI for an on-demand suggestion (the K-hotkey / 'AI Suggestion' button) must APPEND its reasoning card at the BOTTOM of the log, not draw it on top of existing entries. The bug: GameLogPanel._animate_card_in captured the card's slide target position before the VBoxContainer had laid it out, so a card added in isolation (nothing logged after it) stuck at y=0 and covered the top of the log until the next entry forced a re-sort. This scenario populates the log with real entries, triggers the suggestion WITHOUT clearing the log, and asserts newest_card_is_below_earlier_cards() — i.e. the suggestion card is positioned below every earlier visible card.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
+    { "act": "execute_script", "script": "AIPlayer.clear_action_log()" },
+    { "act": "execute_script", "script": "GameState.set_active_player(1)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(7)" },
+    { "act": "execute_script", "script": "main.refresh_ai_suggestion_button()" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISuggestionButton", "timeout_s": 2.0 },
+
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "GameEventLog.add_entry(\"--- Movement Phase, Battle Round 2, Player 1 turn ---\", \"phase_header\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, \"Warboss moved 6 inches\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, \"Gretchin advanced\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, \"Deffkoptas moved 12 inches\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_info_entry(\"P1 gained 1 CP\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, \"Boyz remained stationary\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, \"Meganobz moved 5 inches\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, \"Trukk moved 12 inches\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_info_entry(\"Objective 3 contested\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, \"Stormboyz advanced 4 inches\")" },
+    { "act": "wait_frames", "frames": 40 },
+
+    { "act": "screenshot", "label": "01_before_suggestion", "region": [0, 105, 400, 720] },
+    { "act": "execute_script", "script": "main.game_log_panel.newest_card_is_below_earlier_cards()", "equals": true },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISuggestionButton" },
+    { "act": "wait_frames", "frames": 45 },
+
+    { "act": "execute_script", "script": "GameEventLog.count_ai_thinking_entries()", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_ai_card_count()", "expect_min": 1 },
+
+    { "act": "screenshot", "label": "02_after_suggestion", "region": [0, 105, 400, 720] },
+
+    { "act": "execute_script", "script": "main.game_log_panel.newest_card_is_below_earlier_cards()", "equals": true }
+  ]
+}
