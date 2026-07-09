@@ -42,6 +42,16 @@ var _player_faction_stratagems: Dictionary = {
 # Faction stratagem loader instance
 var _faction_loader: FactionStratagemLoaderData = null
 
+# Custom-handler stratagems added in the Ork detachment sweep (2026-07). Names
+# are compared after normalizing typographic apostrophes and uppercasing.
+# Older custom handlers keep their individual checks in
+# _mark_custom_implemented_stratagems for git-blame continuity.
+const _CUSTOM_IMPLEMENTED_NAMES: Array = [
+	# Green Tide
+	"BRAGGIN' RIGHTS", "BULLDOZER BRUTALITY", "COME ON LADZ!",
+	"COMPETITIVE STREAK", "GO GET 'EM!", "TIDE OF MUSCLE",
+]
+
 # Out-of-Phase Rules Restriction (P1-59)
 # When a unit performs an out-of-phase action (e.g. Fire Overwatch during opponent's
 # Movement/Charge phase), no other rules normally triggered in that simulated phase
@@ -544,6 +554,13 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 		# DED SNEAKY (Taktikal Brigade): remove Kommandos/Stormboyz to Strategic Reserves
 		if name_upper == "DED SNEAKY":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# Ork detachment sweep (Green Tide, More Dakka!, Bully Boyz, Da Big
+		# Hunt, Kult of Speed, Dread Mob, Blitz Brigade): batch marker.
+		# CRUSHING IMPACT only refers to the Bully Boyz stratagem here — the
+		# 11e core stratagem of the same name is a core entry, not faction.
+		if name_upper in _CUSTOM_IMPLEMENTED_NAMES:
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
@@ -1499,6 +1516,12 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Ded Sneaky — %s removed to Strategic Reserves" % target_unit_id)
 		return diffs_ds
 
+	# Ork detachment sweep (Green Tide, More Dakka!, Bully Boyz, Da Big Hunt,
+	# Kult of Speed, Dread Mob, Blitz Brigade): grouped custom handlers.
+	var sweep_diffs = _apply_ork_sweep_effects(strat, target_unit_id, context)
+	if sweep_diffs != null:
+		return sweep_diffs
+
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
@@ -1698,6 +1721,11 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 	if strat.get("name", "").to_upper() == "DED SNEAKY":
 		return
 
+	# Ork detachment sweep: grouped clear handlers.
+	if _clear_ork_sweep_flags(strat, unit_id, flags):
+		print("StratagemManager: Cleared %s flags from %s (Ork sweep)" % [stratagem_id, unit_id])
+		return
+
 	var effects = strat.get("effects", [])
 
 	EffectPrimitivesData.clear_effects(effects, unit_id, flags)
@@ -1707,6 +1735,141 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 			flags.erase("effect_invuln_source")
 			break
 	print("StratagemManager: Cleared %s flags from %s" % [stratagem_id, unit_id])
+
+# ============================================================================
+# ORK DETACHMENT SWEEP — grouped custom stratagem handlers (2026-07)
+# ============================================================================
+
+func _apply_ork_sweep_effects(strat: Dictionary, target_unit_id: String, context) -> Variant:
+	"""Grouped apply handlers for the Ork detachment sweep. Returns an Array of
+	diffs when the stratagem matched, or null to fall through to the generic
+	EffectPrimitives path."""
+	var name_upper = strat.get("name", "").replace("’", "'").to_upper()
+	match name_upper:
+		# ---- GREEN TIDE ----------------------------------------------------
+		"BRAGGIN' RIGHTS":
+			# Two Boyz units within 6" of each other both count as 10+ models
+			# until the start of your next Command phase. The second unit comes
+			# from context.second_unit_id or defaults to the nearest other
+			# BOYZ unit within 6" (logged).
+			var buddy_id = str(context.get("second_unit_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+			if buddy_id == "":
+				buddy_id = _find_nearest_friendly_keyword_unit(target_unit_id, "BOYZ", 6.0)
+			var br_diffs = [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_COUNTS_AS_10], "value": true}]
+			if buddy_id != "":
+				br_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [buddy_id, EffectPrimitivesData.FLAG_COUNTS_AS_10], "value": true})
+				# Register the buddy for owner-aware expiry alongside the primary target.
+				add_active_effect({
+					"stratagem_id": strat.get("id", "braggin_rights"),
+					"player": int(GameState.get_unit(target_unit_id).get("owner", 0)),
+					"target_unit_id": buddy_id,
+					"effects": [{"type": EffectPrimitivesData.COUNTS_AS_10}],
+					"expires": "next_own_command_phase",
+					"applied_turn": GameState.get_battle_round(),
+					"applied_phase": GameState.get_current_phase()
+				})
+				print("StratagemManager: BRAGGIN' RIGHTS — %s and %s both count as 10+ models" % [target_unit_id, buddy_id])
+			else:
+				print("StratagemManager: BRAGGIN' RIGHTS — no second BOYZ unit within 6\" of %s (single grant)" % target_unit_id)
+			return br_diffs
+		"BULLDOZER BRUTALITY":
+			# Models within 3" become eligible to fight (melee eligibility
+			# extension read in RulesEngine.get_eligible_melee_model_indices).
+			print("StratagemManager: BULLDOZER BRUTALITY — %s fights at 3\" eligibility this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_fight_range_3" % target_unit_id, "value": true}]
+		"COME ON LADZ!":
+			# Return up to D3+2 destroyed models to the unit. Simplification:
+			# models are revived at the position they died at.
+			var rng_cl = RulesEngine.make_rng()
+			var to_return = rng_cl.rng.randi_range(1, 3) + 2
+			var unit_cl = GameState.get_unit(target_unit_id)
+			var cl_diffs: Array = []
+			var revived := 0
+			var models = unit_cl.get("models", [])
+			for i in range(models.size()):
+				if revived >= to_return:
+					break
+				var m = models[i]
+				if not m.get("alive", true):
+					cl_diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [target_unit_id, i], "value": true})
+					cl_diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [target_unit_id, i], "value": int(m.get("wounds", 1))})
+					revived += 1
+			print("StratagemManager: COME ON LADZ! — rolled D3+2=%d, returned %d destroyed model(s) to %s" % [to_return, revived, target_unit_id])
+			return cl_diffs
+		"COMPETITIVE STREAK":
+			# Re-roll wound rolls of 1 (all failed while the unit counts as
+			# 10+ models). Fight-phase only, so the unscoped wound-reroll flag
+			# cannot leak into shooting before it expires at end of phase.
+			var unit_cs = GameState.get_unit(target_unit_id)
+			var cs_scope = "failed" if FactionAbilityManager.unit_counts_as_10(unit_cs) else "ones"
+			print("StratagemManager: COMPETITIVE STREAK — %s re-rolls wound rolls (%s) this phase" % [target_unit_id, cs_scope])
+			return [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_WOUNDS], "value": cs_scope}]
+		"GO GET 'EM!":
+			# Reactive D6" move after the attacking unit shoots — offered and
+			# resolved by ShootingPhase via the Swift-as-the-Eagle scaffolding.
+			print("StratagemManager: GO GET 'EM! applied to %s (reactive move handled by ShootingPhase)" % target_unit_id)
+			return []
+		"TIDE OF MUSCLE":
+			var unit_tm = GameState.get_unit(target_unit_id)
+			var tm_diffs = [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_PLUS_CHARGE], "value": 1}]
+			var tm_big = FactionAbilityManager.unit_counts_as_10(unit_tm)
+			if tm_big:
+				tm_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_CHARGE], "value": true})
+			print("StratagemManager: TIDE OF MUSCLE — %s +1 to charge rolls%s" % [target_unit_id, " + re-roll (10+ models)" if tm_big else ""])
+			return tm_diffs
+	return null
+
+func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictionary) -> bool:
+	"""Grouped clear handlers for the Ork detachment sweep. Returns true when
+	the stratagem was handled here."""
+	var name_upper = strat.get("name", "").replace("’", "'").to_upper()
+	match name_upper:
+		# ---- GREEN TIDE ----------------------------------------------------
+		"BRAGGIN' RIGHTS":
+			flags.erase(EffectPrimitivesData.FLAG_COUNTS_AS_10)
+			return true
+		"BULLDOZER BRUTALITY":
+			flags.erase("effect_fight_range_3")
+			return true
+		"COME ON LADZ!", "GO GET 'EM!":
+			return true  # instant effects — nothing to clear
+		"COMPETITIVE STREAK":
+			flags.erase(EffectPrimitivesData.FLAG_REROLL_WOUNDS)
+			return true
+		"TIDE OF MUSCLE":
+			flags.erase(EffectPrimitivesData.FLAG_PLUS_CHARGE)
+			flags.erase(EffectPrimitivesData.FLAG_REROLL_CHARGE)
+			return true
+	return false
+
+func _find_nearest_friendly_keyword_unit(unit_id: String, keyword: String, max_inches: float) -> String:
+	"""Nearest other friendly unit with `keyword` whose closest model is within
+	max_inches of the reference unit. Returns "" when none qualifies."""
+	var units = GameState.state.get("units", {})
+	var unit = units.get(unit_id, {})
+	var owner = int(unit.get("owner", 0))
+	var best_id := ""
+	var best_dist := INF
+	var max_px = Measurement.inches_to_px(max_inches)
+	for uid in units:
+		if uid == unit_id:
+			continue
+		var other = units[uid]
+		if int(other.get("owner", 0)) != owner:
+			continue
+		if not RulesEngine.unit_has_keyword(other, keyword):
+			continue
+		for m in unit.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			for om in other.get("models", []):
+				if not om.get("alive", true) or om.get("position") == null:
+					continue
+				var d = Measurement.model_to_model_distance_px(m, om)
+				if d <= max_px and d < best_dist:
+					best_dist = d
+					best_id = uid
+	return best_id
 
 ## Audit #11: enemy targets for the two attacker-driven 11e core stratagems.
 ## explosives (15.05): unengaged enemy units with a model within 8" of (and

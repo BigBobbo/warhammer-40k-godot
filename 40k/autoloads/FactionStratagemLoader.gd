@@ -536,6 +536,11 @@ func _parse_target(target_text: String) -> Dictionary:
 		["mounted", "keyword:MOUNTED"],
 		["kommandos", "keyword:KOMMANDOS"],
 		["stormboyz", "keyword:STORMBOYZ"],
+		# Leading space keeps "Stormboyz"/"Meganobz" from matching the
+		# bare-name patterns (substring matching).
+		[" boyz", "keyword:BOYZ"],
+		["gretchin", "keyword:GRETCHIN"],
+		["beast snagga", "keyword:BEAST SNAGGA"],
 	]
 
 	# "X or Y" alternations ("One Orks Infantry or Orks Mounted unit", "One
@@ -612,6 +617,9 @@ func _strip_excluding_clauses(t: String) -> Dictionary:
 		["terminator", "TERMINATOR"],
 		["mounted", "MOUNTED"],
 		["grots", "GROTS"],
+		["gretchin", "GRETCHIN"],
+		["killa kans", "KILLA KANS"],
+		["titanic", "TITANIC"],
 		["adeptus astartes", "ADEPTUS ASTARTES"],
 		["adeptus custodes", "ADEPTUS CUSTODES"],
 		["orks", "ORKS"],

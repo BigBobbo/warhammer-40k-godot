@@ -109,6 +109,10 @@ const PLUS_WOUNDS = "plus_wounds"                 # value: amount to add to Woun
 # effect_oc_override flag (Da Boss Iz Watchin' — replaces OC), this ADDS to the
 # statline OC. Consumed by MissionManager._check_objective_control.
 const PLUS_OC = "plus_oc"                         # value: amount to add to Objective Control
+# Green Tide: the unit counts as containing 10+ models for detachment rules,
+# Enhancements and Stratagems (Raucous Warcaller, BRAGGIN' RIGHTS). Read via
+# FactionAbilityManager.unit_counts_as_10.
+const COUNTS_AS_10 = "counts_as_10"
 # Issue #375: instant primitive for MOB RULE — clears the battle_shocked flag
 # on the target unit.
 const REMOVE_BATTLE_SHOCK = "remove_battle_shock"
@@ -132,6 +136,7 @@ const FALL_BACK_AND_CHARGE = "fall_back_and_charge"
 const ADVANCE_AND_CHARGE = "advance_and_charge"
 const ADVANCE_AND_SHOOT = "advance_and_shoot"
 const REROLL_CHARGE = "reroll_charge"                   # Re-roll charge rolls (full 2D6)
+const REROLL_ADVANCE = "reroll_advance"                 # Re-roll Advance rolls (Bloodthirsty Belligerence, Superfuelled Boiler)
 const PLUS_CHARGE = "plus_charge"                       # value: amount to add to charge roll total ('ERE WE GO etc.)
 const FLAT_ADVANCE = "flat_advance"                     # Replace Advance roll with flat +6" to Move
 const AUTO_ADVANCE_6 = "auto_advance_6"                 # Skip advance roll, auto +6" to Move
@@ -192,6 +197,8 @@ const FLAG_FALL_BACK_AND_CHARGE = "effect_fall_back_and_charge"
 const FLAG_ADVANCE_AND_CHARGE = "effect_advance_and_charge"
 const FLAG_ADVANCE_AND_SHOOT = "effect_advance_and_shoot"
 const FLAG_REROLL_CHARGE = "effect_reroll_charge"
+const FLAG_REROLL_ADVANCE = "effect_reroll_advance"
+const FLAG_COUNTS_AS_10 = "effect_counts_as_10"
 const FLAG_PLUS_CHARGE = "effect_plus_charge"             # value: int (amount to add to charge roll total)
 const FLAG_FLAT_ADVANCE = "effect_flat_advance"
 const FLAG_AUTO_ADVANCE_6 = "effect_auto_advance_6"
@@ -268,6 +275,8 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	ADVANCE_AND_CHARGE: [{"flag": FLAG_ADVANCE_AND_CHARGE, "value": true}],
 	ADVANCE_AND_SHOOT: [{"flag": FLAG_ADVANCE_AND_SHOOT, "value": true}],
 	REROLL_CHARGE: [{"flag": FLAG_REROLL_CHARGE, "value": true}],
+	REROLL_ADVANCE: [{"flag": FLAG_REROLL_ADVANCE, "value": true}],
+	COUNTS_AS_10: [{"flag": FLAG_COUNTS_AS_10, "value": true}],
 	PLUS_CHARGE: [{"flag": FLAG_PLUS_CHARGE, "value_from": "value"}],
 	FLAT_ADVANCE: [{"flag": FLAG_FLAT_ADVANCE, "value": true}],
 	AUTO_ADVANCE_6: [{"flag": FLAG_AUTO_ADVANCE_6, "value": true}],
@@ -692,6 +701,14 @@ static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""
 	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false)
+
+static func has_effect_reroll_advance(unit: Dictionary) -> bool:
+	"""Check if a unit has effect-granted Advance re-roll (Bloodthirsty Belligerence, Superfuelled Boiler)."""
+	return unit.get("flags", {}).get(FLAG_REROLL_ADVANCE, false)
+
+static func has_effect_counts_as_10(unit: Dictionary) -> bool:
+	"""Green Tide: unit counts as containing 10+ models (Raucous Warcaller, Braggin' Rights)."""
+	return unit.get("flags", {}).get(FLAG_COUNTS_AS_10, false)
 
 static func get_effect_plus_charge(unit: Dictionary) -> int:
 	"""Return the bonus to add to a unit's charge roll total. 0 if no modifier

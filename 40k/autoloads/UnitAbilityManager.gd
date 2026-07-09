@@ -1278,6 +1278,59 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# GREEN TIDE ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Raucous Warcaller — "While the bearer is leading a unit, that unit always
+	# counts as containing 10 or more models for the purposes of your
+	# Detachment rule and any Stratagems you use."
+	"Raucous Warcaller": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.COUNTS_AS_10}],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry only. While leading, the unit counts as 10+ models (effect_counts_as_10; read by FactionAbilityManager.unit_counts_as_10)"
+	},
+
+	# Bloodthirsty Belligerence — "While the bearer is leading a unit, you can
+	# re-roll Advance rolls made for that unit. While that unit contains 10 or
+	# more models, you can re-roll Charge rolls made for that unit as well."
+	# The charge re-roll is a live check in ChargePhase
+	# (FactionAbilityManager.unit_has_green_tide_charge_reroll).
+	"Bloodthirsty Belligerence": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.REROLL_ADVANCE}],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry only. While leading: re-roll Advance rolls (effect_reroll_advance); re-roll Charge rolls while 10+ models (live check)"
+	},
+
+	# Ferocious Show Off — +1 S on the bearer's melee attacks (+3 while the
+	# unit counts as 10+ models). Live check in RulesEngine melee resolution
+	# (FactionAbilityManager.ferocious_show_off_strength_bonus).
+	"Ferocious Show Off": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "Orks Infantry only. +1 S melee for the bearer, +3 while the unit counts as 10+ models (live check in RulesEngine)"
+	},
+
+	# Brutal But Kunnin' — Command-phase D6 (+2 while 10+ models): 5+ = 1 CP.
+	# Resolved by FactionAbilityManager.process_command_phase_cp_enhancements.
+	"Brutal But Kunnin'": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry only. Command phase: D6 (+2 if 10+ models), 5+ = gain 1 CP (FactionAbilityManager hook)"
+	},
+
+	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
 	# ======================================================================

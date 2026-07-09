@@ -618,9 +618,12 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	# Reset ability reroll tracking for this charge attempt
 	ability_reroll_used = false
 
-	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught, Plummeting Descent)
+	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught,
+	# Plummeting Descent, or Green Tide's Bloodthirsty Belligerence while the
+	# bearer's unit counts as 10+ models)
 	var unit_data = get_unit(unit_id)
-	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data)
+	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
+		or FactionAbilityManager.unit_has_green_tide_charge_reroll(unit_data, GameState.state.get("units", {}))
 
 	if has_ability_reroll:
 		# Offer free ability reroll first (before Command Re-roll)

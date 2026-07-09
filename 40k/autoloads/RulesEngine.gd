@@ -9775,6 +9775,10 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 					# T3-9: Use barricade-aware engagement range (2" through barricades)
 					var enemy_pos = _get_model_position(enemy_model)
 					var effective_er = _get_effective_engagement_range_rules(model_pos, enemy_pos, board)
+					# BULLDOZER BRUTALITY (Green Tide): models within 3" of an
+					# enemy model are eligible to fight this phase.
+					if attacker_unit.get("flags", {}).get("effect_fight_range_3", false):
+						effective_er = maxf(effective_er, 3.0)
 					if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
 						in_er = true
 			if in_base_contact:
@@ -10291,6 +10295,14 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var pre_s_hoa = strength
 		strength += plus_s_melee
 		print("RulesEngine: Hall of Armouries — melee strength %d → %d (+%d)" % [pre_s_hoa, strength, plus_s_melee])
+
+	# FEROCIOUS SHOW OFF (Green Tide enhancement): +1 S on the bearer's melee
+	# attacks, +3 while the bearer's unit counts as containing 10+ models.
+	# Same unit-wide approximation as Hall of Armouries above.
+	var fso_bonus = FactionAbilityManager.ferocious_show_off_strength_bonus(attacker_unit)
+	if fso_bonus > 0:
+		strength += fso_bonus
+		print("RulesEngine: Ferocious Show Off — melee strength +%d (now %d)" % [fso_bonus, strength])
 
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (melee)

@@ -1799,6 +1799,122 @@ func is_razgit_redeploy_available(player: int) -> bool:
 	"""Check if Razgit's Magik Map redeployment slots are still available."""
 	return has_razgit_magik_map(player) and get_razgit_redeploys_remaining(player) > 0
 
+# ============================================================================
+# GREEN TIDE HELPERS
+# ============================================================================
+
+static func unit_counts_as_10(unit: Dictionary) -> bool:
+	"""Green Tide: true if the unit has 10+ alive models OR an effect that makes
+	it count as such (Raucous Warcaller while leading, BRAGGIN' RIGHTS)."""
+	if unit.get("flags", {}).get(EffectPrimitivesData.FLAG_COUNTS_AS_10, false):
+		return true
+	var alive := 0
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			alive += 1
+	return alive >= 10
+
+static func _unit_or_attached_has_enhancement(unit: Dictionary, enh_name: String, units: Dictionary) -> bool:
+	"""True if the unit itself, or any character attached to it, carries the enhancement."""
+	var target_norm = enh_name.replace("’", "'")
+	var to_check: Array = [unit]
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		var ch = units.get(str(char_id), {})
+		if not ch.is_empty():
+			to_check.append(ch)
+	for u in to_check:
+		for enh in u.get("meta", {}).get("enhancements", []):
+			var n = ""
+			if enh is String:
+				n = enh
+			elif enh is Dictionary:
+				n = str(enh.get("name", ""))
+			if n.replace("’", "'") == target_norm:
+				return true
+	return false
+
+static func ferocious_show_off_strength_bonus(attacker_unit: Dictionary) -> int:
+	"""Green Tide — Ferocious Show Off: +1 S on the bearer's melee attacks,
+	+3 while the bearer's unit counts as containing 10+ models."""
+	var has_it := false
+	for enh in attacker_unit.get("meta", {}).get("enhancements", []):
+		var n = enh if enh is String else (str(enh.get("name", "")) if enh is Dictionary else "")
+		if n == "Ferocious Show Off":
+			has_it = true
+			break
+	if not has_it:
+		return 0
+	return 3 if unit_counts_as_10(attacker_unit) else 1
+
+static func unit_has_green_tide_charge_reroll(unit: Dictionary, units: Dictionary) -> bool:
+	"""Green Tide — Bloodthirsty Belligerence: while the bearer leads a unit
+	that counts as 10+ models, Charge rolls for that unit can be re-rolled."""
+	if not _unit_or_attached_has_enhancement(unit, "Bloodthirsty Belligerence", units):
+		return false
+	return unit_counts_as_10(unit)
+
+func process_command_phase_cp_enhancements(player: int) -> void:
+	"""Command-phase CP-generating enhancements:
+	 - Brutal But Kunnin' (Green Tide): D6 (+2 if bearer's unit counts as 10+
+	   models); on a 5+ gain 1 CP.
+	 - Speed Makes Right (Kult of Speed): D6 if the bearer is within 9" of an
+	   enemy unit; on a 3+ gain 1 CP.
+	Both respect the 1-bonus-CP-per-round cap."""
+	if not GameState.can_gain_bonus_cp(player):
+		return
+	var rolls_done := false
+	# Brutal But Kunnin'
+	var bbk = _find_enhancement_bearer(player, "Brutal But Kunnin'")
+	if not bbk.is_empty():
+		var combined = GameState.state.get("units", {}).get(bbk.combined_unit_id, {})
+		var rng = RulesEngine.make_rng()
+		var roll = rng.rng.randi_range(1, 6)
+		var bonus = 2 if unit_counts_as_10(combined) else 0
+		if roll + bonus >= 5:
+			_grant_bonus_cp(player, "Brutal But Kunnin'", roll, bonus)
+			rolls_done = true
+		else:
+			print("FactionAbilityManager: Brutal But Kunnin' — rolled %d+%d, no CP" % [roll, bonus])
+	# Speed Makes Right
+	if not rolls_done and GameState.can_gain_bonus_cp(player):
+		var smr = _find_enhancement_bearer(player, "Speed Makes Right")
+		if not smr.is_empty():
+			var bearer_unit = GameState.state.get("units", {}).get(smr.combined_unit_id, {})
+			if _unit_within_inches_of_enemy(bearer_unit, player, 9.0):
+				var rng2 = RulesEngine.make_rng()
+				var roll2 = rng2.rng.randi_range(1, 6)
+				if roll2 >= 3:
+					_grant_bonus_cp(player, "Speed Makes Right", roll2, 0)
+				else:
+					print("FactionAbilityManager: Speed Makes Right — rolled %d, no CP" % roll2)
+
+func _grant_bonus_cp(player: int, source: String, roll: int, bonus: int) -> void:
+	var pk = str(player)
+	var players = GameState.state.get("players", {})
+	if players.has(pk):
+		players[pk]["cp"] = int(players[pk].get("cp", 0)) + 1
+		GameState.record_bonus_cp_gained(player, 1)
+		print("FactionAbilityManager: %s — rolled %d+%d, player %d gains 1 CP" % [source, roll, bonus, player])
+		var game_event_log = get_node_or_null("/root/GameEventLog")
+		if game_event_log:
+			game_event_log.add_player_entry(player, "%s: rolled %d — gained 1 CP!" % [source, roll + bonus])
+
+func _unit_within_inches_of_enemy(unit: Dictionary, player: int, inches: float) -> bool:
+	var range_px = Measurement.inches_to_px(inches)
+	for uid in GameState.state.get("units", {}):
+		var enemy = GameState.state["units"][uid]
+		if int(enemy.get("owner", 0)) == player:
+			continue
+		for m in unit.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			for em in enemy.get("models", []):
+				if not em.get("alive", true) or em.get("position") == null:
+					continue
+				if Measurement.model_to_model_distance_px(m, em) <= range_px:
+					return true
+	return false
+
 static func _status_is_deployed(status) -> bool:
 	"""Unit status can be an int enum (live game) or a String (army JSON that
 	has not been through a save round-trip). int != String is a runtime error
@@ -2072,6 +2188,9 @@ func on_command_phase_start(player: int) -> void:
 	if detachment == "Freebooter Krew":
 		_clear_loot_objective(player)
 		print("FactionAbilityManager: Player %d has Freebooter Krew — awaiting loot objective selection" % player)
+
+	# CP-generating enhancements (Brutal But Kunnin' / Speed Makes Right)
+	process_command_phase_cp_enhancements(player)
 
 	# Bionik Workshop — resolve on first Command Phase (start of battle) (OA-2)
 	if detachment == "Freebooter Krew" and not _bionik_workshop_resolved:

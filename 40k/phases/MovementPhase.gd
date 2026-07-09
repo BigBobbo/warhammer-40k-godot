@@ -1566,6 +1566,14 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Advance: %s → D6 = %d" % [unit_name, advance_roll])
 
+	# Ability-granted Advance re-roll (Bloodthirsty Belligerence, SUPERFUELLED
+	# BOILER): the re-roll must keep the second result, so auto re-roll only
+	# when the first roll is low enough that a player always would (1-3).
+	if advance_roll <= 3 and EffectPrimitivesData.has_effect_reroll_advance(unit):
+		var reroll_result = rng_service.roll_d6(1)[0]
+		log_phase_message("Advance re-roll (ability): %s re-rolls %d → %d" % [unit_name, advance_roll, reroll_result])
+		advance_roll = reroll_result
+
 	# Check if Command Re-roll is available
 	var current_player = get_current_player()
 	var strat_manager = get_node_or_null("/root/StratagemManager")

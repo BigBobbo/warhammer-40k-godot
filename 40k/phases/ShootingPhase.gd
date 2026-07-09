@@ -69,6 +69,9 @@ var _big_booms_pending: Array = []  # entries: {target_unit_id: String, struck_u
 var swift_as_eagle_pending_unit: String = ""
 var swift_as_eagle_move_inches: int = 0
 var awaiting_swift_as_eagle: bool = false
+# The reactive post-shooting-move scaffolding serves SWIFT AS THE EAGLE
+# (Lions of the Emperor) and GO GET 'EM! (Green Tide).
+var swift_as_eagle_pending_strat: String = "SWIFT AS THE EAGLE"
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
@@ -4410,13 +4413,13 @@ func get_available_actions() -> Array:
 			"type": "USE_SWIFT_AS_THE_EAGLE",
 			"actor_unit_id": swift_as_eagle_pending_unit,
 			"player": sae_player,
-			"description": "Swift as the Eagle — %s makes a Normal move of up to %d\"" % [sae_name, swift_as_eagle_move_inches]
+			"description": "%s — %s makes a Normal move of up to %d\"" % [swift_as_eagle_pending_strat, sae_name, swift_as_eagle_move_inches]
 		})
 		actions.append({
 			"type": "DECLINE_SWIFT_AS_THE_EAGLE",
 			"actor_unit_id": swift_as_eagle_pending_unit,
 			"player": sae_player,
-			"description": "Decline Swift as the Eagle — %s" % sae_name
+			"description": "Decline %s — %s" % [swift_as_eagle_pending_strat, sae_name]
 		})
 		return actions
 
@@ -4961,12 +4964,14 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 		awaiting_swift_as_eagle = true
 		swift_as_eagle_pending_unit = swift_check.unit_id
 		swift_as_eagle_move_inches = swift_check.move_inches
-		log_phase_message("SWIFT AS THE EAGLE available for %s — D6\" Normal move (rolled %d\")" % [swift_check.unit_name, swift_check.move_inches])
-		return create_result(true, changes, "Swift as the Eagle available", {
+		swift_as_eagle_pending_strat = swift_check.get("strat_name", "SWIFT AS THE EAGLE")
+		log_phase_message("%s available for %s — D6\" Normal move (rolled %d\")" % [swift_as_eagle_pending_strat, swift_check.unit_name, swift_check.move_inches])
+		return create_result(true, changes, "%s available" % swift_as_eagle_pending_strat, {
 			"swift_as_eagle_available": true,
 			"unit_id": swift_check.unit_id,
 			"move_inches": swift_check.move_inches,
-			"unit_name": swift_check.unit_name
+			"unit_name": swift_check.unit_name,
+			"strat_name": swift_as_eagle_pending_strat
 		})
 
 	return create_result(true, changes, "Shooting complete")
@@ -6976,7 +6981,11 @@ func _process_use_stratagem(action: Dictionary) -> Dictionary:
 # ============================================================================
 
 func _check_swift_as_the_eagle(shooter_id: String, targeted_unit_ids: Array) -> Dictionary:
-	var result = {"available": false, "unit_id": "", "unit_name": "", "move_inches": 0}
+	# Reactive post-shooting moves. The same scaffolding serves two stratagems:
+	#  - SWIFT AS THE EAGLE (Lions of the Emperor): Custodes non-VEHICLE, D6".
+	#  - GO GET 'EM! (Green Tide): Boyz, D6" (best of two D6 while the unit
+	#    counts as containing 10+ models).
+	var result = {"available": false, "unit_id": "", "unit_name": "", "move_inches": 0, "strat_name": "Swift as the Eagle"}
 	if targeted_unit_ids.is_empty():
 		return result
 
@@ -6990,44 +6999,63 @@ func _check_swift_as_the_eagle(shooter_id: String, targeted_unit_ids: Array) -> 
 	var shooter_owner = int(shooter_unit.get("owner", 0))
 	var defending_player = 1 if shooter_owner == 2 else 2
 
-	var strat_id = strat_mgr.find_faction_stratagem_by_name(defending_player, "SWIFT AS THE EAGLE")
-	if strat_id == "":
-		return result
+	for strat_name in ["SWIFT AS THE EAGLE", "GO GET 'EM!"]:
+		var strat_id = strat_mgr.find_faction_stratagem_by_name(defending_player, strat_name)
+		if strat_id == "":
+			# Typographic-apostrophe variant of GO GET 'EM!
+			strat_id = strat_mgr.find_faction_stratagem_by_name(defending_player, strat_name.replace("'", "’"))
+		if strat_id == "":
+			continue
 
-	var validation = strat_mgr.can_use_stratagem(defending_player, strat_id)
-	if not validation.can_use:
-		return result
+		var validation = strat_mgr.can_use_stratagem(defending_player, strat_id)
+		if not validation.can_use:
+			continue
 
-	for tid in targeted_unit_ids:
-		var unit = GameState.get_unit(tid)
-		if unit.is_empty():
-			continue
-		if int(unit.get("owner", 0)) != defending_player:
-			continue
-		if unit.get("flags", {}).get("battle_shocked", false):
-			continue
-		var keywords = unit.get("meta", {}).get("keywords", [])
-		var is_custodes = false
-		var is_vehicle = false
-		for kw in keywords:
-			var kw_upper = kw.to_upper()
-			if kw_upper == "ADEPTUS CUSTODES":
-				is_custodes = true
-			if kw_upper == "VEHICLE":
-				is_vehicle = true
-		if is_custodes and not is_vehicle:
+		for tid in targeted_unit_ids:
+			var unit = GameState.get_unit(tid)
+			if unit.is_empty():
+				continue
+			if int(unit.get("owner", 0)) != defending_player:
+				continue
+			if unit.get("flags", {}).get("battle_shocked", false):
+				continue
+			var keywords = unit.get("meta", {}).get("keywords", [])
+			var eligible = false
+			if strat_name == "SWIFT AS THE EAGLE":
+				var is_custodes = false
+				var is_vehicle = false
+				for kw in keywords:
+					var kw_upper = kw.to_upper()
+					if kw_upper == "ADEPTUS CUSTODES":
+						is_custodes = true
+					if kw_upper == "VEHICLE":
+						is_vehicle = true
+				eligible = is_custodes and not is_vehicle
+			else:
+				for kw in keywords:
+					if kw.to_upper() == "BOYZ":
+						eligible = true
+						break
+			if not eligible:
+				continue
 			var has_alive = false
 			for m in unit.get("models", []):
 				if m.get("alive", true):
 					has_alive = true
 					break
-			if has_alive:
-				var d6 = _rng.randi_range(1, 6)
-				result.available = true
-				result.unit_id = tid
-				result.unit_name = unit.get("meta", {}).get("name", tid)
-				result.move_inches = d6
-				return result
+			if not has_alive:
+				continue
+			var d6 = _rng.randi_range(1, 6)
+			if strat_name == "GO GET 'EM!" and FactionAbilityManager.unit_counts_as_10(unit):
+				var d6b = _rng.randi_range(1, 6)
+				log_phase_message("GO GET 'EM!: 10+ models — rolled %d and %d, using %d" % [d6, d6b, maxi(d6, d6b)])
+				d6 = maxi(d6, d6b)
+			result.available = true
+			result.unit_id = tid
+			result.unit_name = unit.get("meta", {}).get("name", tid)
+			result.move_inches = d6
+			result.strat_name = strat_name
+			return result
 	return result
 
 func _validate_use_swift_as_the_eagle(action: Dictionary) -> Dictionary:
@@ -7049,7 +7077,9 @@ func _process_use_swift_as_the_eagle(action: Dictionary) -> Dictionary:
 
 	var strat_mgr = get_node_or_null("/root/StratagemManager")
 	if strat_mgr:
-		var strat_id = strat_mgr.find_faction_stratagem_by_name(unit_owner, "SWIFT AS THE EAGLE")
+		var strat_id = strat_mgr.find_faction_stratagem_by_name(unit_owner, swift_as_eagle_pending_strat)
+		if strat_id == "":
+			strat_id = strat_mgr.find_faction_stratagem_by_name(unit_owner, swift_as_eagle_pending_strat.replace("'", "’"))
 		if strat_id != "":
 			strat_mgr.use_stratagem(unit_owner, strat_id, unit_id)
 
