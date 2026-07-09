@@ -482,6 +482,10 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "GRAB AND BASH":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# BASH AND GRAB (OA-3): re-roll wounds vs enemies near the Loot Objective
+		if name_upper == "BASH AND GRAB":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 		# BOARDIN' RUSH (OA-5): Skip advance roll, add flat 6" to Move — custom implementation
 		if name_upper == "BOARDIN' RUSH":
 			strat["implemented"] = true
@@ -1009,8 +1013,13 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# is exact.
 	if "until the start of the next command phase" in effect_text_lower:
 		expires = "end_of_turn"
+	# "Until the start of YOUR next Command phase" (GRAB AND BASH, GET STUCK
+	# IN LADZ!, HUGE SHOW-OFFS, ...) lasts a full battle round — cleared
+	# owner-aware in on_turn_start via next_own_command_phase.
+	if "until the start of your next command phase" in effect_text_lower:
+		expires = "next_own_command_phase"
 	if strat.get("name", "").to_upper() == "GRAB AND BASH":
-		expires = "end_of_turn"
+		expires = "next_own_command_phase"
 	add_active_effect({
 		"stratagem_id": stratagem_id,
 		"player": player,
@@ -1117,6 +1126,10 @@ func on_phase_end(phase: int) -> void:
 func on_turn_start(player: int) -> void:
 	"""Called when a new turn starts for a player."""
 	_clear_expired_effects("end_of_turn")
+	# Owner-aware round-long effects ("until the start of YOUR next Command
+	# phase" — GRAB AND BASH, GET STUCK IN LADZ!, HUGE SHOW-OFFS, ...): clear
+	# only when the effect owner's own Command phase begins.
+	_clear_expired_effects_for_player("next_own_command_phase", player)
 	print("StratagemManager: Turn started for player %d, cleared turn-scoped effects" % player)
 
 func on_battle_round_start(round_number: int) -> void:
@@ -1191,6 +1204,20 @@ func _clear_expired_effects(expiry_type: String) -> void:
 			remaining.append(effect)
 		else:
 			# Clear unit flags for this expired effect
+			var unit_id = effect.get("target_unit_id", "")
+			var strat_id = effect.get("stratagem_id", "")
+			if unit_id != "":
+				_clear_stratagem_flags(unit_id, strat_id)
+	active_effects = remaining
+
+func _clear_expired_effects_for_player(expiry_type: String, player: int) -> void:
+	"""Owner-aware variant: only clears matching effects owned by `player`.
+	Used for 'until the start of YOUR next Command phase' durations."""
+	var remaining = []
+	for effect in active_effects:
+		if effect.get("expires", "") != expiry_type or int(effect.get("player", 0)) != player:
+			remaining.append(effect)
+		else:
 			var unit_id = effect.get("target_unit_id", "")
 			var strat_id = effect.get("stratagem_id", "")
 			if unit_id != "":
