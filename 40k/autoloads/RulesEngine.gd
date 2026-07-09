@@ -2318,6 +2318,14 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	# MOBILE DAKKASTORM (Speedwaaagh!): +2 Strength for a SPEED FREEKS/TRUKK unit's
+	# ranged attacks against the marked enemy unit (marker holds the user's player).
+	if target_unit.get("flags", {}).get("mobile_dakkastorm_marked", false) \
+			and int(actor_unit.get("owner", 0)) != int(target_unit.get("owner", -1)) \
+			and (unit_has_keyword(actor_unit, "SPEED FREEKS") or unit_has_keyword(actor_unit, "TRUKK")):
+		var pre_s_md = strength
+		strength += 2
+		print("RulesEngine: MOBILE DAKKASTORM — ranged strength %d → %d (+2 vs marked %s)" % [pre_s_md, strength, target_unit_id])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk
 	var ded_glowy_penalty = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -3768,6 +3776,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip (auto-resolve) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	# MOBILE DAKKASTORM (Speedwaaagh!): +2 Strength for a SPEED FREEKS/TRUKK unit's
+	# ranged attacks against the marked enemy unit (marker holds the user's player).
+	if target_unit.get("flags", {}).get("mobile_dakkastorm_marked", false) \
+			and int(actor_unit.get("owner", 0)) != int(target_unit.get("owner", -1)) \
+			and (unit_has_keyword(actor_unit, "SPEED FREEKS") or unit_has_keyword(actor_unit, "TRUKK")):
+		var pre_s_md = strength
+		strength += 2
+		print("RulesEngine: MOBILE DAKKASTORM (auto-resolve) — ranged strength %d → %d (+2 vs marked %s)" % [pre_s_md, strength, target_unit_id])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (auto-resolve)
 	var ded_glowy_penalty_ar = get_ded_glowy_ammo_toughness_penalty(target_unit, board)

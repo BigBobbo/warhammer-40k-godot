@@ -518,6 +518,10 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "DED KILLY CONSTRUCTION":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# MOBILE DAKKASTORM (Speedwaaagh!): +2 S from Speed Freeks/Trukk vs a marked enemy
+		if name_upper == "MOBILE DAKKASTORM":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -1325,6 +1329,18 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Speshul Ammo to %s (Anti-Monster/Vehicle 4+ on non-Torrent ranged weapons)" % target_unit_id)
 		return diffs_sa
 
+	# MOBILE DAKKASTORM (Speedwaaagh!): mark one enemy unit; until end of phase,
+	# attacks from the user's SPEED FREEKS/TRUKK units targeting it get +2 Strength.
+	# (target_unit_id is the marked enemy unit.)
+	if strat.get("name", "").to_upper() == "MOBILE DAKKASTORM":
+		var diffs_mob = [{
+			"op": "set",
+			"path": "units.%s.flags.mobile_dakkastorm_marked" % target_unit_id,
+			"value": true
+		}]
+		print("StratagemManager: Applied Mobile Dakkastorm — %s marked (+2 S from Speed Freeks/Trukk)" % target_unit_id)
+		return diffs_mob
+
 	# DED KILLY CONSTRUCTION (Speedwaaagh!): melee weapons gain [LANCE]; if the
 	# unit made a Charge move this turn, also +1 Damage to those weapons.
 	if strat.get("name", "").to_upper() == "DED KILLY CONSTRUCTION":
@@ -1500,6 +1516,13 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 		if flags.has("effect_speshul_ammo"):
 			flags.erase("effect_speshul_ammo")
 			print("StratagemManager: Cleared effect_speshul_ammo from %s" % unit_id)
+		return
+
+	# MOBILE DAKKASTORM (Speedwaaagh!): Clear the enemy mark
+	if strat.get("name", "").to_upper() == "MOBILE DAKKASTORM":
+		if flags.has("mobile_dakkastorm_marked"):
+			flags.erase("mobile_dakkastorm_marked")
+			print("StratagemManager: Cleared mobile_dakkastorm_marked from %s" % unit_id)
 		return
 
 	# DED KILLY CONSTRUCTION (Speedwaaagh!): Clear LANCE grant + any charge damage
