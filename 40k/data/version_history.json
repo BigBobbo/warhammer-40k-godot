@@ -2,6 +2,21 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.9.0",
+			"date": "2026-07-09",
+			"summary": "Taktikal Brigade (Orks) is now playable: all six of its Stratagems and three of its four Enhancements work in-game, and the always-broken Stratagems panel button is fixed.",
+			"changes": [
+				"All six Taktikal Brigade Stratagems now have their real rules text and working effects: FIGHT PROPPA (choose SUSTAINED HITS 1 or LETHAL HITS for a unit's melee weapons), KRUNCHIN' DESCENT (after a Stormboyz charge, D6 per model in Engagement Range — 4+ deals a mortal wound, max 6), DAT'S OURS (+1 Objective Control until the next Command phase), TAKTIKAL RETREAT (shoot and charge after Falling Back), ON TO DA NEXT (a free 6\" move when an enemy Falls Back away from your mob — offered via the same dialog as Krump and Run), and DED SNEAKY (pull Kommandos or Stormboyz off the table into Strategic Reserves).",
+				"Skwad Leader enhancement: a Warboss with it can be attached to a Kommandos unit, and while leading them the unit deploys with Infiltrators and has Stealth.",
+				"Mek Kaptin enhancement: a Big Mek with it can be attached to a Flash Gitz unit, and the unit re-rolls Hit rolls on its ranged attacks.",
+				"Mork's Kunnin' enhancement: after deployment you can redeploy up to three ORKS units (any of them into Strategic Reserves).",
+				"Gob Boomer is listed but has no effect yet — it extends the Taktiks (Lissen 'Ere) detachment rule, which is not implemented (the same gap as Speedwaaagh!'s Turbo Boostas detachment rule).",
+				"Fixed the Stratagems panel ([S] button): clicking it did nothing because of a script error — it now opens, and unit-targeted faction Stratagems prompt you to pick the target unit instead of silently doing nothing.",
+				"Stratagem targeting is now enforced for faction Stratagems (correct keywords, not-yet-fought/shot, engagement-range conditions), and 'One X or Y unit' wordings are matched correctly.",
+				"Added a ready-to-play Taktikal Brigade army list (orks_taktikal) with Skwad Leader and Mork's Kunnin' equipped."
+			]
+		},
+		{
 			"version": "0.8.5",
 			"date": "2026-07-09",
 			"summary": "Speedwaaagh! (Orks) is now fully implemented: all four of its Enhancements and all six of its Stratagems work in-game.",

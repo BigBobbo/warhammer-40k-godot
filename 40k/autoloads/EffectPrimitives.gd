@@ -105,6 +105,10 @@ const PLUS_ATTACKS_BELOW_HALF = "plus_attacks_below_half"  # value: amount to ad
 const PLUS_MOVE = "plus_move"                     # value: inches to add to Move characteristic
 const PLUS_STRENGTH_MELEE = "plus_strength_melee" # value: amount to add to melee weapon Strength
 const PLUS_WOUNDS = "plus_wounds"                 # value: amount to add to Wounds characteristic (list-build only)
+# DAT'S OURS (Taktikal Brigade): additive Objective Control bonus. Unlike the
+# effect_oc_override flag (Da Boss Iz Watchin' — replaces OC), this ADDS to the
+# statline OC. Consumed by MissionManager._check_objective_control.
+const PLUS_OC = "plus_oc"                         # value: amount to add to Objective Control
 # Issue #375: instant primitive for MOB RULE — clears the battle_shocked flag
 # on the target unit.
 const REMOVE_BATTLE_SHOCK = "remove_battle_shock"
@@ -159,6 +163,11 @@ const FLAG_PRECISION_MELEE = "effect_precision_melee"
 const FLAG_PRECISION_RANGED = "effect_precision_ranged"
 const FLAG_LETHAL_HITS = "effect_lethal_hits"
 const FLAG_SUSTAINED_HITS = "effect_sustained_hits"
+# FIGHT PROPPA (Taktikal Brigade): melee-only variants. The unscoped flags
+# above are read by BOTH shooting and melee resolution; these two are read
+# ONLY in the melee resolver (RulesEngine._resolve_melee_assignment).
+const FLAG_LETHAL_HITS_MELEE = "effect_lethal_hits_melee"
+const FLAG_SUSTAINED_HITS_MELEE = "effect_sustained_hits_melee"
 const FLAG_DEVASTATING_WOUNDS = "effect_devastating_wounds"
 const FLAG_IGNORES_COVER = "effect_ignores_cover"
 const FLAG_LANCE = "effect_lance"
@@ -194,6 +203,9 @@ const FLAG_PLUS_ATTACKS_BELOW_HALF = "effect_plus_attacks_below_half"  # value: 
 # Issue #374: enhancement flags.
 const FLAG_PLUS_MOVE = "effect_plus_move"                  # value: int (inches added to Move)
 const FLAG_PLUS_STRENGTH_MELEE = "effect_plus_strength_melee"  # value: int (Strength bonus on melee)
+# DAT'S OURS (Taktikal Brigade): value ADDED to the statline OC (contrast with
+# effect_oc_override which replaces it).
+const FLAG_PLUS_OC = "effect_plus_oc"                      # value: int (Objective Control bonus)
 # Issue #375: persistent flag for ORKS IS NEVER BEATEN — read in melee
 # resolution to defer model removal until after the unit's swing-back.
 const FLAG_SWING_BACK_BEFORE_REMOVE = "effect_swing_back_before_remove"
@@ -269,6 +281,8 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	# Issue #374: persistent enhancement flags on the bearer's unit.
 	PLUS_MOVE: [{"flag": FLAG_PLUS_MOVE, "value_from": "value"}],
 	PLUS_STRENGTH_MELEE: [{"flag": FLAG_PLUS_STRENGTH_MELEE, "value_from": "value"}],
+	# DAT'S OURS (Taktikal Brigade): additive OC bonus.
+	PLUS_OC: [{"flag": FLAG_PLUS_OC, "value_from": "value"}],
 }
 
 # Set of instant effect types that don't set persistent flags

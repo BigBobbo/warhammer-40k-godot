@@ -1,0 +1,35 @@
+{
+ "id": "taktikal_enhancements_load",
+ "covers": [
+  "enhancements.taktikal_brigade.skwad_leader",
+  "enhancements.taktikal_brigade.morks_kunnin",
+  "armies.orks_taktikal.load_path",
+  "autoloads.CharacterAttachmentManager.enhancement_can_lead"
+ ],
+ "fixture": "co_pretrigger",
+ "edition": 11,
+ "rng_seed": 42,
+ "disable_ai": true,
+ "description": "Loads the shipped Taktikal Brigade army list (armies/orks_taktikal.json) through the real ArmyListManager path in the running windowed game, then asserts the enhancement plumbing: the Skwad Leader Warboss may attach to the Kommandos (and the pair gains Infiltrators once attached, Stealth being phase-applied), and the Mork's Kunnin' bearer makes ORKS units redeployable. This is a load-path validation scenario (execute_script asserts against the live game); the FormationsPhase click-through UI calls the same CharacterAttachmentManager/GameState APIs asserted here.",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "execute_script", "script": "ArmyListManager.apply_army_to_game_state(ArmyListManager.load_army_list(\"orks_taktikal\", 2), 2)" },
+  { "act": "execute_script", "script": "StratagemManager.load_faction_stratagems_for_player(2)" },
+  { "act": "execute_script", "script": "StratagemManager.get_implemented_faction_stratagems_for_player(2).size()", "equals": 6 },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"][\"detachment\"]", "equals": "Taktikal Brigade" },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_WARBOSS_B\")[\"meta\"][\"enhancements\"].has(\"Skwad Leader\")", "equals": true },
+  { "act": "execute_script", "script": "CharacterAttachmentManager.can_attach(\"U_WARBOSS_B\", \"U_KOMMANDOS_H\")[\"valid\"]", "equals": true },
+  { "act": "execute_script", "script": "GameState.get_eligible_bodyguards_for_character(\"U_WARBOSS_B\").has(\"U_KOMMANDOS_H\")", "equals": true },
+  { "act": "execute_script", "script": "CharacterAttachmentManager.can_attach(\"U_WARBOSS_C\", \"U_KOMMANDOS_H\")[\"valid\"]", "equals": false },
+  { "act": "execute_script", "script": "GameState.unit_has_infiltrators(\"U_KOMMANDOS_H\")", "equals": false },
+  { "act": "execute_script", "script": "CharacterAttachmentManager.attach_character(\"U_WARBOSS_B\", \"U_KOMMANDOS_H\")" },
+  { "act": "execute_script", "script": "GameState.unit_has_infiltrators(\"U_KOMMANDOS_H\")", "equals": true },
+  { "act": "execute_script", "script": "GameState.unit_has_infiltrators(\"U_WARBOSS_B\")", "equals": true },
+  { "act": "execute_script", "script": "FactionAbilityManager.has_morks_kunnin(2)", "equals": true },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_E\").merge({\"status\": 2}, true)" },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_F\").merge({\"status\": 2}, true)" },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_BATTLEWAGON_G\").merge({\"status\": 2}, true)" },
+  { "act": "execute_script", "script": "GameState.get_redeploy_units_for_player(2).size()", "expect_min": 3 },
+  { "act": "screenshot", "label": "01_taktikal_army_loaded" }
+ ]
+}

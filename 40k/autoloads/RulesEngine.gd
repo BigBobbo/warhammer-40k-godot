@@ -2023,6 +2023,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: DAT'S OUR LOOT! — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
+		# MEK KAPTIN (Taktikal Brigade enhancement): full Hit re-roll on the
+		# bearer's unit's ranged attacks.
+		if unit_has_mek_kaptin_reroll(actor_unit, board):
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: MEK KAPTIN — re-roll Hit rolls (ranged) for %s" % actor_unit_id)
+
 		# SPLAT! (OA-38): Re-roll Hit rolls of 1 on ranged attacks when conditions met.
 		# Big Gunz: target has 10+ models. Mek Gunz: at Starting Strength vs non-MONSTER/VEHICLE.
 		var splat_scope = get_splat_reroll_scope(actor_unit, target_unit)
@@ -2953,6 +2959,47 @@ static func resolve_crushing_impact_11e(unit_id: String, target_unit_id: String,
 	return result
 
 
+## KRUNCHIN' DESCENT (Taktikal Brigade): just after a Stormboyz unit ends a
+## Charge move, roll one D6 for each of its models within Engagement Range of
+## the selected enemy unit — each 4+ inflicts 1 mortal wound (max 6).
+static func resolve_krunchin_descent(unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	if rng == null:
+		rng = make_rng()
+	var unit = board.get("units", {}).get(unit_id, {})
+	var target = board.get("units", {}).get(target_unit_id, {})
+	var dice_count := 0
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var pos1 = _get_model_position(model)
+		if pos1 == Vector2.ZERO:
+			continue
+		for enemy_model in target.get("models", []):
+			if not enemy_model.get("alive", true):
+				continue
+			var pos2 = _get_model_position(enemy_model)
+			if pos2 == Vector2.ZERO:
+				continue
+			var effective_er = _get_effective_engagement_range_rules(pos1, pos2, board)
+			if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
+				dice_count += 1
+				break
+	var rolls = rng.roll_d6(dice_count) if dice_count > 0 else []
+	var mw := 0
+	for r in rolls:
+		if r >= 4:
+			mw += 1
+	mw = mini(mw, 6)
+	var result = {"diffs": [], "dice": [{"context": "krunchin_descent", "rolls": rolls, "mortal_wounds": mw}],
+		"mortal_wounds": mw, "models_in_er": dice_count, "casualties": 0}
+	if mw > 0 and not target.is_empty():
+		var out = Allocation.apply_mortal_wounds_11e(target, mw)
+		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
+		result.casualties = out.models_destroyed.size()
+	print("RulesEngine: KRUNCHIN' DESCENT %s vs %s — %d model(s) in ER, rolls %s -> %d mortal wound(s)" % [unit_id, target_unit_id, dice_count, str(rolls), mw])
+	return result
+
+
 # 24.28 [PRECISION] (audit #13): the ATTACKER may promote ONE allocation
 # group containing a CHARACTER model that is VISIBLE to at least one
 # attacking model. `chosen_gid` (the attacker's pick, e.g. from the
@@ -3569,6 +3616,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		elif dats_our_loot_scope_ar == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: DAT'S OUR LOOT! (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
+
+		# MEK KAPTIN (Taktikal Brigade enhancement): full Hit re-roll on the
+		# bearer's unit's ranged attacks (auto-resolve).
+		if unit_has_mek_kaptin_reroll(actor_unit, board):
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: MEK KAPTIN (auto-resolve) — re-roll Hit rolls (ranged) for %s" % actor_unit_id)
 
 		# SPLAT! (OA-38): Re-roll Hit rolls of 1 on ranged attacks when conditions met (auto-resolve).
 		# Big Gunz: target has 10+ models. Mek Gunz: at Starting Strength vs non-MONSTER/VEHICLE.
@@ -7356,6 +7409,28 @@ static func is_unit_near_any_objective(unit: Dictionary, board: Dictionary) -> b
 
 	return false
 
+# MEK KAPTIN (Taktikal Brigade enhancement): "Each time a model in the
+# bearer's unit makes a ranged attack, you can re-roll the Hit roll."
+# True when the shooting unit carries the enhancement itself (standalone
+# bearer, or the bearer attached to it) or has the bearer among its
+# attached characters. Read ONLY in the shooting hit-modifier paths.
+static func unit_has_mek_kaptin_reroll(actor_unit: Dictionary, board: Dictionary) -> bool:
+	if _meta_has_enhancement(actor_unit, "Mek Kaptin"):
+		return true
+	var units = board.get("units", {})
+	for char_id in actor_unit.get("attachment_data", {}).get("attached_characters", []):
+		if _meta_has_enhancement(units.get(str(char_id), {}), "Mek Kaptin"):
+			return true
+	return false
+
+static func _meta_has_enhancement(unit: Dictionary, enh_name: String) -> bool:
+	for enh in unit.get("meta", {}).get("enhancements", []):
+		if enh is String and enh == enh_name:
+			return true
+		if enh is Dictionary and str(enh.get("name", "")) == enh_name:
+			return true
+	return false
+
 # DAT'S OUR LOOT! (OA-12): Get the re-roll scope for a Lootas unit's ranged attacks.
 # Returns "failed" if target is within range of any objective marker (full re-roll),
 # "ones" if the unit has the ability but target is not near an objective,
@@ -10279,6 +10354,16 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var katah_sh_value = attacker_unit.get("flags", {}).get("katah_sustained_hits_value", 1)
 		sustained_data = {"value": katah_sh_value, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS %d granted by unit effect flag (e.g., Martial Ka'tah Dacatarai stance)" % katah_sh_value)
+
+	# FIGHT PROPPA (Taktikal Brigade): melee-scoped grants — the player chose
+	# [SUSTAINED HITS 1] or [LETHAL HITS] for this unit's melee weapons this
+	# phase. These flags are read ONLY here, never in shooting resolution.
+	if not weapon_has_lethal_hits and attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_LETHAL_HITS_MELEE, false):
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS granted by melee effect flag (Fight Proppa)")
+	if sustained_data.value == 0 and attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE, false):
+		sustained_data = {"value": 1, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS 1 granted by melee effect flag (Fight Proppa)")
 
 	# GET STUCK IN (P2-27): War Horde detachment — Sustained Hits 1 on all melee weapons for ORKS
 	if sustained_data.value == 0 and FactionAbilityManager.unit_has_get_stuck_in(attacker_unit):

@@ -1,0 +1,2812 @@
+{
+ "faction": {
+  "name": "Orks",
+  "points": 2000,
+  "detachment": "Taktikal Brigade",
+  "player_name": "",
+  "team_name": "",
+  "created_date": "2025-02-20",
+  "schema": 2,
+  "edition": 11,
+  "data_source": "40kdc-data 1.0.19 (11th edition, launch)"
+ },
+ "units": {
+  "U_WARBOSS_B": {
+   "id": "U_WARBOSS_B",
+   "squad_id": "U_WARBOSS_B",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Warboss",
+    "keywords": [
+     "CHARACTER",
+     "GRENADES",
+     "INFANTRY",
+     "ORKS",
+     "WARBOSS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 4,
+     "wounds": 6,
+     "leadership": 6,
+     "objective_control": 1,
+     "invuln": 5
+    },
+    "points": 75,
+    "is_warlord": true,
+    "enhancements": [
+     "Skwad Leader"
+    ],
+    "wargear": [
+     "1x Kombi-weapon",
+     "1x Power klaw",
+     "1x Twin sluggas"
+    ],
+    "weapons": [
+     {
+      "name": "Kombi-weapon",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+      "abilities": [
+       {
+        "id": "anti",
+        "keyword": "INFANTRY",
+        "threshold": 4
+       },
+       {
+        "id": "devastating_wounds"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Twin sluggas",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol, twin linked",
+      "abilities": [
+       {
+        "id": "pistol"
+       },
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Attack squig",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "4",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "extra attacks",
+      "abilities": [
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     },
+     {
+      "name": "Big choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "8",
+      "ap": "-1",
+      "damage": "2"
+     },
+     {
+      "name": "Power klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Da Biggest and da Best",
+      "type": "Datasheet",
+      "description": "Add 4 to the unit's Attacks characteristic."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Warboss",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "BOYZ",
+      "BREAKA BOYZ",
+      "NOBZ"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 6,
+     "current_wounds": 6,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_WARBOSS_C": {
+   "id": "U_WARBOSS_C",
+   "squad_id": "U_WARBOSS_C",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Warboss",
+    "keywords": [
+     "CHARACTER",
+     "GRENADES",
+     "INFANTRY",
+     "ORKS",
+     "WARBOSS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 4,
+     "wounds": 6,
+     "leadership": 6,
+     "objective_control": 1,
+     "invuln": 5
+    },
+    "points": 75,
+    "is_warlord": false,
+    "enhancements": [
+     "Mork's Kunnin'"
+    ],
+    "wargear": [
+     "1x Kombi-weapon",
+     "1x Power klaw",
+     "1x Twin sluggas"
+    ],
+    "weapons": [
+     {
+      "name": "Kombi-weapon",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+      "abilities": [
+       {
+        "id": "anti",
+        "keyword": "INFANTRY",
+        "threshold": 4
+       },
+       {
+        "id": "devastating_wounds"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Twin sluggas",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol, twin linked",
+      "abilities": [
+       {
+        "id": "pistol"
+       },
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Attack squig",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "4",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "extra attacks",
+      "abilities": [
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     },
+     {
+      "name": "Big choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "8",
+      "ap": "-1",
+      "damage": "2"
+     },
+     {
+      "name": "Power klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Da Biggest and da Best",
+      "type": "Datasheet",
+      "description": "Add 4 to the unit's Attacks characteristic."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Warboss",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "BOYZ",
+      "BREAKA BOYZ",
+      "NOBZ"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 6,
+     "current_wounds": 6,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_WARBOSS_IN_MEGA_ARMOUR_D": {
+   "id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+   "squad_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Warboss in Mega Armour",
+    "keywords": [
+     "CHARACTER",
+     "INFANTRY",
+     "MEGA ARMOUR",
+     "ORKS",
+     "WARBOSS",
+     "WARBOSS IN MEGA ARMOUR"
+    ],
+    "stats": {
+     "move": 5,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 7,
+     "leadership": 6,
+     "objective_control": 1,
+     "invuln": 5
+    },
+    "points": 80,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x 'Uge choppa"
+    ],
+    "weapons": [
+     {
+      "name": "Big shoota",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "3",
+      "ballistic_skill": "4",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Uge choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "2",
+      "strength": "12",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Dead Brutal",
+      "type": "Datasheet",
+      "description": "Modify this model's Damage characteristic to 3."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     },
+     {
+      "name": "Might is Right",
+      "type": "Datasheet",
+      "description": "During the Fight phase, after being attached to a unit, the unit gets +1 to Hit rolls."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Warboss in Mega Armour",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "MEGANOBZ"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 7,
+     "current_wounds": 7,
+     "base_mm": 50,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_BOYZ_E": {
+   "id": "U_BOYZ_E",
+   "squad_id": "U_BOYZ_E",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Boyz",
+    "keywords": [
+     "BATTLELINE",
+     "BOYZ",
+     "GRENADES",
+     "INFANTRY",
+     "MOB",
+     "ORKS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 5,
+     "wounds": 1,
+     "leadership": 7,
+     "objective_control": 2
+    },
+    "points": 150,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "9x Slugga",
+     "1x Slugga"
+    ],
+    "weapons": [
+     {
+      "name": "Big shoota",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "3",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Kombi-weapon",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+      "abilities": [
+       {
+        "id": "anti",
+        "keyword": "INFANTRY",
+        "threshold": 4
+       },
+       {
+        "id": "devastating_wounds"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Rokkit launcha",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "D3",
+      "ballistic_skill": "5",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "blast",
+      "abilities": [
+       {
+        "id": "blast"
+       }
+      ]
+     },
+     {
+      "name": "Shoota",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 1",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Slugga",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol",
+      "abilities": [
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Big choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "7",
+      "ap": "-1",
+      "damage": "2"
+     },
+     {
+      "name": "Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1"
+     },
+     {
+      "name": "Power klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Bodyguard",
+      "type": "Datasheet",
+      "description": "This model gains the Extra Leader Attachment ability."
+     },
+     {
+      "name": "Get Da Good Bitz",
+      "type": "Datasheet",
+      "description": "The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives)."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Boss Nob",
+      "line": 1
+     },
+     {
+      "description": "9-19 Boy",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m6",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m7",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m8",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m9",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m10",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m11",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m12",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m13",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m14",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m15",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m16",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m17",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m18",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m19",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m20",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_BOYZ_F": {
+   "id": "U_BOYZ_F",
+   "squad_id": "U_BOYZ_F",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Boyz",
+    "keywords": [
+     "BATTLELINE",
+     "BOYZ",
+     "GRENADES",
+     "INFANTRY",
+     "MOB",
+     "ORKS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 5,
+     "wounds": 1,
+     "leadership": 7,
+     "objective_control": 2
+    },
+    "points": 150,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "9x Slugga",
+     "1x Slugga"
+    ],
+    "weapons": [
+     {
+      "name": "Big shoota",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "3",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Kombi-weapon",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+      "abilities": [
+       {
+        "id": "anti",
+        "keyword": "INFANTRY",
+        "threshold": 4
+       },
+       {
+        "id": "devastating_wounds"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Rokkit launcha",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "D3",
+      "ballistic_skill": "5",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "blast",
+      "abilities": [
+       {
+        "id": "blast"
+       }
+      ]
+     },
+     {
+      "name": "Shoota",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 1",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Slugga",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol",
+      "abilities": [
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Big choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "7",
+      "ap": "-1",
+      "damage": "2"
+     },
+     {
+      "name": "Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1"
+     },
+     {
+      "name": "Power klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Bodyguard",
+      "type": "Datasheet",
+      "description": "This model gains the Extra Leader Attachment ability."
+     },
+     {
+      "name": "Get Da Good Bitz",
+      "type": "Datasheet",
+      "description": "The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives)."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Boss Nob",
+      "line": 1
+     },
+     {
+      "description": "9-19 Boy",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m6",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m7",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m8",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m9",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m10",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m11",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m12",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m13",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m14",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m15",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m16",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m17",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m18",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m19",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m20",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_BATTLEWAGON_G": {
+   "id": "U_BATTLEWAGON_G",
+   "squad_id": "U_BATTLEWAGON_G",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Battlewagon",
+    "keywords": [
+     "BATTLEWAGON",
+     "ORKS",
+     "TRANSPORT",
+     "VEHICLE"
+    ],
+    "stats": {
+     "move": 10,
+     "toughness": 10,
+     "save": 3,
+     "wounds": 16,
+     "leadership": 7,
+     "objective_control": 5,
+     "invuln": 6
+    },
+    "points": 145,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x Deff rolla",
+     "1x Grabbin' klaw",
+     "1x Kannon",
+     "1x Lobba",
+     "1x Wreckin' ball",
+     "1x 'Ard Case"
+    ],
+    "weapons": [
+     {
+      "name": "Big shoota",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "3",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Kannon \u2013 Frag",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "D6+3",
+      "ballistic_skill": "5",
+      "strength": "6",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "blast",
+      "abilities": [
+       {
+        "id": "blast"
+       }
+      ]
+     },
+     {
+      "name": "Kannon \u2013 Shell",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "D6"
+     },
+     {
+      "name": "Killkannon",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "D6+1",
+      "ballistic_skill": "5",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "2"
+     },
+     {
+      "name": "Lobba",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "D6",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "blast, indirect fire",
+      "abilities": [
+       {
+        "id": "blast"
+       },
+       {
+        "id": "indirect_fire"
+       }
+      ]
+     },
+     {
+      "name": "Zzap gun",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "D6+6",
+      "ap": "-3",
+      "damage": "5",
+      "special_rules": "anti-vehicle 4+",
+      "abilities": [
+       {
+        "id": "anti",
+        "keyword": "VEHICLE",
+        "threshold": 4
+       }
+      ]
+     },
+     {
+      "name": "Deff rolla",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "6",
+      "weapon_skill": "3",
+      "strength": "9",
+      "ap": "-1",
+      "damage": "2"
+     },
+     {
+      "name": "Grabbin' klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "8",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "extra attacks",
+      "abilities": [
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     },
+     {
+      "name": "Tracks and wheels",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "6",
+      "weapon_skill": "4",
+      "strength": "8",
+      "ap": "0",
+      "damage": "1"
+     },
+     {
+      "name": "Wreckin' ball",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "1",
+      "weapon_skill": "4",
+      "strength": "10",
+      "ap": "0",
+      "damage": "D6",
+      "special_rules": "extra attacks",
+      "abilities": [
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "'Ard Case",
+      "type": "Datasheet",
+      "description": "Add 2 to this model's Toughness characteristic.\nThis model gains an ability."
+     },
+     {
+      "name": "Deadly Demise D6",
+      "type": "Core",
+      "description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers D6 mortal wounds."
+     },
+     {
+      "name": "Firing Deck 11",
+      "type": "Core",
+      "description": "The unit gains the Firing Deck ability (11)."
+     },
+     {
+      "name": "Ramshackle but Rugged",
+      "type": "Datasheet",
+      "description": "Subtract 1 from the attacking unit's Armour Penetration characteristic."
+     },
+     {
+      "name": "TRANSPORT",
+      "type": "Core",
+      "description": "This model has a transport capacity of 22 ORKS INFANTRY models."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Battlewagon",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 16,
+     "current_wounds": 16,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_KOMMANDOS_H": {
+   "id": "U_KOMMANDOS_H",
+   "squad_id": "U_KOMMANDOS_H",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Kommandos",
+    "keywords": [
+     "GRENADES",
+     "INFANTRY",
+     "KOMMANDOS",
+     "ORKS",
+     "SMOKE"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 5,
+     "wounds": 1,
+     "leadership": 7,
+     "objective_control": 1
+    },
+    "points": 120,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "10x Choppa",
+     "10x Slugga"
+    ],
+    "weapons": [
+     {
+      "name": "Slugga",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol",
+      "abilities": [
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Distraction Grot",
+      "type": "Datasheet",
+      "description": "During the Shooting phase, until the end of the phase, this model has a 5+ invulnerable save."
+     },
+     {
+      "name": "Patrol Squad",
+      "type": "Datasheet",
+      "description": "The unit gains the Combat Squads ability."
+     },
+     {
+      "name": "Sneaky Gitz",
+      "type": "Datasheet",
+      "description": "For the rest of the battle, this model cannot fire Overwatch."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Boss Nob",
+      "line": 1
+     },
+     {
+      "description": "9 Kommando",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m6",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m7",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m8",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m9",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m10",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_PAINBOSS_I": {
+   "id": "U_PAINBOSS_I",
+   "squad_id": "U_PAINBOSS_I",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Painboss",
+    "keywords": [
+     "BEAST SNAGGA",
+     "CHARACTER",
+     "INFANTRY",
+     "ORKS",
+     "PAINBOSS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 4,
+     "wounds": 4,
+     "leadership": 7,
+     "objective_control": 1
+    },
+    "points": 60,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x Beast Snagga klaw",
+     "1x Grot Orderly"
+    ],
+    "weapons": [
+     {
+      "name": "Beast Snagga klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "anti-monster 4+, anti-vehicle 4+",
+      "abilities": [
+       {
+        "id": "anti",
+        "keyword": "MONSTER",
+        "threshold": 4
+       },
+       {
+        "id": "anti",
+        "keyword": "VEHICLE",
+        "threshold": 4
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     },
+     {
+      "name": "Sawbonez",
+      "type": "Datasheet",
+      "description": "This model regains up to 3 lost wounds."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Painboss",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "BEAST SNAGGA BOYZ",
+      "SQUIGHOG BOYZ"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_WEIRDBOY_J": {
+   "id": "U_WEIRDBOY_J",
+   "squad_id": "U_WEIRDBOY_J",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Weirdboy",
+    "keywords": [
+     "CHARACTER",
+     "INFANTRY",
+     "ORKS",
+     "PSYKER",
+     "WEIRDBOY"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 5,
+     "wounds": 4,
+     "leadership": 7,
+     "objective_control": 1
+    },
+    "points": 65,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x 'Eadbanger",
+     "1x Weirdboy staff"
+    ],
+    "weapons": [
+     {
+      "name": "Eadbanger",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "1",
+      "ballistic_skill": "4",
+      "strength": "6",
+      "ap": "-3",
+      "damage": "1",
+      "special_rules": "precision, psychic",
+      "abilities": [
+       {
+        "id": "precision"
+       },
+       {
+        "id": "psychic"
+       }
+      ]
+     },
+     {
+      "name": "Weirdboy staff",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "8",
+      "ap": "-1",
+      "damage": "D3",
+      "special_rules": "psychic",
+      "abilities": [
+       {
+        "id": "psychic"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Da Jump (Psychic)",
+      "type": "Datasheet",
+      "description": "Once per turn, the target suffers d6 mortal wounds."
+     },
+     {
+      "name": "Deadly Demise D3",
+      "type": "Core",
+      "description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers D3 mortal wounds."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     },
+     {
+      "name": "Waaagh! Energy",
+      "type": "Datasheet",
+      "description": "After being attached to a unit:\n  -> Add 1 to the unit's Strength characteristic.\n  -> Add 1 to the unit's Damage characteristic."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Weirdboy",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "BEAST SNAGGA BOYZ",
+      "BOYZ",
+      "BREAKA BOYZ"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_BOYZ_K": {
+   "id": "U_BOYZ_K",
+   "squad_id": "U_BOYZ_K",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Boyz",
+    "keywords": [
+     "BATTLELINE",
+     "BOYZ",
+     "GRENADES",
+     "INFANTRY",
+     "MOB",
+     "ORKS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 5,
+     "wounds": 1,
+     "leadership": 7,
+     "objective_control": 2
+    },
+    "points": 75,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "9x Slugga",
+     "1x Slugga"
+    ],
+    "weapons": [
+     {
+      "name": "Big shoota",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "3",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Kombi-weapon",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+      "abilities": [
+       {
+        "id": "anti",
+        "keyword": "INFANTRY",
+        "threshold": 4
+       },
+       {
+        "id": "devastating_wounds"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Rokkit launcha",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "D3",
+      "ballistic_skill": "5",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "blast",
+      "abilities": [
+       {
+        "id": "blast"
+       }
+      ]
+     },
+     {
+      "name": "Shoota",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 1",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Slugga",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol",
+      "abilities": [
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Big choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "7",
+      "ap": "-1",
+      "damage": "2"
+     },
+     {
+      "name": "Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1"
+     },
+     {
+      "name": "Power klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Bodyguard",
+      "type": "Datasheet",
+      "description": "This model gains the Extra Leader Attachment ability."
+     },
+     {
+      "name": "Get Da Good Bitz",
+      "type": "Datasheet",
+      "description": "The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives)."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Boss Nob",
+      "line": 1
+     },
+     {
+      "description": "9-19 Boy",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m6",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m7",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m8",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m9",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m10",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_LOOTAS_A": {
+   "id": "U_LOOTAS_A",
+   "squad_id": "U_LOOTAS_A",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Lootas",
+    "keywords": [
+     "INFANTRY",
+     "LOOTAS",
+     "ORKS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 5,
+     "wounds": 1,
+     "leadership": 7,
+     "objective_control": 1
+    },
+    "points": 100,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x Spanner",
+     "1x Close combat weapon",
+     "1x Kustom mega-blasta",
+     "2x Loota (KMB)",
+     "2x Close combat weapon",
+     "2x Kustom mega-blasta",
+     "8x Loota",
+     "8x Close combat weapon",
+     "8x Deffgun"
+    ],
+    "weapons": [
+     {
+      "name": "Big shoota",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "3",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Deffgun",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "2",
+      "ballistic_skill": "6",
+      "strength": "8",
+      "ap": "-1",
+      "damage": "2",
+      "special_rules": "heavy, rapid fire 1",
+      "abilities": [
+       {
+        "id": "heavy"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Kustom mega-blasta",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "3",
+      "ballistic_skill": "5",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "D6",
+      "special_rules": "hazardous",
+      "abilities": [
+       {
+        "id": "hazardous"
+       }
+      ]
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Dat's Our Loot!",
+      "type": "Datasheet",
+      "description": "During the Shooting phase against A targets, you can re-roll a Hit roll of 1."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1-2 Spanner",
+      "line": 1
+     },
+     {
+      "description": "4-8 Loota",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m6",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m7",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m8",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m9",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m10",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m11",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_MEGANOBZ_L": {
+   "id": "U_MEGANOBZ_L",
+   "squad_id": "U_MEGANOBZ_L",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Meganobz",
+    "keywords": [
+     "GRENADES",
+     "INFANTRY",
+     "MEGA ARMOUR",
+     "MEGANOBZ",
+     "ORKS"
+    ],
+    "stats": {
+     "move": 5,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 3,
+     "leadership": 7,
+     "objective_control": 1
+    },
+    "points": 150,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Kustom shoota",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "4",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Killsaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "4",
+      "strength": "12",
+      "ap": "-3",
+      "damage": "2"
+     },
+     {
+      "name": "Power klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Krumpin' Time",
+      "type": "Datasheet",
+      "description": "The unit has the Feel No Pain 5+ ability."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Meganob with Mega-Shoota",
+      "line": 1
+     },
+     {
+      "description": "1-5 Meganob",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_WAZBOM_BLASTAJET": {
+   "id": "U_WAZBOM_BLASTAJET",
+   "squad_id": "U_WAZBOM_BLASTAJET",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Wazbom Blastajet",
+    "keywords": [
+     "AIRCRAFT",
+     "FLY",
+     "GRENADES",
+     "ORKS",
+     "SPEED FREEKS",
+     "VEHICLE",
+     "WAZBOM BLASTAJET"
+    ],
+    "stats": {
+     "move": 20,
+     "toughness": 9,
+     "save": 3,
+     "wounds": 12,
+     "leadership": 7,
+     "objective_control": 0,
+     "invuln": 6
+    },
+    "points": 165,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Smasha gun",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "D3",
+      "ballistic_skill": "4",
+      "strength": "9",
+      "ap": "-3",
+      "damage": "4",
+      "special_rules": "blast",
+      "abilities": [
+       {
+        "id": "blast"
+       }
+      ]
+     },
+     {
+      "name": "Twin wazbom mega-kannon",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "D3",
+      "ballistic_skill": "4",
+      "strength": "12",
+      "ap": "-2",
+      "damage": "D6",
+      "special_rules": "blast, hazardous, twin linked",
+      "abilities": [
+       {
+        "id": "blast"
+       },
+       {
+        "id": "hazardous"
+       },
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Armoured hull",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "6",
+      "ap": "0",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Blastajet Attack Run",
+      "type": "Datasheet",
+      "description": "During the Shooting phase against A targets, you can re-roll a Hit roll of 1."
+     },
+     {
+      "name": "Blastajet Force Field",
+      "type": "Datasheet",
+      "description": "This model has a 4+ invulnerable save."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Wazbom Blastajet",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 12,
+     "current_wounds": 12,
+     "base_mm": 150,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 95,
+      "width": 150
+     }
+    }
+   ]
+  },
+  "U_GHAZGHKULL_THRAKA_A": {
+   "id": "U_GHAZGHKULL_THRAKA_A",
+   "squad_id": "U_GHAZGHKULL_THRAKA_A",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Ghazghkull Thraka",
+    "keywords": [
+     "CHARACTER",
+     "EPIC HERO",
+     "GHAZGKULL THRAKA",
+     "INFANTRY",
+     "ORKS",
+     "WARBOSS"
+    ],
+    "stats": {
+     "move": 5,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 10,
+     "leadership": 6,
+     "objective_control": 4,
+     "invuln": 4
+    },
+    "points": 235,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x Gork's Klaw",
+     "1x Mork's Roar",
+     "1x Makari's Stabba"
+    ],
+    "weapons": [
+     {
+      "name": "Mork's Roar",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "12",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 4",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 4
+       }
+      ]
+     },
+     {
+      "name": "Gork's Klaw \u2013 Strike",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "6",
+      "weapon_skill": "2",
+      "strength": "14",
+      "ap": "-3",
+      "damage": "4"
+     },
+     {
+      "name": "Gork's Klaw \u2013 Sweep",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "12",
+      "weapon_skill": "2",
+      "strength": "8",
+      "ap": "-2",
+      "damage": "2"
+     },
+     {
+      "name": "Makari's stabba",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "1",
+      "weapon_skill": "4",
+      "strength": "3",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "devastating wounds",
+      "abilities": [
+       {
+        "id": "devastating_wounds"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Ghazghkull's Waaagh! Banner (Aura)",
+      "type": "Datasheet",
+      "description": "The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     },
+     {
+      "name": "Prophet of Da Great Waaagh!",
+      "type": "Datasheet",
+      "description": "During the Fight phase, after being attached to a unit:\n  -> The unit gets +1 to Hit rolls.\n  -> The unit gets +1 to Wound rolls."
+     },
+     {
+      "name": "Supreme Commander",
+      "type": "Datasheet",
+      "description": "This model must be your Warlord."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Ghazghkull Thraka",
+      "line": 1
+     },
+     {
+      "description": "1 Makari",
+      "line": 2
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "BOYZ",
+      "BREAKA BOYZ",
+      "MEGANOBZ",
+      "NOBZ"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 10,
+     "current_wounds": 10,
+     "base_mm": 80,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 25,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_NOB_WAAAGH_BANNER_A": {
+   "id": "U_NOB_WAAAGH_BANNER_A",
+   "squad_id": "U_NOB_WAAAGH_BANNER_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Bannernob",
+    "keywords": [
+     "BANNERNOB",
+     "CHARACTER",
+     "INFANTRY",
+     "ORKS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 4,
+     "wounds": 4,
+     "leadership": 7,
+     "objective_control": 6,
+     "invuln": 5
+    },
+    "points": 50,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x Kustom shoota",
+     "1x Waaagh! banner"
+    ],
+    "weapons": [
+     {
+      "name": "Shoota",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 1",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Bannernob",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  }
+ }
+}

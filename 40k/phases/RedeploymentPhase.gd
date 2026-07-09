@@ -342,13 +342,15 @@ func _process_confirm_redeploy(action: Dictionary) -> Dictionary:
 	# Mark unit as completed
 	_mark_redeploy_complete(unit_id)
 
-	# OA-2: Track Razgit's Magik Map redeployment usage
+	# OA-2: Track Razgit's Magik Map / Mork's Kunnin' redeployment usage
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	var player = unit.get("owner", 0)
-	if faction_mgr and faction_mgr.has_razgit_magik_map(player):
-		# Check if this unit is a Razgit's eligible unit (not a normal redeploy unit)
-		if not GameState.unit_has_redeploy(unit_id):
+	if faction_mgr and not GameState.unit_has_redeploy(unit_id):
+		# This unit redeployed via an enhancement, not a datasheet ability
+		if faction_mgr.has_razgit_magik_map(player):
 			faction_mgr.mark_razgit_redeploy_used(player)
+		elif faction_mgr.has_morks_kunnin(player):
+			faction_mgr.mark_morks_kunnin_redeploy_used(player)
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var models_moved = staged_positions.size()

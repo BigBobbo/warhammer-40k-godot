@@ -31,11 +31,14 @@ func _build_ui() -> void:
 	if _list_container != null:
 		return
 	var scroll = ScrollContainer.new()
+	# Deterministic names (windowed scenarios address rows by NodePath).
+	scroll.name = "Scroll"
 	scroll.custom_minimum_size = Vector2(540, 420)
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(scroll)
 	var vb = VBoxContainer.new()
+	vb.name = "List"
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vb.add_theme_constant_override("separation", 6)
@@ -115,6 +118,9 @@ func populate(player: int, phase_id: int = -1) -> void:
 
 func _build_row(strat_manager: Node, sid: String, strat: Dictionary, current_cp: int) -> Control:
 	var card = PanelContainer.new()
+	# Deterministic names so windowed scenarios can target a specific row's
+	# Use button by NodePath (see tests/scenarios/_schema.md click_node).
+	card.name = "Strat_%s" % sid.validate_node_name()
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.08, 0.08, 0.10, 0.95)
 	style.set_corner_radius_all(4)
@@ -131,6 +137,7 @@ func _build_row(strat_manager: Node, sid: String, strat: Dictionary, current_cp:
 	style.set_border_width_all(1)
 
 	var row = HBoxContainer.new()
+	row.name = "Row"
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.add_child(row)
 
@@ -162,6 +169,7 @@ func _build_row(strat_manager: Node, sid: String, strat: Dictionary, current_cp:
 	row.add_child(status_label)
 
 	var use_btn = Button.new()
+	use_btn.name = "Use_%s" % sid.validate_node_name()
 	use_btn.text = "Use"
 	use_btn.disabled = not can_use or current_cp < cost
 	use_btn.pressed.connect(func(): emit_signal("stratagem_use_requested", sid))

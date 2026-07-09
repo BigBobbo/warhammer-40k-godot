@@ -378,6 +378,10 @@ func _infer_trigger(description: String, phase: String, turn: String) -> String:
 		return "after_enemy_fought"
 	if "just after an enemy unit ends a charge move" in desc_lower:
 		return "after_enemy_charge_move"
+	# KRUNCHIN' DESCENT (Taktikal Brigade): "just after a STORMBOYZ unit from
+	# your army ends a Charge move" — same offering point as TANK SHOCK.
+	if "just after" in desc_lower and "from your army ends a charge move" in desc_lower:
+		return "after_charge_move"
 	if "just after an enemy unit ends a normal" in desc_lower:
 		return "after_enemy_move"
 	if "before you take a battle-shock test" in desc_lower:
@@ -530,9 +534,28 @@ func _parse_target(target_text: String) -> Dictionary:
 		["battleline", "keyword:BATTLELINE"],
 		["terminator", "keyword:TERMINATOR"],
 		["mounted", "keyword:MOUNTED"],
+		["kommandos", "keyword:KOMMANDOS"],
+		["stormboyz", "keyword:STORMBOYZ"],
 	]
 
+	# "X or Y" alternations ("One Orks Infantry or Orks Mounted unit", "One
+	# Kommandos or Stormboyz unit") mean the unit needs EITHER keyword. Without
+	# this, both words would be appended as separate AND-ed keyword: conditions
+	# and no unit could ever match. Emit a single keyword_any: condition and
+	# skip the individual keyword matches for the two alternated terms.
+	var alternated_terms: Array = []
+	var alt_regex = RegEx.new()
+	alt_regex.compile("(infantry|mounted|vehicle|monster|kommandos|stormboyz) or (orks )?(infantry|mounted|vehicle|monster|kommandos|stormboyz)")
+	var alt_match = alt_regex.search(inclusive_t)
+	if alt_match:
+		var kw_a = alt_match.get_string(1)
+		var kw_b = alt_match.get_string(3)
+		result.conditions.append("keyword_any:%s,%s" % [kw_a.to_upper(), kw_b.to_upper()])
+		alternated_terms = [kw_a, kw_b]
+
 	for pattern in keyword_patterns:
+		if pattern[0] in alternated_terms:
+			continue
 		if pattern[0] in inclusive_t:
 			result.conditions.append(pattern[1])
 
@@ -557,7 +580,15 @@ func _parse_target(target_text: String) -> Dictionary:
 		result.conditions.append("fell_back_this_phase")
 	if "made a charge move this turn" in inclusive_t:
 		result.conditions.append("charged_this_turn")
-	if "within engagement range" in inclusive_t:
+	if "not within engagement range" in inclusive_t:
+		# DED SNEAKY / EVASIVE MANOOVA: "that is not within Engagement Range of
+		# one or more enemy units" — the unit must be UNengaged. (Previously the
+		# bare "within engagement range" check below inverted this condition.)
+		result.conditions.append("not_in_engagement_range")
+	elif "within engagement range" in inclusive_t and not "at the start of the phase" in inclusive_t:
+		# ON TO DA NEXT: "was within Engagement Range ... at the start of the
+		# phase" is a historical check (the offering flow verifies it against
+		# its phase-start snapshot) — do NOT turn it into a live ER condition.
 		result.conditions.append("in_engagement_range")
 	if "within range of an objective" in inclusive_t:
 		result.conditions.append("on_objective")
@@ -971,6 +1002,21 @@ static func unit_matches_target(unit: Dictionary, target: Dictionary, context: D
 				if kw.to_upper() == excluded_kw.to_upper():
 					return false
 
+		elif condition.begins_with("keyword_any:"):
+			# "X or Y unit" alternations — the unit needs at least ONE of the
+			# comma-separated keywords (FIGHT PROPPA: INFANTRY,MOUNTED).
+			var any_kws = condition.substr(12).split(",")
+			var any_found = false
+			for required_kw in any_kws:
+				for kw in keywords:
+					if kw.to_upper() == required_kw.strip_edges().to_upper():
+						any_found = true
+						break
+				if any_found:
+					break
+			if not any_found:
+				return false
+
 		elif condition == "is_target_of_attack":
 			# This is context-dependent; the unit must be a current target
 			if not context.get("is_target_of_attack", false):
@@ -1004,6 +1050,11 @@ static func unit_matches_target(unit: Dictionary, target: Dictionary, context: D
 
 		elif condition == "in_engagement_range":
 			if not flags.get("in_engagement", false) and not context.get("in_engagement_range", false):
+				return false
+
+		elif condition == "not_in_engagement_range":
+			# DED SNEAKY / EVASIVE MANOOVA: the unit must NOT be engaged.
+			if flags.get("in_engagement", false) or context.get("in_engagement_range", false):
 				return false
 
 		elif condition == "on_objective":

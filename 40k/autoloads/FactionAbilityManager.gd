@@ -240,6 +240,10 @@ var _razgit_redeploys_used: Dictionary = {"1": 0, "2": 0}
 # Whether Razgit's Magik Map has been resolved this battle
 var _razgit_resolved: bool = false
 
+# Mork's Kunnin' (Taktikal Brigade): per-player tracking of redeployments used
+# Key: player string, Value: number of units redeployed via Mork's Kunnin'
+var _morks_kunnin_redeploys_used: Dictionary = {"1": 0, "2": 0}
+
 func _ready():
 	print("FactionAbilityManager: Ready")
 
@@ -1407,14 +1411,27 @@ func _unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 func _find_enhancement_bearer(player: int, enhancement_name: String) -> Dictionary:
 	"""Find the CHARACTER unit that has a specific enhancement.
 	Returns {bearer_id, combined_unit_id, bearer_name} or empty dict.
-	combined_unit_id is the bodyguard unit the bearer is attached to (or bearer_id if standalone)."""
+	combined_unit_id is the bodyguard unit the bearer is attached to (or bearer_id if standalone).
+	Matching normalizes typographic apostrophes (Mork’s Kunnin’ vs Mork's Kunnin')
+	and accepts both String and {name: ...} enhancement entries."""
+	var target_norm = enhancement_name.replace("’", "'")
 	var units = GameState.state.get("units", {})
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("owner", 0) != player:
 			continue
 		var enhancements = unit.get("meta", {}).get("enhancements", [])
-		if enhancement_name in enhancements:
+		var has_it = false
+		for enh in enhancements:
+			var enh_name = ""
+			if enh is String:
+				enh_name = enh
+			elif enh is Dictionary:
+				enh_name = str(enh.get("name", ""))
+			if enh_name.replace("’", "'") == target_norm:
+				has_it = true
+				break
+		if has_it:
 			# Check unit has alive models
 			var has_alive = false
 			for model in unit.get("models", []):
@@ -1741,8 +1758,10 @@ func get_razgit_eligible_units(player: int) -> Array:
 		# Skip the bearer's own unit (bearer doesn't redeploy themselves)
 		if unit_id == bearer_info.bearer_id:
 			continue
-		# Must be deployed
-		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED and unit.get("status", "") != "DEPLOYED":
+		# Must be deployed. status may be an int enum (live game) or a String
+		# (freshly applied army JSON) — comparing int to String is a runtime
+		# error in GDScript 4, so branch on the type.
+		if not _status_is_deployed(unit.get("status", 0)):
 			continue
 		# Must be ORKS INFANTRY
 		if not _unit_has_keyword(unit, "ORKS"):
@@ -1779,6 +1798,74 @@ func mark_razgit_redeploy_used(player: int) -> void:
 func is_razgit_redeploy_available(player: int) -> bool:
 	"""Check if Razgit's Magik Map redeployment slots are still available."""
 	return has_razgit_magik_map(player) and get_razgit_redeploys_remaining(player) > 0
+
+static func _status_is_deployed(status) -> bool:
+	"""Unit status can be an int enum (live game) or a String (army JSON that
+	has not been through a save round-trip). int != String is a runtime error
+	in GDScript 4, so compare per-type."""
+	if typeof(status) == TYPE_STRING:
+		return status == "DEPLOYED"
+	return int(status) == GameStateData.UnitStatus.DEPLOYED
+
+# ---- MORK'S KUNNIN' (20pts, ORKS model — Taktikal Brigade) ----
+# After both players have deployed, select up to three ORKS units from your
+# army and redeploy them. When doing so, they can be set up in Strategic
+# Reserves regardless of how many units are already in Strategic Reserves.
+# Mirrors Razgit's Magik Map (OA-2) but is not limited to INFANTRY.
+
+func has_morks_kunnin(player: int) -> bool:
+	"""Check if a player has the Mork's Kunnin' enhancement."""
+	return has_enhancement(player, "Mork's Kunnin'")
+
+func get_morks_kunnin_eligible_units(player: int) -> Array:
+	"""Get all ORKS units eligible for Mork's Kunnin' redeployment."""
+	if not has_morks_kunnin(player):
+		return []
+
+	var eligible = []
+	var units = GameState.state.get("units", {})
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		# Must be deployed (type-aware: int enum in live games, String in
+		# freshly applied army JSON)
+		if not _status_is_deployed(unit.get("status", 0)):
+			continue
+		# Must be ORKS (any battlefield role — unlike Razgit's, not INFANTRY-only)
+		if not _unit_has_keyword(unit, "ORKS"):
+			continue
+		# Must have alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id)
+		})
+
+	return eligible
+
+func get_morks_kunnin_redeploys_remaining(player: int) -> int:
+	"""Get how many Mork's Kunnin' redeployments remain (max 3)."""
+	return 3 - _morks_kunnin_redeploys_used.get(str(player), 0)
+
+func mark_morks_kunnin_redeploy_used(player: int) -> void:
+	"""Mark one Mork's Kunnin' redeployment as used."""
+	var pk = str(player)
+	_morks_kunnin_redeploys_used[pk] = _morks_kunnin_redeploys_used.get(pk, 0) + 1
+	print("FactionAbilityManager: Mork's Kunnin' — player %d used redeploy %d/3" % [
+		player, _morks_kunnin_redeploys_used[pk]])
+
+func is_morks_kunnin_redeploy_available(player: int) -> bool:
+	"""Check if Mork's Kunnin' redeployment slots are still available."""
+	return has_morks_kunnin(player) and get_morks_kunnin_redeploys_remaining(player) > 0
 
 # ============================================================================
 # AGAINST ALL ODDS — LIONS OF THE EMPEROR
@@ -2038,6 +2125,7 @@ func get_state_for_save() -> Dictionary:
 		"bionik_workshop_resolved": _bionik_workshop_resolved,
 		"razgit_redeploys_used": _razgit_redeploys_used.duplicate(true),
 		"razgit_resolved": _razgit_resolved,
+		"morks_kunnin_redeploys_used": _morks_kunnin_redeploys_used.duplicate(true),
 		# OA-46: Plant the Waaagh! Banner state
 		"plant_waaagh_banner_used": _plant_waaagh_banner_used.duplicate(true)
 	}
@@ -2069,6 +2157,7 @@ func load_state(data: Dictionary) -> void:
 	_bionik_workshop_resolved = data.get("bionik_workshop_resolved", false)
 	_razgit_redeploys_used = data.get("razgit_redeploys_used", {"1": 0, "2": 0})
 	_razgit_resolved = data.get("razgit_resolved", false)
+	_morks_kunnin_redeploys_used = data.get("morks_kunnin_redeploys_used", {"1": 0, "2": 0})
 	# OA-46: Plant the Waaagh! Banner state
 	_plant_waaagh_banner_used = data.get("plant_waaagh_banner_used", {})
 	# Restore bionik workshop flags on units

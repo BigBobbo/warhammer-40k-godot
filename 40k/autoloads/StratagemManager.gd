@@ -526,6 +526,22 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "EVASIVE MANOOVA":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# FIGHT PROPPA (Taktikal Brigade): melee SUSTAINED HITS 1 or LETHAL HITS (player's choice)
+		if name_upper == "FIGHT PROPPA":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# KRUNCHIN' DESCENT (Taktikal Brigade): D6 per Stormboy in ER, 4+ = 1 MW (max 6)
+		if name_upper == "KRUNCHIN' DESCENT":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# ON TO DA NEXT (Taktikal Brigade): reactive 6" Normal move after enemy Falls Back
+		if name_upper == "ON TO DA NEXT":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# DED SNEAKY (Taktikal Brigade): remove Kommandos/Stormboyz to Strategic Reserves
+		if name_upper == "DED SNEAKY":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -772,6 +788,35 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 			if not RulesEngine.unit_has_keyword(target_unit, "ORKS"):
 				return {"can_use": false, "reason": "Krump and Run can only target ORKS units"}
 
+	# Generic CSV-parsed target-condition enforcement for faction stratagems
+	# (keyword / keyword_any / not_shot / not_fought / fell_back_this_phase /
+	# charged_this_turn / engagement-range conditions). Engagement-range is
+	# computed live here because flags.in_engagement is only refreshed at the
+	# start of the Shooting phase and is stale in every other phase.
+	if target_unit_id != "" and is_faction_stratagem(stratagem_id):
+		var cond_target: Dictionary = strat.get("target", {})
+		var conditions: Array = cond_target.get("conditions", [])
+		var cond_unit = GameState.get_unit(target_unit_id)
+		if not cond_unit.is_empty() and not conditions.is_empty():
+			var cond_context = context.duplicate() if typeof(context) == TYPE_DICTIONARY else {}
+			# is_target_of_attack is gated by the reactive offering flow (which
+			# does not thread context through to this validation) — treat it as
+			# satisfied unless the caller explicitly says otherwise.
+			if not cond_context.has("is_target_of_attack"):
+				cond_context["is_target_of_attack"] = true
+			var check_unit = cond_unit
+			if "in_engagement_range" in conditions or "not_in_engagement_range" in conditions:
+				var live_engaged: bool = RulesEngine.is_unit_engaged(target_unit_id, GameState.create_snapshot())
+				cond_context["in_engagement_range"] = live_engaged
+				# unit_matches_target ORs flags.in_engagement with the context —
+				# override the possibly-stale flag on a copy so the live check wins.
+				check_unit = cond_unit.duplicate()
+				var check_flags = cond_unit.get("flags", {}).duplicate()
+				check_flags["in_engagement"] = live_engaged
+				check_unit["flags"] = check_flags
+			if not FactionStratagemLoaderData.unit_matches_target(check_unit, cond_target, cond_context):
+				return {"can_use": false, "reason": "%s cannot target that unit (target conditions not met)" % strat.get("name", stratagem_id)}
+
 	# Turn + phase gate: reject stratagems outside their allowed turn/phase.
 	# Synthesis §2 #12: StratagemPanel showed all stratagems regardless of phase.
 	if not context.get("bypass_phase_check", false):
@@ -957,6 +1002,12 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	var expires = "end_of_phase"
 	var effect_text_lower = str(strat.get("effect_text", "")).to_lower()
 	if "until the end of the turn" in effect_text_lower or "until the end of your turn" in effect_text_lower:
+		expires = "end_of_turn"
+	# DAT'S OURS (Taktikal Brigade): "Until the start of the next Command
+	# phase" — end_of_turn effects are cleared by on_turn_start(), which
+	# CommandPhase calls at the start of every Command phase, so the mapping
+	# is exact.
+	if "until the start of the next command phase" in effect_text_lower:
 		expires = "end_of_turn"
 	if strat.get("name", "").to_upper() == "GRAB AND BASH":
 		expires = "end_of_turn"
@@ -1376,6 +1427,51 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Ded Killy Construction to %s (LANCE%s)" % [target_unit_id, " + charged: +1 Damage" if ded_charged else ""])
 		return diffs_dk
 
+	# FIGHT PROPPA (Taktikal Brigade): melee weapons gain the player's choice of
+	# [SUSTAINED HITS 1] or [LETHAL HITS] until end of phase. The choice arrives
+	# as context.chosen_ability ("sustained" | "lethal"); default to sustained.
+	# Melee-scoped flags so the grant does NOT leak into shooting resolution.
+	if strat.get("name", "").to_upper() == "FIGHT PROPPA":
+		var choice = str(context.get("chosen_ability", "sustained")).to_lower() if typeof(context) == TYPE_DICTIONARY else "sustained"
+		var fp_flag = EffectPrimitivesData.FLAG_LETHAL_HITS_MELEE if choice.begins_with("lethal") else EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE
+		var diffs_fp = [{
+			"op": "set",
+			"path": "units.%s.flags.%s" % [target_unit_id, fp_flag],
+			"value": true
+		}]
+		print("StratagemManager: Applied Fight Proppa to %s (melee %s)" % [target_unit_id, "LETHAL HITS" if choice.begins_with("lethal") else "SUSTAINED HITS 1"])
+		return diffs_fp
+
+	# KRUNCHIN' DESCENT (Taktikal Brigade): after a Stormboyz unit ends a Charge
+	# move, roll one D6 per model within Engagement Range of the chosen enemy
+	# unit; each 4+ is 1 mortal wound (max 6). Instant — no persistent flags.
+	if strat.get("name", "").replace("’", "'").to_upper() == "KRUNCHIN' DESCENT":
+		var enemy_kd := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+		if enemy_kd != "" and target_unit_id != "":
+			var rk = RulesEngine.resolve_krunchin_descent(target_unit_id, enemy_kd, GameState.create_snapshot(), RulesEngine.make_rng())
+			print("StratagemManager: KRUNCHIN' DESCENT — %d mortal wounds to %s" % [int(rk.get("mortal_wounds", 0)), enemy_kd])
+			return rk.get("diffs", [])
+		print("StratagemManager: KRUNCHIN' DESCENT used without context.enemy_unit_id — no dice rolled")
+		return []
+
+	# ON TO DA NEXT (Taktikal Brigade): no persistent flags — the effect is a
+	# reactive 6" Normal move handled by MovementPhase (same scaffolding as
+	# KRUMP AND RUN). Just log for tracking.
+	if strat.get("name", "").to_upper() == "ON TO DA NEXT":
+		print("StratagemManager: Applied On to da Next to %s (reactive 6\" Normal move)" % target_unit_id)
+		return []
+
+	# DED SNEAKY (Taktikal Brigade): remove the target Kommandos/Stormboyz unit
+	# from the battlefield into Strategic Reserves (mirrors EVASIVE MANOOVA).
+	if strat.get("name", "").to_upper() == "DED SNEAKY":
+		var diffs_ds = [
+			{"op": "set", "path": "units.%s.status" % target_unit_id, "value": GameState.UnitStatus.IN_RESERVES},
+			{"op": "set", "path": "units.%s.reserve_type" % target_unit_id, "value": "strategic_reserves"},
+			{"op": "set", "path": "units.%s.flags.ded_sneaky_reserved" % target_unit_id, "value": true},
+		]
+		print("StratagemManager: Applied Ded Sneaky — %s removed to Strategic Reserves" % target_unit_id)
+		return diffs_ds
+
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
@@ -1555,6 +1651,26 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 		print("StratagemManager: Cleared Ded Killy Construction flags from %s" % unit_id)
 		return
 
+	# FIGHT PROPPA (Taktikal Brigade): Clear whichever melee grant was chosen
+	if strat.get("name", "").to_upper() == "FIGHT PROPPA":
+		flags.erase(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE)
+		flags.erase(EffectPrimitivesData.FLAG_LETHAL_HITS_MELEE)
+		print("StratagemManager: Cleared Fight Proppa melee flags from %s" % unit_id)
+		return
+
+	# KRUNCHIN' DESCENT (Taktikal Brigade): instant mortal wounds — nothing to clear
+	if strat.get("name", "").replace("’", "'").to_upper() == "KRUNCHIN' DESCENT":
+		return
+
+	# ON TO DA NEXT (Taktikal Brigade): the effect is the reactive move itself
+	if strat.get("name", "").to_upper() == "ON TO DA NEXT":
+		return
+
+	# DED SNEAKY (Taktikal Brigade): instant removal to Strategic Reserves — the
+	# unit STAYS in reserves, so there is nothing to undo at end of phase.
+	if strat.get("name", "").to_upper() == "DED SNEAKY":
+		return
+
 	var effects = strat.get("effects", [])
 
 	EffectPrimitivesData.clear_effects(effects, unit_id, flags)
@@ -1571,6 +1687,11 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 ## units the friendly MONSTER/VEHICLE is engaged with.
 func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String) -> Array:
 	var out: Array = []
+	# KRUNCHIN' DESCENT (Taktikal Brigade) shares the crushing_impact target
+	# rule: enemy units the friendly unit is in Engagement Range of.
+	var _strat_name = str(stratagems.get(stratagem_id, {}).get("name", "")).replace("’", "'").to_upper()
+	if _strat_name == "KRUNCHIN' DESCENT":
+		stratagem_id = "krunchin_descent"
 	var snapshot = GameState.create_snapshot()
 	var friendly = snapshot.get("units", {}).get(friendly_unit_id, {})
 	if friendly.is_empty():
@@ -1591,7 +1712,7 @@ func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String)
 		if not has_alive:
 			continue
 		match stratagem_id:
-			"crushing_impact":
+			"crushing_impact", "krunchin_descent":
 				if RulesEngine.check_units_in_engagement_range(friendly, enemy, snapshot):
 					out.append(uid)
 			"explosives":

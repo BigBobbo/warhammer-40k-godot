@@ -1243,6 +1243,41 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# TAKTIKAL BRIGADE ENHANCEMENT ABILITIES
+	# These are checked via unit.meta.enhancements[] rather than abilities[].
+	# ======================================================================
+
+	# Skwad Leader — "During the Declare Battle Formations step, the bearer can
+	# be attached to a Kommandos unit. While leading a Kommandos unit, it has
+	# the Infiltrators and Stealth abilities." Stealth = effect_stealth flag on
+	# the led unit (gated on the bodyguard being KOMMANDOS); Infiltrators is
+	# deployment-time and handled by GameState.unit_has_infiltrators. The
+	# attach permission itself comes from
+	# CharacterAttachmentManager.get_enhancement_can_lead_extras.
+	"Skwad Leader": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.GRANT_STEALTH}],
+		"target": "bearer_unit",
+		"requires_bodyguard_keyword": "KOMMANDOS",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Warboss Infantry only. While leading a Kommandos unit, it has Infiltrators and Stealth (effect_stealth; Infiltrators via GameState.unit_has_infiltrators)"
+	},
+
+	# Mek Kaptin — "Each time a model in the bearer's unit makes a ranged
+	# attack, you can re-roll the Hit roll." No unit flag: the shooting
+	# hit-modifier paths in RulesEngine check the enhancement live via
+	# RulesEngine.unit_has_mek_kaptin_reroll.
+	"Mek Kaptin": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Big Mek only. Can be attached to a Flash Gitz unit; ranged attacks from the bearer's unit re-roll the Hit roll (RulesEngine.unit_has_mek_kaptin_reroll)"
+	},
+
+	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
 	# ======================================================================
@@ -2012,6 +2047,16 @@ func _apply_enhancement_abilities(phase: int) -> void:
 			if effect_def.get("target", "") == "bearer_unit":
 				# Find the bodyguard unit the bearer is attached to
 				target_unit_id = _get_combined_unit_for_enhancement(unit_id)
+
+			# Skwad Leader: the grant only applies while the bearer is leading
+			# a unit with the required keyword (e.g. KOMMANDOS).
+			var required_bg_kw = str(effect_def.get("requires_bodyguard_keyword", ""))
+			if required_bg_kw != "":
+				if target_unit_id == unit_id:
+					continue  # bearer is not attached to a bodyguard unit
+				var bg_unit = units.get(target_unit_id, {})
+				if not RulesEngine.unit_has_keyword(bg_unit, required_bg_kw):
+					continue
 
 			# Don't double-apply
 			if _applied_this_phase.has(target_unit_id) and enhancement_name in _applied_this_phase[target_unit_id]:

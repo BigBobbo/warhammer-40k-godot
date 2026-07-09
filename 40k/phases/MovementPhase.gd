@@ -96,7 +96,9 @@ var _normal_moves_this_phase: Dictionary = {}   # unit_id -> true (units that ha
 # Restrictions: once per phase per unit, not while battle-shocked, not while in Engagement Range.
 var _surge_moves_this_phase: Dictionary = {}    # unit_id -> true (units that have surged this phase)
 
-# Krump and Run state tracking (OA-8)
+# Krump and Run state tracking (OA-8). The same scaffolding also serves
+# ON TO DA NEXT (Taktikal Brigade) — an identical reactive 6" Normal move
+# offered to the defending Ork player after an enemy unit Falls Back.
 var _awaiting_krump_and_run: bool = false
 var _krump_and_run_player: int = 0               # Non-active player offered the stratagem
 var _krump_and_run_eligible_units: Array = []     # Eligible ORKS units freed by fall back
@@ -104,6 +106,8 @@ var _krump_and_run_fell_back_unit_id: String = "" # The enemy unit that fell bac
 var _krump_and_run_unit_id: String = ""           # The unit chosen for reactive move
 var _krump_and_run_pending_after_overwatch: bool = false  # Defer K&R check until overwatch resolves
 var _krump_and_run_pending_fell_back_id: String = ""      # Fell-back unit ID for deferred check
+var _krump_and_run_strat_id: String = ""          # Resolved stratagem id (Krump and Run / On to da Next)
+var _krump_and_run_strat_name: String = "Krump and Run"  # Display name for logs/dialog
 var _engagement_at_phase_start: Dictionary = {}   # unit_id -> [enemy_unit_ids] at phase start
 var _reactive_move_owner: int = 0                 # Override player for engagement checks during reactive moves
 
@@ -249,6 +253,8 @@ func _on_phase_enter() -> void:
 	_krump_and_run_unit_id = ""
 	_krump_and_run_pending_after_overwatch = false
 	_krump_and_run_pending_fell_back_id = ""
+	_krump_and_run_strat_id = ""
+	_krump_and_run_strat_name = "Krump and Run"
 	_reactive_move_owner = 0
 	_kunnin_infiltrator_pending = false
 	_kunnin_infiltrator_unit_id = ""
@@ -5740,10 +5746,19 @@ func _check_krump_and_run_opportunity(fell_back_unit_id: String, snapshot_overri
 	if not strat_manager:
 		return {"triggered": false}
 
-	# Find the Krump and Run stratagem ID for the defending player
-	var kar_strat_id = strat_manager.find_faction_stratagem_by_name(defending_player, "Krump and Run")
+	# Find the reactive fall-back stratagem for the defending player:
+	# KRUMP AND RUN (Freebooter Krew) or ON TO DA NEXT (Taktikal Brigade) —
+	# identical effect (6" Normal move after an enemy Falls Back).
+	var kar_strat_id = ""
+	var kar_strat_name = "Krump and Run"
+	for candidate in ["Krump and Run", "On to da Next"]:
+		kar_strat_id = strat_manager.find_faction_stratagem_by_name(defending_player, candidate)
+		if kar_strat_id != "":
+			kar_strat_name = candidate
+			break
 	if kar_strat_id == "":
 		return {"triggered": false}
+	var kar_strat_type = str(strat_manager.get_stratagem(kar_strat_id).get("type", ""))
 
 	# Check basic stratagem availability (CP, restrictions)
 	var basic_check = strat_manager.can_use_stratagem(defending_player, kar_strat_id)
@@ -5789,21 +5804,23 @@ func _check_krump_and_run_opportunity(fell_back_unit_id: String, snapshot_overri
 			continue
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		eligible.append({"unit_id": unit_id, "unit_name": unit_name})
+		eligible.append({"unit_id": unit_id, "unit_name": unit_name, "strat_name": kar_strat_name, "strat_type": kar_strat_type})
 
 	if eligible.is_empty():
-		DebugLogger.info(str("MovementPhase: OA-8 Krump and Run — no eligible ORKS units after %s fell back" % fell_back_unit_id))
+		DebugLogger.info(str("MovementPhase: OA-8 %s — no eligible ORKS units after %s fell back" % [kar_strat_name, fell_back_unit_id]))
 		return {"triggered": false}
 
-	# Krump and Run is available!
+	# The reactive fall-back stratagem is available!
 	_awaiting_krump_and_run = true
 	_krump_and_run_player = defending_player
 	_krump_and_run_eligible_units = eligible
 	_krump_and_run_fell_back_unit_id = fell_back_unit_id
+	_krump_and_run_strat_id = kar_strat_id
+	_krump_and_run_strat_name = kar_strat_name
 
 	var fell_back_name = fell_back_unit.get("meta", {}).get("name", fell_back_unit_id)
-	log_phase_message("KRUMP AND RUN available for Player %d (%d eligible ORKS units) after %s fell back" % [defending_player, eligible.size(), fell_back_name])
-	DebugLogger.info(str("MovementPhase: OA-8 Krump and Run opportunity — Player %d has %d eligible units" % [defending_player, eligible.size()]))
+	log_phase_message("%s available for Player %d (%d eligible ORKS units) after %s fell back" % [kar_strat_name.to_upper(), defending_player, eligible.size(), fell_back_name])
+	DebugLogger.info(str("MovementPhase: OA-8 %s opportunity — Player %d has %d eligible units" % [kar_strat_name, defending_player, eligible.size()]))
 
 	emit_signal("krump_and_run_opportunity", defending_player, eligible, fell_back_unit_id)
 
@@ -5853,13 +5870,15 @@ func _process_use_krump_and_run(action: Dictionary) -> Dictionary:
 	# Use the stratagem via StratagemManager (deducts CP, records usage)
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager:
-		var kar_strat_id = strat_manager.find_faction_stratagem_by_name(player, "Krump and Run")
+		var kar_strat_id = _krump_and_run_strat_id
+		if kar_strat_id == "":
+			kar_strat_id = strat_manager.find_faction_stratagem_by_name(player, "Krump and Run")
 		var strat_result = strat_manager.use_stratagem(player, kar_strat_id, unit_id)
 		if not strat_result.success:
-			return create_result(false, [], "Failed to use Krump and Run: %s" % strat_result.get("error", "unknown"))
+			return create_result(false, [], "Failed to use %s: %s" % [_krump_and_run_strat_name, strat_result.get("error", "unknown")])
 
-	log_phase_message("Player %d uses KRUMP AND RUN — %s can make a 6\" Normal move!" % [player, unit_name])
-	DebugLogger.info(str("MovementPhase: OA-8 Krump and Run activated — %s (Player %d) gets 6\" Normal move" % [unit_name, player]))
+	log_phase_message("Player %d uses %s — %s can make a 6\" Normal move!" % [player, _krump_and_run_strat_name.to_upper(), unit_name])
+	DebugLogger.info(str("MovementPhase: OA-8 %s activated — %s (Player %d) gets 6\" Normal move" % [_krump_and_run_strat_name, unit_name, player]))
 
 	# Set up the reactive Normal move with 6" cap
 	_krump_and_run_unit_id = unit_id
@@ -5913,10 +5932,10 @@ func _process_use_krump_and_run(action: Dictionary) -> Dictionary:
 	return result
 
 func _process_decline_krump_and_run(action: Dictionary) -> Dictionary:
-	"""Process declining the Krump and Run stratagem."""
+	"""Process declining the reactive fall-back stratagem (Krump and Run / On to da Next)."""
 	var player = _krump_and_run_player
-	log_phase_message("Player %d declined KRUMP AND RUN" % player)
-	DebugLogger.info(str("MovementPhase: OA-8 Krump and Run DECLINED by Player %d" % player))
+	log_phase_message("Player %d declined %s" % [player, _krump_and_run_strat_name.to_upper()])
+	DebugLogger.info(str("MovementPhase: OA-8 %s DECLINED by Player %d" % [_krump_and_run_strat_name, player]))
 
 	# Clear state
 	_awaiting_krump_and_run = false
@@ -5924,6 +5943,7 @@ func _process_decline_krump_and_run(action: Dictionary) -> Dictionary:
 	_krump_and_run_eligible_units = []
 	_krump_and_run_fell_back_unit_id = ""
 	_krump_and_run_unit_id = ""
+	_krump_and_run_strat_id = ""
 
 	return create_result(true, [])
 
