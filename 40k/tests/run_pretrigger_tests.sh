@@ -135,6 +135,7 @@ TESTS=(
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"
     "tests/test_fullauto_faction_rules.gd"
+    "tests/test_custodes_lions_silent_hunters.gd"
 )
 
 FAILED=0

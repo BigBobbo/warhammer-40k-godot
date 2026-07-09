@@ -405,14 +405,15 @@ func _validate_send_to_reserves(action: Dictionary) -> Dictionary:
 	if unit_id not in pending:
 		return {"valid": false, "errors": ["Unit is not eligible for redeployment"]}
 
-	# Must be a Razgit's Magik Map unit (not a normal redeploy unit)
+	# Must be a redeploy-enhancement unit (Razgit's Magik Map / Encircling
+	# Hunter), not a unit with a native redeploy ability
 	if GameState.unit_has_redeploy(unit_id):
-		return {"valid": false, "errors": ["Only Razgit's Magik Map units can be sent to Strategic Reserves"]}
+		return {"valid": false, "errors": ["Only redeploy-enhancement units (Razgit's Magik Map / Encircling Hunter) can be sent to Strategic Reserves"]}
 
-	# Check Razgit's remaining slots
+	# Check the enhancement's remaining slots
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if not faction_mgr or not faction_mgr.is_razgit_redeploy_available(get_current_player()):
-		return {"valid": false, "errors": ["No Razgit's Magik Map redeployment slots remaining"]}
+		return {"valid": false, "errors": ["No enhancement redeployment slots remaining"]}
 
 	return {"valid": true, "errors": []}
 
@@ -444,15 +445,19 @@ func _process_send_to_reserves(action: Dictionary) -> Dictionary:
 		get_parent().apply_state_changes(changes)
 	_apply_changes_to_local_state(changes)
 
-	# Mark Razgit's redeploy as used
+	# Mark the enhancement redeploy as used
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	var enh_label = "REDEPLOY ENHANCEMENT"
 	if faction_mgr:
 		faction_mgr.mark_razgit_redeploy_used(player)
+		var enh_name = faction_mgr.get_redeploy_enhancement_name(player)
+		if enh_name != "":
+			enh_label = enh_name.to_upper()
 
 	# Mark unit as completed
 	_mark_redeploy_complete(unit_id)
 
-	log_phase_message("RAZGIT'S MAGIK MAP: %s sent to Strategic Reserves" % unit_name)
+	log_phase_message("%s: %s sent to Strategic Reserves" % [enh_label, unit_name])
 
 	# Check progression
 	_check_redeploy_progression()
@@ -621,12 +626,13 @@ func get_available_actions() -> Array:
 				"description": "Redeploy %s" % unit_name
 			})
 
-			# OA-2: Razgit's Magik Map — offer sending to Strategic Reserves
+			# OA-2: Razgit's Magik Map / Encircling Hunter — offer sending to
+			# Strategic Reserves
 			if is_razgit_unit and faction_mgr and faction_mgr.has_razgit_magik_map(current_player):
 				actions.append({
 					"type": "SEND_TO_STRATEGIC_RESERVES",
 					"unit_id": unit_id,
-					"description": "Razgit's Magik Map: Send %s to Strategic Reserves" % unit_name
+					"description": "%s: Send %s to Strategic Reserves" % [faction_mgr.get_redeploy_enhancement_name(current_player), unit_name]
 				})
 
 		# Can skip the redeploy

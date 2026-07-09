@@ -2,6 +2,20 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.9.0",
+			"date": "2026-07-09",
+			"summary": "Both Adeptus Custodes detachments — Lions of the Emperor and Silent Hunters — are now fully playable: all 9 detachment stratagems work mechanically, all 6 enhancements have real rules effects, and both detachment rules are enforced (including the new Silent Hunters rule).",
+			"changes": [
+				"Lions of the Emperor stratagems: Peerless Warrior (melee [PRECISION]), Gilded Champion (re-use a spent once-per-battle ability — not in the same phase, once per battle per model) and Manoeuvre and Fire (shoot + charge after Falling Back) now work; Defiant to the Last, Swift as the Eagle and Unleash the Lions keep their existing handlers and all six now show their official rules text instead of a placeholder.",
+				"Silent Hunters stratagems now work: Deathsong Scythes (Vigilators melee gains [LANCE] and +1 Attack vs Psykers), Umbral Prosecution (Prosecutors ranged weapons gain [RAPID FIRE 2] and +1 AP) and Synchronised Inferno (Witchseekers ranged weapons gain [BLAST]).",
+				"New enhancement effects: Superior Creation (first death: 2+ at end of phase returns the bearer with full wounds, placed outside Engagement Range), Praesidius (bearer gains Lone Operative and Stealth), Fierce Conqueror (+2 melee Attacks per 5 enemy models within 6\" of the bearer), Encircling Hunter (after deployment redeploy up to 3 Anathema Psykana Infantry units, Strategic Reserves allowed) and Psyk-out Grenades (unit gains the EXPLOSIVES/GRENADES keyword for the grenade stratagems).",
+				"Silent Hunters detachment rule 'Skin-Crawling Disorientation': Anathema Psykana units can now perform mission actions (rituals, terraform, burn, secondary actions) in a turn in which they Advanced.",
+				"Against All Odds (Lions detachment rule) fixes: the +1 to hit now also applies in melee (previously ranged only), and the buff is correctly limited to armies running the Lions of the Emperor detachment (Shield Host armies no longer benefit).",
+				"Stratagem-granted [LANCE] now actually adds +1 to wound on the charge (it previously set a flag nothing read) — this also fixes Servo-driven Charge (AdMech) and Plunging Talons (CSM).",
+				"Fixed: loading a save whose armies differ from the defaults (e.g. a Lions of the Emperor game) restored the stratagem list but not the stratagem definitions, so faction stratagems failed with 'Unknown stratagem' after a restart."
+			]
+		},
+		{
 			"version": "0.8.4",
 			"date": "2026-07-09",
 			"summary": "The Stompa now fields on a proper 180mm round base. The dataset ships no base for it ('Use model'), so it was falling back to a tiny 32mm base.",

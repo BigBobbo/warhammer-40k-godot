@@ -530,6 +530,12 @@ func _parse_target(target_text: String) -> Dictionary:
 		["battleline", "keyword:BATTLELINE"],
 		["terminator", "keyword:TERMINATOR"],
 		["mounted", "keyword:MOUNTED"],
+		# Silent Hunters (Anathema Psykana) stratagems target specific
+		# Sisters of Silence datasheets by keyword.
+		["vigilators", "keyword:VIGILATORS"],
+		["prosecutors", "keyword:PROSECUTORS"],
+		["witchseekers", "keyword:WITCHSEEKERS"],
+		["anathema psykana", "keyword:ANATHEMA PSYKANA"],
 	]
 
 	for pattern in keyword_patterns:

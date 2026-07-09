@@ -257,6 +257,10 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# Issue #396: enhancement-driven stat bonuses (Auric Mantle +2W).
 			_apply_enhancement_stat_bonuses(unit_id, unit)
 
+			# Enhancement-granted abilities/keywords (Praesidius → Lone
+			# Operative + Stealth, Psyk-out Grenades → EXPLOSIVES/GRENADES).
+			_apply_enhancement_granted_abilities(unit_id, unit)
+
 			# MA-1: Log model_profiles if present
 			if unit.has("meta") and unit.meta.has("model_profiles"):
 				print("ArmyListManager: Unit %s (%s) loaded with model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(unit.meta.model_profiles.keys())])
@@ -936,6 +940,67 @@ func _apply_enhancement_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 						old_wounds, model["wounds"],
 						old_current, model.get("current_wounds", model["wounds"])
 					])
+
+# ============================================================================
+# ENHANCEMENT-GRANTED ABILITIES / KEYWORDS
+# ============================================================================
+# Some enhancements grant the bearer a datasheet ability or a keyword rather
+# than a stat bonus or a runtime flag. Granting them at army load lets every
+# existing consumer (has_lone_operative, has_stealth_ability, the GRENADE /
+# EXPLOSIVES core stratagems' keyword gates, ...) work unchanged.
+
+const ENHANCEMENT_GRANTED_ABILITIES: Dictionary = {
+	# Lions of the Emperor (10e): "The bearer has the Lone Operative and
+	# Stealth abilities."
+	"Praesidius": ["Lone Operative", "Stealth"],
+}
+
+const ENHANCEMENT_GRANTED_KEYWORDS: Dictionary = {
+	# Silent Hunters (Anathema Psykana Upgrade enhancement): the 40kdc data
+	# grants the unit the Explosives keyword. Grant GRENADES alongside it so
+	# the 10e GRENADE core stratagem's keyword gate also recognises the unit
+	# (the 11e EXPLOSIVES core stratagem accepts either).
+	"Psyk-out Grenades": ["EXPLOSIVES", "GRENADES"],
+}
+
+func _apply_enhancement_granted_abilities(unit_id: String, unit: Dictionary) -> void:
+	"""Append enhancement-granted abilities/keywords to the unit's meta lists
+	(idempotent — skips entries the unit already has)."""
+	if not unit.has("meta"):
+		return
+	var meta = unit.meta
+	for enh in meta.get("enhancements", []):
+		var enh_name = enh if enh is String else (enh.get("name", "") if enh is Dictionary else "")
+		if str(enh_name).is_empty():
+			continue
+
+		for ability_name in ENHANCEMENT_GRANTED_ABILITIES.get(enh_name, []):
+			if not meta.has("abilities") or not (meta.abilities is Array):
+				meta["abilities"] = []
+			var already_has_ability = false
+			for ab in meta.abilities:
+				var ab_name = ab if ab is String else (str(ab.get("name", "")) if ab is Dictionary else "")
+				if ab_name.to_lower() == str(ability_name).to_lower():
+					already_has_ability = true
+					break
+			if not already_has_ability:
+				meta.abilities.append(ability_name)
+				print("ArmyListManager: Enhancement '%s' on %s (%s) grants ability '%s'" % [
+					enh_name, meta.get("name", unit_id), unit_id, ability_name])
+
+		for kw in ENHANCEMENT_GRANTED_KEYWORDS.get(enh_name, []):
+			if not meta.has("keywords") or not (meta.keywords is Array):
+				meta["keywords"] = []
+			var kw_upper = str(kw).to_upper()
+			var already_has_keyword = false
+			for existing_kw in meta.keywords:
+				if str(existing_kw).to_upper() == kw_upper:
+					already_has_keyword = true
+					break
+			if not already_has_keyword:
+				meta.keywords.append(kw)
+				print("ArmyListManager: Enhancement '%s' on %s (%s) grants keyword '%s'" % [
+					enh_name, meta.get("name", unit_id), unit_id, kw])
 
 # ============================================================================
 # MODEL PROFILE WOUNDS OVERRIDE (MA-13)

@@ -100,6 +100,13 @@ const DETACHMENT_ABILITIES = {
 		"trigger": "passive",
 		"effect": "plus_one_hit_wound_when_isolated",
 		"description": "Each time a model in a non-VEHICLE unit makes an attack, if no other friendly units within 6\", add 1 to the Hit roll and add 1 to the Wound roll."
+	},
+	"Silent Hunters": {
+		"faction_keyword": "ADEPTUS CUSTODES",
+		"ability_name": "Skin-Crawling Disorientation",
+		"trigger": "passive",
+		"effect": "actions_after_advance_anathema",
+		"description": "ANATHEMA PSYKANA units from your army can perform Actions (mission actions such as rituals and terraforming) in a turn in which they Advanced."
 	}
 }
 
@@ -1714,20 +1721,46 @@ func get_bionik_workshop_bonus_for_unit(unit_id: String) -> String:
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	return unit.get("flags", {}).get("bionik_workshop_bonus", "")
 
-# ---- RAZGIT'S MAGIK MAP (25pts, ORKS model) ----
-# After deployment, select up to 3 friendly Orks INFANTRY units and redeploy them.
-# Any of those units can be placed into Strategic Reserves.
+# ---- REDEPLOY ENHANCEMENTS ----
+# Razgit's Magik Map (25pts, ORKS model): after deployment, select up to 3
+# friendly Orks INFANTRY units and redeploy them; any can be placed into
+# Strategic Reserves.
+# Encircling Hunter (15pts, Anathema Psykana model — Silent Hunters): the same
+# mechanic for up to 3 friendly ANATHEMA PSYKANA INFANTRY units.
+# Both share the helpers below (historically named after Razgit — the callers
+# in GameState/RedeploymentPhase predate Encircling Hunter) and the same
+# per-player 3-slot counter; a player can never own both (different factions).
+
+const REDEPLOY_ENHANCEMENTS = [
+	{"name": "Razgit's Magik Map", "keywords": ["ORKS", "INFANTRY"]},
+	{"name": "Encircling Hunter", "keywords": ["ANATHEMA PSYKANA", "INFANTRY"]},
+]
+
+func get_redeploy_enhancement(player: int) -> Dictionary:
+	"""Return the redeploy enhancement entry the player owns ({} if none)."""
+	for entry in REDEPLOY_ENHANCEMENTS:
+		if has_enhancement(player, entry.name):
+			return entry
+	return {}
+
+func get_redeploy_enhancement_name(player: int) -> String:
+	"""Display name of the player's redeploy enhancement ("" if none)."""
+	return get_redeploy_enhancement(player).get("name", "")
 
 func has_razgit_magik_map(player: int) -> bool:
-	"""Check if a player has the Razgit's Magik Map enhancement."""
-	return has_enhancement(player, "Razgit's Magik Map")
+	"""Check if a player has a redeploy enhancement (Razgit's Magik Map or
+	Encircling Hunter)."""
+	return not get_redeploy_enhancement(player).is_empty()
 
 func get_razgit_eligible_units(player: int) -> Array:
-	"""Get all Orks INFANTRY units eligible for Razgit's Magik Map redeployment."""
-	if not has_razgit_magik_map(player):
+	"""Get all units eligible for the player's redeploy enhancement (Orks
+	INFANTRY for Razgit's Magik Map, ANATHEMA PSYKANA INFANTRY for Encircling
+	Hunter)."""
+	var entry = get_redeploy_enhancement(player)
+	if entry.is_empty():
 		return []
 
-	var bearer_info = _find_enhancement_bearer(player, "Razgit's Magik Map")
+	var bearer_info = _find_enhancement_bearer(player, entry.name)
 	if bearer_info.is_empty():
 		return []
 
@@ -1744,10 +1777,13 @@ func get_razgit_eligible_units(player: int) -> Array:
 		# Must be deployed
 		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED and unit.get("status", "") != "DEPLOYED":
 			continue
-		# Must be ORKS INFANTRY
-		if not _unit_has_keyword(unit, "ORKS"):
-			continue
-		if not _unit_has_keyword(unit, "INFANTRY"):
+		# Must match the enhancement's keyword filter
+		var matches_keywords = true
+		for kw in entry.keywords:
+			if not _unit_has_keyword(unit, kw):
+				matches_keywords = false
+				break
+		if not matches_keywords:
 			continue
 		# Must have alive models
 		var has_alive = false
@@ -1766,18 +1802,18 @@ func get_razgit_eligible_units(player: int) -> Array:
 	return eligible
 
 func get_razgit_redeploys_remaining(player: int) -> int:
-	"""Get how many Razgit's Magik Map redeployments remain (max 3)."""
+	"""Get how many enhancement redeployments remain (max 3)."""
 	return 3 - _razgit_redeploys_used.get(str(player), 0)
 
 func mark_razgit_redeploy_used(player: int) -> void:
-	"""Mark one Razgit's Magik Map redeployment as used."""
+	"""Mark one enhancement redeployment as used."""
 	var pk = str(player)
 	_razgit_redeploys_used[pk] = _razgit_redeploys_used.get(pk, 0) + 1
-	print("FactionAbilityManager: Razgit's Magik Map — player %d used redeploy %d/3" % [
-		player, _razgit_redeploys_used[pk]])
+	print("FactionAbilityManager: %s — player %d used redeploy %d/3" % [
+		get_redeploy_enhancement_name(player), player, _razgit_redeploys_used[pk]])
 
 func is_razgit_redeploy_available(player: int) -> bool:
-	"""Check if Razgit's Magik Map redeployment slots are still available."""
+	"""Check if enhancement redeployment slots are still available."""
 	return has_razgit_magik_map(player) and get_razgit_redeploys_remaining(player) > 0
 
 # ============================================================================
@@ -1786,9 +1822,18 @@ func is_razgit_redeploy_available(player: int) -> bool:
 
 static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary) -> bool:
 	"""Check if Against All Odds grants +1 Hit and +1 Wound.
-	Condition: non-VEHICLE ADEPTUS CUSTODES unit with no other friendly units within 6\"."""
+	Condition: the unit's army runs the Lions of the Emperor detachment, and the
+	unit is a non-VEHICLE ADEPTUS CUSTODES unit with no other friendly units
+	within 6\"."""
 	var owner = attacker_unit.get("owner", -1)
 	if owner < 0:
+		return false
+	# Detachment gate — Against All Odds is the Lions of the Emperor rule; a
+	# Shield Host (or any other Custodes) army must not receive it. Normalise
+	# NBSP/space/case the same way FactionStratagemLoader does (issue #366:
+	# hand-edited rosters carry U+00A0 in the detachment name).
+	var detachment = str(board.get("factions", {}).get(str(owner), {}).get("detachment", ""))
+	if FactionStratagemLoaderData._normalise_detachment_name(detachment) != "lions of the emperor":
 		return false
 	var keywords = attacker_unit.get("meta", {}).get("keywords", [])
 	var is_custodes = false
@@ -1856,6 +1901,26 @@ static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary)
 		if min_dist <= 6.0:
 			return false
 	return true
+
+# ============================================================================
+# SKIN-CRAWLING DISORIENTATION — SILENT HUNTERS
+# ============================================================================
+
+static func check_skin_crawling_disorientation(unit: Dictionary, board: Dictionary) -> bool:
+	"""Silent Hunters detachment rule: ANATHEMA PSYKANA units can perform
+	Actions (mission actions) in a turn in which they Advanced. True when the
+	unit's army runs the Silent Hunters detachment and the unit has the
+	ANATHEMA PSYKANA keyword."""
+	var owner = unit.get("owner", -1)
+	if owner < 0:
+		return false
+	var detachment = str(board.get("factions", {}).get(str(owner), {}).get("detachment", ""))
+	if FactionStratagemLoaderData._normalise_detachment_name(detachment) != "silent hunters":
+		return false
+	for kw in unit.get("meta", {}).get("keywords", []):
+		if str(kw).to_upper() == "ANATHEMA PSYKANA":
+			return true
+	return false
 
 # ============================================================================
 # PHASE LIFECYCLE
