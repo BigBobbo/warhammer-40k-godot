@@ -257,6 +257,10 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# Issue #396: enhancement-driven stat bonuses (Auric Mantle +2W).
 			_apply_enhancement_stat_bonuses(unit_id, unit)
 
+			# Speedwaaagh!: enhancement-driven WEAPON bonuses (Master Meknologist
+			# +1 BS to ranged weapons; Supa-burny Fuel killa jet Attacks changes).
+			_apply_enhancement_weapon_bonuses(unit_id, unit)
+
 			# MA-1: Log model_profiles if present
 			if unit.has("meta") and unit.meta.has("model_profiles"):
 				print("ArmyListManager: Unit %s (%s) loaded with model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(unit.meta.model_profiles.keys())])
@@ -936,6 +940,104 @@ func _apply_enhancement_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 						old_wounds, model["wounds"],
 						old_current, model.get("current_wounds", model["wounds"])
 					])
+
+# ============================================================================
+# ENHANCEMENT WEAPON BONUSES (Speedwaaagh!)
+# ============================================================================
+# Some enhancements change a weapon characteristic on the bearer at list-build
+# rather than emitting a runtime flag. Mutating the bearer's meta.weapons here
+# is picked up by every downstream reader (RulesEngine.get_weapon_profile for
+# combat, and the datasheet/stat UI cards), so no combat-resolution change is
+# needed.
+#
+# Supported ops per enhancement:
+#   improve_bs: N        -> improve (lower) the BS of every RANGED weapon with a
+#                           numeric BS by N (min 2+). Skips Torrent/auto-hit and
+#                           melee weapons (no numeric ballistic_skill).
+#   set_attacks_by_terms -> for each {terms:[...], attacks:"X"}, set the Attacks
+#                           of weapons whose (lowercased) name contains ALL terms
+#                           to X. "X" may be a dice string like "3D6".
+const ENHANCEMENT_WEAPON_BONUSES: Dictionary = {
+	# Speedwaaagh! — Big Mek model only. Improve the Ballistic Skill
+	# characteristic of the bearer's ranged weapons by 1.
+	"Master Meknologist": {
+		"improve_bs": 1,
+		"description": "+1 BS to the bearer's ranged weapons (Big Mek only)"
+	},
+	# Speedwaaagh! — Deffkilla Wartrike model only. Change the Attacks
+	# characteristic of the killa jet – burna to 3D6 and the killa jet – cutta
+	# to 3.
+	"Supa-burny Fuel": {
+		"set_attacks_by_terms": [
+			{"terms": ["killa jet", "burna"], "attacks": "3D6"},
+			{"terms": ["killa jet", "cutta"], "attacks": "3"},
+		],
+		"description": "killa jet burna Attacks -> 3D6, cutta Attacks -> 3 (Deffkilla Wartrike only)"
+	},
+}
+
+func _apply_enhancement_weapon_bonuses(unit_id: String, unit: Dictionary) -> void:
+	"""For each enhancement on this unit that changes a weapon characteristic,
+	mutate the bearer's meta.weapons entries in place."""
+	if not unit.has("meta"):
+		return
+	var meta = unit.meta
+	var enhancements = meta.get("enhancements", [])
+	if enhancements.is_empty():
+		return
+	var weapons = meta.get("weapons", [])
+	if not (weapons is Array) or weapons.is_empty():
+		return
+
+	for enh in enhancements:
+		var enh_name = ""
+		if enh is String:
+			enh_name = enh
+		elif enh is Dictionary:
+			enh_name = enh.get("name", "")
+		if enh_name.is_empty():
+			continue
+		var enh_def = ENHANCEMENT_WEAPON_BONUSES.get(enh_name, {})
+		if enh_def.is_empty():
+			continue
+
+		# --- improve_bs: lower the BS number of ranged weapons (better) ---
+		var improve_bs = int(enh_def.get("improve_bs", 0))
+		if improve_bs > 0:
+			for weapon in weapons:
+				if String(weapon.get("type", "")).to_lower() != "ranged":
+					continue
+				var bs_str = str(weapon.get("ballistic_skill", ""))
+				if not bs_str.is_valid_int():
+					continue  # Torrent / auto-hit weapons have no BS to improve
+				var new_bs = max(2, int(bs_str) - improve_bs)
+				weapon["ballistic_skill"] = str(new_bs)
+				print("ArmyListManager: Enhancement '%s' on %s: %s BS %s+ -> %d+" % [
+					enh_name, meta.get("name", unit_id), weapon.get("name", "?"), bs_str, new_bs])
+
+		# --- set_attacks_by_terms: set the Attacks of named weapons ---
+		for rule in enh_def.get("set_attacks_by_terms", []):
+			var terms: Array = rule.get("terms", [])
+			var new_attacks = str(rule.get("attacks", ""))
+			if terms.is_empty() or new_attacks.is_empty():
+				continue
+			for weapon in weapons:
+				var wname = String(weapon.get("name", "")).to_lower()
+				var matches_all = true
+				for term in terms:
+					if not wname.contains(String(term).to_lower()):
+						matches_all = false
+						break
+				if not matches_all:
+					continue
+				var old_attacks = str(weapon.get("attacks", "?"))
+				weapon["attacks"] = new_attacks
+				# get_weapon_profile derives attacks_raw from "attacks"; drop any
+				# stale precomputed attacks_raw so the new value is used verbatim.
+				if weapon.has("attacks_raw"):
+					weapon["attacks_raw"] = new_attacks
+				print("ArmyListManager: Enhancement '%s' on %s: %s Attacks %s -> %s" % [
+					enh_name, meta.get("name", unit_id), weapon.get("name", "?"), old_attacks, new_attacks])
 
 # ============================================================================
 # MODEL PROFILE WOUNDS OVERRIDE (MA-13)

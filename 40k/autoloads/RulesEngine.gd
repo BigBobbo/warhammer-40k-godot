@@ -9386,6 +9386,18 @@ static func roll_variable_characteristic(value_str: String, rng: RNGService) -> 
 		var total = rolls[0] + rolls[1]
 		return {"value": total, "rolled": true, "notation": "2D6", "roll": total}
 
+	# Generic NdN six-sided dice (e.g. "3D6" for Supa-burny Fuel's killa jet burna).
+	# Generalizes the 2D6 case above; excludes bare "D6" (begins with a digit).
+	if upper.ends_with("D6") and not upper.begins_with("D"):
+		var n_part = upper.substr(0, upper.length() - 2)
+		if n_part.is_valid_int() and int(n_part) > 0:
+			var n = int(n_part)
+			var ndn_rolls = rng.roll_d6(n)
+			var ndn_total = 0
+			for r in ndn_rolls:
+				ndn_total += r
+			return {"value": ndn_total, "rolled": true, "notation": upper, "roll": ndn_total}
+
 	# D6+N or D3+N
 	if "+" in upper:
 		var parts = upper.split("+")

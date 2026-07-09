@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.8.3",
+			"date": "2026-07-09",
+			"summary": "Speedwaaagh! (Orks) rules: two of its Enhancements now change your weapons in-game, and all six of its Stratagems now show up during a battle.",
+			"changes": [
+				"Master Meknologist now improves the Ballistic Skill of the bearer's ranged weapons by 1 (e.g. a Big Mek's Shokk Attack Gun hits on 4+ instead of 5+).",
+				"Supa-burny Fuel now changes the Deffkilla Wartrike's killa jet weapons: the burna profile fires 3D6 Attacks and the cutta profile fires 3 Attacks. (Also taught the dice engine to roll multi-dice values like 3D6.)",
+				"All six Speedwaaagh! Stratagems now appear in the in-game Stratagem list with their full rules text. ON DA MOVE and DUST TRAILS are fully playable; SPESHUL AMMO, DED KILLY CONSTRUCTION, MOBILE DAKKASTORM and EVASIVE MANOOVA are shown for reference but their effects are not yet automated.",
+				"Note: the Dakkamek and Kustom Shokk Box Enhancements are selectable in the Army Builder but their in-game effects are not yet automated."
+			]
+		},
+		{
 			"version": "0.8.2",
 			"date": "2026-07-09",
 			"summary": "Army Builder: the Orks 'Speedwaaagh!' detachment now offers its four Enhancements. They were missing from the dataset, so the builder showed no Enhancement option and imported lists silently dropped enhancements like Kustom Shokk Box.",
