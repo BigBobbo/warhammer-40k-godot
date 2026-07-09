@@ -136,6 +136,20 @@ test('fresh Ork roster builds a valid schema-2 army', () => {
   }
 });
 
+test('Stompa resolves to a 180mm round base, not the 32mm draft fallback', () => {
+  // The dataset ships the Stompa with a dimensionless draft base
+  // ({ shape: 'hull', draft: true }); BASE_SIZE_OVERRIDES pins it to 180mm.
+  const stompa = V.RAW_DATA.units.find(u => u.faction_id === 'orks' && u.id === 'stompa');
+  const comp = V.RAW_DATA.unitCompositions.find(c => c.faction_id === 'orks' && c.unit_id === 'stompa');
+  assert.ok(stompa && comp, 'stompa unit + composition present in dataset');
+
+  const models = conv.buildModelsArray(stompa, comp, 1);
+  assert.equal(models.length, 1, 'stompa is a single-model unit');
+  assert.equal(models[0].base_mm, 180, 'stompa base_mm pinned to 180');
+  assert.ok(models[0].base_type === undefined || models[0].base_type === 'circular',
+    'stompa stays a round base (no oval/rectangular base_type)');
+});
+
 test('package legality checker accepts the fresh roster shape', () => {
   const { roster } = conv.gameToRoster(
     JSON.parse(readFileSync(join(ARMIES, 'Orks_2000.json'), 'utf8')), { name: 'orks' });

@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.8.4",
+			"date": "2026-07-09",
+			"summary": "The Stompa now fields on a proper 180mm round base. The dataset ships no base for it ('Use model'), so it was falling back to a tiny 32mm base.",
+			"changes": [
+				"Building or importing an army with a Stompa now gives its model a 180mm round base instead of the 32mm default, so it deploys, blocks movement, and fights at the correct footprint.",
+				"Added a curated base-size override in the army-format converter for models the 40kdc dataset leaves as a dimensionless 'draft' base; the Stompa is the first entry. Added a converter test that fails if the Stompa ever regresses to the 32mm fallback."
+			]
+		},
+		{
 			"version": "0.8.3",
 			"date": "2026-07-09",
 			"summary": "New 'Abilities' filter in the game log groups the repeating passive-ability lines (e.g. 'Stand Vigil active', 'Guardian Eternal active') and hides them by default, so the log stays focused on what actually happened.",

@@ -48,6 +48,21 @@ export const UNIT_ALIASES = {
   'adeptus-astartes': {},
 };
 
+// Curated base-size overrides, keyed by dataset unit id.
+//
+// The 40kdc dataset ships some models with a placeholder base — e.g.
+// `{ shape: 'hull' | 'flying-base' | 'unique', draft: true }` with no
+// dimensions, or a null base — because Games Workshop sells no separate base
+// for them ("Use model"). buildModelsArray() would otherwise fall back to a
+// 32mm round for those, which renders far too small. List real footprints
+// here; an entry wins over the dataset's (usually draft) base_size_mm for that
+// unit. Round bases need `{ shape: 'round', diameter }`; ovals use
+// `{ shape: 'oval', length, width }`.
+export const BASE_SIZE_OVERRIDES = {
+  // Stompa: no GW base (uses the model); play it on a 180mm round footprint.
+  'stompa': { shape: 'round', diameter: 180 },
+};
+
 // 10e -> 11e weapon renames (matched via looseName; -> 11e weapon id),
 // applied when the direct name match fails. Each 11e display name is also
 // self-aliased where it differs from the datasheet's weapon_ids (the Telemon's
@@ -369,7 +384,10 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     for (let k = 0; k < compModels.length; k++) {
       const m = compModels[k];
       const p = profileFor(m.name, m.profile_name);
-      const base = m.base_size_mm ?? dcUnit.base_size_mm ?? { shape: 'round', diameter: 32 };
+      // A curated override wins over the dataset's base (often a dimensionless
+      // draft), then the per-composition-model base, then the unit default.
+      const base = BASE_SIZE_OVERRIDES[dcUnit.id]
+        ?? m.base_size_mm ?? dcUnit.base_size_mm ?? { shape: 'round', diameter: 32 };
       for (let n = 0; n < counts[k]; n++) {
         const model = {
           id: `m${mi++}`,
