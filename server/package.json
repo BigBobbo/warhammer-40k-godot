@@ -5,7 +5,7 @@
   "main": "relay-server.js",
   "scripts": {
     "start": "node relay-server.js",
-    "test": "node --test tests/gameformat.test.mjs && node public/js/parser.test.js",
+    "test": "node --test tests/gameformat.test.mjs tests/speedwaaagh-enhancements.test.mjs && node public/js/parser.test.js",
     "test:e2e": "node tests/e2e-builder.mjs"
   },
   "dependencies": {

@@ -10,6 +10,13 @@
 import * as DC from '../vendor/40kdc-data.mjs';
 import { GAME_NAME_CANON_ENTRIES } from '../lib/canon.mjs';
 import { createConverter, ALLIED_FACTIONS, FACTION_DISPLAY_OVERRIDES } from '../lib/gameformat.mjs';
+import { applyDataPatches } from '../lib/data-patches.mjs';
+
+// Inject local dataset corrections (e.g. the Speedwaaagh! detachment's missing
+// enhancements) into RAW_DATA before anything reads it. createConverter below
+// and the package importer both hold these arrays by reference, so the in-place
+// patch reaches every consumer.
+applyDataPatches(DC.RAW_DATA);
 
 export const dc = DC; // the full engine, re-exported for views/dialogs
 export const ds = DC.dataset;

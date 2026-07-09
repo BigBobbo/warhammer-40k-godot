@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.8.2",
+			"date": "2026-07-09",
+			"summary": "Army Builder: the Orks 'Speedwaaagh!' detachment now offers its four Enhancements. They were missing from the dataset, so the builder showed no Enhancement option and imported lists silently dropped enhancements like Kustom Shokk Box.",
+			"changes": [
+				"You can now add the Speedwaaagh! detachment's Enhancements in the browser Army Builder: Kustom Shokk Box (10 pts), Dakkamek (25 pts), Supa-burny Fuel (15 pts) and Master Meknologist (20 pts). Previously a Speedwaaagh! Character showed no 'Enhancement' dropdown at all.",
+				"Uploading/pasting a Speedwaaagh! list that includes one of these Enhancements now resolves it and keeps it (with its points) instead of dropping it as unresolved on import.",
+				"Added browser tests (unit + real-page end-to-end) that fail if these Enhancements ever go missing from the builder again."
+			]
+		},
+		{
 			"version": "0.8.1",
 			"date": "2026-07-09",
 			"summary": "Fix: the 'AI Suggestion' button now actually appears when you start a game against the AI (it was being created hidden and never shown).",
