@@ -117,7 +117,7 @@ func _test_fuel_mixa_grot_same_effect():
 
 func _test_wartrike_army_data():
 	print("\n--- Test 6: Deffkilla Wartrike army JSON has Fuel-mixa Grot ability ---")
-	var file = FileAccess.open("res://armies/Orks_2000.json", FileAccess.READ)
+	var file = FileAccess.open("res://tests/fixtures/armies/Orks_2000.json", FileAccess.READ)
 	if file == null:
 		_fail_count += 1
 		print("  FAIL: Could not open Orks_2000.json")

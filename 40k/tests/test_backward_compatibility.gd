@@ -806,6 +806,8 @@ func _init():
 func _load_army_json(army_name: String) -> Dictionary:
 	var path = "res://armies/%s.json" % army_name
 	if not FileAccess.file_exists(path):
+		path = "res://tests/fixtures/armies/%s.json" % army_name
+	if not FileAccess.file_exists(path):
 		print("  ERROR: File not found: %s" % path)
 		return {}
 	var file = FileAccess.open(path, FileAccess.READ)

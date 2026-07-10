@@ -151,7 +151,7 @@ func test_ai_analyzer_detects_deadly_demise():
 func test_deadly_demise_ability_in_battlewagon_json():
 	print("\ntest_deadly_demise_ability_in_battlewagon_json:")
 
-	var json = _load_json("res://armies/orks.json")
+	var json = _load_json("res://tests/fixtures/armies/orks.json")
 	if json.is_empty():
 		print("  SKIP: Could not load orks.json")
 		return
@@ -164,7 +164,7 @@ func test_deadly_demise_ability_in_battlewagon_json():
 func test_deadly_demise_ability_in_caladius_json():
 	print("\ntest_deadly_demise_ability_in_caladius_json:")
 
-	var json = _load_json("res://armies/adeptus_custodes.json")
+	var json = _load_json("res://tests/fixtures/armies/adeptus_custodes.json")
 	if json.is_empty():
 		print("  SKIP: Could not load adeptus_custodes.json")
 		return
@@ -177,7 +177,7 @@ func test_deadly_demise_ability_in_caladius_json():
 func test_deadly_demise_ability_in_contemptor_json():
 	print("\ntest_deadly_demise_ability_in_contemptor_json:")
 
-	var json = _load_json("res://armies/adeptus_custodes.json")
+	var json = _load_json("res://tests/fixtures/armies/adeptus_custodes.json")
 	if json.is_empty():
 		print("  SKIP: Could not load adeptus_custodes.json")
 		return
@@ -189,7 +189,7 @@ func test_deadly_demise_ability_in_contemptor_json():
 func test_deadly_demise_ability_in_telemon_json():
 	print("\ntest_deadly_demise_ability_in_telemon_json:")
 
-	var json = _load_json("res://armies/adeptus_custodes.json")
+	var json = _load_json("res://tests/fixtures/armies/adeptus_custodes.json")
 	if json.is_empty():
 		print("  SKIP: Could not load adeptus_custodes.json")
 		return

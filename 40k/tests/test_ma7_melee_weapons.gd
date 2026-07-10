@@ -261,6 +261,8 @@ func _make_mixed_board() -> Dictionary:
 func _load_army_json(army_name: String) -> Dictionary:
 	var file_path = "res://armies/%s.json" % army_name
 	if not FileAccess.file_exists(file_path):
+		file_path = "res://tests/fixtures/armies/%s.json" % army_name
+	if not FileAccess.file_exists(file_path):
 		print("  ERROR: File not found: %s" % file_path)
 		return {}
 	var file = FileAccess.open(file_path, FileAccess.READ)

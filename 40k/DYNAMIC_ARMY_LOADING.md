@@ -43,15 +43,14 @@ The MainMenu now dynamically loads available armies from the `armies/` directory
 
 **`_set_default_army_selections()`**
 - Intelligently selects default armies
-- Prefers Adeptus Custodes for Player 1
-- Prefers Orks for Player 2
-- Ensures different armies for each player when possible
+- Prefers the shipped base list (`recon_stomps`) for both players
+- Falls back to the first scanned army when it is absent
 
 ### Features
 
 ✅ **Automatic Discovery**: Scans both `res://armies/` and `user://armies/`
 ✅ **Alphabetical Sorting**: Armies displayed in A-Z order
-✅ **Smart Defaults**: Maintains existing default behavior (Custodes vs Orks)
+✅ **Smart Defaults**: Both players default to the shipped base list (Recon Stomps)
 ✅ **Graceful Fallback**: Handles missing armies gracefully
 ✅ **User-Friendly Names**: Converts file names to readable display names
 

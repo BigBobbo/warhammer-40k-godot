@@ -71,36 +71,40 @@ func _test_registry_parsing() -> void:
 
 func _test_army_files_parity() -> void:
 	print("\n-- B: army files validate + converter parity --")
-	var dir = DirAccess.open("res://armies")
-	if dir == null:
-		_check("armies dir readable", false)
-		return
+	# The shipped armies/ dir now carries a single base list; the broad
+	# corpus of army JSONs lives on as test fixtures — scan both so the
+	# registry/parity sweep keeps its coverage.
 	var files_checked := 0
 	var weapons_with_abilities := 0
 	var validation_errors: Array = []
 	var parity_errors: Array = []
-	dir.list_dir_begin()
-	var entry = dir.get_next()
-	while entry != "":
-		if entry.ends_with(".json"):
-			files_checked += 1
-			var f = FileAccess.open("res://armies/" + entry, FileAccess.READ)
-			var data = JSON.parse_string(f.get_as_text())
-			f.close()
-			if data is Dictionary:
-				for unit_id in data.get("units", {}):
-					for w in data.units[unit_id].get("meta", {}).get("weapons", []):
-						var abilities = w.get("abilities", [])
-						if not abilities is Array or abilities.is_empty():
-							continue
-						weapons_with_abilities += 1
-						for err in AbilityRegistry.validate(abilities):
-							validation_errors.append("%s/%s: %s" % [entry, w.get("name"), err])
-						var parsed = AbilityRegistry.parse_special_rules(str(w.get("special_rules", "")))
-						if AbilityRegistry.to_display_string(parsed) != AbilityRegistry.to_display_string(abilities):
-							parity_errors.append("%s/%s" % [entry, w.get("name")])
-		entry = dir.get_next()
-	dir.list_dir_end()
+	for dir_path in ["res://armies", "res://tests/fixtures/armies"]:
+		var dir = DirAccess.open(dir_path)
+		if dir == null:
+			_check("%s dir readable" % dir_path, false)
+			continue
+		dir.list_dir_begin()
+		var entry = dir.get_next()
+		while entry != "":
+			if entry.ends_with(".json"):
+				files_checked += 1
+				var f = FileAccess.open(dir_path + "/" + entry, FileAccess.READ)
+				var data = JSON.parse_string(f.get_as_text())
+				f.close()
+				if data is Dictionary:
+					for unit_id in data.get("units", {}):
+						for w in data.units[unit_id].get("meta", {}).get("weapons", []):
+							var abilities = w.get("abilities", [])
+							if not abilities is Array or abilities.is_empty():
+								continue
+							weapons_with_abilities += 1
+							for err in AbilityRegistry.validate(abilities):
+								validation_errors.append("%s/%s: %s" % [entry, w.get("name"), err])
+							var parsed = AbilityRegistry.parse_special_rules(str(w.get("special_rules", "")))
+							if AbilityRegistry.to_display_string(parsed) != AbilityRegistry.to_display_string(abilities):
+								parity_errors.append("%s/%s" % [entry, w.get("name")])
+			entry = dir.get_next()
+		dir.list_dir_end()
 	_check("scanned army files (%d) with structured weapons (%d)" % [files_checked, weapons_with_abilities],
 		files_checked > 0 and weapons_with_abilities > 100)
 	_check("zero validation errors", validation_errors.is_empty(), str(validation_errors.slice(0, 3)))

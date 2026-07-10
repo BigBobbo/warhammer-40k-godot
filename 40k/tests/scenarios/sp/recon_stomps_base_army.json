@@ -1,0 +1,39 @@
+{
+ "id": "recon_stomps_base_army",
+ "covers": [
+  "armies.recon_stomps.load_path",
+  "autoloads.ArmyListManager.same_army_both_players",
+  "autoloads.ArmyListManager.scan_available_armies",
+  "scripts.MainMenu.single_base_army_default",
+  "autoloads.GameState.default_armies"
+ ],
+ "edition": 11,
+ "rng_seed": 42,
+ "disable_ai": true,
+ "description": "Player path for the single shipped base army list: boots to the real MainMenu (no fixture), asserts the army scan offers exactly 'recon_stomps' and that both player dropdowns default to it, then clicks the real Start Game button and asserts the battle starts with both players fielding the full 17-unit Recon Stomps list (2000 pts, Orks / Speedwaaagh!) — player 2's copy re-keyed with the _P2 suffix so the shared unit ids from the same file do not collide.",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 1.5 },
+  { "act": "execute_script", "script": "ArmyListManager.get_available_armies().size()", "equals": 1 },
+  { "act": "execute_script", "script": "ArmyListManager.get_available_armies()[0]", "equals": "recon_stomps" },
+  { "act": "execute_script", "script": "main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player1Container/Player1Dropdown\").get_item_text(main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player1Container/Player1Dropdown\").selected).contains(\"Recon Stomps\")", "equals": true },
+  { "act": "execute_script", "script": "main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player2Container/Player2Dropdown\").get_item_text(main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player2Container/Player2Dropdown\").selected).contains(\"Recon Stomps\")", "equals": true },
+  { "act": "screenshot", "label": "01_menu_recon_stomps_only" },
+  { "act": "execute_script", "script": "main.get_node(\"ScrollContainer\").ensure_control_visible(main.get_node(\"ScrollContainer/MenuContainer/ButtonSection/StartButton\"))" },
+  { "act": "wait_frames", "frames": 5 },
+  { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton" },
+  { "act": "wait_seconds", "seconds": 3.0 },
+  { "act": "execute_script", "script": "GameState.state[\"units\"].size()", "equals": 34 },
+  { "act": "execute_script", "script": "GameState.get_units_for_player(1).size()", "equals": 17 },
+  { "act": "execute_script", "script": "GameState.get_units_for_player(2).size()", "equals": 17 },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"1\"][\"name\"]", "equals": "Orks" },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"][\"name\"]", "equals": "Orks" },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"]", "equals": "Speedwaaagh!" },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_STOMPA_A\"][\"owner\"]", "equals": 1 },
+  { "act": "execute_script", "script": "GameState.state[\"units\"].has(\"U_STOMPA_A_P2\")", "equals": true },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_STOMPA_A_P2\"][\"owner\"]", "equals": 2 },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_WAZDAKKA_GUTSMEK_A\")[\"meta\"][\"is_warlord\"]", "equals": true },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_DEFFKILLA_WARTRIKE_A\")[\"meta\"][\"enhancements\"].has(\"Kustom Shokk Box\")", "equals": true },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_MEK_A_P2\")[\"meta\"][\"enhancements\"].has(\"Dakkamek\")", "equals": true },
+  { "act": "screenshot", "label": "02_game_started_both_recon_stomps" }
+ ]
+}

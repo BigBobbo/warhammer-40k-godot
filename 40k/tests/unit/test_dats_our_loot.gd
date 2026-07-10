@@ -280,7 +280,7 @@ func test_live_lootas_has_ability():
 		return
 
 	# Load Orks army
-	var army_path = "res://armies/orks.json"
+	var army_path = "res://tests/fixtures/armies/orks.json"
 	if not FileAccess.file_exists(army_path):
 		gut.p("orks.json not found at %s — skipping" % army_path)
 		pending("orks.json not found")

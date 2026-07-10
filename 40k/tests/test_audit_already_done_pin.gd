@@ -605,7 +605,7 @@ func _test_t082_movement_path_distance() -> void:
 
 func _test_t029_custodes_roster_stubs() -> void:
 	print("\n-- T-029: Custodes/Lions roster stubs registered (stat values pending Wahapedia review) --")
-	var src = _read("res://armies/adeptus_custodes_roster_stubs.json")
+	var src = _read("res://tests/fixtures/armies/adeptus_custodes_roster_stubs.json")
 	_check("roster stubs JSON readable", not src.is_empty())
 	for stub_id in [
 		"U_TRAJANN_VALORIS_STUB",

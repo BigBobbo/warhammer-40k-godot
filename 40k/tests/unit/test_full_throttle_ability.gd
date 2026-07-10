@@ -110,7 +110,7 @@ func _test_no_flags_denies_charge():
 
 func _test_stormboyz_army_data():
 	print("\n--- Test 6: Stormboyz army JSON has Full Throttle ability ---")
-	var file = FileAccess.open("res://armies/Orks_2000.json", FileAccess.READ)
+	var file = FileAccess.open("res://tests/fixtures/armies/Orks_2000.json", FileAccess.READ)
 	if file == null:
 		_fail_count += 1
 		print("  FAIL: Could not open Orks_2000.json")

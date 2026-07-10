@@ -55,13 +55,20 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 	print("Loading army list: ", army_name, " for player ", player)
 	
 	var file_path = "res://armies/%s.json" % army_name
-	
+
 	# Check if file exists in res://
 	if not FileAccess.file_exists(file_path):
 		# For exported games, try user:// path
 		file_path = "user://armies/%s.json" % army_name
 		print("Trying user:// path: ", file_path)
-		
+
+	if not FileAccess.file_exists(file_path):
+		# Test fixtures: armies kept for the headless suite live outside the
+		# player-facing armies/ dir (scan_available_armies never lists them),
+		# but stay loadable by name so tests and scenarios keep working.
+		file_path = "res://tests/fixtures/armies/%s.json" % army_name
+		print("Trying test fixture path: ", file_path)
+
 	if not FileAccess.file_exists(file_path):
 		var error_msg = "Army file not found: " + army_name
 		print("ERROR: ", error_msg)
@@ -327,10 +334,20 @@ func apply_army_to_game_state(army_data: Dictionary, player: int) -> void:
 	if army_data.has("units"):
 		for unit_id in army_data.units:
 			var unit = army_data.units[unit_id]
+			var key = unit_id
+			# Both players can pick the same army list; the file's unit keys
+			# would collide and player 2 would silently overwrite player 1's
+			# units. Re-key the second copy (and keep id/squad_id in sync).
+			if all_units.has(key) and all_units[key].get("owner", 0) != player:
+				key = "%s_P%d" % [unit_id, player]
+				unit = unit.duplicate(true)
+				unit["id"] = key
+				if unit.get("squad_id", "") == unit_id:
+					unit["squad_id"] = key
 			unit["owner"] = player
 			unit["status"] = GameStateData.UnitStatus.UNDEPLOYED
-			all_units[unit_id] = unit
-			print("Added unit: ", unit_id, " (", unit.get("meta", {}).get("name", unit_id), ")")
+			all_units[key] = unit
+			print("Added unit: ", key, " (", unit.get("meta", {}).get("name", key), ")")
 	
 	# Update GameState
 	GameState.state["units"] = all_units

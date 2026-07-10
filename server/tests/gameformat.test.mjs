@@ -14,6 +14,12 @@ const ARMIES = join(ROOT, '40k', 'armies');
 const V = await import(new URL('../public/js/vendor/40kdc-data.mjs', import.meta.url).href);
 const { createConverter } = await import(new URL('../public/js/lib/gameformat.mjs', import.meta.url).href);
 const { GAME_NAME_CANON_ENTRIES } = await import(new URL('../public/js/lib/canon.mjs', import.meta.url).href);
+const { applyDataPatches } = await import(new URL('../public/js/lib/data-patches.mjs', import.meta.url).href);
+
+// The browser builder patches the vendored dataset before use (store.js) —
+// e.g. upstream ships Speedwaaagh! with no enhancements. Test against the
+// same effective dataset the real consumers see.
+applyDataPatches(V.RAW_DATA);
 
 const conv = createConverter({
   rawData: V.RAW_DATA,
@@ -151,8 +157,10 @@ test('Stompa resolves to a 180mm round base, not the 32mm draft fallback', () =>
 });
 
 test('package legality checker accepts the fresh roster shape', () => {
+  // Orks_2000 moved out of the shipped armies/ dir; it lives on as a fixture.
+  const FIXTURE_ARMIES = join(ROOT, '40k', 'tests', 'fixtures', 'armies');
   const { roster } = conv.gameToRoster(
-    JSON.parse(readFileSync(join(ARMIES, 'Orks_2000.json'), 'utf8')), { name: 'orks' });
+    JSON.parse(readFileSync(join(FIXTURE_ARMIES, 'Orks_2000.json'), 'utf8')), { name: 'orks' });
   const verdict = V.checkRoster(roster, V.dataset);
   assert.ok(Array.isArray(verdict.army), 'army-level checks ran');
   assert.ok(Array.isArray(verdict.units), 'unit-level checks ran');

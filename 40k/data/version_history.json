@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.13.0",
+			"date": "2026-07-10",
+			"summary": "New base army list: 'Recon Stomps' — a 2000pt Orks Speedwaaagh! force (Wazdakka Gutsmek, a Stompa, Deffkoptas, Warbikers, Stormboyz). It replaces all previous built-in army lists and is now the default for both players.",
+			"changes": [
+				"Added 'Recon Stomps' (Orks, Speedwaaagh!, 2000 pts) as the built-in army list: 2 Deffkilla Wartrikes (Kustom Shokk Box / Supa-burny Fuel), Mek (Dakkamek), Wazdakka Gutsmek (Warlord), 4x Stormboyz, 4x Warbikers, 2x Deffkoptas, 2x Gretchin, and a Stompa.",
+				"Removed all other built-in army lists (Orks, Adeptus Custodes, Space Marines variants) from the army pickers — cloud armies are unaffected and can still be selected.",
+				"Both players can now pick the same army list: the second player's units are kept separate instead of silently replacing the first player's.",
+				"Cloud armies are no longer auto-selected over the default list when the menu loads."
+			]
+		},
+		{
 			"version": "0.12.0",
 			"date": "2026-07-10",
 			"summary": "Click a unit on the battlefield to select it in the Movement and Shooting phases — no more hunting for it in the right-hand list. If your current unit is mid-move or has targets staged, a 'Switch Unit?' popup asks before switching so nothing is lost by accident.",

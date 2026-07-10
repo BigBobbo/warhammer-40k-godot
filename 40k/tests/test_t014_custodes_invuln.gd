@@ -95,7 +95,7 @@ func _test_save_resolution_with_unit_invuln_4() -> void:
 
 func _test_json_units_have_invuln() -> void:
 	print("\n-- T-014c: armies/adeptus_custodes.json has invuln=4 on both units --")
-	var f := FileAccess.open("res://armies/adeptus_custodes.json", FileAccess.READ)
+	var f := FileAccess.open("res://tests/fixtures/armies/adeptus_custodes.json", FileAccess.READ)
 	_check("armies JSON readable", f != null)
 	if f == null:
 		return
@@ -109,7 +109,7 @@ func _test_json_units_have_invuln() -> void:
 		"got %s" % str(cg_stats.get("invuln")))
 
 	# Test fixture army too
-	var f2 := FileAccess.open("res://armies/A_C_test.json", FileAccess.READ)
+	var f2 := FileAccess.open("res://tests/fixtures/armies/A_C_test.json", FileAccess.READ)
 	_check("A_C_test.json readable", f2 != null)
 	if f2 == null:
 		return
