@@ -1,0 +1,71 @@
+{
+  "id": "movement_er_ring_matches_check_11e",
+  "covers": [
+    "movementcontroller.t094_er_overlay_edition_aware",
+    "movement.engagement_range.ring_matches_rule_11e"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "edition": 11,
+  "description": "The red engagement-range rings drawn during movement must match the rule the engine enforces. Player report: Normal Move drops were refused for being 'within engagement range' while the model looked comfortably clear of the red circles — the T-094 overlay hardcoded 1\" while 11e ER is 2\". Setup teleports the enemy Warboss (40mm) to open ground at (300,1000) with the Shield-Captain (40mm, M6) at (300,800). Asserts: (a) after a real token click begins a Normal Move, the ring around the Warboss has radius base_radius+2\" (~111.5px), not the old base_radius+1\" (~71.5px); (b) a real drag-drop ending with a 1.43\" base gap — which looked legal under the old ring — is refused and the model stays put; (c) a drag-drop ending with a 2.17\" gap, just outside the corrected ring, stages and confirms.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"][\"models\"][0].merge({\"position\": {\"x\": 300.0, \"y\": 800.0}}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WARBOSS_B\"][\"models\"][0].merge({\"position\": {\"x\": 300.0, \"y\": 1000.0}}, true)" },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_SHIELD_CAPTAIN_A\"][\"models\"][0].merge({\"position\": {\"x\": 300.0, \"y\": 800.0}}, true)" },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WARBOSS_B\"][\"models\"][0].merge({\"position\": {\"x\": 300.0, \"y\": 1000.0}}, true)" },
+    { "act": "execute_script", "script": "main._recreate_unit_visuals()" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "01_setup_captain_above_warboss" },
+
+    { "act": "click_unit", "unit_id": "U_SHIELD_CAPTAIN_A" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_SHIELD_CAPTAIN_A" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementERVisual\").get_child_count()",
+      "expect_min": 8 },
+
+    { "act": "execute_script",
+      "script": "((main.get_node(\"BoardRoot/MovementERVisual\").get_child(4).points[0] + main.get_node(\"BoardRoot/MovementERVisual\").get_child(4).points[16]) / 2.0).distance_to(Vector2(300.0, 1000.0)) < 1.0",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "abs((main.get_node(\"BoardRoot/MovementERVisual\").get_child(4).points[0] - main.get_node(\"BoardRoot/MovementERVisual\").get_child(4).points[16]).length() / 2.0 - (Measurement.base_radius_px(40) + Measurement.inches_to_px(2.0))) < 0.5",
+      "equals": true },
+    { "act": "screenshot", "label": "02_er_ring_base_plus_2in" },
+
+    { "act": "drag_board", "from_x": 300, "from_y": 800, "to_x": 300, "to_y": 880 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script",
+      "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_SHIELD_CAPTAIN_A\")",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "abs(GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").get(\"models\")[0].get(\"position\").get(\"y\") - 800.0) < 0.5",
+      "equals": true },
+    { "act": "screenshot", "label": "03_drop_at_1p43in_gap_refused" },
+
+    { "act": "drag_board", "from_x": 300, "from_y": 800, "to_x": 300, "to_y": 850 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script",
+      "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_SHIELD_CAPTAIN_A\")",
+      "equals": true },
+    { "act": "screenshot", "label": "04_drop_at_2p17in_gap_staged" },
+
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_SHIELD_CAPTAIN_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_SHIELD_CAPTAIN_A.flags.moved", "equals": true },
+    { "act": "execute_script",
+      "script": "abs(GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").get(\"models\")[0].get(\"position\").get(\"y\") - 850.0) < 1.0",
+      "equals": true },
+    { "act": "screenshot", "label": "05_move_confirmed_outside_er" }
+  ]
+}

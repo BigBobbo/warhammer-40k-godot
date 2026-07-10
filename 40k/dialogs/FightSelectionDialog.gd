@@ -92,7 +92,10 @@ func _build_ui() -> void:
 
 	add_child(main_container)
 
-	# Connect OK button
+	# Hide the built-in OK button: picking a unit is a single click on its
+	# button, so OK had nothing to confirm — clicking it just dismissed the
+	# picker with no unit selected and stalled the fight sequence.
+	get_ok_button().visible = false
 	confirmed.connect(_on_confirmed)
 
 func _add_subphase_units(container: VBoxContainer, subphase_name: String, units_by_player: Dictionary) -> void:
@@ -177,10 +180,14 @@ func _on_unit_selected(unit_id: String) -> void:
 	queue_free()
 
 func _on_confirmed() -> void:
-	# This is only called if user clicks OK button explicitly
+	# Only reachable via a programmatic `confirmed` emission now that the
+	# built-in OK button is hidden (unit buttons select-and-close directly)
 	if selected_unit_id.is_empty():
-		# Show error
 		push_warning("No unit selected - please click on a unit")
+		if not visible:
+			# `confirmed` auto-hides the dialog before this validation runs —
+			# re-show so the selecting player isn't left without a picker.
+			show()
 		return
 
 	# Close dialog first to avoid exclusive child window error

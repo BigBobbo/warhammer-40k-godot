@@ -155,6 +155,9 @@ var _is_spectator_mode: bool = false
 var _ai_speed_panel: PanelContainer = null
 var _ai_speed_label: Label = null
 var _ai_step_continue_button: Button = null
+# Clickable AI speed selector in the top menu bar (next to the AI Suggestion
+# button) — same presets as the < > / hotkeys and the main-menu setup dropdown.
+var _ai_speed_dropdown: OptionButton = null
 
 # On-demand "AI Suggestion" button (human-vs-AI mode) — asks the AI what it would
 # do and shows its reasoning without taking the action. Hidden until an AI game.
@@ -724,6 +727,10 @@ func _reinitialize_ai_after_load() -> void:
 		_update_spectator_speed_label(ai_player.get_spectator_speed())
 		if _spectator_speed_panel:
 			_spectator_speed_panel.visible = true
+
+	# Re-sync the top-menu AI controls (suggestion button + speed dropdown) with
+	# the loaded game's AI configuration.
+	refresh_ai_suggestion_button()
 
 	print("Main: SAVE-1 AI re-initialization after load complete")
 
@@ -1729,6 +1736,10 @@ func _setup_ai_speed_hud() -> void:
 func _on_ai_speed_changed(preset: int, preset_name: String) -> void:
 	"""T7-36: Update the AI speed label when speed changes."""
 	_update_ai_speed_label(preset_name)
+	# Keep the top-menu dropdown in sync with changes from hotkeys/config/saves.
+	# OptionButton.select() does not emit item_selected, so no feedback loop.
+	if _ai_speed_dropdown and preset >= 0 and preset < _ai_speed_dropdown.item_count:
+		_ai_speed_dropdown.select(preset)
 
 func _update_ai_speed_label(speed_name: String) -> void:
 	"""T7-36: Update the AI speed indicator label text."""
@@ -2042,10 +2053,53 @@ func _setup_ai_suggestion_button() -> void:
 	_ai_suggestion_button.pressed.connect(_on_ai_suggestion_pressed)
 	hud_container.add_child(_ai_suggestion_button)
 	print("Main: AI suggestion button created")
+	# T7-36: clickable AI speed selector sits immediately after the suggestion
+	# button in the same top-menu row (added here so they stay adjacent).
+	_setup_ai_speed_dropdown(hud_container)
 	# _ready() calls _initialize_ai_player() (which reveals this button) BEFORE this
 	# setup runs, so that earlier refresh no-ops on the still-null button. Refresh now
 	# that the button exists so it becomes visible immediately for human-vs-AI games.
 	refresh_ai_suggestion_button()
+
+func _setup_ai_speed_dropdown(hud_container: Node) -> void:
+	"""T7-36: Create the AI speed dropdown in the top menu bar, next to the AI
+	Suggestion button. Lets the player change the AI action speed mid-game with
+	the mouse; stays in sync with the < > / hotkeys, the main-menu setup value
+	and saves via AIPlayer.ai_speed_changed. Hidden until an AI game is
+	confirmed (revealed by refresh_ai_suggestion_button)."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+
+	_ai_speed_dropdown = OptionButton.new()
+	_ai_speed_dropdown.name = "AISpeedDropdown"
+	# Item indices deliberately equal AIPlayer.AISpeedPreset values.
+	var preset_names: Dictionary = {0: "Fast", 1: "Normal", 2: "Slow", 3: "Step-by-step"}
+	if ai_player:
+		preset_names = ai_player.AI_SPEED_NAMES
+	for preset in range(preset_names.size()):
+		_ai_speed_dropdown.add_item("AI Speed: %s" % preset_names.get(preset, str(preset)), preset)
+	if ai_player:
+		var current: int = clampi(ai_player.get_ai_speed_preset(), 0, _ai_speed_dropdown.item_count - 1)
+		_ai_speed_dropdown.select(current)
+
+	var keys_hint := ""
+	if KeybindingManager:
+		keys_hint = " Hotkeys: %s / %s adjust, %s cycles." % [
+			KeybindingManager.get_key_display_name("ai_speed_decrease"),
+			KeybindingManager.get_key_display_name("ai_speed_increase"),
+			KeybindingManager.get_key_display_name("ai_speed_cycle")]
+	_ai_speed_dropdown.tooltip_text = "How fast the AI takes its actions. Step-by-step pauses before every AI action until you press Continue (Space).%s" % keys_hint
+	_ai_speed_dropdown.visible = false
+	_ai_speed_dropdown.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_WhiteDwarfTheme.apply_to_button(_ai_speed_dropdown)
+	_ai_speed_dropdown.item_selected.connect(_on_ai_speed_dropdown_selected)
+	hud_container.add_child(_ai_speed_dropdown)
+	print("Main: T7-36 AI speed dropdown created in top menu")
+
+func _on_ai_speed_dropdown_selected(index: int) -> void:
+	"""T7-36: Player picked an AI speed from the top-menu dropdown."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player:
+		ai_player.set_ai_speed_preset(index)
 
 func refresh_ai_suggestion_button() -> void:
 	"""Show the AI-suggestion button only for single-viewer AI games (an AI player
@@ -2059,6 +2113,15 @@ func refresh_ai_suggestion_button() -> void:
 		if ai_player.is_ai_player(1) or ai_player.is_ai_player(2):
 			should_show = true
 	_ai_suggestion_button.visible = should_show
+	# T7-36: the AI speed dropdown sits next to the suggestion button and follows
+	# the same visibility rule; re-sync its selection here too (covers the initial
+	# config apply, which happens before ai_speed_changed is connected).
+	if _ai_speed_dropdown:
+		_ai_speed_dropdown.visible = should_show
+		if should_show and ai_player:
+			var preset: int = ai_player.get_ai_speed_preset()
+			if preset >= 0 and preset < _ai_speed_dropdown.item_count:
+				_ai_speed_dropdown.select(preset)
 
 func _on_ai_suggestion_pressed() -> void:
 	"""Ask the AI for a suggestion on the current turn and show its reasoning in the
@@ -6413,6 +6476,7 @@ func _setup_token_hover_tooltip() -> void:
 	style.set_content_margin_all(8)
 	_token_hover_tooltip.add_theme_stylebox_override("panel", style)
 	_token_hover_label = RichTextLabel.new()
+	_token_hover_label.name = "TokenHoverLabel"
 	_token_hover_label.bbcode_enabled = true
 	_token_hover_label.fit_content = true
 	_token_hover_label.scroll_active = false
@@ -6426,23 +6490,43 @@ func _setup_token_hover_tooltip() -> void:
 func _check_token_hover(mouse_pos: Vector2) -> void:
 	if not token_layer or not is_instance_valid(token_layer):
 		return
-	var board_pos = camera.get_global_transform().affine_inverse() * mouse_pos
+	# Suppress the tooltip while the mouse is over a HUD panel — the board
+	# position under the HUD is not what the player is pointing at.
+	for hud_name in ["HUD_Right", "HUD_Bottom", "HUD_Left"]:
+		var hud = get_node_or_null(hud_name)
+		if hud is Control and hud.visible and hud.get_global_rect().has_point(mouse_pos):
+			_hide_token_hover()
+			return
+	# Tokens are children of BoardRoot/TokenLayer, so token.position is in
+	# board space. Convert the mouse the same way every other board handler
+	# does (BoardRoot carries the pan/zoom; comparing token.global_position
+	# against a board-space point only matched near the transform's fixed
+	# point, which is why hover used to work for only some models).
+	var board_pos = screen_to_world_position(mouse_pos)
 	var best_token: Node2D = null
-	var best_dist: float = 40.0
+	var best_dist: float = INF
 	for child in token_layer.get_children():
-		if not child.visible:
+		if not child.visible or not child.has_meta("unit_id"):
 			continue
-		var dist = child.global_position.distance_to(board_pos)
-		if dist < best_dist:
+		if "is_preview" in child and child.is_preview:
+			continue
+		var dist = child.position.distance_to(board_pos)
+		# Hit radius follows the model's actual base so vehicles/monsters are
+		# hoverable across their whole base; 25px floor covers small infantry.
+		var hit_radius: float = 25.0
+		if "base_shape" in child and child.base_shape != null:
+			var bounds: Rect2 = child.base_shape.get_bounds()
+			hit_radius = max(hit_radius, max(bounds.size.x, bounds.size.y) / 2.0 + 4.0)
+		if dist <= hit_radius and dist < best_dist:
 			best_dist = dist
 			best_token = child
-	if best_token and best_token.has_meta("unit_id"):
+	if best_token:
 		var uid = best_token.get_meta("unit_id")
 		if uid != _token_hover_unit_id:
 			_token_hover_unit_id = uid
 			_show_token_hover(uid, mouse_pos)
-		elif _token_hover_tooltip:
-			_token_hover_tooltip.position = Vector2(mouse_pos.x + 16, mouse_pos.y - 10)
+		else:
+			_position_token_hover(mouse_pos)
 	elif _token_hover_unit_id != "":
 		_hide_token_hover()
 
@@ -6454,38 +6538,68 @@ func _show_token_hover(unit_id: String, screen_pos: Vector2) -> void:
 	if unit.is_empty():
 		_hide_token_hover()
 		return
-	var name = unit.get("name", "Unknown")
-	var stats = unit.get("stats", {})
-	var m = stats.get("M", "?")
-	var t = stats.get("T", "?")
-	var sv = stats.get("Sv", "?")
-	var w = stats.get("W", "?")
-	var oc = stats.get("OC", "?")
+	# Unit name/stats/keywords live under meta, and stats use the long key
+	# names from the army JSON schema (move/toughness/save/...), not M/T/Sv.
+	var meta = unit.get("meta", {})
+	var unit_name = meta.get("name", unit_id)
+	var stats = meta.get("stats", {})
+	var stat_defs = [
+		["move", "M", "\""],
+		["toughness", "T", ""],
+		["save", "Sv", "+"],
+		["wounds", "W", ""],
+		["objective_control", "OC", ""],
+	]
+	var stat_parts: Array = []
+	for def in stat_defs:
+		var val = stats.get(def[0], null)
+		var val_text = "?" if val == null else "%d%s" % [int(val), def[2]]
+		stat_parts.append("[color=#D49761]%s[/color]:%s" % [def[1], val_text])
+	var invuln = int(stats.get("invuln", stats.get("invulnerable_save", 0)))
+	if invuln > 0:
+		stat_parts.append("[color=#D49761]Inv[/color]:%d++" % invuln)
 	var models = unit.get("models", [])
 	var alive = 0
 	var total_w_current = 0
 	var total_w_max = 0
 	for mdl in models:
+		var w_max = int(mdl.get("wounds", 0))
 		if mdl.get("alive", true):
 			alive += 1
-			total_w_current += mdl.get("wounds_remaining", 0)
-			total_w_max += mdl.get("wounds_max", mdl.get("wounds_remaining", 0))
+			total_w_current += int(mdl.get("current_wounds", w_max))
+			total_w_max += w_max
 	var total_models = models.size()
-	var player = unit.get("player", 0)
-	var player_color = "#6699CC" if player == 1 else "#CC6666"
-	var keywords = unit.get("keywords", [])
+	var unit_owner = unit.get("owner", 0)
+	var player_color = "#6699CC" if unit_owner == 1 else "#CC6666"
+	var keywords = meta.get("keywords", [])
 	var kw_short = ", ".join(keywords.slice(0, 3))
 	if keywords.size() > 3:
 		kw_short += "..."
-	var text = "[b][color=%s]%s[/color][/b]\n" % [player_color, name]
-	text += "[color=#D49761]M[/color]:%s  [color=#D49761]T[/color]:%s  [color=#D49761]Sv[/color]:%s  [color=#D49761]W[/color]:%s  [color=#D49761]OC[/color]:%s\n" % [str(m), str(t), str(sv), str(w), str(oc)]
+	var text = "[b][color=%s]%s[/color][/b]\n" % [player_color, unit_name]
+	text += "  ".join(stat_parts) + "\n"
 	text += "[color=#AAAAAA]Models: %d/%d  Wounds: %d/%d[/color]" % [alive, total_models, total_w_current, total_w_max]
 	if kw_short != "":
 		text += "\n[color=#888888][i]%s[/i][/color]" % kw_short
 	_token_hover_label.text = ""
 	_token_hover_label.append_text(text)
-	_token_hover_tooltip.position = Vector2(screen_pos.x + 16, screen_pos.y - 10)
 	_token_hover_tooltip.visible = true
+	_position_token_hover(screen_pos)
+
+func _position_token_hover(screen_pos: Vector2) -> void:
+	if not _token_hover_tooltip:
+		return
+	_token_hover_tooltip.reset_size()
+	var pos = Vector2(screen_pos.x + 16, screen_pos.y - 10)
+	# Keep the tooltip on screen: flip to the left of the cursor at the right
+	# edge, clamp vertically. Size can lag a frame for fresh text; the next
+	# mouse-motion re-clamp corrects any residual overflow.
+	var vp_size = get_viewport().get_visible_rect().size
+	var tip_size = _token_hover_tooltip.size
+	if pos.x + tip_size.x > vp_size.x - 4.0:
+		pos.x = screen_pos.x - tip_size.x - 16
+	pos.x = max(pos.x, 4.0)
+	pos.y = clamp(pos.y, 4.0, max(4.0, vp_size.y - tip_size.y - 4.0))
+	_token_hover_tooltip.position = pos
 
 func _hide_token_hover() -> void:
 	_token_hover_unit_id = ""

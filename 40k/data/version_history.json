@@ -2,13 +2,53 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.16.1",
+			"version": "0.17.2",
 			"date": "2026-07-10",
 			"summary": "Objective control fixes: a model whose base is only partly on a terrain-hosted objective now counts as holding it, and objective labels no longer claim 'CONTESTED' when nobody (or only one side) is in range — an empty marker now reads 'Uncontrolled'.",
 			"changes": [
 				"Terrain-hosted objectives (11e): a model counts as within the objective as soon as ANY part of its base overlaps the hosting ruin area — previously only the model's centre point was checked, so a unit standing half on the objective was ignored and the marker wrongly showed CONTESTED.",
 				"Board labels, the Command panel and the Scoring panel now distinguish a genuine stand-off ('CONTESTED': both sides in range with equal, nonzero OC) from an empty marker ('Uncontrolled').",
 				"Sticky-objective locks (e.g. Get Da Good Bitz) and nearest-controlled-objective checks now use the same base-on-area rule as objective control on terrain-hosted objectives."
+			]
+		},
+		{
+			"version": "0.17.1",
+			"date": "2026-07-10",
+			"summary": "Engagement-range circles now match the rule. The red rings shown while moving were drawn at the old 1\" range while the game (11th edition) enforces 2\", so moves were refused when a model still looked clear of the circle — the rings, the fight-phase reach circles and the amber engaged rings are now all drawn at base edge + 2\".",
+			"changes": [
+				"Movement: the red no-go rings around enemy models are now drawn at the 11th-edition 2\" engagement range instead of a hardcoded 1\" — if your base stays off the red circle, the move is legal.",
+				"Fight phase: each fighter's orange engagement-reach circle now includes the model's own base radius, matching the base-edge-to-base-edge measurement the rules use.",
+				"The always-on amber 'engaged' rings now detect engagement base-edge to base-edge (like the rules engine) instead of centre-to-centre, size themselves to the anchor model's base, and ignore dead models."
+			]
+		},
+		{
+			"version": "0.17.0",
+			"date": "2026-07-10",
+			"summary": "You can now change the AI speed mid-game from the top menu: a new 'AI Speed' dropdown sits next to the AI Suggestion button with the same Fast / Normal / Slow / Step-by-step presets as the setup screen.",
+			"changes": [
+				"New 'AI Speed' dropdown in the in-game top menu (next to AI Suggestion) — switch between Fast, Normal, Slow and Step-by-step at any time during an AI game.",
+				"The dropdown stays in sync with the existing < > adjust and / cycle hotkeys, the speed chosen on the setup screen, and loaded saves.",
+				"Picking Step-by-step from the dropdown pauses the AI before each action as usual — press Continue (Space) to advance."
+			]
+		},
+		{
+			"version": "0.16.2",
+			"date": "2026-07-10",
+			"summary": "Fight phase dialogs now have a single, clear confirm button: the redundant 'OK' button that duplicated 'Fight!' in the attack-assignment dialog (and did nothing useful in the unit picker) is gone.",
+			"changes": [
+				"Assign Attacks dialog: removed the built-in 'OK' button that sat next to 'Fight!' and did the same thing — 'Fight!' is now the one button that confirms your weapon/target assignments and rolls the attacks.",
+				"Fight unit picker: removed its 'OK' button too — you pick a unit by clicking it, and 'OK' could only close the picker without selecting anything, stalling the fight sequence."
+			]
+		},
+		{
+			"version": "0.16.1",
+			"date": "2026-07-10",
+			"summary": "Fixed the board mouseover tooltip: it now works on every model anywhere on the board (not just a lucky few), and shows the unit's real name and stats instead of 'Unknown' with question marks.",
+			"changes": [
+				"Hovering any model — yours or your opponent's — now reliably shows its unit tooltip regardless of camera pan/zoom (the hover check compared screen and board coordinates, so it only worked in one spot of the board).",
+				"Tooltip now shows real values (name, M/T/Sv/W/OC, invulnerable save, model count, wound totals) instead of 'Unknown' and '?' — it was reading fields that don't exist in the unit data.",
+				"Big bases (vehicles, monsters) are now hoverable across their whole base, not just the centre.",
+				"The tooltip stays on screen near the board edge and no longer pops up while the mouse is over the side/bottom panels."
 			]
 		},
 		{

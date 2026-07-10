@@ -1,0 +1,68 @@
+{
+  "id": "ai_speed_top_menu_control",
+  "covers": [
+    "ai.speed.top_menu_dropdown",
+    "ai.speed.preset_switching",
+    "ui.HUD.ai_speed_dropdown"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "rng_seed": 7,
+  "description": "In-game AI speed control from the top menu. P1 (human) vs P2 (AI). The 'AI Speed' dropdown must reveal itself through the NATURAL Main._ready() flow right next to the AI Suggestion button in the top menu bar. The player path: click the dropdown (popup opens), keyboard Down+Enter picks the next preset (Normal -> Slow) — asserting AIPlayer's live preset, the dropdown's own selection and the legacy top-center speed label all agree. Then proves two-way sync: the ',' (decrease) hotkey and a programmatic set_ai_speed_preset (the save/load path) both update the dropdown selection.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script", "script": "OS.find_keycode_from_string(\"Down\") != 0", "equals": true },
+    { "act": "execute_script", "script": "OS.find_keycode_from_string(\"Enter\") != 0", "equals": true },
+    { "act": "execute_script", "script": "OS.find_keycode_from_string(\"Comma\") != 0", "equals": true },
+
+    { "act": "execute_script", "script": "get_node('/root/AIPlayer').is_ai_player(2)", "equals": true },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown != null", "equals": true },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.visible", "equals": true },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISpeedDropdown", "timeout_s": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISuggestionButton", "timeout_s": 2.0 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.item_count", "equals": 4 },
+
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.selected", "equals": 1 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.text", "equals": "AI Speed: Normal" },
+    { "act": "screenshot", "label": "01_dropdown_in_top_menu", "region": [0, 0, 1920, 115] },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISpeedDropdown" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.get_popup().visible", "equals": true },
+    { "act": "screenshot", "label": "02_popup_open" },
+
+    { "act": "simulate_key", "keycode": "Down" },
+    { "act": "simulate_key", "keycode": "Down" },
+    { "act": "simulate_key", "keycode": "Down" },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.get_popup().get_focused_item()", "equals": 2 },
+    { "act": "simulate_key", "keycode": "Enter" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.get_popup().visible", "equals": false },
+    { "act": "execute_script", "script": "AIPlayer.get_ai_speed_preset()", "equals": 2 },
+    { "act": "execute_script", "script": "AIPlayer.get_ai_speed_name()", "equals": "Slow" },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.selected", "equals": 2 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_label.text.contains('Slow')", "equals": true },
+    { "act": "screenshot", "label": "03_slow_selected_via_dropdown", "region": [0, 0, 1920, 130] },
+
+    { "act": "simulate_key", "keycode": "Comma" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "AIPlayer.get_ai_speed_preset()", "equals": 1 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.selected", "equals": 1 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.text", "equals": "AI Speed: Normal" },
+
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(3)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.selected", "equals": 3 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.text", "equals": "AI Speed: Step-by-step" },
+
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(0)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "get_node('/root/Main')._ai_speed_dropdown.selected", "equals": 0 },
+
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "screenshot", "label": "04_full_screen" }
+  ]
+}

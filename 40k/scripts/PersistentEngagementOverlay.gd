@@ -3,9 +3,11 @@ class_name PersistentEngagementOverlay
 
 # PersistentEngagementOverlay — always-on engagement rings (T29, doc §5).
 #
-# For every unit currently engaged with an enemy (any model within 1 inch
-# of any enemy model), spawn a persistent EngagementRangeVisual at one of
-# its models' position. Refreshes whenever GameState changes, on a debounce.
+# For every unit currently engaged with an enemy (any model within the
+# edition-aware engagement range of any enemy model, measured base-edge to
+# base-edge like the phases do), spawn a persistent EngagementRangeVisual at
+# one of its models' position. Refreshes whenever GameState changes, on a
+# debounce.
 #
 # Child nodes are named `EngagementRing_<unit_id>` so scenarios can address
 # them via NodePath.
@@ -47,6 +49,11 @@ func _do_deferred_refresh() -> void:
 func refresh() -> void:
 	# Tear down + rebuild. Cheap because engagement count is small.
 	for c in get_children():
+		# Detach before queue_free: a queued-free child keeps its name until
+		# end of frame, so re-adding a ring with the same name in the same
+		# frame would get auto-renamed (@Node2D@...) and scenarios could no
+		# longer address it as EngagementRing_<unit_id>.
+		remove_child(c)
 		c.queue_free()
 	var engaged_ids := _compute_engaged_unit_ids()
 	var gs = get_node_or_null("/root/GameState")
@@ -56,15 +63,19 @@ func refresh() -> void:
 		var unit = gs.get_unit(uid)
 		if typeof(unit) != TYPE_DICTIONARY or not unit.has("models"):
 			continue
-		var anchor := _first_model_position(unit)
-		if anchor == Vector2.INF:
+		var anchor_model := _first_anchor_model(unit)
+		if anchor_model.is_empty():
 			continue
+		var anchor := _model_position(anchor_model)
 		var ring = preload("res://scripts/EngagementRangeVisual.gd").new()
 		ring.name = "EngagementRing_%s" % uid
 		ring.is_persistent = true
 		ring.position = anchor
+		# ER is measured base-edge to base-edge, so the drawn ring spans the
+		# anchor model's base plus the edition-aware engagement range.
 		ring.setup_engagement_range(
-			Measurement.inches_to_px(GameConstants.engagement_range_inches()),
+			Measurement.base_radius_px(int(anchor_model.get("base_mm", 32)))
+				+ Measurement.inches_to_px(GameConstants.engagement_range_inches()),
 			Color(0.85, 0.6, 0.2, 1.0)  # subdued amber so it's not loud
 		)
 		ring.pulse_enabled = false  # ambient ring; pulsing reserved for active selection
@@ -89,39 +100,57 @@ func _compute_engaged_unit_ids() -> Array:
 	var owners: Array = by_owner.keys()
 	if owners.size() < 2:
 		return []
-	var threshold_px := float(Measurement.inches_to_px(GameConstants.engagement_range_inches()))
-	var threshold_sq := threshold_px * threshold_px
 	var engaged: Dictionary = {}
 	for i in range(owners.size()):
 		for j in range(i + 1, owners.size()):
 			for uid_a in by_owner[owners[i]]:
 				for uid_b in by_owner[owners[j]]:
-					if _units_within(units[uid_a], units[uid_b], threshold_sq):
+					if _units_within(units[uid_a], units[uid_b]):
 						engaged[uid_a] = true
 						engaged[uid_b] = true
 	return engaged.keys()
 
 
-func _units_within(unit_a: Dictionary, unit_b: Dictionary, threshold_sq: float) -> bool:
+## True if any alive model of unit_a is within engagement range of any alive
+## model of unit_b, using the same shape-aware base-edge-to-base-edge
+## measurement as the phases. (This previously compared centre-to-centre
+## distance against the ER, which under-detected engagement by both models'
+## base radii and disagreed with the rules checks.)
+func _units_within(unit_a: Dictionary, unit_b: Dictionary) -> bool:
+	var er_px := float(Measurement.inches_to_px(GameConstants.engagement_range_inches()))
 	for ma in unit_a.get("models", []):
 		var pa := _model_position(ma)
-		if pa == Vector2.INF:
+		if pa == Vector2.INF or not ma.get("alive", true):
 			continue
 		for mb in unit_b.get("models", []):
 			var pb := _model_position(mb)
-			if pb == Vector2.INF:
+			if pb == Vector2.INF or not mb.get("alive", true):
 				continue
-			if pa.distance_squared_to(pb) <= threshold_sq:
+			# Cheap centre-distance prefilter before the iterative shape solve.
+			if pa.distance_to(pb) > er_px + _bound_radius_px(ma) + _bound_radius_px(mb):
+				continue
+			if Measurement.is_in_engagement_range_shape_aware(ma, mb):
 				return true
 	return false
 
 
-func _first_model_position(unit: Dictionary) -> Vector2:
+## Upper bound of a model base's reach from its centre, in px (covers
+## circular, rectangular and oval bases).
+func _bound_radius_px(m: Dictionary) -> float:
+	var base_mm := float(m.get("base_mm", 32))
+	var dims: Dictionary = m.get("base_dimensions", {})
+	var max_mm: float = max(base_mm, max(float(dims.get("length", 0.0)), float(dims.get("width", 0.0))))
+	return Measurement.mm_to_px(max_mm) / 2.0
+
+
+## First alive model with a valid position — the ring anchor.
+func _first_anchor_model(unit: Dictionary) -> Dictionary:
 	for m in unit.get("models", []):
-		var p := _model_position(m)
-		if p != Vector2.INF:
-			return p
-	return Vector2.INF
+		if _model_position(m) == Vector2.INF:
+			continue
+		if m.get("alive", true):
+			return m
+	return {}
 
 
 func _model_position(m) -> Vector2:

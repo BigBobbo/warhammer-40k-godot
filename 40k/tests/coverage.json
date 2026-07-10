@@ -9,6 +9,42 @@
   ],
   "tiles": [
     {
+      "id": "ai.speed.top_menu_dropdown",
+      "description": "In-game 'AI Speed' OptionButton in the top menu bar (HUD_Bottom/HBoxContainer, rendered as the top row) next to the AI Suggestion button. Reveals itself through the natural Main._ready() flow for single-viewer human-vs-AI games; a real click opens the popup and keyboard navigation selects a preset that drives AIPlayer.set_ai_speed_preset.",
+      "scenarios": [
+        "ai_speed_top_menu_control"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.speed.preset_switching",
+      "description": "AI speed preset switching stays in sync both ways: picking a preset from the top-menu dropdown updates AIPlayer's live preset, and changes from the < > adjust / cycle hotkeys and programmatic set_ai_speed_preset (the save/load path) update the dropdown selection via the ai_speed_changed signal.",
+      "scenarios": [
+        "ai_speed_top_menu_control"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.HUD.ai_speed_dropdown",
+      "description": "HUD affordance: the AI speed dropdown sits in the top menu row next to the AI Suggestion button, follows the same visibility rule (single-viewer human-vs-AI only), exposes the four presets (Fast/Normal/Slow/Step-by-step), and its selected item matches the live AIPlayer preset.",
+      "scenarios": [
+        "ai_speed_top_menu_control"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.token_hover_tooltip",
+      "description": "Board token mouseover tooltip: hovering any model (own or opponent, anywhere on the board) shows the unit's real name, stats (M/T/Sv/W/OC from meta.stats), model count and wound totals; hovering empty board hides it. Regression guard for the screen-vs-board coordinate mixup that limited hover to one board region and the meta.* schema keys that had shown 'Unknown' / '?'.",
+      "scenarios": [
+        "token_hover_tooltip"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "autoloads.EffectPrimitives.PLUS_CHARGE",
       "description": "EffectPrimitives PLUS_CHARGE effect \u2014 sets effect_plus_charge flag on a unit",
       "scenarios": [
