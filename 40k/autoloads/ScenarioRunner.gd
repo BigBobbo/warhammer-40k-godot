@@ -311,6 +311,10 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_board_at(step), true)
 		"drag_board":
 			rec.merge(await _do_drag_board(step), true)
+		"hover_unit":
+			rec.merge(await _do_hover_unit(step), true)
+		"hover_board_at":
+			rec.merge(await _do_hover_board_at(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
 		"expect_state":
@@ -541,6 +545,63 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 	return {"pass": true,
 		"from_world": [from_world.x, from_world.y], "to_world": [to_world.x, to_world.y],
 		"from_screen": [from_screen.x, from_screen.y], "to_screen": [to_screen.x, to_screen.y]}
+
+
+func _do_hover_unit(step: Dictionary) -> Dictionary:
+	# Move the mouse over a unit's token with a REAL buttonless
+	# InputEventMouseMotion — the player path for hover-driven UI such as the
+	# board token tooltip. Resolves the token like click_unit.
+	var unit_id: String = str(step.get("unit_id", ""))
+	if unit_id == "":
+		return {"pass": false, "error": "hover_unit needs unit_id"}
+	var token: Node = _find_unit_token(unit_id)
+	if token == null:
+		return {"pass": false, "error": "no token found for unit %s" % unit_id}
+	var screen_pos := _node2d_to_screen(token)
+	if screen_pos == Vector2.INF:
+		return {"pass": false, "error": "could not project token to screen"}
+	await _send_hover(screen_pos)
+	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
+
+
+func _do_hover_board_at(step: Dictionary) -> Dictionary:
+	# Move the mouse to an arbitrary BOARD/WORLD position (board px) with a
+	# real buttonless InputEventMouseMotion. Projected like click_board_at.
+	# Use to hover empty board (e.g. assert a tooltip hides) or terrain.
+	if not (step.has("x") and step.has("y")):
+		return {"pass": false, "error": "hover_board_at needs x and y (world/board px)"}
+	var world_pos := Vector2(float(step["x"]), float(step["y"]))
+	var scene := get_tree().current_scene
+	if scene == null:
+		return {"pass": false, "error": "no current scene"}
+	var screen_pos: Vector2
+	if scene.has_method("world_to_screen_position"):
+		screen_pos = scene.world_to_screen_position(world_pos)
+	else:
+		var viewport := scene.get_viewport()
+		if viewport == null:
+			return {"pass": false, "error": "no viewport and no world_to_screen_position"}
+		screen_pos = viewport.get_canvas_transform() * world_pos
+	await _send_hover(screen_pos)
+	return {"pass": true, "world": [world_pos.x, world_pos.y], "screen": [screen_pos.x, screen_pos.y]}
+
+
+func _send_hover(screen_pos: Vector2) -> void:
+	# Warp the live cursor (board handlers read it) then inject a buttonless
+	# motion event so _input-driven hover UI reacts exactly as with a real
+	# mouse. Mirrors _send_click's warp rationale.
+	screen_pos = screen_pos.round()
+	var prev := get_viewport().get_mouse_position()
+	Input.warp_mouse(screen_pos)
+	await get_tree().process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = screen_pos
+	motion.global_position = screen_pos
+	motion.relative = screen_pos - prev
+	motion.button_mask = 0
+	Input.parse_input_event(motion)
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 
 func _do_simulate_key(step: Dictionary) -> Dictionary:

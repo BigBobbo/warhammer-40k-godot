@@ -134,6 +134,20 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "drag_board", "from_x": 200, "from_y": 100, "to_x": 255, "to_y": 170 }
   ```
 
+- `hover_unit`: locate the token for `unit_id` (like `click_unit`), warp the
+  cursor there and dispatch a real buttonless `InputEventMouseMotion`. The
+  player path for hover-driven UI (board token tooltip, hover forecasts).
+  ```json
+  { "act": "hover_unit", "unit_id": "U_WARBOSS_B" }
+  ```
+
+- `hover_board_at`: like `hover_unit` but for an arbitrary **board/world**
+  position (board px, projected like `click_board_at`). Use to hover empty
+  board — e.g. to assert a tooltip hides.
+  ```json
+  { "act": "hover_board_at", "x": 880.0, "y": 1200.0 }
+  ```
+
 - `simulate_key`: dispatch a keypress.
   ```json
   { "act": "simulate_key", "keycode": "KEY_ESCAPE" }

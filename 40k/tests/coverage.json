@@ -9,6 +9,15 @@
   ],
   "tiles": [
     {
+      "id": "ui.token_hover_tooltip",
+      "description": "Board token mouseover tooltip: hovering any model (own or opponent, anywhere on the board) shows the unit's real name, stats (M/T/Sv/W/OC from meta.stats), model count and wound totals; hovering empty board hides it. Regression guard for the screen-vs-board coordinate mixup that limited hover to one board region and the meta.* schema keys that had shown 'Unknown' / '?'.",
+      "scenarios": [
+        "token_hover_tooltip"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "autoloads.EffectPrimitives.PLUS_CHARGE",
       "description": "EffectPrimitives PLUS_CHARGE effect \u2014 sets effect_plus_charge flag on a unit",
       "scenarios": [
