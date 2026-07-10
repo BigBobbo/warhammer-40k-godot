@@ -182,6 +182,7 @@ Every objective on the board is scored based on:
 Each movable unit is assigned to the best objective (or a screening/blocking position) by computing:
 - **Distance** to each objective
 - **OC efficiency** — Units with high Objective Control value are preferred for contested objectives
+- **Incoming OC (COORD-2)** — Units that already took their move this phase and are en route to an objective count toward its OC need via the movement intent ledger (`_movement_intents`), so later units reinforce genuinely needy objectives instead of stacking one. Redirects are narrated in the game log ("obj_3 is already covered (Boyz en route) — redirecting to obj_4"). Failed moves clear their intent (`clear_movement_intent`).
 - **Threat zones** (Normal+) — Penalty for assignments that move through enemy charge/shooting threat ranges
 - **Secondary mission bonuses** — Positional bonuses from secondary awareness (e.g., +7.0 for Behind Enemy Lines zones)
 - **Screening assignments** (Hard+) — Cheap units may be assigned to screen against deep strike denial (9" denial zones)
@@ -190,6 +191,8 @@ Each movable unit is assigned to the best objective (or a screening/blocking pos
 #### Phase 3: Execute Best Assignment
 
 Units are processed in priority order: engaged units first, then by assignment score.
+
+At the first movement decision of the phase the AI logs a verbose **army battle plan** to the game log — one line per unit (HOLD / MOVE / ADVANCE / SCREEN, target objective, distance, reason). Each unit's detailed decision card (chosen option + top rejected alternatives with scores) is emitted once, at the moment that unit acts (COORD-3).
 
 **For engaged units** (`_decide_engaged_unit`):
 
@@ -364,7 +367,7 @@ Late-game (round 4+ with empty deck): Only truly impossible missions (score <0.1
 
 ### Multi-Phase Planning (Hard+)
 
-Built once at the start of the movement phase, the multi-phase plan coordinates across movement → shooting → charge:
+Built once at the start of the movement phase **per player** (COORD-1 — the plan caches are keyed by player so both AIs in an AI-vs-AI game each get their own plan), the multi-phase plan coordinates across movement → shooting → charge:
 
 1. **Charge intent**: Identifies melee units that can plausibly charge this turn (M + 12" reach). Scores each potential charge target.
 2. **Lock targets**: Identifies dangerous enemy shooters (ranged output >= 5.0 expected damage) that should be locked in combat.

@@ -2,6 +2,57 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.13.3",
+			"date": "2026-07-10",
+			"summary": "AI units no longer get stuck on walls or sprint across the board after distant enemies — both AI armies play noticeably tighter.",
+			"changes": [
+				"AI movement destinations are now checked against walls with the exact rule the game enforces, before the move is attempted. Wall-related move rejections dropped 99% in benchmarks (from ~49 per game to under 1), which un-stuck units that previously stood still for entire games (Caladius Grav-tank, Witchseekers, Lootas, Kommandos).",
+				"Only genuinely melee-focused units (Boyz, Warbosses, Meganobz...) now leave their objective assignments to hunt enemies — units with real guns fight from position instead of footslogging. One shared rule replaces three slightly different copies of this logic.",
+				"All hunters respect a chase cap (tunable MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES, default 20\"): enemies beyond any realistic move+advance+charge reach are ignored in favor of the mission. Previously units could chase targets 45+ inches away from round 1.",
+				"Benchmark validation: 10 more full AI-vs-AI games, zero stalls; Ork primary VP doubled again at pure defaults; Custodes play improved even more (their units were the most wall-stuck). Full analysis in tests/bench_baselines/2026-07-10_mechanism_fixes.md.",
+				"Known remaining gaps (documented, next up): the AI doesn't know how to move AIRCRAFT (the Wazbom Blastajet idles all game), and large hordes sometimes fail to find placement room around friendly vehicles."
+			]
+		},
+		{
+			"version": "0.13.2",
+			"date": "2026-07-10",
+			"summary": "The Ork AI now actually plays the mission: benchmark-driven tuning stopped its whole army chasing enemies across the board while objectives sat unclaimed.",
+			"changes": [
+				"Diagnosed via 60 AI-vs-AI benchmark games: with faction aggression 1.8, 7-11 of ~14 Ork units chased enemies every round (round-1 chases at 45+ inches) — even shooty units like Lootas and Kaptin Badrukk — and Ork primary VP starved at ~6 per game with the army still alive.",
+				"Tuned Ork faction aggression from 1.8 to 1.2 (the exact value validated in A/B benchmark arms): truly melee-focused units (Boyz, Warbosses) still hunt, but mixed and ranged units now follow their objective assignments. Ork primary VP roughly tripled (~6 to ~21 per game) and the average loss margin vs Custodes at Hard halved (-28 to -15), producing the first Ork draw and win in benchmark history.",
+				"Measured first-turn advantage with a turn-swapped fixture: ~19 VP at Hard, ~9 at Normal. Combined with the tuning, disciplined Orks going first play the Custodes to rough parity.",
+				"All experiment tooling is committed and reusable: turn-swapped fixture, two Ork tuning profiles (tests/bench_profiles/), and three analysis reports under tests/bench_baselines/."
+			]
+		},
+		{
+			"version": "0.13.1",
+			"date": "2026-07-10",
+			"summary": "A 20-game AI-vs-AI benchmark soak found and fixed three ways games could freeze mid-battle, plus a wasted Ork heal.",
+			"changes": [
+				"Fixed games freezing near the end of big movement phases: the AI's runaway-loop safety cap counted every model's move as an 'action', so armies with lots of models tripped it mid-phase and the game locked up (especially when the Painboss heal window opened at the same moment). The cap now only trips after 200 consecutive attempts that make no progress, and when it does trip it can resolve any pending window instead of freezing.",
+				"Fixed fight-phase stratagems being rejected when used during the opponent's turn (e.g. Orks using Unbridled Carnage in your fight phase) — the game validated them against whoever's turn it was instead of who was using them.",
+				"Fixed AI-vs-AI fights where the second AI player picked fight activations from the first AI's plan, which could silently end the fight phase early.",
+				"The Painboss's Sawbonez heal now actually heals: the AI was dropping the target model when using it, so the heal did nothing. It also now picks the most-wounded eligible model.",
+				"Committed the first AI benchmark baseline (tests/bench_baselines/): 20 games across Normal and Hard, all seeds now complete without stalls."
+			]
+		},
+		{
+			"version": "0.13.0",
+			"date": "2026-07-09",
+			"summary": "The AI now coordinates its movement phase like an army: units know what their squadmates are already doing, and the whole battle plan is narrated in the game log.",
+			"changes": [
+				"Coordinated movement: units that already moved this phase count as 'en route' to their objective, so later units reinforce objectives that still need help instead of stacking onto the same one. Redirects are explained in the log ('obj_3 is already covered (Boyz en route) — redirecting to obj_4').",
+				"At the start of the AI's movement phase the game log shows its full army battle plan as its own card: one line per unit with its role (HOLD / MOVE / ADVANCE / SCREEN), target objective, distance and reason.",
+				"Each unit's detailed decision card (chosen option plus the top rejected alternatives with scores) now appears once, at the moment that unit acts — the log no longer repeats every unit's reasoning on every single action.",
+				"Fixed AI-vs-AI games where the second player each round silently played without its multi-phase plan (no charge intents, no 'lock the shooters' targets): the plan is now built per player.",
+				"Fixed AI reasoning leaking between decisions: a Command Re-roll card no longer swallows the previous decision's thinking lines.",
+				"The AI is now hand-tunable without touching code: edit data/ai_config.json (ships with the game) to override any of its ~90 scoring weights; per-player profiles and conditional rules layer on top. Full guide: docs/AI_TUNING.md. Also fixed profile rules firing in the wrong phase (a stale phase-name map meant 'MOVEMENT' rules ran during Scout).",
+				"Fixed AI-vs-AI games freezing in the fight phase: when a forced fight interrupted the global Consolidate step, the wrong AI kept trying to end the other player's half forever. The AI now always acts as whoever's half of the pile-in/consolidate step it actually is.",
+				"Fixed a script error in Bomb Squigs / Scatter targeting (wrong pixels-per-inch constant).",
+				"Windowed scenarios that let the AI play a turn are no longer flaky: the secondary-mission deck shuffle now respects the scenario's RNG seed, so the AI can't randomly draw a card that pauses it behind a human-only dialog mid-test."
+			]
+		},
+		{
 			"version": "0.12.0",
 			"date": "2026-07-10",
 			"summary": "Click a unit on the battlefield to select it in the Movement and Shooting phases — no more hunting for it in the right-hand list. If your current unit is mid-move or has targets staged, a 'Switch Unit?' popup asks before switching so nothing is lost by accident.",

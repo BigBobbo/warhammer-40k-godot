@@ -1,0 +1,39 @@
+{
+  "id": "ai_coordinated_movement",
+  "covers": [
+    "ai.movement.battle_plan_logged",
+    "ai.movement.intent_ledger",
+    "ai.movement.per_unit_decision_cards",
+    "ai.thinking.verbose_game_log",
+    "ui.GameLogPanel.ai_thinking_cards"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "edition": 11,
+  "rng_seed": 17,
+  "description": "COORD gate: P2 (Orks, AI at Hard) plays Command then Movement live. Asserts (a) the once-per-phase army-wide 'Movement plan' battle-plan block reaches GameEventLog with per-unit role lines (OC annotations), (b) per-unit decision reasoning ('[movement]: chose ... / rejected ...') is narrated as each unit acts rather than flooding every action, (c) the multi-phase plan builds for P2 at Hard (per-player plan cache, COORD-1), (d) the log panel renders the AI cards. Screenshots capture the left log panel with the plan visible.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"}, {2: 2})" },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(2)" },
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "GameState.set_active_player(2)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(7)" },
+
+    { "act": "wait_seconds", "seconds": 2.5 },
+    { "act": "screenshot", "label": "01_movement_battle_plan_left_log", "region": [0, 105, 400, 720] },
+
+    { "act": "wait_seconds", "seconds": 3.0 },
+    { "act": "screenshot", "label": "02_movement_per_unit_cards", "region": [0, 105, 400, 720] },
+
+    { "act": "wait_seconds", "seconds": 12.0 },
+    { "act": "execute_script", "script": "GameEventLog.has_ai_entry_containing_any([\"Movement plan\"])", "equals": true },
+    { "act": "execute_script", "script": "GameEventLog.has_ai_entry_containing_any([\"(OC\"])", "equals": true },
+    { "act": "execute_script", "script": "GameEventLog.has_ai_entry_containing_any([\"[movement]: chose\"])", "equals": true },
+    { "act": "execute_script", "script": "GameEventLog.has_ai_entry_containing_any([\"rejected\"])", "equals": true },
+    { "act": "execute_script", "script": "GameEventLog.has_ai_entry_containing_any([\"Multi-phase plan\"])", "equals": true },
+    { "act": "execute_script", "script": "GameEventLog.count_ai_thinking_entries()", "expect_min": 4 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_ai_card_count()", "expect_min": 2 },
+
+    { "act": "screenshot", "label": "03_full_screen_ai_movement" }
+  ]
+}
