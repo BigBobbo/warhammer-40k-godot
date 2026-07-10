@@ -16,7 +16,7 @@ extends SceneTree
 #   5. Devoted to Destruction: melee-only +2 Attacks (fight phase flag).
 #   6. Sneaky Gitz: unit excluded from Fire Overwatch eligibility.
 #   7. Bodyguard: second leader-role attachment allowed, third rejected.
-#   8. Admonimortis: bearer death 4+ = D3 mortal wounds to nearest enemy in 6".
+#   8. Admonimortis: DORMANT (no 11e rule in the 40kdc dataset) — pinned off.
 #   9. StateSerializer 1.2.0 -> 1.3.0 migration canonicalizes ability names.
 #
 # The windowed analogues live in tests/scenarios/sp/fullauto_*.json.
@@ -443,20 +443,31 @@ func _test_admonimortis() -> void:
 		if hit_seed != -1 and miss_seed != -1:
 			break
 
-	var res_hit = rules.resolve_admonimortis("U_BEARER", board, rules.RNGService.new(hit_seed))
-	_check("applicable on bearer with enhancement", res_hit.get("applicable", false))
-	_check("triggers on 4+", res_hit.get("triggered", false))
-	_check("targets the NEAREST enemy unit", res_hit.get("target_unit_id", "") == "U_NEAR_ENEMY", str(res_hit))
-	_check("deals 1-3 mortal wounds", res_hit.get("mortal_wounds", 0) >= 1 and res_hit.get("mortal_wounds", 0) <= 3)
-	_check("produces damage diffs", res_hit.get("diffs", []).size() > 0)
+	# 11e policy: the 40kdc dataset ships no rule for Admonimortis (ability_id
+	# null at 1.0.24), so the bearer-death trigger is DORMANT until official
+	# 11e text lands (RulesEngine.ADMONIMORTIS_11E_ENABLED). Pin that state —
+	# and keep the original behavior checks behind the flag so re-enabling
+	# revives them unchanged.
+	if rules.ADMONIMORTIS_11E_ENABLED:
+		var res_hit = rules.resolve_admonimortis("U_BEARER", board, rules.RNGService.new(hit_seed))
+		_check("applicable on bearer with enhancement", res_hit.get("applicable", false))
+		_check("triggers on 4+", res_hit.get("triggered", false))
+		_check("targets the NEAREST enemy unit", res_hit.get("target_unit_id", "") == "U_NEAR_ENEMY", str(res_hit))
+		_check("deals 1-3 mortal wounds", res_hit.get("mortal_wounds", 0) >= 1 and res_hit.get("mortal_wounds", 0) <= 3)
+		_check("produces damage diffs", res_hit.get("diffs", []).size() > 0)
 
-	var res_miss = rules.resolve_admonimortis("U_BEARER", board, rules.RNGService.new(miss_seed))
-	_check("does not trigger below 4", not res_miss.get("triggered", true))
+		var res_miss = rules.resolve_admonimortis("U_BEARER", board, rules.RNGService.new(miss_seed))
+		_check("does not trigger below 4", not res_miss.get("triggered", true))
 
-	var no_enh = board.duplicate(true)
-	no_enh["units"]["U_BEARER"]["meta"]["enhancements"] = []
-	var res_na = rules.resolve_admonimortis("U_BEARER", no_enh, rules.RNGService.new(hit_seed))
-	_check("not applicable without the enhancement", not res_na.get("applicable", true))
+		var no_enh = board.duplicate(true)
+		no_enh["units"]["U_BEARER"]["meta"]["enhancements"] = []
+		var res_na = rules.resolve_admonimortis("U_BEARER", no_enh, rules.RNGService.new(hit_seed))
+		_check("not applicable without the enhancement", not res_na.get("applicable", true))
+	else:
+		var res_dormant = rules.resolve_admonimortis("U_BEARER", board, rules.RNGService.new(hit_seed))
+		_check("dormant: not applicable while no 11e rule exists", not res_dormant.get("applicable", true), str(res_dormant))
+		_check("dormant: never triggers", not res_dormant.get("triggered", true))
+		_check("dormant: produces no diffs", res_dormant.get("diffs", []).is_empty())
 
 func _test_serializer_migration() -> void:
 	print("\n-- StateSerializer 1.2.0 -> 1.3.0: ability name canonicalization --")

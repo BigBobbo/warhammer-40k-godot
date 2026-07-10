@@ -10161,19 +10161,6 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 				ws_per_attack.append(vsp_ws)
 			print("RulesEngine: Effect +%d Attacks vs PSYKER for '%s' (melee) → +%d total" % [vs_psyker_bonus, weapon_name, vs_psyker_total])
 
-	# FIERCE CONQUEROR (Lions of the Emperor enhancement): add 2 to the Attacks
-	# characteristic of the bearer's melee weapons for every 5 enemy models
-	# within 6" of the bearer (rounded down).
-	if model_count > 0 and not is_extra_attacks_weapon:
-		var fierce_bonus_per_model = get_fierce_conqueror_bonus_attacks(attacker_unit, board)
-		if fierce_bonus_per_model > 0:
-			var fierce_total = fierce_bonus_per_model * model_count
-			total_attacks += fierce_total
-			var fc_ws = weapon_profile.get("ws", 4)
-			for _j in range(fierce_total):
-				ws_per_attack.append(fc_ws)
-			print("RulesEngine: FIERCE CONQUEROR — +%d Attacks per model for '%s' (melee) → +%d total" % [fierce_bonus_per_model, weapon_name, fierce_total])
-
 	# 11e [CLEAVE X] (24.06): if this weapon makes all its attacks against a
 	# single target unit, add X dice for every 5 models in the target (melee
 	# blast). Melee attack-splitting isn't modelled, so a melee weapon always
@@ -12601,14 +12588,22 @@ static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, b
 		"total_casualties": total_casualties
 	}
 
+# Admonimortis: the 40kdc 11e dataset ships NO rule for this enhancement
+# (ability_id null, still true at @alpaca-software/40kdc-data 1.0.24) and the
+# project only implements 11th-edition rules. The bearer-death trigger below
+# implemented an unsourced rule; it stays dormant behind this flag until
+# official 11e text lands.
+const ADMONIMORTIS_11E_ENABLED := false
+
 static func resolve_admonimortis(destroyed_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
-	"""Admonimortis (Lions of the Emperor enhancement): when the bearer is
-	destroyed, roll one D6 — on 4+, one enemy unit within 6\" suffers D3 mortal
-	wounds. The nearest enemy unit is auto-selected (logged for the player).
-	Returns { applicable, triggered, trigger_roll, diffs, target_unit_id,
-	target_name, mortal_wounds, casualties }."""
+	"""Admonimortis (Lions of the Emperor enhancement) — DORMANT until the 11e
+	rule is published (see ADMONIMORTIS_11E_ENABLED). Kept intact for easy
+	re-enabling. Returns { applicable, triggered, trigger_roll, diffs,
+	target_unit_id, target_name, mortal_wounds, casualties }."""
 	var not_applicable = {"applicable": false, "triggered": false, "trigger_roll": 0,
 		"diffs": [], "target_unit_id": "", "target_name": "", "mortal_wounds": 0, "casualties": 0}
+	if not ADMONIMORTIS_11E_ENABLED:
+		return not_applicable
 
 	var units = board.get("units", {})
 	var destroyed_unit = units.get(destroyed_unit_id, {})
@@ -12661,193 +12656,6 @@ static func resolve_admonimortis(destroyed_unit_id: String, board: Dictionary, r
 	return {"applicable": true, "triggered": true, "trigger_roll": trigger_roll,
 		"diffs": mw_result.get("diffs", []), "target_unit_id": nearest_id, "target_name": nearest_name,
 		"mortal_wounds": mortal_wounds, "casualties": mw_result.get("casualties", 0)}
-
-static func unit_has_enhancement(unit: Dictionary, enhancement_name: String) -> bool:
-	"""True if the unit's meta.enhancements list carries the named enhancement
-	(entries may be plain strings or {name: ...} dictionaries)."""
-	for enh in unit.get("meta", {}).get("enhancements", []):
-		var enh_name = enh if enh is String else (enh.get("name", "") if enh is Dictionary else "")
-		if enh_name == enhancement_name:
-			return true
-	return false
-
-static func get_fierce_conqueror_bonus_attacks(attacker_unit: Dictionary, board: Dictionary) -> int:
-	"""Fierce Conqueror (Lions of the Emperor enhancement): add 2 to the Attacks
-	characteristic of the bearer's melee weapons for every 5 enemy models within
-	6\" of the bearer (rounded down). Returns the per-model Attacks bonus —
-	0 when the unit lacks the enhancement or fewer than 5 enemy models are close."""
-	if not unit_has_enhancement(attacker_unit, "Fierce Conqueror"):
-		return 0
-	var owner = attacker_unit.get("owner", 0)
-	var bearer_models: Array = []
-	for bm in attacker_unit.get("models", []):
-		if bm.get("alive", true) and bm.get("position", null) != null:
-			bearer_models.append(bm)
-	if bearer_models.is_empty():
-		return 0
-	var enemy_models_close = 0
-	for other_id in board.get("units", {}):
-		var other = board["units"][other_id]
-		if other.get("owner", 0) == owner:
-			continue
-		if other.get("embarked_in", null) != null:
-			continue
-		for om in other.get("models", []):
-			if not om.get("alive", true) or om.get("position", null) == null:
-				continue
-			for bm in bearer_models:
-				var dist_px = Measurement.model_to_model_distance_px(bm, om)
-				if Measurement.px_to_inches(dist_px) <= 6.0:
-					enemy_models_close += 1
-					break
-	var bonus = int(enemy_models_close / 5) * 2
-	if bonus > 0:
-		print("RulesEngine: FIERCE CONQUEROR — %d enemy models within 6\" of bearer → +%d Attacks" % [enemy_models_close, bonus])
-	return bonus
-
-# ==========================================
-# SUPERIOR CREATION (Lions of the Emperor enhancement)
-# ==========================================
-# "Adeptus Custodes Infantry model only. The first time the bearer is
-# destroyed, roll one D6 at the end of the phase. On a 2+, set the bearer back
-# up on the battlefield, as close as possible to where it was destroyed and
-# not within Engagement Range of one or more enemy units, with its full wounds
-# remaining."
-
-static func record_superior_creation_death(destroyed_unit_id: String, board: Dictionary) -> Dictionary:
-	"""Called when a unit is destroyed: if it carries Superior Creation and the
-	once-per-battle revival is unspent, mark a pending end-of-phase revival
-	(PhaseManager rolls it in resolve_superior_creation_revivals). Returns
-	{applicable: bool, diffs: Array}."""
-	var not_applicable = {"applicable": false, "diffs": []}
-	var unit = board.get("units", {}).get(destroyed_unit_id, {})
-	if unit.is_empty():
-		return not_applicable
-	if not unit_has_enhancement(unit, "Superior Creation"):
-		return not_applicable
-	if unit.get("flags", {}).get("superior_creation_used", false):
-		return not_applicable
-	if unit.get("flags", {}).get("superior_creation_pending", null) != null:
-		return not_applicable
-	# Bearer death position: last recorded model position (the bearer is a
-	# single-model CHARACTER unit; dead models keep their position field).
-	var death_pos = null
-	for m in unit.get("models", []):
-		var p = m.get("position", null)
-		if p != null:
-			death_pos = p
-	if death_pos == null:
-		return not_applicable
-	var pos_dict = {"x": 0.0, "y": 0.0}
-	if death_pos is Vector2:
-		pos_dict = {"x": death_pos.x, "y": death_pos.y}
-	elif death_pos is Dictionary:
-		pos_dict = {"x": float(death_pos.get("x", 0)), "y": float(death_pos.get("y", 0))}
-	var unit_name = unit.get("meta", {}).get("name", destroyed_unit_id)
-	print("RulesEngine: SUPERIOR CREATION — %s destroyed, revival roll queued for end of phase" % unit_name)
-	return {"applicable": true, "diffs": [
-		{"op": "set", "path": "units.%s.flags.superior_creation_used" % destroyed_unit_id, "value": true},
-		{"op": "set", "path": "units.%s.flags.superior_creation_pending" % destroyed_unit_id, "value": pos_dict},
-	]}
-
-static func resolve_superior_creation_revivals(board: Dictionary, rng: RNGService = null) -> Dictionary:
-	"""End of phase: roll each pending Superior Creation revival. On a 2+ the
-	bearer is set back up with full wounds as close as possible to where it was
-	destroyed and outside Engagement Range of enemy units; on a 1 it stays
-	destroyed. Returns {diffs: Array, log_lines: Array}."""
-	var result = {"diffs": [], "log_lines": []}
-	if rng == null:
-		rng = make_rng()
-	var units = board.get("units", {})
-	for unit_id in units:
-		var unit = units[unit_id]
-		var pending = unit.get("flags", {}).get("superior_creation_pending", null)
-		if pending == null:
-			continue
-		# Always consume the pending marker — the roll happens exactly once.
-		result.diffs.append({"op": "set", "path": "units.%s.flags.superior_creation_pending" % unit_id, "value": null})
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		var roll = rng.roll_d6(1)[0]
-		if roll < 2:
-			result.log_lines.append("SUPERIOR CREATION: %s revival roll %d — fails (needed 2+)" % [unit_name, roll])
-			print("RulesEngine: SUPERIOR CREATION — %s rolled %d, stays destroyed" % [unit_name, roll])
-			continue
-		var death_pos = Vector2(float(pending.get("x", 0)), float(pending.get("y", 0)))
-		var models = unit.get("models", [])
-		# Revive the bearer model (single-model unit: index of the last model
-		# with a recorded position).
-		var bearer_idx = -1
-		for i in range(models.size()):
-			if models[i].get("position", null) != null:
-				bearer_idx = i
-		if bearer_idx < 0:
-			bearer_idx = 0
-		var bearer = models[bearer_idx] if bearer_idx < models.size() else {}
-		var base_mm = int(bearer.get("base_size_mm", bearer.get("base_mm", 32)))
-		var radius_px = Measurement.base_radius_px(base_mm)
-		var revive_pos = _find_superior_creation_position(death_pos, radius_px, unit.get("owner", 0), board)
-		result.diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, bearer_idx], "value": true})
-		result.diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, bearer_idx], "value": bearer.get("wounds", 1)})
-		result.diffs.append({"op": "set", "path": "units.%s.models.%d.position" % [unit_id, bearer_idx], "value": {"x": revive_pos.x, "y": revive_pos.y}})
-		result.log_lines.append("SUPERIOR CREATION: %s revival roll %d — returns with full wounds (once per battle)" % [unit_name, roll])
-		print("RulesEngine: SUPERIOR CREATION — %s rolled %d, set back up at (%.0f, %.0f)" % [unit_name, roll, revive_pos.x, revive_pos.y])
-	return result
-
-static func _find_superior_creation_position(death_pos: Vector2, radius_px: float, owner: int, board: Dictionary) -> Vector2:
-	"""Closest spot to the death position that is outside Engagement Range (1\")
-	of every enemy model and not overlapping any model's base. Searches the
-	death position first, then rings outward in 0.5\" steps (up to 18\")."""
-	if _superior_creation_spot_legal(death_pos, radius_px, owner, board):
-		return death_pos
-	var step_px = Measurement.inches_to_px(0.5)
-	for ring in range(1, 37):  # 0.5" .. 18"
-		var ring_radius = step_px * ring
-		for angle_step in range(0, 12):
-			var angle = angle_step * PI / 6.0
-			var candidate = death_pos + Vector2(cos(angle), sin(angle)) * ring_radius
-			if not _position_on_battlefield(candidate, radius_px, board):
-				continue
-			if _superior_creation_spot_legal(candidate, radius_px, owner, board):
-				return candidate
-	# No legal spot found — fall back to the death position (still better than
-	# losing the model to a placement failure).
-	print("RulesEngine: SUPERIOR CREATION — no legal spot within 18\" of death position, using death position")
-	return death_pos
-
-static func _superior_creation_spot_legal(pos: Vector2, radius_px: float, owner: int, board: Dictionary) -> bool:
-	for other_id in board.get("units", {}):
-		var other = board["units"][other_id]
-		var is_enemy = other.get("owner", 0) != owner
-		for om in other.get("models", []):
-			if not om.get("alive", true):
-				continue
-			var op = om.get("position", null)
-			if op == null:
-				continue
-			var opos = Vector2(0, 0)
-			if op is Vector2:
-				opos = op
-			elif op is Dictionary:
-				opos = Vector2(float(op.get("x", 0)), float(op.get("y", 0)))
-			var other_radius = Measurement.base_radius_px(int(om.get("base_size_mm", om.get("base_mm", 32))))
-			var center_dist = pos.distance_to(opos)
-			# No base overlap with any model
-			if center_dist < radius_px + other_radius:
-				return false
-			# Outside Engagement Range (1") of every enemy model
-			if is_enemy:
-				var edge_in = Measurement.px_to_inches(center_dist - radius_px - other_radius)
-				if edge_in < 1.0:
-					return false
-	return true
-
-static func _position_on_battlefield(pos: Vector2, radius_px: float, board: Dictionary) -> bool:
-	var size = board.get("board", {}).get("size", {})
-	if size.is_empty():
-		return true
-	var w_px = Measurement.inches_to_px(float(size.get("width", 44)))
-	var h_px = Measurement.inches_to_px(float(size.get("height", 60)))
-	return pos.x >= radius_px and pos.y >= radius_px and pos.x <= w_px - radius_px and pos.y <= h_px - radius_px
 
 # ==========================================
 # TRANSPORT DESTRUCTION (P1-60)

@@ -950,17 +950,16 @@ func _apply_enhancement_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 # EXPLOSIVES core stratagems' keyword gates, ...) work unchanged.
 
 const ENHANCEMENT_GRANTED_ABILITIES: Dictionary = {
-	# Lions of the Emperor (10e): "The bearer has the Lone Operative and
-	# Stealth abilities."
-	"Praesidius": ["Lone Operative", "Stealth"],
+	# (empty — Lions of the Emperor enhancements have no published 11e rules
+	# in the 40kdc dataset yet; do not backfill from 10e sources. Praesidius
+	# et al. get entries here once official 11e text lands.)
 }
 
 const ENHANCEMENT_GRANTED_KEYWORDS: Dictionary = {
-	# Silent Hunters (Anathema Psykana Upgrade enhancement): the 40kdc data
-	# grants the unit the Explosives keyword. Grant GRENADES alongside it so
-	# the 10e GRENADE core stratagem's keyword gate also recognises the unit
-	# (the 11e EXPLOSIVES core stratagem accepts either).
-	"Psyk-out Grenades": ["EXPLOSIVES", "GRENADES"],
+	# Silent Hunters (Anathema Psykana Upgrade enhancement): the 40kdc 11e
+	# ability data grants the unit the Explosives keyword — the 11e EXPLOSIVES
+	# core stratagem's gate accepts it.
+	"Psyk-out Grenades": ["EXPLOSIVES"],
 }
 
 func _apply_enhancement_granted_abilities(unit_id: String, unit: Dictionary) -> void:

@@ -3,16 +3,16 @@
 	"releases": [
 		{
 			"version": "0.9.0",
-			"date": "2026-07-09",
-			"summary": "Both Adeptus Custodes detachments — Lions of the Emperor and Silent Hunters — are now fully playable: all 9 detachment stratagems work mechanically, all 6 enhancements have real rules effects, and both detachment rules are enforced (including the new Silent Hunters rule).",
+			"date": "2026-07-10",
+			"summary": "The Silent Hunters detachment (Adeptus Custodes) is now fully playable from official 11th-edition data — detachment rule, both enhancements and all three stratagems — and the Lions of the Emperor detachment rule got two fixes. Lions stratagems/enhancements stay display-only until their official 11e rules are published (this game implements 11th-edition rules only).",
 			"changes": [
-				"Lions of the Emperor stratagems: Peerless Warrior (melee [PRECISION]), Gilded Champion (re-use a spent once-per-battle ability — not in the same phase, once per battle per model) and Manoeuvre and Fire (shoot + charge after Falling Back) now work; Defiant to the Last, Swift as the Eagle and Unleash the Lions keep their existing handlers and all six now show their official rules text instead of a placeholder.",
 				"Silent Hunters stratagems now work: Deathsong Scythes (Vigilators melee gains [LANCE] and +1 Attack vs Psykers), Umbral Prosecution (Prosecutors ranged weapons gain [RAPID FIRE 2] and +1 AP) and Synchronised Inferno (Witchseekers ranged weapons gain [BLAST]).",
-				"New enhancement effects: Superior Creation (first death: 2+ at end of phase returns the bearer with full wounds, placed outside Engagement Range), Praesidius (bearer gains Lone Operative and Stealth), Fierce Conqueror (+2 melee Attacks per 5 enemy models within 6\" of the bearer), Encircling Hunter (after deployment redeploy up to 3 Anathema Psykana Infantry units, Strategic Reserves allowed) and Psyk-out Grenades (unit gains the EXPLOSIVES/GRENADES keyword for the grenade stratagems).",
 				"Silent Hunters detachment rule 'Skin-Crawling Disorientation': Anathema Psykana units can now perform mission actions (rituals, terraform, burn, secondary actions) in a turn in which they Advanced.",
-				"Against All Odds (Lions detachment rule) fixes: the +1 to hit now also applies in melee (previously ranged only), and the buff is correctly limited to armies running the Lions of the Emperor detachment (Shield Host armies no longer benefit).",
+				"Silent Hunters enhancements now work: Encircling Hunter (after deployment redeploy up to 3 Anathema Psykana Infantry units, Strategic Reserves allowed) and Psyk-out Grenades (unit gains the EXPLOSIVES keyword for the Explosives stratagem).",
+				"Against All Odds (Lions detachment rule, the one Lions rule with published 11e data) fixes: the +1 to hit now also applies in melee (previously ranged only), and the buff is correctly limited to armies running the Lions of the Emperor detachment (Shield Host armies no longer benefit).",
+				"11th-edition-only policy applied to Lions of the Emperor: the six stratagems and four enhancements have no published 11e rules in the dataset yet, so they are shown as display-only entries and cannot be activated. The previous Defiant to the Last / Swift as the Eagle / Unleash the Lions / Admonimortis behaviours (which used 10th-edition or unsourced rules) are dormant until official 11e text lands.",
 				"Stratagem-granted [LANCE] now actually adds +1 to wound on the charge (it previously set a flag nothing read) — this also fixes Servo-driven Charge (AdMech) and Plunging Talons (CSM).",
-				"Fixed: loading a save whose armies differ from the defaults (e.g. a Lions of the Emperor game) restored the stratagem list but not the stratagem definitions, so faction stratagems failed with 'Unknown stratagem' after a restart."
+				"Fixed: loading a save whose armies differ from the defaults restored the stratagem list but not the stratagem definitions, so faction stratagems failed with 'Unknown stratagem' after a restart."
 			]
 		},
 		{

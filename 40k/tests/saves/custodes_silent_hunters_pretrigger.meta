@@ -1,9 +1,9 @@
 {
-	"created_at": 1783654277.39216,
-	"description": "Fixture: Adeptus_Custodes_1995_Mar_7 (Lions of the Emperor) vs orks (War Horde), all deployed, command phase R1P1",
+	"created_at": 1783654011.52727,
+	"description": "Fixture: Adeptus_Custodes_1995_Mar_7 as Silent Hunters vs orks (War Horde), all deployed, command phase R1P1",
 	"game_state": {
 		"active_player": 1,
-		"game_id": "28fdae12-4c0c-60b4-89b9-3fba77d4313d590d",
+		"game_id": "7892be6d-353e-e883-b2f6-b0fb53d749cf5da",
 		"is_multiplayer": false,
 		"phase": 6,
 		"player1_difficulty": -1,
@@ -19,7 +19,7 @@
 				"alive_models": 45,
 				"alive_units": 16,
 				"cp": 3,
-				"detachment": "Lions of the Emperor",
+				"detachment": "Silent Hunters",
 				"faction": "Adeptus Custodes",
 				"points": 1995.0,
 				"primary_vp": 0,
@@ -79,7 +79,7 @@
 		}
 	},
 	"save_info": {
-		"description": "Fixture: Adeptus_Custodes_1995_Mar_7 (Lions of the Emperor) vs orks (War Horde), all deployed, command phase R1P1",
+		"description": "Fixture: Adeptus_Custodes_1995_Mar_7 as Silent Hunters vs orks (War Horde), all deployed, command phase R1P1",
 		"save_type": "manual",
 		"tags": []
 	},

@@ -484,48 +484,19 @@ const CURATED_STRATAGEMS = {
     effects: [{ type: 'grant_lethal_hits' }],
   },
   // ── Adeptus Custodes — Lions of the Emperor ───────────────────────────
-  // The 40kdc dataset ships these six with ability_id: null (no 11e text);
-  // WHEN/TARGET/EFFECT below restore the official 10e wording. Three of them
-  // (Defiant to the Last, Swift as the Eagle, Unleash the Lions) resolve via
-  // purpose-built handlers in StratagemManager/phases — their `effects` stay
-  // empty and _mark_custom_implemented_stratagems flags them implemented.
-  'peerless-warrior-lions-of-the-emperor': {
-    target: 'One ADEPTUS CUSTODES unit from your army that has not been selected to fight this phase.',
-    effect: 'Until the end of the phase, melee weapons equipped by models in your unit have the [PRECISION] ability.',
-    effects: [{ type: 'grant_precision', scope: 'melee' }],
-  },
-  'gilded-champion-lions-of-the-emperor': {
-    when: "Any phase, just after an ADEPTUS CUSTODES CHARACTER model from your army has used an ability on its datasheet that states it can only be used 'once per battle'.",
-    target: 'That ADEPTUS CUSTODES CHARACTER model.',
-    effect: "Your model can use that 'once per battle' ability one additional time during the battle (but not in the same phase). You cannot use this Stratagem on the same ADEPTUS CUSTODES CHARACTER model more than once per battle.",
-    effects: [], // custom handler (StratagemManager: clears the once-per-battle usage flag)
-  },
-  'defiant-to-the-last-lions-of-the-emperor': {
-    when: 'Fight phase, just after an enemy unit has selected its targets.',
-    target: "One ADEPTUS CUSTODES unit from your army that was selected as the target of one or more of the attacking unit's attacks.",
-    effect: 'Until the end of the phase, each time a model in your unit is destroyed, if that model has not fought this phase, roll one D6, adding 2 to the result if that model has the CHARACTER keyword. On a 4+, do not remove it from play; the destroyed model can fight after the attacking unit has finished making its attacks, and is then removed from play.',
-    effects: [], // custom handler (RulesEngine swing-back-on-death path)
-  },
-  'unleash-the-lions-lions-of-the-emperor': {
-    target: 'One Allarus Custodians or Aquilon Custodians unit from your army that is on the battlefield.',
-    effect: 'That unit is split into separate units, each containing one model. These new units each have a Starting Strength of 1.',
-    effects: [], // custom handler (CommandPhase USE_UNLEASH_THE_LIONS action)
-  },
-  'manoeuvre-and-fire-lions-of-the-emperor': {
-    when: 'Your Movement phase, just after an ADEPTUS CUSTODES unit from your army Falls Back.',
-    target: 'One ADEPTUS CUSTODES unit from your army that Fell Back this phase.',
-    effect: 'Until the end of the turn, your unit is eligible to shoot and declare a charge in a turn in which it Fell Back.',
-    effects: [{ type: 'fall_back_and_shoot' }, { type: 'fall_back_and_charge' }],
-  },
-  'swift-as-the-eagle-lions-of-the-emperor': {
-    when: "Your opponent's Shooting phase, just after an enemy unit has shot.",
-    target: "One ADEPTUS CUSTODES unit from your army (excluding VEHICLE units) that was selected as the target of one or more of the attacking unit's attacks.",
-    effect: 'Your unit can make a Normal move of up to D6".',
-    effects: [], // custom handler (ShootingPhase reactive move offer)
-  },
+  // NOT curated on purpose: the 40kdc dataset ships all six Lions stratagems
+  // with ability_id: null ("Official 11e effect text is not available", still
+  // true as of @alpaca-software/40kdc-data 1.0.24). Per project policy the
+  // game only implements 11th-edition rules, so these rows stay display-only
+  // stubs until upstream publishes the real 11e text — do NOT backfill them
+  // from 10e sources. (StratagemManager keeps dormant handlers for Defiant to
+  // the Last / Swift as the Eagle / Unleash the Lions / Gilded Champion,
+  // ready to re-enable once official text lands.)
+  //
   // ── Adeptus Custodes — Silent Hunters ─────────────────────────────────
-  // These three carry 40kdc ability payloads whose leaf types the generic
-  // compiler vetoes (keyword grants with rider clauses); hand-compile them.
+  // These three carry 40kdc 11e ability payloads whose leaf types the generic
+  // compiler vetoes (keyword grants with rider clauses); hand-compile them —
+  // the WHEN/TARGET/EFFECT text below restates the dataset's own effect data.
   'deathsong-scythes-silent-hunters': {
     target: 'One VIGILATORS unit from your army.',
     effect: "Until the end of the phase, melee weapons equipped by models in your unit have the [LANCE] ability. In addition, each time a model in your unit makes a melee attack that targets a PSYKER unit, add 1 to the Attacks characteristic of that attack's weapon.",

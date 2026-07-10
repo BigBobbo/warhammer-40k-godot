@@ -1698,15 +1698,6 @@ var _active_aura_effects: Dictionary = {}
 # Key: "unit_id:ability_name", Value: true (used)
 var _once_per_battle_used: Dictionary = {}
 
-# Usage keys in the order they were marked (newest last) — GILDED CHAMPION
-# restores the target's most recently spent once-per-battle ability.
-var _once_per_battle_order: Array = []
-
-# GILDED CHAMPION (Lions of the Emperor): a restored once-per-battle ability
-# cannot be used again in the phase the stratagem was used in.
-# Key: "unit_id:ability_name", Value: {"round": int, "phase": int, "player": int}
-var _gilded_champion_block: Dictionary = {}
-
 # Track once-per-battle-round ability usage (e.g., Strategic Mastery)
 # Key: "player:ability_name", Value: battle_round_number (last used round)
 var _once_per_round_used: Dictionary = {}
@@ -1832,10 +1823,10 @@ func _apply_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictiona
 			if not _is_relevant_for_phase(effect_def, phase):
 				continue
 
-			# Check once-per-battle restriction (routed through the query so the
-			# GILDED CHAMPION same-phase block applies)
+			# Check once-per-battle restriction
 			if effect_def.get("once_per_battle", false):
-				if is_once_per_battle_used(bodyguard_unit_id, ability_name):
+				var usage_key = bodyguard_unit_id + ":" + ability_name
+				if _once_per_battle_used.get(usage_key, false):
 					print("UnitAbilityManager: '%s' already used this battle for unit %s — skipping" % [ability_name, bodyguard_unit_id])
 					continue
 
@@ -2769,10 +2760,10 @@ func _apply_eligibility_effects() -> void:
 				if effect_def.get("condition", "") != "while_leading":
 					continue
 
-				# Check once-per-battle restriction (routed through the query so
-				# the GILDED CHAMPION same-phase block applies)
+				# Check once-per-battle restriction
 				if effect_def.get("once_per_battle", false):
-					if is_once_per_battle_used(unit_id, ability_name):
+					var usage_key = unit_id + ":" + ability_name
+					if _once_per_battle_used.get(usage_key, false):
 						print("UnitAbilityManager: '%s' already used this battle for unit %s — skipping" % [ability_name, unit_id])
 						continue
 
@@ -2928,53 +2919,12 @@ func mark_once_per_battle_used(unit_id: String, ability_name: String) -> void:
 	"""Mark a once-per-battle ability as used for a specific unit."""
 	var usage_key = unit_id + ":" + ability_name
 	_once_per_battle_used[usage_key] = true
-	_once_per_battle_order.erase(usage_key)
-	_once_per_battle_order.append(usage_key)
 	print("UnitAbilityManager: Marked '%s' as used for unit %s (once per battle)" % [ability_name, unit_id])
 
 func is_once_per_battle_used(unit_id: String, ability_name: String) -> bool:
-	"""Check if a once-per-battle ability has been used for a specific unit.
-	Also true while a GILDED CHAMPION restoration is blocked ('one additional
-	time ... but not in the same phase')."""
+	"""Check if a once-per-battle ability has been used for a specific unit."""
 	var usage_key = unit_id + ":" + ability_name
-	if _once_per_battle_used.get(usage_key, false):
-		return true
-	var block = _gilded_champion_block.get(usage_key, {})
-	if not block.is_empty() \
-			and int(block.get("round", -1)) == GameState.get_battle_round() \
-			and int(block.get("phase", -1)) == int(GameState.get_current_phase()) \
-			and int(block.get("player", -1)) == GameState.get_active_player():
-		return true
-	return false
-
-func get_used_once_per_battle_abilities(unit_id: String) -> Array:
-	"""All once-per-battle abilities this unit has spent, oldest first."""
-	var used: Array = []
-	var prefix = unit_id + ":"
-	for usage_key in _once_per_battle_order:
-		if usage_key.begins_with(prefix) and _once_per_battle_used.get(usage_key, false):
-			used.append(usage_key.substr(prefix.length()))
-	# Include any marked outside the ordered list (defensive)
-	for usage_key in _once_per_battle_used:
-		if _once_per_battle_used[usage_key] and usage_key.begins_with(prefix):
-			var ability_name = usage_key.substr(prefix.length())
-			if ability_name not in used:
-				used.append(ability_name)
-	return used
-
-func restore_once_per_battle_use(unit_id: String, ability_name: String) -> void:
-	"""GILDED CHAMPION (Lions of the Emperor): the model can use the spent
-	once-per-battle ability one additional time — but not in the phase the
-	stratagem was used in."""
-	var usage_key = unit_id + ":" + ability_name
-	_once_per_battle_used.erase(usage_key)
-	_once_per_battle_order.erase(usage_key)
-	_gilded_champion_block[usage_key] = {
-		"round": GameState.get_battle_round(),
-		"phase": int(GameState.get_current_phase()),
-		"player": GameState.get_active_player(),
-	}
-	print("UnitAbilityManager: GILDED CHAMPION — '%s' restored for unit %s (usable again from the next phase)" % [ability_name, unit_id])
+	return _once_per_battle_used.get(usage_key, false)
 
 func mark_once_per_round_used(player: int, ability_name: String) -> void:
 	"""Mark a once-per-battle-round ability as used for this round."""
