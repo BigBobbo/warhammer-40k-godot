@@ -2,6 +2,24 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.11.0",
+			"date": "2026-07-10",
+			"summary": "Every Ork detachment RULE now works too: Lissen 'Ere Taktiks (Taktikal Brigade), Try Dat Button! (Dread Mob), Turbo Boostas (Speedwaaagh!), Da Boss Is Watchin' (Bully Boyz), plus the passive rules — Mob Mentality, Dakka! Dakka! Dakka!, Adrenaline Junkies, Eager for the Fight and Thundering Wagons. The last two Enhancements (Gob Boomer, Press It Fasta!) come alive with them.",
+			"changes": [
+				"Taktikal Brigade — Lissen 'Ere (Taktiks): in your Command phase each Boss Snikrot, Mek or Warboss can issue one of four Taktiks to a friendly ORKS unit within 6\" — Get Stuck In (re-roll Charge rolls), Get On Wiv It (+1 Strength in melee), Sneaky Stalkin' (Stealth + Benefit of Cover for Infantry/Mounted, not Meganobz) or Shoota Drills (+1 to ranged Hit rolls for Infantry/Mounted). The issuer takes a Leadership test — failing it deals 1 mortal wound to the receiving unit but the Taktik still lands. One issue per boss and one Taktik per unit each battle round, never to Battle-shocked units; effects last until your next Command phase.",
+				"Gob Boomer enhancement now works: its bearer issues Taktiks to Orks Infantry/Mounted units within 18\" instead of 6\".",
+				"Dread Mob — Try Dat Button!: when one of your Mek, Orks Walker or Grots Vehicle units is selected to shoot or fight, roll a D6 for the Button Effect — SUSTAINED HITS 1, LETHAL HITS or +2 AP for that phase. Press It Fasta! now works: the bearer's unit rolls two dice and gets both effects.",
+				"Speedwaaagh! — Turbo Boostas: a Speed Freeks or Trukk unit (not Aircraft) can use its turbo when it Advances — no Advance roll, it moves a flat 24\", its ranged weapons gain ASSAULT for the turn and it cannot charge. A new 'Use turbo' toggle appears in the Movement panel for eligible units. (The one-straight-line rider is not enforced yet.)",
+				"Bully Boyz — Da Boss Is Watchin': if your Waaagh! has been spent and a Warboss is still standing, you can call a SECOND Waaagh! once per battle — it only counts for Warboss, Nobz and Meganobz units. The Command panel offers 'DA BOSS IS WATCHIN' — WAAAGH AGAIN!' when it is available.",
+				"Green Tide — Mob Mentality: your BOYZ units now carry a 6+ invulnerable save, improved to 5+ while they have 10 or more models (refreshed each Command phase).",
+				"More Dakka! — Dakka! Dakka! Dakka!: your Orks (and Grots-crewed) units' ranged weapons count as ASSAULT, and gain SUSTAINED HITS 1 while your Waaagh! is active.",
+				"Kult of Speed — Adrenaline Junkies: Speed Freeks units can shoot and charge in a turn in which they Advanced or Fell Back.",
+				"Blitz Brigade — Eager for the Fight: your ORKS units re-roll Advance and Charge rolls in the turn they disembark from a Transport.",
+				"Rollin' Deff — Thundering Wagons: your Battlewagons, Kill Rigs and Hunta Rigs advance a flat 6\" without rolling and re-roll Charge rolls.",
+				"Detachment keyword grants: Gretchin count as BATTLELINE in a Dread Mob army; Stormboyz count as BATTLELINE in a Taktikal Brigade army."
+			]
+		},
+		{
 			"version": "0.10.0",
 			"date": "2026-07-10",
 			"summary": "Every Ork detachment now has working Stratagems and Enhancements: Green Tide, More Dakka!, Bully Boyz, Da Big Hunt (with the Prey rule), Kult of Speed, Dread Mob, Blitz Brigade and Rollin' Deff join Speedwaaagh! and Taktikal Brigade.",
