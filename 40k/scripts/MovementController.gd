@@ -326,7 +326,7 @@ func _create_path_visuals() -> void:
 	move_range_visual.name = "MoveRangeVisual"
 	board_root.add_child(move_range_visual)
 
-	# T-094: ER overlay container (1" rings around enemy models during movement)
+	# T-094: ER overlay container (engagement-range rings around enemy models during movement)
 	er_overlay_visual = Node2D.new()
 	er_overlay_visual.name = "MovementERVisual"
 	board_root.add_child(er_overlay_visual)
@@ -1618,7 +1618,7 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	# T-094 (revised): the movement-reach circle is now drawn per-model when a
 	# model is picked up (see _start_model_drag / _start_group_movement), not as a
 	# unit-wide bubble centred on the unit's centre of mass.
-	# T-094: Show 1" engagement-range rings around enemy units
+	# T-094: Show engagement-range rings around enemy units (edition-aware ER)
 	_show_er_overlay(unit_id)
 	# T-094: Show 2" coherency rings around friendly models in this unit
 	_show_coherency_dots(unit_id)
@@ -5145,10 +5145,13 @@ func _clear_move_range_overlay() -> void:
 		child.queue_free()
 
 
-# T-094: 1" engagement-range rings around enemy units during movement
+# T-094: engagement-range rings around enemy units during movement.
+# ISS-002: the ring radius MUST use the edition-aware
+# GameConstants.engagement_range_inches() (2" at 11e, 1" at 10e). A hardcoded
+# 1" here previously under-drew the no-go zone at 11e, so moves were refused
+# while the model still looked clear of the red circles.
 const MOVE_ER_OVERLAY_COLOR: Color = Color(1.0, 0.3, 0.3, 0.45)
 const MOVE_ER_OVERLAY_WIDTH: float = 6.0
-const MOVE_ER_OVERLAY_INCHES: float = 1.0
 
 func _show_er_overlay(unit_id: String) -> void:
 	if not is_instance_valid(er_overlay_visual):
@@ -5175,7 +5178,9 @@ func _show_er_overlay(unit_id: String) -> void:
 			else:
 				pos = pos_data
 			var base_radius = Measurement.base_radius_px(em.get("base_mm", 32))
-			var ring_radius = base_radius + Measurement.inches_to_px(MOVE_ER_OVERLAY_INCHES)
+			# Engagement range is measured base-edge to base-edge, so the ring
+			# marks the line the moving model's BASE may not touch.
+			var ring_radius = base_radius + Measurement.inches_to_px(GameConstants.engagement_range_inches())
 			var ring = Line2D.new()
 			ring.width = MOVE_ER_OVERLAY_WIDTH
 			ring.default_color = MOVE_ER_OVERLAY_COLOR
