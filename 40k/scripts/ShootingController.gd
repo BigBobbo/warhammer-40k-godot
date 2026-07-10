@@ -815,6 +815,60 @@ func _restore_state_after_load() -> void:
 	# Update unit list to reflect units that have already shot
 	_refresh_unit_list()
 
+## Re-sync the controller's local shooting state to the PHASE's authoritative
+## state. Called by Main when a shooting action is rejected, so a phantom panel
+## (active shooter + weapon assignments the phase never accepted) is torn down
+## instead of lingering and swallowing every subsequent action. This is the
+## self-heal half of the grenade-then-shoot desync fix: the surface half is the
+## toast in Main._on_shooting_action_requested; this half rebuilds the panel
+## from ShootingPhase so what the player sees matches what the phase will accept.
+func resync_from_phase() -> void:
+	if not current_phase or not current_phase is ShootingPhase:
+		return
+
+	var phase_active: String = current_phase.active_shooter_id
+
+	if phase_active == "":
+		# The phase has no active shooter (e.g. it was cleared when the active
+		# unit threw a GRENADE). Drop any phantom local state so the panel and
+		# the board stop advertising a shooter the phase won't back.
+		_clear_visuals()
+		active_shooter_id = ""
+		eligible_targets.clear()
+		weapon_assignments.clear()
+		assignment_history.clear()
+		_manual_assignment_made = false
+		last_assigned_target_id = ""
+		if auto_target_button_container:
+			auto_target_button_container.visible = false
+		if quick_assign_container:
+			quick_assign_container.visible = false
+		_refresh_weapon_tree()
+		_update_ui_state()
+		# auto_select=false: after a rejection, don't immediately re-drive a
+		# selection (which could re-reject and loop) — let the player choose.
+		_refresh_unit_list(false)
+		return
+
+	# The phase DOES have an active shooter — mirror it. If the controller had
+	# drifted to a different unit, snap back to the phase's shooter.
+	active_shooter_id = phase_active
+	eligible_targets = RulesEngine.get_eligible_targets(active_shooter_id, GameState.create_snapshot())
+	weapon_assignments.clear()
+	var weapons_seen := {}
+	for assignment in current_phase.pending_assignments:
+		weapon_assignments[assignment.weapon_id] = assignment.target_unit_id
+		weapons_seen[assignment.weapon_id] = true
+	_manual_assignment_made = not weapon_assignments.is_empty()
+	_refresh_weapon_tree()
+	for wid in weapons_seen.keys():
+		_refresh_weapon_row_split_text(wid)
+	_refresh_quick_assign_buttons()
+	_show_range_indicators()
+	_refresh_shooter_status()
+	_update_ui_state()
+	_refresh_unit_list(false)
+
 func _refresh_unit_list(auto_select: bool = true) -> void:
 	if not unit_selector:
 		return
@@ -864,8 +918,28 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 			should_auto_select = true
 
 		if should_auto_select:
-			unit_selector.select(0)
-			_on_unit_selected(0)
+			# Pick the first unit the phase would actually ACCEPT, not blindly
+			# index 0. The list also contains already-shot units (shown with a
+			# [SHOT]/[ACTION] tag for reference); auto-selecting one of those —
+			# e.g. the unit that just threw a GRENADE — would be rejected. It can
+			# also contain units that can shoot but have no eligible targets right
+			# now (out of range / no line of sight); auto-selecting one would pop
+			# a "no eligible targets" notice on phase entry with no player action.
+			# Skip both and land on a genuine, targetable shooter.
+			var units_shot_auto = current_phase.get_units_that_shot() if current_phase and current_phase.has_method("get_units_that_shot") else []
+			var auto_idx := -1
+			for i in range(unit_selector.get_item_count()):
+				var candidate_id = unit_selector.get_item_metadata(i)
+				if candidate_id in units_shot_auto:
+					continue
+				if current_phase and current_phase.has_method("_has_eligible_targets") \
+						and not current_phase._has_eligible_targets(candidate_id):
+					continue
+				auto_idx = i
+				break
+			if auto_idx >= 0:
+				unit_selector.select(auto_idx)
+				_on_unit_selected(auto_idx)
 
 	# T5-UX3: Update shoot all remaining button when unit list refreshes
 	_update_shoot_all_remaining_button()
@@ -2093,6 +2167,20 @@ func _on_ai_shooting_visual(shooter_id: String, target_data: Array, result_summa
 
 func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictionary) -> void:
 	print("ShootingController: Shooting resolved for ", shooter_id, " -> ", target_id)
+
+	# GRENADE guard: this signal also fires for the GRENADE stratagem, and the
+	# thrower is chosen in a dialog — it may NOT be the unit the player is
+	# currently mid-assignment on. The phase only clears its active shooter when
+	# the grenade unit IS the active shooter; if a *different* unit threw the
+	# grenade, the phase kept the active shooter's pending assignments. Wiping
+	# our local state here unconditionally would desync the panel from the phase
+	# (empty controller vs. phase with a live shooter). Only clear when the
+	# resolved unit is the one we're tracking (or nothing is being tracked).
+	if result.get("grenade", false) and shooter_id != "" and active_shooter_id != "" and shooter_id != active_shooter_id:
+		print("ShootingController: Grenade resolved for %s but active shooter is %s — preserving in-progress assignments" % [shooter_id, active_shooter_id])
+		_update_grenade_button_visibility()
+		return
+
 	# Update visuals after shooting
 	_clear_visuals()
 	active_shooter_id = ""
@@ -3277,11 +3365,41 @@ func _on_unit_selected(index: int) -> void:
 			"actor_unit_id": unit_id
 		})
 
-		# DON'T call _on_unit_selected_for_shooting() here in multiplayer
-		# The phase will emit unit_selected_for_shooting signal after processing the action
-		# For single-player, we can call it immediately for responsiveness
-		if not NetworkManager.is_networked():
-			_on_unit_selected_for_shooting(unit_id)
+		# DON'T call _on_unit_selected_for_shooting() here in multiplayer.
+		# The phase emits unit_selected_for_shooting after processing the action.
+		# For single-player we mirror immediately for responsiveness — but the OLD
+		# code did so UNCONDITIONALLY, which built a phantom weapon panel when the
+		# phase rejected the unit (e.g. re-selecting a unit that already threw a
+		# GRENADE — "already shot"). Every later ASSIGN_TARGET / CONFIRM_TARGETS then
+		# failed silently against a phase with no active shooter ("Rolling dice..."
+		# with nothing happening).
+		#
+		# SELECT_SHOOTER is routed + validated synchronously by the emit_signal above,
+		# so current_phase.active_shooter_id already reflects the outcome. Three cases:
+		#   1. Accepted            -> populate normally.
+		#   2. Rejected, but the unit CAN shoot (only lacks eligible targets right now)
+		#      -> still populate, so _report_no_eligible_targets explains WHY nothing
+		#         is targetable (the Stompa no-targets feedback feature).
+		#   3. Rejected AND the unit cannot shoot (already shot / advanced / fell back)
+		#      -> do NOT build a phantom panel; say why and resync to the phase.
+		if not NetworkManager.is_networked() and current_phase:
+			var sel_unit = current_phase.get_unit(unit_id)
+			if current_phase.active_shooter_id == unit_id:
+				_on_unit_selected_for_shooting(unit_id)
+			elif not sel_unit.is_empty() and current_phase._can_unit_shoot(sel_unit):
+				# Selectable in principle — only rejected for lack of targets.
+				_on_unit_selected_for_shooting(unit_id)
+			else:
+				var _sel_meta = sel_unit.get("meta", {})
+				var sel_name = _sel_meta.get("display_name", _sel_meta.get("name", unit_id))
+				var sel_reason = "cannot be selected to shoot"
+				if sel_unit.get("flags", {}).get("has_shot", false):
+					sel_reason = "has already shot this phase"
+				if dice_log_display:
+					dice_log_display.append_text("[color=orange]%s %s[/color]\n" % [sel_name, sel_reason])
+				ToastManager.show_warning("%s %s" % [sel_name, sel_reason])
+				# Snap the panel back to whatever the phase actually has active.
+				resync_from_phase()
 
 func _on_weapon_tree_item_selected() -> void:
 	if not weapon_tree:

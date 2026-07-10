@@ -2858,9 +2858,15 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 		"value": new_cp
 	})
 
-	# Record usage
+	# Record usage under the RESOLVED core id. can_use_stratagem() resolves
+	# "grenade" -> "explosives" at edition >= 11 before running the once-per-phase
+	# check, so recording under the literal "grenade" left the history and the
+	# check keyed on different ids — the cap never bit and the grenade could be
+	# thrown repeatedly (button stayed visible after use). Keying both sides on
+	# the resolved id fixes the cap in both editions (10e resolves to "grenade").
+	var resolved_grenade_id = _resolve_core_id("grenade")
 	var usage_record = {
-		"stratagem_id": "grenade",
+		"stratagem_id": resolved_grenade_id,
 		"player": player,
 		"target_unit_id": grenade_unit_id,
 		"turn": GameState.get_battle_round(),
@@ -4072,7 +4078,11 @@ func _load_core_stratagems_11e() -> void:
 		"target": {"type": "unit", "owner": "friendly",
 			"conditions": ["unengaged", "eligible_to_shoot", "did_not_advance", "has_keyword:EXPLOSIVES|GRENADES"]},
 		"effects": [{"type": "explosives_11e", "dice": 6, "threshold": 4, "range": 8}],
-		"restrictions": {},
+		# 15.05 is a once-per-phase Stratagem (matches the retired 10e GRENADE).
+		# This was empty before, so at edition >= 11 the grenade could be thrown
+		# repeatedly and its button never hid after use — the once-per-phase cap
+		# is enforced via can_use_stratagem -> _check_usage_restriction.
+		"restrictions": {"once_per": "phase"},
 		"description": "Select one EXPLOSIVES/GRENADES model; one unengaged enemy unit within 8\" and visible: roll 6D6 — each 4+ inflicts 1 mortal wound (15.05).",
 	}
 	stratagems["crushing_impact"] = {

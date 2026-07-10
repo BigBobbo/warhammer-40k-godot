@@ -1,0 +1,77 @@
+{
+  "id": "grenade_then_shoot_desync",
+  "covers": [
+    "shooting.grenade_then_shoot_desync",
+    "shooting.rejected_action_toast",
+    "stratagems.grenade_once_per_phase"
+  ],
+  "fixture": "grenade_shooting_desync",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 8,
+  "description": "Grenade-then-shoot stuck bug: a unit is selected to shoot, then the player throws a GRENADE with that SAME unit. The grenade marks the unit has_shot and the phase clears its active shooter, but the ShootingController used to (a) populate a phantom weapon panel when the player re-clicked the now-shot unit and (b) fail every follow-up action silently ('Rolling dice...' with nothing happening). This scenario drives the exact path via the real UI: select Boss Snikrot (index 5), assign its Slugga, throw the grenade through Main, then re-select the shot unit. Asserts: grenade consumed the unit's shooting (has_shot, CP 4->3), the once-per-phase cap now bites (0 grenade-eligible units after use), re-selecting the shot unit surfaces an error TOAST instead of failing silently, and the controller stays SYNCED to the phase's active shooter (no phantom Snikrot panel).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "screenshot", "label": "01_shooting_phase_loaded" },
+
+    { "act": "execute_script",
+      "script": "str(main.get_node(\"ShootingController\").unit_selector.get_item_metadata(5))",
+      "equals": "U_BOSS_SNIKROT_A" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").unit_selector.select(5)" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").unit_selector.emit_signal(\"item_selected\", 5)" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").active_shooter_id",
+      "equals": "U_BOSS_SNIKROT_A" },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_BOSS_SNIKROT_A" },
+    { "act": "screenshot", "label": "02_snikrot_selected" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "ASSIGN_TARGET",
+      "payload": { "weapon_id": "slugga_ranged", "target_unit_id": "U_WITCHSEEKERS_C", "model_ids": ["m1"] }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "main._on_shooting_action_requested({\"type\": \"USE_GRENADE_STRATAGEM\", \"grenade_unit_id\": \"U_BOSS_SNIKROT_A\", \"target_unit_id\": \"U_WITCHSEEKERS_C\"})" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOSS_SNIKROT_A\").get(\"flags\", {}).get(\"has_shot\", false)",
+      "equals": true },
+    { "act": "expect_cp", "player": 1, "equals": 3 },
+    { "act": "execute_script",
+      "script": "StratagemManager.get_grenade_eligible_units(1).size()",
+      "equals": 0 },
+    { "act": "screenshot", "label": "03_after_grenade_cap_enforced" },
+
+    { "act": "execute_script",
+      "script": "ToastManager.active_toasts.size()" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").unit_selector.select(5)" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").unit_selector.emit_signal(\"item_selected\", 5)" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "ToastManager.active_toasts[-1].find_children(\"*\", \"Label\", true, false)[0].text.contains(\"already shot\")",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").active_shooter_id != \"U_BOSS_SNIKROT_A\"",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").active_shooter_id == PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": true },
+    { "act": "screenshot", "label": "04_reclick_shot_unit_toast_no_phantom" }
+  ]
+}
