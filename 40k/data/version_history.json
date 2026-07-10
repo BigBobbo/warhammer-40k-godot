@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.9.3",
+			"date": "2026-07-10",
+			"summary": "AI units no longer get stuck on walls or sprint across the board after distant enemies — both AI armies play noticeably tighter.",
+			"changes": [
+				"AI movement destinations are now checked against walls with the exact rule the game enforces, before the move is attempted. Wall-related move rejections dropped 99% in benchmarks (from ~49 per game to under 1), which un-stuck units that previously stood still for entire games (Caladius Grav-tank, Witchseekers, Lootas, Kommandos).",
+				"Only genuinely melee-focused units (Boyz, Warbosses, Meganobz...) now leave their objective assignments to hunt enemies — units with real guns fight from position instead of footslogging. One shared rule replaces three slightly different copies of this logic.",
+				"All hunters respect a chase cap (tunable MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES, default 20\"): enemies beyond any realistic move+advance+charge reach are ignored in favor of the mission. Previously units could chase targets 45+ inches away from round 1.",
+				"Benchmark validation: 10 more full AI-vs-AI games, zero stalls; Ork primary VP doubled again at pure defaults; Custodes play improved even more (their units were the most wall-stuck). Full analysis in tests/bench_baselines/2026-07-10_mechanism_fixes.md.",
+				"Known remaining gaps (documented, next up): the AI doesn't know how to move AIRCRAFT (the Wazbom Blastajet idles all game), and large hordes sometimes fail to find placement room around friendly vehicles."
+			]
+		},
+		{
 			"version": "0.9.2",
 			"date": "2026-07-10",
 			"summary": "The Ork AI now actually plays the mission: benchmark-driven tuning stopped its whole army chasing enemies across the board while objectives sat unclaimed.",
