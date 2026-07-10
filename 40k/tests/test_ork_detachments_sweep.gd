@@ -1605,6 +1605,100 @@ func _detachment_rules(_SM, GS, FAM, rules):
 	_check("Taktiks: charge re-roll flag gone after expiry",
 		not tk_near["flags"].get("effect_reroll_charge", false))
 	GS.state["meta"]["battle_round"] = 1
+
+	# ---- Speedwaaagh! — Turbo Boostas eligibility -------------------------------
+	print("\n--- Turbo Boostas (Speedwaaagh!) ---")
+	_set_detachment(GS, FAM, 1, "Speedwaaagh!")
+	var tb_freek = {"owner": 1, "meta": {"keywords": ["ORKS", "SPEED FREEKS", "MOUNTED"]}, "flags": {}, "models": []}
+	var tb_trukk = {"owner": 1, "meta": {"keywords": ["ORKS", "VEHICLE", "TRANSPORT", "TRUKK"]}, "flags": {}, "models": []}
+	var tb_jet = {"owner": 1, "meta": {"keywords": ["ORKS", "VEHICLE", "SPEED FREEKS", "AIRCRAFT", "FLY"]}, "flags": {}, "models": []}
+	var tb_boyz = {"owner": 1, "meta": {"keywords": ["ORKS", "INFANTRY", "BOYZ"]}, "flags": {}, "models": []}
+	_check("Turbo Boostas: Speed Freeks can turbo", FAM.unit_can_turbo_boost(tb_freek))
+	_check("Turbo Boostas: Trukks can turbo", FAM.unit_can_turbo_boost(tb_trukk))
+	_check("Turbo Boostas: Aircraft cannot", not FAM.unit_can_turbo_boost(tb_jet))
+	_check("Turbo Boostas: non-Speed-Freek Boyz cannot", not FAM.unit_can_turbo_boost(tb_boyz))
+	_set_detachment(GS, FAM, 1, "Kult of Speed")
+	_check("Turbo Boostas: Speedwaaagh! detachment only", not FAM.unit_can_turbo_boost(tb_freek))
+
+	# ---- Bully Boyz — Da Boss Is Watchin' (second, scoped Waaagh!) --------------
+	print("\n--- Da Boss Is Watchin' (Bully Boyz) ---")
+	_set_detachment(GS, FAM, 1, "Bully Boyz")
+	var bw_boss = _boyz_unit("U_BW_BOSS", 1)
+	bw_boss["meta"]["keywords"] = ["CHARACTER", "INFANTRY", "ORKS", "WARBOSS"]
+	bw_boss["meta"]["abilities"] = [{"name": "Waaagh!", "type": "Faction"}]
+	var bw_nobz = _boyz_unit("U_BW_NOBZ", 5)
+	bw_nobz["meta"]["keywords"] = ["ORKS", "INFANTRY", "NOBZ"]
+	bw_nobz["meta"]["abilities"] = [{"name": "Waaagh!", "type": "Faction"}]
+	var bw_mega = _boyz_unit("U_BW_MEGA", 3)
+	bw_mega["meta"]["keywords"] = ["ORKS", "INFANTRY", "MEGANOBZ"]
+	bw_mega["meta"]["abilities"] = [{"name": "Waaagh!", "type": "Faction"}]
+	var bw_boyz = _boyz_unit("U_BW_BOYZ", 10)
+	bw_boyz["meta"]["abilities"] = [{"name": "Waaagh!", "type": "Faction"}]
+	GS.state["units"] = {
+		"U_BW_BOSS": bw_boss, "U_BW_NOBZ": bw_nobz,
+		"U_BW_MEGA": bw_mega, "U_BW_BOYZ": bw_boyz,
+	}
+	FAM._waaagh_used = {"1": false, "2": false}
+	FAM._waaagh_active = {"1": false, "2": false}
+	FAM._boss_watchin_used = {"1": false, "2": false}
+	FAM.detect_faction_abilities(1)
+
+	_check("Boss Watchin: unavailable before the first Waaagh! is spent",
+		not FAM.is_boss_watchin_waaagh_available(1))
+	var bw_first = FAM.activate_waaagh(1)
+	_check("Boss Watchin: first (regular) Waaagh! activates army-wide",
+		bw_first.get("success", false)
+		and bw_boyz["flags"].get("waaagh_active", false)
+		and bw_boss["flags"].get("waaagh_active", false))
+	_check("Boss Watchin: unavailable while a Waaagh! is active",
+		not FAM.is_boss_watchin_waaagh_available(1))
+	FAM.deactivate_waaagh(1)
+	_check("Boss Watchin: available once the first Waaagh! has expired",
+		FAM.is_boss_watchin_waaagh_available(1))
+	_set_detachment(GS, FAM, 1, "War Horde")
+	_check("Boss Watchin: Bully Boyz detachment only",
+		not FAM.is_boss_watchin_waaagh_available(1))
+	_set_detachment(GS, FAM, 1, "Bully Boyz")
+	for m in bw_boss["models"]:
+		m["alive"] = false
+	_check("Boss Watchin: needs a living Warboss",
+		not FAM.is_boss_watchin_waaagh_available(1))
+	for m in bw_boss["models"]:
+		m["alive"] = true
+	bw_boss["status"] = GameStateData.UnitStatus.IN_RESERVES
+	_check("Boss Watchin: a Warboss in Strategic Reserves does not count",
+		not FAM.is_boss_watchin_waaagh_available(1))
+	bw_boss["status"] = 2
+
+	var bw_second = FAM.activate_boss_watchin_waaagh(1)
+	_check("Boss Watchin: second Waaagh! activates", bw_second.get("success", false))
+	_check("Boss Watchin: Warboss/Nobz/Meganobz gain the Waaagh! effects",
+		bw_boss["flags"].get("waaagh_active", false)
+		and bw_nobz["flags"].get("waaagh_active", false)
+		and bw_mega["flags"].get("waaagh_active", false)
+		and bw_nobz["flags"].get("effect_advance_and_charge", false)
+		and int(bw_nobz["flags"].get("effect_invuln", 0)) == 5)
+	_check("Boss Watchin: Boyz are OUTSIDE the second Waaagh!'s scope",
+		not bw_boyz["flags"].get("waaagh_active", false)
+		and not bw_boyz["flags"].has("effect_invuln"))
+	_check("Boss Watchin: player-level Waaagh! is active during the second call",
+		FAM.is_waaagh_active(1))
+	_check("Boss Watchin: only once per battle",
+		not FAM.is_boss_watchin_waaagh_available(1)
+		and not FAM.activate_boss_watchin_waaagh(1).get("success", false))
+	FAM.deactivate_waaagh(1)
+	_check("Boss Watchin: expiry clears the scoped effects",
+		not bw_nobz["flags"].get("waaagh_active", false)
+		and not bw_nobz["flags"].has("effect_invuln"))
+
+	# Save/load round-trip of the second-Waaagh! latch
+	var bw_saved = FAM.save_state()
+	FAM._boss_watchin_used = {"1": false, "2": false}
+	FAM.load_state(bw_saved)
+	_check("Boss Watchin: used-latch survives save/load",
+		FAM._boss_watchin_used.get("1", false) == true)
+	FAM._waaagh_used = {"1": false, "2": false}
+	FAM._boss_watchin_used = {"1": false, "2": false}
 	_set_detachment(GS, FAM, 1, "War Horde")
 
 

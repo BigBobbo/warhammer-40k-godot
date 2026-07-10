@@ -412,6 +412,14 @@ func get_available_actions() -> Array:
 			"description": "WAAAGH! — Advance+Charge, +1 S/A melee, 5+ invuln (once per battle)",
 			"player": current_player
 		})
+	elif faction_mgr and faction_mgr.is_boss_watchin_waaagh_available(current_player):
+		# Da Boss Is Watchin' (Bully Boyz): a second Waaagh!, scoped to
+		# WARBOSS / NOBZ / MEGANOBZ units
+		actions.append({
+			"type": "CALL_WAAAGH",
+			"description": "DA BOSS IS WATCHIN' — second WAAAGH! for Warboss/Nobz/Meganobz units (once per battle)",
+			"player": current_player
+		})
 
 	# Plant the Waaagh! Banner (OA-46) — Nob with Waaagh! Banner, once per battle
 	if faction_mgr:
@@ -1289,7 +1297,8 @@ func _validate_call_waaagh(action: Dictionary) -> Array:
 		errors.append("FactionAbilityManager not available")
 		return errors
 
-	if not faction_mgr.is_waaagh_available(current_player):
+	if not faction_mgr.is_waaagh_available(current_player) \
+			and not faction_mgr.is_boss_watchin_waaagh_available(current_player):
 		errors.append("Waaagh! is not available (already used or not an Ork player)")
 
 	return errors
@@ -1301,11 +1310,20 @@ func _handle_call_waaagh(action: Dictionary) -> Dictionary:
 	if not faction_mgr:
 		return {"success": false, "error": "FactionAbilityManager not available"}
 
-	var result = faction_mgr.activate_waaagh(current_player)
+	# The regular once-per-battle Waaagh! takes precedence; when it is spent,
+	# Bully Boyz players fall through to the scoped second Waaagh!
+	# (Da Boss Is Watchin').
+	var result: Dictionary
+	if faction_mgr.is_waaagh_available(current_player):
+		result = faction_mgr.activate_waaagh(current_player)
+		if result.success:
+			log_phase_message("WAAAGH! Player %d calls a Waaagh! — all Ork units gain advance+charge, +1 S/A melee, 5+ invuln!" % current_player)
+	else:
+		result = faction_mgr.activate_boss_watchin_waaagh(current_player)
+		if result.success:
+			log_phase_message("DA BOSS IS WATCHIN'! Player %d calls a second Waaagh! — Warboss/Nobz/Meganobz units gain advance+charge, +1 S/A melee, 5+ invuln!" % current_player)
 
 	if result.success:
-		log_phase_message("WAAAGH! Player %d calls a Waaagh! — all Ork units gain advance+charge, +1 S/A melee, 5+ invuln!" % current_player)
-
 		# Log to phase log
 		var log_entry = {
 			"type": "CALL_WAAAGH",

@@ -45,6 +45,8 @@ var active_moves: Dictionary = {}
 var _pending_take_to_skies: Dictionary = {}  # unit_id -> move_data
 # ISS-073 (24.35): Super-Heavy Walker MOBILE-grant declarations awaiting the advance roll.
 var _pending_shw_mobile: Dictionary = {}  # unit_id -> bool
+# Turbo Boostas (Speedwaaagh!): turbo declarations awaiting the advance resolution.
+var _pending_turbo_boost: Dictionary = {}  # unit_id -> bool
 var dice_log: Array = []
 var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
@@ -1511,6 +1513,15 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 			and action.get("payload", {}).get("shw_mobile_gamble", false) \
 			and "SUPER-HEAVY WALKER" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
 
+	# Turbo Boostas (Speedwaaagh! detachment rule): a SPEED FREEKS or TRUKK
+	# unit (excluding AIRCRAFT) can use its turbo instead of rolling — Move
+	# becomes a flat 24" this phase, ranged weapons gain ASSAULT until end of
+	# turn and the unit cannot declare a charge. The one-straight-line /
+	# no-pivot rider is not enforced (documented simplification).
+	_pending_turbo_boost[unit_id] = GameConstants.edition >= 11 \
+			and action.get("payload", {}).get("turbo_boost", false) \
+			and FactionAbilityManager.unit_can_turbo_boost(unit)
+
 	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals early
 	# This ensures visuals are correct even if a reroll dialog delays _resolve_advance_roll
 	_reset_staged_visuals_if_needed(unit_id)
@@ -1519,6 +1530,19 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	# move flow immediately rolls dice and may offer a command reroll, making the
 	# interrupt-and-resume flow overly complex. The move-end trigger in
 	# _process_confirm_unit_move covers the Advance move case.
+
+	# Turbo Boostas (Speedwaaagh!): no Advance roll — Move becomes a flat 24"
+	# for this phase. Takes precedence over auto-advance abilities because the
+	# player explicitly declared the turbo.
+	if _pending_turbo_boost.get(unit_id, false):
+		var tb_name = unit.get("meta", {}).get("name", unit_id)
+		log_phase_message("Advance: %s uses its turbo (Turbo Boostas) — no roll, flat 24\" move" % tb_name)
+		DebugLogger.info(str("MovementPhase: Turbo Boostas — %s turbo-boosts (flat 24\" move, no roll)" % tb_name))
+		var gel_tb = get_node_or_null("/root/GameEventLog")
+		if gel_tb:
+			gel_tb.add_player_entry(int(unit.get("owner", 0)),
+				"%s turbo-boosts (Speedwaaagh!): 24\" move, ranged weapons gain ASSAULT, cannot charge" % tb_name)
+		return _resolve_advance_roll(unit_id, 0)
 
 	# OA-5: Boardin' Rush — skip advance roll, add flat 6" to Move instead
 	var flags = unit.get("flags", {})
@@ -1636,6 +1660,13 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
 		move_inches = max(0.0, move_inches + fly_mod)
 		log_phase_message("[11e] %s takes to the skies: advance cap (%s + %d)\" (%+.1f\")" % [unit_id, str(move_inches), advance_roll, fly_mod])
+	# Turbo Boostas (Speedwaaagh!): Move characteristic becomes a flat 24"
+	# for this phase (replaces M entirely; no Advance roll was made).
+	var turbo_boost: bool = _pending_turbo_boost.get(unit_id, false)
+	_pending_turbo_boost.erase(unit_id)
+	if turbo_boost:
+		move_inches = 24.0
+		log_phase_message("[Speedwaaagh!] %s turbo-boosts: Move = flat 24\" this phase" % unit_id)
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
@@ -1647,6 +1678,7 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 		"mode": "ADVANCE",
 		"took_to_skies": took_to_skies,
 		"shw_mobile": shw_mobile,
+		"turbo_boost": turbo_boost,
 		"mode_locked": false,
 		"completed": false,
 		"move_cap_inches": total_move,
@@ -4819,6 +4851,22 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				"value": true
 			})
 			DebugLogger.info(str("[MovementPhase] Propagated advance flags to attached character %s" % char_id))
+		# Turbo Boostas (Speedwaaagh!): the turbo grants ranged weapons ASSAULT
+		# (advance-and-shoot) until end of turn, and hard-locks charging — the
+		# turbo_boosted flag cannot be overridden by advance-and-charge effects.
+		if move_data.get("turbo_boost", false):
+			for tb_id in [unit_id] + attached_chars:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.flags.turbo_boosted" % tb_id,
+					"value": true
+				})
+				changes.append({
+					"op": "set",
+					"path": "units.%s.flags.effect_advance_and_shoot" % tb_id,
+					"value": true
+				})
+			DebugLogger.info(str("[MovementPhase] Turbo Boostas — %s gains ASSAULT ranged weapons and cannot charge this turn" % unit_id))
 	elif move_data.mode == "FALL_BACK":
 		# Set fell_back flag - units that Fell Back cannot shoot or charge
 		changes.append({

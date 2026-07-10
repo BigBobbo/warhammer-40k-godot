@@ -1,0 +1,34 @@
+{
+ "id": "bully_boyz_da_boss_is_watchin",
+ "covers": [
+  "command.detachment_rule.da_boss_is_watchin",
+  "faction.bully_boyz.second_waaagh_scoped"
+ ],
+ "fixture": "co_pretrigger",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 6,
+ "disable_ai": true,
+ "description": "Da Boss Is Watchin' (Bully Boyz detachment rule) on the real Command-phase action path: with the Ork player's detachment flipped to Bully Boyz and the regular once-per-battle Waaagh! marked as spent (documented setup privilege), the CALL_WAAAGH action is offered again as the second Waaagh! and dispatching it succeeds — but the effects land only on WARBOSS/NOBZ/MEGANOBZ units (Warboss Beta and the reserve Meganobz gain waaagh_active + 5+ invuln; the deployed Painboss and Weirdboy stay untouched). The second call is once per battle: availability drops to false afterwards.",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "expect_phase", "equals": 6 },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Bully Boyz\"}, true)" },
+  { "act": "execute_script", "script": "FactionAbilityManager.detect_player_detachment(2)", "equals": "Bully Boyz" },
+  { "act": "execute_script", "script": "FactionAbilityManager._waaagh_used.merge({\"2\": true}, true)" },
+  { "act": "execute_script", "script": "FactionAbilityManager.is_waaagh_available(2)", "equals": false },
+  { "act": "execute_script", "script": "FactionAbilityManager.is_boss_watchin_waaagh_available(2)", "equals": true },
+  { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().get_available_actions()).contains(\"DA BOSS IS WATCHIN\")", "equals": true },
+  { "act": "screenshot", "label": "01_second_waaagh_offered" },
+  { "act": "dispatch_action", "action": { "type": "CALL_WAAAGH" } },
+  { "act": "expect_action_result", "path": "success", "equals": true },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WARBOSS_B\"][\"flags\"].get(\"waaagh_active\", false)", "equals": true },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_MEGANOBZ_L\"][\"flags\"].get(\"waaagh_active\", false)", "equals": true },
+  { "act": "execute_script", "script": "int(GameState.state[\"units\"][\"U_WARBOSS_B\"][\"flags\"].get(\"effect_invuln\", 0))", "equals": 5 },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_PAINBOSS_I\"][\"flags\"].get(\"waaagh_active\", false)", "equals": false },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WEIRDBOY_J\"][\"flags\"].get(\"waaagh_active\", false)", "equals": false },
+  { "act": "execute_script", "script": "FactionAbilityManager.is_waaagh_active(2)", "equals": true },
+  { "act": "execute_script", "script": "FactionAbilityManager.is_boss_watchin_waaagh_available(2)", "equals": false },
+  { "act": "screenshot", "label": "02_scoped_second_waaagh_active" }
+ ]
+}

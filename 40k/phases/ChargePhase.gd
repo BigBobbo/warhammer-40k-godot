@@ -1633,6 +1633,12 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 			status == GameStateData.UnitStatus.SHOT):
 		return false
 	
+	# Turbo Boostas (Speedwaaagh!): a unit that used its turbo cannot declare
+	# a charge this turn — a hard lock no advance-and-charge effect (Waaagh!,
+	# Adrenaline Junkies) can override.
+	if flags.get("turbo_boosted", false):
+		return false
+
 	# Check restriction flags
 	# cannot_charge is set by both Advance and Fall Back moves, but abilities like
 	# Waaagh! (advance_and_charge) or Full Throttle (fall_back_and_charge) can override it.

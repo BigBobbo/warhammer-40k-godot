@@ -1,0 +1,39 @@
+{
+ "id": "speedwaaagh_turbo_boostas",
+ "covers": [
+  "movement.detachment_rule.turbo_boostas",
+  "faction.speedwaaagh.turbo_advance_no_roll",
+  "charge.turbo_boosted_hard_lock"
+ ],
+ "fixture": "co_pretrigger",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "description": "Turbo Boostas (Speedwaaagh! detachment rule) on the real Movement-phase action path: with the Ork player's detachment flipped to Speedwaaagh! (documented setup privilege, with detect_player_detachment) and the Warboss granted SPEED FREEKS (the fixture ships no deployed Speed Freeks unit), BEGIN_ADVANCE with turbo_boost dispatches without an Advance roll and caps the move at a flat 24\" (M 6\" would normally give 7-12\"). Confirming the move lands turbo_boosted + effect_advance_and_shoot (ranged ASSAULT) on the unit, and after transitioning to the Charge phase the unit is charge-locked while the untouched Painboss remains charge-eligible.",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "expect_phase", "equals": 7 },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Speedwaaagh!\"}, true)" },
+  { "act": "execute_script", "script": "FactionAbilityManager.detect_player_detachment(2)", "equals": "Speedwaaagh!" },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WARBOSS_C\"][\"meta\"][\"keywords\"].append(\"SPEED FREEKS\")" },
+  { "act": "execute_script", "script": "FactionAbilityManager.unit_can_turbo_boost(GameState.state[\"units\"][\"U_WARBOSS_C\"])", "equals": true },
+  { "act": "screenshot", "label": "01_movement_before_turbo" },
+  { "act": "dispatch_action", "action": { "type": "BEGIN_ADVANCE", "actor_unit_id": "U_WARBOSS_C", "payload": { "turbo_boost": true } } },
+  { "act": "expect_action_result", "path": "success", "equals": true },
+  { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_WARBOSS_C\"][\"move_cap_inches\"]", "equals": 24 },
+  { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_WARBOSS_C\"][\"turbo_boost\"]", "equals": true },
+  { "act": "dispatch_action", "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_WARBOSS_C" } },
+  { "act": "expect_action_result", "path": "success", "equals": true },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WARBOSS_C\"][\"flags\"].get(\"turbo_boosted\", false)", "equals": true },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WARBOSS_C\"][\"flags\"].get(\"effect_advance_and_shoot\", false)", "equals": true },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WARBOSS_C\"][\"flags\"].get(\"cannot_charge\", false)", "equals": true },
+  { "act": "screenshot", "label": "02_turbo_move_confirmed" },
+  { "act": "execute_script", "script": "PhaseManager.transition_to_phase(9)" },
+  { "act": "wait_frames", "frames": 4 },
+  { "act": "expect_phase", "equals": 9 },
+  { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._can_unit_charge(GameState.state[\"units\"][\"U_WARBOSS_C\"])", "equals": false },
+  { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._can_unit_charge(GameState.state[\"units\"][\"U_PAINBOSS_I\"])", "equals": true },
+  { "act": "screenshot", "label": "03_charge_phase_turbo_locked" }
+ ]
+}

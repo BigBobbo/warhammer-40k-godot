@@ -190,6 +190,9 @@ var _player_abilities: Dictionary = {"1": [], "2": []}
 var _waaagh_used: Dictionary = {"1": false, "2": false}
 # Per-player: whether Waaagh! is currently active (lasts until start of next Command phase)
 var _waaagh_active: Dictionary = {"1": false, "2": false}
+# Da Boss Is Watchin' (Bully Boyz): whether the second, scoped Waaagh! has
+# been called this battle (WARBOSS/NOBZ/MEGANOBZ units only)
+var _boss_watchin_used: Dictionary = {"1": false, "2": false}
 
 # Plant the Waaagh! Banner tracking (OA-46) — Nob with Waaagh! Banner
 # Per-unit (unit_id key): whether the ability has been used this battle (once per battle)
@@ -433,8 +436,70 @@ func deactivate_waaagh(player: int) -> void:
 		_clear_waaagh_effects(player)
 		print("FactionAbilityManager: Waaagh! deactivated for player %d" % player)
 
-func _apply_waaagh_effects(player: int) -> void:
-	"""Apply Waaagh! flags to all Ork units with the Waaagh! ability."""
+# ---- DA BOSS IS WATCHIN' (Bully Boyz detachment rule) ----
+# At the start of your Command phase, in a turn in which you have not called
+# a Waaagh!, if you have one or more WARBOSS models on the battlefield (or
+# embarked within a TRANSPORT that is on the battlefield), you can call a
+# Waaagh! for a SECOND time this battle. That second Waaagh! only counts as
+# having been called for WARBOSS, NOBZ and MEGANOBZ units from your army.
+
+func is_boss_watchin_waaagh_available(player: int) -> bool:
+	"""Second Waaagh! availability: Bully Boyz, first Waaagh! spent (and no
+	longer active), second not yet used, and a WARBOSS alive."""
+	if get_player_detachment(player) != "Bully Boyz":
+		return false
+	var player_key = str(player)
+	if not _waaagh_used.get(player_key, false):
+		return false  # the regular Waaagh! comes first
+	if _waaagh_active.get(player_key, false):
+		return false  # "in a turn in which you have not called a Waaagh!"
+	if _boss_watchin_used.get(player_key, false):
+		return false
+	return _player_has_alive_warboss(player)
+
+func _player_has_alive_warboss(player: int) -> bool:
+	"""A WARBOSS model on the battlefield or embarked in a Transport. Units in
+	Strategic Reserves do not count."""
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if not _unit_has_keyword(unit, "WARBOSS"):
+			continue
+		if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				return true
+	return false
+
+func activate_boss_watchin_waaagh(player: int) -> Dictionary:
+	"""Call the second, scoped Waaagh! (Da Boss Is Watchin')."""
+	if not is_boss_watchin_waaagh_available(player):
+		return {"success": false, "error": "Da Boss Is Watchin' second Waaagh! is not available"}
+
+	var player_key = str(player)
+	_boss_watchin_used[player_key] = true
+	_waaagh_active[player_key] = true
+
+	_apply_waaagh_effects(player, ["WARBOSS", "NOBZ", "MEGANOBZ"])
+
+	print("FactionAbilityManager: DA BOSS IS WATCHIN' — Player %d calls a second Waaagh! (Warboss/Nobz/Meganobz only)" % player)
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(player, "DA BOSS IS WATCHIN' — second WAAAGH! called for Warboss, Nobz and Meganobz units!")
+
+	return {
+		"success": true,
+		"message": "DA BOSS IS WATCHIN' — second WAAAGH! for Warboss/Nobz/Meganobz units!"
+	}
+
+func _apply_waaagh_effects(player: int, keyword_scope: Array = []) -> void:
+	"""Apply Waaagh! flags to all Ork units with the Waaagh! ability. With a
+	non-empty keyword_scope, only units having at least one of those keywords
+	are affected (Da Boss Is Watchin' scopes the second Waaagh! to
+	WARBOSS/NOBZ/MEGANOBZ units)."""
 	var units = GameState.state.get("units", {})
 
 	for unit_id in units:
@@ -454,6 +519,16 @@ func _apply_waaagh_effects(player: int) -> void:
 		# Check if unit has Waaagh! ability
 		if not _unit_has_waaagh_ability(unit):
 			continue
+
+		# Scoped Waaagh! (Da Boss Is Watchin'): keyword gate
+		if not keyword_scope.is_empty():
+			var in_scope := false
+			for kw in keyword_scope:
+				if _unit_has_keyword(unit, kw):
+					in_scope = true
+					break
+			if not in_scope:
+				continue
 
 		# Apply Waaagh! flags
 		if not unit.has("flags"):
@@ -1092,6 +1167,21 @@ func get_thundering_wagons_advance_override(unit: Dictionary) -> int:
 	if get_player_detachment(owner).replace("’", "'") != "Rollin' Deff":
 		return 0
 	return 6 if _unit_is_thundering_wagon(unit) else 0
+
+func unit_can_turbo_boost(unit: Dictionary) -> bool:
+	"""Speedwaaagh! — Turbo Boostas: when a SPEED FREEKS or TRUKK unit
+	(excluding AIRCRAFT) Advances, it can use its turbo instead of rolling —
+	Move becomes a flat 24" this phase, ranged weapons gain ASSAULT until end
+	of turn and the unit cannot declare a charge. The one-straight-line /
+	no-pivot movement rider is not enforced (documented simplification)."""
+	var owner = int(unit.get("owner", 0))
+	if owner <= 0:
+		return false
+	if get_player_detachment(owner) != "Speedwaaagh!":
+		return false
+	if _unit_has_keyword(unit, "AIRCRAFT"):
+		return false
+	return _unit_has_keyword(unit, "SPEED FREEKS") or _unit_has_keyword(unit, "TRUKK")
 
 func process_try_dat_button(unit_id: String, scope: String) -> void:
 	"""Dread Mob — Try Dat Button!: when a Mek / Orks Walker / Grots Vehicle
@@ -3011,7 +3101,9 @@ func get_state_for_save() -> Dictionary:
 		"razgit_resolved": _razgit_resolved,
 		"morks_kunnin_redeploys_used": _morks_kunnin_redeploys_used.duplicate(true),
 		# OA-46: Plant the Waaagh! Banner state
-		"plant_waaagh_banner_used": _plant_waaagh_banner_used.duplicate(true)
+		"plant_waaagh_banner_used": _plant_waaagh_banner_used.duplicate(true),
+		# Da Boss Is Watchin' (Bully Boyz): second-Waaagh! latch
+		"boss_watchin_used": _boss_watchin_used.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
@@ -3020,6 +3112,7 @@ func load_state(data: Dictionary) -> void:
 	_player_abilities = data.get("player_abilities", {"1": [], "2": []})
 	_waaagh_used = data.get("waaagh_used", {"1": false, "2": false})
 	_waaagh_active = data.get("waaagh_active", {"1": false, "2": false})
+	_boss_watchin_used = data.get("boss_watchin_used", {"1": false, "2": false})
 	# Detachment ability state (P2-27)
 	_player_detachment = data.get("player_detachment", {"1": "", "2": ""})
 	_doctrines_used = data.get("doctrines_used", {"1": [], "2": []})

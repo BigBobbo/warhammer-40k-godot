@@ -639,7 +639,8 @@ func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 
 	var current_player = GameState.get_active_player()
 	var has_oath = faction_mgr.player_has_ability(current_player, "Oath of Moment")
-	var has_waaagh = faction_mgr.is_waaagh_available(current_player) or faction_mgr.is_waaagh_active(current_player)
+	var has_waaagh = faction_mgr.is_waaagh_available(current_player) or faction_mgr.is_waaagh_active(current_player) \
+		or faction_mgr.is_boss_watchin_waaagh_available(current_player)
 	var plant_eligible = faction_mgr.get_plant_waaagh_banner_eligible_units(current_player) if faction_mgr.has_method("get_plant_waaagh_banner_eligible_units") else []
 
 	if not has_oath and not has_waaagh and plant_eligible.size() == 0:
@@ -695,6 +696,20 @@ func _setup_waaagh_subsection(section: VBoxContainer, faction_mgr, current_playe
 		btn.tooltip_text = "Declare a Waaagh! — all Ork units gain advance+charge, +1 S/A melee, 5+ invuln this turn"
 		btn.pressed.connect(_on_call_waaagh_pressed)
 		section.add_child(btn)
+	elif faction_mgr.has_method("is_boss_watchin_waaagh_available") and faction_mgr.is_boss_watchin_waaagh_available(current_player):
+		# Da Boss Is Watchin' (Bully Boyz): a second Waaagh!, scoped to
+		# WARBOSS / NOBZ / MEGANOBZ units. Same CALL_WAAAGH action — the
+		# phase routes to the scoped activation when the first is spent.
+		var bw_btn = Button.new()
+		bw_btn.name = "BossWatchinWaaaghButton"
+		bw_btn.text = "DA BOSS IS WATCHIN' — WAAAGH AGAIN!"
+		bw_btn.custom_minimum_size = Vector2(230, 34)
+		bw_btn.add_theme_font_size_override("font_size", 12)
+		_WhiteDwarfTheme.apply_to_button(bw_btn)
+		bw_btn.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+		bw_btn.tooltip_text = "Bully Boyz: call a Waaagh! a second time this battle — only Warboss, Nobz and Meganobz units gain the effects"
+		bw_btn.pressed.connect(_on_call_waaagh_pressed)
+		section.add_child(bw_btn)
 
 	_add_command_gold_separator(section)
 
