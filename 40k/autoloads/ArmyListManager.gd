@@ -63,13 +63,6 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 		print("Trying user:// path: ", file_path)
 
 	if not FileAccess.file_exists(file_path):
-		# Test fixtures: armies kept for the headless suite live outside the
-		# player-facing armies/ dir (scan_available_armies never lists them),
-		# but stay loadable by name so tests and scenarios keep working.
-		file_path = "res://tests/fixtures/armies/%s.json" % army_name
-		print("Trying test fixture path: ", file_path)
-
-	if not FileAccess.file_exists(file_path):
 		var error_msg = "Army file not found: " + army_name
 		print("ERROR: ", error_msg)
 		emit_signal("army_load_failed", error_msg)

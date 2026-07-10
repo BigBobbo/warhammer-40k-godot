@@ -33,7 +33,7 @@ var connected_players: int = 0
 # Army configuration
 var army_options: Array = []
 var selected_player1_army: String = "recon_stomps"
-var selected_player2_army: String = "recon_stomps"
+var selected_player2_army: String = "custodes_lions"
 # Army sort mode: "alphabetical" or "newest_first"
 var army_sort_mode: String = "alphabetical"
 var army_sort_container: HBoxContainer = null
@@ -455,20 +455,20 @@ func _reset_ui() -> void:
 	mission_dropdown.selected = 0
 	selected_mission = mission_options[0].id
 
-	# Default both players to the shipped base list (recon_stomps)
+	# Default matchup: Recon Stomps (P1) vs Custodes Lions (P2)
 	var p1_index = 0
-	var p2_index = 0
+	var p2_index = min(1, army_options.size() - 1)
 
 	for i in range(army_options.size()):
 		if army_options[i].id == "recon_stomps":
 			p1_index = i
+		if army_options[i].id == "custodes_lions":
 			p2_index = i
-			break
 
 	player1_dropdown.selected = p1_index
 	player2_dropdown.selected = p2_index
 	selected_player1_army = army_options[p1_index].id if not army_options.is_empty() else "recon_stomps"
-	selected_player2_army = army_options[p2_index].id if not army_options.is_empty() else "recon_stomps"
+	selected_player2_army = army_options[p2_index].id if not army_options.is_empty() else "custodes_lions"
 
 func _show_error(message: String) -> void:
 	print("MultiplayerLobby: Error - ", message)
@@ -789,7 +789,8 @@ func _setup_army_selection() -> void:
 	# Fallback if no armies found
 	if army_options.is_empty():
 		army_options = [
-			{"id": "recon_stomps", "name": "Recon Stomps", "date": "", "display": "Recon Stomps"}
+			{"id": "recon_stomps", "name": "Recon Stomps", "date": "", "display": "Recon Stomps"},
+			{"id": "custodes_lions", "name": "Custodes Lions", "date": "", "display": "Custodes Lions"}
 		]
 
 	# Sort based on current mode
@@ -798,15 +799,15 @@ func _setup_army_selection() -> void:
 	# Populate dropdowns
 	_populate_army_dropdowns()
 
-	# Set defaults - both players start on the shipped base list
+	# Set defaults - Recon Stomps for P1, Custodes Lions for P2
 	var p1_default = 0
-	var p2_default = 0
+	var p2_default = min(1, army_options.size() - 1)
 
 	for i in range(army_options.size()):
 		if army_options[i].id == "recon_stomps":
 			p1_default = i
+		if army_options[i].id == "custodes_lions":
 			p2_default = i
-			break
 
 	player1_dropdown.selected = p1_default
 	player2_dropdown.selected = p2_default

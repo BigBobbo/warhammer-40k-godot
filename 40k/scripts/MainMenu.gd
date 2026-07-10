@@ -1041,12 +1041,13 @@ func _set_default_army_selections() -> void:
 	var player1_index = 0
 	var player2_index = min(1, army_options.size() - 1)  # Different army if possible
 
-	# Prefer the shipped base list (recon_stomps) for both players
+	# Default matchup: the two newest base lists — Recon Stomps for
+	# Player 1, Custodes Lions for Player 2
 	for i in range(army_options.size()):
 		if army_options[i].id == "recon_stomps":
 			player1_index = i
+		if army_options[i].id == "custodes_lions":
 			player2_index = i
-			break
 
 	player1_dropdown.selected = player1_index
 	player2_dropdown.selected = player2_index
@@ -1107,8 +1108,8 @@ func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
 		_restore_dropdown_selection(player1_dropdown, p1_selected_id)
 		_restore_dropdown_selection(player2_dropdown, p2_selected_id)
 
-	# The shipped base list (recon_stomps) stays the default selection —
-	# cloud armies are listed but never auto-selected over it.
+	# The newest base lists stay the default selections — cloud armies
+	# are listed but never auto-selected over them.
 
 func available_armies_ids() -> Array:
 	var ids = []

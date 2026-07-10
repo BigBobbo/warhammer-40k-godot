@@ -15,6 +15,7 @@ const V = await import(new URL('../public/js/vendor/40kdc-data.mjs', import.meta
 const { createConverter } = await import(new URL('../public/js/lib/gameformat.mjs', import.meta.url).href);
 const { GAME_NAME_CANON_ENTRIES } = await import(new URL('../public/js/lib/canon.mjs', import.meta.url).href);
 const { applyDataPatches } = await import(new URL('../public/js/lib/data-patches.mjs', import.meta.url).href);
+const { pointsFor } = await import(new URL('../public/js/lib/dckit.mjs', import.meta.url).href);
 
 // The browser builder patches the vendored dataset before use (store.js) —
 // e.g. upstream ships Speedwaaagh! with no enhancements. Test against the
@@ -49,13 +50,28 @@ test('every bundled army round-trips through gameToRoster -> rosterToGame', () =
     const outUnits = Object.values(out.units);
     assert.equal(outUnits.length, origUnits.length, `${file}: unit count`);
 
+    // rosterToGame prices the Nth copy of a datasheet with the dataset's 11e
+    // repeat pricing. Legacy files predate that and store first-copy prices
+    // on every copy — accept a stored price that differs by exactly the
+    // ordinal surcharge (enhancement costs cancel out of the delta).
+    const fid = conv.factionIdForName(army.faction?.name ?? '');
+    const ords = new Map();
+
     for (let i = 0; i < origUnits.length; i++) {
       const a = origUnits[i], b = outUnits[i];
       const label = `${file}/${a.meta.name}`;
       assert.equal(b.meta.name, a.meta.name, `${label}: order/name`);
       assert.equal(b.models.length, a.models.length, `${label}: model count`);
       assert.deepEqual(b.meta.stats, a.meta.stats, `${label}: stats`);
-      assert.equal(b.meta.points, a.meta.points, `${label}: points`);
+      let ordinalDelta = 0;
+      const found = fid ? conv.findUnitByName(fid, a.meta.name, [], file) : null;
+      if (found) {
+        const o = (ords.get(found.unit.id) ?? 0) + 1;
+        ords.set(found.unit.id, o);
+        ordinalDelta = pointsFor(found.unit, b.models.length, o) - pointsFor(found.unit, b.models.length);
+      }
+      assert.ok(b.meta.points === a.meta.points || b.meta.points === a.meta.points + ordinalDelta,
+        `${label}: points (stored ${a.meta.points}, out ${b.meta.points}, ordinal surcharge ${ordinalDelta})`);
       assert.equal(b.meta.is_warlord, a.meta.is_warlord, `${label}: warlord`);
       const an = new Set(a.meta.weapons.map(w => w.name));
       const bn = new Set(b.meta.weapons.map(w => w.name));
@@ -157,10 +173,8 @@ test('Stompa resolves to a 180mm round base, not the 32mm draft fallback', () =>
 });
 
 test('package legality checker accepts the fresh roster shape', () => {
-  // Orks_2000 moved out of the shipped armies/ dir; it lives on as a fixture.
-  const FIXTURE_ARMIES = join(ROOT, '40k', 'tests', 'fixtures', 'armies');
   const { roster } = conv.gameToRoster(
-    JSON.parse(readFileSync(join(FIXTURE_ARMIES, 'Orks_2000.json'), 'utf8')), { name: 'orks' });
+    JSON.parse(readFileSync(join(ARMIES, 'Orks_2000.json'), 'utf8')), { name: 'orks' });
   const verdict = V.checkRoster(roster, V.dataset);
   assert.ok(Array.isArray(verdict.army), 'army-level checks ran');
   assert.ok(Array.isArray(verdict.units), 'unit-level checks ran');

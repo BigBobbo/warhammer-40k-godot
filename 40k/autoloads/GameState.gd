@@ -86,9 +86,8 @@ func _load_default_armies() -> void:
 		_initialize_placeholder_armies()
 		return
 
-	# Both players default to the shipped base list (recon_stomps).
-	# apply_army_to_game_state re-keys player 2's copy so the shared unit
-	# ids from the same file don't collide.
+	# Default matchup: the two newest base lists — Recon Stomps (Orks) for
+	# Player 1 vs Custodes Lions (Adeptus Custodes) for Player 2.
 	var player1_army = army_list_manager.load_army_list("recon_stomps", 1)
 	if not player1_army.is_empty():
 		print("GameState: Loading Recon Stomps army for Player 1")
@@ -97,12 +96,12 @@ func _load_default_armies() -> void:
 		print("GameState: Failed to load Recon Stomps, using placeholder for Player 1")
 		_initialize_placeholder_armies_player(1)
 
-	var player2_army = army_list_manager.load_army_list("recon_stomps", 2)
+	var player2_army = army_list_manager.load_army_list("custodes_lions", 2)
 	if not player2_army.is_empty():
-		print("GameState: Loading Recon Stomps army for Player 2")
+		print("GameState: Loading Custodes Lions army for Player 2")
 		army_list_manager.apply_army_to_game_state(player2_army, 2)
 	else:
-		print("GameState: Failed to load Recon Stomps, using placeholder for Player 2")
+		print("GameState: Failed to load Custodes Lions, using placeholder for Player 2")
 		_initialize_placeholder_armies_player(2)
 	
 	print("GameState: Army loading complete. Total units: ", state.units.size())

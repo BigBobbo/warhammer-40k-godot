@@ -2529,7 +2529,7 @@
     },
     {
       "id": "autoloads.ArmyListManager.scan_available_armies",
-      "description": "Player-facing army scan lists exactly the shipped base lists (fixtures excluded)",
+      "description": "Player-facing army scan lists the shipped army lists, including both new base lists",
       "scenarios": [
         "recon_stomps_base_army",
         "custodes_lions_vs_recon"
@@ -2538,10 +2538,11 @@
       "status": "covered"
     },
     {
-      "id": "scripts.MainMenu.single_base_army_default",
-      "description": "Both MainMenu army dropdowns default to the shipped base list (recon_stomps)",
+      "id": "scripts.MainMenu.default_army_selection",
+      "description": "MainMenu army dropdowns default to the newest base lists: Recon Stomps (P1) vs Custodes Lions (P2)",
       "scenarios": [
-        "recon_stomps_base_army"
+        "recon_stomps_base_army",
+        "custodes_lions_vs_recon"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -2558,15 +2559,6 @@
     {
       "id": "armies.custodes_lions.load_path",
       "description": "Custodes Lions base army list (armies/custodes_lions.json) loads via dropdown selection -> Start Game, ordinal repeat pricing intact",
-      "scenarios": [
-        "custodes_lions_vs_recon"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered"
-    },
-    {
-      "id": "scripts.MainMenu.army_selection",
-      "description": "MainMenu Player 2 army dropdown selection is honoured by Start Game",
       "scenarios": [
         "custodes_lions_vs_recon"
       ],

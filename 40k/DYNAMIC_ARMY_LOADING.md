@@ -43,14 +43,14 @@ The MainMenu now dynamically loads available armies from the `armies/` directory
 
 **`_set_default_army_selections()`**
 - Intelligently selects default armies
-- Prefers the shipped base list (`recon_stomps`) for both players
-- Falls back to the first scanned army when it is absent
+- Prefers the newest base lists: `recon_stomps` (Player 1) vs `custodes_lions` (Player 2)
+- Falls back to the first scanned armies when they are absent
 
 ### Features
 
 ✅ **Automatic Discovery**: Scans both `res://armies/` and `user://armies/`
 ✅ **Alphabetical Sorting**: Armies displayed in A-Z order
-✅ **Smart Defaults**: Both players default to the shipped base list (Recon Stomps)
+✅ **Smart Defaults**: Recon Stomps (P1) vs Custodes Lions (P2) by default
 ✅ **Graceful Fallback**: Handles missing armies gracefully
 ✅ **User-Friendly Names**: Converts file names to readable display names
 

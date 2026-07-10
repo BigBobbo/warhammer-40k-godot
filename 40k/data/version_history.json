@@ -4,22 +4,21 @@
 		{
 			"version": "0.16.0",
 			"date": "2026-07-10",
-			"summary": "Second base army list: 'Custodes Lions' — a 2000pt Adeptus Custodes Lions of the Emperor force (3 Blade Champions, 6 Custodian Guard squads, Allarus Custodians, Prosecutors). Repeat copies of a datasheet now cost their real 11th-edition points in exported lists.",
+			"summary": "Second new base army list: 'Custodes Lions' — a 2000pt Adeptus Custodes Lions of the Emperor force (3 Blade Champions, 6 Custodian Guard squads, Allarus Custodians, Prosecutors). The default matchup is now Recon Stomps (P1) vs Custodes Lions (P2).",
 			"changes": [
-				"Added 'Custodes Lions' (Adeptus Custodes, Lions of the Emperor, 2000 pts) as a second built-in army list: Blade Champion Warlord + 2 more Blade Champions, 6x5 Custodian Guard with guardian spears, 5 Allarus Custodians, and a Prosecutors squad.",
-				"Army lists now price repeat datasheets correctly (11e repeat pricing): the 2nd+ Blade Champion costs 125, the 4th+ Custodian Guard squad 225 — exported and built-in lists total their printed points.",
-				"Recon Stomps remains the default selection for both players; the Custodes list is available in every army picker."
+				"Added 'Custodes Lions' (Adeptus Custodes, Lions of the Emperor, 2000 pts) as a built-in army list: Blade Champion Warlord + 2 more Blade Champions, 6x5 Custodian Guard with guardian spears, 5 Allarus Custodians, and a Prosecutors squad.",
+				"Army pickers now default to the two newest lists: Recon Stomps for Player 1 and Custodes Lions for Player 2 — all other army lists remain available in the dropdowns.",
+				"Army lists now price repeat datasheets correctly (11e repeat pricing): the 2nd+ Blade Champion costs 125, the 4th+ Custodian Guard squad 225 — exported and built-in lists total their printed points."
 			]
 		},
 		{
 			"version": "0.15.0",
 			"date": "2026-07-10",
-			"summary": "New base army list: 'Recon Stomps' — a 2000pt Orks Speedwaaagh! force (Wazdakka Gutsmek, a Stompa, Deffkoptas, Warbikers, Stormboyz). It replaces all previous built-in army lists and is now the default for both players.",
+			"summary": "New base army list: 'Recon Stomps' — a 2000pt Orks Speedwaaagh! force (Wazdakka Gutsmek, a Stompa, Deffkoptas, Warbikers, Stormboyz). It is now Player 1's default army.",
 			"changes": [
-				"Added 'Recon Stomps' (Orks, Speedwaaagh!, 2000 pts) as the built-in army list: 2 Deffkilla Wartrikes (Kustom Shokk Box / Supa-burny Fuel), Mek (Dakkamek), Wazdakka Gutsmek (Warlord), 4x Stormboyz, 4x Warbikers, 2x Deffkoptas, 2x Gretchin, and a Stompa.",
-				"Removed all other built-in army lists (Orks, Adeptus Custodes, Space Marines variants) from the army pickers — cloud armies are unaffected and can still be selected.",
+				"Added 'Recon Stomps' (Orks, Speedwaaagh!, 2000 pts) as a built-in army list: 2 Deffkilla Wartrikes (Kustom Shokk Box / Supa-burny Fuel), Mek (Dakkamek), Wazdakka Gutsmek (Warlord), 4x Stormboyz, 4x Warbikers, 2x Deffkoptas, 2x Gretchin, and a Stompa.",
 				"Both players can now pick the same army list: the second player's units are kept separate instead of silently replacing the first player's.",
-				"Cloud armies are no longer auto-selected over the default list when the menu loads."
+				"Cloud armies are no longer auto-selected over the default lists when the menu loads."
 			]
 		},
 		{

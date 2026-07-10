@@ -37,7 +37,7 @@ func _run_tests():
 
 func _test_json_ability_name() -> void:
 	print("\n-- T-015a: Witchseekers JSON ability is named 'Scouts 6\"' --")
-	for path in ["res://tests/fixtures/armies/adeptus_custodes.json", "res://tests/fixtures/armies/A_C_test.json"]:
+	for path in ["res://armies/adeptus_custodes.json", "res://armies/A_C_test.json"]:
 		var f := FileAccess.open(path, FileAccess.READ)
 		_check("%s readable" % path, f != null)
 		if f == null:
