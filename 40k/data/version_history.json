@@ -12,6 +12,26 @@
 			]
 		},
 		{
+			"version": "0.16.2",
+			"date": "2026-07-10",
+			"summary": "Fight phase dialogs now have a single, clear confirm button: the redundant 'OK' button that duplicated 'Fight!' in the attack-assignment dialog (and did nothing useful in the unit picker) is gone.",
+			"changes": [
+				"Assign Attacks dialog: removed the built-in 'OK' button that sat next to 'Fight!' and did the same thing — 'Fight!' is now the one button that confirms your weapon/target assignments and rolls the attacks.",
+				"Fight unit picker: removed its 'OK' button too — you pick a unit by clicking it, and 'OK' could only close the picker without selecting anything, stalling the fight sequence."
+			]
+		},
+		{
+			"version": "0.16.1",
+			"date": "2026-07-10",
+			"summary": "Fixed the board mouseover tooltip: it now works on every model anywhere on the board (not just a lucky few), and shows the unit's real name and stats instead of 'Unknown' with question marks.",
+			"changes": [
+				"Hovering any model — yours or your opponent's — now reliably shows its unit tooltip regardless of camera pan/zoom (the hover check compared screen and board coordinates, so it only worked in one spot of the board).",
+				"Tooltip now shows real values (name, M/T/Sv/W/OC, invulnerable save, model count, wound totals) instead of 'Unknown' and '?' — it was reading fields that don't exist in the unit data.",
+				"Big bases (vehicles, monsters) are now hoverable across their whole base, not just the centre.",
+				"The tooltip stays on screen near the board edge and no longer pops up while the mouse is over the side/bottom panels."
+			]
+		},
+		{
 			"version": "0.16.0",
 			"date": "2026-07-10",
 			"summary": "Second new base army list: 'Custodes Lions' — a 2000pt Adeptus Custodes Lions of the Emperor force (3 Blade Champions, 6 Custodian Guard squads, Allarus Custodians, Prosecutors). The default matchup is now Recon Stomps (P1) vs Custodes Lions (P2).",

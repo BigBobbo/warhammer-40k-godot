@@ -6472,6 +6472,7 @@ func _setup_token_hover_tooltip() -> void:
 	style.set_content_margin_all(8)
 	_token_hover_tooltip.add_theme_stylebox_override("panel", style)
 	_token_hover_label = RichTextLabel.new()
+	_token_hover_label.name = "TokenHoverLabel"
 	_token_hover_label.bbcode_enabled = true
 	_token_hover_label.fit_content = true
 	_token_hover_label.scroll_active = false
@@ -6485,23 +6486,43 @@ func _setup_token_hover_tooltip() -> void:
 func _check_token_hover(mouse_pos: Vector2) -> void:
 	if not token_layer or not is_instance_valid(token_layer):
 		return
-	var board_pos = camera.get_global_transform().affine_inverse() * mouse_pos
+	# Suppress the tooltip while the mouse is over a HUD panel — the board
+	# position under the HUD is not what the player is pointing at.
+	for hud_name in ["HUD_Right", "HUD_Bottom", "HUD_Left"]:
+		var hud = get_node_or_null(hud_name)
+		if hud is Control and hud.visible and hud.get_global_rect().has_point(mouse_pos):
+			_hide_token_hover()
+			return
+	# Tokens are children of BoardRoot/TokenLayer, so token.position is in
+	# board space. Convert the mouse the same way every other board handler
+	# does (BoardRoot carries the pan/zoom; comparing token.global_position
+	# against a board-space point only matched near the transform's fixed
+	# point, which is why hover used to work for only some models).
+	var board_pos = screen_to_world_position(mouse_pos)
 	var best_token: Node2D = null
-	var best_dist: float = 40.0
+	var best_dist: float = INF
 	for child in token_layer.get_children():
-		if not child.visible:
+		if not child.visible or not child.has_meta("unit_id"):
 			continue
-		var dist = child.global_position.distance_to(board_pos)
-		if dist < best_dist:
+		if "is_preview" in child and child.is_preview:
+			continue
+		var dist = child.position.distance_to(board_pos)
+		# Hit radius follows the model's actual base so vehicles/monsters are
+		# hoverable across their whole base; 25px floor covers small infantry.
+		var hit_radius: float = 25.0
+		if "base_shape" in child and child.base_shape != null:
+			var bounds: Rect2 = child.base_shape.get_bounds()
+			hit_radius = max(hit_radius, max(bounds.size.x, bounds.size.y) / 2.0 + 4.0)
+		if dist <= hit_radius and dist < best_dist:
 			best_dist = dist
 			best_token = child
-	if best_token and best_token.has_meta("unit_id"):
+	if best_token:
 		var uid = best_token.get_meta("unit_id")
 		if uid != _token_hover_unit_id:
 			_token_hover_unit_id = uid
 			_show_token_hover(uid, mouse_pos)
-		elif _token_hover_tooltip:
-			_token_hover_tooltip.position = Vector2(mouse_pos.x + 16, mouse_pos.y - 10)
+		else:
+			_position_token_hover(mouse_pos)
 	elif _token_hover_unit_id != "":
 		_hide_token_hover()
 
@@ -6513,38 +6534,68 @@ func _show_token_hover(unit_id: String, screen_pos: Vector2) -> void:
 	if unit.is_empty():
 		_hide_token_hover()
 		return
-	var name = unit.get("name", "Unknown")
-	var stats = unit.get("stats", {})
-	var m = stats.get("M", "?")
-	var t = stats.get("T", "?")
-	var sv = stats.get("Sv", "?")
-	var w = stats.get("W", "?")
-	var oc = stats.get("OC", "?")
+	# Unit name/stats/keywords live under meta, and stats use the long key
+	# names from the army JSON schema (move/toughness/save/...), not M/T/Sv.
+	var meta = unit.get("meta", {})
+	var unit_name = meta.get("name", unit_id)
+	var stats = meta.get("stats", {})
+	var stat_defs = [
+		["move", "M", "\""],
+		["toughness", "T", ""],
+		["save", "Sv", "+"],
+		["wounds", "W", ""],
+		["objective_control", "OC", ""],
+	]
+	var stat_parts: Array = []
+	for def in stat_defs:
+		var val = stats.get(def[0], null)
+		var val_text = "?" if val == null else "%d%s" % [int(val), def[2]]
+		stat_parts.append("[color=#D49761]%s[/color]:%s" % [def[1], val_text])
+	var invuln = int(stats.get("invuln", stats.get("invulnerable_save", 0)))
+	if invuln > 0:
+		stat_parts.append("[color=#D49761]Inv[/color]:%d++" % invuln)
 	var models = unit.get("models", [])
 	var alive = 0
 	var total_w_current = 0
 	var total_w_max = 0
 	for mdl in models:
+		var w_max = int(mdl.get("wounds", 0))
 		if mdl.get("alive", true):
 			alive += 1
-			total_w_current += mdl.get("wounds_remaining", 0)
-			total_w_max += mdl.get("wounds_max", mdl.get("wounds_remaining", 0))
+			total_w_current += int(mdl.get("current_wounds", w_max))
+			total_w_max += w_max
 	var total_models = models.size()
-	var player = unit.get("player", 0)
-	var player_color = "#6699CC" if player == 1 else "#CC6666"
-	var keywords = unit.get("keywords", [])
+	var unit_owner = unit.get("owner", 0)
+	var player_color = "#6699CC" if unit_owner == 1 else "#CC6666"
+	var keywords = meta.get("keywords", [])
 	var kw_short = ", ".join(keywords.slice(0, 3))
 	if keywords.size() > 3:
 		kw_short += "..."
-	var text = "[b][color=%s]%s[/color][/b]\n" % [player_color, name]
-	text += "[color=#D49761]M[/color]:%s  [color=#D49761]T[/color]:%s  [color=#D49761]Sv[/color]:%s  [color=#D49761]W[/color]:%s  [color=#D49761]OC[/color]:%s\n" % [str(m), str(t), str(sv), str(w), str(oc)]
+	var text = "[b][color=%s]%s[/color][/b]\n" % [player_color, unit_name]
+	text += "  ".join(stat_parts) + "\n"
 	text += "[color=#AAAAAA]Models: %d/%d  Wounds: %d/%d[/color]" % [alive, total_models, total_w_current, total_w_max]
 	if kw_short != "":
 		text += "\n[color=#888888][i]%s[/i][/color]" % kw_short
 	_token_hover_label.text = ""
 	_token_hover_label.append_text(text)
-	_token_hover_tooltip.position = Vector2(screen_pos.x + 16, screen_pos.y - 10)
 	_token_hover_tooltip.visible = true
+	_position_token_hover(screen_pos)
+
+func _position_token_hover(screen_pos: Vector2) -> void:
+	if not _token_hover_tooltip:
+		return
+	_token_hover_tooltip.reset_size()
+	var pos = Vector2(screen_pos.x + 16, screen_pos.y - 10)
+	# Keep the tooltip on screen: flip to the left of the cursor at the right
+	# edge, clamp vertically. Size can lag a frame for fresh text; the next
+	# mouse-motion re-clamp corrects any residual overflow.
+	var vp_size = get_viewport().get_visible_rect().size
+	var tip_size = _token_hover_tooltip.size
+	if pos.x + tip_size.x > vp_size.x - 4.0:
+		pos.x = screen_pos.x - tip_size.x - 16
+	pos.x = max(pos.x, 4.0)
+	pos.y = clamp(pos.y, 4.0, max(4.0, vp_size.y - tip_size.y - 4.0))
+	_token_hover_tooltip.position = pos
 
 func _hide_token_hover() -> void:
 	_token_hover_unit_id = ""
