@@ -131,10 +131,24 @@ export function looseName(s) {
   return normName(s).split(' ').map(w => w.replace(/s$/, '')).join(' ');
 }
 
-/** Points cost for a unit at a given model count (first-copy pricing). */
-export function pointsFor(unit, modelCount) {
-  const tiers = (unit.points ?? []).filter(
-    t => (t.unit_count_min ?? 1) === 1 || t.unit_count_min == null);
+/**
+ * Points cost for a unit at a given model count.
+ *
+ * `ordinal` is which copy of the datasheet this is in the army (1-based) —
+ * 11e repeat pricing surcharges later copies via tiers scoped by
+ * unit_count_min/unit_count_max (e.g. Custodian Guard x5: 215 for copies
+ * 1-3, 225 from the 4th). Defaults to first-copy pricing, which is also the
+ * fallback when no tier covers the ordinal.
+ */
+export function pointsFor(unit, modelCount, ordinal = 1) {
+  const covers = t =>
+    (t.unit_count_min ?? 1) <= ordinal &&
+    (t.unit_count_max == null || t.unit_count_max >= ordinal);
+  let tiers = (unit.points ?? []).filter(covers);
+  if (tiers.length === 0) {
+    tiers = (unit.points ?? []).filter(
+      t => (t.unit_count_min ?? 1) === 1 || t.unit_count_min == null);
+  }
   let best = null;
   for (const t of tiers) {
     if (t.models === modelCount) return t.cost;

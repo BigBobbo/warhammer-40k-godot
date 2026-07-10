@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.14.0",
+			"date": "2026-07-10",
+			"summary": "Second base army list: 'Custodes Lions' — a 2000pt Adeptus Custodes Lions of the Emperor force (3 Blade Champions, 6 Custodian Guard squads, Allarus Custodians, Prosecutors). Repeat copies of a datasheet now cost their real 11th-edition points in exported lists.",
+			"changes": [
+				"Added 'Custodes Lions' (Adeptus Custodes, Lions of the Emperor, 2000 pts) as a second built-in army list: Blade Champion Warlord + 2 more Blade Champions, 6x5 Custodian Guard with guardian spears, 5 Allarus Custodians, and a Prosecutors squad.",
+				"Army lists now price repeat datasheets correctly (11e repeat pricing): the 2nd+ Blade Champion costs 125, the 4th+ Custodian Guard squad 225 — exported and built-in lists total their printed points.",
+				"Recon Stomps remains the default selection for both players; the Custodes list is available in every army picker."
+			]
+		},
+		{
 			"version": "0.13.0",
 			"date": "2026-07-10",
 			"summary": "New base army list: 'Recon Stomps' — a 2000pt Orks Speedwaaagh! force (Wazdakka Gutsmek, a Stompa, Deffkoptas, Warbikers, Stormboyz). It replaces all previous built-in army lists and is now the default for both players.",
