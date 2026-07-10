@@ -950,9 +950,11 @@ func _apply_enhancement_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 # EXPLOSIVES core stratagems' keyword gates, ...) work unchanged.
 
 const ENHANCEMENT_GRANTED_ABILITIES: Dictionary = {
-	# (empty — Lions of the Emperor enhancements have no published 11e rules
-	# in the 40kdc dataset yet; do not backfill from 10e sources. Praesidius
-	# et al. get entries here once official 11e text lands.)
+	# Lions of the Emperor — 10e STOPGAP (user ruling 2026-07-10): the 40kdc
+	# dataset has no published 11e rules for the Lions enhancements yet, so the
+	# official 10e wording stands in until it does. 10e Praesidius: "The bearer
+	# has the Lone Operative and Stealth abilities."
+	"Praesidius": ["Lone Operative", "Stealth"],
 }
 
 const ENHANCEMENT_GRANTED_KEYWORDS: Dictionary = {

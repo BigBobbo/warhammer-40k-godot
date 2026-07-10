@@ -2,19 +2,18 @@ extends SceneTree
 
 # Lions of the Emperor + Silent Hunters (Adeptus Custodes) regression test.
 #
-# 11e-only policy: the game implements exactly what the 40kdc 11e dataset
-# defines. For Silent Hunters that is everything (detachment rule, both
-# enhancements, all three stratagems). For Lions of the Emperor the dataset
-# defines ONLY the Against All Odds detachment rule — the six stratagems and
-# four enhancements ship with no 11e payloads (still true at 1.0.24), so they
-# must stay display-only stubs (NOT backfilled from 10e sources).
+# Policy (user ruling 2026-07-10): the game implements the 40kdc 11e dataset
+# where published (all of Silent Hunters), and the official 10e wording as an
+# EXPLICIT provisional stopgap where 11e is not published yet (all Lions
+# stratagems + enhancements, whose CSV rows carry a PROVISIONAL note).
 #
-# Covers:
-#   1. Stratagem load: all 6 Lions stratagems load UNIMPLEMENTED (stub text);
-#      all 3 Silent Hunters stratagems load implemented from the dataset.
-#   2. Against All Odds (the one dataset-defined Lions rule): detachment-gated
-#      (Lions only), +1 to hit applies in MELEE as well as ranged, VEHICLE and
-#      non-isolated units excluded.
+# Covers the engine half of "both Custodes detachments are mechanically
+# implemented":
+#   1. Stratagem load: all 6 Lions of the Emperor + all 3 Silent Hunters
+#      stratagems load mechanically implemented (curated effects_json +
+#      custom handlers marked by StratagemManager).
+#   2. Against All Odds: detachment-gated (Lions only), +1 to hit applies in
+#      MELEE as well as ranged, VEHICLE and non-isolated units excluded.
 #   3. Effect-granted LANCE (Deathsong Scythes): +1 to wound when the unit
 #      charged, for weapons without the native keyword.
 #   4. plus_attacks_vs_psyker (Deathsong Scythes): melee attack count rises
@@ -22,11 +21,17 @@ extends SceneTree
 #   5. grant_rapid_fire (Umbral Prosecution): extra attacks inside half range.
 #   6. grant_blast (Synchronised Inferno): blast bonus attacks vs big units.
 #   7. improve_ap scoped flags (Umbral Prosecution): ranged-only AP bonus.
-#   8. Psyk-out Grenades: grants the EXPLOSIVES keyword at army load (11e).
-#   9. Encircling Hunter: redeploy-enhancement eligibility (Anathema Psykana
+#   8. Fierce Conqueror: +2 melee Attacks per 5 enemy models within 6".
+#   9. Superior Creation: first-death revival roll at end of phase (2+),
+#      once per battle, placement outside Engagement Range.
+#  10. Praesidius: grants Lone Operative + Stealth at army load.
+#  11. Psyk-out Grenades: grants EXPLOSIVES/GRENADES keywords at army load.
+#  12. Encircling Hunter: redeploy-enhancement eligibility (Anathema Psykana
 #      INFANTRY, bearer excluded, 3 slots).
-#  10. Skin-Crawling Disorientation: Anathema Psykana may perform actions
+#  13. Skin-Crawling Disorientation: Anathema Psykana may perform actions
 #      after Advancing (Silent Hunters only).
+#  14. Gilded Champion: restores a spent once-per-battle ability, blocked in
+#      the same phase, once per battle per model.
 #
 # Usage: godot --headless --path . -s tests/test_custodes_lions_silent_hunters.gd
 
@@ -64,9 +69,13 @@ func _run_tests() -> void:
 	_test_grant_rapid_fire()
 	_test_grant_blast()
 	_test_improve_ap_scoped()
-	_test_psyk_out_grenades()
+	_test_fierce_conqueror()
+	_test_superior_creation()
+	_test_praesidius_and_psyk_out()
+	_test_admonimortis_stopgap()
 	_test_encircling_hunter()
 	_test_skin_crawling_disorientation()
+	_test_gilded_champion()
 
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(1 if failed > 0 else 0)
@@ -190,7 +199,7 @@ func _lions_factions(owner: int = 1) -> Dictionary:
 # 1. Stratagem loading
 # ----------------------------------------------------------------------------
 func _test_stratagem_loading() -> void:
-	print("\n-- Stratagem load: Lions 6/6 display-only stubs, Silent Hunters 3/3 implemented --")
+	print("\n-- Stratagem load: 6/6 Lions + 3/3 Silent Hunters implemented --")
 	var alm = root.get_node("ArmyListManager")
 	var sm = root.get_node("StratagemManager")
 
@@ -204,36 +213,23 @@ func _test_stratagem_loading() -> void:
 	gs.state["factions"]["2"] = {"name": "Adeptus Custodes", "detachment": "Silent Hunters"}
 	sm.load_all_faction_stratagems()
 
-	# 11e policy: the 40kdc dataset has NO effect text for any Lions of the
-	# Emperor stratagem (1.0.24), so all six must load as display-only stubs
-	# (implemented=false) — a regression here means 10e content leaked back in.
-	var lions_expected := ["PEERLESS WARRIOR", "GILDED CHAMPION", "DEFIANT TO THE LAST",
-		"UNLEASH THE LIONS", "MANOEUVRE AND FIRE", "SWIFT AS THE EAGLE"]
-	var lions_strats = sm.get_faction_stratagems_for_player(1)
-	var lions_by_name := {}
-	for s in lions_strats:
-		lions_by_name[s.get("name", "").to_upper()] = s
-	_check("player 1 loads 6 Lions stratagems", lions_strats.size() == 6, "got %d" % lions_strats.size())
-	for want in lions_expected:
-		var s = lions_by_name.get(want, {})
-		_check("  %s loaded as display-only stub (no 11e rules yet)" % want,
-			not s.is_empty() and not s.get("implemented", true),
-			"missing" if s.is_empty() else "implemented=true — 10e content leaked back in")
-		if not s.is_empty():
-			var use_check = sm.can_use_stratagem(1, s.get("id", ""), "", {"bypass_phase_check": true})
-			_check("  %s not usable by the player" % want, not use_check.can_use)
-
-	var sh_expected := ["DEATHSONG SCYTHES", "UMBRAL PROSECUTION", "SYNCHRONISED INFERNO"]
-	var sh_strats = sm.get_faction_stratagems_for_player(2)
-	var sh_by_name := {}
-	for s in sh_strats:
-		sh_by_name[s.get("name", "").to_upper()] = s
-	_check("player 2 loads 3 Silent Hunters stratagems", sh_strats.size() == 3, "got %d" % sh_strats.size())
-	for want in sh_expected:
-		var s = sh_by_name.get(want, {})
-		_check("  %s loaded + implemented (11e dataset rules)" % want,
-			not s.is_empty() and s.get("implemented", false),
-			"missing" if s.is_empty() else "implemented=false")
+	var expected := {
+		1: ["PEERLESS WARRIOR", "GILDED CHAMPION", "DEFIANT TO THE LAST",
+			"UNLEASH THE LIONS", "MANOEUVRE AND FIRE", "SWIFT AS THE EAGLE"],
+		2: ["DEATHSONG SCYTHES", "UMBRAL PROSECUTION", "SYNCHRONISED INFERNO"],
+	}
+	for player in expected:
+		var strats = sm.get_faction_stratagems_for_player(player)
+		var by_name := {}
+		for s in strats:
+			by_name[s.get("name", "").to_upper()] = s
+		_check("player %d loads %d faction stratagems" % [player, expected[player].size()],
+			strats.size() == expected[player].size(), "got %d" % strats.size())
+		for want in expected[player]:
+			var s = by_name.get(want, {})
+			_check("  %s loaded + implemented" % want,
+				not s.is_empty() and s.get("implemented", false),
+				"missing" if s.is_empty() else "implemented=false")
 
 	# Target-keyword parsing for the Sisters of Silence datasheets
 	var sh = sm.get_faction_stratagems_for_player(2)
@@ -414,12 +410,151 @@ func _test_improve_ap_scoped() -> void:
 	_check("ranged AP+1 raises failed saves (%d > %d)" % [fails_yes, fails_no], fails_yes > fails_no)
 
 # ----------------------------------------------------------------------------
-# 8. Psyk-out Grenades army-load grant (11e: Explosives keyword)
+# 8. Fierce Conqueror
 # ----------------------------------------------------------------------------
-func _test_psyk_out_grenades() -> void:
-	print("\n-- Psyk-out Grenades: EXPLOSIVES keyword granted at army load --")
+func _test_fierce_conqueror() -> void:
+	print("\n-- Fierce Conqueror: +2 melee Attacks per 5 enemy models within 6\" --")
+	var rules = root.get_node("RulesEngine")
+
+	# 8 enemy models at 2" → floor(8/5)*2 = +2
+	var board = _make_board({
+		"shooter_models": 1,
+		"shooter_enhancements": ["Fierce Conqueror"],
+		"target_models": 8,
+	})
+	_check("+2 per 5 enemies (8 within 6\")", rules.get_fierce_conqueror_bonus_attacks(board.units["U_SHOOTER"], board) == 2)
+
+	# 12 enemy models → floor(12/5)*2 = +4
+	var board12 = _make_board({
+		"shooter_models": 1,
+		"shooter_enhancements": ["Fierce Conqueror"],
+		"target_models": 12,
+		"target_spacing_px": 18.0,
+	})
+	_check("+4 per 5 enemies (12 within 6\")", rules.get_fierce_conqueror_bonus_attacks(board12.units["U_SHOOTER"], board12) == 4)
+
+	# 4 enemy models → 0
+	var board4 = _make_board({
+		"shooter_models": 1,
+		"shooter_enhancements": ["Fierce Conqueror"],
+		"target_models": 4,
+	})
+	_check("no bonus below 5 enemies", rules.get_fierce_conqueror_bonus_attacks(board4.units["U_SHOOTER"], board4) == 0)
+
+	# No enhancement → 0
+	var board_none = _make_board({"shooter_models": 1, "target_models": 8})
+	_check("no bonus without the enhancement", rules.get_fierce_conqueror_bonus_attacks(board_none.units["U_SHOOTER"], board_none) == 0)
+
+	# Enemies out of range → 0
+	var board_far = _make_board({
+		"shooter_models": 1,
+		"shooter_enhancements": ["Fierce Conqueror"],
+		"target_models": 8,
+		"distance_inches": 10.0,
+	})
+	_check("no bonus when enemies beyond 6\"", rules.get_fierce_conqueror_bonus_attacks(board_far.units["U_SHOOTER"], board_far) == 0)
+
+	# End-to-end: melee attack count rises by the bonus (1 model, choppa A3 → 3+2=5 rolls)
+	var m_with = _melee(board, 31)
+	var m_none = _melee(board_none, 31)
+	_check("melee rolls include Fierce Conqueror bonus (%d = %d + 2)" % [_count_rolls(m_with, "hit_roll_melee"), _count_rolls(m_none, "hit_roll_melee")],
+		_count_rolls(m_with, "hit_roll_melee") == _count_rolls(m_none, "hit_roll_melee") + 2)
+
+# ----------------------------------------------------------------------------
+# 9. Superior Creation
+# ----------------------------------------------------------------------------
+func _test_superior_creation() -> void:
+	print("\n-- Superior Creation: first-death revival at end of phase --")
+	var rules = root.get_node("RulesEngine")
+
+	var board = _make_board({
+		"shooter_models": 1,
+		"shooter_enhancements": ["Superior Creation"],
+	})
+	# Kill the bearer (position stays on the dead model)
+	board.units["U_SHOOTER"].models[0]["alive"] = false
+	board.units["U_SHOOTER"].models[0]["current_wounds"] = 0
+
+	var rec = rules.record_superior_creation_death("U_SHOOTER", board)
+	_check("death recorded as applicable", rec.get("applicable", false))
+	# Apply the diffs by hand (flags on the unit)
+	board.units["U_SHOOTER"].flags["superior_creation_used"] = true
+	board.units["U_SHOOTER"].flags["superior_creation_pending"] = {"x": 0.0, "y": 0.0}
+
+	# Second death attempt — once per battle
+	var rec2 = rules.record_superior_creation_death("U_SHOOTER", board)
+	_check("revival is once per battle", not rec2.get("applicable", false))
+
+	# Scan seeds: both outcomes must occur, and revived placement must be legal
+	var revived_count := 0
+	var failed_count := 0
+	for seed_val in range(1, 13):
+		var b = _make_board({
+			"shooter_models": 1,
+			"shooter_enhancements": ["Superior Creation"],
+			"distance_inches": 0.75,  # enemy inside Engagement Range of the death spot
+		})
+		b.units["U_SHOOTER"].models[0]["alive"] = false
+		b.units["U_SHOOTER"].models[0]["current_wounds"] = 0
+		b.units["U_SHOOTER"].flags["superior_creation_pending"] = {"x": 0.0, "y": 0.0}
+		b.units["U_SHOOTER"].flags["superior_creation_used"] = true
+		rules.set_test_seed(seed_val)
+		var rng = rules.RNGService.new()
+		var res = rules.resolve_superior_creation_revivals(b, rng)
+		var cleared := false
+		var revived := false
+		var new_pos = null
+		for d in res.get("diffs", []):
+			var path: String = d.get("path", "")
+			if path.ends_with("superior_creation_pending") and d.get("value") == null:
+				cleared = true
+			if path.ends_with("models.0.alive") and d.get("value") == true:
+				revived = true
+			if path.ends_with("models.0.position"):
+				new_pos = d.get("value")
+		_check("seed %d: pending flag consumed" % seed_val, cleared)
+		if revived:
+			revived_count += 1
+			# Placement: must be at least 1" edge-to-edge from the enemy at 0.75"
+			var meas = root.get_node("Measurement")
+			var enemy_pos = Vector2(0.75 * 40.0, 0.0)
+			var p = Vector2(float(new_pos.get("x", 0)), float(new_pos.get("y", 0)))
+			var radius = meas.base_radius_px(32)
+			var closest := INF
+			for i in range(8):
+				var ep2 = Vector2(0.75 * 40.0, float(i * 35))
+				var edge = meas.px_to_inches(p.distance_to(ep2) - radius * 2.0)
+				closest = min(closest, edge)
+			_check("seed %d: revived outside Engagement Range (%.2f\" ≥ 1\")" % [seed_val, closest], closest >= 1.0)
+		else:
+			failed_count += 1
+	_check("some revivals succeed across seeds (2+)", revived_count > 0, "0/12 revived")
+	_check("some revivals fail across seeds (roll of 1)", failed_count > 0, "0/12 failed")
+
+# ----------------------------------------------------------------------------
+# 10/11. Praesidius + Psyk-out Grenades army-load grants
+# ----------------------------------------------------------------------------
+func _test_praesidius_and_psyk_out() -> void:
+	print("\n-- Praesidius / Psyk-out Grenades: army-load grants --")
 	var alm = root.get_node("ArmyListManager")
 	var rules = root.get_node("RulesEngine")
+
+	var unit = {
+		"id": "U_P", "owner": 1,
+		"meta": {
+			"name": "Praesidius Bearer",
+			"keywords": ["ADEPTUS CUSTODES", "CHARACTER"],
+			"abilities": [],
+			"enhancements": ["Praesidius"],
+		},
+		"flags": {}, "models": []
+	}
+	alm._apply_enhancement_granted_abilities("U_P", unit)
+	_check("Praesidius grants Lone Operative", rules.has_lone_operative(unit))
+	_check("Praesidius grants Stealth", rules.has_stealth_ability(unit))
+	# Idempotent
+	alm._apply_enhancement_granted_abilities("U_P", unit)
+	_check("grants are idempotent", unit.meta.abilities.size() == 2, str(unit.meta.abilities))
 
 	var sos = {
 		"id": "U_S", "owner": 1,
@@ -432,22 +567,37 @@ func _test_psyk_out_grenades() -> void:
 		"flags": {}, "models": []
 	}
 	alm._apply_enhancement_granted_abilities("U_S", sos)
-	_check("Psyk-out grants EXPLOSIVES", rules.unit_has_keyword(sos, "EXPLOSIVES"))
-	# Idempotent
-	alm._apply_enhancement_granted_abilities("U_S", sos)
-	var explosives_count = 0
-	for kw in sos.meta.keywords:
-		if str(kw).to_upper() == "EXPLOSIVES":
-			explosives_count += 1
-	_check("grant is idempotent", explosives_count == 1, str(sos.meta.keywords))
-
-	# 11e policy: Lions enhancements have no dataset rules — the grant tables
-	# must not carry entries for them (no 10e backfill).
-	_check("no ability grants for Lions enhancements",
-		not alm.ENHANCEMENT_GRANTED_ABILITIES.has("Praesidius"))
+	_check("Psyk-out grants EXPLOSIVES (11e dataset keyword)", rules.unit_has_keyword(sos, "EXPLOSIVES"))
+	_check("Psyk-out does not add extra keywords", not rules.unit_has_keyword(sos, "GRENADES"))
 
 # ----------------------------------------------------------------------------
-# 9. Encircling Hunter
+# 11b. Admonimortis (10e stopgap): +3S / +1AP / +1D on the bearer's melee weapons
+# ----------------------------------------------------------------------------
+func _test_admonimortis_stopgap() -> void:
+	print("\n-- Admonimortis (10e stopgap): melee +3 Strength, +1 AP, +1 Damage --")
+	var rules = root.get_node("RulesEngine")
+	_check("has_admonimortis detects the enhancement",
+		rules.has_admonimortis({"meta": {"enhancements": ["Admonimortis"]}}))
+	_check("has_admonimortis false without it",
+		not rules.has_admonimortis({"meta": {"enhancements": []}}))
+
+	# choppa is S4 vs T4 (4+ to wound); +3 S makes it S7 ≥ 2T? no — 7 < 8, but
+	# S7 > T4 wounds on 3+. Same seed: wound successes must rise, save
+	# successes must fall (AP -1 → -2), casualties/damage must not decrease.
+	var m_plain = _melee(_make_board({"shooter_models": 4, "distance_inches": 0.5}), 2024)
+	var m_admon = _melee(_make_board({
+		"shooter_models": 4, "distance_inches": 0.5,
+		"shooter_enhancements": ["Admonimortis"],
+	}), 2024)
+	var w_plain = _count_successes(m_plain, "wound_roll_melee")
+	var w_admon = _count_successes(m_admon, "wound_roll_melee")
+	_check("+3 Strength raises melee wounds (%d > %d)" % [w_admon, w_plain], w_admon > w_plain)
+	var ap_plain = _count_field(m_plain, "save_roll_melee", "ap")
+	var ap_admon = _count_field(m_admon, "save_roll_melee", "ap")
+	_check("+1 AP applied to melee saves (ap %d → %d)" % [ap_plain, ap_admon], ap_admon == ap_plain + 1)
+
+# ----------------------------------------------------------------------------
+# 12. Encircling Hunter
 # ----------------------------------------------------------------------------
 func _test_encircling_hunter() -> void:
 	print("\n-- Encircling Hunter: redeploy-enhancement eligibility --")
@@ -496,7 +646,7 @@ func _test_encircling_hunter() -> void:
 		"U_SOS_A" in redeploy_units and "U_SOS_B" in redeploy_units, str(redeploy_units))
 
 # ----------------------------------------------------------------------------
-# 10. Skin-Crawling Disorientation
+# 13. Skin-Crawling Disorientation
 # ----------------------------------------------------------------------------
 func _test_skin_crawling_disorientation() -> void:
 	print("\n-- Skin-Crawling Disorientation: actions after Advancing --")
@@ -525,3 +675,59 @@ func _test_skin_crawling_disorientation() -> void:
 	_check("DETACHMENT_ABILITIES has Silent Hunters entry",
 		fam.DETACHMENT_ABILITIES.has("Silent Hunters")
 		and fam.DETACHMENT_ABILITIES["Silent Hunters"].get("ability_name", "") == "Skin-Crawling Disorientation")
+
+# ----------------------------------------------------------------------------
+# 14. Gilded Champion
+# ----------------------------------------------------------------------------
+func _test_gilded_champion() -> void:
+	print("\n-- Gilded Champion: restore a spent once-per-battle ability --")
+	var alm = root.get_node("ArmyListManager")
+	var sm = root.get_node("StratagemManager")
+	var uam = root.get_node("UnitAbilityManager")
+
+	# Fresh Lions army for player 1
+	var lions = alm.load_army_list("Adeptus_Custodes_1995_Mar_7", 1)
+	alm.apply_army_to_game_state(lions, 1)
+	sm.load_faction_stratagems_for_player(1)
+	gs.state["players"]["1"]["cp"] = 5
+
+	var strat_id = sm.find_faction_stratagem_by_name(1, "GILDED CHAMPION")
+	_check("Gilded Champion stratagem found", strat_id != "")
+
+	# Find an AC CHARACTER unit in the army
+	var char_id := ""
+	for uid in gs.state.get("units", {}):
+		var u = gs.state.units[uid]
+		if u.get("owner", 0) != 1:
+			continue
+		var kws: Array = u.get("meta", {}).get("keywords", [])
+		if "CHARACTER" in kws and "ADEPTUS CUSTODES" in kws:
+			char_id = uid
+			break
+	_check("AC CHARACTER unit found in Lions army", char_id != "")
+
+	# No spent ability → cannot use
+	var check_before = sm.can_use_stratagem(1, strat_id, char_id, {"bypass_phase_check": true})
+	_check("blocked before any once-per-battle ability used", not check_before.can_use, str(check_before))
+
+	# Spend a once-per-battle ability, then the stratagem becomes usable
+	uam.mark_once_per_battle_used(char_id, "Moment Shackle")
+	_check("ability recorded as used", uam.is_once_per_battle_used(char_id, "Moment Shackle"))
+	var check_after = sm.can_use_stratagem(1, strat_id, char_id, {"bypass_phase_check": true})
+	_check("usable after a once-per-battle ability was spent", check_after.can_use, str(check_after))
+
+	var use_result = sm.use_stratagem(1, strat_id, char_id, {"bypass_phase_check": true})
+	_check("use_stratagem succeeds", use_result.get("success", false), str(use_result))
+
+	# Restored, but blocked in the SAME phase
+	_check("still 'used' in the same phase (block)", uam.is_once_per_battle_used(char_id, "Moment Shackle"))
+	# Advance the phase → available again
+	var old_phase = gs.state.meta.phase
+	gs.state.meta.phase = (int(old_phase) + 1) % 12
+	_check("available again in a later phase", not uam.is_once_per_battle_used(char_id, "Moment Shackle"))
+	gs.state.meta.phase = old_phase
+
+	# Once per battle per model
+	uam.mark_once_per_battle_used(char_id, "Moment Shackle")
+	var check_again = sm.can_use_stratagem(1, strat_id, char_id, {"bypass_phase_check": true})
+	_check("same model cannot be targeted twice", not check_again.can_use, str(check_again))

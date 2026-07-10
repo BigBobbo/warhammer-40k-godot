@@ -52,6 +52,11 @@ var _out_of_phase_action_active: bool = false
 var _out_of_phase_player: int = 0  # The player performing the out-of-phase action
 var _out_of_phase_unit_id: String = ""  # The unit performing the out-of-phase action
 
+# GILDED CHAMPION (Lions of the Emperor): "You cannot use this Stratagem on the
+# same ADEPTUS CUSTODES CHARACTER model more than once per battle."
+# Key: player string, Value: Array of unit_ids already targeted.
+var _gilded_champion_units_used: Dictionary = {}
+
 func _ready() -> void:
 	_load_core_stratagems()
 	_load_core_stratagems_11e()
@@ -498,14 +503,27 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "KRUMP AND RUN":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
-		# Lions of the Emperor (DEFIANT TO THE LAST / SWIFT AS THE EAGLE /
-		# UNLEASH THE LIONS): deliberately NOT marked implemented. The 40kdc
-		# 11e dataset ships no effect text for any Lions stratagem (still true
-		# at 1.0.24) and the project only implements 11th-edition rules, so
-		# the rows stay display-only until official 11e text lands. The
-		# handlers below (and the CommandPhase/ShootingPhase/RulesEngine
-		# machinery they drive) are dormant behind this flag — re-add the
-		# marks once upstream publishes the real rules.
+		# Lions of the Emperor handlers below implement the official 10e wording
+		# as an EXPLICIT stopgap (user ruling 2026-07-10): the 40kdc 11e dataset
+		# has not published Lions stratagem rules yet (ability_id null at
+		# 1.0.24). The CSV rows carry a PROVISIONAL note; swap these to the
+		# official 11e behaviour when the dataset ships it.
+		# DEFIANT TO THE LAST (Lions): D6 roll per dying model, +2 CHARACTER, 4+ swing back
+		if name_upper == "DEFIANT TO THE LAST":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# SWIFT AS THE EAGLE (Lions): D6" Normal move after being shot at
+		if name_upper == "SWIFT AS THE EAGLE":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# UNLEASH THE LIONS (Lions): Split Allarus/Aquilon into single-model units
+		if name_upper == "UNLEASH THE LIONS":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# GILDED CHAMPION (Lions): Restore a spent once-per-battle datasheet ability
+		if name_upper == "GILDED CHAMPION":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -751,6 +769,20 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		if not target_unit.is_empty():
 			if not RulesEngine.unit_has_keyword(target_unit, "ORKS"):
 				return {"can_use": false, "reason": "Krump and Run can only target ORKS units"}
+
+	# GILDED CHAMPION (Lions): must target an ADEPTUS CUSTODES CHARACTER that
+	# has spent a 'once per battle' datasheet ability; once per battle per model.
+	if strat.get("name", "").to_upper() == "GILDED CHAMPION" and target_unit_id != "":
+		var gc_target = GameState.get_unit(target_unit_id)
+		if not gc_target.is_empty():
+			if not RulesEngine.unit_has_keyword(gc_target, "ADEPTUS CUSTODES") \
+					or not RulesEngine.unit_has_keyword(gc_target, "CHARACTER"):
+				return {"can_use": false, "reason": "Gilded Champion can only target an ADEPTUS CUSTODES CHARACTER model"}
+		if target_unit_id in _gilded_champion_units_used.get(str(player), []):
+			return {"can_use": false, "reason": "Gilded Champion has already been used on that model this battle"}
+		var gc_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if gc_mgr and gc_mgr.get_used_once_per_battle_abilities(target_unit_id).is_empty():
+			return {"can_use": false, "reason": "Gilded Champion requires the target to have used a 'once per battle' ability"}
 
 	# Turn + phase gate: reject stratagems outside their allowed turn/phase.
 	# Synthesis §2 #12: StratagemPanel showed all stratagems regardless of phase.
@@ -1282,6 +1314,31 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		}]
 		print("StratagemManager: Applied Unleash the Lions to %s (unit will be split)" % target_unit_id)
 		return diffs
+
+	# GILDED CHAMPION (Lions): restore the target CHARACTER's most recently
+	# spent 'once per battle' datasheet ability for one additional use (not in
+	# the same phase — UnitAbilityManager enforces the block). Once per battle
+	# per model (validated in can_use_stratagem).
+	if strat.get("name", "").to_upper() == "GILDED CHAMPION":
+		var gc_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if gc_ability_mgr == null:
+			print("StratagemManager: GILDED CHAMPION — UnitAbilityManager unavailable")
+			return []
+		var spent_abilities = gc_ability_mgr.get_used_once_per_battle_abilities(target_unit_id)
+		if spent_abilities.is_empty():
+			print("StratagemManager: GILDED CHAMPION — no spent once-per-battle ability on %s" % target_unit_id)
+			return []
+		# Restore the most recently spent ability (context.ability_name overrides)
+		var restore_name = context.get("ability_name", "") if typeof(context) == TYPE_DICTIONARY else ""
+		if restore_name == "" or restore_name not in spent_abilities:
+			restore_name = spent_abilities[spent_abilities.size() - 1]
+		gc_ability_mgr.restore_once_per_battle_use(target_unit_id, restore_name)
+		var gc_player_key = str(get_stratagem_owner(_stratagem_id))
+		if not _gilded_champion_units_used.has(gc_player_key):
+			_gilded_champion_units_used[gc_player_key] = []
+		_gilded_champion_units_used[gc_player_key].append(target_unit_id)
+		print("StratagemManager: Applied Gilded Champion to %s — '%s' can be used one additional time (not this phase)" % [target_unit_id, restore_name])
+		return []
 
 	# CAREEN! (War Horde): arm the just-destroyed ORKS VEHICLE to slide to
 	# context.destination before its Deadly Demise mortal-wound roll resolves
