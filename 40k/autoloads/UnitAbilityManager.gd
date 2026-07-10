@@ -1529,6 +1529,58 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# BLITZ BRIGADE ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Runnin' Boots — +1 to Charge rolls while the bearer's unit disembarked
+	# from a Transport this turn (live check in ChargePhase via
+	# FactionAbilityManager.runnin_boots_charge_bonus).
+	"Runnin' Boots": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry Character only. +1 to Charge rolls if the bearer's unit disembarked this turn (ChargePhase live check)"
+	},
+
+	# Blitzkaptin — after deployment, redeploy up to three ORKS VEHICLE units
+	# (optionally into Strategic Reserves). Mork's Kunnin' machinery, VEHICLE
+	# filtered (FactionAbilityManager.has_blitzkaptin).
+	"Blitzkaptin": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Character only. Redeploy up to three ORKS VEHICLE units after deployment, any of them into Strategic Reserves"
+	},
+
+	# Supercharged Squig Oil — when the bearer uses Mekaniak on a VEHICLE,
+	# that vehicle's unit re-rolls Charge rolls until end of turn
+	# (MovementPhase Mekaniak hook, cleared with the Mekaniak buff).
+	"Supercharged Squig Oil": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Mek model only. Mekaniak target's unit re-rolls Charge rolls until end of turn (MovementPhase hook)"
+	},
+
+	# Tuff Git — the bearer's unit stops being Battle-shocked when it
+	# disembarks from a Transport (TransportManager hook; end-of-phase timing
+	# simplified to on-disembark).
+	"Tuff Git": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry Character only. Clears Battle-shock when the bearer's unit disembarks (TransportManager hook)"
+	},
+
+	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
 	# ======================================================================

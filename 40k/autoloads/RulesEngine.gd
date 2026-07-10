@@ -2041,6 +2041,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: +1 to hit (ranged) — effect_plus_one_hit_ranged on %s" % actor_unit_id)
 			print("RulesEngine: BIG AN' SHOOTY — +1 to hit (ranged) for %s (Waaagh! active)" % actor_unit_id)
+		# ARMOURED DUELLISTS (Blitz Brigade): +1 to hit vs MONSTER/VEHICLE
+		if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: ARMOURED DUELLISTS — +1 to hit vs %s (MONSTER/VEHICLE)" % target_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker.
@@ -2503,6 +2507,10 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
 		wound_modifiers |= WoundModifier.PLUS_ONE
 		print("RulesEngine: BIGGER SHELLS — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
+	# ARMOURED DUELLISTS (Blitz Brigade): +1 to wound vs MONSTER/VEHICLE
+	if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: ARMOURED DUELLISTS — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
 	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6"
 	# Full Wound re-roll if target is also within range of an objective marker.
 	var pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
@@ -3678,6 +3686,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: +1 to hit (ranged) — effect_plus_one_hit_ranged on %s" % actor_unit_id)
 			print("RulesEngine: BIG AN' SHOOTY (auto-resolve) — +1 to hit (ranged) for %s (Waaagh! active)" % actor_unit_id)
+		# ARMOURED DUELLISTS (Blitz Brigade): +1 to hit vs MONSTER/VEHICLE
+		if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: ARMOURED DUELLISTS (auto-resolve) — +1 to hit vs %s (MONSTER/VEHICLE)" % target_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker (auto-resolve).
@@ -4039,6 +4051,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
 		print("RulesEngine: BIGGER SHELLS (auto-resolve) — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
+	# ARMOURED DUELLISTS (Blitz Brigade): +1 to wound vs MONSTER/VEHICLE
+	if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: ARMOURED DUELLISTS (auto-resolve) — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
 	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6" (auto-resolve)
 	# Full Wound re-roll if target is also within range of an objective marker.
 	var ar_pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
@@ -7750,6 +7766,15 @@ static func apply_mortal_wounds_to_unit(target_unit_id: String, mw: int, board: 
 	_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
 	result.casualties = out.models_destroyed.size()
 	return result
+
+# ARMOURED DUELLISTS (Blitz Brigade): +1 to Hit and +1 to Wound while
+# targeting a MONSTER or VEHICLE unit.
+static func get_armoured_duellists_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get("effect_armoured_duellists", false):
+		return 0
+	if unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE"):
+		return 1
+	return 0
 
 # CONNIVING RUNTS (Dread Mob): roll one D6 — on a 4+, the enemy unit that just
 # moved suffers D3+1 mortal wounds (the Gretchin unit's Normal move is set up

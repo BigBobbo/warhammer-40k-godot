@@ -727,6 +727,9 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	# what feeds the engagement-range feasibility check and movement budget.
 	var unit_for_charge_bonus = get_unit(unit_id)
 	var charge_bonus = EffectPrimitivesData.get_effect_plus_charge(unit_for_charge_bonus)
+	# Runnin' Boots (Blitz Brigade): +1 to Charge rolls while the bearer's
+	# unit disembarked from a Transport this turn.
+	charge_bonus += FactionAbilityManager.runnin_boots_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))
 	if charge_bonus > 0:
 		total_distance += charge_bonus
 		charge_data.distance = total_distance

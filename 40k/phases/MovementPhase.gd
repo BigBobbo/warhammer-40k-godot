@@ -3034,6 +3034,22 @@ func _process_use_mekaniak(action: Dictionary) -> Dictionary:
 			})
 			log_phase_message("DAKKAMEK: %s's ranged weapons gain [RAPID FIRE 1] until start of next turn" % target_unit_id)
 
+		# SUPERCHARGED SQUIG OIL (Blitz Brigade): if the Mek bears this
+		# enhancement, the selected Vehicle's unit can re-roll Charge rolls
+		# until the end of the turn (cleared alongside the Mekaniak buff).
+		if _unit_has_enhancement(_mekaniak_mek_id, "Supercharged Squig Oil"):
+			mekaniak_changes.append({
+				"op": "set",
+				"path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_CHARGE],
+				"value": true
+			})
+			mekaniak_changes.append({
+				"op": "set",
+				"path": "units.%s.flags.squig_oil_charge_reroll" % target_unit_id,
+				"value": true
+			})
+			log_phase_message("SUPERCHARGED SQUIG OIL: %s can re-roll Charge rolls this turn" % target_unit_id)
+
 	# Mark this vehicle as used for Mekaniak this turn (once per vehicle per turn)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
@@ -3092,6 +3108,17 @@ func _clear_mekaniak_buffs(player: int) -> void:
 				"path": "units.%s.flags.dakkamek_rapid_fire" % unit_id
 			})
 			DebugLogger.info(str("MovementPhase: Clearing Dakkamek RAPID FIRE from vehicle %s" % unit_id))
+		# SUPERCHARGED SQUIG OIL (Blitz Brigade): clear the charge re-roll.
+		if unit.get("flags", {}).get("squig_oil_charge_reroll", false):
+			changes.append({
+				"op": "remove",
+				"path": "units.%s.flags.squig_oil_charge_reroll" % unit_id
+			})
+			changes.append({
+				"op": "remove",
+				"path": "units.%s.flags.%s" % [unit_id, EffectPrimitivesData.FLAG_REROLL_CHARGE]
+			})
+			DebugLogger.info(str("MovementPhase: Clearing Supercharged Squig Oil charge re-roll from vehicle %s" % unit_id))
 
 	if changes.size() > 0:
 		PhaseManager.apply_state_changes(changes)

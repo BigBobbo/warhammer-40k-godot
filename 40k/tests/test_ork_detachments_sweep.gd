@@ -103,6 +103,7 @@ func _run():
 	_da_big_hunt(SM, GS, FAM, rules)
 	_kult_of_speed(SM, GS, FAM, rules)
 	_dread_mob(SM, GS, FAM, rules)
+	_blitz_brigade(SM, GS, FAM, rules)
 
 
 # ==========================================================================
@@ -870,6 +871,209 @@ func _dread_mob(SM, GS, FAM, rules):
 	print("  Supa-glowy Fing outcomes seen: %s" % str(sgf_seen))
 	_check("Supa-glowy Fing produced battle-shock, MW and debuff outcomes across seeds",
 		sgf_seen["shock"] and sgf_seen["mw"] and sgf_seen["debuff"])
+
+
+# ==========================================================================
+# BLITZ BRIGADE
+# ==========================================================================
+func _blitz_brigade(SM, GS, FAM, rules):
+	print("\n===== BLITZ BRIGADE =====")
+	var bb = _load_detachment(SM, GS, "Blitz Brigade")
+	_check("Blitz Brigade: 6 stratagems loaded", bb.count == 6)
+	_check("Blitz Brigade: all 6 implemented", bb.implemented == 6)
+	var imp_def = bb.by_name.get("IMPERVIOUS", {})
+	_check("IMPERVIOUS targets the three rigs",
+		"keyword_any:BATTLEWAGON,KILL RIG,HUNTA RIG" in imp_def.get("target", {}).get("conditions", []))
+	var yit_def = bb.by_name.get("YOOZ IN TROUBLE NOW", {})
+	_check("YOOZ IN TROUBLE NOW handles the other rig ordering",
+		"keyword_any:BATTLEWAGON,KILL RIG,HUNTA RIG" in yit_def.get("target", {}).get("conditions", []))
+	# Owner regression: "from your army" wins over the "enemy units" relative
+	# clause — these must parse as FRIENDLY targets so the panel offers the
+	# unit picker (mis-parsing made Use fire target-less and no-op).
+	_check("MOUNT UP, LADZ parses as a friendly target",
+		bb.by_name.get("MOUNT UP, LADZ", {}).get("target", {}).get("owner", "") == "friendly")
+	var killrig = {"meta": {"keywords": ["MONSTER", "TRANSPORT", "BEAST SNAGGA", "KILL RIG"]}, "flags": {}, "models": []}
+	var trukk_bb = {"meta": {"keywords": ["ORKS", "VEHICLE", "TRANSPORT", "TRUKK"]}, "flags": {}, "models": []}
+	_check("Kill Rig matches IMPERVIOUS",
+		FactionStratagemLoaderData.unit_matches_target(killrig, imp_def.get("target", {}), {"is_target_of_attack": true}))
+	_check("Trukk does not match IMPERVIOUS",
+		not FactionStratagemLoaderData.unit_matches_target(trukk_bb, imp_def.get("target", {}), {"is_target_of_attack": true}))
+
+	# ---- ARMOURED DUELLISTS: +1 hit/+1 wound vs MONSTER/VEHICLE ----------------
+	GS.state["units"] = {"U_WAGON": _boyz_unit("U_WAGON", 1)}
+	GS.get_unit("U_WAGON")["meta"]["keywords"] = ["ORKS", "VEHICLE", "TRANSPORT", "BATTLEWAGON"]
+	var strat_ad = {"id": "t_ad", "name": "ARMOURED DUELLISTS", "effects": [{"type": "custom:armoured_duellists"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_ad", "U_WAGON", strat_ad, {}))
+	_check("ARMOURED DUELLISTS sets its flag", GS.get_unit("U_WAGON")["flags"].get("effect_armoured_duellists", false))
+	var ad_actor = {"owner": 1, "meta": {}, "flags": {"effect_armoured_duellists": true}, "models": []}
+	var ad_tank = {"owner": 2, "meta": {"keywords": ["VEHICLE"]}, "flags": {}, "models": []}
+	var ad_inf = {"owner": 2, "meta": {"keywords": ["INFANTRY"]}, "flags": {}, "models": []}
+	_check("ARMOURED DUELLISTS bonus vs VEHICLE", rules.get_armoured_duellists_bonus(ad_actor, ad_tank) == 1)
+	_check("ARMOURED DUELLISTS no bonus vs INFANTRY", rules.get_armoured_duellists_bonus(ad_actor, ad_inf) == 0)
+
+	# ---- IMPERVIOUS: shares the S>T -1-wound machinery --------------------------
+	var strat_imp = {"id": "t_imp", "name": "IMPERVIOUS", "effects": [{"type": "custom:impervious"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_imp", "U_WAGON", strat_imp, {}))
+	_check("IMPERVIOUS sets the S>T wound-penalty flag",
+		GS.get_unit("U_WAGON")["flags"].get("effect_minus_wound_s_gt_t", false))
+	_check("IMPERVIOUS feeds get_s_gt_t_wound_penalty",
+		rules.get_s_gt_t_wound_penalty(GS.get_unit("U_WAGON"), {"units": {}}, 10, 9) == rules.WoundModifier.MINUS_ONE)
+
+	# ---- MEKANISED BRUTALITY + Tuff Git: disembark hooks ------------------------
+	var TM_BB = root.get_node("TransportManager")
+	GS.state["units"] = {
+		"U_RIG": {"id": "U_RIG", "owner": 1, "status": 2,
+			"meta": {"name": "Battlewagon", "keywords": ["ORKS", "VEHICLE", "TRANSPORT", "BATTLEWAGON"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {"moved": true, "effect_mekanised_brutality": true},
+			"models": [{"id": "m0", "alive": true, "position": {"x": 100.0, "y": 100.0}, "base_mm": 100}],
+			"transport_data": {"embarked_units": ["U_BOYZ_MB", "U_BOYZ_TG"], "capacity": 22}},
+		"U_BOYZ_MB": {"id": "U_BOYZ_MB", "owner": 1, "embarked_in": "U_RIG", "status": 2,
+			"meta": {"name": "Boyz MB", "keywords": ["ORKS", "INFANTRY"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": null, "base_mm": 32}]},
+		"U_BOYZ_TG": {"id": "U_BOYZ_TG", "owner": 1, "embarked_in": "U_RIG", "status": 2,
+			"meta": {"name": "Boyz TG", "keywords": ["ORKS", "INFANTRY"], "enhancements": ["Tuff Git"], "abilities": [], "stats": {}},
+			"flags": {"battle_shocked": true}, "models": [{"id": "m0", "alive": true, "position": null, "base_mm": 32}]},
+	}
+	TM_BB.disembark_unit("U_BOYZ_MB", [Vector2(160, 100)])
+	_check("MEKANISED BRUTALITY: disembark after Normal move keeps charge eligibility",
+		GS.get_unit("U_BOYZ_MB")["flags"].get("cannot_charge", true) == false)
+	TM_BB.disembark_unit("U_BOYZ_TG", [Vector2(180, 100)])
+	_check("Tuff Git: Battle-shock cleared on disembark",
+		GS.get_unit("U_BOYZ_TG")["flags"].get("battle_shocked", true) == false)
+
+	# ---- MOUNT UP, LADZ: end-of-Fight embark --------------------------------------
+	GS.state["units"] = {
+		"U_TRUKK_MU": {"id": "U_TRUKK_MU", "owner": 1, "status": 2,
+			"meta": {"name": "Trukk", "keywords": ["ORKS", "VEHICLE", "TRANSPORT", "TRUKK"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 200.0, "y": 200.0}, "base_mm": 60}],
+			"transport_data": {"embarked_units": [], "capacity": 12}},
+		"U_BOYZ_MU": {"id": "U_BOYZ_MU", "owner": 1, "status": 2,
+			"meta": {"name": "Boyz", "keywords": ["ORKS", "INFANTRY"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [
+				{"id": "m0", "alive": true, "position": {"x": 280.0, "y": 200.0}, "base_mm": 32},
+				{"id": "m1", "alive": true, "position": {"x": 310.0, "y": 200.0}, "base_mm": 32}]},
+	}
+	var strat_mu = {"id": "t_mu", "name": "MOUNT UP, LADZ", "effects": [{"type": "custom:mount_up_ladz"}]}
+	SM._apply_stratagem_effects("t_mu", "U_BOYZ_MU", strat_mu, {})
+	_check("MOUNT UP, LADZ embarks the unit in the transport within 6\"",
+		str(GS.get_unit("U_BOYZ_MU").get("embarked_in", "")) == "U_TRUKK_MU"
+		and "U_BOYZ_MU" in GS.get_unit("U_TRUKK_MU")["transport_data"]["embarked_units"])
+	# Too far: a fresh unit 20" away must NOT embark
+	GS.state["units"]["U_BOYZ_FAR"] = {"id": "U_BOYZ_FAR", "owner": 1, "status": 2,
+		"meta": {"name": "Boyz Far", "keywords": ["ORKS", "INFANTRY"], "enhancements": [], "abilities": [], "stats": {}},
+		"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 1000.0, "y": 200.0}, "base_mm": 32}]}
+	SM._apply_stratagem_effects("t_mu", "U_BOYZ_FAR", strat_mu, {})
+	_check("MOUNT UP, LADZ refuses a unit beyond 6\"",
+		GS.get_unit("U_BOYZ_FAR").get("embarked_in", null) == null)
+
+	# ---- RUN 'EM DOWN: rig + two nearest ORKS VEHICLE/MONSTER within 6" -----------
+	GS.state["units"] = {
+		"U_RED_RIG": {"id": "U_RED_RIG", "owner": 1, "status": 2,
+			"meta": {"name": "Hunta Rig", "keywords": ["MONSTER", "TRANSPORT", "BEAST SNAGGA", "HUNTA RIG"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 100.0, "y": 100.0}, "base_mm": 100}]},
+		"U_RED_V1": {"id": "U_RED_V1", "owner": 1, "status": 2,
+			"meta": {"name": "Trukk 1", "keywords": ["ORKS", "VEHICLE", "TRUKK"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 200.0, "y": 100.0}, "base_mm": 60}]},
+		"U_RED_V2": {"id": "U_RED_V2", "owner": 1, "status": 2,
+			"meta": {"name": "Kill Rig 2", "keywords": ["ORKS", "MONSTER", "KILL RIG"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 100.0, "y": 220.0}, "base_mm": 100}]},
+		"U_RED_V3": {"id": "U_RED_V3", "owner": 1, "status": 2,
+			"meta": {"name": "Trukk far", "keywords": ["ORKS", "VEHICLE", "TRUKK"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 1500.0, "y": 100.0}, "base_mm": 60}]},
+		"U_RED_INF": {"id": "U_RED_INF", "owner": 1, "status": 2,
+			"meta": {"name": "Boyz", "keywords": ["ORKS", "INFANTRY"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 130.0, "y": 100.0}, "base_mm": 32}]},
+	}
+	var strat_red = {"id": "t_red", "name": "RUN ’EM DOWN", "effects": [{"type": "custom:run_em_down"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_red", "U_RED_RIG", strat_red, {}))
+	_check("RUN 'EM DOWN: rig can charge after Advancing",
+		GS.get_unit("U_RED_RIG")["flags"].get("effect_advance_and_charge", false))
+	_check("RUN 'EM DOWN: both nearby VEHICLE/MONSTER buddies included",
+		GS.get_unit("U_RED_V1")["flags"].get("effect_advance_and_charge", false)
+		and GS.get_unit("U_RED_V2")["flags"].get("effect_advance_and_charge", false))
+	_check("RUN 'EM DOWN: far vehicle and infantry excluded",
+		not GS.get_unit("U_RED_V3")["flags"].has("effect_advance_and_charge")
+		and not GS.get_unit("U_RED_INF")["flags"].has("effect_advance_and_charge"))
+
+	# ---- YOOZ IN TROUBLE NOW: disembark + auto-resolved Surge toward the enemy ----
+	GS.state["units"] = {
+		"U_YIT_RIG": {"id": "U_YIT_RIG", "owner": 1, "status": 2,
+			"meta": {"name": "Battlewagon", "keywords": ["ORKS", "VEHICLE", "TRANSPORT", "BATTLEWAGON"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 200.0, "y": 200.0}, "base_mm": 100}],
+			"transport_data": {"embarked_units": ["U_YIT_BOYZ"], "capacity": 22}},
+		"U_YIT_BOYZ": {"id": "U_YIT_BOYZ", "owner": 1, "embarked_in": "U_YIT_RIG", "status": 2,
+			"meta": {"name": "Boyz", "keywords": ["ORKS", "INFANTRY"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [
+				{"id": "m0", "alive": true, "position": null, "base_mm": 32},
+				{"id": "m1", "alive": true, "position": null, "base_mm": 32}]},
+		"U_YIT_ENEMY": {"id": "U_YIT_ENEMY", "owner": 2, "status": 2,
+			"meta": {"name": "Marines", "keywords": ["INFANTRY"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "e0", "alive": true, "position": {"x": 600.0, "y": 200.0}, "base_mm": 32}]},
+		"U_YIT_FLYER": {"id": "U_YIT_FLYER", "owner": 2, "status": 2,
+			"meta": {"name": "Interceptor", "keywords": ["AIRCRAFT", "VEHICLE"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "f0", "alive": true, "position": {"x": 240.0, "y": 200.0}, "base_mm": 60}]},
+	}
+	rules.set_test_seed(42)
+	var strat_yit = {"id": "t_yit", "name": "YOOZ IN TROUBLE NOW", "effects": [{"type": "custom:yooz_in_trouble_now"}]}
+	SM._apply_stratagem_effects("t_yit", "U_YIT_RIG", strat_yit, {})
+	var yit_boyz = GS.get_unit("U_YIT_BOYZ")
+	var yit_pos0 = yit_boyz["models"][0].get("position")
+	_check("YOOZ IN TROUBLE NOW disembarks the embarked Boyz",
+		yit_boyz.get("embarked_in", "x") == null and yit_pos0 != null)
+	var yit_x = float(yit_pos0.get("x", 0)) if yit_pos0 != null else 0.0
+	_check("YOOZ Surge heads toward the non-AIRCRAFT enemy (past the rig)", yit_x > 260.0)
+
+	# ---- Enhancements ---------------------------------------------------------------
+	# Runnin' Boots — +1 charge after disembarking this turn
+	var rb_unit = {"disembarked_this_phase": true, "meta": {"enhancements": ["Runnin' Boots"], "keywords": ["ORKS", "INFANTRY"]}, "flags": {}, "models": []}
+	var rb_stay = {"meta": {"enhancements": ["Runnin' Boots"], "keywords": ["ORKS", "INFANTRY"]}, "flags": {}, "models": []}
+	var rb_plain = {"disembarked_this_phase": true, "meta": {"enhancements": [], "keywords": ["ORKS", "INFANTRY"]}, "flags": {}, "models": []}
+	_check("Runnin' Boots: +1 charge after disembarking", FAM.runnin_boots_charge_bonus(rb_unit, {}) == 1)
+	_check("Runnin' Boots: no bonus without disembark", FAM.runnin_boots_charge_bonus(rb_stay, {}) == 0)
+	_check("Runnin' Boots: no bonus without the enhancement", FAM.runnin_boots_charge_bonus(rb_plain, {}) == 0)
+
+	# Blitzkaptin — 3 VEHICLE redeploys via the Mork's Kunnin' machinery
+	GS.state["units"] = {
+		"U_BK": {"id": "U_BK", "owner": 1, "status": 2,
+			"meta": {"name": "Warboss", "keywords": ["ORKS", "CHARACTER", "INFANTRY"], "enhancements": ["Blitzkaptin"], "abilities": []},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 50.0, "y": 50.0}, "base_mm": 40}]},
+		"U_BK_VEH": {"id": "U_BK_VEH", "owner": 1, "status": 2,
+			"meta": {"name": "Battlewagon", "keywords": ["ORKS", "VEHICLE", "BATTLEWAGON"], "enhancements": [], "abilities": []},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 90.0, "y": 50.0}, "base_mm": 100}]},
+		"U_BK_INF": {"id": "U_BK_INF", "owner": 1, "status": 2,
+			"meta": {"name": "Boyz", "keywords": ["ORKS", "INFANTRY"], "enhancements": [], "abilities": []},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 130.0, "y": 50.0}, "base_mm": 32}]},
+	}
+	_check("Blitzkaptin detected", FAM.has_blitzkaptin(1))
+	var bk_eligible = FAM.get_morks_kunnin_eligible_units(1)
+	var bk_ids: Array = []
+	for e in bk_eligible:
+		bk_ids.append(e.get("unit_id", ""))
+	_check("Blitzkaptin: VEHICLE eligible, INFANTRY not",
+		"U_BK_VEH" in bk_ids and not "U_BK_INF" in bk_ids)
+	_check("Blitzkaptin: redeploy available", FAM.is_morks_kunnin_redeploy_available(1))
+	_check("Blitzkaptin: vehicle appears in the redeploy list",
+		"U_BK_VEH" in GS.get_redeploy_units_for_player(1))
+
+	# Supercharged Squig Oil — Mekaniak grants a charge re-roll to the vehicle
+	GS.state["units"] = {
+		"U_SSO_MEK": {"id": "U_SSO_MEK", "owner": 1, "status": 2,
+			"meta": {"name": "Big Mek", "keywords": ["ORKS", "CHARACTER", "MEK"], "enhancements": ["Supercharged Squig Oil"], "abilities": []},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 50.0, "y": 50.0}, "base_mm": 32}]},
+		"U_SSO_VEH": {"id": "U_SSO_VEH", "owner": 1, "status": 2,
+			"meta": {"name": "Battlewagon", "keywords": ["ORKS", "VEHICLE", "BATTLEWAGON"], "enhancements": [], "abilities": []},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 90.0, "y": 50.0}, "base_mm": 100, "wounds": 16, "current_wounds": 10}]},
+	}
+	var MP_BB = load("res://phases/MovementPhase.gd").new()
+	root.add_child(MP_BB)
+	MP_BB.game_state_snapshot = GS.state
+	MP_BB._mekaniak_mek_id = "U_SSO_MEK"
+	MP_BB._process_use_mekaniak({"target_unit_id": "U_SSO_VEH", "target_model_index": 0})
+	var sso_flags = GS.get_unit("U_SSO_VEH")["flags"]
+	_check("Supercharged Squig Oil: Mekaniak target re-rolls charges",
+		sso_flags.get("effect_reroll_charge", false) and sso_flags.get("squig_oil_charge_reroll", false))
+	root.remove_child(MP_BB)
+	MP_BB.queue_free()
 
 
 # ==========================================================================

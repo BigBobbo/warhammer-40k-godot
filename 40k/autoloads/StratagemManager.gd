@@ -65,6 +65,9 @@ const _CUSTOM_IMPLEMENTED_NAMES: Array = [
 	# Dread Mob (EXTRA GUBBINZ + SUPERFUELLED BOILER are auto via effects_json)
 	"BIGGER SHELLS FOR BIGGER GITZ", "DAKKA! DAKKA! DAKKA!",
 	"KLANKIN' KLAWS", "CONNIVING RUNTS",
+	# Blitz Brigade
+	"ARMOURED DUELLISTS", "MOUNT UP, LADZ", "IMPERVIOUS",
+	"MEKANISED BRUTALITY", "RUN 'EM DOWN", "YOOZ IN TROUBLE NOW",
 ]
 
 # Out-of-Phase Rules Restriction (P1-59)
@@ -2080,6 +2083,67 @@ func _apply_ork_sweep_effects(strat: Dictionary, target_unit_id: String, context
 			# via the Scatter! scaffolding.
 			print("StratagemManager: CONNIVING RUNTS applied to %s (reactive resolution handled by MovementPhase)" % target_unit_id)
 			return []
+		# ---- BLITZ BRIGADE ---------------------------------------------------
+		"ARMOURED DUELLISTS":
+			# +1 to Hit and +1 to Wound vs MONSTER/VEHICLE targets — live
+			# per-target checks in the ranged resolvers.
+			print("StratagemManager: ARMOURED DUELLISTS — %s +1 hit/+1 wound vs MONSTER/VEHICLE this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_armoured_duellists" % target_unit_id, "value": true}]
+		"IMPERVIOUS":
+			# -1 to incoming Wound rolls while the attack's S exceeds the
+			# unit's T — shares the Surly-as-a-Squiggoth machinery.
+			print("StratagemManager: IMPERVIOUS — %s -1 to incoming wounds when S > T this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_minus_wound_s_gt_t" % target_unit_id, "value": true}]
+		"MEKANISED BRUTALITY":
+			# Units disembarking from this rig after its Normal move stay
+			# eligible to charge (consumed in TransportManager.disembark_unit).
+			print("StratagemManager: MEKANISED BRUTALITY — units disembarking from %s can still charge this turn" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_mekanised_brutality" % target_unit_id, "value": true}]
+		"MOUNT UP, LADZ":
+			# End-of-Fight-phase embark: the ORKS INFANTRY unit embarks in a
+			# friendly TRANSPORT it is wholly within 6" of.
+			var mul_transport := str(context.get("transport_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+			if mul_transport == "":
+				mul_transport = _find_nearest_embarkable_transport(target_unit_id, 6.0)
+			if mul_transport == "":
+				print("StratagemManager: MOUNT UP, LADZ — no embarkable friendly TRANSPORT with %s wholly within 6\"" % target_unit_id)
+				return []
+			var tm_mul = get_node_or_null("/root/TransportManager")
+			if tm_mul == null:
+				return []
+			var mul_check = tm_mul.can_embark(target_unit_id, mul_transport)
+			if not mul_check.get("valid", false):
+				print("StratagemManager: MOUNT UP, LADZ — cannot embark %s in %s: %s" % [target_unit_id, mul_transport, str(mul_check.get("reason", ""))])
+				return []
+			tm_mul.embark_unit(target_unit_id, mul_transport)
+			print("StratagemManager: MOUNT UP, LADZ — %s embarked within %s" % [target_unit_id, mul_transport])
+			return []
+		"RUN 'EM DOWN":
+			# The rig and up to two other friendly ORKS VEHICLE/MONSTER units
+			# within 6" become eligible to charge after Advancing this turn.
+			var red_diffs = [{"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % target_unit_id, "value": true}]
+			var red_extra: Array = context.get("extra_unit_ids", []) if typeof(context) == TYPE_DICTIONARY else []
+			if red_extra.is_empty():
+				red_extra = _find_run_em_down_buddies(target_unit_id, 6.0, 2)
+			for red_id in red_extra:
+				red_diffs.append({"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % red_id, "value": true})
+				add_active_effect({
+					"stratagem_id": strat.get("id", "run_em_down"),
+					"player": int(GameState.get_unit(target_unit_id).get("owner", 0)),
+					"target_unit_id": red_id,
+					"effects": [{"type": EffectPrimitivesData.ADVANCE_AND_CHARGE}],
+					"expires": "end_of_turn",
+					"applied_turn": GameState.get_battle_round(),
+					"applied_phase": GameState.get_current_phase()
+				})
+			print("StratagemManager: RUN 'EM DOWN — %s%s can charge after Advancing this turn" % [
+				target_unit_id, (" + %s" % str(red_extra)) if not red_extra.is_empty() else ""])
+			return red_diffs
+		"YOOZ IN TROUBLE NOW":
+			# One embarked ORKS INFANTRY unit disembarks and makes an
+			# auto-resolved D6" Surge move toward the closest enemy
+			# (excluding AIRCRAFT) — may end within Engagement Range.
+			return _resolve_yooz_in_trouble_now(target_unit_id, context)
 	return null
 
 func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictionary) -> bool:
@@ -2193,7 +2257,188 @@ func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictiona
 		"FULL THROTTLE!":
 			flags.erase("effect_full_throttle")
 			return true
+		# ---- BLITZ BRIGADE ---------------------------------------------------
+		"ARMOURED DUELLISTS":
+			flags.erase("effect_armoured_duellists")
+			return true
+		"IMPERVIOUS":
+			flags.erase("effect_minus_wound_s_gt_t")
+			return true
+		"MEKANISED BRUTALITY":
+			flags.erase("effect_mekanised_brutality")
+			return true
+		"MOUNT UP, LADZ", "YOOZ IN TROUBLE NOW":
+			return true  # instant effects — nothing to clear
+		"RUN 'EM DOWN":
+			flags.erase("effect_advance_and_charge")
+			return true
 	return false
+
+func _find_nearest_embarkable_transport(unit_id: String, max_inches: float) -> String:
+	"""MOUNT UP, LADZ: nearest friendly TRANSPORT the unit can embark within
+	(can_embark valid) with every alive model of the unit within max_inches of
+	the transport ("wholly within"). Returns "" when none qualifies."""
+	var tm = get_node_or_null("/root/TransportManager")
+	if tm == null:
+		return ""
+	var units = GameState.state.get("units", {})
+	var unit = units.get(unit_id, {})
+	var owner = int(unit.get("owner", 0))
+	var max_px = Measurement.inches_to_px(max_inches)
+	var best_id := ""
+	var best_dist := INF
+	for tid in units:
+		if tid == unit_id:
+			continue
+		var transport = units[tid]
+		if int(transport.get("owner", 0)) != owner or not transport.has("transport_data"):
+			continue
+		if not tm.can_embark(unit_id, tid).get("valid", false):
+			continue
+		# Every alive model of the unit must be within max_inches of the transport
+		var wholly := true
+		var nearest := INF
+		for m in unit.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			var model_best := INF
+			for tm_model in transport.get("models", []):
+				if not tm_model.get("alive", true) or tm_model.get("position") == null:
+					continue
+				model_best = minf(model_best, Measurement.model_to_model_distance_px(m, tm_model))
+			nearest = minf(nearest, model_best)
+			if model_best > max_px:
+				wholly = false
+				break
+		if wholly and nearest < best_dist:
+			best_dist = nearest
+			best_id = tid
+	return best_id
+
+func _find_run_em_down_buddies(rig_id: String, max_inches: float, count: int) -> Array:
+	"""RUN 'EM DOWN: up to `count` other friendly ORKS VEHICLE or ORKS MONSTER
+	units whose closest model is within max_inches of the rig."""
+	var units = GameState.state.get("units", {})
+	var rig = units.get(rig_id, {})
+	var owner = int(rig.get("owner", 0))
+	var max_px = Measurement.inches_to_px(max_inches)
+	var candidates: Array = []
+	for uid in units:
+		if uid == rig_id:
+			continue
+		var other = units[uid]
+		if int(other.get("owner", 0)) != owner:
+			continue
+		if not RulesEngine.unit_has_keyword(other, "ORKS"):
+			continue
+		if not (RulesEngine.unit_has_keyword(other, "VEHICLE") or RulesEngine.unit_has_keyword(other, "MONSTER")):
+			continue
+		var best := INF
+		for m in rig.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			for om in other.get("models", []):
+				if not om.get("alive", true) or om.get("position") == null:
+					continue
+				best = minf(best, Measurement.model_to_model_distance_px(m, om))
+		if best <= max_px:
+			candidates.append({"unit_id": uid, "dist": best})
+	candidates.sort_custom(func(a, b): return a.dist < b.dist)
+	var out: Array = []
+	for c in candidates:
+		if out.size() >= count:
+			break
+		out.append(c.unit_id)
+	return out
+
+func _resolve_yooz_in_trouble_now(rig_id: String, context) -> Array:
+	"""YOOZ IN TROUBLE NOW: one ORKS INFANTRY unit embarked in the rig
+	disembarks and makes a Surge move — auto-resolved: D6" straight toward the
+	closest enemy unit (excluding AIRCRAFT), models spread perpendicular to the
+	approach, allowed into Engagement Range, stopping just short of base
+	contact ("as close as possible")."""
+	var rig = GameState.get_unit(rig_id)
+	var embarked: Array = rig.get("transport_data", {}).get("embarked_units", [])
+	var pick := str(context.get("embarked_unit_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+	if pick == "":
+		for eid in embarked:
+			var eu = GameState.get_unit(str(eid))
+			if RulesEngine.unit_has_keyword(eu, "ORKS") and RulesEngine.unit_has_keyword(eu, "INFANTRY"):
+				pick = str(eid)
+				break
+	if pick == "":
+		print("StratagemManager: YOOZ IN TROUBLE NOW — no embarked ORKS INFANTRY unit in %s" % rig_id)
+		return []
+	# Rig centre + nearest enemy (excluding AIRCRAFT)
+	var rig_center := Vector2.ZERO
+	var rig_n := 0
+	var rig_radius := 0.0
+	for m in rig.get("models", []):
+		if not m.get("alive", true) or m.get("position") == null:
+			continue
+		var p = m.get("position")
+		rig_center += Vector2(float(p.get("x", 0)), float(p.get("y", 0)))
+		rig_n += 1
+		rig_radius = maxf(rig_radius, float(m.get("base_mm", 32)) / 25.4 * Measurement.PX_PER_INCH / 2.0)
+	if rig_n == 0:
+		print("StratagemManager: YOOZ IN TROUBLE NOW — rig %s has no positioned models" % rig_id)
+		return []
+	rig_center /= rig_n
+	var owner = int(rig.get("owner", 0))
+	var enemy_pos := Vector2.ZERO
+	var enemy_dist := INF
+	var enemy_id := ""
+	for uid in GameState.state.get("units", {}):
+		var enemy = GameState.state["units"][uid]
+		if int(enemy.get("owner", 0)) == owner or int(enemy.get("owner", 0)) == 0:
+			continue
+		if RulesEngine.unit_has_keyword(enemy, "AIRCRAFT"):
+			continue
+		for em in enemy.get("models", []):
+			if not em.get("alive", true) or em.get("position") == null:
+				continue
+			var ep = Vector2(float(em.position.get("x", 0)), float(em.position.get("y", 0)))
+			var d = rig_center.distance_to(ep)
+			if d < enemy_dist:
+				enemy_dist = d
+				enemy_pos = ep
+				enemy_id = uid
+	if enemy_id == "":
+		print("StratagemManager: YOOZ IN TROUBLE NOW — no enemy unit (excluding AIRCRAFT) on the board")
+		return []
+	var rng_y = RulesEngine.make_rng()
+	var surge_roll = rng_y.rng.randi_range(1, 6)
+	var surge_px = Measurement.inches_to_px(float(surge_roll))
+	var dir = (enemy_pos - rig_center).normalized()
+	if dir == Vector2.ZERO:
+		dir = Vector2.RIGHT
+	var perp = Vector2(-dir.y, dir.x)
+	# Start at the rig's edge, advance up to D6" toward the enemy, stop ~0.6"
+	# short of the closest enemy model ("as close as possible", into ER).
+	var start = rig_center + dir * (rig_radius + Measurement.inches_to_px(0.5))
+	var to_enemy = start.distance_to(enemy_pos)
+	var advance = minf(surge_px, maxf(0.0, to_enemy - Measurement.inches_to_px(0.6)))
+	var anchor = start + dir * advance
+	var picked_unit = GameState.get_unit(pick)
+	var positions: Array = []
+	var alive_i := 0
+	var alive_total := 0
+	for m in picked_unit.get("models", []):
+		if m.get("alive", true):
+			alive_total += 1
+	for m in picked_unit.get("models", []):
+		if not m.get("alive", true):
+			positions.append(Vector2.ZERO)
+			continue
+		var offset = perp * ((alive_i - (alive_total - 1) / 2.0) * 30.0)
+		positions.append(anchor + offset)
+		alive_i += 1
+	var tm_y = get_node_or_null("/root/TransportManager")
+	if tm_y == null:
+		return []
+	tm_y.disembark_unit(pick, positions)
+	print("StratagemManager: YOOZ IN TROUBLE NOW — %s disembarked from %s, surged %d\" toward %s" % [pick, rig_id, surge_roll, enemy_id])
+	return []
 
 func _find_nearest_friendly_keyword_unit(unit_id: String, keyword: String, max_inches: float) -> String:
 	"""Nearest other friendly unit with `keyword` whose closest model is within

@@ -1973,6 +1973,15 @@ static func unit_has_prey_charge_reroll(unit: Dictionary, target_ids: Array, uni
 			return true
 	return false
 
+static func runnin_boots_charge_bonus(unit: Dictionary, units: Dictionary) -> int:
+	"""Runnin' Boots (Blitz Brigade): +1 to Charge rolls while the bearer's
+	unit disembarked from a Transport this turn."""
+	if not unit.get("disembarked_this_phase", false):
+		return 0
+	if not _unit_or_attached_has_enhancement(unit, "Runnin' Boots", units):
+		return 0
+	return 1
+
 static func unit_has_s_gt_t_wound_penalty(unit: Dictionary, units: Dictionary) -> bool:
 	"""Surly as a Squiggoth (Da Big Hunt enhancement) and the generic
 	effect_minus_wound_s_gt_t flag: -1 to incoming Wound rolls while the
@@ -2223,9 +2232,22 @@ func has_morks_kunnin(player: int) -> bool:
 	"""Check if a player has the Mork's Kunnin' enhancement."""
 	return has_enhancement(player, "Mork's Kunnin'")
 
+func has_blitzkaptin(player: int) -> bool:
+	"""Check if a player has the Blitzkaptin enhancement (Blitz Brigade —
+	Mork's Kunnin' pattern, but limited to ORKS VEHICLE units)."""
+	return has_enhancement(player, "Blitzkaptin")
+
 func get_morks_kunnin_eligible_units(player: int) -> Array:
-	"""Get all ORKS units eligible for Mork's Kunnin' redeployment."""
-	if not has_morks_kunnin(player):
+	"""Get all units eligible for the 3-unit redeploy enhancements: any ORKS
+	unit for Mork's Kunnin' (Taktikal Brigade), ORKS VEHICLE units for
+	Blitzkaptin (Blitz Brigade). Detachments are exclusive per player, so at
+	most one of the two applies."""
+	var vehicles_only := false
+	if has_morks_kunnin(player):
+		vehicles_only = false
+	elif has_blitzkaptin(player):
+		vehicles_only = true
+	else:
 		return []
 
 	var eligible = []
@@ -2241,6 +2263,9 @@ func get_morks_kunnin_eligible_units(player: int) -> Array:
 			continue
 		# Must be ORKS (any battlefield role — unlike Razgit's, not INFANTRY-only)
 		if not _unit_has_keyword(unit, "ORKS"):
+			continue
+		# Blitzkaptin: VEHICLE units only
+		if vehicles_only and not _unit_has_keyword(unit, "VEHICLE"):
 			continue
 		# Must have alive models
 		var has_alive = false
@@ -2270,8 +2295,11 @@ func mark_morks_kunnin_redeploy_used(player: int) -> void:
 		player, _morks_kunnin_redeploys_used[pk]])
 
 func is_morks_kunnin_redeploy_available(player: int) -> bool:
-	"""Check if Mork's Kunnin' redeployment slots are still available."""
-	return has_morks_kunnin(player) and get_morks_kunnin_redeploys_remaining(player) > 0
+	"""Check if Mork's Kunnin' / Blitzkaptin redeployment slots remain (the
+	two enhancements share the 3-redeploy counter; detachments are exclusive
+	so a player never has both)."""
+	return (has_morks_kunnin(player) or has_blitzkaptin(player)) \
+		and get_morks_kunnin_redeploys_remaining(player) > 0
 
 # ============================================================================
 # AGAINST ALL ODDS — LIONS OF THE EMPEROR

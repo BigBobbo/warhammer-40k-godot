@@ -522,7 +522,14 @@ func _parse_target(target_text: String) -> Dictionary:
 
 	# Determine owner — only based on inclusive text (the exclusion clause may also
 	# contain words like "enemy" e.g. "excluding enemy CHARACTERS").
-	if "enemy" in inclusive_t:
+	# "from your army" is the GW template marker for friendly targets and wins
+	# over a bare "enemy", which also appears inside relative clauses of
+	# friendly targets ("that is not within Engagement Range of one or more
+	# enemy units", "within 9\" of that enemy unit") — those mis-parsed as
+	# enemy-targeted and made the panel skip the friendly unit picker.
+	if "from your army" in inclusive_t:
+		result.owner = "friendly"
+	elif "enemy" in inclusive_t:
 		result.owner = "enemy"
 
 	# Look for keyword requirements
@@ -577,6 +584,12 @@ func _parse_target(target_text: String) -> Dictionary:
 		result.conditions.append("keyword:WALKER")
 		alternated_terms = ["vehicle", "walker"]
 		skip_orks_faction_kw = true
+
+	# Blitz Brigade rig targets: "Battlewagon, Kill Rig or Hunta Rig" (both
+	# orderings appear in the stratagem texts).
+	if "battlewagon, kill rig or hunta rig" in inclusive_t or "battlewagon, hunta rig or kill rig" in inclusive_t:
+		result.conditions.append("keyword_any:BATTLEWAGON,KILL RIG,HUNTA RIG")
+		alternated_terms = ["monster", "vehicle"]
 
 	for pattern in keyword_patterns:
 		if pattern[0].strip_edges() in alternated_terms:
