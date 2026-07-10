@@ -35,6 +35,14 @@ var _model_origin_positions: Dictionary = {}  # model_id -> Vector2 pre-charge p
 var _model_origin_rotations: Dictionary = {}  # model_id -> float pre-charge rotation
 var undo_charge_model_button: Button = null
 var auto_path_charge_button: Button = null  # T-092: auto-suggests valid charge positions
+# T-092: Snap-to-contact fallback sweep — approach-direction offsets (degrees)
+# tried in order when the straight-line spot is blocked (e.g. by a squadmate
+# already snapped to the same target). Most direct placement wins.
+const SNAP_ANGLE_SWEEP_DEG: Array = [
+	0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0, 60.0, -60.0, 75.0, -75.0,
+	90.0, -90.0, 105.0, -105.0, 120.0, -120.0, 135.0, -135.0, 150.0, -150.0,
+	165.0, -165.0, 180.0,
+]
 var dragging_model = null  # Currently dragging model
 var ghost_visual: Node2D = null  # Ghost visual for dragging
 var movement_lines: Dictionary = {}  # model_id -> Line2D for movement path
@@ -1239,6 +1247,7 @@ func _add_confirm_button() -> void:
 	# with its nearest declared target (falls back to a legal gap if contact is
 	# blocked). Satisfies the 11.04 "within 1 inch" rule in one click.
 	auto_path_charge_button = Button.new()
+	auto_path_charge_button.name = "SnapToContactButton"
 	auto_path_charge_button.text = "Snap to Contact"
 	auto_path_charge_button.tooltip_text = "Move all remaining models into base-to-base contact with the nearest charge target"
 	_WhiteDwarfTheme.apply_to_button(auto_path_charge_button)
@@ -3559,12 +3568,15 @@ func _on_auto_path_charge() -> void:
 	var unit = GameState.get_unit(active_unit_id)
 	if unit.is_empty():
 		return
-	var charge_data = current_phase.get("pending_charges", {}).get(active_unit_id, {}) if current_phase else {}
+	# Declared charge targets: local selection first, then the phase's pending
+	# charge (covers Heroic Intervention too). current_phase is an Object, so
+	# pending_charges must be read as a property — Object.get() takes a single
+	# argument, and a two-argument Dictionary-style get() aborts this handler.
+	var charge_targets: Array = selected_targets
+	if charge_targets.is_empty():
+		charge_targets = _get_charge_targets_from_phase(active_unit_id)
 	# Build a list of candidate target model positions (alive enemies in declared targets)
 	var target_positions: Array = []
-	var charge_targets = []
-	if current_phase and current_phase.has_method("get") and current_phase.get("pending_charges", {}).has(active_unit_id):
-		charge_targets = current_phase.pending_charges[active_unit_id].get("targets", [])
 	for target_id in charge_targets:
 		var target_unit = GameState.get_unit(target_id)
 		for tmodel in target_unit.get("models", []):
@@ -3583,8 +3595,16 @@ func _on_auto_path_charge() -> void:
 	if target_positions.is_empty():
 		print("[T-092 auto-path] No target positions available")
 		return
-	# Iterate models still needing to move, place each adjacent to closest target
+	# Iterate models still needing to move, place each adjacent to a target.
+	# Prefer BASE-TO-BASE contact (0" gap) — it always satisfies the 11.04
+	# "within 1 inch" requirement and produces the cleanest engagement — and only
+	# fall back to progressively larger gaps if NO contact spot exists on any
+	# target (overlap / off board / out of charge range). Within each gap, try
+	# targets nearest-first and sweep angles around the approach direction so a
+	# straight-line spot blocked by an already-placed squadmate falls back to
+	# the next position around the target's base instead of giving up.
 	var to_move_copy = models_to_move.duplicate()
+	var unplaced: Array = []
 	for model_id in to_move_copy:
 		var model: Dictionary = {}
 		for m in unit.get("models", []):
@@ -3595,43 +3615,39 @@ func _on_auto_path_charge() -> void:
 			continue
 		var origin: Vector2 = _get_model_position(model)
 		var own_radius: float = Measurement.base_radius_px(model.get("base_mm", 32))
-		# Find closest target model to this charger model
-		var closest_target = target_positions[0]
-		var closest_dist: float = origin.distance_to(closest_target["pos"])
-		for tp_data in target_positions:
-			var d = origin.distance_to(tp_data["pos"])
-			if d < closest_dist:
-				closest_dist = d
-				closest_target = tp_data
-		# Prefer BASE-TO-BASE contact (0" gap) on the line origin→target; fall back
-		# to progressively larger gaps only if contact is blocked (overlap / off
-		# board / out of charge range). Base contact always satisfies the 11.04
-		# "within 1 inch" requirement and produces the cleanest engagement. A larger
-		# gap == candidate nearer the origin == shorter move, so the fallback also
-		# rescues cases where reaching contact would exceed the charge budget.
-		var dir_vec: Vector2 = (closest_target["pos"] - origin)
-		if dir_vec.length() < 1.0:
-			dir_vec = Vector2(1, 0)
-		dir_vec = dir_vec.normalized()
+		# Targets nearest-first for this model
+		var targets_sorted: Array = target_positions.duplicate()
+		targets_sorted.sort_custom(func(a, b): return origin.distance_to(a["pos"]) < origin.distance_to(b["pos"]))
 		var placed := false
 		for gap_inches in [0.0, 0.25, 0.5, 0.9]:
 			var gap_px: float = Measurement.inches_to_px(gap_inches)
-			var place_distance_from_target: float = closest_target["radius"] + own_radius + gap_px
-			var candidate: Vector2 = closest_target["pos"] - dir_vec * place_distance_from_target
-			if not _validate_charge_position(model, candidate):
-				continue
-			# Stage the move (mirroring _end_model_drag behavior)
-			moved_models[model_id] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
-			if model_id in _moved_model_order:
-				_moved_model_order.erase(model_id)
-			_moved_model_order.append(model_id)
-			_update_model_position_in_gamestate(active_unit_id, model_id, candidate)
-			_move_token_visual(active_unit_id, model_id, candidate, model.get("rotation", 0.0))
-			models_to_move.erase(model_id)
-			print("[T-092 auto-path] Placed %s at %s (gap=%.2f\", target dist=%.1f\")" % [model_id, str(candidate), gap_inches, Measurement.px_to_inches(candidate.distance_to(closest_target["pos"]))])
-			placed = true
-			break
+			for tp_data in targets_sorted:
+				var dir_vec: Vector2 = (tp_data["pos"] - origin)
+				if dir_vec.length() < 1.0:
+					dir_vec = Vector2(1, 0)
+				dir_vec = dir_vec.normalized()
+				var place_distance_from_target: float = tp_data["radius"] + own_radius + gap_px
+				for angle_deg in SNAP_ANGLE_SWEEP_DEG:
+					var candidate: Vector2 = tp_data["pos"] - dir_vec.rotated(deg_to_rad(angle_deg)) * place_distance_from_target
+					if not _validate_charge_position(model, candidate):
+						continue
+					# Stage the move (mirroring _end_model_drag behavior)
+					moved_models[model_id] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
+					if model_id in _moved_model_order:
+						_moved_model_order.erase(model_id)
+					_moved_model_order.append(model_id)
+					_update_model_position_in_gamestate(active_unit_id, model_id, candidate)
+					_move_token_visual(active_unit_id, model_id, candidate, model.get("rotation", 0.0))
+					models_to_move.erase(model_id)
+					print("[T-092 auto-path] Placed %s at %s (gap=%.2f\", angle=%+.0f deg, target dist=%.1f\")" % [model_id, str(candidate), gap_inches, angle_deg, Measurement.px_to_inches(candidate.distance_to(tp_data["pos"]))])
+					placed = true
+					break
+				if placed:
+					break
+			if placed:
+				break
 		if not placed:
+			unplaced.append(model_id)
 			print("[T-092 auto-path] No valid placement found for %s" % model_id)
 	# Refresh button states
 	if confirm_button and is_instance_valid(confirm_button):
@@ -3642,6 +3658,8 @@ func _on_auto_path_charge() -> void:
 	if is_instance_valid(charge_info_label):
 		if models_to_move.is_empty():
 			charge_info_label.text = "All models auto-pathed! Click 'Confirm Charge Moves' to complete"
+		elif not unplaced.is_empty():
+			charge_info_label.text = "Snap to Contact: no legal spot within %d\" for %d model(s) — drag them manually" % [charge_distance, unplaced.size()]
 		else:
 			charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
 
