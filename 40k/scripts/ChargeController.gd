@@ -1177,7 +1177,9 @@ func _show_target_engagement_visuals(unit_id: String) -> void:
 			var base_mm = target_model.get("base_mm", 32)
 			var base_radius_px = Measurement.base_radius_px(base_mm)
 			var er_px = Measurement.inches_to_px(GameConstants.engagement_range_inches())  # edition-aware ER
-			er_visual.setup_engagement_range(base_radius_px + er_px, Color(1.0, 0.5, 0.0, 0.5))
+			# T12: charge-target ER ring uses the WARNING_ORANGE slot at half alpha
+			var er_color: Color = UIConstants.with_alpha(UIConstants.WARNING_ORANGE, 0.5)
+			er_visual.setup_engagement_range(base_radius_px + er_px, er_color)
 			er_visual.position = target_pos
 			board_root.add_child(er_visual)
 			target_engagement_visuals.append(er_visual)

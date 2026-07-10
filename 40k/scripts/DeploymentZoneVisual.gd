@@ -40,10 +40,18 @@ const OUTER_EDGE_BORDER_WIDTH: float = 2.0
 # Board boundary threshold (pixels) — edges within this distance of the board edge are "outer"
 const BOARD_EDGE_THRESHOLD: float = 5.0
 
-# Zone depth label
+# Zone depth label. border_color itself is caller-supplied (the per-player
+# zone color set by Main.gd) — everything drawn here derives from it via
+# _alpha, so this file adds no semantic color of its own (T12).
 const FONT_SIZE: int = 14
-const LABEL_BG_COLOR: Color = Color(0.1, 0.08, 0.05, 0.85)
+var label_bg_color: Color = Color(0.1, 0.08, 0.05, 0.85)  # == with_alpha(UIConstants.LABEL_BG_DARK, 0.85); headless fallback
 const LABEL_BG_PADDING: Vector2 = Vector2(6, 3)
+
+# T12: local alpha-override helper (autoload-free so headless -s harnesses
+# can still compile this script; Color is by-value so mutating is safe).
+static func _alpha(c: Color, a: float) -> Color:
+	c.a = a
+	return c
 
 # P3-48: Diagonal hatching constants
 const HATCH_SPACING: float = 40.0  # Distance between hatch lines in pixels
@@ -63,6 +71,11 @@ var default_font: Font = null
 func _ready() -> void:
 	z_index = -5
 	default_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
+	# T12: re-resolve the label plate from the UIConstants chrome table now
+	# that the node is in the tree (fallback initializer covers headless -s).
+	var uic = get_node_or_null("/root/UIConstants")
+	if uic != null:
+		label_bg_color = _alpha(uic.LABEL_BG_DARK, 0.85)
 
 func _process(delta: float) -> void:
 	if is_active:
@@ -109,7 +122,7 @@ func _draw() -> void:
 			_draw_dashed_edge(p1, p2, border_color, INNER_EDGE_BORDER_WIDTH, march_offset, pulse_alpha)
 		else:
 			# Board boundary edges: subtle dashed line, no glow
-			var dim_color = Color(border_color.r, border_color.g, border_color.b, border_color.a * 0.5)
+			var dim_color = _alpha(border_color, border_color.a * 0.5)
 			_draw_dashed_edge(p1, p2, dim_color, OUTER_EDGE_BORDER_WIDTH, march_offset, pulse_alpha)
 
 	# P3-48: Draw military-style corner brackets on inner corners (replaces simple circle markers)
@@ -132,11 +145,11 @@ func _draw_edge_glow(p1: Vector2, p2: Vector2, pulse_alpha: float) -> void:
 	var glow_scale = DIMMED_GLOW_SCALE if is_dimmed else 1.0
 
 	# Outer glow layer (wider, more transparent)
-	var glow_outer = Color(border_color.r, border_color.g, border_color.b, GLOW_ALPHA_OUTER * pulse_alpha * glow_scale)
+	var glow_outer = _alpha(border_color, GLOW_ALPHA_OUTER * pulse_alpha * glow_scale)
 	draw_line(p1, p2, glow_outer, GLOW_WIDTH_OUTER, true)
 
 	# Inner glow layer (narrower, slightly more visible)
-	var glow_inner = Color(border_color.r, border_color.g, border_color.b, GLOW_ALPHA_INNER * pulse_alpha * glow_scale)
+	var glow_inner = _alpha(border_color, GLOW_ALPHA_INNER * pulse_alpha * glow_scale)
 	draw_line(p1, p2, glow_inner, GLOW_WIDTH_INNER, true)
 
 func _draw_dashed_edge(p1: Vector2, p2: Vector2, color: Color, width: float, march_offset: float, pulse_alpha: float) -> void:
@@ -148,7 +161,7 @@ func _draw_dashed_edge(p1: Vector2, p2: Vector2, color: Color, width: float, mar
 	if total_length < 1.0:
 		return
 
-	var line_color = Color(color.r, color.g, color.b, color.a * pulse_alpha)
+	var line_color = _alpha(color, color.a * pulse_alpha)
 
 	# Iterate with offset for marching ants effect
 	var pos = -march_offset
@@ -179,7 +192,7 @@ func _draw_corner_brackets(points: PackedVector2Array, board_w: float, board_h: 
 		if edge_before_inner or edge_after_inner:
 			# P3-52: Scale bracket visibility down when dimmed
 			var bracket_scale = DIMMED_BRACKET_SCALE if is_dimmed else 1.0
-			var bracket_color = Color(border_color.r, border_color.g, border_color.b, BRACKET_ALPHA * pulse_alpha * bracket_scale)
+			var bracket_color = _alpha(border_color, BRACKET_ALPHA * pulse_alpha * bracket_scale)
 
 			# Compute direction vectors along each edge from this corner
 			var dir_to_prev = (p_prev - p_curr).normalized()
@@ -215,7 +228,7 @@ func _draw_diagonal_hatching(points: PackedVector2Array, pulse_alpha: float) -> 
 
 	# P3-52: Scale hatching down when dimmed
 	var hatch_scale = DIMMED_HATCH_SCALE if is_dimmed else 1.0
-	var hatch_color = Color(border_color.r, border_color.g, border_color.b, HATCH_ALPHA * pulse_alpha * hatch_scale)
+	var hatch_color = _alpha(border_color, HATCH_ALPHA * pulse_alpha * hatch_scale)
 
 	# Generate 45-degree lines sweeping across the bounding box.
 	# For a 45° line (top-left to bottom-right), the diagonal offset is x + y = c.
@@ -334,10 +347,10 @@ func _draw_zone_depth_label(points: PackedVector2Array, board_w: float, board_h:
 		text_size + LABEL_BG_PADDING * 2
 	)
 
-	var bg_color = Color(LABEL_BG_COLOR.r, LABEL_BG_COLOR.g, LABEL_BG_COLOR.b, LABEL_BG_COLOR.a * pulse_alpha)
+	var bg_color = _alpha(label_bg_color, label_bg_color.a * pulse_alpha)
 	draw_rect(bg_rect, bg_color, true)
 
-	var text_color = Color(border_color.r, border_color.g, border_color.b, pulse_alpha)
+	var text_color = _alpha(border_color, pulse_alpha)
 	draw_string(
 		default_font,
 		label_pos - Vector2(text_size.x / 2.0, 0),
@@ -386,7 +399,7 @@ func _draw_player_label(points: PackedVector2Array, pulse_alpha: float) -> void:
 	var font_size_val = 18
 	var text_size = default_font.get_string_size(label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_val)
 	var label_alpha = pulse_alpha * (0.4 if is_dimmed else 0.7)
-	var text_color = Color(border_color.r, border_color.g, border_color.b, label_alpha)
+	var text_color = _alpha(border_color, label_alpha)
 	draw_string(
 		default_font,
 		center - Vector2(text_size.x / 2.0, -text_size.y / 4.0),

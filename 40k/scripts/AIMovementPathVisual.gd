@@ -10,10 +10,20 @@ class_name AIMovementPathVisual
 const HOLD_DURATION := 2.5  # How long to hold the trail visible
 const FADE_DURATION := 1.0  # Fade out time
 
-# Visual settings - player-themed colors
-const P1_TRAIL_COLOR := Color(0.3, 0.5, 0.9, 0.7)  # Blue for player 1
-const P2_TRAIL_COLOR := Color(0.9, 0.3, 0.2, 0.7)  # Red for player 2
+# Visual settings — trails are per-PLAYER indicators, so they use the
+# UIConstants player-slot colors (T12/T41): P1 teal, P2 magenta. This
+# replaces the old ad-hoc blue/red pair. Initializers are canonical-hex
+# fallbacks for headless -s contexts where the autoload is absent (bare
+# autoload names don't compile there); _ready() re-resolves them.
+var p1_trail_color: Color = Color(0.00, 0.70, 0.70, 0.7)  # == with_alpha(UIConstants.FRIENDLY_PLAYER_TEAL, 0.7)
+var p2_trail_color: Color = Color(0.90, 0.20, 0.70, 0.7)  # == with_alpha(UIConstants.ENEMY_PLAYER_MAGENTA, 0.7)
 const TRAIL_GLOW_COLOR_ALPHA := 0.2  # Glow layer alpha multiplier
+
+# T12: local alpha-override helper (autoload-free so headless -s harnesses
+# can still compile this script; Color is by-value so mutating is safe).
+static func _alpha(c: Color, a: float) -> Color:
+	c.a = a
+	return c
 const LINE_WIDTH := 2.5
 const GLOW_WIDTH := 7.0
 const DASH_LENGTH := 8.0
@@ -42,6 +52,12 @@ func _ready() -> void:
 	_hold_timer.one_shot = true
 	_hold_timer.timeout.connect(_start_fade_out)
 	add_child(_hold_timer)
+	# T12/T41: re-resolve trail colors from the UIConstants player slots now
+	# that the node is in the tree (fallbacks cover headless -s runs).
+	var uic = get_node_or_null("/root/UIConstants")
+	if uic != null:
+		p1_trail_color = _alpha(uic.player_slot_color(1), 0.7)
+		p2_trail_color = _alpha(uic.player_slot_color(2), 0.7)
 
 func _process(_delta: float) -> void:
 	if _phase == "fade":
@@ -54,7 +70,7 @@ func _draw() -> void:
 		return
 
 	var alpha = _fade_alpha
-	var base_color = P1_TRAIL_COLOR if _owner_player == 1 else P2_TRAIL_COLOR
+	var base_color = p1_trail_color if _owner_player == 1 else p2_trail_color
 
 	for path in _paths:
 		var from_pos: Vector2 = path["from"]
@@ -67,18 +83,18 @@ func _draw() -> void:
 		var dir_norm = direction.normalized()
 
 		# Glow line (solid, wide, low alpha)
-		var glow_color = Color(base_color.r, base_color.g, base_color.b, alpha * TRAIL_GLOW_COLOR_ALPHA)
+		var glow_color = _alpha(base_color, alpha * TRAIL_GLOW_COLOR_ALPHA)
 		draw_line(from_pos, to_pos, glow_color, GLOW_WIDTH)
 
 		# Dashed core line
-		var trail_color = Color(base_color.r, base_color.g, base_color.b, alpha * base_color.a)
+		var trail_color = _alpha(base_color, alpha * base_color.a)
 		_draw_dashed_line(from_pos, to_pos, trail_color, LINE_WIDTH)
 
 		# Arrowhead at destination
 		_draw_arrowhead(to_pos, dir_norm, trail_color)
 
 		# Small circle at origin
-		var origin_color = Color(base_color.r, base_color.g, base_color.b, alpha * 0.5)
+		var origin_color = _alpha(base_color, alpha * 0.5)
 		draw_circle(from_pos, ORIGIN_MARKER_RADIUS, origin_color)
 
 func _draw_dashed_line(from: Vector2, to: Vector2, color: Color, width: float) -> void:

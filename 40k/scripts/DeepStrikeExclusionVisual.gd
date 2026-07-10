@@ -14,14 +14,23 @@ const GAP_LENGTH: float = 8.0
 const LINE_WIDTH: float = 2.5
 const MARCH_SPEED: float = 25.0
 
-# Colors - orange-red to match existing exclusion visuals
-const LINE_COLOR: Color = Color(1.0, 0.4, 0.3, 0.8)
-const GLOW_COLOR: Color = Color(1.0, 0.4, 0.3, 0.15)
+# Colors — the exclusion zone is "you may not place here", i.e. the
+# UIConstants.INVALID_RED slot at layered alphas (T12). Initializers are
+# canonical-hex fallbacks for headless -s contexts where the autoload is
+# absent (bare autoload names don't compile there); _ready() re-resolves.
+var line_color_base: Color = Color(0.9, 0.2, 0.2, 0.8)     # == with_alpha(UIConstants.INVALID_RED, 0.8)
+var glow_color_base: Color = Color(0.9, 0.2, 0.2, 0.15)    # == with_alpha(UIConstants.INVALID_RED, 0.15)
 const GLOW_WIDTH: float = 8.0
-const FILL_COLOR: Color = Color(1.0, 0.3, 0.2, 0.06)
-const LABEL_BG_COLOR: Color = Color(0.1, 0.08, 0.05, 0.85)
+var fill_color_base: Color = Color(0.9, 0.2, 0.2, 0.06)    # == with_alpha(UIConstants.INVALID_RED, 0.06)
+var label_bg_color: Color = Color(0.1, 0.08, 0.05, 0.85)   # == with_alpha(UIConstants.LABEL_BG_DARK, 0.85)
 const LABEL_BG_PADDING: Vector2 = Vector2(6, 3)
 const FONT_SIZE: int = 13
+
+# T12: local alpha-override helper (autoload-free so headless -s harnesses
+# can still compile this script; Color is by-value so mutating is safe).
+static func _alpha(c: Color, a: float) -> Color:
+	c.a = a
+	return c
 
 # Internal state
 var _exclusion_circles: Array = []  # Array of { center: Vector2, radius_px: float }
@@ -35,6 +44,14 @@ func _ready() -> void:
 	z_index = -4  # Same layer as InfiltratorExclusionVisual
 	_default_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 	set_process(false)
+	# T12: re-resolve theme colors from the UIConstants slot table now that
+	# the node is in the tree (fallback initializers cover headless -s runs).
+	var uic = get_node_or_null("/root/UIConstants")
+	if uic != null:
+		line_color_base = _alpha(uic.INVALID_RED, 0.8)
+		glow_color_base = _alpha(uic.INVALID_RED, 0.15)
+		fill_color_base = _alpha(uic.INVALID_RED, 0.06)
+		label_bg_color = _alpha(uic.LABEL_BG_DARK, 0.85)
 
 func show_exclusion(enemy_positions: Array) -> void:
 	"""Show 9-inch exclusion bubbles around all enemy model positions.
@@ -139,7 +156,7 @@ func _draw() -> void:
 			continue
 
 		# Draw semi-transparent fill
-		var fill = Color(FILL_COLOR.r, FILL_COLOR.g, FILL_COLOR.b, FILL_COLOR.a * pulse_alpha)
+		var fill = _alpha(fill_color_base, fill_color_base.a * pulse_alpha)
 		draw_colored_polygon(poly, fill)
 
 		# Draw each edge
@@ -152,7 +169,7 @@ func _draw() -> void:
 				continue
 
 			# Draw glow
-			var glow_color = Color(GLOW_COLOR.r, GLOW_COLOR.g, GLOW_COLOR.b, GLOW_COLOR.a * pulse_alpha)
+			var glow_color = _alpha(glow_color_base, glow_color_base.a * pulse_alpha)
 			draw_line(p1, p2, glow_color, GLOW_WIDTH, true)
 
 			# Draw dashed line
@@ -179,7 +196,7 @@ func _draw_dashed_line(p1: Vector2, p2: Vector2, pulse_alpha: float, march_offse
 	if total_length < 1.0:
 		return
 
-	var line_color = Color(LINE_COLOR.r, LINE_COLOR.g, LINE_COLOR.b, LINE_COLOR.a * pulse_alpha)
+	var line_color = _alpha(line_color_base, line_color_base.a * pulse_alpha)
 
 	var pos = -march_offset
 	while pos < total_length:
@@ -242,10 +259,10 @@ func _draw_exclusion_label(poly: PackedVector2Array, board_w: float, board_h: fl
 		text_size + LABEL_BG_PADDING * 2
 	)
 
-	var bg_color = Color(LABEL_BG_COLOR.r, LABEL_BG_COLOR.g, LABEL_BG_COLOR.b, LABEL_BG_COLOR.a * pulse_alpha)
+	var bg_color = _alpha(label_bg_color, label_bg_color.a * pulse_alpha)
 	draw_rect(bg_rect, bg_color, true)
 
-	var text_color = Color(LINE_COLOR.r, LINE_COLOR.g, LINE_COLOR.b, pulse_alpha)
+	var text_color = _alpha(line_color_base, pulse_alpha)
 	draw_string(
 		_default_font,
 		label_pos - Vector2(text_size.x / 2.0, 0),

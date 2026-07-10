@@ -1,7 +1,7 @@
 {
   "id": "T12_color_audit",
   "covers": ["design_guidelines.T12", "audit.uiconstants_references"],
-  "description": "T12 audit: visual scripts reference UIConstants slot colors instead of ad-hoc hex. This iteration converts HumanMovementPathVisual's over-cap warning red to UIConstants.INVALID_RED via runtime lookup, and exposes a UIConstants.all_slots() audit hook. Asserts the slot table is complete (7 entries) and individual slots are reachable as Color values.",
+  "description": "T12 audit: visual scripts reference UIConstants slot colors instead of ad-hoc hex. 2026-07-10 iteration: CoherencyCircle/EngagementRange/ChargeTrajectory/ChargeArrow/DeepStrike/DeploymentZone/AIMovementPath now resolve their semantic colors from the slot table at runtime (headless-hex fallbacks kept in sync); shared chrome (LABEL_BG_DARK, SCRIM_DARK) and with_alpha() live on UIConstants. The probe_visual_* hooks add each visual to the live tree so the /root/UIConstants lookup path is exactly what a real instance runs. DamageFeedbackVisual FX palette + PersistentEngagementOverlay subdued amber are documented exceptions.",
 
   "steps": [
     { "act": "wait_seconds", "seconds": 0.3 },
@@ -22,6 +22,51 @@
     { "act": "execute_script",
       "script": "UIConstants.slot_name(UIConstants.all_slots()[\"INVALID_RED\"])",
       "equals": "INVALID_RED" },
+
+    { "act": "execute_script",
+      "script": "abs(UIConstants.with_alpha(UIConstants.INVALID_RED, 0.25).a - 0.25) < 0.001 and UIConstants.with_alpha(UIConstants.INVALID_RED, 0.25).r == UIConstants.INVALID_RED.r",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_method_property(\"res://scripts/CoherencyCircleVisual.gd\", \"set_in_range\", [true], \"circle_color\") == UIConstants.CONFIRMED_GREEN",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_method_property(\"res://scripts/CoherencyCircleVisual.gd\", \"set_in_range\", [false], \"circle_color\") == UIConstants.INVALID_RED",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_property(\"res://scripts/ChargeArrowVisual.gd\", \"arrow_success_color\") == UIConstants.with_alpha(UIConstants.CONFIRMED_GREEN, 0.9)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_property(\"res://scripts/ChargeArrowVisual.gd\", \"arrow_fail_color\") == UIConstants.with_alpha(UIConstants.INVALID_RED, 0.9)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_property(\"res://scripts/ChargeArrowVisual.gd\", \"pending_text_color\") == UIConstants.MARGINAL_YELLOW",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_property(\"res://scripts/ChargeTrajectoryPreview.gd\", \"trajectory_color\") == UIConstants.with_alpha(UIConstants.WARNING_ORANGE, 0.6)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_property(\"res://scripts/ChargeTrajectoryPreview.gd\", \"summary_good_color\") == UIConstants.with_alpha(UIConstants.CONFIRMED_GREEN, 0.95)",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_property(\"res://scripts/AIMovementPathVisual.gd\", \"p1_trail_color\") == UIConstants.with_alpha(UIConstants.player_slot_color(1), 0.7)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_property(\"res://scripts/AIMovementPathVisual.gd\", \"p2_trail_color\") == UIConstants.with_alpha(UIConstants.player_slot_color(2), 0.7)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/AIMovementPathVisual.gd\").get_script_constant_map().has(\"P1_TRAIL_COLOR\")",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_property(\"res://scripts/DeepStrikeExclusionVisual.gd\", \"line_color_base\") == UIConstants.with_alpha(UIConstants.INVALID_RED, 0.8)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.probe_visual_property(\"res://scripts/DeepStrikeExclusionVisual.gd\", \"fill_color_base\") == UIConstants.with_alpha(UIConstants.INVALID_RED, 0.06)",
+      "equals": true },
 
     { "act": "expect_baseline_unchanged" }
   ]

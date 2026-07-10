@@ -107,6 +107,58 @@ func striped_pattern(color: Color, tile_size: int = 16, stripe_width: int = 4) -
 
 
 # ---------------------------------------------------------------------------
+# Shared chrome (T12) — NOT semantic slots (all_slots() stays at 7). These are
+# the repeated non-semantic plate/scrim colors that used to be duplicated as
+# per-file literals.
+# ---------------------------------------------------------------------------
+
+const LABEL_BG_DARK := Color(0.1, 0.08, 0.05, 0.9)   # dark label plate behind overlay text
+const SCRIM_DARK    := Color(0.0, 0.0, 0.0, 0.7)     # dark scrim behind floating notifications
+
+
+# T12: alpha-override helper — replaces Color(c.r, c.g, c.b, a) recombination
+# literals at call sites that already hold the UIConstants autoload. Visual
+# scripts that must also compile in headless -s harnesses keep a local static
+# equivalent instead (bare autoload names do not compile there).
+func with_alpha(c: Color, a: float) -> Color:
+	var out := c
+	out.a = a
+	return out
+
+
+# T12 audit hooks — scenario `execute_script` steps are single Expressions
+# (no statements), so tree-attached instantiate/read/free sequences live
+# here. Adds the visual to the live tree so its _ready-time slot resolution
+# runs (the exact path a real game instance takes), reads `property`, then
+# tears it down.
+func probe_visual_property(script_path: String, property: String) -> Variant:
+	var s = load(script_path)
+	if s == null:
+		return null
+	var n = s.new()
+	get_tree().root.add_child(n)
+	var v = n.get(property)
+	get_tree().root.remove_child(n)
+	n.queue_free()
+	return v
+
+
+# Same as probe_visual_property, but calls `method(args)` first — for colors
+# that are only assigned by a setter path (e.g. CoherencyCircle.set_in_range).
+func probe_visual_method_property(script_path: String, method: String, args: Array, property: String) -> Variant:
+	var s = load(script_path)
+	if s == null:
+		return null
+	var n = s.new()
+	get_tree().root.add_child(n)
+	n.callv(method, args)
+	var v = n.get(property)
+	get_tree().root.remove_child(n)
+	n.queue_free()
+	return v
+
+
+# ---------------------------------------------------------------------------
 # Motion budget constants (doc §9 — referenced by Tween call sites in T44)
 # ---------------------------------------------------------------------------
 

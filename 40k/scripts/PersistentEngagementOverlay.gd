@@ -65,7 +65,10 @@ func refresh() -> void:
 		ring.position = anchor
 		ring.setup_engagement_range(
 			Measurement.inches_to_px(GameConstants.engagement_range_inches()),
-			Color(0.85, 0.6, 0.2, 1.0)  # subdued amber so it's not loud
+			# T12 documented exception: deliberately SUBDUED variant of
+			# WARNING_ORANGE for the always-on ambient ring — the full slot
+			# color at idle reads as a constant alert (doc §9 anti-pattern).
+			Color(0.85, 0.6, 0.2, 1.0)
 		)
 		ring.pulse_enabled = false  # ambient ring; pulsing reserved for active selection
 		add_child(ring)

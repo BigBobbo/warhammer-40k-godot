@@ -649,7 +649,8 @@ func _show_engagement_indicators() -> void:
 		var circle = Node2D.new()
 		circle.set_script(EngagementRangeVisualScript)
 		circle.position = model_pos
-		circle.setup_engagement_range(Measurement.inches_to_px(GameConstants.engagement_range_inches()), Color.ORANGE)
+		# T12: fight-phase ER ring uses the WARNING_ORANGE slot
+		circle.setup_engagement_range(Measurement.inches_to_px(GameConstants.engagement_range_inches()), UIConstants.WARNING_ORANGE)
 
 		range_visual.add_child(circle)
 	

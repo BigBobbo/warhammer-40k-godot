@@ -10,8 +10,12 @@ class_name ChargeTrajectoryPreview
 # Visual style follows HumanMovementPathVisual (dashed lines, arrowheads)
 # but uses the charge-themed orange color from ChargeArrowVisual.
 
-# Visual settings - orange charge theme (matches ChargeArrowVisual)
-const TRAJECTORY_COLOR := Color(1.0, 0.6, 0.0, 0.6)  # Orange, semi-transparent
+# Visual settings — charge theme draws from the UIConstants slot table
+# (T12). The initializers below are canonical-hex fallbacks for headless -s
+# contexts where the autoload is absent (bare autoload names don't compile
+# there); _ready() re-resolves them from /root/UIConstants. Keep in sync
+# with doc §9.
+var trajectory_color: Color = Color(1.0, 0.55, 0.0, 0.6)  # == with_alpha(UIConstants.WARNING_ORANGE, 0.6)
 const TRAJECTORY_GLOW_ALPHA := 0.15  # Glow layer alpha multiplier
 const LINE_WIDTH := 2.0
 const GLOW_WIDTH := 6.0
@@ -29,18 +33,24 @@ const ORIGIN_MARKER_RADIUS := 3.5
 var _march_offset: float = 0.0
 const MARCH_SPEED := 25.0  # pixels per second
 
-# Minimum roll summary label
+# Minimum roll summary label (colors slot-sourced in _ready, see above)
 const SUMMARY_FONT_SIZE := 14
-const SUMMARY_BG_COLOR := Color(0.1, 0.08, 0.05, 0.9)
+var summary_bg_color: Color = Color(0.1, 0.08, 0.05, 0.9)    # == UIConstants.LABEL_BG_DARK
 const SUMMARY_BG_PADDING := Vector2(6, 4)
-const SUMMARY_GOOD_COLOR := Color(0.3, 1.0, 0.4, 0.95)  # Green - easy charge
-const SUMMARY_MID_COLOR := Color(1.0, 0.85, 0.3, 0.95)   # Yellow - average
-const SUMMARY_HARD_COLOR := Color(1.0, 0.4, 0.2, 0.95)   # Red-orange - hard
+var summary_good_color: Color = Color(0.2, 0.85, 0.3, 0.95)  # == with_alpha(UIConstants.CONFIRMED_GREEN, 0.95)
+var summary_mid_color: Color = Color(0.95, 0.85, 0.15, 0.95) # == with_alpha(UIConstants.MARGINAL_YELLOW, 0.95)
+var summary_hard_color: Color = Color(0.9, 0.2, 0.2, 0.95)   # == with_alpha(UIConstants.INVALID_RED, 0.95)
 
 # Per-model distance label
 const LABEL_FONT_SIZE := 11
-const LABEL_BG_COLOR := Color(0.1, 0.08, 0.05, 0.8)
+var label_bg_color: Color = Color(0.1, 0.08, 0.05, 0.8)      # == with_alpha(UIConstants.LABEL_BG_DARK, 0.8)
 const LABEL_BG_PADDING := Vector2(3, 2)
+
+# T12: local alpha-override helper (autoload-free so headless -s harnesses
+# can still compile this script; Color is by-value so mutating is safe).
+static func _alpha(c: Color, a: float) -> Color:
+	c.a = a
+	return c
 
 # State
 var _trajectories: Array = []  # Array of {from: Vector2, to: Vector2, distance_inches: float}
@@ -97,6 +107,16 @@ func _ready() -> void:
 	name = "ChargeTrajectoryPreview"
 	default_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 	visible = false
+	# T12: re-resolve theme colors from the UIConstants slot table now that
+	# the node is in the tree (fallback initializers cover headless -s runs).
+	var uic = get_node_or_null("/root/UIConstants")
+	if uic != null:
+		trajectory_color = _alpha(uic.WARNING_ORANGE, 0.6)
+		summary_bg_color = uic.LABEL_BG_DARK
+		summary_good_color = _alpha(uic.CONFIRMED_GREEN, 0.95)
+		summary_mid_color = _alpha(uic.MARGINAL_YELLOW, 0.95)
+		summary_hard_color = _alpha(uic.INVALID_RED, 0.95)
+		label_bg_color = _alpha(uic.LABEL_BG_DARK, 0.8)
 	print("[ChargeTrajectoryPreview] P3-127: Initialized")
 
 func _process(delta: float) -> void:
@@ -124,18 +144,18 @@ func _draw() -> void:
 		var dir_norm = direction.normalized()
 
 		# Glow line (solid, wide, low alpha)
-		var glow_color = Color(TRAJECTORY_COLOR.r, TRAJECTORY_COLOR.g, TRAJECTORY_COLOR.b, TRAJECTORY_GLOW_ALPHA)
+		var glow_color = _alpha(trajectory_color, TRAJECTORY_GLOW_ALPHA)
 		draw_line(from_pos, to_pos, glow_color, GLOW_WIDTH)
 
 		# Dashed core line with marching ants
-		var trail_color = Color(TRAJECTORY_COLOR.r, TRAJECTORY_COLOR.g, TRAJECTORY_COLOR.b, TRAJECTORY_COLOR.a)
+		var trail_color = trajectory_color
 		_draw_dashed_line_animated(from_pos, to_pos, trail_color, LINE_WIDTH)
 
 		# Arrowhead at destination
 		_draw_arrowhead(to_pos, dir_norm, trail_color)
 
 		# Origin marker circle
-		var origin_color = Color(TRAJECTORY_COLOR.r, TRAJECTORY_COLOR.g, TRAJECTORY_COLOR.b, 0.4)
+		var origin_color = _alpha(trajectory_color, 0.4)
 		draw_circle(from_pos, ORIGIN_MARKER_RADIUS, origin_color)
 
 		# Per-model distance label
@@ -198,14 +218,14 @@ func _draw_distance_label(from: Vector2, to: Vector2, distance_inches: float) ->
 		label_pos - LABEL_BG_PADDING,
 		text_size + LABEL_BG_PADDING * 2
 	)
-	draw_rect(bg_rect, LABEL_BG_COLOR, true)
+	draw_rect(bg_rect, label_bg_color, true)
 
 	# Border
-	var border_color = Color(TRAJECTORY_COLOR.r, TRAJECTORY_COLOR.g, TRAJECTORY_COLOR.b, 0.5)
+	var border_color = _alpha(trajectory_color, 0.5)
 	draw_rect(bg_rect, border_color, false, 1.0)
 
 	# Text in orange charge color
-	var text_color = Color(TRAJECTORY_COLOR.r, TRAJECTORY_COLOR.g, TRAJECTORY_COLOR.b, 0.9)
+	var text_color = _alpha(trajectory_color, 0.9)
 	draw_string(
 		default_font,
 		label_pos + Vector2(0, text_size.y * 0.7),
@@ -243,19 +263,19 @@ func _draw_min_roll_summary() -> void:
 		label_pos - SUMMARY_BG_PADDING,
 		text_size + SUMMARY_BG_PADDING * 2
 	)
-	draw_rect(bg_rect, SUMMARY_BG_COLOR, true)
+	draw_rect(bg_rect, summary_bg_color, true)
 
 	# Color-code based on difficulty (2D6 averages 7)
 	var text_color: Color
 	if roll_needed <= 5:
-		text_color = SUMMARY_GOOD_COLOR
+		text_color = summary_good_color
 	elif roll_needed <= 8:
-		text_color = SUMMARY_MID_COLOR
+		text_color = summary_mid_color
 	else:
-		text_color = SUMMARY_HARD_COLOR
+		text_color = summary_hard_color
 
 	# Border matches difficulty color
-	var border_color = Color(text_color.r, text_color.g, text_color.b, 0.6)
+	var border_color = _alpha(text_color, 0.6)
 	draw_rect(bg_rect, border_color, false, 1.5)
 
 	draw_string(

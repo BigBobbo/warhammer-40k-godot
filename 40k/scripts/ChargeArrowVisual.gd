@@ -12,11 +12,15 @@ const HOLD_DURATION := 4.0  # How long to hold the arrow visible after animation
 const FADE_DURATION := 1.0  # Fade out time
 const PULSE_SPEED := 3.0  # Speed of the pulsing glow effect
 
-# Visual settings - orange/yellow charge theme
-const ARROW_COLOR := Color(1.0, 0.6, 0.0, 0.9)  # Orange
-const ARROW_GLOW_COLOR := Color(1.0, 0.45, 0.0, 0.3)  # Orange glow
-const ARROW_SUCCESS_COLOR := Color(0.2, 1.0, 0.3, 0.9)  # Green for success
-const ARROW_FAIL_COLOR := Color(1.0, 0.2, 0.2, 0.9)  # Red for failure
+# Visual settings — charge theme draws from the UIConstants slot table
+# (T12): orange = WARNING_ORANGE (charge attempt), green = CONFIRMED_GREEN
+# (success), red = INVALID_RED (failure). Initializers are canonical-hex
+# fallbacks for headless -s contexts where the autoload is absent (bare
+# autoload names don't compile there); _ready() re-resolves them.
+var arrow_color: Color = Color(1.0, 0.55, 0.0, 0.9)         # == with_alpha(UIConstants.WARNING_ORANGE, 0.9)
+var arrow_success_color: Color = Color(0.2, 0.85, 0.3, 0.9) # == with_alpha(UIConstants.CONFIRMED_GREEN, 0.9)
+var arrow_fail_color: Color = Color(0.9, 0.2, 0.2, 0.9)     # == with_alpha(UIConstants.INVALID_RED, 0.9)
+var pending_text_color: Color = Color(0.95, 0.85, 0.15, 1.0) # == UIConstants.MARGINAL_YELLOW (roll pending)
 const LINE_WIDTH := 3.5
 const GLOW_WIDTH := 10.0
 
@@ -24,14 +28,22 @@ const GLOW_WIDTH := 10.0
 const ARROW_HEAD_SIZE := 16.0
 const ARROW_HEAD_ANGLE := 0.45  # Radians, matches PileInMovementVisual
 
-# Charge flash at charger origin
+# Charge flash at charger origin — celebratory FX, not a semantic slot
+# (documented T12 exception; the warm flash pair is art, not state color).
 const CHARGE_FLASH_COLOR := Color(1.0, 0.7, 0.1, 0.9)
+const CHARGE_FLASH_CORE_COLOR := Color(1.0, 0.95, 0.7, 1.0)
 const CHARGE_FLASH_RADIUS := 16.0
 
 # Roll result label
 const LABEL_FONT_SIZE := 16
-const LABEL_BG_COLOR := Color(0.1, 0.08, 0.05, 0.9)
+var label_bg_color: Color = Color(0.1, 0.08, 0.05, 0.9)     # == UIConstants.LABEL_BG_DARK
 const LABEL_BG_PADDING := Vector2(6, 4)
+
+# T12: local alpha-override helper (autoload-free so headless -s harnesses
+# can still compile this script; Color is by-value so mutating is safe).
+static func _alpha(c: Color, a: float) -> Color:
+	c.a = a
+	return c
 
 # State
 var from_pos := Vector2.ZERO  # Charger unit position (world coords)
@@ -57,6 +69,15 @@ func _ready() -> void:
 	_hold_timer.one_shot = true
 	_hold_timer.timeout.connect(_start_fade_out)
 	add_child(_hold_timer)
+	# T12: re-resolve theme colors from the UIConstants slot table now that
+	# the node is in the tree (fallback initializers cover headless -s runs).
+	var uic = get_node_or_null("/root/UIConstants")
+	if uic != null:
+		arrow_color = _alpha(uic.WARNING_ORANGE, 0.9)
+		arrow_success_color = _alpha(uic.CONFIRMED_GREEN, 0.9)
+		arrow_fail_color = _alpha(uic.INVALID_RED, 0.9)
+		pending_text_color = uic.MARGINAL_YELLOW
+		label_bg_color = uic.LABEL_BG_DARK
 
 func _process(delta: float) -> void:
 	if _phase == "idle":
@@ -92,9 +113,9 @@ func _draw() -> void:
 	var dir_norm = direction.normalized()
 
 	# Determine color based on charge result
-	var base_color = ARROW_COLOR
+	var base_color = arrow_color
 	if _has_result:
-		base_color = ARROW_SUCCESS_COLOR if charge_success else ARROW_FAIL_COLOR
+		base_color = arrow_success_color if charge_success else arrow_fail_color
 
 	# Calculate draw endpoint based on animation progress
 	var draw_end = from_pos.lerp(to_pos, _line_progress)
@@ -105,11 +126,11 @@ func _draw() -> void:
 		pulse_factor = 1.0 + 0.15 * sin(_pulse_time * PULSE_SPEED)
 
 	# --- Outer glow line ---
-	var glow_color = Color(base_color.r, base_color.g, base_color.b, alpha * 0.25 * pulse_factor)
+	var glow_color = _alpha(base_color, alpha * 0.25 * pulse_factor)
 	draw_line(from_pos, draw_end, glow_color, GLOW_WIDTH)
 
 	# --- Core arrow line ---
-	var core_color = Color(base_color.r, base_color.g, base_color.b, alpha * 0.9)
+	var core_color = _alpha(base_color, alpha * 0.9)
 	draw_line(from_pos, draw_end, core_color, LINE_WIDTH)
 
 	# --- Arrowhead at draw_end ---
@@ -120,10 +141,10 @@ func _draw() -> void:
 	if _charge_flash_alpha > 0.0:
 		var flash_alpha = _charge_flash_alpha * alpha
 		# Outer glow
-		var outer = Color(CHARGE_FLASH_COLOR.r, CHARGE_FLASH_COLOR.g, CHARGE_FLASH_COLOR.b, flash_alpha * 0.4)
+		var outer = _alpha(CHARGE_FLASH_COLOR, flash_alpha * 0.4)
 		draw_circle(from_pos, CHARGE_FLASH_RADIUS * (1.0 + _charge_flash_alpha * 0.3), outer)
 		# Inner core
-		var inner = Color(1.0, 0.95, 0.7, flash_alpha * 0.7)
+		var inner = _alpha(CHARGE_FLASH_CORE_COLOR, flash_alpha * 0.7)
 		draw_circle(from_pos, CHARGE_FLASH_RADIUS * 0.4, inner)
 
 	# --- Charge roll result label ---
@@ -132,11 +153,11 @@ func _draw() -> void:
 
 func _draw_arrowhead(tip: Vector2, direction: Vector2, color: Color, alpha: float) -> void:
 	"""Draw a filled arrowhead triangle at the tip position."""
-	var arrow_color = Color(color.r, color.g, color.b, alpha)
+	var head_color = _alpha(color, alpha)
 	var p1 = tip - direction.rotated(ARROW_HEAD_ANGLE) * ARROW_HEAD_SIZE
 	var p2 = tip - direction.rotated(-ARROW_HEAD_ANGLE) * ARROW_HEAD_SIZE
 	var points = PackedVector2Array([tip, p1, p2])
-	var colors = PackedColorArray([arrow_color, arrow_color, arrow_color])
+	var colors = PackedColorArray([head_color, head_color, head_color])
 	draw_polygon(points, colors)
 
 func _draw_roll_label(alpha: float) -> void:
@@ -164,23 +185,23 @@ func _draw_roll_label(alpha: float) -> void:
 		label_pos - LABEL_BG_PADDING,
 		text_size + LABEL_BG_PADDING * 2
 	)
-	draw_rect(bg_rect, Color(LABEL_BG_COLOR.r, LABEL_BG_COLOR.g, LABEL_BG_COLOR.b, LABEL_BG_COLOR.a * alpha), true)
+	draw_rect(bg_rect, _alpha(label_bg_color, label_bg_color.a * alpha), true)
 
 	# Border color matches arrow state
 	var border_color: Color
 	if _has_result:
-		border_color = ARROW_SUCCESS_COLOR if charge_success else ARROW_FAIL_COLOR
+		border_color = arrow_success_color if charge_success else arrow_fail_color
 	else:
-		border_color = ARROW_COLOR
+		border_color = arrow_color
 	border_color.a = 0.7 * alpha
 	draw_rect(bg_rect, border_color, false, 1.5)
 
 	# Text color
 	var text_color: Color
 	if _has_result:
-		text_color = ARROW_SUCCESS_COLOR if charge_success else ARROW_FAIL_COLOR
+		text_color = arrow_success_color if charge_success else arrow_fail_color
 	else:
-		text_color = Color(1.0, 0.85, 0.3, 1.0)  # Yellow-gold for pending
+		text_color = pending_text_color  # MARGINAL_YELLOW — roll still pending
 	text_color.a = alpha
 
 	draw_string(

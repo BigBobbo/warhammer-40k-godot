@@ -7,7 +7,7 @@ extends Node2D
 
 var circle_radius_px: float = 80.0  # Default: 2" * 40 px/inch
 var base_radius_px: float = 0.0  # The model's own base radius in pixels
-var circle_color: Color = Color(0.2, 0.9, 0.2, 0.25)  # Faint green default
+var circle_color: Color = FALLBACK_GREEN  # In-range green default; alpha is overridden in _draw
 var _pulse_time: float = 0.0
 
 # ISS-002: coherency distance comes from GameConstants.coherency_distance_inches().
@@ -17,9 +17,16 @@ const OUTLINE_WIDTH: float = 1.5
 const FILL_ALPHA: float = 0.08
 const OUTLINE_ALPHA: float = 0.35
 
-# Colors
-const COLOR_GREEN: Color = Color(0.2, 0.9, 0.2)
-const COLOR_RED: Color = Color(0.9, 0.2, 0.2)
+# T12: colors come from the UIConstants slot table at runtime (see
+# _slot_color). The FALLBACK_* literals equal the canonical slot hexes and
+# exist only for headless -s harness contexts where the autoload is absent
+# (bare autoload names don't compile there) — keep them in sync with doc §9.
+const FALLBACK_GREEN: Color = Color(0.2, 0.85, 0.3, 1.0)   # == UIConstants.CONFIRMED_GREEN
+const FALLBACK_RED: Color = Color(0.9, 0.2, 0.2, 1.0)      # == UIConstants.INVALID_RED
+
+func _slot_color(slot: String, fallback: Color) -> Color:
+	var uic = get_node_or_null("/root/UIConstants")
+	return uic.get(slot) if uic != null else fallback
 
 func setup(model_base_radius_px: float) -> void:
 	base_radius_px = model_base_radius_px
@@ -30,7 +37,8 @@ func setup(model_base_radius_px: float) -> void:
 	queue_redraw()
 
 func set_in_range(is_in_range: bool) -> void:
-	var new_color = COLOR_GREEN if is_in_range else COLOR_RED
+	var new_color = _slot_color("CONFIRMED_GREEN", FALLBACK_GREEN) if is_in_range \
+			else _slot_color("INVALID_RED", FALLBACK_RED)
 	if circle_color != new_color:
 		circle_color = new_color
 		queue_redraw()

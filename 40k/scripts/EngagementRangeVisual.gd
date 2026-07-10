@@ -7,7 +7,7 @@ extends Node2D
 enum Mode { ENGAGEMENT_RANGE, TARGET_HIGHLIGHT }
 
 var circle_radius: float = 25.4  # Default 1 inch in mm
-var circle_color: Color = Color.ORANGE
+var circle_color: Color = FALLBACK_ORANGE
 var fill_alpha: float = 0.2
 var outline_width: float = 2.0
 var mode: int = Mode.ENGAGEMENT_RANGE
@@ -20,17 +20,29 @@ var _pulse_time: float = 0.0
 # engaged" vs "ephemeral selection" rings.
 var is_persistent: bool = false
 
-func setup_engagement_range(radius: float, color: Color = Color.ORANGE) -> void:
+# T12: default colors resolve from the UIConstants slot table at setup time.
+# Color(0,0,0,0) is the "use the slot default" sentinel — every current
+# caller passes an explicit color. The FALLBACK_* literals equal the
+# canonical slot hexes for headless -s contexts where the autoload is
+# absent (bare autoload names don't compile there); keep in sync with §9.
+const FALLBACK_ORANGE: Color = Color(1.0, 0.55, 0.0, 1.0)  # == UIConstants.WARNING_ORANGE
+const FALLBACK_GREEN: Color = Color(0.2, 0.85, 0.3, 1.0)   # == UIConstants.CONFIRMED_GREEN
+
+func _slot_color(slot: String, fallback: Color) -> Color:
+	var uic = get_node_or_null("/root/UIConstants")
+	return uic.get(slot) if uic != null else fallback
+
+func setup_engagement_range(radius: float, color: Color = Color(0, 0, 0, 0)) -> void:
 	circle_radius = radius
-	circle_color = color
+	circle_color = color if color.a > 0.0 else _slot_color("WARNING_ORANGE", FALLBACK_ORANGE)
 	fill_alpha = 0.2
 	outline_width = 2.0
 	mode = Mode.ENGAGEMENT_RANGE
 	queue_redraw()
 
-func setup_target_highlight(radius: float, color: Color = Color.GREEN, is_eligible: bool = true) -> void:
+func setup_target_highlight(radius: float, color: Color = Color(0, 0, 0, 0), is_eligible: bool = true) -> void:
 	circle_radius = radius
-	circle_color = color
+	circle_color = color if color.a > 0.0 else _slot_color("CONFIRMED_GREEN", FALLBACK_GREEN)
 	fill_alpha = 0.3
 	outline_width = 4.0
 	mode = Mode.TARGET_HIGHLIGHT
