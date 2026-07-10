@@ -78,7 +78,8 @@ func _build_ui() -> void:
 	var fell_back_name = ""
 	var fell_back_unit = GameState.get_unit(fell_back_unit_id)
 	if not fell_back_unit.is_empty():
-		fell_back_name = fell_back_unit.get("meta", {}).get("name", fell_back_unit_id)
+		var _krd_meta = fell_back_unit.get("meta", {})
+		fell_back_name = _krd_meta.get("display_name", _krd_meta.get("name", fell_back_unit_id))
 	else:
 		fell_back_name = fell_back_unit_id
 

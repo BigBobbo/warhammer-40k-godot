@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.17.2",
+			"date": "2026-07-10",
+			"summary": "Stratagem unit pickers now tell duplicate squads apart: dialogs like GRENADE list 'Stormboyz Alpha / Beta / Delta' instead of three identical 'Stormboyz' buttons.",
+			"changes": [
+				"The GRENADE stratagem dialog labels each eligible unit with its squad name (e.g. 'Warbikers Alpha' vs 'Warbikers Beta'), matching the names used in the game log and shooter list — you can now tell which squad you are picking.",
+				"Same fix everywhere a stratagem asks you to pick a unit: Fire Overwatch, Counter-Offensive, Heroic Intervention, Tank Shock targets, Deck Fraggers, Rolling Loot-heap, and the generic faction-stratagem unit picker.",
+				"Game-log entries and result popups for stratagems (grenade throws, tank shock, overwatch) also use the squad names, as do the Scatter, Sweeping Advance, Krump'n'Run and Acrobatic Escape prompts."
+			]
+		},
+		{
 			"version": "0.17.1",
 			"date": "2026-07-10",
 			"summary": "Engagement-range circles now match the rule. The red rings shown while moving were drawn at the old 1\" range while the game (11th edition) enforces 2\", so moves were refused when a model still looked clear of the circle — the rings, the fight-phase reach circles and the amber engaged rings are now all drawn at base edge + 2\".",

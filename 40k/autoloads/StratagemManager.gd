@@ -1037,7 +1037,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		var target_display = ""
 		if target_unit_id != "":
 			var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
-			target_display = target_unit.get("meta", {}).get("name", target_unit_id)
+			target_display = _unit_display_name(target_unit, target_unit_id)
 		var log_msg = "Used %s (%s)" % [strat.name, cost_msg]
 		if target_display != "":
 			log_msg += " on %s" % target_display
@@ -2638,6 +2638,14 @@ func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String)
 					out.append(uid)
 	return out
 
+# Player-facing unit name: meta.display_name carries the disambiguating squad
+# suffix ("Stormboyz Alpha" vs "Stormboyz Beta") assigned by ArmyListManager
+# for duplicate datasheets — meta.name alone makes same-named squads
+# indistinguishable in stratagem unit pickers and the game log.
+func _unit_display_name(unit: Dictionary, fallback_id: String) -> String:
+	var meta = unit.get("meta", {})
+	return meta.get("display_name", meta.get("name", fallback_id))
+
 func get_grenade_eligible_units(player: int) -> Array:
 	"""
 	Get units that can use the GRENADE stratagem for the given player.
@@ -2697,7 +2705,7 @@ func get_grenade_eligible_units(player: int) -> Array:
 
 		eligible.append({
 			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
+			"unit_name": _unit_display_name(unit, unit_id)
 		})
 
 	return eligible
@@ -2760,7 +2768,7 @@ func get_rolling_loot_heap_eligible_units(player: int) -> Array:
 
 		eligible.append({
 			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
+			"unit_name": _unit_display_name(unit, unit_id)
 		})
 
 	return eligible
@@ -2822,7 +2830,7 @@ func get_deck_fraggers_eligible_units(player: int) -> Array:
 
 		eligible.append({
 			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
+			"unit_name": _unit_display_name(unit, unit_id)
 		})
 
 	return eligible
@@ -2940,9 +2948,9 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 
 	# Log mortal wound results to phase log
 	var target_unit = GameState.get_unit(target_unit_id)
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var target_name = _unit_display_name(target_unit, target_unit_id)
 	var grenade_unit = GameState.get_unit(grenade_unit_id)
-	var grenade_name = grenade_unit.get("meta", {}).get("name", grenade_unit_id)
+	var grenade_name = _unit_display_name(grenade_unit, grenade_unit_id)
 
 	GameState.add_action_to_phase_log({
 		"type": "GRENADE_RESULT",
@@ -3115,7 +3123,7 @@ func get_counter_offensive_eligible_units(player: int, units_that_fought: Array,
 
 		eligible.append({
 			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
+			"unit_name": _unit_display_name(unit, unit_id)
 		})
 
 	return eligible
@@ -3185,7 +3193,7 @@ func get_tank_shock_eligible_targets(vehicle_unit_id: String, game_state_snapsho
 		if _units_in_engagement_range(vehicle_unit, unit):
 			eligible.append({
 				"unit_id": unit_id,
-				"unit_name": unit.get("meta", {}).get("name", unit_id),
+				"unit_name": _unit_display_name(unit, unit_id),
 				"model_count": alive_count
 			})
 
@@ -3235,7 +3243,7 @@ func execute_tank_shock(player: int, vehicle_unit_id: String, target_unit_id: St
 	# Apply CP diff
 	_safe_apply_state_changes(diffs)
 
-	var vehicle_name = vehicle_unit.get("meta", {}).get("name", vehicle_unit_id)
+	var vehicle_name = _unit_display_name(vehicle_unit, vehicle_unit_id)
 	print("StratagemManager: Player %d used TANK SHOCK with %s (T%d, %dD6) targeting %s (cost %d CP, %d -> %d)" % [
 		player, vehicle_name, toughness, dice_count, target_unit_id, strat.cp_cost, current_cp, new_cp
 	])
@@ -3295,7 +3303,7 @@ func execute_tank_shock(player: int, vehicle_unit_id: String, target_unit_id: St
 
 	# Log mortal wound results to phase log
 	var target_unit = GameState.get_unit(target_unit_id)
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var target_name = _unit_display_name(target_unit, target_unit_id)
 
 	GameState.add_action_to_phase_log({
 		"type": "TANK_SHOCK_RESULT",
@@ -3424,7 +3432,7 @@ func get_fire_overwatch_eligible_units(player: int, enemy_unit_id: String, game_
 
 		eligible.append({
 			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
+			"unit_name": _unit_display_name(unit, unit_id)
 		})
 
 	return eligible
@@ -3518,7 +3526,7 @@ func get_heroic_intervention_eligible_units_11e(player: int) -> Array:
 		if has_target:
 			eligible.append({
 				"unit_id": unit_id,
-				"unit_name": unit.get("meta", {}).get("name", unit_id)
+				"unit_name": _unit_display_name(unit, unit_id)
 			})
 	return eligible
 
@@ -3598,7 +3606,7 @@ func get_heroic_intervention_eligible_units(player: int, charging_enemy_unit_id:
 
 		eligible.append({
 			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
+			"unit_name": _unit_display_name(unit, unit_id)
 		})
 
 	return eligible
@@ -3873,9 +3881,9 @@ func execute_fire_overwatch(player: int, shooter_unit_id: String, target_unit_id
 		return {"success": false, "error": result.get("error", "Failed"), "diffs": [], "shooting_result": {}}
 
 	var shooter_unit = GameState.get_unit(shooter_unit_id)
-	var shooter_name = shooter_unit.get("meta", {}).get("name", shooter_unit_id)
+	var shooter_name = _unit_display_name(shooter_unit, shooter_unit_id)
 	var target_unit = GameState.get_unit(target_unit_id)
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var target_name = _unit_display_name(target_unit, target_unit_id)
 
 	print("StratagemManager: FIRE OVERWATCH — %s (player %d) fires at %s" % [shooter_name, player, target_name])
 
