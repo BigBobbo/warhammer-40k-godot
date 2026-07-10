@@ -1,0 +1,36 @@
+{
+ "id": "da_big_hunt_drag_it_down",
+ "covers": [
+  "fight.stratagem.drag_it_down",
+  "stratagems.da_big_hunt.loading",
+  "faction.da_big_hunt.prey_selection",
+  "ui.StratagemPanel.faction_rows"
+ ],
+ "fixture": "co_pretrigger",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "description": "DRAG IT DOWN (Da Big Hunt, 1 CP) driven through the real player path: the Ork player (P2, active) opens the Stratagem Panel in the Fight phase, presses Use and picks the Painboss (the fixture's only Beast Snagga unit). Asserts the melee SUSTAINED HITS + Prey-crit flags land and 1 CP is spent, that all six Da Big Hunt stratagems load as implemented, and that the Prey detachment rule auto-selects an enemy MONSTER/VEHICLE/CHARACTER. Setup-only privilege (documented): the fixture's Ork detachment is flipped from War Horde to Da Big Hunt, faction stratagems reloaded, and Prey selection invoked directly (it normally runs at the Ork player's Command phase start, which this mid-battle fixture skips).",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "expect_phase", "equals": 10 },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Da Big Hunt\"}, true)" },
+  { "act": "execute_script", "script": "StratagemManager.load_faction_stratagems_for_player(2)" },
+  { "act": "execute_script", "script": "StratagemManager.get_implemented_faction_stratagems_for_player(2).size()", "equals": 6 },
+  { "act": "execute_script", "script": "FactionAbilityManager._select_prey_for_player(2)" },
+  { "act": "execute_script", "script": "FactionAbilityManager.get_prey_unit_id(2).length() > 0", "equals": true },
+  { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/Main/StratagemPanel" },
+  { "act": "screenshot", "label": "01_panel_open" },
+  { "act": "click_node", "node": "/root/Main/StratagemPanel/Scroll/List/Strat_faction_ork_da_big_hunt_drag_it_down/Row/Use_faction_ork_da_big_hunt_drag_it_down", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog" },
+  { "act": "screenshot", "label": "02_unit_picker" },
+  { "act": "click_node", "node": "/root/StratagemTargetDialog/Content/Pick_U_PAINBOSS_I", "emit_pressed": true },
+  { "act": "wait_frames", "frames": 3 },
+  { "act": "expect_state", "path": "units.U_PAINBOSS_I.flags.effect_sustained_hits_melee", "equals": true },
+  { "act": "expect_state", "path": "units.U_PAINBOSS_I.flags.effect_drag_it_down", "equals": true },
+  { "act": "expect_cp", "player": 2, "delta_from_start": -1 },
+  { "act": "screenshot", "label": "03_after_use" }
+ ]
+}

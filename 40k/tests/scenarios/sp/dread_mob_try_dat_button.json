@@ -1,0 +1,28 @@
+{
+ "id": "dread_mob_try_dat_button",
+ "covers": [
+  "fight.detachment_rule.try_dat_button",
+  "faction.dread_mob.button_effect_roll"
+ ],
+ "fixture": "co_pretrigger",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "description": "Try Dat Button! (Dread Mob detachment rule) fires on the real fight-selection path: the Ork player's Warboss (granted WALKER for the fixture, which ships no Deff Dread) is selected to fight via SELECT_FIGHTER, and the Button Effect D6 is rolled automatically — exactly one of SUSTAINED HITS 1 / LETHAL HITS / +2 AP lands as a melee-scoped flag. Setup-only privilege (documented): the fixture's Ork detachment is flipped from War Horde to Dread Mob (with detect_player_detachment so the rule's cache sees it) and the Warboss gains the WALKER keyword.",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "expect_phase", "equals": 10 },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Dread Mob\"}, true)" },
+  { "act": "execute_script", "script": "FactionAbilityManager.detect_player_detachment(2)", "equals": "Dread Mob" },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WARBOSS_B\"][\"meta\"][\"keywords\"].append(\"WALKER\")" },
+  { "act": "screenshot", "label": "01_before_selection" },
+  { "act": "dispatch_action", "action": { "type": "END_PILE_IN" } },
+  { "act": "dispatch_action", "action": { "type": "END_PILE_IN" } },
+  { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_WARBOSS_B" } },
+  { "act": "wait_frames", "frames": 3 },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WARBOSS_B\"][\"flags\"].get(\"try_dat_rolled_this_phase\", false)", "equals": true },
+  { "act": "execute_script", "script": "int(GameState.state[\"units\"][\"U_WARBOSS_B\"][\"flags\"].get(\"effect_try_dat_sustained_melee\", false)) + int(GameState.state[\"units\"][\"U_WARBOSS_B\"][\"flags\"].get(\"effect_try_dat_lethal_melee\", false)) + int(GameState.state[\"units\"][\"U_WARBOSS_B\"][\"flags\"].get(\"effect_try_dat_ap2\", false))", "equals": 1 },
+  { "act": "screenshot", "label": "02_after_roll" }
+ ]
+}

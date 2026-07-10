@@ -618,9 +618,15 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	# Reset ability reroll tracking for this charge attempt
 	ability_reroll_used = false
 
-	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught, Plummeting Descent)
+	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught,
+	# Plummeting Descent, Green Tide's Bloodthirsty Belligerence while the
+	# bearer's unit counts as 10+ models, or the Prey rule / DAT ONE'S EVEN
+	# BIGGA! for a BEAST SNAGGA unit charging its owner's Prey)
 	var unit_data = get_unit(unit_id)
-	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data)
+	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
+		or FactionAbilityManager.unit_has_green_tide_charge_reroll(unit_data, GameState.state.get("units", {})) \
+		or FactionAbilityManager.unit_has_prey_charge_reroll(unit_data, target_ids, GameState.state.get("units", {})) \
+		or FactionAbilityManager.unit_has_detachment_charge_reroll(unit_data)
 
 	if has_ability_reroll:
 		# Offer free ability reroll first (before Command Re-roll)
@@ -722,6 +728,12 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	# what feeds the engagement-range feasibility check and movement budget.
 	var unit_for_charge_bonus = get_unit(unit_id)
 	var charge_bonus = EffectPrimitivesData.get_effect_plus_charge(unit_for_charge_bonus)
+	# Runnin' Boots (Blitz Brigade): +1 to Charge rolls while the bearer's
+	# unit disembarked from a Transport this turn.
+	charge_bonus += FactionAbilityManager.runnin_boots_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))
+	# Boarding Ramps (Rollin' Deff): +1 to Charge rolls for a unit that
+	# disembarked this turn from the WAGON bearing the enhancement.
+	charge_bonus += FactionAbilityManager.boarding_ramps_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))
 	if charge_bonus > 0:
 		total_distance += charge_bonus
 		charge_data.distance = total_distance
@@ -1621,15 +1633,26 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 			status == GameStateData.UnitStatus.SHOT):
 		return false
 	
+	# Turbo Boostas (Speedwaaagh!): a unit that used its turbo cannot declare
+	# a charge this turn — a hard lock no advance-and-charge effect (Waaagh!,
+	# Adrenaline Junkies) can override.
+	if flags.get("turbo_boosted", false):
+		return false
+
 	# Check restriction flags
 	# cannot_charge is set by both Advance and Fall Back moves, but abilities like
 	# Waaagh! (advance_and_charge) or Full Throttle (fall_back_and_charge) can override it.
 	if flags.get("cannot_charge", false):
 		var can_override = false
-		if flags.get("advanced", false) and EffectPrimitivesData.has_effect_advance_and_charge(unit):
+		# Adrenaline Junkies (Kult of Speed): Speed Freeks may charge after
+		# Advancing or Falling Back. It does NOT override other charge locks
+		# (e.g. Wazblasta's post-shooting move).
+		var adrenaline = FactionAbilityManager.unit_has_adrenaline_junkies(unit) \
+			and not flags.get("wazblasta_no_charge", false)
+		if flags.get("advanced", false) and (EffectPrimitivesData.has_effect_advance_and_charge(unit) or adrenaline):
 			can_override = true
 			DebugLogger.info(str("ChargePhase: Unit %s advanced but has advance_and_charge effect — overriding cannot_charge" % unit.get("id", "unknown")))
-		if flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_charge(unit):
+		if flags.get("fell_back", false) and (EffectPrimitivesData.has_effect_fall_back_and_charge(unit) or adrenaline):
 			can_override = true
 			DebugLogger.info(str("ChargePhase: Unit %s fell back but has fall_back_and_charge effect — overriding cannot_charge" % unit.get("id", "unknown")))
 		if not can_override:
@@ -2831,6 +2854,12 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 				for effect in entry.get("effects", []):
 					if effect.get("type", "") == "reroll_charge":
 						return entry.get("ability_name", "ability")
+	# Prey rule (Da Big Hunt): reroll granted live vs the owner's Prey
+	var unit_data = get_unit(unit_id)
+	var declared_targets: Array = pending_charges.get(unit_id, {}).get("targets", [])
+	if not EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
+			and FactionAbilityManager.unit_has_prey_charge_reroll(unit_data, declared_targets, GameState.state.get("units", {})):
+		return "Prey"
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:

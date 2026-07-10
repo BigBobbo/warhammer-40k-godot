@@ -1169,6 +1169,9 @@ func _create_flag_reset_diffs(player: int) -> Array:
 		"burned_objective",
 		"performed_ritual",
 		"performed_terraform",
+		# Turbo Boostas (Speedwaaagh!): the turbo's ASSAULT grant and hard
+		# charge lock last until the end of the turn
+		"turbo_boosted", "effect_advance_and_shoot",
 		# 06_SYNTHESIS launch-blocker #5: Da Jump (Weirdboy psychic) flag
 		# was never cleared across turn boundaries, permanently locking
 		# the Weirdboy after one Da Jump. awaiting_da_jump_placement is

@@ -351,6 +351,16 @@ func get_deployment_zone_for_player(player: int) -> Dictionary:
 	return {}
 
 # Pre-Battle Formations Helpers
+func _get_enhancement_can_lead_extras(character: Dictionary) -> Array:
+	"""Runtime lookup for CharacterAttachmentManager.get_enhancement_can_lead_extras.
+	GameState registers before CharacterAttachmentManager in the autoload order,
+	so a parse-time identifier reference breaks script compilation in standalone
+	--script test harnesses (Identifier not found at boot)."""
+	var cam = get_node_or_null("/root/CharacterAttachmentManager")
+	if cam == null:
+		return []
+	return cam.get_enhancement_can_lead_extras(character)
+
 func get_characters_for_player(player: int) -> Array:
 	"""Get all CHARACTER units with Leader ability for a player."""
 	var characters = []
@@ -363,7 +373,7 @@ func get_characters_for_player(player: int) -> Array:
 			continue
 		var leader_data = unit.get("meta", {}).get("leader_data", {})
 		var can_lead = leader_data.get("can_lead", [])
-		if can_lead.is_empty():
+		if can_lead.is_empty() and _get_enhancement_can_lead_extras(unit).is_empty():
 			continue
 		characters.append(unit_id)
 	return characters
@@ -385,7 +395,12 @@ func get_eligible_bodyguards_for_character(character_id: String) -> Array:
 	if character.is_empty():
 		return []
 	var leader_data = character.get("meta", {}).get("leader_data", {})
-	var can_lead = leader_data.get("can_lead", [])
+	var can_lead = leader_data.get("can_lead", []).duplicate()
+	# Taktikal Brigade enhancements (Skwad Leader / Mek Kaptin) extend which
+	# units the bearer can lead — mirror CharacterAttachmentManager.can_attach.
+	for extra_kw in _get_enhancement_can_lead_extras(character):
+		if not extra_kw in can_lead:
+			can_lead.append(extra_kw)
 	if can_lead.is_empty():
 		return []
 	var char_owner = character.get("owner", 0)
@@ -492,10 +507,54 @@ func unit_has_ability(unit_id: String, ability_name: String) -> bool:
 	return false
 
 func unit_has_deep_strike(unit_id: String) -> bool:
-	return unit_has_ability(unit_id, "Deep Strike")
+	if unit_has_ability(unit_id, "Deep Strike"):
+		return true
+	# Tellyporta (Bully Boyz): models in the bearer's unit have Deep Strike —
+	# the bearer's own unit, and the bodyguard unit while attached.
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	if _unit_meta_has_enhancement(unit, "Tellyporta"):
+		return true
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		if _unit_meta_has_enhancement(get_unit(str(char_id)), "Tellyporta"):
+			return true
+	return false
 
 func unit_has_infiltrators(unit_id: String) -> bool:
-	return unit_has_ability(unit_id, "Infiltrators")
+	if unit_has_ability(unit_id, "Infiltrators"):
+		return true
+	# Skwad Leader (Taktikal Brigade): "While leading a Kommandos unit, it has
+	# the Infiltrators and Stealth abilities." Both halves of the attached
+	# unit deploy with Infiltrators.
+	return _unit_has_skwad_leader_infiltrators(unit_id)
+
+func _unit_has_skwad_leader_infiltrators(unit_id: String) -> bool:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	# Case 1: a KOMMANDOS bodyguard with a Skwad Leader bearer attached
+	if "KOMMANDOS" in keywords:
+		for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+			if _unit_meta_has_enhancement(get_unit(str(char_id)), "Skwad Leader"):
+				return true
+		return false
+	# Case 2: the Skwad Leader bearer itself, attached to a KOMMANDOS unit
+	if _unit_meta_has_enhancement(unit, "Skwad Leader"):
+		var bg_id = unit.get("attached_to", null)
+		if bg_id != null:
+			var bg = get_unit(str(bg_id))
+			return "KOMMANDOS" in bg.get("meta", {}).get("keywords", [])
+	return false
+
+func _unit_meta_has_enhancement(unit: Dictionary, enh_name: String) -> bool:
+	for enh in unit.get("meta", {}).get("enhancements", []):
+		if enh is String and enh == enh_name:
+			return true
+		if enh is Dictionary and str(enh.get("name", "")) == enh_name:
+			return true
+	return false
 
 func unit_is_fortification(unit_id: String) -> bool:
 	"""Check if a unit has the FORTIFICATION keyword. Fortifications cannot be placed in reserves."""
@@ -599,6 +658,13 @@ func _unit_has_scout_own(unit_id: String) -> bool:
 		# even when the name field is mis-tagged.
 		if "scouts " in description.to_lower() and "scouts x" in description.to_lower():
 			return true
+	# Glory Hog (Da Big Hunt): models in the bearer's unit have Scouts 9" —
+	# the bearer's own unit, and the bodyguard unit while attached.
+	if _unit_meta_has_enhancement(unit, "Glory Hog"):
+		return true
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		if _unit_meta_has_enhancement(get_unit(str(char_id)), "Glory Hog"):
+			return true
 	return false
 
 func _get_scout_distance_from_abilities(abilities: Array) -> float:
@@ -664,6 +730,12 @@ func get_scout_distance(unit_id: String) -> float:
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return 0.0
+	# Glory Hog (Da Big Hunt): Scouts 9" for the bearer's unit.
+	if _unit_meta_has_enhancement(unit, "Glory Hog"):
+		return 9.0
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		if _unit_meta_has_enhancement(get_unit(str(char_id)), "Glory Hog"):
+			return 9.0
 	# Check own abilities first
 	var own_abilities = unit.get("meta", {}).get("abilities", [])
 	var own_distance = _get_scout_distance_from_abilities(own_abilities)
@@ -781,6 +853,16 @@ func get_redeploy_units_for_player(player: int) -> Array:
 			if uid != "" and uid not in redeploy_units:
 				redeploy_units.append(uid)
 				print("GameState: %s — %s eligible for redeployment" % [enh_name, ru.get("unit_name", uid)])
+
+	# Mork's Kunnin' (Taktikal Brigade): up to 3 ORKS units may redeploy
+	# (optionally into Strategic Reserves), mirroring Razgit's Magik Map.
+	if faction_mgr and faction_mgr.is_morks_kunnin_redeploy_available(player):
+		var morks_units = faction_mgr.get_morks_kunnin_eligible_units(player)
+		for mu in morks_units:
+			var muid = mu.get("unit_id", "")
+			if muid != "" and muid not in redeploy_units:
+				redeploy_units.append(muid)
+				print("GameState: Mork's Kunnin' — %s eligible for redeployment" % mu.get("unit_name", muid))
 
 	return redeploy_units
 

@@ -141,6 +141,12 @@ func _init():
 
 func _on_phase_enter() -> void:
 	log_phase_message("Entering Fight Phase")
+	# Big Gob (Bully Boyz enhancement): at the start of the Fight phase the
+	# bearer bellows at the nearest engaged enemy — Battle-shock test at -1.
+	var fam = get_node_or_null("/root/FactionAbilityManager")
+	if fam and fam.has_method("process_big_gob"):
+		fam.process_big_gob(1)
+		fam.process_big_gob(2)
 	# Clear previous state
 	active_fighter_id = ""
 	fight_sequence.clear()
@@ -201,6 +207,11 @@ func _on_phase_enter() -> void:
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Fight Phase")
+
+	# TRY DAT BUTTON! (Dread Mob): Button Effects last until end of phase
+	var fam_tdb_exit = get_node_or_null("/root/FactionAbilityManager")
+	if fam_tdb_exit:
+		fam_tdb_exit.clear_try_dat_flags("melee")
 
 	# T5-V13: Clear engagement indicator flags
 	_clear_engagement_flags()
@@ -1338,6 +1349,12 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 		get_unit(active_fighter_id).get("meta", {}).get("name", active_fighter_id)
 	])
 
+	# TRY DAT BUTTON! (Dread Mob): roll the Button Effect when a Mek / Orks
+	# Walker / Grots Vehicle unit is selected to fight.
+	var fam_tdb = get_node_or_null("/root/FactionAbilityManager")
+	if fam_tdb:
+		fam_tdb.process_try_dat_button(active_fighter_id, "melee")
+
 	emit_signal("unit_selected_for_fighting", active_fighter_id)
 	emit_signal("fighter_selected", active_fighter_id)  # Compatibility signal
 
@@ -2169,10 +2186,13 @@ func _show_mathhammer_predictions() -> void:
 
 func _get_consolidation_distance(unit_id: String) -> float:
 	"""OA-26: Returns the consolidation distance for a unit.
-	Normally 3\", but 6\" for units with 'Drive-by Krumpin'' ability."""
+	Normally 3\", but 6\" for units with 'Drive-by Krumpin'' ability, and the
+	numeric effect_consolidate_max flag (ALWAYS LOOKIN' FER A FIGHT,
+	Squig-hide Tyres) overrides with its own cap when larger."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return 3.0
+	var dist := 3.0
 	var abilities = unit.get("meta", {}).get("abilities", [])
 	for ability in abilities:
 		var ability_name = ""
@@ -2182,8 +2202,17 @@ func _get_consolidation_distance(unit_id: String) -> float:
 			ability_name = ability
 		if ability_name == "Drive-by Krumpin'":
 			log_phase_message("[OA-26] Drive-by Krumpin': Consolidation distance 6\" for %s" % unit_id)
-			return 6.0
-	return 3.0
+			dist = 6.0
+			break
+	# Squig-hide Tyres (Kult of Speed): 6" consolidation for the bearer's unit
+	if dist < 6.0 and FactionAbilityManager._unit_or_attached_has_enhancement(unit, "Squig-hide Tyres", GameState.state.get("units", {})):
+		log_phase_message("Squig-hide Tyres: Consolidation distance 6\" for %s" % unit_id)
+		dist = 6.0
+	var flag_max = float(unit.get("flags", {}).get("effect_consolidate_max", 0.0))
+	if flag_max > dist:
+		log_phase_message("Consolidation distance %.0f\" for %s (effect_consolidate_max)" % [flag_max, unit_id])
+		dist = flag_max
+	return dist
 
 # 11e: a unit's activation ends when its attacks are resolved — there is
 # NO per-fighter consolidation (that is the global 12.07 step at the end

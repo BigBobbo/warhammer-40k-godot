@@ -640,6 +640,16 @@ export function repriceAll() {
         ru._tier_missing = DC.pointsTierMissing(data.raw, ru.model_count, ordinal);
       }
     }
+    // Enhancement cost is re-derived from the dataset here, like ru.points
+    // above — import paths resolve the enhancement by name but don't price
+    // it (an imported Kustom Shokk Box showed up costing 0 instead of +10).
+    const enhId = ru.enhancement?.id ?? ru.enhancement?.ref?.id;
+    if (enhId) {
+      const e = (DC.RAW_DATA.enhancements ?? []).find(x => x.id === enhId);
+      if (e) ru.enhancement_points = e.cost ?? 0;
+    } else if (!ru.enhancement) {
+      ru.enhancement_points = null;
+    }
     total += (ru.points ?? 0) + (ru.enhancement_points ?? 0);
   }
   r.points.total_computed = total;

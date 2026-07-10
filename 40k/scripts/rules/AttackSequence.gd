@@ -140,7 +140,10 @@ static func save_probability(save_val: int, ap: int, invuln: int = 0) -> float:
 ##
 ## Returns {rolls: Array[int], failures: int, mortal_wounds: int,
 ## per_model_mw: int}.
-static func hazard_rolls(unit: Dictionary, count: int, rng) -> Dictionary:
+static func hazard_rolls(unit: Dictionary, count: int, rng, roll_modifier: int = 0) -> Dictionary:
+	# roll_modifier is added to each die before the fail check — CUT' EM DOWN
+	# (Bully Boyz) subtracts 1 from Desperate Escape tests while a Waaagh! is
+	# active for the Nobz/Meganobz unit.
 	var out := {"rolls": [], "failures": 0, "mortal_wounds": 0, "per_model_mw": 1}
 	if count <= 0:
 		return out
@@ -164,7 +167,7 @@ static func hazard_rolls(unit: Dictionary, count: int, rng) -> Dictionary:
 	# 06.03: simultaneous rolls.
 	out.rolls = rng.roll_d6(count)
 	for roll in out.rolls:
-		if roll <= 2:
+		if roll + roll_modifier <= 2:
 			out.failures += 1
 	out.mortal_wounds = out.failures * out.per_model_mw
 	return out

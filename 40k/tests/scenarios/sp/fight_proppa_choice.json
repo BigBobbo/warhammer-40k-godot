@@ -1,0 +1,37 @@
+{
+ "id": "fight_proppa_choice",
+ "covers": [
+  "fight.stratagem.fight_proppa",
+  "stratagems.taktikal_brigade.loading",
+  "ui.StratagemPanel.faction_rows",
+  "ui.Main.stratagem_choice_dialog",
+  "rules.melee_scoped_lethal_hits"
+ ],
+ "fixture": "co_pretrigger",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "description": "FIGHT PROPPA (Taktikal Brigade, 1 CP) driven through the real player path: the Ork player (P2, active) opens the Stratagem Panel in the Fight phase, presses Use on the FIGHT PROPPA row, picks a Boyz mob in the friendly-target dialog, then picks LETHAL HITS in the two-option ability-choice dialog. Asserts the melee-scoped lethal-hits flag lands on the unit (and the sustained variant does not), and 1 CP is spent. Setup-only privilege (documented): the fixture's Ork detachment is flipped from War Horde to Taktikal Brigade and faction stratagems are reloaded — every in-game decision afterwards is a real button press.",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "expect_phase", "equals": 10 },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Taktikal Brigade\"}, true)" },
+  { "act": "execute_script", "script": "StratagemManager.load_faction_stratagems_for_player(2)" },
+  { "act": "execute_script", "script": "StratagemManager.get_implemented_faction_stratagems_for_player(2).size()", "equals": 6 },
+  { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/Main/StratagemPanel" },
+  { "act": "screenshot", "label": "01_panel_open" },
+  { "act": "click_node", "node": "/root/Main/StratagemPanel/Scroll/List/Strat_faction_ork_taktikal_brigade_fight_proppa/Row/Use_faction_ork_taktikal_brigade_fight_proppa", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog" },
+  { "act": "screenshot", "label": "02_unit_picker" },
+  { "act": "click_node", "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_E", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/StratagemChoiceDialog" },
+  { "act": "screenshot", "label": "03_ability_choice" },
+  { "act": "click_node", "node": "/root/StratagemChoiceDialog/Content/Choice_lethal", "emit_pressed": true },
+  { "act": "wait_frames", "frames": 3 },
+  { "act": "expect_state", "path": "units.U_BOYZ_E.flags.effect_lethal_hits_melee", "equals": true },
+  { "act": "expect_cp", "player": 2, "delta_from_start": -1 },
+  { "act": "screenshot", "label": "04_after_use" }
+ ]
+}

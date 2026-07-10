@@ -96,6 +96,42 @@ test('importing a Speedwaaagh! list resolves "Kustom Shokk Box" and exports it',
   assert.equal(unit.meta.points - bareUnit.meta.points, 10, 'enhancement adds its +10 cost');
 });
 
+test('the BUILDER total prices an imported enhancement (repriceAll)', () => {
+  // Regression: text import resolved the enhancement but left
+  // enhancement_points null, so the builder's running total (and the unit
+  // row) showed the bearer at base cost — Kustom Shokk Box was free.
+  const pasted = [
+    'Speed Freeks (80 Points)',
+    '',
+    'Orks',
+    'Speedwaaagh!',
+    'Strike Force (2000 Points)',
+    '',
+    'CHARACTERS',
+    '',
+    'Deffkilla Wartrike (80 Points)',
+    '  • 1x Boomstikks',
+    '  • 1x Killa jet',
+    '  • 1x Snagga klaw',
+    '  • Enhancement: Kustom Shokk Box',
+    '',
+  ].join('\n');
+
+  const { roster } = importText(pasted);
+  S.loadRoster(roster); // the real import flow: dialogs.js hands off to loadRoster -> repriceAll
+
+  const u = S.state.roster.units[0];
+  assert.equal(u.enhancement_points, 10, 'enhancement_points priced from the dataset');
+  assert.equal(
+    S.totalPoints(), (u.points ?? 0) + 10,
+    'roster total includes the enhancement cost');
+
+  // Clearing the enhancement in the builder drops its cost from the total.
+  S.setEnhancement(0, null);
+  assert.equal(u.enhancement_points, null, 'cleared enhancement no longer priced');
+  assert.equal(S.totalPoints(), u.points ?? 0, 'total back to the base cost');
+});
+
 test('applyDataPatches is idempotent', () => {
   const before = S.dc.RAW_DATA.enhancements.length;
   const detBefore = S.dc.RAW_DATA.detachments.find(d => d.id === 'speedwaaagh').enhancement_ids.length;

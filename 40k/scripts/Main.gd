@@ -11361,8 +11361,11 @@ func _toggle_stratagem_panel() -> void:
 		return
 	if _stratagem_panel == null or not is_instance_valid(_stratagem_panel):
 		_stratagem_panel = StratagemPanelClass.new()
+		_stratagem_panel.name = "StratagemPanel"
 		add_child(_stratagem_panel)
-		_stratagem_panel.z_index = UI_MODAL_Z
+		# NOTE: no z_index here — StratagemPanel is an AcceptDialog (Window),
+		# not a CanvasItem; assigning z_index raised a SCRIPT ERROR that
+		# aborted this function before popup(), leaving the panel button dead.
 		_stratagem_panel.stratagem_use_requested.connect(_on_stratagem_panel_use_requested)
 	var active_player = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
 	_stratagem_panel.populate(active_player, current_phase)
@@ -11380,8 +11383,33 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	# attacker to pick a friendly unit AND an enemy target — prompt for
 	# both instead of firing target-less (which no-oped the effect).
 	var sid_resolved := str(strat_manager._resolve_core_id(stratagem_id)) if strat_manager.has_method("_resolve_core_id") else stratagem_id
-	if sid_resolved in ["explosives", "crushing_impact"]:
+	var strat: Dictionary = strat_manager.get_stratagem(sid_resolved)
+	var strat_name := str(strat.get("name", "")).replace("’", "'").to_upper()
+	# Faction stratagems that also need friendly + enemy picks: KRUNCHIN'
+	# DESCENT (Taktikal Brigade), CALL DAT DAKKA? (More Dakka!), CRUSHING
+	# IMPACT + CUT' EM DOWN (Bully Boyz), UNSTOPPABLE MOMENTUM (Da Big Hunt),
+	# SQUIG FLINGIN' (Kult of Speed).
+	if sid_resolved in ["explosives", "crushing_impact"] \
+			or strat_name in ["KRUNCHIN' DESCENT", "CALL DAT DAKKA?", "CRUSHING IMPACT", "CUT' EM DOWN", "UNSTOPPABLE MOMENTUM", "SQUIG FLINGIN'"]:
 		_prompt_stratagem_targets(sid_resolved, active_player)
+		return
+	# FIGHT PROPPA (Taktikal Brigade): pick the friendly unit, then choose
+	# SUSTAINED HITS 1 or LETHAL HITS for its melee weapons.
+	if strat_name == "FIGHT PROPPA":
+		_prompt_fight_proppa(sid_resolved, active_player)
+		return
+	# Dread Mob push-it stratagems: pick the friendly unit, then choose
+	# whether to push it (bigger effect + HAZARDOUS weapons).
+	if strat_name in ["BIGGER SHELLS FOR BIGGER GITZ", "DAKKA! DAKKA! DAKKA!", "KLANKIN' KLAWS"]:
+		_prompt_push_it_stratagem(sid_resolved, active_player)
+		return
+	# Unit-targeted faction stratagems (SPESHUL AMMO, DUST TRAILS, DAT'S OURS,
+	# TAKTIKAL RETREAT, DED SNEAKY, ...): prompt for the friendly target
+	# instead of firing target-less, which would no-op the unit-flag effect.
+	if strat_manager.has_method("is_faction_stratagem") and strat_manager.is_faction_stratagem(sid_resolved) \
+			and str(strat.get("target", {}).get("type", "")) == "unit" \
+			and str(strat.get("target", {}).get("owner", "")) == "friendly":
+		_prompt_friendly_target_then_use(sid_resolved, active_player)
 		return
 	var result = strat_manager.use_stratagem(active_player, stratagem_id)
 	print("Main: stratagem panel requested use of %s -> %s" % [stratagem_id, str(result)])
@@ -11389,8 +11417,9 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
 		_stratagem_panel.populate(active_player, current_phase)
 
-## Audit #11: two-step target picker for attacker-driven stratagems.
-func _prompt_stratagem_targets(sid: String, player: int) -> void:
+
+## List friendly units that pass per-target validation for a stratagem.
+func _eligible_friendly_stratagem_targets(sid: String, player: int) -> Array:
 	var strat_manager = get_node("/root/StratagemManager")
 	var friendly: Array = []
 	for uid in GameState.state.get("units", {}):
@@ -11399,19 +11428,105 @@ func _prompt_stratagem_targets(sid: String, player: int) -> void:
 			continue
 		if strat_manager.can_use_stratagem(player, sid, uid).get("can_use", false):
 			friendly.append(uid)
+	return friendly
+
+
+## Unit-targeted faction stratagem: pick the friendly unit, then fire.
+func _prompt_friendly_target_then_use(sid: String, player: int) -> void:
+	var strat_manager = get_node("/root/StratagemManager")
+	var display_name := str(strat_manager.get_stratagem(sid).get("name", sid))
+	var friendly := _eligible_friendly_stratagem_targets(sid, player)
 	if friendly.is_empty():
-		print("Main: %s — no eligible friendly unit" % sid)
+		print("Main: %s — no eligible friendly unit" % display_name)
 		return
-	_show_stratagem_pick_dialog("%s — select your unit" % sid.to_upper(), friendly,
+	_show_stratagem_pick_dialog("%s — select your unit" % display_name.to_upper(), friendly,
+		func(fid: String):
+			var result = strat_manager.use_stratagem(player, sid, fid)
+			print("Main: %s on %s -> %s" % [display_name, fid, str(result)])
+			if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+				_stratagem_panel.populate(player, current_phase))
+
+
+## FIGHT PROPPA (Taktikal Brigade): pick the friendly unit, then pick which
+## melee ability it gains until end of phase.
+func _prompt_fight_proppa(sid: String, player: int) -> void:
+	var strat_manager = get_node("/root/StratagemManager")
+	var friendly := _eligible_friendly_stratagem_targets(sid, player)
+	if friendly.is_empty():
+		print("Main: FIGHT PROPPA — no eligible friendly unit")
+		return
+	_show_stratagem_pick_dialog("FIGHT PROPPA — select your unit", friendly,
+		func(fid: String):
+			_show_stratagem_choice_dialog("FIGHT PROPPA — choose the melee ability",
+				[["SUSTAINED HITS 1", "sustained"], ["LETHAL HITS", "lethal"]],
+				func(choice: String):
+					var result = strat_manager.use_stratagem(player, sid, fid, {"chosen_ability": choice})
+					print("Main: FIGHT PROPPA %s (%s) -> %s" % [fid, choice, str(result)])
+					if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+						_stratagem_panel.populate(player, current_phase)))
+
+
+## Dread Mob push-it stratagems (BIGGER SHELLS / DAKKA!x3 / KLANKIN' KLAWS):
+## pick the friendly unit, then choose whether to push it.
+func _prompt_push_it_stratagem(sid: String, player: int) -> void:
+	var strat_manager = get_node("/root/StratagemManager")
+	var display_name := str(strat_manager.get_stratagem(sid).get("name", sid))
+	var friendly := _eligible_friendly_stratagem_targets(sid, player)
+	if friendly.is_empty():
+		print("Main: %s — no eligible friendly unit" % display_name)
+		return
+	_show_stratagem_pick_dialog("%s — select your unit" % display_name.to_upper(), friendly,
+		func(fid: String):
+			_show_stratagem_choice_dialog("%s — push it?" % display_name.to_upper(),
+				[["Push it! (bigger effect, HAZARDOUS)", "push"], ["Don't push it", "safe"]],
+				func(choice: String):
+					var result = strat_manager.use_stratagem(player, sid, fid, {"push_it": choice == "push"})
+					print("Main: %s %s (push_it=%s) -> %s" % [display_name, fid, str(choice == "push"), str(result)])
+					if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+						_stratagem_panel.populate(player, current_phase)))
+
+
+## Generic option dialog for stratagem choices (options: Array of [label, value]).
+func _show_stratagem_choice_dialog(title_text: String, options: Array, on_pick: Callable) -> void:
+	var dialog = AcceptDialog.new()
+	dialog.name = "StratagemChoiceDialog"
+	dialog.title = title_text
+	dialog.get_ok_button().text = "Cancel"
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 6)
+	for opt in options:
+		var value := str(opt[1])
+		var btn = Button.new()
+		btn.name = "Choice_%s" % value
+		btn.text = str(opt[0])
+		btn.pressed.connect(func():
+			dialog.name = "StratagemChoiceDialogClosing"
+			dialog.queue_free()
+			on_pick.call(value))
+		content.add_child(btn)
+	dialog.add_child(content)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+## Audit #11: two-step target picker for attacker-driven stratagems.
+func _prompt_stratagem_targets(sid: String, player: int) -> void:
+	var strat_manager = get_node("/root/StratagemManager")
+	var display_name := str(strat_manager.get_stratagem(sid).get("name", sid))
+	var friendly := _eligible_friendly_stratagem_targets(sid, player)
+	if friendly.is_empty():
+		print("Main: %s — no eligible friendly unit" % display_name)
+		return
+	_show_stratagem_pick_dialog("%s — select your unit" % display_name.to_upper(), friendly,
 		func(fid: String):
 			var enemies: Array = strat_manager.get_stratagem_enemy_targets(sid, fid)
 			if enemies.is_empty():
-				print("Main: %s — no eligible enemy target for %s" % [sid, fid])
+				print("Main: %s — no eligible enemy target for %s" % [display_name, fid])
 				return
-			_show_stratagem_pick_dialog("%s — select the enemy target" % sid.to_upper(), enemies,
+			_show_stratagem_pick_dialog("%s — select the enemy target" % display_name.to_upper(), enemies,
 				func(eid: String):
 					var result = strat_manager.use_stratagem(player, sid, fid, {"enemy_unit_id": eid})
-					print("Main: %s %s vs %s -> %s" % [sid, fid, eid, str(result)])
+					print("Main: %s %s vs %s -> %s" % [display_name, fid, eid, str(result)])
 					if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
 						_stratagem_panel.populate(player, current_phase)))
 
