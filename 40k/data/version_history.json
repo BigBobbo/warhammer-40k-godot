@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.17.3",
+			"date": "2026-07-10",
+			"summary": "Fixed the charge-phase 'Snap to Contact' button doing nothing when clicked — it now moves every remaining charging model into base-to-base contact with the nearest charge target, sliding models around the target's base when a squadmate blocks the straight line.",
+			"changes": [
+				"'Snap to Contact' now works: previously the click silently errored out and no models moved, so charging units could never be one-clicked into base contact.",
+				"When several models charge the same target, the ones whose direct approach is blocked by an already-placed squadmate now sweep around the target's base to find the nearest legal base-contact spot instead of being left behind.",
+				"If a model genuinely has no legal spot within its charge distance, the info panel now says so and asks you to place that model by hand, instead of failing silently."
+			]
+		},
+		{
 			"version": "0.17.2",
 			"date": "2026-07-10",
 			"summary": "Stratagem unit pickers now tell duplicate squads apart: dialogs like GRENADE list 'Stormboyz Alpha / Beta / Delta' instead of three identical 'Stormboyz' buttons.",
