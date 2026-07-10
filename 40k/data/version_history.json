@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.17.4",
+			"date": "2026-07-10",
+			"summary": "Disembark fixes: disembarked units no longer vanish from the board (previously they were left as invisible 'still embarked' ghosts marked Cannot Disembark), and the Combat Disembark option only appears when enemies are actually close enough to block a normal 3\" set-up.",
+			"changes": [
+				"Fixed: after placing all models of a disembarking unit, the models disappeared (leaving only blue coherency rings) and the unit was listed as 'Embarked in Transport — Cannot Disembark' even though the game log said it disembarked. The unit's embark state was being reset with the wrong empty value after the disembark completed.",
+				"The Combat Disembark (18.04) toggle in the disembark dialog now only appears when an enemy unit is near enough to the transport that setting up within 3\" outside Engagement Range could actually be impossible — with no enemies nearby it no longer suggests the disembark will be a Combat Disembark.",
+				"Reworded the Combat Disembark toggle to make clear it is an opt-in mode ('Use Combat Disembark…'), and the disembark dialog no longer shows raw [color=…] markup in its text."
+			]
+		},
+		{
 			"version": "0.17.3",
 			"date": "2026-07-10",
 			"summary": "Fixed the charge-phase 'Snap to Contact' button doing nothing when clicked — it now moves every remaining charging model into base-to-base contact with the nearest charge target, sliding models around the target's base when a squadmate blocks the straight line.",
