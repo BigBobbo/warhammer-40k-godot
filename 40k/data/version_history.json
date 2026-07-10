@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.17.5",
+			"date": "2026-07-10",
+			"summary": "Fixed a Waaagh! bug: Ork units that Advanced during an active Waaagh! (or that have Full Throttle, like Stormboyz) can now declare charges in the Charge phase. The Waaagh!'s advance-and-charge and 5+ invulnerable save now correctly last until the start of your next Command phase instead of being wiped at the end of the Shooting phase.",
+			"changes": [
+				"Units eligible to charge after Advancing (Waaagh!, Full Throttle, Kult of Speed's Adrenaline Junkies) are no longer refused a charge with 'advanced or fell back this turn' — the 11th-edition charge check now honours those abilities, matching the Charge-phase eligibility list.",
+				"Waaagh! effects (advance-and-charge, 5+ invulnerable save, and its other buffs) are no longer stripped at the end of the Shooting phase — they now persist until the start of your next Command phase as the rules intend, so an Ork unit that Advanced can still charge and keeps its invuln through the enemy's turn."
+			]
+		},
+		{
 			"version": "0.17.4",
 			"date": "2026-07-10",
 			"summary": "Disembark fixes: disembarked units no longer vanish from the board (previously they were left as invisible 'still embarked' ghosts marked Cannot Disembark), and the Combat Disembark option only appears when enemies are actually close enough to block a normal 3\" set-up.",
