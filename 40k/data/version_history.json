@@ -2,13 +2,32 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.17.4",
+			"version": "0.17.6",
 			"date": "2026-07-10",
 			"summary": "Objective control fixes: a model whose base is only partly on a terrain-hosted objective now counts as holding it, and objective labels no longer claim 'CONTESTED' when nobody (or only one side) is in range — an empty marker now reads 'Uncontrolled'.",
 			"changes": [
 				"Terrain-hosted objectives (11e): a model counts as within the objective as soon as ANY part of its base overlaps the hosting ruin area — previously only the model's centre point was checked, so a unit standing half on the objective was ignored and the marker wrongly showed CONTESTED.",
 				"Board labels, the Command panel and the Scoring panel now distinguish a genuine stand-off ('CONTESTED': both sides in range with equal, nonzero OC) from an empty marker ('Uncontrolled').",
 				"Sticky-objective locks (e.g. Get Da Good Bitz) and nearest-controlled-objective checks now use the same base-on-area rule as objective control on terrain-hosted objectives."
+			]
+		},
+		{
+			"version": "0.17.5",
+			"date": "2026-07-10",
+			"summary": "Fixed a Waaagh! bug: Ork units that Advanced during an active Waaagh! (or that have Full Throttle, like Stormboyz) can now declare charges in the Charge phase. The Waaagh!'s advance-and-charge and 5+ invulnerable save now correctly last until the start of your next Command phase instead of being wiped at the end of the Shooting phase.",
+			"changes": [
+				"Units eligible to charge after Advancing (Waaagh!, Full Throttle, Kult of Speed's Adrenaline Junkies) are no longer refused a charge with 'advanced or fell back this turn' — the 11th-edition charge check now honours those abilities, matching the Charge-phase eligibility list.",
+				"Waaagh! effects (advance-and-charge, 5+ invulnerable save, and its other buffs) are no longer stripped at the end of the Shooting phase — they now persist until the start of your next Command phase as the rules intend, so an Ork unit that Advanced can still charge and keeps its invuln through the enemy's turn."
+			]
+		},
+		{
+			"version": "0.17.4",
+			"date": "2026-07-10",
+			"summary": "Disembark fixes: disembarked units no longer vanish from the board (previously they were left as invisible 'still embarked' ghosts marked Cannot Disembark), and the Combat Disembark option only appears when enemies are actually close enough to block a normal 3\" set-up.",
+			"changes": [
+				"Fixed: after placing all models of a disembarking unit, the models disappeared (leaving only blue coherency rings) and the unit was listed as 'Embarked in Transport — Cannot Disembark' even though the game log said it disembarked. The unit's embark state was being reset with the wrong empty value after the disembark completed.",
+				"The Combat Disembark (18.04) toggle in the disembark dialog now only appears when an enemy unit is near enough to the transport that setting up within 3\" outside Engagement Range could actually be impossible — with no enemies nearby it no longer suggests the disembark will be a Combat Disembark.",
+				"Reworded the Combat Disembark toggle to make clear it is an opt-in mode ('Use Combat Disembark…'), and the disembark dialog no longer shows raw [color=…] markup in its text."
 			]
 		},
 		{

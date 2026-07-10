@@ -1,0 +1,74 @@
+{
+  "id": "waaagh_advance_then_charge",
+  "covers": [
+    "charge.eligibility.waaagh_advance_and_charge",
+    "scripts.rules.movetypes.ChargeMove11e.ability_overrides"
+  ],
+  "fixture": "waaagh_advance_charge",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "description": "Waaagh! advance-and-charge (bug report 2026-07-10): an Ork unit that Advanced while the Waaagh! is active must be allowed to DECLARE_CHARGE. Full player path: P2 (Orks) calls the Waaagh! in the Command phase, Advances Warboss B from 16\" toward the Contemptor-Achillus Dreadnought (declining the Command Re-roll offer), ends within 12\", then in the Charge phase the unit is listed as charge-eligible and DECLARE_CHARGE succeeds. Before the ChargeMove11e fix the declaration failed with 'advanced or fell back this turn' even though the Waaagh! grants effect_advance_and_charge. Fixture note (documented setup privilege): P1 CP is zeroed so Fire Overwatch offers never pause the single-thread flow.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 6 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "execute_script", "script": "FactionAbilityManager.is_waaagh_available(2)", "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "CALL_WAAAGH" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.waaagh_active", "equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.effect_advance_and_charge", "equals": true },
+    { "act": "screenshot", "label": "01_waaagh_called" },
+
+    { "act": "dispatch_action", "action": { "type": "END_COMMAND" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 7 },
+
+    { "act": "dispatch_action", "action": { "type": "BEGIN_ADVANCE", "actor_unit_id": "U_WARBOSS_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_COMMAND_REROLL", "actor_unit_id": "U_WARBOSS_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_MODEL_DEST",
+      "actor_unit_id": "U_WARBOSS_B",
+      "payload": { "model_id": "m1", "dest": [400, 620] }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_WARBOSS_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.advanced", "equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.cannot_charge", "equals": true },
+    { "act": "wait_for_tweens", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "02_warboss_advanced_toward_dread" },
+
+    { "act": "dispatch_action", "action": { "type": "END_MOVEMENT" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 8 },
+    { "act": "dispatch_action", "action": { "type": "END_SHOOTING" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 9 },
+
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.effect_advance_and_charge", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_eligible_charge_units().has(\"U_WARBOSS_B\")", "equals": true },
+    { "act": "screenshot", "label": "03_charge_phase_warboss_eligible" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_CHARGE",
+      "actor_unit_id": "U_WARBOSS_B",
+      "payload": { "target_unit_ids": ["U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"] }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "CHARGE_ROLL", "actor_unit_id": "U_WARBOSS_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_COMMAND_REROLL", "actor_unit_id": "U_WARBOSS_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_for_tweens", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "04_charge_declared_and_rolled" }
+  ]
+}

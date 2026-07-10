@@ -1190,6 +1190,24 @@
       "status": "covered"
     },
     {
+      "id": "scripts.rules.movetypes.ChargeMove11e.ability_overrides",
+      "description": "ChargeMove11e.eligible honours advance-and-charge / fall-back-and-charge ability overrides (Waaagh!, Full Throttle, Adrenaline Junkies) and the turbo_boosted hard lock, matching ChargePhase._can_unit_charge so an advanced Waaagh! unit is offered a charge.",
+      "scenarios": [
+        "waaagh_advance_then_charge"
+      ],
+      "fidelity": "RULES",
+      "status": "covered"
+    },
+    {
+      "id": "charge.eligibility.waaagh_advance_and_charge",
+      "description": "A unit that Advanced during an active Waaagh! can declare a charge: the Waaagh!'s effect_advance_and_charge (and 5+ invuln) survive the Shooting phase's end-of-phase effect-flag clear and last until the owner's next Command phase.",
+      "scenarios": [
+        "waaagh_advance_then_charge"
+      ],
+      "fidelity": "RULES",
+      "status": "covered"
+    },
+    {
       "id": "movetypes.DisembarkMove",
       "description": "DisembarkMove template enforces tactical/combat set-up distances.",
       "scenarios": [

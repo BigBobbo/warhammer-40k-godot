@@ -4376,13 +4376,24 @@ func _clear_phase_flags() -> void:
 			unit.flags.erase("performed_action")
 
 func _clear_stratagem_phase_flags() -> void:
-	"""Clear effect-granted flags from all units at end of shooting phase."""
+	"""Clear effect-granted flags from all units at end of shooting phase.
+
+	The blanket clear expires phase-scoped stratagem effects (Go to Ground,
+	Smokescreen). It must NOT strip Waaagh!-granted effects, which last until
+	the owner's next Command phase (bug 2026-07: a unit that Advanced under an
+	active Waaagh! lost effect_advance_and_charge here and so was refused a
+	charge, and the Waaagh! 5+ invuln vanished after one shooting phase). Snap
+	those flags before the wipe and restore them after."""
+	var fam = get_node_or_null("/root/FactionAbilityManager")
 	var units = game_state_snapshot.get("units", {})
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.has("flags"):
 			var flags = unit.flags
+			var preserved = fam.snapshot_persistent_ability_flags(flags) if fam else {}
 			EffectPrimitivesData.clear_all_effect_flags(flags)
+			for flag_name in preserved:
+				flags[flag_name] = preserved[flag_name]
 	# Also tell StratagemManager to clear its phase-scoped effects
 	StratagemManager.on_phase_end(GameStateData.Phase.SHOOTING)
 
