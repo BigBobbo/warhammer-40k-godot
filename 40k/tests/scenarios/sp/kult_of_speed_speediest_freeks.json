@@ -1,0 +1,35 @@
+{
+ "id": "kult_of_speed_speediest_freeks",
+ "covers": [
+  "fight.stratagem.speediest_freeks",
+  "stratagems.kult_of_speed.loading",
+  "ui.StratagemPanel.faction_rows"
+ ],
+ "fixture": "co_pretrigger",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "description": "SPEEDIEST FREEKS (Kult of Speed, 1 CP) driven through the real player path: the Ork player (P2, active) opens the Stratagem Panel in the Fight phase, presses Use and picks the Wazbom Blastajet (the fixture's only SPEED FREEKS unit). Asserts the invulnerable-save flag lands at 5+ (the Wazbom is a T9 VEHICLE, so the 4+ upgrade for T8-or-less VEHICLES must NOT apply) and 1 CP is spent, and that all six Kult of Speed stratagems load as implemented. Setup-only privilege (documented): the fixture's Ork detachment is flipped from War Horde to Kult of Speed with stratagems reloaded, and the Wazbom (an AIRCRAFT that starts in Reserves in this fixture) is placed on the board so it is a legal stratagem target.",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "expect_phase", "equals": 10 },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Kult of Speed\"}, true)" },
+  { "act": "execute_script", "script": "StratagemManager.load_faction_stratagems_for_player(2)" },
+  { "act": "execute_script", "script": "StratagemManager.get_implemented_faction_stratagems_for_player(2).size()", "equals": 6 },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WAZBOM_BLASTAJET\"].merge({\"status\": 2}, true)" },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WAZBOM_BLASTAJET\"][\"models\"][0].merge({\"position\": {\"x\": 900.0, \"y\": 900.0}}, true)" },
+  { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/Main/StratagemPanel" },
+  { "act": "screenshot", "label": "01_panel_open" },
+  { "act": "click_node", "node": "/root/Main/StratagemPanel/Scroll/List/Strat_faction_ork_kult_of_speed_speediest_freeks/Row/Use_faction_ork_kult_of_speed_speediest_freeks", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog" },
+  { "act": "screenshot", "label": "02_unit_picker" },
+  { "act": "click_node", "node": "/root/StratagemTargetDialog/Content/Pick_U_WAZBOM_BLASTAJET", "emit_pressed": true },
+  { "act": "wait_frames", "frames": 3 },
+  { "act": "expect_state", "path": "units.U_WAZBOM_BLASTAJET.flags.effect_invuln", "equals": 5 },
+  { "act": "expect_state", "path": "units.U_WAZBOM_BLASTAJET.flags.effect_invuln_source", "equals": "Speediest Freeks" },
+  { "act": "expect_cp", "player": 2, "delta_from_start": -1 },
+  { "act": "screenshot", "label": "03_after_use" }
+ ]
+}

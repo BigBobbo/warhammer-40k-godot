@@ -69,6 +69,13 @@ var _big_booms_pending: Array = []  # entries: {target_unit_id: String, struck_u
 var swift_as_eagle_pending_unit: String = ""
 var swift_as_eagle_move_inches: int = 0
 var awaiting_swift_as_eagle: bool = false
+# The reactive post-shooting-move scaffolding serves SWIFT AS THE EAGLE
+# (Lions of the Emperor) and GO GET 'EM! (Green Tide).
+var swift_as_eagle_pending_strat: String = "SWIFT AS THE EAGLE"
+# Wazblasta (Kult of Speed enhancement): after the bearer's unit shoots, if it
+# is unengaged it may make a 6" Normal move but cannot charge this turn.
+var wazblasta_pending_unit: String = ""
+var awaiting_wazblasta: bool = false
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
@@ -99,6 +106,8 @@ func _on_phase_enter() -> void:
 	swift_as_eagle_pending_unit = ""
 	swift_as_eagle_move_inches = 0
 	awaiting_swift_as_eagle = false
+	wazblasta_pending_unit = ""
+	awaiting_wazblasta = false
 	_targets_hit_by_shooter.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
@@ -116,6 +125,11 @@ func _on_phase_enter() -> void:
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Shooting Phase")
+
+	# TRY DAT BUTTON! (Dread Mob): Button Effects last until end of phase
+	var fam_exit = get_node_or_null("/root/FactionAbilityManager")
+	if fam_exit:
+		fam_exit.clear_try_dat_flags("ranged")
 
 	# CRITICAL: Clear all shooting visuals BEFORE controller is freed
 	# This ensures range circles and other visuals are removed immediately
@@ -438,6 +452,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_swift_as_the_eagle(action)
 		"DECLINE_SWIFT_AS_THE_EAGLE":
 			return _validate_decline_swift_as_the_eagle(action)
+		"USE_WAZBLASTA":
+			return _validate_wazblasta_decision(action)
+		"DECLINE_WAZBLASTA":
+			return _validate_wazblasta_decision(action)
 		"END_MOVEMENT":
 			# Idempotent no-op: previous phase auto-advanced before END_MOVEMENT was dispatched.
 			return {"valid": true}
@@ -570,6 +588,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"DECLINE_SWIFT_AS_THE_EAGLE":
 			DebugLogger.info("ShootingPhase: Matched DECLINE_SWIFT_AS_THE_EAGLE")
 			return _process_decline_swift_as_the_eagle(action)
+		"USE_WAZBLASTA":
+			DebugLogger.info("ShootingPhase: Matched USE_WAZBLASTA")
+			return _process_use_wazblasta(action)
+		"DECLINE_WAZBLASTA":
+			DebugLogger.info("ShootingPhase: Matched DECLINE_WAZBLASTA")
+			return _process_decline_wazblasta(action)
 		"END_MOVEMENT":
 			DebugLogger.info("ShootingPhase: Matched END_MOVEMENT (no-op, phase already advanced)")
 			return create_result(true, [], "")
@@ -809,6 +833,12 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 			active_shooting_type = types_11e[0]
 		log_phase_message("[11e] %s shoots with type: %s (available: %s)" % [unit_id, active_shooting_type, str(types_11e)])
 	_targets_hit_by_shooter.clear()  # P1-11: Reset hit tracking for new shooter
+
+	# TRY DAT BUTTON! (Dread Mob): roll the Button Effect when a Mek / Orks
+	# Walker / Grots Vehicle unit is selected to shoot.
+	var fam_tdb = get_node_or_null("/root/FactionAbilityManager")
+	if fam_tdb:
+		fam_tdb.process_try_dat_button(unit_id, "ranged")
 
 	var unit = get_unit(unit_id)
 
@@ -3790,15 +3820,18 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	# Check this BEFORE cannot_shoot flag since Advanced units CAN shoot (with restrictions)
 	# EXCEPTION: Units with advance_and_shoot effect can shoot with ALL weapons after Advancing
 	if flags.get("advanced", false):
-		if EffectPrimitivesData.has_effect_advance_and_shoot(unit):
+		if EffectPrimitivesData.has_effect_advance_and_shoot(unit) \
+				or FactionAbilityManager.unit_has_detachment_assault(unit):
 			DebugLogger.info(str("ShootingPhase: Unit %s advanced but has advance_and_shoot effect — eligible to shoot with all weapons" % unit.get("id", "unknown")))
 		else:
 			# Unit advanced - can only shoot if it has Assault weapons
 			return _unit_has_assault_weapons(unit)
 
-	# Units that Fell Back cannot shoot (unless special rules)
+	# Units that Fell Back cannot shoot (unless special rules — the
+	# fall_back_and_shoot effect or Kult of Speed's Adrenaline Junkies)
 	if flags.get("fell_back", false):
-		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(unit):
+		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(unit) \
+				and not FactionAbilityManager.unit_has_adrenaline_junkies(unit):
 			return false
 		else:
 			DebugLogger.info(str("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — eligible to shoot" % unit.get("id", "unknown")))
@@ -3806,7 +3839,8 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	# Check other restriction flags (but skip for advanced units handled above)
 	# fall_back_and_shoot effect (e.g., MULTIPOTENTIALITY) overrides the cannot_shoot lockout from Fall Back
 	if flags.get("cannot_shoot", false):
-		if flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_shoot(unit):
+		if flags.get("fell_back", false) and (EffectPrimitivesData.has_effect_fall_back_and_shoot(unit) \
+				or FactionAbilityManager.unit_has_adrenaline_junkies(unit)):
 			DebugLogger.info(str("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — overriding cannot_shoot" % unit.get("id", "unknown")))
 		else:
 			return false
@@ -4410,13 +4444,32 @@ func get_available_actions() -> Array:
 			"type": "USE_SWIFT_AS_THE_EAGLE",
 			"actor_unit_id": swift_as_eagle_pending_unit,
 			"player": sae_player,
-			"description": "Swift as the Eagle — %s makes a Normal move of up to %d\"" % [sae_name, swift_as_eagle_move_inches]
+			"description": "%s — %s makes a Normal move of up to %d\"" % [swift_as_eagle_pending_strat, sae_name, swift_as_eagle_move_inches]
 		})
 		actions.append({
 			"type": "DECLINE_SWIFT_AS_THE_EAGLE",
 			"actor_unit_id": swift_as_eagle_pending_unit,
 			"player": sae_player,
-			"description": "Decline Swift as the Eagle — %s" % sae_name
+			"description": "Decline %s — %s" % [swift_as_eagle_pending_strat, sae_name]
+		})
+		return actions
+
+	# Wazblasta pending — offer use/decline (shooter owner's choice)
+	if awaiting_wazblasta and wazblasta_pending_unit != "":
+		var wb_unit = get_unit(wazblasta_pending_unit)
+		var wb_name = wb_unit.get("meta", {}).get("name", wazblasta_pending_unit) if not wb_unit.is_empty() else wazblasta_pending_unit
+		var wb_player = int(wb_unit.get("owner", 0))
+		actions.append({
+			"type": "USE_WAZBLASTA",
+			"actor_unit_id": wazblasta_pending_unit,
+			"player": wb_player,
+			"description": "Wazblasta — %s makes a 6\" Normal move (cannot charge this turn)" % wb_name
+		})
+		actions.append({
+			"type": "DECLINE_WAZBLASTA",
+			"actor_unit_id": wazblasta_pending_unit,
+			"player": wb_player,
+			"description": "Decline Wazblasta — %s" % wb_name
 		})
 		return actions
 
@@ -4961,12 +5014,30 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 		awaiting_swift_as_eagle = true
 		swift_as_eagle_pending_unit = swift_check.unit_id
 		swift_as_eagle_move_inches = swift_check.move_inches
-		log_phase_message("SWIFT AS THE EAGLE available for %s — D6\" Normal move (rolled %d\")" % [swift_check.unit_name, swift_check.move_inches])
-		return create_result(true, changes, "Swift as the Eagle available", {
+		swift_as_eagle_pending_strat = swift_check.get("strat_name", "SWIFT AS THE EAGLE")
+		log_phase_message("%s available for %s — D6\" Normal move (rolled %d\")" % [swift_as_eagle_pending_strat, swift_check.unit_name, swift_check.move_inches])
+		return create_result(true, changes, "%s available" % swift_as_eagle_pending_strat, {
 			"swift_as_eagle_available": true,
 			"unit_id": swift_check.unit_id,
 			"move_inches": swift_check.move_inches,
-			"unit_name": swift_check.unit_name
+			"unit_name": swift_check.unit_name,
+			"strat_name": swift_as_eagle_pending_strat
+		})
+
+	# Wazblasta (Kult of Speed): after the bearer's unit has shot, if it is
+	# not in Engagement Range it can make a 6" Normal move (then cannot
+	# charge). Offered to the SHOOTER's owner. Skipped when a defender-side
+	# reactive move (Swift as the Eagle / Go Get 'Em!) already triggered.
+	if _check_wazblasta(shooter_id):
+		PhaseManager.apply_state_changes(changes)
+		awaiting_wazblasta = true
+		wazblasta_pending_unit = shooter_id
+		var wb_name = get_unit(shooter_id).get("meta", {}).get("name", shooter_id)
+		log_phase_message("WAZBLASTA available for %s — 6\" Normal move after shooting (no charge this turn)" % wb_name)
+		return create_result(true, changes, "Wazblasta available", {
+			"wazblasta_available": true,
+			"unit_id": shooter_id,
+			"unit_name": wb_name
 		})
 
 	return create_result(true, changes, "Shooting complete")
@@ -6976,7 +7047,11 @@ func _process_use_stratagem(action: Dictionary) -> Dictionary:
 # ============================================================================
 
 func _check_swift_as_the_eagle(shooter_id: String, targeted_unit_ids: Array) -> Dictionary:
-	var result = {"available": false, "unit_id": "", "unit_name": "", "move_inches": 0}
+	# Reactive post-shooting moves. The same scaffolding serves two stratagems:
+	#  - SWIFT AS THE EAGLE (Lions of the Emperor): Custodes non-VEHICLE, D6".
+	#  - GO GET 'EM! (Green Tide): Boyz, D6" (best of two D6 while the unit
+	#    counts as containing 10+ models).
+	var result = {"available": false, "unit_id": "", "unit_name": "", "move_inches": 0, "strat_name": "Swift as the Eagle"}
 	if targeted_unit_ids.is_empty():
 		return result
 
@@ -6990,44 +7065,63 @@ func _check_swift_as_the_eagle(shooter_id: String, targeted_unit_ids: Array) -> 
 	var shooter_owner = int(shooter_unit.get("owner", 0))
 	var defending_player = 1 if shooter_owner == 2 else 2
 
-	var strat_id = strat_mgr.find_faction_stratagem_by_name(defending_player, "SWIFT AS THE EAGLE")
-	if strat_id == "":
-		return result
+	for strat_name in ["SWIFT AS THE EAGLE", "GO GET 'EM!"]:
+		var strat_id = strat_mgr.find_faction_stratagem_by_name(defending_player, strat_name)
+		if strat_id == "":
+			# Typographic-apostrophe variant of GO GET 'EM!
+			strat_id = strat_mgr.find_faction_stratagem_by_name(defending_player, strat_name.replace("'", "’"))
+		if strat_id == "":
+			continue
 
-	var validation = strat_mgr.can_use_stratagem(defending_player, strat_id)
-	if not validation.can_use:
-		return result
+		var validation = strat_mgr.can_use_stratagem(defending_player, strat_id)
+		if not validation.can_use:
+			continue
 
-	for tid in targeted_unit_ids:
-		var unit = GameState.get_unit(tid)
-		if unit.is_empty():
-			continue
-		if int(unit.get("owner", 0)) != defending_player:
-			continue
-		if unit.get("flags", {}).get("battle_shocked", false):
-			continue
-		var keywords = unit.get("meta", {}).get("keywords", [])
-		var is_custodes = false
-		var is_vehicle = false
-		for kw in keywords:
-			var kw_upper = kw.to_upper()
-			if kw_upper == "ADEPTUS CUSTODES":
-				is_custodes = true
-			if kw_upper == "VEHICLE":
-				is_vehicle = true
-		if is_custodes and not is_vehicle:
+		for tid in targeted_unit_ids:
+			var unit = GameState.get_unit(tid)
+			if unit.is_empty():
+				continue
+			if int(unit.get("owner", 0)) != defending_player:
+				continue
+			if unit.get("flags", {}).get("battle_shocked", false):
+				continue
+			var keywords = unit.get("meta", {}).get("keywords", [])
+			var eligible = false
+			if strat_name == "SWIFT AS THE EAGLE":
+				var is_custodes = false
+				var is_vehicle = false
+				for kw in keywords:
+					var kw_upper = kw.to_upper()
+					if kw_upper == "ADEPTUS CUSTODES":
+						is_custodes = true
+					if kw_upper == "VEHICLE":
+						is_vehicle = true
+				eligible = is_custodes and not is_vehicle
+			else:
+				for kw in keywords:
+					if kw.to_upper() == "BOYZ":
+						eligible = true
+						break
+			if not eligible:
+				continue
 			var has_alive = false
 			for m in unit.get("models", []):
 				if m.get("alive", true):
 					has_alive = true
 					break
-			if has_alive:
-				var d6 = _rng.randi_range(1, 6)
-				result.available = true
-				result.unit_id = tid
-				result.unit_name = unit.get("meta", {}).get("name", tid)
-				result.move_inches = d6
-				return result
+			if not has_alive:
+				continue
+			var d6 = _rng.randi_range(1, 6)
+			if strat_name == "GO GET 'EM!" and FactionAbilityManager.unit_counts_as_10(unit):
+				var d6b = _rng.randi_range(1, 6)
+				log_phase_message("GO GET 'EM!: 10+ models — rolled %d and %d, using %d" % [d6, d6b, maxi(d6, d6b)])
+				d6 = maxi(d6, d6b)
+			result.available = true
+			result.unit_id = tid
+			result.unit_name = unit.get("meta", {}).get("name", tid)
+			result.move_inches = d6
+			result.strat_name = strat_name
+			return result
 	return result
 
 func _validate_use_swift_as_the_eagle(action: Dictionary) -> Dictionary:
@@ -7049,7 +7143,9 @@ func _process_use_swift_as_the_eagle(action: Dictionary) -> Dictionary:
 
 	var strat_mgr = get_node_or_null("/root/StratagemManager")
 	if strat_mgr:
-		var strat_id = strat_mgr.find_faction_stratagem_by_name(unit_owner, "SWIFT AS THE EAGLE")
+		var strat_id = strat_mgr.find_faction_stratagem_by_name(unit_owner, swift_as_eagle_pending_strat)
+		if strat_id == "":
+			strat_id = strat_mgr.find_faction_stratagem_by_name(unit_owner, swift_as_eagle_pending_strat.replace("'", "’"))
 		if strat_id != "":
 			strat_mgr.use_stratagem(unit_owner, strat_id, unit_id)
 
@@ -7076,3 +7172,62 @@ func _process_decline_swift_as_the_eagle(action: Dictionary) -> Dictionary:
 	swift_as_eagle_pending_unit = ""
 	swift_as_eagle_move_inches = 0
 	return create_result(true, [], "Swift as the Eagle declined")
+
+# ============================================================================
+# WAZBLASTA (Kult of Speed enhancement) — post-shooting 6" Normal move
+# ============================================================================
+
+func _check_wazblasta(shooter_id: String) -> bool:
+	"""Wazblasta: the bearer's unit, after it has shot, can make a 6\" Normal
+	move if it is not within Engagement Range of any enemy unit."""
+	var unit = get_unit(shooter_id)
+	if unit.is_empty():
+		return false
+	# Only on the shooter owner's own Shooting phase (always true here, but
+	# guard against out-of-phase shooting like overwatch resolution).
+	if int(unit.get("owner", 0)) != get_current_player():
+		return false
+	if not FactionAbilityManager._unit_or_attached_has_enhancement(unit, "Wazblasta", GameState.state.get("units", {})):
+		return false
+	if RulesEngine.is_unit_engaged(shooter_id, GameState.create_snapshot()):
+		return false
+	return true
+
+func _validate_wazblasta_decision(_action: Dictionary) -> Dictionary:
+	if not awaiting_wazblasta or wazblasta_pending_unit == "":
+		return {"valid": false, "errors": ["No Wazblasta decision pending"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_wazblasta(_action: Dictionary) -> Dictionary:
+	var unit_id = wazblasta_pending_unit
+	var unit_name = GameState.get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	# Reuse the post-shooting reactive-move flags (same affordance as Swift as
+	# the Eagle / Go Get 'Em!) with a fixed 6" cap; the unit cannot charge.
+	var changes: Array = [{
+		"op": "set",
+		"path": "units.%s.flags.effect_swift_as_the_eagle" % unit_id,
+		"value": true
+	}, {
+		"op": "set",
+		"path": "units.%s.flags.swift_eagle_move_remaining" % unit_id,
+		"value": 6
+	}, {
+		"op": "set",
+		"path": "units.%s.flags.cannot_charge" % unit_id,
+		"value": true
+	}, {
+		"op": "set",
+		"path": "units.%s.flags.wazblasta_no_charge" % unit_id,
+		"value": true
+	}]
+	log_phase_message("WAZBLASTA: %s can make a Normal move of up to 6\" — not eligible to charge this turn" % unit_name)
+	awaiting_wazblasta = false
+	wazblasta_pending_unit = ""
+	return create_result(true, changes, "Wazblasta activated — 6\" move, no charge")
+
+func _process_decline_wazblasta(_action: Dictionary) -> Dictionary:
+	var unit_name = GameState.get_unit(wazblasta_pending_unit).get("meta", {}).get("name", wazblasta_pending_unit)
+	log_phase_message("WAZBLASTA: %s declines the post-shooting move" % unit_name)
+	awaiting_wazblasta = false
+	wazblasta_pending_unit = ""
+	return create_result(true, [], "Wazblasta declined")

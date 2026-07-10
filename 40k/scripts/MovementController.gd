@@ -95,6 +95,10 @@ var confirm_mode_button: Button
 var shw_gamble_checkbox: CheckBox = null
 # B2 (21.03): "take to the skies" toggle for FLY units at edition >= 11.
 var take_to_skies_checkbox: CheckBox = null
+# Turbo Boostas (Speedwaaagh!): "use turbo" toggle for SPEED FREEKS / TRUKK
+# units at edition >= 11 — Advance becomes a flat 24" move (no roll), ranged
+# weapons gain ASSAULT and the unit cannot charge this turn.
+var turbo_boost_checkbox: CheckBox = null
 var advance_roll_label: Label
 
 # Flag to prevent duplicate actions when programmatically setting radio buttons
@@ -585,6 +589,21 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	take_to_skies_checkbox.add_theme_color_override("font_color", Color(0.55, 0.8, 1.0))
 	take_to_skies_checkbox.add_theme_color_override("font_pressed_color", Color(0.7, 0.9, 1.0))
 	section.add_child(take_to_skies_checkbox)
+
+	# Turbo Boostas (Speedwaaagh! detachment rule): "use turbo" toggle. Shown
+	# only for SPEED FREEKS / TRUKK units (excl. AIRCRAFT) of a Speedwaaagh!
+	# player at edition >= 11. Applies to Advance only: no roll, flat 24"
+	# move, ranged weapons gain ASSAULT, cannot charge this turn.
+	turbo_boost_checkbox = CheckBox.new()
+	turbo_boost_checkbox.name = "TurboBoostCheckBox"
+	turbo_boost_checkbox.text = "Use turbo (Advance: flat 24\", no charge)"
+	turbo_boost_checkbox.toggle_mode = true
+	turbo_boost_checkbox.visible = false
+	turbo_boost_checkbox.tooltip_text = "Turbo Boostas (Speedwaaagh!): instead of rolling for this Advance, move a flat 24\". Ranged weapons gain ASSAULT until end of turn and the unit cannot declare a charge."
+	turbo_boost_checkbox.add_theme_font_size_override("font_size", 13)
+	turbo_boost_checkbox.add_theme_color_override("font_color", Color(1.0, 0.45, 0.25))
+	turbo_boost_checkbox.add_theme_color_override("font_pressed_color", Color(1.0, 0.6, 0.35))
+	section.add_child(turbo_boost_checkbox)
 
 	parent.add_child(section)
 
@@ -1300,6 +1319,10 @@ func _on_confirm_mode_pressed() -> void:
 		shw_payload["shw_mobile_gamble"] = true
 	if _take_to_skies_requested():
 		shw_payload["take_to_skies"] = true
+	# Turbo Boostas (Speedwaaagh!): only meaningful for BEGIN_ADVANCE — the
+	# movement phase ignores the key on other move types.
+	if _turbo_boost_requested():
+		shw_payload["turbo_boost"] = true
 
 	# Dispatch the actual movement action based on selected mode
 	match selected_mode:
@@ -1462,6 +1485,35 @@ func _update_take_to_skies_visibility() -> void:
 func _take_to_skies_requested() -> bool:
 	return take_to_skies_checkbox != null and take_to_skies_checkbox.visible and take_to_skies_checkbox.button_pressed
 
+func _unit_can_turbo_boost(unit_id: String) -> bool:
+	# Turbo Boostas (Speedwaaagh!): SPEED FREEKS / TRUKK units (excl.
+	# AIRCRAFT) of a Speedwaaagh! player at e11.
+	if unit_id == "" or GameConstants.edition < 11:
+		return false
+	var unit = GameState.get_unit(unit_id)
+	if unit == null or unit.is_empty():
+		return false
+	var fam = get_node_or_null("/root/FactionAbilityManager")
+	return fam != null and fam.unit_can_turbo_boost(unit)
+
+func _update_turbo_boost_visibility() -> void:
+	# Show the turbo toggle only for an eligible Speedwaaagh! unit whose mode
+	# is not already locked; clear its pressed state when hidden so a stale
+	# toggle can't leak into the next unit's BEGIN payload.
+	if not turbo_boost_checkbox:
+		return
+	var eligible := _unit_can_turbo_boost(active_unit_id)
+	var mode_locked := false
+	if eligible and current_phase and current_phase.active_moves.has(active_unit_id):
+		mode_locked = current_phase.active_moves[active_unit_id].get("mode_locked", false)
+	var show := eligible and not mode_locked
+	turbo_boost_checkbox.visible = show
+	if not show:
+		turbo_boost_checkbox.button_pressed = false
+
+func _turbo_boost_requested() -> bool:
+	return turbo_boost_checkbox != null and turbo_boost_checkbox.visible and turbo_boost_checkbox.button_pressed
+
 func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 	# Check if this unit already has its mode locked
 	var mode_is_locked = false
@@ -1496,6 +1548,7 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 		# ISS-073: keep the SHW gamble toggle hidden once the mode is locked.
 		_update_shw_gamble_visibility()
 		_update_take_to_skies_visibility()
+		_update_turbo_boost_visibility()
 	else:
 		# Unit's mode is not locked, enable fresh selection
 		_update_mode_buttons_state(true)
@@ -1522,6 +1575,7 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 		# ISS-073: show the SHW MOBILE-gamble toggle for an eligible fresh unit.
 		_update_shw_gamble_visibility()
 		_update_take_to_skies_visibility()
+		_update_turbo_boost_visibility()
 
 		# Update display for fresh unit
 		_update_movement_display()

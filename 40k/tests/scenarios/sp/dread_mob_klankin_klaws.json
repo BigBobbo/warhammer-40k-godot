@@ -1,0 +1,38 @@
+{
+ "id": "dread_mob_klankin_klaws",
+ "covers": [
+  "fight.stratagem.klankin_klaws",
+  "stratagems.dread_mob.loading",
+  "ui.StratagemPanel.faction_rows",
+  "ui.StratagemChoiceDialog.push_it"
+ ],
+ "fixture": "co_pretrigger",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "description": "KLANKIN' KLAWS (Dread Mob, 1 CP) driven through the real player path incl. the push-it choice: the Ork player (P2, active) opens the Stratagem Panel in the Fight phase, presses Use, picks the Meganobz and chooses 'Push it!'. Asserts the +2 S / +1 Damage / melee-HAZARDOUS flags land and 1 CP is spent, and that all six Dread Mob stratagems load as implemented. Setup-only privilege (documented): the fixture's Ork detachment is flipped from War Horde to Dread Mob with stratagems reloaded, and the Meganobz are granted the WALKER keyword (the fixture ships no Deff Dread/Killa Kans; keyword targeting itself is covered by the headless sweep).",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "expect_phase", "equals": 10 },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Dread Mob\"}, true)" },
+  { "act": "execute_script", "script": "StratagemManager.load_faction_stratagems_for_player(2)" },
+  { "act": "execute_script", "script": "StratagemManager.get_implemented_faction_stratagems_for_player(2).size()", "equals": 6 },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_MEGANOBZ_L\"][\"meta\"][\"keywords\"].append(\"WALKER\")" },
+  { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/Main/StratagemPanel" },
+  { "act": "screenshot", "label": "01_panel_open" },
+  { "act": "click_node", "node": "/root/Main/StratagemPanel/Scroll/List/Strat_faction_ork_dread_mob_klankin’_klaws/Row/Use_faction_ork_dread_mob_klankin’_klaws", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog" },
+  { "act": "click_node", "node": "/root/StratagemTargetDialog/Content/Pick_U_MEGANOBZ_L", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/StratagemChoiceDialog" },
+  { "act": "screenshot", "label": "02_push_it_choice" },
+  { "act": "click_node", "node": "/root/StratagemChoiceDialog/Content/Choice_push", "emit_pressed": true },
+  { "act": "wait_frames", "frames": 3 },
+  { "act": "expect_state", "path": "units.U_MEGANOBZ_L.flags.effect_klankin_klaws", "equals": 2 },
+  { "act": "expect_state", "path": "units.U_MEGANOBZ_L.flags.effect_plus_damage", "equals": 1 },
+  { "act": "expect_state", "path": "units.U_MEGANOBZ_L.flags.effect_grant_hazardous_melee", "equals": true },
+  { "act": "expect_cp", "player": 2, "delta_from_start": -1 },
+  { "act": "screenshot", "label": "03_after_use" }
+ ]
+}

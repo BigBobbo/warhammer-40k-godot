@@ -15,16 +15,25 @@ signal krump_and_run_used(unit_id: String, player: int)
 signal krump_and_run_declined(player: int)
 
 var player: int = 0
-var eligible_units: Array = []  # Array of { unit_id: String, unit_name: String }
+var eligible_units: Array = []  # Array of { unit_id, unit_name, strat_name?, strat_type? }
 var fell_back_unit_id: String = ""
+# The same dialog also serves ON TO DA NEXT (Taktikal Brigade) — the phase
+# threads the resolved stratagem name/type through the eligible entries.
+var strat_name: String = "Krump and Run"
+var strat_type: String = "Freebooter Krew - Strategic Ploy Stratagem"
 
 func setup(p_player: int, p_eligible_units: Array, p_fell_back_unit_id: String) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
 	player = p_player
 	eligible_units = p_eligible_units
 	fell_back_unit_id = p_fell_back_unit_id
+	if not eligible_units.is_empty() and eligible_units[0] is Dictionary:
+		strat_name = str(eligible_units[0].get("strat_name", strat_name))
+		var threaded_type = str(eligible_units[0].get("strat_type", ""))
+		if threaded_type != "":
+			strat_type = threaded_type
 
-	title = "Krump and Run Available - Player %d" % player
+	title = "%s Available - Player %d" % [strat_name, player]
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
@@ -38,7 +47,7 @@ func _build_ui() -> void:
 
 	# Header
 	var header = Label.new()
-	header.text = "KRUMP AND RUN"
+	header.text = strat_name.to_upper()
 	header.add_theme_font_size_override("font_size", 20)
 	header.add_theme_color_override("font_color", Color.ORANGE_RED)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -46,7 +55,7 @@ func _build_ui() -> void:
 
 	# Subheader
 	var subheader = Label.new()
-	subheader.text = "Freebooter Krew - Strategic Ploy Stratagem"
+	subheader.text = strat_type
 	subheader.add_theme_font_size_override("font_size", 12)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -134,13 +143,13 @@ func _on_use_pressed(unit_id: String) -> void:
 		if unit_info.unit_id == unit_id:
 			unit_name = unit_info.unit_name
 			break
-	print("KrumpAndRunDialog: Player %d uses KRUMP AND RUN with %s (%s)" % [player, unit_name, unit_id])
+	print("KrumpAndRunDialog: Player %d uses %s with %s (%s)" % [player, strat_name.to_upper(), unit_name, unit_id])
 	emit_signal("krump_and_run_used", unit_id, player)
 	hide()
 	queue_free()
 
 func _on_decline_pressed() -> void:
-	print("KrumpAndRunDialog: Player %d declines KRUMP AND RUN" % player)
+	print("KrumpAndRunDialog: Player %d declines %s" % [player, strat_name.to_upper()])
 	emit_signal("krump_and_run_declined", player)
 	hide()
 	queue_free()
