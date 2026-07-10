@@ -210,8 +210,8 @@ func _check_kill_diffs(changes: Array) -> void:
 					_resolve_transport_destruction_if_applicable(unit_id)
 					# P1-13: Check for Deadly Demise on destroyed unit
 					_resolve_deadly_demise_if_applicable(unit_id)
-					# Admonimortis (Lions enhancement): on bearer death, 4+ = D3 MW to nearest enemy within 6"
-					_resolve_admonimortis_if_applicable(unit_id)
+						# Superior Creation (Lions enhancement): queue the end-of-phase revival roll
+					_record_superior_creation_if_applicable(unit_id)
 					# P3-32: Check if destroyed unit is a transport with embarked units
 					_resolve_transport_destroyed_if_applicable(unit_id)
 
@@ -278,24 +278,17 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 		# Recursively check if transport destruction casualties caused further deaths
 		_check_kill_diffs(result.all_diffs)
 
-func _resolve_admonimortis_if_applicable(destroyed_unit_id: String) -> void:
-	"""Admonimortis (Lions of the Emperor): bearer destroyed — roll D6, on 4+
-	the nearest enemy unit within 6\" suffers D3 mortal wounds."""
-	var result = RulesEngine.resolve_admonimortis(destroyed_unit_id, GameState.state)
+func _record_superior_creation_if_applicable(destroyed_unit_id: String) -> void:
+	"""Superior Creation (Lions of the Emperor): first bearer death queues a
+	2+ revival roll that PhaseManager resolves at the end of the phase."""
+	var result = RulesEngine.record_superior_creation_death(destroyed_unit_id, GameState.state)
 	if not result.get("applicable", false):
-		return
-	if not result.get("triggered", false):
-		log_phase_message("Admonimortis: roll of %d — did not trigger (needed 4+)" % result.get("trigger_roll", 0))
-		return
-	if result.get("target_unit_id", "") == "":
-		log_phase_message("Admonimortis triggered (roll %d) but no enemy unit within 6\"" % result.get("trigger_roll", 0))
 		return
 	var diffs = result.get("diffs", [])
 	if not diffs.is_empty():
 		PhaseManager.apply_state_changes(diffs)
-	log_phase_message("Admonimortis: %s suffers %d mortal wound(s) (roll %d)" % [
-		result.get("target_name", "?"), result.get("mortal_wounds", 0), result.get("trigger_roll", 0)])
-	_check_kill_diffs(diffs)
+	var _sc_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
+	log_phase_message("Superior Creation: %s destroyed — revival roll (2+) at end of phase" % _sc_meta.get("name", destroyed_unit_id))
 
 func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""
@@ -756,6 +749,32 @@ func _validate_end_shooting(action: Dictionary) -> Dictionary:
 	# Can always end the phase
 	return {"valid": true, "errors": []}
 
+func _can_unit_perform_action(unit: Dictionary) -> bool:
+	"""Action eligibility — same requirements as shooting, EXCEPT that
+	SKIN-CRAWLING DISORIENTATION (Silent Hunters detachment rule) lets an
+	Advanced ANATHEMA PSYKANA unit perform Actions even when the Advance
+	blocks it from shooting (e.g. no Assault weapons)."""
+	if _can_unit_shoot(unit):
+		return true
+	if unit.get("flags", {}).get("advanced", false) \
+			and not unit.get("flags", {}).get("fell_back", false) \
+			and FactionAbilityManager.check_skin_crawling_disorientation(unit, GameState.state):
+		# Re-check the base requirements with the Advance restriction waived:
+		# destroyed/embarked/status/has_shot/cannot_shoot still apply.
+		if _is_unit_destroyed_check(unit):
+			return false
+		if unit.get("embarked_in", null) != null:
+			return false
+		var status = unit.get("status", 0)
+		if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
+			return false
+		var flags = unit.get("flags", {})
+		if flags.get("has_shot", false) or flags.get("cannot_shoot", false):
+			return false
+		log_phase_message("Skin-Crawling Disorientation: %s may perform an action despite Advancing" % unit.get("meta", {}).get("name", "?"))
+		return true
+	return false
+
 func _validate_perform_secondary_action(action: Dictionary) -> Dictionary:
 	"""Validate a unit performing a secondary mission action instead of shooting."""
 	var unit_id = action.get("actor_unit_id", "")
@@ -770,7 +789,8 @@ func _validate_perform_secondary_action(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 
 	# Same eligibility as shooting — deployed, not battle-shocked, hasn't shot
-	if not _can_unit_shoot(unit):
+	# (Skin-Crawling Disorientation waives the Advance restriction)
+	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform an action (same requirements as shooting)"]}
 
 	if unit_id in units_that_shot:
@@ -1647,8 +1667,9 @@ func _validate_burn_objective(action: Dictionary) -> Dictionary:
 	if unit.get("owner", 0) != get_current_player():
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 
-	# Same eligibility as shooting
-	if not _can_unit_shoot(unit):
+	# Same eligibility as shooting (Skin-Crawling Disorientation waives the
+	# Advance restriction)
+	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform burn action"]}
 
 	if unit_id in units_that_shot:
@@ -1747,16 +1768,22 @@ func _validate_perform_ritual_action(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 
 	# Same eligibility as shooting — deployed, not battle-shocked, hasn't shot
-	if not _can_unit_shoot(unit):
+	# (Skin-Crawling Disorientation waives the Advance restriction)
+	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform ritual action"]}
 
 	if unit_id in units_that_shot:
 		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
 
-	# Units that Advanced or Fell Back cannot perform actions
+	# Units that Advanced or Fell Back cannot perform actions.
+	# SKIN-CRAWLING DISORIENTATION (Silent Hunters): ANATHEMA PSYKANA units
+	# can still perform Actions in a turn in which they Advanced.
 	var flags = unit.get("flags", {})
 	if flags.get("advanced", false):
-		return {"valid": false, "errors": ["Unit Advanced this turn and cannot perform actions"]}
+		if FactionAbilityManager.check_skin_crawling_disorientation(unit, GameState.state):
+			log_phase_message("Skin-Crawling Disorientation: %s may perform actions despite Advancing" % unit.get("meta", {}).get("name", unit_id))
+		else:
+			return {"valid": false, "errors": ["Unit Advanced this turn and cannot perform actions"]}
 	if flags.get("fell_back", false):
 		return {"valid": false, "errors": ["Unit Fell Back this turn and cannot perform actions"]}
 
@@ -1833,8 +1860,11 @@ func _get_ritual_action_options(unit_id: String) -> Array:
 	if unit.get("flags", {}).get("battle_shocked", false):
 		return []
 
-	# Units that Advanced or Fell Back cannot perform actions
-	if unit.get("flags", {}).get("advanced", false):
+	# Units that Advanced or Fell Back cannot perform actions.
+	# SKIN-CRAWLING DISORIENTATION (Silent Hunters): ANATHEMA PSYKANA units
+	# can still perform Actions in a turn in which they Advanced.
+	if unit.get("flags", {}).get("advanced", false) \
+			and not FactionAbilityManager.check_skin_crawling_disorientation(unit, GameState.state):
 		return []
 	if unit.get("flags", {}).get("fell_back", false):
 		return []
@@ -1859,16 +1889,22 @@ func _validate_perform_terraform_action(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 
 	# Same eligibility as shooting — deployed, not battle-shocked, hasn't shot
-	if not _can_unit_shoot(unit):
+	# (Skin-Crawling Disorientation waives the Advance restriction)
+	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform terraform action"]}
 
 	if unit_id in units_that_shot:
 		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
 
-	# Units that Advanced or Fell Back cannot perform actions
+	# Units that Advanced or Fell Back cannot perform actions.
+	# SKIN-CRAWLING DISORIENTATION (Silent Hunters): ANATHEMA PSYKANA units
+	# can still perform Actions in a turn in which they Advanced.
 	var flags = unit.get("flags", {})
 	if flags.get("advanced", false):
-		return {"valid": false, "errors": ["Unit Advanced this turn and cannot perform actions"]}
+		if FactionAbilityManager.check_skin_crawling_disorientation(unit, GameState.state):
+			log_phase_message("Skin-Crawling Disorientation: %s may perform actions despite Advancing" % unit.get("meta", {}).get("name", unit_id))
+		else:
+			return {"valid": false, "errors": ["Unit Advanced this turn and cannot perform actions"]}
 	if flags.get("fell_back", false):
 		return {"valid": false, "errors": ["Unit Fell Back this turn and cannot perform actions"]}
 
@@ -1949,8 +1985,11 @@ func _get_terraform_action_options(unit_id: String) -> Array:
 	if unit.get("flags", {}).get("battle_shocked", false):
 		return []
 
-	# Units that Advanced or Fell Back cannot perform actions
-	if unit.get("flags", {}).get("advanced", false):
+	# Units that Advanced or Fell Back cannot perform actions.
+	# SKIN-CRAWLING DISORIENTATION (Silent Hunters): ANATHEMA PSYKANA units
+	# can still perform Actions in a turn in which they Advanced.
+	if unit.get("flags", {}).get("advanced", false) \
+			and not FactionAbilityManager.check_skin_crawling_disorientation(unit, GameState.state):
 		return []
 	if unit.get("flags", {}).get("fell_back", false):
 		return []

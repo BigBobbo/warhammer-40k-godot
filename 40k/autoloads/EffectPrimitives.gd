@@ -75,6 +75,10 @@ const GRANT_DEVASTATING_WOUNDS = "grant_devastating_wounds"
 const GRANT_IGNORES_COVER = "grant_ignores_cover"
 const GRANT_LANCE = "grant_lance"
 const GRANT_TWIN_LINKED = "grant_twin_linked"
+# Silent Hunters stratagems (Umbral Prosecution / Synchronised Inferno):
+# treat the unit's ranged weapons as having [RAPID FIRE value] / [BLAST].
+const GRANT_RAPID_FIRE = "grant_rapid_fire"        # value: Rapid Fire X (attacks added within half range)
+const GRANT_BLAST = "grant_blast"
 
 # Hit/wound stat modifiers (persistent flags)
 const PLUS_ONE_HIT = "plus_one_hit"
@@ -105,6 +109,10 @@ const PLUS_ATTACKS = "plus_attacks"               # value: amount to add to Atta
 # Issue #393 AVENGE THE FALLEN: variant Attacks bonus that overrides PLUS_ATTACKS
 # when the bearer's unit is Below Half-strength at attack time.
 const PLUS_ATTACKS_BELOW_HALF = "plus_attacks_below_half"  # value: amount to add to Attacks while Below Half-strength
+# Deathsong Scythes (Silent Hunters): melee Attacks bonus that only applies
+# while the attack targets a PSYKER unit. RulesEngine checks the target's
+# keywords at attack time.
+const PLUS_ATTACKS_VS_PSYKER = "plus_attacks_vs_psyker"  # value: Attacks bonus vs PSYKER targets (melee)
 # Issue #374: enhancement primitives.
 const PLUS_MOVE = "plus_move"                     # value: inches to add to Move characteristic
 const PLUS_STRENGTH_MELEE = "plus_strength_melee" # value: amount to add to melee weapon Strength
@@ -181,6 +189,8 @@ const FLAG_DEVASTATING_WOUNDS = "effect_devastating_wounds"
 const FLAG_IGNORES_COVER = "effect_ignores_cover"
 const FLAG_LANCE = "effect_lance"
 const FLAG_TWIN_LINKED = "effect_twin_linked"
+const FLAG_GRANT_RAPID_FIRE = "effect_grant_rapid_fire"  # value: int (Rapid Fire X granted to ranged weapons)
+const FLAG_GRANT_BLAST = "effect_grant_blast"            # ranged weapons treated as [BLAST]
 const FLAG_PLUS_ONE_HIT = "effect_plus_one_hit"
 const FLAG_PLUS_ONE_HIT_RANGED = "effect_plus_one_hit_ranged"
 const FLAG_GRANT_RAPID_FIRE_1 = "effect_grant_rapid_fire_1"
@@ -194,6 +204,10 @@ const FLAG_REROLL_HITS = "effect_reroll_hits"         # value: "ones"/"failed"/"
 const FLAG_REROLL_WOUNDS = "effect_reroll_wounds"     # value: "ones"/"failed"/"all"
 const FLAG_REROLL_SAVES = "effect_reroll_saves"       # value: "ones"/"failed"/"all"
 const FLAG_IMPROVE_AP = "effect_improve_ap"
+# Scoped AP improvement (Umbral Prosecution improves ranged AP only); the
+# unscoped FLAG_IMPROVE_AP continues to apply to all weapons.
+const FLAG_IMPROVE_AP_MELEE = "effect_improve_ap_melee"
+const FLAG_IMPROVE_AP_RANGED = "effect_improve_ap_ranged"
 const FLAG_WORSEN_AP = "effect_worsen_ap"
 const FLAG_PLUS_DAMAGE = "effect_plus_damage"
 const FLAG_MINUS_DAMAGE = "effect_minus_damage"
@@ -214,6 +228,8 @@ const FLAG_PLUS_ATTACKS = "effect_plus_attacks"            # value: int (amount 
 # bearer's unit is Below Half-strength at attack time. RulesEngine reads both
 # and picks the right one.
 const FLAG_PLUS_ATTACKS_BELOW_HALF = "effect_plus_attacks_below_half"  # value: int (Attacks bonus while Below Half)
+# Deathsong Scythes: melee Attacks bonus that only counts against PSYKER targets.
+const FLAG_PLUS_ATTACKS_VS_PSYKER = "effect_plus_attacks_vs_psyker"  # value: int (Attacks bonus vs PSYKER)
 # Issue #374: enhancement flags.
 const FLAG_PLUS_MOVE = "effect_plus_move"                  # value: int (inches added to Move)
 const FLAG_PLUS_STRENGTH_MELEE = "effect_plus_strength_melee"  # value: int (Strength bonus on melee)
@@ -262,6 +278,8 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	GRANT_IGNORES_COVER: [{"flag": FLAG_IGNORES_COVER, "value": true}],
 	GRANT_LANCE: [{"flag": FLAG_LANCE, "value": true}],
 	GRANT_TWIN_LINKED: [{"flag": FLAG_TWIN_LINKED, "value": true}],
+	GRANT_RAPID_FIRE: [{"flag": FLAG_GRANT_RAPID_FIRE, "value_from": "value"}],
+	GRANT_BLAST: [{"flag": FLAG_GRANT_BLAST, "value": true}],
 	PLUS_ONE_HIT: [{"flag": FLAG_PLUS_ONE_HIT, "value": true}],
 	PLUS_ONE_HIT_RANGED: [{"flag": FLAG_PLUS_ONE_HIT_RANGED, "value": true}],
 	GRANT_RAPID_FIRE_1: [{"flag": FLAG_GRANT_RAPID_FIRE_1, "value": true}],
@@ -293,6 +311,8 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	PLUS_ATTACKS: [{"flag": FLAG_PLUS_ATTACKS, "value_from": "value"}],
 	# Issue #393: AVENGE THE FALLEN below-half variant.
 	PLUS_ATTACKS_BELOW_HALF: [{"flag": FLAG_PLUS_ATTACKS_BELOW_HALF, "value_from": "value"}],
+	# Deathsong Scythes: melee Attacks bonus gated on the target being a PSYKER.
+	PLUS_ATTACKS_VS_PSYKER: [{"flag": FLAG_PLUS_ATTACKS_VS_PSYKER, "value_from": "value"}],
 	# Issue #375: persistent until end of phase (cleared by phase manager).
 	SWING_BACK_BEFORE_REMOVE: [{"flag": FLAG_SWING_BACK_BEFORE_REMOVE, "value": true}],
 	# Issue #375: persistent on the unit; ScoringPhase reads it.
@@ -354,6 +374,18 @@ static func _apply_single_effect(effect: Dictionary, target_unit_id: String) -> 
 	# Handle grant_precision specially (uses scope to determine flag)
 	if effect_type == GRANT_PRECISION:
 		return _apply_grant_precision(effect, target_unit_id)
+
+	# Handle improve_ap with an explicit melee/ranged scope (Umbral Prosecution
+	# improves ranged AP only). Unscoped improve_ap falls through to the
+	# generic FLAG_IMPROVE_AP mapping and applies to all weapons.
+	if effect_type == IMPROVE_AP and effect.get("scope", "all").to_lower() != "all":
+		var ap_scope = effect.get("scope", "all").to_lower()
+		var ap_flag = FLAG_IMPROVE_AP_MELEE if ap_scope == "melee" else FLAG_IMPROVE_AP_RANGED
+		return [{
+			"op": "set",
+			"path": "units.%s.flags.%s" % [target_unit_id, ap_flag],
+			"value": int(effect.get("value", 1))
+		}]
 
 	# Look up flag mapping
 	var mapping = _EFFECT_FLAG_MAP.get(effect_type)
@@ -676,6 +708,37 @@ static func get_effect_improve_ap(unit: Dictionary) -> int:
 	"""Get the effect-granted AP improve value (0 if none)."""
 	return unit.get("flags", {}).get(FLAG_IMPROVE_AP, 0)
 
+static func get_effect_improve_ap_scoped(unit: Dictionary, scope: String) -> int:
+	"""Total effect-granted AP improvement for a weapon scope ("melee"/"ranged"):
+	the unscoped FLAG_IMPROVE_AP plus the matching scoped flag (Umbral
+	Prosecution sets the ranged one)."""
+	var total = int(unit.get("flags", {}).get(FLAG_IMPROVE_AP, 0))
+	if scope == "melee":
+		total += int(unit.get("flags", {}).get(FLAG_IMPROVE_AP_MELEE, 0))
+	elif scope == "ranged":
+		total += int(unit.get("flags", {}).get(FLAG_IMPROVE_AP_RANGED, 0))
+	return total
+
+static func get_effect_grant_rapid_fire(unit: Dictionary) -> int:
+	"""Rapid Fire X granted to the unit's ranged weapons by an effect
+	(Umbral Prosecution). 0 if none."""
+	return int(unit.get("flags", {}).get(FLAG_GRANT_RAPID_FIRE, 0))
+
+static func has_effect_grant_blast(unit: Dictionary) -> bool:
+	"""Check if the unit's ranged weapons are treated as [BLAST] by an effect
+	(Synchronised Inferno)."""
+	return bool(unit.get("flags", {}).get(FLAG_GRANT_BLAST, false))
+
+static func has_effect_lance(unit: Dictionary) -> bool:
+	"""Check if the unit's weapons are treated as [LANCE] by an effect
+	(Deathsong Scythes, Servo-driven Charge, Plunging Talons)."""
+	return bool(unit.get("flags", {}).get(FLAG_LANCE, false))
+
+static func get_effect_plus_attacks_vs_psyker(unit: Dictionary) -> int:
+	"""Melee Attacks bonus that only applies against PSYKER targets
+	(Deathsong Scythes). 0 if none."""
+	return int(unit.get("flags", {}).get(FLAG_PLUS_ATTACKS_VS_PSYKER, 0))
+
 static func has_effect_minus_damage(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted damage reduction."""
 	return unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0) > 0
@@ -807,14 +870,16 @@ static func get_all_persistent_flag_names() -> Array:
 		FLAG_PRECISION_MELEE, FLAG_PRECISION_RANGED,
 		FLAG_LETHAL_HITS, FLAG_SUSTAINED_HITS, FLAG_DEVASTATING_WOUNDS,
 		FLAG_IGNORES_COVER, FLAG_LANCE, FLAG_TWIN_LINKED,
+		FLAG_GRANT_RAPID_FIRE, FLAG_GRANT_BLAST,
 		FLAG_PLUS_ONE_HIT, FLAG_MINUS_ONE_HIT,
 		FLAG_PLUS_ONE_WOUND, FLAG_MINUS_ONE_WOUND,
 		FLAG_REROLL_HITS, FLAG_REROLL_WOUNDS, FLAG_REROLL_SAVES,
-		FLAG_IMPROVE_AP, FLAG_WORSEN_AP,
+		FLAG_IMPROVE_AP, FLAG_IMPROVE_AP_MELEE, FLAG_IMPROVE_AP_RANGED, FLAG_WORSEN_AP,
 		FLAG_PLUS_DAMAGE, FLAG_MINUS_DAMAGE,
 		FLAG_CRIT_HIT_ON, FLAG_CRIT_WOUND_ON,
 		FLAG_FALL_BACK_AND_SHOOT, FLAG_FALL_BACK_AND_CHARGE,
 		FLAG_ADVANCE_AND_CHARGE, FLAG_ADVANCE_AND_SHOOT,
 		FLAG_REROLL_CHARGE, FLAG_FLAT_ADVANCE, FLAG_AUTO_ADVANCE_6,
 		FLAG_PLUS_ATTACKS, FLAG_PLUS_CHARGE, FLAG_PLUS_ATTACKS_BELOW_HALF,
+		FLAG_PLUS_ATTACKS_VS_PSYKER,
 	]

@@ -127,6 +127,15 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 		current_phase_instance.queue_free()
 		current_phase_instance = null
 
+		# SUPERIOR CREATION (Lions of the Emperor enhancement): bearers destroyed
+		# during the outgoing phase roll their 2+ revival now — "at the end of
+		# the phase" — before the next phase begins.
+		var sc_result = RulesEngine.resolve_superior_creation_revivals(GameState.state)
+		if not sc_result.get("diffs", []).is_empty():
+			apply_state_changes(sc_result.diffs)
+		for sc_line in sc_result.get("log_lines", []):
+			print("[PhaseManager] %s" % sc_line)
+
 	# Update game state to new phase
 	GameState.set_phase(new_phase)
 

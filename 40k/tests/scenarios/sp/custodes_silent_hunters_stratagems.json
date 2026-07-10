@@ -1,0 +1,28 @@
+{
+  "id": "custodes_silent_hunters_stratagems",
+  "covers": [
+    "stratagems.silent_hunters.umbral_prosecution",
+    "stratagems.silent_hunters.synchronised_inferno",
+    "autoloads.EffectPrimitives.grant_rapid_fire",
+    "autoloads.EffectPrimitives.grant_blast",
+    "faction.custodes.silent_hunters"
+  ],
+  "fixture": "custodes_silent_hunters_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Silent Hunters shooting-phase package: UMBRAL PROSECUTION (Prosecutors gain [RAPID FIRE 2] + ranged AP+1) and SYNCHRONISED INFERNO (Witchseekers gain [BLAST]) both activate via USE_STRATAGEM with the 40kdc 11e effects, set their engine flags, and deduct CP (3 -> 1).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "dispatch_action", "action": { "type": "USE_STRATAGEM", "stratagem_id": "faction_ac_silent_hunters_umbral_prosecution", "target_unit_id": "U_PROSECUTORS_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_PROSECUTORS_A.flags.effect_grant_rapid_fire", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_PROSECUTORS_A.flags.effect_improve_ap_ranged", "equals": 1 },
+    { "act": "dispatch_action", "action": { "type": "USE_STRATAGEM", "stratagem_id": "faction_ac_silent_hunters_synchronised_inferno", "target_unit_id": "U_WITCHSEEKERS_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_WITCHSEEKERS_A.flags.effect_grant_blast", "equals": true },
+    { "act": "expect_cp", "player": 1, "delta_from_start": -2 },
+    { "act": "screenshot", "label": "01_silent_hunters_stratagems_active" }
+  ]
+}

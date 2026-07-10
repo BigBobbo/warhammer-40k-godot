@@ -401,8 +401,8 @@ func _check_kill_diffs(changes: Array) -> void:
 					_resolve_transport_destruction_if_applicable(unit_id)
 					# P1-13: Check for Deadly Demise on destroyed unit
 					_resolve_deadly_demise_if_applicable(unit_id)
-					# Admonimortis (Lions enhancement): on bearer death, 4+ = D3 MW to nearest enemy within 6"
-					_resolve_admonimortis_if_applicable(unit_id)
+						# Superior Creation (Lions enhancement): queue the end-of-phase revival roll
+					_record_superior_creation_if_applicable(unit_id)
 					# P3-32: Check if destroyed unit is a transport with embarked units
 					_resolve_transport_destroyed_if_applicable(unit_id)
 
@@ -465,24 +465,17 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 		# Recursively check if transport destruction casualties caused further deaths
 		_check_kill_diffs(result.all_diffs)
 
-func _resolve_admonimortis_if_applicable(destroyed_unit_id: String) -> void:
-	"""Admonimortis (Lions of the Emperor): bearer destroyed — roll D6, on 4+
-	the nearest enemy unit within 6\" suffers D3 mortal wounds."""
-	var result = RulesEngine.resolve_admonimortis(destroyed_unit_id, GameState.state)
+func _record_superior_creation_if_applicable(destroyed_unit_id: String) -> void:
+	"""Superior Creation (Lions of the Emperor): first bearer death queues a
+	2+ revival roll that PhaseManager resolves at the end of the phase."""
+	var result = RulesEngine.record_superior_creation_death(destroyed_unit_id, GameState.state)
 	if not result.get("applicable", false):
-		return
-	if not result.get("triggered", false):
-		log_phase_message("Admonimortis: roll of %d — did not trigger (needed 4+)" % result.get("trigger_roll", 0))
-		return
-	if result.get("target_unit_id", "") == "":
-		log_phase_message("Admonimortis triggered (roll %d) but no enemy unit within 6\"" % result.get("trigger_roll", 0))
 		return
 	var diffs = result.get("diffs", [])
 	if not diffs.is_empty():
 		PhaseManager.apply_state_changes(diffs)
-	log_phase_message("Admonimortis: %s suffers %d mortal wound(s) (roll %d)" % [
-		result.get("target_name", "?"), result.get("mortal_wounds", 0), result.get("trigger_roll", 0)])
-	_check_kill_diffs(diffs)
+	var _sc_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
+	log_phase_message("Superior Creation: %s destroyed — revival roll (2+) at end of phase" % _sc_meta.get("name", destroyed_unit_id))
 
 func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""
