@@ -198,6 +198,11 @@ func _build_ui() -> void:
 	confirm_attacks_button.pressed.connect(_on_confirmed)
 	button_container.add_child(confirm_attacks_button)
 
+	# Hide the built-in OK button: it duplicated "Fight!" (both fired
+	# _on_confirmed) and, unlike "Fight!", auto-hid the dialog even when the
+	# confirm was rejected for having no assignments.
+	get_ok_button().visible = false
+
 	container.add_child(button_container)
 
 	# Current assignments display
@@ -420,12 +425,18 @@ func _on_confirmed() -> void:
 
 	if assignments.is_empty() and extra_attacks_weapons.is_empty():
 		push_warning("No attacks assigned")
+		if not visible:
+			# A `confirmed`-signal accept auto-hides the dialog before this
+			# validation runs — re-show so the fight flow can't strand.
+			show()
 		return
 
 	# T3-3: Extra Attacks weapons cannot be used alone — need at least one regular weapon assignment
 	if assignments.is_empty() and not extra_attacks_weapons.is_empty():
 		push_warning("Extra Attacks weapons must be used IN ADDITION to another weapon — assign a regular weapon first")
 		print("[AttackAssignmentDialog] Blocked: Extra Attacks weapons cannot be the only weapon choice")
+		if not visible:
+			show()
 		return
 
 	# T3-3: Auto-include Extra Attacks weapons in assignments
