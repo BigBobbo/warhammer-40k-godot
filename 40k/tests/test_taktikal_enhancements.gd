@@ -7,9 +7,9 @@ extends SceneTree
 #                    from the bearer's unit re-roll the Hit roll.
 #   Mork's Kunnin' — after deployment, redeploy up to 3 ORKS units (they can
 #                    be placed into Strategic Reserves).
-#   Gob Boomer     — extends the Taktiks (Lissen 'Ere) issue range; the
-#                    detachment rule itself is not implemented yet, so the
-#                    enhancement has no runtime effect (documented gap).
+#   Gob Boomer     — extends the Taktiks (Lissen 'Ere) issue range to 18"
+#                    for Orks Infantry/Mounted targets; covered by the Taktiks
+#                    section of tests/test_ork_detachments_sweep.gd.
 #
 # Run: godot --headless --path 40k --script tests/test_taktikal_enhancements.gd
 

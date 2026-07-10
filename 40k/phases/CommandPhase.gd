@@ -482,6 +482,26 @@ func get_available_actions() -> Array:
 				"player": current_player
 			})
 
+	# Lissen 'Ere — Taktiks (Orks — Taktikal Brigade): each Boss Snikrot / Mek /
+	# Warboss unit can issue one Taktik per battle round to a friendly ORKS unit
+	# within 6" (18" with Gob Boomer for Infantry/Mounted)
+	if faction_mgr and faction_mgr.get_player_detachment(current_player) == "Taktikal Brigade":
+		for issuer_id in faction_mgr.get_taktik_issuers(current_player):
+			var issuer_name = GameState.state.get("units", {}).get(issuer_id, {}).get("meta", {}).get("name", issuer_id)
+			for taktik in faction_mgr.TAKTIKS:
+				var taktik_targets = faction_mgr.get_eligible_taktik_targets(issuer_id, taktik)
+				if taktik_targets.is_empty():
+					continue
+				actions.append({
+					"type": "ISSUE_TAKTIK",
+					"issuer_unit_id": issuer_id,
+					"taktik": taktik,
+					"eligible_targets": taktik_targets,
+					"description": "Lissen 'Ere: %s issues %s (%s) — %d eligible unit(s)" % [
+						issuer_name, taktik, faction_mgr.TAKTIKS[taktik], taktik_targets.size()],
+					"player": current_player
+				})
+
 	# Da Kaptin — remove Battle-shocked from friendly ORKS unit, D3 mortal wounds (OA-2)
 	if faction_mgr and faction_mgr.is_da_kaptin_available(current_player):
 		var da_kaptin_targets = faction_mgr.get_da_kaptin_targets(current_player)
@@ -681,6 +701,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_select_martial_mastery(action)
 		"SELECT_LOOT_OBJECTIVE":
 			errors = _validate_select_loot_objective(action)
+		"ISSUE_TAKTIK":
+			errors = _validate_issue_taktik(action)
 		"USE_DA_KAPTIN":
 			errors = _validate_use_da_kaptin(action)
 		"USE_GROT_ORDERLY":
@@ -799,6 +821,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_select_martial_mastery(action)
 		"SELECT_LOOT_OBJECTIVE":
 			return _handle_select_loot_objective(action)
+		"ISSUE_TAKTIK":
+			return _handle_issue_taktik(action)
 		"USE_DA_KAPTIN":
 			return _handle_use_da_kaptin(action)
 		"USE_GROT_ORDERLY":
@@ -1594,6 +1618,69 @@ func _handle_select_loot_objective(action: Dictionary) -> Dictionary:
 			"turn": GameState.get_battle_round()
 		}
 		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+# ============================================================================
+# LISSEN 'ERE — TAKTIKS (Orks — Taktikal Brigade detachment rule)
+# ============================================================================
+
+func _validate_issue_taktik(action: Dictionary) -> Array:
+	var errors = []
+	var issuer_id = action.get("issuer_unit_id", "")
+	var taktik = action.get("taktik", "")
+	var target_id = action.get("target_unit_id", "")
+
+	if issuer_id == "":
+		errors.append("Missing issuer_unit_id for ISSUE_TAKTIK")
+		return errors
+	if taktik == "":
+		errors.append("Missing taktik for ISSUE_TAKTIK")
+		return errors
+
+	var issuer = GameState.state.get("units", {}).get(issuer_id, {})
+	if int(issuer.get("owner", 0)) != get_current_player():
+		errors.append("Issuer %s does not belong to the active player" % issuer_id)
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if target_id != "":
+		var check = faction_mgr.can_issue_taktik(issuer_id, taktik, target_id)
+		if not check.can:
+			errors.append(check.reason)
+	else:
+		# Auto-target mode: at least one eligible target must exist
+		if faction_mgr.get_eligible_taktik_targets(issuer_id, taktik).is_empty():
+			errors.append("No eligible target for %s within range of %s" % [taktik, issuer_id])
+
+	return errors
+
+func _handle_issue_taktik(action: Dictionary) -> Dictionary:
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var issuer_id = action.get("issuer_unit_id", "")
+	var taktik = action.get("taktik", "")
+	var result = faction_mgr.issue_taktik(issuer_id, taktik, action.get("target_unit_id", ""))
+
+	if result.get("success", false):
+		log_phase_message("LISSEN 'ERE: %s issues %s to %s%s" % [
+			issuer_id, taktik, result.get("target_unit_id", "?"),
+			"" if result.get("ld_passed", true) else " (Ld test failed — 1 mortal wound)"])
+		GameState.add_action_to_phase_log({
+			"type": "ISSUE_TAKTIK",
+			"player": get_current_player(),
+			"issuer_unit_id": issuer_id,
+			"taktik": taktik,
+			"target_unit_id": result.get("target_unit_id", ""),
+			"ld_passed": result.get("ld_passed", true),
+			"turn": GameState.get_battle_round()
+		})
 
 	return result
 

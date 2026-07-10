@@ -1277,6 +1277,18 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Big Mek only. Can be attached to a Flash Gitz unit; ranged attacks from the bearer's unit re-roll the Hit roll (RulesEngine.unit_has_mek_kaptin_reroll)"
 	},
 
+	# Gob Boomer — the bearer issues Taktiks (Lissen 'Ere) to friendly Orks
+	# Infantry/Mounted units within 18" instead of 6". Live check in
+	# FactionAbilityManager._taktik_range_inches.
+	"Gob Boomer": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks model only. The bearer issues Taktiks to friendly Orks Infantry/Mounted units within 18\" instead of 6\" (FactionAbilityManager._taktik_range_inches)"
+	},
+
 	# ======================================================================
 	# MORE DAKKA! ENHANCEMENT ABILITIES
 	# ======================================================================

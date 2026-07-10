@@ -1409,6 +1409,204 @@ func _detachment_rules(_SM, GS, FAM, rules):
 		and not tdb3_flags.has("effect_try_dat_ap2"))
 	_set_detachment(GS, FAM, 1, "War Horde")
 
+	# ---- Taktikal Brigade — Lissen 'Ere (Taktiks) + Gob Boomer ------------------
+	print("\n--- Lissen 'Ere — Taktiks (Taktikal Brigade) ---")
+	_set_detachment(GS, FAM, 1, "Taktikal Brigade")
+	GS.state["meta"]["battle_round"] = 1
+
+	var tk_boss = _boyz_unit("U_TK_BOSS", 1)
+	tk_boss["meta"]["keywords"] = ["CHARACTER", "INFANTRY", "ORKS", "WARBOSS"]
+	var tk_near = _boyz_unit("U_TK_NEAR", 5)          # on top of the boss — inside 6"
+	var tk_far = _boyz_unit("U_TK_FAR", 5)            # 12" out: outside 6", inside 18"
+	for m in tk_far["models"]:
+		m["position"]["x"] += 480.0
+	var tk_shocked = _boyz_unit("U_TK_SHOCKED", 5)
+	tk_shocked["flags"]["battle_shocked"] = true
+	var tk_mega = _boyz_unit("U_TK_MEGA", 3)
+	tk_mega["meta"]["keywords"] = ["ORKS", "INFANTRY", "MEGANOBZ"]
+	var tk_wagon = _boyz_unit("U_TK_WAGON", 1)
+	tk_wagon["meta"]["keywords"] = ["ORKS", "VEHICLE", "TRANSPORT", "BATTLEWAGON"]
+	var tk_enemy = _boyz_unit("U_TK_ENEMY", 5, 2)
+	GS.state["units"] = {
+		"U_TK_BOSS": tk_boss, "U_TK_NEAR": tk_near, "U_TK_FAR": tk_far,
+		"U_TK_SHOCKED": tk_shocked, "U_TK_MEGA": tk_mega,
+		"U_TK_WAGON": tk_wagon, "U_TK_ENEMY": tk_enemy,
+	}
+
+	var tk_issuers = FAM.get_taktik_issuers(1)
+	_check("Taktiks: Warboss is an issuer", "U_TK_BOSS" in tk_issuers)
+	_check("Taktiks: plain Boyz are not issuers", not "U_TK_NEAR" in tk_issuers)
+
+	# Validation matrix
+	_check("Taktiks: mob inside 6\" is a legal target",
+		FAM.can_issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_NEAR").can)
+	_check("Taktiks: an issuer can take its own Taktik",
+		FAM.can_issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_BOSS").can)
+	_check("Taktiks: mob at 12\" is out of the 6\" range",
+		not FAM.can_issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_FAR").can)
+	_check("Taktiks: Battle-shocked units refuse orders",
+		not FAM.can_issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_SHOCKED").can)
+	_check("Taktiks: enemy units are not targets",
+		not FAM.can_issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_ENEMY").can)
+	_check("Taktiks: unknown Taktik name rejected",
+		not FAM.can_issue_taktik("U_TK_BOSS", "Krump Dem", "U_TK_NEAR").can)
+	_check("Taktiks: non-issuer units cannot issue",
+		not FAM.can_issue_taktik("U_TK_NEAR", "Get Stuck In", "U_TK_NEAR").can)
+	_check("Taktiks: Sneaky Stalkin' excludes Meganobz",
+		not FAM.can_issue_taktik("U_TK_BOSS", "Sneaky Stalkin'", "U_TK_MEGA").can)
+	_check("Taktiks: Meganobz may still Get Stuck In",
+		FAM.can_issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_MEGA").can)
+	_check("Taktiks: Shoota Drills refuses a Battlewagon (Infantry/Mounted only)",
+		not FAM.can_issue_taktik("U_TK_BOSS", "Shoota Drills", "U_TK_WAGON").can)
+	_check("Taktiks: a Battlewagon can still Get On Wiv It",
+		FAM.can_issue_taktik("U_TK_BOSS", "Get On Wiv It", "U_TK_WAGON").can)
+	_set_detachment(GS, FAM, 1, "War Horde")
+	_check("Taktiks: require the Taktikal Brigade detachment",
+		not FAM.can_issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_NEAR").can
+		and FAM.get_taktik_issuers(1).is_empty())
+	_set_detachment(GS, FAM, 1, "Taktikal Brigade")
+
+	# Gob Boomer — 18" reach, Infantry/Mounted targets only
+	tk_boss["meta"]["enhancements"] = ["Gob Boomer"]
+	_check("Gob Boomer: the 12\" Infantry mob comes into reach",
+		FAM.can_issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_FAR").can)
+	for m in tk_wagon["models"]:
+		m["position"]["x"] += 480.0
+	_check("Gob Boomer: a 12\" Battlewagon stays out of reach (Infantry/Mounted only)",
+		not FAM.can_issue_taktik("U_TK_BOSS", "Get On Wiv It", "U_TK_WAGON").can)
+	tk_boss["meta"]["enhancements"] = []
+	var UAM_TK = root.get_node("UnitAbilityManager")
+	_check("Gob Boomer is implemented in UnitAbilityManager",
+		UAM_TK.ABILITY_EFFECTS.get("Gob Boomer", {}).get("implemented", false) == true)
+
+	# Leadership test outcomes across seeds: pass = no damage, fail = exactly
+	# 1 mortal wound on the receiving unit (the Taktik lands either way)
+	var tk_pass_seen := false
+	var tk_fail_seen := false
+	var tk_outcomes_ok := true
+	for s in range(1, 15):
+		GS.state["meta"]["battle_round"] = 1
+		tk_boss["flags"] = {}
+		tk_near["flags"] = {}
+		for m in tk_near["models"]:
+			m["alive"] = true
+			m["current_wounds"] = 1
+		rules.set_test_seed(s)
+		var res = FAM.issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_NEAR")
+		if not res.get("success", false):
+			tk_outcomes_ok = false
+			continue
+		var tk_lost := 0
+		for m in tk_near["models"]:
+			if not m.get("alive", true):
+				tk_lost += 1
+		if res.get("ld_passed", false):
+			tk_pass_seen = true
+			if tk_lost != 0:
+				tk_outcomes_ok = false
+		else:
+			tk_fail_seen = true
+			if tk_lost != 1:
+				tk_outcomes_ok = false
+		if not tk_near["flags"].get("effect_reroll_charge", false):
+			tk_outcomes_ok = false
+	_check("Taktiks: Ld test passes and fails both appear across seeds",
+		tk_pass_seen and tk_fail_seen)
+	_check("Taktiks: failed Ld = exactly 1 MW, passed = none, Taktik lands either way",
+		tk_outcomes_ok)
+
+	# Per-Taktik effect flags (issuer flag cleared between issues — effect test)
+	GS.state["meta"]["battle_round"] = 1
+	tk_boss["flags"] = {}
+	tk_near["flags"] = {}
+	rules.set_test_seed(42)
+	var tk_gsi = FAM.issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_NEAR")
+	_check("Get Stuck In grants charge re-rolls",
+		tk_gsi.get("success", false) and tk_near["flags"].get("effect_reroll_charge", false)
+		and str(tk_near["flags"].get("taktik_active", "")) == "Get Stuck In")
+	tk_boss["flags"] = {}
+	for m in tk_wagon["models"]:
+		m["position"]["x"] -= 480.0
+	rules.set_test_seed(42)
+	FAM.issue_taktik("U_TK_BOSS", "Get On Wiv It", "U_TK_WAGON")
+	_check("Get On Wiv It sets effect_taktik_melee_strength 1",
+		int(tk_wagon["flags"].get("effect_taktik_melee_strength", 0)) == 1)
+	tk_boss["flags"] = {}
+	rules.set_test_seed(42)
+	FAM.issue_taktik("U_TK_BOSS", "Sneaky Stalkin'", "U_TK_MEGA")
+	_check("Sneaky Stalkin' refuses Meganobz even direct-issued",
+		not tk_mega["flags"].get("effect_stealth", false))
+	rules.set_test_seed(42)
+	FAM.issue_taktik("U_TK_BOSS", "Sneaky Stalkin'", "U_TK_SHOCKED")
+	_check("Sneaky Stalkin' still refuses Battle-shocked units",
+		not tk_shocked["flags"].get("effect_stealth", false))
+	tk_shocked["flags"].erase("battle_shocked")
+	rules.set_test_seed(42)
+	FAM.issue_taktik("U_TK_BOSS", "Sneaky Stalkin'", "U_TK_SHOCKED")
+	_check("Sneaky Stalkin' grants Stealth + Benefit of Cover",
+		tk_shocked["flags"].get("effect_stealth", false)
+		and tk_shocked["flags"].get("effect_cover", false))
+	tk_boss["flags"] = {}
+	rules.set_test_seed(42)
+	FAM.issue_taktik("U_TK_BOSS", "Shoota Drills", "U_TK_MEGA")
+	_check("Shoota Drills grants +1 to ranged Hit rolls",
+		tk_mega["flags"].get("effect_plus_one_hit_ranged", false))
+
+	# Get On Wiv It feeds the melee resolver: +1 S crosses the T8 wound band
+	var gow_on := 0
+	var gow_off := 0
+	for s in [11, 42, 77]:
+		gow_off += _fight(rules, {}, s)
+		gow_on += _fight(rules, {"effect_taktik_melee_strength": 1}, s)
+	print("  Get On Wiv It: melee wounds with +1S=%d, without=%d" % [gow_on, gow_off])
+	_check("Get On Wiv It +1 S raises melee wounds", gow_on > gow_off)
+
+	# Once-per-round bookkeeping: issuer and receiver both lock out
+	GS.state["units"] = {
+		"U_TK_BOSS": tk_boss, "U_TK_NEAR": tk_near, "U_TK_FAR": tk_far,
+		"U_TK_SHOCKED": tk_shocked, "U_TK_MEGA": tk_mega,
+		"U_TK_WAGON": tk_wagon, "U_TK_ENEMY": tk_enemy,
+	}
+	GS.state["meta"]["battle_round"] = 1
+	tk_boss["flags"] = {}
+	tk_near["flags"] = {}
+	rules.set_test_seed(7)
+	FAM.issue_taktik("U_TK_BOSS", "Get Stuck In", "U_TK_NEAR")
+	var tk_again = FAM.issue_taktik("U_TK_BOSS", "Shoota Drills", "U_TK_MEGA")
+	_check("Taktiks: an issuer only issues once per battle round",
+		not tk_again.get("success", false)
+		and not "U_TK_BOSS" in FAM.get_taktik_issuers(1))
+	var tk_mek = _boyz_unit("U_TK_MEK", 1)
+	tk_mek["meta"]["keywords"] = ["CHARACTER", "INFANTRY", "ORKS", "MEK"]
+	GS.state["units"]["U_TK_MEK"] = tk_mek
+	_check("Taktiks: a Mek is an issuer too", "U_TK_MEK" in FAM.get_taktik_issuers(1))
+	_check("Taktiks: a unit only receives one Taktik per battle round",
+		not FAM.can_issue_taktik("U_TK_MEK", "Shoota Drills", "U_TK_NEAR").can)
+	GS.state["meta"]["battle_round"] = 2
+	_check("Taktiks: a new battle round resets issuer and receiver",
+		"U_TK_BOSS" in FAM.get_taktik_issuers(1)
+		and FAM.can_issue_taktik("U_TK_MEK", "Shoota Drills", "U_TK_NEAR").can)
+
+	# Auto-pick: no target given — nearest eligible friendly ORKS unit chosen
+	rules.set_test_seed(7)
+	var tk_auto = FAM.issue_taktik("U_TK_MEK", "Shoota Drills", "")
+	_check("Taktiks: auto-pick chooses an eligible target",
+		tk_auto.get("success", false) and tk_auto.get("target_unit_id", "") != "")
+
+	# Expiry: effects fall off at the start of the issuing player's next
+	# Command phase (via _clear_taktik_effects)
+	FAM._clear_taktik_effects(1)
+	var tk_expired := true
+	for uid in GS.state["units"]:
+		var uf = GS.state["units"][uid].get("flags", {})
+		if uf.has("taktik_active") or uf.has("effect_taktik_melee_strength"):
+			tk_expired = false
+	_check("Taktiks: _clear_taktik_effects expires every issued Taktik", tk_expired)
+	_check("Taktiks: charge re-roll flag gone after expiry",
+		not tk_near["flags"].get("effect_reroll_charge", false))
+	GS.state["meta"]["battle_round"] = 1
+	_set_detachment(GS, FAM, 1, "War Horde")
+
 
 # ==========================================================================
 # MORE DAKKA!

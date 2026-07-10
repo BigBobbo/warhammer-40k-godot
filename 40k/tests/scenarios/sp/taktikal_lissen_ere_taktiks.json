@@ -1,0 +1,35 @@
+{
+ "id": "taktikal_lissen_ere_taktiks",
+ "covers": [
+  "command.detachment_rule.lissen_ere_taktiks",
+  "faction.taktikal_brigade.issue_taktik",
+  "faction.taktikal_brigade.gob_boomer"
+ ],
+ "fixture": "co_pretrigger",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 6,
+ "disable_ai": true,
+ "description": "Lissen 'Ere — Taktiks (Taktikal Brigade detachment rule) on the real Command-phase action path: with the Ork player's detachment flipped to Taktikal Brigade (documented setup privilege, with detect_player_detachment so the rule's cache sees it), the four WARBOSS-keyword units are offered as Taktik issuers in get_available_actions. U_WARBOSS_C issues 'Get Stuck In' to the Painboss 4.5\" away via ISSUE_TAKTIK (charge re-roll + taktik_active land on the target), a second issue from the same Warboss is rejected (one Taktik per issuer per battle round), and the Warboss in Mega Armour self-issues 'Shoota Drills' (+1 ranged hit). The open issuer count drops from 4 to 2.",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "expect_phase", "equals": 6 },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Taktikal Brigade\"}, true)" },
+  { "act": "execute_script", "script": "FactionAbilityManager.detect_player_detachment(2)", "equals": "Taktikal Brigade" },
+  { "act": "execute_script", "script": "FactionAbilityManager.get_taktik_issuers(2).size()", "equals": 4 },
+  { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().get_available_actions()).contains(\"ISSUE_TAKTIK\")", "equals": true },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_PAINBOSS_I\"][\"flags\"].get(\"effect_reroll_charge\", false)", "equals": false },
+  { "act": "screenshot", "label": "01_command_taktikal_before_issue" },
+  { "act": "dispatch_action", "action": { "type": "ISSUE_TAKTIK", "issuer_unit_id": "U_WARBOSS_C", "taktik": "Get Stuck In", "target_unit_id": "U_PAINBOSS_I" } },
+  { "act": "expect_action_result", "path": "success", "equals": true },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_PAINBOSS_I\"][\"flags\"].get(\"effect_reroll_charge\", false)", "equals": true },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_PAINBOSS_I\"][\"flags\"].get(\"taktik_active\", \"\")", "equals": "Get Stuck In" },
+  { "act": "dispatch_action", "action": { "type": "ISSUE_TAKTIK", "issuer_unit_id": "U_WARBOSS_C", "taktik": "Shoota Drills", "target_unit_id": "U_WARBOSS_IN_MEGA_ARMOUR_D" } },
+  { "act": "expect_action_result", "path": "success", "equals": false },
+  { "act": "dispatch_action", "action": { "type": "ISSUE_TAKTIK", "issuer_unit_id": "U_WARBOSS_IN_MEGA_ARMOUR_D", "taktik": "Shoota Drills", "target_unit_id": "U_WARBOSS_IN_MEGA_ARMOUR_D" } },
+  { "act": "expect_action_result", "path": "success", "equals": true },
+  { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WARBOSS_IN_MEGA_ARMOUR_D\"][\"flags\"].get(\"effect_plus_one_hit_ranged\", false)", "equals": true },
+  { "act": "execute_script", "script": "FactionAbilityManager.get_taktik_issuers(2).size()", "equals": 2 },
+  { "act": "screenshot", "label": "02_after_taktiks_issued" }
+ ]
+}

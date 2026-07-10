@@ -10664,6 +10664,13 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		strength += kk_strength_bonus
 		print("RulesEngine: KLANKIN' KLAWS — melee strength +%d (now %d)" % [kk_strength_bonus, strength])
 
+	# GET ON WIV IT Taktik (Taktikal Brigade — Lissen 'Ere): +1 S on melee
+	# weapons until the start of the issuer's next Command phase
+	var taktik_s_bonus = int(attacker_unit.get("flags", {}).get("effect_taktik_melee_strength", 0))
+	if taktik_s_bonus > 0:
+		strength += taktik_s_bonus
+		print("RulesEngine: GET ON WIV IT Taktik — melee strength +%d (now %d)" % [taktik_s_bonus, strength])
+
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (melee)
 	var ded_glowy_penalty_melee = get_ded_glowy_ammo_toughness_penalty(target_unit, board)

@@ -1152,6 +1152,223 @@ func clear_try_dat_flags(scope: String) -> void:
 			uflags.erase("effect_try_dat_ap2")
 			print("FactionAbilityManager: Try Dat Button! effects on %s expired (end of phase)" % uid)
 
+# ============================================================================
+# LISSEN 'ERE — TAKTIKS (Taktikal Brigade detachment rule)
+# ============================================================================
+# Once per battle round each Boss Snikrot, Mek and Warboss model can issue a
+# Taktik to a friendly ORKS unit within 6" (18" for Orks Infantry/Mounted when
+# the issuer bears Gob Boomer). The issuer takes a Leadership test — on a
+# failure the receiving unit suffers 1 mortal wound (the Taktik still lands).
+# A unit can only receive Taktiks once per battle round and never while
+# Battle-shocked; effects last until the start of the owner's next Command
+# phase. Not modelled (documented): issuing right after arriving from
+# Reserves in the Movement phase, and the suspension of an already-issued
+# Taktik while the unit is Battle-shocked.
+
+const TAKTIKS: Dictionary = {
+	"Get Stuck In": "Re-roll Charge rolls",
+	"Get On Wiv It": "+1 Strength on melee weapons",
+	"Sneaky Stalkin'": "Stealth + Benefit of Cover (Infantry/Mounted, not Meganobz)",
+	"Shoota Drills": "+1 to ranged Hit rolls (Infantry/Mounted)",
+}
+
+func _unit_is_taktik_issuer(unit: Dictionary) -> bool:
+	return _unit_has_keyword(unit, "MEK") or _unit_has_keyword(unit, "WARBOSS") \
+		or _unit_has_keyword(unit, "BOSS SNIKROT")
+
+func get_taktik_issuers(player: int) -> Array:
+	"""Boss Snikrot / Mek / Warboss units of a Taktikal Brigade player that
+	have not issued Taktiks this battle round."""
+	if get_player_detachment(player) != "Taktikal Brigade":
+		return []
+	var round_no = GameState.get_battle_round()
+	var out: Array = []
+	var units = GameState.state.get("units", {})
+	for uid in units:
+		var unit = units[uid]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if not _unit_is_taktik_issuer(unit):
+			continue
+		if int(unit.get("flags", {}).get("taktik_issued_round", 0)) == round_no:
+			continue
+		var has_alive := false
+		for m in unit.get("models", []):
+			if m.get("alive", true):
+				has_alive = true
+				break
+		if has_alive:
+			out.append(uid)
+	return out
+
+func _taktik_range_inches(issuer: Dictionary, target: Dictionary) -> float:
+	# Gob Boomer: 18" instead of 6" for Orks Infantry/Mounted targets.
+	if _unit_or_attached_has_enhancement(issuer, "Gob Boomer", GameState.state.get("units", {})) \
+			and (_unit_has_keyword(target, "INFANTRY") or _unit_has_keyword(target, "MOUNTED")):
+		return 18.0
+	return 6.0
+
+func can_issue_taktik(issuer_id: String, taktik: String, target_id: String) -> Dictionary:
+	"""Full validation for issuing a Taktik. Returns {can: bool, reason}."""
+	var units = GameState.state.get("units", {})
+	var issuer = units.get(issuer_id, {})
+	var target = units.get(target_id, {})
+	if issuer.is_empty() or target.is_empty():
+		return {"can": false, "reason": "issuer or target not found"}
+	var player = int(issuer.get("owner", 0))
+	if get_player_detachment(player) != "Taktikal Brigade":
+		return {"can": false, "reason": "Lissen 'Ere requires the Taktikal Brigade detachment"}
+	if not TAKTIKS.has(taktik):
+		return {"can": false, "reason": "unknown Taktik '%s'" % taktik}
+	if not _unit_is_taktik_issuer(issuer):
+		return {"can": false, "reason": "only Boss Snikrot, Mek and Warboss models issue Taktiks"}
+	var round_no = GameState.get_battle_round()
+	if int(issuer.get("flags", {}).get("taktik_issued_round", 0)) == round_no:
+		return {"can": false, "reason": "%s already issued Taktiks this battle round" % issuer_id}
+	if int(target.get("owner", 0)) != player:
+		return {"can": false, "reason": "Taktiks are issued to friendly units"}
+	if not _unit_has_keyword(target, "ORKS"):
+		return {"can": false, "reason": "Taktiks are issued to ORKS units"}
+	if int(target.get("flags", {}).get("taktik_received_round", 0)) == round_no:
+		return {"can": false, "reason": "%s already received Taktiks this battle round" % target_id}
+	if target.get("flags", {}).get("battle_shocked", false):
+		return {"can": false, "reason": "Taktiks cannot be issued to Battle-shocked units"}
+	# Taktik-specific unit scoping (the effects only touch Infantry/Mounted
+	# models — refused at unit granularity, documented approximation)
+	if taktik in ["Sneaky Stalkin'", "Shoota Drills"] \
+			and not (_unit_has_keyword(target, "INFANTRY") or _unit_has_keyword(target, "MOUNTED")):
+		return {"can": false, "reason": "%s only affects Infantry/Mounted units" % taktik}
+	if taktik == "Sneaky Stalkin'" and _unit_has_keyword(target, "MEGANOBZ"):
+		return {"can": false, "reason": "Sneaky Stalkin' excludes Meganobz"}
+	# Range (6", 18" via Gob Boomer for Infantry/Mounted)
+	var range_in = _taktik_range_inches(issuer, target)
+	var in_range := false
+	if issuer_id == target_id:
+		in_range = true  # an issuer may take its own Taktik
+	else:
+		var range_px = Measurement.inches_to_px(range_in)
+		for m in issuer.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			for tm in target.get("models", []):
+				if not tm.get("alive", true) or tm.get("position") == null:
+					continue
+				if Measurement.model_to_model_distance_px(m, tm) <= range_px:
+					in_range = true
+					break
+			if in_range:
+				break
+	if not in_range:
+		return {"can": false, "reason": "%s is not within %.0f\" of %s" % [target_id, range_in, issuer_id]}
+	return {"can": true, "reason": ""}
+
+func get_eligible_taktik_targets(issuer_id: String, taktik: String) -> Array:
+	"""Friendly ORKS units this issuer could issue the given Taktik to."""
+	var out: Array = []
+	var units = GameState.state.get("units", {})
+	var issuer = units.get(issuer_id, {})
+	for uid in units:
+		if int(units[uid].get("owner", -1)) != int(issuer.get("owner", 0)):
+			continue
+		if can_issue_taktik(issuer_id, taktik, uid).can:
+			out.append(uid)
+	return out
+
+func issue_taktik(issuer_id: String, taktik: String, target_id: String = "") -> Dictionary:
+	"""Issue a Taktik. With no target given, the nearest eligible friendly
+	ORKS unit is picked. The issuer's Leadership test failure deals 1 mortal
+	wound to the receiving unit but the Taktik still applies."""
+	var units = GameState.state.get("units", {})
+	if target_id == "":
+		var best := ""
+		var best_d := INF
+		var issuer_u = units.get(issuer_id, {})
+		for uid in get_eligible_taktik_targets(issuer_id, taktik):
+			if uid == issuer_id and best != "":
+				continue
+			var d := 0.0 if uid == issuer_id else INF
+			for m in issuer_u.get("models", []):
+				if not m.get("alive", true) or m.get("position") == null:
+					continue
+				for tm in units.get(uid, {}).get("models", []):
+					if not tm.get("alive", true) or tm.get("position") == null:
+						continue
+					d = minf(d if d != INF else INF, Measurement.model_to_model_distance_px(m, tm))
+			if d < best_d:
+				best_d = d
+				best = uid
+		target_id = best
+	if target_id == "":
+		return {"success": false, "error": "no eligible Taktik target in range"}
+	var check = can_issue_taktik(issuer_id, taktik, target_id)
+	if not check.can:
+		return {"success": false, "error": check.reason}
+	var issuer = units[issuer_id]
+	var target = units[target_id]
+	var player = int(issuer.get("owner", 0))
+	var round_no = GameState.get_battle_round()
+	# The issuer's Leadership test — 1 mortal wound to the receiving unit on
+	# a failure (the Taktik still lands).
+	var CommandPhaseScript = load("res://phases/CommandPhase.gd")
+	var ld = CommandPhaseScript._get_effective_leadership(issuer_id)
+	var rng = RulesEngine.make_rng()
+	var d1 = rng.rng.randi_range(1, 6)
+	var d2 = rng.rng.randi_range(1, 6)
+	var passed = (d1 + d2) >= ld
+	if not passed:
+		var mw = RulesEngine.apply_mortal_wounds_to_unit(target_id, 1, GameState.create_snapshot())
+		if not mw.get("diffs", []).is_empty():
+			GameState.apply_state_changes(mw.diffs)
+	# Apply the Taktik until the start of this player's next Command phase.
+	if not target.has("flags"):
+		target["flags"] = {}
+	var tflags = target["flags"]
+	match taktik:
+		"Get Stuck In":
+			tflags[EffectPrimitivesData.FLAG_REROLL_CHARGE] = true
+		"Get On Wiv It":
+			tflags["effect_taktik_melee_strength"] = 1
+		"Sneaky Stalkin'":
+			tflags[EffectPrimitivesData.FLAG_STEALTH] = true
+			tflags[EffectPrimitivesData.FLAG_COVER] = true
+		"Shoota Drills":
+			tflags[EffectPrimitivesData.FLAG_PLUS_ONE_HIT_RANGED] = true
+	tflags["taktik_active"] = taktik
+	tflags["taktik_from_player"] = player
+	tflags["taktik_received_round"] = round_no
+	if not issuer.has("flags"):
+		issuer["flags"] = {}
+	issuer["flags"]["taktik_issued_round"] = round_no
+	print("FactionAbilityManager: Lissen 'Ere — %s issues '%s' to %s (Ld test %d+%d vs %d: %s)" % [
+		issuer_id, taktik, target_id, d1, d2, ld, "passed" if passed else "FAILED — 1 mortal wound"])
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel and gel.has_method("add_player_entry"):
+		gel.add_player_entry(player, "Lissen 'Ere: %s issues %s to %s%s" % [
+			issuer.get("meta", {}).get("name", issuer_id), taktik,
+			target.get("meta", {}).get("name", target_id),
+			"" if passed else " (Ld test failed — 1 mortal wound)"])
+	return {"success": true, "taktik": taktik, "target_unit_id": target_id, "ld_passed": passed, "rolls": [d1, d2]}
+
+func _clear_taktik_effects(player: int) -> void:
+	"""Taktiks last until the start of the issuing player's next Command phase."""
+	for uid in GameState.state.get("units", {}):
+		var flags = GameState.state["units"][uid].get("flags", {})
+		if int(flags.get("taktik_from_player", 0)) != player:
+			continue
+		match str(flags.get("taktik_active", "")):
+			"Get Stuck In":
+				flags.erase(EffectPrimitivesData.FLAG_REROLL_CHARGE)
+			"Get On Wiv It":
+				flags.erase("effect_taktik_melee_strength")
+			"Sneaky Stalkin'":
+				flags.erase(EffectPrimitivesData.FLAG_STEALTH)
+				flags.erase(EffectPrimitivesData.FLAG_COVER)
+			"Shoota Drills":
+				flags.erase(EffectPrimitivesData.FLAG_PLUS_ONE_HIT_RANGED)
+		flags.erase("taktik_active")
+		flags.erase("taktik_from_player")
+		print("FactionAbilityManager: Taktik on %s expired (Player %d's Command phase)" % [uid, player])
+
 # ---- MARTIAL MASTERY (Adeptus Custodes — Shield Host) ----
 
 func get_active_mastery(player: int) -> String:
@@ -2731,6 +2948,11 @@ func on_command_phase_start(player: int) -> void:
 	# zap the nearest visible enemy within 18" of the bearer.
 	_clear_supa_glowy_debuffs(player)
 	process_supa_glowy_fing(player)
+
+	# Lissen 'Ere — Taktiks (Taktikal Brigade): effects last until the start of
+	# this player's next Command phase, so expire them now before new ones are
+	# issued this phase.
+	_clear_taktik_effects(player)
 
 	# CP-generating enhancements (Brutal But Kunnin' / Speed Makes Right)
 	process_command_phase_cp_enhancements(player)
