@@ -122,6 +122,15 @@ func _run_scenario() -> void:
 		if rules != null:
 			rules.set_test_seed(rng_seed)
 			print("[ScenarioRunner] rng_seed=%d" % rng_seed)
+		# The secondary-mission deck shuffle has its own randomize()'d RNG —
+		# unseeded, it made every "AI plays a turn" scenario flaky: whenever
+		# the AI player randomly drew a requires-interaction card (e.g.
+		# A Tempting Target) the AI paused for a human dialog that never
+		# comes, and all later assertions failed. Seed it too.
+		var smm = get_node_or_null("/root/SecondaryMissionManager")
+		if smm != null and smm.has_method("set_test_seed"):
+			smm.set_test_seed(rng_seed)
+			print("[ScenarioRunner] secondary deck seeded=%d" % rng_seed)
 
 	# 3b) Disable AI if the scenario opts in. Must neutralise BOTH the
 	# AIPlayer.enabled flag AND the player_type fields in the loaded

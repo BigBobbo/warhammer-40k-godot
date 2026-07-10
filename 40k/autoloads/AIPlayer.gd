@@ -354,6 +354,21 @@ func _get_fight_phase_selecting_player() -> int:
 	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
 		return -1
 	var fight_phase = _phase_manager_ref.current_phase_instance
+	# 11e global steps: during the 12.02 Pile In / 12.07 Consolidate steps the
+	# acting player is whoever's HALF it is. current_selecting_player can go
+	# stale here (e.g. a 12.08 forced fight interrupts the Consolidate step and
+	# leaves it pointing at the fighter's owner) — in AI-vs-AI that deadlocked
+	# the game: the wrong AI kept submitting END_CONSOLIDATION ("Not your
+	# half") until the phase action cap hit.
+	if "consolidation_step_11e" in fight_phase and "consolidating_player_11e" in fight_phase:
+		if int(fight_phase.consolidation_step_11e) == int(fight_phase.ConsolidationStep11e.ACTIVE) \
+				and int(fight_phase.consolidating_player_11e) > 0 \
+				and not fight_phase._forced_fights_pending_11e():
+			return int(fight_phase.consolidating_player_11e)
+	if "pile_in_step_11e" in fight_phase and "piling_in_player_11e" in fight_phase:
+		if int(fight_phase.pile_in_step_11e) == int(fight_phase.PileInStep11e.ACTIVE) \
+				and int(fight_phase.piling_in_player_11e) > 0:
+			return int(fight_phase.piling_in_player_11e)
 	if "current_selecting_player" in fight_phase:
 		return fight_phase.current_selecting_player
 	return -1
@@ -616,6 +631,13 @@ func _on_result_applied(_result: Dictionary) -> void:
 func _on_phase_action_taken(_action: Dictionary) -> void:
 	if not enabled or PhaseManager.game_ended:
 		return
+	# SOAK-1: a successful phase action IS progress — reset the safety counter
+	# so MAX_ACTIONS_PER_PHASE measures CONSECUTIVE non-progress, not volume.
+	# Big armies legitimately need >200 submissions in one movement phase
+	# (every model stage counts); the old volume cap tripped mid-phase and,
+	# when the phase was in a sub-state with no END_* action available
+	# (Sawbonez window, fight selection), the AI froze for the rest of the game.
+	_current_phase_actions = 0
 	# After any phase action, check if AI should act next
 	# This is the primary trigger in single-player mode
 	DebugLogger.info("AIPlayer._on_phase_action_taken - scheduling evaluation", {"action_type": _action.get("type", "?"), "enabled": enabled})
@@ -1469,14 +1491,18 @@ func _evaluate_and_act() -> void:
 	var active_player = GameState.get_active_player()
 
 	# In fight phase, the selecting player (who picks the next fighter in alternating
-	# activation) may differ from the active player (whose game turn it is).
-	# Check fight phase state to determine if AI should act as the selecting player.
+	# activation, or whose half of a global pile-in/consolidate step it is) may
+	# differ from the active player (whose game turn it is). Act as the selecting
+	# player whenever it is an AI — including AI-vs-AI. Previously this override
+	# only ran when the ACTIVE player was human, so in AI-vs-AI games the active
+	# AI kept submitting the other player's 12.07 END_CONSOLIDATION (rejected:
+	# "Not your half of the Consolidate step") forever and the game deadlocked
+	# at the phase action cap.
 	var acting_player = active_player
-	if not is_ai_player(active_player):
-		var fight_player = _get_fight_phase_selecting_player()
-		if fight_player > 0 and is_ai_player(fight_player):
-			acting_player = fight_player
-			DebugLogger.info("AIPlayer._evaluate_and_act - fight phase selecting player override", {"acting_player": acting_player, "active_player": active_player})
+	var fight_player = _get_fight_phase_selecting_player()
+	if fight_player > 0 and fight_player != active_player and is_ai_player(fight_player):
+		acting_player = fight_player
+		DebugLogger.info("AIPlayer._evaluate_and_act - fight phase selecting player override", {"acting_player": acting_player, "active_player": active_player})
 
 	if not is_ai_player(acting_player):
 		DebugLogger.info("AIPlayer._evaluate_and_act - not AI turn", {"active_player": active_player})
@@ -1515,19 +1541,35 @@ func _evaluate_and_act() -> void:
 		_end_ai_thinking()
 		return
 
-	# Safety check - prevent infinite action loops
+	# Safety check - prevent infinite action loops. The counter resets on every
+	# SUCCESSFUL phase action (_on_phase_action_taken), so reaching the cap
+	# means 200 consecutive attempts made no progress — a genuine deadlock.
 	if _current_phase_actions >= MAX_ACTIONS_PER_PHASE:
-		push_error("AIPlayer: Hit max actions (%d) for current phase! Attempting to end phase." % MAX_ACTIONS_PER_PHASE)
+		push_error("AIPlayer: Hit max actions (%d) without progress! Attempting to unstick the phase." % MAX_ACTIONS_PER_PHASE)
 		var pm = get_node_or_null("/root/PhaseManager")
 		if pm:
 			var fallback_actions = pm.get_available_actions()
-			for fa in fallback_actions:
-				var ft = fa.get("type", "")
-				if ft.begins_with("END_") or ft == "GAME_OVER":
-					print("AIPlayer: Max actions fallback — sending %s to end phase" % ft)
-					NetworkIntegration.route_action(fa)
-					_end_ai_thinking()
-					return
+			# SOAK-1 tiered escape: prefer ending the phase; else resolve the
+			# blocking sub-state (decline/skip); else route ANY offered action —
+			# forward progress resets the counter and unfreezes the game. The
+			# old escape only knew END_*, so sub-states (Sawbonez window, fight
+			# selection) froze the game permanently.
+			for wanted in ["end", "decline_skip", "any"]:
+				for fa in fallback_actions:
+					var ft = fa.get("type", "")
+					var matches = false
+					match wanted:
+						"end":
+							matches = ft.begins_with("END_") or ft == "GAME_OVER"
+						"decline_skip":
+							matches = ft.begins_with("DECLINE_") or ft.begins_with("SKIP_")
+						"any":
+							matches = true
+					if matches:
+						print("AIPlayer: Max actions fallback — routing %s to make progress" % ft)
+						NetworkIntegration.route_action(fa)
+						_end_ai_thinking()
+						return
 		_end_ai_thinking()
 		return
 
@@ -1618,6 +1660,23 @@ func _execute_next_action(player: int) -> void:
 	# the left game log stays readable at high verbosity.
 	var thinking_steps = decision.get("_ai_thinking_steps", [])
 	var thinking_context = decision.get("_ai_thinking_context", {})
+	# COORD-3: the once-per-phase army battle plan ("Movement plan: …" plus its
+	# indented per-unit lines) gets its OWN card with a clear header instead of
+	# hiding inside the first acting unit's decision block.
+	var plan_start := -1
+	for ts_i in range(thinking_steps.size()):
+		if str(thinking_steps[ts_i]).begins_with("Movement plan"):
+			plan_start = ts_i
+			break
+	if plan_start >= 0:
+		var plan_end := plan_start + 1
+		while plan_end < thinking_steps.size() and str(thinking_steps[plan_end]).begins_with("  "):
+			plan_end += 1
+		var plan_lines: Array = thinking_steps.slice(plan_start, plan_end)
+		_log_ai_thinking_block(player, str(plan_lines[0]), plan_lines.slice(1), {})
+		var remaining: Array = thinking_steps.slice(0, plan_start)
+		remaining.append_array(thinking_steps.slice(plan_end))
+		thinking_steps = remaining
 	if thinking_steps.size() == 1:
 		_log_ai_thinking(player, thinking_steps[0])
 	elif thinking_steps.size() > 1:
@@ -1634,7 +1693,7 @@ func _execute_next_action(player: int) -> void:
 			"phase_name": phase_name,
 			"player": player,
 			"records": decision_records,
-			"thinking_steps": thinking_steps,
+			"thinking_steps": decision.get("_ai_thinking_steps", []),
 			"actions": [{"type": decision.get("type", ""), "description": decision.get("_ai_description", "")}],
 		})
 		# Auto-save decision log every 50 decision batches for mid-game access
@@ -1865,6 +1924,9 @@ func _execute_next_action(player: int) -> void:
 				var move_unit_name = _get_unit_name(failed_move_unit)
 				print("AIPlayer: Movement failed for %s (%s), using REMAIN_STATIONARY instead" % [failed_move_unit, _format_error_concise(error_msg)])
 				_log_ai_event(player, "%s movement failed — remaining stationary" % move_unit_name)
+				# COORD-2: the recorded "heading to objective X" intent is now dead —
+				# clear it so later units don't count this unit's OC as en route.
+				AIDecisionMaker.clear_movement_intent(player, failed_move_unit)
 				# Use REMAIN_STATIONARY since MovementPhase doesn't have SKIP_UNIT
 				_current_phase_actions += 1
 				NetworkIntegration.route_action({
@@ -2038,6 +2100,9 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 
 	# All attempts failed — remain stationary
 	print("AIPlayer: All movement attempts failed for %s, remaining stationary" % unit_id)
+	# COORD-2: clear the recorded movement intent — the unit is NOT going where
+	# the plan said, so its OC must not count as "en route" for later units.
+	AIDecisionMaker.clear_movement_intent(player, unit_id)
 	_current_phase_actions += 1
 	NetworkIntegration.route_action({
 		"type": "REMAIN_STATIONARY",

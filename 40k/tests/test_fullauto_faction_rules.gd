@@ -16,7 +16,7 @@ extends SceneTree
 #   5. Devoted to Destruction: melee-only +2 Attacks (fight phase flag).
 #   6. Sneaky Gitz: unit excluded from Fire Overwatch eligibility.
 #   7. Bodyguard: second leader-role attachment allowed, third rejected.
-#   8. Admonimortis: bearer death 4+ = D3 mortal wounds to nearest enemy in 6".
+#   8. Admonimortis: 10e stopgap — +3S/+1AP/+1D on the bearer's melee weapons.
 #   9. StateSerializer 1.2.0 -> 1.3.0 migration canonicalizes ability names.
 #
 # The windowed analogues live in tests/scenarios/sp/fullauto_*.json.
@@ -401,63 +401,40 @@ func _test_bodyguard_extra_leader() -> void:
 	_check("second leader rejected without Bodyguard", not v4.get("valid", true), str(v4))
 
 func _test_admonimortis() -> void:
-	print("\n-- Admonimortis: bearer death, 4+ = D3 MW to nearest enemy in 6\" --")
+	print("\n-- Admonimortis (10e stopgap): +3S/+1AP/+1D on bearer's melee weapons --")
+	# Policy (user ruling 2026-07-10): the 40kdc dataset has no 11e rule for
+	# Admonimortis, so the official 10e wording stands in — improve the
+	# bearer's melee weapon Strength by 3, AP and Damage by 1. (The earlier
+	# bearer-death mortal-wound trigger had no source in either edition and
+	# was removed.)
+	# lance_melee is S6 AP2 D2 vs T4: 3+ to wound; with +3S (S9 > 2xT4) it
+	# wounds on 2+, and the save records carry the modified AP.
+	var wounds_plain := 0
+	var wounds_admon := 0
+	var ap_plain := 0
+	var ap_admon := 0
+	for s_val in range(1, 6):
+		var plain_board = _make_board({}, 0.5)
+		var admon_board = _make_board({}, 0.5)
+		admon_board.units["U_SHOOTER"].meta["enhancements"] = ["Admonimortis"]
+		var res_plain = _melee(plain_board, s_val)
+		var res_admon = _melee(admon_board, s_val)
+		wounds_plain += _sum_wounds_from_dice(res_plain)
+		wounds_admon += _sum_wounds_from_dice(res_admon)
+		# The save record context differs by edition ("save_roll_melee" at 10e,
+		# allocation-based "save" at 11e); both carry the applied AP.
+		for d in res_plain.get("dice", []):
+			if "save" in str(d.get("context", "")) and d.has("ap"):
+				ap_plain = int(d.get("ap", 0))
+		for d in res_admon.get("dice", []):
+			if "save" in str(d.get("context", "")) and d.has("ap"):
+				ap_admon = int(d.get("ap", 0))
+	_check("+3 Strength raises melee wounds across seeds (%d > %d)" % [wounds_admon, wounds_plain],
+		wounds_admon > wounds_plain)
+	_check("+1 AP applied to melee saves (ap %d -> %d)" % [ap_plain, ap_admon], ap_admon == ap_plain + 1)
 	var rules = root.get_node("RulesEngine")
-	var board := {
-		"units": {
-			"U_BEARER": {
-				"id": "U_BEARER", "owner": 2,
-				"meta": {"name": "Shield-Captain", "keywords": ["CHARACTER"], "stats": {},
-					"abilities": [], "enhancements": ["Admonimortis"]},
-				"flags": {},
-				"models": [{"id": "m1", "alive": false, "wounds": 6, "current_wounds": 0, "position": {"x": 100.0, "y": 100.0}, "base_mm": 40}]
-			},
-			"U_NEAR_ENEMY": {
-				"id": "U_NEAR_ENEMY", "owner": 1,
-				"meta": {"name": "Boyz", "keywords": ["INFANTRY"], "stats": {"toughness": 5, "save": 5, "wounds": 1}},
-				"flags": {},
-				"models": [
-					{"id": "m1", "alive": true, "wounds": 1, "current_wounds": 1, "position": {"x": 220.0, "y": 100.0}, "base_mm": 32},
-					{"id": "m2", "alive": true, "wounds": 1, "current_wounds": 1, "position": {"x": 260.0, "y": 100.0}, "base_mm": 32}
-				]
-			},
-			"U_FAR_ENEMY": {
-				"id": "U_FAR_ENEMY", "owner": 1,
-				"meta": {"name": "Lootas", "keywords": ["INFANTRY"], "stats": {"toughness": 5, "save": 5, "wounds": 1}},
-				"flags": {},
-				"models": [{"id": "m1", "alive": true, "wounds": 1, "current_wounds": 1, "position": {"x": 900.0, "y": 900.0}, "base_mm": 32}]
-			}
-		},
-		"meta": {"phase": 8, "active_player": 1, "battle_round": 1}
-	}
-	# Find a seed whose first D6 is >= 4 and one < 4 (deterministic).
-	var hit_seed := -1
-	var miss_seed := -1
-	for s in range(1, 30):
-		var probe = rules.RNGService.new(s)
-		var roll = probe.roll_d6(1)[0]
-		if roll >= 4 and hit_seed == -1:
-			hit_seed = s
-		if roll < 4 and miss_seed == -1:
-			miss_seed = s
-		if hit_seed != -1 and miss_seed != -1:
-			break
-
-	var res_hit = rules.resolve_admonimortis("U_BEARER", board, rules.RNGService.new(hit_seed))
-	_check("applicable on bearer with enhancement", res_hit.get("applicable", false))
-	_check("triggers on 4+", res_hit.get("triggered", false))
-	_check("targets the NEAREST enemy unit", res_hit.get("target_unit_id", "") == "U_NEAR_ENEMY", str(res_hit))
-	_check("deals 1-3 mortal wounds", res_hit.get("mortal_wounds", 0) >= 1 and res_hit.get("mortal_wounds", 0) <= 3)
-	_check("produces damage diffs", res_hit.get("diffs", []).size() > 0)
-
-	var res_miss = rules.resolve_admonimortis("U_BEARER", board, rules.RNGService.new(miss_seed))
-	_check("does not trigger below 4", not res_miss.get("triggered", true))
-
-	var no_enh = board.duplicate(true)
-	no_enh["units"]["U_BEARER"]["meta"]["enhancements"] = []
-	var res_na = rules.resolve_admonimortis("U_BEARER", no_enh, rules.RNGService.new(hit_seed))
-	_check("not applicable without the enhancement", not res_na.get("applicable", true))
-
+	_check("no bearer-death trigger remains (resolve_admonimortis removed)",
+		not rules.has_method("resolve_admonimortis"))
 func _test_serializer_migration() -> void:
 	print("\n-- StateSerializer 1.2.0 -> 1.3.0: ability name canonicalization --")
 	var ser = root.get_node("StateSerializer")

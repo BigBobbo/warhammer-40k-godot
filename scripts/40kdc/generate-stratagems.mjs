@@ -398,7 +398,18 @@ function compileAbility(ability) {
 // the stub sentence and are display-only. For the detachments the game ships
 // armies for, the engine already has purpose-built primitives (issues #372/
 // #375/#390/#391/#393) that the 10e text pipeline used to drive. These
-// curated entries restore that wiring:
+// curated entries restore that wiring.
+//
+// STOPGAP POLICY (user ruling, 2026-07-10): where the 40kdc dataset has not
+// published 11e rules for a stratagem, the official 10th-edition wording
+// (from the wahapedia export at server/tools/wahapedia_csv/) stands in as an
+// EXPLICIT provisional. Every such entry carries `stopgap: true`, which
+// appends a visible PROVISIONAL note to the in-game rules text. When the
+// dataset ships the real 11e payloads, delete the curated entry (or drop the
+// flag) and regenerate. Entries WITHOUT the flag (Silent Hunters) restate
+// 11e dataset payloads and are not provisional.
+//
+// Format:
 //   - `when`/`target` strings use the exact template phrases
 //     FactionStratagemLoader._infer_trigger/_parse_target parse (trigger
 //     windows + target conditions),
@@ -410,35 +421,41 @@ function compileAbility(ability) {
 const CURATED_STRATAGEMS = {
   // ── Orks — War Horde ──────────────────────────────────────────────────
   'unbridled-carnage-war-horde': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     target: 'One ORKS unit from your army that has not been selected to fight this phase.',
     effect: 'Until the end of the phase, each time a model in your unit makes a melee attack, an unmodified Hit roll of 5+ scores a Critical Hit.',
     effects: [{ type: 'crit_hit_on', value: 5 }],
   },
   'ard-as-nails-war-horde': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     when: "Your opponent's Shooting phase or the Fight phase, just after an enemy unit has selected its targets.",
     target: "One ORKS unit from your army (excluding GROTS, MONSTER and VEHICLE units) that was selected as the target of one or more of the attacking unit's attacks.",
     effect: 'Until the end of the phase, each time an attack targets your unit, subtract 1 from the Wound roll.',
     effects: [{ type: 'minus_one_wound_defense' }],
   },
   'mob-rule-war-horde': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     when: 'End of your Command phase.',
     target: 'One MOB unit from your army that contains 10 or more models and is not Below Half-strength.',
     effect: 'Select one friendly Battle-shocked ORKS INFANTRY unit within 6" of that MOB unit. That ORKS INFANTRY unit is no longer Battle-shocked.',
     effects: [{ type: 'remove_battle_shock' }],
   },
   'ere-we-go-war-horde': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     when: 'Start of your Movement phase.',
     target: 'One ORKS INFANTRY unit from your army.',
     effect: 'Until the end of the turn, add 2 to Advance and Charge rolls made for your unit.',
     effects: [{ type: 'plus_charge', value: 2 }],
   },
   'careen-war-horde': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     when: 'Any phase, just after an ORKS VEHICLE unit from your army with the Deadly Demise ability is destroyed.',
     target: 'That destroyed ORKS VEHICLE unit. You can use this Stratagem on that unit even though it was just destroyed.',
     effect: 'Your unit can make a Normal or Fall Back move before its Deadly Demise ability is resolved. When making this move, your unit can move over enemy units (excluding MONSTER and VEHICLE units) as if they were not there.',
     effects: [{ type: 'deadly_demise_move' }],
   },
   'orks-is-never-beaten-war-horde': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     when: 'Fight phase, just after an enemy unit has selected its targets.',
     target: "One ORKS unit from your army that was selected as the target of one or more of the attacking unit's attacks.",
     effect: "Until the end of the phase, each time a model in your unit is destroyed, if that model has not fought this phase, do not remove it from play. The destroyed model can fight after the attacking model's unit has finished making attacks, and is then removed from play.",
@@ -446,12 +463,14 @@ const CURATED_STRATAGEMS = {
   },
   // ── Adeptus Custodes — Shield Host ────────────────────────────────────
   'arcane-genetic-alchemy-shield-host': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     when: 'Any phase, just after a mortal wound is allocated to a model in an ADEPTUS CUSTODES unit from your army.',
     target: 'That ADEPTUS CUSTODES unit.',
     effect: 'Until the end of the phase, models in your unit have the Feel No Pain 4+ ability against mortal wounds.',
     effects: [{ type: 'grant_fnp_psychic_mortal', value: 4 }],
   },
   'avenge-the-fallen-shield-host': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     when: 'Start of the Fight phase.',
     target: 'One ADEPTUS CUSTODES unit from your army that is below its Starting Strength.',
     effect: 'Until the end of the phase, add 1 to the Attacks characteristic of melee weapons equipped by models in your unit. If your unit is Below Half-strength, add 2 to the Attacks characteristic of those weapons instead.',
@@ -461,27 +480,101 @@ const CURATED_STRATAGEMS = {
     ],
   },
   'unwavering-sentinels-shield-host': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     when: 'Fight phase, just after an enemy unit has selected its targets.',
     target: "One ADEPTUS CUSTODES INFANTRY unit from your army that is within range of an objective marker you control and that was selected as the target of one or more of the attacking unit's attacks.",
     effect: 'Until the end of the phase, each time a melee attack targets your unit, subtract 1 from the Hit roll.',
     effects: [{ type: 'minus_one_hit_defense_melee' }],
   },
   'multipotentiality-shield-host': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     target: 'One ADEPTUS CUSTODES unit from your army that Fell Back this phase.',
     effect: 'Until the end of the turn, your unit is eligible to shoot and declare a charge in a turn in which it Fell Back.',
     effects: [{ type: 'fall_back_and_shoot' }, { type: 'fall_back_and_charge' }],
   },
   'vigilance-eternal-shield-host': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     target: 'One ADEPTUS CUSTODES BATTLELINE unit from your army within range of an objective marker you control.',
     effect: 'That objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.',
     effects: [{ type: 'sticky_objective_control' }],
   },
   'archeotech-munitions-shield-host': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
     target: 'One ADEPTUS CUSTODES unit from your army that has not been selected to shoot this phase.',
     effect: 'Select either the [LETHAL HITS] or [SUSTAINED HITS 1] ability. Until the end of the phase, ranged weapons equipped by models in your unit have the selected ability.',
     // Issue #381 (either/or): default to the first option, [LETHAL HITS];
     // a UI choice prompt is the tracked follow-up.
     effects: [{ type: 'grant_lethal_hits' }],
+  },
+  // ── Adeptus Custodes — Lions of the Emperor ───────────────────────────
+  // The 40kdc dataset ships these six with ability_id: null (no 11e text);
+  // WHEN/TARGET/EFFECT below restore the official 10e wording. Three of them
+  // (Defiant to the Last, Swift as the Eagle, Unleash the Lions) resolve via
+  // purpose-built handlers in StratagemManager/phases — their `effects` stay
+  // empty and _mark_custom_implemented_stratagems flags them implemented.
+  'peerless-warrior-lions-of-the-emperor': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
+    target: 'One ADEPTUS CUSTODES unit from your army that has not been selected to fight this phase.',
+    effect: 'Until the end of the phase, melee weapons equipped by models in your unit have the [PRECISION] ability.',
+    effects: [{ type: 'grant_precision', scope: 'melee' }],
+  },
+  'gilded-champion-lions-of-the-emperor': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
+    when: "Any phase, just after an ADEPTUS CUSTODES CHARACTER model from your army has used an ability on its datasheet that states it can only be used 'once per battle'.",
+    target: 'That ADEPTUS CUSTODES CHARACTER model.',
+    effect: "Your model can use that 'once per battle' ability one additional time during the battle (but not in the same phase). You cannot use this Stratagem on the same ADEPTUS CUSTODES CHARACTER model more than once per battle.",
+    effects: [], // custom handler (StratagemManager: clears the once-per-battle usage flag)
+  },
+  'defiant-to-the-last-lions-of-the-emperor': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
+    when: 'Fight phase, just after an enemy unit has selected its targets.',
+    target: "One ADEPTUS CUSTODES unit from your army that was selected as the target of one or more of the attacking unit's attacks.",
+    effect: 'Until the end of the phase, each time a model in your unit is destroyed, if that model has not fought this phase, roll one D6, adding 2 to the result if that model has the CHARACTER keyword. On a 4+, do not remove it from play; the destroyed model can fight after the attacking unit has finished making its attacks, and is then removed from play.',
+    effects: [], // custom handler (RulesEngine swing-back-on-death path)
+  },
+  'unleash-the-lions-lions-of-the-emperor': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
+    target: 'One Allarus Custodians or Aquilon Custodians unit from your army that is on the battlefield.',
+    effect: 'That unit is split into separate units, each containing one model. These new units each have a Starting Strength of 1.',
+    effects: [], // custom handler (CommandPhase USE_UNLEASH_THE_LIONS action)
+  },
+  'manoeuvre-and-fire-lions-of-the-emperor': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
+    when: 'Your Movement phase, just after an ADEPTUS CUSTODES unit from your army Falls Back.',
+    target: 'One ADEPTUS CUSTODES unit from your army that Fell Back this phase.',
+    effect: 'Until the end of the turn, your unit is eligible to shoot and declare a charge in a turn in which it Fell Back.',
+    effects: [{ type: 'fall_back_and_shoot' }, { type: 'fall_back_and_charge' }],
+  },
+  'swift-as-the-eagle-lions-of-the-emperor': {
+    stopgap: true, // 10e wording — no 11e payload in the dataset yet
+    when: "Your opponent's Shooting phase, just after an enemy unit has shot.",
+    target: "One ADEPTUS CUSTODES unit from your army (excluding VEHICLE units) that was selected as the target of one or more of the attacking unit's attacks.",
+    effect: 'Your unit can make a Normal move of up to D6".',
+    effects: [], // custom handler (ShootingPhase reactive move offer)
+  },
+  // ── Adeptus Custodes — Silent Hunters ─────────────────────────────────
+  // These three carry 40kdc ability payloads whose leaf types the generic
+  // compiler vetoes (keyword grants with rider clauses); hand-compile them.
+  'deathsong-scythes-silent-hunters': {
+    target: 'One VIGILATORS unit from your army.',
+    effect: "Until the end of the phase, melee weapons equipped by models in your unit have the [LANCE] ability. In addition, each time a model in your unit makes a melee attack that targets a PSYKER unit, add 1 to the Attacks characteristic of that attack's weapon.",
+    effects: [
+      { type: 'grant_lance' },
+      { type: 'plus_attacks_vs_psyker', value: 1, scope: 'melee' },
+    ],
+  },
+  'umbral-prosecution-silent-hunters': {
+    target: 'One PROSECUTORS unit from your army.',
+    effect: 'Until the end of the phase, ranged weapons equipped by models in your unit have the [RAPID FIRE 2] ability and you can improve the Armour Penetration characteristic of those weapons by 1.',
+    effects: [
+      { type: 'grant_rapid_fire', value: 2 },
+      { type: 'improve_ap', value: 1, scope: 'ranged' },
+    ],
+  },
+  'synchronised-inferno-silent-hunters': {
+    target: 'One WITCHSEEKERS unit from your army.',
+    effect: 'Until the end of the phase, ranged weapons equipped by models in your unit have the [BLAST] ability.',
+    effects: [{ type: 'grant_blast' }],
   },
 };
 
@@ -576,6 +669,9 @@ function main() {
         `<b>EFFECT:</b> ${curated?.effect ?? effectText(ability)}`;
       if (s.timing === 'once-per-battle') {
         description += '<br><br><b>RESTRICTIONS:</b> You cannot use this Stratagem more than once per battle.';
+      }
+      if (curated?.stopgap) {
+        description += '<br><br><b>PROVISIONAL:</b> 10th-edition wording — the official 11e rules for this stratagem are not published in the 40kdc dataset yet and will replace this text when they are.';
       }
 
       const effectsJson = effects.length > 0 ? JSON.stringify(effects) : '';

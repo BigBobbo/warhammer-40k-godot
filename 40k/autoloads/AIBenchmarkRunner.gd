@@ -92,6 +92,12 @@ func _kick_off() -> void:
 		var rules = get_node_or_null("/root/RulesEngine")
 		if rules != null:
 			rules.set_test_seed(_seed)
+		# Deterministic secondary-mission deck shuffles too — otherwise the
+		# card draws differ per run and a stall found at seed N cannot be
+		# reproduced by re-running seed N.
+		var smm = get_node_or_null("/root/SecondaryMissionManager")
+		if smm != null and smm.has_method("set_test_seed"):
+			smm.set_test_seed(_seed)
 
 	# 3) Live battle scene (phases/controllers need it)
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
