@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://b5gtyqpr3xktt"]
+[gd_scene load_steps=7 format=3 uid="uid://b5gtyqpr3xktt"]
 
 [ext_resource type="Script" uid="uid://o6wrk15crjyd" path="res://scripts/Main.gd" id="1_uu5k7"]
 [ext_resource type="Script" uid="uid://b4qtegojmcp2n" path="res://scripts/BoardVisual.gd" id="2_board"]
 [ext_resource type="Script" uid="uid://c0tcro85as1j5" path="res://scripts/DeploymentZoneVisual.gd" id="3_zone"]
 [ext_resource type="Script" uid="uid://dk12myirluqy5" path="res://scripts/UnitStatsPanel.gd" id="4_stats"]
 [ext_resource type="Script" path="res://scripts/SecondaryMissionPanel.gd" id="5_secondary"]
+[ext_resource type="Script" uid="uid://cf6gbsi35ttut" path="res://scripts/EndPhaseButton.gd" id="6_epbtn"]
 
 [node name="Main" type="CanvasLayer"]
 script = ExtResource("1_uu5k7")
@@ -65,11 +66,12 @@ layout_mode = 2
 tooltip_text = "Open stratagem panel (hotkey: S)"
 text = "[S] Stratagems"
 
-[node name="PhaseActionButton" type="Button" parent="HUD_Bottom/HBoxContainer"]
+[node name="EndPhaseButton" type="Button" parent="HUD_Bottom/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 10
 disabled = true
 text = "End Phase"
+script = ExtResource("6_epbtn")
 
 [node name="HUD_Left" type="PanelContainer" parent="."]
 anchors_preset = 9

@@ -8,6 +8,8 @@
   "steps": [
     { "act": "wait_seconds", "seconds": 0.4 },
 
+    { "act": "screenshot", "label": "T27_before" },
+
     { "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/EndPhaseButton\") != null",
       "equals": true },
@@ -27,6 +29,8 @@
     { "act": "execute_script",
       "script": "get_node(\"/root/Main/EndPhaseButton\").REFERENCE_OFFSET_FROM_BOTTOM",
       "equals": 60 },
+
+    { "act": "screenshot", "label": "T27_after" },
 
     { "act": "expect_baseline_unchanged" }
   ]

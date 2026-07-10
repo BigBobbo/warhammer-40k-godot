@@ -20,7 +20,7 @@
     { "act": "execute_script", "script": "main._sync_all_token_positions()" },
     { "act": "wait_seconds", "seconds": 1.0 },
 
-    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/EndPhaseButton", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/HeroicInterventionDialog", "timeout_s": 3.0 },
     { "act": "screenshot", "label": "02_hi_dialog_end_of_phase" },
     { "act": "click_node",

@@ -78,7 +78,7 @@
   },
   {
    "act": "click_node",
-   "node": "/root/Main/PhaseActionButton",
+   "node": "/root/Main/EndPhaseButton",
    "emit_pressed": true
   },
   {

@@ -137,16 +137,10 @@ func _setup_right_panel() -> void:
 		phase_progress_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	command_panel.add_child(phase_progress_label)
 
-	# End Command Phase button — prominent CTA near the top of the panel
-	var end_phase_btn = Button.new()
-	end_phase_btn.name = "EndCommandPhaseButton"
-	end_phase_btn.text = "End Command Phase  [Enter]"
-	end_phase_btn.custom_minimum_size = Vector2(230, 40)
-	end_phase_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_WhiteDwarfTheme.apply_primary_button(end_phase_btn)
-	end_phase_btn.add_theme_font_size_override("font_size", 14)
-	end_phase_btn.pressed.connect(_on_end_command_pressed)
-	command_panel.add_child(end_phase_btn)
+	# T23/T27: the per-phase "End Command Phase" button was removed — the
+	# canonical /root/Main/EndPhaseButton is the single end-phase affordance.
+	# It also routes through the P3-94 battle-shock confirmation, which this
+	# panel's duplicate used to bypass.
 
 	_add_command_gold_separator(command_panel)
 
@@ -956,10 +950,6 @@ func _refresh_ui() -> void:
 			command_panel.remove_child(old_section)
 			old_section.queue_free()
 		_setup_secondary_missions_section(command_panel)
-
-func _on_end_command_pressed() -> void:
-	print("CommandController: End Command Phase button pressed")
-	emit_signal("command_action_requested", {"type": "END_COMMAND"})
 
 # ============================================================================
 # COMMAND RE-ROLL HANDLERS

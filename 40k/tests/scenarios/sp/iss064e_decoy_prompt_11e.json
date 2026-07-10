@@ -35,7 +35,7 @@
       "equals": "multi" },
     { "act": "screenshot", "label": "01_before_end_turn" },
 
-    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/EndPhaseButton", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/CardActionDialog", "timeout_s": 3.0 },
     { "act": "expect_node_visible", "node": "/root/CardActionDialog/Content/Check_obj_center", "timeout_s": 2.0 },
     { "act": "expect_node_visible", "node": "/root/CardActionDialog/Content/Check_obj_nml_2", "timeout_s": 2.0 },

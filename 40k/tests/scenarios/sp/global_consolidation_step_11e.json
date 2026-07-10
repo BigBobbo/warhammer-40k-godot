@@ -93,7 +93,7 @@
     { "act": "wait_seconds", "seconds": 1.0 },
 
     { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 0 },
-    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/EndPhaseButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
 
     { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog", "timeout_s": 5.0 },

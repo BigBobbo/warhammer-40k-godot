@@ -8,6 +8,8 @@
   "steps": [
     { "act": "wait_seconds", "seconds": 0.4 },
 
+    { "act": "screenshot", "label": "T23_before" },
+
     { "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/EndPhaseButton\") != null",
       "equals": true },
@@ -43,6 +45,8 @@
     { "act": "execute_script",
       "script": "get_node(\"/root/Main/EndPhaseButton\").t23_anchor_offset().distance_to(Vector2(200, 60))",
       "expect_max": 4.0 },
+
+    { "act": "screenshot", "label": "T23_after" },
 
     { "act": "expect_baseline_unchanged" }
   ]

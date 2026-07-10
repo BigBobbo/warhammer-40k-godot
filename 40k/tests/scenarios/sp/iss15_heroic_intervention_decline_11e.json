@@ -14,7 +14,7 @@
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
     { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
 
-    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/EndPhaseButton", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/HeroicInterventionDialog", "timeout_s": 3.0 },
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
     { "act": "screenshot", "label": "01_hi_dialog_open_phase_deferred" },

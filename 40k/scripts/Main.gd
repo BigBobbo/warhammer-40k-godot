@@ -24,7 +24,7 @@ const UI_MODAL_Z: int = 2000     # Modal dialogs (wound allocation, save/load, g
 @onready var active_player_badge: Label = $HUD_Bottom/HBoxContainer/ActivePlayerBadge
 @onready var status_label: Label = $HUD_Bottom/HBoxContainer/StatusLabel
 @onready var auto_decline_overwatch: CheckButton = $HUD_Bottom/HBoxContainer/AutoDeclineOverwatch
-@onready var phase_action_button: Button = $HUD_Bottom/HBoxContainer/PhaseActionButton
+@onready var phase_action_button: Button = $HUD_Bottom/HBoxContainer/EndPhaseButton
 @onready var stratagem_panel_button: Button = $HUD_Bottom/HBoxContainer/StratagemPanelButton
 
 const StratagemPanelClass := preload("res://scripts/StratagemPanel.gd")
@@ -2750,25 +2750,18 @@ func _restructure_ui_layout() -> void:
 		hud_bottom.offset_bottom = 100.0
 		print("Moved HUD_Bottom to top of screen")
 
-	# Reparent the phase action button out of the crowded HBoxContainer
-	# and position it as a standalone element in the top-right corner
+	# T23/T27: reparent the end-phase button out of the crowded HBoxContainer
+	# to /root/Main/EndPhaseButton and pin it to the canonical bottom-right
+	# offset (EndPhaseButton.gd owns the reference geometry).
 	if phase_action_button:
 		var old_parent = phase_action_button.get_parent()
 		if old_parent:
 			old_parent.remove_child(phase_action_button)
 		add_child(phase_action_button)
-		phase_action_button.anchor_left = 1.0
-		phase_action_button.anchor_right = 1.0
-		phase_action_button.anchor_top = 0.0
-		phase_action_button.anchor_bottom = 0.0
-		phase_action_button.offset_left = -260
-		phase_action_button.offset_right = -8
-		phase_action_button.offset_top = 8
-		phase_action_button.offset_bottom = 52
-		phase_action_button.custom_minimum_size = Vector2(200, 40)
+		phase_action_button.apply_canonical_placement()
 		phase_action_button.z_index = 200
 		_WhiteDwarfTheme.apply_primary_button(phase_action_button)
-		print("Reparented PhaseActionButton to top-right corner")
+		print("Reparented EndPhaseButton to canonical bottom-right position")
 
 	# Create unit stats panel at bottom
 	_setup_unit_stats_panel()
@@ -7355,7 +7348,7 @@ func _on_roll_off_result(p1: int, p2: int, winner: int, tied: bool) -> void:
 	# Keep the top-bar button consistent on both peers (it may still read
 	# "[Enter] Roll the dice" on the peer that didn't submit).
 	if phase_action_button:
-		phase_action_button.text = "[Enter] Continue"
+		phase_action_button.text = "Continue"
 
 func _on_roll_off_acknowledged() -> void:
 	# The human dismissed a result that needed no choice from them.
@@ -8873,34 +8866,32 @@ func _get_phase_tooltip_text(phase: GameStateData.Phase) -> String:
 			return "Current phase. Press ? for keyboard shortcuts."
 
 func _get_phase_button_text(phase: GameStateData.Phase) -> String:
+	# T23/T27: the six battle phases share the canonical "End Phase" label —
+	# the phase name lives in the PhaseStrip and the tooltip. Setup flows
+	# keep action-specific labels because "End Phase" would misdescribe them.
+	# The Enter-shortcut hint lives in the tooltip, not the label.
 	match phase:
-		GameStateData.Phase.FORMATIONS: return "[Enter] Confirm Formations"
-		GameStateData.Phase.DEPLOYMENT: return "[Enter] End Deployment"
-		GameStateData.Phase.REDEPLOYMENT: return "[Enter] End Redeployment"
-		GameStateData.Phase.SCOUT: return "[Enter] End Scout Moves"
-		GameStateData.Phase.SCOUT_MOVES: return "[Enter] End Scout Moves"
-		GameStateData.Phase.ROLL_OFF: return "[Enter] Roll the dice"
-		GameStateData.Phase.FIRST_TURN_ROLLOFF: return "[Enter] Roll the dice"
-		GameStateData.Phase.COMMAND: return "[Enter] End Command Phase"
-		GameStateData.Phase.MOVEMENT: return "[Enter] End Movement Phase"
-		GameStateData.Phase.SHOOTING: return "[Enter] End Shooting Phase"
-		GameStateData.Phase.CHARGE: return "[Enter] End Charge Phase"
-		GameStateData.Phase.FIGHT: return "[Enter] End Fight Phase"
-		GameStateData.Phase.SCORING: return "[Enter] End Turn"
-		GameStateData.Phase.MORALE: return "[Enter] End Morale Phase"
-		_: return "[Enter] End Phase"
+		GameStateData.Phase.FORMATIONS: return "Confirm Formations"
+		GameStateData.Phase.DEPLOYMENT: return "End Deployment"
+		GameStateData.Phase.REDEPLOYMENT: return "End Redeployment"
+		GameStateData.Phase.SCOUT: return "End Scout Moves"
+		GameStateData.Phase.SCOUT_MOVES: return "End Scout Moves"
+		GameStateData.Phase.ROLL_OFF: return "Roll the dice"
+		GameStateData.Phase.FIRST_TURN_ROLLOFF: return "Roll the dice"
+		GameStateData.Phase.SCORING: return "End Turn"
+		_: return "End Phase"
 
 func _get_phase_button_tooltip(phase: GameStateData.Phase) -> String:
 	match phase:
-		GameStateData.Phase.FORMATIONS: return "Lock in your leader attachments and transport embarkations"
-		GameStateData.Phase.DEPLOYMENT: return "Finish placing all units in your deployment zone"
+		GameStateData.Phase.FORMATIONS: return "Lock in your leader attachments and transport embarkations (Shortcut: Enter)"
+		GameStateData.Phase.DEPLOYMENT: return "Finish placing all units in your deployment zone (Shortcut: Enter)"
 		GameStateData.Phase.COMMAND: return "End Command phase and begin Movement (Shortcut: Enter)"
 		GameStateData.Phase.MOVEMENT: return "End Movement phase and begin Shooting (Shortcut: Enter)"
 		GameStateData.Phase.SHOOTING: return "End Shooting phase and begin Charge (Shortcut: Enter)"
 		GameStateData.Phase.CHARGE: return "End Charge phase and begin Fight (Shortcut: Enter)"
-		GameStateData.Phase.FIGHT: return "End Fight phase and proceed to scoring"
-		GameStateData.Phase.SCORING: return "End your turn and pass to your opponent"
-		_: return "Advance to the next phase"
+		GameStateData.Phase.FIGHT: return "End Fight phase and proceed to scoring (Shortcut: Enter)"
+		GameStateData.Phase.SCORING: return "End your turn and pass to your opponent (Shortcut: Enter)"
+		_: return "Advance to the next phase (Shortcut: Enter)"
 
 func _clear_phase_ui_artifacts() -> void:
 	# Remove any dynamically added phase-specific buttons from HUD_Bottom

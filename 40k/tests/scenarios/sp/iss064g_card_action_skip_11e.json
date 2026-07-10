@@ -24,7 +24,7 @@
     { "act": "execute_script", "script": "MissionManager.check_all_objectives()" },
     { "act": "execute_script", "script": "MissionManager.on_turn_start_11e(2)" },
 
-    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/EndPhaseButton", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/CardActionDialog", "timeout_s": 3.0 },
     { "act": "expect_node_visible", "node": "/root/CardActionDialog/Content/Actions/SkipCardAction", "timeout_s": 2.0 },
     { "act": "screenshot", "label": "01_dialog_open_before_skip" },
