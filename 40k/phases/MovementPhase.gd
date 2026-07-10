@@ -1566,10 +1566,19 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Advance: %s → D6 = %d" % [unit_name, advance_roll])
 
+	# THUNDERING WAGONS (Rollin' Deff): the rigs do not roll for Advance —
+	# their Advance is a flat 6".
+	var tw_override = FactionAbilityManager.get_thundering_wagons_advance_override(unit)
+	if tw_override > 0:
+		advance_roll = tw_override
+		log_phase_message("Advance: %s — Thundering Wagons, flat %d\" (no roll)" % [unit_name, tw_override])
+
 	# Ability-granted Advance re-roll (Bloodthirsty Belligerence, SUPERFUELLED
-	# BOILER): the re-roll must keep the second result, so auto re-roll only
-	# when the first roll is low enough that a player always would (1-3).
-	if advance_roll <= 3 and EffectPrimitivesData.has_effect_reroll_advance(unit):
+	# BOILER, Blitz Brigade's Eager for the Fight after disembarking): the
+	# re-roll must keep the second result, so auto re-roll only when the first
+	# roll is low enough that a player always would (1-3).
+	if tw_override == 0 and advance_roll <= 3 \
+			and (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)):
 		var reroll_result = rng_service.roll_d6(1)[0]
 		log_phase_message("Advance re-roll (ability): %s re-rolls %d → %d" % [unit_name, advance_roll, reroll_result])
 		advance_roll = reroll_result

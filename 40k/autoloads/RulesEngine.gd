@@ -2238,6 +2238,11 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if tg_val > int(sustained_data.value):
 			sustained_data = {"value": tg_val, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS %d granted by TARGETIN' GIZMOS (Waaagh! active)" % tg_val)
+		# DAKKA! DAKKA! DAKKA! (More Dakka! detachment): ranged SUSTAINED HITS 1
+		# for ORKS INFANTRY/WALKER while the Waaagh! is active
+		if int(sustained_data.value) == 0 and FactionAbilityManager.unit_has_more_dakka_waaagh_sustained(actor_unit):
+			sustained_data = {"value": 1, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS 1 granted by DAKKA! DAKKA! DAKKA! (More Dakka! detachment, Waaagh! active)")
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -3883,6 +3888,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if tg_val > int(sustained_data.value):
 			sustained_data = {"value": tg_val, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS %d granted by TARGETIN' GIZMOS (Waaagh! active)" % tg_val)
+		# DAKKA! DAKKA! DAKKA! (More Dakka! detachment): ranged SUSTAINED HITS 1
+		# for ORKS INFANTRY/WALKER while the Waaagh! is active
+		if int(sustained_data.value) == 0 and FactionAbilityManager.unit_has_more_dakka_waaagh_sustained(actor_unit):
+			sustained_data = {"value": 1, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS 1 granted by DAKKA! DAKKA! DAKKA! (More Dakka! detachment, Waaagh! active)")
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -4697,16 +4707,19 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 	# Check this BEFORE the cannot_shoot flag, since Advanced units CAN shoot (with restrictions)
 	var actor_advanced = flags.get("advanced", false)
 
-	# Units that Fell Back cannot shoot (unless special rules like fall_back_and_shoot)
+	# Units that Fell Back cannot shoot (unless special rules like
+	# fall_back_and_shoot or Kult of Speed's Adrenaline Junkies)
 	if flags.get("fell_back", false):
-		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(actor_unit):
+		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(actor_unit) \
+				and not FactionAbilityManager.unit_has_adrenaline_junkies(actor_unit):
 			errors.append("Unit cannot shoot (fell back)")
 			return {"valid": false, "errors": errors}
 
 	# Legacy cannot_shoot flag check - but skip if unit advanced (since advanced units CAN shoot)
 	# or has the fall_back_and_shoot effect overriding the post-Fall-Back lockout
 	if flags.get("cannot_shoot", false) and not actor_advanced:
-		if not (flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_shoot(actor_unit)):
+		if not (flags.get("fell_back", false) and (EffectPrimitivesData.has_effect_fall_back_and_shoot(actor_unit) \
+				or FactionAbilityManager.unit_has_adrenaline_junkies(actor_unit))):
 			errors.append("Unit cannot shoot")
 
 	# PISTOL RULES: Check if actor is in engagement range
@@ -4731,8 +4744,12 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					errors.append("Non-Pistol weapon '%s' cannot be fired while in engagement range" % weapon_profile.get("name", weapon_id))
 
 				# ASSAULT RULES: If unit Advanced, only Assault weapons can be used
-				# EXCEPTION: Units with advance_and_shoot effect can fire all weapons after Advancing
-				if actor_advanced and not is_assault_weapon(weapon_id, board) and not EffectPrimitivesData.has_effect_advance_and_shoot(actor_unit):
+				# EXCEPTION: Units with advance_and_shoot effect (or a
+				# detachment-granted unit-wide ASSAULT — More Dakka! /
+				# Adrenaline Junkies) can fire all weapons after Advancing
+				if actor_advanced and not is_assault_weapon(weapon_id, board) \
+						and not EffectPrimitivesData.has_effect_advance_and_shoot(actor_unit) \
+						and not FactionAbilityManager.unit_has_detachment_assault(actor_unit):
 					errors.append("Cannot fire non-Assault weapon '%s' after Advancing" % weapon_profile.get("name", weapon_id))
 
 				# MA-26: WEAPON OWNERSHIP VALIDATION — verify each model in the assignment

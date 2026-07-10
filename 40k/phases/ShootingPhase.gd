@@ -3809,15 +3809,18 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	# Check this BEFORE cannot_shoot flag since Advanced units CAN shoot (with restrictions)
 	# EXCEPTION: Units with advance_and_shoot effect can shoot with ALL weapons after Advancing
 	if flags.get("advanced", false):
-		if EffectPrimitivesData.has_effect_advance_and_shoot(unit):
+		if EffectPrimitivesData.has_effect_advance_and_shoot(unit) \
+				or FactionAbilityManager.unit_has_detachment_assault(unit):
 			DebugLogger.info(str("ShootingPhase: Unit %s advanced but has advance_and_shoot effect — eligible to shoot with all weapons" % unit.get("id", "unknown")))
 		else:
 			# Unit advanced - can only shoot if it has Assault weapons
 			return _unit_has_assault_weapons(unit)
 
-	# Units that Fell Back cannot shoot (unless special rules)
+	# Units that Fell Back cannot shoot (unless special rules — the
+	# fall_back_and_shoot effect or Kult of Speed's Adrenaline Junkies)
 	if flags.get("fell_back", false):
-		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(unit):
+		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(unit) \
+				and not FactionAbilityManager.unit_has_adrenaline_junkies(unit):
 			return false
 		else:
 			DebugLogger.info(str("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — eligible to shoot" % unit.get("id", "unknown")))
@@ -3825,7 +3828,8 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	# Check other restriction flags (but skip for advanced units handled above)
 	# fall_back_and_shoot effect (e.g., MULTIPOTENTIALITY) overrides the cannot_shoot lockout from Fall Back
 	if flags.get("cannot_shoot", false):
-		if flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_shoot(unit):
+		if flags.get("fell_back", false) and (EffectPrimitivesData.has_effect_fall_back_and_shoot(unit) \
+				or FactionAbilityManager.unit_has_adrenaline_junkies(unit)):
 			DebugLogger.info(str("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — overriding cannot_shoot" % unit.get("id", "unknown")))
 		else:
 			return false
@@ -7199,6 +7203,10 @@ func _process_use_wazblasta(_action: Dictionary) -> Dictionary:
 	}, {
 		"op": "set",
 		"path": "units.%s.flags.cannot_charge" % unit_id,
+		"value": true
+	}, {
+		"op": "set",
+		"path": "units.%s.flags.wazblasta_no_charge" % unit_id,
 		"value": true
 	}]
 	log_phase_message("WAZBLASTA: %s can make a Normal move of up to 6\" — not eligible to charge this turn" % unit_name)

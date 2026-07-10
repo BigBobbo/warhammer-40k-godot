@@ -625,7 +625,8 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	var unit_data = get_unit(unit_id)
 	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
 		or FactionAbilityManager.unit_has_green_tide_charge_reroll(unit_data, GameState.state.get("units", {})) \
-		or FactionAbilityManager.unit_has_prey_charge_reroll(unit_data, target_ids, GameState.state.get("units", {}))
+		or FactionAbilityManager.unit_has_prey_charge_reroll(unit_data, target_ids, GameState.state.get("units", {})) \
+		or FactionAbilityManager.unit_has_detachment_charge_reroll(unit_data)
 
 	if has_ability_reroll:
 		# Offer free ability reroll first (before Command Re-roll)
@@ -1637,10 +1638,15 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	# Waaagh! (advance_and_charge) or Full Throttle (fall_back_and_charge) can override it.
 	if flags.get("cannot_charge", false):
 		var can_override = false
-		if flags.get("advanced", false) and EffectPrimitivesData.has_effect_advance_and_charge(unit):
+		# Adrenaline Junkies (Kult of Speed): Speed Freeks may charge after
+		# Advancing or Falling Back. It does NOT override other charge locks
+		# (e.g. Wazblasta's post-shooting move).
+		var adrenaline = FactionAbilityManager.unit_has_adrenaline_junkies(unit) \
+			and not flags.get("wazblasta_no_charge", false)
+		if flags.get("advanced", false) and (EffectPrimitivesData.has_effect_advance_and_charge(unit) or adrenaline):
 			can_override = true
 			DebugLogger.info(str("ChargePhase: Unit %s advanced but has advance_and_charge effect — overriding cannot_charge" % unit.get("id", "unknown")))
-		if flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_charge(unit):
+		if flags.get("fell_back", false) and (EffectPrimitivesData.has_effect_fall_back_and_charge(unit) or adrenaline):
 			can_override = true
 			DebugLogger.info(str("ChargePhase: Unit %s fell back but has fall_back_and_charge effect — overriding cannot_charge" % unit.get("id", "unknown")))
 		if not can_override:

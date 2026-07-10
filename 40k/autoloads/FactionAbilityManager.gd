@@ -968,6 +968,131 @@ func _apply_get_stuck_in(player: int) -> void:
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		print("FactionAbilityManager: Get Stuck In (Sustained Hits 1 melee) applied to %s (%s)" % [unit_name, unit_id])
 
+# ============================================================================
+# PASSIVE ORK DETACHMENT RULES (2026-07 sweep follow-up)
+# ============================================================================
+
+func _apply_mob_mentality(player: int) -> void:
+	"""Green Tide — Mob Mentality: BOYZ units have a 6+ invulnerable save,
+	5+ while containing 10 or more models (counts-as-10 effects included).
+	Applied as effect_invuln flags at each Command phase start; never
+	overwrites a better invulnerable save from another source. Mid-round
+	casualties only downgrade at the next refresh (documented simplification
+	— RAW checks the model count per attack)."""
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if not _unit_has_keyword(unit, "BOYZ"):
+			continue
+		var alive := 0
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				alive += 1
+		if alive == 0:
+			continue
+		var inv = 5 if (alive >= 10 or unit_counts_as_10(unit)) else 6
+		if not unit.has("flags"):
+			unit["flags"] = {}
+		var current = int(unit["flags"].get("effect_invuln", 0))
+		if current > 0 and current <= inv:
+			continue
+		unit["flags"]["effect_invuln"] = inv
+		unit["flags"]["effect_invuln_source"] = "Mob Mentality"
+		print("FactionAbilityManager: Mob Mentality — %s has a %d+ invulnerable save (%d models)" % [unit_id, inv, alive])
+
+func _apply_detachment_keyword_grants(player: int, detachment: String) -> void:
+	"""11e detachment keyword grants: Dread Mob Gretchin and Taktikal Brigade
+	Stormboyz gain BATTLELINE."""
+	var match_kw := ""
+	if detachment == "Dread Mob":
+		match_kw = "GRETCHIN"
+	elif detachment == "Taktikal Brigade":
+		match_kw = "STORMBOYZ"
+	else:
+		return
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if not _unit_has_keyword(unit, match_kw):
+			continue
+		var kws: Array = unit.get("meta", {}).get("keywords", [])
+		if not "BATTLELINE" in kws:
+			kws.append("BATTLELINE")
+			print("FactionAbilityManager: %s — %s gains BATTLELINE" % [detachment, unit_id])
+
+func unit_has_detachment_assault(unit: Dictionary) -> bool:
+	"""Unit-wide ranged-ASSAULT detachment rules: More Dakka!'s Dakka! Dakka!
+	Dakka! (ORKS INFANTRY/WALKER weapons have ASSAULT) and Kult of Speed's
+	Adrenaline Junkies (Speed Freeks eligible to shoot after Advancing)."""
+	var owner = int(unit.get("owner", 0))
+	if owner <= 0:
+		return false
+	var detachment = get_player_detachment(owner)
+	if detachment == "More Dakka!":
+		return _unit_has_keyword(unit, "ORKS") \
+			and (_unit_has_keyword(unit, "INFANTRY") or _unit_has_keyword(unit, "WALKER"))
+	if detachment == "Kult of Speed":
+		return _unit_has_keyword(unit, "SPEED FREEKS")
+	return false
+
+func unit_has_adrenaline_junkies(unit: Dictionary) -> bool:
+	"""Kult of Speed — Adrenaline Junkies: Speed Freeks units are eligible to
+	shoot and declare a charge in a turn in which they Advanced or Fell Back."""
+	var owner = int(unit.get("owner", 0))
+	if owner <= 0:
+		return false
+	return get_player_detachment(owner) == "Kult of Speed" and _unit_has_keyword(unit, "SPEED FREEKS")
+
+func unit_has_more_dakka_waaagh_sustained(unit: Dictionary) -> bool:
+	"""More Dakka! — while the Waaagh! is active, ranged weapons on ORKS
+	INFANTRY/WALKER models also have SUSTAINED HITS 1."""
+	var owner = int(unit.get("owner", 0))
+	if owner <= 0 or get_player_detachment(owner) != "More Dakka!":
+		return false
+	if not (_unit_has_keyword(unit, "ORKS") and (_unit_has_keyword(unit, "INFANTRY") or _unit_has_keyword(unit, "WALKER"))):
+		return false
+	return is_waaagh_active_for_unit(unit)
+
+func _unit_is_thundering_wagon(unit: Dictionary) -> bool:
+	return _unit_has_keyword(unit, "BATTLEWAGON") or _unit_has_keyword(unit, "KILL RIG") or _unit_has_keyword(unit, "HUNTA RIG")
+
+func unit_has_detachment_charge_reroll(unit: Dictionary) -> bool:
+	"""Charge re-roll detachment rules: Blitz Brigade's Eager for the Fight
+	(ORKS units that disembarked this turn) and Rollin' Deff's Thundering
+	Wagons (Battlewagon / Kill Rig / Hunta Rig units)."""
+	var owner = int(unit.get("owner", 0))
+	if owner <= 0:
+		return false
+	var detachment = get_player_detachment(owner).replace("’", "'")
+	if detachment == "Blitz Brigade":
+		return unit.get("disembarked_this_phase", false) and _unit_has_keyword(unit, "ORKS")
+	if detachment == "Rollin' Deff":
+		return _unit_is_thundering_wagon(unit)
+	return false
+
+func unit_has_detachment_advance_reroll(unit: Dictionary) -> bool:
+	"""Blitz Brigade — Eager for the Fight: re-roll Advance rolls for ORKS
+	units that disembarked from a Transport this turn."""
+	var owner = int(unit.get("owner", 0))
+	if owner <= 0:
+		return false
+	return get_player_detachment(owner) == "Blitz Brigade" \
+		and unit.get("disembarked_this_phase", false) and _unit_has_keyword(unit, "ORKS")
+
+func get_thundering_wagons_advance_override(unit: Dictionary) -> int:
+	"""Rollin' Deff — Thundering Wagons: the rigs do not roll for Advance —
+	their Advance is a flat 6". Returns 0 when not applicable."""
+	var owner = int(unit.get("owner", 0))
+	if owner <= 0:
+		return 0
+	if get_player_detachment(owner).replace("’", "'") != "Rollin' Deff":
+		return 0
+	return 6 if _unit_is_thundering_wagon(unit) else 0
+
 # ---- MARTIAL MASTERY (Adeptus Custodes — Shield Host) ----
 
 func get_active_mastery(player: int) -> String:
@@ -2522,6 +2647,14 @@ func on_command_phase_start(player: int) -> void:
 	var detachment = get_player_detachment(player)
 	if detachment == "War Horde":
 		_apply_get_stuck_in(player)
+
+	# Green Tide — Mob Mentality: refresh the BOYZ 6+/5+ invulnerable save
+	if detachment == "Green Tide":
+		_apply_mob_mentality(player)
+
+	# 11e detachment keyword grants (Dread Mob Gretchin / Taktikal Stormboyz
+	# gain BATTLELINE)
+	_apply_detachment_keyword_grants(player, detachment)
 
 	# Clear loot objective from previous round (Freebooter Krew — OA-1)
 	# Loot objective resets each battle round; selection happens via action in CommandPhase

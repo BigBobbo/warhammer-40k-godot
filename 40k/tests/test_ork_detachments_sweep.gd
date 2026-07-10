@@ -105,6 +105,7 @@ func _run():
 	_dread_mob(SM, GS, FAM, rules)
 	_blitz_brigade(SM, GS, FAM, rules)
 	_rollin_deff(SM, GS, FAM, rules)
+	_detachment_rules(SM, GS, FAM, rules)
 
 
 # ==========================================================================
@@ -1214,6 +1215,97 @@ func _rollin_deff(SM, GS, FAM, rules):
 	_check("Dead Shiny Shootas / Da Gobshot Thunderbuss shared entries exist",
 		root.get_node("UnitAbilityManager").ABILITY_EFFECTS.has("Dead Shiny Shootas")
 		and root.get_node("UnitAbilityManager").ABILITY_EFFECTS.has("Da Gobshot Thunderbuss"))
+
+
+# ==========================================================================
+# PASSIVE DETACHMENT RULES (Mob Mentality / Dakka!x3 / Adrenaline Junkies /
+# Eager for the Fight / Thundering Wagons / keyword grants)
+# ==========================================================================
+func _set_detachment(GS, FAM, player: int, detachment: String) -> void:
+	if not GS.state.has("factions"):
+		GS.state["factions"] = {}
+	GS.state["factions"][str(player)] = {"name": "Orks", "detachment": detachment}
+	FAM.detect_player_detachment(player)
+
+
+func _detachment_rules(_SM, GS, FAM, rules):
+	print("\n===== PASSIVE DETACHMENT RULES =====")
+
+	# ---- Green Tide — Mob Mentality --------------------------------------------
+	_set_detachment(GS, FAM, 1, "Green Tide")
+	GS.state["units"] = {
+		"U_MM_BIG": _boyz_unit("U_MM_BIG", 12),
+		"U_MM_SMALL": _boyz_unit("U_MM_SMALL", 5),
+		"U_MM_GRETCHIN": _boyz_unit("U_MM_GRETCHIN", 10),
+		"U_MM_SHIELDED": _boyz_unit("U_MM_SHIELDED", 12),
+	}
+	GS.get_unit("U_MM_GRETCHIN")["meta"]["keywords"] = ["ORKS", "INFANTRY", "GRETCHIN"]
+	GS.get_unit("U_MM_SHIELDED")["flags"]["effect_invuln"] = 4
+	GS.get_unit("U_MM_SHIELDED")["flags"]["effect_invuln_source"] = "Test Shield"
+	FAM._apply_mob_mentality(1)
+	_check("Mob Mentality: 5+ invulnerable for a 12-model BOYZ unit",
+		int(GS.get_unit("U_MM_BIG")["flags"].get("effect_invuln", 0)) == 5)
+	_check("Mob Mentality: 6+ invulnerable for a 5-model BOYZ unit",
+		int(GS.get_unit("U_MM_SMALL")["flags"].get("effect_invuln", 0)) == 6)
+	_check("Mob Mentality: non-BOYZ untouched",
+		not GS.get_unit("U_MM_GRETCHIN")["flags"].has("effect_invuln"))
+	_check("Mob Mentality: never overwrites a better invulnerable save",
+		int(GS.get_unit("U_MM_SHIELDED")["flags"].get("effect_invuln", 0)) == 4
+		and GS.get_unit("U_MM_SHIELDED")["flags"].get("effect_invuln_source", "") == "Test Shield")
+
+	# ---- Keyword grants ----------------------------------------------------------
+	_set_detachment(GS, FAM, 1, "Dread Mob")
+	GS.state["units"] = {"U_KG_GROTS": _boyz_unit("U_KG_GROTS", 10), "U_KG_STORM": _boyz_unit("U_KG_STORM", 5)}
+	GS.get_unit("U_KG_GROTS")["meta"]["keywords"] = ["ORKS", "INFANTRY", "GRETCHIN"]
+	GS.get_unit("U_KG_STORM")["meta"]["keywords"] = ["ORKS", "INFANTRY", "STORMBOYZ"]
+	FAM._apply_detachment_keyword_grants(1, "Dread Mob")
+	_check("Dread Mob: Gretchin gain BATTLELINE",
+		"BATTLELINE" in GS.get_unit("U_KG_GROTS")["meta"]["keywords"])
+	_check("Dread Mob: Stormboyz do not",
+		not "BATTLELINE" in GS.get_unit("U_KG_STORM")["meta"]["keywords"])
+	FAM._apply_detachment_keyword_grants(1, "Taktikal Brigade")
+	_check("Taktikal Brigade: Stormboyz gain BATTLELINE",
+		"BATTLELINE" in GS.get_unit("U_KG_STORM")["meta"]["keywords"])
+
+	# ---- More Dakka! — Dakka! Dakka! Dakka! ---------------------------------------
+	_set_detachment(GS, FAM, 1, "More Dakka!")
+	var md_inf = {"owner": 1, "meta": {"keywords": ["ORKS", "INFANTRY"]}, "flags": {}, "models": []}
+	var md_veh = {"owner": 1, "meta": {"keywords": ["ORKS", "VEHICLE"]}, "flags": {}, "models": []}
+	var md_walker = {"owner": 1, "meta": {"keywords": ["VEHICLE", "WALKER", "GROTS"]}, "flags": {}, "models": []}
+	_check("Dakka!x3: ORKS INFANTRY have unit-wide ASSAULT", FAM.unit_has_detachment_assault(md_inf))
+	_check("Dakka!x3: non-Walker VEHICLE does not", not FAM.unit_has_detachment_assault(md_veh))
+	_check("Dakka!x3: no sustained without a Waaagh!", not FAM.unit_has_more_dakka_waaagh_sustained(md_inf))
+	md_inf["flags"]["waaagh_active"] = true
+	_check("Dakka!x3: SUSTAINED HITS 1 during the Waaagh!", FAM.unit_has_more_dakka_waaagh_sustained(md_inf))
+	_check("Dakka!x3: Grots Walker lacks ORKS keyword — no ASSAULT", not FAM.unit_has_detachment_assault(md_walker))
+
+	# ---- Kult of Speed — Adrenaline Junkies ----------------------------------------
+	_set_detachment(GS, FAM, 1, "Kult of Speed")
+	var aj_freek = {"owner": 1, "meta": {"keywords": ["ORKS", "SPEED FREEKS", "MOUNTED"]}, "flags": {}, "models": []}
+	var aj_boyz = {"owner": 1, "meta": {"keywords": ["ORKS", "INFANTRY", "BOYZ"]}, "flags": {}, "models": []}
+	_check("Adrenaline Junkies: Speed Freeks qualify", FAM.unit_has_adrenaline_junkies(aj_freek))
+	_check("Adrenaline Junkies: Boyz do not", not FAM.unit_has_adrenaline_junkies(aj_boyz))
+	_check("Adrenaline Junkies: Speed Freeks get unit-wide ASSAULT too", FAM.unit_has_detachment_assault(aj_freek))
+	_set_detachment(GS, FAM, 1, "War Horde")
+	_check("Adrenaline Junkies: inactive outside Kult of Speed", not FAM.unit_has_adrenaline_junkies(aj_freek))
+
+	# ---- Blitz Brigade — Eager for the Fight ----------------------------------------
+	_set_detachment(GS, FAM, 1, "Blitz Brigade")
+	var ef_out = {"owner": 1, "disembarked_this_phase": true, "meta": {"keywords": ["ORKS", "INFANTRY"]}, "flags": {}, "models": []}
+	var ef_in = {"owner": 1, "meta": {"keywords": ["ORKS", "INFANTRY"]}, "flags": {}, "models": []}
+	_check("Eager for the Fight: charge re-roll after disembarking", FAM.unit_has_detachment_charge_reroll(ef_out))
+	_check("Eager for the Fight: advance re-roll after disembarking", FAM.unit_has_detachment_advance_reroll(ef_out))
+	_check("Eager for the Fight: nothing without a disembark", not FAM.unit_has_detachment_charge_reroll(ef_in))
+
+	# ---- Rollin' Deff — Thundering Wagons ---------------------------------------------
+	_set_detachment(GS, FAM, 1, "Rollin’ Deff")
+	var tw_rig = {"owner": 1, "meta": {"keywords": ["MONSTER", "TRANSPORT", "KILL RIG"]}, "flags": {}, "models": []}
+	var tw_trukk = {"owner": 1, "meta": {"keywords": ["ORKS", "VEHICLE", "TRUKK"]}, "flags": {}, "models": []}
+	_check("Thundering Wagons: Kill Rig re-rolls charges", FAM.unit_has_detachment_charge_reroll(tw_rig))
+	_check("Thundering Wagons: Kill Rig advances a flat 6\"", FAM.get_thundering_wagons_advance_override(tw_rig) == 6)
+	_check("Thundering Wagons: Trukk is not a rig", FAM.get_thundering_wagons_advance_override(tw_trukk) == 0
+		and not FAM.unit_has_detachment_charge_reroll(tw_trukk))
+	_set_detachment(GS, FAM, 1, "War Horde")
 
 
 # ==========================================================================
