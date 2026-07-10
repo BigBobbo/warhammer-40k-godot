@@ -5275,7 +5275,12 @@ func _validate_use_stratagem(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": errors}
 
 	var target_unit_id = action.get("target_unit_id", "")
-	var current_player = get_current_player()
+	# SOAK-2: fight-phase stratagems are usable in the OPPONENT'S turn (both
+	# players fight). Validate for the submitting player, not the turn owner —
+	# validating against get_current_player() rejected every legal
+	# opponent's-turn use ("This stratagem belongs to player N") and the AI
+	# burned its whole action budget retrying.
+	var current_player = int(action.get("player", get_current_player()))
 	var validation = strat_manager.can_use_stratagem(current_player, stratagem_id, target_unit_id)
 	if not validation.can_use:
 		errors.append(validation.reason)
@@ -5286,7 +5291,8 @@ func _validate_use_stratagem(action: Dictionary) -> Dictionary:
 func _process_use_stratagem(action: Dictionary) -> Dictionary:
 	var stratagem_id = action.get("stratagem_id", "")
 	var target_unit_id = action.get("target_unit_id", "")
-	var current_player = get_current_player()
+	# SOAK-2: apply for the submitting player (see _validate_use_stratagem)
+	var current_player = int(action.get("player", get_current_player()))
 
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if not strat_manager:

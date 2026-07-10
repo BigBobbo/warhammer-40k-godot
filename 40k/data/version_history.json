@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.9.1",
+			"date": "2026-07-10",
+			"summary": "A 20-game AI-vs-AI benchmark soak found and fixed three ways games could freeze mid-battle, plus a wasted Ork heal.",
+			"changes": [
+				"Fixed games freezing near the end of big movement phases: the AI's runaway-loop safety cap counted every model's move as an 'action', so armies with lots of models tripped it mid-phase and the game locked up (especially when the Painboss heal window opened at the same moment). The cap now only trips after 200 consecutive attempts that make no progress, and when it does trip it can resolve any pending window instead of freezing.",
+				"Fixed fight-phase stratagems being rejected when used during the opponent's turn (e.g. Orks using Unbridled Carnage in your fight phase) — the game validated them against whoever's turn it was instead of who was using them.",
+				"Fixed AI-vs-AI fights where the second AI player picked fight activations from the first AI's plan, which could silently end the fight phase early.",
+				"The Painboss's Sawbonez heal now actually heals: the AI was dropping the target model when using it, so the heal did nothing. It also now picks the most-wounded eligible model.",
+				"Committed the first AI benchmark baseline (tests/bench_baselines/): 20 games across Normal and Hard, all seeds now complete without stalls."
+			]
+		},
+		{
 			"version": "0.9.0",
 			"date": "2026-07-09",
 			"summary": "The AI now coordinates its movement phase like an army: units know what their squadmates are already doing, and the whole battle plan is narrated in the game log.",

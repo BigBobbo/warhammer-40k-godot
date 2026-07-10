@@ -104,10 +104,13 @@ static var _movement_recorded_units: Dictionary = {}
 # {unit_id: [candidate dicts]}
 static var _last_movement_candidates: Dictionary = {}
 
-# T7-46: Fight order optimization cache — built once per fight phase
-# Priority-sorted array of unit_ids for optimal fight activation order
-static var _fight_order_plan: Array = []
-static var _fight_order_plan_built: bool = false
+# T7-46: Fight order optimization cache — built once per fight phase.
+# SOAK-3: keyed PER PLAYER — fight activation alternates between players, so a
+# single shared plan meant the second AI consumed the first AI's planned unit
+# ids (submitting SELECT_FIGHTER for units it doesn't own / that aren't
+# offered, whose rejection triggers the END_FIGHT failure fallback).
+static var _fight_order_plan: Dictionary = {}        # {player: [unit_ids]}
+static var _fight_order_plan_built: Dictionary = {}  # {player: bool}
 
 # T7-25: Secondary mission awareness cache — built in command phase, consumed by movement
 # Stores analysis of active secondary missions to inform movement positioning and target priority
@@ -187,7 +190,7 @@ static func reset_caches() -> void:
 	_movement_recorded_units.clear()
 	_last_movement_candidates.clear()
 	_fight_order_plan.clear()
-	_fight_order_plan_built = false
+	_fight_order_plan_built.clear()
 	_secondary_awareness_p1.clear()
 	_secondary_awareness_p2.clear()
 	_secondary_awareness_round_p1 = -1
@@ -1007,8 +1010,8 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 
 	# T7-46: Reset fight order plan when not in fight phase
 	if phase != GameStateData.Phase.FIGHT:
-		if _fight_order_plan_built:
-			_fight_order_plan_built = false
+		if not _fight_order_plan_built.is_empty():
+			_fight_order_plan_built.clear()
 			_fight_order_plan.clear()
 		_fight_order_logged = false
 		_fight_attack_retry_count.clear()
@@ -1142,7 +1145,7 @@ static func _snapshot_planning_state() -> Dictionary:
 		"movement_recorded_units": _movement_recorded_units.duplicate(true),
 		"last_movement_candidates": _last_movement_candidates.duplicate(true),
 		"fight_order_plan": _fight_order_plan.duplicate(true),
-		"fight_order_plan_built": _fight_order_plan_built,
+		"fight_order_plan_built": _fight_order_plan_built.duplicate(true),
 		"fight_order_logged": _fight_order_logged,
 		"fight_attack_retry_count": _fight_attack_retry_count.duplicate(true),
 		"charge_coordination": _charge_coordination.duplicate(true),
@@ -4159,15 +4162,32 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 		}
 
 	# Step 0.5: Handle Sawbonez healing ability (Painboss)
-	# Always use Sawbonez — free healing is always beneficial
+	# Always use Sawbonez — free healing is always beneficial.
+	# Pick the most-wounded offered target and pass the model fields through —
+	# _process_use_sawbonez heals via target_model_index; dropping it made the
+	# heal a silent no-op.
 	if action_types.has("USE_SAWBONEZ"):
-		var sawbonez_action = action_types["USE_SAWBONEZ"][0]
+		var best_sb = action_types["USE_SAWBONEZ"][0]
+		var best_sb_missing := -1.0
+		for sb in action_types["USE_SAWBONEZ"]:
+			var sb_tuid = sb.get("target_unit_id", "")
+			var sb_unit = snapshot.get("units", {}).get(sb_tuid, {})
+			var sb_idx = int(sb.get("target_model_index", -1))
+			var sb_models = sb_unit.get("models", [])
+			if sb_idx >= 0 and sb_idx < sb_models.size():
+				var m = sb_models[sb_idx]
+				var missing = float(m.get("wounds", 1)) - float(m.get("current_wounds", 1))
+				if missing > best_sb_missing:
+					best_sb_missing = missing
+					best_sb = sb
 		return {
 			"type": "USE_SAWBONEZ",
-			"actor_unit_id": sawbonez_action.get("actor_unit_id", ""),
-			"target_unit_id": sawbonez_action.get("target_unit_id", sawbonez_action.get("actor_unit_id", "")),
+			"actor_unit_id": best_sb.get("actor_unit_id", ""),
+			"target_unit_id": best_sb.get("target_unit_id", best_sb.get("actor_unit_id", "")),
+			"target_model_id": best_sb.get("target_model_id", ""),
+			"target_model_index": best_sb.get("target_model_index", -1),
 			"player": player,
-			"_ai_description": "AI uses Sawbonez healing"
+			"_ai_description": "AI uses Sawbonez healing (heal up to 3 wounds)"
 		}
 
 	# Step 1: If CONFIRM_UNIT_MOVE is available, confirm it
@@ -13007,32 +13027,41 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 	if action_types.has("SELECT_FIGHTER"):
 		var offered_action = action_types["SELECT_FIGHTER"][0]
 		var offered_uid = offered_action.get("unit_id", "")
+		# SOAK-3: all unit ids actually offered — the engine may offer exactly
+		# one (the sequenced unit); a plan pick outside this set gets rejected
+		# and the failure fallback ends the whole fight phase.
+		var offered_ids: Array = []
+		for ofa in action_types["SELECT_FIGHTER"]:
+			var ouid = ofa.get("unit_id", "")
+			if ouid != "":
+				offered_ids.append(ouid)
 
-		# Build fight order plan once per fight phase
-		if not _fight_order_plan_built:
-			_fight_order_plan = _build_fight_order_plan(snapshot, player)
-			_fight_order_plan_built = true
+		# Build fight order plan once per fight phase — per player (SOAK-3)
+		if not _fight_order_plan_built.get(player, false):
+			_fight_order_plan[player] = _build_fight_order_plan(snapshot, player)
+			_fight_order_plan_built[player] = true
 			# Log fight order thinking step
 			if not _fight_order_logged:
 				_fight_order_logged = true
-				if not _fight_order_plan.is_empty():
+				if not _fight_order_plan[player].is_empty():
 					var order_names = []
-					for fuid in _fight_order_plan:
+					for fuid in _fight_order_plan[player]:
 						var fu = snapshot.get("units", {}).get(fuid, {})
 						order_names.append(fu.get("meta", {}).get("name", fuid))
 					_add_thinking_step("Fight activation order: %s" % ", ".join(order_names))
 				else:
 					_add_thinking_step("No units available to fight")
 
-		# Pick the best unit from the plan that hasn't been used yet
+		# Pick the best PLANNED unit among those actually offered
 		var chosen_uid = offered_uid  # Fallback to offered unit
-		for planned_uid in _fight_order_plan:
-			# The planned unit is our best pick — use it
-			chosen_uid = planned_uid
-			break
+		var player_plan: Array = _fight_order_plan.get(player, [])
+		for planned_uid in player_plan:
+			if planned_uid in offered_ids:
+				chosen_uid = planned_uid
+				break
 
 		# Remove the chosen unit from the plan (consumed)
-		_fight_order_plan.erase(chosen_uid)
+		player_plan.erase(chosen_uid)
 
 		var unit = snapshot.get("units", {}).get(chosen_uid, {})
 		var unit_name = unit.get("meta", {}).get("name", chosen_uid)
@@ -13068,7 +13097,9 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			var fight_strat = evaluate_proactive_faction_stratagems(snapshot, player, "fight")
 			if not fight_strat.is_empty():
 				# Re-queue the chosen fighter — the stratagem resolves first
-				_fight_order_plan.insert(0, chosen_uid)
+				player_plan.insert(0, chosen_uid)
+				if not _fight_order_plan.has(player):
+					_fight_order_plan[player] = player_plan
 				return fight_strat
 
 		return {

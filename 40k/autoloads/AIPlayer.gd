@@ -631,6 +631,13 @@ func _on_result_applied(_result: Dictionary) -> void:
 func _on_phase_action_taken(_action: Dictionary) -> void:
 	if not enabled or PhaseManager.game_ended:
 		return
+	# SOAK-1: a successful phase action IS progress — reset the safety counter
+	# so MAX_ACTIONS_PER_PHASE measures CONSECUTIVE non-progress, not volume.
+	# Big armies legitimately need >200 submissions in one movement phase
+	# (every model stage counts); the old volume cap tripped mid-phase and,
+	# when the phase was in a sub-state with no END_* action available
+	# (Sawbonez window, fight selection), the AI froze for the rest of the game.
+	_current_phase_actions = 0
 	# After any phase action, check if AI should act next
 	# This is the primary trigger in single-player mode
 	DebugLogger.info("AIPlayer._on_phase_action_taken - scheduling evaluation", {"action_type": _action.get("type", "?"), "enabled": enabled})
@@ -1534,19 +1541,35 @@ func _evaluate_and_act() -> void:
 		_end_ai_thinking()
 		return
 
-	# Safety check - prevent infinite action loops
+	# Safety check - prevent infinite action loops. The counter resets on every
+	# SUCCESSFUL phase action (_on_phase_action_taken), so reaching the cap
+	# means 200 consecutive attempts made no progress — a genuine deadlock.
 	if _current_phase_actions >= MAX_ACTIONS_PER_PHASE:
-		push_error("AIPlayer: Hit max actions (%d) for current phase! Attempting to end phase." % MAX_ACTIONS_PER_PHASE)
+		push_error("AIPlayer: Hit max actions (%d) without progress! Attempting to unstick the phase." % MAX_ACTIONS_PER_PHASE)
 		var pm = get_node_or_null("/root/PhaseManager")
 		if pm:
 			var fallback_actions = pm.get_available_actions()
-			for fa in fallback_actions:
-				var ft = fa.get("type", "")
-				if ft.begins_with("END_") or ft == "GAME_OVER":
-					print("AIPlayer: Max actions fallback — sending %s to end phase" % ft)
-					NetworkIntegration.route_action(fa)
-					_end_ai_thinking()
-					return
+			# SOAK-1 tiered escape: prefer ending the phase; else resolve the
+			# blocking sub-state (decline/skip); else route ANY offered action —
+			# forward progress resets the counter and unfreezes the game. The
+			# old escape only knew END_*, so sub-states (Sawbonez window, fight
+			# selection) froze the game permanently.
+			for wanted in ["end", "decline_skip", "any"]:
+				for fa in fallback_actions:
+					var ft = fa.get("type", "")
+					var matches = false
+					match wanted:
+						"end":
+							matches = ft.begins_with("END_") or ft == "GAME_OVER"
+						"decline_skip":
+							matches = ft.begins_with("DECLINE_") or ft.begins_with("SKIP_")
+						"any":
+							matches = true
+					if matches:
+						print("AIPlayer: Max actions fallback — routing %s to make progress" % ft)
+						NetworkIntegration.route_action(fa)
+						_end_ai_thinking()
+						return
 		_end_ai_thinking()
 		return
 
