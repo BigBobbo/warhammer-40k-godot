@@ -210,7 +210,7 @@ full machine-readable decision log to `user://ai_decision_log.json`.
 | Parameter | Default | Meaning |
 |---|---|---|
 | `FACTION_AGGRESSION_DEFAULT` | 1.0 | Baseline aggression |
-| `FACTION_AGGRESSION_ORKS` | 1.8 | Orks: melee-horde aggression (advance + charge more) |
+| `FACTION_AGGRESSION_ORKS` | 1.2 | Orks: melee aggression. Benchmark-tuned down from 1.8 (2026-07-10): at ≥1.5 every melee-capable unit chased enemies instead of holding objectives — see `tests/bench_baselines/2026-07-10_ork_discipline_ab.md` |
 | `FACTION_AGGRESSION_CUSTODES` | 1.5 | Custodes: elite melee aggression |
 | `FACTION_AGGRESSION_WORLD_EATERS` | 2.0 | World Eaters |
 | `FACTION_AGGRESSION_KHORNE` | 1.8 | Khorne daemons |

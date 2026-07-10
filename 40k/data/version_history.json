@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.9.2",
+			"date": "2026-07-10",
+			"summary": "The Ork AI now actually plays the mission: benchmark-driven tuning stopped its whole army chasing enemies across the board while objectives sat unclaimed.",
+			"changes": [
+				"Diagnosed via 60 AI-vs-AI benchmark games: with faction aggression 1.8, 7-11 of ~14 Ork units chased enemies every round (round-1 chases at 45+ inches) — even shooty units like Lootas and Kaptin Badrukk — and Ork primary VP starved at ~6 per game with the army still alive.",
+				"Tuned Ork faction aggression from 1.8 to 1.2 (the exact value validated in A/B benchmark arms): truly melee-focused units (Boyz, Warbosses) still hunt, but mixed and ranged units now follow their objective assignments. Ork primary VP roughly tripled (~6 to ~21 per game) and the average loss margin vs Custodes at Hard halved (-28 to -15), producing the first Ork draw and win in benchmark history.",
+				"Measured first-turn advantage with a turn-swapped fixture: ~19 VP at Hard, ~9 at Normal. Combined with the tuning, disciplined Orks going first play the Custodes to rough parity.",
+				"All experiment tooling is committed and reusable: turn-swapped fixture, two Ork tuning profiles (tests/bench_profiles/), and three analysis reports under tests/bench_baselines/."
+			]
+		},
+		{
 			"version": "0.9.1",
 			"date": "2026-07-10",
 			"summary": "A 20-game AI-vs-AI benchmark soak found and fixed three ways games could freeze mid-battle, plus a wasted Ork heal.",

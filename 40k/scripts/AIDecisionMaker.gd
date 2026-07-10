@@ -668,7 +668,7 @@ const SECONDARY_ENEMY_ZONE_PUSH_BONUS: float = 7.0   # Bonus for Behind Enemy Li
 # These multiply against charge thresholds and movement aggression
 const FACTION_AGGRESSION_DEFAULT: float = 1.0
 const FACTION_AGGRESSION_CUSTODES: float = 1.5     # Custodes are elite melee fighters — fewer units but devastating in combat
-const FACTION_AGGRESSION_ORKS: float = 1.8         # Orks are aggressive melee horde — charge more (raised from 1.6, was 2.2)
+const FACTION_AGGRESSION_ORKS: float = 1.2         # Benchmark-tuned 2026-07-10 (was 1.8): at >=1.5 the melee-seek gate turned even shooty units into cross-board chasers and primary VP starved (~6/game). At 1.2 melee-FOCUSED units still seek; margin improved -28.3 -> -15.1 vs Custodes at Hard. See tests/bench_baselines/2026-07-10_ork_discipline_ab.md
 const FACTION_AGGRESSION_WORLD_EATERS: float = 2.0 # World Eaters — blood for the blood god
 const FACTION_AGGRESSION_KHORNE: float = 1.8        # Khorne daemons — melee focused
 
