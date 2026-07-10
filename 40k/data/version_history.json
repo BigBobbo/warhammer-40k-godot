@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.11.1",
+			"date": "2026-07-10",
+			"summary": "Army builder fix: an imported enhancement now adds its points to the list total (e.g. Kustom Shokk Box +10). The bundled Taktikal Brigade army's Warboss costs were also missing their enhancement points.",
+			"changes": [
+				"Web army builder: importing a pasted list resolved enhancements but priced them at 0 — the roster total and the unit's points row now include the enhancement cost (re-derived from the dataset every reprice, so saved drafts heal too).",
+				"Bundled orks_taktikal army: the Warboss with Skwad Leader now costs 90 pts (75+15) and the Warboss with Mork's Kunnin' 95 pts (75+20); their stored costs had omitted the enhancements."
+			]
+		},
+		{
 			"version": "0.11.0",
 			"date": "2026-07-10",
 			"summary": "Every Ork detachment RULE now works too: Lissen 'Ere Taktiks (Taktikal Brigade), Try Dat Button! (Dread Mob), Turbo Boostas (Speedwaaagh!), Da Boss Is Watchin' (Bully Boyz), plus the passive rules — Mob Mentality, Dakka! Dakka! Dakka!, Adrenaline Junkies, Eager for the Fight and Thundering Wagons. The last two Enhancements (Gob Boomer, Press It Fasta!) come alive with them.",
