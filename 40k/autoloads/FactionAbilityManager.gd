@@ -443,6 +443,34 @@ func deactivate_waaagh(player: int) -> void:
 		_clear_waaagh_effects(player)
 		print("FactionAbilityManager: Waaagh! deactivated for player %d" % player)
 
+# The persistent effect_* flags a Waaagh! (army Waaagh!, Da Boss Is Watchin',
+# Plant the Waaagh! Banner, Grab and Bash — all set waaagh_active) grants to a
+# unit. Per the core rules these last "until the start of your next Command
+# phase", so a per-phase blanket effect-flag clear (e.g. ShootingPhase's
+# end-of-phase stratagem cleanup) must NOT strip them.
+const WAAAGH_PERSISTENT_EFFECT_FLAGS := [
+	"effect_advance_and_charge",
+	"effect_invuln", "effect_invuln_source",
+	"effect_fnp", "effect_fnp_source",
+	"effect_crit_hit_on", "effect_crit_hit_on_source",
+	"effect_oc_override", "effect_oc_source",
+]
+
+func snapshot_persistent_ability_flags(flags: Dictionary) -> Dictionary:
+	"""Return a copy of the Waaagh!-granted effect_* flags on a unit so a
+	phase-end blanket effect-flag clear can restore them afterwards. Returns an
+	empty dict when the unit has no active Waaagh! (waaagh_active is set by every
+	Waaagh! variant, so it is the single gate). Bug (2026-07): units that
+	Advanced during an active Waaagh! lost effect_advance_and_charge at the end
+	of the Shooting phase and so could not charge; the 5+ invuln vanished too."""
+	if not flags.get("waaagh_active", false):
+		return {}
+	var preserved := {}
+	for flag_name in WAAAGH_PERSISTENT_EFFECT_FLAGS:
+		if flags.has(flag_name):
+			preserved[flag_name] = flags[flag_name]
+	return preserved
+
 # ---- DA BOSS IS WATCHIN' (Bully Boyz detachment rule) ----
 # At the start of your Command phase, in a turn in which you have not called
 # a Waaagh!, if you have one or more WARBOSS models on the battlefield (or
