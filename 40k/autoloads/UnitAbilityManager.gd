@@ -1515,17 +1515,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Mek model only. Command phase: D6 vs nearest visible enemy within 18\" — 1-2 Battle-shock, 3-4 D3 MW, 5-6 -1 to hit (FactionAbilityManager hook)"
 	},
 
-	# Press It Fasta! — NOT IMPLEMENTED: extends the Try Dat Button!
-	# detachment rule (roll an extra Button Effect die), and Try Dat Button!
-	# itself is not implemented — the same class of gap as Speedwaaagh!'s
-	# Turbo Boostas and Taktikal Brigade's Gob Boomer.
+	# Press It Fasta! — the bearer's unit rolls one additional Try Dat
+	# Button! die and gains both Button Effects (duplicates add nothing).
+	# Resolved by FactionAbilityManager.process_try_dat_button.
 	"Press It Fasta!": {
 		"condition": "enhancement",
 		"effects": [],
 		"target": "bearer_unit",
 		"attack_type": "all",
-		"implemented": false,
-		"description": "Mek model only. Extra Try Dat Button! die (NOT implemented — requires the unimplemented Try Dat Button! detachment rule)"
+		"implemented": true,
+		"description": "Mek model only. Bearer's unit rolls an extra Try Dat Button! die and gains both Button Effects (FactionAbilityManager hook)"
 	},
 
 	# ======================================================================

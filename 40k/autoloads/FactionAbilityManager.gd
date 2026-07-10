@@ -1093,6 +1093,65 @@ func get_thundering_wagons_advance_override(unit: Dictionary) -> int:
 		return 0
 	return 6 if _unit_is_thundering_wagon(unit) else 0
 
+func process_try_dat_button(unit_id: String, scope: String) -> void:
+	"""Dread Mob — Try Dat Button!: when a Mek / Orks Walker / Grots Vehicle
+	unit is selected to shoot (scope "ranged") or fight (scope "melee"), roll
+	one D6 for the Button Effect — 1-2: SUSTAINED HITS 1; 3-4: LETHAL HITS;
+	5-6: +2 AP (the 40kdc dataset's flatten of the Critical-Wound-only rider,
+	documented). Press It Fasta!: the bearer's unit rolls one additional D6
+	and gains both Button Effects (duplicates add nothing). Effects last
+	until the end of the phase (cleared by the phase exit hooks). The rules'
+	optional choose-instead-of-rolling path (which adds HAZARDOUS) is not
+	offered — the roll is always taken."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return
+	var owner = int(unit.get("owner", 0))
+	if owner <= 0 or get_player_detachment(owner) != "Dread Mob":
+		return
+	if not (_unit_has_keyword(unit, "MEK") or _unit_has_keyword(unit, "WALKER")
+			or (_unit_has_keyword(unit, "GROTS") and _unit_has_keyword(unit, "VEHICLE"))):
+		return
+	if not unit.has("flags"):
+		unit["flags"] = {}
+	# Re-selecting the same unit in the same phase keeps the first result.
+	if unit["flags"].get("try_dat_rolled_this_phase", false):
+		return
+	var rng = RulesEngine.make_rng()
+	var dice_count = 2 if _unit_or_attached_has_enhancement(unit, "Press It Fasta!", GameState.state.get("units", {})) else 1
+	var results: Array = []
+	for _i in range(dice_count):
+		results.append(rng.rng.randi_range(1, 6))
+	unit["flags"]["try_dat_rolled_this_phase"] = true
+	var granted: Array = []
+	for roll in results:
+		if roll <= 2:
+			unit["flags"]["effect_try_dat_sustained_%s" % scope] = true
+			granted.append("SUSTAINED HITS 1")
+		elif roll <= 4:
+			unit["flags"]["effect_try_dat_lethal_%s" % scope] = true
+			granted.append("LETHAL HITS")
+		else:
+			unit["flags"]["effect_try_dat_ap2"] = true
+			granted.append("+2 AP")
+	print("FactionAbilityManager: Try Dat Button! — %s rolled %s -> %s (%s)%s" % [
+		unit_id, str(results), str(granted), scope, " [Press It Fasta!]" if dice_count == 2 else ""])
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel and gel.has_method("add_player_entry"):
+		gel.add_player_entry(owner, "Try Dat Button!: %s rolled %s — %s" % [
+			unit.get("meta", {}).get("name", unit_id), str(results), ", ".join(PackedStringArray(granted))])
+
+func clear_try_dat_flags(scope: String) -> void:
+	"""Clear Try Dat Button! Button Effects at the end of the phase."""
+	for uid in GameState.state.get("units", {}):
+		var uflags = GameState.state["units"][uid].get("flags", {})
+		if uflags.get("try_dat_rolled_this_phase", false):
+			uflags.erase("try_dat_rolled_this_phase")
+			uflags.erase("effect_try_dat_sustained_%s" % scope)
+			uflags.erase("effect_try_dat_lethal_%s" % scope)
+			uflags.erase("effect_try_dat_ap2")
+			print("FactionAbilityManager: Try Dat Button! effects on %s expired (end of phase)" % uid)
+
 # ---- MARTIAL MASTERY (Adeptus Custodes — Shield Host) ----
 
 func get_active_mastery(player: int) -> String:

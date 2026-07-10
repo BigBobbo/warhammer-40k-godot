@@ -126,6 +126,11 @@ func _on_phase_enter() -> void:
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Shooting Phase")
 
+	# TRY DAT BUTTON! (Dread Mob): Button Effects last until end of phase
+	var fam_exit = get_node_or_null("/root/FactionAbilityManager")
+	if fam_exit:
+		fam_exit.clear_try_dat_flags("ranged")
+
 	# CRITICAL: Clear all shooting visuals BEFORE controller is freed
 	# This ensures range circles and other visuals are removed immediately
 	_clear_shooting_visuals()
@@ -828,6 +833,12 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 			active_shooting_type = types_11e[0]
 		log_phase_message("[11e] %s shoots with type: %s (available: %s)" % [unit_id, active_shooting_type, str(types_11e)])
 	_targets_hit_by_shooter.clear()  # P1-11: Reset hit tracking for new shooter
+
+	# TRY DAT BUTTON! (Dread Mob): roll the Button Effect when a Mek / Orks
+	# Walker / Grots Vehicle unit is selected to shoot.
+	var fam_tdb = get_node_or_null("/root/FactionAbilityManager")
+	if fam_tdb:
+		fam_tdb.process_try_dat_button(unit_id, "ranged")
 
 	var unit = get_unit(unit_id)
 

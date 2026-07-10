@@ -208,6 +208,11 @@ func _on_phase_enter() -> void:
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Fight Phase")
 
+	# TRY DAT BUTTON! (Dread Mob): Button Effects last until end of phase
+	var fam_tdb_exit = get_node_or_null("/root/FactionAbilityManager")
+	if fam_tdb_exit:
+		fam_tdb_exit.clear_try_dat_flags("melee")
+
 	# T5-V13: Clear engagement indicator flags
 	_clear_engagement_flags()
 
@@ -1350,6 +1355,12 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 		current_selecting_player,
 		get_unit(active_fighter_id).get("meta", {}).get("name", active_fighter_id)
 	])
+
+	# TRY DAT BUTTON! (Dread Mob): roll the Button Effect when a Mek / Orks
+	# Walker / Grots Vehicle unit is selected to fight.
+	var fam_tdb = get_node_or_null("/root/FactionAbilityManager")
+	if fam_tdb:
+		fam_tdb.process_try_dat_button(active_fighter_id, "melee")
 
 	emit_signal("unit_selected_for_fighting", active_fighter_id)
 	emit_signal("fighter_selected", active_fighter_id)  # Compatibility signal

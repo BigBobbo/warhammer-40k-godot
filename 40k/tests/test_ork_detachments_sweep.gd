@@ -51,7 +51,7 @@ func _sum_wounds(result: Dictionary) -> int:
 	return total
 
 
-func _fight(rules, flags: Dictionary, seed_val: int, tgt_toughness: int = 8, tgt_save: int = 3) -> int:
+func _fight_result(rules, flags: Dictionary, seed_val: int, tgt_toughness: int = 8, tgt_save: int = 3) -> Dictionary:
 	var atk = []
 	for i in range(10):
 		atk.append({"id": "ma%d" % i, "position": {"x": 10.0, "y": 10.0 + i * 30},
@@ -73,7 +73,19 @@ func _fight(rules, flags: Dictionary, seed_val: int, tgt_toughness: int = 8, tgt
 	var rng = rules.RNGService.new()
 	var action := {"type": "FIGHT", "actor_unit_id": "U_ATK",
 		"payload": {"assignments": [{"attacker": "U_ATK", "target": "U_TGT", "weapon": "choppa"}]}}
-	return _sum_wounds(rules.resolve_melee_attacks(action, board, rng))
+	return rules.resolve_melee_attacks(action, board, rng)
+
+
+func _fight(rules, flags: Dictionary, seed_val: int, tgt_toughness: int = 8, tgt_save: int = 3) -> int:
+	return _sum_wounds(_fight_result(rules, flags, seed_val, tgt_toughness, tgt_save))
+
+
+func _sum_casualties(result: Dictionary) -> int:
+	var n := 0
+	for d in result.get("diffs", []):
+		if str(d.get("path", "")).ends_with(".alive") and d.get("value", true) == false:
+			n += 1
+	return n
 
 
 func _boyz_unit(id: String, n_models: int, owner: int = 1, dead: int = 0) -> Dictionary:
@@ -841,8 +853,8 @@ func _dread_mob(SM, GS, FAM, rules):
 	var dm_flags = GS.get_unit("U_MEKGUNZ")["flags"]
 	_check("Gitfinder Googlez sets effect_ignores_cover", dm_flags.get("effect_ignores_cover", false))
 	_check("Smoky Gubbinz sets effect_stealth", dm_flags.get("effect_stealth", false))
-	_check("Press It Fasta! is documented as not implemented",
-		UAM_DM.ABILITY_EFFECTS.get("Press It Fasta!", {}).get("implemented", true) == false)
+	_check("Press It Fasta! is implemented (extra Try Dat Button! die)",
+		UAM_DM.ABILITY_EFFECTS.get("Press It Fasta!", {}).get("implemented", false) == true)
 
 	# Supa-glowy Fing — D6 table vs the nearest visible enemy within 18"
 	var sgf_seen := {"shock": false, "mw": false, "debuff": false}
@@ -1305,6 +1317,96 @@ func _detachment_rules(_SM, GS, FAM, rules):
 	_check("Thundering Wagons: Kill Rig advances a flat 6\"", FAM.get_thundering_wagons_advance_override(tw_rig) == 6)
 	_check("Thundering Wagons: Trukk is not a rig", FAM.get_thundering_wagons_advance_override(tw_trukk) == 0
 		and not FAM.unit_has_detachment_charge_reroll(tw_trukk))
+
+	# ---- Dread Mob — Try Dat Button! ---------------------------------------------
+	_set_detachment(GS, FAM, 1, "Dread Mob")
+	var tdb_bands = {"sustained": false, "lethal": false, "ap2": false}
+	var tdb_one_each := true
+	for s in range(1, 13):
+		GS.state["units"] = {"U_TDB": _boyz_unit("U_TDB", 3)}
+		GS.get_unit("U_TDB")["meta"]["keywords"] = ["VEHICLE", "WALKER", "GROTS"]
+		rules.set_test_seed(s)
+		FAM.process_try_dat_button("U_TDB", "ranged")
+		var tf = GS.get_unit("U_TDB")["flags"]
+		var set_count = int(tf.get("effect_try_dat_sustained_ranged", false)) \
+			+ int(tf.get("effect_try_dat_lethal_ranged", false)) + int(tf.get("effect_try_dat_ap2", false))
+		if set_count != 1:
+			tdb_one_each = false
+		if tf.get("effect_try_dat_sustained_ranged", false):
+			tdb_bands["sustained"] = true
+		if tf.get("effect_try_dat_lethal_ranged", false):
+			tdb_bands["lethal"] = true
+		if tf.get("effect_try_dat_ap2", false):
+			tdb_bands["ap2"] = true
+	print("  Try Dat Button! bands seen: %s" % str(tdb_bands))
+	_check("Try Dat Button! grants exactly one Button Effect per roll", tdb_one_each)
+	_check("Try Dat Button! all three bands appear across seeds",
+		tdb_bands["sustained"] and tdb_bands["lethal"] and tdb_bands["ap2"])
+
+	# Re-selecting keeps the first result
+	var tdb_before = GS.get_unit("U_TDB")["flags"].duplicate()
+	rules.set_test_seed(99)
+	FAM.process_try_dat_button("U_TDB", "ranged")
+	_check("Try Dat Button! does not re-roll on re-selection",
+		str(GS.get_unit("U_TDB")["flags"]) == str(tdb_before))
+
+	# Ineligible cases: wrong keywords / wrong detachment roll nothing
+	GS.state["units"] = {"U_TDB_BOYZ": _boyz_unit("U_TDB_BOYZ", 5)}
+	FAM.process_try_dat_button("U_TDB_BOYZ", "ranged")
+	_check("Try Dat Button! ignores non-Mek/Walker/Grots-Vehicle units",
+		not GS.get_unit("U_TDB_BOYZ")["flags"].has("try_dat_rolled_this_phase"))
+	_set_detachment(GS, FAM, 1, "War Horde")
+	GS.state["units"] = {"U_TDB2": _boyz_unit("U_TDB2", 1)}
+	GS.get_unit("U_TDB2")["meta"]["keywords"] = ["ORKS", "WALKER", "VEHICLE"]
+	FAM.process_try_dat_button("U_TDB2", "ranged")
+	_check("Try Dat Button! only fires for Dread Mob",
+		not GS.get_unit("U_TDB2")["flags"].has("try_dat_rolled_this_phase"))
+	_set_detachment(GS, FAM, 1, "Dread Mob")
+
+	# Press It Fasta!: two dice — two DISTINCT Button Effects on some seed
+	var pif_double_seen := false
+	for s in range(1, 13):
+		GS.state["units"] = {"U_PIF": _boyz_unit("U_PIF", 3)}
+		GS.get_unit("U_PIF")["meta"]["keywords"] = ["ORKS", "INFANTRY", "MEK"]
+		GS.get_unit("U_PIF")["meta"]["enhancements"] = ["Press It Fasta!"]
+		rules.set_test_seed(s)
+		FAM.process_try_dat_button("U_PIF", "melee")
+		var pf = GS.get_unit("U_PIF")["flags"]
+		var pif_count = int(pf.get("effect_try_dat_sustained_melee", false)) \
+			+ int(pf.get("effect_try_dat_lethal_melee", false)) + int(pf.get("effect_try_dat_ap2", false))
+		if pif_count == 2:
+			pif_double_seen = true
+			break
+	_check("Press It Fasta! yields two distinct Button Effects on some seed", pif_double_seen)
+
+	# Melee flags feed the melee resolver; +2 AP raises casualties
+	var tdb_cas_on := 0
+	var tdb_cas_off := 0
+	for s in [11, 42, 77]:
+		tdb_cas_off += _sum_casualties(_fight_result(rules, {}, s, 3, 3))
+		tdb_cas_on += _sum_casualties(_fight_result(rules, {"effect_try_dat_ap2": true}, s, 3, 3))
+	print("  Try Dat Button! +2 AP: casualties with=%d, without=%d" % [tdb_cas_on, tdb_cas_off])
+	_check("Try Dat Button! +2 AP raises melee casualties", tdb_cas_on > tdb_cas_off)
+	var tdb_sus_on := 0
+	var tdb_sus_off := 0
+	for s in [11, 42, 77]:
+		tdb_sus_off += _fight(rules, {}, s, 3, 6)
+		tdb_sus_on += _fight(rules, {"effect_try_dat_sustained_melee": true}, s, 3, 6)
+	print("  Try Dat Button! melee sustained: wounds with=%d, without=%d" % [tdb_sus_on, tdb_sus_off])
+	_check("Try Dat Button! melee SUSTAINED HITS raises wounds", tdb_sus_on > tdb_sus_off)
+
+	# End-of-phase clear
+	GS.state["units"] = {"U_TDB3": _boyz_unit("U_TDB3", 1)}
+	GS.get_unit("U_TDB3")["meta"]["keywords"] = ["ORKS", "WALKER", "VEHICLE"]
+	rules.set_test_seed(3)
+	FAM.process_try_dat_button("U_TDB3", "ranged")
+	FAM.clear_try_dat_flags("ranged")
+	var tdb3_flags = GS.get_unit("U_TDB3")["flags"]
+	_check("Try Dat Button! effects expire at end of phase",
+		not tdb3_flags.has("try_dat_rolled_this_phase")
+		and not tdb3_flags.has("effect_try_dat_sustained_ranged")
+		and not tdb3_flags.has("effect_try_dat_lethal_ranged")
+		and not tdb3_flags.has("effect_try_dat_ap2"))
 	_set_detachment(GS, FAM, 1, "War Horde")
 
 

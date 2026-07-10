@@ -2220,6 +2220,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if not weapon_has_lethal_hits and actor_unit.get("flags", {}).get("effect_lethal_hits_ranged", false):
 			weapon_has_lethal_hits = true
 			print("RulesEngine:   LETHAL HITS granted by ranged effect flag (BLITZA FIRE)")
+		# TRY DAT BUTTON! (Dread Mob): rolled Button Effect — ranged LETHAL HITS
+		if not weapon_has_lethal_hits and actor_unit.get("flags", {}).get("effect_try_dat_lethal_ranged", false):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by TRY DAT BUTTON! (Dread Mob)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
@@ -2243,6 +2247,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if int(sustained_data.value) == 0 and FactionAbilityManager.unit_has_more_dakka_waaagh_sustained(actor_unit):
 			sustained_data = {"value": 1, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS 1 granted by DAKKA! DAKKA! DAKKA! (More Dakka! detachment, Waaagh! active)")
+		# TRY DAT BUTTON! (Dread Mob): rolled Button Effect — ranged SUSTAINED HITS 1
+		if int(sustained_data.value) == 0 and actor_unit.get("flags", {}).get("effect_try_dat_sustained_ranged", false):
+			sustained_data = {"value": 1, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS 1 granted by TRY DAT BUTTON! (Dread Mob)")
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -3870,6 +3878,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if not weapon_has_lethal_hits and actor_unit.get("flags", {}).get("effect_lethal_hits_ranged", false):
 			weapon_has_lethal_hits = true
 			print("RulesEngine:   LETHAL HITS granted by ranged effect flag (BLITZA FIRE)")
+		# TRY DAT BUTTON! (Dread Mob): rolled Button Effect — ranged LETHAL HITS
+		if not weapon_has_lethal_hits and actor_unit.get("flags", {}).get("effect_try_dat_lethal_ranged", false):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by TRY DAT BUTTON! (Dread Mob)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
@@ -3893,6 +3905,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if int(sustained_data.value) == 0 and FactionAbilityManager.unit_has_more_dakka_waaagh_sustained(actor_unit):
 			sustained_data = {"value": 1, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS 1 granted by DAKKA! DAKKA! DAKKA! (More Dakka! detachment, Waaagh! active)")
+		# TRY DAT BUTTON! (Dread Mob): rolled Button Effect — ranged SUSTAINED HITS 1
+		if int(sustained_data.value) == 0 and actor_unit.get("flags", {}).get("effect_try_dat_sustained_ranged", false):
+			sustained_data = {"value": 1, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS 1 granted by TRY DAT BUTTON! (Dread Mob)")
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -4253,6 +4269,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if ar_prey_bonus > 0:
 		ap = ap + ar_prey_bonus
 		print("RulesEngine: PREY (auto-resolve) — AP improved by %d (target is Prey)" % ar_prey_bonus)
+	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
+	if actor_unit.get("flags", {}).get("effect_try_dat_ap2", false):
+		ap = ap + 2
+		print("RulesEngine: TRY DAT BUTTON! (auto-resolve) — AP improved by 2")
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ar_worsen_ap > 0 and ap > 0:
@@ -10668,6 +10688,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if melee_prey_bonus > 0:
 		ap = ap + melee_prey_bonus
 		print("RulesEngine: PREY (melee) — AP improved by %d (target is Prey)" % melee_prey_bonus)
+	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
+	if attacker_unit.get("flags", {}).get("effect_try_dat_ap2", false):
+		ap = ap + 2
+		print("RulesEngine: TRY DAT BUTTON! (melee) — AP improved by 2")
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var melee_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if melee_worsen_ap > 0 and ap > 0:
@@ -10721,6 +10745,14 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if sustained_data.value == 0 and attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE, false):
 		sustained_data = {"value": 1, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS 1 granted by melee effect flag (Fight Proppa)")
+
+	# TRY DAT BUTTON! (Dread Mob): rolled Button Effect — melee scope
+	if not weapon_has_lethal_hits and attacker_unit.get("flags", {}).get("effect_try_dat_lethal_melee", false):
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS granted by TRY DAT BUTTON! (Dread Mob)")
+	if sustained_data.value == 0 and attacker_unit.get("flags", {}).get("effect_try_dat_sustained_melee", false):
+		sustained_data = {"value": 1, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS 1 granted by TRY DAT BUTTON! (Dread Mob)")
 
 	# GET STUCK IN (P2-27): War Horde detachment — Sustained Hits 1 on all melee weapons for ORKS
 	if sustained_data.value == 0 and FactionAbilityManager.unit_has_get_stuck_in(attacker_unit):
@@ -11866,6 +11898,10 @@ static func prepare_save_resolution(
 	if int_prey_bonus > 0:
 		ap = ap + int_prey_bonus
 		print("RulesEngine: PREY (interactive) — AP improved by %d (target is Prey)" % int_prey_bonus)
+	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
+	if shooter_unit.get("flags", {}).get("effect_try_dat_ap2", false):
+		ap = ap + 2
+		print("RulesEngine: TRY DAT BUTTON! (interactive) — AP improved by 2")
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if int_worsen_ap > 0 and ap > 0:
@@ -12064,6 +12100,10 @@ static func prepare_melee_save_resolution(
 	if mi_prey_bonus > 0:
 		ap = ap + mi_prey_bonus
 		print("RulesEngine: PREY (melee interactive) — AP improved by %d (target is Prey)" % mi_prey_bonus)
+	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
+	if attacker_unit.get("flags", {}).get("effect_try_dat_ap2", false):
+		ap = ap + 2
+		print("RulesEngine: TRY DAT BUTTON! (melee interactive) — AP improved by 2")
 
 	var damage = weapon_profile.get("damage", 1)
 
