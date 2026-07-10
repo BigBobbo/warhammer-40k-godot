@@ -2218,9 +2218,19 @@
     },
     {
       "id": "scoring.terrain_objective_14_01",
-      "description": "11e 14.01 terrain-as-objective: when a terrain area covers an objective marker, control is decided by models inside the area, not the 3.79\" marker radius (control flips 1->0 when the converted layout replaces open ground at obj_center)",
+      "description": "11e 14.01 terrain-as-objective: when a terrain area covers an objective marker, control is decided by models whose base overlaps the area (any part, not just the centre point), not the 3.79\" marker radius (control flips 1->0 when the converted layout replaces open ground at obj_center)",
       "scenarios": [
-        "terrain_11e_layouts"
+        "terrain_11e_layouts",
+        "objective_contested_vs_uncontrolled"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scoring.objective_control.contested_vs_uncontrolled",
+      "description": "Objective labels distinguish a genuine stand-off (CONTESTED: both sides in range with equal, nonzero OC) from an empty/one-sided marker (Uncontrolled); a model whose base only partially overlaps a terrain-hosted objective area still controls it (mek-contested-status bug)",
+      "scenarios": [
+        "objective_contested_vs_uncontrolled"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

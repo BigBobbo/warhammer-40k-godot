@@ -280,8 +280,10 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 		var zone = obj.get("zone", "unknown")
 		var controller = control_state.get(obj_id, 0)
 
-		var controller_text = "Contested"
-		var obj_color = Color(0.8, 0.8, 0.3)
+		# Controller 0 is only "Contested" when both sides actually have equal
+		# OC in range; an empty marker is "Uncontrolled" (mek-contested bug).
+		var controller_text = "Uncontrolled"
+		var obj_color = Color(0.62, 0.6, 0.52)
 		if controller == 1:
 			controller_text = GameState.get_faction_name(1) if GameState.get_faction_name(1) != "" else "Player 1"
 			p1_controlled += 1
@@ -290,7 +292,9 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 			controller_text = GameState.get_faction_name(2) if GameState.get_faction_name(2) != "" else "Player 2"
 			p2_controlled += 1
 			obj_color = p2_color
-		else:
+		elif MissionManager.is_objective_contested(obj_id):
+			controller_text = "Contested"
+			obj_color = Color(0.8, 0.8, 0.3)
 			contested += 1
 
 		var zone_text = ""

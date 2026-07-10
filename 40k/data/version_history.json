@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.17.6",
+			"date": "2026-07-10",
+			"summary": "Objective control fixes: a model whose base is only partly on a terrain-hosted objective now counts as holding it, and objective labels no longer claim 'CONTESTED' when nobody (or only one side) is in range — an empty marker now reads 'Uncontrolled'.",
+			"changes": [
+				"Terrain-hosted objectives (11e): a model counts as within the objective as soon as ANY part of its base overlaps the hosting ruin area — previously only the model's centre point was checked, so a unit standing half on the objective was ignored and the marker wrongly showed CONTESTED.",
+				"Board labels, the Command panel and the Scoring panel now distinguish a genuine stand-off ('CONTESTED': both sides in range with equal, nonzero OC) from an empty marker ('Uncontrolled').",
+				"Sticky-objective locks (e.g. Get Da Good Bitz) and nearest-controlled-objective checks now use the same base-on-area rule as objective control on terrain-hosted objectives."
+			]
+		},
+		{
 			"version": "0.17.5",
 			"date": "2026-07-10",
 			"summary": "Fixed a Waaagh! bug: Ork units that Advanced during an active Waaagh! (or that have Full Throttle, like Stormboyz) can now declare charges in the Charge phase. The Waaagh!'s advance-and-charge and 5+ invulnerable save now correctly last until the start of your next Command phase instead of being wiped at the end of the Shooting phase.",

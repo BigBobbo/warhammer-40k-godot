@@ -310,6 +310,35 @@ func circle_wholly_in_polygon(center: Vector2, radius: float, polygon: PackedVec
 
 	return true
 
+## Returns [code]true[/code] if ANY part of the model's base overlaps
+## [param polygon] — partially or wholly inside. Shape-aware: handles
+## circular, oval and rectangular bases. Complements shape_wholly_in_polygon
+## (which requires the WHOLE base inside). Used for 11e terrain-hosted
+## objectives, where a model counts as "within" an objective area as soon as
+## its base touches it (mek-contested-status bug: a base half on the area
+## must count, not just one whose centre point is inside).
+func model_overlaps_polygon(model: Dictionary, polygon: PackedVector2Array) -> bool:
+	if polygon.size() < 3:
+		return false
+	var pos = model.get("position", Vector2.ZERO)
+	if pos is Dictionary:
+		pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos == null:
+		pos = Vector2.ZERO
+	# Centre inside the polygon covers the wholly/mostly-inside cases.
+	if Geometry2D.is_point_in_polygon(pos, polygon):
+		return true
+	# Centre outside: the base can only overlap by crossing the polygon
+	# boundary — check the base shape against every edge segment. (This also
+	# covers a tiny polygon wholly inside a huge base: its edges are inside
+	# the base, so a segment overlap is detected.)
+	var rotation = model.get("rotation", 0.0)
+	var shape = create_base_shape(model)
+	for i in range(polygon.size()):
+		if shape.overlaps_with_segment(pos, rotation, polygon[i], polygon[(i + 1) % polygon.size()]):
+			return true
+	return false
+
 var _last_zone_debug_center: Vector2 = Vector2.INF
 
 ## Returns [code]true[/code] if the model base described by [param model_data]

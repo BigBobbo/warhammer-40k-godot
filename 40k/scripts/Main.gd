@@ -4277,12 +4277,16 @@ func _setup_objectives() -> void:
 			# Store reference in MissionManager for easy access
 			MissionManager.objectives_visual_refs[obj.id] = obj_visual
 			
-			# Connect to control changes (T7-39: also flash on change)
+			# Connect to control changes (T7-39: also flash on change).
+			# The signal also fires on contested<->uncontrolled flips with an
+			# unchanged controller of 0 — update the label, but only flash
+			# when the controller actually changed.
 			MissionManager.objective_control_changed.connect(
 				func(obj_id, controller, old_ctrl):
 					if obj_id == obj.id:
-						obj_visual.update_control(controller)
-						obj_visual.flash_control_change(controller, old_ctrl)
+						obj_visual.update_control(controller, MissionManager.is_objective_contested(obj_id))
+						if controller != old_ctrl:
+							obj_visual.flash_control_change(controller, old_ctrl)
 			)
 		
 		# Connect objective removal signal (for Scorched Earth burns and Supply Drop)

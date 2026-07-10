@@ -223,7 +223,7 @@ func _create_marker_cross_and_labels(label_offset: float) -> void:
 	id_label.z_index = 10
 	add_child(id_label)
 
-func update_control(player: int) -> void:
+func update_control(player: int, contested: bool = false) -> void:
 	var faction_name = ""
 	if GameState and player > 0:
 		faction_name = GameState.get_faction_name(player)
@@ -231,11 +231,6 @@ func update_control(player: int) -> void:
 	var outline_color: Color
 	var fill_color: Color
 	match player:
-		0:
-			control_indicator.text = "CONTESTED"
-			control_indicator.modulate = Color(1.0, 1.0, 0.5, 1.0)
-			outline_color = Color(1.0, 1.0, 0.4, 1.0)
-			fill_color = Color(1.0, 1.0, 0.3, 0.4)
 		1, 2:
 			var label_text = faction_name if faction_name != "" else "Player %d" % player
 			control_indicator.text = label_text
@@ -243,10 +238,20 @@ func update_control(player: int) -> void:
 			outline_color = Color(p_color.r, p_color.g, p_color.b, 1.0)
 			fill_color = Color(p_color.r, p_color.g, p_color.b, 0.35)
 		_:
-			control_indicator.text = "Uncontrolled"
-			control_indicator.modulate = Color.WHITE
-			outline_color = OBJ_OUTLINE_COLOR
-			fill_color = OBJ_FILL_COLOR
+			# Controller 0 covers two very different states: a genuine
+			# stand-off (equal, nonzero OC on both sides) and simply nobody
+			# in range. Only the former may read "CONTESTED" — an empty
+			# marker claiming CONTESTED was the mek-contested-status bug.
+			if contested:
+				control_indicator.text = "CONTESTED"
+				control_indicator.modulate = Color(1.0, 1.0, 0.5, 1.0)
+				outline_color = Color(1.0, 1.0, 0.4, 1.0)
+				fill_color = Color(1.0, 1.0, 0.3, 0.4)
+			else:
+				control_indicator.text = "Uncontrolled"
+				control_indicator.modulate = Color.WHITE
+				outline_color = OBJ_OUTLINE_COLOR
+				fill_color = OBJ_FILL_COLOR
 	# Circle mode nodes are absent for terrain objectives (and vice versa).
 	if objective_circle:
 		objective_circle.default_color = outline_color
