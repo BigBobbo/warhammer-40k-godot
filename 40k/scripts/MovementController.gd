@@ -1868,6 +1868,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				elif Input.is_key_pressed(KEY_SHIFT) and _should_start_drag_box():
 					# Require Shift key for drag-box selection to avoid conflicts
 					_start_drag_box_selection(event.position)
+				elif _try_click_select_unit(event.position):
+					pass  # Click on a different friendly unit's model — selection/switch handled
 				elif selected_models.size() > 0:
 					# Check if we're clicking on a selected model to start group drag
 					if _is_clicking_on_selected_model(event.position):
@@ -3499,6 +3501,109 @@ func _handle_single_model_selection(mouse_pos: Vector2) -> void:
 
 	# Proceed with existing single model selection logic
 	_start_model_drag(mouse_pos)
+
+func _try_click_select_unit(mouse_pos: Vector2) -> bool:
+	"""Click-to-select: a left-click on a model belonging to a DIFFERENT unit of
+	the active player selects that unit, exactly as clicking its row in the
+	right-hand unit list would. If the currently active unit still has an
+	unconfirmed (staged) move, a UnitSwitchConfirmDialog asks the player first
+	instead of switching silently. Returns true when the click was handled."""
+	# In multiplayer, never select/switch units when it's not the local player's turn
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
+		return false
+
+	# While a switch dialog is open, swallow further board clicks so a second
+	# dialog can't stack on top of the first.
+	if get_tree().root.get_node_or_null("UnitSwitchConfirmDialog") != null:
+		return true
+
+	# Don't switch units while a decision dialog is pausing the phase
+	# (e.g. an advance-roll Command Re-roll offer).
+	if get_tree().root.get_node_or_null("CommandRerollDialog") != null:
+		return false
+
+	var board_root = SceneRefs.board_root()
+	var world_pos: Vector2
+	if board_root:
+		world_pos = board_root.transform.affine_inverse() * mouse_pos
+	else:
+		world_pos = get_global_mouse_position()
+
+	var model = _get_model_at_position(world_pos)
+	if model.is_empty():
+		model = _get_model_near_position(world_pos, 10.0)
+	if model.is_empty():
+		return false
+
+	var clicked_unit_id = str(model.get("unit_id", ""))
+	if clicked_unit_id == "" or clicked_unit_id == active_unit_id:
+		return false
+	# Attached character models are dragged with the active bodyguard, not selected
+	if _is_model_in_active_unit_group(clicked_unit_id):
+		return false
+
+	var unit = GameState.get_unit(clicked_unit_id)
+	if not unit or unit.is_empty():
+		return false
+	# Only the active player's own units can be selected off the board
+	if unit.get("owner", 0) != GameState.get_active_player():
+		return false
+	# Only units the right-hand list offers this phase are selectable
+	if not _is_unit_selectable_in_list(clicked_unit_id):
+		print("MovementController: Click on %s ignored — unit not selectable this phase" % clicked_unit_id)
+		return false
+
+	if _has_pending_unconfirmed_move(active_unit_id):
+		print("MovementController: Click-to-select %s while %s has an unconfirmed move — asking player" % [clicked_unit_id, active_unit_id])
+		_show_unit_switch_dialog(clicked_unit_id)
+	else:
+		print("MovementController: Click-to-select unit %s from board token" % clicked_unit_id)
+		_select_unit_in_list_by_id(clicked_unit_id)
+	return true
+
+func _is_unit_selectable_in_list(unit_id: String) -> bool:
+	"""True when `unit_id` has an enabled row in the right-hand unit list."""
+	if not unit_list or not is_instance_valid(unit_list):
+		return false
+	for i in range(unit_list.get_item_count()):
+		if unit_list.get_item_metadata(i) == unit_id:
+			return not unit_list.is_item_disabled(i)
+	return false
+
+func _unit_switch_display_name(unit_id: String) -> String:
+	var unit = GameState.get_unit(unit_id)
+	if not unit or unit.is_empty():
+		return unit_id
+	var unit_meta = unit.get("meta", {})
+	return unit_meta.get("display_name", unit_meta.get("name", unit_id))
+
+func _show_unit_switch_dialog(target_unit_id: String) -> void:
+	"""Ask the player whether to switch to `target_unit_id` while the active
+	unit still has an unconfirmed move. Confirming routes through the normal
+	list-selection flow, which auto-confirms the pending move first."""
+	var dialog_script = load("res://dialogs/UnitSwitchConfirmDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load UnitSwitchConfirmDialog.gd — switching without confirmation")
+		_select_unit_in_list_by_id(target_unit_id)
+		return
+
+	var current_name = _unit_switch_display_name(active_unit_id)
+	var target_name = _unit_switch_display_name(target_unit_id)
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(current_name, target_name, target_unit_id,
+		"%s's unconfirmed move will be confirmed." % current_name)
+	dialog.switch_confirmed.connect(_on_unit_switch_confirmed)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("MovementController: Unit switch dialog shown (%s -> %s)" % [active_unit_id, target_unit_id])
+
+func _on_unit_switch_confirmed(target_unit_id: String) -> void:
+	# Same flow as clicking the unit's row in the list: _on_unit_selected
+	# auto-confirms the previous unit's pending move before switching.
+	print("MovementController: Unit switch confirmed — selecting %s" % target_unit_id)
+	_select_unit_in_list_by_id(target_unit_id)
 
 func _should_start_drag_box() -> bool:
 	"""Determine if we should start drag-box selection (requires Shift key)"""
