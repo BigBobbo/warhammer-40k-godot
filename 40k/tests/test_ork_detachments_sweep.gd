@@ -104,6 +104,7 @@ func _run():
 	_kult_of_speed(SM, GS, FAM, rules)
 	_dread_mob(SM, GS, FAM, rules)
 	_blitz_brigade(SM, GS, FAM, rules)
+	_rollin_deff(SM, GS, FAM, rules)
 
 
 # ==========================================================================
@@ -1074,6 +1075,145 @@ func _blitz_brigade(SM, GS, FAM, rules):
 		sso_flags.get("effect_reroll_charge", false) and sso_flags.get("squig_oil_charge_reroll", false))
 	root.remove_child(MP_BB)
 	MP_BB.queue_free()
+
+
+# ==========================================================================
+# ROLLIN' DEFF (provisional 11e — 40kdc community encoding)
+# ==========================================================================
+func _rollin_deff(SM, GS, FAM, rules):
+	print("\n===== ROLLIN' DEFF =====")
+	var rd = _load_detachment(SM, GS, "Rollin’ Deff")
+	_check("Rollin' Deff: 5 stratagems loaded", rd.count == 5)
+	_check("Rollin' Deff: all 5 implemented", rd.implemented == 5)
+
+	# ---- BRUTAL BROADSIDE: RAPID FIRE X (X = Attacks) --------------------------
+	var bb_shooters = []
+	for i in range(3):
+		bb_shooters.append({"id": "bs%d" % i, "position": {"x": 10.0, "y": 10.0 + i * 35},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 1, "current_wounds": 1,
+			"weapons": ["bolt_rifle"]})
+	var bb_targets = []
+	for i in range(5):
+		bb_targets.append({"id": "bt%d" % i, "position": {"x": 250.0, "y": 10.0 + i * 35},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 2, "current_wounds": 2,
+			"stats": {"toughness": 4, "save": 3}})
+	var bb_board = {"units": {
+		"U_BBS": {"id": "U_BBS", "owner": 1,
+			"meta": {"name": "Wagon", "keywords": ["ORKS", "VEHICLE", "BATTLEWAGON"], "abilities": [],
+				"stats": {"toughness": 10, "save": 3, "wounds": 16},
+				"weapons": [{"name": "Bolt Rifle", "type": "Ranged", "range": "24", "attacks": "2",
+					"ballistic_skill": "5", "strength": "4", "ap": "1", "damage": "1"}]},
+			"flags": {}, "models": bb_shooters},
+		"U_BBT": {"id": "U_BBT", "owner": 2,
+			"meta": {"name": "Marines", "keywords": ["INFANTRY"], "abilities": [],
+				"stats": {"toughness": 4, "save": 3, "wounds": 2}},
+			"flags": {}, "models": bb_targets}
+	}, "meta": {"phase": 8, "active_player": 1, "battle_round": 1}}
+	var bb_assignment = {"weapon_id": "bolt_rifle", "model_ids": ["bs0", "bs1", "bs2"], "target_unit_id": "U_BBT"}
+	rules.set_test_seed(42)
+	var bb_plain = rules._resolve_assignment_hits(bb_assignment, "U_BBS", bb_board, rules.RNGService.new())
+	bb_board["units"]["U_BBS"]["flags"]["effect_brutal_broadside"] = true
+	rules.set_test_seed(42)
+	var bb_boosted = rules._resolve_assignment_hits(bb_assignment, "U_BBS", bb_board, rules.RNGService.new())
+	var bb_rolls_plain := 0
+	var bb_rolls_boosted := 0
+	for d in bb_plain.get("dice", []):
+		if "hit" in str(d.get("context", "")).to_lower():
+			bb_rolls_plain += d.get("rolls_raw", d.get("rolls", [])).size()
+	for d in bb_boosted.get("dice", []):
+		if "hit" in str(d.get("context", "")).to_lower():
+			bb_rolls_boosted += d.get("rolls_raw", d.get("rolls", [])).size()
+	print("  BRUTAL BROADSIDE: hit dice %d -> %d (A2 weapon, 3 models in half range)" % [bb_rolls_plain, bb_rolls_boosted])
+	_check("BRUTAL BROADSIDE doubles the A2 weapon's attack pool at half range",
+		bb_rolls_plain == 6 and bb_rolls_boosted == 12)
+
+	# ---- IMPENDING CRUNCH: aura Battle-shock at -1 -----------------------------
+	GS.state["units"] = {
+		"U_IC_WAGON": {"id": "U_IC_WAGON", "owner": 1, "status": 2,
+			"meta": {"name": "Battlewagon", "keywords": ["ORKS", "VEHICLE", "BATTLEWAGON"], "abilities": [], "enhancements": [], "stats": {}},
+			"flags": {"charged_this_turn": true}, "models": [{"id": "m0", "alive": true, "position": {"x": 100.0, "y": 100.0}, "base_mm": 100, "base_type": "circular", "wounds": 16, "current_wounds": 16}]},
+		"U_IC_NEAR": {"id": "U_IC_NEAR", "owner": 2, "status": 2,
+			"meta": {"name": "Guardsmen", "keywords": ["INFANTRY"], "abilities": [], "enhancements": [], "stats": {"leadership": 12}},
+			"flags": {}, "models": [{"id": "e0", "alive": true, "position": {"x": 160.0, "y": 100.0}, "base_mm": 32, "base_type": "circular", "wounds": 1, "current_wounds": 1}]},
+		"U_IC_FAR": {"id": "U_IC_FAR", "owner": 2, "status": 2,
+			"meta": {"name": "Marines", "keywords": ["INFANTRY"], "abilities": [], "enhancements": [], "stats": {"leadership": 12}},
+			"flags": {}, "models": [{"id": "f0", "alive": true, "position": {"x": 900.0, "y": 100.0}, "base_mm": 32, "base_type": "circular", "wounds": 2, "current_wounds": 2}]},
+	}
+	rules.set_test_seed(5)
+	var strat_ic = {"id": "t_ic", "name": "IMPENDING CRUNCH", "effects": [{"type": "custom:impending_crunch"}], "detachment": "Rollin’ Deff"}
+	SM._apply_stratagem_effects("t_ic", "U_IC_WAGON", strat_ic, {})
+	_check("IMPENDING CRUNCH battle-shocks the engaged enemy (Ld 12 unreachable at -1)",
+		GS.get_unit("U_IC_NEAR")["flags"].get("battle_shocked", false))
+	_check("IMPENDING CRUNCH leaves distant enemies alone",
+		not GS.get_unit("U_IC_FAR")["flags"].get("battle_shocked", false))
+
+	# ---- DEVASTATING DRIFT: melee CLEAVE 1 (11e keyword) -------------------------
+	GS.state["units"] = {"U_DD": _boyz_unit("U_DD", 3)}
+	var strat_dd = {"id": "t_dd", "name": "DEVASTATING DRIFT", "effects": [{"type": "custom:devastating_drift"}], "detachment": "Rollin’ Deff"}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_dd", "U_DD", strat_dd, {}))
+	_check("DEVASTATING DRIFT sets the CLEAVE grant flag",
+		GS.get_unit("U_DD")["flags"].get("effect_grant_cleave_1", false))
+	var prev_edition_dd = GameConstants.edition
+	GS.set_edition(11)
+	var dd_on := 0
+	var dd_off := 0
+	for s in [11, 42, 77]:
+		dd_off += _fight(rules, {}, s, 3, 6)
+		dd_on += _fight(rules, {"effect_grant_cleave_1": true}, s, 3, 6)
+	GS.set_edition(prev_edition_dd)
+	print("  DEVASTATING DRIFT: wounds with CLEAVE 1=%d, without=%d (10-model target: +2 dice)" % [dd_on, dd_off])
+	_check("DEVASTATING DRIFT raises melee wounds vs a 10-model target", dd_on > dd_off)
+
+	# ---- SPESHUL SHELLS (Rollin' Deff): 9" variant, detachment-disambiguated -----
+	GS.state["units"] = {"U_SS_RD": _boyz_unit("U_SS_RD", 2)}
+	var strat_ss_rd = {"id": "t_ssrd", "name": "SPESHUL SHELLS", "effects": [{"type": "custom:speshul_shells_rd"}], "detachment": "Rollin’ Deff"}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_ssrd", "U_SS_RD", strat_ss_rd, {}))
+	_check("SPESHUL SHELLS (Rollin' Deff) sets the 9\" flag, not the 18\" one",
+		GS.get_unit("U_SS_RD")["flags"].get("effect_speshul_shells_rd", false)
+		and not GS.get_unit("U_SS_RD")["flags"].has("effect_speshul_shells_md"))
+	var ss_rd_shooter = {"meta": {}, "flags": {"effect_speshul_shells_rd": true},
+		"models": [{"id": "m0", "position": {"x": 10.0, "y": 10.0}, "base_mm": 32, "alive": true}]}
+	var ss_rd_near = {"meta": {}, "flags": {}, "models": [{"id": "t0", "position": {"x": 250.0, "y": 10.0}, "base_mm": 32, "alive": true}]}   # ~5.3" edge
+	var ss_rd_mid = {"meta": {}, "flags": {}, "models": [{"id": "t1", "position": {"x": 500.0, "y": 10.0}, "base_mm": 32, "alive": true}]}    # ~11.5" edge
+	_check("SPESHUL SHELLS (RD) +1 AP within 9\"", rules.get_speshul_shells_ap_bonus(ss_rd_shooter, ss_rd_near) == 1)
+	_check("SPESHUL SHELLS (RD) no bonus beyond 9\"", rules.get_speshul_shells_ap_bonus(ss_rd_shooter, ss_rd_mid) == 0)
+	var ss_md_shooter = {"meta": {}, "flags": {"effect_speshul_shells_md": true}, "models": ss_rd_shooter.models}
+	_check("SPESHUL SHELLS (More Dakka) still reaches 18\"", rules.get_speshul_shells_ap_bonus(ss_md_shooter, ss_rd_mid) == 1)
+
+	# ---- LONG, UNCONTROLLED BURSTS: auto via effects_json ------------------------
+	var lub_def = rd.by_name.get("LONG, UNCONTROLLED BURSTS", {})
+	GS.state["units"]["U_LUB"] = _boyz_unit("U_LUB", 2)
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_lub", "U_LUB", lub_def, {}))
+	_check("LONG, UNCONTROLLED BURSTS grants IGNORES COVER (parsed effects_json)",
+		GS.get_unit("U_LUB")["flags"].get("effect_ignores_cover", false))
+
+	# ---- Enhancements --------------------------------------------------------------
+	# Boarding Ramps — +1 charge for units that left the flagged WAGON this turn
+	var TM_RD = root.get_node("TransportManager")
+	GS.state["units"] = {
+		"U_BR_WAGON": {"id": "U_BR_WAGON", "owner": 1, "status": 2,
+			"meta": {"name": "Battlewagon", "keywords": ["ORKS", "VEHICLE", "TRANSPORT", "BATTLEWAGON"], "enhancements": ["Boarding Ramps"], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 100.0, "y": 100.0}, "base_mm": 100}],
+			"transport_data": {"embarked_units": ["U_BR_BOYZ"], "capacity": 22}},
+		"U_BR_BOYZ": {"id": "U_BR_BOYZ", "owner": 1, "embarked_in": "U_BR_WAGON", "status": 2,
+			"meta": {"name": "Boyz", "keywords": ["ORKS", "INFANTRY"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": null, "base_mm": 32}]},
+	}
+	TM_RD.disembark_unit("U_BR_BOYZ", [Vector2(170, 100)])
+	_check("Boarding Ramps: +1 charge after disembarking from the flagged wagon",
+		FAM.boarding_ramps_charge_bonus(GS.get_unit("U_BR_BOYZ"), GS.state.get("units", {})) == 1)
+	GS.get_unit("U_BR_WAGON")["meta"]["enhancements"] = []
+	_check("Boarding Ramps: no bonus when the wagon lacks the enhancement",
+		FAM.boarding_ramps_charge_bonus(GS.get_unit("U_BR_BOYZ"), GS.state.get("units", {})) == 0)
+
+	# Targetin' Gizmos — SUSTAINED HITS 1 on ranged only while a Waaagh! is active
+	var tg_unit = {"owner": 1, "meta": {"enhancements": ["Targetin’ Gizmos"], "keywords": ["ORKS", "VEHICLE"]}, "flags": {}, "models": []}
+	_check("Targetin' Gizmos: no sustained without a Waaagh!", FAM.targetin_gizmos_sustained(tg_unit) == 0)
+	tg_unit["flags"]["waaagh_active"] = true
+	_check("Targetin' Gizmos: SUSTAINED HITS 1 during a Waaagh!", FAM.targetin_gizmos_sustained(tg_unit) == 1)
+	_check("Dead Shiny Shootas / Da Gobshot Thunderbuss shared entries exist",
+		root.get_node("UnitAbilityManager").ABILITY_EFFECTS.has("Dead Shiny Shootas")
+		and root.get_node("UnitAbilityManager").ABILITY_EFFECTS.has("Da Gobshot Thunderbuss"))
 
 
 # ==========================================================================

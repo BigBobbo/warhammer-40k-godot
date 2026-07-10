@@ -1781,6 +1781,17 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			and (actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false) or actor_unit.get("flags", {}).get("effect_grant_rapid_fire_1", false)):
 		rapid_fire_value = 1
 		print("RulesEngine: DAKKAMEK — [RAPID FIRE 1] granted to %s's ranged weapon %s" % [actor_unit_id, weapon_id])
+	# BRUTAL BROADSIDE (Rollin' Deff): ranged weapons gain [RAPID FIRE X] with
+	# X = the weapon's Attacks characteristic (fixed-value Attacks only —
+	# dice-valued Attacks keep their native rapid fire; documented).
+	if str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
+			and actor_unit.get("flags", {}).get("effect_brutal_broadside", false):
+		var bb_attacks_raw = str(weapon_profile.get("attacks", "1"))
+		if bb_attacks_raw.is_valid_int():
+			rapid_fire_value = maxi(rapid_fire_value, int(bb_attacks_raw))
+			print("RulesEngine: BRUTAL BROADSIDE — [RAPID FIRE %d] on %s (X = Attacks)" % [rapid_fire_value, weapon_id])
+		else:
+			print("RulesEngine: BRUTAL BROADSIDE — %s has dice-valued Attacks (%s), rapid fire grant skipped" % [weapon_id, bb_attacks_raw])
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
@@ -2222,6 +2233,11 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if kos_ds_val > int(sustained_data.value):
 			sustained_data = {"value": kos_ds_val, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS %d granted by DAKKASTORM (Kult of Speed)" % kos_ds_val)
+		# TARGETIN' GIZMOS (Rollin' Deff): ranged SUSTAINED HITS 1 during a Waaagh!
+		var tg_val = FactionAbilityManager.targetin_gizmos_sustained(actor_unit)
+		if tg_val > int(sustained_data.value):
+			sustained_data = {"value": tg_val, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by TARGETIN' GIZMOS (Waaagh! active)" % tg_val)
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -3435,6 +3451,17 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			and (actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false) or actor_unit.get("flags", {}).get("effect_grant_rapid_fire_1", false)):
 		rapid_fire_value = 1
 		print("RulesEngine: DAKKAMEK — [RAPID FIRE 1] granted to %s's ranged weapon %s" % [actor_unit_id, weapon_id])
+	# BRUTAL BROADSIDE (Rollin' Deff): ranged weapons gain [RAPID FIRE X] with
+	# X = the weapon's Attacks characteristic (fixed-value Attacks only —
+	# dice-valued Attacks keep their native rapid fire; documented).
+	if str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
+			and actor_unit.get("flags", {}).get("effect_brutal_broadside", false):
+		var bb_attacks_raw = str(weapon_profile.get("attacks", "1"))
+		if bb_attacks_raw.is_valid_int():
+			rapid_fire_value = maxi(rapid_fire_value, int(bb_attacks_raw))
+			print("RulesEngine: BRUTAL BROADSIDE — [RAPID FIRE %d] on %s (X = Attacks)" % [rapid_fire_value, weapon_id])
+		else:
+			print("RulesEngine: BRUTAL BROADSIDE — %s has dice-valued Attacks (%s), rapid fire grant skipped" % [weapon_id, bb_attacks_raw])
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
@@ -3851,6 +3878,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if kos_ds_val > int(sustained_data.value):
 			sustained_data = {"value": kos_ds_val, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS %d granted by DAKKASTORM (Kult of Speed)" % kos_ds_val)
+		# TARGETIN' GIZMOS (Rollin' Deff): ranged SUSTAINED HITS 1 during a Waaagh!
+		var tg_val = FactionAbilityManager.targetin_gizmos_sustained(actor_unit)
+		if tg_val > int(sustained_data.value):
+			sustained_data = {"value": tg_val, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by TARGETIN' GIZMOS (Waaagh! active)" % tg_val)
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -7725,9 +7757,13 @@ static func get_drive_by_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dic
 # any target within 18" (the 'closest eligible target' clause is not tracked
 # per attack).
 static func get_speshul_shells_ap_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
-	if not actor_unit.get("flags", {}).get("effect_speshul_shells_md", false):
-		return 0
-	if is_target_within_range_inches(actor_unit, target_unit, 18.0):
+	# More Dakka! variant: +1 AP vs targets within 18"
+	if actor_unit.get("flags", {}).get("effect_speshul_shells_md", false) \
+			and is_target_within_range_inches(actor_unit, target_unit, 18.0):
+		return 1
+	# Rollin' Deff variant: +1 AP vs targets within 9"
+	if actor_unit.get("flags", {}).get("effect_speshul_shells_rd", false) \
+			and is_target_within_range_inches(actor_unit, target_unit, 9.0):
 		return 1
 	return 0
 
@@ -10530,6 +10566,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# has a single target here.
 	if GameConstants.edition >= 11:
 		var cleave_x = get_cleave_value(weapon_id, board)
+		# DEVASTATING DRIFT (Rollin' Deff): melee weapons gain [CLEAVE 1]
+		if attacker_unit.get("flags", {}).get("effect_grant_cleave_1", false):
+			cleave_x = maxi(cleave_x, 1)
+			print("RulesEngine: DEVASTATING DRIFT — melee weapon %s gains CLEAVE 1" % weapon_id)
 		if cleave_x > 0:
 			var cleave_extra = AbilityRegistry.cleave_bonus_dice(cleave_x, count_alive_models(target_unit), true)
 			if cleave_extra > 0:

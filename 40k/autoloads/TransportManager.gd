@@ -143,6 +143,9 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 	# Clear embark status
 	unit["embarked_in"] = null
 	unit["disembarked_this_phase"] = true
+	# Boarding Ramps (Rollin' Deff) needs to know WHICH transport the unit
+	# left this turn.
+	unit["disembarked_from"] = transport_id
 
 	# Ensure unit status is DEPLOYED
 	unit["status"] = GameStateData.UnitStatus.DEPLOYED

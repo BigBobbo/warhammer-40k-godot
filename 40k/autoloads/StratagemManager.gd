@@ -68,6 +68,9 @@ const _CUSTOM_IMPLEMENTED_NAMES: Array = [
 	# Blitz Brigade
 	"ARMOURED DUELLISTS", "MOUNT UP, LADZ", "IMPERVIOUS",
 	"MEKANISED BRUTALITY", "RUN 'EM DOWN", "YOOZ IN TROUBLE NOW",
+	# Rollin' Deff (LONG, UNCONTROLLED BURSTS is auto via effects_json;
+	# SPESHUL SHELLS shares its name with the More Dakka! entry above)
+	"BRUTAL BROADSIDE", "IMPENDING CRUNCH", "DEVASTATING DRIFT",
 ]
 
 # Out-of-Phase Rules Restriction (P1-59)
@@ -1856,6 +1859,11 @@ func _apply_ork_sweep_effects(strat: Dictionary, target_unit_id: String, context
 			print("StratagemManager: ORKS IS STILL ORKS — %s re-rolls melee wounds this phase" % target_unit_id)
 			return [{"op": "set", "path": "units.%s.flags.effect_orks_is_still_orks" % target_unit_id, "value": true}]
 		"SPESHUL SHELLS":
+			# Two detachments share this name: More Dakka! (+1 AP within 18")
+			# and Rollin' Deff (+1 AP within 9").
+			if "rollin" in str(strat.get("detachment", "")).to_lower():
+				print("StratagemManager: SPESHUL SHELLS (Rollin' Deff) — %s +1 AP on ranged attacks vs targets within 9\" this phase" % target_unit_id)
+				return [{"op": "set", "path": "units.%s.flags.effect_speshul_shells_rd" % target_unit_id, "value": true}]
 			print("StratagemManager: SPESHUL SHELLS — %s +1 AP on ranged attacks vs targets within 18\" this phase" % target_unit_id)
 			return [{"op": "set", "path": "units.%s.flags.effect_speshul_shells_md" % target_unit_id, "value": true}]
 		"GET STUCK IN, LADZ!":
@@ -2144,6 +2152,33 @@ func _apply_ork_sweep_effects(strat: Dictionary, target_unit_id: String, context
 			# auto-resolved D6" Surge move toward the closest enemy
 			# (excluding AIRCRAFT) — may end within Engagement Range.
 			return _resolve_yooz_in_trouble_now(target_unit_id, context)
+		# ---- ROLLIN' DEFF ----------------------------------------------------
+		"BRUTAL BROADSIDE":
+			# Ranged weapons gain [RAPID FIRE X] with X = the weapon's Attacks
+			# characteristic (live check at the rapid-fire sites; dice-valued
+			# Attacks are not doubled — documented simplification).
+			print("StratagemManager: BRUTAL BROADSIDE — %s ranged weapons gain RAPID FIRE X (X = Attacks) this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_brutal_broadside" % target_unit_id, "value": true}]
+		"IMPENDING CRUNCH":
+			# Every enemy unit in Engagement Range of the charged unit takes a
+			# Battle-shock test at -1.
+			var ic_unit = GameState.get_unit(target_unit_id)
+			var ic_snapshot = GameState.create_snapshot()
+			var ic_count := 0
+			for ic_enemy_id in GameState.state.get("units", {}):
+				var ic_enemy = GameState.state["units"][ic_enemy_id]
+				if int(ic_enemy.get("owner", 0)) == int(ic_unit.get("owner", 0)) or int(ic_enemy.get("owner", 0)) == 0:
+					continue
+				if not RulesEngine.check_units_in_engagement_range(ic_unit, ic_enemy, ic_snapshot):
+					continue
+				FactionAbilityManager.force_battle_shock_test(ic_enemy_id, -1, "Impending Crunch")
+				ic_count += 1
+			print("StratagemManager: IMPENDING CRUNCH — %d enemy unit(s) in ER of %s took Battle-shock tests at -1" % [ic_count, target_unit_id])
+			return []
+		"DEVASTATING DRIFT":
+			# Melee weapons gain [CLEAVE 1] until end of phase.
+			print("StratagemManager: DEVASTATING DRIFT — %s melee weapons gain CLEAVE 1 this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_grant_cleave_1" % target_unit_id, "value": true}]
 	return null
 
 func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictionary) -> bool:
@@ -2175,6 +2210,7 @@ func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictiona
 			return true
 		"SPESHUL SHELLS":
 			flags.erase("effect_speshul_shells_md")
+			flags.erase("effect_speshul_shells_rd")
 			return true
 		"GET STUCK IN, LADZ!":
 			if flags.has("get_stuck_in_ladz_active"):
@@ -2271,6 +2307,15 @@ func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictiona
 			return true  # instant effects — nothing to clear
 		"RUN 'EM DOWN":
 			flags.erase("effect_advance_and_charge")
+			return true
+		# ---- ROLLIN' DEFF ----------------------------------------------------
+		"BRUTAL BROADSIDE":
+			flags.erase("effect_brutal_broadside")
+			return true
+		"IMPENDING CRUNCH":
+			return true  # instant effect — nothing to clear
+		"DEVASTATING DRIFT":
+			flags.erase("effect_grant_cleave_1")
 			return true
 	return false
 

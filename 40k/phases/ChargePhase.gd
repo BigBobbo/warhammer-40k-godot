@@ -730,6 +730,9 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	# Runnin' Boots (Blitz Brigade): +1 to Charge rolls while the bearer's
 	# unit disembarked from a Transport this turn.
 	charge_bonus += FactionAbilityManager.runnin_boots_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))
+	# Boarding Ramps (Rollin' Deff): +1 to Charge rolls for a unit that
+	# disembarked this turn from the WAGON bearing the enhancement.
+	charge_bonus += FactionAbilityManager.boarding_ramps_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))
 	if charge_bonus > 0:
 		total_distance += charge_bonus
 		charge_data.distance = total_distance

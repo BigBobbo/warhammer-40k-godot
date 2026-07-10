@@ -1982,6 +1982,28 @@ static func runnin_boots_charge_bonus(unit: Dictionary, units: Dictionary) -> in
 		return 0
 	return 1
 
+static func boarding_ramps_charge_bonus(unit: Dictionary, units: Dictionary) -> int:
+	"""Boarding Ramps (Rollin' Deff): +1 to Charge rolls for a unit that
+	disembarked this turn from the WAGON bearing the enhancement."""
+	if not unit.get("disembarked_this_phase", false):
+		return 0
+	var from_id = str(unit.get("disembarked_from", ""))
+	if from_id == "":
+		return 0
+	var transport = units.get(from_id, {})
+	if transport.is_empty():
+		return 0
+	return 1 if _unit_or_attached_has_enhancement(transport, "Boarding Ramps", units) else 0
+
+func targetin_gizmos_sustained(actor_unit: Dictionary) -> int:
+	"""Targetin' Gizmos (Rollin' Deff): the bearer's unit's ranged weapons
+	gain SUSTAINED HITS 1 while a Waaagh! is active. (The always-on IGNORES
+	COVER half lives in the UnitAbilityManager entry; the BIG-MEK-embarked
+	gating is the 40kdc dataset's own documented approximation.)"""
+	if not _unit_or_attached_has_enhancement(actor_unit, "Targetin' Gizmos", GameState.state.get("units", {})):
+		return 0
+	return 1 if is_waaagh_active_for_unit(actor_unit) else 0
+
 static func unit_has_s_gt_t_wound_penalty(unit: Dictionary, units: Dictionary) -> bool:
 	"""Surly as a Squiggoth (Da Big Hunt enhancement) and the generic
 	effect_minus_wound_s_gt_t flag: -1 to incoming Wound rolls while the

@@ -1581,6 +1581,36 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# ROLLIN' DEFF ENHANCEMENT ABILITIES (provisional 11e, 40kdc dataset)
+	# Dead Shiny Shootas and Da Gobshot Thunderbuss are shared with the
+	# More Dakka! entries above (name-keyed, so they serve both detachments).
+	# ======================================================================
+
+	# Boarding Ramps — +1 to Charge rolls for units that disembarked this
+	# turn from the WAGON bearing the enhancement (ChargePhase live check via
+	# FactionAbilityManager.boarding_ramps_charge_bonus).
+	"Boarding Ramps": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "WAGON only. Units disembarking from the bearer this turn get +1 to Charge rolls (ChargePhase live check)"
+	},
+
+	# Targetin' Gizmos — bearer's unit ranged weapons gain [IGNORES COVER];
+	# while a Waaagh! is active they also gain SUSTAINED HITS 1 (live check
+	# via FactionAbilityManager.targetin_gizmos_sustained).
+	"Targetin' Gizmos": {
+		"condition": "enhancement",
+		"effects": [{"type": "grant_ignores_cover"}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "WAGON only. Ranged weapons have IGNORES COVER; SUSTAINED HITS 1 while a Waaagh! is active (live check)"
+	},
+
+	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
 	# ======================================================================
