@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.11.2",
+			"date": "2026-07-10",
+			"summary": "Shooting fix: selecting a unit that has no eligible targets (everything out of range or out of line of sight — e.g. a boxed-in Stompa) no longer fails silently. The game now tells you why nothing can be shot.",
+			"changes": [
+				"Selecting a shooter with no eligible targets now shows a warning toast, a red status line under the unit list, and a dice-log breakdown listing why each enemy unit can't be targeted (out of range, no line of sight, engagement, Lone Operative…).",
+				"Clicking an enemy model while such a unit is selected now explains why that enemy can't be shot instead of doing nothing.",
+				"Selecting a weapon when nothing is targetable now says so instead of asking you to 'click on an enemy unit'."
+			]
+		},
+		{
 			"version": "0.11.1",
 			"date": "2026-07-10",
 			"summary": "Army builder fix: an imported enhancement now adds its points to the list total (e.g. Kustom Shokk Box +10). The bundled Taktikal Brigade army's Warboss costs were also missing their enhancement points.",
