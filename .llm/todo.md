@@ -148,34 +148,13 @@ Locks in use:
     - [ ] Inches label updates as cursor moves.
     - [ ] ESC removes the drag overlay cleanly.
 
-- [ ] **T04 — Six-phase top-center bar with active highlight**
-  - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** T01, T02
-  - **Touches:** `40k/scenes/Main.tscn` (add `PhaseBar` PanelContainer), new
-    `40k/scripts/PhaseBar.gd`, `40k/autoloads/PhaseManager.gd` (signal hook)
-  - **Change:** Render six pills `Command → Movement → Shooting → Charge → Fight →
-    Morale` along the top center. Active pill modulated by active player's slot
-    color; completed pills modulate to `Color(0.5, 0.5, 0.5, 1.0)`; future pills
-    disabled (`modulate.a == 0.4`). Each pill node named exactly `PhasePill_<NAME>`
-    so tests can read it. Listen on `PhaseManager.phase_changed`.
-  - **Scenario:** `tests/scenarios/visual/T04_phase_bar.json` — load fixture in
-    Command phase, screenshot, advance to Movement, screenshot, advance to Shooting,
-    screenshot.
-  - **Acceptance — Tier A (machine):**
-    - In Command screenshot: `execute_script` returns
-      `get_node("/root/Main/PhaseBar/PhasePill_COMMAND").modulate == <active_color>`
-      AND `get_node(".../PhasePill_MOVEMENT").modulate.a == 0.4`.
-    - In Movement screenshot: `PhasePill_COMMAND.modulate` matches the dim grey
-      tuple (within 0.05 per channel) AND `PhasePill_MOVEMENT.modulate == <active_color>`.
-    - Same pattern verified for Shooting transition.
-    - All six `PhasePill_<NAME>` nodes exist (via `get_node` non-null).
-    - `pixel_diff` in the PhaseBar region between Command and Movement screenshots:
-      `regions["phase_bar"].diff_pct > 3.0` (highlight actually moved on-screen).
-    - Regression count ≥ baseline.
-  - **Acceptance — Tier B (visual checklist):**
-    - [ ] Six pills readable, labels not truncated.
-    - [ ] Active pill is visually the brightest.
-    - [ ] Completed pills are distinguishable from future pills.
-    - [ ] No layout shift in the rest of the HUD when phase advances.
+- [x] **T04 — Six-phase top-center bar with active highlight** *(superseded —
+  the phase indicator shipped as a bottom-anchored `PhaseStrip`
+  (`Main._setup_phase_strip()`, asserted by
+  `tests/scenarios/visual/T_phase_strip_bottom.json`) sandwiched between the
+  game log and the right HUD, deliberately NOT a top-center pill bar; the
+  `PhasePill_<NAME>` node design was never built. T24/T26 below are respecced
+  against `PhaseStrip`.)*
 
 - [ ] **T05 — Hover-forecast tooltip for shooting**
   - **Lock:** Shooting  • **Doc:** §7  • **Depends:** T01, T02
@@ -623,21 +602,26 @@ Locks in use:
 
 ## §4 Phase signaling (continued)
 
-- [ ] **T24 — Sub-state breadcrumb under active phase pill**
-  - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** T04
-  - **Touches:** `40k/scripts/PhaseBar.gd`, each Phase autoload to expose
+- [ ] **T24 — Sub-state breadcrumb on the PhaseStrip** *(respecced 2026-07-10:
+  T04's top pill bar was superseded by the bottom `PhaseStrip` — the breadcrumb
+  now renders inside/above the strip, not under a pill)*
+  - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** PhaseStrip (T04-superseded)
+  - **Touches:** `40k/scripts/Main.gd` (`_setup_phase_strip` area), the phase
+    instance (via `PhaseManager.get_current_phase_instance()`) to expose
     `current_substate_index : int` and `substates : Array[String]`
-  - **Change:** Beneath active pill, render the substate row for that phase. Light
-    each crumb as it becomes current.
+  - **Change:** Next to the active phase label in `PhaseStrip`, render the
+    substate row for that phase (e.g. Select Unit → Select Target → Resolve).
+    Light each crumb as it becomes current. Row node named
+    `PhaseStrip/SubstateRow`, each crumb `SubstateCrumb_<index>`.
   - **Scenario:** `tests/scenarios/visual/T24_substate_breadcrumb.json` —
     shooting-phase fixture; advance through substates via dispatched actions;
     screenshot at each.
   - **Acceptance — Tier A (machine):**
-    - For each substate transition: `ShootingPhase.current_substate_index`
-      increments AND the corresponding breadcrumb node's `modulate ==
-      <active_color>` (UIConstants slot).
-    - Previous breadcrumb's `modulate == <dim_grey>`.
-    - `pixel_diff` breadcrumb region across two substates: `regions[
+    - For each substate transition: the phase instance's
+      `current_substate_index` increments AND the corresponding
+      `SubstateCrumb_<i>` node's `modulate == <active_color>` (UIConstants slot).
+    - Previous crumb's `modulate == <dim_grey>`.
+    - `pixel_diff` strip region across two substates: `regions[
       "breadcrumb"].diff_pct > 4.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
@@ -664,19 +648,20 @@ Locks in use:
     - [ ] Edge clearly visible at top, bottom, both sides.
     - [ ] Doesn't occlude tokens at the edge.
 
-- [ ] **T26 — Phase pill click affordance for past/future**
-  - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** T04
-  - **Change:** Past pills: click inert; tooltip "completed". Future pills:
-    tooltip "resolve current phase first". Expose
-    `PhaseBar.last_pill_click_result : String`.
-  - **Scenario:** `tests/scenarios/visual/T26_phase_pill_clicks.json` — load
-    Movement-phase fixture; click past pill (Command); click future pill
+- [ ] **T26 — PhaseStrip segment click affordance for past/future**
+  *(respecced 2026-07-10: T04's pills superseded by the bottom `PhaseStrip`)*
+  - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** PhaseStrip (T04-superseded)
+  - **Change:** Past strip segments: click inert; tooltip "completed". Future
+    segments: tooltip "resolve current phase first". Expose
+    `Main.last_phase_strip_click_result : String`.
+  - **Scenario:** `tests/scenarios/visual/T26_phase_strip_clicks.json` — load
+    Movement-phase fixture; click past segment (Command); click future segment
     (Shooting); assert.
   - **Acceptance — Tier A (machine):**
-    - After past click: `PhaseBar.last_pill_click_result == "past_inert"`.
-    - After future click: `last_pill_click_result == "future_blocked"`.
+    - After past click: `Main.last_phase_strip_click_result == "past_inert"`.
+    - After future click: `last_phase_strip_click_result == "future_blocked"`.
     - `PhaseManager.current_phase` unchanged in both cases.
-    - Tooltip nodes appear and have expected text content (read via
+    - Segment tooltips have the expected text content (read via
       `execute_script`).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
