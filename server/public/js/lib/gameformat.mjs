@@ -529,9 +529,12 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
    * @param enhancements  [{ name, cost }] — already resolved, cost in points
    * @param id            unit key (U_..._A)
    * @param owner         player number
+   * @param ordinal       which copy of this datasheet in the army (1-based;
+   *                      11e repeat pricing surcharges later copies)
    */
   function buildGameUnit({ dcUnit, unitFactionId, armyFactionId, factionName, modelCount,
-                           counts, isWarlord = false, enhancements = [], id, owner = 1 }, warnings = []) {
+                           counts, isWarlord = false, enhancements = [], id, owner = 1,
+                           ordinal = 1 }, warnings = []) {
     const comp = compByUnit.get(`${unitFactionId}::${dcUnit.id}`);
 
     const weaponsOut = [];
@@ -563,7 +566,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     const abilitiesOut = unitAbilities(dcUnit, unitFactionId, factionName, warnings);
 
     const enhancementPoints = enhancements.reduce((s, e) => s + (e.cost ?? 0), 0);
-    const points = pointsFor(dcUnit, modelCount) + enhancementPoints;
+    const points = pointsFor(dcUnit, modelCount, ordinal) + enhancementPoints;
 
     const meta = {
       name: dcUnit.name,
@@ -624,6 +627,9 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
 
     const unitsOut = {};
     const suffixCounters = new Map();
+    // Per-datasheet copy counter (same keying as the builder's repriceAll) —
+    // 11e repeat pricing makes later copies of a datasheet cost more.
+    const dcOrdinals = new Map();
     function nextKey(name) {
       const base = unitKeyBase(name);
       const n = suffixCounters.get(base) ?? 0;
@@ -676,6 +682,8 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
       }
 
       const key = nextKey(dcUnit.name);
+      const ordinal = (dcOrdinals.get(dcUnit.id) ?? 0) + 1;
+      dcOrdinals.set(dcUnit.id, ordinal);
       unitsOut[key] = buildGameUnit({
         dcUnit, unitFactionId, armyFactionId, factionName,
         modelCount: ru.model_count ?? 1,
@@ -684,6 +692,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         enhancements,
         id: key,
         owner,
+        ordinal,
       }, warnings);
     }
 

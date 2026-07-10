@@ -2508,6 +2508,71 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "armies.recon_stomps.load_path",
+      "description": "Recon Stomps base army list (armies/recon_stomps.json) loads through the real MainMenu -> Start Game path",
+      "scenarios": [
+        "recon_stomps_base_army"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.ArmyListManager.same_army_both_players",
+      "description": "Both players picking the same army list: player 2's units re-keyed with _P2 suffix instead of clobbering player 1's",
+      "scenarios": [
+        "recon_stomps_base_army"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.ArmyListManager.scan_available_armies",
+      "description": "Player-facing army scan lists the shipped army lists, including both new base lists",
+      "scenarios": [
+        "recon_stomps_base_army",
+        "custodes_lions_vs_recon"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.MainMenu.default_army_selection",
+      "description": "MainMenu army dropdowns default to the newest base lists: Recon Stomps (P1) vs Custodes Lions (P2)",
+      "scenarios": [
+        "recon_stomps_base_army",
+        "custodes_lions_vs_recon"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.GameState.default_armies",
+      "description": "GameState default armies load recon_stomps for both players",
+      "scenarios": [
+        "recon_stomps_base_army"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "armies.custodes_lions.load_path",
+      "description": "Custodes Lions base army list (armies/custodes_lions.json) loads via dropdown selection -> Start Game, ordinal repeat pricing intact",
+      "scenarios": [
+        "custodes_lions_vs_recon"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.CharacterAttachmentManager.blade_champion_can_lead",
+      "description": "Blade Champion offers Custodian Guard as eligible bodyguard at Battle Formations",
+      "scenarios": [
+        "custodes_lions_vs_recon"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

@@ -32,8 +32,8 @@ var connected_players: int = 0
 
 # Army configuration
 var army_options: Array = []
-var selected_player1_army: String = "A_C_test"
-var selected_player2_army: String = "ORK_test"
+var selected_player1_army: String = "recon_stomps"
+var selected_player2_army: String = "custodes_lions"
 # Army sort mode: "alphabetical" or "newest_first"
 var army_sort_mode: String = "alphabetical"
 var army_sort_container: HBoxContainer = null
@@ -455,20 +455,20 @@ func _reset_ui() -> void:
 	mission_dropdown.selected = 0
 	selected_mission = mission_options[0].id
 
-	# Try to find A_C_test and ORK_test as defaults
+	# Default matchup: Recon Stomps (P1) vs Custodes Lions (P2)
 	var p1_index = 0
 	var p2_index = min(1, army_options.size() - 1)
 
 	for i in range(army_options.size()):
-		if army_options[i].id == "A_C_test":
+		if army_options[i].id == "recon_stomps":
 			p1_index = i
-		if army_options[i].id == "ORK_test":
+		if army_options[i].id == "custodes_lions":
 			p2_index = i
 
 	player1_dropdown.selected = p1_index
 	player2_dropdown.selected = p2_index
-	selected_player1_army = army_options[p1_index].id if not army_options.is_empty() else "A_C_test"
-	selected_player2_army = army_options[p2_index].id if not army_options.is_empty() else "ORK_test"
+	selected_player1_army = army_options[p1_index].id if not army_options.is_empty() else "recon_stomps"
+	selected_player2_army = army_options[p2_index].id if not army_options.is_empty() else "custodes_lions"
 
 func _show_error(message: String) -> void:
 	print("MultiplayerLobby: Error - ", message)
@@ -789,8 +789,8 @@ func _setup_army_selection() -> void:
 	# Fallback if no armies found
 	if army_options.is_empty():
 		army_options = [
-			{"id": "A_C_test", "name": "A C Test", "date": "", "display": "A C Test"},
-			{"id": "ORK_test", "name": "ORK Test", "date": "", "display": "ORK Test"}
+			{"id": "recon_stomps", "name": "Recon Stomps", "date": "", "display": "Recon Stomps"},
+			{"id": "custodes_lions", "name": "Custodes Lions", "date": "", "display": "Custodes Lions"}
 		]
 
 	# Sort based on current mode
@@ -799,14 +799,14 @@ func _setup_army_selection() -> void:
 	# Populate dropdowns
 	_populate_army_dropdowns()
 
-	# Set defaults - try to find A_C_test for P1 and ORK_test for P2
+	# Set defaults - Recon Stomps for P1, Custodes Lions for P2
 	var p1_default = 0
 	var p2_default = min(1, army_options.size() - 1)
 
 	for i in range(army_options.size()):
-		if army_options[i].id == "A_C_test":
+		if army_options[i].id == "recon_stomps":
 			p1_default = i
-		if army_options[i].id == "ORK_test":
+		if army_options[i].id == "custodes_lions":
 			p2_default = i
 
 	player1_dropdown.selected = p1_default

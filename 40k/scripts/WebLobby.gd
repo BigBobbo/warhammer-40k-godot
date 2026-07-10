@@ -22,8 +22,8 @@ var relay: Node = null
 
 # Army selection
 var army_options: Array = []
-var selected_player1_army: String = "A_C_test"
-var selected_player2_army: String = "ORK_test"
+var selected_player1_army: String = "recon_stomps"
+var selected_player2_army: String = "custodes_lions"
 
 # Deployment configuration
 var deployment_options = [
@@ -140,8 +140,8 @@ func _setup_army_selection() -> void:
 
 	if army_options.is_empty():
 		army_options = [
-			{"id": "A_C_test", "name": "A C Test"},
-			{"id": "ORK_test", "name": "ORK Test"}
+			{"id": "recon_stomps", "name": "Recon Stomps"},
+			{"id": "custodes_lions", "name": "Custodes Lions"}
 		]
 
 	# Populate dropdowns
@@ -149,14 +149,14 @@ func _setup_army_selection() -> void:
 		player1_dropdown.add_item(option.name)
 		player2_dropdown.add_item(option.name)
 
-	# Set defaults
+	# Set defaults - Recon Stomps for P1, Custodes Lions for P2
 	var p1_default = 0
 	var p2_default = min(1, army_options.size() - 1)
 
 	for i in range(army_options.size()):
-		if army_options[i].id == "A_C_test":
+		if army_options[i].id == "recon_stomps":
 			p1_default = i
-		if army_options[i].id == "ORK_test":
+		if army_options[i].id == "custodes_lions":
 			p2_default = i
 
 	player1_dropdown.selected = p1_default

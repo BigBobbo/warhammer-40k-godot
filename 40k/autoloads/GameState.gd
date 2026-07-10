@@ -86,27 +86,22 @@ func _load_default_armies() -> void:
 		_initialize_placeholder_armies()
 		return
 
-	# Try to load test army for Player 1 (Adeptus Custodes)
-	var player1_army = army_list_manager.load_army_list("adeptus_custodes", 1)
+	# Default matchup: the two newest base lists — Recon Stomps (Orks) for
+	# Player 1 vs Custodes Lions (Adeptus Custodes) for Player 2.
+	var player1_army = army_list_manager.load_army_list("recon_stomps", 1)
 	if not player1_army.is_empty():
-		print("GameState: Loading Adeptus Custodes army for Player 1")
+		print("GameState: Loading Recon Stomps army for Player 1")
 		army_list_manager.apply_army_to_game_state(player1_army, 1)
 	else:
-		print("GameState: Failed to load Adeptus Custodes, trying Space Marines for Player 1")
-		player1_army = army_list_manager.load_army_list("space_marines", 1)
-		if not player1_army.is_empty():
-			army_list_manager.apply_army_to_game_state(player1_army, 1)
-		else:
-			print("GameState: Failed to load Space Marines, using placeholder for Player 1")
-			_initialize_placeholder_armies_player(1)
+		print("GameState: Failed to load Recon Stomps, using placeholder for Player 1")
+		_initialize_placeholder_armies_player(1)
 
-	# Load opponent army (Orks for Player 2)
-	var player2_army = army_list_manager.load_army_list("orks", 2)
+	var player2_army = army_list_manager.load_army_list("custodes_lions", 2)
 	if not player2_army.is_empty():
-		print("GameState: Loading Orks army for Player 2")
+		print("GameState: Loading Custodes Lions army for Player 2")
 		army_list_manager.apply_army_to_game_state(player2_army, 2)
 	else:
-		print("GameState: Failed to load Orks, using placeholder for Player 2")
+		print("GameState: Failed to load Custodes Lions, using placeholder for Player 2")
 		_initialize_placeholder_armies_player(2)
 	
 	print("GameState: Army loading complete. Total units: ", state.units.size())

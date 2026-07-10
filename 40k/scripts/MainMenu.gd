@@ -1041,21 +1041,13 @@ func _set_default_army_selections() -> void:
 	var player1_index = 0
 	var player2_index = min(1, army_options.size() - 1)  # Different army if possible
 
-	# Prefer full Adeptus Custodes for Player 1 if available
+	# Default matchup: the two newest base lists — Recon Stomps for
+	# Player 1, Custodes Lions for Player 2
 	for i in range(army_options.size()):
-		if army_options[i].id == "adeptus_custodes":
+		if army_options[i].id == "recon_stomps":
 			player1_index = i
-			break
-
-	# Prefer full Orks for Player 2 if available
-	for i in range(army_options.size()):
-		if army_options[i].id == "orks":
+		if army_options[i].id == "custodes_lions":
 			player2_index = i
-			break
-
-	# Ensure players have different armies if possible
-	if player1_index == player2_index and army_options.size() > 1:
-		player2_index = (player1_index + 1) % army_options.size()
 
 	player1_dropdown.selected = player1_index
 	player2_dropdown.selected = player2_index
@@ -1116,33 +1108,8 @@ func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
 		_restore_dropdown_selection(player1_dropdown, p1_selected_id)
 		_restore_dropdown_selection(player2_dropdown, p2_selected_id)
 
-	# Upgrade defaults to preferred cloud armies if available.
-	# Only override if the user hasn't deviated from the local defaults yet.
-	_apply_preferred_cloud_defaults(p1_selected_id, p2_selected_id)
-
-func _apply_preferred_cloud_defaults(p1_current_id: String, p2_current_id: String) -> void:
-	# Preferred cloud army display names (without the trailing date suffix)
-	var p1_preferred_name = "Adeptus Custodes 500 (Cloud)"
-	var p2_preferred_name = "Orks 500 (Cloud)"
-
-	var p1_cloud_index = _find_cloud_army_index_by_name(p1_preferred_name)
-	var p2_cloud_index = _find_cloud_army_index_by_name(p2_preferred_name)
-
-	# Only switch P1 if user is still on the local default ("adeptus_custodes" or empty)
-	if p1_cloud_index >= 0 and (p1_current_id == "" or p1_current_id == "adeptus_custodes"):
-		player1_dropdown.selected = p1_cloud_index
-		print("MainMenu: Defaulted Player 1 to cloud army '", p1_preferred_name, "'")
-
-	if p2_cloud_index >= 0 and (p2_current_id == "" or p2_current_id == "orks"):
-		player2_dropdown.selected = p2_cloud_index
-		print("MainMenu: Defaulted Player 2 to cloud army '", p2_preferred_name, "'")
-
-func _find_cloud_army_index_by_name(target_name: String) -> int:
-	for i in range(army_options.size()):
-		var opt = army_options[i]
-		if opt.get("source", "local") == "cloud" and opt.get("name", "") == target_name:
-			return i
-	return -1
+	# The newest base lists stay the default selections — cloud armies
+	# are listed but never auto-selected over them.
 
 func available_armies_ids() -> Array:
 	var ids = []
