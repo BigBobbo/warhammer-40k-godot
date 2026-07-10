@@ -36,7 +36,8 @@ func setup(p_unit_id: String, p_move_distance: float, phase, controller = null) 
 	controller_reference = controller
 
 	var unit = phase.get_unit(unit_id) if phase else {}
-	unit_name = unit.get("meta", {}).get("name", unit_id)
+	var _aed_meta = unit.get("meta", {})
+	unit_name = _aed_meta.get("display_name", _aed_meta.get("name", unit_id))
 
 	title = "Acrobatic Escape: %s" % unit_name
 

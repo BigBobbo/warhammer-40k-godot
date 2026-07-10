@@ -2,13 +2,33 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.17.2",
+			"version": "0.17.4",
 			"date": "2026-07-10",
 			"summary": "Objective control fixes: a model whose base is only partly on a terrain-hosted objective now counts as holding it, and objective labels no longer claim 'CONTESTED' when nobody (or only one side) is in range — an empty marker now reads 'Uncontrolled'.",
 			"changes": [
 				"Terrain-hosted objectives (11e): a model counts as within the objective as soon as ANY part of its base overlaps the hosting ruin area — previously only the model's centre point was checked, so a unit standing half on the objective was ignored and the marker wrongly showed CONTESTED.",
 				"Board labels, the Command panel and the Scoring panel now distinguish a genuine stand-off ('CONTESTED': both sides in range with equal, nonzero OC) from an empty marker ('Uncontrolled').",
 				"Sticky-objective locks (e.g. Get Da Good Bitz) and nearest-controlled-objective checks now use the same base-on-area rule as objective control on terrain-hosted objectives."
+			]
+		},
+		{
+			"version": "0.17.3",
+			"date": "2026-07-10",
+			"summary": "Fixed the charge-phase 'Snap to Contact' button doing nothing when clicked — it now moves every remaining charging model into base-to-base contact with the nearest charge target, sliding models around the target's base when a squadmate blocks the straight line.",
+			"changes": [
+				"'Snap to Contact' now works: previously the click silently errored out and no models moved, so charging units could never be one-clicked into base contact.",
+				"When several models charge the same target, the ones whose direct approach is blocked by an already-placed squadmate now sweep around the target's base to find the nearest legal base-contact spot instead of being left behind.",
+				"If a model genuinely has no legal spot within its charge distance, the info panel now says so and asks you to place that model by hand, instead of failing silently."
+			]
+		},
+		{
+			"version": "0.17.2",
+			"date": "2026-07-10",
+			"summary": "Stratagem unit pickers now tell duplicate squads apart: dialogs like GRENADE list 'Stormboyz Alpha / Beta / Delta' instead of three identical 'Stormboyz' buttons.",
+			"changes": [
+				"The GRENADE stratagem dialog labels each eligible unit with its squad name (e.g. 'Warbikers Alpha' vs 'Warbikers Beta'), matching the names used in the game log and shooter list — you can now tell which squad you are picking.",
+				"Same fix everywhere a stratagem asks you to pick a unit: Fire Overwatch, Counter-Offensive, Heroic Intervention, Tank Shock targets, Deck Fraggers, Rolling Loot-heap, and the generic faction-stratagem unit picker.",
+				"Game-log entries and result popups for stratagems (grenade throws, tank shock, overwatch) also use the squad names, as do the Scatter, Sweeping Advance, Krump'n'Run and Acrobatic Escape prompts."
 			]
 		},
 		{
