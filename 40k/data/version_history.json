@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.16.2",
+			"date": "2026-07-10",
+			"summary": "Fight phase dialogs now have a single, clear confirm button: the redundant 'OK' button that duplicated 'Fight!' in the attack-assignment dialog (and did nothing useful in the unit picker) is gone.",
+			"changes": [
+				"Assign Attacks dialog: removed the built-in 'OK' button that sat next to 'Fight!' and did the same thing — 'Fight!' is now the one button that confirms your weapon/target assignments and rolls the attacks.",
+				"Fight unit picker: removed its 'OK' button too — you pick a unit by clicking it, and 'OK' could only close the picker without selecting anything, stalling the fight sequence."
+			]
+		},
+		{
 			"version": "0.16.1",
 			"date": "2026-07-10",
 			"summary": "Fixed the board mouseover tooltip: it now works on every model anywhere on the board (not just a lucky few), and shows the unit's real name and stats instead of 'Unknown' with question marks.",
