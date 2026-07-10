@@ -33,6 +33,11 @@ var weapon_assignments: Dictionary = {}  # weapon_id -> target_unit_id
 var assignment_history: Array = []  # T5-UX4: Stack of weapon_ids in assignment order for undo
 var selected_weapon_id: String = ""  # Currently selected weapon (drives damage preview)
 var _auto_assign_logged: bool = false  # Prevent duplicate auto-assign log messages
+# True once the player has EXPLICITLY staged a target assignment for the
+# current shooter (weapon click / split-fire commit). Auto-assignments made on
+# selection (single eligible target) do NOT set it — the click-to-switch
+# confirmation dialog only guards player-staged work.
+var _manual_assignment_made: bool = false
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
 var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
 var active_allocation_overlay: Control = null  # WoundAllocationOverlay (10e) or AllocationGroupOverlay (11e)
@@ -107,6 +112,10 @@ var aggregate_preview_label: RichTextLabel
 
 # Shooter status info (model count, abilities, stationary)
 var shooter_status_label: RichTextLabel
+
+# No-eligible-targets feedback: which shooter we've already reported for, so the
+# doubled selection paths (phase signal + direct local call) only log it once.
+var _no_targets_reported_unit: String = ""
 
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
@@ -783,6 +792,10 @@ func _restore_state_after_load() -> void:
 		for assignment in shooting_state.pending_assignments:
 			weapon_assignments[assignment.weapon_id] = assignment.target_unit_id
 			weapons_seen[assignment.weapon_id] = true
+		# Assignments that survived a save/load were staged by the player —
+		# protect them behind the click-to-switch confirmation.
+		if not weapon_assignments.is_empty():
+			_manual_assignment_made = true
 
 		for assignment in shooting_state.confirmed_assignments:
 			weapon_assignments[assignment.weapon_id] = assignment.target_unit_id
@@ -914,6 +927,10 @@ func _refresh_shooter_status() -> void:
 
 	if not ability_tags.is_empty():
 		status_parts.append("[color=#8888CC]▸ %s[/color]" % ", ".join(ability_tags))
+
+	# Persistent warning while a shooter with nothing targetable stays selected
+	if eligible_targets.is_empty():
+		status_parts.append("[color=#CC5555]⊘ No eligible targets (range / line of sight)[/color]")
 
 	shooter_status_label.text = ""
 	shooter_status_label.append_text("  ".join(status_parts) if status_parts.size() <= 2 else "\n".join(status_parts))
@@ -1149,8 +1166,9 @@ func _try_auto_select_single_weapon() -> void:
 	# T5-UX1: Show damage preview for auto-selected weapon
 	_update_damage_preview(weapon_id)
 
-	# Show feedback in dice log
-	if dice_log_display:
+	# Show feedback in dice log — but don't tell the player to click an enemy
+	# when nothing is targetable (the no-targets report explains that instead)
+	if dice_log_display and not eligible_targets.is_empty():
 		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		dice_log_display.append_text("[color=cyan]Auto-selected %s (only weapon) — click an enemy unit to assign target[/color]\n" % weapon_name)
 
@@ -1797,6 +1815,7 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	active_shooter_id = unit_id
 	weapon_assignments.clear()
 	assignment_history.clear()  # T5-UX4: Clear undo history for new shooter
+	_manual_assignment_made = false
 	if shooter_changed:
 		_auto_assign_logged = false
 
@@ -1818,6 +1837,11 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	_update_ui_state()
 	_update_perform_action_button()
 	_show_range_indicators()
+
+	# When nothing is targetable, say so loudly — otherwise weapon clicks and
+	# enemy clicks look like they silently do nothing (Stompa bug report).
+	if eligible_targets.is_empty():
+		_report_no_eligible_targets(unit_id)
 
 	# Show consolidated auto-assign message once per shooter selection
 	if dice_log_display and not weapon_assignments.is_empty() and eligible_targets.size() == 1 and not _auto_assign_logged:
@@ -1842,6 +1866,12 @@ func _on_targets_available(unit_id: String, targets: Dictionary) -> void:
 	_refresh_quick_assign_buttons()  # P3-113: Update quick-assign buttons for new targets
 	# Show range indicators which will also highlight enemies
 	_show_range_indicators()
+	_refresh_shooter_status()
+
+	# Networked path of the no-targets feedback (locally the direct call in
+	# _on_unit_selected_for_shooting reports first; the dedup guard suppresses this one).
+	if eligible_targets.is_empty():
+		_report_no_eligible_targets(unit_id)
 	
 	# Trigger LoS visualization for each eligible target
 	if los_debug_visual and los_debug_visual.debug_enabled:
@@ -3238,6 +3268,9 @@ func _on_unit_selected(index: int) -> void:
 
 		print("ShootingController: User selected unit %s from list" % unit_id)
 
+		# Fresh explicit selection: allow the no-targets report to fire again.
+		_no_targets_reported_unit = ""
+
 		# Emit action request - visualization will be triggered when action is confirmed
 		emit_signal("shoot_action_requested", {
 			"type": "SELECT_SHOOTER",
@@ -3297,6 +3330,9 @@ func _on_weapon_tree_item_selected() -> void:
 			if weapon_assignments.has(weapon_id):
 				var target_name = eligible_targets.get(weapon_assignments[weapon_id], {}).get("unit_name", "Unknown")
 				dice_log_display.append_text("[color=yellow]Selected %s (currently assigned to %s)[/color]\n" % [weapon_name, target_name])
+			elif eligible_targets.is_empty():
+				# Don't tell the player to click an enemy when nothing is targetable.
+				dice_log_display.append_text("[color=red]Selected %s — no eligible targets for this unit (out of range or no line of sight)[/color]\n" % weapon_name)
 			else:
 				dice_log_display.append_text("[color=yellow]Selected %s - Click on an enemy unit to assign target[/color]\n" % weapon_name)
 
@@ -3318,6 +3354,7 @@ func _on_clear_pressed() -> void:
 	})
 	weapon_assignments.clear()
 	assignment_history.clear()  # T5-UX4: Clear undo history
+	_manual_assignment_made = false
 
 	# NEW: Hide auto-target button when clearing assignments
 	if auto_target_button_container:
@@ -4002,8 +4039,21 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# Only handle mouse input if we have an active shooter and eligible targets
-	if active_shooter_id == "" or eligible_targets.is_empty():
+	# Click-to-select shooter: a left-click on a friendly unit's model selects
+	# it as the active shooter (same as clicking its row in the unit list),
+	# asking first when the current shooter already has staged assignments.
+	# Runs BEFORE the active-shooter guard so a unit can be picked by clicking
+	# its token even when nothing is selected yet.
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _try_click_select_shooter():
+			get_viewport().set_input_as_handled()
+			return
+
+	# Only handle mouse input if we have an active shooter. Deliberately do NOT
+	# bail out when eligible_targets is empty — clicks must still reach
+	# _handle_board_click so the player is told WHY an enemy cannot be targeted
+	# (out of range / no line of sight / …) instead of getting silence.
+	if active_shooter_id == "":
 		return
 
 	# Handle clicking on units for target selection
@@ -4203,13 +4253,159 @@ func _keyboard_skip_unit() -> void:
 	if dice_log_display:
 		dice_log_display.append_text("[color=orange]Skipped unit (N)[/color]\n")
 
+func _try_click_select_shooter() -> bool:
+	"""Click-to-select: a left-click on a friendly unit's model selects that
+	unit as the shooter, exactly as clicking its row in the unit list would.
+	If the current shooter already has staged target assignments, a
+	UnitSwitchConfirmDialog asks the player first instead of discarding them
+	silently. Returns true when the click was handled."""
+	if not current_phase:
+		return false
+
+	# Never steal clicks that are headed for UI controls (unit list, weapon
+	# tree, buttons…) — _input sees those before the GUI does.
+	var hovered = get_viewport().gui_get_hovered_control()
+	if hovered != null:
+		return false
+
+	# While a switch dialog is open, swallow further board clicks so a second
+	# dialog can't stack on top of the first.
+	if get_tree().root.get_node_or_null("UnitSwitchConfirmDialog") != null:
+		return true
+
+	# Don't switch shooters while a shooting sequence is resolving or a
+	# decision dialog is pausing the phase.
+	if get_tree().root.get_node_or_null("WeaponOrderDialog") != null:
+		return false
+	if get_tree().root.get_node_or_null("CommandRerollDialog") != null:
+		return false
+
+	var board_root = SceneRefs.board_root()
+	var board_pos: Vector2 = board_root.get_local_mouse_position() if board_root else get_global_mouse_position()
+
+	var clicked_unit_id = _get_friendly_unit_at_position(board_pos)
+	if clicked_unit_id == "" or clicked_unit_id == active_shooter_id:
+		return false
+
+	# Only units that can still shoot are click-selectable
+	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
+	if clicked_unit_id in units_shot:
+		print("ShootingController: Click on %s ignored — unit has already shot" % clicked_unit_id)
+		return false
+	if not _is_unit_in_shooter_list(clicked_unit_id):
+		print("ShootingController: Click on %s ignored — unit not selectable this phase" % clicked_unit_id)
+		return false
+
+	# Only player-staged assignments warrant a confirmation; auto-assigned
+	# defaults (single eligible target) are recreated on re-select and switch
+	# silently, matching the unit-list behaviour.
+	if active_shooter_id != "" and not weapon_assignments.is_empty() and _manual_assignment_made:
+		print("ShootingController: Click-to-select %s while %s has staged assignments — asking player" % [clicked_unit_id, active_shooter_id])
+		_show_unit_switch_dialog(clicked_unit_id)
+	else:
+		print("ShootingController: Click-to-select shooter %s from board token" % clicked_unit_id)
+		_select_shooter_in_list_by_id(clicked_unit_id)
+	return true
+
+func _get_friendly_unit_at_position(board_pos: Vector2) -> String:
+	"""Return the unit_id of the current player's unit whose model base is
+	under `board_pos` (small tolerance), or "" when none is."""
+	var player = current_phase.get_current_player() if current_phase.has_method("get_current_player") else GameState.get_active_player()
+	var all_units = GameState.state.get("units", {})
+	var closest_unit = ""
+	var closest_distance = INF
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if unit.get("attached_to", null) != null:
+			continue  # attached characters activate through their bodyguard unit
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			if model.get("position") == null:
+				continue  # embarked / in reserves — not on the board
+			var model_pos = _get_model_position(model)
+			var base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+			var distance = model_pos.distance_to(board_pos)
+			if distance <= base_radius + 10.0 and distance < closest_distance:
+				closest_distance = distance
+				closest_unit = unit_id
+	return closest_unit
+
+func _is_unit_in_shooter_list(unit_id: String) -> bool:
+	"""True when `unit_id` has an enabled row in the shooter unit list."""
+	if not unit_selector or not is_instance_valid(unit_selector):
+		return false
+	for i in range(unit_selector.get_item_count()):
+		if unit_selector.get_item_metadata(i) == unit_id:
+			return not unit_selector.is_item_disabled(i)
+	return false
+
+func _select_shooter_in_list_by_id(unit_id: String) -> bool:
+	"""Select `unit_id` in the shooter list exactly as clicking its row would
+	(select + _on_unit_selected, the same pattern the auto-select path uses).
+	Returns false if the unit is not listed."""
+	if not unit_selector or not is_instance_valid(unit_selector):
+		return false
+	for i in range(unit_selector.get_item_count()):
+		if unit_selector.get_item_metadata(i) == unit_id:
+			unit_selector.select(i)
+			_on_unit_selected(i)
+			return true
+	return false
+
+func _unit_switch_display_name(unit_id: String) -> String:
+	var unit = GameState.get_unit(unit_id)
+	if not unit or unit.is_empty():
+		return unit_id
+	var unit_meta = unit.get("meta", {})
+	return unit_meta.get("display_name", unit_meta.get("name", unit_id))
+
+func _show_unit_switch_dialog(target_unit_id: String) -> void:
+	"""Ask the player whether to switch shooters while the active one still has
+	staged (unconfirmed) target assignments."""
+	var dialog_script = load("res://dialogs/UnitSwitchConfirmDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load UnitSwitchConfirmDialog.gd — switching without confirmation")
+		_select_shooter_in_list_by_id(target_unit_id)
+		return
+
+	var current_name = _unit_switch_display_name(active_shooter_id)
+	var target_name = _unit_switch_display_name(target_unit_id)
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(current_name, target_name, target_unit_id,
+		"%s's staged target assignments will be discarded." % current_name)
+	dialog.switch_confirmed.connect(_on_unit_switch_confirmed)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("ShootingController: Unit switch dialog shown (%s -> %s)" % [active_shooter_id, target_unit_id])
+
+func _on_unit_switch_confirmed(target_unit_id: String) -> void:
+	# Honour the dialog's promise: discard the current shooter's staged
+	# assignments phase-side too (same as the Esc deselect path does),
+	# otherwise re-selecting the old shooter would restore them.
+	print("ShootingController: Unit switch confirmed — clearing staged assignments and selecting %s as shooter" % target_unit_id)
+	if active_shooter_id != "" and not weapon_assignments.is_empty():
+		_on_clear_pressed()
+	_select_shooter_in_list_by_id(target_unit_id)
+
 func _handle_board_click(position: Vector2) -> void:
 	# First check if we have a weapon selected
 	if not weapon_tree:
 		return
-		
+
+	# No eligible targets at all: _input no longer filters this case out, so
+	# clicks land here. Ignore clicks over UI controls (this handler sees ALL
+	# clicks, including weapon-tree/panel ones); genuine board clicks fall
+	# through so the player is told why enemies cannot be targeted.
+	var no_eligible_targets: bool = eligible_targets.is_empty()
+	if no_eligible_targets and get_viewport().gui_get_hovered_control() != null:
+		return
+
 	var selected_weapon = weapon_tree.get_selected()
-	if not selected_weapon:
+	if not selected_weapon and not no_eligible_targets:
 		if dice_log_display:
 			dice_log_display.append_text("[color=red]Please select a weapon first![/color]\n")
 		return
@@ -4262,7 +4458,10 @@ func _handle_board_click(position: Vector2) -> void:
 		# REMOVED FALLBACK: Don't auto-assign first target if click misses
 		# This was causing weapons to be incorrectly reassigned
 		print("[ShootingController] Click missed all targets (closest: %s at %.1f px). Please click directly on enemy model." % [closest_target if closest_target != "" else "none", closest_distance])
-		if dice_log_display:
+		if no_eligible_targets:
+			# Nothing is targetable anyway — repeat the full explanation on demand.
+			_report_no_eligible_targets(active_shooter_id, true)
+		elif dice_log_display:
 			dice_log_display.append_text("[color=red]Click missed - please click directly on an enemy model[/color]\n")
 
 func _handle_board_hover(position: Vector2) -> void:
@@ -4280,6 +4479,55 @@ func _handle_board_hover(position: Vector2) -> void:
 	# Clear LoS if not hovering a target
 	if los_visual:
 		los_visual.clear_points()
+
+# Explain in the dice log + a toast why the active shooter has no eligible
+# targets at all (out of range / no line of sight / engagement / Lone
+# Operative / …). Without this the player gets pure silence: weapon rows say
+# "(Click to Select)" but no board click can assign anything (Stompa bug
+# report). Deduped per shooter selection because selection fires through both
+# the phase signal and the direct local call; pass force=true to re-print.
+func _report_no_eligible_targets(unit_id: String, force: bool = false) -> void:
+	if unit_id == "":
+		return
+	if not force and _no_targets_reported_unit == unit_id:
+		return
+	_no_targets_reported_unit = unit_id
+
+	var unit = GameState.get_unit(unit_id)
+	var unit_meta = unit.get("meta", {})
+	var unit_name = unit_meta.get("display_name", unit_meta.get("name", unit_id))
+	var snapshot = GameState.create_snapshot()
+	var reasons: Array = []
+	var all_units = snapshot.get("units", {})
+	var my_owner = unit.get("owner", 0)
+	for enemy_id in all_units:
+		var enemy = all_units[enemy_id]
+		if enemy.get("owner", 0) == my_owner:
+			continue
+		if enemy.get("attached_to", null) != null:
+			continue
+		var any_alive = false
+		for model in enemy.get("models", []):
+			if model.get("alive", true):
+				any_alive = true
+				break
+		if not any_alive:
+			continue
+		var reason = RulesEngine.get_target_ineligibility_reason(unit_id, enemy_id, snapshot)
+		if reason != "":
+			reasons.append(reason)
+
+	print("ShootingController: %s has no eligible targets — %s" % [unit_id, str(reasons)])
+	if dice_log_display:
+		dice_log_display.append_text("[color=red]✗ %s has no eligible targets:[/color]\n" % unit_name)
+		if reasons.is_empty():
+			dice_log_display.append_text("[color=#CC8888]   • No enemy units on the board[/color]\n")
+		var max_lines = 6
+		for i in range(min(reasons.size(), max_lines)):
+			dice_log_display.append_text("[color=#CC8888]   • %s[/color]\n" % str(reasons[i]))
+		if reasons.size() > max_lines:
+			dice_log_display.append_text("[color=#CC8888]   • …and %d more[/color]\n" % (reasons.size() - max_lines))
+	ToastManager.show_warning("%s has no eligible targets (range / line of sight)" % unit_name)
 
 func _select_target_for_current_weapon(target_id: String) -> void:
 	# Get currently selected weapon from tree
@@ -4485,6 +4733,7 @@ func _commit_split_assignment(weapon_id: String, target_id: String, chosen_model
 	# tree row text is rewritten below to show the full split).
 	weapon_assignments[weapon_id] = target_id
 	last_assigned_target_id = target_id
+	_manual_assignment_made = true
 
 	# Undo history: push a richer record so undo can reverse this exact slice.
 	# Older records may be plain strings (weapon_id); the undo handler is
@@ -4875,6 +5124,7 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 
 			# Assign target
 			weapon_assignments[weapon_id] = target_id
+			_manual_assignment_made = true  # quick-assign is an explicit player action
 
 			# Track Pistol/non-Pistol state for subsequent weapons
 			if is_pistol:

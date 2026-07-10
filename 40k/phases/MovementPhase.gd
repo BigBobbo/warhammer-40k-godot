@@ -45,6 +45,8 @@ var active_moves: Dictionary = {}
 var _pending_take_to_skies: Dictionary = {}  # unit_id -> move_data
 # ISS-073 (24.35): Super-Heavy Walker MOBILE-grant declarations awaiting the advance roll.
 var _pending_shw_mobile: Dictionary = {}  # unit_id -> bool
+# Turbo Boostas (Speedwaaagh!): turbo declarations awaiting the advance resolution.
+var _pending_turbo_boost: Dictionary = {}  # unit_id -> bool
 var dice_log: Array = []
 var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
@@ -96,7 +98,9 @@ var _normal_moves_this_phase: Dictionary = {}   # unit_id -> true (units that ha
 # Restrictions: once per phase per unit, not while battle-shocked, not while in Engagement Range.
 var _surge_moves_this_phase: Dictionary = {}    # unit_id -> true (units that have surged this phase)
 
-# Krump and Run state tracking (OA-8)
+# Krump and Run state tracking (OA-8). The same scaffolding also serves
+# ON TO DA NEXT (Taktikal Brigade) — an identical reactive 6" Normal move
+# offered to the defending Ork player after an enemy unit Falls Back.
 var _awaiting_krump_and_run: bool = false
 var _krump_and_run_player: int = 0               # Non-active player offered the stratagem
 var _krump_and_run_eligible_units: Array = []     # Eligible ORKS units freed by fall back
@@ -104,6 +108,8 @@ var _krump_and_run_fell_back_unit_id: String = "" # The enemy unit that fell bac
 var _krump_and_run_unit_id: String = ""           # The unit chosen for reactive move
 var _krump_and_run_pending_after_overwatch: bool = false  # Defer K&R check until overwatch resolves
 var _krump_and_run_pending_fell_back_id: String = ""      # Fell-back unit ID for deferred check
+var _krump_and_run_strat_id: String = ""          # Resolved stratagem id (Krump and Run / On to da Next)
+var _krump_and_run_strat_name: String = "Krump and Run"  # Display name for logs/dialog
 var _engagement_at_phase_start: Dictionary = {}   # unit_id -> [enemy_unit_ids] at phase start
 var _reactive_move_owner: int = 0                 # Override player for engagement checks during reactive moves
 
@@ -249,6 +255,8 @@ func _on_phase_enter() -> void:
 	_krump_and_run_unit_id = ""
 	_krump_and_run_pending_after_overwatch = false
 	_krump_and_run_pending_fell_back_id = ""
+	_krump_and_run_strat_id = ""
+	_krump_and_run_strat_name = "Krump and Run"
 	_reactive_move_owner = 0
 	_kunnin_infiltrator_pending = false
 	_kunnin_infiltrator_unit_id = ""
@@ -1505,6 +1513,15 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 			and action.get("payload", {}).get("shw_mobile_gamble", false) \
 			and "SUPER-HEAVY WALKER" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
 
+	# Turbo Boostas (Speedwaaagh! detachment rule): a SPEED FREEKS or TRUKK
+	# unit (excluding AIRCRAFT) can use its turbo instead of rolling — Move
+	# becomes a flat 24" this phase, ranged weapons gain ASSAULT until end of
+	# turn and the unit cannot declare a charge. The one-straight-line /
+	# no-pivot rider is not enforced (documented simplification).
+	_pending_turbo_boost[unit_id] = GameConstants.edition >= 11 \
+			and action.get("payload", {}).get("turbo_boost", false) \
+			and FactionAbilityManager.unit_can_turbo_boost(unit)
+
 	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals early
 	# This ensures visuals are correct even if a reroll dialog delays _resolve_advance_roll
 	_reset_staged_visuals_if_needed(unit_id)
@@ -1513,6 +1530,19 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	# move flow immediately rolls dice and may offer a command reroll, making the
 	# interrupt-and-resume flow overly complex. The move-end trigger in
 	# _process_confirm_unit_move covers the Advance move case.
+
+	# Turbo Boostas (Speedwaaagh!): no Advance roll — Move becomes a flat 24"
+	# for this phase. Takes precedence over auto-advance abilities because the
+	# player explicitly declared the turbo.
+	if _pending_turbo_boost.get(unit_id, false):
+		var tb_name = unit.get("meta", {}).get("name", unit_id)
+		log_phase_message("Advance: %s uses its turbo (Turbo Boostas) — no roll, flat 24\" move" % tb_name)
+		DebugLogger.info(str("MovementPhase: Turbo Boostas — %s turbo-boosts (flat 24\" move, no roll)" % tb_name))
+		var gel_tb = get_node_or_null("/root/GameEventLog")
+		if gel_tb:
+			gel_tb.add_player_entry(int(unit.get("owner", 0)),
+				"%s turbo-boosts (Speedwaaagh!): 24\" move, ranged weapons gain ASSAULT, cannot charge" % tb_name)
+		return _resolve_advance_roll(unit_id, 0)
 
 	# OA-5: Boardin' Rush — skip advance roll, add flat 6" to Move instead
 	var flags = unit.get("flags", {})
@@ -1559,6 +1589,23 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
 	log_phase_message("Advance: %s → D6 = %d" % [unit_name, advance_roll])
+
+	# THUNDERING WAGONS (Rollin' Deff): the rigs do not roll for Advance —
+	# their Advance is a flat 6".
+	var tw_override = FactionAbilityManager.get_thundering_wagons_advance_override(unit)
+	if tw_override > 0:
+		advance_roll = tw_override
+		log_phase_message("Advance: %s — Thundering Wagons, flat %d\" (no roll)" % [unit_name, tw_override])
+
+	# Ability-granted Advance re-roll (Bloodthirsty Belligerence, SUPERFUELLED
+	# BOILER, Blitz Brigade's Eager for the Fight after disembarking): the
+	# re-roll must keep the second result, so auto re-roll only when the first
+	# roll is low enough that a player always would (1-3).
+	if tw_override == 0 and advance_roll <= 3 \
+			and (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)):
+		var reroll_result = rng_service.roll_d6(1)[0]
+		log_phase_message("Advance re-roll (ability): %s re-rolls %d → %d" % [unit_name, advance_roll, reroll_result])
+		advance_roll = reroll_result
 
 	# Check if Command Re-roll is available
 	var current_player = get_current_player()
@@ -1613,6 +1660,13 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
 		move_inches = max(0.0, move_inches + fly_mod)
 		log_phase_message("[11e] %s takes to the skies: advance cap (%s + %d)\" (%+.1f\")" % [unit_id, str(move_inches), advance_roll, fly_mod])
+	# Turbo Boostas (Speedwaaagh!): Move characteristic becomes a flat 24"
+	# for this phase (replaces M entirely; no Advance roll was made).
+	var turbo_boost: bool = _pending_turbo_boost.get(unit_id, false)
+	_pending_turbo_boost.erase(unit_id)
+	if turbo_boost:
+		move_inches = 24.0
+		log_phase_message("[Speedwaaagh!] %s turbo-boosts: Move = flat 24\" this phase" % unit_id)
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
@@ -1624,6 +1678,7 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 		"mode": "ADVANCE",
 		"took_to_skies": took_to_skies,
 		"shw_mobile": shw_mobile,
+		"turbo_boost": turbo_boost,
 		"mode_locked": false,
 		"completed": false,
 		"move_cap_inches": total_move,
@@ -3020,6 +3075,22 @@ func _process_use_mekaniak(action: Dictionary) -> Dictionary:
 			})
 			log_phase_message("DAKKAMEK: %s's ranged weapons gain [RAPID FIRE 1] until start of next turn" % target_unit_id)
 
+		# SUPERCHARGED SQUIG OIL (Blitz Brigade): if the Mek bears this
+		# enhancement, the selected Vehicle's unit can re-roll Charge rolls
+		# until the end of the turn (cleared alongside the Mekaniak buff).
+		if _unit_has_enhancement(_mekaniak_mek_id, "Supercharged Squig Oil"):
+			mekaniak_changes.append({
+				"op": "set",
+				"path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_CHARGE],
+				"value": true
+			})
+			mekaniak_changes.append({
+				"op": "set",
+				"path": "units.%s.flags.squig_oil_charge_reroll" % target_unit_id,
+				"value": true
+			})
+			log_phase_message("SUPERCHARGED SQUIG OIL: %s can re-roll Charge rolls this turn" % target_unit_id)
+
 	# Mark this vehicle as used for Mekaniak this turn (once per vehicle per turn)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
@@ -3078,6 +3149,17 @@ func _clear_mekaniak_buffs(player: int) -> void:
 				"path": "units.%s.flags.dakkamek_rapid_fire" % unit_id
 			})
 			DebugLogger.info(str("MovementPhase: Clearing Dakkamek RAPID FIRE from vehicle %s" % unit_id))
+		# SUPERCHARGED SQUIG OIL (Blitz Brigade): clear the charge re-roll.
+		if unit.get("flags", {}).get("squig_oil_charge_reroll", false):
+			changes.append({
+				"op": "remove",
+				"path": "units.%s.flags.squig_oil_charge_reroll" % unit_id
+			})
+			changes.append({
+				"op": "remove",
+				"path": "units.%s.flags.%s" % [unit_id, EffectPrimitivesData.FLAG_REROLL_CHARGE]
+			})
+			DebugLogger.info(str("MovementPhase: Clearing Supercharged Squig Oil charge re-roll from vehicle %s" % unit_id))
 
 	if changes.size() > 0:
 		PhaseManager.apply_state_changes(changes)
@@ -3413,7 +3495,7 @@ func _get_bomb_squigs_targets(unit_id: String) -> Array:
 		if other_pos == null:
 			continue
 
-		var dist_inches = unit_pos.distance_to(other_pos) / Measurement.PX_PER_INCH
+		var dist_inches = Measurement.px_to_inches(unit_pos.distance_to(other_pos))
 		if dist_inches <= 12.0:
 			targets.append({
 				"target_unit_id": other_id,
@@ -4769,6 +4851,22 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				"value": true
 			})
 			DebugLogger.info(str("[MovementPhase] Propagated advance flags to attached character %s" % char_id))
+		# Turbo Boostas (Speedwaaagh!): the turbo grants ranged weapons ASSAULT
+		# (advance-and-shoot) until end of turn, and hard-locks charging — the
+		# turbo_boosted flag cannot be overridden by advance-and-charge effects.
+		if move_data.get("turbo_boost", false):
+			for tb_id in [unit_id] + attached_chars:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.flags.turbo_boosted" % tb_id,
+					"value": true
+				})
+				changes.append({
+					"op": "set",
+					"path": "units.%s.flags.effect_advance_and_shoot" % tb_id,
+					"value": true
+				})
+			DebugLogger.info(str("[MovementPhase] Turbo Boostas — %s gains ASSAULT ranged weapons and cannot charge this turn" % unit_id))
 	elif move_data.mode == "FALL_BACK":
 		# Set fell_back flag - units that Fell Back cannot shoot or charge
 		changes.append({
@@ -5740,10 +5838,21 @@ func _check_krump_and_run_opportunity(fell_back_unit_id: String, snapshot_overri
 	if not strat_manager:
 		return {"triggered": false}
 
-	# Find the Krump and Run stratagem ID for the defending player
-	var kar_strat_id = strat_manager.find_faction_stratagem_by_name(defending_player, "Krump and Run")
+	# Find the reactive fall-back stratagem for the defending player:
+	# KRUMP AND RUN (Freebooter Krew), ON TO DA NEXT (Taktikal Brigade) or
+	# WHERE D'YA FINK YOU'RE GOING? (Da Big Hunt) — identical effect
+	# (6" Normal move after an enemy Falls Back; per-unit targeting rules
+	# differ and are enforced by can_use_stratagem below).
+	var kar_strat_id = ""
+	var kar_strat_name = "Krump and Run"
+	for candidate in ["Krump and Run", "On to da Next", "Where D'ya Fink You're Going?"]:
+		kar_strat_id = strat_manager.find_faction_stratagem_by_name(defending_player, candidate)
+		if kar_strat_id != "":
+			kar_strat_name = candidate
+			break
 	if kar_strat_id == "":
 		return {"triggered": false}
+	var kar_strat_type = str(strat_manager.get_stratagem(kar_strat_id).get("type", ""))
 
 	# Check basic stratagem availability (CP, restrictions)
 	var basic_check = strat_manager.can_use_stratagem(defending_player, kar_strat_id)
@@ -5789,21 +5898,23 @@ func _check_krump_and_run_opportunity(fell_back_unit_id: String, snapshot_overri
 			continue
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		eligible.append({"unit_id": unit_id, "unit_name": unit_name})
+		eligible.append({"unit_id": unit_id, "unit_name": unit_name, "strat_name": kar_strat_name, "strat_type": kar_strat_type})
 
 	if eligible.is_empty():
-		DebugLogger.info(str("MovementPhase: OA-8 Krump and Run — no eligible ORKS units after %s fell back" % fell_back_unit_id))
+		DebugLogger.info(str("MovementPhase: OA-8 %s — no eligible ORKS units after %s fell back" % [kar_strat_name, fell_back_unit_id]))
 		return {"triggered": false}
 
-	# Krump and Run is available!
+	# The reactive fall-back stratagem is available!
 	_awaiting_krump_and_run = true
 	_krump_and_run_player = defending_player
 	_krump_and_run_eligible_units = eligible
 	_krump_and_run_fell_back_unit_id = fell_back_unit_id
+	_krump_and_run_strat_id = kar_strat_id
+	_krump_and_run_strat_name = kar_strat_name
 
 	var fell_back_name = fell_back_unit.get("meta", {}).get("name", fell_back_unit_id)
-	log_phase_message("KRUMP AND RUN available for Player %d (%d eligible ORKS units) after %s fell back" % [defending_player, eligible.size(), fell_back_name])
-	DebugLogger.info(str("MovementPhase: OA-8 Krump and Run opportunity — Player %d has %d eligible units" % [defending_player, eligible.size()]))
+	log_phase_message("%s available for Player %d (%d eligible ORKS units) after %s fell back" % [kar_strat_name.to_upper(), defending_player, eligible.size(), fell_back_name])
+	DebugLogger.info(str("MovementPhase: OA-8 %s opportunity — Player %d has %d eligible units" % [kar_strat_name, defending_player, eligible.size()]))
 
 	emit_signal("krump_and_run_opportunity", defending_player, eligible, fell_back_unit_id)
 
@@ -5853,13 +5964,15 @@ func _process_use_krump_and_run(action: Dictionary) -> Dictionary:
 	# Use the stratagem via StratagemManager (deducts CP, records usage)
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager:
-		var kar_strat_id = strat_manager.find_faction_stratagem_by_name(player, "Krump and Run")
+		var kar_strat_id = _krump_and_run_strat_id
+		if kar_strat_id == "":
+			kar_strat_id = strat_manager.find_faction_stratagem_by_name(player, "Krump and Run")
 		var strat_result = strat_manager.use_stratagem(player, kar_strat_id, unit_id)
 		if not strat_result.success:
-			return create_result(false, [], "Failed to use Krump and Run: %s" % strat_result.get("error", "unknown"))
+			return create_result(false, [], "Failed to use %s: %s" % [_krump_and_run_strat_name, strat_result.get("error", "unknown")])
 
-	log_phase_message("Player %d uses KRUMP AND RUN — %s can make a 6\" Normal move!" % [player, unit_name])
-	DebugLogger.info(str("MovementPhase: OA-8 Krump and Run activated — %s (Player %d) gets 6\" Normal move" % [unit_name, player]))
+	log_phase_message("Player %d uses %s — %s can make a 6\" Normal move!" % [player, _krump_and_run_strat_name.to_upper(), unit_name])
+	DebugLogger.info(str("MovementPhase: OA-8 %s activated — %s (Player %d) gets 6\" Normal move" % [_krump_and_run_strat_name, unit_name, player]))
 
 	# Set up the reactive Normal move with 6" cap
 	_krump_and_run_unit_id = unit_id
@@ -5913,10 +6026,10 @@ func _process_use_krump_and_run(action: Dictionary) -> Dictionary:
 	return result
 
 func _process_decline_krump_and_run(action: Dictionary) -> Dictionary:
-	"""Process declining the Krump and Run stratagem."""
+	"""Process declining the reactive fall-back stratagem (Krump and Run / On to da Next)."""
 	var player = _krump_and_run_player
-	log_phase_message("Player %d declined KRUMP AND RUN" % player)
-	DebugLogger.info(str("MovementPhase: OA-8 Krump and Run DECLINED by Player %d" % player))
+	log_phase_message("Player %d declined %s" % [player, _krump_and_run_strat_name.to_upper()])
+	DebugLogger.info(str("MovementPhase: OA-8 %s DECLINED by Player %d" % [_krump_and_run_strat_name, player]))
 
 	# Clear state
 	_awaiting_krump_and_run = false
@@ -5924,6 +6037,7 @@ func _process_decline_krump_and_run(action: Dictionary) -> Dictionary:
 	_krump_and_run_eligible_units = []
 	_krump_and_run_fell_back_unit_id = ""
 	_krump_and_run_unit_id = ""
+	_krump_and_run_strat_id = ""
 
 	return create_result(true, [])
 
@@ -5953,7 +6067,22 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 	if trigger_pos == null:
 		return {"triggered": false}
 
-	# Find eligible units with Scatter! ability
+	# MORE GITZ OVER 'ERE! (Kult of Speed) / CONNIVING RUNTS (Dread Mob):
+	# stratagem-granted reactions in the same window (enemy ends a
+	# Normal/Advance/Fall Back move within 9"). Detachments are exclusive per
+	# player, so at most one candidate resolves.
+	var mg_strat_id = ""
+	var mg_strat_name = ""
+	var strat_manager_sc = get_node_or_null("/root/StratagemManager")
+	if strat_manager_sc:
+		for sc_candidate in ["More Gitz Over 'Ere!", "Conniving Runts"]:
+			var sc_id = strat_manager_sc.find_faction_stratagem_by_name(defending_player, sc_candidate)
+			if sc_id != "" and strat_manager_sc.can_use_stratagem(defending_player, sc_id).can_use:
+				mg_strat_id = sc_id
+				mg_strat_name = sc_candidate
+				break
+
+	# Find eligible units with Scatter! ability (or the MORE GITZ stratagem)
 	var eligible = []
 	var units = check_snapshot.get("units", {})
 	for unit_id in units:
@@ -5965,12 +6094,14 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
 			continue
 
-		# Must have Scatter! ability
-		if not ability_mgr.has_scatter(unit_id):
-			continue
-
-		# Must not have used Scatter! this turn
-		if ability_mgr.is_scatter_used_this_turn(unit_id):
+		# Route A: the Scatter! ability (free, once per turn per unit).
+		var via_ability: bool = ability_mgr.has_scatter(unit_id) and not ability_mgr.is_scatter_used_this_turn(unit_id)
+		# Route B: MORE GITZ OVER 'ERE! (1 CP, per-target conditions enforced
+		# by can_use_stratagem — SPEED FREEKS keyword, unengaged).
+		var via_stratagem: bool = false
+		if not via_ability and mg_strat_id != "":
+			via_stratagem = strat_manager_sc.can_use_stratagem(defending_player, mg_strat_id, unit_id).can_use
+		if not (via_ability or via_stratagem):
 			continue
 
 		# Must NOT be in engagement range of any enemy unit
@@ -5986,13 +6117,15 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 		if unit_pos == null:
 			continue
 
-		var dist_inches = unit_pos.distance_to(trigger_pos) / Measurement.PX_PER_INCH
+		var dist_inches = Measurement.px_to_inches(unit_pos.distance_to(trigger_pos))
 		if dist_inches > 9.0:
 			continue
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		eligible.append({"unit_id": unit_id, "unit_name": unit_name})
-		DebugLogger.info(str("MovementPhase: OA-42 Scatter! — %s is eligible (%.1f\" from trigger unit)" % [unit_name, dist_inches]))
+		eligible.append({"unit_id": unit_id, "unit_name": unit_name, "via_stratagem": via_stratagem,
+			"strat_id": mg_strat_id if via_stratagem else "", "strat_name": mg_strat_name if via_stratagem else ""})
+		DebugLogger.info(str("MovementPhase: OA-42 %s — %s is eligible (%.1f\" from trigger unit)" % [
+			mg_strat_name.to_upper() if via_stratagem else "Scatter!", unit_name, dist_inches]))
 
 	if eligible.is_empty():
 		return {"triggered": false}
@@ -6046,25 +6179,55 @@ func _validate_use_scatter(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _process_use_scatter(action: Dictionary) -> Dictionary:
-	"""Process using Scatter! — set up reactive Normal move of up to 6\"."""
+	"""Process using Scatter! — set up reactive Normal move of up to 6\".
+	Also serves MORE GITZ OVER 'ERE! (Kult of Speed): eligible entries carry
+	via_stratagem=true and the stratagem is used (CP spent) instead of
+	marking the Scatter! ability as used."""
 	var unit_id = action.get("payload", {}).get("unit_id", "")
 	var player = _scatter_player
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
-	# Mark Scatter! as used this turn for this unit
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_scatter_used_this_turn(unit_id)
+	var used_strat_name = ""
+	for entry in _scatter_eligible_units:
+		if entry.get("unit_id", "") == unit_id and entry.get("via_stratagem", false):
+			var strat_manager_us = get_node_or_null("/root/StratagemManager")
+			if strat_manager_us:
+				var mg_result = strat_manager_us.use_stratagem(player, entry.get("strat_id", ""), unit_id)
+				if not mg_result.get("success", false):
+					return create_result(false, [], "%s could not be used: %s" % [entry.get("strat_name", "Reactive stratagem"), str(mg_result.get("error", "unknown"))])
+				used_strat_name = entry.get("strat_name", "More Gitz Over 'Ere!")
+			break
 
-	log_phase_message("Player %d uses SCATTER! — %s can make a 6\" Normal move!" % [player, unit_name])
-	DebugLogger.info(str("MovementPhase: OA-42 Scatter! activated — %s (Player %d) gets 6\" Normal move" % [unit_name, player]))
+	if used_strat_name == "":
+		# Mark Scatter! as used this turn for this unit
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr:
+			ability_mgr.mark_scatter_used_this_turn(unit_id)
 
-	# Set up the reactive Normal move with 6" cap
+	# CONNIVING RUNTS (Dread Mob): before the move, roll one D6 — on a 4+ the
+	# enemy unit that just moved suffers D3+1 mortal wounds.
+	var is_conniving_runts: bool = used_strat_name.to_upper().replace("’", "'") == "CONNIVING RUNTS"
+	if is_conniving_runts and _scatter_trigger_unit_id != "":
+		var cr = RulesEngine.resolve_conniving_runts(_scatter_trigger_unit_id, GameState.create_snapshot(), RulesEngine.make_rng())
+		if not cr.get("diffs", []).is_empty():
+			PhaseManager.apply_state_changes(cr.get("diffs", []))
+		var trig_name = get_unit(_scatter_trigger_unit_id).get("meta", {}).get("name", _scatter_trigger_unit_id)
+		log_phase_message("CONNIVING RUNTS: rolled %d — %d mortal wound(s) to %s" % [
+			int(cr.get("roll", 0)), int(cr.get("mortal_wounds", 0)), trig_name])
+
+	# Scatter!/MORE GITZ move up to 6"; CONNIVING RUNTS grants a full Normal move.
+	var move_cap = 6.0
+	if is_conniving_runts:
+		move_cap = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+
+	log_phase_message("Player %d uses %s — %s can make a %.0f\" Normal move!" % [player, used_strat_name.to_upper() if used_strat_name != "" else "SCATTER!", unit_name, move_cap])
+	DebugLogger.info(str("MovementPhase: OA-42 %s activated — %s (Player %d) gets %.0f\" Normal move" % [used_strat_name if used_strat_name != "" else "Scatter!", unit_name, player, move_cap]))
+
+	# Set up the reactive Normal move
 	_scatter_unit_id = unit_id
 	_reactive_move_owner = player  # Override engagement checks for this player's unit
 
-	var move_cap = 6.0
 	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "NORMAL",

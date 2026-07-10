@@ -78,6 +78,10 @@ const GRANT_TWIN_LINKED = "grant_twin_linked"
 
 # Hit/wound stat modifiers (persistent flags)
 const PLUS_ONE_HIT = "plus_one_hit"
+const PLUS_ONE_HIT_RANGED = "plus_one_hit_ranged"  # ranged attacks only (Targetin' Squigs)
+# Weapon-keyword grants for the whole unit's ranged weapons
+const GRANT_RAPID_FIRE_1 = "grant_rapid_fire_1"    # Dead Shiny Shootas / Dakkamek-style
+const GRANT_HAZARDOUS = "grant_hazardous"          # Da Gobshot Thunderbuss; Dread Mob 'push it'
 const MINUS_ONE_HIT = "minus_one_hit"
 const PLUS_ONE_WOUND = "plus_one_wound"
 const MINUS_ONE_WOUND = "minus_one_wound"
@@ -105,6 +109,14 @@ const PLUS_ATTACKS_BELOW_HALF = "plus_attacks_below_half"  # value: amount to ad
 const PLUS_MOVE = "plus_move"                     # value: inches to add to Move characteristic
 const PLUS_STRENGTH_MELEE = "plus_strength_melee" # value: amount to add to melee weapon Strength
 const PLUS_WOUNDS = "plus_wounds"                 # value: amount to add to Wounds characteristic (list-build only)
+# DAT'S OURS (Taktikal Brigade): additive Objective Control bonus. Unlike the
+# effect_oc_override flag (Da Boss Iz Watchin' — replaces OC), this ADDS to the
+# statline OC. Consumed by MissionManager._check_objective_control.
+const PLUS_OC = "plus_oc"                         # value: amount to add to Objective Control
+# Green Tide: the unit counts as containing 10+ models for detachment rules,
+# Enhancements and Stratagems (Raucous Warcaller, BRAGGIN' RIGHTS). Read via
+# FactionAbilityManager.unit_counts_as_10.
+const COUNTS_AS_10 = "counts_as_10"
 # Issue #375: instant primitive for MOB RULE — clears the battle_shocked flag
 # on the target unit.
 const REMOVE_BATTLE_SHOCK = "remove_battle_shock"
@@ -128,6 +140,7 @@ const FALL_BACK_AND_CHARGE = "fall_back_and_charge"
 const ADVANCE_AND_CHARGE = "advance_and_charge"
 const ADVANCE_AND_SHOOT = "advance_and_shoot"
 const REROLL_CHARGE = "reroll_charge"                   # Re-roll charge rolls (full 2D6)
+const REROLL_ADVANCE = "reroll_advance"                 # Re-roll Advance rolls (Bloodthirsty Belligerence, Superfuelled Boiler)
 const PLUS_CHARGE = "plus_charge"                       # value: amount to add to charge roll total ('ERE WE GO etc.)
 const FLAT_ADVANCE = "flat_advance"                     # Replace Advance roll with flat +6" to Move
 const AUTO_ADVANCE_6 = "auto_advance_6"                 # Skip advance roll, auto +6" to Move
@@ -159,11 +172,19 @@ const FLAG_PRECISION_MELEE = "effect_precision_melee"
 const FLAG_PRECISION_RANGED = "effect_precision_ranged"
 const FLAG_LETHAL_HITS = "effect_lethal_hits"
 const FLAG_SUSTAINED_HITS = "effect_sustained_hits"
+# FIGHT PROPPA (Taktikal Brigade): melee-only variants. The unscoped flags
+# above are read by BOTH shooting and melee resolution; these two are read
+# ONLY in the melee resolver (RulesEngine._resolve_melee_assignment).
+const FLAG_LETHAL_HITS_MELEE = "effect_lethal_hits_melee"
+const FLAG_SUSTAINED_HITS_MELEE = "effect_sustained_hits_melee"
 const FLAG_DEVASTATING_WOUNDS = "effect_devastating_wounds"
 const FLAG_IGNORES_COVER = "effect_ignores_cover"
 const FLAG_LANCE = "effect_lance"
 const FLAG_TWIN_LINKED = "effect_twin_linked"
 const FLAG_PLUS_ONE_HIT = "effect_plus_one_hit"
+const FLAG_PLUS_ONE_HIT_RANGED = "effect_plus_one_hit_ranged"
+const FLAG_GRANT_RAPID_FIRE_1 = "effect_grant_rapid_fire_1"
+const FLAG_GRANT_HAZARDOUS = "effect_grant_hazardous"
 const FLAG_MINUS_ONE_HIT = "effect_minus_one_hit"
 const FLAG_PLUS_ONE_WOUND = "effect_plus_one_wound"
 const FLAG_MINUS_ONE_WOUND = "effect_minus_one_wound"
@@ -183,6 +204,8 @@ const FLAG_FALL_BACK_AND_CHARGE = "effect_fall_back_and_charge"
 const FLAG_ADVANCE_AND_CHARGE = "effect_advance_and_charge"
 const FLAG_ADVANCE_AND_SHOOT = "effect_advance_and_shoot"
 const FLAG_REROLL_CHARGE = "effect_reroll_charge"
+const FLAG_REROLL_ADVANCE = "effect_reroll_advance"
+const FLAG_COUNTS_AS_10 = "effect_counts_as_10"
 const FLAG_PLUS_CHARGE = "effect_plus_charge"             # value: int (amount to add to charge roll total)
 const FLAG_FLAT_ADVANCE = "effect_flat_advance"
 const FLAG_AUTO_ADVANCE_6 = "effect_auto_advance_6"
@@ -194,6 +217,9 @@ const FLAG_PLUS_ATTACKS_BELOW_HALF = "effect_plus_attacks_below_half"  # value: 
 # Issue #374: enhancement flags.
 const FLAG_PLUS_MOVE = "effect_plus_move"                  # value: int (inches added to Move)
 const FLAG_PLUS_STRENGTH_MELEE = "effect_plus_strength_melee"  # value: int (Strength bonus on melee)
+# DAT'S OURS (Taktikal Brigade): value ADDED to the statline OC (contrast with
+# effect_oc_override which replaces it).
+const FLAG_PLUS_OC = "effect_plus_oc"                      # value: int (Objective Control bonus)
 # Issue #375: persistent flag for ORKS IS NEVER BEATEN — read in melee
 # resolution to defer model removal until after the unit's swing-back.
 const FLAG_SWING_BACK_BEFORE_REMOVE = "effect_swing_back_before_remove"
@@ -237,6 +263,9 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	GRANT_LANCE: [{"flag": FLAG_LANCE, "value": true}],
 	GRANT_TWIN_LINKED: [{"flag": FLAG_TWIN_LINKED, "value": true}],
 	PLUS_ONE_HIT: [{"flag": FLAG_PLUS_ONE_HIT, "value": true}],
+	PLUS_ONE_HIT_RANGED: [{"flag": FLAG_PLUS_ONE_HIT_RANGED, "value": true}],
+	GRANT_RAPID_FIRE_1: [{"flag": FLAG_GRANT_RAPID_FIRE_1, "value": true}],
+	GRANT_HAZARDOUS: [{"flag": FLAG_GRANT_HAZARDOUS, "value": true}],
 	MINUS_ONE_HIT: [{"flag": FLAG_MINUS_ONE_HIT, "value": true}],
 	PLUS_ONE_WOUND: [{"flag": FLAG_PLUS_ONE_WOUND, "value": true}],
 	MINUS_ONE_WOUND: [{"flag": FLAG_MINUS_ONE_WOUND, "value": true}],
@@ -256,6 +285,8 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	ADVANCE_AND_CHARGE: [{"flag": FLAG_ADVANCE_AND_CHARGE, "value": true}],
 	ADVANCE_AND_SHOOT: [{"flag": FLAG_ADVANCE_AND_SHOOT, "value": true}],
 	REROLL_CHARGE: [{"flag": FLAG_REROLL_CHARGE, "value": true}],
+	REROLL_ADVANCE: [{"flag": FLAG_REROLL_ADVANCE, "value": true}],
+	COUNTS_AS_10: [{"flag": FLAG_COUNTS_AS_10, "value": true}],
 	PLUS_CHARGE: [{"flag": FLAG_PLUS_CHARGE, "value_from": "value"}],
 	FLAT_ADVANCE: [{"flag": FLAG_FLAT_ADVANCE, "value": true}],
 	AUTO_ADVANCE_6: [{"flag": FLAG_AUTO_ADVANCE_6, "value": true}],
@@ -269,6 +300,8 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	# Issue #374: persistent enhancement flags on the bearer's unit.
 	PLUS_MOVE: [{"flag": FLAG_PLUS_MOVE, "value_from": "value"}],
 	PLUS_STRENGTH_MELEE: [{"flag": FLAG_PLUS_STRENGTH_MELEE, "value_from": "value"}],
+	# DAT'S OURS (Taktikal Brigade): additive OC bonus.
+	PLUS_OC: [{"flag": FLAG_PLUS_OC, "value_from": "value"}],
 }
 
 # Set of instant effect types that don't set persistent flags
@@ -678,6 +711,14 @@ static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""
 	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false)
+
+static func has_effect_reroll_advance(unit: Dictionary) -> bool:
+	"""Check if a unit has effect-granted Advance re-roll (Bloodthirsty Belligerence, Superfuelled Boiler)."""
+	return unit.get("flags", {}).get(FLAG_REROLL_ADVANCE, false)
+
+static func has_effect_counts_as_10(unit: Dictionary) -> bool:
+	"""Green Tide: unit counts as containing 10+ models (Raucous Warcaller, Braggin' Rights)."""
+	return unit.get("flags", {}).get(FLAG_COUNTS_AS_10, false)
 
 static func get_effect_plus_charge(unit: Dictionary) -> int:
 	"""Return the bonus to add to a unit's charge roll total. 0 if no modifier

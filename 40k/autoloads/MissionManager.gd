@@ -370,6 +370,10 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 		var oc_value = unit.get("flags", {}).get("effect_oc_override", 0)
 		if oc_value == 0:
 			oc_value = unit.get("meta", {}).get("stats", {}).get("objective_control", 0)
+		# DAT'S OURS (Taktikal Brigade): additive OC bonus, applied on top of the
+		# statline/override value (a base OC of 0 still controls nothing).
+		if oc_value > 0:
+			oc_value += int(unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_OC, 0))
 		if oc_value <= 0:
 			print("  Skipping %s - no OC value (OC: %d)" % [unit_id, oc_value])
 			continue

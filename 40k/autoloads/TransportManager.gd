@@ -143,6 +143,9 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 	# Clear embark status
 	unit["embarked_in"] = null
 	unit["disembarked_this_phase"] = true
+	# Boarding Ramps (Rollin' Deff) needs to know WHICH transport the unit
+	# left this turn.
+	unit["disembarked_from"] = transport_id
 
 	# Ensure unit status is DEPLOYED
 	unit["status"] = GameStateData.UnitStatus.DEPLOYED
@@ -158,13 +161,37 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 
 	if transport.get("flags", {}).get("moved", false):
 		unit.flags["cannot_move"] = true
-		unit.flags["cannot_charge"] = true
-		print("Transport has moved - disembarked unit cannot move or charge")
+		# Fasta Than Yooz (Kult of Speed): the bearer's unit is still eligible
+		# to declare a charge after disembarking from a transport that made a
+		# Normal move this turn. (Runtime lookup: TransportManager registers
+		# before FactionAbilityManager in the autoload order, so a parse-time
+		# identifier reference breaks the boot-time compile chain.)
+		# MEKANISED BRUTALITY (Blitz Brigade): the flagged rig grants the same
+		# to every unit disembarking from it this turn.
+		var fam_tm = get_node_or_null("/root/FactionAbilityManager")
+		if transport.get("flags", {}).get("effect_mekanised_brutality", false):
+			unit.flags["cannot_charge"] = false
+			print("Mekanised Brutality - transport has moved but disembarked unit remains eligible to charge")
+		elif fam_tm != null and fam_tm._unit_or_attached_has_enhancement(unit, "Fasta Than Yooz", GameState.state.get("units", {})):
+			unit.flags["cannot_charge"] = false
+			print("Fasta Than Yooz - transport has moved but disembarked unit remains eligible to charge")
+		else:
+			unit.flags["cannot_charge"] = true
+			print("Transport has moved - disembarked unit cannot move or charge")
 	else:
 		# Ensure flags are clear if transport hasn't moved
 		unit.flags["cannot_move"] = false
 		unit.flags["cannot_charge"] = false
 		print("Transport hasn't moved - disembarked unit can move normally")
+
+	# Tuff Git (Blitz Brigade): at the end of a phase in which the bearer's
+	# unit disembarked, it stops being Battle-shocked. (Applied at disembark —
+	# a faithful simplification of the end-of-phase timing.)
+	var fam_tg = get_node_or_null("/root/FactionAbilityManager")
+	if unit.get("flags", {}).get("battle_shocked", false) \
+			and fam_tg != null and fam_tg._unit_or_attached_has_enhancement(unit, "Tuff Git", GameState.state.get("units", {})):
+		unit.flags["battle_shocked"] = false
+		print("Tuff Git - disembarked unit is no longer Battle-shocked")
 
 	# Update GameState directly
 	GameState.state.units[unit_id] = unit

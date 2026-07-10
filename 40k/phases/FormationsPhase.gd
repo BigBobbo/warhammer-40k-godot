@@ -184,7 +184,12 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	if "CHARACTER" not in char_keywords:
 		errors.append("Unit is not a CHARACTER: " + character_id)
 	var leader_data = character.get("meta", {}).get("leader_data", {})
-	var can_lead = leader_data.get("can_lead", [])
+	var can_lead = leader_data.get("can_lead", []).duplicate()
+	# Taktikal Brigade enhancements (Skwad Leader / Mek Kaptin) extend which
+	# units the bearer can lead — mirror CharacterAttachmentManager.can_attach.
+	for extra_kw in CharacterAttachmentManager.get_enhancement_can_lead_extras(character):
+		if not extra_kw in can_lead:
+			can_lead.append(extra_kw)
 	if can_lead.is_empty():
 		errors.append("Character has no Leader ability: " + character_id)
 

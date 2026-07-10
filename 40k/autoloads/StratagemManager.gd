@@ -42,6 +42,37 @@ var _player_faction_stratagems: Dictionary = {
 # Faction stratagem loader instance
 var _faction_loader: FactionStratagemLoaderData = null
 
+# Custom-handler stratagems added in the Ork detachment sweep (2026-07). Names
+# are compared after normalizing typographic apostrophes and uppercasing.
+# Older custom handlers keep their individual checks in
+# _mark_custom_implemented_stratagems for git-blame continuity.
+const _CUSTOM_IMPLEMENTED_NAMES: Array = [
+	# Green Tide
+	"BRAGGIN' RIGHTS", "BULLDOZER BRUTALITY", "COME ON LADZ!",
+	"COMPETITIVE STREAK", "GO GET 'EM!", "TIDE OF MUSCLE",
+	# More Dakka!
+	"CALL DAT DAKKA?", "ORKS IS STILL ORKS", "SPESHUL SHELLS",
+	"GET STUCK IN, LADZ!", "HUGE SHOW-OFFS",
+	# Bully Boyz (HULKING BRUTES is auto via effects_json worsen_ap)
+	"ALWAYS LOOKIN' FER A FIGHT", "ARMED TO DA TEEF", "CRUSHING IMPACT",
+	"CUT' EM DOWN", "TOO ARROGANT TO DIE",
+	# Da Big Hunt
+	"DAT ONE'S EVEN BIGGA!", "DRAG IT DOWN", "INSTINCTIVE HUNTERS",
+	"UNSTOPPABLE MOMENTUM", "STALKIN' TAKTIKS", "WHERE D'YA FINK YOU'RE GOING?",
+	# Kult of Speed
+	"SPEEDIEST FREEKS", "SQUIG FLINGIN'", "BLITZA FIRE", "DAKKASTORM",
+	"FULL THROTTLE!", "MORE GITZ OVER 'ERE!",
+	# Dread Mob (EXTRA GUBBINZ + SUPERFUELLED BOILER are auto via effects_json)
+	"BIGGER SHELLS FOR BIGGER GITZ", "DAKKA! DAKKA! DAKKA!",
+	"KLANKIN' KLAWS", "CONNIVING RUNTS",
+	# Blitz Brigade
+	"ARMOURED DUELLISTS", "MOUNT UP, LADZ", "IMPERVIOUS",
+	"MEKANISED BRUTALITY", "RUN 'EM DOWN", "YOOZ IN TROUBLE NOW",
+	# Rollin' Deff (LONG, UNCONTROLLED BURSTS is auto via effects_json;
+	# SPESHUL SHELLS shares its name with the More Dakka! entry above)
+	"BRUTAL BROADSIDE", "IMPENDING CRUNCH", "DEVASTATING DRIFT",
+]
+
 # Out-of-Phase Rules Restriction (P1-59)
 # When a unit performs an out-of-phase action (e.g. Fire Overwatch during opponent's
 # Movement/Charge phase), no other rules normally triggered in that simulated phase
@@ -482,6 +513,10 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "GRAB AND BASH":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# BASH AND GRAB (OA-3): re-roll wounds vs enemies near the Loot Objective
+		if name_upper == "BASH AND GRAB":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 		# BOARDIN' RUSH (OA-5): Skip advance roll, add flat 6" to Move — custom implementation
 		if name_upper == "BOARDIN' RUSH":
 			strat["implemented"] = true
@@ -524,6 +559,29 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 		# EVASIVE MANOOVA (Speedwaaagh!): remove a unit to Strategic Reserves
 		if name_upper == "EVASIVE MANOOVA":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# FIGHT PROPPA (Taktikal Brigade): melee SUSTAINED HITS 1 or LETHAL HITS (player's choice)
+		if name_upper == "FIGHT PROPPA":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# KRUNCHIN' DESCENT (Taktikal Brigade): D6 per Stormboy in ER, 4+ = 1 MW (max 6)
+		if name_upper == "KRUNCHIN' DESCENT":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# ON TO DA NEXT (Taktikal Brigade): reactive 6" Normal move after enemy Falls Back
+		if name_upper == "ON TO DA NEXT":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# DED SNEAKY (Taktikal Brigade): remove Kommandos/Stormboyz to Strategic Reserves
+		if name_upper == "DED SNEAKY":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# Ork detachment sweep (Green Tide, More Dakka!, Bully Boyz, Da Big
+		# Hunt, Kult of Speed, Dread Mob, Blitz Brigade): batch marker.
+		# CRUSHING IMPACT only refers to the Bully Boyz stratagem here — the
+		# 11e core stratagem of the same name is a core entry, not faction.
+		if name_upper in _CUSTOM_IMPLEMENTED_NAMES:
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
@@ -772,6 +830,35 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 			if not RulesEngine.unit_has_keyword(target_unit, "ORKS"):
 				return {"can_use": false, "reason": "Krump and Run can only target ORKS units"}
 
+	# Generic CSV-parsed target-condition enforcement for faction stratagems
+	# (keyword / keyword_any / not_shot / not_fought / fell_back_this_phase /
+	# charged_this_turn / engagement-range conditions). Engagement-range is
+	# computed live here because flags.in_engagement is only refreshed at the
+	# start of the Shooting phase and is stale in every other phase.
+	if target_unit_id != "" and is_faction_stratagem(stratagem_id):
+		var cond_target: Dictionary = strat.get("target", {})
+		var conditions: Array = cond_target.get("conditions", [])
+		var cond_unit = GameState.get_unit(target_unit_id)
+		if not cond_unit.is_empty() and not conditions.is_empty():
+			var cond_context = context.duplicate() if typeof(context) == TYPE_DICTIONARY else {}
+			# is_target_of_attack is gated by the reactive offering flow (which
+			# does not thread context through to this validation) — treat it as
+			# satisfied unless the caller explicitly says otherwise.
+			if not cond_context.has("is_target_of_attack"):
+				cond_context["is_target_of_attack"] = true
+			var check_unit = cond_unit
+			if "in_engagement_range" in conditions or "not_in_engagement_range" in conditions:
+				var live_engaged: bool = RulesEngine.is_unit_engaged(target_unit_id, GameState.create_snapshot())
+				cond_context["in_engagement_range"] = live_engaged
+				# unit_matches_target ORs flags.in_engagement with the context —
+				# override the possibly-stale flag on a copy so the live check wins.
+				check_unit = cond_unit.duplicate()
+				var check_flags = cond_unit.get("flags", {}).duplicate()
+				check_flags["in_engagement"] = live_engaged
+				check_unit["flags"] = check_flags
+			if not FactionStratagemLoaderData.unit_matches_target(check_unit, cond_target, cond_context):
+				return {"can_use": false, "reason": "%s cannot target that unit (target conditions not met)" % strat.get("name", stratagem_id)}
+
 	# Turn + phase gate: reject stratagems outside their allowed turn/phase.
 	# Synthesis §2 #12: StratagemPanel showed all stratagems regardless of phase.
 	if not context.get("bypass_phase_check", false):
@@ -958,8 +1045,19 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	var effect_text_lower = str(strat.get("effect_text", "")).to_lower()
 	if "until the end of the turn" in effect_text_lower or "until the end of your turn" in effect_text_lower:
 		expires = "end_of_turn"
-	if strat.get("name", "").to_upper() == "GRAB AND BASH":
+	# DAT'S OURS (Taktikal Brigade): "Until the start of the next Command
+	# phase" — end_of_turn effects are cleared by on_turn_start(), which
+	# CommandPhase calls at the start of every Command phase, so the mapping
+	# is exact.
+	if "until the start of the next command phase" in effect_text_lower:
 		expires = "end_of_turn"
+	# "Until the start of YOUR next Command phase" (GRAB AND BASH, GET STUCK
+	# IN LADZ!, HUGE SHOW-OFFS, ...) lasts a full battle round — cleared
+	# owner-aware in on_turn_start via next_own_command_phase.
+	if "until the start of your next command phase" in effect_text_lower:
+		expires = "next_own_command_phase"
+	if strat.get("name", "").to_upper() == "GRAB AND BASH":
+		expires = "next_own_command_phase"
 	add_active_effect({
 		"stratagem_id": stratagem_id,
 		"player": player,
@@ -1037,12 +1135,14 @@ func get_stratagem(stratagem_id: String) -> Dictionary:
 
 func find_faction_stratagem_by_name(player: int, stratagem_name: String) -> String:
 	"""Find a faction stratagem ID by its display name for a given player.
-	Returns the stratagem ID or empty string if not found."""
-	var name_upper = stratagem_name.to_upper()
+	Returns the stratagem ID or empty string if not found. Typographic
+	apostrophes are normalized so "Where D'ya Fink You're Going?" matches the
+	CSV's "WHERE D’YA FINK YOU’RE GOING?"."""
+	var name_upper = stratagem_name.replace("’", "'").to_upper()
 	var player_key = str(player)
 	for strat_id in _player_faction_stratagems.get(player_key, []):
 		if stratagems.has(strat_id):
-			if stratagems[strat_id].get("name", "").to_upper() == name_upper:
+			if stratagems[strat_id].get("name", "").replace("’", "'").to_upper() == name_upper:
 				return strat_id
 	return ""
 
@@ -1066,6 +1166,10 @@ func on_phase_end(phase: int) -> void:
 func on_turn_start(player: int) -> void:
 	"""Called when a new turn starts for a player."""
 	_clear_expired_effects("end_of_turn")
+	# Owner-aware round-long effects ("until the start of YOUR next Command
+	# phase" — GRAB AND BASH, GET STUCK IN LADZ!, HUGE SHOW-OFFS, ...): clear
+	# only when the effect owner's own Command phase begins.
+	_clear_expired_effects_for_player("next_own_command_phase", player)
 	print("StratagemManager: Turn started for player %d, cleared turn-scoped effects" % player)
 
 func on_battle_round_start(round_number: int) -> void:
@@ -1140,6 +1244,20 @@ func _clear_expired_effects(expiry_type: String) -> void:
 			remaining.append(effect)
 		else:
 			# Clear unit flags for this expired effect
+			var unit_id = effect.get("target_unit_id", "")
+			var strat_id = effect.get("stratagem_id", "")
+			if unit_id != "":
+				_clear_stratagem_flags(unit_id, strat_id)
+	active_effects = remaining
+
+func _clear_expired_effects_for_player(expiry_type: String, player: int) -> void:
+	"""Owner-aware variant: only clears matching effects owned by `player`.
+	Used for 'until the start of YOUR next Command phase' durations."""
+	var remaining = []
+	for effect in active_effects:
+		if effect.get("expires", "") != expiry_type or int(effect.get("player", 0)) != player:
+			remaining.append(effect)
+		else:
 			var unit_id = effect.get("target_unit_id", "")
 			var strat_id = effect.get("stratagem_id", "")
 			if unit_id != "":
@@ -1376,6 +1494,57 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Ded Killy Construction to %s (LANCE%s)" % [target_unit_id, " + charged: +1 Damage" if ded_charged else ""])
 		return diffs_dk
 
+	# FIGHT PROPPA (Taktikal Brigade): melee weapons gain the player's choice of
+	# [SUSTAINED HITS 1] or [LETHAL HITS] until end of phase. The choice arrives
+	# as context.chosen_ability ("sustained" | "lethal"); default to sustained.
+	# Melee-scoped flags so the grant does NOT leak into shooting resolution.
+	if strat.get("name", "").to_upper() == "FIGHT PROPPA":
+		var choice = str(context.get("chosen_ability", "sustained")).to_lower() if typeof(context) == TYPE_DICTIONARY else "sustained"
+		var fp_flag = EffectPrimitivesData.FLAG_LETHAL_HITS_MELEE if choice.begins_with("lethal") else EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE
+		var diffs_fp = [{
+			"op": "set",
+			"path": "units.%s.flags.%s" % [target_unit_id, fp_flag],
+			"value": true
+		}]
+		print("StratagemManager: Applied Fight Proppa to %s (melee %s)" % [target_unit_id, "LETHAL HITS" if choice.begins_with("lethal") else "SUSTAINED HITS 1"])
+		return diffs_fp
+
+	# KRUNCHIN' DESCENT (Taktikal Brigade): after a Stormboyz unit ends a Charge
+	# move, roll one D6 per model within Engagement Range of the chosen enemy
+	# unit; each 4+ is 1 mortal wound (max 6). Instant — no persistent flags.
+	if strat.get("name", "").replace("’", "'").to_upper() == "KRUNCHIN' DESCENT":
+		var enemy_kd := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+		if enemy_kd != "" and target_unit_id != "":
+			var rk = RulesEngine.resolve_krunchin_descent(target_unit_id, enemy_kd, GameState.create_snapshot(), RulesEngine.make_rng())
+			print("StratagemManager: KRUNCHIN' DESCENT — %d mortal wounds to %s" % [int(rk.get("mortal_wounds", 0)), enemy_kd])
+			return rk.get("diffs", [])
+		print("StratagemManager: KRUNCHIN' DESCENT used without context.enemy_unit_id — no dice rolled")
+		return []
+
+	# ON TO DA NEXT (Taktikal Brigade): no persistent flags — the effect is a
+	# reactive 6" Normal move handled by MovementPhase (same scaffolding as
+	# KRUMP AND RUN). Just log for tracking.
+	if strat.get("name", "").to_upper() == "ON TO DA NEXT":
+		print("StratagemManager: Applied On to da Next to %s (reactive 6\" Normal move)" % target_unit_id)
+		return []
+
+	# DED SNEAKY (Taktikal Brigade): remove the target Kommandos/Stormboyz unit
+	# from the battlefield into Strategic Reserves (mirrors EVASIVE MANOOVA).
+	if strat.get("name", "").to_upper() == "DED SNEAKY":
+		var diffs_ds = [
+			{"op": "set", "path": "units.%s.status" % target_unit_id, "value": GameState.UnitStatus.IN_RESERVES},
+			{"op": "set", "path": "units.%s.reserve_type" % target_unit_id, "value": "strategic_reserves"},
+			{"op": "set", "path": "units.%s.flags.ded_sneaky_reserved" % target_unit_id, "value": true},
+		]
+		print("StratagemManager: Applied Ded Sneaky — %s removed to Strategic Reserves" % target_unit_id)
+		return diffs_ds
+
+	# Ork detachment sweep (Green Tide, More Dakka!, Bully Boyz, Da Big Hunt,
+	# Kult of Speed, Dread Mob, Blitz Brigade): grouped custom handlers.
+	var sweep_diffs = _apply_ork_sweep_effects(strat, target_unit_id, context)
+	if sweep_diffs != null:
+		return sweep_diffs
+
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
@@ -1555,6 +1724,31 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 		print("StratagemManager: Cleared Ded Killy Construction flags from %s" % unit_id)
 		return
 
+	# FIGHT PROPPA (Taktikal Brigade): Clear whichever melee grant was chosen
+	if strat.get("name", "").to_upper() == "FIGHT PROPPA":
+		flags.erase(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE)
+		flags.erase(EffectPrimitivesData.FLAG_LETHAL_HITS_MELEE)
+		print("StratagemManager: Cleared Fight Proppa melee flags from %s" % unit_id)
+		return
+
+	# KRUNCHIN' DESCENT (Taktikal Brigade): instant mortal wounds — nothing to clear
+	if strat.get("name", "").replace("’", "'").to_upper() == "KRUNCHIN' DESCENT":
+		return
+
+	# ON TO DA NEXT (Taktikal Brigade): the effect is the reactive move itself
+	if strat.get("name", "").to_upper() == "ON TO DA NEXT":
+		return
+
+	# DED SNEAKY (Taktikal Brigade): instant removal to Strategic Reserves — the
+	# unit STAYS in reserves, so there is nothing to undo at end of phase.
+	if strat.get("name", "").to_upper() == "DED SNEAKY":
+		return
+
+	# Ork detachment sweep: grouped clear handlers.
+	if _clear_ork_sweep_flags(strat, unit_id, flags):
+		print("StratagemManager: Cleared %s flags from %s (Ork sweep)" % [stratagem_id, unit_id])
+		return
+
 	var effects = strat.get("effects", [])
 
 	EffectPrimitivesData.clear_effects(effects, unit_id, flags)
@@ -1565,12 +1759,782 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 			break
 	print("StratagemManager: Cleared %s flags from %s" % [stratagem_id, unit_id])
 
+# ============================================================================
+# ORK DETACHMENT SWEEP — grouped custom stratagem handlers (2026-07)
+# ============================================================================
+
+func _apply_ork_sweep_effects(strat: Dictionary, target_unit_id: String, context) -> Variant:
+	"""Grouped apply handlers for the Ork detachment sweep. Returns an Array of
+	diffs when the stratagem matched, or null to fall through to the generic
+	EffectPrimitives path."""
+	var name_upper = strat.get("name", "").replace("’", "'").to_upper()
+	match name_upper:
+		# ---- GREEN TIDE ----------------------------------------------------
+		"BRAGGIN' RIGHTS":
+			# Two Boyz units within 6" of each other both count as 10+ models
+			# until the start of your next Command phase. The second unit comes
+			# from context.second_unit_id or defaults to the nearest other
+			# BOYZ unit within 6" (logged).
+			var buddy_id = str(context.get("second_unit_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+			if buddy_id == "":
+				buddy_id = _find_nearest_friendly_keyword_unit(target_unit_id, "BOYZ", 6.0)
+			var br_diffs = [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_COUNTS_AS_10], "value": true}]
+			if buddy_id != "":
+				br_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [buddy_id, EffectPrimitivesData.FLAG_COUNTS_AS_10], "value": true})
+				# Register the buddy for owner-aware expiry alongside the primary target.
+				add_active_effect({
+					"stratagem_id": strat.get("id", "braggin_rights"),
+					"player": int(GameState.get_unit(target_unit_id).get("owner", 0)),
+					"target_unit_id": buddy_id,
+					"effects": [{"type": EffectPrimitivesData.COUNTS_AS_10}],
+					"expires": "next_own_command_phase",
+					"applied_turn": GameState.get_battle_round(),
+					"applied_phase": GameState.get_current_phase()
+				})
+				print("StratagemManager: BRAGGIN' RIGHTS — %s and %s both count as 10+ models" % [target_unit_id, buddy_id])
+			else:
+				print("StratagemManager: BRAGGIN' RIGHTS — no second BOYZ unit within 6\" of %s (single grant)" % target_unit_id)
+			return br_diffs
+		"BULLDOZER BRUTALITY":
+			# Models within 3" become eligible to fight (melee eligibility
+			# extension read in RulesEngine.get_eligible_melee_model_indices).
+			print("StratagemManager: BULLDOZER BRUTALITY — %s fights at 3\" eligibility this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_fight_range_3" % target_unit_id, "value": true}]
+		"COME ON LADZ!":
+			# Return up to D3+2 destroyed models to the unit. Simplification:
+			# models are revived at the position they died at.
+			var rng_cl = RulesEngine.make_rng()
+			var to_return = rng_cl.rng.randi_range(1, 3) + 2
+			var unit_cl = GameState.get_unit(target_unit_id)
+			var cl_diffs: Array = []
+			var revived := 0
+			var models = unit_cl.get("models", [])
+			for i in range(models.size()):
+				if revived >= to_return:
+					break
+				var m = models[i]
+				if not m.get("alive", true):
+					cl_diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [target_unit_id, i], "value": true})
+					cl_diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [target_unit_id, i], "value": int(m.get("wounds", 1))})
+					revived += 1
+			print("StratagemManager: COME ON LADZ! — rolled D3+2=%d, returned %d destroyed model(s) to %s" % [to_return, revived, target_unit_id])
+			return cl_diffs
+		"COMPETITIVE STREAK":
+			# Re-roll wound rolls of 1 (all failed while the unit counts as
+			# 10+ models). Fight-phase only, so the unscoped wound-reroll flag
+			# cannot leak into shooting before it expires at end of phase.
+			var unit_cs = GameState.get_unit(target_unit_id)
+			var cs_scope = "failed" if FactionAbilityManager.unit_counts_as_10(unit_cs) else "ones"
+			print("StratagemManager: COMPETITIVE STREAK — %s re-rolls wound rolls (%s) this phase" % [target_unit_id, cs_scope])
+			return [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_WOUNDS], "value": cs_scope}]
+		"GO GET 'EM!":
+			# Reactive D6" move after the attacking unit shoots — offered and
+			# resolved by ShootingPhase via the Swift-as-the-Eagle scaffolding.
+			print("StratagemManager: GO GET 'EM! applied to %s (reactive move handled by ShootingPhase)" % target_unit_id)
+			return []
+		"TIDE OF MUSCLE":
+			var unit_tm = GameState.get_unit(target_unit_id)
+			var tm_diffs = [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_PLUS_CHARGE], "value": 1}]
+			var tm_big = FactionAbilityManager.unit_counts_as_10(unit_tm)
+			if tm_big:
+				tm_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_CHARGE], "value": true})
+			print("StratagemManager: TIDE OF MUSCLE — %s +1 to charge rolls%s" % [target_unit_id, " + re-roll (10+ models)" if tm_big else ""])
+			return tm_diffs
+		# ---- MORE DAKKA! ---------------------------------------------------
+		"CALL DAT DAKKA?":
+			# Shoot back at the unit that just shot: full shooting sequence at
+			# unmodified BS (no hit modifiers — documented simplification),
+			# resolved through the overwatch machinery with hit_on_six=false.
+			var cdd_enemy := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+			if cdd_enemy == "" or target_unit_id == "":
+				print("StratagemManager: CALL DAT DAKKA? used without context.enemy_unit_id — no shots fired")
+				return []
+			var cdd = RulesEngine.resolve_overwatch_shooting(target_unit_id, cdd_enemy, GameState.create_snapshot(), RulesEngine.make_rng(), false)
+			print("StratagemManager: CALL DAT DAKKA? — %s shoots back at %s: %d hits, %d casualties" % [
+				target_unit_id, cdd_enemy, int(cdd.get("total_hits", 0)), int(cdd.get("total_casualties", 0))])
+			return cdd.get("diffs", [])
+		"ORKS IS STILL ORKS":
+			# Melee wound re-roll 1s (full vs targets near objectives) — the
+			# per-target scope is resolved live in the melee wound block.
+			print("StratagemManager: ORKS IS STILL ORKS — %s re-rolls melee wounds this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_orks_is_still_orks" % target_unit_id, "value": true}]
+		"SPESHUL SHELLS":
+			# Two detachments share this name: More Dakka! (+1 AP within 18")
+			# and Rollin' Deff (+1 AP within 9").
+			if "rollin" in str(strat.get("detachment", "")).to_lower():
+				print("StratagemManager: SPESHUL SHELLS (Rollin' Deff) — %s +1 AP on ranged attacks vs targets within 9\" this phase" % target_unit_id)
+				return [{"op": "set", "path": "units.%s.flags.effect_speshul_shells_rd" % target_unit_id, "value": true}]
+			print("StratagemManager: SPESHUL SHELLS — %s +1 AP on ranged attacks vs targets within 18\" this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_speshul_shells_md" % target_unit_id, "value": true}]
+		"GET STUCK IN, LADZ!":
+			# Unit-scoped Waaagh! until the start of your next Command phase —
+			# mirrors GRAB AND BASH (Freebooter Krew).
+			var gsl_diffs = [
+				{"op": "set", "path": "units.%s.flags.waaagh_active" % target_unit_id, "value": true},
+				{"op": "set", "path": "units.%s.flags.get_stuck_in_ladz_active" % target_unit_id, "value": true},
+				{"op": "set", "path": "units.%s.flags.effect_invuln" % target_unit_id, "value": 5},
+				{"op": "set", "path": "units.%s.flags.effect_invuln_source" % target_unit_id, "value": "Get Stuck In, Ladz!"},
+				{"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % target_unit_id, "value": true},
+			]
+			print("StratagemManager: GET STUCK IN, LADZ! — Waaagh! active for %s until your next Command phase" % target_unit_id)
+			return gsl_diffs
+		"HUGE SHOW-OFFS":
+			# +1 Move / Leadership / OC and +1 to Hit until your next Command phase.
+			var hso_diffs = [
+				{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_PLUS_MOVE], "value": 1},
+				{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_PLUS_OC], "value": 1},
+				{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_PLUS_ONE_HIT], "value": true},
+				{"op": "set", "path": "units.%s.flags.effect_improve_leadership" % target_unit_id, "value": 1},
+			]
+			print("StratagemManager: HUGE SHOW-OFFS — %s +1 Move/Ld/OC and +1 to hit until your next Command phase" % target_unit_id)
+			return hso_diffs
+		# ---- BULLY BOYZ ----------------------------------------------------
+		"ALWAYS LOOKIN' FER A FIGHT":
+			# Consolidation cap D3+3" (flat 6" while a Waaagh! is active).
+			var alf_unit = GameState.get_unit(target_unit_id)
+			var alf_cap := 6.0
+			var alf_roll := 0
+			if not FactionAbilityManager.is_waaagh_active_for_unit(alf_unit):
+				var alf_rng = RulesEngine.make_rng()
+				alf_roll = alf_rng.rng.randi_range(1, 3)
+				alf_cap = float(alf_roll + 3)
+			print("StratagemManager: ALWAYS LOOKIN' FER A FIGHT — %s consolidates up to %.0f\"%s" % [
+				target_unit_id, alf_cap, " (D3=%d +3)" % alf_roll if alf_roll > 0 else " (Waaagh! active)"])
+			return [{"op": "set", "path": "units.%s.flags.effect_consolidate_max" % target_unit_id, "value": alf_cap}]
+		"ARMED TO DA TEEF":
+			var att_unit = GameState.get_unit(target_unit_id)
+			var att_scope = "failed" if FactionAbilityManager.is_waaagh_active_for_unit(att_unit) else "ones"
+			print("StratagemManager: ARMED TO DA TEEF — %s re-rolls hit rolls (%s) this phase" % [target_unit_id, att_scope])
+			return [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_HITS], "value": att_scope}]
+		"CRUSHING IMPACT":
+			# Bully Boyz variant: D6 per Nobz/Meganobz model in ER of the chosen
+			# enemy; 5+ = 1 MW (4+ while a Waaagh! is active), max 6.
+			var ci_enemy := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+			if ci_enemy == "" or target_unit_id == "":
+				print("StratagemManager: CRUSHING IMPACT (Bully Boyz) used without context.enemy_unit_id — no dice rolled")
+				return []
+			var ci_unit = GameState.get_unit(target_unit_id)
+			var ci_threshold = 4 if FactionAbilityManager.is_waaagh_active_for_unit(ci_unit) else 5
+			var ci = RulesEngine.resolve_krunchin_descent(target_unit_id, ci_enemy, GameState.create_snapshot(), RulesEngine.make_rng(), ci_threshold)
+			print("StratagemManager: CRUSHING IMPACT (Bully Boyz) — %d mortal wounds to %s (threshold %d+)" % [int(ci.get("mortal_wounds", 0)), ci_enemy, ci_threshold])
+			return ci.get("diffs", [])
+		"CUT' EM DOWN":
+			# Mark the falling-back enemy: it must take Desperate Escape tests
+			# for all models (FallBackMove.select_mode), at -1 while a Waaagh!
+			# is active for the Nobz/Meganobz unit.
+			var ced_enemy := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+			if ced_enemy == "":
+				print("StratagemManager: CUT' EM DOWN used without context.enemy_unit_id — no effect")
+				return []
+			var ced_unit = GameState.get_unit(target_unit_id)
+			var ced_diffs = [{"op": "set", "path": "units.%s.flags.effect_cut_em_down" % ced_enemy, "value": true}]
+			if FactionAbilityManager.is_waaagh_active_for_unit(ced_unit):
+				ced_diffs.append({"op": "set", "path": "units.%s.flags.effect_cut_em_down_minus1" % ced_enemy, "value": true})
+			# Register the enemy for end-of-phase flag clearing.
+			add_active_effect({
+				"stratagem_id": strat.get("id", "cut_em_down"),
+				"player": int(ced_unit.get("owner", 0)),
+				"target_unit_id": ced_enemy,
+				"effects": [{"type": "custom:cut_em_down"}],
+				"expires": "end_of_phase",
+				"applied_turn": GameState.get_battle_round(),
+				"applied_phase": GameState.get_current_phase()
+			})
+			print("StratagemManager: CUT' EM DOWN — %s must take Desperate Escape tests when it Falls Back%s" % [
+				ced_enemy, " (-1, Waaagh! active)" if ced_diffs.size() > 1 else ""])
+			return ced_diffs
+		"TOO ARROGANT TO DIE":
+			print("StratagemManager: TOO ARROGANT TO DIE — %s's dying models swing back on 5+ (+2 in Waaagh!) this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_too_arrogant_to_die" % target_unit_id, "value": true}]
+		# ---- DA BIG HUNT ---------------------------------------------------
+		"DAT ONE'S EVEN BIGGA!":
+			# Eligible to charge after Advancing or Falling Back this phase.
+			# The "re-roll Charge rolls vs your Prey" clause is the Prey rule's
+			# own re-roll (FactionAbilityManager.unit_has_prey_charge_reroll),
+			# which ChargePhase already offers to every BEAST SNAGGA unit.
+			print("StratagemManager: DAT ONE'S EVEN BIGGA! — %s can charge after Advancing/Falling Back this phase" % target_unit_id)
+			return [
+				{"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % target_unit_id, "value": true},
+				{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_FALL_BACK_AND_CHARGE], "value": true},
+			]
+		"DRAG IT DOWN":
+			# Melee weapons gain SUSTAINED HITS 1; melee crits on 5+ vs your
+			# Prey (live per-target check in the melee resolver).
+			print("StratagemManager: DRAG IT DOWN — %s melee SUSTAINED HITS 1 + crit 5+ vs Prey this phase" % target_unit_id)
+			return [
+				{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE], "value": true},
+				{"op": "set", "path": "units.%s.flags.effect_drag_it_down" % target_unit_id, "value": true},
+			]
+		"INSTINCTIVE HUNTERS":
+			# Remove the unengaged Beast Snagga unit into Strategic Reserves
+			# (DED SNEAKY / EVASIVE MANOOVA pattern).
+			print("StratagemManager: INSTINCTIVE HUNTERS — %s removed to Strategic Reserves" % target_unit_id)
+			return [
+				{"op": "set", "path": "units.%s.status" % target_unit_id, "value": GameState.UnitStatus.IN_RESERVES},
+				{"op": "set", "path": "units.%s.reserve_type" % target_unit_id, "value": "strategic_reserves"},
+				{"op": "set", "path": "units.%s.flags.instinctive_hunters_reserved" % target_unit_id, "value": true},
+			]
+		"UNSTOPPABLE MOMENTUM":
+			# D6 per model in the unit (not just those in ER); 4+ = 1 MW, max
+			# 6. Three extra dice when the chosen enemy is your Prey.
+			var um_enemy := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+			if um_enemy == "" or target_unit_id == "":
+				print("StratagemManager: UNSTOPPABLE MOMENTUM used without context.enemy_unit_id — no dice rolled")
+				return []
+			var um_unit = GameState.get_unit(target_unit_id)
+			var um_owner = int(um_unit.get("owner", 0))
+			var um_is_prey = GameState.get_unit(um_enemy).get("flags", {}).get("is_prey_of_%d" % um_owner, false)
+			var um_bonus = 3 if um_is_prey else 0
+			var um = RulesEngine.resolve_krunchin_descent(target_unit_id, um_enemy, GameState.create_snapshot(), RulesEngine.make_rng(), 4, false, um_bonus)
+			print("StratagemManager: UNSTOPPABLE MOMENTUM — %d mortal wounds to %s%s" % [
+				int(um.get("mortal_wounds", 0)), um_enemy, " (Prey: +3 dice)" if um_is_prey else ""])
+			return um.get("diffs", [])
+		"STALKIN' TAKTIKS":
+			# Benefit of Cover vs ranged attacks; INFANTRY additionally gain
+			# Stealth. Both until end of phase.
+			var st_diffs = [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_COVER], "value": true}]
+			var st_infantry = RulesEngine.unit_has_keyword(GameState.get_unit(target_unit_id), "INFANTRY")
+			if st_infantry:
+				st_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_STEALTH], "value": true})
+			print("StratagemManager: STALKIN' TAKTIKS — %s gains Benefit of Cover%s this phase" % [target_unit_id, " + Stealth (INFANTRY)" if st_infantry else ""])
+			return st_diffs
+		"WHERE D'YA FINK YOU'RE GOING?":
+			# Reactive 6" Normal move after an enemy Falls Back — offered and
+			# resolved by MovementPhase via the Krump-and-Run scaffolding.
+			print("StratagemManager: WHERE D'YA FINK YOU'RE GOING? applied to %s (reactive move handled by MovementPhase)" % target_unit_id)
+			return []
+		# ---- KULT OF SPEED -------------------------------------------------
+		"SPEEDIEST FREEKS":
+			# 5+ invulnerable save; 4+ instead for VEHICLE units with an
+			# unmodified Toughness of 8 or less.
+			var sf_unit = GameState.get_unit(target_unit_id)
+			var sf_inv := 5
+			if RulesEngine.unit_has_keyword(sf_unit, "VEHICLE") \
+					and int(sf_unit.get("meta", {}).get("stats", {}).get("toughness", 99)) <= 8:
+				sf_inv = 4
+			print("StratagemManager: SPEEDIEST FREEKS — %s gains a %d+ invulnerable save this phase" % [target_unit_id, sf_inv])
+			return [
+				{"op": "set", "path": "units.%s.flags.effect_invuln" % target_unit_id, "value": sf_inv},
+				{"op": "set", "path": "units.%s.flags.effect_invuln_source" % target_unit_id, "value": "Speediest Freeks"},
+			]
+		"SQUIG FLINGIN'":
+			# Chosen enemy within 9" takes a Battle-shock test at -1.
+			var sq_enemy := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+			if sq_enemy == "":
+				print("StratagemManager: SQUIG FLINGIN' used without context.enemy_unit_id — no test forced")
+				return []
+			var sq = FactionAbilityManager.force_battle_shock_test(sq_enemy, -1, "Squig Flingin'")
+			print("StratagemManager: SQUIG FLINGIN' — %s takes a Battle-shock test at -1 (%s)" % [
+				sq_enemy, "FAILED" if sq.get("failed", false) else "passed"])
+			return []
+		"BLITZA FIRE":
+			# Ranged LETHAL HITS + crit 5+ vs targets within 9" (live checks in
+			# the ranged resolvers). 11e 15.01 already prevents the same unit
+			# being targeted by this and DAKKASTORM in one phase.
+			print("StratagemManager: BLITZA FIRE — %s ranged LETHAL HITS + crit 5+ within 9\" this phase" % target_unit_id)
+			return [
+				{"op": "set", "path": "units.%s.flags.effect_lethal_hits_ranged" % target_unit_id, "value": true},
+				{"op": "set", "path": "units.%s.flags.effect_blitza_fire" % target_unit_id, "value": true},
+			]
+		"DAKKASTORM":
+			# Ranged SUSTAINED HITS 1 (2 while targeting a unit within 9") —
+			# live per-target check in the ranged resolvers.
+			print("StratagemManager: DAKKASTORM — %s ranged SUSTAINED HITS 1 (2 within 9\") this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_dakkastorm_kos" % target_unit_id, "value": true}]
+		"FULL THROTTLE!":
+			# +1 to melee Wound rolls until the end of the turn.
+			print("StratagemManager: FULL THROTTLE! — %s +1 to melee wound rolls until end of turn" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_full_throttle" % target_unit_id, "value": true}]
+		"MORE GITZ OVER 'ERE!":
+			# Reactive 6" Normal move after an enemy ends any move within 9" —
+			# offered and resolved by MovementPhase via the Scatter! scaffolding.
+			print("StratagemManager: MORE GITZ OVER 'ERE! applied to %s (reactive move handled by MovementPhase)" % target_unit_id)
+			return []
+		# ---- DREAD MOB -----------------------------------------------------
+		"BIGGER SHELLS FOR BIGGER GITZ":
+			# +1 to Wound vs MONSTER/VEHICLE; pushed: +1 Damage vs M/V too and
+			# ranged weapons gain HAZARDOUS. Live per-target checks in the
+			# ranged resolvers (get_bigger_shells_*_bonus).
+			var bs_push = bool(context.get("push_it", false)) if typeof(context) == TYPE_DICTIONARY else false
+			var bs_diffs = [{"op": "set", "path": "units.%s.flags.effect_bigger_shells" % target_unit_id, "value": true}]
+			if bs_push:
+				bs_diffs.append({"op": "set", "path": "units.%s.flags.effect_bigger_shells_push" % target_unit_id, "value": true})
+				bs_diffs.append({"op": "set", "path": "units.%s.flags.effect_grant_hazardous" % target_unit_id, "value": true})
+			print("StratagemManager: BIGGER SHELLS FOR BIGGER GITZ — %s +1 wound vs MONSTER/VEHICLE%s this phase" % [
+				target_unit_id, " (+1 damage, HAZARDOUS — pushed)" if bs_push else ""])
+			return bs_diffs
+		"DAKKA! DAKKA! DAKKA!":
+			# Re-roll hit 1s; pushed: full hit re-roll + ranged HAZARDOUS.
+			var d3_push = bool(context.get("push_it", false)) if typeof(context) == TYPE_DICTIONARY else false
+			var d3_scope = "failed" if d3_push else "ones"
+			var d3_diffs = [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_HITS], "value": d3_scope}]
+			if d3_push:
+				d3_diffs.append({"op": "set", "path": "units.%s.flags.effect_grant_hazardous" % target_unit_id, "value": true})
+			print("StratagemManager: DAKKA! DAKKA! DAKKA! — %s re-rolls hit rolls (%s)%s this phase" % [
+				target_unit_id, d3_scope, " + HAZARDOUS (pushed)" if d3_push else ""])
+			return d3_diffs
+		"KLANKIN' KLAWS":
+			# +2 S on melee weapons; pushed: +1 Damage and melee HAZARDOUS too.
+			# The +Damage rides FLAG_PLUS_DAMAGE, whose only consumer is the
+			# melee damage roll — safe for a Fight-phase-scoped effect.
+			var kk_push = bool(context.get("push_it", false)) if typeof(context) == TYPE_DICTIONARY else false
+			var kk_diffs = [{"op": "set", "path": "units.%s.flags.effect_klankin_klaws" % target_unit_id, "value": 2}]
+			if kk_push:
+				kk_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_PLUS_DAMAGE], "value": 1})
+				kk_diffs.append({"op": "set", "path": "units.%s.flags.effect_grant_hazardous_melee" % target_unit_id, "value": true})
+			print("StratagemManager: KLANKIN' KLAWS — %s melee +2 S%s this phase" % [
+				target_unit_id, " (+1 damage, HAZARDOUS — pushed)" if kk_push else ""])
+			return kk_diffs
+		"CONNIVING RUNTS":
+			# Reactive: D6 4+ = D3+1 mortal wounds to the enemy that just
+			# moved, then a Normal move — offered and resolved by MovementPhase
+			# via the Scatter! scaffolding.
+			print("StratagemManager: CONNIVING RUNTS applied to %s (reactive resolution handled by MovementPhase)" % target_unit_id)
+			return []
+		# ---- BLITZ BRIGADE ---------------------------------------------------
+		"ARMOURED DUELLISTS":
+			# +1 to Hit and +1 to Wound vs MONSTER/VEHICLE targets — live
+			# per-target checks in the ranged resolvers.
+			print("StratagemManager: ARMOURED DUELLISTS — %s +1 hit/+1 wound vs MONSTER/VEHICLE this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_armoured_duellists" % target_unit_id, "value": true}]
+		"IMPERVIOUS":
+			# -1 to incoming Wound rolls while the attack's S exceeds the
+			# unit's T — shares the Surly-as-a-Squiggoth machinery.
+			print("StratagemManager: IMPERVIOUS — %s -1 to incoming wounds when S > T this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_minus_wound_s_gt_t" % target_unit_id, "value": true}]
+		"MEKANISED BRUTALITY":
+			# Units disembarking from this rig after its Normal move stay
+			# eligible to charge (consumed in TransportManager.disembark_unit).
+			print("StratagemManager: MEKANISED BRUTALITY — units disembarking from %s can still charge this turn" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_mekanised_brutality" % target_unit_id, "value": true}]
+		"MOUNT UP, LADZ":
+			# End-of-Fight-phase embark: the ORKS INFANTRY unit embarks in a
+			# friendly TRANSPORT it is wholly within 6" of.
+			var mul_transport := str(context.get("transport_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+			if mul_transport == "":
+				mul_transport = _find_nearest_embarkable_transport(target_unit_id, 6.0)
+			if mul_transport == "":
+				print("StratagemManager: MOUNT UP, LADZ — no embarkable friendly TRANSPORT with %s wholly within 6\"" % target_unit_id)
+				return []
+			var tm_mul = get_node_or_null("/root/TransportManager")
+			if tm_mul == null:
+				return []
+			var mul_check = tm_mul.can_embark(target_unit_id, mul_transport)
+			if not mul_check.get("valid", false):
+				print("StratagemManager: MOUNT UP, LADZ — cannot embark %s in %s: %s" % [target_unit_id, mul_transport, str(mul_check.get("reason", ""))])
+				return []
+			tm_mul.embark_unit(target_unit_id, mul_transport)
+			print("StratagemManager: MOUNT UP, LADZ — %s embarked within %s" % [target_unit_id, mul_transport])
+			return []
+		"RUN 'EM DOWN":
+			# The rig and up to two other friendly ORKS VEHICLE/MONSTER units
+			# within 6" become eligible to charge after Advancing this turn.
+			var red_diffs = [{"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % target_unit_id, "value": true}]
+			var red_extra: Array = context.get("extra_unit_ids", []) if typeof(context) == TYPE_DICTIONARY else []
+			if red_extra.is_empty():
+				red_extra = _find_run_em_down_buddies(target_unit_id, 6.0, 2)
+			for red_id in red_extra:
+				red_diffs.append({"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % red_id, "value": true})
+				add_active_effect({
+					"stratagem_id": strat.get("id", "run_em_down"),
+					"player": int(GameState.get_unit(target_unit_id).get("owner", 0)),
+					"target_unit_id": red_id,
+					"effects": [{"type": EffectPrimitivesData.ADVANCE_AND_CHARGE}],
+					"expires": "end_of_turn",
+					"applied_turn": GameState.get_battle_round(),
+					"applied_phase": GameState.get_current_phase()
+				})
+			print("StratagemManager: RUN 'EM DOWN — %s%s can charge after Advancing this turn" % [
+				target_unit_id, (" + %s" % str(red_extra)) if not red_extra.is_empty() else ""])
+			return red_diffs
+		"YOOZ IN TROUBLE NOW":
+			# One embarked ORKS INFANTRY unit disembarks and makes an
+			# auto-resolved D6" Surge move toward the closest enemy
+			# (excluding AIRCRAFT) — may end within Engagement Range.
+			return _resolve_yooz_in_trouble_now(target_unit_id, context)
+		# ---- ROLLIN' DEFF ----------------------------------------------------
+		"BRUTAL BROADSIDE":
+			# Ranged weapons gain [RAPID FIRE X] with X = the weapon's Attacks
+			# characteristic (live check at the rapid-fire sites; dice-valued
+			# Attacks are not doubled — documented simplification).
+			print("StratagemManager: BRUTAL BROADSIDE — %s ranged weapons gain RAPID FIRE X (X = Attacks) this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_brutal_broadside" % target_unit_id, "value": true}]
+		"IMPENDING CRUNCH":
+			# Every enemy unit in Engagement Range of the charged unit takes a
+			# Battle-shock test at -1.
+			var ic_unit = GameState.get_unit(target_unit_id)
+			var ic_snapshot = GameState.create_snapshot()
+			var ic_count := 0
+			for ic_enemy_id in GameState.state.get("units", {}):
+				var ic_enemy = GameState.state["units"][ic_enemy_id]
+				if int(ic_enemy.get("owner", 0)) == int(ic_unit.get("owner", 0)) or int(ic_enemy.get("owner", 0)) == 0:
+					continue
+				if not RulesEngine.check_units_in_engagement_range(ic_unit, ic_enemy, ic_snapshot):
+					continue
+				FactionAbilityManager.force_battle_shock_test(ic_enemy_id, -1, "Impending Crunch")
+				ic_count += 1
+			print("StratagemManager: IMPENDING CRUNCH — %d enemy unit(s) in ER of %s took Battle-shock tests at -1" % [ic_count, target_unit_id])
+			return []
+		"DEVASTATING DRIFT":
+			# Melee weapons gain [CLEAVE 1] until end of phase.
+			print("StratagemManager: DEVASTATING DRIFT — %s melee weapons gain CLEAVE 1 this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_grant_cleave_1" % target_unit_id, "value": true}]
+	return null
+
+func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictionary) -> bool:
+	"""Grouped clear handlers for the Ork detachment sweep. Returns true when
+	the stratagem was handled here."""
+	var name_upper = strat.get("name", "").replace("’", "'").to_upper()
+	match name_upper:
+		# ---- GREEN TIDE ----------------------------------------------------
+		"BRAGGIN' RIGHTS":
+			flags.erase(EffectPrimitivesData.FLAG_COUNTS_AS_10)
+			return true
+		"BULLDOZER BRUTALITY":
+			flags.erase("effect_fight_range_3")
+			return true
+		"COME ON LADZ!", "GO GET 'EM!":
+			return true  # instant effects — nothing to clear
+		"COMPETITIVE STREAK":
+			flags.erase(EffectPrimitivesData.FLAG_REROLL_WOUNDS)
+			return true
+		"TIDE OF MUSCLE":
+			flags.erase(EffectPrimitivesData.FLAG_PLUS_CHARGE)
+			flags.erase(EffectPrimitivesData.FLAG_REROLL_CHARGE)
+			return true
+		# ---- MORE DAKKA! ---------------------------------------------------
+		"CALL DAT DAKKA?":
+			return true  # instant shoot-back — nothing to clear
+		"ORKS IS STILL ORKS":
+			flags.erase("effect_orks_is_still_orks")
+			return true
+		"SPESHUL SHELLS":
+			flags.erase("effect_speshul_shells_md")
+			flags.erase("effect_speshul_shells_rd")
+			return true
+		"GET STUCK IN, LADZ!":
+			if flags.has("get_stuck_in_ladz_active"):
+				flags.erase("get_stuck_in_ladz_active")
+				flags.erase("waaagh_active")
+				flags.erase("effect_advance_and_charge")
+				if flags.get("effect_invuln_source", "") == "Get Stuck In, Ladz!":
+					flags.erase("effect_invuln")
+					flags.erase("effect_invuln_source")
+			return true
+		"HUGE SHOW-OFFS":
+			flags.erase(EffectPrimitivesData.FLAG_PLUS_MOVE)
+			flags.erase(EffectPrimitivesData.FLAG_PLUS_OC)
+			flags.erase(EffectPrimitivesData.FLAG_PLUS_ONE_HIT)
+			flags.erase("effect_improve_leadership")
+			return true
+		# ---- BULLY BOYZ ----------------------------------------------------
+		"ALWAYS LOOKIN' FER A FIGHT":
+			flags.erase("effect_consolidate_max")
+			return true
+		"ARMED TO DA TEEF":
+			flags.erase(EffectPrimitivesData.FLAG_REROLL_HITS)
+			return true
+		"CRUSHING IMPACT":
+			return true  # instant mortal wounds — nothing to clear
+		"CUT' EM DOWN":
+			flags.erase("effect_cut_em_down")
+			flags.erase("effect_cut_em_down_minus1")
+			return true
+		"TOO ARROGANT TO DIE":
+			flags.erase("effect_too_arrogant_to_die")
+			return true
+		# ---- DA BIG HUNT ---------------------------------------------------
+		"DAT ONE'S EVEN BIGGA!":
+			flags.erase("effect_advance_and_charge")
+			flags.erase(EffectPrimitivesData.FLAG_FALL_BACK_AND_CHARGE)
+			return true
+		"DRAG IT DOWN":
+			flags.erase(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE)
+			flags.erase("effect_drag_it_down")
+			return true
+		"INSTINCTIVE HUNTERS", "UNSTOPPABLE MOMENTUM", "WHERE D'YA FINK YOU'RE GOING?":
+			return true  # instant effects — nothing to clear
+		"STALKIN' TAKTIKS":
+			flags.erase(EffectPrimitivesData.FLAG_COVER)
+			flags.erase(EffectPrimitivesData.FLAG_STEALTH)
+			return true
+		# ---- KULT OF SPEED -------------------------------------------------
+		"SPEEDIEST FREEKS":
+			if flags.get("effect_invuln_source", "") == "Speediest Freeks":
+				flags.erase("effect_invuln")
+				flags.erase("effect_invuln_source")
+			return true
+		"SQUIG FLINGIN'", "MORE GITZ OVER 'ERE!":
+			return true  # instant effects — nothing to clear
+		"BLITZA FIRE":
+			flags.erase("effect_lethal_hits_ranged")
+			flags.erase("effect_blitza_fire")
+			return true
+		"DAKKASTORM":
+			flags.erase("effect_dakkastorm_kos")
+			return true
+		# ---- DREAD MOB -----------------------------------------------------
+		"BIGGER SHELLS FOR BIGGER GITZ":
+			flags.erase("effect_bigger_shells")
+			flags.erase("effect_bigger_shells_push")
+			flags.erase("effect_grant_hazardous")
+			return true
+		"DAKKA! DAKKA! DAKKA!":
+			flags.erase(EffectPrimitivesData.FLAG_REROLL_HITS)
+			flags.erase("effect_grant_hazardous")
+			return true
+		"KLANKIN' KLAWS":
+			flags.erase("effect_klankin_klaws")
+			flags.erase(EffectPrimitivesData.FLAG_PLUS_DAMAGE)
+			flags.erase("effect_grant_hazardous_melee")
+			return true
+		"CONNIVING RUNTS":
+			return true  # instant effect — nothing to clear
+		"FULL THROTTLE!":
+			flags.erase("effect_full_throttle")
+			return true
+		# ---- BLITZ BRIGADE ---------------------------------------------------
+		"ARMOURED DUELLISTS":
+			flags.erase("effect_armoured_duellists")
+			return true
+		"IMPERVIOUS":
+			flags.erase("effect_minus_wound_s_gt_t")
+			return true
+		"MEKANISED BRUTALITY":
+			flags.erase("effect_mekanised_brutality")
+			return true
+		"MOUNT UP, LADZ", "YOOZ IN TROUBLE NOW":
+			return true  # instant effects — nothing to clear
+		"RUN 'EM DOWN":
+			flags.erase("effect_advance_and_charge")
+			return true
+		# ---- ROLLIN' DEFF ----------------------------------------------------
+		"BRUTAL BROADSIDE":
+			flags.erase("effect_brutal_broadside")
+			return true
+		"IMPENDING CRUNCH":
+			return true  # instant effect — nothing to clear
+		"DEVASTATING DRIFT":
+			flags.erase("effect_grant_cleave_1")
+			return true
+	return false
+
+func _find_nearest_embarkable_transport(unit_id: String, max_inches: float) -> String:
+	"""MOUNT UP, LADZ: nearest friendly TRANSPORT the unit can embark within
+	(can_embark valid) with every alive model of the unit within max_inches of
+	the transport ("wholly within"). Returns "" when none qualifies."""
+	var tm = get_node_or_null("/root/TransportManager")
+	if tm == null:
+		return ""
+	var units = GameState.state.get("units", {})
+	var unit = units.get(unit_id, {})
+	var owner = int(unit.get("owner", 0))
+	var max_px = Measurement.inches_to_px(max_inches)
+	var best_id := ""
+	var best_dist := INF
+	for tid in units:
+		if tid == unit_id:
+			continue
+		var transport = units[tid]
+		if int(transport.get("owner", 0)) != owner or not transport.has("transport_data"):
+			continue
+		if not tm.can_embark(unit_id, tid).get("valid", false):
+			continue
+		# Every alive model of the unit must be within max_inches of the transport
+		var wholly := true
+		var nearest := INF
+		for m in unit.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			var model_best := INF
+			for tm_model in transport.get("models", []):
+				if not tm_model.get("alive", true) or tm_model.get("position") == null:
+					continue
+				model_best = minf(model_best, Measurement.model_to_model_distance_px(m, tm_model))
+			nearest = minf(nearest, model_best)
+			if model_best > max_px:
+				wholly = false
+				break
+		if wholly and nearest < best_dist:
+			best_dist = nearest
+			best_id = tid
+	return best_id
+
+func _find_run_em_down_buddies(rig_id: String, max_inches: float, count: int) -> Array:
+	"""RUN 'EM DOWN: up to `count` other friendly ORKS VEHICLE or ORKS MONSTER
+	units whose closest model is within max_inches of the rig."""
+	var units = GameState.state.get("units", {})
+	var rig = units.get(rig_id, {})
+	var owner = int(rig.get("owner", 0))
+	var max_px = Measurement.inches_to_px(max_inches)
+	var candidates: Array = []
+	for uid in units:
+		if uid == rig_id:
+			continue
+		var other = units[uid]
+		if int(other.get("owner", 0)) != owner:
+			continue
+		if not RulesEngine.unit_has_keyword(other, "ORKS"):
+			continue
+		if not (RulesEngine.unit_has_keyword(other, "VEHICLE") or RulesEngine.unit_has_keyword(other, "MONSTER")):
+			continue
+		var best := INF
+		for m in rig.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			for om in other.get("models", []):
+				if not om.get("alive", true) or om.get("position") == null:
+					continue
+				best = minf(best, Measurement.model_to_model_distance_px(m, om))
+		if best <= max_px:
+			candidates.append({"unit_id": uid, "dist": best})
+	candidates.sort_custom(func(a, b): return a.dist < b.dist)
+	var out: Array = []
+	for c in candidates:
+		if out.size() >= count:
+			break
+		out.append(c.unit_id)
+	return out
+
+func _resolve_yooz_in_trouble_now(rig_id: String, context) -> Array:
+	"""YOOZ IN TROUBLE NOW: one ORKS INFANTRY unit embarked in the rig
+	disembarks and makes a Surge move — auto-resolved: D6" straight toward the
+	closest enemy unit (excluding AIRCRAFT), models spread perpendicular to the
+	approach, allowed into Engagement Range, stopping just short of base
+	contact ("as close as possible")."""
+	var rig = GameState.get_unit(rig_id)
+	var embarked: Array = rig.get("transport_data", {}).get("embarked_units", [])
+	var pick := str(context.get("embarked_unit_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+	if pick == "":
+		for eid in embarked:
+			var eu = GameState.get_unit(str(eid))
+			if RulesEngine.unit_has_keyword(eu, "ORKS") and RulesEngine.unit_has_keyword(eu, "INFANTRY"):
+				pick = str(eid)
+				break
+	if pick == "":
+		print("StratagemManager: YOOZ IN TROUBLE NOW — no embarked ORKS INFANTRY unit in %s" % rig_id)
+		return []
+	# Rig centre + nearest enemy (excluding AIRCRAFT)
+	var rig_center := Vector2.ZERO
+	var rig_n := 0
+	var rig_radius := 0.0
+	for m in rig.get("models", []):
+		if not m.get("alive", true) or m.get("position") == null:
+			continue
+		var p = m.get("position")
+		rig_center += Vector2(float(p.get("x", 0)), float(p.get("y", 0)))
+		rig_n += 1
+		rig_radius = maxf(rig_radius, float(m.get("base_mm", 32)) / 25.4 * Measurement.PX_PER_INCH / 2.0)
+	if rig_n == 0:
+		print("StratagemManager: YOOZ IN TROUBLE NOW — rig %s has no positioned models" % rig_id)
+		return []
+	rig_center /= rig_n
+	var owner = int(rig.get("owner", 0))
+	var enemy_pos := Vector2.ZERO
+	var enemy_dist := INF
+	var enemy_id := ""
+	for uid in GameState.state.get("units", {}):
+		var enemy = GameState.state["units"][uid]
+		if int(enemy.get("owner", 0)) == owner or int(enemy.get("owner", 0)) == 0:
+			continue
+		if RulesEngine.unit_has_keyword(enemy, "AIRCRAFT"):
+			continue
+		for em in enemy.get("models", []):
+			if not em.get("alive", true) or em.get("position") == null:
+				continue
+			var ep = Vector2(float(em.position.get("x", 0)), float(em.position.get("y", 0)))
+			var d = rig_center.distance_to(ep)
+			if d < enemy_dist:
+				enemy_dist = d
+				enemy_pos = ep
+				enemy_id = uid
+	if enemy_id == "":
+		print("StratagemManager: YOOZ IN TROUBLE NOW — no enemy unit (excluding AIRCRAFT) on the board")
+		return []
+	var rng_y = RulesEngine.make_rng()
+	var surge_roll = rng_y.rng.randi_range(1, 6)
+	var surge_px = Measurement.inches_to_px(float(surge_roll))
+	var dir = (enemy_pos - rig_center).normalized()
+	if dir == Vector2.ZERO:
+		dir = Vector2.RIGHT
+	var perp = Vector2(-dir.y, dir.x)
+	# Start at the rig's edge, advance up to D6" toward the enemy, stop ~0.6"
+	# short of the closest enemy model ("as close as possible", into ER).
+	var start = rig_center + dir * (rig_radius + Measurement.inches_to_px(0.5))
+	var to_enemy = start.distance_to(enemy_pos)
+	var advance = minf(surge_px, maxf(0.0, to_enemy - Measurement.inches_to_px(0.6)))
+	var anchor = start + dir * advance
+	var picked_unit = GameState.get_unit(pick)
+	var positions: Array = []
+	var alive_i := 0
+	var alive_total := 0
+	for m in picked_unit.get("models", []):
+		if m.get("alive", true):
+			alive_total += 1
+	for m in picked_unit.get("models", []):
+		if not m.get("alive", true):
+			positions.append(Vector2.ZERO)
+			continue
+		var offset = perp * ((alive_i - (alive_total - 1) / 2.0) * 30.0)
+		positions.append(anchor + offset)
+		alive_i += 1
+	var tm_y = get_node_or_null("/root/TransportManager")
+	if tm_y == null:
+		return []
+	tm_y.disembark_unit(pick, positions)
+	print("StratagemManager: YOOZ IN TROUBLE NOW — %s disembarked from %s, surged %d\" toward %s" % [pick, rig_id, surge_roll, enemy_id])
+	return []
+
+func _find_nearest_friendly_keyword_unit(unit_id: String, keyword: String, max_inches: float) -> String:
+	"""Nearest other friendly unit with `keyword` whose closest model is within
+	max_inches of the reference unit. Returns "" when none qualifies."""
+	var units = GameState.state.get("units", {})
+	var unit = units.get(unit_id, {})
+	var owner = int(unit.get("owner", 0))
+	var best_id := ""
+	var best_dist := INF
+	var max_px = Measurement.inches_to_px(max_inches)
+	for uid in units:
+		if uid == unit_id:
+			continue
+		var other = units[uid]
+		if int(other.get("owner", 0)) != owner:
+			continue
+		if not RulesEngine.unit_has_keyword(other, keyword):
+			continue
+		for m in unit.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			for om in other.get("models", []):
+				if not om.get("alive", true) or om.get("position") == null:
+					continue
+				var d = Measurement.model_to_model_distance_px(m, om)
+				if d <= max_px and d < best_dist:
+					best_dist = d
+					best_id = uid
+	return best_id
+
 ## Audit #11: enemy targets for the two attacker-driven 11e core stratagems.
 ## explosives (15.05): unengaged enemy units with a model within 8" of (and
 ## visible to) a model in the friendly unit. crushing_impact (15.06): enemy
 ## units the friendly MONSTER/VEHICLE is engaged with.
 func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String) -> Array:
 	var out: Array = []
+	# KRUNCHIN' DESCENT (Taktikal Brigade), CRUSHING IMPACT / CUT' EM DOWN
+	# (Bully Boyz) and UNSTOPPABLE MOMENTUM (Da Big Hunt) share the
+	# crushing_impact target rule: enemy units the friendly unit is in
+	# Engagement Range of.
+	# CALL DAT DAKKA? (More Dakka!) may target any enemy unit (weapons out of
+	# range simply produce no shots when the shoot-back resolves).
+	var _strat_name = str(stratagems.get(stratagem_id, {}).get("name", "")).replace("’", "'").to_upper()
+	if _strat_name in ["KRUNCHIN' DESCENT", "CRUSHING IMPACT", "CUT' EM DOWN", "UNSTOPPABLE MOMENTUM"]:
+		# Enemy units the friendly unit is in Engagement Range of.
+		stratagem_id = "krunchin_descent"
+	elif _strat_name == "CALL DAT DAKKA?":
+		stratagem_id = "any_enemy"
+	elif _strat_name == "SQUIG FLINGIN'":
+		# Enemy units within 9" of the friendly unit.
+		stratagem_id = "within_9_enemy"
 	var snapshot = GameState.create_snapshot()
 	var friendly = snapshot.get("units", {}).get(friendly_unit_id, {})
 	if friendly.is_empty():
@@ -1591,8 +2555,13 @@ func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String)
 		if not has_alive:
 			continue
 		match stratagem_id:
-			"crushing_impact":
+			"crushing_impact", "krunchin_descent":
 				if RulesEngine.check_units_in_engagement_range(friendly, enemy, snapshot):
+					out.append(uid)
+			"any_enemy":
+				out.append(uid)
+			"within_9_enemy":
+				if RulesEngine.is_target_within_range_inches(friendly, enemy, 9.0):
 					out.append(uid)
 			"explosives":
 				if RulesEngine.is_unit_engaged(uid, snapshot):

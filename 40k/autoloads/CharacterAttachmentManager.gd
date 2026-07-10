@@ -11,6 +11,27 @@ signal detach_completed(character_id: String)
 func _ready() -> void:
 	print("CharacterAttachmentManager initialized")
 
+## Enhancement-driven extra leader pairings (Taktikal Brigade):
+##  - Skwad Leader: the Warboss bearer can be attached to a KOMMANDOS unit
+##  - Mek Kaptin: the Big Mek bearer can be attached to a FLASH GITZ unit
+## Returned keywords are merged into the bearer's can_lead list by every
+## can_lead reader (can_attach, FormationsPhase validation, GameState
+## eligible-bodyguard queries).
+static func get_enhancement_can_lead_extras(character: Dictionary) -> Array:
+	var extras: Array = []
+	for enh in character.get("meta", {}).get("enhancements", []):
+		var enh_name = ""
+		if enh is String:
+			enh_name = enh
+		elif enh is Dictionary:
+			enh_name = str(enh.get("name", ""))
+		match enh_name:
+			"Skwad Leader":
+				extras.append("KOMMANDOS")
+			"Mek Kaptin":
+				extras.append("FLASH GITZ")
+	return extras
+
 # Check if a character can attach to a bodyguard unit
 func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 	var character = GameState.get_unit(character_id)
@@ -32,6 +53,11 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 	# 1,899 canonical pairings) when the per-roster JSON list is empty or stale.
 	var leader_data = character.get("meta", {}).get("leader_data", {})
 	var can_lead = leader_data.get("can_lead", []).duplicate()
+	# Taktikal Brigade enhancements (Skwad Leader / Mek Kaptin) extend which
+	# units the bearer can lead.
+	for extra_kw in get_enhancement_can_lead_extras(character):
+		if not extra_kw in can_lead:
+			can_lead.append(extra_kw)
 	var canonical_keywords: Array = []
 	var lp_loader = get_node_or_null("/root/LeaderPairingsLoader")
 	if lp_loader:

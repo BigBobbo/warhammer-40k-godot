@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.9.3",
+			"version": "0.13.3",
 			"date": "2026-07-10",
 			"summary": "AI units no longer get stuck on walls or sprint across the board after distant enemies — both AI armies play noticeably tighter.",
 			"changes": [
@@ -14,7 +14,7 @@
 			]
 		},
 		{
-			"version": "0.9.2",
+			"version": "0.13.2",
 			"date": "2026-07-10",
 			"summary": "The Ork AI now actually plays the mission: benchmark-driven tuning stopped its whole army chasing enemies across the board while objectives sat unclaimed.",
 			"changes": [
@@ -25,7 +25,7 @@
 			]
 		},
 		{
-			"version": "0.9.1",
+			"version": "0.13.1",
 			"date": "2026-07-10",
 			"summary": "A 20-game AI-vs-AI benchmark soak found and fixed three ways games could freeze mid-battle, plus a wasted Ork heal.",
 			"changes": [
@@ -37,7 +37,7 @@
 			]
 		},
 		{
-			"version": "0.9.0",
+			"version": "0.13.0",
 			"date": "2026-07-09",
 			"summary": "The AI now coordinates its movement phase like an army: units know what their squadmates are already doing, and the whole battle plan is narrated in the game log.",
 			"changes": [
@@ -50,6 +50,88 @@
 				"Fixed AI-vs-AI games freezing in the fight phase: when a forced fight interrupted the global Consolidate step, the wrong AI kept trying to end the other player's half forever. The AI now always acts as whoever's half of the pile-in/consolidate step it actually is.",
 				"Fixed a script error in Bomb Squigs / Scatter targeting (wrong pixels-per-inch constant).",
 				"Windowed scenarios that let the AI play a turn are no longer flaky: the secondary-mission deck shuffle now respects the scenario's RNG seed, so the AI can't randomly draw a card that pauses it behind a human-only dialog mid-test."
+			]
+		},
+		{
+			"version": "0.12.0",
+			"date": "2026-07-10",
+			"summary": "Click a unit on the battlefield to select it in the Movement and Shooting phases — no more hunting for it in the right-hand list. If your current unit is mid-move or has targets staged, a 'Switch Unit?' popup asks before switching so nothing is lost by accident.",
+			"changes": [
+				"Movement phase: clicking any of your units' models on the board selects that unit for movement, exactly like clicking its row in the unit list. Enemy models never steal your selection.",
+				"Movement phase: if the unit you were moving still has an unconfirmed move when you click a different unit, a 'Switch Unit?' popup offers to confirm that move and switch, or keep the current unit.",
+				"Shooting phase: clicking one of your units that can still shoot makes it the active shooter, same as picking it in the SELECT SHOOTER list. Clicking enemy models still assigns weapon targets as before.",
+				"Shooting phase: if you had manually staged weapon targets for the current shooter, the 'Switch Unit?' popup warns that switching discards them (and now really discards them — re-selecting the old shooter no longer resurrects stale assignments). Auto-assigned single-target defaults switch silently.",
+				"Quick-assign ('All → target') now counts as staging targets, so the switch confirmation protects it too."
+			]
+		},
+		{
+			"version": "0.11.2",
+			"date": "2026-07-10",
+			"summary": "Shooting fix: selecting a unit that has no eligible targets (everything out of range or out of line of sight — e.g. a boxed-in Stompa) no longer fails silently. The game now tells you why nothing can be shot.",
+			"changes": [
+				"Selecting a shooter with no eligible targets now shows a warning toast, a red status line under the unit list, and a dice-log breakdown listing why each enemy unit can't be targeted (out of range, no line of sight, engagement, Lone Operative…).",
+				"Clicking an enemy model while such a unit is selected now explains why that enemy can't be shot instead of doing nothing.",
+				"Selecting a weapon when nothing is targetable now says so instead of asking you to 'click on an enemy unit'."
+			]
+		},
+		{
+			"version": "0.11.1",
+			"date": "2026-07-10",
+			"summary": "Army builder fix: an imported enhancement now adds its points to the list total (e.g. Kustom Shokk Box +10). The bundled Taktikal Brigade army's Warboss costs were also missing their enhancement points.",
+			"changes": [
+				"Web army builder: importing a pasted list resolved enhancements but priced them at 0 — the roster total and the unit's points row now include the enhancement cost (re-derived from the dataset every reprice, so saved drafts heal too).",
+				"Bundled orks_taktikal army: the Warboss with Skwad Leader now costs 90 pts (75+15) and the Warboss with Mork's Kunnin' 95 pts (75+20); their stored costs had omitted the enhancements."
+			]
+		},
+		{
+			"version": "0.11.0",
+			"date": "2026-07-10",
+			"summary": "Every Ork detachment RULE now works too: Lissen 'Ere Taktiks (Taktikal Brigade), Try Dat Button! (Dread Mob), Turbo Boostas (Speedwaaagh!), Da Boss Is Watchin' (Bully Boyz), plus the passive rules — Mob Mentality, Dakka! Dakka! Dakka!, Adrenaline Junkies, Eager for the Fight and Thundering Wagons. The last two Enhancements (Gob Boomer, Press It Fasta!) come alive with them.",
+			"changes": [
+				"Taktikal Brigade — Lissen 'Ere (Taktiks): in your Command phase each Boss Snikrot, Mek or Warboss can issue one of four Taktiks to a friendly ORKS unit within 6\" — Get Stuck In (re-roll Charge rolls), Get On Wiv It (+1 Strength in melee), Sneaky Stalkin' (Stealth + Benefit of Cover for Infantry/Mounted, not Meganobz) or Shoota Drills (+1 to ranged Hit rolls for Infantry/Mounted). The issuer takes a Leadership test — failing it deals 1 mortal wound to the receiving unit but the Taktik still lands. One issue per boss and one Taktik per unit each battle round, never to Battle-shocked units; effects last until your next Command phase.",
+				"Gob Boomer enhancement now works: its bearer issues Taktiks to Orks Infantry/Mounted units within 18\" instead of 6\".",
+				"Dread Mob — Try Dat Button!: when one of your Mek, Orks Walker or Grots Vehicle units is selected to shoot or fight, roll a D6 for the Button Effect — SUSTAINED HITS 1, LETHAL HITS or +2 AP for that phase. Press It Fasta! now works: the bearer's unit rolls two dice and gets both effects.",
+				"Speedwaaagh! — Turbo Boostas: a Speed Freeks or Trukk unit (not Aircraft) can use its turbo when it Advances — no Advance roll, it moves a flat 24\", its ranged weapons gain ASSAULT for the turn and it cannot charge. A new 'Use turbo' toggle appears in the Movement panel for eligible units. (The one-straight-line rider is not enforced yet.)",
+				"Bully Boyz — Da Boss Is Watchin': if your Waaagh! has been spent and a Warboss is still standing, you can call a SECOND Waaagh! once per battle — it only counts for Warboss, Nobz and Meganobz units. The Command panel offers 'DA BOSS IS WATCHIN' — WAAAGH AGAIN!' when it is available.",
+				"Green Tide — Mob Mentality: your BOYZ units now carry a 6+ invulnerable save, improved to 5+ while they have 10 or more models (refreshed each Command phase).",
+				"More Dakka! — Dakka! Dakka! Dakka!: your Orks (and Grots-crewed) units' ranged weapons count as ASSAULT, and gain SUSTAINED HITS 1 while your Waaagh! is active.",
+				"Kult of Speed — Adrenaline Junkies: Speed Freeks units can shoot and charge in a turn in which they Advanced or Fell Back.",
+				"Blitz Brigade — Eager for the Fight: your ORKS units re-roll Advance and Charge rolls in the turn they disembark from a Transport.",
+				"Rollin' Deff — Thundering Wagons: your Battlewagons, Kill Rigs and Hunta Rigs advance a flat 6\" without rolling and re-roll Charge rolls.",
+				"Detachment keyword grants: Gretchin count as BATTLELINE in a Dread Mob army; Stormboyz count as BATTLELINE in a Taktikal Brigade army."
+			]
+		},
+		{
+			"version": "0.10.0",
+			"date": "2026-07-10",
+			"summary": "Every Ork detachment now has working Stratagems and Enhancements: Green Tide, More Dakka!, Bully Boyz, Da Big Hunt (with the Prey rule), Kult of Speed, Dread Mob, Blitz Brigade and Rollin' Deff join Speedwaaagh! and Taktikal Brigade.",
+			"changes": [
+				"Green Tide: all six Stratagems (COME ON LADZ! model revival, BRAGGIN' RIGHTS, TIDE OF MUSCLE, BULLDOZER BRUTALITY 3\" fight range, COMPETITIVE STREAK, GO GET 'EM! reactive move) and all four Enhancements (Raucous Warcaller counts-as-10, Bloodthirsty Belligerence, Ferocious Show Off, Brutal But Kunnin' bonus CP).",
+				"More Dakka!: all six Stratagems (CALL DAT DAKKA? shoot-back, SPESHUL SHELLS +1 AP within 18\", ORKS IS STILL ORKS, GET STUCK IN LADZ! unit Waaagh!, HUGE SHOW-OFFS, LONG UNCONTROLLED BURSTS) and all four Enhancements (Da Gobshot Thunderbuss, Dead Shiny Shootas, Targetin' Squigs, Zog Off and Eat Dakka!).",
+				"Bully Boyz: all six Stratagems (ARMED TO DA TEEF, ALWAYS LOOKIN' FER A FIGHT, CRUSHING IMPACT, CUT' EM DOWN forced Desperate Escape, TOO ARROGANT TO DIE swing-backs, HULKING BRUTES) and all four Enhancements ('Eadstompa, Tellyporta Deep Strike, Da Biggest Boss +2W, Big Gob forced Battle-shock).",
+				"Da Big Hunt: the Prey detachment rule (auto-picked enemy MONSTER/VEHICLE/CHARACTER; Beast Snaggas re-roll charges against it and get +1 AP), all six Stratagems (DRAG IT DOWN crits on 5+ vs Prey, UNSTOPPABLE MOMENTUM mortal wounds, INSTINCTIVE HUNTERS into Reserves, STALKIN' TAKTIKS, DAT ONE'S EVEN BIGGA!, WHERE D'YA FINK YOU'RE GOING? reactive move) and all four Enhancements (Glory Hog Scouts 9\", Proper Killy, Skrag Every Stash! sticky objectives, Surly as a Squiggoth).",
+				"Kult of Speed: all six Stratagems (SPEEDIEST FREEKS 5+/4+ invulnerable, SQUIG FLINGIN' Battle-shock at -1, BLITZA FIRE, DAKKASTORM, FULL THROTTLE!, MORE GITZ OVER 'ERE! reactive move) and all four Enhancements (Fasta Than Yooz charge after disembark, Speed Makes Right bonus CP, Squig-hide Tyres 6\" consolidation, Wazblasta post-shooting move).",
+				"Dread Mob: all six Stratagems with the new push-it choice dialog (BIGGER SHELLS FOR BIGGER GITZ, DAKKA! DAKKA! DAKKA!, KLANKIN' KLAWS, EXTRA GUBBINZ -1 Damage, SUPERFUELLED BOILER, CONNIVING RUNTS) and three Enhancements (Gitfinder Googlez, Smoky Gubbinz, Supa-glowy Fing Command-phase zap). Press It Fasta! is listed but waits on the Try Dat Button! detachment rule.",
+				"Blitz Brigade: all six Stratagems (ARMOURED DUELLISTS, MOUNT UP LADZ end-of-fight embark, IMPERVIOUS, MEKANISED BRUTALITY, RUN 'EM DOWN, YOOZ IN TROUBLE NOW disembark-and-surge) and all four Enhancements (Runnin' Boots, Blitzkaptin vehicle redeploys, Supercharged Squig Oil, Tuff Git).",
+				"Rollin' Deff (provisional 11e rules from the community dataset): all five Stratagems (BRUTAL BROADSIDE Rapid Fire X, IMPENDING CRUNCH, DEVASTATING DRIFT Cleave 1, LONG UNCONTROLLED BURSTS, SPESHUL SHELLS 9\") and all four Enhancements (Boarding Ramps, Targetin' Gizmos, plus the shared Dead Shiny Shootas and Da Gobshot Thunderbuss).",
+				"Freebooter Krew: all six Stratagems now show their real rules text and BASH AND GRAB is re-enabled.",
+				"Fixed: several Stratagems whose fine print mentions 'enemy units' (DED SNEAKY, DAT'S OURS, MOUNT UP LADZ and others) wrongly skipped the unit picker and did nothing while still spending the CP.",
+				"Fixed: the Scatter! reactive-move prompt could crash mid-check; distance checks now use the shared measurement helper."
+			]
+		},
+		{
+			"version": "0.9.0",
+			"date": "2026-07-09",
+			"summary": "Taktikal Brigade (Orks) is now playable: all six of its Stratagems and three of its four Enhancements work in-game, and the always-broken Stratagems panel button is fixed.",
+			"changes": [
+				"All six Taktikal Brigade Stratagems now have their real rules text and working effects: FIGHT PROPPA (choose SUSTAINED HITS 1 or LETHAL HITS for a unit's melee weapons), KRUNCHIN' DESCENT (after a Stormboyz charge, D6 per model in Engagement Range — 4+ deals a mortal wound, max 6), DAT'S OURS (+1 Objective Control until the next Command phase), TAKTIKAL RETREAT (shoot and charge after Falling Back), ON TO DA NEXT (a free 6\" move when an enemy Falls Back away from your mob — offered via the same dialog as Krump and Run), and DED SNEAKY (pull Kommandos or Stormboyz off the table into Strategic Reserves).",
+				"Skwad Leader enhancement: a Warboss with it can be attached to a Kommandos unit, and while leading them the unit deploys with Infiltrators and has Stealth.",
+				"Mek Kaptin enhancement: a Big Mek with it can be attached to a Flash Gitz unit, and the unit re-rolls Hit rolls on its ranged attacks.",
+				"Mork's Kunnin' enhancement: after deployment you can redeploy up to three ORKS units (any of them into Strategic Reserves).",
+				"Gob Boomer is listed but has no effect yet — it extends the Taktiks (Lissen 'Ere) detachment rule, which is not implemented (the same gap as Speedwaaagh!'s Turbo Boostas detachment rule).",
+				"Fixed the Stratagems panel ([S] button): clicking it did nothing because of a script error — it now opens, and unit-targeted faction Stratagems prompt you to pick the target unit instead of silently doing nothing.",
+				"Stratagem targeting is now enforced for faction Stratagems (correct keywords, not-yet-fought/shot, engagement-range conditions), and 'One X or Y unit' wordings are matched correctly.",
+				"Added a ready-to-play Taktikal Brigade army list (orks_taktikal) with Skwad Leader and Mork's Kunnin' equipped."
 			]
 		},
 		{

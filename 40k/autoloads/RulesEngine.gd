@@ -797,7 +797,8 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 
 		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage
 		var weapon_id = assignment.get("weapon_id", "")
-		if is_hazardous_weapon(weapon_id, board):
+		if is_hazardous_weapon(weapon_id, board) \
+				or board.get("units", {}).get(actor_unit_id, {}).get("flags", {}).get("effect_grant_hazardous", false):
 			var models_that_fired = assignment.get("model_ids", []).size()
 			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fired, board, rng_service)
 			if hazardous_result.hazardous_triggered:
@@ -868,7 +869,7 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 
 		# HAZARDOUS (T2-3): Track hazardous weapons for post-save resolution
 		var weapon_id = assignment.get("weapon_id", "")
-		if is_hazardous_weapon(weapon_id, board):
+		if is_hazardous_weapon(weapon_id, board) or actor_unit.get("flags", {}).get("effect_grant_hazardous", false):
 			hazardous_weapons.append({
 				"weapon_id": weapon_id,
 				"models_that_fired": assignment.get("model_ids", []).size()
@@ -934,7 +935,8 @@ static func resolve_shoot_hits(action: Dictionary, board: Dictionary, rng_servic
 	# The weapon HAS fired once the hit roll is made — mirror the one-shot /
 	# hazardous bookkeeping resolve_shoot_until_wounds() performs per assignment.
 	var weapon_id = assignment.get("weapon_id", "")
-	if is_hazardous_weapon(weapon_id, board):
+	if is_hazardous_weapon(weapon_id, board) \
+			or actor_unit.get("flags", {}).get("effect_grant_hazardous", false):
 		result["hazardous_weapons"] = [{
 			"weapon_id": weapon_id,
 			"models_that_fired": assignment.get("model_ids", []).size()
@@ -1115,9 +1117,12 @@ static func reroll_wound_die(wound_context: Dictionary, die_index: int, board: D
 # Only unmodified 6s hit. All other shooting mechanics (wound, save, damage) are normal.
 # ==========================================
 
-static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng_service: RNGService = null, hit_on_six: bool = true) -> Dictionary:
 	"""Resolve overwatch shooting: all weapons fire at the target, but only unmodified 6s count as hits.
 	No hit modifiers are applied. Wound rolls, saves, and damage work normally.
+	With hit_on_six=false the weapons hit on their normal (unmodified) BS instead —
+	used by CALL DAT DAKKA? (More Dakka!) to shoot back 'as if it were your
+	Shooting phase' outside the shooting flow.
 	Returns { success, diffs, dice, log_text, total_hits, total_wounds, total_damage, total_casualties, weapon_results }
 	"""
 	if not rng_service:
@@ -1172,7 +1177,7 @@ static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: 
 			print("RulesEngine: OVERWATCH — skipping remaining weapons, target %s destroyed" % target_name)
 			break
 
-		var wa_result = _resolve_overwatch_assignment(wa, shooter_unit_id, target_unit_id, board, rng_service)
+		var wa_result = _resolve_overwatch_assignment(wa, shooter_unit_id, target_unit_id, board, rng_service, hit_on_six)
 		result.diffs.append_array(wa_result.get("diffs", []))
 		result.dice.append_array(wa_result.get("dice", []))
 		result.total_hits += wa_result.get("hits", 0)
@@ -1235,9 +1240,10 @@ static func _build_overwatch_weapon_assignments(shooter_unit: Dictionary, shoote
 
 	return assignments
 
-static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
+static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService, hit_on_six: bool = true) -> Dictionary:
 	"""Resolve a single weapon assignment during overwatch.
-	Key difference: only unmodified 6s count as hits. No hit modifiers apply."""
+	Key difference: only unmodified 6s count as hits (hit_on_six=false uses the
+	weapon's unmodified BS instead — CALL DAT DAKKA?). No hit modifiers apply."""
 	var result = {
 		"diffs": [],
 		"dice": [],
@@ -1282,18 +1288,23 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if total_attacks <= 0:
 		return result
 
-	# --- PHASE 2: Hit rolls (OVERWATCH: only unmodified 6s hit) ---
+	# --- PHASE 2: Hit rolls (OVERWATCH: only unmodified 6s hit; CALL DAT
+	# DAKKA? shoots back at the weapon's normal unmodified BS instead) ---
 	var hit_rolls = rng.roll_d6(total_attacks)
 	var hits = 0
+	var ow_threshold = 6
+	if not hit_on_six:
+		var bs_str = str(weapon_profile.get("ballistic_skill", "6"))
+		ow_threshold = int(bs_str) if bs_str.is_valid_int() else 6
 
 	for roll in hit_rolls:
-		if roll == 6:  # ONLY unmodified 6s — no modifiers applied
+		if roll >= ow_threshold and roll > 1:  # unmodified; 1s always fail
 			hits += 1
 
 	result.dice.append({
 		"context": "overwatch_to_hit",
 		"weapon_name": weapon_name,
-		"threshold": "6 (Overwatch)",
+		"threshold": ("6 (Overwatch)" if hit_on_six else "%d+ (unmodified BS)" % ow_threshold),
 		"rolls_raw": hit_rolls,
 		"total_attacks": total_attacks,
 		"successes": hits,
@@ -1355,6 +1366,10 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if ow_da_boss_ladz_mod == WoundModifier.MINUS_ONE:
 		ow_wound_modifier = -1
 		print("RulesEngine: DA BOSS' LADZ (overwatch) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
+	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	if ow_wound_modifier == 0 and get_s_gt_t_wound_penalty(target_unit, board, strength, toughness) == WoundModifier.MINUS_ONE:
+		ow_wound_modifier = -1
+		print("RulesEngine: S>T wound penalty (overwatch) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
 	# DEFENDER FLAG ('ARD AS NAILS): -1 to wound for attacks targeting the flagged unit
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		ow_wound_modifier = -1
@@ -1419,6 +1434,16 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var pre_ap_dbd = ap
 		ap = ap + ow_dbd_bonus
 		print("RulesEngine: Drive-by Dakka (Overwatch) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ow_dbd_bonus])
+	# SPESHUL SHELLS (More Dakka!): +1 AP vs targets within 18"
+	var ow_ss_bonus = get_speshul_shells_ap_bonus(shooter_unit, target_unit)
+	if ow_ss_bonus > 0:
+		ap = ap + ow_ss_bonus
+		print("RulesEngine: SPESHUL SHELLS (Overwatch) — AP improved by %d (target within 18\")" % ow_ss_bonus)
+	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
+	var ow_prey_bonus = get_prey_ap_bonus(shooter_unit, target_unit)
+	if ow_prey_bonus > 0:
+		ap = ap + ow_prey_bonus
+		print("RulesEngine: PREY (Overwatch) — AP improved by %d (target is Prey)" % ow_prey_bonus)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ow_worsen_ap > 0 and ap > 0:
@@ -1753,9 +1778,20 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	# DAKKAMEK (Speedwaaagh!): the Mekaniak-selected Vehicle's ranged weapons gain
 	# [RAPID FIRE 1] until the start of the bearer's next turn.
 	if rapid_fire_value < 1 and str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
-			and actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false):
+			and (actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false) or actor_unit.get("flags", {}).get("effect_grant_rapid_fire_1", false)):
 		rapid_fire_value = 1
 		print("RulesEngine: DAKKAMEK — [RAPID FIRE 1] granted to %s's ranged weapon %s" % [actor_unit_id, weapon_id])
+	# BRUTAL BROADSIDE (Rollin' Deff): ranged weapons gain [RAPID FIRE X] with
+	# X = the weapon's Attacks characteristic (fixed-value Attacks only —
+	# dice-valued Attacks keep their native rapid fire; documented).
+	if str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
+			and actor_unit.get("flags", {}).get("effect_brutal_broadside", false):
+		var bb_attacks_raw = str(weapon_profile.get("attacks", "1"))
+		if bb_attacks_raw.is_valid_int():
+			rapid_fire_value = maxi(rapid_fire_value, int(bb_attacks_raw))
+			print("RulesEngine: BRUTAL BROADSIDE — [RAPID FIRE %d] on %s (X = Attacks)" % [rapid_fire_value, weapon_id])
+		else:
+			print("RulesEngine: BRUTAL BROADSIDE — %s has dice-valued Attacks (%s), rapid fire grant skipped" % [weapon_id, bb_attacks_raw])
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
@@ -2011,7 +2047,15 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		# BIG AN' SHOOTY (OA-41): +1 to Hit for ranged attacks while Waaagh! active (Morkanaut)
 		if UnitAbilityManager.has_big_an_shooty(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+		# TARGETIN' SQUIGS / HUGE SHOW-OFFS: effect-granted +1 to hit on ranged attacks
+		if actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_ONE_HIT_RANGED, false):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: +1 to hit (ranged) — effect_plus_one_hit_ranged on %s" % actor_unit_id)
 			print("RulesEngine: BIG AN' SHOOTY — +1 to hit (ranged) for %s (Waaagh! active)" % actor_unit_id)
+		# ARMOURED DUELLISTS (Blitz Brigade): +1 to hit vs MONSTER/VEHICLE
+		if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: ARMOURED DUELLISTS — +1 to hit vs %s (MONSTER/VEHICLE)" % target_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker.
@@ -2022,6 +2066,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		elif dats_our_loot_scope == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: DAT'S OUR LOOT! — re-roll hit rolls of 1 for %s" % actor_unit_id)
+
+		# MEK KAPTIN (Taktikal Brigade enhancement): full Hit re-roll on the
+		# bearer's unit's ranged attacks.
+		if unit_has_mek_kaptin_reroll(actor_unit, board):
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: MEK KAPTIN — re-roll Hit rolls (ranged) for %s" % actor_unit_id)
 
 		# SPLAT! (OA-38): Re-roll Hit rolls of 1 on ranged attacks when conditions met.
 		# Big Gunz: target has 10+ models. Mek Gunz: at Starting Strength vs non-MONSTER/VEHICLE.
@@ -2166,6 +2216,14 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(actor_unit):
 			weapon_has_lethal_hits = true
 			print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Ammo Runt)")
+		# BLITZA FIRE (Kult of Speed): ranged-scoped Lethal Hits flag
+		if not weapon_has_lethal_hits and actor_unit.get("flags", {}).get("effect_lethal_hits_ranged", false):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by ranged effect flag (BLITZA FIRE)")
+		# TRY DAT BUTTON! (Dread Mob): rolled Button Effect — ranged LETHAL HITS
+		if not weapon_has_lethal_hits and actor_unit.get("flags", {}).get("effect_try_dat_lethal_ranged", false):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by TRY DAT BUTTON! (Dread Mob)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
@@ -2174,6 +2232,25 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(actor_unit, target_unit, board):
 			sustained_data = {"value": 1, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS 1 granted by Here Be Loot (Freebooter Krew detachment)")
+		# DAKKASTORM (Kult of Speed): ranged SUSTAINED HITS 1 (2 within 9")
+		var kos_ds_val = get_dakkastorm_sustained_value(actor_unit, target_unit)
+		if kos_ds_val > int(sustained_data.value):
+			sustained_data = {"value": kos_ds_val, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by DAKKASTORM (Kult of Speed)" % kos_ds_val)
+		# TARGETIN' GIZMOS (Rollin' Deff): ranged SUSTAINED HITS 1 during a Waaagh!
+		var tg_val = FactionAbilityManager.targetin_gizmos_sustained(actor_unit)
+		if tg_val > int(sustained_data.value):
+			sustained_data = {"value": tg_val, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by TARGETIN' GIZMOS (Waaagh! active)" % tg_val)
+		# DAKKA! DAKKA! DAKKA! (More Dakka! detachment): ranged SUSTAINED HITS 1
+		# for ORKS INFANTRY/WALKER while the Waaagh! is active
+		if int(sustained_data.value) == 0 and FactionAbilityManager.unit_has_more_dakka_waaagh_sustained(actor_unit):
+			sustained_data = {"value": 1, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS 1 granted by DAKKA! DAKKA! DAKKA! (More Dakka! detachment, Waaagh! active)")
+		# TRY DAT BUTTON! (Dread Mob): rolled Button Effect — ranged SUSTAINED HITS 1
+		if int(sustained_data.value) == 0 and actor_unit.get("flags", {}).get("effect_try_dat_sustained_ranged", false):
+			sustained_data = {"value": 1, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS 1 granted by TRY DAT BUTTON! (Dread Mob)")
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -2416,6 +2493,12 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		wound_modifiers |= WoundModifier.MINUS_ONE
 		print("RulesEngine: Defender effect -1 to wound (attacks vs %s)" % target_unit_id)
+	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets
+	var eadstompa_scope = get_eadstompa_reroll_scope(actor_unit, target_unit)
+	if eadstompa_scope == "failed":
+		wound_modifiers |= WoundModifier.REROLL_FAILED
+	elif eadstompa_scope == "ones":
+		wound_modifiers |= WoundModifier.REROLL_ONES
 	var reroll_wounds_scope = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if reroll_wounds_scope == "ones":
 		wound_modifiers |= WoundModifier.REROLL_ONES
@@ -2444,6 +2527,19 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	if da_boss_ladz_mod != WoundModifier.NONE:
 		wound_modifiers |= da_boss_ladz_mod
 		print("RulesEngine: DA BOSS' LADZ — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
+	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	var sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
+	if sgt_mod != WoundModifier.NONE:
+		wound_modifiers |= sgt_mod
+		print("RulesEngine: S>T wound penalty — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
+	# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to wound vs MONSTER/VEHICLE
+	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: BIGGER SHELLS — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
+	# ARMOURED DUELLISTS (Blitz Brigade): +1 to wound vs MONSTER/VEHICLE
+	if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: ARMOURED DUELLISTS — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
 	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6"
 	# Full Wound re-roll if target is also within range of an objective marker.
 	var pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
@@ -2789,6 +2885,9 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 	var melta_box = [int(opts.get("melta_wounds", 0))]
 	var has_half_damage = bool(opts.get("half_damage", false))
 	var unit_fnp_value = int(opts.get("fnp_value", 0))
+	# BIGGER SHELLS (Dread Mob, pushed): callers pass the attacking unit so the
+	# conditional +1 Damage vs MONSTER/VEHICLE can resolve per target.
+	var bs_actor_unit: Dictionary = opts.get("actor_unit", {})
 	var damage_roll_log: Array = out.damage_roll_log
 
 	print("RulesEngine: [11e ALLOCATION] %d save(s) + %d devastating crit(s) vs %d group(s), order=%s" % [wounds_to_save, dev_wound_crits, groups.size(), str(order)])
@@ -2806,6 +2905,8 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			if melta_value > 0 and melta_box[0] > 0:
 				dmg += melta_value
 				melta_box[0] -= 1
+			# BIGGER SHELLS (Dread Mob, pushed): +1 Damage vs MONSTER/VEHICLE
+			dmg += get_bigger_shells_damage_bonus(bs_actor_unit, target_unit)
 			if has_half_damage:
 				dmg = apply_half_damage(dmg)
 			var minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
@@ -2863,6 +2964,8 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			if melta_value > 0 and melta_box[0] > 0:
 				dmg += melta_value
 				melta_box[0] -= 1
+			# BIGGER SHELLS (Dread Mob, pushed): +1 Damage vs MONSTER/VEHICLE
+			dmg += get_bigger_shells_damage_bonus(bs_actor_unit, target_unit)
 			if has_half_damage:
 				dmg = apply_half_damage(dmg)
 			var dw_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
@@ -2950,6 +3053,54 @@ static func resolve_crushing_impact_11e(unit_id: String, target_unit_id: String,
 		_materialize_allocation_11e(result, unit, unit_id, self_out.remaining, self_out.models_destroyed)
 		result.casualties += self_out.models_destroyed.size()
 	print("RulesEngine: [15.06] CRUSHING IMPACT %s vs %s — T%d rolls %s -> %d enemy / %d self mortal wound(s)" % [unit_id, target_unit_id, toughness, str(rolls), enemy_mw, self_mw])
+	return result
+
+
+## KRUNCHIN' DESCENT (Taktikal Brigade): just after a Stormboyz unit ends a
+## Charge move, roll one D6 for each of its models within Engagement Range of
+## the selected enemy unit — each 4+ inflicts 1 mortal wound (max 6).
+## CRUSHING IMPACT (Bully Boyz) reuses this with threshold 5 (4 while a
+## Waaagh! is active); UNSTOPPABLE MOMENTUM (Da Big Hunt) with er_only=false
+## (one die per model in the unit) and bonus dice vs the Prey.
+static func resolve_krunchin_descent(unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService = null, threshold: int = 4, er_only: bool = true, bonus_dice: int = 0) -> Dictionary:
+	if rng == null:
+		rng = make_rng()
+	var unit = board.get("units", {}).get(unit_id, {})
+	var target = board.get("units", {}).get(target_unit_id, {})
+	var dice_count := 0
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var pos1 = _get_model_position(model)
+		if pos1 == Vector2.ZERO:
+			continue
+		if not er_only:
+			dice_count += 1
+			continue
+		for enemy_model in target.get("models", []):
+			if not enemy_model.get("alive", true):
+				continue
+			var pos2 = _get_model_position(enemy_model)
+			if pos2 == Vector2.ZERO:
+				continue
+			var effective_er = _get_effective_engagement_range_rules(pos1, pos2, board)
+			if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
+				dice_count += 1
+				break
+	dice_count += maxi(bonus_dice, 0)
+	var rolls = rng.roll_d6(dice_count) if dice_count > 0 else []
+	var mw := 0
+	for r in rolls:
+		if r >= threshold:
+			mw += 1
+	mw = mini(mw, 6)
+	var result = {"diffs": [], "dice": [{"context": "krunchin_descent", "rolls": rolls, "mortal_wounds": mw}],
+		"mortal_wounds": mw, "models_in_er": dice_count, "casualties": 0}
+	if mw > 0 and not target.is_empty():
+		var out = Allocation.apply_mortal_wounds_11e(target, mw)
+		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
+		result.casualties = out.models_destroyed.size()
+	print("RulesEngine: KRUNCHIN' DESCENT %s vs %s — %d model(s) in ER, rolls %s -> %d mortal wound(s)" % [unit_id, target_unit_id, dice_count, str(rolls), mw])
 	return result
 
 
@@ -3128,6 +3279,7 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 			"precision_group": _precision_group_11e(save_data.get("has_precision", false), scratch_unit,
 				board.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {}), board,
 				str(save_data.get("precision_group_choice", ""))),
+			"actor_unit": board.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {}),
 			"melta_value": melta_value,
 			"melta_wounds": melta_wounds,
 			"half_damage": get_unit_half_damage(live_unit),
@@ -3309,9 +3461,20 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# DAKKAMEK (Speedwaaagh!): the Mekaniak-selected Vehicle's ranged weapons gain
 	# [RAPID FIRE 1] until the start of the bearer's next turn.
 	if rapid_fire_value < 1 and str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
-			and actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false):
+			and (actor_unit.get("flags", {}).get("dakkamek_rapid_fire", false) or actor_unit.get("flags", {}).get("effect_grant_rapid_fire_1", false)):
 		rapid_fire_value = 1
 		print("RulesEngine: DAKKAMEK — [RAPID FIRE 1] granted to %s's ranged weapon %s" % [actor_unit_id, weapon_id])
+	# BRUTAL BROADSIDE (Rollin' Deff): ranged weapons gain [RAPID FIRE X] with
+	# X = the weapon's Attacks characteristic (fixed-value Attacks only —
+	# dice-valued Attacks keep their native rapid fire; documented).
+	if str(weapon_profile.get("type", "Ranged")).to_lower() != "melee" \
+			and actor_unit.get("flags", {}).get("effect_brutal_broadside", false):
+		var bb_attacks_raw = str(weapon_profile.get("attacks", "1"))
+		if bb_attacks_raw.is_valid_int():
+			rapid_fire_value = maxi(rapid_fire_value, int(bb_attacks_raw))
+			print("RulesEngine: BRUTAL BROADSIDE — [RAPID FIRE %d] on %s (X = Attacks)" % [rapid_fire_value, weapon_id])
+		else:
+			print("RulesEngine: BRUTAL BROADSIDE — %s has dice-valued Attacks (%s), rapid fire grant skipped" % [weapon_id, bb_attacks_raw])
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
@@ -3558,7 +3721,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# BIG AN' SHOOTY (OA-41): +1 to Hit for ranged attacks while Waaagh! active (Morkanaut, auto-resolve)
 		if UnitAbilityManager.has_big_an_shooty(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+		# TARGETIN' SQUIGS / HUGE SHOW-OFFS: effect-granted +1 to hit on ranged attacks
+		if actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_ONE_HIT_RANGED, false):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: +1 to hit (ranged) — effect_plus_one_hit_ranged on %s" % actor_unit_id)
 			print("RulesEngine: BIG AN' SHOOTY (auto-resolve) — +1 to hit (ranged) for %s (Waaagh! active)" % actor_unit_id)
+		# ARMOURED DUELLISTS (Blitz Brigade): +1 to hit vs MONSTER/VEHICLE
+		if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: ARMOURED DUELLISTS (auto-resolve) — +1 to hit vs %s (MONSTER/VEHICLE)" % target_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker (auto-resolve).
@@ -3569,6 +3740,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		elif dats_our_loot_scope_ar == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: DAT'S OUR LOOT! (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
+
+		# MEK KAPTIN (Taktikal Brigade enhancement): full Hit re-roll on the
+		# bearer's unit's ranged attacks (auto-resolve).
+		if unit_has_mek_kaptin_reroll(actor_unit, board):
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: MEK KAPTIN (auto-resolve) — re-roll Hit rolls (ranged) for %s" % actor_unit_id)
 
 		# SPLAT! (OA-38): Re-roll Hit rolls of 1 on ranged attacks when conditions met (auto-resolve).
 		# Big Gunz: target has 10+ models. Mek Gunz: at Starting Strength vs non-MONSTER/VEHICLE.
@@ -3697,6 +3874,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(actor_unit):
 			weapon_has_lethal_hits = true
 			print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Ammo Runt)")
+		# BLITZA FIRE (Kult of Speed): ranged-scoped Lethal Hits flag
+		if not weapon_has_lethal_hits and actor_unit.get("flags", {}).get("effect_lethal_hits_ranged", false):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by ranged effect flag (BLITZA FIRE)")
+		# TRY DAT BUTTON! (Dread Mob): rolled Button Effect — ranged LETHAL HITS
+		if not weapon_has_lethal_hits and actor_unit.get("flags", {}).get("effect_try_dat_lethal_ranged", false):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by TRY DAT BUTTON! (Dread Mob)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
@@ -3705,6 +3890,25 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(actor_unit, target_unit, board):
 			sustained_data = {"value": 1, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS 1 granted by Here Be Loot (Freebooter Krew detachment)")
+		# DAKKASTORM (Kult of Speed): ranged SUSTAINED HITS 1 (2 within 9")
+		var kos_ds_val = get_dakkastorm_sustained_value(actor_unit, target_unit)
+		if kos_ds_val > int(sustained_data.value):
+			sustained_data = {"value": kos_ds_val, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by DAKKASTORM (Kult of Speed)" % kos_ds_val)
+		# TARGETIN' GIZMOS (Rollin' Deff): ranged SUSTAINED HITS 1 during a Waaagh!
+		var tg_val = FactionAbilityManager.targetin_gizmos_sustained(actor_unit)
+		if tg_val > int(sustained_data.value):
+			sustained_data = {"value": tg_val, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by TARGETIN' GIZMOS (Waaagh! active)" % tg_val)
+		# DAKKA! DAKKA! DAKKA! (More Dakka! detachment): ranged SUSTAINED HITS 1
+		# for ORKS INFANTRY/WALKER while the Waaagh! is active
+		if int(sustained_data.value) == 0 and FactionAbilityManager.unit_has_more_dakka_waaagh_sustained(actor_unit):
+			sustained_data = {"value": 1, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS 1 granted by DAKKA! DAKKA! DAKKA! (More Dakka! detachment, Waaagh! active)")
+		# TRY DAT BUTTON! (Dread Mob): rolled Button Effect — ranged SUSTAINED HITS 1
+		if int(sustained_data.value) == 0 and actor_unit.get("flags", {}).get("effect_try_dat_sustained_ranged", false):
+			sustained_data = {"value": 1, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS 1 granted by TRY DAT BUTTON! (Dread Mob)")
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -3865,6 +4069,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		ar_wound_modifiers |= WoundModifier.MINUS_ONE
 		print("RulesEngine: Defender effect -1 to wound (auto-resolve, attacks vs %s)" % target_unit_id)
+	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets
+	var eadstompa_scope_ar = get_eadstompa_reroll_scope(actor_unit, target_unit)
+	if eadstompa_scope_ar == "failed":
+		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+	elif eadstompa_scope_ar == "ones":
+		ar_wound_modifiers |= WoundModifier.REROLL_ONES
 	var reroll_wounds_scope_ar = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if reroll_wounds_scope_ar == "ones":
 		ar_wound_modifiers |= WoundModifier.REROLL_ONES
@@ -3890,6 +4100,19 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if ar_da_boss_ladz_mod != WoundModifier.NONE:
 		ar_wound_modifiers |= ar_da_boss_ladz_mod
 		print("RulesEngine: DA BOSS' LADZ (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
+	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	var ar_sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
+	if ar_sgt_mod != WoundModifier.NONE:
+		ar_wound_modifiers |= ar_sgt_mod
+		print("RulesEngine: S>T wound penalty (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
+	# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to wound vs MONSTER/VEHICLE
+	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: BIGGER SHELLS (auto-resolve) — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
+	# ARMOURED DUELLISTS (Blitz Brigade): +1 to wound vs MONSTER/VEHICLE
+	if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: ARMOURED DUELLISTS (auto-resolve) — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
 	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6" (auto-resolve)
 	# Full Wound re-roll if target is also within range of an objective marker.
 	var ar_pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
@@ -4036,6 +4259,20 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_ap_dbd = ap
 		ap = ap + ar_dbd_bonus
 		print("RulesEngine: Drive-by Dakka (auto-resolve) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ar_dbd_bonus])
+	# SPESHUL SHELLS (More Dakka!): +1 AP vs targets within 18"
+	var ar_ss_bonus = get_speshul_shells_ap_bonus(actor_unit, target_unit)
+	if ar_ss_bonus > 0:
+		ap = ap + ar_ss_bonus
+		print("RulesEngine: SPESHUL SHELLS (auto-resolve) — AP improved by %d (target within 18\")" % ar_ss_bonus)
+	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
+	var ar_prey_bonus = get_prey_ap_bonus(actor_unit, target_unit)
+	if ar_prey_bonus > 0:
+		ap = ap + ar_prey_bonus
+		print("RulesEngine: PREY (auto-resolve) — AP improved by %d (target is Prey)" % ar_prey_bonus)
+	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
+	if actor_unit.get("flags", {}).get("effect_try_dat_ap2", false):
+		ap = ap + 2
+		print("RulesEngine: TRY DAT BUTTON! (auto-resolve) — AP improved by 2")
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ar_worsen_ap > 0 and ap > 0:
@@ -4108,6 +4345,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			ar_regular_wound_count if ar_weapon_has_devastating_wounds else wounds_caused,
 			ar_critical_wound_count if ar_weapon_has_devastating_wounds else 0,
 			ap, damage_raw, rng, {
+				"actor_unit": board.get("units", {}).get(actor_unit_id, {}),
 				"melta_value": ar_melta_value,
 				"melta_wounds": ar_melta_wounds_remaining,
 				"half_damage": ar_has_half_damage,
@@ -4151,6 +4389,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				dw_wound_damage += ar_melta_value
 				ar_melta_wounds_remaining -= 1
 				print("RulesEngine: MELTA +%d (auto-resolve) applied to devastating wound (damage: %d → %d)" % [ar_melta_value, dmg_result.value, dw_wound_damage])
+			# BIGGER SHELLS (Dread Mob, pushed): +1 Damage vs MONSTER/VEHICLE
+			dw_wound_damage += get_bigger_shells_damage_bonus(actor_unit, target_unit)
 			# HALF DAMAGE (T4-17): Halve devastating wound damage (round up)
 			if ar_has_half_damage:
 				var pre_half = dw_wound_damage
@@ -4319,6 +4559,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				ar_melta_wounds_remaining -= 1
 				print("RulesEngine: MELTA +%d (auto-resolve) applied to damage (total: %d)" % [ar_melta_value, damage])
 
+			# BIGGER SHELLS (Dread Mob, pushed): +1 Damage vs MONSTER/VEHICLE
+			damage += get_bigger_shells_damage_bonus(actor_unit, target_unit)
+
 			# HALF DAMAGE (T4-17): Halve damage if defender has half-damage ability
 			if ar_has_half_damage:
 				var pre_half = damage
@@ -4484,16 +4727,19 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 	# Check this BEFORE the cannot_shoot flag, since Advanced units CAN shoot (with restrictions)
 	var actor_advanced = flags.get("advanced", false)
 
-	# Units that Fell Back cannot shoot (unless special rules like fall_back_and_shoot)
+	# Units that Fell Back cannot shoot (unless special rules like
+	# fall_back_and_shoot or Kult of Speed's Adrenaline Junkies)
 	if flags.get("fell_back", false):
-		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(actor_unit):
+		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(actor_unit) \
+				and not FactionAbilityManager.unit_has_adrenaline_junkies(actor_unit):
 			errors.append("Unit cannot shoot (fell back)")
 			return {"valid": false, "errors": errors}
 
 	# Legacy cannot_shoot flag check - but skip if unit advanced (since advanced units CAN shoot)
 	# or has the fall_back_and_shoot effect overriding the post-Fall-Back lockout
 	if flags.get("cannot_shoot", false) and not actor_advanced:
-		if not (flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_shoot(actor_unit)):
+		if not (flags.get("fell_back", false) and (EffectPrimitivesData.has_effect_fall_back_and_shoot(actor_unit) \
+				or FactionAbilityManager.unit_has_adrenaline_junkies(actor_unit))):
 			errors.append("Unit cannot shoot")
 
 	# PISTOL RULES: Check if actor is in engagement range
@@ -4518,8 +4764,12 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					errors.append("Non-Pistol weapon '%s' cannot be fired while in engagement range" % weapon_profile.get("name", weapon_id))
 
 				# ASSAULT RULES: If unit Advanced, only Assault weapons can be used
-				# EXCEPTION: Units with advance_and_shoot effect can fire all weapons after Advancing
-				if actor_advanced and not is_assault_weapon(weapon_id, board) and not EffectPrimitivesData.has_effect_advance_and_shoot(actor_unit):
+				# EXCEPTION: Units with advance_and_shoot effect (or a
+				# detachment-granted unit-wide ASSAULT — More Dakka! /
+				# Adrenaline Junkies) can fire all weapons after Advancing
+				if actor_advanced and not is_assault_weapon(weapon_id, board) \
+						and not EffectPrimitivesData.has_effect_advance_and_shoot(actor_unit) \
+						and not FactionAbilityManager.unit_has_detachment_assault(actor_unit):
 					errors.append("Cannot fire non-Assault weapon '%s' after Advancing" % weapon_profile.get("name", weapon_id))
 
 				# MA-26: WEAPON OWNERSHIP VALIDATION — verify each model in the assignment
@@ -7356,6 +7606,47 @@ static func is_unit_near_any_objective(unit: Dictionary, board: Dictionary) -> b
 
 	return false
 
+# MEK KAPTIN (Taktikal Brigade enhancement): "Each time a model in the
+# bearer's unit makes a ranged attack, you can re-roll the Hit roll."
+# True when the shooting unit carries the enhancement itself (standalone
+# bearer, or the bearer attached to it) or has the bearer among its
+# attached characters. Read ONLY in the shooting hit-modifier paths.
+static func unit_has_mek_kaptin_reroll(actor_unit: Dictionary, board: Dictionary) -> bool:
+	if _meta_has_enhancement(actor_unit, "Mek Kaptin"):
+		return true
+	var units = board.get("units", {})
+	for char_id in actor_unit.get("attachment_data", {}).get("attached_characters", []):
+		if _meta_has_enhancement(units.get(str(char_id), {}), "Mek Kaptin"):
+			return true
+	return false
+
+static func _meta_has_enhancement(unit: Dictionary, enh_name: String) -> bool:
+	for enh in unit.get("meta", {}).get("enhancements", []):
+		if enh is String and enh == enh_name:
+			return true
+		if enh is Dictionary and str(enh.get("name", "")) == enh_name:
+			return true
+	return false
+
+
+# 'EADSTOMPA (Bully Boyz enhancement): the bearer re-rolls Wound rolls of 1
+# against units below their Starting Strength; full Wound re-roll while the
+# target is Below Half-strength. Unit-wide approximation (bearer-only scope
+# needs per-model attack state — same caveat as Hall of Armouries).
+static func get_eadstompa_reroll_scope(attacker_unit: Dictionary, target_unit: Dictionary) -> String:
+	if not (_meta_has_enhancement(attacker_unit, "'Eadstompa") or _meta_has_enhancement(attacker_unit, "\u2019Eadstompa")):
+		return ""
+	var total: int = target_unit.get("models", []).size()
+	var alive := 0
+	for m in target_unit.get("models", []):
+		if m.get("alive", true):
+			alive += 1
+	if total <= 0 or alive >= total:
+		return ""
+	if alive * 2 < total:
+		return "failed"
+	return "ones"
+
 # DAT'S OUR LOOT! (OA-12): Get the re-roll scope for a Lootas unit's ranged attacks.
 # Returns "failed" if target is within range of any objective marker (full re-roll),
 # "ones" if the unit has the ability but target is not near an objective,
@@ -7497,6 +7788,107 @@ static func get_drive_by_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dic
 	if is_target_within_range_inches(actor_unit, target_unit, 9.0):
 		return 1
 	return 0
+
+# SPESHUL SHELLS (More Dakka!): +1 AP on the unit's ranged attacks vs targets
+# within 18" while the stratagem flag is set. Simplification: applies against
+# any target within 18" (the 'closest eligible target' clause is not tracked
+# per attack).
+static func get_speshul_shells_ap_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	# More Dakka! variant: +1 AP vs targets within 18"
+	if actor_unit.get("flags", {}).get("effect_speshul_shells_md", false) \
+			and is_target_within_range_inches(actor_unit, target_unit, 18.0):
+		return 1
+	# Rollin' Deff variant: +1 AP vs targets within 9"
+	if actor_unit.get("flags", {}).get("effect_speshul_shells_rd", false) \
+			and is_target_within_range_inches(actor_unit, target_unit, 9.0):
+		return 1
+	return 0
+
+# DAKKASTORM (Kult of Speed): ranged SUSTAINED HITS 1, upgraded to
+# SUSTAINED HITS 2 while targeting a unit within 9". Returns 0 without the flag.
+static func get_dakkastorm_sustained_value(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get("effect_dakkastorm_kos", false):
+		return 0
+	return 2 if is_target_within_range_inches(actor_unit, target_unit, 9.0) else 1
+
+# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to Wound vs MONSTER/VEHICLE;
+# when pushed, +1 Damage against those targets as well.
+static func get_bigger_shells_wound_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get("effect_bigger_shells", false):
+		return 0
+	if unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE"):
+		return 1
+	return 0
+
+static func get_bigger_shells_damage_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get("effect_bigger_shells_push", false):
+		return 0
+	if unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE"):
+		return 1
+	return 0
+
+# Generic mortal-wound application to a unit by id (Supa-glowy Fing,
+# CONNIVING RUNTS, ...). Allocates via the 11e mortal-wound path and returns
+# {diffs, mortal_wounds, casualties}.
+static func apply_mortal_wounds_to_unit(target_unit_id: String, mw: int, board: Dictionary) -> Dictionary:
+	var result = {"diffs": [], "mortal_wounds": mw, "casualties": 0}
+	var target = board.get("units", {}).get(target_unit_id, {})
+	if mw <= 0 or target.is_empty():
+		return result
+	var out = Allocation.apply_mortal_wounds_11e(target, mw)
+	_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
+	result.casualties = out.models_destroyed.size()
+	return result
+
+# ARMOURED DUELLISTS (Blitz Brigade): +1 to Hit and +1 to Wound while
+# targeting a MONSTER or VEHICLE unit.
+static func get_armoured_duellists_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get("effect_armoured_duellists", false):
+		return 0
+	if unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE"):
+		return 1
+	return 0
+
+# CONNIVING RUNTS (Dread Mob): roll one D6 — on a 4+, the enemy unit that just
+# moved suffers D3+1 mortal wounds (the Gretchin unit's Normal move is set up
+# by MovementPhase afterwards).
+static func resolve_conniving_runts(target_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	if rng == null:
+		rng = make_rng()
+	var roll = rng.roll_d6(1)[0]
+	var result = {"diffs": [], "roll": roll, "mortal_wounds": 0, "casualties": 0}
+	if roll >= 4:
+		var mw = rng.rng.randi_range(1, 3) + 1
+		var applied = apply_mortal_wounds_to_unit(target_unit_id, mw, board)
+		result.diffs = applied.diffs
+		result.mortal_wounds = mw
+		result.casualties = applied.casualties
+	print("RulesEngine: CONNIVING RUNTS vs %s — rolled %d -> %d mortal wound(s)" % [target_unit_id, roll, int(result.mortal_wounds)])
+	return result
+
+# PREY (Da Big Hunt detachment rule): each time a BEAST SNAGGA model makes an
+# attack (ranged or melee) that targets its owner's Prey, improve the AP of
+# that attack by 1. The Prey marker lives on the target unit's flags
+# (is_prey_of_<player>, set by FactionAbilityManager at Command phase start).
+static func get_prey_ap_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	var prey_owner = int(actor_unit.get("owner", 0))
+	if prey_owner <= 0:
+		return 0
+	if not target_unit.get("flags", {}).get("is_prey_of_%d" % prey_owner, false):
+		return 0
+	if not unit_has_keyword(actor_unit, "BEAST SNAGGA"):
+		return 0
+	return 1
+
+# SURLY AS A SQUIGGOTH (Da Big Hunt enhancement) + the generic
+# effect_minus_wound_s_gt_t defender flag: -1 to incoming Wound rolls when the
+# attack's Strength is greater than the target unit's Toughness.
+static func get_s_gt_t_wound_penalty(target_unit: Dictionary, board: Dictionary, strength: int, toughness: int) -> int:
+	if strength <= toughness:
+		return WoundModifier.NONE
+	if not FactionAbilityManager.unit_has_s_gt_t_wound_penalty(target_unit, board.get("units", {})):
+		return WoundModifier.NONE
+	return WoundModifier.MINUS_ONE
 
 # WALL OF DAKKA (OA-50): Check if a unit has the "Wall of Dakka" ability (Bonebreaka).
 # +1 to Hit rolls for ranged attacks when target is within half the weapon's range.
@@ -7746,19 +8138,23 @@ static func has_conversion(weapon_id: String, board: Dictionary = {}) -> bool:
 # For Conversion X+: if ANY attacking model is 12"+ from the closest target model,
 # the critical hit threshold is lowered to X for all attacks (conservative approach)
 static func get_critical_hit_threshold(weapon_id: String, actor_unit: Dictionary, target_unit: Dictionary, model_ids: Array, board: Dictionary) -> int:
+	var threshold := 6  # Default: only 6s are critical hits
 	var conversion_threshold = get_conversion_threshold(weapon_id, board)
-	if conversion_threshold <= 0:
-		return 6  # Default: only 6s are critical hits
-
-	# Check distance: Conversion only applies at 12"+ from target
-	# Use the closest attacking model's distance to the closest target model
-	var min_distance_inches = _get_min_distance_to_target(actor_unit, target_unit, model_ids)
-	if min_distance_inches >= 12.0:
-		print("RulesEngine: CONVERSION %d+ active — closest model is %.1f\" from target (>= 12\")" % [conversion_threshold, min_distance_inches])
-		return conversion_threshold
-	else:
-		print("RulesEngine: CONVERSION %d+ NOT active — closest model is %.1f\" from target (< 12\")" % [conversion_threshold, min_distance_inches])
-		return 6  # Too close, normal crit threshold
+	if conversion_threshold > 0:
+		# Check distance: Conversion only applies at 12"+ from target
+		# Use the closest attacking model's distance to the closest target model
+		var min_distance_inches = _get_min_distance_to_target(actor_unit, target_unit, model_ids)
+		if min_distance_inches >= 12.0:
+			print("RulesEngine: CONVERSION %d+ active — closest model is %.1f\" from target (>= 12\")" % [conversion_threshold, min_distance_inches])
+			threshold = conversion_threshold
+		else:
+			print("RulesEngine: CONVERSION %d+ NOT active — closest model is %.1f\" from target (< 12\")" % [conversion_threshold, min_distance_inches])
+	# BLITZA FIRE (Kult of Speed): ranged crits on 5+ vs targets within 9"
+	if threshold > 5 and actor_unit.get("flags", {}).get("effect_blitza_fire", false) \
+			and is_target_within_range_inches(actor_unit, target_unit, 9.0):
+		threshold = 5
+		print("RulesEngine: BLITZA FIRE — ranged critical hits on 5+ (target within 9\")")
+	return threshold
 
 # Get the minimum distance (in inches) from any attacking model to the closest target model
 static func _get_min_distance_to_target(actor_unit: Dictionary, target_unit: Dictionary, model_ids: Array) -> float:
@@ -9700,6 +10096,10 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 					# T3-9: Use barricade-aware engagement range (2" through barricades)
 					var enemy_pos = _get_model_position(enemy_model)
 					var effective_er = _get_effective_engagement_range_rules(model_pos, enemy_pos, board)
+					# BULLDOZER BRUTALITY (Green Tide): models within 3" of an
+					# enemy model are eligible to fight this phase.
+					if attacker_unit.get("flags", {}).get("effect_fight_range_3", false):
+						effective_er = maxf(effective_er, 3.0)
 					if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
 						in_er = true
 			if in_base_contact:
@@ -9772,15 +10172,19 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 		# (and need to swing back before being removed from play).
 		var target_unit_id_pre: String = assignment.get("target", "")
 		var swing_back_pre_alive: Array = []
-		var swing_back_is_defiant: bool = false
+		var swing_back_mode: String = "always"
 		if not target_unit_id_pre.is_empty():
 			var pre_target_unit = units.get(target_unit_id_pre, {})
 			var pre_flags = pre_target_unit.get("flags", {})
 			if pre_flags.get(EffectPrimitivesData.FLAG_SWING_BACK_BEFORE_REMOVE, false) \
-					or pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false):
+					or pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false) \
+					or pre_flags.get("effect_too_arrogant_to_die", false):
 				for m in pre_target_unit.get("models", []):
 					swing_back_pre_alive.append(m.get("alive", true))
-				swing_back_is_defiant = pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false)
+				if pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false):
+					swing_back_mode = "defiant"
+				elif pre_flags.get("effect_too_arrogant_to_die", false):
+					swing_back_mode = "too_arrogant"
 
 		var assignment_result = _resolve_melee_assignment(assignment, actor_unit_id, board, rng_service)
 		result.diffs.append_array(assignment_result.diffs)
@@ -9792,15 +10196,18 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 		# original assignment has resolved (and may have killed models), trigger
 		# the deferred swing-back attack from the dying-but-not-yet-removed models.
 		if not swing_back_pre_alive.is_empty():
-			var sb_diffs_dice = _resolve_swing_back_before_remove(target_unit_id_pre, actor_unit_id, swing_back_pre_alive, board, rng_service, swing_back_is_defiant)
+			var sb_diffs_dice = _resolve_swing_back_before_remove(target_unit_id_pre, actor_unit_id, swing_back_pre_alive, board, rng_service, swing_back_mode)
 			result.diffs.append_array(sb_diffs_dice.get("diffs", []))
 			result.dice.append_array(sb_diffs_dice.get("dice", []))
 			if sb_diffs_dice.get("log_text", "") != "":
 				result.log_text += sb_diffs_dice["log_text"] + "\n"
 
 		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage (melee)
+		# KLANKIN' KLAWS (Dread Mob, pushed) grants melee HAZARDOUS via the
+		# melee-scoped effect flag.
 		var weapon_id = assignment.get("weapon", "")
-		if is_hazardous_weapon(weapon_id, board):
+		if is_hazardous_weapon(weapon_id, board) \
+				or board.get("units", {}).get(actor_unit_id, {}).get("flags", {}).get("effect_grant_hazardous_melee", false):
 			var models_that_fought = assignment.get("models", []).size()
 			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fought, board, rng_service)
 			if hazardous_result.hazardous_triggered:
@@ -9817,7 +10224,14 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 # / engagement checks in `_resolve_melee_assignment` accept them, then we
 # re-apply alive=false. Models that already fought this phase do NOT swing back
 # (per Wahapedia: "if that model has not fought this phase").
-static func _resolve_swing_back_before_remove(target_unit_id: String, original_attacker_id: String, pre_alive: Array, board: Dictionary, rng: RNGService, is_defiant: bool = false) -> Dictionary:
+static func _resolve_swing_back_before_remove(target_unit_id: String, original_attacker_id: String, pre_alive: Array, board: Dictionary, rng: RNGService, swing_back_mode = "always") -> Dictionary:
+	# swing_back_mode: "always" (ORKS IS NEVER BEATEN), "defiant" (DEFIANT TO
+	# THE LAST: D6 +2 CHARACTER, 4+) or "too_arrogant" (TOO ARROGANT TO DIE,
+	# Bully Boyz: D6 +2 while a Waaagh! is active for the unit, 5+). Legacy
+	# bool callers map true -> "defiant".
+	if swing_back_mode is bool:
+		swing_back_mode = "defiant" if swing_back_mode else "always"
+	var is_defiant: bool = swing_back_mode == "defiant"
 	var sb_result := {"diffs": [], "dice": [], "log_text": ""}
 	var units = board.get("units", {})
 	var defender = units.get(target_unit_id, {})
@@ -9858,6 +10272,18 @@ static func _resolve_swing_back_before_remove(target_unit_id: String, original_a
 					print("RulesEngine: DEFIANT TO THE LAST — model %d rolled %d+%d=%d (4+ needed), PASSES — will swing back" % [idx, roll, modifier, total])
 				else:
 					print("RulesEngine: DEFIANT TO THE LAST — model %d rolled %d+%d=%d (4+ needed), FAILS — removed normally" % [idx, roll, modifier, total])
+			elif swing_back_mode == "too_arrogant":
+				# TOO ARROGANT TO DIE (Bully Boyz): roll D6, +2 while a
+				# Waaagh! is active for the unit, need 5+.
+				var ta_roll = rng.randi_range(1, 6)
+				var ta_mod = 2 if FactionAbilityManager.is_waaagh_active_for_unit(defender) else 0
+				var ta_total = ta_roll + ta_mod
+				sb_result.dice.append({"type": "too_arrogant_to_die", "roll": ta_roll, "modifier": ta_mod, "total": ta_total, "passed": ta_total >= 5})
+				if ta_total >= 5:
+					dying_models.append(idx)
+					print("RulesEngine: TOO ARROGANT TO DIE — model %d rolled %d+%d=%d (5+ needed), PASSES — will swing back" % [idx, ta_roll, ta_mod, ta_total])
+				else:
+					print("RulesEngine: TOO ARROGANT TO DIE — model %d rolled %d+%d=%d (5+ needed), FAILS — removed normally" % [idx, ta_roll, ta_mod, ta_total])
 			else:
 				dying_models.append(idx)
 
@@ -9993,8 +10419,11 @@ static func resolve_melee_attacks_interactive(action: Dictionary, board: Diction
 				])
 
 		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage (melee)
+		# KLANKIN' KLAWS (Dread Mob, pushed) grants melee HAZARDOUS via the
+		# melee-scoped effect flag.
 		var weapon_id = assignment.get("weapon", "")
-		if is_hazardous_weapon(weapon_id, board):
+		if is_hazardous_weapon(weapon_id, board) \
+				or board.get("units", {}).get(actor_unit_id, {}).get("flags", {}).get("effect_grant_hazardous_melee", false):
 			var models_that_fought = assignment.get("models", []).size()
 			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fought, board, rng_service)
 			if hazardous_result.hazardous_triggered:
@@ -10174,6 +10603,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# has a single target here.
 	if GameConstants.edition >= 11:
 		var cleave_x = get_cleave_value(weapon_id, board)
+		# DEVASTATING DRIFT (Rollin' Deff): melee weapons gain [CLEAVE 1]
+		if attacker_unit.get("flags", {}).get("effect_grant_cleave_1", false):
+			cleave_x = maxi(cleave_x, 1)
+			print("RulesEngine: DEVASTATING DRIFT — melee weapon %s gains CLEAVE 1" % weapon_id)
 		if cleave_x > 0:
 			var cleave_extra = AbilityRegistry.cleave_bonus_dice(cleave_x, count_alive_models(target_unit), true)
 			if cleave_extra > 0:
@@ -10217,6 +10650,27 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		strength += plus_s_melee
 		print("RulesEngine: Hall of Armouries — melee strength %d → %d (+%d)" % [pre_s_hoa, strength, plus_s_melee])
 
+	# FEROCIOUS SHOW OFF (Green Tide enhancement): +1 S on the bearer's melee
+	# attacks, +3 while the bearer's unit counts as containing 10+ models.
+	# Same unit-wide approximation as Hall of Armouries above.
+	var fso_bonus = FactionAbilityManager.ferocious_show_off_strength_bonus(attacker_unit)
+	if fso_bonus > 0:
+		strength += fso_bonus
+		print("RulesEngine: Ferocious Show Off — melee strength +%d (now %d)" % [fso_bonus, strength])
+
+	# KLANKIN' KLAWS (Dread Mob): +2 S on melee weapons for the phase
+	var kk_strength_bonus = int(attacker_unit.get("flags", {}).get("effect_klankin_klaws", 0))
+	if kk_strength_bonus > 0:
+		strength += kk_strength_bonus
+		print("RulesEngine: KLANKIN' KLAWS — melee strength +%d (now %d)" % [kk_strength_bonus, strength])
+
+	# GET ON WIV IT Taktik (Taktikal Brigade — Lissen 'Ere): +1 S on melee
+	# weapons until the start of the issuer's next Command phase
+	var taktik_s_bonus = int(attacker_unit.get("flags", {}).get("effect_taktik_melee_strength", 0))
+	if taktik_s_bonus > 0:
+		strength += taktik_s_bonus
+		print("RulesEngine: GET ON WIV IT Taktik — melee strength +%d (now %d)" % [taktik_s_bonus, strength])
+
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (melee)
 	var ded_glowy_penalty_melee = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -10236,6 +10690,15 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var pre_ap_mm = ap
 		ap = ap + 1
 		print("RulesEngine: Martial Mastery (Improve AP) — melee AP %d → %d" % [pre_ap_mm, ap])
+	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
+	var melee_prey_bonus = get_prey_ap_bonus(attacker_unit, target_unit)
+	if melee_prey_bonus > 0:
+		ap = ap + melee_prey_bonus
+		print("RulesEngine: PREY (melee) — AP improved by %d (target is Prey)" % melee_prey_bonus)
+	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
+	if attacker_unit.get("flags", {}).get("effect_try_dat_ap2", false):
+		ap = ap + 2
+		print("RulesEngine: TRY DAT BUTTON! (melee) — AP improved by 2")
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var melee_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if melee_worsen_ap > 0 and ap > 0:
@@ -10279,6 +10742,24 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var katah_sh_value = attacker_unit.get("flags", {}).get("katah_sustained_hits_value", 1)
 		sustained_data = {"value": katah_sh_value, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS %d granted by unit effect flag (e.g., Martial Ka'tah Dacatarai stance)" % katah_sh_value)
+
+	# FIGHT PROPPA (Taktikal Brigade): melee-scoped grants — the player chose
+	# [SUSTAINED HITS 1] or [LETHAL HITS] for this unit's melee weapons this
+	# phase. These flags are read ONLY here, never in shooting resolution.
+	if not weapon_has_lethal_hits and attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_LETHAL_HITS_MELEE, false):
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS granted by melee effect flag (Fight Proppa)")
+	if sustained_data.value == 0 and attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE, false):
+		sustained_data = {"value": 1, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS 1 granted by melee effect flag (Fight Proppa)")
+
+	# TRY DAT BUTTON! (Dread Mob): rolled Button Effect — melee scope
+	if not weapon_has_lethal_hits and attacker_unit.get("flags", {}).get("effect_try_dat_lethal_melee", false):
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS granted by TRY DAT BUTTON! (Dread Mob)")
+	if sustained_data.value == 0 and attacker_unit.get("flags", {}).get("effect_try_dat_sustained_melee", false):
+		sustained_data = {"value": 1, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS 1 granted by TRY DAT BUTTON! (Dread Mob)")
 
 	# GET STUCK IN (P2-27): War Horde detachment — Sustained Hits 1 on all melee weapons for ORKS
 	if sustained_data.value == 0 and FactionAbilityManager.unit_has_get_stuck_in(attacker_unit):
@@ -10350,6 +10831,13 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if effect_crit > 0 and effect_crit < melee_crit_threshold:
 			melee_crit_threshold = effect_crit
 			print("RulesEngine: Effect crit_hit_on %d+ active — melee critical hit threshold: %d+" % [effect_crit, effect_crit])
+		# DRAG IT DOWN (Da Big Hunt): melee crits on 5+ when the target is the
+		# attacker's Prey (per-target live check on the Prey marker flag).
+		if attacker_unit.get("flags", {}).get("effect_drag_it_down", false) and melee_crit_threshold > 5:
+			var did_owner = int(attacker_unit.get("owner", 0))
+			if did_owner > 0 and target_unit.get("flags", {}).get("is_prey_of_%d" % did_owner, false):
+				melee_crit_threshold = 5
+				print("RulesEngine: DRAG IT DOWN — melee critical hits on 5+ (target is Prey)")
 
 		# Build melee hit modifiers using the HitModifier system
 		var melee_hit_modifiers = HitModifier.NONE
@@ -10526,6 +11014,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		melee_wound_modifiers |= WoundModifier.MINUS_ONE
 		print("RulesEngine: Defender effect -1 to wound (melee attacks vs %s)" % target_name)
+	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets (melee)
+	var eadstompa_scope_m = get_eadstompa_reroll_scope(attacker_unit, target_unit)
+	if eadstompa_scope_m == "failed":
+		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+	elif eadstompa_scope_m == "ones":
+		melee_wound_modifiers |= WoundModifier.REROLL_ONES
 	var melee_reroll_wounds_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if melee_reroll_wounds_scope == "ones":
 		melee_wound_modifiers |= WoundModifier.REROLL_ONES
@@ -10542,6 +11036,16 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		else:
 			print("RulesEngine: BASH AND GRAB active but target %s not within range of loot objective — no re-roll" % target_name)
 
+	# ORKS IS STILL ORKS (More Dakka!): re-roll wound rolls of 1; full re-roll
+	# when the target is within range of an objective marker.
+	if attacker_unit.get("flags", {}).get("effect_orks_is_still_orks", false):
+		if is_unit_near_any_objective(target_unit, board):
+			melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+			print("RulesEngine: ORKS IS STILL ORKS (melee) — full wound re-roll vs %s (near objective)" % target_name)
+		else:
+			melee_wound_modifiers |= WoundModifier.REROLL_ONES
+			print("RulesEngine: ORKS IS STILL ORKS (melee) — re-roll wound 1s vs %s" % target_name)
+
 	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons).
 	# DED KILLY CONSTRUCTION (Speedwaaagh!) grants melee LANCE for the phase via
 	# the effect_grant_lance flag.
@@ -10551,11 +11055,21 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			melee_wound_modifiers |= WoundModifier.PLUS_ONE
 			print("RulesEngine: LANCE (melee) — +1 to wound (unit charged this turn)")
 
+	# FULL THROTTLE! (Kult of Speed): +1 to melee wound rolls until end of turn
+	if attacker_unit.get("flags", {}).get("effect_full_throttle", false):
+		melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: FULL THROTTLE! (melee) — +1 to wound for %s" % attacker_id)
+
 	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit (melee)
 	var melee_da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)
 	if melee_da_boss_ladz_mod != WoundModifier.NONE:
 		melee_wound_modifiers |= melee_da_boss_ladz_mod
 		print("RulesEngine: DA BOSS' LADZ (melee) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_id, strength, toughness])
+	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	var melee_sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
+	if melee_sgt_mod != WoundModifier.NONE:
+		melee_wound_modifiers |= melee_sgt_mod
+		print("RulesEngine: S>T wound penalty (melee) — -1 to wound for attacks against %s (S %d > T %d)" % [target_id, strength, toughness])
 
 	# SLAYERS OF TYRANTS: Re-roll Wound rolls vs CHARACTER/MONSTER/VEHICLE (melee)
 	if has_slayers_of_tyrants_vs_target(attacker_unit, target_unit):
@@ -10739,6 +11253,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			regular_wound_count if weapon_has_devastating_wounds else wounds_caused,
 			critical_wound_count if weapon_has_devastating_wounds else 0,
 			ap, m_damage_raw, rng, {
+				"actor_unit": board.get("units", {}).get(actor_unit_id, {}),
 				"half_damage": get_unit_half_damage(target_unit),
 				"fnp_value": get_unit_fnp_for_attack(target_unit, is_psychic_weapon(weapon_id, board)),
 				"precision_group": _precision_group_11e(weapon_has_precision, target_unit,
@@ -11380,6 +11895,20 @@ static func prepare_save_resolution(
 		var pre_ap_dbd = ap
 		ap = ap + int_dbd_bonus
 		print("RulesEngine: Drive-by Dakka (interactive) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, int_dbd_bonus])
+	# SPESHUL SHELLS (More Dakka!): +1 AP vs targets within 18"
+	var int_ss_bonus = get_speshul_shells_ap_bonus(shooter_unit, target_unit)
+	if int_ss_bonus > 0:
+		ap = ap + int_ss_bonus
+		print("RulesEngine: SPESHUL SHELLS (interactive) — AP improved by %d (target within 18\")" % int_ss_bonus)
+	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
+	var int_prey_bonus = get_prey_ap_bonus(shooter_unit, target_unit)
+	if int_prey_bonus > 0:
+		ap = ap + int_prey_bonus
+		print("RulesEngine: PREY (interactive) — AP improved by %d (target is Prey)" % int_prey_bonus)
+	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
+	if shooter_unit.get("flags", {}).get("effect_try_dat_ap2", false):
+		ap = ap + 2
+		print("RulesEngine: TRY DAT BUTTON! (interactive) — AP improved by 2")
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if int_worsen_ap > 0 and ap > 0:
@@ -11573,6 +12102,15 @@ static func prepare_melee_save_resolution(
 		var pre_ap_mm = ap
 		ap = ap + 1
 		print("RulesEngine: Martial Mastery (Improve AP) — melee interactive AP %d → %d" % [pre_ap_mm, ap])
+	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
+	var mi_prey_bonus = get_prey_ap_bonus(attacker_unit, target_unit)
+	if mi_prey_bonus > 0:
+		ap = ap + mi_prey_bonus
+		print("RulesEngine: PREY (melee interactive) — AP improved by %d (target is Prey)" % mi_prey_bonus)
+	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
+	if attacker_unit.get("flags", {}).get("effect_try_dat_ap2", false):
+		ap = ap + 2
+		print("RulesEngine: TRY DAT BUTTON! (melee interactive) — AP improved by 2")
 
 	var damage = weapon_profile.get("damage", 1)
 

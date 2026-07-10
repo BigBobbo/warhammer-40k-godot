@@ -1243,6 +1243,385 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# TAKTIKAL BRIGADE ENHANCEMENT ABILITIES
+	# These are checked via unit.meta.enhancements[] rather than abilities[].
+	# ======================================================================
+
+	# Skwad Leader — "During the Declare Battle Formations step, the bearer can
+	# be attached to a Kommandos unit. While leading a Kommandos unit, it has
+	# the Infiltrators and Stealth abilities." Stealth = effect_stealth flag on
+	# the led unit (gated on the bodyguard being KOMMANDOS); Infiltrators is
+	# deployment-time and handled by GameState.unit_has_infiltrators. The
+	# attach permission itself comes from
+	# CharacterAttachmentManager.get_enhancement_can_lead_extras.
+	"Skwad Leader": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.GRANT_STEALTH}],
+		"target": "bearer_unit",
+		"requires_bodyguard_keyword": "KOMMANDOS",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Warboss Infantry only. While leading a Kommandos unit, it has Infiltrators and Stealth (effect_stealth; Infiltrators via GameState.unit_has_infiltrators)"
+	},
+
+	# Mek Kaptin — "Each time a model in the bearer's unit makes a ranged
+	# attack, you can re-roll the Hit roll." No unit flag: the shooting
+	# hit-modifier paths in RulesEngine check the enhancement live via
+	# RulesEngine.unit_has_mek_kaptin_reroll.
+	"Mek Kaptin": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Big Mek only. Can be attached to a Flash Gitz unit; ranged attacks from the bearer's unit re-roll the Hit roll (RulesEngine.unit_has_mek_kaptin_reroll)"
+	},
+
+	# Gob Boomer — the bearer issues Taktiks (Lissen 'Ere) to friendly Orks
+	# Infantry/Mounted units within 18" instead of 6". Live check in
+	# FactionAbilityManager._taktik_range_inches.
+	"Gob Boomer": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks model only. The bearer issues Taktiks to friendly Orks Infantry/Mounted units within 18\" instead of 6\" (FactionAbilityManager._taktik_range_inches)"
+	},
+
+	# ======================================================================
+	# MORE DAKKA! ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Da Gobshot Thunderbuss — bearer's ranged weapons gain [DEVASTATING
+	# WOUNDS] and [HAZARDOUS]. Same unit-wide approximation as Headwoppa's
+	# Killchoppa (per-model weapon scoping is a future refactor).
+	"Da Gobshot Thunderbuss": {
+		"condition": "enhancement",
+		"effects": [
+			{"type": EffectPrimitivesData.GRANT_DEVASTATING_WOUNDS},
+			{"type": EffectPrimitivesData.GRANT_HAZARDOUS}
+		],
+		"target": "bearer_model",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "ORKS only. Bearer's ranged weapons gain DEVASTATING WOUNDS + HAZARDOUS (effect_devastating_wounds, effect_grant_hazardous)"
+	},
+
+	# Dead Shiny Shootas — ranged weapons in the bearer's unit gain [RAPID FIRE 1].
+	"Dead Shiny Shootas": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.GRANT_RAPID_FIRE_1}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "ORKS only. Bearer's unit ranged weapons gain RAPID FIRE 1 (effect_grant_rapid_fire_1 — same consumer as Dakkamek)"
+	},
+
+	# Targetin' Squigs — +1 to Hit on the bearer's unit's ranged attacks.
+	"Targetin' Squigs": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.PLUS_ONE_HIT_RANGED}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "ORKS only. +1 to Hit on the bearer's unit's ranged attacks (effect_plus_one_hit_ranged)"
+	},
+
+	# Zog Off and Eat Dakka! — the bearer's unit can shoot after Falling Back.
+	"Zog Off and Eat Dakka!": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.FALL_BACK_AND_SHOOT}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "ORKS only. The bearer's unit is eligible to shoot in a turn in which it Fell Back (effect_fall_back_and_shoot)"
+	},
+
+	# ======================================================================
+	# GREEN TIDE ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Raucous Warcaller — "While the bearer is leading a unit, that unit always
+	# counts as containing 10 or more models for the purposes of your
+	# Detachment rule and any Stratagems you use."
+	"Raucous Warcaller": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.COUNTS_AS_10}],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry only. While leading, the unit counts as 10+ models (effect_counts_as_10; read by FactionAbilityManager.unit_counts_as_10)"
+	},
+
+	# Bloodthirsty Belligerence — "While the bearer is leading a unit, you can
+	# re-roll Advance rolls made for that unit. While that unit contains 10 or
+	# more models, you can re-roll Charge rolls made for that unit as well."
+	# The charge re-roll is a live check in ChargePhase
+	# (FactionAbilityManager.unit_has_green_tide_charge_reroll).
+	"Bloodthirsty Belligerence": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.REROLL_ADVANCE}],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry only. While leading: re-roll Advance rolls (effect_reroll_advance); re-roll Charge rolls while 10+ models (live check)"
+	},
+
+	# Ferocious Show Off — +1 S on the bearer's melee attacks (+3 while the
+	# unit counts as 10+ models). Live check in RulesEngine melee resolution
+	# (FactionAbilityManager.ferocious_show_off_strength_bonus).
+	"Ferocious Show Off": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "Orks Infantry only. +1 S melee for the bearer, +3 while the unit counts as 10+ models (live check in RulesEngine)"
+	},
+
+	# Brutal But Kunnin' — Command-phase D6 (+2 while 10+ models): 5+ = 1 CP.
+	# Resolved by FactionAbilityManager.process_command_phase_cp_enhancements.
+	"Brutal But Kunnin'": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry only. Command phase: D6 (+2 if 10+ models), 5+ = gain 1 CP (FactionAbilityManager hook)"
+	},
+
+	# ======================================================================
+	# DA BIG HUNT ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Glory Hog — models in the bearer's unit have Scouts 9". Live hooks in
+	# GameState.unit_has_scout / get_scout_distance (deployment-time rule).
+	"Glory Hog": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Beastboss on Squigosaur only. Bearer's unit has Scouts 9\" (GameState.unit_has_scout / get_scout_distance)"
+	},
+
+	# Proper Killy — +1 Damage on the bearer's melee weapons. Same unit-wide
+	# approximation as Headwoppa's Killchoppa / Da Gobshot Thunderbuss
+	# (per-model weapon scoping is a future refactor).
+	"Proper Killy": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.PLUS_DAMAGE, "value": 1}],
+		"target": "bearer_model",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "Beast Snagga model only. +1 Damage on the bearer's melee weapons (effect_plus_damage, Fight phase)"
+	},
+
+	# Skrag Every Stash! — end-of-Command-phase sticky objective. Resolved by
+	# FactionAbilityManager.process_skrag_every_stash (CommandPhase exit hook).
+	"Skrag Every Stash!": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Beast Snagga model only. End of your Command phase: the objective the bearer is on stays yours until the opponent controls it (sticky lock)"
+	},
+
+	# Surly as a Squiggoth — while the bearer is leading a unit, attacks with
+	# S > T against that unit get -1 to wound. Live check in the four
+	# RulesEngine wound-modifier sites (get_s_gt_t_wound_penalty).
+	"Surly as a Squiggoth": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Beastboss on Squigosaur only. While leading: -1 to incoming Wound rolls when attack S > unit T (live check)"
+	},
+
+	# ======================================================================
+	# KULT OF SPEED ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Fasta Than Yooz — still eligible to charge after disembarking from a
+	# transport that made a Normal move (live hook in TransportManager).
+	"Fasta Than Yooz": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry only. Bearer's unit can still charge after disembarking from a transport that made a Normal move (TransportManager hook)"
+	},
+
+	# Speed Makes Right — Command-phase D6 if the bearer is within 9" of an
+	# enemy: 3+ = 1 CP (FactionAbilityManager.process_command_phase_cp_enhancements).
+	"Speed Makes Right": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks model only. Command phase: D6 if bearer within 9\" of an enemy, 3+ = gain 1 CP (FactionAbilityManager hook; embarked-bearer case not modelled)"
+	},
+
+	# Squig-hide Tyres — 6" Consolidation moves for the bearer's unit (live
+	# hook in FightPhase._get_consolidation_distance).
+	"Squig-hide Tyres": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Deffkilla Wartrike only. Bearer's unit consolidates up to 6\" instead of 3\" (FightPhase hook)"
+	},
+
+	# Wazblasta — post-shooting 6" Normal move if unengaged; no charge after.
+	# Offered by ShootingPhase (USE_WAZBLASTA / DECLINE_WAZBLASTA).
+	"Wazblasta": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Deffkilla Wartrike only. After the bearer's unit shoots (unengaged): 6\" Normal move, then cannot charge this turn (ShootingPhase offer)"
+	},
+
+	# ======================================================================
+	# DREAD MOB ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Gitfinder Googlez — bearer's unit ranged weapons gain [IGNORES COVER]
+	# (Git-spotter Squig clone).
+	"Gitfinder Googlez": {
+		"condition": "enhancement",
+		"effects": [{"type": "grant_ignores_cover"}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Mek model only. Bearer's unit ranged weapons have [IGNORES COVER]"
+	},
+
+	# Smoky Gubbinz — models in the bearer's unit have the Stealth ability.
+	"Smoky Gubbinz": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.GRANT_STEALTH}],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Mek model only. Bearer's unit has Stealth (effect_stealth: -1 to be hit by ranged attacks)"
+	},
+
+	# Supa-glowy Fing — Command-phase D6 vs the nearest visible enemy within
+	# 18": 1-2 Battle-shock test, 3-4 D3 mortal wounds, 5-6 -1 to its Hit
+	# rolls until your next Command phase. Resolved by
+	# FactionAbilityManager.process_supa_glowy_fing.
+	"Supa-glowy Fing": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Mek model only. Command phase: D6 vs nearest visible enemy within 18\" — 1-2 Battle-shock, 3-4 D3 MW, 5-6 -1 to hit (FactionAbilityManager hook)"
+	},
+
+	# Press It Fasta! — the bearer's unit rolls one additional Try Dat
+	# Button! die and gains both Button Effects (duplicates add nothing).
+	# Resolved by FactionAbilityManager.process_try_dat_button.
+	"Press It Fasta!": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Mek model only. Bearer's unit rolls an extra Try Dat Button! die and gains both Button Effects (FactionAbilityManager hook)"
+	},
+
+	# ======================================================================
+	# BLITZ BRIGADE ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Runnin' Boots — +1 to Charge rolls while the bearer's unit disembarked
+	# from a Transport this turn (live check in ChargePhase via
+	# FactionAbilityManager.runnin_boots_charge_bonus).
+	"Runnin' Boots": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry Character only. +1 to Charge rolls if the bearer's unit disembarked this turn (ChargePhase live check)"
+	},
+
+	# Blitzkaptin — after deployment, redeploy up to three ORKS VEHICLE units
+	# (optionally into Strategic Reserves). Mork's Kunnin' machinery, VEHICLE
+	# filtered (FactionAbilityManager.has_blitzkaptin).
+	"Blitzkaptin": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Character only. Redeploy up to three ORKS VEHICLE units after deployment, any of them into Strategic Reserves"
+	},
+
+	# Supercharged Squig Oil — when the bearer uses Mekaniak on a VEHICLE,
+	# that vehicle's unit re-rolls Charge rolls until end of turn
+	# (MovementPhase Mekaniak hook, cleared with the Mekaniak buff).
+	"Supercharged Squig Oil": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Mek model only. Mekaniak target's unit re-rolls Charge rolls until end of turn (MovementPhase hook)"
+	},
+
+	# Tuff Git — the bearer's unit stops being Battle-shocked when it
+	# disembarks from a Transport (TransportManager hook; end-of-phase timing
+	# simplified to on-disembark).
+	"Tuff Git": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry Character only. Clears Battle-shock when the bearer's unit disembarks (TransportManager hook)"
+	},
+
+	# ======================================================================
+	# ROLLIN' DEFF ENHANCEMENT ABILITIES (provisional 11e, 40kdc dataset)
+	# Dead Shiny Shootas and Da Gobshot Thunderbuss are shared with the
+	# More Dakka! entries above (name-keyed, so they serve both detachments).
+	# ======================================================================
+
+	# Boarding Ramps — +1 to Charge rolls for units that disembarked this
+	# turn from the WAGON bearing the enhancement (ChargePhase live check via
+	# FactionAbilityManager.boarding_ramps_charge_bonus).
+	"Boarding Ramps": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "WAGON only. Units disembarking from the bearer this turn get +1 to Charge rolls (ChargePhase live check)"
+	},
+
+	# Targetin' Gizmos — bearer's unit ranged weapons gain [IGNORES COVER];
+	# while a Waaagh! is active they also gain SUSTAINED HITS 1 (live check
+	# via FactionAbilityManager.targetin_gizmos_sustained).
+	"Targetin' Gizmos": {
+		"condition": "enhancement",
+		"effects": [{"type": "grant_ignores_cover"}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "WAGON only. Ranged weapons have IGNORES COVER; SUSTAINED HITS 1 while a Waaagh! is active (live check)"
+	},
+
+	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
 	# ======================================================================
@@ -2012,6 +2391,16 @@ func _apply_enhancement_abilities(phase: int) -> void:
 			if effect_def.get("target", "") == "bearer_unit":
 				# Find the bodyguard unit the bearer is attached to
 				target_unit_id = _get_combined_unit_for_enhancement(unit_id)
+
+			# Skwad Leader: the grant only applies while the bearer is leading
+			# a unit with the required keyword (e.g. KOMMANDOS).
+			var required_bg_kw = str(effect_def.get("requires_bodyguard_keyword", ""))
+			if required_bg_kw != "":
+				if target_unit_id == unit_id:
+					continue  # bearer is not attached to a bodyguard unit
+				var bg_unit = units.get(target_unit_id, {})
+				if not RulesEngine.unit_has_keyword(bg_unit, required_bg_kw):
+					continue
 
 			# Don't double-apply
 			if _applied_this_phase.has(target_unit_id) and enhancement_name in _applied_this_phase[target_unit_id]:
