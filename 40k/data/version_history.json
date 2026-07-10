@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.17.0",
+			"date": "2026-07-10",
+			"summary": "You can now change the AI speed mid-game from the top menu: a new 'AI Speed' dropdown sits next to the AI Suggestion button with the same Fast / Normal / Slow / Step-by-step presets as the setup screen.",
+			"changes": [
+				"New 'AI Speed' dropdown in the in-game top menu (next to AI Suggestion) — switch between Fast, Normal, Slow and Step-by-step at any time during an AI game.",
+				"The dropdown stays in sync with the existing < > adjust and / cycle hotkeys, the speed chosen on the setup screen, and loaded saves.",
+				"Picking Step-by-step from the dropdown pauses the AI before each action as usual — press Continue (Space) to advance."
+			]
+		},
+		{
 			"version": "0.16.2",
 			"date": "2026-07-10",
 			"summary": "Fight phase dialogs now have a single, clear confirm button: the redundant 'OK' button that duplicated 'Fight!' in the attack-assignment dialog (and did nothing useful in the unit picker) is gone.",

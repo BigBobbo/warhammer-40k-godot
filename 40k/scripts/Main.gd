@@ -155,6 +155,9 @@ var _is_spectator_mode: bool = false
 var _ai_speed_panel: PanelContainer = null
 var _ai_speed_label: Label = null
 var _ai_step_continue_button: Button = null
+# Clickable AI speed selector in the top menu bar (next to the AI Suggestion
+# button) — same presets as the < > / hotkeys and the main-menu setup dropdown.
+var _ai_speed_dropdown: OptionButton = null
 
 # On-demand "AI Suggestion" button (human-vs-AI mode) — asks the AI what it would
 # do and shows its reasoning without taking the action. Hidden until an AI game.
@@ -724,6 +727,10 @@ func _reinitialize_ai_after_load() -> void:
 		_update_spectator_speed_label(ai_player.get_spectator_speed())
 		if _spectator_speed_panel:
 			_spectator_speed_panel.visible = true
+
+	# Re-sync the top-menu AI controls (suggestion button + speed dropdown) with
+	# the loaded game's AI configuration.
+	refresh_ai_suggestion_button()
 
 	print("Main: SAVE-1 AI re-initialization after load complete")
 
@@ -1729,6 +1736,10 @@ func _setup_ai_speed_hud() -> void:
 func _on_ai_speed_changed(preset: int, preset_name: String) -> void:
 	"""T7-36: Update the AI speed label when speed changes."""
 	_update_ai_speed_label(preset_name)
+	# Keep the top-menu dropdown in sync with changes from hotkeys/config/saves.
+	# OptionButton.select() does not emit item_selected, so no feedback loop.
+	if _ai_speed_dropdown and preset >= 0 and preset < _ai_speed_dropdown.item_count:
+		_ai_speed_dropdown.select(preset)
 
 func _update_ai_speed_label(speed_name: String) -> void:
 	"""T7-36: Update the AI speed indicator label text."""
@@ -2042,10 +2053,53 @@ func _setup_ai_suggestion_button() -> void:
 	_ai_suggestion_button.pressed.connect(_on_ai_suggestion_pressed)
 	hud_container.add_child(_ai_suggestion_button)
 	print("Main: AI suggestion button created")
+	# T7-36: clickable AI speed selector sits immediately after the suggestion
+	# button in the same top-menu row (added here so they stay adjacent).
+	_setup_ai_speed_dropdown(hud_container)
 	# _ready() calls _initialize_ai_player() (which reveals this button) BEFORE this
 	# setup runs, so that earlier refresh no-ops on the still-null button. Refresh now
 	# that the button exists so it becomes visible immediately for human-vs-AI games.
 	refresh_ai_suggestion_button()
+
+func _setup_ai_speed_dropdown(hud_container: Node) -> void:
+	"""T7-36: Create the AI speed dropdown in the top menu bar, next to the AI
+	Suggestion button. Lets the player change the AI action speed mid-game with
+	the mouse; stays in sync with the < > / hotkeys, the main-menu setup value
+	and saves via AIPlayer.ai_speed_changed. Hidden until an AI game is
+	confirmed (revealed by refresh_ai_suggestion_button)."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+
+	_ai_speed_dropdown = OptionButton.new()
+	_ai_speed_dropdown.name = "AISpeedDropdown"
+	# Item indices deliberately equal AIPlayer.AISpeedPreset values.
+	var preset_names: Dictionary = {0: "Fast", 1: "Normal", 2: "Slow", 3: "Step-by-step"}
+	if ai_player:
+		preset_names = ai_player.AI_SPEED_NAMES
+	for preset in range(preset_names.size()):
+		_ai_speed_dropdown.add_item("AI Speed: %s" % preset_names.get(preset, str(preset)), preset)
+	if ai_player:
+		var current: int = clampi(ai_player.get_ai_speed_preset(), 0, _ai_speed_dropdown.item_count - 1)
+		_ai_speed_dropdown.select(current)
+
+	var keys_hint := ""
+	if KeybindingManager:
+		keys_hint = " Hotkeys: %s / %s adjust, %s cycles." % [
+			KeybindingManager.get_key_display_name("ai_speed_decrease"),
+			KeybindingManager.get_key_display_name("ai_speed_increase"),
+			KeybindingManager.get_key_display_name("ai_speed_cycle")]
+	_ai_speed_dropdown.tooltip_text = "How fast the AI takes its actions. Step-by-step pauses before every AI action until you press Continue (Space).%s" % keys_hint
+	_ai_speed_dropdown.visible = false
+	_ai_speed_dropdown.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_WhiteDwarfTheme.apply_to_button(_ai_speed_dropdown)
+	_ai_speed_dropdown.item_selected.connect(_on_ai_speed_dropdown_selected)
+	hud_container.add_child(_ai_speed_dropdown)
+	print("Main: T7-36 AI speed dropdown created in top menu")
+
+func _on_ai_speed_dropdown_selected(index: int) -> void:
+	"""T7-36: Player picked an AI speed from the top-menu dropdown."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player:
+		ai_player.set_ai_speed_preset(index)
 
 func refresh_ai_suggestion_button() -> void:
 	"""Show the AI-suggestion button only for single-viewer AI games (an AI player
@@ -2059,6 +2113,15 @@ func refresh_ai_suggestion_button() -> void:
 		if ai_player.is_ai_player(1) or ai_player.is_ai_player(2):
 			should_show = true
 	_ai_suggestion_button.visible = should_show
+	# T7-36: the AI speed dropdown sits next to the suggestion button and follows
+	# the same visibility rule; re-sync its selection here too (covers the initial
+	# config apply, which happens before ai_speed_changed is connected).
+	if _ai_speed_dropdown:
+		_ai_speed_dropdown.visible = should_show
+		if should_show and ai_player:
+			var preset: int = ai_player.get_ai_speed_preset()
+			if preset >= 0 and preset < _ai_speed_dropdown.item_count:
+				_ai_speed_dropdown.select(preset)
 
 func _on_ai_suggestion_pressed() -> void:
 	"""Ask the AI for a suggestion on the current turn and show its reasoning in the
