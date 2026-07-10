@@ -1,0 +1,90 @@
+{
+  "id": "click_select_unit_movement",
+  "covers": [
+    "movement.click_select_unit",
+    "ui.unit_switch_confirm_dialog"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Movement phase click-to-select: clicking a friendly unit's token on the board selects it exactly like clicking its row in the right-hand list. If the current unit still has an unconfirmed (staged) move, a UnitSwitchConfirmDialog asks first — Keep leaves everything untouched, Switch auto-confirms the pending move and selects the clicked unit. Units with no pending work switch silently. Enemy tokens never select.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "screenshot", "label": "01_movement_loaded" },
+
+    { "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "" },
+
+    { "act": "click_unit", "unit_id": "U_BLADE_CHAMPION_A" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "screenshot", "label": "02_blade_champion_selected_by_token_click" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "STAGE_MODEL_MOVE",
+      "actor_unit_id": "U_BLADE_CHAMPION_A",
+      "payload": { "model_id": "m1", "dest": [120, 320], "rotation": 0.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "click_unit", "unit_id": "U_SHIELD_CAPTAIN_A" },
+    { "act": "expect_node_visible", "node": "/root/UnitSwitchConfirmDialog", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "03_switch_dialog_over_staged_move" },
+
+    { "act": "click_node",
+      "node": "/root/UnitSwitchConfirmDialog/Content/ButtonRow/StayButton",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"flags\", {}).get(\"moved\", false)",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_BLADE_CHAMPION_A\")",
+      "equals": true },
+    { "act": "screenshot", "label": "04_kept_current_unit_move_still_staged" },
+
+    { "act": "click_unit", "unit_id": "U_SHIELD_CAPTAIN_A" },
+    { "act": "expect_node_visible", "node": "/root/UnitSwitchConfirmDialog", "timeout_s": 2.0 },
+    { "act": "click_node",
+      "node": "/root/UnitSwitchConfirmDialog/Content/ButtonRow/SwitchButton",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_SHIELD_CAPTAIN_A" },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"flags\", {}).get(\"moved\", false)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"models\")[0].get(\"position\").get(\"y\"))",
+      "equals": 320 },
+    { "act": "screenshot", "label": "05_switched_and_auto_confirmed" },
+
+    { "act": "click_unit", "unit_id": "U_CUSTODIAN_GUARD_B" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/UnitSwitchConfirmDialog\") == null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "screenshot", "label": "06_silent_switch_no_pending_move" },
+
+    { "act": "click_unit", "unit_id": "U_WARBOSS_B" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/UnitSwitchConfirmDialog\") == null",
+      "equals": true },
+    { "act": "screenshot", "label": "07_enemy_click_ignored" }
+  ]
+}

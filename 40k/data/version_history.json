@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.12.0",
+			"date": "2026-07-10",
+			"summary": "Click a unit on the battlefield to select it in the Movement and Shooting phases — no more hunting for it in the right-hand list. If your current unit is mid-move or has targets staged, a 'Switch Unit?' popup asks before switching so nothing is lost by accident.",
+			"changes": [
+				"Movement phase: clicking any of your units' models on the board selects that unit for movement, exactly like clicking its row in the unit list. Enemy models never steal your selection.",
+				"Movement phase: if the unit you were moving still has an unconfirmed move when you click a different unit, a 'Switch Unit?' popup offers to confirm that move and switch, or keep the current unit.",
+				"Shooting phase: clicking one of your units that can still shoot makes it the active shooter, same as picking it in the SELECT SHOOTER list. Clicking enemy models still assigns weapon targets as before.",
+				"Shooting phase: if you had manually staged weapon targets for the current shooter, the 'Switch Unit?' popup warns that switching discards them (and now really discards them — re-selecting the old shooter no longer resurrects stale assignments). Auto-assigned single-target defaults switch silently.",
+				"Quick-assign ('All → target') now counts as staging targets, so the switch confirmation protects it too."
+			]
+		},
+		{
 			"version": "0.11.1",
 			"date": "2026-07-10",
 			"summary": "Army builder fix: an imported enhancement now adds its points to the list total (e.g. Kustom Shokk Box +10). The bundled Taktikal Brigade army's Warboss costs were also missing their enhancement points.",
