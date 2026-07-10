@@ -136,6 +136,7 @@ TESTS=(
     "tests/test_t003_indirect_fire_visibility_pin.gd"
     "tests/test_fullauto_faction_rules.gd"
     "tests/test_custodes_lions_silent_hunters.gd"
+    "tests/test_ai_movement_coordination.gd"
 )
 
 FAILED=0

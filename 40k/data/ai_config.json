@@ -1,0 +1,14 @@
+{
+  "_readme": [
+    "Hand-editable AI tuning file — ships with the game and is read at startup.",
+    "Put entries in 'parameters' to override the AI's built-in scoring weights, e.g.:",
+    "  \"parameters\": { \"WEIGHT_UNCONTROLLED_OBJ\": 14.0, \"FACTION_AGGRESSION_ORKS\": 2.2 }",
+    "Every tunable parameter (all 91), its default and what it does is documented in docs/AI_TUNING.md.",
+    "Layering: values here override the code defaults; user://ai_config.json (exported by the",
+    "AI Gameplay Visualizer) overrides this file; per-player profiles (user://ai_profiles/) and",
+    "their conditional rules override everything. Only 'parameters' is read — keys starting",
+    "with '_' are ignored, so keep notes wherever you like.",
+    "Leave 'parameters' empty to play with the built-in defaults."
+  ],
+  "parameters": {}
+}
