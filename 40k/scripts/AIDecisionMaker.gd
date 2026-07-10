@@ -805,6 +805,26 @@ static func _is_melee_focused_unit(unit: Dictionary) -> bool:
 			break
 	return not strong_ranged
 
+# SOAK-5: single source of truth for "should this unit leave its objective
+# assignment to seek melee?" — used by the hold-decision, melee-aggression and
+# objective-hold blocks in _select_movement_action, which previously each had
+# their own copy of the gate.
+#
+# Only melee-FOCUSED units seek. The old faction-aggression extension
+# (aggression >= 1.5 turned every melee-CAPABLE unit into a seeker unless it
+# was a ranged VEHICLE) is deliberately gone: in the 2026-07-10 benchmark it
+# marched shooty units (Lootas, Kaptin Badrukk, the Battlewagon) across the
+# board while objectives sat unclaimed — see
+# tests/bench_baselines/2026-07-10_ork_discipline_ab.md. Note the classifier
+# invariant: a unit with melee weapons that is NOT melee-focused necessarily
+# has strong ranged weapons (_is_melee_focused_unit returns `not
+# strong_ranged`), so any aggression-based widening of this gate re-captures
+# exactly the units the benchmark showed should stay on mission. Faction
+# aggression still shapes HOW aggressively seekers behave (hold-leave limits,
+# stay bonuses, R1 setup moves) — just not WHO seeks.
+static func _is_melee_seeker(unit: Dictionary) -> bool:
+	return _is_melee_focused_unit(unit)
+
 static func _get_nearest_enemy_for_charge(unit: Dictionary, enemies: Dictionary) -> Dictionary:
 	"""Find the nearest enemy unit and return {enemy_id, enemy_unit, distance_inches, centroid}.
 	Factors in terrain penalties to prefer enemies reachable without climbing through terrain."""
@@ -4455,10 +4475,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		# Balance melee aggression with objective control
 		# Key insight: Orks should NOT abandon objectives to chase distant enemies
 		var hold_faction_aggression = _get_faction_aggression(snapshot, player)
-		var hold_unit_is_melee_focused = _is_melee_focused_unit(unit)
-		var hold_kw = unit.get("meta", {}).get("keywords", [])
-		var hold_is_ranged_vehicle = not hold_unit_is_melee_focused and ("VEHICLE" in hold_kw) and _unit_has_ranged_weapons(unit)
-		var hold_is_melee = hold_unit_is_melee_focused or (hold_faction_aggression >= 1.5 and _unit_has_melee_weapons(unit) and not hold_is_ranged_vehicle)
+		var hold_is_melee = _is_melee_seeker(unit)
 		var hold_battle_round = snapshot.get("battle_round", 1)
 		if assignment_action == "hold":
 			# Check if there's a nearby enemy worth charging
@@ -4526,13 +4543,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		# instead of moving toward objectives. Balance aggression with objective control.
 		var is_melee_unit = _is_melee_focused_unit(unit)
 		var faction_aggression = _get_faction_aggression(snapshot, player)
-		var has_any_melee = _unit_has_melee_weapons(unit)
 		var is_aggressive_faction = faction_aggression >= 1.5
-		# For aggressive factions: ranged-focused vehicles should NOT melee aggress
-		# (e.g. Caladius Grav-tank with strong ranged weapons should stay at range)
-		var unit_keywords_for_melee = unit.get("meta", {}).get("keywords", [])
-		var is_ranged_vehicle = not is_melee_unit and ("VEHICLE" in unit_keywords_for_melee) and _unit_has_ranged_weapons(unit)
-		var should_seek_enemies = is_melee_unit or (is_aggressive_faction and has_any_melee and not is_ranged_vehicle)
+		var should_seek_enemies = _is_melee_seeker(unit)
 		var melee_battle_round = snapshot.get("battle_round", 1)
 
 		# Determine if this unit is needed at its objective (don't abandon objectives)
@@ -4576,16 +4588,29 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 
 				# Smart melee aggression: balance enemy-seeking with objective control
 				# DON'T chase enemies when:
-				# 1. Unit is on a contested objective in rounds 2+ (we need the OC)
-				# 2. Unit is on a safe objective in rounds 3+ and enemy is far (>14")
-				# 3. Unit is assigned to hold and enemy is beyond charge range
+				# 1. The enemy is beyond any real threat range (SOAK-5 chase cap)
+				# 2. Unit is on a contested objective in rounds 2+ (we need the OC)
+				# 3. Unit is on a safe objective in rounds 3+ and enemy is far (>14")
+				# 4. Unit is assigned to hold and enemy is beyond charge range
 				var should_chase = true
+				# SOAK-5: chase-distance cap for ALL seekers. Hold-assigned units
+				# already had distance limits; move-assigned units had NONE — the
+				# 2026-07-10 soak showed round-1 chases at 45"+ while objectives
+				# sat unclaimed (Ork primary VP ~6/game). Cap = the tunable
+				# threshold, never below this unit's move+advance+charge reach.
+				var chase_cap_inches = maxf(
+					get_param("MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES", MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES),
+					move_inches_melee + 14.0)
 				# T16-1: Horde units (10+ models) prioritize reaching their assigned objective
 				# in R1-R2 before chasing enemies. Their OC is critical for primary VP.
 				# EXCEPTION: Aggressive factions (Orks etc.) should advance toward enemies
 				# even in R1-R2 — accounts for mutual approach (both units closing).
 				var alive_count_for_chase = _get_alive_models(unit).size()
-				if not unit_is_on_objective and alive_count_for_chase >= 10 and melee_battle_round <= 2 and enemy_dist > charge_range_inches:
+				if enemy_dist > chase_cap_inches:
+					should_chase = false
+					print("AIDecisionMaker: [CHASE-CAP] %s ignores %s (%.1f\" away > %.0f\" cap) — following its assignment to %s" % [
+						unit_name, enemy_name, enemy_dist, chase_cap_inches, assigned_obj_id])
+				elif not unit_is_on_objective and alive_count_for_chase >= 10 and melee_battle_round <= 2 and enemy_dist > charge_range_inches:
 					if faction_aggression >= 1.5:
 						print("AIDecisionMaker: [HORDE-AGGRESSION] %s (horde %d models) advances toward %s (%.1f\" away, aggression=%.1f, round %d)" % [
 							unit_name, alive_count_for_chase, enemy_name, enemy_dist, faction_aggression, melee_battle_round])
@@ -4714,10 +4739,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 
 			# If we're already within control range and assigned to hold, remain stationary
 			# EXCEPT: melee units with NEARBY enemies (within charge range) should keep moving
-			var obj_hold_is_melee_unit = _is_melee_focused_unit(unit)
-			var obj_hold_kw = unit.get("meta", {}).get("keywords", [])
-			var obj_hold_is_ranged_vehicle = not obj_hold_is_melee_unit and ("VEHICLE" in obj_hold_kw) and _unit_has_ranged_weapons(unit)
-			var obj_hold_is_melee = obj_hold_is_melee_unit or (_get_faction_aggression(snapshot, player) >= 1.5 and _unit_has_melee_weapons(unit) and not obj_hold_is_ranged_vehicle)
+			var obj_hold_is_melee = _is_melee_seeker(unit)
 			var obj_hold_skip = false
 			var obj_hold_round = snapshot.get("battle_round", 1)
 			if obj_hold_is_melee and not enemies.is_empty():
@@ -9206,6 +9228,22 @@ static func _is_position_near_enemy(pos: Vector2, enemies: Dictionary, own_unit:
 
 # _try_shorter_move: REMOVED - functionality integrated into _try_move_with_collision_check
 
+# SOAK-4: models may not END a move overlapping a wall (Measurement enforces
+# this in MovementPhase staging). The AI previously never tested candidate
+# destinations against walls — the single largest cause of staged-move
+# rejections in the 2026-07-10 benchmark soak (1,135 of ~3,300 validation
+# failures), leaving units stuck ("all move attempts failed") for whole games.
+static func _dest_overlaps_wall(dest: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary) -> bool:
+	var meas = _measurement()
+	if meas == null or not meas.has_method("model_overlaps_any_wall"):
+		return false
+	return meas.model_overlaps_any_wall({
+		"position": dest,
+		"base_mm": base_mm,
+		"base_type": base_type,
+		"base_dimensions": base_dimensions,
+	})
+
 static func _try_move_with_collision_check(
 	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
 	unit: Dictionary, deployed_models: Array, base_mm: int,
@@ -9299,6 +9337,10 @@ static func _try_move_with_collision_check(
 			DebugLogger.info("INTRA_OBSTACLE_DEBUG %s.%s dest (%.0f,%.0f) collides (intra=%d, placed=%d, deployed=%d)" % [
 				_unit_name, model_id, dest.x, dest.y, intra_unit_obstacles.size(), placed_models.size(), deployed_models.size()])
 
+		# SOAK-4: ending on a wall is always rejected by the engine — resolve now
+		if not needs_resolve and _dest_overlaps_wall(dest, base_mm, base_type, base_dimensions):
+			needs_resolve = true
+
 		if not needs_resolve and not mv_models.is_empty():
 			if _path_crosses_monster_vehicle(model_pos, dest, model_radius * radius_factor, mv_models):
 				needs_resolve = true
@@ -9373,6 +9415,8 @@ static func _try_move_with_collision_check(
 
 					var all_obstacles = deployed_models + placed_models + intra_unit_obstacles
 					if _position_collides_with_deployed(candidate, base_mm, all_obstacles, 1.0, base_type, base_dimensions, radius_factor):
+						continue
+					if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions):
 						continue
 					if _is_position_near_enemy(candidate, enemies, unit):
 						continue
@@ -9517,6 +9561,9 @@ static func _try_formation_move(
 				if _position_collides_with_deployed(candidate, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
 					continue
 
+				if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions):
+					continue
+
 				if _is_position_near_enemy(candidate, enemies, unit):
 					continue
 
@@ -9641,6 +9688,8 @@ static func _resolve_movement_collision(
 
 		if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
 			continue
+		if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions):
+			continue
 		if _is_position_near_enemy(candidate, enemies, unit):
 			continue
 		if not mv_models.is_empty() and original_pos != Vector2.INF:
@@ -9661,6 +9710,8 @@ static func _resolve_movement_collision(
 				if original_pos.distance_to(candidate) > move_cap_px:
 					continue
 			if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
+				continue
+			if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions):
 				continue
 			if _is_position_near_enemy(candidate, enemies, unit):
 				continue
@@ -9685,6 +9736,8 @@ static func _resolve_movement_collision(
 				if original_pos.distance_to(candidate) > move_cap_px:
 					continue
 			if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
+				continue
+			if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions):
 				continue
 			if _is_position_near_enemy(candidate, enemies, unit):
 				continue

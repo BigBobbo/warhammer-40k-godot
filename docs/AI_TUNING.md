@@ -137,6 +137,7 @@ full machine-readable decision log to `user://ai_decision_log.json`.
 | `HALF_RANGE_APPROACH_MARGIN_INCHES` | 1.0 | Safety margin inside half range |
 | `HEAVY_STATIONARY_MIN_BENEFIT` | 0.15 | Min expected extra hits to hold still for Heavy +1 |
 | `HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE` | 10.0 | Objective priority that overrides a Heavy hold |
+| `MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES` | 20 | Chase cap: seekers ignore enemies farther than this (never below the unit's move+advance+charge reach) and follow their objective assignment instead |
 | `SCREEN_CHEAP_UNIT_POINTS` | 100 | Units at/below this cost are screening candidates |
 | `SCREEN_SCORE_BASE` | 8.0 | Base score of a screening assignment |
 | `CORRIDOR_BLOCK_SCORE_BASE` | 7.0 | Base score of a corridor-block assignment |
@@ -215,8 +216,12 @@ full machine-readable decision log to `user://ai_decision_log.json`.
 | `FACTION_AGGRESSION_WORLD_EATERS` | 2.0 | World Eaters |
 | `FACTION_AGGRESSION_KHORNE` | 1.8 | Khorne daemons |
 
-Aggression ≥ 1.5 makes melee-capable units seek enemies, loosens
-objective-camping, and widens "leave the objective to charge" distance limits.
+Faction aggression shapes HOW aggressively melee seekers behave (hold-leave
+distance limits, home-objective stay bonuses, round-1 setup moves) — but as of
+2026-07-10 it no longer decides WHO seeks: only melee-*focused* units leave
+their objective assignments to hunt (see
+`tests/bench_baselines/2026-07-10_ork_discipline_ab.md`), and all seekers
+respect the `MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES` chase cap.
 
 ### Engaged units & survival
 
