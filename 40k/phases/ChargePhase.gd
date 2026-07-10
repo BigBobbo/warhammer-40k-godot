@@ -1598,6 +1598,14 @@ func _process_end_charge(action: Dictionary) -> Dictionary:
 					result["heroic_intervention_eligible_units"] = hi_eligible
 					result["heroic_intervention_charging_unit_id"] = ""
 					return result
+				else:
+					log_phase_message("[11e 15.11] HI window skipped: Player %d has no eligible units (no unit with an actionable LEAP/FRAY target)" % defending_player)
+			elif not hi_check.available:
+				log_phase_message("[11e 15.11] HI window skipped: %s" % hi_check.reason)
+			else:
+				log_phase_message("[11e 15.11] HI window skipped: StratagemManager has no get_heroic_intervention_eligible_units_11e")
+		else:
+			log_phase_message("[11e 15.11] HI window skipped: no StratagemManager autoload")
 
 	log_phase_message("Ending Charge Phase")
 	emit_signal("phase_completed")

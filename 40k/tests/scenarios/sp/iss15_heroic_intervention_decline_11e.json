@@ -8,11 +8,15 @@
   "edition": 11,
   "transition_to_phase": 9,
   "disable_ai": true,
-  "description": "15.11 HEROIC INTERVENTION decline path: the active player (P1) ends the Charge phase via the real button, the defender's dialog opens (end-of-phase window, no charging unit named), and the defender clicks Decline. The phase must then complete to Fight with no CP spent and no counter-charge. Guards the _should_complete_phase fix: END_CHARGE must not silently complete past the open HI window, and the decline must complete the phase it deferred.",
+  "description": "15.11 HEROIC INTERVENTION decline path: the active player (P1) ends the Charge phase via the real button, the defender's dialog opens (end-of-phase window, no charging unit named), and the defender clicks Decline. The phase must then complete to Fight with no CP spent and no counter-charge. Guards the _should_complete_phase fix: END_CHARGE must not silently complete past the open HI window, and the decline must complete the phase it deferred. Setup places the Warboss 2.5\" edge-to-edge from the Shield-Captain (same as the fray scenario) because since the #499 eligibility tightening the window only opens if some unit has an actionable HI mode — with the fixture's stock positions no unit qualifies and the phase (correctly) ends without the dialog.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
     { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_WARBOSS_C\")[\"models\"][0].merge({\"position\": {\"x\": 933.24, \"y\": 1343.63}}, true)" },
+    { "act": "execute_script", "script": "main._sync_all_token_positions()" },
+    { "act": "wait_seconds", "seconds": 1.0 },
 
     { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/HeroicInterventionDialog", "timeout_s": 3.0 },
