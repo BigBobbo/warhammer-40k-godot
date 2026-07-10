@@ -2003,6 +2003,79 @@ func process_skrag_every_stash(player: int) -> void:
 			unit["flags"]["effect_sticky_objective_control"] = obj_id
 		print("FactionAbilityManager: Skrag Every Stash! — %s locked %s for Player %d" % [bearer.combined_unit_id, obj_id, player])
 
+func _nearest_visible_enemy_within(unit: Dictionary, player: int, inches: float) -> String:
+	"""Nearest enemy unit with an alive model within `inches` of (and visible
+	to) an alive model in `unit`. Returns "" when none qualifies."""
+	var range_px = Measurement.inches_to_px(inches)
+	var tm = get_node_or_null("/root/TerrainManager")
+	var best_id := ""
+	var best_d := INF
+	for uid in GameState.state.get("units", {}):
+		var enemy = GameState.state["units"][uid]
+		var enemy_owner = int(enemy.get("owner", 0))
+		if enemy_owner == player or enemy_owner == 0:
+			continue
+		for m in unit.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			for em in enemy.get("models", []):
+				if not em.get("alive", true) or em.get("position") == null:
+					continue
+				var d = Measurement.model_to_model_distance_px(m, em)
+				if d > range_px or d >= best_d:
+					continue
+				if tm != null and tm.has_method("model_visible_11e") and not tm.model_visible_11e(m, em):
+					continue
+				best_d = d
+				best_id = uid
+	return best_id
+
+func process_supa_glowy_fing(player: int) -> void:
+	"""Supa-glowy Fing (Dread Mob): in your Command phase, pick one enemy unit
+	within 18" of and visible to the bearer (auto-picked: the nearest such
+	enemy — documented simplification) and roll one D6:
+	 1-2: that unit takes a Battle-shock test;
+	 3-4: it suffers D3 mortal wounds;
+	 5-6: -1 to its Hit rolls until the start of your next Command phase."""
+	var bearer = _find_enhancement_bearer(player, "Supa-glowy Fing")
+	if bearer.is_empty():
+		return
+	var bearer_unit = GameState.state.get("units", {}).get(bearer.combined_unit_id, {})
+	var enemy_id = _nearest_visible_enemy_within(bearer_unit, player, 18.0)
+	if enemy_id == "":
+		print("FactionAbilityManager: Supa-glowy Fing — no visible enemy within 18\" of the bearer")
+		return
+	var rng = RulesEngine.make_rng()
+	var roll = rng.rng.randi_range(1, 6)
+	if roll <= 2:
+		print("FactionAbilityManager: Supa-glowy Fing — rolled %d: %s takes a Battle-shock test" % [roll, enemy_id])
+		force_battle_shock_test(enemy_id, 0, "Supa-glowy Fing")
+	elif roll <= 4:
+		var mw = rng.rng.randi_range(1, 3)
+		var applied = RulesEngine.apply_mortal_wounds_to_unit(enemy_id, mw, GameState.create_snapshot())
+		if not applied.get("diffs", []).is_empty():
+			GameState.apply_state_changes(applied.diffs)
+		print("FactionAbilityManager: Supa-glowy Fing — rolled %d: %d mortal wound(s) to %s (%d casualties)" % [
+			roll, mw, enemy_id, int(applied.get("casualties", 0))])
+	else:
+		var units = GameState.state.get("units", {})
+		if units.has(enemy_id):
+			if not units[enemy_id].has("flags"):
+				units[enemy_id]["flags"] = {}
+			units[enemy_id]["flags"][EffectPrimitivesData.FLAG_MINUS_ONE_HIT] = true
+			units[enemy_id]["flags"]["supa_glowy_debuff_from"] = player
+			print("FactionAbilityManager: Supa-glowy Fing — rolled %d: %s at -1 to hit until Player %d's next Command phase" % [roll, enemy_id, player])
+
+func _clear_supa_glowy_debuffs(player: int) -> void:
+	"""Clear -1-to-hit debuffs this player's Supa-glowy Fing applied (they
+	last until the start of this player's next Command phase)."""
+	for uid in GameState.state.get("units", {}):
+		var flags = GameState.state["units"][uid].get("flags", {})
+		if int(flags.get("supa_glowy_debuff_from", 0)) == player:
+			flags.erase("supa_glowy_debuff_from")
+			flags.erase(EffectPrimitivesData.FLAG_MINUS_ONE_HIT)
+			print("FactionAbilityManager: Supa-glowy Fing debuff on %s expired" % uid)
+
 func process_command_phase_cp_enhancements(player: int) -> void:
 	"""Command-phase CP-generating enhancements:
 	 - Brutal But Kunnin' (Green Tide): D6 (+2 if bearer's unit counts as 10+
@@ -2411,6 +2484,11 @@ func on_command_phase_start(player: int) -> void:
 	# phase.
 	if detachment == "Da Big Hunt":
 		_select_prey_for_player(player)
+
+	# Supa-glowy Fing (Dread Mob): expire last round's -1-to-hit debuff, then
+	# zap the nearest visible enemy within 18" of the bearer.
+	_clear_supa_glowy_debuffs(player)
+	process_supa_glowy_fing(player)
 
 	# CP-generating enhancements (Brutal But Kunnin' / Speed Makes Right)
 	process_command_phase_cp_enhancements(player)

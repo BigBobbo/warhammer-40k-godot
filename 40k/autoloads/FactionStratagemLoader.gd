@@ -545,6 +545,7 @@ func _parse_target(target_text: String) -> Dictionary:
 		["beast snagga", "keyword:BEAST SNAGGA"],
 		["speed freeks", "keyword:SPEED FREEKS"],
 		["trukk", "keyword:TRUKK"],
+		["walker", "keyword:WALKER"],
 	]
 
 	# "X or Y" alternations ("One Orks Infantry or Orks Mounted unit", "One
@@ -553,6 +554,7 @@ func _parse_target(target_text: String) -> Dictionary:
 	# and no unit could ever match. Emit a single keyword_any: condition and
 	# skip the individual keyword matches for the two alternated terms.
 	var alternated_terms: Array = []
+	var skip_orks_faction_kw := false
 	var alt_regex = RegEx.new()
 	alt_regex.compile("(infantry|mounted|vehicle|monster|kommandos|stormboyz|meganobz|nobz|speed freeks|trukk) or (orks |beast snagga )?(infantry|mounted|vehicle|monster|kommandos|stormboyz|meganobz|nobz|speed freeks|trukk)")
 	var alt_match = alt_regex.search(inclusive_t)
@@ -561,6 +563,20 @@ func _parse_target(target_text: String) -> Dictionary:
 		var kw_b = alt_match.get_string(3)
 		result.conditions.append("keyword_any:%s,%s" % [kw_a.to_upper(), kw_b.to_upper()])
 		alternated_terms = [kw_a, kw_b]
+
+	# Dread Mob targets: "Mek, Orks Walker or Grots Vehicle" / "Orks Walker or
+	# Grots Vehicle". Grots VEHICLES in the current datasets (Killa Kans) all
+	# carry the WALKER keyword, so WALKER covers both halves of that
+	# alternation — and Grots units do NOT have the ORKS keyword, so the
+	# generic ORKS faction condition must be suppressed for these targets.
+	if "mek, orks walker or grots vehicle" in inclusive_t:
+		result.conditions.append("keyword_any:MEK,WALKER")
+		alternated_terms = ["vehicle", "walker"]
+		skip_orks_faction_kw = true
+	elif "orks walker or grots vehicle" in inclusive_t:
+		result.conditions.append("keyword:WALKER")
+		alternated_terms = ["vehicle", "walker"]
+		skip_orks_faction_kw = true
 
 	for pattern in keyword_patterns:
 		if pattern[0].strip_edges() in alternated_terms:
@@ -573,7 +589,7 @@ func _parse_target(target_text: String) -> Dictionary:
 		result.conditions.append("keyword:ADEPTUS ASTARTES")
 	if "adeptus custodes" in inclusive_t:
 		result.conditions.append("keyword:ADEPTUS CUSTODES")
-	if "orks" in inclusive_t:
+	if "orks" in inclusive_t and not skip_orks_faction_kw:
 		result.conditions.append("keyword:ORKS")
 
 	# Special conditions — also derived from the inclusive zone only.

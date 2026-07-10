@@ -2499,6 +2499,10 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	if sgt_mod != WoundModifier.NONE:
 		wound_modifiers |= sgt_mod
 		print("RulesEngine: S>T wound penalty — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
+	# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to wound vs MONSTER/VEHICLE
+	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: BIGGER SHELLS — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
 	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6"
 	# Full Wound re-roll if target is also within range of an objective marker.
 	var pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
@@ -2844,6 +2848,9 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 	var melta_box = [int(opts.get("melta_wounds", 0))]
 	var has_half_damage = bool(opts.get("half_damage", false))
 	var unit_fnp_value = int(opts.get("fnp_value", 0))
+	# BIGGER SHELLS (Dread Mob, pushed): callers pass the attacking unit so the
+	# conditional +1 Damage vs MONSTER/VEHICLE can resolve per target.
+	var bs_actor_unit: Dictionary = opts.get("actor_unit", {})
 	var damage_roll_log: Array = out.damage_roll_log
 
 	print("RulesEngine: [11e ALLOCATION] %d save(s) + %d devastating crit(s) vs %d group(s), order=%s" % [wounds_to_save, dev_wound_crits, groups.size(), str(order)])
@@ -2861,6 +2868,8 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			if melta_value > 0 and melta_box[0] > 0:
 				dmg += melta_value
 				melta_box[0] -= 1
+			# BIGGER SHELLS (Dread Mob, pushed): +1 Damage vs MONSTER/VEHICLE
+			dmg += get_bigger_shells_damage_bonus(bs_actor_unit, target_unit)
 			if has_half_damage:
 				dmg = apply_half_damage(dmg)
 			var minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
@@ -2918,6 +2927,8 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			if melta_value > 0 and melta_box[0] > 0:
 				dmg += melta_value
 				melta_box[0] -= 1
+			# BIGGER SHELLS (Dread Mob, pushed): +1 Damage vs MONSTER/VEHICLE
+			dmg += get_bigger_shells_damage_bonus(bs_actor_unit, target_unit)
 			if has_half_damage:
 				dmg = apply_half_damage(dmg)
 			var dw_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
@@ -3231,6 +3242,7 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 			"precision_group": _precision_group_11e(save_data.get("has_precision", false), scratch_unit,
 				board.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {}), board,
 				str(save_data.get("precision_group_choice", ""))),
+			"actor_unit": board.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {}),
 			"melta_value": melta_value,
 			"melta_wounds": melta_wounds,
 			"half_damage": get_unit_half_damage(live_unit),
@@ -4023,6 +4035,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if ar_sgt_mod != WoundModifier.NONE:
 		ar_wound_modifiers |= ar_sgt_mod
 		print("RulesEngine: S>T wound penalty (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
+	# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to wound vs MONSTER/VEHICLE
+	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: BIGGER SHELLS (auto-resolve) — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
 	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6" (auto-resolve)
 	# Full Wound re-roll if target is also within range of an objective marker.
 	var ar_pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
@@ -4251,6 +4267,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			ar_regular_wound_count if ar_weapon_has_devastating_wounds else wounds_caused,
 			ar_critical_wound_count if ar_weapon_has_devastating_wounds else 0,
 			ap, damage_raw, rng, {
+				"actor_unit": board.get("units", {}).get(actor_unit_id, {}),
 				"melta_value": ar_melta_value,
 				"melta_wounds": ar_melta_wounds_remaining,
 				"half_damage": ar_has_half_damage,
@@ -4294,6 +4311,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				dw_wound_damage += ar_melta_value
 				ar_melta_wounds_remaining -= 1
 				print("RulesEngine: MELTA +%d (auto-resolve) applied to devastating wound (damage: %d → %d)" % [ar_melta_value, dmg_result.value, dw_wound_damage])
+			# BIGGER SHELLS (Dread Mob, pushed): +1 Damage vs MONSTER/VEHICLE
+			dw_wound_damage += get_bigger_shells_damage_bonus(actor_unit, target_unit)
 			# HALF DAMAGE (T4-17): Halve devastating wound damage (round up)
 			if ar_has_half_damage:
 				var pre_half = dw_wound_damage
@@ -4461,6 +4480,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				damage += ar_melta_value
 				ar_melta_wounds_remaining -= 1
 				print("RulesEngine: MELTA +%d (auto-resolve) applied to damage (total: %d)" % [ar_melta_value, damage])
+
+			# BIGGER SHELLS (Dread Mob, pushed): +1 Damage vs MONSTER/VEHICLE
+			damage += get_bigger_shells_damage_bonus(actor_unit, target_unit)
 
 			# HALF DAMAGE (T4-17): Halve damage if defender has half-damage ability
 			if ar_has_half_damage:
@@ -7700,6 +7722,52 @@ static func get_dakkastorm_sustained_value(actor_unit: Dictionary, target_unit: 
 		return 0
 	return 2 if is_target_within_range_inches(actor_unit, target_unit, 9.0) else 1
 
+# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to Wound vs MONSTER/VEHICLE;
+# when pushed, +1 Damage against those targets as well.
+static func get_bigger_shells_wound_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get("effect_bigger_shells", false):
+		return 0
+	if unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE"):
+		return 1
+	return 0
+
+static func get_bigger_shells_damage_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get("effect_bigger_shells_push", false):
+		return 0
+	if unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE"):
+		return 1
+	return 0
+
+# Generic mortal-wound application to a unit by id (Supa-glowy Fing,
+# CONNIVING RUNTS, ...). Allocates via the 11e mortal-wound path and returns
+# {diffs, mortal_wounds, casualties}.
+static func apply_mortal_wounds_to_unit(target_unit_id: String, mw: int, board: Dictionary) -> Dictionary:
+	var result = {"diffs": [], "mortal_wounds": mw, "casualties": 0}
+	var target = board.get("units", {}).get(target_unit_id, {})
+	if mw <= 0 or target.is_empty():
+		return result
+	var out = Allocation.apply_mortal_wounds_11e(target, mw)
+	_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
+	result.casualties = out.models_destroyed.size()
+	return result
+
+# CONNIVING RUNTS (Dread Mob): roll one D6 — on a 4+, the enemy unit that just
+# moved suffers D3+1 mortal wounds (the Gretchin unit's Normal move is set up
+# by MovementPhase afterwards).
+static func resolve_conniving_runts(target_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	if rng == null:
+		rng = make_rng()
+	var roll = rng.roll_d6(1)[0]
+	var result = {"diffs": [], "roll": roll, "mortal_wounds": 0, "casualties": 0}
+	if roll >= 4:
+		var mw = rng.rng.randi_range(1, 3) + 1
+		var applied = apply_mortal_wounds_to_unit(target_unit_id, mw, board)
+		result.diffs = applied.diffs
+		result.mortal_wounds = mw
+		result.casualties = applied.casualties
+	print("RulesEngine: CONNIVING RUNTS vs %s — rolled %d -> %d mortal wound(s)" % [target_unit_id, roll, int(result.mortal_wounds)])
+	return result
+
 # PREY (Da Big Hunt detachment rule): each time a BEAST SNAGGA model makes an
 # attack (ranged or melee) that targets its owner's Prey, improve the AP of
 # that attack by 1. The Prey marker lives on the target unit's flags
@@ -10037,8 +10105,11 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 				result.log_text += sb_diffs_dice["log_text"] + "\n"
 
 		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage (melee)
+		# KLANKIN' KLAWS (Dread Mob, pushed) grants melee HAZARDOUS via the
+		# melee-scoped effect flag.
 		var weapon_id = assignment.get("weapon", "")
-		if is_hazardous_weapon(weapon_id, board):
+		if is_hazardous_weapon(weapon_id, board) \
+				or board.get("units", {}).get(actor_unit_id, {}).get("flags", {}).get("effect_grant_hazardous_melee", false):
 			var models_that_fought = assignment.get("models", []).size()
 			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fought, board, rng_service)
 			if hazardous_result.hazardous_triggered:
@@ -10250,8 +10321,11 @@ static func resolve_melee_attacks_interactive(action: Dictionary, board: Diction
 				])
 
 		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage (melee)
+		# KLANKIN' KLAWS (Dread Mob, pushed) grants melee HAZARDOUS via the
+		# melee-scoped effect flag.
 		var weapon_id = assignment.get("weapon", "")
-		if is_hazardous_weapon(weapon_id, board):
+		if is_hazardous_weapon(weapon_id, board) \
+				or board.get("units", {}).get(actor_unit_id, {}).get("flags", {}).get("effect_grant_hazardous_melee", false):
 			var models_that_fought = assignment.get("models", []).size()
 			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fought, board, rng_service)
 			if hazardous_result.hazardous_triggered:
@@ -10481,6 +10555,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if fso_bonus > 0:
 		strength += fso_bonus
 		print("RulesEngine: Ferocious Show Off — melee strength +%d (now %d)" % [fso_bonus, strength])
+
+	# KLANKIN' KLAWS (Dread Mob): +2 S on melee weapons for the phase
+	var kk_strength_bonus = int(attacker_unit.get("flags", {}).get("effect_klankin_klaws", 0))
+	if kk_strength_bonus > 0:
+		strength += kk_strength_bonus
+		print("RulesEngine: KLANKIN' KLAWS — melee strength +%d (now %d)" % [kk_strength_bonus, strength])
 
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (melee)
@@ -11052,6 +11132,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			regular_wound_count if weapon_has_devastating_wounds else wounds_caused,
 			critical_wound_count if weapon_has_devastating_wounds else 0,
 			ap, m_damage_raw, rng, {
+				"actor_unit": board.get("units", {}).get(actor_unit_id, {}),
 				"half_damage": get_unit_half_damage(target_unit),
 				"fnp_value": get_unit_fnp_for_attack(target_unit, is_psychic_weapon(weapon_id, board)),
 				"precision_group": _precision_group_11e(weapon_has_precision, target_unit,

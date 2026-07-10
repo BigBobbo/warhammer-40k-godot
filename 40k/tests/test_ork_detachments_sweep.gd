@@ -102,6 +102,7 @@ func _run():
 	_bully_boyz(SM, GS, FAM, rules)
 	_da_big_hunt(SM, GS, FAM, rules)
 	_kult_of_speed(SM, GS, FAM, rules)
+	_dread_mob(SM, GS, FAM, rules)
 
 
 # ==========================================================================
@@ -682,6 +683,193 @@ func _kult_of_speed(SM, GS, FAM, rules):
 		if int(GS.state["players"]["1"]["cp"]) == 4:
 			smr_far_grants += 1
 	_check("Speed Makes Right needs an enemy within 9\"", smr_far_grants == 0)
+
+
+# ==========================================================================
+# DREAD MOB
+# ==========================================================================
+func _dread_mob(SM, GS, FAM, rules):
+	print("\n===== DREAD MOB =====")
+	var dm = _load_detachment(SM, GS, "Dread Mob")
+	_check("Dread Mob: 6 stratagems loaded", dm.count == 6)
+	_check("Dread Mob: all 6 implemented", dm.implemented == 6)
+	var bs_def = dm.by_name.get("BIGGER SHELLS FOR BIGGER GITZ", {})
+	_check("BIGGER SHELLS targets MEK or WALKER (no AND-ed ORKS/VEHICLE)",
+		"keyword_any:MEK,WALKER" in bs_def.get("target", {}).get("conditions", [])
+		and not "keyword:ORKS" in bs_def.get("target", {}).get("conditions", [])
+		and not "keyword:VEHICLE" in bs_def.get("target", {}).get("conditions", []))
+	var d3_def = dm.by_name.get("DAKKA! DAKKA! DAKKA!", {})
+	_check("DAKKA!x3 targets WALKER (Grots vehicles carry WALKER; no ORKS gate)",
+		"keyword:WALKER" in d3_def.get("target", {}).get("conditions", [])
+		and not "keyword:ORKS" in d3_def.get("target", {}).get("conditions", []))
+	var eg_def = dm.by_name.get("EXTRA GUBBINZ", {})
+	_check("EXTRA GUBBINZ excludes TITANIC",
+		"not_keyword:TITANIC" in eg_def.get("target", {}).get("conditions", []))
+	# Killa Kans (GROTS WALKER VEHICLE, no ORKS keyword) must match; a Big Mek
+	# (MEK, no WALKER) must match BIGGER SHELLS but not DAKKA!x3.
+	var kans = {"meta": {"keywords": ["VEHICLE", "WALKER", "GROTS", "GRENADES"]}, "flags": {}, "models": []}
+	var big_mek = {"meta": {"keywords": ["ORKS", "INFANTRY", "CHARACTER", "MEK"]}, "flags": {}, "models": []}
+	_check("Killa Kans match BIGGER SHELLS", FactionStratagemLoaderData.unit_matches_target(kans, bs_def.get("target", {})))
+	_check("Big Mek matches BIGGER SHELLS", FactionStratagemLoaderData.unit_matches_target(big_mek, bs_def.get("target", {})))
+	_check("Killa Kans match DAKKA!x3", FactionStratagemLoaderData.unit_matches_target(kans, d3_def.get("target", {})))
+	_check("Big Mek does not match DAKKA!x3", not FactionStratagemLoaderData.unit_matches_target(big_mek, d3_def.get("target", {})))
+
+	# ---- BIGGER SHELLS FOR BIGGER GITZ: push-it choice ------------------------
+	GS.state["units"] = {"U_DREAD": _boyz_unit("U_DREAD", 2)}
+	GS.get_unit("U_DREAD")["meta"]["keywords"] = ["ORKS", "VEHICLE", "WALKER"]
+	var strat_bsg = {"id": "t_bsg", "name": "BIGGER SHELLS FOR BIGGER GITZ", "effects": [{"type": "custom:bigger_shells"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_bsg", "U_DREAD", strat_bsg, {}))
+	var bsg_flags = GS.get_unit("U_DREAD")["flags"]
+	_check("BIGGER SHELLS (no push) sets only the wound-bonus flag",
+		bsg_flags.get("effect_bigger_shells", false) and not bsg_flags.has("effect_bigger_shells_push")
+		and not bsg_flags.has("effect_grant_hazardous"))
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_bsg", "U_DREAD", strat_bsg, {"push_it": true}))
+	bsg_flags = GS.get_unit("U_DREAD")["flags"]
+	_check("BIGGER SHELLS (pushed) adds damage + HAZARDOUS flags",
+		bsg_flags.get("effect_bigger_shells_push", false) and bsg_flags.get("effect_grant_hazardous", false))
+	var bs_actor = {"owner": 1, "meta": {}, "flags": {"effect_bigger_shells": true, "effect_bigger_shells_push": true}, "models": []}
+	var bs_tank = {"owner": 2, "meta": {"keywords": ["VEHICLE"]}, "flags": {}, "models": []}
+	var bs_inf = {"owner": 2, "meta": {"keywords": ["INFANTRY"]}, "flags": {}, "models": []}
+	_check("BIGGER SHELLS +1 wound vs VEHICLE", rules.get_bigger_shells_wound_bonus(bs_actor, bs_tank) == 1)
+	_check("BIGGER SHELLS no wound bonus vs INFANTRY", rules.get_bigger_shells_wound_bonus(bs_actor, bs_inf) == 0)
+	_check("BIGGER SHELLS (pushed) +1 damage vs VEHICLE", rules.get_bigger_shells_damage_bonus(bs_actor, bs_tank) == 1)
+	_check("BIGGER SHELLS (pushed) no damage bonus vs INFANTRY", rules.get_bigger_shells_damage_bonus(bs_actor, bs_inf) == 0)
+	var bs_safe = {"owner": 1, "meta": {}, "flags": {"effect_bigger_shells": true}, "models": []}
+	_check("BIGGER SHELLS damage bonus requires the push", rules.get_bigger_shells_damage_bonus(bs_safe, bs_tank) == 0)
+
+	# ---- DAKKA! DAKKA! DAKKA!: re-roll scope by push ---------------------------
+	var strat_d3 = {"id": "t_d3", "name": "DAKKA! DAKKA! DAKKA!", "effects": [{"type": "custom:dakka_dakka_dakka"}]}
+	GS.get_unit("U_DREAD")["flags"].clear()
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_d3", "U_DREAD", strat_d3, {}))
+	_check("DAKKA!x3 (no push) re-rolls 1s, no HAZARDOUS",
+		GS.get_unit("U_DREAD")["flags"].get("effect_reroll_hits", "") == "ones"
+		and not GS.get_unit("U_DREAD")["flags"].has("effect_grant_hazardous"))
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_d3", "U_DREAD", strat_d3, {"push_it": true}))
+	_check("DAKKA!x3 (pushed) re-rolls all hits + HAZARDOUS",
+		GS.get_unit("U_DREAD")["flags"].get("effect_reroll_hits", "") == "failed"
+		and GS.get_unit("U_DREAD")["flags"].get("effect_grant_hazardous", false))
+
+	# ---- KLANKIN' KLAWS: +2 S melee (push: +1 damage + melee HAZARDOUS) --------
+	var strat_kk = {"id": "t_kk", "name": "KLANKIN’ KLAWS", "effects": [{"type": "custom:klankin_klaws"}]}
+	GS.get_unit("U_DREAD")["flags"].clear()
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_kk", "U_DREAD", strat_kk, {"push_it": true}))
+	var kk_flags = GS.get_unit("U_DREAD")["flags"]
+	_check("KLANKIN' KLAWS (pushed) sets +2 S, +1 damage, melee HAZARDOUS",
+		int(kk_flags.get("effect_klankin_klaws", 0)) == 2 and int(kk_flags.get("effect_plus_damage", 0)) == 1
+		and kk_flags.get("effect_grant_hazardous_melee", false))
+	SM.stratagems["t_kk"] = strat_kk
+	SM._clear_stratagem_flags("U_DREAD", "t_kk")
+	_check("KLANKIN' KLAWS clear removes its flags",
+		not GS.get_unit("U_DREAD")["flags"].has("effect_klankin_klaws")
+		and not GS.get_unit("U_DREAD")["flags"].has("effect_grant_hazardous_melee"))
+	var kk_on := 0
+	var kk_off := 0
+	for s in [11, 42, 77]:
+		kk_off += _fight(rules, {}, s)
+		kk_on += _fight(rules, {"effect_klankin_klaws": 2}, s)
+	print("  KLANKIN' KLAWS: wounds with +2S=%d, without=%d" % [kk_on, kk_off])
+	_check("KLANKIN' KLAWS +2 S raises melee wounds", kk_on > kk_off)
+
+	# ---- EXTRA GUBBINZ + SUPERFUELLED BOILER: auto via effects_json ------------
+	GS.get_unit("U_DREAD")["flags"].clear()
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_eg", "U_DREAD", eg_def, {}))
+	_check("EXTRA GUBBINZ sets effect_minus_damage 1 (parsed effects_json)",
+		int(GS.get_unit("U_DREAD")["flags"].get("effect_minus_damage", 0)) == 1)
+	var sfb_def = dm.by_name.get("SUPERFUELLED BOILER", {})
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_sfb", "U_DREAD", sfb_def, {}))
+	_check("SUPERFUELLED BOILER sets re-roll-advance + advance-and-shoot",
+		GS.get_unit("U_DREAD")["flags"].get("effect_reroll_advance", false)
+		and GS.get_unit("U_DREAD")["flags"].get("effect_advance_and_shoot", false))
+
+	# ---- CONNIVING RUNTS: D6 4+ = D3+1 MW, then a Normal move ------------------
+	var cr_enemy_models = []
+	for i in range(3):
+		cr_enemy_models.append({"id": "cre%d" % i, "position": {"x": 300.0, "y": 100.0 + i * 30},
+			"base_mm": 32, "base_type": "circular", "alive": true, "wounds": 2, "current_wounds": 2,
+			"stats": {"toughness": 4, "save": 3}})
+	GS.state["units"] = {
+		"U_GROTS": {"id": "U_GROTS", "owner": 1, "status": 2,
+			"meta": {"name": "Gretchin", "keywords": ["ORKS", "INFANTRY", "GRETCHIN"], "abilities": [], "enhancements": [], "stats": {"move": 5}},
+			"flags": {}, "models": [{"id": "m0", "position": {"x": 100.0, "y": 100.0}, "base_mm": 25, "base_type": "circular", "alive": true, "wounds": 1, "current_wounds": 1}]},
+		"U_CR_TGT": {"id": "U_CR_TGT", "owner": 2, "status": 2,
+			"meta": {"name": "Marines", "keywords": ["INFANTRY"], "abilities": [], "enhancements": [], "stats": {"toughness": 4, "save": 3, "wounds": 2}},
+			"flags": {}, "models": cr_enemy_models},
+	}
+	var cr_mw_seen := false
+	var cr_zero_seen := false
+	for s in range(1, 13):
+		rules.set_test_seed(s)
+		var cr = rules.resolve_conniving_runts("U_CR_TGT", GS.create_snapshot(), rules.RNGService.new())
+		var mw = int(cr.get("mortal_wounds", 0))
+		if mw == 0:
+			cr_zero_seen = true
+		else:
+			cr_mw_seen = true
+			_check("CONNIVING RUNTS MW in D3+1 range (seed %d)" % s, mw >= 2 and mw <= 4)
+			break
+	_check("CONNIVING RUNTS deals MW on 4+ across seeds", cr_mw_seen)
+
+	# Scatter!-window integration: the Gretchin unit is offered the reactive
+	# stratagem after an enemy ends a move within 9".
+	GS.state["meta"]["active_player"] = 2
+	GS.state["meta"]["phase"] = GameStateData.Phase.MOVEMENT
+	GS.state["players"] = {"1": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0},
+		"2": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}}
+	var MP_DM = load("res://phases/MovementPhase.gd").new()
+	root.add_child(MP_DM)
+	MP_DM.game_state_snapshot = GS.state
+	var cr_check = MP_DM._check_scatter_opportunity("U_CR_TGT")
+	_check("CONNIVING RUNTS triggers the reactive window", cr_check.get("triggered", false))
+	var cr_elig = cr_check.get("result_extra", {}).get("scatter_eligible_units", [])
+	var cr_entry = cr_elig[0] if cr_elig.size() > 0 else {}
+	_check("CONNIVING RUNTS entry is stratagem-routed for the Gretchin",
+		cr_entry.get("unit_id", "") == "U_GROTS" and cr_entry.get("via_stratagem", false)
+		and str(cr_entry.get("strat_name", "")) == "Conniving Runts")
+	root.remove_child(MP_DM)
+	MP_DM.queue_free()
+
+	# ---- Enhancements -----------------------------------------------------------
+	var UAM_DM = root.get_node("UnitAbilityManager")
+	GS.state["units"] = {"U_MEKGUNZ": _boyz_unit("U_MEKGUNZ", 3)}
+	GS.get_unit("U_MEKGUNZ")["meta"]["keywords"] = ["ORKS", "INFANTRY", "MEK"]
+	GS.get_unit("U_MEKGUNZ")["meta"]["enhancements"] = ["Gitfinder Googlez", "Smoky Gubbinz"]
+	UAM_DM._applied_this_phase = {}
+	UAM_DM._apply_enhancement_abilities(8)
+	var dm_flags = GS.get_unit("U_MEKGUNZ")["flags"]
+	_check("Gitfinder Googlez sets effect_ignores_cover", dm_flags.get("effect_ignores_cover", false))
+	_check("Smoky Gubbinz sets effect_stealth", dm_flags.get("effect_stealth", false))
+	_check("Press It Fasta! is documented as not implemented",
+		UAM_DM.ABILITY_EFFECTS.get("Press It Fasta!", {}).get("implemented", true) == false)
+
+	# Supa-glowy Fing — D6 table vs the nearest visible enemy within 18"
+	var sgf_seen := {"shock": false, "mw": false, "debuff": false}
+	for s in range(1, 13):
+		GS.state["units"] = {
+			"U_SGF": {"id": "U_SGF", "owner": 1, "status": 2,
+				"meta": {"name": "Big Mek", "keywords": ["ORKS", "INFANTRY", "CHARACTER", "MEK"],
+					"enhancements": ["Supa-glowy Fing"], "abilities": [], "stats": {"leadership": 6}},
+				"flags": {}, "models": [{"id": "m0", "position": {"x": 100.0, "y": 100.0}, "base_mm": 32, "base_type": "circular", "alive": true, "wounds": 4, "current_wounds": 4}]},
+			"U_SGF_TGT": {"id": "U_SGF_TGT", "owner": 2, "status": 2,
+				"meta": {"name": "Guardsmen", "keywords": ["INFANTRY"], "abilities": [], "enhancements": [], "stats": {"leadership": 12, "wounds": 2}},
+				"flags": {}, "models": [{"id": "e0", "position": {"x": 300.0, "y": 100.0}, "base_mm": 32, "base_type": "circular", "alive": true, "wounds": 2, "current_wounds": 2}]},
+		}
+		rules.set_test_seed(s)
+		FAM.process_supa_glowy_fing(1)
+		var tgt = GS.get_unit("U_SGF_TGT")
+		if tgt["flags"].get("battle_shocked", false):
+			sgf_seen["shock"] = true
+		elif tgt["flags"].get("effect_minus_one_hit", false):
+			sgf_seen["debuff"] = true
+			_check("Supa-glowy debuff records its owner for expiry",
+				int(tgt["flags"].get("supa_glowy_debuff_from", 0)) == 1)
+			FAM._clear_supa_glowy_debuffs(1)
+			_check("Supa-glowy debuff expires at the owner's next Command phase",
+				not GS.get_unit("U_SGF_TGT")["flags"].has("effect_minus_one_hit"))
+		elif int(tgt["models"][0].get("current_wounds", 2)) < 2 or not tgt["models"][0].get("alive", true):
+			sgf_seen["mw"] = true
+	print("  Supa-glowy Fing outcomes seen: %s" % str(sgf_seen))
+	_check("Supa-glowy Fing produced battle-shock, MW and debuff outcomes across seeds",
+		sgf_seen["shock"] and sgf_seen["mw"] and sgf_seen["debuff"])
 
 
 # ==========================================================================

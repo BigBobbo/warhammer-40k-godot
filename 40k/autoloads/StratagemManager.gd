@@ -62,6 +62,9 @@ const _CUSTOM_IMPLEMENTED_NAMES: Array = [
 	# Kult of Speed
 	"SPEEDIEST FREEKS", "SQUIG FLINGIN'", "BLITZA FIRE", "DAKKASTORM",
 	"FULL THROTTLE!", "MORE GITZ OVER 'ERE!",
+	# Dread Mob (EXTRA GUBBINZ + SUPERFUELLED BOILER are auto via effects_json)
+	"BIGGER SHELLS FOR BIGGER GITZ", "DAKKA! DAKKA! DAKKA!",
+	"KLANKIN' KLAWS", "CONNIVING RUNTS",
 ]
 
 # Out-of-Phase Rules Restriction (P1-59)
@@ -2036,6 +2039,47 @@ func _apply_ork_sweep_effects(strat: Dictionary, target_unit_id: String, context
 			# offered and resolved by MovementPhase via the Scatter! scaffolding.
 			print("StratagemManager: MORE GITZ OVER 'ERE! applied to %s (reactive move handled by MovementPhase)" % target_unit_id)
 			return []
+		# ---- DREAD MOB -----------------------------------------------------
+		"BIGGER SHELLS FOR BIGGER GITZ":
+			# +1 to Wound vs MONSTER/VEHICLE; pushed: +1 Damage vs M/V too and
+			# ranged weapons gain HAZARDOUS. Live per-target checks in the
+			# ranged resolvers (get_bigger_shells_*_bonus).
+			var bs_push = bool(context.get("push_it", false)) if typeof(context) == TYPE_DICTIONARY else false
+			var bs_diffs = [{"op": "set", "path": "units.%s.flags.effect_bigger_shells" % target_unit_id, "value": true}]
+			if bs_push:
+				bs_diffs.append({"op": "set", "path": "units.%s.flags.effect_bigger_shells_push" % target_unit_id, "value": true})
+				bs_diffs.append({"op": "set", "path": "units.%s.flags.effect_grant_hazardous" % target_unit_id, "value": true})
+			print("StratagemManager: BIGGER SHELLS FOR BIGGER GITZ — %s +1 wound vs MONSTER/VEHICLE%s this phase" % [
+				target_unit_id, " (+1 damage, HAZARDOUS — pushed)" if bs_push else ""])
+			return bs_diffs
+		"DAKKA! DAKKA! DAKKA!":
+			# Re-roll hit 1s; pushed: full hit re-roll + ranged HAZARDOUS.
+			var d3_push = bool(context.get("push_it", false)) if typeof(context) == TYPE_DICTIONARY else false
+			var d3_scope = "failed" if d3_push else "ones"
+			var d3_diffs = [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_HITS], "value": d3_scope}]
+			if d3_push:
+				d3_diffs.append({"op": "set", "path": "units.%s.flags.effect_grant_hazardous" % target_unit_id, "value": true})
+			print("StratagemManager: DAKKA! DAKKA! DAKKA! — %s re-rolls hit rolls (%s)%s this phase" % [
+				target_unit_id, d3_scope, " + HAZARDOUS (pushed)" if d3_push else ""])
+			return d3_diffs
+		"KLANKIN' KLAWS":
+			# +2 S on melee weapons; pushed: +1 Damage and melee HAZARDOUS too.
+			# The +Damage rides FLAG_PLUS_DAMAGE, whose only consumer is the
+			# melee damage roll — safe for a Fight-phase-scoped effect.
+			var kk_push = bool(context.get("push_it", false)) if typeof(context) == TYPE_DICTIONARY else false
+			var kk_diffs = [{"op": "set", "path": "units.%s.flags.effect_klankin_klaws" % target_unit_id, "value": 2}]
+			if kk_push:
+				kk_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_PLUS_DAMAGE], "value": 1})
+				kk_diffs.append({"op": "set", "path": "units.%s.flags.effect_grant_hazardous_melee" % target_unit_id, "value": true})
+			print("StratagemManager: KLANKIN' KLAWS — %s melee +2 S%s this phase" % [
+				target_unit_id, " (+1 damage, HAZARDOUS — pushed)" if kk_push else ""])
+			return kk_diffs
+		"CONNIVING RUNTS":
+			# Reactive: D6 4+ = D3+1 mortal wounds to the enemy that just
+			# moved, then a Normal move — offered and resolved by MovementPhase
+			# via the Scatter! scaffolding.
+			print("StratagemManager: CONNIVING RUNTS applied to %s (reactive resolution handled by MovementPhase)" % target_unit_id)
+			return []
 	return null
 
 func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictionary) -> bool:
@@ -2129,6 +2173,23 @@ func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictiona
 		"DAKKASTORM":
 			flags.erase("effect_dakkastorm_kos")
 			return true
+		# ---- DREAD MOB -----------------------------------------------------
+		"BIGGER SHELLS FOR BIGGER GITZ":
+			flags.erase("effect_bigger_shells")
+			flags.erase("effect_bigger_shells_push")
+			flags.erase("effect_grant_hazardous")
+			return true
+		"DAKKA! DAKKA! DAKKA!":
+			flags.erase(EffectPrimitivesData.FLAG_REROLL_HITS)
+			flags.erase("effect_grant_hazardous")
+			return true
+		"KLANKIN' KLAWS":
+			flags.erase("effect_klankin_klaws")
+			flags.erase(EffectPrimitivesData.FLAG_PLUS_DAMAGE)
+			flags.erase("effect_grant_hazardous_melee")
+			return true
+		"CONNIVING RUNTS":
+			return true  # instant effect — nothing to clear
 		"FULL THROTTLE!":
 			flags.erase("effect_full_throttle")
 			return true

@@ -5983,14 +5983,20 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 	if trigger_pos == null:
 		return {"triggered": false}
 
-	# MORE GITZ OVER 'ERE! (Kult of Speed): stratagem-granted reactive move in
-	# the same window (enemy ends a Normal/Advance/Fall Back move within 9").
+	# MORE GITZ OVER 'ERE! (Kult of Speed) / CONNIVING RUNTS (Dread Mob):
+	# stratagem-granted reactions in the same window (enemy ends a
+	# Normal/Advance/Fall Back move within 9"). Detachments are exclusive per
+	# player, so at most one candidate resolves.
 	var mg_strat_id = ""
+	var mg_strat_name = ""
 	var strat_manager_sc = get_node_or_null("/root/StratagemManager")
 	if strat_manager_sc:
-		mg_strat_id = strat_manager_sc.find_faction_stratagem_by_name(defending_player, "More Gitz Over 'Ere!")
-		if mg_strat_id != "" and not strat_manager_sc.can_use_stratagem(defending_player, mg_strat_id).can_use:
-			mg_strat_id = ""
+		for sc_candidate in ["More Gitz Over 'Ere!", "Conniving Runts"]:
+			var sc_id = strat_manager_sc.find_faction_stratagem_by_name(defending_player, sc_candidate)
+			if sc_id != "" and strat_manager_sc.can_use_stratagem(defending_player, sc_id).can_use:
+				mg_strat_id = sc_id
+				mg_strat_name = sc_candidate
+				break
 
 	# Find eligible units with Scatter! ability (or the MORE GITZ stratagem)
 	var eligible = []
@@ -6033,9 +6039,9 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		eligible.append({"unit_id": unit_id, "unit_name": unit_name, "via_stratagem": via_stratagem,
-			"strat_id": mg_strat_id if via_stratagem else "", "strat_name": "More Gitz Over 'Ere!" if via_stratagem else ""})
+			"strat_id": mg_strat_id if via_stratagem else "", "strat_name": mg_strat_name if via_stratagem else ""})
 		DebugLogger.info(str("MovementPhase: OA-42 %s — %s is eligible (%.1f\" from trigger unit)" % [
-			"MORE GITZ OVER 'ERE!" if via_stratagem else "Scatter!", unit_name, dist_inches]))
+			mg_strat_name.to_upper() if via_stratagem else "Scatter!", unit_name, dist_inches]))
 
 	if eligible.is_empty():
 		return {"triggered": false}
@@ -6105,7 +6111,7 @@ func _process_use_scatter(action: Dictionary) -> Dictionary:
 			if strat_manager_us:
 				var mg_result = strat_manager_us.use_stratagem(player, entry.get("strat_id", ""), unit_id)
 				if not mg_result.get("success", false):
-					return create_result(false, [], "MORE GITZ OVER 'ERE! could not be used: %s" % str(mg_result.get("error", "unknown")))
+					return create_result(false, [], "%s could not be used: %s" % [entry.get("strat_name", "Reactive stratagem"), str(mg_result.get("error", "unknown"))])
 				used_strat_name = entry.get("strat_name", "More Gitz Over 'Ere!")
 			break
 
@@ -6115,14 +6121,29 @@ func _process_use_scatter(action: Dictionary) -> Dictionary:
 		if ability_mgr:
 			ability_mgr.mark_scatter_used_this_turn(unit_id)
 
-	log_phase_message("Player %d uses %s — %s can make a 6\" Normal move!" % [player, used_strat_name.to_upper() if used_strat_name != "" else "SCATTER!", unit_name])
-	DebugLogger.info(str("MovementPhase: OA-42 %s activated — %s (Player %d) gets 6\" Normal move" % [used_strat_name if used_strat_name != "" else "Scatter!", unit_name, player]))
+	# CONNIVING RUNTS (Dread Mob): before the move, roll one D6 — on a 4+ the
+	# enemy unit that just moved suffers D3+1 mortal wounds.
+	var is_conniving_runts: bool = used_strat_name.to_upper().replace("’", "'") == "CONNIVING RUNTS"
+	if is_conniving_runts and _scatter_trigger_unit_id != "":
+		var cr = RulesEngine.resolve_conniving_runts(_scatter_trigger_unit_id, GameState.create_snapshot(), RulesEngine.make_rng())
+		if not cr.get("diffs", []).is_empty():
+			PhaseManager.apply_state_changes(cr.get("diffs", []))
+		var trig_name = get_unit(_scatter_trigger_unit_id).get("meta", {}).get("name", _scatter_trigger_unit_id)
+		log_phase_message("CONNIVING RUNTS: rolled %d — %d mortal wound(s) to %s" % [
+			int(cr.get("roll", 0)), int(cr.get("mortal_wounds", 0)), trig_name])
 
-	# Set up the reactive Normal move with 6" cap
+	# Scatter!/MORE GITZ move up to 6"; CONNIVING RUNTS grants a full Normal move.
+	var move_cap = 6.0
+	if is_conniving_runts:
+		move_cap = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+
+	log_phase_message("Player %d uses %s — %s can make a %.0f\" Normal move!" % [player, used_strat_name.to_upper() if used_strat_name != "" else "SCATTER!", unit_name, move_cap])
+	DebugLogger.info(str("MovementPhase: OA-42 %s activated — %s (Player %d) gets %.0f\" Normal move" % [used_strat_name if used_strat_name != "" else "Scatter!", unit_name, player, move_cap]))
+
+	# Set up the reactive Normal move
 	_scatter_unit_id = unit_id
 	_reactive_move_owner = player  # Override engagement checks for this player's unit
 
-	var move_cap = 6.0
 	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "NORMAL",

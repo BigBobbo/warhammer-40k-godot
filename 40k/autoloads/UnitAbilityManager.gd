@@ -1478,6 +1478,57 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# DREAD MOB ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Gitfinder Googlez — bearer's unit ranged weapons gain [IGNORES COVER]
+	# (Git-spotter Squig clone).
+	"Gitfinder Googlez": {
+		"condition": "enhancement",
+		"effects": [{"type": "grant_ignores_cover"}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Mek model only. Bearer's unit ranged weapons have [IGNORES COVER]"
+	},
+
+	# Smoky Gubbinz — models in the bearer's unit have the Stealth ability.
+	"Smoky Gubbinz": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.GRANT_STEALTH}],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Mek model only. Bearer's unit has Stealth (effect_stealth: -1 to be hit by ranged attacks)"
+	},
+
+	# Supa-glowy Fing — Command-phase D6 vs the nearest visible enemy within
+	# 18": 1-2 Battle-shock test, 3-4 D3 mortal wounds, 5-6 -1 to its Hit
+	# rolls until your next Command phase. Resolved by
+	# FactionAbilityManager.process_supa_glowy_fing.
+	"Supa-glowy Fing": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Mek model only. Command phase: D6 vs nearest visible enemy within 18\" — 1-2 Battle-shock, 3-4 D3 MW, 5-6 -1 to hit (FactionAbilityManager hook)"
+	},
+
+	# Press It Fasta! — NOT IMPLEMENTED: extends the Try Dat Button!
+	# detachment rule (roll an extra Button Effect die), and Try Dat Button!
+	# itself is not implemented — the same class of gap as Speedwaaagh!'s
+	# Turbo Boostas and Taktikal Brigade's Gob Boomer.
+	"Press It Fasta!": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "Mek model only. Extra Try Dat Button! die (NOT implemented — requires the unimplemented Try Dat Button! detachment rule)"
+	},
+
+	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
 	# ======================================================================

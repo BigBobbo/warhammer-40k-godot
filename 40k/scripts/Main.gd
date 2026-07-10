@@ -11398,6 +11398,11 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	if strat_name == "FIGHT PROPPA":
 		_prompt_fight_proppa(sid_resolved, active_player)
 		return
+	# Dread Mob push-it stratagems: pick the friendly unit, then choose
+	# whether to push it (bigger effect + HAZARDOUS weapons).
+	if strat_name in ["BIGGER SHELLS FOR BIGGER GITZ", "DAKKA! DAKKA! DAKKA!", "KLANKIN' KLAWS"]:
+		_prompt_push_it_stratagem(sid_resolved, active_player)
+		return
 	# Unit-targeted faction stratagems (SPESHUL AMMO, DUST TRAILS, DAT'S OURS,
 	# TAKTIKAL RETREAT, DED SNEAKY, ...): prompt for the friendly target
 	# instead of firing target-less, which would no-op the unit-flag effect.
@@ -11457,6 +11462,26 @@ func _prompt_fight_proppa(sid: String, player: int) -> void:
 				func(choice: String):
 					var result = strat_manager.use_stratagem(player, sid, fid, {"chosen_ability": choice})
 					print("Main: FIGHT PROPPA %s (%s) -> %s" % [fid, choice, str(result)])
+					if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+						_stratagem_panel.populate(player, current_phase)))
+
+
+## Dread Mob push-it stratagems (BIGGER SHELLS / DAKKA!x3 / KLANKIN' KLAWS):
+## pick the friendly unit, then choose whether to push it.
+func _prompt_push_it_stratagem(sid: String, player: int) -> void:
+	var strat_manager = get_node("/root/StratagemManager")
+	var display_name := str(strat_manager.get_stratagem(sid).get("name", sid))
+	var friendly := _eligible_friendly_stratagem_targets(sid, player)
+	if friendly.is_empty():
+		print("Main: %s — no eligible friendly unit" % display_name)
+		return
+	_show_stratagem_pick_dialog("%s — select your unit" % display_name.to_upper(), friendly,
+		func(fid: String):
+			_show_stratagem_choice_dialog("%s — push it?" % display_name.to_upper(),
+				[["Push it! (bigger effect, HAZARDOUS)", "push"], ["Don't push it", "safe"]],
+				func(choice: String):
+					var result = strat_manager.use_stratagem(player, sid, fid, {"push_it": choice == "push"})
+					print("Main: %s %s (push_it=%s) -> %s" % [display_name, fid, str(choice == "push"), str(result)])
 					if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
 						_stratagem_panel.populate(player, current_phase)))
 
