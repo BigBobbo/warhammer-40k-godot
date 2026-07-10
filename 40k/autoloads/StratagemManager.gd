@@ -59,6 +59,9 @@ const _CUSTOM_IMPLEMENTED_NAMES: Array = [
 	# Da Big Hunt
 	"DAT ONE'S EVEN BIGGA!", "DRAG IT DOWN", "INSTINCTIVE HUNTERS",
 	"UNSTOPPABLE MOMENTUM", "STALKIN' TAKTIKS", "WHERE D'YA FINK YOU'RE GOING?",
+	# Kult of Speed
+	"SPEEDIEST FREEKS", "SQUIG FLINGIN'", "BLITZA FIRE", "DAKKASTORM",
+	"FULL THROTTLE!", "MORE GITZ OVER 'ERE!",
 ]
 
 # Out-of-Phase Rules Restriction (P1-59)
@@ -1986,6 +1989,53 @@ func _apply_ork_sweep_effects(strat: Dictionary, target_unit_id: String, context
 			# resolved by MovementPhase via the Krump-and-Run scaffolding.
 			print("StratagemManager: WHERE D'YA FINK YOU'RE GOING? applied to %s (reactive move handled by MovementPhase)" % target_unit_id)
 			return []
+		# ---- KULT OF SPEED -------------------------------------------------
+		"SPEEDIEST FREEKS":
+			# 5+ invulnerable save; 4+ instead for VEHICLE units with an
+			# unmodified Toughness of 8 or less.
+			var sf_unit = GameState.get_unit(target_unit_id)
+			var sf_inv := 5
+			if RulesEngine.unit_has_keyword(sf_unit, "VEHICLE") \
+					and int(sf_unit.get("meta", {}).get("stats", {}).get("toughness", 99)) <= 8:
+				sf_inv = 4
+			print("StratagemManager: SPEEDIEST FREEKS — %s gains a %d+ invulnerable save this phase" % [target_unit_id, sf_inv])
+			return [
+				{"op": "set", "path": "units.%s.flags.effect_invuln" % target_unit_id, "value": sf_inv},
+				{"op": "set", "path": "units.%s.flags.effect_invuln_source" % target_unit_id, "value": "Speediest Freeks"},
+			]
+		"SQUIG FLINGIN'":
+			# Chosen enemy within 9" takes a Battle-shock test at -1.
+			var sq_enemy := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", ""))) if typeof(context) == TYPE_DICTIONARY else ""
+			if sq_enemy == "":
+				print("StratagemManager: SQUIG FLINGIN' used without context.enemy_unit_id — no test forced")
+				return []
+			var sq = FactionAbilityManager.force_battle_shock_test(sq_enemy, -1, "Squig Flingin'")
+			print("StratagemManager: SQUIG FLINGIN' — %s takes a Battle-shock test at -1 (%s)" % [
+				sq_enemy, "FAILED" if sq.get("failed", false) else "passed"])
+			return []
+		"BLITZA FIRE":
+			# Ranged LETHAL HITS + crit 5+ vs targets within 9" (live checks in
+			# the ranged resolvers). 11e 15.01 already prevents the same unit
+			# being targeted by this and DAKKASTORM in one phase.
+			print("StratagemManager: BLITZA FIRE — %s ranged LETHAL HITS + crit 5+ within 9\" this phase" % target_unit_id)
+			return [
+				{"op": "set", "path": "units.%s.flags.effect_lethal_hits_ranged" % target_unit_id, "value": true},
+				{"op": "set", "path": "units.%s.flags.effect_blitza_fire" % target_unit_id, "value": true},
+			]
+		"DAKKASTORM":
+			# Ranged SUSTAINED HITS 1 (2 while targeting a unit within 9") —
+			# live per-target check in the ranged resolvers.
+			print("StratagemManager: DAKKASTORM — %s ranged SUSTAINED HITS 1 (2 within 9\") this phase" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_dakkastorm_kos" % target_unit_id, "value": true}]
+		"FULL THROTTLE!":
+			# +1 to melee Wound rolls until the end of the turn.
+			print("StratagemManager: FULL THROTTLE! — %s +1 to melee wound rolls until end of turn" % target_unit_id)
+			return [{"op": "set", "path": "units.%s.flags.effect_full_throttle" % target_unit_id, "value": true}]
+		"MORE GITZ OVER 'ERE!":
+			# Reactive 6" Normal move after an enemy ends any move within 9" —
+			# offered and resolved by MovementPhase via the Scatter! scaffolding.
+			print("StratagemManager: MORE GITZ OVER 'ERE! applied to %s (reactive move handled by MovementPhase)" % target_unit_id)
+			return []
 	return null
 
 func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictionary) -> bool:
@@ -2064,6 +2114,24 @@ func _clear_ork_sweep_flags(strat: Dictionary, _unit_id: String, flags: Dictiona
 			flags.erase(EffectPrimitivesData.FLAG_COVER)
 			flags.erase(EffectPrimitivesData.FLAG_STEALTH)
 			return true
+		# ---- KULT OF SPEED -------------------------------------------------
+		"SPEEDIEST FREEKS":
+			if flags.get("effect_invuln_source", "") == "Speediest Freeks":
+				flags.erase("effect_invuln")
+				flags.erase("effect_invuln_source")
+			return true
+		"SQUIG FLINGIN'", "MORE GITZ OVER 'ERE!":
+			return true  # instant effects — nothing to clear
+		"BLITZA FIRE":
+			flags.erase("effect_lethal_hits_ranged")
+			flags.erase("effect_blitza_fire")
+			return true
+		"DAKKASTORM":
+			flags.erase("effect_dakkastorm_kos")
+			return true
+		"FULL THROTTLE!":
+			flags.erase("effect_full_throttle")
+			return true
 	return false
 
 func _find_nearest_friendly_keyword_unit(unit_id: String, keyword: String, max_inches: float) -> String:
@@ -2113,6 +2181,9 @@ func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String)
 		stratagem_id = "krunchin_descent"
 	elif _strat_name == "CALL DAT DAKKA?":
 		stratagem_id = "any_enemy"
+	elif _strat_name == "SQUIG FLINGIN'":
+		# Enemy units within 9" of the friendly unit.
+		stratagem_id = "within_9_enemy"
 	var snapshot = GameState.create_snapshot()
 	var friendly = snapshot.get("units", {}).get(friendly_unit_id, {})
 	if friendly.is_empty():
@@ -2138,6 +2209,9 @@ func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String)
 					out.append(uid)
 			"any_enemy":
 				out.append(uid)
+			"within_9_enemy":
+				if RulesEngine.is_target_within_range_inches(friendly, enemy, 9.0):
+					out.append(uid)
 			"explosives":
 				if RulesEngine.is_unit_engaged(uid, snapshot):
 					continue

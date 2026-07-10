@@ -2201,6 +2201,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(actor_unit):
 			weapon_has_lethal_hits = true
 			print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Ammo Runt)")
+		# BLITZA FIRE (Kult of Speed): ranged-scoped Lethal Hits flag
+		if not weapon_has_lethal_hits and actor_unit.get("flags", {}).get("effect_lethal_hits_ranged", false):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by ranged effect flag (BLITZA FIRE)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
@@ -2209,6 +2213,11 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(actor_unit, target_unit, board):
 			sustained_data = {"value": 1, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS 1 granted by Here Be Loot (Freebooter Krew detachment)")
+		# DAKKASTORM (Kult of Speed): ranged SUSTAINED HITS 1 (2 within 9")
+		var kos_ds_val = get_dakkastorm_sustained_value(actor_unit, target_unit)
+		if kos_ds_val > int(sustained_data.value):
+			sustained_data = {"value": kos_ds_val, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by DAKKASTORM (Kult of Speed)" % kos_ds_val)
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -3801,6 +3810,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(actor_unit):
 			weapon_has_lethal_hits = true
 			print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Ammo Runt)")
+		# BLITZA FIRE (Kult of Speed): ranged-scoped Lethal Hits flag
+		if not weapon_has_lethal_hits and actor_unit.get("flags", {}).get("effect_lethal_hits_ranged", false):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by ranged effect flag (BLITZA FIRE)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
@@ -3809,6 +3822,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(actor_unit, target_unit, board):
 			sustained_data = {"value": 1, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS 1 granted by Here Be Loot (Freebooter Krew detachment)")
+		# DAKKASTORM (Kult of Speed): ranged SUSTAINED HITS 1 (2 within 9")
+		var kos_ds_val = get_dakkastorm_sustained_value(actor_unit, target_unit)
+		if kos_ds_val > int(sustained_data.value):
+			sustained_data = {"value": kos_ds_val, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by DAKKASTORM (Kult of Speed)" % kos_ds_val)
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -7675,6 +7693,13 @@ static func get_speshul_shells_ap_bonus(actor_unit: Dictionary, target_unit: Dic
 		return 1
 	return 0
 
+# DAKKASTORM (Kult of Speed): ranged SUSTAINED HITS 1, upgraded to
+# SUSTAINED HITS 2 while targeting a unit within 9". Returns 0 without the flag.
+static func get_dakkastorm_sustained_value(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get("effect_dakkastorm_kos", false):
+		return 0
+	return 2 if is_target_within_range_inches(actor_unit, target_unit, 9.0) else 1
+
 # PREY (Da Big Hunt detachment rule): each time a BEAST SNAGGA model makes an
 # attack (ranged or melee) that targets its owner's Prey, improve the AP of
 # that attack by 1. The Prey marker lives on the target unit's flags
@@ -7947,19 +7972,23 @@ static func has_conversion(weapon_id: String, board: Dictionary = {}) -> bool:
 # For Conversion X+: if ANY attacking model is 12"+ from the closest target model,
 # the critical hit threshold is lowered to X for all attacks (conservative approach)
 static func get_critical_hit_threshold(weapon_id: String, actor_unit: Dictionary, target_unit: Dictionary, model_ids: Array, board: Dictionary) -> int:
+	var threshold := 6  # Default: only 6s are critical hits
 	var conversion_threshold = get_conversion_threshold(weapon_id, board)
-	if conversion_threshold <= 0:
-		return 6  # Default: only 6s are critical hits
-
-	# Check distance: Conversion only applies at 12"+ from target
-	# Use the closest attacking model's distance to the closest target model
-	var min_distance_inches = _get_min_distance_to_target(actor_unit, target_unit, model_ids)
-	if min_distance_inches >= 12.0:
-		print("RulesEngine: CONVERSION %d+ active — closest model is %.1f\" from target (>= 12\")" % [conversion_threshold, min_distance_inches])
-		return conversion_threshold
-	else:
-		print("RulesEngine: CONVERSION %d+ NOT active — closest model is %.1f\" from target (< 12\")" % [conversion_threshold, min_distance_inches])
-		return 6  # Too close, normal crit threshold
+	if conversion_threshold > 0:
+		# Check distance: Conversion only applies at 12"+ from target
+		# Use the closest attacking model's distance to the closest target model
+		var min_distance_inches = _get_min_distance_to_target(actor_unit, target_unit, model_ids)
+		if min_distance_inches >= 12.0:
+			print("RulesEngine: CONVERSION %d+ active — closest model is %.1f\" from target (>= 12\")" % [conversion_threshold, min_distance_inches])
+			threshold = conversion_threshold
+		else:
+			print("RulesEngine: CONVERSION %d+ NOT active — closest model is %.1f\" from target (< 12\")" % [conversion_threshold, min_distance_inches])
+	# BLITZA FIRE (Kult of Speed): ranged crits on 5+ vs targets within 9"
+	if threshold > 5 and actor_unit.get("flags", {}).get("effect_blitza_fire", false) \
+			and is_target_within_range_inches(actor_unit, target_unit, 9.0):
+		threshold = 5
+		print("RulesEngine: BLITZA FIRE — ranged critical hits on 5+ (target within 9\")")
+	return threshold
 
 # Get the minimum distance (in inches) from any attacking model to the closest target model
 static func _get_min_distance_to_target(actor_unit: Dictionary, target_unit: Dictionary, model_ids: Array) -> float:
@@ -10824,6 +10853,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if unit_charged:
 			melee_wound_modifiers |= WoundModifier.PLUS_ONE
 			print("RulesEngine: LANCE (melee) — +1 to wound (unit charged this turn)")
+
+	# FULL THROTTLE! (Kult of Speed): +1 to melee wound rolls until end of turn
+	if attacker_unit.get("flags", {}).get("effect_full_throttle", false):
+		melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: FULL THROTTLE! (melee) — +1 to wound for %s" % attacker_id)
 
 	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit (melee)
 	var melee_da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)

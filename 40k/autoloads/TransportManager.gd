@@ -158,8 +158,18 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 
 	if transport.get("flags", {}).get("moved", false):
 		unit.flags["cannot_move"] = true
-		unit.flags["cannot_charge"] = true
-		print("Transport has moved - disembarked unit cannot move or charge")
+		# Fasta Than Yooz (Kult of Speed): the bearer's unit is still eligible
+		# to declare a charge after disembarking from a transport that made a
+		# Normal move this turn. (Runtime lookup: TransportManager registers
+		# before FactionAbilityManager in the autoload order, so a parse-time
+		# identifier reference breaks the boot-time compile chain.)
+		var fam_tm = get_node_or_null("/root/FactionAbilityManager")
+		if fam_tm != null and fam_tm._unit_or_attached_has_enhancement(unit, "Fasta Than Yooz", GameState.state.get("units", {})):
+			unit.flags["cannot_charge"] = false
+			print("Fasta Than Yooz - transport has moved but disembarked unit remains eligible to charge")
+		else:
+			unit.flags["cannot_charge"] = true
+			print("Transport has moved - disembarked unit cannot move or charge")
 	else:
 		# Ensure flags are clear if transport hasn't moved
 		unit.flags["cannot_move"] = false

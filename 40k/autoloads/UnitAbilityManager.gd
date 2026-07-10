@@ -1430,6 +1430,54 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# KULT OF SPEED ENHANCEMENT ABILITIES
+	# ======================================================================
+
+	# Fasta Than Yooz — still eligible to charge after disembarking from a
+	# transport that made a Normal move (live hook in TransportManager).
+	"Fasta Than Yooz": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks Infantry only. Bearer's unit can still charge after disembarking from a transport that made a Normal move (TransportManager hook)"
+	},
+
+	# Speed Makes Right — Command-phase D6 if the bearer is within 9" of an
+	# enemy: 3+ = 1 CP (FactionAbilityManager.process_command_phase_cp_enhancements).
+	"Speed Makes Right": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Orks model only. Command phase: D6 if bearer within 9\" of an enemy, 3+ = gain 1 CP (FactionAbilityManager hook; embarked-bearer case not modelled)"
+	},
+
+	# Squig-hide Tyres — 6" Consolidation moves for the bearer's unit (live
+	# hook in FightPhase._get_consolidation_distance).
+	"Squig-hide Tyres": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Deffkilla Wartrike only. Bearer's unit consolidates up to 6\" instead of 3\" (FightPhase hook)"
+	},
+
+	# Wazblasta — post-shooting 6" Normal move if unengaged; no charge after.
+	# Offered by ShootingPhase (USE_WAZBLASTA / DECLINE_WAZBLASTA).
+	"Wazblasta": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Deffkilla Wartrike only. After the bearer's unit shoots (unengaged): 6\" Normal move, then cannot charge this turn (ShootingPhase offer)"
+	},
+
+	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
 	# ======================================================================

@@ -3427,7 +3427,7 @@ func _get_bomb_squigs_targets(unit_id: String) -> Array:
 		if other_pos == null:
 			continue
 
-		var dist_inches = unit_pos.distance_to(other_pos) / GameState.PIXELS_PER_INCH
+		var dist_inches = Measurement.px_to_inches(unit_pos.distance_to(other_pos))
 		if dist_inches <= 12.0:
 			targets.append({
 				"target_unit_id": other_id,
@@ -5983,7 +5983,16 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 	if trigger_pos == null:
 		return {"triggered": false}
 
-	# Find eligible units with Scatter! ability
+	# MORE GITZ OVER 'ERE! (Kult of Speed): stratagem-granted reactive move in
+	# the same window (enemy ends a Normal/Advance/Fall Back move within 9").
+	var mg_strat_id = ""
+	var strat_manager_sc = get_node_or_null("/root/StratagemManager")
+	if strat_manager_sc:
+		mg_strat_id = strat_manager_sc.find_faction_stratagem_by_name(defending_player, "More Gitz Over 'Ere!")
+		if mg_strat_id != "" and not strat_manager_sc.can_use_stratagem(defending_player, mg_strat_id).can_use:
+			mg_strat_id = ""
+
+	# Find eligible units with Scatter! ability (or the MORE GITZ stratagem)
 	var eligible = []
 	var units = check_snapshot.get("units", {})
 	for unit_id in units:
@@ -5995,12 +6004,14 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
 			continue
 
-		# Must have Scatter! ability
-		if not ability_mgr.has_scatter(unit_id):
-			continue
-
-		# Must not have used Scatter! this turn
-		if ability_mgr.is_scatter_used_this_turn(unit_id):
+		# Route A: the Scatter! ability (free, once per turn per unit).
+		var via_ability: bool = ability_mgr.has_scatter(unit_id) and not ability_mgr.is_scatter_used_this_turn(unit_id)
+		# Route B: MORE GITZ OVER 'ERE! (1 CP, per-target conditions enforced
+		# by can_use_stratagem — SPEED FREEKS keyword, unengaged).
+		var via_stratagem: bool = false
+		if not via_ability and mg_strat_id != "":
+			via_stratagem = strat_manager_sc.can_use_stratagem(defending_player, mg_strat_id, unit_id).can_use
+		if not (via_ability or via_stratagem):
 			continue
 
 		# Must NOT be in engagement range of any enemy unit
@@ -6016,13 +6027,15 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 		if unit_pos == null:
 			continue
 
-		var dist_inches = unit_pos.distance_to(trigger_pos) / GameState.PIXELS_PER_INCH
+		var dist_inches = Measurement.px_to_inches(unit_pos.distance_to(trigger_pos))
 		if dist_inches > 9.0:
 			continue
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		eligible.append({"unit_id": unit_id, "unit_name": unit_name})
-		DebugLogger.info(str("MovementPhase: OA-42 Scatter! — %s is eligible (%.1f\" from trigger unit)" % [unit_name, dist_inches]))
+		eligible.append({"unit_id": unit_id, "unit_name": unit_name, "via_stratagem": via_stratagem,
+			"strat_id": mg_strat_id if via_stratagem else "", "strat_name": "More Gitz Over 'Ere!" if via_stratagem else ""})
+		DebugLogger.info(str("MovementPhase: OA-42 %s — %s is eligible (%.1f\" from trigger unit)" % [
+			"MORE GITZ OVER 'ERE!" if via_stratagem else "Scatter!", unit_name, dist_inches]))
 
 	if eligible.is_empty():
 		return {"triggered": false}
@@ -6076,19 +6089,34 @@ func _validate_use_scatter(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _process_use_scatter(action: Dictionary) -> Dictionary:
-	"""Process using Scatter! — set up reactive Normal move of up to 6\"."""
+	"""Process using Scatter! — set up reactive Normal move of up to 6\".
+	Also serves MORE GITZ OVER 'ERE! (Kult of Speed): eligible entries carry
+	via_stratagem=true and the stratagem is used (CP spent) instead of
+	marking the Scatter! ability as used."""
 	var unit_id = action.get("payload", {}).get("unit_id", "")
 	var player = _scatter_player
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
-	# Mark Scatter! as used this turn for this unit
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_scatter_used_this_turn(unit_id)
+	var used_strat_name = ""
+	for entry in _scatter_eligible_units:
+		if entry.get("unit_id", "") == unit_id and entry.get("via_stratagem", false):
+			var strat_manager_us = get_node_or_null("/root/StratagemManager")
+			if strat_manager_us:
+				var mg_result = strat_manager_us.use_stratagem(player, entry.get("strat_id", ""), unit_id)
+				if not mg_result.get("success", false):
+					return create_result(false, [], "MORE GITZ OVER 'ERE! could not be used: %s" % str(mg_result.get("error", "unknown")))
+				used_strat_name = entry.get("strat_name", "More Gitz Over 'Ere!")
+			break
 
-	log_phase_message("Player %d uses SCATTER! — %s can make a 6\" Normal move!" % [player, unit_name])
-	DebugLogger.info(str("MovementPhase: OA-42 Scatter! activated — %s (Player %d) gets 6\" Normal move" % [unit_name, player]))
+	if used_strat_name == "":
+		# Mark Scatter! as used this turn for this unit
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr:
+			ability_mgr.mark_scatter_used_this_turn(unit_id)
+
+	log_phase_message("Player %d uses %s — %s can make a 6\" Normal move!" % [player, used_strat_name.to_upper() if used_strat_name != "" else "SCATTER!", unit_name])
+	DebugLogger.info(str("MovementPhase: OA-42 %s activated — %s (Player %d) gets 6\" Normal move" % [used_strat_name if used_strat_name != "" else "Scatter!", unit_name, player]))
 
 	# Set up the reactive Normal move with 6" cap
 	_scatter_unit_id = unit_id

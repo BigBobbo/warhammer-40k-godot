@@ -72,6 +72,10 @@ var awaiting_swift_as_eagle: bool = false
 # The reactive post-shooting-move scaffolding serves SWIFT AS THE EAGLE
 # (Lions of the Emperor) and GO GET 'EM! (Green Tide).
 var swift_as_eagle_pending_strat: String = "SWIFT AS THE EAGLE"
+# Wazblasta (Kult of Speed enhancement): after the bearer's unit shoots, if it
+# is unengaged it may make a 6" Normal move but cannot charge this turn.
+var wazblasta_pending_unit: String = ""
+var awaiting_wazblasta: bool = false
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
@@ -102,6 +106,8 @@ func _on_phase_enter() -> void:
 	swift_as_eagle_pending_unit = ""
 	swift_as_eagle_move_inches = 0
 	awaiting_swift_as_eagle = false
+	wazblasta_pending_unit = ""
+	awaiting_wazblasta = false
 	_targets_hit_by_shooter.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
@@ -441,6 +447,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_swift_as_the_eagle(action)
 		"DECLINE_SWIFT_AS_THE_EAGLE":
 			return _validate_decline_swift_as_the_eagle(action)
+		"USE_WAZBLASTA":
+			return _validate_wazblasta_decision(action)
+		"DECLINE_WAZBLASTA":
+			return _validate_wazblasta_decision(action)
 		"END_MOVEMENT":
 			# Idempotent no-op: previous phase auto-advanced before END_MOVEMENT was dispatched.
 			return {"valid": true}
@@ -573,6 +583,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"DECLINE_SWIFT_AS_THE_EAGLE":
 			DebugLogger.info("ShootingPhase: Matched DECLINE_SWIFT_AS_THE_EAGLE")
 			return _process_decline_swift_as_the_eagle(action)
+		"USE_WAZBLASTA":
+			DebugLogger.info("ShootingPhase: Matched USE_WAZBLASTA")
+			return _process_use_wazblasta(action)
+		"DECLINE_WAZBLASTA":
+			DebugLogger.info("ShootingPhase: Matched DECLINE_WAZBLASTA")
+			return _process_decline_wazblasta(action)
 		"END_MOVEMENT":
 			DebugLogger.info("ShootingPhase: Matched END_MOVEMENT (no-op, phase already advanced)")
 			return create_result(true, [], "")
@@ -4423,6 +4439,25 @@ func get_available_actions() -> Array:
 		})
 		return actions
 
+	# Wazblasta pending — offer use/decline (shooter owner's choice)
+	if awaiting_wazblasta and wazblasta_pending_unit != "":
+		var wb_unit = get_unit(wazblasta_pending_unit)
+		var wb_name = wb_unit.get("meta", {}).get("name", wazblasta_pending_unit) if not wb_unit.is_empty() else wazblasta_pending_unit
+		var wb_player = int(wb_unit.get("owner", 0))
+		actions.append({
+			"type": "USE_WAZBLASTA",
+			"actor_unit_id": wazblasta_pending_unit,
+			"player": wb_player,
+			"description": "Wazblasta — %s makes a 6\" Normal move (cannot charge this turn)" % wb_name
+		})
+		actions.append({
+			"type": "DECLINE_WAZBLASTA",
+			"actor_unit_id": wazblasta_pending_unit,
+			"player": wb_player,
+			"description": "Decline Wazblasta — %s" % wb_name
+		})
+		return actions
+
 	# P2-25: Distraction Grot pending — offer use/decline (defender's choice)
 	if awaiting_distraction_grot and distraction_grot_pending_unit != "":
 		var dg_unit = get_unit(distraction_grot_pending_unit)
@@ -4972,6 +5007,22 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 			"move_inches": swift_check.move_inches,
 			"unit_name": swift_check.unit_name,
 			"strat_name": swift_as_eagle_pending_strat
+		})
+
+	# Wazblasta (Kult of Speed): after the bearer's unit has shot, if it is
+	# not in Engagement Range it can make a 6" Normal move (then cannot
+	# charge). Offered to the SHOOTER's owner. Skipped when a defender-side
+	# reactive move (Swift as the Eagle / Go Get 'Em!) already triggered.
+	if _check_wazblasta(shooter_id):
+		PhaseManager.apply_state_changes(changes)
+		awaiting_wazblasta = true
+		wazblasta_pending_unit = shooter_id
+		var wb_name = get_unit(shooter_id).get("meta", {}).get("name", shooter_id)
+		log_phase_message("WAZBLASTA available for %s — 6\" Normal move after shooting (no charge this turn)" % wb_name)
+		return create_result(true, changes, "Wazblasta available", {
+			"wazblasta_available": true,
+			"unit_id": shooter_id,
+			"unit_name": wb_name
 		})
 
 	return create_result(true, changes, "Shooting complete")
@@ -7106,3 +7157,58 @@ func _process_decline_swift_as_the_eagle(action: Dictionary) -> Dictionary:
 	swift_as_eagle_pending_unit = ""
 	swift_as_eagle_move_inches = 0
 	return create_result(true, [], "Swift as the Eagle declined")
+
+# ============================================================================
+# WAZBLASTA (Kult of Speed enhancement) — post-shooting 6" Normal move
+# ============================================================================
+
+func _check_wazblasta(shooter_id: String) -> bool:
+	"""Wazblasta: the bearer's unit, after it has shot, can make a 6\" Normal
+	move if it is not within Engagement Range of any enemy unit."""
+	var unit = get_unit(shooter_id)
+	if unit.is_empty():
+		return false
+	# Only on the shooter owner's own Shooting phase (always true here, but
+	# guard against out-of-phase shooting like overwatch resolution).
+	if int(unit.get("owner", 0)) != get_current_player():
+		return false
+	if not FactionAbilityManager._unit_or_attached_has_enhancement(unit, "Wazblasta", GameState.state.get("units", {})):
+		return false
+	if RulesEngine.is_unit_engaged(shooter_id, GameState.create_snapshot()):
+		return false
+	return true
+
+func _validate_wazblasta_decision(_action: Dictionary) -> Dictionary:
+	if not awaiting_wazblasta or wazblasta_pending_unit == "":
+		return {"valid": false, "errors": ["No Wazblasta decision pending"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_wazblasta(_action: Dictionary) -> Dictionary:
+	var unit_id = wazblasta_pending_unit
+	var unit_name = GameState.get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	# Reuse the post-shooting reactive-move flags (same affordance as Swift as
+	# the Eagle / Go Get 'Em!) with a fixed 6" cap; the unit cannot charge.
+	var changes: Array = [{
+		"op": "set",
+		"path": "units.%s.flags.effect_swift_as_the_eagle" % unit_id,
+		"value": true
+	}, {
+		"op": "set",
+		"path": "units.%s.flags.swift_eagle_move_remaining" % unit_id,
+		"value": 6
+	}, {
+		"op": "set",
+		"path": "units.%s.flags.cannot_charge" % unit_id,
+		"value": true
+	}]
+	log_phase_message("WAZBLASTA: %s can make a Normal move of up to 6\" — not eligible to charge this turn" % unit_name)
+	awaiting_wazblasta = false
+	wazblasta_pending_unit = ""
+	return create_result(true, changes, "Wazblasta activated — 6\" move, no charge")
+
+func _process_decline_wazblasta(_action: Dictionary) -> Dictionary:
+	var unit_name = GameState.get_unit(wazblasta_pending_unit).get("meta", {}).get("name", wazblasta_pending_unit)
+	log_phase_message("WAZBLASTA: %s declines the post-shooting move" % unit_name)
+	awaiting_wazblasta = false
+	wazblasta_pending_unit = ""
+	return create_result(true, [], "Wazblasta declined")

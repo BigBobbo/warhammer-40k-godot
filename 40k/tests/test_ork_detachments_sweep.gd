@@ -101,6 +101,7 @@ func _run():
 	_more_dakka(SM, GS, FAM, rules)
 	_bully_boyz(SM, GS, FAM, rules)
 	_da_big_hunt(SM, GS, FAM, rules)
+	_kult_of_speed(SM, GS, FAM, rules)
 
 
 # ==========================================================================
@@ -483,6 +484,204 @@ func _da_big_hunt(SM, GS, FAM, rules):
 	_check("Skrag Every Stash! locks the bearer's objective (sticky)",
 		MM._sticky_objectives.has("obj_skrag")
 		and GS.get_unit("U_SKRAG")["flags"].get("effect_sticky_objective_control", "") == "obj_skrag")
+
+
+# ==========================================================================
+# KULT OF SPEED
+# ==========================================================================
+func _kult_of_speed(SM, GS, FAM, rules):
+	print("\n===== KULT OF SPEED =====")
+	var kos = _load_detachment(SM, GS, "Kult of Speed")
+	_check("Kult of Speed: 6 stratagems loaded", kos.count == 6)
+	_check("Kult of Speed: all 6 implemented", kos.implemented == 6)
+	var sf_def = kos.by_name.get("SPEEDIEST FREEKS", {})
+	_check("SPEEDIEST FREEKS has keyword_any SPEED FREEKS/TRUKK",
+		"keyword_any:SPEED FREEKS,TRUKK" in sf_def.get("target", {}).get("conditions", []))
+	var mg_def = kos.by_name.get("MORE GITZ OVER 'ERE!", {})
+	_check("MORE GITZ requires SPEED FREEKS + unengaged",
+		"keyword:SPEED FREEKS" in mg_def.get("target", {}).get("conditions", [])
+		and "not_in_engagement_range" in mg_def.get("target", {}).get("conditions", []))
+	_check("MORE GITZ findable by straight-apostrophe name",
+		SM.find_faction_stratagem_by_name(1, "More Gitz Over 'Ere!") != "")
+
+	# ---- SPEEDIEST FREEKS: 5+ invuln, 4+ for VEHICLE with T <= 8 --------------
+	GS.state["units"] = {"U_BIKERZ": _boyz_unit("U_BIKERZ", 3), "U_TRUKK1": _boyz_unit("U_TRUKK1", 1), "U_KILLRIG": _boyz_unit("U_KILLRIG", 1)}
+	GS.get_unit("U_BIKERZ")["meta"]["keywords"] = ["ORKS", "SPEED FREEKS", "MOUNTED"]
+	GS.get_unit("U_TRUKK1")["meta"]["keywords"] = ["ORKS", "TRUKK", "VEHICLE", "TRANSPORT"]
+	GS.get_unit("U_TRUKK1")["meta"]["stats"]["toughness"] = 8
+	GS.get_unit("U_KILLRIG")["meta"]["keywords"] = ["ORKS", "VEHICLE", "SPEED FREEKS"]
+	GS.get_unit("U_KILLRIG")["meta"]["stats"]["toughness"] = 9
+	var strat_sf = {"id": "t_sf", "name": "SPEEDIEST FREEKS", "effects": [{"type": "custom:speediest_freeks"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_sf", "U_BIKERZ", strat_sf, {}))
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_sf", "U_TRUKK1", strat_sf, {}))
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_sf", "U_KILLRIG", strat_sf, {}))
+	_check("SPEEDIEST FREEKS: 5+ invuln for non-VEHICLE", int(GS.get_unit("U_BIKERZ")["flags"].get("effect_invuln", 0)) == 5)
+	_check("SPEEDIEST FREEKS: 4+ invuln for VEHICLE T8", int(GS.get_unit("U_TRUKK1")["flags"].get("effect_invuln", 0)) == 4)
+	_check("SPEEDIEST FREEKS: 5+ invuln for VEHICLE T9", int(GS.get_unit("U_KILLRIG")["flags"].get("effect_invuln", 0)) == 5)
+	SM.stratagems["t_sf"] = strat_sf
+	SM._clear_stratagem_flags("U_TRUKK1", "t_sf")
+	_check("SPEEDIEST FREEKS clear removes the invuln", not GS.get_unit("U_TRUKK1")["flags"].has("effect_invuln"))
+
+	# ---- SQUIG FLINGIN': forced Battle-shock at -1 ----------------------------
+	var sqf_models = [{"id": "m0", "position": {"x": 10.0, "y": 10.0}, "base_mm": 32, "base_type": "circular", "alive": true, "wounds": 1, "current_wounds": 1}]
+	var sqf_enemy_models = [{"id": "e0", "position": {"x": 100.0, "y": 10.0}, "base_mm": 32, "base_type": "circular", "alive": true, "wounds": 1, "current_wounds": 1}]
+	GS.state["units"] = {
+		"U_SQF": {"id": "U_SQF", "owner": 1, "status": 2,
+			"meta": {"name": "Warbikers", "keywords": ["ORKS", "SPEED FREEKS", "MOUNTED"], "abilities": [], "enhancements": [], "stats": {}},
+			"flags": {}, "models": sqf_models},
+		"U_SQF_TGT": {"id": "U_SQF_TGT", "owner": 2, "status": 2,
+			"meta": {"name": "Guardsmen", "keywords": ["INFANTRY"], "abilities": [], "enhancements": [], "stats": {"leadership": 12}},
+			"flags": {}, "models": sqf_enemy_models},
+	}
+	rules.set_test_seed(5)
+	var strat_sqf = {"id": "t_sqf", "name": "SQUIG FLINGIN’", "effects": [{"type": "custom:squig_flingin"}]}
+	SM._apply_stratagem_effects("t_sqf", "U_SQF", strat_sqf, {"enemy_unit_id": "U_SQF_TGT"})
+	_check("SQUIG FLINGIN' battle-shocks the chosen enemy (Ld 12 unreachable at -1)",
+		GS.get_unit("U_SQF_TGT")["flags"].get("battle_shocked", false))
+	var sqf_sid = SM.find_faction_stratagem_by_name(1, "Squig Flingin'")
+	_check("SQUIG FLINGIN' enemy picker lists units within 9\"",
+		"U_SQF_TGT" in SM.get_stratagem_enemy_targets(sqf_sid, "U_SQF"))
+
+	# ---- BLITZA FIRE: ranged lethal + crit 5+ within 9" ------------------------
+	GS.state["units"] = {"U_BF": _boyz_unit("U_BF", 3)}
+	GS.get_unit("U_BF")["meta"]["keywords"] = ["ORKS", "SPEED FREEKS"]
+	var strat_bf = {"id": "t_bf", "name": "BLITZA FIRE", "effects": [{"type": "custom:blitza_fire"}]}
+	GS.apply_state_changes(SM._apply_stratagem_effects("t_bf", "U_BF", strat_bf, {}))
+	var bf_flags = GS.get_unit("U_BF")["flags"]
+	_check("BLITZA FIRE sets ranged lethal + crit flags",
+		bf_flags.get("effect_lethal_hits_ranged", false) and bf_flags.get("effect_blitza_fire", false))
+	var bf_actor = {"owner": 1, "meta": {}, "flags": {"effect_blitza_fire": true},
+		"models": [{"id": "m0", "position": {"x": 10.0, "y": 10.0}, "base_mm": 32, "alive": true}]}
+	var bf_near = {"meta": {}, "flags": {}, "models": [{"id": "t0", "position": {"x": 200.0, "y": 10.0}, "base_mm": 32, "alive": true}]}
+	var bf_far = {"meta": {}, "flags": {}, "models": [{"id": "t1", "position": {"x": 900.0, "y": 10.0}, "base_mm": 32, "alive": true}]}
+	_check("BLITZA FIRE ranged crit 5+ within 9\"", rules.get_critical_hit_threshold("", bf_actor, bf_near, [], {}) == 5)
+	_check("BLITZA FIRE crit stays 6 beyond 9\"", rules.get_critical_hit_threshold("", bf_actor, bf_far, [], {}) == 6)
+
+	# ---- DAKKASTORM: ranged SUSTAINED 1 / 2 within 9" ---------------------------
+	var ds_actor = {"owner": 1, "meta": {}, "flags": {"effect_dakkastorm_kos": true}, "models": bf_actor.models}
+	_check("DAKKASTORM SUSTAINED HITS 2 within 9\"", rules.get_dakkastorm_sustained_value(ds_actor, bf_near) == 2)
+	_check("DAKKASTORM SUSTAINED HITS 1 beyond 9\"", rules.get_dakkastorm_sustained_value(ds_actor, bf_far) == 1)
+	_check("DAKKASTORM needs its flag", rules.get_dakkastorm_sustained_value(bf_actor, bf_near) == 0)
+
+	# ---- FULL THROTTLE!: +1 to melee wound rolls -------------------------------
+	var ft_on := 0
+	var ft_off := 0
+	for s in [11, 42, 77]:
+		ft_off += _fight(rules, {}, s)
+		ft_on += _fight(rules, {"effect_full_throttle": true}, s)
+	print("  FULL THROTTLE!: wounds with=%d, without=%d" % [ft_on, ft_off])
+	_check("FULL THROTTLE! raises melee wounds (+1 to wound)", ft_on > ft_off)
+
+	# ---- MORE GITZ OVER 'ERE!: offered through the Scatter! reactive window ----
+	GS.state["units"] = {
+		"U_MG": {"id": "U_MG", "owner": 1, "status": 2,
+			"meta": {"name": "Warbikers", "keywords": ["ORKS", "SPEED FREEKS", "MOUNTED"], "abilities": [], "enhancements": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "position": {"x": 100.0, "y": 100.0}, "base_mm": 32, "base_type": "circular", "alive": true, "wounds": 1, "current_wounds": 1}]},
+		"U_TRIG": {"id": "U_TRIG", "owner": 2, "status": 2,
+			"meta": {"name": "Marines", "keywords": ["INFANTRY"], "abilities": [], "enhancements": [], "stats": {}},
+			"flags": {}, "models": [{"id": "e0", "position": {"x": 300.0, "y": 100.0}, "base_mm": 32, "base_type": "circular", "alive": true, "wounds": 2, "current_wounds": 2}]},
+	}
+	GS.state["meta"]["active_player"] = 2
+	GS.state["meta"]["phase"] = GameStateData.Phase.MOVEMENT
+	GS.state["players"] = {"1": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0},
+		"2": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}}
+	var MP = load("res://phases/MovementPhase.gd").new()
+	root.add_child(MP)
+	MP.game_state_snapshot = GS.state
+	var mg_check = MP._check_scatter_opportunity("U_TRIG")
+	_check("MORE GITZ triggers the reactive-move offer", mg_check.get("triggered", false))
+	var mg_elig = mg_check.get("result_extra", {}).get("scatter_eligible_units", [])
+	var mg_entry = mg_elig[0] if mg_elig.size() > 0 else {}
+	_check("MORE GITZ entry is stratagem-routed",
+		mg_entry.get("unit_id", "") == "U_MG" and mg_entry.get("via_stratagem", false))
+	root.remove_child(MP)
+	MP.queue_free()
+
+	# ---- Enhancements -----------------------------------------------------------
+	# Fasta Than Yooz — disembark after the transport's Normal move
+	var TM = root.get_node("TransportManager")
+	GS.state["units"] = {
+		"U_FTY": {"id": "U_FTY", "owner": 1, "embarked_in": "U_TRUKK_T", "status": 2,
+			"meta": {"name": "Boyz", "keywords": ["ORKS", "INFANTRY"], "enhancements": ["Fasta Than Yooz"], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": null, "base_mm": 32}]},
+		"U_PLAINDIS": {"id": "U_PLAINDIS", "owner": 1, "embarked_in": "U_TRUKK_T", "status": 2,
+			"meta": {"name": "Boyz 2", "keywords": ["ORKS", "INFANTRY"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {}, "models": [{"id": "m0", "alive": true, "position": null, "base_mm": 32}]},
+		"U_TRUKK_T": {"id": "U_TRUKK_T", "owner": 1, "status": 2,
+			"meta": {"name": "Trukk", "keywords": ["ORKS", "VEHICLE", "TRANSPORT", "TRUKK"], "enhancements": [], "abilities": [], "stats": {}},
+			"flags": {"moved": true}, "models": [{"id": "m0", "alive": true, "position": {"x": 50.0, "y": 50.0}, "base_mm": 60}],
+			"transport_data": {"embarked_units": ["U_FTY", "U_PLAINDIS"], "capacity": 12}},
+	}
+	TM.disembark_unit("U_FTY", [Vector2(80, 50)])
+	TM.disembark_unit("U_PLAINDIS", [Vector2(120, 50)])
+	_check("Fasta Than Yooz: still eligible to charge after transport moved",
+		GS.get_unit("U_FTY")["flags"].get("cannot_charge", true) == false)
+	_check("Without Fasta Than Yooz: cannot charge after transport moved",
+		GS.get_unit("U_PLAINDIS")["flags"].get("cannot_charge", false) == true)
+
+	# Squig-hide Tyres — 6" consolidation while the bearer leads
+	GS.state["units"]["U_SHT"] = {"id": "U_SHT", "owner": 1, "status": 2,
+		"meta": {"name": "Deffkilla Wartrike", "keywords": ["ORKS", "SPEED FREEKS", "VEHICLE", "CHARACTER"],
+			"enhancements": ["Squig-hide Tyres"], "abilities": [], "stats": {}},
+		"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 400.0, "y": 50.0}, "base_mm": 60}]}
+	var FP = load("res://phases/FightPhase.gd").new()
+	FP.game_state_snapshot = GS.state
+	_check("Squig-hide Tyres: 6\" consolidation", FP._get_consolidation_distance("U_SHT") == 6.0)
+	_check("Plain unit consolidates 3\"", FP._get_consolidation_distance("U_PLAINDIS") == 3.0)
+	FP.free()
+
+	# Wazblasta — post-shooting 6" move offer for the unengaged bearer
+	GS.state["units"]["U_WAZ"] = {"id": "U_WAZ", "owner": 1, "status": 2,
+		"meta": {"name": "Deffkilla Wartrike", "keywords": ["ORKS", "SPEED FREEKS", "VEHICLE", "CHARACTER"],
+			"enhancements": ["Wazblasta"], "abilities": [], "stats": {}},
+		"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 600.0, "y": 50.0}, "base_mm": 60}]}
+	GS.state["meta"]["active_player"] = 1
+	var SP = load("res://phases/ShootingPhase.gd").new()
+	SP.game_state_snapshot = GS.state
+	_check("Wazblasta offered for the unengaged bearer", SP._check_wazblasta("U_WAZ"))
+	_check("Wazblasta not offered without the enhancement", not SP._check_wazblasta("U_SHT"))
+	# Simulate the pending state, then use it
+	SP.awaiting_wazblasta = true
+	SP.wazblasta_pending_unit = "U_WAZ"
+	var waz_use = SP._process_use_wazblasta({})
+	var waz_diffs = waz_use.get("changes", [])
+	var waz_paths := []
+	for d in waz_diffs:
+		waz_paths.append(str(d.get("path", "")))
+	_check("Wazblasta use grants the 6\" post-shoot move and blocks charging",
+		("units.U_WAZ.flags.swift_eagle_move_remaining" in waz_paths)
+		and ("units.U_WAZ.flags.cannot_charge" in waz_paths))
+	SP.free()
+
+	# Speed Makes Right — Command-phase D6 (3+) while within 9" of an enemy
+	var smr_grants := 0
+	for s in range(1, 9):
+		GS.state["units"] = {
+			"U_SMR": {"id": "U_SMR", "owner": 1, "status": 2,
+				"meta": {"name": "Deffkilla Wartrike", "keywords": ["ORKS", "SPEED FREEKS", "VEHICLE", "CHARACTER"],
+					"enhancements": ["Speed Makes Right"], "abilities": [], "stats": {}},
+				"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 100.0, "y": 100.0}, "base_mm": 60}]},
+			"U_SMR_ENEMY": {"id": "U_SMR_ENEMY", "owner": 2, "status": 2,
+				"meta": {"name": "Marines", "keywords": ["INFANTRY"], "enhancements": [], "abilities": [], "stats": {}},
+				"flags": {}, "models": [{"id": "e0", "alive": true, "position": {"x": 300.0, "y": 100.0}, "base_mm": 32}]},
+		}
+		GS.state["players"] = {"1": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0},
+			"2": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}}
+		rules.set_test_seed(s)
+		FAM.process_command_phase_cp_enhancements(1)
+		if int(GS.state["players"]["1"]["cp"]) == 4:
+			smr_grants += 1
+	print("  Speed Makes Right: %d/8 seeds granted CP" % smr_grants)
+	_check("Speed Makes Right grants CP on 3+ (some seeds)", smr_grants >= 1)
+	var smr_far_grants := 0
+	for s in range(1, 9):
+		GS.state["units"]["U_SMR_ENEMY"]["models"][0]["position"] = {"x": 2000.0, "y": 100.0}
+		GS.state["players"]["1"] = {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}
+		rules.set_test_seed(s)
+		FAM.process_command_phase_cp_enhancements(1)
+		if int(GS.state["players"]["1"]["cp"]) == 4:
+			smr_far_grants += 1
+	_check("Speed Makes Right needs an enemy within 9\"", smr_far_grants == 0)
 
 
 # ==========================================================================

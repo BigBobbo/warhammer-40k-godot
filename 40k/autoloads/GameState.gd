@@ -351,6 +351,16 @@ func get_deployment_zone_for_player(player: int) -> Dictionary:
 	return {}
 
 # Pre-Battle Formations Helpers
+func _get_enhancement_can_lead_extras(character: Dictionary) -> Array:
+	"""Runtime lookup for CharacterAttachmentManager.get_enhancement_can_lead_extras.
+	GameState registers before CharacterAttachmentManager in the autoload order,
+	so a parse-time identifier reference breaks script compilation in standalone
+	--script test harnesses (Identifier not found at boot)."""
+	var cam = get_node_or_null("/root/CharacterAttachmentManager")
+	if cam == null:
+		return []
+	return cam.get_enhancement_can_lead_extras(character)
+
 func get_characters_for_player(player: int) -> Array:
 	"""Get all CHARACTER units with Leader ability for a player."""
 	var characters = []
@@ -363,7 +373,7 @@ func get_characters_for_player(player: int) -> Array:
 			continue
 		var leader_data = unit.get("meta", {}).get("leader_data", {})
 		var can_lead = leader_data.get("can_lead", [])
-		if can_lead.is_empty() and CharacterAttachmentManager.get_enhancement_can_lead_extras(unit).is_empty():
+		if can_lead.is_empty() and _get_enhancement_can_lead_extras(unit).is_empty():
 			continue
 		characters.append(unit_id)
 	return characters
@@ -388,7 +398,7 @@ func get_eligible_bodyguards_for_character(character_id: String) -> Array:
 	var can_lead = leader_data.get("can_lead", []).duplicate()
 	# Taktikal Brigade enhancements (Skwad Leader / Mek Kaptin) extend which
 	# units the bearer can lead — mirror CharacterAttachmentManager.can_attach.
-	for extra_kw in CharacterAttachmentManager.get_enhancement_can_lead_extras(character):
+	for extra_kw in _get_enhancement_can_lead_extras(character):
 		if not extra_kw in can_lead:
 			can_lead.append(extra_kw)
 	if can_lead.is_empty():

@@ -2200,6 +2200,10 @@ func _get_consolidation_distance(unit_id: String) -> float:
 			log_phase_message("[OA-26] Drive-by Krumpin': Consolidation distance 6\" for %s" % unit_id)
 			dist = 6.0
 			break
+	# Squig-hide Tyres (Kult of Speed): 6" consolidation for the bearer's unit
+	if dist < 6.0 and FactionAbilityManager._unit_or_attached_has_enhancement(unit, "Squig-hide Tyres", GameState.state.get("units", {})):
+		log_phase_message("Squig-hide Tyres: Consolidation distance 6\" for %s" % unit_id)
+		dist = 6.0
 	var flag_max = float(unit.get("flags", {}).get("effect_consolidate_max", 0.0))
 	if flag_max > dist:
 		log_phase_message("Consolidation distance %.0f\" for %s (effect_consolidate_max)" % [flag_max, unit_id])

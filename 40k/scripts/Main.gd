@@ -11387,9 +11387,10 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	var strat_name := str(strat.get("name", "")).replace("’", "'").to_upper()
 	# Faction stratagems that also need friendly + enemy picks: KRUNCHIN'
 	# DESCENT (Taktikal Brigade), CALL DAT DAKKA? (More Dakka!), CRUSHING
-	# IMPACT + CUT' EM DOWN (Bully Boyz), UNSTOPPABLE MOMENTUM (Da Big Hunt).
+	# IMPACT + CUT' EM DOWN (Bully Boyz), UNSTOPPABLE MOMENTUM (Da Big Hunt),
+	# SQUIG FLINGIN' (Kult of Speed).
 	if sid_resolved in ["explosives", "crushing_impact"] \
-			or strat_name in ["KRUNCHIN' DESCENT", "CALL DAT DAKKA?", "CRUSHING IMPACT", "CUT' EM DOWN", "UNSTOPPABLE MOMENTUM"]:
+			or strat_name in ["KRUNCHIN' DESCENT", "CALL DAT DAKKA?", "CRUSHING IMPACT", "CUT' EM DOWN", "UNSTOPPABLE MOMENTUM", "SQUIG FLINGIN'"]:
 		_prompt_stratagem_targets(sid_resolved, active_player)
 		return
 	# FIGHT PROPPA (Taktikal Brigade): pick the friendly unit, then choose

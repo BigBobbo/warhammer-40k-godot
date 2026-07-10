@@ -543,6 +543,8 @@ func _parse_target(target_text: String) -> Dictionary:
 		[" nobz", "keyword:NOBZ"],
 		["gretchin", "keyword:GRETCHIN"],
 		["beast snagga", "keyword:BEAST SNAGGA"],
+		["speed freeks", "keyword:SPEED FREEKS"],
+		["trukk", "keyword:TRUKK"],
 	]
 
 	# "X or Y" alternations ("One Orks Infantry or Orks Mounted unit", "One
@@ -552,7 +554,7 @@ func _parse_target(target_text: String) -> Dictionary:
 	# skip the individual keyword matches for the two alternated terms.
 	var alternated_terms: Array = []
 	var alt_regex = RegEx.new()
-	alt_regex.compile("(infantry|mounted|vehicle|monster|kommandos|stormboyz|meganobz|nobz) or (orks |beast snagga )?(infantry|mounted|vehicle|monster|kommandos|stormboyz|meganobz|nobz)")
+	alt_regex.compile("(infantry|mounted|vehicle|monster|kommandos|stormboyz|meganobz|nobz|speed freeks|trukk) or (orks |beast snagga )?(infantry|mounted|vehicle|monster|kommandos|stormboyz|meganobz|nobz|speed freeks|trukk)")
 	var alt_match = alt_regex.search(inclusive_t)
 	if alt_match:
 		var kw_a = alt_match.get_string(1)
