@@ -41,6 +41,10 @@ const OVERLAP_TOLERANCE_PX: float = 0.5
 
 # Movement state tracking
 var active_moves: Dictionary = {}
+# 11e 18.04: unit_id -> bool, set when the DisembarkDialog's Combat Disembark
+# toggle was checked (phase-owned dialog path); consumed when the resulting
+# CONFIRM_DISEMBARK payload is built. Mirrors MovementController.
+var _pending_combat_disembark: Dictionary = {}
 # ISS-061: take-to-the-skies declarations awaiting the advance roll.
 var _pending_take_to_skies: Dictionary = {}  # unit_id -> move_data
 # ISS-073 (24.35): Super-Heavy Walker MOBILE-grant declarations awaiting the advance roll.
@@ -8075,9 +8079,16 @@ func _show_disembark_dialog(unit_id: String) -> void:
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
 
-func _on_disembark_confirmed(unit_id: String) -> void:
-	"""Handle disembark confirmation - start placement"""
+func _on_disembark_confirmed(combat_mode: bool, unit_id: String) -> void:
+	"""Handle disembark confirmation - start placement.
+	Signature note: disembark_confirmed emits (combat_mode) and unit_id is
+	bound at connect time — a 1-arg handler here fails the signal call."""
 	var controller = preload("res://scripts/DisembarkController.gd").new()
+	# 11e 18.04: the dialog's Combat Disembark toggle switches the placement
+	# rules (6" set-up, engaged-with-transport's-foes allowed) and is echoed
+	# to CONFIRM_DISEMBARK via payload.can_setup_tactical=false.
+	controller.combat_requested = combat_mode
+	_pending_combat_disembark[unit_id] = combat_mode
 	controller.disembark_completed.connect(_on_disembark_placement_completed)
 	controller.disembark_canceled.connect(_on_disembark_placement_canceled)
 	get_tree().root.add_child(controller)
@@ -8092,9 +8103,16 @@ func _on_disembark_placement_completed(unit_id: String, positions: Array) -> voi
 	var action = {
 		"type": "CONFIRM_DISEMBARK",
 		"actor_unit_id": unit_id,
-		"payload": {"positions": positions}
+		"payload": {
+			"positions": positions,
+			"can_setup_tactical": not _pending_combat_disembark.get(unit_id, false)
+		}
 	}
-	var result = process_action(action)
+	_pending_combat_disembark.erase(unit_id)
+	# execute_action (not process_action): the returned changes — the 11e
+	# after-move flags (disembarked_this_turn, cannot_charge, battle_shocked)
+	# — are only applied by execute_action, matching the controller path.
+	var result = execute_action(action)
 
 	if not result.get("success", false):
 		log_phase_message("Disembark failed: %s" % result.get("error", "Unknown error"))

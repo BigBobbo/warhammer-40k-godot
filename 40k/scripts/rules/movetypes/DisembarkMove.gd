@@ -26,7 +26,10 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	var unit = _unit(board, unit_id)
 	if unit.is_empty():
 		return {"eligible": false, "reasons": ["unknown unit"]}
-	var transport_id = str(unit.get("embarked_in", ""))
+	# null is the codebase-wide "not embarked" sentinel; str(null) would give
+	# "<null>", so guard before stringifying.
+	var embarked_raw = unit.get("embarked_in", null)
+	var transport_id = str(embarked_raw) if embarked_raw != null else ""
 	if transport_id == "":
 		return {"eligible": false, "reasons": ["unit is not embarked"]}
 	var transport = _unit(board, transport_id)
@@ -48,7 +51,8 @@ func mode_ids() -> Array:
 ## driven by the transport's move history this phase.
 func select_mode(unit_id: String, board: Dictionary, context: Dictionary = {}) -> Dictionary:
 	var unit = _unit(board, unit_id)
-	var transport = _unit(board, str(unit.get("embarked_in", "")))
+	var embarked_raw = unit.get("embarked_in", null)
+	var transport = _unit(board, str(embarked_raw) if embarked_raw != null else "")
 	var tf = transport.get("flags", {})
 	if tf.get("moved_this_phase", false):
 		# normal or ingress move this phase (advance/fall-back are barred
@@ -82,7 +86,12 @@ func before_moving(unit_id: String, board: Dictionary, rng, context: Dictionary)
 func after_moving_effects(unit_id: String, context: Dictionary) -> Array:
 	var fx = [
 		{"op": "set", "path": StateSchema.path_unit_flag(unit_id, "disembarked_this_turn"), "value": true},
-		{"op": "set", "path": StateSchema.path_unit_field(unit_id, "embarked_in"), "value": ""},
+		# null, not "": the codebase-wide "not embarked" check is
+		# `embarked_in != null` (token rendering, unit lists, can_disembark).
+		# This diff is applied AFTER TransportManager.disembark_unit() already
+		# set null — writing "" here turned the unit into an invisible
+		# "still embarked" ghost (models hidden, listed as Cannot Disembark).
+		{"op": "set", "path": StateSchema.path_unit_field(unit_id, "embarked_in"), "value": null},
 	]
 	match str(context.get("mode", "")):
 		"rapid":

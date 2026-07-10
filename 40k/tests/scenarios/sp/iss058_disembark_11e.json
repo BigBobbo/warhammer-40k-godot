@@ -158,6 +158,26 @@
       "equals": true
     },
     {
+      "act": "expect_state",
+      "path": "units.U_KOMMANDOS_H.embarked_in",
+      "equals": null,
+      "comment": "Regression net: after_moving_effects used to overwrite null with \"\" AFTER TransportManager.disembark_unit, turning the unit into an invisible still-embarked ghost (tokens skipped, listed as Cannot Disembark)."
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_KOMMANDOS_H.disembarked_this_phase",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()",
+      "comment": "Mirror the visual refresh Main performs after routing CONFIRM_DISEMBARK (Main.gd CONFIRM_DISEMBARK branch); _recreate_unit_visuals skips any unit whose embarked_in is non-null."
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_KOMMANDOS_H"
+    },
+    {
       "act": "screenshot",
       "label": "03_combat_disembark_6in_shocked"
     }
