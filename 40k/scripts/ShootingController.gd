@@ -108,6 +108,10 @@ var aggregate_preview_label: RichTextLabel
 # Shooter status info (model count, abilities, stationary)
 var shooter_status_label: RichTextLabel
 
+# No-eligible-targets feedback: which shooter we've already reported for, so the
+# doubled selection paths (phase signal + direct local call) only log it once.
+var _no_targets_reported_unit: String = ""
+
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
 const HIGHLIGHT_COLOR_INELIGIBLE = Color.GRAY
@@ -915,6 +919,10 @@ func _refresh_shooter_status() -> void:
 	if not ability_tags.is_empty():
 		status_parts.append("[color=#8888CC]▸ %s[/color]" % ", ".join(ability_tags))
 
+	# Persistent warning while a shooter with nothing targetable stays selected
+	if eligible_targets.is_empty():
+		status_parts.append("[color=#CC5555]⊘ No eligible targets (range / line of sight)[/color]")
+
 	shooter_status_label.text = ""
 	shooter_status_label.append_text("  ".join(status_parts) if status_parts.size() <= 2 else "\n".join(status_parts))
 	shooter_status_label.visible = true
@@ -1149,8 +1157,9 @@ func _try_auto_select_single_weapon() -> void:
 	# T5-UX1: Show damage preview for auto-selected weapon
 	_update_damage_preview(weapon_id)
 
-	# Show feedback in dice log
-	if dice_log_display:
+	# Show feedback in dice log — but don't tell the player to click an enemy
+	# when nothing is targetable (the no-targets report explains that instead)
+	if dice_log_display and not eligible_targets.is_empty():
 		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		dice_log_display.append_text("[color=cyan]Auto-selected %s (only weapon) — click an enemy unit to assign target[/color]\n" % weapon_name)
 
@@ -1819,6 +1828,11 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	_update_perform_action_button()
 	_show_range_indicators()
 
+	# When nothing is targetable, say so loudly — otherwise weapon clicks and
+	# enemy clicks look like they silently do nothing (Stompa bug report).
+	if eligible_targets.is_empty():
+		_report_no_eligible_targets(unit_id)
+
 	# Show consolidated auto-assign message once per shooter selection
 	if dice_log_display and not weapon_assignments.is_empty() and eligible_targets.size() == 1 and not _auto_assign_logged:
 		_auto_assign_logged = true
@@ -1842,6 +1856,12 @@ func _on_targets_available(unit_id: String, targets: Dictionary) -> void:
 	_refresh_quick_assign_buttons()  # P3-113: Update quick-assign buttons for new targets
 	# Show range indicators which will also highlight enemies
 	_show_range_indicators()
+	_refresh_shooter_status()
+
+	# Networked path of the no-targets feedback (locally the direct call in
+	# _on_unit_selected_for_shooting reports first; the dedup guard suppresses this one).
+	if eligible_targets.is_empty():
+		_report_no_eligible_targets(unit_id)
 	
 	# Trigger LoS visualization for each eligible target
 	if los_debug_visual and los_debug_visual.debug_enabled:
@@ -3238,6 +3258,9 @@ func _on_unit_selected(index: int) -> void:
 
 		print("ShootingController: User selected unit %s from list" % unit_id)
 
+		# Fresh explicit selection: allow the no-targets report to fire again.
+		_no_targets_reported_unit = ""
+
 		# Emit action request - visualization will be triggered when action is confirmed
 		emit_signal("shoot_action_requested", {
 			"type": "SELECT_SHOOTER",
@@ -3297,6 +3320,9 @@ func _on_weapon_tree_item_selected() -> void:
 			if weapon_assignments.has(weapon_id):
 				var target_name = eligible_targets.get(weapon_assignments[weapon_id], {}).get("unit_name", "Unknown")
 				dice_log_display.append_text("[color=yellow]Selected %s (currently assigned to %s)[/color]\n" % [weapon_name, target_name])
+			elif eligible_targets.is_empty():
+				# Don't tell the player to click an enemy when nothing is targetable.
+				dice_log_display.append_text("[color=red]Selected %s — no eligible targets for this unit (out of range or no line of sight)[/color]\n" % weapon_name)
 			else:
 				dice_log_display.append_text("[color=yellow]Selected %s - Click on an enemy unit to assign target[/color]\n" % weapon_name)
 
@@ -4002,8 +4028,11 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# Only handle mouse input if we have an active shooter and eligible targets
-	if active_shooter_id == "" or eligible_targets.is_empty():
+	# Only handle mouse input if we have an active shooter. Deliberately do NOT
+	# bail out when eligible_targets is empty — clicks must still reach
+	# _handle_board_click so the player is told WHY an enemy cannot be targeted
+	# (out of range / no line of sight / …) instead of getting silence.
+	if active_shooter_id == "":
 		return
 
 	# Handle clicking on units for target selection
@@ -4207,9 +4236,17 @@ func _handle_board_click(position: Vector2) -> void:
 	# First check if we have a weapon selected
 	if not weapon_tree:
 		return
-		
+
+	# No eligible targets at all: _input no longer filters this case out, so
+	# clicks land here. Ignore clicks over UI controls (this handler sees ALL
+	# clicks, including weapon-tree/panel ones); genuine board clicks fall
+	# through so the player is told why enemies cannot be targeted.
+	var no_eligible_targets: bool = eligible_targets.is_empty()
+	if no_eligible_targets and get_viewport().gui_get_hovered_control() != null:
+		return
+
 	var selected_weapon = weapon_tree.get_selected()
-	if not selected_weapon:
+	if not selected_weapon and not no_eligible_targets:
 		if dice_log_display:
 			dice_log_display.append_text("[color=red]Please select a weapon first![/color]\n")
 		return
@@ -4262,7 +4299,10 @@ func _handle_board_click(position: Vector2) -> void:
 		# REMOVED FALLBACK: Don't auto-assign first target if click misses
 		# This was causing weapons to be incorrectly reassigned
 		print("[ShootingController] Click missed all targets (closest: %s at %.1f px). Please click directly on enemy model." % [closest_target if closest_target != "" else "none", closest_distance])
-		if dice_log_display:
+		if no_eligible_targets:
+			# Nothing is targetable anyway — repeat the full explanation on demand.
+			_report_no_eligible_targets(active_shooter_id, true)
+		elif dice_log_display:
 			dice_log_display.append_text("[color=red]Click missed - please click directly on an enemy model[/color]\n")
 
 func _handle_board_hover(position: Vector2) -> void:
@@ -4280,6 +4320,55 @@ func _handle_board_hover(position: Vector2) -> void:
 	# Clear LoS if not hovering a target
 	if los_visual:
 		los_visual.clear_points()
+
+# Explain in the dice log + a toast why the active shooter has no eligible
+# targets at all (out of range / no line of sight / engagement / Lone
+# Operative / …). Without this the player gets pure silence: weapon rows say
+# "(Click to Select)" but no board click can assign anything (Stompa bug
+# report). Deduped per shooter selection because selection fires through both
+# the phase signal and the direct local call; pass force=true to re-print.
+func _report_no_eligible_targets(unit_id: String, force: bool = false) -> void:
+	if unit_id == "":
+		return
+	if not force and _no_targets_reported_unit == unit_id:
+		return
+	_no_targets_reported_unit = unit_id
+
+	var unit = GameState.get_unit(unit_id)
+	var unit_meta = unit.get("meta", {})
+	var unit_name = unit_meta.get("display_name", unit_meta.get("name", unit_id))
+	var snapshot = GameState.create_snapshot()
+	var reasons: Array = []
+	var all_units = snapshot.get("units", {})
+	var my_owner = unit.get("owner", 0)
+	for enemy_id in all_units:
+		var enemy = all_units[enemy_id]
+		if enemy.get("owner", 0) == my_owner:
+			continue
+		if enemy.get("attached_to", null) != null:
+			continue
+		var any_alive = false
+		for model in enemy.get("models", []):
+			if model.get("alive", true):
+				any_alive = true
+				break
+		if not any_alive:
+			continue
+		var reason = RulesEngine.get_target_ineligibility_reason(unit_id, enemy_id, snapshot)
+		if reason != "":
+			reasons.append(reason)
+
+	print("ShootingController: %s has no eligible targets — %s" % [unit_id, str(reasons)])
+	if dice_log_display:
+		dice_log_display.append_text("[color=red]✗ %s has no eligible targets:[/color]\n" % unit_name)
+		if reasons.is_empty():
+			dice_log_display.append_text("[color=#CC8888]   • No enemy units on the board[/color]\n")
+		var max_lines = 6
+		for i in range(min(reasons.size(), max_lines)):
+			dice_log_display.append_text("[color=#CC8888]   • %s[/color]\n" % str(reasons[i]))
+		if reasons.size() > max_lines:
+			dice_log_display.append_text("[color=#CC8888]   • …and %d more[/color]\n" % (reasons.size() - max_lines))
+	ToastManager.show_warning("%s has no eligible targets (range / line of sight)" % unit_name)
 
 func _select_target_for_current_weapon(target_id: String) -> void:
 	# Get currently selected weapon from tree
