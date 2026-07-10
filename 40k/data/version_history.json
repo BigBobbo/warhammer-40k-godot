@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.17.1",
+			"date": "2026-07-10",
+			"summary": "Engagement-range circles now match the rule. The red rings shown while moving were drawn at the old 1\" range while the game (11th edition) enforces 2\", so moves were refused when a model still looked clear of the circle — the rings, the fight-phase reach circles and the amber engaged rings are now all drawn at base edge + 2\".",
+			"changes": [
+				"Movement: the red no-go rings around enemy models are now drawn at the 11th-edition 2\" engagement range instead of a hardcoded 1\" — if your base stays off the red circle, the move is legal.",
+				"Fight phase: each fighter's orange engagement-reach circle now includes the model's own base radius, matching the base-edge-to-base-edge measurement the rules use.",
+				"The always-on amber 'engaged' rings now detect engagement base-edge to base-edge (like the rules engine) instead of centre-to-centre, size themselves to the anchor model's base, and ignore dead models."
+			]
+		},
+		{
 			"version": "0.17.0",
 			"date": "2026-07-10",
 			"summary": "You can now change the AI speed mid-game from the top menu: a new 'AI Speed' dropdown sits next to the AI Suggestion button with the same Fast / Normal / Slow / Step-by-step presets as the setup screen.",

@@ -645,11 +645,14 @@ func _show_engagement_indicators() -> void:
 		if model_pos == Vector2.ZERO:
 			continue
 		
-		# T5-V9: Create pulsing engagement range circle (1 inch)
+		# T5-V9: Create pulsing engagement range circle (edition-aware ER).
+		# ER is measured base-edge to base-edge, so include the model's own
+		# base radius — a bare ER-radius circle under-draws the true reach.
 		var circle = Node2D.new()
 		circle.set_script(EngagementRangeVisualScript)
 		circle.position = model_pos
-		circle.setup_engagement_range(Measurement.inches_to_px(GameConstants.engagement_range_inches()), Color.ORANGE)
+		var er_base_radius_px = Measurement.base_radius_px(model.get("base_mm", 32))
+		circle.setup_engagement_range(er_base_radius_px + Measurement.inches_to_px(GameConstants.engagement_range_inches()), Color.ORANGE)
 
 		range_visual.add_child(circle)
 	
