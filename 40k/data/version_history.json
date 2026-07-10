@@ -2,6 +2,24 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.10.0",
+			"date": "2026-07-10",
+			"summary": "Every Ork detachment now has working Stratagems and Enhancements: Green Tide, More Dakka!, Bully Boyz, Da Big Hunt (with the Prey rule), Kult of Speed, Dread Mob, Blitz Brigade and Rollin' Deff join Speedwaaagh! and Taktikal Brigade.",
+			"changes": [
+				"Green Tide: all six Stratagems (COME ON LADZ! model revival, BRAGGIN' RIGHTS, TIDE OF MUSCLE, BULLDOZER BRUTALITY 3\" fight range, COMPETITIVE STREAK, GO GET 'EM! reactive move) and all four Enhancements (Raucous Warcaller counts-as-10, Bloodthirsty Belligerence, Ferocious Show Off, Brutal But Kunnin' bonus CP).",
+				"More Dakka!: all six Stratagems (CALL DAT DAKKA? shoot-back, SPESHUL SHELLS +1 AP within 18\", ORKS IS STILL ORKS, GET STUCK IN LADZ! unit Waaagh!, HUGE SHOW-OFFS, LONG UNCONTROLLED BURSTS) and all four Enhancements (Da Gobshot Thunderbuss, Dead Shiny Shootas, Targetin' Squigs, Zog Off and Eat Dakka!).",
+				"Bully Boyz: all six Stratagems (ARMED TO DA TEEF, ALWAYS LOOKIN' FER A FIGHT, CRUSHING IMPACT, CUT' EM DOWN forced Desperate Escape, TOO ARROGANT TO DIE swing-backs, HULKING BRUTES) and all four Enhancements ('Eadstompa, Tellyporta Deep Strike, Da Biggest Boss +2W, Big Gob forced Battle-shock).",
+				"Da Big Hunt: the Prey detachment rule (auto-picked enemy MONSTER/VEHICLE/CHARACTER; Beast Snaggas re-roll charges against it and get +1 AP), all six Stratagems (DRAG IT DOWN crits on 5+ vs Prey, UNSTOPPABLE MOMENTUM mortal wounds, INSTINCTIVE HUNTERS into Reserves, STALKIN' TAKTIKS, DAT ONE'S EVEN BIGGA!, WHERE D'YA FINK YOU'RE GOING? reactive move) and all four Enhancements (Glory Hog Scouts 9\", Proper Killy, Skrag Every Stash! sticky objectives, Surly as a Squiggoth).",
+				"Kult of Speed: all six Stratagems (SPEEDIEST FREEKS 5+/4+ invulnerable, SQUIG FLINGIN' Battle-shock at -1, BLITZA FIRE, DAKKASTORM, FULL THROTTLE!, MORE GITZ OVER 'ERE! reactive move) and all four Enhancements (Fasta Than Yooz charge after disembark, Speed Makes Right bonus CP, Squig-hide Tyres 6\" consolidation, Wazblasta post-shooting move).",
+				"Dread Mob: all six Stratagems with the new push-it choice dialog (BIGGER SHELLS FOR BIGGER GITZ, DAKKA! DAKKA! DAKKA!, KLANKIN' KLAWS, EXTRA GUBBINZ -1 Damage, SUPERFUELLED BOILER, CONNIVING RUNTS) and three Enhancements (Gitfinder Googlez, Smoky Gubbinz, Supa-glowy Fing Command-phase zap). Press It Fasta! is listed but waits on the Try Dat Button! detachment rule.",
+				"Blitz Brigade: all six Stratagems (ARMOURED DUELLISTS, MOUNT UP LADZ end-of-fight embark, IMPERVIOUS, MEKANISED BRUTALITY, RUN 'EM DOWN, YOOZ IN TROUBLE NOW disembark-and-surge) and all four Enhancements (Runnin' Boots, Blitzkaptin vehicle redeploys, Supercharged Squig Oil, Tuff Git).",
+				"Rollin' Deff (provisional 11e rules from the community dataset): all five Stratagems (BRUTAL BROADSIDE Rapid Fire X, IMPENDING CRUNCH, DEVASTATING DRIFT Cleave 1, LONG UNCONTROLLED BURSTS, SPESHUL SHELLS 9\") and all four Enhancements (Boarding Ramps, Targetin' Gizmos, plus the shared Dead Shiny Shootas and Da Gobshot Thunderbuss).",
+				"Freebooter Krew: all six Stratagems now show their real rules text and BASH AND GRAB is re-enabled.",
+				"Fixed: several Stratagems whose fine print mentions 'enemy units' (DED SNEAKY, DAT'S OURS, MOUNT UP LADZ and others) wrongly skipped the unit picker and did nothing while still spending the CP.",
+				"Fixed: the Scatter! reactive-move prompt could crash mid-check; distance checks now use the shared measurement helper."
+			]
+		},
+		{
 			"version": "0.9.0",
 			"date": "2026-07-09",
 			"summary": "Taktikal Brigade (Orks) is now playable: all six of its Stratagems and three of its four Enhancements work in-game, and the always-broken Stratagems panel button is fixed.",
