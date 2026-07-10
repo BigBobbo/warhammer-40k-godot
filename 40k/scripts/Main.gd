@@ -11657,7 +11657,7 @@ func _show_stratagem_pick_dialog(title_text: String, unit_ids: Array, on_pick: C
 		var unit = GameState.get_unit(uid)
 		var btn = Button.new()
 		btn.name = "Pick_%s" % uid
-		btn.text = unit.get("meta", {}).get("name", uid)
+		btn.text = GameState.get_unit_display_name(uid)
 		btn.pressed.connect(func():
 			# queue_free is deferred — release the node NAME immediately so a
 			# follow-up picker can claim the stable path this frame.

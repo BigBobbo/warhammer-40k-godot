@@ -28,6 +28,7 @@ var back_btn: Button
 
 func setup(active_player: int, units: Array) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
+	name = "GrenadeTargetDialog"
 	player = active_player
 	eligible_units = units
 
@@ -39,6 +40,7 @@ func setup(active_player: int, units: Array) -> void:
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
+	main_container.name = "Content"
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
@@ -82,6 +84,7 @@ func _build_ui() -> void:
 
 	# Scroll container for lists
 	var scroll = ScrollContainer.new()
+	scroll.name = "Scroll"
 	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 180)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
@@ -96,6 +99,7 @@ func _build_ui() -> void:
 	target_list_container.visible = false
 
 	var content = VBoxContainer.new()
+	content.name = "Lists"
 	content.add_child(unit_list_container)
 	content.add_child(target_list_container)
 	scroll.add_child(content)
@@ -105,8 +109,10 @@ func _build_ui() -> void:
 
 	# Button row
 	var button_row = HBoxContainer.new()
+	button_row.name = "Buttons"
 
 	back_btn = Button.new()
+	back_btn.name = "BackButton"
 	back_btn.text = "Back"
 	back_btn.custom_minimum_size = Vector2(100, 35)
 	back_btn.visible = false
@@ -118,6 +124,7 @@ func _build_ui() -> void:
 	button_row.add_child(spacer)
 
 	var cancel_btn = Button.new()
+	cancel_btn.name = "CancelButton"
 	cancel_btn.text = "Cancel"
 	cancel_btn.custom_minimum_size = Vector2(100, 35)
 	cancel_btn.pressed.connect(_on_cancel_pressed)
@@ -145,6 +152,7 @@ func _populate_unit_list() -> void:
 		var unit_name = unit_data.get("unit_name", unit_id)
 
 		var btn = Button.new()
+		btn.name = "Pick_%s" % unit_id
 		btn.text = unit_name
 		btn.custom_minimum_size = Vector2(460, 35)
 		btn.pressed.connect(_on_grenade_unit_selected.bind(unit_id))
@@ -183,7 +191,8 @@ func _show_target_selection() -> void:
 		child.queue_free()
 
 	var grenade_unit = GameState.get_unit(selected_grenade_unit_id)
-	var grenade_name = grenade_unit.get("meta", {}).get("name", selected_grenade_unit_id)
+	var _gtd_meta = grenade_unit.get("meta", {})
+	var grenade_name = _gtd_meta.get("display_name", _gtd_meta.get("name", selected_grenade_unit_id))
 
 	var info = Label.new()
 	info.text = "Throwing with: %s" % grenade_name
@@ -197,6 +206,7 @@ func _show_target_selection() -> void:
 		var model_count = target_data.get("model_count", 0)
 
 		var btn = Button.new()
+		btn.name = "Target_%s" % target_id
 		btn.text = "%s (%d models)" % [target_name, model_count]
 		btn.custom_minimum_size = Vector2(460, 35)
 		btn.pressed.connect(_on_target_selected.bind(target_id))
@@ -208,6 +218,9 @@ func _on_target_selected(target_id: String) -> void:
 
 	emit_signal("grenade_confirmed", selected_grenade_unit_id, selected_target_unit_id)
 	hide()
+	# queue_free is deferred — release the stable node name immediately so a
+	# follow-up dialog can claim the path this frame.
+	name = "GrenadeTargetDialogClosing"
 	queue_free()
 
 func _on_back_pressed() -> void:
@@ -223,4 +236,5 @@ func _on_cancel_pressed() -> void:
 	print("GrenadeTargetDialog: Cancelled")
 	emit_signal("grenade_cancelled")
 	hide()
+	name = "GrenadeTargetDialogClosing"
 	queue_free()

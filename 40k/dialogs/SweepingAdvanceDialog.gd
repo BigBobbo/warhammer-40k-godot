@@ -33,7 +33,8 @@ func setup(p_unit_id: String, p_in_engagement: bool, p_move_distance: float, pha
 	controller_reference = controller
 
 	var unit = phase.get_unit(unit_id) if phase else {}
-	unit_name = unit.get("meta", {}).get("name", unit_id)
+	var _sad_meta = unit.get("meta", {})
+	unit_name = _sad_meta.get("display_name", _sad_meta.get("name", unit_id))
 
 	title = "Sweeping Advance: %s" % unit_name
 

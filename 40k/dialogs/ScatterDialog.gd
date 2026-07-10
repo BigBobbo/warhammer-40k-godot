@@ -56,7 +56,8 @@ func _build_ui() -> void:
 	var trigger_name = ""
 	var trigger_unit = GameState.get_unit(trigger_unit_id)
 	if not trigger_unit.is_empty():
-		trigger_name = trigger_unit.get("meta", {}).get("name", trigger_unit_id)
+		var _scd_meta = trigger_unit.get("meta", {})
+		trigger_name = _scd_meta.get("display_name", _scd_meta.get("name", trigger_unit_id))
 	else:
 		trigger_name = trigger_unit_id
 
