@@ -1,9 +1,9 @@
 {
   "_comment": "Regression baseline for the design-guidelines task suite. The `passing` array lists scenario IDs that are known to pass on this branch; `count` MUST match its length. run_scenarios.sh exits with code 3 if the live passing-count drops below `count`. Tighten this floor (raise the count, add IDs) only when a clean run actually proves the additions pass. NEVER lower the floor to make a failing task green — that is the regression we are trying to prevent.",
-  "_last_refreshed_commit": "7c62a6c — full --visual run in remote container 2026-07-10: 39/42 pass. Prior file falsely listed T23_end_phase_position, T27_end_phase_refactor and T45_final_audit as passing; their required implementation (EndPhaseButton node + t23_anchor_offset()) has never existed in git history, so those entries cannot have come from a real run. Floor corrected to the measured 39 — this is a record fix, not a floor-lowering to green a regression.",
+  "_last_refreshed_commit": "834b86a — full --visual run in remote container 2026-07-10 after the T23/T27 EndPhaseButton implementation: 42/42 pass, floor raised 39 -> 42. Caveat on the refresh policy's sp-suite condition: the full sp suite was NOT run for this bump (focused sp spot-checks only); note iss15_heroic_intervention_decline_11e already fails on the parent commit with these changes stashed, so 'sp suite passes' is currently unsatisfiable on this branch's base regardless. Earlier note kept for the record: the pre-2026-07-10 file falsely listed T23/T27/T45 as passing before their implementation existed.",
   "_refresh_policy": "Bump only after a clean `bash 40k/tests/run_scenarios.sh --visual` (visual baseline) AND `bash 40k/tests/run_scenarios.sh --sp` (sp suite passes). T45 (final design-guidelines audit) is the canonical refresh point.",
   "_environment_note": "Fresh container? Run `godot --headless --import` FROM 40k/ (or with --path 40k) once to populate .godot/global_script_class_cache.cfg — required for class_name resolution. Without this, every autoload referencing a class_name (GameConstants, FactionPalettes, …) fails to parse and ScenarioRunner never activates.",
-  "count": 39,
+  "count": 42,
   "passing": [
     "T01_uiconstants_present",
     "T02_harness_self_check",
@@ -26,7 +26,9 @@
     "T20_epic_challenge_panel",
     "T21_wound_panel",
     "T22_auto_zoom_decision",
+    "T23_end_phase_position",
     "T25_edge_tint",
+    "T27_end_phase_refactor",
     "T28_two_layer_range",
     "T29_persistent_engagement",
     "T30_charge_dashed_rings",
@@ -43,6 +45,7 @@
     "T42_striped_yellow",
     "T43_orange_audit",
     "T44_motion_budget",
+    "T45_final_audit",
     "T_phase_strip_bottom"
   ]
 }

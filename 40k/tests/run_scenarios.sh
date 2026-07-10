@@ -175,7 +175,10 @@ if [ $VISUAL_RAN -eq 1 ]; then
             continue
         fi
         SCENARIO_ID=$(grep -oE '"id"[[:space:]]*:[[:space:]]*"[^"]*"' "$s" | head -1 | sed -E 's/.*"id"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')
-        TASK_ID=$(echo "$SCENARIO_ID" | grep -oE '^T[0-9]+')
+        # '|| true': under set -e a non-matching grep in this assignment used
+        # to kill the whole script (e.g. T_phase_strip_bottom has no T## id),
+        # silently skipping the baseline regression check below.
+        TASK_ID=$(echo "$SCENARIO_ID" | grep -oE '^T[0-9]+' || true)
         if [ -z "$TASK_ID" ]; then
             continue
         fi
@@ -224,7 +227,7 @@ PY
     if [ $FULL_SUITE_RUN -eq 1 ]; then
         BASELINE_FILE="tests/scenarios/visual/_baseline.json"
         if [ -f "$BASELINE_FILE" ]; then
-            BASELINE_COUNT=$(grep -oE '"count"[[:space:]]*:[[:space:]]*[0-9]+' "$BASELINE_FILE" | head -1 | grep -oE '[0-9]+')
+            BASELINE_COUNT=$(grep -oE '"count"[[:space:]]*:[[:space:]]*[0-9]+' "$BASELINE_FILE" | head -1 | grep -oE '[0-9]+' || true)
             if [ -n "$BASELINE_COUNT" ]; then
                 echo "[run_scenarios] baseline count: $BASELINE_COUNT  passing: $PASSED"
                 if [ "$PASSED" -lt "$BASELINE_COUNT" ]; then
