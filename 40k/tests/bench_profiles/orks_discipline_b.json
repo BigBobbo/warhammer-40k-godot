@@ -1,0 +1,12 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Orks discipline B — A plus stronger objective pull",
+	"description": "Arm B = Arm A plus boosted objective urgency, testing whether discipline + a harder objective pull scores more primary VP than discipline alone.",
+	"parameters": {
+		"FACTION_AGGRESSION_ORKS": 1.2,
+		"WEIGHT_SCORING_URGENCY": 5.0,
+		"URGENCY_ROUND_2_CONTEST": 3.5,
+		"WEIGHT_UNCONTROLLED_OBJ": 13.0
+	}
+}

@@ -1,0 +1,9 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Orks discipline A — aggression below seek threshold",
+	"description": "Diagnostic arm A for the 2026-07-10 chase-vs-objectives finding: FACTION_AGGRESSION_ORKS 1.8 -> 1.2 drops below the 1.5 gate that turns EVERY melee-capable unit into an enemy-seeker, so only genuinely melee-focused units keep chasing. Everything else follows its objective assignment.",
+	"parameters": {
+		"FACTION_AGGRESSION_ORKS": 1.2
+	}
+}
