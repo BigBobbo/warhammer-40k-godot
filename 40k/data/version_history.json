@@ -2,13 +2,23 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.18.5",
+			"version": "0.19.1",
 			"date": "2026-07-11",
 			"summary": "History view: jump straight between game-log steps — while viewing a past step you can now click any other log entry to show that one, no need to press Esc first.",
 			"changes": [
 				"While viewing a past board state (after clicking a game-log entry), clicking a different log entry now switches the view directly to that step. Previously the read-only overlay silently swallowed clicks on the log, so you had to press Esc (Return to Live Game) before picking another step.",
 				"The game log stays fully usable while viewing history — scrolling the list and expanding card details work too, and the banner always names the step being shown.",
 				"Hardened the history board rebuild against two step clicks landing in the same frame, which could have created duplicate model tokens."
+			]
+		},
+		{
+			"version": "0.19.0",
+			"date": "2026-07-11",
+			"summary": "Reinforcement placement helpers are clearer: the red 'must be >9\" from enemy models' no-deploy zone now shows around EVERY enemy cluster (not just the biggest one), and units arriving from Strategic Reserves now get a green band showing where they CAN be placed — within 6\" of a board edge.",
+			"changes": [
+				"Fixed: when placing a unit from Deep Strike or Strategic Reserves, the 9\" exclusion bubbles now render around all enemy models. Before, only the single largest connected clump of enemies drew its no-deploy zone; other enemy groups elsewhere on the board were left unmarked, making it look like you could legally arrive next to them. Each separate enemy cluster now gets its own labelled '9\" exclusion' zone.",
+				"New: units arriving from Strategic Reserves now show a green 'within 6\" of edge' band around the board perimeter — the area where they are allowed to be set up. (Deep Strike units, which may arrive anywhere >9\" from enemies, do not show this band.)",
+				"Under the hood: the enemy-exclusion overlay grouped models into connected clusters but only kept the largest merged shape after each step, silently discarding every other cluster; it now merges each cluster independently. The new Strategic Reserves band matches the placement validator exactly (model centre within 6\" of the nearest board edge)."
 			]
 		},
 		{
