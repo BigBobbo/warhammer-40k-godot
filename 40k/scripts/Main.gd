@@ -9596,7 +9596,39 @@ func _on_shooting_action_requested(action: Dictionary) -> void:
 				print("Main: Shooting action succeeded")
 				update_after_shooting_action()
 		else:
-			print("Main: Shooting action failed: ", result.get("error", "Unknown error"))
+			# A rejected shooting action previously failed SILENTLY here: no toast
+			# and no re-sync, so the ShootingController kept showing a phantom
+			# panel (active shooter + weapon assignments) that the phase had no
+			# record of. That is the grenade-then-shoot desync: after using the
+			# GRENADE stratagem the phase clears its active shooter and marks the
+			# unit has_shot, so a follow-up ASSIGN_TARGET / CONFIRM_TARGETS is
+			# rejected — but the player only saw "Rolling dice..." (printed
+			# optimistically by the controller) with nothing happening.
+			# BasePhase validation failures carry `errors` (array); processing
+			# failures carry `error` (string) — surface whichever exists.
+			var shoot_errs: Array = result.get("errors", [])
+			var shoot_error_msg: String = str(result.get("error", ""))
+			if shoot_error_msg == "" and not shoot_errs.is_empty():
+				shoot_error_msg = str(shoot_errs[0])
+			if shoot_error_msg == "":
+				shoot_error_msg = "Unknown error"
+			print("Main: Shooting action failed: ", shoot_error_msg)
+			print("Main: Full shooting action result: ", result)
+			# SELECT_SHOOTER feedback is owned by ShootingController._on_unit_selected,
+			# which distinguishes an already-shot unit (no phantom panel + "already
+			# shot" notice) from a unit that is merely out of range / has no line of
+			# sight (it deliberately populates so _report_no_eligible_targets can
+			# explain why — the Stompa no-targets feature). Surfacing a generic toast
+			# here too would double up or fire spuriously on auto-select at phase
+			# entry, so let the controller own it. Every OTHER action (ASSIGN_TARGET,
+			# CONFIRM_TARGETS, USE_GRENADE_STRATAGEM, ...) failing silently WAS the
+			# bug — surface it and resync.
+			if action.get("type", "") != "SELECT_SHOOTER":
+				ToastManager.show_error("Shooting action rejected: %s" % shoot_error_msg)
+				# Re-sync the controller UI to the phase so any phantom panel clears
+				# and the dice log's optimistic "Rolling dice..." is corrected.
+				if shooting_controller and shooting_controller.has_method("resync_from_phase"):
+					shooting_controller.resync_from_phase()
 	else:
 		print("Main: Unexpected result from shooting action")
 

@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.17.7",
+			"date": "2026-07-10",
+			"summary": "Fixed a Shooting phase soft-lock: after a unit threw a GRENADE, the shooting UI could get stuck — clicks did nothing, or 'Rolling dice…' showed with no result. Rejected shooting actions are now explained instead of failing silently.",
+			"changes": [
+				"Throwing a GRENADE with the unit you were about to shoot with no longer strands the Shooting UI: re-selecting that (now spent) unit shows 'has already shot this phase' instead of building a dead weapon panel that swallowed every follow-up click.",
+				"Shooting actions that get rejected (assign target, confirm, grenade) now pop an explanation and re-sync the panel, instead of silently doing nothing after an optimistic 'Rolling dice…'.",
+				"The GRENADE stratagem is now correctly limited to once per phase — the button disappears after you use it (previously it could be offered again).",
+				"Auto-selecting the next shooter now skips units that can't shoot yet or have no targets in range, landing on a unit you can actually fire with."
+			]
+		},
+		{
 			"version": "0.17.6",
 			"date": "2026-07-10",
 			"summary": "Objective control fixes: a model whose base is only partly on a terrain-hosted objective now counts as holding it, and objective labels no longer claim 'CONTESTED' when nobody (or only one side) is in range — an empty marker now reads 'Uncontrolled'.",
