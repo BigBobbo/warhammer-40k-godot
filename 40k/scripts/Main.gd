@@ -241,6 +241,13 @@ var game_log_panel = null  # GameLogPanel instance
 var game_log_toggle_button: Button
 var _current_combat_card = null  # GameLogEntry - Tracks active combat card for grouping
 
+# --- History browser (click a game-log entry to revert the board to that step) ---
+var _history_view_active: bool = false
+var _history_live_state: Dictionary = {}      # the real, live GameState.state (held safe)
+var _history_overlay: Control = null          # blocks input on the board while viewing
+var _history_banner_label: RichTextLabel = null
+var _history_saved_ai_enabled: bool = false   # AI enabled flag to restore on exit
+
 # P3-117: Dice Roll History panel UI elements
 var _dice_history_panel: PanelContainer = null
 var _dice_history_label: RichTextLabel = null
@@ -5016,6 +5023,11 @@ func _input(event: InputEvent) -> void:
 	# Use direct keycode check for reliability (is_action_pressed can miss with physical_keycode-only mappings)
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		print("Main: Escape key pressed")
+		# History browser: ESC returns to the live game before anything else.
+		if _history_view_active:
+			_exit_history_view()
+			get_viewport().set_input_as_handled()
+			return
 		# T7-56: Close replay panel on ESC if open
 		if _ai_turn_replay_panel and _ai_turn_replay_panel.visible:
 			_ai_turn_replay_panel.hide_panel()
@@ -5039,6 +5051,14 @@ func _input(event: InputEvent) -> void:
 		# Open settings menu
 		_open_settings_menu()
 		get_viewport().set_input_as_handled()
+		return
+
+	# History browser: while viewing a past step, none of Main's own game-input
+	# handlers (board clicks, hotkeys, right-click menu) should run. We deliberately
+	# do NOT mark the event handled, so GUI input still flows to the game-log panel
+	# (to pick another step) and the overlay's Exit button. Camera pan/zoom lives in
+	# _process and keeps working so the player can look around the historical board.
+	if _history_view_active:
 		return
 
 	# MA-41: Skip all non-Escape keyboard input when a text input field has focus
@@ -8627,6 +8647,16 @@ func _refresh_after_load() -> void:
 	# P2-12: Dismiss the fade overlay now that everything is restored
 	_dismiss_game_loaded_overlay()
 
+	# History browser: the pre-load recording describes a different game, so reset
+	# it and start fresh from the loaded state (which becomes the new step 0).
+	if ReplayManager and ReplayManager.has_method("cleanup"):
+		var nm = get_node_or_null("/root/NetworkManager")
+		var is_client: bool = nm != null and nm.is_networked() and not nm.is_host()
+		ReplayManager.cleanup()
+		if not is_client:
+			ReplayManager.start_recording(ReplayManager.should_auto_record())
+			print("Main: Replay recording restarted after load")
+
 	print("Main: _refresh_after_load() complete — all state fully restored")
 
 func update_deployment_zone_visibility() -> void:
@@ -10347,6 +10377,9 @@ func _setup_game_log_panel() -> void:
 	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
 	game_log_panel.setup(self, hud_bottom, 105.0, 0.0)
 	game_log_toggle_button = game_log_panel.get_toggle_button()
+	# History browser: clicking a log card reverts the board to that step.
+	if game_log_panel.has_signal("history_step_requested"):
+		game_log_panel.history_step_requested.connect(_on_history_step_requested)
 	print("Main: Game Event Log panel created (card-based)")
 
 func _prune_old_log_entries() -> void:
@@ -10509,21 +10542,272 @@ func _on_dice_history_clear_pressed() -> void:
 		_dice_history_label.clear()
 
 # ============================================================================
+# History Browser — click a game-log entry to revert the board to that step
+# ============================================================================
+#
+# This is a READ-ONLY view of a past board state, not a rewind: the live game is
+# untouched. We hold the real GameState.state safe, swap in a reconstructed
+# historical copy (built by ReplayManager from recorded diffs/snapshots), refresh
+# the board tokens, and block all game input behind an overlay until the player
+# returns to the live game (Exit button or ESC).
+
+func _on_history_step_requested(history_index: int, description: String) -> void:
+	# Not available while loading a replay file (that has its own controls) or as
+	# a networked client (local state swaps would fight the network sync).
+	if is_replay_mode:
+		return
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.is_networked():
+		if ToastManager:
+			ToastManager.show_toast("History view isn't available in multiplayer", Color(1, 0.7, 0.3))
+		return
+	if not ReplayManager or not ReplayManager.has_method("build_recorded_state_at"):
+		return
+	if not ReplayManager.has_history():
+		if ToastManager:
+			ToastManager.show_toast("Nothing recorded yet for this game", Color(1, 0.7, 0.3))
+		return
+	_show_history_state(history_index, description)
+
+func _show_history_state(history_index: int, description: String) -> void:
+	# On first entry, stash the real live state so we can restore it verbatim.
+	if not _history_view_active:
+		_history_live_state = GameState.state
+		_enter_history_view_mode()
+
+	# Reconstruct the historical state WITHOUT touching the live state, then make
+	# it the state the board renders from. (build_recorded_state_at preserves
+	# whatever GameState.state currently is, so passing through repeated clicks is
+	# safe — the live state stays held in _history_live_state.)
+	# Ensure reconstruction bases its save/restore on the real live state.
+	GameState.state = _history_live_state
+	var historical: Dictionary = ReplayManager.build_recorded_state_at(history_index)
+	if historical.is_empty():
+		# Could not rebuild — bail out of history view cleanly.
+		_exit_history_view()
+		return
+	GameState.state = historical
+	_history_refresh_visuals()
+	_update_history_banner(description)
+
+func _enter_history_view_mode() -> void:
+	_history_view_active = true
+	print("Main: Entering history view")
+	DebugLogger.info("Main: Entering history view", {})
+
+	# Pause the AI so it can't act on the historical state.
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player:
+		_history_saved_ai_enabled = ai_player.enabled
+		ai_player.enabled = false
+
+	# Pause autosave so we never persist a historical snapshot as the live game.
+	if SaveLoadManager and SaveLoadManager.has_method("disable_autosave"):
+		SaveLoadManager.disable_autosave()
+
+	# Silence the phase controllers. The full-screen overlay blocks _gui_input /
+	# _unhandled_input, but a few controllers (Shooting/Fight/Charge) read board
+	# clicks in _input(), which fires BEFORE the overlay can consume the event —
+	# so a stray click could otherwise dispatch an action onto the historical
+	# state. Disabling their input processing closes that gap.
+	_set_controllers_input_enabled(false)
+
+	_build_history_overlay()
+
+func _set_controllers_input_enabled(enabled: bool) -> void:
+	"""Enable/disable input processing on every phase controller — used to make the
+	board fully inert while the player browses a past step."""
+	for c in [deployment_controller, command_controller, movement_controller,
+			shooting_controller, charge_controller, fight_controller, scoring_controller]:
+		if c != null and is_instance_valid(c):
+			c.set_process_input(enabled)
+			c.set_process_unhandled_input(enabled)
+
+func _build_history_overlay() -> void:
+	if _history_overlay and is_instance_valid(_history_overlay):
+		_history_overlay.visible = true
+		return
+
+	# Full-screen input blocker. Sits above the board/HUD but BELOW the game log
+	# panel (whose z is raised) so the player can keep clicking other log entries.
+	var overlay := Control.new()
+	overlay.name = "HistoryViewOverlay"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = UI_PANEL_Z + 50
+	add_child(overlay)
+	_history_overlay = overlay
+
+	# Keep the game-log panel clickable on top of the overlay.
+	if game_log_panel and is_instance_valid(game_log_panel):
+		game_log_panel.z_index = UI_PANEL_Z + 100
+
+	# A subtle dim so it's obvious the board isn't live.
+	var tint := ColorRect.new()
+	tint.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tint.color = Color(0.05, 0.06, 0.10, 0.28)
+	tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(tint)
+
+	# Banner across the top.
+	var banner := PanelContainer.new()
+	banner.name = "HistoryBanner"
+	banner.anchor_left = 0.0
+	banner.anchor_right = 1.0
+	banner.anchor_top = 0.0
+	banner.anchor_bottom = 0.0
+	banner.offset_left = 348.0   # clear the game-log panel on the left
+	banner.offset_right = -12.0
+	banner.offset_top = 12.0
+	banner.offset_bottom = 60.0
+	banner.mouse_filter = Control.MOUSE_FILTER_STOP
+	var banner_style := StyleBoxFlat.new()
+	banner_style.bg_color = Color(0.12, 0.10, 0.06, 0.96)
+	banner_style.border_color = Color(0.833, 0.588, 0.376)
+	banner_style.set_border_width_all(2)
+	banner_style.set_corner_radius_all(6)
+	banner_style.content_margin_left = 12
+	banner_style.content_margin_right = 12
+	banner_style.content_margin_top = 6
+	banner_style.content_margin_bottom = 6
+	banner.add_theme_stylebox_override("panel", banner_style)
+	overlay.add_child(banner)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 12)
+	banner.add_child(hbox)
+
+	_history_banner_label = RichTextLabel.new()
+	_history_banner_label.bbcode_enabled = true
+	_history_banner_label.fit_content = true
+	_history_banner_label.scroll_active = false
+	_history_banner_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_history_banner_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_history_banner_label.add_theme_font_size_override("normal_font_size", 14)
+	_history_banner_label.add_theme_font_size_override("bold_font_size", 15)
+	hbox.add_child(_history_banner_label)
+
+	var exit_btn := Button.new()
+	exit_btn.name = "HistoryExitButton"
+	exit_btn.text = "Return to Live Game  (Esc)"
+	exit_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	exit_btn.pressed.connect(_exit_history_view)
+	hbox.add_child(exit_btn)
+
+func _update_history_banner(description: String) -> void:
+	if _history_banner_label == null or not is_instance_valid(_history_banner_label):
+		return
+	var desc := description.strip_edges()
+	_history_banner_label.clear()
+	if desc == "":
+		_history_banner_label.append_text("[b][color=#E8C477]🕑 Viewing a past step[/color][/b]  [color=#B0B8C0]— the board below is read-only.[/color]")
+	else:
+		_history_banner_label.append_text("[b][color=#E8C477]🕑 Viewing:[/color][/b] [color=#DCE3EC]%s[/color]  [color=#8892A0]— read-only[/color]" % desc)
+
+func _history_refresh_visuals() -> void:
+	"""Rebuild the board tokens from the (historical) GameState.state. Deliberately
+	minimal: it recreates unit tokens and updates score/round labels only. It does
+	NOT rebuild phase controllers or run any phase logic — this is a passive view."""
+	# Clear existing tokens
+	for child in token_layer.get_children():
+		child.queue_free()
+	await get_tree().process_frame
+	if not _history_view_active:
+		return  # exited while we were awaiting
+
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("embarked_in", null) != null:
+			continue
+		var status = unit.get("status", 0)
+		if status >= GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.IN_RESERVES:
+			var models = unit.get("models", [])
+			for i in range(models.size()):
+				var model = models[i]
+				var pos = model.get("position")
+				if pos != null and model.get("alive", true):
+					var token = _create_token_visual(unit_id, model)
+					if token:
+						token_layer.add_child(token)
+						var final_pos: Vector2
+						if pos is Dictionary:
+							final_pos = Vector2(pos.x, pos.y)
+						else:
+							final_pos = pos
+						token.position = final_pos
+
+	# Refresh score / CP / round read-outs so the HUD matches the historical state.
+	if has_method("_update_score_display"):
+		_update_score_display()
+	if has_method("_update_round_indicator"):
+		_update_round_indicator()
+	if active_player_badge:
+		active_player_badge.text = "P%d" % GameState.get_active_player()
+
+func _exit_history_view() -> void:
+	if not _history_view_active:
+		return
+	print("Main: Exiting history view — restoring live game")
+	DebugLogger.info("Main: Exiting history view", {})
+
+	# Restore the live state reference (never mutated while viewing history).
+	if not _history_live_state.is_empty():
+		GameState.state = _history_live_state
+	_history_live_state = {}
+	_history_view_active = false
+
+	# Drop the log selection highlight.
+	if game_log_panel and is_instance_valid(game_log_panel) and game_log_panel.has_method("clear_active_history"):
+		game_log_panel.clear_active_history()
+
+	# Remove the overlay and restore the log panel's normal z.
+	if _history_overlay and is_instance_valid(_history_overlay):
+		_history_overlay.queue_free()
+	_history_overlay = null
+	_history_banner_label = null
+	if game_log_panel and is_instance_valid(game_log_panel):
+		game_log_panel.z_index = UI_PANEL_Z
+
+	# Rebuild the live board and re-run normal UI refresh.
+	_recreate_unit_visuals()
+	refresh_unit_list()
+	update_ui()
+
+	# Resume AI + autosave + controller input.
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player:
+		ai_player.enabled = _history_saved_ai_enabled
+	if SaveLoadManager and SaveLoadManager.has_method("enable_autosave"):
+		SaveLoadManager.enable_autosave()
+	_set_controllers_input_enabled(true)
+
+func is_history_view_active() -> bool:
+	return _history_view_active
+
+# ============================================================================
 # Replay Mode
 # ============================================================================
 
 func _start_replay_recording_if_needed() -> void:
-	"""Start replay recording for AI vs AI games automatically."""
+	"""Start replay recording. Every game records in memory so the player can click
+	a game-log entry to see the board as it was at that step. AI-vs-AI games also
+	persist the recording to disk (so they show up in the menu's replay browser)."""
 	if not ReplayManager:
 		return
 
-	if ReplayManager.should_auto_record():
-		print("Main: Auto-starting replay recording (AI vs AI game)")
-		# Small delay to ensure all initialization is complete
-		await get_tree().create_timer(0.2).timeout
-		ReplayManager.start_recording()
-	else:
-		print("Main: Replay recording not auto-started (not AI vs AI)")
+	# A multiplayer CLIENT must not record — the host is the source of truth and
+	# already records. Recording locally would fight the network state sync.
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.is_networked() and not nm.is_host():
+		print("Main: Replay recording skipped (multiplayer client)")
+		return
+
+	# Small delay to ensure all initialization is complete
+	await get_tree().create_timer(0.2).timeout
+	var persist := ReplayManager.should_auto_record()  # AI vs AI → also write files
+	ReplayManager.start_recording(persist)
+	print("Main: Replay recording started (persist_to_disk=%s)" % persist)
 
 func _initialize_replay_mode() -> void:
 	"""Initialize the Main scene in replay mode - streamlined, no game logic."""
