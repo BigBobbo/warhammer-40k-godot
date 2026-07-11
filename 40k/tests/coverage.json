@@ -2127,6 +2127,7 @@
       "scenarios": [
         "iss15_heroic_intervention_fray_11e",
         "iss15_heroic_intervention_decline_11e",
+        "hi_window_ai_must_not_hijack_11e",
         "mp:tests/test_core_stratagems_11e.gd"
       ],
       "last_verified_commit": "HEAD",
@@ -2155,7 +2156,17 @@
       "id": "dialogs.HeroicInterventionDialog.decline",
       "description": "15.11 decline path: the end-of-phase dialog's DeclineButton completes the deferred charge phase with no CP spent; the auto-decline timer now actually arms (autostart \u2014 setup() runs before the dialog enters the tree).",
       "scenarios": [
-        "iss15_heroic_intervention_decline_11e"
+        "iss15_heroic_intervention_decline_11e",
+        "hi_window_ai_must_not_hijack_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.AIPlayer.reactive_window_ownership",
+      "description": "Reactive charge-phase windows (Heroic Intervention decision + pending HI move, Fire Overwatch) belong to the DEFENDER: the AI main loop idles while a HUMAN owns the window (no hijack, no forced decline \u2014 2026-07-11 'AI uses Heroic Intervention with Stompa' report) and acts AS the owning player when that owner is an AI, so AI-vs-AI Heroic Intervention actually resolves with the right identity. Headless net: tests/test_ai_reactive_window_guard.gd.",
+      "scenarios": [
+        "hi_window_ai_must_not_hijack_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

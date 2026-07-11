@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.19.2",
+			"date": "2026-07-11",
+			"summary": "Fixed the AI hijacking your Heroic Intervention: at the end of the AI's Charge phase, your Heroic Intervention window now stays yours. Previously the AI answered it itself within a second — the log even claimed it used Heroic Intervention with YOUR unit (e.g. 'AI uses Heroic Intervention with Stompa') — and your dialog was declined for you before you could react.",
+			"changes": [
+				"The Heroic Intervention offer at the end of the AI's Charge phase belongs to the defending player (you). The AI no longer evaluates it, no longer logs 'AI uses Heroic Intervention with <your unit>', and no longer auto-declines your window — the dialog now stays up for its full 5-second countdown and your choice is the one that counts.",
+				"The same protection covers your Fire Overwatch window during the AI's charges, and your Heroic Intervention charge move once you accept — the AI can never resolve those for you.",
+				"In AI-vs-AI games the defending AI can now actually use Heroic Intervention: its attempts previously always failed an internal rules check ('can only be used on your opponent's turn') and were silently declined.",
+				"The gold 'HEROIC INTERVENTION available' banner in the dice log now shows the edition's real cost (1 CP in 11th edition — it was hardcoded to 2 CP)."
+			]
+		},
+		{
 			"version": "0.19.1",
 			"date": "2026-07-11",
 			"summary": "History view: jump straight between game-log steps — while viewing a past step you can now click any other log entry to show that one, no need to press Esc first.",

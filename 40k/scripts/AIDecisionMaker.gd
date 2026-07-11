@@ -11307,6 +11307,17 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 
 	# Fire Overwatch: Evaluate whether to fire overwatch during opponent's charge
 	if action_types.has("USE_FIRE_OVERWATCH") or action_types.has("DECLINE_FIRE_OVERWATCH"):
+		# The overwatch window belongs to the DEFENDER, never the active
+		# player. AIPlayer acts as the window owner when that owner is an AI;
+		# refuse a mismatched window rather than answer it with the wrong
+		# identity (hijacking a human's reaction or failing validation).
+		var ow_window_player = player
+		if action_types.has("USE_FIRE_OVERWATCH"):
+			ow_window_player = action_types["USE_FIRE_OVERWATCH"][0].get("player", player)
+		elif action_types.has("DECLINE_FIRE_OVERWATCH"):
+			ow_window_player = action_types["DECLINE_FIRE_OVERWATCH"][0].get("player", player)
+		if int(ow_window_player) != int(player):
+			return {}
 		var ow_actions = action_types.get("USE_FIRE_OVERWATCH", [])
 		if not ow_actions.is_empty():
 			# Build eligible units list from available actions
@@ -11348,6 +11359,14 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 		elif action_types.has("DECLINE_HEROIC_INTERVENTION"):
 			hi_player = action_types["DECLINE_HEROIC_INTERVENTION"][0].get("player", player)
 
+		# The HI window belongs to the DEFENDER, never the active player.
+		# Refuse to answer another player's window: deciding it here used to
+		# hijack the human defender's reaction (evaluate the human's units,
+		# submit as the AI, fail validation, then force-DECLINE the window).
+		# AIPlayer acts as the window owner when that owner is an AI.
+		if int(hi_player) != int(player):
+			return {}
+
 		var hi_decision = evaluate_heroic_intervention(hi_player, charging_unit_id, snapshot)
 		if hi_decision.get("type", "") == "USE_HEROIC_INTERVENTION":
 			hi_decision["player"] = hi_player
@@ -11372,6 +11391,10 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 	# --- Step 0b: Apply Heroic Intervention movement if pending ---
 	if action_types.has("APPLY_HEROIC_INTERVENTION_MOVE"):
 		var a = action_types["APPLY_HEROIC_INTERVENTION_MOVE"][0]
+		# Same ownership rule as the HI decision window: never move another
+		# player's Heroic Intervention unit.
+		if int(a.get("player", player)) != int(player):
+			return {}
 		var uid = a.get("actor_unit_id", "")
 		var rolled_distance = a.get("rolled_distance", 0)
 		var target_ids = a.get("target_ids", [])
