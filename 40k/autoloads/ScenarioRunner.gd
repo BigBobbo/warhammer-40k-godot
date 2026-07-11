@@ -941,6 +941,37 @@ func _do_expect_baseline_unchanged(_step: Dictionary) -> Dictionary:
 # stays 1 even after firing concurrent recreates. Size-independent, so it is
 # robust to fixture changes. Callable from `execute_script` steps as a bare
 # `max_tokens_per_model()` (the runner is the Expression base instance).
+# Shape-aware minimum edge-to-edge distance (inches) between the alive models
+# of two units, straight from GameState. Callable from `execute_script` steps
+# as `min_edge_distance_between_units("U_A", "U_B")` — e.g. with expect_max 2.0
+# to assert a completed charge really stands in engagement range.
+func min_edge_distance_between_units(unit_a_id: String, unit_b_id: String) -> float:
+	var units = GameState.state.get("units", {})
+	var ua = units.get(unit_a_id, {})
+	var ub = units.get(unit_b_id, {})
+	var best := 9999.0
+	for ma in ua.get("models", []):
+		if not ma.get("alive", true) or ma.get("position") == null:
+			continue
+		for mb in ub.get("models", []):
+			if not mb.get("alive", true) or mb.get("position") == null:
+				continue
+			best = min(best, Measurement.model_to_model_distance_inches(ma, mb))
+	return best
+
+# Count GameEventLog entries whose text contains `needle`. Callable from
+# `execute_script` steps, e.g. `event_log_count_containing("charge move failed")`
+# with equals 0 to assert a failure message never reached the player-facing log.
+func event_log_count_containing(needle: String) -> int:
+	var log_node := get_tree().root.get_node_or_null("GameEventLog")
+	if log_node == null:
+		return -1
+	var n := 0
+	for e in log_node.get_all_entries():
+		if str(e.get("text", "")).find(needle) != -1:
+			n += 1
+	return n
+
 func max_tokens_per_model() -> int:
 	var scene := get_tree().current_scene
 	if scene == null:
