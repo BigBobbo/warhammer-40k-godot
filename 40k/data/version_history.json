@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.18.4",
+			"date": "2026-07-11",
+			"summary": "Fixed charge rolls being wrongly reported as failed when the roll would actually reach the enemy. A charging model only has to close to within engagement range (2\"), not touch base-to-base — e.g. a 9\" roll against a target 9.6\" away now succeeds (it only needs to travel 7.6\").",
+			"changes": [
+				"Charge rolls that can reach a target's engagement range are no longer marked FAILED. Previously the after-roll target check compared the full base-to-base gap against the raw roll, ignoring the 2\" engagement range — so a 9\" roll against a target 9.6\" away failed even though the model only needed to move 7.6\" to get within 2\".",
+				"The reachable ceiling for selecting charge targets is now 'roll + engagement range' (capped at the 12\" declaration range) instead of just the roll, matching how the charge move itself is measured.",
+				"Genuinely out-of-reach charges still fail correctly (e.g. a 9\" roll cannot reach a target 12\" away, which needs 10\")."
+			]
+		},
+		{
 			"version": "0.18.3",
 			"date": "2026-07-11",
 			"summary": "Fixed the AI 'Fire Overwatch' popup covering your control buttons: when the AI reacts during your turn (e.g. firing Overwatch while you arrive a unit from Reserves), the AI Actions log now floats to the left of the right-hand panel instead of sitting on top of your Undo / Reset / Confirm buttons — so you can always undo or confirm a deployment.",

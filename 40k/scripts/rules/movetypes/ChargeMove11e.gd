@@ -63,15 +63,27 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	return {"eligible": true, "reasons": []}
 
 ## BEFORE MOVING (11.02 step 2): the 2D6 charge roll IS the maximum
-## distance; targets are then selected from enemies within 12" AND within
-## that maximum (selectable_targets).
+## distance; targets are then selected from enemies within 12" AND reachable
+## by the roll (selectable_targets — see selectable_distance_ceiling).
 func before_moving(unit_id: String, board: Dictionary, rng, _context: Dictionary) -> Dictionary:
 	var dice = rng.roll_d6(2)
 	var roll: int = dice[0] + dice[1]
 	return {
 		"charge_roll": roll, "dice": [{"context": "charge_roll", "rolls": dice}],
-		"selectable_targets": _targets_within(unit_id, board, min(12.0, float(roll))),
+		"selectable_targets": _targets_within(unit_id, board, selectable_distance_ceiling(float(roll))),
 	}
+
+## Raw base-to-base distance ceiling (inches) for a target to be selectable after
+## a charge roll. A charging model does NOT have to travel the full base-to-base
+## gap — it stops as soon as it reaches ENGAGEMENT RANGE (ER) of the target. So a
+## target is reachable when its raw gap minus ER fits the roll, i.e.
+##   raw_gap - ER <= roll   ⟺   raw_gap <= roll + ER.
+## Combined with the 12" declaration range, the raw-distance ceiling handed to
+## _targets_within is min(12, roll + ER). Using the bare roll here (the old bug)
+## dropped makeable charges — e.g. a 9" roll against a target 9.6" away, which
+## only needs to close 7.6" to reach a 2" ER.
+static func selectable_distance_ceiling(roll: float) -> float:
+	return min(12.0, roll + GameConstants.engagement_range_inches())
 
 func max_distance_inches(_unit: Dictionary, context: Dictionary) -> float:
 	return float(context.get("charge_roll", 0))
