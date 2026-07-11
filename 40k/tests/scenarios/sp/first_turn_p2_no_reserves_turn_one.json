@@ -1,0 +1,75 @@
+{
+  "id": "first_turn_p2_no_reserves_turn_one",
+  "covers": [
+    "phases.ScoringPhase.round_advance_uses_first_turn_player",
+    "movement.reinforcement.gated_to_round_2",
+    "movement.reinforcement.none_offered_turn_one"
+  ],
+  "fixture": "audit_baseline_postdeploy_p2first",
+  "edition": 11,
+  "disable_ai": true,
+  "rng_seed": 7,
+  "description": "Regression: when the first-turn roll-off gives Player 2 the FIRST turn (meta.first_turn_player=2), the battle round must NOT advance after P2's turn — it advances only after Player 1 (the round's SECOND player). Previously the round advanced whenever P2 ended a turn (hardcoded current_player==2), so Player 1's FIRST turn ran as Battle Round 2 and the movement phase wrongly offered reserves/Deep Strike arrivals on turn one (the reported 'AI always suggests deep strike even on turn one' symptom). Drive P2's full turn to the turn boundary, assert the round is STILL 1 as control passes to P1, and assert P1's Round-1 movement UI offers ZERO reinforcement rows even though P1 holds a unit in reserves. Positive control: drive P1's turn so the round genuinely advances to 2, then confirm P2's Round-2 movement UI DOES offer its reserve units — proving the gate is real, not vacuous.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "meta.battle_round", "equals": 1 },
+    { "act": "expect_state", "path": "meta.first_turn_player", "equals": 2 },
+    { "act": "execute_script", "script": "GameState.get_first_turn_player()", "equals": 2 },
+    { "act": "execute_script", "script": "GameState.is_last_turn_of_round(1)", "equals": true },
+    { "act": "execute_script", "script": "GameState.is_last_turn_of_round(2)", "equals": false },
+    { "act": "execute_script", "script": "GameState.get_reserves_for_player(2).size()", "expect_min": 1 },
+    { "act": "screenshot", "label": "01_p2_first_turn_round1_command" },
+
+    { "act": "dispatch_action", "action": { "type": "END_COMMAND", "player": 2 } },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "dispatch_action", "action": { "type": "END_MOVEMENT", "player": 2 } },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "dispatch_action", "action": { "type": "END_SHOOTING", "player": 2 } },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "dispatch_action", "action": { "type": "END_CHARGE", "player": 2 } },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 2 } },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "dispatch_action", "action": { "type": "END_TURN", "player": 2 } },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "expect_state", "path": "meta.battle_round", "equals": 1 },
+    { "act": "screenshot", "label": "02_after_p2_turn_still_round1" },
+
+    { "act": "dispatch_action", "action": { "type": "END_COMMAND", "player": 1 } },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "expect_state", "path": "meta.battle_round", "equals": 1 },
+    { "act": "execute_script", "script": "GameState.get_reserves_for_player(1).size()", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.movement_controller.get_reinforcement_row_count()", "equals": 0 },
+    { "act": "screenshot", "label": "03_p1_first_turn_movement_no_reserves" },
+
+    { "act": "dispatch_action", "action": { "type": "END_MOVEMENT", "player": 1 } },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "dispatch_action", "action": { "type": "END_SHOOTING", "player": 1 } },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "dispatch_action", "action": { "type": "END_CHARGE", "player": 1 } },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 1 } },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "dispatch_action", "action": { "type": "END_TURN", "player": 1 } },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "meta.battle_round", "equals": 2 },
+
+    { "act": "dispatch_action", "action": { "type": "END_COMMAND", "player": 2 } },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.battle_round", "equals": 2 },
+    { "act": "execute_script", "script": "main.movement_controller.get_reinforcement_row_count()", "expect_min": 1 },
+    { "act": "screenshot", "label": "04_p2_round2_movement_reserves_offered" }
+  ]
+}

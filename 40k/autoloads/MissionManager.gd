@@ -892,8 +892,10 @@ func _process_supply_drop_removal(battle_round: int, active_player: int) -> void
 	"""Remove NML objectives at the start of round 4 for Supply Drop."""
 	var removal_rules = current_mission.get("removal_rules", {})
 
-	# Only process removal once, when the first player scores in round 4
-	if battle_round == 4 and not supply_drop_resolved_round_4 and active_player == 1:
+	# Only process removal once, when the round's first-turn player scores in
+	# round 4 (the start of round 4). NOT hardcoded to Player 1 — when the
+	# roll-off gives Player 2 the first turn, round 4 begins on P2's turn.
+	if battle_round == 4 and not supply_drop_resolved_round_4 and active_player == GameState.get_first_turn_player():
 		var remove_count = removal_rules.get("round_4_remove_count", 1)
 		var nml_objectives = _get_nml_objective_ids()
 
@@ -2274,9 +2276,11 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 			return _kills_this_turn_11e(player) * int(rule.get("vp_per", 0))
 		"killed_more_than_opponent_last_turn":
 			var my_kills = _kills_this_turn_11e(player)
-			# Opponent's most recent turn: same round if they already went this
-			# round (player 2 scoring), otherwise the previous round.
-			var opp_round = battle_round if player == 2 else battle_round - 1
+			# Opponent's most recent turn: same round if the opponent already
+			# went this round (i.e. `player` takes the round's SECOND/last turn),
+			# otherwise the previous round. NOT hardcoded to P2-second — when the
+			# roll-off gives P2 the first turn, P1 takes the round's last turn.
+			var opp_round = battle_round if GameState.is_last_turn_of_round(player) else battle_round - 1
 			var opp_kills = int(kills_per_round.get(str(opp_round), {}).get(str(opponent), 0))
 			return rule.get("vp", 0) if my_kills > opp_kills else 0
 		"quarters":

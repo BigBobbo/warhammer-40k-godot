@@ -54,8 +54,12 @@ func _on_phase_enter() -> void:
 		if u.get("flags", {}).get(EffectPrimitivesData.FLAG_PSYCHIC_VEIL, false):
 			GameState.apply_state_changes([{"op": "remove", "path": "units.%s.flags.%s" % [uid, EffectPrimitivesData.FLAG_PSYCHIC_VEIL]}])
 
-	# Step 0a: Reset per-round tracking at start of each battle round (Player 1's turn)
-	if current_player == 1:
+	# Step 0a: Reset per-round tracking at the START of each battle round — the
+	# first-turn player's Command phase. NOT hardcoded to Player 1: when the
+	# first-turn roll-off gives Player 2 the first turn, the round begins on P2's
+	# turn, so the per-round resets (round kills, bonus-CP cap, battle-round
+	# stratagem expiry) must fire then, not on P1's (second) turn.
+	if current_player == GameState.get_first_turn_player():
 		if MissionManager:
 			MissionManager.reset_round_kills()
 		# Reset bonus CP tracking — per core rules FAQ, each player can only gain 1 bonus CP per battle round

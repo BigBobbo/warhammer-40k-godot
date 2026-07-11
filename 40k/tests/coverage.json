@@ -2637,6 +2637,33 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "phases.ScoringPhase.round_advance_uses_first_turn_player",
+      "description": "Regression guard: the battle round advances after the round's SECOND player ends their turn (GameState.is_last_turn_of_round), not unconditionally after Player 2. When the first-turn roll-off gives Player 2 the first turn, Player 1 closes each round, preventing Player 1's first turn from counting as Battle Round 2. Validated by 'first_turn_p2_no_reserves_turn_one' and headless test_p2_first_turn_round_advance.gd.",
+      "scenarios": [
+        "first_turn_p2_no_reserves_turn_one"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.reinforcement.gated_to_round_2",
+      "description": "Reinforcements (Strategic Reserves / Deep Strike) are offered in the movement phase only from Battle Round 2 onward, for whichever player takes the first turn. Positive control confirms reserves DO appear in Round 2. Validated by 'first_turn_p2_no_reserves_turn_one'.",
+      "scenarios": [
+        "first_turn_p2_no_reserves_turn_one"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.reinforcement.none_offered_turn_one",
+      "description": "The movement unit list offers ZERO reinforcement rows on the first turn of the game even when the active player holds units in reserves \u2014 including when Player 2 took the first turn and Player 1 is now taking the game's first turn. Asserted via MovementController.get_reinforcement_row_count(). Validated by 'first_turn_p2_no_reserves_turn_one'.",
+      "scenarios": [
+        "first_turn_p2_no_reserves_turn_one"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

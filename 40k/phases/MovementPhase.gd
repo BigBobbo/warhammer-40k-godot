@@ -368,8 +368,11 @@ func _initialize_movement() -> void:
 			can_move = true
 			break
 
-	# Also check for reserve units that can be deployed (Turn 2+)
-	if not can_move and game_state_snapshot.get("battle_round", 1) >= 2:
+	# Also check for reserve units that can be deployed (Turn 2+).
+	# battle_round lives under meta in snapshots — the old top-level read
+	# always returned 1, so an all-in-reserves army had its movement phase
+	# auto-completed even in rounds where reinforcements could arrive.
+	if not can_move and GameState.get_battle_round() >= 2:
 		var reserves = GameState.get_reserves_for_player(current_player)
 		if reserves.size() > 0:
 			can_move = true
