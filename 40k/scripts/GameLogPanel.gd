@@ -1675,19 +1675,68 @@ func debug_click_history_card_matching(substring: String) -> bool:
 	"""Test hook (windowed scenarios): drive the exact same code path as a real
 	left-click on the first clickable log card whose text contains `substring`.
 	Returns false if no matching clickable card exists."""
-	if _card_container == null:
+	var card := _find_history_card_matching(substring)
+	if card == null:
 		return false
+	_set_active_history_card(card)
+	emit_signal("history_step_requested", int(card.get_meta("history_index")), _card_history_description(card))
+	return true
+
+func _find_history_card_matching(substring: String) -> Control:
+	"""First clickable (history-stamped) log card whose entry text contains
+	`substring`; null if none."""
+	if _card_container == null:
+		return null
 	for card in _card_container.get_children():
 		if not is_instance_valid(card):
 			continue
 		if not card.has_meta("history_index"):
 			continue
-		var txt := str(card.get_meta("history_desc", ""))
-		if substring in txt:
-			_set_active_history_card(card)
-			emit_signal("history_step_requested", int(card.get_meta("history_index")), _card_history_description(card))
-			return true
-	return false
+		if substring in str(card.get_meta("history_desc", "")):
+			return card
+	return null
+
+func scroll_history_card_into_view(substring: String) -> bool:
+	"""Test hook: scroll the log so the first clickable card whose text contains
+	`substring` sits inside the scroll viewport, so a synthesized pointer click
+	can land on it. Returns false if no matching clickable card exists."""
+	var card := _find_history_card_matching(substring)
+	if card == null or _scroll == null:
+		return false
+	_scroll.ensure_control_visible(card)
+	return true
+
+func real_click_history_card_matching(substring: String) -> bool:
+	"""Test hook: synthesize a REAL mouse press+release (via Input.parse_input_event,
+	so normal viewport GUI picking decides who receives it) at the on-screen position
+	of the first clickable log card whose text contains `substring`. Unlike
+	debug_click_history_card_matching — which emits the signal directly — this
+	proves the card is actually reachable by the pointer (e.g. not covered by the
+	history overlay). Returns true when the card was found and the events were
+	injected; whether the click LANDED on the card is for the caller to assert."""
+	var card := _find_history_card_matching(substring)
+	if card == null:
+		return false
+	var r := card.get_global_rect()
+	# Aim at the card's left edge, vertically centred: that region is the icon
+	# badge / accent strip (non-Button, mouse-ignored) so the event falls through
+	# to the card itself even on cards that contain real Buttons (detail toggles).
+	var pos := Vector2(r.position.x + minf(16.0, r.size.x * 0.5), r.position.y + r.size.y * 0.5)
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.button_mask = MOUSE_BUTTON_MASK_LEFT
+	press.position = pos
+	press.global_position = pos
+	Input.parse_input_event(press)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.button_mask = 0
+	release.position = pos
+	release.global_position = pos
+	Input.parse_input_event(release)
+	return true
 
 func _on_ai_filter_pressed() -> void:
 	# The header 'AI' shortcut drives the same state as the AI chip.
