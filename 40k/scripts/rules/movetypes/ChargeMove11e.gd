@@ -10,7 +10,12 @@ extends MoveType
 ##     end of the turn (24.13) — not a turn-order flag.
 ##
 ## ELIGIBLE IF (11.02): on the battlefield, within 12" of one or more
-## enemy units, unengaged, and did not advance or fall back this turn.
+## enemy units, unengaged, and did not advance or fall back this turn —
+## unless an ability makes the unit eligible anyway (Waaagh! / Full
+## Throttle set effect_advance_and_charge / effect_fall_back_and_charge;
+## Kult of Speed's Adrenaline Junkies is detachment-wide). Mirrors the
+## overrides in ChargePhase._can_unit_charge so the UI list and the
+## DECLARE_CHARGE validator agree.
 
 func _init():
 	id = "charge"
@@ -18,6 +23,10 @@ func _init():
 
 static func _measurement() -> Node:
 	return Engine.get_main_loop().root.get_node("/root/Measurement")
+
+static func _has_adrenaline_junkies(unit: Dictionary) -> bool:
+	var fam = Engine.get_main_loop().root.get_node_or_null("/root/FactionAbilityManager")
+	return fam != null and fam.unit_has_adrenaline_junkies(unit)
 
 func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	if GameConstants.edition < 11:
@@ -28,10 +37,27 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	if _rules().is_unit_engaged(unit_id, board):
 		return {"eligible": false, "reasons": ["engaged units cannot declare a charge"]}
 	var flags = unit.get("flags", {})
-	if flags.get("advanced", false) or flags.get("fell_back", false):
+	# Turbo Boostas (Speedwaaagh!): a hard charge lock no advance-and-charge
+	# effect can override.
+	if flags.get("turbo_boosted", false):
+		return {"eligible": false, "reasons": ["turbo boost locks charging this turn"]}
+	# Adrenaline Junkies does NOT override other charge locks (e.g.
+	# Wazblasta's post-shooting move).
+	var adrenaline = _has_adrenaline_junkies(unit) and not flags.get("wazblasta_no_charge", false)
+	var charge_after_advance = EffectPrimitivesData.has_effect_advance_and_charge(unit) or adrenaline
+	var charge_after_fall_back = EffectPrimitivesData.has_effect_fall_back_and_charge(unit) or adrenaline
+	if flags.get("advanced", false) and not charge_after_advance:
+		return {"eligible": false, "reasons": ["advanced or fell back this turn"]}
+	if flags.get("fell_back", false) and not charge_after_fall_back:
 		return {"eligible": false, "reasons": ["advanced or fell back this turn"]}
 	if flags.get("cannot_charge", false):
-		return {"eligible": false, "reasons": ["unit cannot charge (action/disembark lock, 16.01/18.04)"]}
+		# Advance/Fall Back moves set cannot_charge too — the overrides above
+		# clear that source. Standalone locks (actions 16.01, disembark
+		# 18.04) have no advanced/fell_back flag and stay locked.
+		var overridden = (flags.get("advanced", false) and charge_after_advance) \
+			or (flags.get("fell_back", false) and charge_after_fall_back)
+		if not overridden:
+			return {"eligible": false, "reasons": ["unit cannot charge (action/disembark lock, 16.01/18.04)"]}
 	if _closest_enemy_inches(unit_id, board) > 12.0:
 		return {"eligible": false, "reasons": ["no enemy unit within 12\""]}
 	return {"eligible": true, "reasons": []}

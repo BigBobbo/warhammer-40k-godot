@@ -1,0 +1,52 @@
+{
+  "id": "fight_dialogs_single_confirm_11e",
+  "covers": [
+    "dialogs.AttackAssignmentDialog.ok_button_hidden",
+    "dialogs.FightSelectionDialog.ok_button_hidden",
+    "phases.FightPhase.attack_assignment",
+    "ui.fight.single_confirm_affordance"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "UX guard: the fight-flow dialogs must expose exactly ONE confirm affordance. Previously the AttackAssignmentDialog showed both its own 'Fight!' button and the AcceptDialog built-in 'OK' button, wired to the same handler — confusing, and the OK path auto-hid the dialog even when the confirm was rejected (no assignments). Same for FightSelectionDialog, where unit choice is a single click and OK could only dismiss the picker without selecting. This scenario drives the real player path: pass both Pile In halves, assert the FightSelectionDialog has NO visible built-in OK button, pick the Warboss, assert the AttackAssignmentDialog has NO visible built-in OK button while its 'Fight!' ConfirmButton IS visible, then assign all weapons and resolve the fight through that single button, proving the picker re-pops for the next activation. Setup-only privileges: CP zeroed to suppress stratagem prompts not under test; model wounds inflated so no unit dies mid-scenario.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[1].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[2].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[3].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/PileInStepDialog/Content/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/PileInStepDialog/Content/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSelectionDialog\").get_ok_button().visible", "equals": false },
+    { "act": "screenshot", "label": "01_fight_selection_no_ok_button" },
+    { "act": "click_node", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"AttackAssignmentDialog\").get_ok_button().visible", "equals": false },
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton\").text", "equals": "Fight!" },
+    { "act": "screenshot", "label": "02_attack_assignment_single_fight_button" },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSelectionDialog\").get_ok_button().visible", "equals": false },
+    { "act": "screenshot", "label": "03_fight_resolved_next_selection_repops" }
+  ]
+}

@@ -16,6 +16,11 @@ signal objective_burn_completed(objective_id: String, player: int)
 
 var current_mission: Dictionary = {}
 var objective_control_state: Dictionary = {} # objective_id -> controlling_player
+# objective_id -> true when BOTH players have models in range with equal,
+# nonzero OC (a genuine stand-off). Distinct from merely uncontrolled (nobody
+# in range). Only meaningful while objective_control_state == 0 — lets the UI
+# label the marker "CONTESTED" vs "Uncontrolled" honestly (mek-contested bug).
+var objective_contested_state: Dictionary = {}
 var objectives_visual_refs: Dictionary = {} # Store references to visual nodes
 
 # Sticky objective tracking — objectives locked by abilities like "Get Da Good Bitz" / "Objective Secured"
@@ -245,6 +250,7 @@ func _setup_objectives_for_deployment(deployment_type: String) -> void:
 
 	# Initialize control state
 	objective_control_state.clear()
+	objective_contested_state.clear()
 	_sticky_objectives.clear()
 	for obj in objectives:
 		objective_control_state[obj.id] = 0  # 0 = contested/uncontrolled
@@ -314,13 +320,18 @@ func check_all_objectives() -> void:
 			continue
 
 		print("\nChecking objective: %s at position %s" % [obj.id, obj.position])
+		var old_contested = objective_contested_state.get(obj.id, false)
 		var controller = _check_objective_control(obj, units)
 		var old_controller = objective_control_state.get(obj.id, 0)
+		var contested = objective_contested_state.get(obj.id, false)
 
-		if controller != old_controller:
+		# Also fire on a contested-flag flip with an unchanged controller
+		# (uncontrolled <-> genuinely contested, both controller 0) so the
+		# board label stays honest.
+		if controller != old_controller or contested != old_contested:
 			objective_control_state[obj.id] = controller
 			emit_signal("objective_control_changed", obj.id, controller, old_controller)
-			print("MissionManager: %s control changed from %d to %d" % [obj.id, old_controller, controller])
+			print("MissionManager: %s control changed from %d to %d%s" % [obj.id, old_controller, controller, " (contested)" if contested else ""])
 
 ## ISS-055 / D3-a: the terrain areas hosting an objective (14.01: those
 ## areas ARE the objective). Layout-sourced objectives name their areas via
@@ -345,6 +356,34 @@ func _objective_host_areas(objective: Dictionary) -> Array:
 		if not hit.is_empty():
 			areas.append(hit)
 	return areas
+
+## Shared "is this model within range of this objective" predicate — used by
+## objective control, sticky-objective locking and nearest-objective lookup so
+## they can never disagree.
+## - Terrain-hosted objectives (11e 14.01, host_areas non-empty): the hosting
+##   AREAS are the objective — a model is in range as soon as ANY part of its
+##   base overlaps any of them (shape-aware; a base half on the area counts,
+##   its centre point does not need to be inside — mek-contested bug).
+## - Open ground (host_areas empty): any part of the base within the classic
+##   3" + 20mm-marker-radius of the marker centre.
+func _model_in_objective_range(model: Dictionary, objective: Dictionary, host_areas: Array) -> bool:
+	if not host_areas.is_empty():
+		for host_area in host_areas:
+			if Measurement.model_overlaps_polygon(model, host_area.get("polygon", PackedVector2Array())):
+				return true
+		return false
+	var obj_pos = objective.get("position", Vector2.ZERO)
+	if obj_pos is Dictionary:
+		obj_pos = Vector2(obj_pos.x, obj_pos.y)
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	return Measurement.model_edge_to_point_distance_px(model, obj_pos) <= control_radius
+
+## True when the objective is actively contested — both players have models in
+## range with equal, nonzero OC — as opposed to merely uncontrolled (nobody in
+## range). UI labels read this to avoid claiming "CONTESTED" over an empty or
+## one-sided marker.
+func is_objective_contested(obj_id: String) -> bool:
+	return objective_control_state.get(obj_id, 0) == 0 and objective_contested_state.get(obj_id, false)
 
 func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 	# Control radius is 3" + 20mm (radius of objective marker)
@@ -415,24 +454,21 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 			# handle oval and rectangular bases (not just circular).
 			# ISS-055 (11e 14.01/14.02): if terrain area(s) host the
 			# objective, those AREAS are the objective — a model is in range
-			# while WITHIN any of them (not the marker radius). The linked
-			# centre pair of the official layouts spans two areas that count
-			# as one objective (source_pieces). Falls through to the marker
-			# radius on open ground.
+			# while WITHIN any of them (not the marker radius). "Within" is
+			# any part of the base overlapping the area (shape-aware), NOT the
+			# centre point — a base half on the area counts (mek-contested
+			# bug). The linked centre pair of the official layouts spans two
+			# areas that count as one objective (source_pieces). Falls through
+			# to the marker radius on open ground.
 			if GameConstants.edition >= 11 and not host_areas_11e.is_empty():
-				var in_area = false
-				for host_area in host_areas_11e:
-					if Geometry2D.is_point_in_polygon(model_pos, host_area.get("polygon", PackedVector2Array())):
-						in_area = true
-						break
-				if in_area:
+				if _model_in_objective_range(model, objective, host_areas_11e):
 					units_in_range.append("%s (Player %d, OC: %d, terrain objective)" % [unit_id, owner, oc_value])
 					if owner == 1:
 						player1_oc += oc_value
 					elif owner == 2:
 						player2_oc += oc_value
 					unit_counted = true
-					print("    -> Within the TERRAIN OBJECTIVE area (14.01)! Adding OC: %d for Player %d" % [oc_value, owner])
+					print("    -> Base overlaps the TERRAIN OBJECTIVE area (14.01)! Adding OC: %d for Player %d at %s" % [oc_value, owner, model_pos])
 				continue
 
 			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
@@ -465,6 +501,11 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 		oc_controller = 1
 	elif player2_oc > player1_oc:
 		oc_controller = 2
+
+	# Genuinely contested = tied, nonzero OC from both sides. A 0-0 "tie"
+	# (nobody in range) is merely uncontrolled. Sticky paths below may still
+	# return a controller; is_objective_contested() guards on controller == 0.
+	objective_contested_state[objective.get("id", "")] = (oc_controller == 0 and player1_oc > 0)
 
 	# If a player actively controls via OC, that overrides any sticky lock
 	# (opponent "controls it at the start or end of any turn" breaks sticky)
@@ -542,7 +583,6 @@ func apply_sticky_objectives(player: int) -> void:
 	where a unit with a sticky objective ability is within range."""
 	var objectives = GameState.state.board.get("objectives", [])
 	var units = GameState.state.get("units", {})
-	var control_radius = Measurement.inches_to_px(3.78740157)
 
 	var unit_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if not unit_ability_mgr:
@@ -556,6 +596,12 @@ func apply_sticky_objectives(player: int) -> void:
 		# Only apply sticky to objectives the player currently controls
 		if controller != player:
 			continue
+
+		# ISS-055 / 14.01: on terrain-hosted objectives (11e) "within range"
+		# means on the hosting area(s), mirroring _check_objective_control.
+		var host_areas: Array = []
+		if GameConstants.edition >= 11:
+			host_areas = _objective_host_areas(obj)
 
 		# Check if any unit with sticky objective ability is within range
 		for unit_id in units:
@@ -577,13 +623,9 @@ func apply_sticky_objectives(player: int) -> void:
 			for model in unit.get("models", []):
 				if not model.get("alive", true):
 					continue
-				var model_pos = model.get("position")
-				if model_pos == null:
+				if model.get("position") == null:
 					continue
-				if model_pos is Dictionary:
-					model_pos = Vector2(model_pos.x, model_pos.y)
-				var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj.position)
-				if edge_distance <= control_radius:
+				if _model_in_objective_range(model, obj, host_areas):
 					unit_in_range = true
 					break
 
@@ -634,7 +676,6 @@ func find_nearest_controlled_objective(unit_id: String) -> String:
 	if unit.is_empty():
 		return ""
 	var owner = int(unit.get("owner", 0))
-	var control_radius = Measurement.inches_to_px(3.78740157)
 	var objectives = GameState.state.get("board", {}).get("objectives", [])
 	var best_id = ""
 	var best_distance = INF
@@ -649,11 +690,19 @@ func find_nearest_controlled_objective(unit_id: String) -> String:
 			continue
 		if obj_pos is Dictionary:
 			obj_pos = Vector2(obj_pos.x, obj_pos.y)
+		# ISS-055 / 14.01: eligibility on terrain-hosted objectives (11e) is
+		# base-on-area, mirroring _check_objective_control; candidates are
+		# still ranked by distance to the marker point either way.
+		var host_areas: Array = []
+		if GameConstants.edition >= 11:
+			host_areas = _objective_host_areas(obj)
 		for model in unit.get("models", []):
 			if not model.get("alive", true):
 				continue
+			if not _model_in_objective_range(model, obj, host_areas):
+				continue
 			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
-			if edge_distance <= control_radius and edge_distance < best_distance:
+			if edge_distance < best_distance:
 				best_distance = edge_distance
 				best_id = obj_id
 	return best_id

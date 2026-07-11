@@ -115,6 +115,52 @@ func _run_tests():
 		str(mm.objective_control_state))
 	tm.terrain_features = prev_terrain
 
+	print("\n-- D: partial base overlap + contested vs uncontrolled (mek-contested bug) --")
+	tm.terrain_features = [{"id": "obj_ruin", "type": "ruins",
+		"polygon": PackedVector2Array([Vector2(600, 600), Vector2(880, 600),
+			Vector2(880, 1000), Vector2(600, 1000)]),
+		"height_category": "tall"}]
+	GameConstants.edition = 11
+	mm._sticky_objectives = {}
+	mm.objective_control_state["OBJ_T"] = 0
+	# Model centre OUTSIDE the area (x=900 > 880) but its 32mm base
+	# (radius ~25.2px) overlaps the right edge by ~5px: must count.
+	gs.state["units"]["U_FOE"]["models"][0]["position"] = {"x": 900, "y": 800}
+	mm.check_all_objectives()
+	_check("base partially on the area (centre outside) controls the terrain objective",
+		mm.objective_control_state.get("OBJ_T", 0) == 2,
+		str(mm.objective_control_state))
+	_check("one-sided control is NOT flagged contested",
+		not mm.is_objective_contested("OBJ_T"))
+	# Same centre-outside position, but base short of the edge: no control.
+	gs.state["units"]["U_FOE"]["models"][0]["position"] = {"x": 910, "y": 800}
+	mm.check_all_objectives()
+	_check("base short of the area edge exerts no control",
+		mm.objective_control_state.get("OBJ_T", 0) == 0,
+		str(mm.objective_control_state))
+	# Nobody in range at all -> uncontrolled, NOT contested.
+	gs.state["units"]["U_FOE"]["models"][0]["position"] = {"x": 1500, "y": 300}
+	mm.check_all_objectives()
+	_check("empty objective is uncontrolled (controller 0)",
+		mm.objective_control_state.get("OBJ_T", 0) == 0,
+		str(mm.objective_control_state))
+	_check("empty objective is NOT flagged contested",
+		not mm.is_objective_contested("OBJ_T"))
+	# Equal, nonzero OC from both sides -> genuinely contested.
+	gs.state["units"]["U_FOE"]["models"][0]["position"] = {"x": 700, "y": 800}
+	gs.state["units"]["U_ALLY"] = {"id": "U_ALLY", "owner": 1, "flags": {},
+		"status": 2,
+		"meta": {"keywords": ["INFANTRY"], "stats": {"objective_control": 2}},
+		"models": [{"id": "m0", "alive": true, "base_mm": 32, "base_type": "circular",
+			"position": {"x": 640, "y": 800}}]}
+	mm.check_all_objectives()
+	_check("equal nonzero OC on both sides -> controller 0",
+		mm.objective_control_state.get("OBJ_T", 0) == 0,
+		str(mm.objective_control_state))
+	_check("equal nonzero OC on both sides IS flagged contested",
+		mm.is_objective_contested("OBJ_T"))
+	tm.terrain_features = prev_terrain
+
 	GameConstants.edition = 10
 	gs.state = prev_state
 	mm.objective_control_state = prev_ctrl

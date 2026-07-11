@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.16.1",
+			"version": "0.17.7",
 			"date": "2026-07-10",
 			"summary": "Fixed a Shooting phase soft-lock: after a unit threw a GRENADE, the shooting UI could get stuck — clicks did nothing, or 'Rolling dice…' showed with no result. Rejected shooting actions are now explained instead of failing silently.",
 			"changes": [
@@ -10,6 +10,95 @@
 				"Shooting actions that get rejected (assign target, confirm, grenade) now pop an explanation and re-sync the panel, instead of silently doing nothing after an optimistic 'Rolling dice…'.",
 				"The GRENADE stratagem is now correctly limited to once per phase — the button disappears after you use it (previously it could be offered again).",
 				"Auto-selecting the next shooter now skips units that can't shoot yet or have no targets in range, landing on a unit you can actually fire with."
+			]
+		},
+		{
+			"version": "0.17.6",
+			"date": "2026-07-10",
+			"summary": "Objective control fixes: a model whose base is only partly on a terrain-hosted objective now counts as holding it, and objective labels no longer claim 'CONTESTED' when nobody (or only one side) is in range — an empty marker now reads 'Uncontrolled'.",
+			"changes": [
+				"Terrain-hosted objectives (11e): a model counts as within the objective as soon as ANY part of its base overlaps the hosting ruin area — previously only the model's centre point was checked, so a unit standing half on the objective was ignored and the marker wrongly showed CONTESTED.",
+				"Board labels, the Command panel and the Scoring panel now distinguish a genuine stand-off ('CONTESTED': both sides in range with equal, nonzero OC) from an empty marker ('Uncontrolled').",
+				"Sticky-objective locks (e.g. Get Da Good Bitz) and nearest-controlled-objective checks now use the same base-on-area rule as objective control on terrain-hosted objectives."
+			]
+		},
+		{
+			"version": "0.17.5",
+			"date": "2026-07-10",
+			"summary": "Fixed a Waaagh! bug: Ork units that Advanced during an active Waaagh! (or that have Full Throttle, like Stormboyz) can now declare charges in the Charge phase. The Waaagh!'s advance-and-charge and 5+ invulnerable save now correctly last until the start of your next Command phase instead of being wiped at the end of the Shooting phase.",
+			"changes": [
+				"Units eligible to charge after Advancing (Waaagh!, Full Throttle, Kult of Speed's Adrenaline Junkies) are no longer refused a charge with 'advanced or fell back this turn' — the 11th-edition charge check now honours those abilities, matching the Charge-phase eligibility list.",
+				"Waaagh! effects (advance-and-charge, 5+ invulnerable save, and its other buffs) are no longer stripped at the end of the Shooting phase — they now persist until the start of your next Command phase as the rules intend, so an Ork unit that Advanced can still charge and keeps its invuln through the enemy's turn."
+			]
+		},
+		{
+			"version": "0.17.4",
+			"date": "2026-07-10",
+			"summary": "Disembark fixes: disembarked units no longer vanish from the board (previously they were left as invisible 'still embarked' ghosts marked Cannot Disembark), and the Combat Disembark option only appears when enemies are actually close enough to block a normal 3\" set-up.",
+			"changes": [
+				"Fixed: after placing all models of a disembarking unit, the models disappeared (leaving only blue coherency rings) and the unit was listed as 'Embarked in Transport — Cannot Disembark' even though the game log said it disembarked. The unit's embark state was being reset with the wrong empty value after the disembark completed.",
+				"The Combat Disembark (18.04) toggle in the disembark dialog now only appears when an enemy unit is near enough to the transport that setting up within 3\" outside Engagement Range could actually be impossible — with no enemies nearby it no longer suggests the disembark will be a Combat Disembark.",
+				"Reworded the Combat Disembark toggle to make clear it is an opt-in mode ('Use Combat Disembark…'), and the disembark dialog no longer shows raw [color=…] markup in its text."
+			]
+		},
+		{
+			"version": "0.17.3",
+			"date": "2026-07-10",
+			"summary": "Fixed the charge-phase 'Snap to Contact' button doing nothing when clicked — it now moves every remaining charging model into base-to-base contact with the nearest charge target, sliding models around the target's base when a squadmate blocks the straight line.",
+			"changes": [
+				"'Snap to Contact' now works: previously the click silently errored out and no models moved, so charging units could never be one-clicked into base contact.",
+				"When several models charge the same target, the ones whose direct approach is blocked by an already-placed squadmate now sweep around the target's base to find the nearest legal base-contact spot instead of being left behind.",
+				"If a model genuinely has no legal spot within its charge distance, the info panel now says so and asks you to place that model by hand, instead of failing silently."
+			]
+		},
+		{
+			"version": "0.17.2",
+			"date": "2026-07-10",
+			"summary": "Stratagem unit pickers now tell duplicate squads apart: dialogs like GRENADE list 'Stormboyz Alpha / Beta / Delta' instead of three identical 'Stormboyz' buttons.",
+			"changes": [
+				"The GRENADE stratagem dialog labels each eligible unit with its squad name (e.g. 'Warbikers Alpha' vs 'Warbikers Beta'), matching the names used in the game log and shooter list — you can now tell which squad you are picking.",
+				"Same fix everywhere a stratagem asks you to pick a unit: Fire Overwatch, Counter-Offensive, Heroic Intervention, Tank Shock targets, Deck Fraggers, Rolling Loot-heap, and the generic faction-stratagem unit picker.",
+				"Game-log entries and result popups for stratagems (grenade throws, tank shock, overwatch) also use the squad names, as do the Scatter, Sweeping Advance, Krump'n'Run and Acrobatic Escape prompts."
+			]
+		},
+		{
+			"version": "0.17.1",
+			"date": "2026-07-10",
+			"summary": "Engagement-range circles now match the rule. The red rings shown while moving were drawn at the old 1\" range while the game (11th edition) enforces 2\", so moves were refused when a model still looked clear of the circle — the rings, the fight-phase reach circles and the amber engaged rings are now all drawn at base edge + 2\".",
+			"changes": [
+				"Movement: the red no-go rings around enemy models are now drawn at the 11th-edition 2\" engagement range instead of a hardcoded 1\" — if your base stays off the red circle, the move is legal.",
+				"Fight phase: each fighter's orange engagement-reach circle now includes the model's own base radius, matching the base-edge-to-base-edge measurement the rules use.",
+				"The always-on amber 'engaged' rings now detect engagement base-edge to base-edge (like the rules engine) instead of centre-to-centre, size themselves to the anchor model's base, and ignore dead models."
+			]
+		},
+		{
+			"version": "0.17.0",
+			"date": "2026-07-10",
+			"summary": "You can now change the AI speed mid-game from the top menu: a new 'AI Speed' dropdown sits next to the AI Suggestion button with the same Fast / Normal / Slow / Step-by-step presets as the setup screen.",
+			"changes": [
+				"New 'AI Speed' dropdown in the in-game top menu (next to AI Suggestion) — switch between Fast, Normal, Slow and Step-by-step at any time during an AI game.",
+				"The dropdown stays in sync with the existing < > adjust and / cycle hotkeys, the speed chosen on the setup screen, and loaded saves.",
+				"Picking Step-by-step from the dropdown pauses the AI before each action as usual — press Continue (Space) to advance."
+			]
+		},
+		{
+			"version": "0.16.2",
+			"date": "2026-07-10",
+			"summary": "Fight phase dialogs now have a single, clear confirm button: the redundant 'OK' button that duplicated 'Fight!' in the attack-assignment dialog (and did nothing useful in the unit picker) is gone.",
+			"changes": [
+				"Assign Attacks dialog: removed the built-in 'OK' button that sat next to 'Fight!' and did the same thing — 'Fight!' is now the one button that confirms your weapon/target assignments and rolls the attacks.",
+				"Fight unit picker: removed its 'OK' button too — you pick a unit by clicking it, and 'OK' could only close the picker without selecting anything, stalling the fight sequence."
+			]
+		},
+		{
+			"version": "0.16.1",
+			"date": "2026-07-10",
+			"summary": "Fixed the board mouseover tooltip: it now works on every model anywhere on the board (not just a lucky few), and shows the unit's real name and stats instead of 'Unknown' with question marks.",
+			"changes": [
+				"Hovering any model — yours or your opponent's — now reliably shows its unit tooltip regardless of camera pan/zoom (the hover check compared screen and board coordinates, so it only worked in one spot of the board).",
+				"Tooltip now shows real values (name, M/T/Sv/W/OC, invulnerable save, model count, wound totals) instead of 'Unknown' and '?' — it was reading fields that don't exist in the unit data.",
+				"Big bases (vehicles, monsters) are now hoverable across their whole base, not just the centre.",
+				"The tooltip stays on screen near the board edge and no longer pops up while the mouse is over the side/bottom panels."
 			]
 		},
 		{

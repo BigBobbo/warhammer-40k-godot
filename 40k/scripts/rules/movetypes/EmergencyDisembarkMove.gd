@@ -14,7 +14,8 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	if GameConstants.edition < 11:
 		return {"eligible": false, "reasons": ["11e move type"]}
 	var unit = _unit(board, unit_id)
-	if str(unit.get("embarked_in", "")) == "":
+	var embarked_raw = unit.get("embarked_in", null)
+	if embarked_raw == null or str(embarked_raw) == "":
 		return {"eligible": false, "reasons": ["unit is not embarked"]}
 	# Caller asserts the transport was just destroyed (the destruction
 	# handler drives this move; there is no standing board state for it).
@@ -36,7 +37,9 @@ func before_moving(unit_id: String, board: Dictionary, rng, _context: Dictionary
 func after_moving_effects(unit_id: String, _context: Dictionary) -> Array:
 	return [
 		{"op": "set", "path": StateSchema.path_unit_flag(unit_id, "disembarked_this_turn"), "value": true},
-		{"op": "set", "path": StateSchema.path_unit_field(unit_id, "embarked_in"), "value": ""},
+		# null, not "": `embarked_in != null` is the codebase-wide embark check
+		# (see DisembarkMove.after_moving_effects for the failure mode).
+		{"op": "set", "path": StateSchema.path_unit_field(unit_id, "embarked_in"), "value": null},
 		{"op": "set", "path": StateSchema.path_unit_flag(unit_id, "battle_shocked"), "value": true},
 		{"op": "set", "path": StateSchema.path_unit_flag(unit_id, "cannot_charge"), "value": true},
 	]

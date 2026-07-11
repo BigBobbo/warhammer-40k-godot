@@ -9,6 +9,42 @@
   ],
   "tiles": [
     {
+      "id": "ai.speed.top_menu_dropdown",
+      "description": "In-game 'AI Speed' OptionButton in the top menu bar (HUD_Bottom/HBoxContainer, rendered as the top row) next to the AI Suggestion button. Reveals itself through the natural Main._ready() flow for single-viewer human-vs-AI games; a real click opens the popup and keyboard navigation selects a preset that drives AIPlayer.set_ai_speed_preset.",
+      "scenarios": [
+        "ai_speed_top_menu_control"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.speed.preset_switching",
+      "description": "AI speed preset switching stays in sync both ways: picking a preset from the top-menu dropdown updates AIPlayer's live preset, and changes from the < > adjust / cycle hotkeys and programmatic set_ai_speed_preset (the save/load path) update the dropdown selection via the ai_speed_changed signal.",
+      "scenarios": [
+        "ai_speed_top_menu_control"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.HUD.ai_speed_dropdown",
+      "description": "HUD affordance: the AI speed dropdown sits in the top menu row next to the AI Suggestion button, follows the same visibility rule (single-viewer human-vs-AI only), exposes the four presets (Fast/Normal/Slow/Step-by-step), and its selected item matches the live AIPlayer preset.",
+      "scenarios": [
+        "ai_speed_top_menu_control"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.token_hover_tooltip",
+      "description": "Board token mouseover tooltip: hovering any model (own or opponent, anywhere on the board) shows the unit's real name, stats (M/T/Sv/W/OC from meta.stats), model count and wound totals; hovering empty board hides it. Regression guard for the screen-vs-board coordinate mixup that limited hover to one board region and the meta.* schema keys that had shown 'Unknown' / '?'.",
+      "scenarios": [
+        "token_hover_tooltip"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "autoloads.EffectPrimitives.PLUS_CHARGE",
       "description": "EffectPrimitives PLUS_CHARGE effect \u2014 sets effect_plus_charge flag on a unit",
       "scenarios": [
@@ -1154,6 +1190,24 @@
       "status": "covered"
     },
     {
+      "id": "scripts.rules.movetypes.ChargeMove11e.ability_overrides",
+      "description": "ChargeMove11e.eligible honours advance-and-charge / fall-back-and-charge ability overrides (Waaagh!, Full Throttle, Adrenaline Junkies) and the turbo_boosted hard lock, matching ChargePhase._can_unit_charge so an advanced Waaagh! unit is offered a charge.",
+      "scenarios": [
+        "waaagh_advance_then_charge"
+      ],
+      "fidelity": "RULES",
+      "status": "covered"
+    },
+    {
+      "id": "charge.eligibility.waaagh_advance_and_charge",
+      "description": "A unit that Advanced during an active Waaagh! can declare a charge: the Waaagh!'s effect_advance_and_charge (and 5+ invuln) survive the Shooting phase's end-of-phase effect-flag clear and last until the owner's next Command phase.",
+      "scenarios": [
+        "waaagh_advance_then_charge"
+      ],
+      "fidelity": "RULES",
+      "status": "covered"
+    },
+    {
       "id": "movetypes.DisembarkMove",
       "description": "DisembarkMove template enforces tactical/combat set-up distances.",
       "scenarios": [
@@ -2164,9 +2218,19 @@
     },
     {
       "id": "scoring.terrain_objective_14_01",
-      "description": "11e 14.01 terrain-as-objective: when a terrain area covers an objective marker, control is decided by models inside the area, not the 3.79\" marker radius (control flips 1->0 when the converted layout replaces open ground at obj_center)",
+      "description": "11e 14.01 terrain-as-objective: when a terrain area covers an objective marker, control is decided by models whose base overlaps the area (any part, not just the centre point), not the 3.79\" marker radius (control flips 1->0 when the converted layout replaces open ground at obj_center)",
       "scenarios": [
-        "terrain_11e_layouts"
+        "terrain_11e_layouts",
+        "objective_contested_vs_uncontrolled"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scoring.objective_control.contested_vs_uncontrolled",
+      "description": "Objective labels distinguish a genuine stand-off (CONTESTED: both sides in range with equal, nonzero OC) from an empty/one-sided marker (Uncontrolled); a model whose base only partially overlaps a terrain-hosted objective area still controls it (mek-contested-status bug)",
+      "scenarios": [
+        "objective_contested_vs_uncontrolled"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

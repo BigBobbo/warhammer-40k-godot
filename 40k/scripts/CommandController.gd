@@ -231,6 +231,8 @@ func _setup_right_panel() -> void:
 		for obj_id in control_summary.objectives:
 			var obj_label = Label.new()
 			var controller = control_summary.objectives[obj_id]
+			# Controller 0 is only "Contested" on a genuine OC tie; an empty
+			# marker reads "Uncontrolled" (mek-contested bug).
 			var control_text = "Uncontrolled"
 			var text_color = Color(0.7, 0.7, 0.7)
 			if controller == 1:
@@ -239,7 +241,7 @@ func _setup_right_panel() -> void:
 			elif controller == 2:
 				control_text = GameState.get_faction_name(2)
 				text_color = FactionPalettes.get_player_color(2)
-			else:
+			elif MissionManager.is_objective_contested(obj_id):
 				control_text = "Contested"
 				text_color = Color(1.0, 1.0, 0.5)
 

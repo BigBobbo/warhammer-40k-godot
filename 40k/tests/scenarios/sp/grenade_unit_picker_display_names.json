@@ -1,0 +1,35 @@
+{
+ "id": "grenade_unit_picker_display_names",
+ "covers": [
+  "shooting.stratagem.grenade.unit_picker",
+  "ui.GrenadeTargetDialog.display_names",
+  "autoloads.StratagemManager.eligible_unit_display_names"
+ ],
+ "fixture": "grenade_dupes",
+ "rng_seed": 42,
+ "transition_to_phase": 8,
+ "disable_ai": true,
+ "description": "Regression for the indistinguishable-unit-buttons bug: with two same-named Warbikers squads eligible for GRENADE, the Step-1 unit picker must label each button with the unit's display_name (Warbikers Alpha / Warbikers Beta), not the bare datasheet name. Drives the real player path: press Use GRENADE in the shooting panel, assert both pick-buttons carry distinct labels, select Alpha, assert the Step-2 'Throwing with' line also uses the display name, go Back, Cancel, and confirm no CP was spent.",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "expect_phase", "equals": 8 },
+  { "act": "execute_script", "script": "StratagemManager.get_grenade_eligible_units(1).size()", "equals": 4 },
+  { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/GrenadeButton" },
+  { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/GrenadeButton", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/GrenadeTargetDialog" },
+  { "act": "expect_node_property", "node": "/root/GrenadeTargetDialog/Content/Scroll/Lists/UnitListContainer/Pick_U_WARBIKERS_A", "property": "text", "equals": "Warbikers Alpha" },
+  { "act": "expect_node_property", "node": "/root/GrenadeTargetDialog/Content/Scroll/Lists/UnitListContainer/Pick_U_WARBIKERS_B", "property": "text", "equals": "Warbikers Beta" },
+  { "act": "screenshot", "label": "01_unit_picker_disambiguated" },
+  { "act": "click_node", "node": "/root/GrenadeTargetDialog/Content/Scroll/Lists/UnitListContainer/Pick_U_WARBIKERS_A", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/GrenadeTargetDialog/Content/Scroll/Lists/TargetListContainer" },
+  { "act": "execute_script", "script": "main.get_node(\"/root/GrenadeTargetDialog/Content/Scroll/Lists/TargetListContainer\").get_child(0).text", "equals": "Throwing with: Warbikers Alpha" },
+  { "act": "expect_node_visible", "node": "/root/GrenadeTargetDialog/Content/Scroll/Lists/TargetListContainer/Target_U_WITCHSEEKERS_C" },
+  { "act": "screenshot", "label": "02_target_step_throwing_with_display_name" },
+  { "act": "click_node", "node": "/root/GrenadeTargetDialog/Content/Buttons/BackButton", "emit_pressed": true },
+  { "act": "expect_node_visible", "node": "/root/GrenadeTargetDialog/Content/Scroll/Lists/UnitListContainer/Pick_U_WARBIKERS_B" },
+  { "act": "click_node", "node": "/root/GrenadeTargetDialog/Content/Buttons/CancelButton", "emit_pressed": true },
+  { "act": "wait_frames", "frames": 3 },
+  { "act": "expect_cp", "player": 1, "delta_from_start": 0 },
+  { "act": "screenshot", "label": "03_cancelled_no_cp_spent" }
+ ]
+}
