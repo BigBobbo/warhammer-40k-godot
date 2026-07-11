@@ -180,6 +180,7 @@ var reinforcements_button: Button = null
 var _selected_unit_for_reserves: String = ""
 var _reinforcement_placement_type: String = ""  # P2-80: chosen placement type (deep_strike or strategic_reserves)
 var _deep_strike_exclusion_visual: Node2D = null  # 9" exclusion bubble around enemy models
+var _strategic_reserves_zone_visual: Node2D = null  # 6"-from-edge valid band for Strategic Reserves
 
 # Deployment zone toggle (Z key) - allows viewing zones after deployment phase
 var _deployment_zones_toggled_on: bool = false
@@ -2520,25 +2521,66 @@ func _on_scout_reserves_confirmed() -> void:
 	update_ui()
 
 func _show_deep_strike_exclusion() -> void:
-	"""Show 9-inch exclusion bubbles around all enemy models for reinforcement placement."""
+	"""Show placement helpers for reinforcement placement: the 9\" exclusion
+	bubbles around all enemy models, plus — when the unit is arriving from
+	Strategic Reserves — the valid 6\"-from-board-edge band it must be set up in."""
 	_hide_deep_strike_exclusion()  # Clean up any existing visual
 	var active_player = GameState.get_active_player()
 	var enemy_positions = GameState.get_enemy_model_positions(active_player)
-	if enemy_positions.is_empty():
-		return
-	_deep_strike_exclusion_visual = load("res://scripts/DeepStrikeExclusionVisual.gd").new()
-	if ghost_layer:
-		ghost_layer.add_child(_deep_strike_exclusion_visual)
-	else:
-		add_child(_deep_strike_exclusion_visual)
-	_deep_strike_exclusion_visual.show_exclusion(enemy_positions)
+	if not enemy_positions.is_empty():
+		_deep_strike_exclusion_visual = load("res://scripts/DeepStrikeExclusionVisual.gd").new()
+		if ghost_layer:
+			ghost_layer.add_child(_deep_strike_exclusion_visual)
+		else:
+			add_child(_deep_strike_exclusion_visual)
+		_deep_strike_exclusion_visual.show_exclusion(enemy_positions)
+	# Strategic Reserves also constrains placement to within 6" of a board edge.
+	# Show that valid band regardless of whether any enemies are on the board.
+	if _is_strategic_reserves_placement():
+		_show_strategic_reserves_zone()
 
 func _hide_deep_strike_exclusion() -> void:
-	"""Hide and free the deep strike exclusion visual."""
+	"""Hide and free the reinforcement placement helper visuals."""
 	if _deep_strike_exclusion_visual and is_instance_valid(_deep_strike_exclusion_visual):
 		_deep_strike_exclusion_visual.hide_exclusion()
 		_deep_strike_exclusion_visual.queue_free()
 		_deep_strike_exclusion_visual = null
+	_hide_strategic_reserves_zone()
+
+func _is_strategic_reserves_placement() -> bool:
+	"""True when the unit currently being placed is arriving via Strategic Reserves
+	(so the 6\"-from-edge constraint applies). Mirrors the effective placement type
+	used by DeploymentController._validate_reinforcement_position: the placement-type
+	override wins, otherwise the unit's own reserve_type (default strategic_reserves)."""
+	if not deployment_controller:
+		return false
+	var uid = deployment_controller.unit_id
+	if uid == "":
+		return false
+	var override_type = deployment_controller.reinforcement_placement_type
+	if override_type != "":
+		return override_type == "strategic_reserves"
+	var unit = GameState.get_unit(uid)
+	if unit.is_empty():
+		return false
+	return unit.get("reserve_type", "strategic_reserves") == "strategic_reserves"
+
+func _show_strategic_reserves_zone() -> void:
+	"""Show the within-6\"-of-edge valid placement band for Strategic Reserves."""
+	_hide_strategic_reserves_zone()
+	_strategic_reserves_zone_visual = load("res://scripts/StrategicReservesZoneVisual.gd").new()
+	if ghost_layer:
+		ghost_layer.add_child(_strategic_reserves_zone_visual)
+	else:
+		add_child(_strategic_reserves_zone_visual)
+	_strategic_reserves_zone_visual.show_zone()
+
+func _hide_strategic_reserves_zone() -> void:
+	"""Hide and free the Strategic Reserves valid-zone visual."""
+	if _strategic_reserves_zone_visual and is_instance_valid(_strategic_reserves_zone_visual):
+		_strategic_reserves_zone_visual.hide_zone()
+		_strategic_reserves_zone_visual.queue_free()
+		_strategic_reserves_zone_visual = null
 
 # T4-7: Rapid Ingress placement — same as reinforcement but uses PLACE_RAPID_INGRESS_REINFORCEMENT
 var _rapid_ingress_unit_id: String = ""
@@ -8790,6 +8832,10 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 
 	# Hide deep strike exclusion bubbles on phase change
 	_hide_deep_strike_exclusion()
+	# Abandon any in-progress reinforcement placement: clear the P2-80 placement-type
+	# choice so a stale Deep Strike / Strategic Reserves selection cannot leak into the
+	# next placement started in a later phase.
+	_reinforcement_placement_type = ""
 
 	# Clear transport panel when phase changes
 	update_transport_panel("")
