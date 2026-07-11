@@ -1,687 +1,700 @@
 {
-	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
-	"releases": [
-		{
-			"version": "0.19.0",
-			"date": "2026-07-11",
-			"summary": "Reinforcement placement helpers are clearer: the red 'must be >9\" from enemy models' no-deploy zone now shows around EVERY enemy cluster (not just the biggest one), and units arriving from Strategic Reserves now get a green band showing where they CAN be placed — within 6\" of a board edge.",
-			"changes": [
-				"Fixed: when placing a unit from Deep Strike or Strategic Reserves, the 9\" exclusion bubbles now render around all enemy models. Before, only the single largest connected clump of enemies drew its no-deploy zone; other enemy groups elsewhere on the board were left unmarked, making it look like you could legally arrive next to them. Each separate enemy cluster now gets its own labelled '9\" exclusion' zone.",
-				"New: units arriving from Strategic Reserves now show a green 'within 6\" of edge' band around the board perimeter — the area where they are allowed to be set up. (Deep Strike units, which may arrive anywhere >9\" from enemies, do not show this band.)",
-				"Under the hood: the enemy-exclusion overlay grouped models into connected clusters but only kept the largest merged shape after each step, silently discarding every other cluster; it now merges each cluster independently. The new Strategic Reserves band matches the placement validator exactly (model centre within 6\" of the nearest board edge)."
-			]
-		},
-		{
-			"version": "0.18.4",
-			"date": "2026-07-11",
-			"summary": "Fixed charge rolls being wrongly reported as failed when the roll would actually reach the enemy. A charging model only has to close to within engagement range (2\"), not touch base-to-base — e.g. a 9\" roll against a target 9.6\" away now succeeds (it only needs to travel 7.6\").",
-			"changes": [
-				"Charge rolls that can reach a target's engagement range are no longer marked FAILED. Previously the after-roll target check compared the full base-to-base gap against the raw roll, ignoring the 2\" engagement range — so a 9\" roll against a target 9.6\" away failed even though the model only needed to move 7.6\" to get within 2\".",
-				"The reachable ceiling for selecting charge targets is now 'roll + engagement range' (capped at the 12\" declaration range) instead of just the roll, matching how the charge move itself is measured.",
-				"Genuinely out-of-reach charges still fail correctly (e.g. a 9\" roll cannot reach a target 12\" away, which needs 10\")."
-			]
-		},
-		{
-			"version": "0.18.3",
-			"date": "2026-07-11",
-			"summary": "Fixed the AI 'Fire Overwatch' popup covering your control buttons: when the AI reacts during your turn (e.g. firing Overwatch while you arrive a unit from Reserves), the AI Actions log now floats to the left of the right-hand panel instead of sitting on top of your Undo / Reset / Confirm buttons — so you can always undo or confirm a deployment.",
-			"changes": [
-				"The AI Actions log (shown when the AI acts, including reactive Overwatch during your own turn) no longer overlaps the right-hand control panel. It now sits just left of that panel, over the board, so it never hides the reserve-deployment Undo / Reset Unit / Confirm Move buttons.",
-				"The overlay is also fully click-through now (a stray click on it always passes to the controls behind), so it can never intercept a button press even where it appears."
-			]
-		},
-		{
-			"version": "0.18.2",
-			"date": "2026-07-11",
-			"summary": "Fixed the Fight-phase pile-in 'ghost': moving a model during pile-in/consolidate no longer leaves a duplicate of it behind at its starting spot.",
-			"changes": [
-				"Fight phase pile-in/consolidate: dragging a model no longer strands a copy of it at its original position. Previously a model could appear twice — once where it moved to and once where it started — so it looked like two overlapping models.",
-				"Under the hood: rapid board refreshes could rebuild the whole token set twice in the same frame, leaving an invisible duplicate token on every model; an interactive drag then moved only one of the pair and revealed the other as a 'ghost'. The refresh now ignores overlapping re-runs so each model keeps exactly one token."
-			]
-		},
-		{
-			"version": "0.18.1",
-			"date": "2026-07-11",
-			"summary": "Fixed first-turn handling when Player 2 wins the roll-off to go first: the battle round no longer advances after a single player's turn. Previously that made Player 1's very first turn count as Battle Round 2, so the movement phase wrongly let units arrive from Reserves / Deep Strike on turn one (the AI would 'suggest' bringing reserves in immediately).",
-			"changes": [
-				"Reserves and Deep Strike units can no longer arrive on the first turn of the game when Player 2 takes the first turn — reinforcements are correctly gated to Battle Round 2 onward for both players.",
-				"The battle round now advances after the round's SECOND player finishes their turn (Player 1 when Player 2 went first), instead of always after Player 2 — so the game lasts the correct number of turns and ends on the right turn.",
-				"Start-of-round effects (per-round Command Point cap, kill counters, battle-round stratagem timing, Supply Drop objective removal, round-end autosave) now trigger on the correct turn when Player 2 goes first.",
-				"AI reserve/Deep Strike placement now reads the real battle round, fixing round-gated placement decisions."
-			]
-		},
-		{
-			"version": "0.18.0",
-			"date": "2026-07-11",
-			"summary": "Game-log step replay: click any entry in the game log to see the board exactly as it was at that moment. It's a read-only look back — the live game is never changed — with a banner and an Exit button (or Esc) to return.",
-			"changes": [
-				"Click a line in the Game Log to revert the board tokens to how they looked at that step (deployments, moves, casualties, etc.).",
-				"The step you're viewing is highlighted in the log; a banner across the top names the step and the board is dimmed to show it's read-only.",
-				"Click another log line to jump to that step, or press the 'Return to Live Game' button (or Esc) to go back to playing — your live game is untouched.",
-				"Every game now records its steps in memory to power this (previously only AI-vs-AI games were recorded); the AI vs AI replay browser is unchanged.",
-				"History view is disabled in multiplayer games."
-			]
-		},
-		{
-			"version": "0.17.7",
-			"date": "2026-07-10",
-			"summary": "Fixed a Shooting phase soft-lock: after a unit threw a GRENADE, the shooting UI could get stuck — clicks did nothing, or 'Rolling dice…' showed with no result. Rejected shooting actions are now explained instead of failing silently.",
-			"changes": [
-				"Throwing a GRENADE with the unit you were about to shoot with no longer strands the Shooting UI: re-selecting that (now spent) unit shows 'has already shot this phase' instead of building a dead weapon panel that swallowed every follow-up click.",
-				"Shooting actions that get rejected (assign target, confirm, grenade) now pop an explanation and re-sync the panel, instead of silently doing nothing after an optimistic 'Rolling dice…'.",
-				"The GRENADE stratagem is now correctly limited to once per phase — the button disappears after you use it (previously it could be offered again).",
-				"Auto-selecting the next shooter now skips units that can't shoot yet or have no targets in range, landing on a unit you can actually fire with."
-			]
-		},
-		{
-			"version": "0.17.6",
-			"date": "2026-07-10",
-			"summary": "Objective control fixes: a model whose base is only partly on a terrain-hosted objective now counts as holding it, and objective labels no longer claim 'CONTESTED' when nobody (or only one side) is in range — an empty marker now reads 'Uncontrolled'.",
-			"changes": [
-				"Terrain-hosted objectives (11e): a model counts as within the objective as soon as ANY part of its base overlaps the hosting ruin area — previously only the model's centre point was checked, so a unit standing half on the objective was ignored and the marker wrongly showed CONTESTED.",
-				"Board labels, the Command panel and the Scoring panel now distinguish a genuine stand-off ('CONTESTED': both sides in range with equal, nonzero OC) from an empty marker ('Uncontrolled').",
-				"Sticky-objective locks (e.g. Get Da Good Bitz) and nearest-controlled-objective checks now use the same base-on-area rule as objective control on terrain-hosted objectives."
-			]
-		},
-		{
-			"version": "0.17.5",
-			"date": "2026-07-10",
-			"summary": "Fixed a Waaagh! bug: Ork units that Advanced during an active Waaagh! (or that have Full Throttle, like Stormboyz) can now declare charges in the Charge phase. The Waaagh!'s advance-and-charge and 5+ invulnerable save now correctly last until the start of your next Command phase instead of being wiped at the end of the Shooting phase.",
-			"changes": [
-				"Units eligible to charge after Advancing (Waaagh!, Full Throttle, Kult of Speed's Adrenaline Junkies) are no longer refused a charge with 'advanced or fell back this turn' — the 11th-edition charge check now honours those abilities, matching the Charge-phase eligibility list.",
-				"Waaagh! effects (advance-and-charge, 5+ invulnerable save, and its other buffs) are no longer stripped at the end of the Shooting phase — they now persist until the start of your next Command phase as the rules intend, so an Ork unit that Advanced can still charge and keeps its invuln through the enemy's turn."
-			]
-		},
-		{
-			"version": "0.17.4",
-			"date": "2026-07-10",
-			"summary": "Disembark fixes: disembarked units no longer vanish from the board (previously they were left as invisible 'still embarked' ghosts marked Cannot Disembark), and the Combat Disembark option only appears when enemies are actually close enough to block a normal 3\" set-up.",
-			"changes": [
-				"Fixed: after placing all models of a disembarking unit, the models disappeared (leaving only blue coherency rings) and the unit was listed as 'Embarked in Transport — Cannot Disembark' even though the game log said it disembarked. The unit's embark state was being reset with the wrong empty value after the disembark completed.",
-				"The Combat Disembark (18.04) toggle in the disembark dialog now only appears when an enemy unit is near enough to the transport that setting up within 3\" outside Engagement Range could actually be impossible — with no enemies nearby it no longer suggests the disembark will be a Combat Disembark.",
-				"Reworded the Combat Disembark toggle to make clear it is an opt-in mode ('Use Combat Disembark…'), and the disembark dialog no longer shows raw [color=…] markup in its text."
-			]
-		},
-		{
-			"version": "0.17.3",
-			"date": "2026-07-10",
-			"summary": "Fixed the charge-phase 'Snap to Contact' button doing nothing when clicked — it now moves every remaining charging model into base-to-base contact with the nearest charge target, sliding models around the target's base when a squadmate blocks the straight line.",
-			"changes": [
-				"'Snap to Contact' now works: previously the click silently errored out and no models moved, so charging units could never be one-clicked into base contact.",
-				"When several models charge the same target, the ones whose direct approach is blocked by an already-placed squadmate now sweep around the target's base to find the nearest legal base-contact spot instead of being left behind.",
-				"If a model genuinely has no legal spot within its charge distance, the info panel now says so and asks you to place that model by hand, instead of failing silently."
-			]
-		},
-		{
-			"version": "0.17.2",
-			"date": "2026-07-10",
-			"summary": "Stratagem unit pickers now tell duplicate squads apart: dialogs like GRENADE list 'Stormboyz Alpha / Beta / Delta' instead of three identical 'Stormboyz' buttons.",
-			"changes": [
-				"The GRENADE stratagem dialog labels each eligible unit with its squad name (e.g. 'Warbikers Alpha' vs 'Warbikers Beta'), matching the names used in the game log and shooter list — you can now tell which squad you are picking.",
-				"Same fix everywhere a stratagem asks you to pick a unit: Fire Overwatch, Counter-Offensive, Heroic Intervention, Tank Shock targets, Deck Fraggers, Rolling Loot-heap, and the generic faction-stratagem unit picker.",
-				"Game-log entries and result popups for stratagems (grenade throws, tank shock, overwatch) also use the squad names, as do the Scatter, Sweeping Advance, Krump'n'Run and Acrobatic Escape prompts."
-			]
-		},
-		{
-			"version": "0.17.1",
-			"date": "2026-07-10",
-			"summary": "Engagement-range circles now match the rule. The red rings shown while moving were drawn at the old 1\" range while the game (11th edition) enforces 2\", so moves were refused when a model still looked clear of the circle — the rings, the fight-phase reach circles and the amber engaged rings are now all drawn at base edge + 2\".",
-			"changes": [
-				"Movement: the red no-go rings around enemy models are now drawn at the 11th-edition 2\" engagement range instead of a hardcoded 1\" — if your base stays off the red circle, the move is legal.",
-				"Fight phase: each fighter's orange engagement-reach circle now includes the model's own base radius, matching the base-edge-to-base-edge measurement the rules use.",
-				"The always-on amber 'engaged' rings now detect engagement base-edge to base-edge (like the rules engine) instead of centre-to-centre, size themselves to the anchor model's base, and ignore dead models."
-			]
-		},
-		{
-			"version": "0.17.0",
-			"date": "2026-07-10",
-			"summary": "You can now change the AI speed mid-game from the top menu: a new 'AI Speed' dropdown sits next to the AI Suggestion button with the same Fast / Normal / Slow / Step-by-step presets as the setup screen.",
-			"changes": [
-				"New 'AI Speed' dropdown in the in-game top menu (next to AI Suggestion) — switch between Fast, Normal, Slow and Step-by-step at any time during an AI game.",
-				"The dropdown stays in sync with the existing < > adjust and / cycle hotkeys, the speed chosen on the setup screen, and loaded saves.",
-				"Picking Step-by-step from the dropdown pauses the AI before each action as usual — press Continue (Space) to advance."
-			]
-		},
-		{
-			"version": "0.16.2",
-			"date": "2026-07-10",
-			"summary": "Fight phase dialogs now have a single, clear confirm button: the redundant 'OK' button that duplicated 'Fight!' in the attack-assignment dialog (and did nothing useful in the unit picker) is gone.",
-			"changes": [
-				"Assign Attacks dialog: removed the built-in 'OK' button that sat next to 'Fight!' and did the same thing — 'Fight!' is now the one button that confirms your weapon/target assignments and rolls the attacks.",
-				"Fight unit picker: removed its 'OK' button too — you pick a unit by clicking it, and 'OK' could only close the picker without selecting anything, stalling the fight sequence."
-			]
-		},
-		{
-			"version": "0.16.1",
-			"date": "2026-07-10",
-			"summary": "Fixed the board mouseover tooltip: it now works on every model anywhere on the board (not just a lucky few), and shows the unit's real name and stats instead of 'Unknown' with question marks.",
-			"changes": [
-				"Hovering any model — yours or your opponent's — now reliably shows its unit tooltip regardless of camera pan/zoom (the hover check compared screen and board coordinates, so it only worked in one spot of the board).",
-				"Tooltip now shows real values (name, M/T/Sv/W/OC, invulnerable save, model count, wound totals) instead of 'Unknown' and '?' — it was reading fields that don't exist in the unit data.",
-				"Big bases (vehicles, monsters) are now hoverable across their whole base, not just the centre.",
-				"The tooltip stays on screen near the board edge and no longer pops up while the mouse is over the side/bottom panels."
-			]
-		},
-		{
-			"version": "0.16.0",
-			"date": "2026-07-10",
-			"summary": "Second new base army list: 'Custodes Lions' — a 2000pt Adeptus Custodes Lions of the Emperor force (3 Blade Champions, 6 Custodian Guard squads, Allarus Custodians, Prosecutors). The default matchup is now Recon Stomps (P1) vs Custodes Lions (P2).",
-			"changes": [
-				"Added 'Custodes Lions' (Adeptus Custodes, Lions of the Emperor, 2000 pts) as a built-in army list: Blade Champion Warlord + 2 more Blade Champions, 6x5 Custodian Guard with guardian spears, 5 Allarus Custodians, and a Prosecutors squad.",
-				"Army pickers now default to the two newest lists: Recon Stomps for Player 1 and Custodes Lions for Player 2 — all other army lists remain available in the dropdowns.",
-				"Army lists now price repeat datasheets correctly (11e repeat pricing): the 2nd+ Blade Champion costs 125, the 4th+ Custodian Guard squad 225 — exported and built-in lists total their printed points."
-			]
-		},
-		{
-			"version": "0.15.0",
-			"date": "2026-07-10",
-			"summary": "New base army list: 'Recon Stomps' — a 2000pt Orks Speedwaaagh! force (Wazdakka Gutsmek, a Stompa, Deffkoptas, Warbikers, Stormboyz). It is now Player 1's default army.",
-			"changes": [
-				"Added 'Recon Stomps' (Orks, Speedwaaagh!, 2000 pts) as a built-in army list: 2 Deffkilla Wartrikes (Kustom Shokk Box / Supa-burny Fuel), Mek (Dakkamek), Wazdakka Gutsmek (Warlord), 4x Stormboyz, 4x Warbikers, 2x Deffkoptas, 2x Gretchin, and a Stompa.",
-				"Both players can now pick the same army list: the second player's units are kept separate instead of silently replacing the first player's.",
-				"Cloud armies are no longer auto-selected over the default lists when the menu loads."
-			]
-		},
-		{
-			"version": "0.14.0",
-			"date": "2026-07-10",
-			"summary": "Both Adeptus Custodes detachments are now fully playable. Silent Hunters comes entirely from official 11th-edition data; Lions of the Emperor stratagems and enhancements use the official 10th-edition wording as a clearly-marked PROVISIONAL stopgap (the 11e dataset has not published their rules yet) — the same stopgap the Ork and Shield Host stratagems already use, and every such entry now says so in its rules text.",
-			"changes": [
-				"Silent Hunters (all from 11e data): Deathsong Scythes (Vigilators melee gains [LANCE] and +1 Attack vs Psykers), Umbral Prosecution (Prosecutors ranged weapons gain [RAPID FIRE 2] and +1 AP), Synchronised Inferno (Witchseekers ranged weapons gain [BLAST]); detachment rule Skin-Crawling Disorientation (Anathema Psykana can perform mission actions after Advancing); enhancements Encircling Hunter (post-deployment redeploy of up to 3 Anathema Psykana Infantry units, Strategic Reserves allowed) and Psyk-out Grenades (unit gains the EXPLOSIVES keyword).",
-				"Lions of the Emperor stratagems (10e stopgap): Peerless Warrior (melee [PRECISION]), Gilded Champion (re-use a spent once-per-battle ability — not in the same phase, once per battle per model), Manoeuvre and Fire (shoot + charge after Falling Back), Defiant to the Last, Swift as the Eagle and Unleash the Lions all work and show their official 10e rules text.",
-				"Lions of the Emperor enhancements (10e stopgap): Superior Creation (first death: 2+ at end of phase returns the bearer with full wounds, outside Engagement Range), Praesidius (Lone Operative + Stealth), Fierce Conqueror (+2 melee Attacks per 5 enemy models within 6\" of the bearer), and Admonimortis now uses its real 10e rule — +3 Strength, +1 AP and +1 Damage on the bearer's melee weapons (the old bearer-death mortal-wound trigger matched no edition's rules and was removed).",
-				"Every stratagem running on 10th-edition wording (War Horde, Shield Host and Lions of the Emperor) now carries a visible PROVISIONAL note in its rules text; it will be replaced automatically when the 11e dataset publishes the official rules.",
-				"Against All Odds (Lions detachment rule) fixes: the +1 to hit now also applies in melee (previously ranged only), and the buff is correctly limited to armies running the Lions of the Emperor detachment (Shield Host armies no longer benefit).",
-				"Stratagem-granted [LANCE] now actually adds +1 to wound on the charge (it previously set a flag nothing read) — this also fixes Servo-driven Charge (AdMech) and Plunging Talons (CSM).",
-				"Fixed: loading a save whose armies differ from the defaults restored the stratagem list but not the stratagem definitions, so faction stratagems failed with 'Unknown stratagem' after a restart."
-			]
-		},
-		{
-			"version": "0.13.3",
-			"date": "2026-07-10",
-			"summary": "AI units no longer get stuck on walls or sprint across the board after distant enemies — both AI armies play noticeably tighter.",
-			"changes": [
-				"AI movement destinations are now checked against walls with the exact rule the game enforces, before the move is attempted. Wall-related move rejections dropped 99% in benchmarks (from ~49 per game to under 1), which un-stuck units that previously stood still for entire games (Caladius Grav-tank, Witchseekers, Lootas, Kommandos).",
-				"Only genuinely melee-focused units (Boyz, Warbosses, Meganobz...) now leave their objective assignments to hunt enemies — units with real guns fight from position instead of footslogging. One shared rule replaces three slightly different copies of this logic.",
-				"All hunters respect a chase cap (tunable MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES, default 20\"): enemies beyond any realistic move+advance+charge reach are ignored in favor of the mission. Previously units could chase targets 45+ inches away from round 1.",
-				"Benchmark validation: 10 more full AI-vs-AI games, zero stalls; Ork primary VP doubled again at pure defaults; Custodes play improved even more (their units were the most wall-stuck). Full analysis in tests/bench_baselines/2026-07-10_mechanism_fixes.md.",
-				"Known remaining gaps (documented, next up): the AI doesn't know how to move AIRCRAFT (the Wazbom Blastajet idles all game), and large hordes sometimes fail to find placement room around friendly vehicles."
-			]
-		},
-		{
-			"version": "0.13.2",
-			"date": "2026-07-10",
-			"summary": "The Ork AI now actually plays the mission: benchmark-driven tuning stopped its whole army chasing enemies across the board while objectives sat unclaimed.",
-			"changes": [
-				"Diagnosed via 60 AI-vs-AI benchmark games: with faction aggression 1.8, 7-11 of ~14 Ork units chased enemies every round (round-1 chases at 45+ inches) — even shooty units like Lootas and Kaptin Badrukk — and Ork primary VP starved at ~6 per game with the army still alive.",
-				"Tuned Ork faction aggression from 1.8 to 1.2 (the exact value validated in A/B benchmark arms): truly melee-focused units (Boyz, Warbosses) still hunt, but mixed and ranged units now follow their objective assignments. Ork primary VP roughly tripled (~6 to ~21 per game) and the average loss margin vs Custodes at Hard halved (-28 to -15), producing the first Ork draw and win in benchmark history.",
-				"Measured first-turn advantage with a turn-swapped fixture: ~19 VP at Hard, ~9 at Normal. Combined with the tuning, disciplined Orks going first play the Custodes to rough parity.",
-				"All experiment tooling is committed and reusable: turn-swapped fixture, two Ork tuning profiles (tests/bench_profiles/), and three analysis reports under tests/bench_baselines/."
-			]
-		},
-		{
-			"version": "0.13.1",
-			"date": "2026-07-10",
-			"summary": "A 20-game AI-vs-AI benchmark soak found and fixed three ways games could freeze mid-battle, plus a wasted Ork heal.",
-			"changes": [
-				"Fixed games freezing near the end of big movement phases: the AI's runaway-loop safety cap counted every model's move as an 'action', so armies with lots of models tripped it mid-phase and the game locked up (especially when the Painboss heal window opened at the same moment). The cap now only trips after 200 consecutive attempts that make no progress, and when it does trip it can resolve any pending window instead of freezing.",
-				"Fixed fight-phase stratagems being rejected when used during the opponent's turn (e.g. Orks using Unbridled Carnage in your fight phase) — the game validated them against whoever's turn it was instead of who was using them.",
-				"Fixed AI-vs-AI fights where the second AI player picked fight activations from the first AI's plan, which could silently end the fight phase early.",
-				"The Painboss's Sawbonez heal now actually heals: the AI was dropping the target model when using it, so the heal did nothing. It also now picks the most-wounded eligible model.",
-				"Committed the first AI benchmark baseline (tests/bench_baselines/): 20 games across Normal and Hard, all seeds now complete without stalls."
-			]
-		},
-		{
-			"version": "0.13.0",
-			"date": "2026-07-09",
-			"summary": "The AI now coordinates its movement phase like an army: units know what their squadmates are already doing, and the whole battle plan is narrated in the game log.",
-			"changes": [
-				"Coordinated movement: units that already moved this phase count as 'en route' to their objective, so later units reinforce objectives that still need help instead of stacking onto the same one. Redirects are explained in the log ('obj_3 is already covered (Boyz en route) — redirecting to obj_4').",
-				"At the start of the AI's movement phase the game log shows its full army battle plan as its own card: one line per unit with its role (HOLD / MOVE / ADVANCE / SCREEN), target objective, distance and reason.",
-				"Each unit's detailed decision card (chosen option plus the top rejected alternatives with scores) now appears once, at the moment that unit acts — the log no longer repeats every unit's reasoning on every single action.",
-				"Fixed AI-vs-AI games where the second player each round silently played without its multi-phase plan (no charge intents, no 'lock the shooters' targets): the plan is now built per player.",
-				"Fixed AI reasoning leaking between decisions: a Command Re-roll card no longer swallows the previous decision's thinking lines.",
-				"The AI is now hand-tunable without touching code: edit data/ai_config.json (ships with the game) to override any of its ~90 scoring weights; per-player profiles and conditional rules layer on top. Full guide: docs/AI_TUNING.md. Also fixed profile rules firing in the wrong phase (a stale phase-name map meant 'MOVEMENT' rules ran during Scout).",
-				"Fixed AI-vs-AI games freezing in the fight phase: when a forced fight interrupted the global Consolidate step, the wrong AI kept trying to end the other player's half forever. The AI now always acts as whoever's half of the pile-in/consolidate step it actually is.",
-				"Fixed a script error in Bomb Squigs / Scatter targeting (wrong pixels-per-inch constant).",
-				"Windowed scenarios that let the AI play a turn are no longer flaky: the secondary-mission deck shuffle now respects the scenario's RNG seed, so the AI can't randomly draw a card that pauses it behind a human-only dialog mid-test."
-			]
-		},
-		{
-			"version": "0.12.0",
-			"date": "2026-07-10",
-			"summary": "Click a unit on the battlefield to select it in the Movement and Shooting phases — no more hunting for it in the right-hand list. If your current unit is mid-move or has targets staged, a 'Switch Unit?' popup asks before switching so nothing is lost by accident.",
-			"changes": [
-				"Movement phase: clicking any of your units' models on the board selects that unit for movement, exactly like clicking its row in the unit list. Enemy models never steal your selection.",
-				"Movement phase: if the unit you were moving still has an unconfirmed move when you click a different unit, a 'Switch Unit?' popup offers to confirm that move and switch, or keep the current unit.",
-				"Shooting phase: clicking one of your units that can still shoot makes it the active shooter, same as picking it in the SELECT SHOOTER list. Clicking enemy models still assigns weapon targets as before.",
-				"Shooting phase: if you had manually staged weapon targets for the current shooter, the 'Switch Unit?' popup warns that switching discards them (and now really discards them — re-selecting the old shooter no longer resurrects stale assignments). Auto-assigned single-target defaults switch silently.",
-				"Quick-assign ('All → target') now counts as staging targets, so the switch confirmation protects it too."
-			]
-		},
-		{
-			"version": "0.11.2",
-			"date": "2026-07-10",
-			"summary": "Shooting fix: selecting a unit that has no eligible targets (everything out of range or out of line of sight — e.g. a boxed-in Stompa) no longer fails silently. The game now tells you why nothing can be shot.",
-			"changes": [
-				"Selecting a shooter with no eligible targets now shows a warning toast, a red status line under the unit list, and a dice-log breakdown listing why each enemy unit can't be targeted (out of range, no line of sight, engagement, Lone Operative…).",
-				"Clicking an enemy model while such a unit is selected now explains why that enemy can't be shot instead of doing nothing.",
-				"Selecting a weapon when nothing is targetable now says so instead of asking you to 'click on an enemy unit'."
-			]
-		},
-		{
-			"version": "0.11.1",
-			"date": "2026-07-10",
-			"summary": "Army builder fix: an imported enhancement now adds its points to the list total (e.g. Kustom Shokk Box +10). The bundled Taktikal Brigade army's Warboss costs were also missing their enhancement points.",
-			"changes": [
-				"Web army builder: importing a pasted list resolved enhancements but priced them at 0 — the roster total and the unit's points row now include the enhancement cost (re-derived from the dataset every reprice, so saved drafts heal too).",
-				"Bundled orks_taktikal army: the Warboss with Skwad Leader now costs 90 pts (75+15) and the Warboss with Mork's Kunnin' 95 pts (75+20); their stored costs had omitted the enhancements."
-			]
-		},
-		{
-			"version": "0.11.0",
-			"date": "2026-07-10",
-			"summary": "Every Ork detachment RULE now works too: Lissen 'Ere Taktiks (Taktikal Brigade), Try Dat Button! (Dread Mob), Turbo Boostas (Speedwaaagh!), Da Boss Is Watchin' (Bully Boyz), plus the passive rules — Mob Mentality, Dakka! Dakka! Dakka!, Adrenaline Junkies, Eager for the Fight and Thundering Wagons. The last two Enhancements (Gob Boomer, Press It Fasta!) come alive with them.",
-			"changes": [
-				"Taktikal Brigade — Lissen 'Ere (Taktiks): in your Command phase each Boss Snikrot, Mek or Warboss can issue one of four Taktiks to a friendly ORKS unit within 6\" — Get Stuck In (re-roll Charge rolls), Get On Wiv It (+1 Strength in melee), Sneaky Stalkin' (Stealth + Benefit of Cover for Infantry/Mounted, not Meganobz) or Shoota Drills (+1 to ranged Hit rolls for Infantry/Mounted). The issuer takes a Leadership test — failing it deals 1 mortal wound to the receiving unit but the Taktik still lands. One issue per boss and one Taktik per unit each battle round, never to Battle-shocked units; effects last until your next Command phase.",
-				"Gob Boomer enhancement now works: its bearer issues Taktiks to Orks Infantry/Mounted units within 18\" instead of 6\".",
-				"Dread Mob — Try Dat Button!: when one of your Mek, Orks Walker or Grots Vehicle units is selected to shoot or fight, roll a D6 for the Button Effect — SUSTAINED HITS 1, LETHAL HITS or +2 AP for that phase. Press It Fasta! now works: the bearer's unit rolls two dice and gets both effects.",
-				"Speedwaaagh! — Turbo Boostas: a Speed Freeks or Trukk unit (not Aircraft) can use its turbo when it Advances — no Advance roll, it moves a flat 24\", its ranged weapons gain ASSAULT for the turn and it cannot charge. A new 'Use turbo' toggle appears in the Movement panel for eligible units. (The one-straight-line rider is not enforced yet.)",
-				"Bully Boyz — Da Boss Is Watchin': if your Waaagh! has been spent and a Warboss is still standing, you can call a SECOND Waaagh! once per battle — it only counts for Warboss, Nobz and Meganobz units. The Command panel offers 'DA BOSS IS WATCHIN' — WAAAGH AGAIN!' when it is available.",
-				"Green Tide — Mob Mentality: your BOYZ units now carry a 6+ invulnerable save, improved to 5+ while they have 10 or more models (refreshed each Command phase).",
-				"More Dakka! — Dakka! Dakka! Dakka!: your Orks (and Grots-crewed) units' ranged weapons count as ASSAULT, and gain SUSTAINED HITS 1 while your Waaagh! is active.",
-				"Kult of Speed — Adrenaline Junkies: Speed Freeks units can shoot and charge in a turn in which they Advanced or Fell Back.",
-				"Blitz Brigade — Eager for the Fight: your ORKS units re-roll Advance and Charge rolls in the turn they disembark from a Transport.",
-				"Rollin' Deff — Thundering Wagons: your Battlewagons, Kill Rigs and Hunta Rigs advance a flat 6\" without rolling and re-roll Charge rolls.",
-				"Detachment keyword grants: Gretchin count as BATTLELINE in a Dread Mob army; Stormboyz count as BATTLELINE in a Taktikal Brigade army."
-			]
-		},
-		{
-			"version": "0.10.0",
-			"date": "2026-07-10",
-			"summary": "Every Ork detachment now has working Stratagems and Enhancements: Green Tide, More Dakka!, Bully Boyz, Da Big Hunt (with the Prey rule), Kult of Speed, Dread Mob, Blitz Brigade and Rollin' Deff join Speedwaaagh! and Taktikal Brigade.",
-			"changes": [
-				"Green Tide: all six Stratagems (COME ON LADZ! model revival, BRAGGIN' RIGHTS, TIDE OF MUSCLE, BULLDOZER BRUTALITY 3\" fight range, COMPETITIVE STREAK, GO GET 'EM! reactive move) and all four Enhancements (Raucous Warcaller counts-as-10, Bloodthirsty Belligerence, Ferocious Show Off, Brutal But Kunnin' bonus CP).",
-				"More Dakka!: all six Stratagems (CALL DAT DAKKA? shoot-back, SPESHUL SHELLS +1 AP within 18\", ORKS IS STILL ORKS, GET STUCK IN LADZ! unit Waaagh!, HUGE SHOW-OFFS, LONG UNCONTROLLED BURSTS) and all four Enhancements (Da Gobshot Thunderbuss, Dead Shiny Shootas, Targetin' Squigs, Zog Off and Eat Dakka!).",
-				"Bully Boyz: all six Stratagems (ARMED TO DA TEEF, ALWAYS LOOKIN' FER A FIGHT, CRUSHING IMPACT, CUT' EM DOWN forced Desperate Escape, TOO ARROGANT TO DIE swing-backs, HULKING BRUTES) and all four Enhancements ('Eadstompa, Tellyporta Deep Strike, Da Biggest Boss +2W, Big Gob forced Battle-shock).",
-				"Da Big Hunt: the Prey detachment rule (auto-picked enemy MONSTER/VEHICLE/CHARACTER; Beast Snaggas re-roll charges against it and get +1 AP), all six Stratagems (DRAG IT DOWN crits on 5+ vs Prey, UNSTOPPABLE MOMENTUM mortal wounds, INSTINCTIVE HUNTERS into Reserves, STALKIN' TAKTIKS, DAT ONE'S EVEN BIGGA!, WHERE D'YA FINK YOU'RE GOING? reactive move) and all four Enhancements (Glory Hog Scouts 9\", Proper Killy, Skrag Every Stash! sticky objectives, Surly as a Squiggoth).",
-				"Kult of Speed: all six Stratagems (SPEEDIEST FREEKS 5+/4+ invulnerable, SQUIG FLINGIN' Battle-shock at -1, BLITZA FIRE, DAKKASTORM, FULL THROTTLE!, MORE GITZ OVER 'ERE! reactive move) and all four Enhancements (Fasta Than Yooz charge after disembark, Speed Makes Right bonus CP, Squig-hide Tyres 6\" consolidation, Wazblasta post-shooting move).",
-				"Dread Mob: all six Stratagems with the new push-it choice dialog (BIGGER SHELLS FOR BIGGER GITZ, DAKKA! DAKKA! DAKKA!, KLANKIN' KLAWS, EXTRA GUBBINZ -1 Damage, SUPERFUELLED BOILER, CONNIVING RUNTS) and three Enhancements (Gitfinder Googlez, Smoky Gubbinz, Supa-glowy Fing Command-phase zap). Press It Fasta! is listed but waits on the Try Dat Button! detachment rule.",
-				"Blitz Brigade: all six Stratagems (ARMOURED DUELLISTS, MOUNT UP LADZ end-of-fight embark, IMPERVIOUS, MEKANISED BRUTALITY, RUN 'EM DOWN, YOOZ IN TROUBLE NOW disembark-and-surge) and all four Enhancements (Runnin' Boots, Blitzkaptin vehicle redeploys, Supercharged Squig Oil, Tuff Git).",
-				"Rollin' Deff (provisional 11e rules from the community dataset): all five Stratagems (BRUTAL BROADSIDE Rapid Fire X, IMPENDING CRUNCH, DEVASTATING DRIFT Cleave 1, LONG UNCONTROLLED BURSTS, SPESHUL SHELLS 9\") and all four Enhancements (Boarding Ramps, Targetin' Gizmos, plus the shared Dead Shiny Shootas and Da Gobshot Thunderbuss).",
-				"Freebooter Krew: all six Stratagems now show their real rules text and BASH AND GRAB is re-enabled.",
-				"Fixed: several Stratagems whose fine print mentions 'enemy units' (DED SNEAKY, DAT'S OURS, MOUNT UP LADZ and others) wrongly skipped the unit picker and did nothing while still spending the CP.",
-				"Fixed: the Scatter! reactive-move prompt could crash mid-check; distance checks now use the shared measurement helper."
-			]
-		},
-		{
-			"version": "0.9.0",
-			"date": "2026-07-09",
-			"summary": "Taktikal Brigade (Orks) is now playable: all six of its Stratagems and three of its four Enhancements work in-game, and the always-broken Stratagems panel button is fixed.",
-			"changes": [
-				"All six Taktikal Brigade Stratagems now have their real rules text and working effects: FIGHT PROPPA (choose SUSTAINED HITS 1 or LETHAL HITS for a unit's melee weapons), KRUNCHIN' DESCENT (after a Stormboyz charge, D6 per model in Engagement Range — 4+ deals a mortal wound, max 6), DAT'S OURS (+1 Objective Control until the next Command phase), TAKTIKAL RETREAT (shoot and charge after Falling Back), ON TO DA NEXT (a free 6\" move when an enemy Falls Back away from your mob — offered via the same dialog as Krump and Run), and DED SNEAKY (pull Kommandos or Stormboyz off the table into Strategic Reserves).",
-				"Skwad Leader enhancement: a Warboss with it can be attached to a Kommandos unit, and while leading them the unit deploys with Infiltrators and has Stealth.",
-				"Mek Kaptin enhancement: a Big Mek with it can be attached to a Flash Gitz unit, and the unit re-rolls Hit rolls on its ranged attacks.",
-				"Mork's Kunnin' enhancement: after deployment you can redeploy up to three ORKS units (any of them into Strategic Reserves).",
-				"Gob Boomer is listed but has no effect yet — it extends the Taktiks (Lissen 'Ere) detachment rule, which is not implemented (the same gap as Speedwaaagh!'s Turbo Boostas detachment rule).",
-				"Fixed the Stratagems panel ([S] button): clicking it did nothing because of a script error — it now opens, and unit-targeted faction Stratagems prompt you to pick the target unit instead of silently doing nothing.",
-				"Stratagem targeting is now enforced for faction Stratagems (correct keywords, not-yet-fought/shot, engagement-range conditions), and 'One X or Y unit' wordings are matched correctly.",
-				"Added a ready-to-play Taktikal Brigade army list (orks_taktikal) with Skwad Leader and Mork's Kunnin' equipped."
-			]
-		},
-		{
-			"version": "0.8.6",
-			"date": "2026-07-09",
-			"summary": "Fixed the AI 'AI Suggestion' hint (and any log entry added on its own) drawing on top of the existing game log instead of slotting in at the bottom.",
-			"changes": [
-				"Asking the AI for a suggestion no longer covers earlier game-log entries: the new card is now appended at the bottom of the log where it belongs. Previously the card's slide-in animation left it stuck at the top overlapping older entries until the next thing was logged, which then bumped it into place.",
-				"This also fixes the same glitch for any single game-log entry added in isolation (not just AI suggestions)."
-			]
-		},
-		{
-			"version": "0.8.5",
-			"date": "2026-07-09",
-			"summary": "Speedwaaagh! (Orks) is now fully implemented: all four of its Enhancements and all six of its Stratagems work in-game.",
-			"changes": [
-				"Master Meknologist now improves the Ballistic Skill of the bearer's ranged weapons by 1 (e.g. a Big Mek's Shokk Attack Gun hits on 4+ instead of 5+).",
-				"Supa-burny Fuel now changes the Deffkilla Wartrike's killa jet weapons: the burna profile fires 3D6 Attacks and the cutta profile fires 3 Attacks. (Also taught the dice engine to roll multi-dice values like 3D6.)",
-				"Kustom Shokk Box: when the Deffkilla Wartrike turbos (Advances), it can move through dense terrain that would otherwise block it.",
-				"Dakkamek: when a Mek with this Enhancement uses its Mekaniak ability on a Vehicle, that Vehicle's ranged weapons gain [RAPID FIRE 1] until your next turn.",
-				"All six Speedwaaagh! Stratagems now work: ON DA MOVE (shoot/charge after Advancing or Falling Back), DUST TRAILS (Benefit of Cover), SPESHUL AMMO (Anti-Monster 4+ and Anti-Vehicle 4+ on non-Torrent ranged weapons), DED KILLY CONSTRUCTION (melee LANCE, plus +1 Damage if the unit charged), MOBILE DAKKASTORM (+2 Strength for your Speed Freeks / Trukk units against a marked enemy), and EVASIVE MANOOVA (pull a Speed Freeks / Trukk unit off the table into Strategic Reserves).",
-				"Two small faithful simplifications: MOBILE DAKKASTORM's marked enemy is chosen when you use the Stratagem rather than auto-picked from what was just hit, and Kustom Shokk Box applies on any Advance (turbo is not a separate action in-game)."
-			]
-		},
-		{
-			"version": "0.8.4",
-			"date": "2026-07-09",
-			"summary": "The Stompa now fields on a proper 180mm round base. The dataset ships no base for it ('Use model'), so it was falling back to a tiny 32mm base.",
-			"changes": [
-				"Building or importing an army with a Stompa now gives its model a 180mm round base instead of the 32mm default, so it deploys, blocks movement, and fights at the correct footprint.",
-				"Added a curated base-size override in the army-format converter for models the 40kdc dataset leaves as a dimensionless 'draft' base; the Stompa is the first entry. Added a converter test that fails if the Stompa ever regresses to the 32mm fallback."
-			]
-		},
-		{
-			"version": "0.8.3",
-			"date": "2026-07-09",
-			"summary": "New 'Abilities' filter in the game log groups the repeating passive-ability lines (e.g. 'Stand Vigil active', 'Guardian Eternal active') and hides them by default, so the log stays focused on what actually happened.",
-			"changes": [
-				"Passive, always-on ability activations are re-checked at the start of every phase, so lines like \"Custodian Guard ability 'Stand Vigil' active\", \"Telemon Heavy Dreadnought ability 'Guardian Eternal' active\" and aura effects were repeated in the game log every turn. They are now all tagged as 'Abilities' — no matter which phase they fire in — instead of being scattered across the Move / Charge / Info buckets by chance wording in their description.",
-				"Added an 'Abilities' filter chip (teal 'A' badge) to the game-log filter bar. It is OFF by default, so these repetitive passive-ability lines no longer clutter the log. Open Filters and toggle 'Abilities' on any time you want to see exactly which passive abilities are active.",
-				"Only the repeating passive/aura activations moved under this filter — one-off actions you take (Waaagh!, Oath of Moment, stratagems, mission actions) stay in their normal categories."
-			]
-		},
-		{
-			"version": "0.8.2",
-			"date": "2026-07-09",
-			"summary": "Army Builder: the Orks 'Speedwaaagh!' detachment now offers its four Enhancements. They were missing from the dataset, so the builder showed no Enhancement option and imported lists silently dropped enhancements like Kustom Shokk Box.",
-			"changes": [
-				"You can now add the Speedwaaagh! detachment's Enhancements in the browser Army Builder: Kustom Shokk Box (10 pts), Dakkamek (25 pts), Supa-burny Fuel (15 pts) and Master Meknologist (20 pts). Previously a Speedwaaagh! Character showed no 'Enhancement' dropdown at all.",
-				"Uploading/pasting a Speedwaaagh! list that includes one of these Enhancements now resolves it and keeps it (with its points) instead of dropping it as unresolved on import.",
-				"Added browser tests (unit + real-page end-to-end) that fail if these Enhancements ever go missing from the builder again."
-			]
-		},
-		{
-			"version": "0.8.1",
-			"date": "2026-07-09",
-			"summary": "Fix: the 'AI Suggestion' button now actually appears when you start a game against the AI (it was being created hidden and never shown).",
-			"changes": [
-				"The 'AI Suggestion' button (and its K hotkey path) is now visible from the moment a human-vs-AI game starts. Previously the button was built after the code that reveals it had already run, so it stayed hidden for the whole game and the feature could not be used from the UI.",
-				"Added a regression test that starts a human-vs-AI game through the normal flow and fails if the button is not shown, so this cannot silently break again."
-			]
-		},
-		{
-			"version": "0.8.0",
-			"date": "2026-07-08",
-			"summary": "When playing against the AI you can now ask it for a suggestion on your own turn — a new 'AI Suggestion' button (hotkey K) shows what the AI would do and why, without taking the action for you.",
-			"changes": [
-				"New 'AI Suggestion' button in the bottom HUD (and hotkey K) for games against the AI. Press it on your turn and the AI reasons about your current position — the phase you're in, your units, the enemy, the objectives — and posts its recommended action to the game log, e.g. 'Suggestion (Movement): Witchseekers advances aggressively toward Kommandos (28.0\" away)'.",
-				"The suggestion is a full reasoning card: it shows the chosen action plus the alternatives it considered and rejected, each with a score, and (where it applies) highlights the options it weighed on the board. Great for learning the game, or for understanding and debugging how the AI thinks.",
-				"It only suggests — it never acts for you. Asking for a hint takes no game action, doesn't end your turn or phase, and has no effect on the AI opponent. The advice reflects the difficulty of the AI you're actually facing.",
-				"The button appears only in games with an AI opponent; the K hotkey is rebindable and listed in the shortcut overlay (press ? )."
-			]
-		},
-		{
-			"version": "0.7.8",
-			"date": "2026-07-08",
-			"summary": "Charges that declare more targets than the roll can reach are now clearly reported instead of showing a misleading 'SUCCESS', and the charge panel now tells you the roll needed to reach every target you've picked.",
-			"changes": [
-				"A charge must end within Engagement Range of EVERY unit you declared it against. Previously the '2D6 = X vs Y needed — SUCCESS' line only measured the CLOSEST declared target, so declaring three units when your roll could only reach one still said SUCCESS — then the move silently failed and your unit ended up not in combat with anything, unable to fight. The roll result now checks ALL declared targets: if any is out of reach the charge is reported FAILED, naming the target(s) you couldn't reach and the distance you actually needed (e.g. 'FAILED — out of range: Shield-Captain; you needed to roll 7.9\"').",
-				"New declaration-time hint: as you pick charge targets, the charge panel shows the 2D6 roll needed to reach ALL of them, calls out the farthest (hardest) target, and lists each target's distance — colour-coded from likely to impossible — so an out-of-reach target is obvious BEFORE you commit and roll.",
-				"11th-edition charges that can only reach some of the declared targets now say so in the game log (which targets were engaged and which were beyond the roll), instead of quietly dropping the far ones with no explanation."
-			]
-		},
-		{
-			"version": "0.7.7",
-			"date": "2026-07-08",
-			"summary": "Charging models are now required to close into base contact where they can reach it, and a one-click 'Snap to Contact' button makes lining them up effortless.",
-			"changes": [
-				"Charge moves now enforce the 11th-edition rule per model: any charging model that CAN end its move within 1\" of a charge target MUST do so. Previously the check was satisfied the moment a SINGLE model in the unit reached the enemy, which let the rest of the unit hang back out of contact — now every model that is able to close, must.",
-				"The charge-move 'Auto-Path' button is now 'Snap to Contact': it places every remaining model in true base-to-base contact with its nearest charge target (falling back to the closest legal position only if base contact is blocked by another model, the board edge, or the charge distance).",
-				"Dragging a charging model still auto-snaps it into base contact when you release near an enemy. Base contact always satisfies the new 'within 1 inch' requirement, so snapping is the easy way to make a legal charge.",
-				"If you try to confirm a charge while a model could have reached closer, the game now explains which model must move in, instead of quietly accepting a position that leaves it short."
-			]
-		},
-		{
-			"version": "0.7.6",
-			"date": "2026-07-08",
-			"summary": "The Fight phase 'Pile In' and 'Consolidate' windows now dock to the bottom of the screen instead of sitting in the middle of the battlefield, and match the rest of the game's menus.",
-			"changes": [
-				"When you pile in or consolidate, the pop-up used to open centered right over the board — covering the very models you were trying to drag. It now docks to the bottom-centre of the screen with the battlefield fully visible above it, so you can see and drag your models while the controls stay out of the way.",
-				"Restyled both windows to match the rest of the menus: a gold heading, a gold divider between sections, and a red 'Confirm Move' button like 'Start Game'. The legend at the bottom (green arrow / red arrow / dashed line / green dots / red X) was almost unreadable dark-grey text and is now a legible muted tone.",
-				"Removed the redundant extra 'OK' button — the window's own 'Confirm Move', 'Skip / Confirm (No Models Move)' and 'Reset Positions' buttons are the controls (pressing Enter still confirms)."
-			]
-		},
-		{
-			"version": "0.7.5",
-			"date": "2026-07-08",
-			"summary": "Fixed attached units (a Character leading a unit, e.g. a Shield-Captain with Vertus Praetors) getting left behind when they charged — the leader now charges in with its unit and can pile in and fight instead of being stranded.",
-			"changes": [
-				"When an attached unit charged, only the bodyguard unit moved and the leader Character was left behind, breaking the unit apart and making it look like the attachment had come undone. The attached Character now moves in with the bodyguard during a Charge move (and a Heroic Intervention), so it arrives in combat and stays attached.",
-				"Because the leader now reaches combat, it can pile in, consolidate and fight in the Fight phase — previously it was stranded out of range and could do none of these.",
-				"An attached leader Character can no longer be selected to charge on its own — it charges as part of its unit, matching how it already moves in the Movement phase."
-			]
-		},
-		{
-			"version": "0.7.4",
-			"date": "2026-07-08",
-			"summary": "Fixed online (game-code) multiplayer: joining with a code and deploying your first unit permanently desynced the two players. Online games now play through correctly.",
-			"changes": [
-				"Fixed the #1 online multiplayer bug: in an online game (host shares a code, opponent joins with it), the moment the joining player deployed their first unit the two games silently fell out of sync forever — the unit showed up for the joiner but never for the host. Online play sends moves as text (JSON), which turned every board position into a plain object; the host then crashed while checking the move and never told the joiner it failed, so the joiner kept a move the host never accepted. Positions are now converted back correctly before the host processes an online move, and a failed check is reported instead of silently dropped.",
-				"Fixed the same empty-battlefield terrain bug as the LAN fix, but for online games: the host of an online game was judging movement and line-of-sight against a board with no terrain on it.",
-				"Hardened online move handling so a single malformed message can no longer take down the host's processing of the rest of the game."
-			]
-		},
-		{
-			"version": "0.7.3",
-			"date": "2026-07-08",
-			"summary": "Major multiplayer hardening pass: LAN games no longer soft-lock at the pre-deployment roll-off, phases no longer get skipped or run ahead on one player's screen, and a large family of actions (stratagems, reactions, phase steps) that silently failed online now work.",
-			"changes": [
-				"Fixed every LAN multiplayer game soft-locking at the 'Who Deploys First?' roll-off: the dice result and the winner's 'deploy first / deploy second' choice now appear on BOTH players' screens, and the winner (not the player who happened to click Roll) makes the choice. The same fix covers the 'Determine First Turn' roll-off after deployment.",
-				"Fixed multiplayer phase desyncs: the 'Determine First Turn' step could be skipped entirely on the host, while the other player's game raced ahead through Command → Movement → Shooting → Charge on its own. Phases now advance exactly once, on both screens, in lockstep.",
-				"Fixed a large family of actions that hard-failed with 'Unknown action type' ONLY in multiplayer: ending the Scout phase, declining/using a Command Re-roll, Counter-Offensive, Fire Overwatch, Epic Challenge, the Fight phase's End Pile In / End Consolidation buttons, warlord designation, secondary-mission steps (e.g. Beacon), and more.",
-				"Reactive decisions are now shown to the right player: the Epic Challenge prompt used to appear on the OTHER player's screen (where it could only be mis-clicked and rejected) — it now opens for the player whose decision it is. Stratagem windows that belong to the non-active player (Counter-Offensive, Overwatch, re-rolls) are no longer rejected as 'not your turn'.",
-				"Clicking your opponent's buttons no longer half-works: the phase button and roll-off dice are turn-gated with a friendly 'It's Player N's turn' message instead of firing actions that get rejected after the UI already reacted.",
-				"Fixed the host adjudicating terrain rules against an EMPTY battlefield in multiplayer (walls/ruins existed visually but not in the host's rules state — the joining player had the real list).",
-				"Fixed the multiplayer desync detector crying wolf: it compared incompatible views of the game state, so it reported a desync after nearly every action; it now compares the actual gameplay state on both sides (and also covers actions submitted by the joining player, which were previously unchecked).",
-				"Fixed the charge phase forgetting a declared charge on the opponent's screen, and a broken signal that dropped the post-roll target list update.",
-				"The game log now names the Battle Formations / Redeployment / Scout phases instead of showing 'Unknown Phase'.",
-				"Test infrastructure: scenario fixtures now load on fresh checkouts (CI/containers), and a new regression test pins all of the multiplayer contracts above."
-			]
-		},
-		{
-			"version": "0.7.2",
-			"date": "2026-07-07",
-			"summary": "Fixed the 12\" charge-range bubble not disappearing when you selected a different unit in the Charge phase, so old bubbles stacked up and cluttered the board.",
-			"changes": [
-				"In the Charge phase, selecting a unit shows a dashed 12\" range bubble around it. Previously, switching to a different charging unit left the old bubble on the board and drew a new one on top, so after picking a few units the board filled up with overlapping bubbles. Now only the currently selected unit's bubble is shown — the previous one is fully cleared each time you change your selection."
-			]
-		},
-		{
-			"version": "0.7.1",
-			"date": "2026-07-07",
-			"summary": "Fixed the Game Log drawing on top of the Save & Load menu — the menu now always sits above the log and other side panels while it's open.",
-			"changes": [
-				"Opening Save & Load while the Game Log was visible used to leave the log rendered over the left edge of the menu, hiding part of it and intercepting clicks meant for the dialog. The Save & Load menu is now raised to the front whenever it opens, so it always sits above the Game Log (and the roster strip) and receives your clicks."
-			]
-		},
-		{
-			"version": "0.7.0",
-			"date": "2026-07-07",
-			"summary": "The Shooting Phase 'Choose Weapon Order' sequence is now step-by-step and much clearer — it names each weapon, pauses after the hit roll and again after the wound roll, and lets you spend a Command Re-roll on a single die at each pause.",
-			"changes": [
-				"The resolution log is now verbose and readable. Each weapon gets its own header naming the weapon and target (e.g. 'Weapon 1 of 2 — Bolt Rifle → Ork Boyz'), and each step reads 'Rolling to Hit (need 2+): [ 5 4 4 2 ] → 3 hits, 1 miss' then 'Rolling to Wound (need 3+): [ 6 1 5 6 ] → 3 wounds' — instead of a terse summary that never said which weapon fired.",
-				"Sequential resolution now pauses after the hit roll and waits for you to click 'Roll to Wound ▶', then pauses again after the wound roll and waits for 'Continue to Saving Throws ▶'. You can read each result before moving on.",
-				"At each pause you can use the Command Re-roll stratagem (1 CP) on a single die: click a hit die (or a wound die) to re-roll it. It spends 1 CP, is limited to once per phase, and the wound roll is only made after you've finished with the hit roll — so re-rolling a hit correctly changes how many wound dice you roll.",
-				"Fixed the confusing button: after a weapon caused wounds, the only option used to be a bare 'Close' that actually took you to the defender's saving throws. It now reads 'Continue to Saving Throws ▶' so it's clear what happens next.",
-				"This staged flow applies to local/hotseat games; online multiplayer keeps the existing one-shot sequential resolution."
-			]
-		},
-		{
-			"version": "0.6.9",
-			"date": "2026-07-07",
-			"summary": "Fixed a shooting entry in the Game Log stretching to almost the full height of the screen instead of showing as a compact line of dice.",
-			"changes": [
-				"When you shot a weapon, the Game Log entry summarising the attack (e.g. 'Telemon Heavy Dreadnought → Boyz … Hit: 7/9 … Wound: 0/7 …') could balloon to nearly the entire height of the log, with the dice icons floating far out to the right and a huge empty gap. The trailing part of the line was being squeezed into a one-character-wide column and wrapped down the whole card.",
-				"These log lines now flow naturally like a sentence — the text wraps across a few lines and the dice icons sit inline exactly where the rolls happened, so the entry is a tidy, compact card.",
-				"Both sets of dice on a combined hit-and-wound line now render as icons (previously only the hit dice became icons and the wound dice stayed as raw '[2, 2, 3, …]' numbers), each coloured against its own target — the hit dice vs the hit roll needed and the wound dice vs the wound roll needed."
-			]
-		},
-		{
-			"version": "0.6.8",
-			"date": "2026-07-07",
-			"summary": "Fixed the Fight phase 'Pile In' and 'Consolidate' step windows opening as a giant blacked-out box instead of showing the unit picker.",
-			"changes": [
-				"When the Fight phase opened, the 'Pile In Step' pop-up (and the end-of-phase 'Consolidate Step' pop-up) could appear as a huge, mostly-black window that filled the screen with no visible content. The window was being stretched to roughly 5,500 pixels tall — far bigger than the screen — because a long description line inside it was mis-measured, and an off-screen-sized window renders as a black rectangle.",
-				"Both windows now size to their content: a compact picker showing the banner, the instructions, the list of eligible units to pile in / consolidate (each as a button), and the 'End Pile In' / 'End Consolidation' button — all visible and clickable."
-			]
-		},
-		{
-			"version": "0.6.7",
-			"date": "2026-07-07",
-			"summary": "Fixed a whole family of pop-up windows that could stretch off the bottom of the screen and hide their buttons — the same bug as the Burden of Trust window, across many other prompts.",
-			"changes": [
-				"Several pop-up windows could balloon far taller than the screen (a long description line inside them was mis-measured), pushing their action buttons off the bottom where you couldn't click them. Fixed the secondary-mission prompts (A Tempting Target, Marked for Death, Beacon, Extract Relic, Condemn), the 'Deploy Unit in Transport' window, the out-of-coherency model-removal prompt, the shooting action prompt, the transport firing-deck picker, and more.",
-				"Added a global safety net so ANY pop-up window is automatically kept within the screen and re-centered if it would ever open too tall — its confirm/cancel buttons can no longer end up unreachable. Windows that already fit are left exactly as they were."
-			]
-		},
-		{
-			"version": "0.6.6",
-			"date": "2026-07-07",
-			"summary": "Fixed the Burden of Trust guard-assignment window overflowing off the bottom of the screen so its Confirm / Keep buttons were unreachable.",
-			"changes": [
-				"Burden of Trust (secondary mission): the 'Assign Guards' window no longer stretches thousands of pixels tall and off the bottom of the screen. The dialog is now capped to fit within the view, the objective list scrolls inside it, and the 'Confirm Guards' and 'Keep Auto Picks' buttons stay pinned and visible so you can actually confirm which unit guards which objective."
-			]
-		},
-		{
-			"version": "0.6.5",
-			"date": "2026-07-07",
-			"summary": "Fixed Infantry being wrongly charged an extra 2\" to move through or across Ruins — including the '2\" stuck on even after you move away' bug.",
-			"changes": [
-				"Infantry (and anything that can move through a terrain feature) no longer has 2\" added to its move distance for going into, across, or through a Ruin. In 10th edition these models move through Ruins' walls and floors freely, so a Ruin costs them no extra inches — the game was treating every Ruin as 'difficult ground' for everyone.",
-				"Fixed the related 'sticky' bug: dragging a model onto a Ruin used to add the 2\" penalty and then keep it added even after you dragged the model back off the Ruin to open ground. The distance now reflects the actual path every frame, so moving away from a Ruin correctly drops the penalty.",
-				"Units that genuinely cannot move through a piece (e.g. Vehicles crossing low difficult-ground terrain) still pay the 2\", so real difficult-ground terrain still slows the models it should."
-			]
-		},
-		{
-			"version": "0.6.4",
-			"date": "2026-07-07",
-			"summary": "Fixed the end-of-turn 'discard a Secondary Mission for CP' pop-up stretching to the full height of the screen.",
-			"changes": [
-				"The 'Discard for CP?' pop-up shown when you end your turn (offering to discard a Secondary Mission for +1 CP) used to open as a giant window spanning the whole screen, with a small amount of content at the top and a huge empty gap below it.",
-				"The window now sizes itself to its content, so it's a compact, tidy pop-up. Everything is still visible — the prompt, each Secondary Mission with its Discard button, and the 'End Turn Without Discarding' button.",
-				"When you happen to hold more Secondary Missions than fit, the mission list now scrolls inside the pop-up instead of the window growing off-screen."
-			]
-		},
-		{
-			"version": "0.6.3",
-			"date": "2026-07-07",
-			"summary": "Fixed the broken 'missing glyph' icons flanking the SHOOTING PHASE title on the phase-transition banner.",
-			"changes": [
-				"The two icons on either side of 'SHOOTING PHASE' on the phase banner (shown when you End the Movement Phase) rendered as empty boxes containing a code number ('2316') instead of a real symbol. The crosshair character they used isn't included in any of the game's bundled fonts, so it only ever showed up if your operating system happened to provide it — most players saw the missing-glyph box.",
-				"They now use a bundled bullseye/target icon that ships with the game, so the Shooting Phase banner renders correctly everywhere, matching the other phases (Charge, Scoring, etc.)."
-			]
-		},
-		{
-			"version": "0.6.2",
-			"date": "2026-07-07",
-			"summary": "Fixed the AI advancing 'aggressively toward the enemy' but not actually moving — Ork mobs (and any advancing AI unit) now cover ground instead of shuffling in place.",
-			"changes": [
-				"Fixed a bug where an AI unit that Advanced — often an Ork mob after calling a WAAAGH! — would announce it was advancing toward your army, roll the Advance, then barely move (or stay put entirely). After the Advance roll came in, the AI was recomputing its move toward the nearest objective (usually its own home objective, sitting right behind the unit) instead of toward the enemy it had chosen, so a packed mob just collided with itself and never left its deployment.",
-				"AI Advances (and the retry path for any move that gets boxed in) now keep heading in the direction the AI originally picked — toward the enemy, the objective it was grabbing, or away from danger for a Fall Back — and use the full Advance distance rolled.",
-				"This only affected the AI; your own units were never impacted."
-			]
-		},
-		{
-			"version": "0.6.1",
-			"date": "2026-07-07",
-			"summary": "Charge phase overhaul: no more false 'charge failed' verdicts near ruins, plus a batch of charge bug fixes.",
-			"changes": [
-				"Fixed the false [INSUFFICIENT_ROLL] failure: a charge roll big enough to reach the target (e.g. rolling 6\" against a target 2.5\" away) no longer fails just because a ruin clips the straight line — the check now knows models stop at engagement range and can move around terrain, matching what the charge move actually allows.",
-				"Failure messages and tooltips now show the real 11th-edition 2\" engagement range (they hardcoded 1\"), and the orange engagement rings + 'charge needed' preview around targets are sized to 2\" as well.",
-				"Command Re-rolls and +N charge bonuses now count: the list of chargeable targets is recomputed from your FINAL roll total, so a re-rolled charge no longer fails against the stale first-roll list (your CP is no longer wasted).",
-				"A rejected charge confirm now tells you why (toast + dice log) and lets you re-position and try again — previously it silently reset the UI and left tokens displayed in the wrong place.",
-				"11e target selection is completed with the move: confirming a charge now declares the enemy units you actually moved into engagement with, so charges whose pre-declared target was dropped by the roll can still be completed against a nearer unit.",
-				"Fire Overwatch is usable by human players again in 10e mode (the confirm button dispatched a format the rules engine rejected; only the AI could ever fire it).",
-				"Fixed a crash in the AI's multi-target charge evaluation that fired every time the AI weighed charging two or more units.",
-				"Rules tightening: charge dice can no longer be re-rolled by re-declaring the charge; unit coherency is checked for the whole unit (a single model can no longer be dragged away from its squad); moving inside one ruin at ground level no longer pays a phantom climb penalty; Heroic Intervention counter-charges evaluate base-contact from the defender's perspective; units in Reserves no longer block charges as phantom 'units at the board corner'."
-			]
-		},
-		{
-			"version": "0.6.0",
-			"date": "2026-07-07",
-			"summary": "The Game Log is clearer, covers more of what happens, and now has per-category filter toggles so you can focus on the events you care about.",
-			"changes": [
-				"New: a 'Filters' button on the Game Log opens a row of toggle chips — Phase, Move, Shoot, Fight, Charge, Overwatch, VP, Info and AI. Click one to hide/show that kind of event; 'All' and 'None' bulk-toggle. Each entry is colour-coded to match its filter.",
-				"More events now appear in the log: units Falling Back, embarking/disembarking transports, arriving from Reserves / Deep Strike, Combat Doctrine and Ka'tah stance selections, mission (secondary) actions, Warlord designation, Advance and Surge moves, and Scout moves — many of these were previously silent.",
-				"Existing entries read more clearly: phase headers now spell out 'Movement Phase — Battle Round 2, Player 1's turn', and deployed / reinforcing units show their model count.",
-				"The AI-thinking quick-toggle in the header still works and now stays in sync with the AI filter chip."
-			]
-		},
-		{
-			"version": "0.5.3",
-			"date": "2026-07-07",
-			"summary": "The version + 'What's New' box now sits at the bottom of the main menu, so the menu leads with army and mission setup.",
-			"changes": [
-				"Moved the version badge and the 'What's New' changelog panel from just under the title to the very bottom of the main menu, below the Start/Load/Quit buttons.",
-				"No behaviour change — the same version info is shown, just relocated so the game-setup options are the first thing you see."
-			]
-		},
-		{
-			"version": "0.5.2",
-			"date": "2026-07-07",
-			"summary": "The Shooting phase's wound-allocation window now matches the weapon-order window — one consistent gothic look across both.",
-			"changes": [
-				"The 'Allocate Attacks' window (where you order allocation groups before saves are rolled) now wears the same White Dwarf gold-and-red theme as the 'Choose Weapon Order' window: gold-bordered panel, gold section headers, gold-outlined arrow reorder buttons, and a red primary action button.",
-				"Added an 'ALLOCATION ORDER' heading and gold section dividers so the wound window reads the same way the weapon-order window does.",
-				"No behaviour change — only the styling was unified so the two Shooting-phase ordering windows feel like the same UI."
-			]
-		},
-		{
-			"version": "0.5.1",
-			"date": "2026-07-07",
-			"summary": "Movement phase no longer nags you to click 'Confirm Move' — moving on auto-confirms.",
-			"changes": [
-				"In the Movement phase, if you move a unit's models but forget to click 'Confirm Move', the move is now confirmed automatically the moment you select a different unit or end the phase. No more 'There are active moves that need to be confirmed or reset' blocking you.",
-				"Auto-confirm runs the same checks as the button (coherency, Fall Back engagement range, Fire Overwatch), so an illegal position still won't be silently committed."
-			]
-		},
-		{
-			"version": "0.5.0",
-			"date": "2026-07-06",
-			"summary": "11th-edition secondary missions are now fully playable: every card that needs your input asks for it, and every card action has a button.",
-			"changes": [
-				"A Tempting Target fixed: when your AI opponent draws it, YOU now get the objective-selection dialog (the AI used to pick secretly on your behalf). The AI waits at its Command phase until you choose, and picks sensibly when the roles are reversed.",
-				"Beacon: when you draw it you now designate your beacon unit in a new dialog (embarked units included); the chosen unit shows a pulsing cyan beacon badge, and only that unit scores the card.",
-				"Burden of Trust: guards are now real — one distinct unit per objective, auto-assigned each of your turns with a revision dialog; an objective only scores while its guard is alive, in range and you control it.",
-				"Plunder finally has its Shooting-phase action: a unit inside a terrain feature outside your territory shows a 'Plunder … (5 VP)' button (once per turn) — previously the card could never be scored by anyone.",
-				"Cleanse now follows the 11e card: home objectives can't be cleansed, two units cleansing the same marker count once, and a cleanse only completes if you still control the objective at the end of your turn.",
-				"Beacon, Burden of Trust and Defend Stronghold now also score at the end of the fifth battle round for the second player, per their 'whichever comes first' clause."
-			]
-		},
-		{
-			"version": "0.4.0",
-			"date": "2026-07-06",
-			"summary": "The AI now plays for Victory Points by the numbers, and its thinking cards can draw their options on the board.",
-			"changes": [
-				"AI decisions are now Victory-Point-denominated: each objective is priced from the AI's actual mission cards (its primary Force-Disposition rules plus active secondaries), so it pushes where the VP really are — and the Game Log states the stakes ('VP stakes this round: obj_center ~9 VP...', 'worth ~5 VP').",
-				"AI thinking cards with a bright blue accent are now board-linked: hover one to see the options that decision weighed drawn on the battlefield — a solid green arrow to the chosen option and dashed red arrows to the rejected ones, each tagged with its score. Click the card to pin the arrows; click again to clear.",
-				"New AI-vs-AI benchmark harness for development: plays full headless games and reports win rate and VP differential, so future AI changes are verified by results (bash 40k/tests/run_ai_benchmark.sh)."
-			]
-		},
-		{
-			"version": "0.3.0",
-			"date": "2026-07-06",
-			"summary": "The AI now plays 11th edition properly — stratagems, faction rules, mission play — and explains every decision in the Game Log.",
-			"changes": [
-				"The AI's reasoning is now shown in detail in the left Game Log panel: each decision appears as a card with the options it weighed — including moves, charges and stratagems it considered and REJECTED, with the why. Click 'considerations' on a card to expand them.",
-				"The AI now uses the full 11th-edition core stratagem set: Insane Bravery before critical battle-shock tests, Epic Challenge to strike attached characters, Crushing Impact after Monster/Vehicle charges, Fire Overwatch, Smokescreen (fixed — it never fired before), Heroic Intervention with the 11e Leap to Defend / Into the Fray modes, Counteroffensive, Rapid Ingress and Command Re-rolls.",
-				"The AI now uses its detachment stratagems: War Horde Orks throw 'Ere We Go, Mob Rule, Grab and Bash and Unbridled Carnage; Shield Host Custodes use Archeotech Munitions, Avenge the Fallen, Multipotentiality, Vigilance Eternal and defensive reactions.",
-				"The AI answers faction rule windows it previously ignored or stalled on: Martial Ka'tah stances, Plant the Waaagh! Banner, Da Kaptin, Grot Orderly, Fix Dat Armour Up, Unleash the Lions and Psychic Veil.",
-				"The AI now reads its own 11th-edition primary mission card and plays to it — pushing the enemy home objective, the board centre, or kills, whichever its card actually pays for — and pursues all seven new secondary cards (Beacon, Outflank, Plunder, Forward Position, Burden of Trust, Centre Ground, A Grievous Blow).",
-				"11th-edition rules fixes in the AI's math: 2-inch engagement range in charge planning, cover as -1 to hit, post-roll charge target re-selection, Ordered Retreat vs Desperate Escape fall-back modes, and a fixed battle-shock re-roll that was evaluating the wrong way around.",
-				"Normal difficulty (the default) now uses stratagems and survival judgement — the AI should be noticeably more challenging out of the box. Easy is unchanged for learning the game."
-			]
-		},
-		{
-			"version": "0.2.0",
-			"date": "2026-07-05",
-			"summary": "Reworked the main menu around 11th-edition Force Dispositions.",
-			"changes": [
-				"Moved Army Selection above Mission Settings on the main menu.",
-				"The Force Disposition dropdowns now sit at the top of Mission Settings, since they drive everything else in 11th edition.",
-				"Primary Mission is now shown read-only — it is derived from each player's Force Disposition pairing (each player can play a different card).",
-				"Deployment Zone is now shown read-only — it follows from the chosen terrain variant.",
-				"Terrain Layout now lists just the 3 official variants for the current disposition matchup."
-			]
-		},
-		{
-			"version": "0.1.0",
-			"date": "2026-07-05",
-			"summary": "Show the game version and recent changes on the main menu.",
-			"changes": [
-				"Added a version badge (number + date) beneath the main-menu title so it is easy to tell which build is running.",
-				"Added a 'What's New' panel to the main menu summarizing the most recent changes."
-			]
-		}
-	]
+  "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
+  "releases": [
+    {
+      "version": "0.20.0",
+      "date": "2026-07-11",
+      "summary": "The AI now fights to a single battle plan per turn — and the game log tells the truth about it. The movement plan the AI announces is the plan its units actually execute, melee hunts are declared up front (\"ATTACK Custodian Guard\"), spare units spread across objectives instead of piling onto one, and every decision card explains WHY (including when coordination overrides the raw scores).",
+      "changes": [
+        "AI movement: the army-wide unit-to-objective plan is computed once per movement phase and then followed, instead of being re-solved before every single unit action (which made announced plans and executed moves contradict each other). Re-plans only happen for cause (e.g. a unit disembarks mid-phase) and are called out in the log.",
+        "AI coordination: leftover units now spread across objectives with diminishing returns instead of all independently picking the same marker; objectives one enemy move away from being contested get sized reinforcement (\"capturing it — enemy can bring ~4 OC next move\").",
+        "AI melee: chase-vs-objective decisions are made at planning time and announced in the battle plan as ATTACK entries; the objective a hunter abandons re-opens for another unit to backfill.",
+        "Game log honesty: per-unit decision cards now show the REAL assignment with its reason (capture / flip / reinforce / sole holder / attack), and when the chosen option scores lower than a rejected one the card says why (\"↳ why not the top score: obj_1 is already covered...\"). Previously ~58% of cards claimed a 'chosen' option that contradicted the action taken.",
+        "AI formations: reserve declarations respect board presence — armies no longer bank nearly half their points in Strategic Reserves and concede the early objective game (the Custodes Lions list kept 950pts off-board; now capped near 25%).",
+        "Fixed: the phase banner and AI Actions overlay always showed 'Round 1' — they now show the actual battle round."
+      ]
+    },
+    {
+      "version": "0.19.0",
+      "date": "2026-07-11",
+      "summary": "Reinforcement placement helpers are clearer: the red 'must be >9\" from enemy models' no-deploy zone now shows around EVERY enemy cluster (not just the biggest one), and units arriving from Strategic Reserves now get a green band showing where they CAN be placed — within 6\" of a board edge.",
+      "changes": [
+        "Fixed: when placing a unit from Deep Strike or Strategic Reserves, the 9\" exclusion bubbles now render around all enemy models. Before, only the single largest connected clump of enemies drew its no-deploy zone; other enemy groups elsewhere on the board were left unmarked, making it look like you could legally arrive next to them. Each separate enemy cluster now gets its own labelled '9\" exclusion' zone.",
+        "New: units arriving from Strategic Reserves now show a green 'within 6\" of edge' band around the board perimeter — the area where they are allowed to be set up. (Deep Strike units, which may arrive anywhere >9\" from enemies, do not show this band.)",
+        "Under the hood: the enemy-exclusion overlay grouped models into connected clusters but only kept the largest merged shape after each step, silently discarding every other cluster; it now merges each cluster independently. The new Strategic Reserves band matches the placement validator exactly (model centre within 6\" of the nearest board edge)."
+      ]
+    },
+    {
+      "version": "0.18.4",
+      "date": "2026-07-11",
+      "summary": "Fixed charge rolls being wrongly reported as failed when the roll would actually reach the enemy. A charging model only has to close to within engagement range (2\"), not touch base-to-base — e.g. a 9\" roll against a target 9.6\" away now succeeds (it only needs to travel 7.6\").",
+      "changes": [
+        "Charge rolls that can reach a target's engagement range are no longer marked FAILED. Previously the after-roll target check compared the full base-to-base gap against the raw roll, ignoring the 2\" engagement range — so a 9\" roll against a target 9.6\" away failed even though the model only needed to move 7.6\" to get within 2\".",
+        "The reachable ceiling for selecting charge targets is now 'roll + engagement range' (capped at the 12\" declaration range) instead of just the roll, matching how the charge move itself is measured.",
+        "Genuinely out-of-reach charges still fail correctly (e.g. a 9\" roll cannot reach a target 12\" away, which needs 10\")."
+      ]
+    },
+    {
+      "version": "0.18.3",
+      "date": "2026-07-11",
+      "summary": "Fixed the AI 'Fire Overwatch' popup covering your control buttons: when the AI reacts during your turn (e.g. firing Overwatch while you arrive a unit from Reserves), the AI Actions log now floats to the left of the right-hand panel instead of sitting on top of your Undo / Reset / Confirm buttons — so you can always undo or confirm a deployment.",
+      "changes": [
+        "The AI Actions log (shown when the AI acts, including reactive Overwatch during your own turn) no longer overlaps the right-hand control panel. It now sits just left of that panel, over the board, so it never hides the reserve-deployment Undo / Reset Unit / Confirm Move buttons.",
+        "The overlay is also fully click-through now (a stray click on it always passes to the controls behind), so it can never intercept a button press even where it appears."
+      ]
+    },
+    {
+      "version": "0.18.2",
+      "date": "2026-07-11",
+      "summary": "Fixed the Fight-phase pile-in 'ghost': moving a model during pile-in/consolidate no longer leaves a duplicate of it behind at its starting spot.",
+      "changes": [
+        "Fight phase pile-in/consolidate: dragging a model no longer strands a copy of it at its original position. Previously a model could appear twice — once where it moved to and once where it started — so it looked like two overlapping models.",
+        "Under the hood: rapid board refreshes could rebuild the whole token set twice in the same frame, leaving an invisible duplicate token on every model; an interactive drag then moved only one of the pair and revealed the other as a 'ghost'. The refresh now ignores overlapping re-runs so each model keeps exactly one token."
+      ]
+    },
+    {
+      "version": "0.18.1",
+      "date": "2026-07-11",
+      "summary": "Fixed first-turn handling when Player 2 wins the roll-off to go first: the battle round no longer advances after a single player's turn. Previously that made Player 1's very first turn count as Battle Round 2, so the movement phase wrongly let units arrive from Reserves / Deep Strike on turn one (the AI would 'suggest' bringing reserves in immediately).",
+      "changes": [
+        "Reserves and Deep Strike units can no longer arrive on the first turn of the game when Player 2 takes the first turn — reinforcements are correctly gated to Battle Round 2 onward for both players.",
+        "The battle round now advances after the round's SECOND player finishes their turn (Player 1 when Player 2 went first), instead of always after Player 2 — so the game lasts the correct number of turns and ends on the right turn.",
+        "Start-of-round effects (per-round Command Point cap, kill counters, battle-round stratagem timing, Supply Drop objective removal, round-end autosave) now trigger on the correct turn when Player 2 goes first.",
+        "AI reserve/Deep Strike placement now reads the real battle round, fixing round-gated placement decisions."
+      ]
+    },
+    {
+      "version": "0.18.0",
+      "date": "2026-07-11",
+      "summary": "Game-log step replay: click any entry in the game log to see the board exactly as it was at that moment. It's a read-only look back — the live game is never changed — with a banner and an Exit button (or Esc) to return.",
+      "changes": [
+        "Click a line in the Game Log to revert the board tokens to how they looked at that step (deployments, moves, casualties, etc.).",
+        "The step you're viewing is highlighted in the log; a banner across the top names the step and the board is dimmed to show it's read-only.",
+        "Click another log line to jump to that step, or press the 'Return to Live Game' button (or Esc) to go back to playing — your live game is untouched.",
+        "Every game now records its steps in memory to power this (previously only AI-vs-AI games were recorded); the AI vs AI replay browser is unchanged.",
+        "History view is disabled in multiplayer games."
+      ]
+    },
+    {
+      "version": "0.17.7",
+      "date": "2026-07-10",
+      "summary": "Fixed a Shooting phase soft-lock: after a unit threw a GRENADE, the shooting UI could get stuck — clicks did nothing, or 'Rolling dice…' showed with no result. Rejected shooting actions are now explained instead of failing silently.",
+      "changes": [
+        "Throwing a GRENADE with the unit you were about to shoot with no longer strands the Shooting UI: re-selecting that (now spent) unit shows 'has already shot this phase' instead of building a dead weapon panel that swallowed every follow-up click.",
+        "Shooting actions that get rejected (assign target, confirm, grenade) now pop an explanation and re-sync the panel, instead of silently doing nothing after an optimistic 'Rolling dice…'.",
+        "The GRENADE stratagem is now correctly limited to once per phase — the button disappears after you use it (previously it could be offered again).",
+        "Auto-selecting the next shooter now skips units that can't shoot yet or have no targets in range, landing on a unit you can actually fire with."
+      ]
+    },
+    {
+      "version": "0.17.6",
+      "date": "2026-07-10",
+      "summary": "Objective control fixes: a model whose base is only partly on a terrain-hosted objective now counts as holding it, and objective labels no longer claim 'CONTESTED' when nobody (or only one side) is in range — an empty marker now reads 'Uncontrolled'.",
+      "changes": [
+        "Terrain-hosted objectives (11e): a model counts as within the objective as soon as ANY part of its base overlaps the hosting ruin area — previously only the model's centre point was checked, so a unit standing half on the objective was ignored and the marker wrongly showed CONTESTED.",
+        "Board labels, the Command panel and the Scoring panel now distinguish a genuine stand-off ('CONTESTED': both sides in range with equal, nonzero OC) from an empty marker ('Uncontrolled').",
+        "Sticky-objective locks (e.g. Get Da Good Bitz) and nearest-controlled-objective checks now use the same base-on-area rule as objective control on terrain-hosted objectives."
+      ]
+    },
+    {
+      "version": "0.17.5",
+      "date": "2026-07-10",
+      "summary": "Fixed a Waaagh! bug: Ork units that Advanced during an active Waaagh! (or that have Full Throttle, like Stormboyz) can now declare charges in the Charge phase. The Waaagh!'s advance-and-charge and 5+ invulnerable save now correctly last until the start of your next Command phase instead of being wiped at the end of the Shooting phase.",
+      "changes": [
+        "Units eligible to charge after Advancing (Waaagh!, Full Throttle, Kult of Speed's Adrenaline Junkies) are no longer refused a charge with 'advanced or fell back this turn' — the 11th-edition charge check now honours those abilities, matching the Charge-phase eligibility list.",
+        "Waaagh! effects (advance-and-charge, 5+ invulnerable save, and its other buffs) are no longer stripped at the end of the Shooting phase — they now persist until the start of your next Command phase as the rules intend, so an Ork unit that Advanced can still charge and keeps its invuln through the enemy's turn."
+      ]
+    },
+    {
+      "version": "0.17.4",
+      "date": "2026-07-10",
+      "summary": "Disembark fixes: disembarked units no longer vanish from the board (previously they were left as invisible 'still embarked' ghosts marked Cannot Disembark), and the Combat Disembark option only appears when enemies are actually close enough to block a normal 3\" set-up.",
+      "changes": [
+        "Fixed: after placing all models of a disembarking unit, the models disappeared (leaving only blue coherency rings) and the unit was listed as 'Embarked in Transport — Cannot Disembark' even though the game log said it disembarked. The unit's embark state was being reset with the wrong empty value after the disembark completed.",
+        "The Combat Disembark (18.04) toggle in the disembark dialog now only appears when an enemy unit is near enough to the transport that setting up within 3\" outside Engagement Range could actually be impossible — with no enemies nearby it no longer suggests the disembark will be a Combat Disembark.",
+        "Reworded the Combat Disembark toggle to make clear it is an opt-in mode ('Use Combat Disembark…'), and the disembark dialog no longer shows raw [color=…] markup in its text."
+      ]
+    },
+    {
+      "version": "0.17.3",
+      "date": "2026-07-10",
+      "summary": "Fixed the charge-phase 'Snap to Contact' button doing nothing when clicked — it now moves every remaining charging model into base-to-base contact with the nearest charge target, sliding models around the target's base when a squadmate blocks the straight line.",
+      "changes": [
+        "'Snap to Contact' now works: previously the click silently errored out and no models moved, so charging units could never be one-clicked into base contact.",
+        "When several models charge the same target, the ones whose direct approach is blocked by an already-placed squadmate now sweep around the target's base to find the nearest legal base-contact spot instead of being left behind.",
+        "If a model genuinely has no legal spot within its charge distance, the info panel now says so and asks you to place that model by hand, instead of failing silently."
+      ]
+    },
+    {
+      "version": "0.17.2",
+      "date": "2026-07-10",
+      "summary": "Stratagem unit pickers now tell duplicate squads apart: dialogs like GRENADE list 'Stormboyz Alpha / Beta / Delta' instead of three identical 'Stormboyz' buttons.",
+      "changes": [
+        "The GRENADE stratagem dialog labels each eligible unit with its squad name (e.g. 'Warbikers Alpha' vs 'Warbikers Beta'), matching the names used in the game log and shooter list — you can now tell which squad you are picking.",
+        "Same fix everywhere a stratagem asks you to pick a unit: Fire Overwatch, Counter-Offensive, Heroic Intervention, Tank Shock targets, Deck Fraggers, Rolling Loot-heap, and the generic faction-stratagem unit picker.",
+        "Game-log entries and result popups for stratagems (grenade throws, tank shock, overwatch) also use the squad names, as do the Scatter, Sweeping Advance, Krump'n'Run and Acrobatic Escape prompts."
+      ]
+    },
+    {
+      "version": "0.17.1",
+      "date": "2026-07-10",
+      "summary": "Engagement-range circles now match the rule. The red rings shown while moving were drawn at the old 1\" range while the game (11th edition) enforces 2\", so moves were refused when a model still looked clear of the circle — the rings, the fight-phase reach circles and the amber engaged rings are now all drawn at base edge + 2\".",
+      "changes": [
+        "Movement: the red no-go rings around enemy models are now drawn at the 11th-edition 2\" engagement range instead of a hardcoded 1\" — if your base stays off the red circle, the move is legal.",
+        "Fight phase: each fighter's orange engagement-reach circle now includes the model's own base radius, matching the base-edge-to-base-edge measurement the rules use.",
+        "The always-on amber 'engaged' rings now detect engagement base-edge to base-edge (like the rules engine) instead of centre-to-centre, size themselves to the anchor model's base, and ignore dead models."
+      ]
+    },
+    {
+      "version": "0.17.0",
+      "date": "2026-07-10",
+      "summary": "You can now change the AI speed mid-game from the top menu: a new 'AI Speed' dropdown sits next to the AI Suggestion button with the same Fast / Normal / Slow / Step-by-step presets as the setup screen.",
+      "changes": [
+        "New 'AI Speed' dropdown in the in-game top menu (next to AI Suggestion) — switch between Fast, Normal, Slow and Step-by-step at any time during an AI game.",
+        "The dropdown stays in sync with the existing < > adjust and / cycle hotkeys, the speed chosen on the setup screen, and loaded saves.",
+        "Picking Step-by-step from the dropdown pauses the AI before each action as usual — press Continue (Space) to advance."
+      ]
+    },
+    {
+      "version": "0.16.2",
+      "date": "2026-07-10",
+      "summary": "Fight phase dialogs now have a single, clear confirm button: the redundant 'OK' button that duplicated 'Fight!' in the attack-assignment dialog (and did nothing useful in the unit picker) is gone.",
+      "changes": [
+        "Assign Attacks dialog: removed the built-in 'OK' button that sat next to 'Fight!' and did the same thing — 'Fight!' is now the one button that confirms your weapon/target assignments and rolls the attacks.",
+        "Fight unit picker: removed its 'OK' button too — you pick a unit by clicking it, and 'OK' could only close the picker without selecting anything, stalling the fight sequence."
+      ]
+    },
+    {
+      "version": "0.16.1",
+      "date": "2026-07-10",
+      "summary": "Fixed the board mouseover tooltip: it now works on every model anywhere on the board (not just a lucky few), and shows the unit's real name and stats instead of 'Unknown' with question marks.",
+      "changes": [
+        "Hovering any model — yours or your opponent's — now reliably shows its unit tooltip regardless of camera pan/zoom (the hover check compared screen and board coordinates, so it only worked in one spot of the board).",
+        "Tooltip now shows real values (name, M/T/Sv/W/OC, invulnerable save, model count, wound totals) instead of 'Unknown' and '?' — it was reading fields that don't exist in the unit data.",
+        "Big bases (vehicles, monsters) are now hoverable across their whole base, not just the centre.",
+        "The tooltip stays on screen near the board edge and no longer pops up while the mouse is over the side/bottom panels."
+      ]
+    },
+    {
+      "version": "0.16.0",
+      "date": "2026-07-10",
+      "summary": "Second new base army list: 'Custodes Lions' — a 2000pt Adeptus Custodes Lions of the Emperor force (3 Blade Champions, 6 Custodian Guard squads, Allarus Custodians, Prosecutors). The default matchup is now Recon Stomps (P1) vs Custodes Lions (P2).",
+      "changes": [
+        "Added 'Custodes Lions' (Adeptus Custodes, Lions of the Emperor, 2000 pts) as a built-in army list: Blade Champion Warlord + 2 more Blade Champions, 6x5 Custodian Guard with guardian spears, 5 Allarus Custodians, and a Prosecutors squad.",
+        "Army pickers now default to the two newest lists: Recon Stomps for Player 1 and Custodes Lions for Player 2 — all other army lists remain available in the dropdowns.",
+        "Army lists now price repeat datasheets correctly (11e repeat pricing): the 2nd+ Blade Champion costs 125, the 4th+ Custodian Guard squad 225 — exported and built-in lists total their printed points."
+      ]
+    },
+    {
+      "version": "0.15.0",
+      "date": "2026-07-10",
+      "summary": "New base army list: 'Recon Stomps' — a 2000pt Orks Speedwaaagh! force (Wazdakka Gutsmek, a Stompa, Deffkoptas, Warbikers, Stormboyz). It is now Player 1's default army.",
+      "changes": [
+        "Added 'Recon Stomps' (Orks, Speedwaaagh!, 2000 pts) as a built-in army list: 2 Deffkilla Wartrikes (Kustom Shokk Box / Supa-burny Fuel), Mek (Dakkamek), Wazdakka Gutsmek (Warlord), 4x Stormboyz, 4x Warbikers, 2x Deffkoptas, 2x Gretchin, and a Stompa.",
+        "Both players can now pick the same army list: the second player's units are kept separate instead of silently replacing the first player's.",
+        "Cloud armies are no longer auto-selected over the default lists when the menu loads."
+      ]
+    },
+    {
+      "version": "0.14.0",
+      "date": "2026-07-10",
+      "summary": "Both Adeptus Custodes detachments are now fully playable. Silent Hunters comes entirely from official 11th-edition data; Lions of the Emperor stratagems and enhancements use the official 10th-edition wording as a clearly-marked PROVISIONAL stopgap (the 11e dataset has not published their rules yet) — the same stopgap the Ork and Shield Host stratagems already use, and every such entry now says so in its rules text.",
+      "changes": [
+        "Silent Hunters (all from 11e data): Deathsong Scythes (Vigilators melee gains [LANCE] and +1 Attack vs Psykers), Umbral Prosecution (Prosecutors ranged weapons gain [RAPID FIRE 2] and +1 AP), Synchronised Inferno (Witchseekers ranged weapons gain [BLAST]); detachment rule Skin-Crawling Disorientation (Anathema Psykana can perform mission actions after Advancing); enhancements Encircling Hunter (post-deployment redeploy of up to 3 Anathema Psykana Infantry units, Strategic Reserves allowed) and Psyk-out Grenades (unit gains the EXPLOSIVES keyword).",
+        "Lions of the Emperor stratagems (10e stopgap): Peerless Warrior (melee [PRECISION]), Gilded Champion (re-use a spent once-per-battle ability — not in the same phase, once per battle per model), Manoeuvre and Fire (shoot + charge after Falling Back), Defiant to the Last, Swift as the Eagle and Unleash the Lions all work and show their official 10e rules text.",
+        "Lions of the Emperor enhancements (10e stopgap): Superior Creation (first death: 2+ at end of phase returns the bearer with full wounds, outside Engagement Range), Praesidius (Lone Operative + Stealth), Fierce Conqueror (+2 melee Attacks per 5 enemy models within 6\" of the bearer), and Admonimortis now uses its real 10e rule — +3 Strength, +1 AP and +1 Damage on the bearer's melee weapons (the old bearer-death mortal-wound trigger matched no edition's rules and was removed).",
+        "Every stratagem running on 10th-edition wording (War Horde, Shield Host and Lions of the Emperor) now carries a visible PROVISIONAL note in its rules text; it will be replaced automatically when the 11e dataset publishes the official rules.",
+        "Against All Odds (Lions detachment rule) fixes: the +1 to hit now also applies in melee (previously ranged only), and the buff is correctly limited to armies running the Lions of the Emperor detachment (Shield Host armies no longer benefit).",
+        "Stratagem-granted [LANCE] now actually adds +1 to wound on the charge (it previously set a flag nothing read) — this also fixes Servo-driven Charge (AdMech) and Plunging Talons (CSM).",
+        "Fixed: loading a save whose armies differ from the defaults restored the stratagem list but not the stratagem definitions, so faction stratagems failed with 'Unknown stratagem' after a restart."
+      ]
+    },
+    {
+      "version": "0.13.3",
+      "date": "2026-07-10",
+      "summary": "AI units no longer get stuck on walls or sprint across the board after distant enemies — both AI armies play noticeably tighter.",
+      "changes": [
+        "AI movement destinations are now checked against walls with the exact rule the game enforces, before the move is attempted. Wall-related move rejections dropped 99% in benchmarks (from ~49 per game to under 1), which un-stuck units that previously stood still for entire games (Caladius Grav-tank, Witchseekers, Lootas, Kommandos).",
+        "Only genuinely melee-focused units (Boyz, Warbosses, Meganobz...) now leave their objective assignments to hunt enemies — units with real guns fight from position instead of footslogging. One shared rule replaces three slightly different copies of this logic.",
+        "All hunters respect a chase cap (tunable MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES, default 20\"): enemies beyond any realistic move+advance+charge reach are ignored in favor of the mission. Previously units could chase targets 45+ inches away from round 1.",
+        "Benchmark validation: 10 more full AI-vs-AI games, zero stalls; Ork primary VP doubled again at pure defaults; Custodes play improved even more (their units were the most wall-stuck). Full analysis in tests/bench_baselines/2026-07-10_mechanism_fixes.md.",
+        "Known remaining gaps (documented, next up): the AI doesn't know how to move AIRCRAFT (the Wazbom Blastajet idles all game), and large hordes sometimes fail to find placement room around friendly vehicles."
+      ]
+    },
+    {
+      "version": "0.13.2",
+      "date": "2026-07-10",
+      "summary": "The Ork AI now actually plays the mission: benchmark-driven tuning stopped its whole army chasing enemies across the board while objectives sat unclaimed.",
+      "changes": [
+        "Diagnosed via 60 AI-vs-AI benchmark games: with faction aggression 1.8, 7-11 of ~14 Ork units chased enemies every round (round-1 chases at 45+ inches) — even shooty units like Lootas and Kaptin Badrukk — and Ork primary VP starved at ~6 per game with the army still alive.",
+        "Tuned Ork faction aggression from 1.8 to 1.2 (the exact value validated in A/B benchmark arms): truly melee-focused units (Boyz, Warbosses) still hunt, but mixed and ranged units now follow their objective assignments. Ork primary VP roughly tripled (~6 to ~21 per game) and the average loss margin vs Custodes at Hard halved (-28 to -15), producing the first Ork draw and win in benchmark history.",
+        "Measured first-turn advantage with a turn-swapped fixture: ~19 VP at Hard, ~9 at Normal. Combined with the tuning, disciplined Orks going first play the Custodes to rough parity.",
+        "All experiment tooling is committed and reusable: turn-swapped fixture, two Ork tuning profiles (tests/bench_profiles/), and three analysis reports under tests/bench_baselines/."
+      ]
+    },
+    {
+      "version": "0.13.1",
+      "date": "2026-07-10",
+      "summary": "A 20-game AI-vs-AI benchmark soak found and fixed three ways games could freeze mid-battle, plus a wasted Ork heal.",
+      "changes": [
+        "Fixed games freezing near the end of big movement phases: the AI's runaway-loop safety cap counted every model's move as an 'action', so armies with lots of models tripped it mid-phase and the game locked up (especially when the Painboss heal window opened at the same moment). The cap now only trips after 200 consecutive attempts that make no progress, and when it does trip it can resolve any pending window instead of freezing.",
+        "Fixed fight-phase stratagems being rejected when used during the opponent's turn (e.g. Orks using Unbridled Carnage in your fight phase) — the game validated them against whoever's turn it was instead of who was using them.",
+        "Fixed AI-vs-AI fights where the second AI player picked fight activations from the first AI's plan, which could silently end the fight phase early.",
+        "The Painboss's Sawbonez heal now actually heals: the AI was dropping the target model when using it, so the heal did nothing. It also now picks the most-wounded eligible model.",
+        "Committed the first AI benchmark baseline (tests/bench_baselines/): 20 games across Normal and Hard, all seeds now complete without stalls."
+      ]
+    },
+    {
+      "version": "0.13.0",
+      "date": "2026-07-09",
+      "summary": "The AI now coordinates its movement phase like an army: units know what their squadmates are already doing, and the whole battle plan is narrated in the game log.",
+      "changes": [
+        "Coordinated movement: units that already moved this phase count as 'en route' to their objective, so later units reinforce objectives that still need help instead of stacking onto the same one. Redirects are explained in the log ('obj_3 is already covered (Boyz en route) — redirecting to obj_4').",
+        "At the start of the AI's movement phase the game log shows its full army battle plan as its own card: one line per unit with its role (HOLD / MOVE / ADVANCE / SCREEN), target objective, distance and reason.",
+        "Each unit's detailed decision card (chosen option plus the top rejected alternatives with scores) now appears once, at the moment that unit acts — the log no longer repeats every unit's reasoning on every single action.",
+        "Fixed AI-vs-AI games where the second player each round silently played without its multi-phase plan (no charge intents, no 'lock the shooters' targets): the plan is now built per player.",
+        "Fixed AI reasoning leaking between decisions: a Command Re-roll card no longer swallows the previous decision's thinking lines.",
+        "The AI is now hand-tunable without touching code: edit data/ai_config.json (ships with the game) to override any of its ~90 scoring weights; per-player profiles and conditional rules layer on top. Full guide: docs/AI_TUNING.md. Also fixed profile rules firing in the wrong phase (a stale phase-name map meant 'MOVEMENT' rules ran during Scout).",
+        "Fixed AI-vs-AI games freezing in the fight phase: when a forced fight interrupted the global Consolidate step, the wrong AI kept trying to end the other player's half forever. The AI now always acts as whoever's half of the pile-in/consolidate step it actually is.",
+        "Fixed a script error in Bomb Squigs / Scatter targeting (wrong pixels-per-inch constant).",
+        "Windowed scenarios that let the AI play a turn are no longer flaky: the secondary-mission deck shuffle now respects the scenario's RNG seed, so the AI can't randomly draw a card that pauses it behind a human-only dialog mid-test."
+      ]
+    },
+    {
+      "version": "0.12.0",
+      "date": "2026-07-10",
+      "summary": "Click a unit on the battlefield to select it in the Movement and Shooting phases — no more hunting for it in the right-hand list. If your current unit is mid-move or has targets staged, a 'Switch Unit?' popup asks before switching so nothing is lost by accident.",
+      "changes": [
+        "Movement phase: clicking any of your units' models on the board selects that unit for movement, exactly like clicking its row in the unit list. Enemy models never steal your selection.",
+        "Movement phase: if the unit you were moving still has an unconfirmed move when you click a different unit, a 'Switch Unit?' popup offers to confirm that move and switch, or keep the current unit.",
+        "Shooting phase: clicking one of your units that can still shoot makes it the active shooter, same as picking it in the SELECT SHOOTER list. Clicking enemy models still assigns weapon targets as before.",
+        "Shooting phase: if you had manually staged weapon targets for the current shooter, the 'Switch Unit?' popup warns that switching discards them (and now really discards them — re-selecting the old shooter no longer resurrects stale assignments). Auto-assigned single-target defaults switch silently.",
+        "Quick-assign ('All → target') now counts as staging targets, so the switch confirmation protects it too."
+      ]
+    },
+    {
+      "version": "0.11.2",
+      "date": "2026-07-10",
+      "summary": "Shooting fix: selecting a unit that has no eligible targets (everything out of range or out of line of sight — e.g. a boxed-in Stompa) no longer fails silently. The game now tells you why nothing can be shot.",
+      "changes": [
+        "Selecting a shooter with no eligible targets now shows a warning toast, a red status line under the unit list, and a dice-log breakdown listing why each enemy unit can't be targeted (out of range, no line of sight, engagement, Lone Operative…).",
+        "Clicking an enemy model while such a unit is selected now explains why that enemy can't be shot instead of doing nothing.",
+        "Selecting a weapon when nothing is targetable now says so instead of asking you to 'click on an enemy unit'."
+      ]
+    },
+    {
+      "version": "0.11.1",
+      "date": "2026-07-10",
+      "summary": "Army builder fix: an imported enhancement now adds its points to the list total (e.g. Kustom Shokk Box +10). The bundled Taktikal Brigade army's Warboss costs were also missing their enhancement points.",
+      "changes": [
+        "Web army builder: importing a pasted list resolved enhancements but priced them at 0 — the roster total and the unit's points row now include the enhancement cost (re-derived from the dataset every reprice, so saved drafts heal too).",
+        "Bundled orks_taktikal army: the Warboss with Skwad Leader now costs 90 pts (75+15) and the Warboss with Mork's Kunnin' 95 pts (75+20); their stored costs had omitted the enhancements."
+      ]
+    },
+    {
+      "version": "0.11.0",
+      "date": "2026-07-10",
+      "summary": "Every Ork detachment RULE now works too: Lissen 'Ere Taktiks (Taktikal Brigade), Try Dat Button! (Dread Mob), Turbo Boostas (Speedwaaagh!), Da Boss Is Watchin' (Bully Boyz), plus the passive rules — Mob Mentality, Dakka! Dakka! Dakka!, Adrenaline Junkies, Eager for the Fight and Thundering Wagons. The last two Enhancements (Gob Boomer, Press It Fasta!) come alive with them.",
+      "changes": [
+        "Taktikal Brigade — Lissen 'Ere (Taktiks): in your Command phase each Boss Snikrot, Mek or Warboss can issue one of four Taktiks to a friendly ORKS unit within 6\" — Get Stuck In (re-roll Charge rolls), Get On Wiv It (+1 Strength in melee), Sneaky Stalkin' (Stealth + Benefit of Cover for Infantry/Mounted, not Meganobz) or Shoota Drills (+1 to ranged Hit rolls for Infantry/Mounted). The issuer takes a Leadership test — failing it deals 1 mortal wound to the receiving unit but the Taktik still lands. One issue per boss and one Taktik per unit each battle round, never to Battle-shocked units; effects last until your next Command phase.",
+        "Gob Boomer enhancement now works: its bearer issues Taktiks to Orks Infantry/Mounted units within 18\" instead of 6\".",
+        "Dread Mob — Try Dat Button!: when one of your Mek, Orks Walker or Grots Vehicle units is selected to shoot or fight, roll a D6 for the Button Effect — SUSTAINED HITS 1, LETHAL HITS or +2 AP for that phase. Press It Fasta! now works: the bearer's unit rolls two dice and gets both effects.",
+        "Speedwaaagh! — Turbo Boostas: a Speed Freeks or Trukk unit (not Aircraft) can use its turbo when it Advances — no Advance roll, it moves a flat 24\", its ranged weapons gain ASSAULT for the turn and it cannot charge. A new 'Use turbo' toggle appears in the Movement panel for eligible units. (The one-straight-line rider is not enforced yet.)",
+        "Bully Boyz — Da Boss Is Watchin': if your Waaagh! has been spent and a Warboss is still standing, you can call a SECOND Waaagh! once per battle — it only counts for Warboss, Nobz and Meganobz units. The Command panel offers 'DA BOSS IS WATCHIN' — WAAAGH AGAIN!' when it is available.",
+        "Green Tide — Mob Mentality: your BOYZ units now carry a 6+ invulnerable save, improved to 5+ while they have 10 or more models (refreshed each Command phase).",
+        "More Dakka! — Dakka! Dakka! Dakka!: your Orks (and Grots-crewed) units' ranged weapons count as ASSAULT, and gain SUSTAINED HITS 1 while your Waaagh! is active.",
+        "Kult of Speed — Adrenaline Junkies: Speed Freeks units can shoot and charge in a turn in which they Advanced or Fell Back.",
+        "Blitz Brigade — Eager for the Fight: your ORKS units re-roll Advance and Charge rolls in the turn they disembark from a Transport.",
+        "Rollin' Deff — Thundering Wagons: your Battlewagons, Kill Rigs and Hunta Rigs advance a flat 6\" without rolling and re-roll Charge rolls.",
+        "Detachment keyword grants: Gretchin count as BATTLELINE in a Dread Mob army; Stormboyz count as BATTLELINE in a Taktikal Brigade army."
+      ]
+    },
+    {
+      "version": "0.10.0",
+      "date": "2026-07-10",
+      "summary": "Every Ork detachment now has working Stratagems and Enhancements: Green Tide, More Dakka!, Bully Boyz, Da Big Hunt (with the Prey rule), Kult of Speed, Dread Mob, Blitz Brigade and Rollin' Deff join Speedwaaagh! and Taktikal Brigade.",
+      "changes": [
+        "Green Tide: all six Stratagems (COME ON LADZ! model revival, BRAGGIN' RIGHTS, TIDE OF MUSCLE, BULLDOZER BRUTALITY 3\" fight range, COMPETITIVE STREAK, GO GET 'EM! reactive move) and all four Enhancements (Raucous Warcaller counts-as-10, Bloodthirsty Belligerence, Ferocious Show Off, Brutal But Kunnin' bonus CP).",
+        "More Dakka!: all six Stratagems (CALL DAT DAKKA? shoot-back, SPESHUL SHELLS +1 AP within 18\", ORKS IS STILL ORKS, GET STUCK IN LADZ! unit Waaagh!, HUGE SHOW-OFFS, LONG UNCONTROLLED BURSTS) and all four Enhancements (Da Gobshot Thunderbuss, Dead Shiny Shootas, Targetin' Squigs, Zog Off and Eat Dakka!).",
+        "Bully Boyz: all six Stratagems (ARMED TO DA TEEF, ALWAYS LOOKIN' FER A FIGHT, CRUSHING IMPACT, CUT' EM DOWN forced Desperate Escape, TOO ARROGANT TO DIE swing-backs, HULKING BRUTES) and all four Enhancements ('Eadstompa, Tellyporta Deep Strike, Da Biggest Boss +2W, Big Gob forced Battle-shock).",
+        "Da Big Hunt: the Prey detachment rule (auto-picked enemy MONSTER/VEHICLE/CHARACTER; Beast Snaggas re-roll charges against it and get +1 AP), all six Stratagems (DRAG IT DOWN crits on 5+ vs Prey, UNSTOPPABLE MOMENTUM mortal wounds, INSTINCTIVE HUNTERS into Reserves, STALKIN' TAKTIKS, DAT ONE'S EVEN BIGGA!, WHERE D'YA FINK YOU'RE GOING? reactive move) and all four Enhancements (Glory Hog Scouts 9\", Proper Killy, Skrag Every Stash! sticky objectives, Surly as a Squiggoth).",
+        "Kult of Speed: all six Stratagems (SPEEDIEST FREEKS 5+/4+ invulnerable, SQUIG FLINGIN' Battle-shock at -1, BLITZA FIRE, DAKKASTORM, FULL THROTTLE!, MORE GITZ OVER 'ERE! reactive move) and all four Enhancements (Fasta Than Yooz charge after disembark, Speed Makes Right bonus CP, Squig-hide Tyres 6\" consolidation, Wazblasta post-shooting move).",
+        "Dread Mob: all six Stratagems with the new push-it choice dialog (BIGGER SHELLS FOR BIGGER GITZ, DAKKA! DAKKA! DAKKA!, KLANKIN' KLAWS, EXTRA GUBBINZ -1 Damage, SUPERFUELLED BOILER, CONNIVING RUNTS) and three Enhancements (Gitfinder Googlez, Smoky Gubbinz, Supa-glowy Fing Command-phase zap). Press It Fasta! is listed but waits on the Try Dat Button! detachment rule.",
+        "Blitz Brigade: all six Stratagems (ARMOURED DUELLISTS, MOUNT UP LADZ end-of-fight embark, IMPERVIOUS, MEKANISED BRUTALITY, RUN 'EM DOWN, YOOZ IN TROUBLE NOW disembark-and-surge) and all four Enhancements (Runnin' Boots, Blitzkaptin vehicle redeploys, Supercharged Squig Oil, Tuff Git).",
+        "Rollin' Deff (provisional 11e rules from the community dataset): all five Stratagems (BRUTAL BROADSIDE Rapid Fire X, IMPENDING CRUNCH, DEVASTATING DRIFT Cleave 1, LONG UNCONTROLLED BURSTS, SPESHUL SHELLS 9\") and all four Enhancements (Boarding Ramps, Targetin' Gizmos, plus the shared Dead Shiny Shootas and Da Gobshot Thunderbuss).",
+        "Freebooter Krew: all six Stratagems now show their real rules text and BASH AND GRAB is re-enabled.",
+        "Fixed: several Stratagems whose fine print mentions 'enemy units' (DED SNEAKY, DAT'S OURS, MOUNT UP LADZ and others) wrongly skipped the unit picker and did nothing while still spending the CP.",
+        "Fixed: the Scatter! reactive-move prompt could crash mid-check; distance checks now use the shared measurement helper."
+      ]
+    },
+    {
+      "version": "0.9.0",
+      "date": "2026-07-09",
+      "summary": "Taktikal Brigade (Orks) is now playable: all six of its Stratagems and three of its four Enhancements work in-game, and the always-broken Stratagems panel button is fixed.",
+      "changes": [
+        "All six Taktikal Brigade Stratagems now have their real rules text and working effects: FIGHT PROPPA (choose SUSTAINED HITS 1 or LETHAL HITS for a unit's melee weapons), KRUNCHIN' DESCENT (after a Stormboyz charge, D6 per model in Engagement Range — 4+ deals a mortal wound, max 6), DAT'S OURS (+1 Objective Control until the next Command phase), TAKTIKAL RETREAT (shoot and charge after Falling Back), ON TO DA NEXT (a free 6\" move when an enemy Falls Back away from your mob — offered via the same dialog as Krump and Run), and DED SNEAKY (pull Kommandos or Stormboyz off the table into Strategic Reserves).",
+        "Skwad Leader enhancement: a Warboss with it can be attached to a Kommandos unit, and while leading them the unit deploys with Infiltrators and has Stealth.",
+        "Mek Kaptin enhancement: a Big Mek with it can be attached to a Flash Gitz unit, and the unit re-rolls Hit rolls on its ranged attacks.",
+        "Mork's Kunnin' enhancement: after deployment you can redeploy up to three ORKS units (any of them into Strategic Reserves).",
+        "Gob Boomer is listed but has no effect yet — it extends the Taktiks (Lissen 'Ere) detachment rule, which is not implemented (the same gap as Speedwaaagh!'s Turbo Boostas detachment rule).",
+        "Fixed the Stratagems panel ([S] button): clicking it did nothing because of a script error — it now opens, and unit-targeted faction Stratagems prompt you to pick the target unit instead of silently doing nothing.",
+        "Stratagem targeting is now enforced for faction Stratagems (correct keywords, not-yet-fought/shot, engagement-range conditions), and 'One X or Y unit' wordings are matched correctly.",
+        "Added a ready-to-play Taktikal Brigade army list (orks_taktikal) with Skwad Leader and Mork's Kunnin' equipped."
+      ]
+    },
+    {
+      "version": "0.8.6",
+      "date": "2026-07-09",
+      "summary": "Fixed the AI 'AI Suggestion' hint (and any log entry added on its own) drawing on top of the existing game log instead of slotting in at the bottom.",
+      "changes": [
+        "Asking the AI for a suggestion no longer covers earlier game-log entries: the new card is now appended at the bottom of the log where it belongs. Previously the card's slide-in animation left it stuck at the top overlapping older entries until the next thing was logged, which then bumped it into place.",
+        "This also fixes the same glitch for any single game-log entry added in isolation (not just AI suggestions)."
+      ]
+    },
+    {
+      "version": "0.8.5",
+      "date": "2026-07-09",
+      "summary": "Speedwaaagh! (Orks) is now fully implemented: all four of its Enhancements and all six of its Stratagems work in-game.",
+      "changes": [
+        "Master Meknologist now improves the Ballistic Skill of the bearer's ranged weapons by 1 (e.g. a Big Mek's Shokk Attack Gun hits on 4+ instead of 5+).",
+        "Supa-burny Fuel now changes the Deffkilla Wartrike's killa jet weapons: the burna profile fires 3D6 Attacks and the cutta profile fires 3 Attacks. (Also taught the dice engine to roll multi-dice values like 3D6.)",
+        "Kustom Shokk Box: when the Deffkilla Wartrike turbos (Advances), it can move through dense terrain that would otherwise block it.",
+        "Dakkamek: when a Mek with this Enhancement uses its Mekaniak ability on a Vehicle, that Vehicle's ranged weapons gain [RAPID FIRE 1] until your next turn.",
+        "All six Speedwaaagh! Stratagems now work: ON DA MOVE (shoot/charge after Advancing or Falling Back), DUST TRAILS (Benefit of Cover), SPESHUL AMMO (Anti-Monster 4+ and Anti-Vehicle 4+ on non-Torrent ranged weapons), DED KILLY CONSTRUCTION (melee LANCE, plus +1 Damage if the unit charged), MOBILE DAKKASTORM (+2 Strength for your Speed Freeks / Trukk units against a marked enemy), and EVASIVE MANOOVA (pull a Speed Freeks / Trukk unit off the table into Strategic Reserves).",
+        "Two small faithful simplifications: MOBILE DAKKASTORM's marked enemy is chosen when you use the Stratagem rather than auto-picked from what was just hit, and Kustom Shokk Box applies on any Advance (turbo is not a separate action in-game)."
+      ]
+    },
+    {
+      "version": "0.8.4",
+      "date": "2026-07-09",
+      "summary": "The Stompa now fields on a proper 180mm round base. The dataset ships no base for it ('Use model'), so it was falling back to a tiny 32mm base.",
+      "changes": [
+        "Building or importing an army with a Stompa now gives its model a 180mm round base instead of the 32mm default, so it deploys, blocks movement, and fights at the correct footprint.",
+        "Added a curated base-size override in the army-format converter for models the 40kdc dataset leaves as a dimensionless 'draft' base; the Stompa is the first entry. Added a converter test that fails if the Stompa ever regresses to the 32mm fallback."
+      ]
+    },
+    {
+      "version": "0.8.3",
+      "date": "2026-07-09",
+      "summary": "New 'Abilities' filter in the game log groups the repeating passive-ability lines (e.g. 'Stand Vigil active', 'Guardian Eternal active') and hides them by default, so the log stays focused on what actually happened.",
+      "changes": [
+        "Passive, always-on ability activations are re-checked at the start of every phase, so lines like \"Custodian Guard ability 'Stand Vigil' active\", \"Telemon Heavy Dreadnought ability 'Guardian Eternal' active\" and aura effects were repeated in the game log every turn. They are now all tagged as 'Abilities' — no matter which phase they fire in — instead of being scattered across the Move / Charge / Info buckets by chance wording in their description.",
+        "Added an 'Abilities' filter chip (teal 'A' badge) to the game-log filter bar. It is OFF by default, so these repetitive passive-ability lines no longer clutter the log. Open Filters and toggle 'Abilities' on any time you want to see exactly which passive abilities are active.",
+        "Only the repeating passive/aura activations moved under this filter — one-off actions you take (Waaagh!, Oath of Moment, stratagems, mission actions) stay in their normal categories."
+      ]
+    },
+    {
+      "version": "0.8.2",
+      "date": "2026-07-09",
+      "summary": "Army Builder: the Orks 'Speedwaaagh!' detachment now offers its four Enhancements. They were missing from the dataset, so the builder showed no Enhancement option and imported lists silently dropped enhancements like Kustom Shokk Box.",
+      "changes": [
+        "You can now add the Speedwaaagh! detachment's Enhancements in the browser Army Builder: Kustom Shokk Box (10 pts), Dakkamek (25 pts), Supa-burny Fuel (15 pts) and Master Meknologist (20 pts). Previously a Speedwaaagh! Character showed no 'Enhancement' dropdown at all.",
+        "Uploading/pasting a Speedwaaagh! list that includes one of these Enhancements now resolves it and keeps it (with its points) instead of dropping it as unresolved on import.",
+        "Added browser tests (unit + real-page end-to-end) that fail if these Enhancements ever go missing from the builder again."
+      ]
+    },
+    {
+      "version": "0.8.1",
+      "date": "2026-07-09",
+      "summary": "Fix: the 'AI Suggestion' button now actually appears when you start a game against the AI (it was being created hidden and never shown).",
+      "changes": [
+        "The 'AI Suggestion' button (and its K hotkey path) is now visible from the moment a human-vs-AI game starts. Previously the button was built after the code that reveals it had already run, so it stayed hidden for the whole game and the feature could not be used from the UI.",
+        "Added a regression test that starts a human-vs-AI game through the normal flow and fails if the button is not shown, so this cannot silently break again."
+      ]
+    },
+    {
+      "version": "0.8.0",
+      "date": "2026-07-08",
+      "summary": "When playing against the AI you can now ask it for a suggestion on your own turn — a new 'AI Suggestion' button (hotkey K) shows what the AI would do and why, without taking the action for you.",
+      "changes": [
+        "New 'AI Suggestion' button in the bottom HUD (and hotkey K) for games against the AI. Press it on your turn and the AI reasons about your current position — the phase you're in, your units, the enemy, the objectives — and posts its recommended action to the game log, e.g. 'Suggestion (Movement): Witchseekers advances aggressively toward Kommandos (28.0\" away)'.",
+        "The suggestion is a full reasoning card: it shows the chosen action plus the alternatives it considered and rejected, each with a score, and (where it applies) highlights the options it weighed on the board. Great for learning the game, or for understanding and debugging how the AI thinks.",
+        "It only suggests — it never acts for you. Asking for a hint takes no game action, doesn't end your turn or phase, and has no effect on the AI opponent. The advice reflects the difficulty of the AI you're actually facing.",
+        "The button appears only in games with an AI opponent; the K hotkey is rebindable and listed in the shortcut overlay (press ? )."
+      ]
+    },
+    {
+      "version": "0.7.8",
+      "date": "2026-07-08",
+      "summary": "Charges that declare more targets than the roll can reach are now clearly reported instead of showing a misleading 'SUCCESS', and the charge panel now tells you the roll needed to reach every target you've picked.",
+      "changes": [
+        "A charge must end within Engagement Range of EVERY unit you declared it against. Previously the '2D6 = X vs Y needed — SUCCESS' line only measured the CLOSEST declared target, so declaring three units when your roll could only reach one still said SUCCESS — then the move silently failed and your unit ended up not in combat with anything, unable to fight. The roll result now checks ALL declared targets: if any is out of reach the charge is reported FAILED, naming the target(s) you couldn't reach and the distance you actually needed (e.g. 'FAILED — out of range: Shield-Captain; you needed to roll 7.9\"').",
+        "New declaration-time hint: as you pick charge targets, the charge panel shows the 2D6 roll needed to reach ALL of them, calls out the farthest (hardest) target, and lists each target's distance — colour-coded from likely to impossible — so an out-of-reach target is obvious BEFORE you commit and roll.",
+        "11th-edition charges that can only reach some of the declared targets now say so in the game log (which targets were engaged and which were beyond the roll), instead of quietly dropping the far ones with no explanation."
+      ]
+    },
+    {
+      "version": "0.7.7",
+      "date": "2026-07-08",
+      "summary": "Charging models are now required to close into base contact where they can reach it, and a one-click 'Snap to Contact' button makes lining them up effortless.",
+      "changes": [
+        "Charge moves now enforce the 11th-edition rule per model: any charging model that CAN end its move within 1\" of a charge target MUST do so. Previously the check was satisfied the moment a SINGLE model in the unit reached the enemy, which let the rest of the unit hang back out of contact — now every model that is able to close, must.",
+        "The charge-move 'Auto-Path' button is now 'Snap to Contact': it places every remaining model in true base-to-base contact with its nearest charge target (falling back to the closest legal position only if base contact is blocked by another model, the board edge, or the charge distance).",
+        "Dragging a charging model still auto-snaps it into base contact when you release near an enemy. Base contact always satisfies the new 'within 1 inch' requirement, so snapping is the easy way to make a legal charge.",
+        "If you try to confirm a charge while a model could have reached closer, the game now explains which model must move in, instead of quietly accepting a position that leaves it short."
+      ]
+    },
+    {
+      "version": "0.7.6",
+      "date": "2026-07-08",
+      "summary": "The Fight phase 'Pile In' and 'Consolidate' windows now dock to the bottom of the screen instead of sitting in the middle of the battlefield, and match the rest of the game's menus.",
+      "changes": [
+        "When you pile in or consolidate, the pop-up used to open centered right over the board — covering the very models you were trying to drag. It now docks to the bottom-centre of the screen with the battlefield fully visible above it, so you can see and drag your models while the controls stay out of the way.",
+        "Restyled both windows to match the rest of the menus: a gold heading, a gold divider between sections, and a red 'Confirm Move' button like 'Start Game'. The legend at the bottom (green arrow / red arrow / dashed line / green dots / red X) was almost unreadable dark-grey text and is now a legible muted tone.",
+        "Removed the redundant extra 'OK' button — the window's own 'Confirm Move', 'Skip / Confirm (No Models Move)' and 'Reset Positions' buttons are the controls (pressing Enter still confirms)."
+      ]
+    },
+    {
+      "version": "0.7.5",
+      "date": "2026-07-08",
+      "summary": "Fixed attached units (a Character leading a unit, e.g. a Shield-Captain with Vertus Praetors) getting left behind when they charged — the leader now charges in with its unit and can pile in and fight instead of being stranded.",
+      "changes": [
+        "When an attached unit charged, only the bodyguard unit moved and the leader Character was left behind, breaking the unit apart and making it look like the attachment had come undone. The attached Character now moves in with the bodyguard during a Charge move (and a Heroic Intervention), so it arrives in combat and stays attached.",
+        "Because the leader now reaches combat, it can pile in, consolidate and fight in the Fight phase — previously it was stranded out of range and could do none of these.",
+        "An attached leader Character can no longer be selected to charge on its own — it charges as part of its unit, matching how it already moves in the Movement phase."
+      ]
+    },
+    {
+      "version": "0.7.4",
+      "date": "2026-07-08",
+      "summary": "Fixed online (game-code) multiplayer: joining with a code and deploying your first unit permanently desynced the two players. Online games now play through correctly.",
+      "changes": [
+        "Fixed the #1 online multiplayer bug: in an online game (host shares a code, opponent joins with it), the moment the joining player deployed their first unit the two games silently fell out of sync forever — the unit showed up for the joiner but never for the host. Online play sends moves as text (JSON), which turned every board position into a plain object; the host then crashed while checking the move and never told the joiner it failed, so the joiner kept a move the host never accepted. Positions are now converted back correctly before the host processes an online move, and a failed check is reported instead of silently dropped.",
+        "Fixed the same empty-battlefield terrain bug as the LAN fix, but for online games: the host of an online game was judging movement and line-of-sight against a board with no terrain on it.",
+        "Hardened online move handling so a single malformed message can no longer take down the host's processing of the rest of the game."
+      ]
+    },
+    {
+      "version": "0.7.3",
+      "date": "2026-07-08",
+      "summary": "Major multiplayer hardening pass: LAN games no longer soft-lock at the pre-deployment roll-off, phases no longer get skipped or run ahead on one player's screen, and a large family of actions (stratagems, reactions, phase steps) that silently failed online now work.",
+      "changes": [
+        "Fixed every LAN multiplayer game soft-locking at the 'Who Deploys First?' roll-off: the dice result and the winner's 'deploy first / deploy second' choice now appear on BOTH players' screens, and the winner (not the player who happened to click Roll) makes the choice. The same fix covers the 'Determine First Turn' roll-off after deployment.",
+        "Fixed multiplayer phase desyncs: the 'Determine First Turn' step could be skipped entirely on the host, while the other player's game raced ahead through Command → Movement → Shooting → Charge on its own. Phases now advance exactly once, on both screens, in lockstep.",
+        "Fixed a large family of actions that hard-failed with 'Unknown action type' ONLY in multiplayer: ending the Scout phase, declining/using a Command Re-roll, Counter-Offensive, Fire Overwatch, Epic Challenge, the Fight phase's End Pile In / End Consolidation buttons, warlord designation, secondary-mission steps (e.g. Beacon), and more.",
+        "Reactive decisions are now shown to the right player: the Epic Challenge prompt used to appear on the OTHER player's screen (where it could only be mis-clicked and rejected) — it now opens for the player whose decision it is. Stratagem windows that belong to the non-active player (Counter-Offensive, Overwatch, re-rolls) are no longer rejected as 'not your turn'.",
+        "Clicking your opponent's buttons no longer half-works: the phase button and roll-off dice are turn-gated with a friendly 'It's Player N's turn' message instead of firing actions that get rejected after the UI already reacted.",
+        "Fixed the host adjudicating terrain rules against an EMPTY battlefield in multiplayer (walls/ruins existed visually but not in the host's rules state — the joining player had the real list).",
+        "Fixed the multiplayer desync detector crying wolf: it compared incompatible views of the game state, so it reported a desync after nearly every action; it now compares the actual gameplay state on both sides (and also covers actions submitted by the joining player, which were previously unchecked).",
+        "Fixed the charge phase forgetting a declared charge on the opponent's screen, and a broken signal that dropped the post-roll target list update.",
+        "The game log now names the Battle Formations / Redeployment / Scout phases instead of showing 'Unknown Phase'.",
+        "Test infrastructure: scenario fixtures now load on fresh checkouts (CI/containers), and a new regression test pins all of the multiplayer contracts above."
+      ]
+    },
+    {
+      "version": "0.7.2",
+      "date": "2026-07-07",
+      "summary": "Fixed the 12\" charge-range bubble not disappearing when you selected a different unit in the Charge phase, so old bubbles stacked up and cluttered the board.",
+      "changes": [
+        "In the Charge phase, selecting a unit shows a dashed 12\" range bubble around it. Previously, switching to a different charging unit left the old bubble on the board and drew a new one on top, so after picking a few units the board filled up with overlapping bubbles. Now only the currently selected unit's bubble is shown — the previous one is fully cleared each time you change your selection."
+      ]
+    },
+    {
+      "version": "0.7.1",
+      "date": "2026-07-07",
+      "summary": "Fixed the Game Log drawing on top of the Save & Load menu — the menu now always sits above the log and other side panels while it's open.",
+      "changes": [
+        "Opening Save & Load while the Game Log was visible used to leave the log rendered over the left edge of the menu, hiding part of it and intercepting clicks meant for the dialog. The Save & Load menu is now raised to the front whenever it opens, so it always sits above the Game Log (and the roster strip) and receives your clicks."
+      ]
+    },
+    {
+      "version": "0.7.0",
+      "date": "2026-07-07",
+      "summary": "The Shooting Phase 'Choose Weapon Order' sequence is now step-by-step and much clearer — it names each weapon, pauses after the hit roll and again after the wound roll, and lets you spend a Command Re-roll on a single die at each pause.",
+      "changes": [
+        "The resolution log is now verbose and readable. Each weapon gets its own header naming the weapon and target (e.g. 'Weapon 1 of 2 — Bolt Rifle → Ork Boyz'), and each step reads 'Rolling to Hit (need 2+): [ 5 4 4 2 ] → 3 hits, 1 miss' then 'Rolling to Wound (need 3+): [ 6 1 5 6 ] → 3 wounds' — instead of a terse summary that never said which weapon fired.",
+        "Sequential resolution now pauses after the hit roll and waits for you to click 'Roll to Wound ▶', then pauses again after the wound roll and waits for 'Continue to Saving Throws ▶'. You can read each result before moving on.",
+        "At each pause you can use the Command Re-roll stratagem (1 CP) on a single die: click a hit die (or a wound die) to re-roll it. It spends 1 CP, is limited to once per phase, and the wound roll is only made after you've finished with the hit roll — so re-rolling a hit correctly changes how many wound dice you roll.",
+        "Fixed the confusing button: after a weapon caused wounds, the only option used to be a bare 'Close' that actually took you to the defender's saving throws. It now reads 'Continue to Saving Throws ▶' so it's clear what happens next.",
+        "This staged flow applies to local/hotseat games; online multiplayer keeps the existing one-shot sequential resolution."
+      ]
+    },
+    {
+      "version": "0.6.9",
+      "date": "2026-07-07",
+      "summary": "Fixed a shooting entry in the Game Log stretching to almost the full height of the screen instead of showing as a compact line of dice.",
+      "changes": [
+        "When you shot a weapon, the Game Log entry summarising the attack (e.g. 'Telemon Heavy Dreadnought → Boyz … Hit: 7/9 … Wound: 0/7 …') could balloon to nearly the entire height of the log, with the dice icons floating far out to the right and a huge empty gap. The trailing part of the line was being squeezed into a one-character-wide column and wrapped down the whole card.",
+        "These log lines now flow naturally like a sentence — the text wraps across a few lines and the dice icons sit inline exactly where the rolls happened, so the entry is a tidy, compact card.",
+        "Both sets of dice on a combined hit-and-wound line now render as icons (previously only the hit dice became icons and the wound dice stayed as raw '[2, 2, 3, …]' numbers), each coloured against its own target — the hit dice vs the hit roll needed and the wound dice vs the wound roll needed."
+      ]
+    },
+    {
+      "version": "0.6.8",
+      "date": "2026-07-07",
+      "summary": "Fixed the Fight phase 'Pile In' and 'Consolidate' step windows opening as a giant blacked-out box instead of showing the unit picker.",
+      "changes": [
+        "When the Fight phase opened, the 'Pile In Step' pop-up (and the end-of-phase 'Consolidate Step' pop-up) could appear as a huge, mostly-black window that filled the screen with no visible content. The window was being stretched to roughly 5,500 pixels tall — far bigger than the screen — because a long description line inside it was mis-measured, and an off-screen-sized window renders as a black rectangle.",
+        "Both windows now size to their content: a compact picker showing the banner, the instructions, the list of eligible units to pile in / consolidate (each as a button), and the 'End Pile In' / 'End Consolidation' button — all visible and clickable."
+      ]
+    },
+    {
+      "version": "0.6.7",
+      "date": "2026-07-07",
+      "summary": "Fixed a whole family of pop-up windows that could stretch off the bottom of the screen and hide their buttons — the same bug as the Burden of Trust window, across many other prompts.",
+      "changes": [
+        "Several pop-up windows could balloon far taller than the screen (a long description line inside them was mis-measured), pushing their action buttons off the bottom where you couldn't click them. Fixed the secondary-mission prompts (A Tempting Target, Marked for Death, Beacon, Extract Relic, Condemn), the 'Deploy Unit in Transport' window, the out-of-coherency model-removal prompt, the shooting action prompt, the transport firing-deck picker, and more.",
+        "Added a global safety net so ANY pop-up window is automatically kept within the screen and re-centered if it would ever open too tall — its confirm/cancel buttons can no longer end up unreachable. Windows that already fit are left exactly as they were."
+      ]
+    },
+    {
+      "version": "0.6.6",
+      "date": "2026-07-07",
+      "summary": "Fixed the Burden of Trust guard-assignment window overflowing off the bottom of the screen so its Confirm / Keep buttons were unreachable.",
+      "changes": [
+        "Burden of Trust (secondary mission): the 'Assign Guards' window no longer stretches thousands of pixels tall and off the bottom of the screen. The dialog is now capped to fit within the view, the objective list scrolls inside it, and the 'Confirm Guards' and 'Keep Auto Picks' buttons stay pinned and visible so you can actually confirm which unit guards which objective."
+      ]
+    },
+    {
+      "version": "0.6.5",
+      "date": "2026-07-07",
+      "summary": "Fixed Infantry being wrongly charged an extra 2\" to move through or across Ruins — including the '2\" stuck on even after you move away' bug.",
+      "changes": [
+        "Infantry (and anything that can move through a terrain feature) no longer has 2\" added to its move distance for going into, across, or through a Ruin. In 10th edition these models move through Ruins' walls and floors freely, so a Ruin costs them no extra inches — the game was treating every Ruin as 'difficult ground' for everyone.",
+        "Fixed the related 'sticky' bug: dragging a model onto a Ruin used to add the 2\" penalty and then keep it added even after you dragged the model back off the Ruin to open ground. The distance now reflects the actual path every frame, so moving away from a Ruin correctly drops the penalty.",
+        "Units that genuinely cannot move through a piece (e.g. Vehicles crossing low difficult-ground terrain) still pay the 2\", so real difficult-ground terrain still slows the models it should."
+      ]
+    },
+    {
+      "version": "0.6.4",
+      "date": "2026-07-07",
+      "summary": "Fixed the end-of-turn 'discard a Secondary Mission for CP' pop-up stretching to the full height of the screen.",
+      "changes": [
+        "The 'Discard for CP?' pop-up shown when you end your turn (offering to discard a Secondary Mission for +1 CP) used to open as a giant window spanning the whole screen, with a small amount of content at the top and a huge empty gap below it.",
+        "The window now sizes itself to its content, so it's a compact, tidy pop-up. Everything is still visible — the prompt, each Secondary Mission with its Discard button, and the 'End Turn Without Discarding' button.",
+        "When you happen to hold more Secondary Missions than fit, the mission list now scrolls inside the pop-up instead of the window growing off-screen."
+      ]
+    },
+    {
+      "version": "0.6.3",
+      "date": "2026-07-07",
+      "summary": "Fixed the broken 'missing glyph' icons flanking the SHOOTING PHASE title on the phase-transition banner.",
+      "changes": [
+        "The two icons on either side of 'SHOOTING PHASE' on the phase banner (shown when you End the Movement Phase) rendered as empty boxes containing a code number ('2316') instead of a real symbol. The crosshair character they used isn't included in any of the game's bundled fonts, so it only ever showed up if your operating system happened to provide it — most players saw the missing-glyph box.",
+        "They now use a bundled bullseye/target icon that ships with the game, so the Shooting Phase banner renders correctly everywhere, matching the other phases (Charge, Scoring, etc.)."
+      ]
+    },
+    {
+      "version": "0.6.2",
+      "date": "2026-07-07",
+      "summary": "Fixed the AI advancing 'aggressively toward the enemy' but not actually moving — Ork mobs (and any advancing AI unit) now cover ground instead of shuffling in place.",
+      "changes": [
+        "Fixed a bug where an AI unit that Advanced — often an Ork mob after calling a WAAAGH! — would announce it was advancing toward your army, roll the Advance, then barely move (or stay put entirely). After the Advance roll came in, the AI was recomputing its move toward the nearest objective (usually its own home objective, sitting right behind the unit) instead of toward the enemy it had chosen, so a packed mob just collided with itself and never left its deployment.",
+        "AI Advances (and the retry path for any move that gets boxed in) now keep heading in the direction the AI originally picked — toward the enemy, the objective it was grabbing, or away from danger for a Fall Back — and use the full Advance distance rolled.",
+        "This only affected the AI; your own units were never impacted."
+      ]
+    },
+    {
+      "version": "0.6.1",
+      "date": "2026-07-07",
+      "summary": "Charge phase overhaul: no more false 'charge failed' verdicts near ruins, plus a batch of charge bug fixes.",
+      "changes": [
+        "Fixed the false [INSUFFICIENT_ROLL] failure: a charge roll big enough to reach the target (e.g. rolling 6\" against a target 2.5\" away) no longer fails just because a ruin clips the straight line — the check now knows models stop at engagement range and can move around terrain, matching what the charge move actually allows.",
+        "Failure messages and tooltips now show the real 11th-edition 2\" engagement range (they hardcoded 1\"), and the orange engagement rings + 'charge needed' preview around targets are sized to 2\" as well.",
+        "Command Re-rolls and +N charge bonuses now count: the list of chargeable targets is recomputed from your FINAL roll total, so a re-rolled charge no longer fails against the stale first-roll list (your CP is no longer wasted).",
+        "A rejected charge confirm now tells you why (toast + dice log) and lets you re-position and try again — previously it silently reset the UI and left tokens displayed in the wrong place.",
+        "11e target selection is completed with the move: confirming a charge now declares the enemy units you actually moved into engagement with, so charges whose pre-declared target was dropped by the roll can still be completed against a nearer unit.",
+        "Fire Overwatch is usable by human players again in 10e mode (the confirm button dispatched a format the rules engine rejected; only the AI could ever fire it).",
+        "Fixed a crash in the AI's multi-target charge evaluation that fired every time the AI weighed charging two or more units.",
+        "Rules tightening: charge dice can no longer be re-rolled by re-declaring the charge; unit coherency is checked for the whole unit (a single model can no longer be dragged away from its squad); moving inside one ruin at ground level no longer pays a phantom climb penalty; Heroic Intervention counter-charges evaluate base-contact from the defender's perspective; units in Reserves no longer block charges as phantom 'units at the board corner'."
+      ]
+    },
+    {
+      "version": "0.6.0",
+      "date": "2026-07-07",
+      "summary": "The Game Log is clearer, covers more of what happens, and now has per-category filter toggles so you can focus on the events you care about.",
+      "changes": [
+        "New: a 'Filters' button on the Game Log opens a row of toggle chips — Phase, Move, Shoot, Fight, Charge, Overwatch, VP, Info and AI. Click one to hide/show that kind of event; 'All' and 'None' bulk-toggle. Each entry is colour-coded to match its filter.",
+        "More events now appear in the log: units Falling Back, embarking/disembarking transports, arriving from Reserves / Deep Strike, Combat Doctrine and Ka'tah stance selections, mission (secondary) actions, Warlord designation, Advance and Surge moves, and Scout moves — many of these were previously silent.",
+        "Existing entries read more clearly: phase headers now spell out 'Movement Phase — Battle Round 2, Player 1's turn', and deployed / reinforcing units show their model count.",
+        "The AI-thinking quick-toggle in the header still works and now stays in sync with the AI filter chip."
+      ]
+    },
+    {
+      "version": "0.5.3",
+      "date": "2026-07-07",
+      "summary": "The version + 'What's New' box now sits at the bottom of the main menu, so the menu leads with army and mission setup.",
+      "changes": [
+        "Moved the version badge and the 'What's New' changelog panel from just under the title to the very bottom of the main menu, below the Start/Load/Quit buttons.",
+        "No behaviour change — the same version info is shown, just relocated so the game-setup options are the first thing you see."
+      ]
+    },
+    {
+      "version": "0.5.2",
+      "date": "2026-07-07",
+      "summary": "The Shooting phase's wound-allocation window now matches the weapon-order window — one consistent gothic look across both.",
+      "changes": [
+        "The 'Allocate Attacks' window (where you order allocation groups before saves are rolled) now wears the same White Dwarf gold-and-red theme as the 'Choose Weapon Order' window: gold-bordered panel, gold section headers, gold-outlined arrow reorder buttons, and a red primary action button.",
+        "Added an 'ALLOCATION ORDER' heading and gold section dividers so the wound window reads the same way the weapon-order window does.",
+        "No behaviour change — only the styling was unified so the two Shooting-phase ordering windows feel like the same UI."
+      ]
+    },
+    {
+      "version": "0.5.1",
+      "date": "2026-07-07",
+      "summary": "Movement phase no longer nags you to click 'Confirm Move' — moving on auto-confirms.",
+      "changes": [
+        "In the Movement phase, if you move a unit's models but forget to click 'Confirm Move', the move is now confirmed automatically the moment you select a different unit or end the phase. No more 'There are active moves that need to be confirmed or reset' blocking you.",
+        "Auto-confirm runs the same checks as the button (coherency, Fall Back engagement range, Fire Overwatch), so an illegal position still won't be silently committed."
+      ]
+    },
+    {
+      "version": "0.5.0",
+      "date": "2026-07-06",
+      "summary": "11th-edition secondary missions are now fully playable: every card that needs your input asks for it, and every card action has a button.",
+      "changes": [
+        "A Tempting Target fixed: when your AI opponent draws it, YOU now get the objective-selection dialog (the AI used to pick secretly on your behalf). The AI waits at its Command phase until you choose, and picks sensibly when the roles are reversed.",
+        "Beacon: when you draw it you now designate your beacon unit in a new dialog (embarked units included); the chosen unit shows a pulsing cyan beacon badge, and only that unit scores the card.",
+        "Burden of Trust: guards are now real — one distinct unit per objective, auto-assigned each of your turns with a revision dialog; an objective only scores while its guard is alive, in range and you control it.",
+        "Plunder finally has its Shooting-phase action: a unit inside a terrain feature outside your territory shows a 'Plunder … (5 VP)' button (once per turn) — previously the card could never be scored by anyone.",
+        "Cleanse now follows the 11e card: home objectives can't be cleansed, two units cleansing the same marker count once, and a cleanse only completes if you still control the objective at the end of your turn.",
+        "Beacon, Burden of Trust and Defend Stronghold now also score at the end of the fifth battle round for the second player, per their 'whichever comes first' clause."
+      ]
+    },
+    {
+      "version": "0.4.0",
+      "date": "2026-07-06",
+      "summary": "The AI now plays for Victory Points by the numbers, and its thinking cards can draw their options on the board.",
+      "changes": [
+        "AI decisions are now Victory-Point-denominated: each objective is priced from the AI's actual mission cards (its primary Force-Disposition rules plus active secondaries), so it pushes where the VP really are — and the Game Log states the stakes ('VP stakes this round: obj_center ~9 VP...', 'worth ~5 VP').",
+        "AI thinking cards with a bright blue accent are now board-linked: hover one to see the options that decision weighed drawn on the battlefield — a solid green arrow to the chosen option and dashed red arrows to the rejected ones, each tagged with its score. Click the card to pin the arrows; click again to clear.",
+        "New AI-vs-AI benchmark harness for development: plays full headless games and reports win rate and VP differential, so future AI changes are verified by results (bash 40k/tests/run_ai_benchmark.sh)."
+      ]
+    },
+    {
+      "version": "0.3.0",
+      "date": "2026-07-06",
+      "summary": "The AI now plays 11th edition properly — stratagems, faction rules, mission play — and explains every decision in the Game Log.",
+      "changes": [
+        "The AI's reasoning is now shown in detail in the left Game Log panel: each decision appears as a card with the options it weighed — including moves, charges and stratagems it considered and REJECTED, with the why. Click 'considerations' on a card to expand them.",
+        "The AI now uses the full 11th-edition core stratagem set: Insane Bravery before critical battle-shock tests, Epic Challenge to strike attached characters, Crushing Impact after Monster/Vehicle charges, Fire Overwatch, Smokescreen (fixed — it never fired before), Heroic Intervention with the 11e Leap to Defend / Into the Fray modes, Counteroffensive, Rapid Ingress and Command Re-rolls.",
+        "The AI now uses its detachment stratagems: War Horde Orks throw 'Ere We Go, Mob Rule, Grab and Bash and Unbridled Carnage; Shield Host Custodes use Archeotech Munitions, Avenge the Fallen, Multipotentiality, Vigilance Eternal and defensive reactions.",
+        "The AI answers faction rule windows it previously ignored or stalled on: Martial Ka'tah stances, Plant the Waaagh! Banner, Da Kaptin, Grot Orderly, Fix Dat Armour Up, Unleash the Lions and Psychic Veil.",
+        "The AI now reads its own 11th-edition primary mission card and plays to it — pushing the enemy home objective, the board centre, or kills, whichever its card actually pays for — and pursues all seven new secondary cards (Beacon, Outflank, Plunder, Forward Position, Burden of Trust, Centre Ground, A Grievous Blow).",
+        "11th-edition rules fixes in the AI's math: 2-inch engagement range in charge planning, cover as -1 to hit, post-roll charge target re-selection, Ordered Retreat vs Desperate Escape fall-back modes, and a fixed battle-shock re-roll that was evaluating the wrong way around.",
+        "Normal difficulty (the default) now uses stratagems and survival judgement — the AI should be noticeably more challenging out of the box. Easy is unchanged for learning the game."
+      ]
+    },
+    {
+      "version": "0.2.0",
+      "date": "2026-07-05",
+      "summary": "Reworked the main menu around 11th-edition Force Dispositions.",
+      "changes": [
+        "Moved Army Selection above Mission Settings on the main menu.",
+        "The Force Disposition dropdowns now sit at the top of Mission Settings, since they drive everything else in 11th edition.",
+        "Primary Mission is now shown read-only — it is derived from each player's Force Disposition pairing (each player can play a different card).",
+        "Deployment Zone is now shown read-only — it follows from the chosen terrain variant.",
+        "Terrain Layout now lists just the 3 official variants for the current disposition matchup."
+      ]
+    },
+    {
+      "version": "0.1.0",
+      "date": "2026-07-05",
+      "summary": "Show the game version and recent changes on the main menu.",
+      "changes": [
+        "Added a version badge (number + date) beneath the main-menu title so it is easy to tell which build is running.",
+        "Added a 'What's New' panel to the main menu summarizing the most recent changes."
+      ]
+    }
+  ]
 }

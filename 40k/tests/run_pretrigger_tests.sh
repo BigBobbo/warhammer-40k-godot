@@ -137,6 +137,7 @@ TESTS=(
     "tests/test_fullauto_faction_rules.gd"
     "tests/test_custodes_lions_silent_hunters.gd"
     "tests/test_ai_movement_coordination.gd"
+    "tests/test_ai_battle_plan.gd"
 )
 
 FAILED=0

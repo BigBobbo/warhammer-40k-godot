@@ -1,0 +1,77 @@
+{
+  "id": "ai_battle_plan_log_integrity",
+  "covers": [
+    "ai.movement.persistent_battle_plan",
+    "ai.movement.plan_matches_actions",
+    "ai.thinking.override_explanations",
+    "ui.GameLogPanel.ai_thinking_cards"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 23,
+  "description": "COORD-4 gate: P2 (Orks, AI at Hard) plays a live Movement phase. Asserts (a) the army-wide 'Movement plan' battle-plan block reaches GameEventLog, (b) the plan is PERSISTENT — the executed per-unit movement actions logged afterwards match the announced plan (GameEventLog.movement_plan_integrity() reports zero mismatches over at least 3 checked actions), where pre-COORD-4 the plan was re-solved before every action and executed moves routinely contradicted it, and (c) the AI decision cards render in the log panel. Screenshots capture the log panel with the plan and per-unit cards visible.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"}, {2: 2})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.set_ai_speed_preset(0)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.clear()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(2)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_battle_plan_block_in_log",
+      "region": [0, 105, 420, 760]
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 22.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.has_ai_entry_containing_any([\"Movement plan\"])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.movement_plan_integrity()[\"checked\"] >= 3",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.movement_plan_integrity()[\"mismatches\"].size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "AIDecisionMaker._turn_movement_plan.has(2)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_per_unit_cards_match_plan",
+      "region": [0, 105, 420, 760]
+    }
+  ]
+}

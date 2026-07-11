@@ -38,6 +38,13 @@ var _auto_assign_logged: bool = false  # Prevent duplicate auto-assign log messa
 # selection (single eligible target) do NOT set it — the click-to-switch
 # confirmation dialog only guards player-staged work.
 var _manual_assignment_made: bool = false
+# Reentrancy guard: resync_from_phase() refreshes the weapon tree, and the
+# tree auto-assigns single eligible targets, which EMITS an ASSIGN_TARGET. If
+# the phase rejects it (UI/phase eligibility disagreement, e.g. LoS), Main's
+# reject handler calls resync_from_phase() again -> refresh -> auto-assign ->
+# reject -> ... a synchronous cycle that overflowed the stack in AI games.
+# While resyncing, auto-assign renders but does not emit.
+var _in_resync: bool = false
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
 var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
 var active_allocation_overlay: Control = null  # WoundAllocationOverlay (10e) or AllocationGroupOverlay (11e)
@@ -826,6 +833,8 @@ func resync_from_phase() -> void:
 	if not current_phase or not current_phase is ShootingPhase:
 		return
 
+	_in_resync = true
+
 	var phase_active: String = current_phase.active_shooter_id
 
 	if phase_active == "":
@@ -848,6 +857,7 @@ func resync_from_phase() -> void:
 		# auto_select=false: after a rejection, don't immediately re-drive a
 		# selection (which could re-reject and loop) — let the player choose.
 		_refresh_unit_list(false)
+		_in_resync = false
 		return
 
 	# The phase DOES have an active shooter — mirror it. If the controller had
@@ -868,6 +878,7 @@ func resync_from_phase() -> void:
 	_refresh_shooter_status()
 	_update_ui_state()
 	_refresh_unit_list(false)
+	_in_resync = false
 
 func _refresh_unit_list(auto_select: bool = true) -> void:
 	if not unit_selector:
@@ -4994,6 +5005,12 @@ func _refresh_weapon_row_split_text(weapon_id: String) -> void:
 
 func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 	"""Auto-assign a target to a weapon (used when only one eligible target exists)"""
+	if _in_resync:
+		# Rebuilding the UI from the phase after a rejection — re-emitting the
+		# assignment here is what caused the reject->resync->auto-assign
+		# stack-overflow loop. Render only; the player (or AI action) assigns.
+		print("ShootingController: suppressing auto-assign of %s -> %s during resync" % [weapon_id, target_id])
+		return
 	# Mark as assigned
 	weapon_assignments[weapon_id] = target_id
 
