@@ -1,6 +1,12 @@
 extends PanelContainer
 class_name GameLogPanel
 
+## Emitted when the player clicks a log card to view the board as it was at that
+## step. `history_index` is the ReplayManager recording marker stamped on the
+## entry; `description` is a short label for the history banner. Main handles the
+## actual board reconstruction / read-only history view.
+signal history_step_requested(history_index: int, description: String)
+
 const DiceRowVisualScript := preload("res://scripts/DiceRowVisual.gd")
 
 ## GameLogPanel — Self-contained card-based game event log UI.
@@ -134,6 +140,14 @@ var _pinned_link_card: PanelContainer = null
 var _thought_link_visual: Node2D = null
 var _card_count: int = 0
 var _is_visible: bool = true
+
+# --- History browser (click a card to revert the board to that step) ---
+# Set immediately before each card is built so _register_card can stamp the card
+# with the recording marker (and plain text) of the entry it represents.
+var _pending_history_index: int = -1
+var _pending_history_text: String = ""
+# The card currently selected in the history browser (highlighted); null = live.
+var _active_history_card: Control = null
 var _current_combat_card: PanelContainer = null
 var _current_combat_details_text: String = ""
 var _current_combat_details_container: VBoxContainer = null
@@ -272,7 +286,11 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 		print("GameLogPanel: Connected to GameEventLog.entry_added")
 		# Populate existing entries (no animation for backfill)
 		for entry in game_event_log.get_all_entries():
+			_pending_history_index = int(entry.get("history_index", -1))
+			_pending_history_text = str(entry.get("text", ""))
 			_create_card(entry.text, entry.type, false)
+		_pending_history_index = -1
+		_pending_history_text = ""
 
 	# Connect to DiceHistoryPanel for real-time dice display
 	var dice_history = Engine.get_main_loop().root.get_node_or_null("DiceHistoryPanel") if Engine.get_main_loop() else null
@@ -378,7 +396,14 @@ func get_linked_ai_card_count() -> int:
 # ==========================================================================
 
 func _on_entry_added(text: String, entry_type: String) -> void:
+	# Stamp the incoming card with the recording marker of this entry so it can be
+	# clicked later to reconstruct the board state at this step.
+	var gel = Engine.get_main_loop().root.get_node_or_null("GameEventLog") if Engine.get_main_loop() else null
+	_pending_history_index = gel.get_last_entry_history_index() if (gel and gel.has_method("get_last_entry_history_index")) else -1
+	_pending_history_text = text
 	_create_card(text, entry_type, true)
+	_pending_history_index = -1
+	_pending_history_text = ""
 	# Auto-scroll to bottom
 	if _scroll:
 		await get_tree().process_frame
@@ -1569,6 +1594,100 @@ func _register_card(card: Control, category: int) -> void:
 		return
 	card.set_meta("log_category", category)
 	card.visible = _category_visible.get(category, true)
+	# Make the card clickable to revert the board to this step (history browser).
+	_make_card_clickable(card, _pending_history_index)
+
+# ==========================================================================
+# History browser — click a card to see the board as it was at that step
+# ==========================================================================
+
+func _make_card_clickable(card: Control, history_index: int) -> void:
+	"""Wire a log card so clicking it asks Main to show the board at `history_index`.
+	Skipped for entries with no recording marker and for board-linked AI cards
+	(which already use their click to pin option arrows on the board)."""
+	if card == null or history_index < 0:
+		return
+	if card.has_meta("ai_link_context"):
+		return
+	card.set_meta("history_index", history_index)
+	card.set_meta("history_desc", _pending_history_text)
+	# Let clicks reach the card everywhere except on real Buttons (detail toggles).
+	_set_descendant_mouse_ignore(card)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	if card.tooltip_text == "":
+		card.tooltip_text = "Click to view the board as it was at this step"
+	var desc := _card_history_description(card)
+	card.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_set_active_history_card(card)
+			emit_signal("history_step_requested", history_index, desc))
+
+func _set_descendant_mouse_ignore(node: Node) -> void:
+	"""Set every descendant Control that is NOT a Button to MOUSE_FILTER_IGNORE so
+	pointer events fall through to the card. Buttons keep their own input (so the
+	'Show details' / 'considerations' toggles still work)."""
+	for child in node.get_children():
+		if child is Control and not (child is Button):
+			child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_set_descendant_mouse_ignore(child)
+
+func _card_history_description(card: Control) -> String:
+	"""Short label for a card, for the history banner. Uses the plain entry text
+	stashed on the card (the first line, since combat cards etc. can be multi-line)."""
+	var t := str(card.get_meta("history_desc", "")).strip_edges()
+	var nl := t.find("\n")
+	if nl >= 0:
+		t = t.substr(0, nl).strip_edges()
+	if t.length() > 70:
+		t = t.substr(0, 67).strip_edges() + "…"
+	return t
+
+func _set_active_history_card(card: Control) -> void:
+	"""Highlight the card currently being viewed in the history browser."""
+	if _active_history_card != null and is_instance_valid(_active_history_card):
+		_active_history_card.self_modulate = Color(1, 1, 1, 1)
+	_active_history_card = card
+	if card != null and is_instance_valid(card):
+		# Warm gold tint on the card's own panel (self_modulate does not dim children).
+		card.self_modulate = Color(1.5, 1.35, 0.7, 1)
+
+func clear_active_history() -> void:
+	"""Called by Main when leaving history view — drop the selection highlight."""
+	if _active_history_card != null and is_instance_valid(_active_history_card):
+		_active_history_card.self_modulate = Color(1, 1, 1, 1)
+	_active_history_card = null
+
+func has_active_history() -> bool:
+	return _active_history_card != null and is_instance_valid(_active_history_card)
+
+func count_history_cards() -> int:
+	"""Number of log cards that are clickable for history reconstruction."""
+	var n := 0
+	if _card_container == null:
+		return 0
+	for card in _card_container.get_children():
+		if is_instance_valid(card) and card.has_meta("history_index"):
+			n += 1
+	return n
+
+func debug_click_history_card_matching(substring: String) -> bool:
+	"""Test hook (windowed scenarios): drive the exact same code path as a real
+	left-click on the first clickable log card whose text contains `substring`.
+	Returns false if no matching clickable card exists."""
+	if _card_container == null:
+		return false
+	for card in _card_container.get_children():
+		if not is_instance_valid(card):
+			continue
+		if not card.has_meta("history_index"):
+			continue
+		var txt := str(card.get_meta("history_desc", ""))
+		if substring in txt:
+			_set_active_history_card(card)
+			emit_signal("history_step_requested", int(card.get_meta("history_index")), _card_history_description(card))
+			return true
+	return false
 
 func _on_ai_filter_pressed() -> void:
 	# The header 'AI' shortcut drives the same state as the AI chip.

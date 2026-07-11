@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+
+			"version": "0.18.0",
+			"date": "2026-07-11",
+			"summary": "Game-log step replay: click any entry in the game log to see the board exactly as it was at that moment. It's a read-only look back — the live game is never changed — with a banner and an Exit button (or Esc) to return.",
+			"changes": [
+				"Click a line in the Game Log to revert the board tokens to how they looked at that step (deployments, moves, casualties, etc.).",
+				"The step you're viewing is highlighted in the log; a banner across the top names the step and the board is dimmed to show it's read-only.",
+				"Click another log line to jump to that step, or press the 'Return to Live Game' button (or Esc) to go back to playing — your live game is untouched.",
+				"Every game now records its steps in memory to power this (previously only AI-vs-AI games were recorded); the AI vs AI replay browser is unchanged.",
+				"History view is disabled in multiplayer games."
+			]
+		},
+		{
 			"version": "0.17.7",
 			"date": "2026-07-10",
 			"summary": "Fixed a Shooting phase soft-lock: after a unit threw a GRENADE, the shooting UI could get stuck — clicks did nothing, or 'Rolling dice…' showed with no result. Rejected shooting actions are now explained instead of failing silently.",

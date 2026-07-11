@@ -37,6 +37,11 @@ enum Mode { IDLE, RECORDING, PLAYBACK }
 
 var is_recording: bool = false
 var auto_record_ai: bool = true  # Auto-record AI vs AI games
+# When true, incremental/final recordings are also written to disk as replay
+# files. AI-vs-AI games set this (so they appear in the menu's replay browser);
+# human games record purely in memory to power the in-game "view a past step"
+# feature without spamming disk with replay files every turn.
+var persist_to_disk: bool = false
 var _recording_initial_state: Dictionary = {}
 var _recording_events: Array = []
 var _recording_snapshots: Array = []  # Array of {event_index, state}
@@ -132,7 +137,7 @@ func _connect_recording_signals() -> void:
 # Recording - Start/Stop
 # ============================================================================
 
-func start_recording() -> void:
+func start_recording(persist_flag: bool = false) -> void:
 	if is_recording:
 		print("ReplayManager: Already recording")
 		return
@@ -141,6 +146,7 @@ func start_recording() -> void:
 		print("ReplayManager: Cannot record during playback")
 		return
 
+	persist_to_disk = persist_flag
 	is_recording = true
 	current_mode = Mode.RECORDING
 	_recording_events.clear()
@@ -196,8 +202,11 @@ func stop_recording() -> void:
 	_recording_meta["final_round"] = GameState.get_battle_round()
 	_recording_meta["status"] = "complete"
 
-	# Save to file (reuses stable path so final save overwrites incremental)
-	var file_path = _save_replay_to_file()
+	# Save to file only for persisted recordings (AI-vs-AI). Human games keep the
+	# recording in memory for the in-game history browser but write no replay file.
+	var file_path = ""
+	if persist_to_disk:
+		file_path = _save_replay_to_file()
 
 	current_mode = Mode.IDLE
 	print("ReplayManager: Recording stopped (%d events, %d snapshots)" % [
@@ -355,6 +364,10 @@ func save_replay_incremental() -> void:
 	"""Save the current recording to disk without stopping. Used for per-turn saves
 	so that incomplete games still have replay data available."""
 	if not is_recording:
+		return
+
+	# Human games record in memory only (no per-turn replay files on disk).
+	if not persist_to_disk:
 		return
 
 	# Update metadata with current state (but keep status as in_progress)
@@ -907,6 +920,86 @@ func get_recorded_event_descriptions_for_round(battle_round: int) -> Array:
 			"phase": event.get("phase", -1),
 		})
 	return descriptions
+
+# ============================================================================
+# In-Game History Browser (log step replay)
+# ============================================================================
+#
+# These power the "click a game-log entry to see the board as it was at that
+# step" feature. They read the LIVE recording arrays (_recording_events /
+# _recording_snapshots) — which are populated for every game, not just AI vs AI —
+# and reconstruct a historical GameState WITHOUT mutating the live state.
+
+func get_history_marker() -> int:
+	"""Index of the most recently recorded event ('the board as it is right now').
+	GameEventLog stamps each log entry with this value at the moment it is added,
+	so clicking that entry later can reconstruct the matching board state.
+	Returns -1 when nothing has been recorded yet."""
+	return _recording_event_index - 1
+
+func has_history() -> bool:
+	"""True when there is at least one recorded snapshot to reconstruct from."""
+	return not _recording_snapshots.is_empty()
+
+func get_recorded_event(index: int) -> Dictionary:
+	"""Return the recorded event at a live-recording index (empty if out of range)."""
+	if index >= 0 and index < _recording_events.size():
+		return _recording_events[index]
+	return {}
+
+func _find_recording_snapshot_index_at_or_before(target_index: int) -> int:
+	"""Index into _recording_snapshots of the newest snapshot whose event_index is
+	<= target_index. Snapshot 0 is always the initial state (event_index -1)."""
+	var best := 0
+	for i in range(_recording_snapshots.size()):
+		var snap_event_idx = _recording_snapshots[i].get("event_index", -1)
+		if snap_event_idx <= target_index:
+			best = i
+		else:
+			break
+	return best
+
+func build_recorded_state_at(target_index: int) -> Dictionary:
+	"""Reconstruct and RETURN the full GameState dictionary as it was at the given
+	recorded-event index. Pure with respect to the live game: GameState.state is
+	left exactly as it was found. Returns {} if there is no recording to rebuild
+	from.
+
+	Reconstruction mirrors the live application path: start from the nearest
+	phase-transition snapshot at/before the target, then re-apply each recorded
+	event's diffs through GameState.apply_state_changes (which faithfully handles
+	set/add/remove — the same code that applied them live). The caller MUST have
+	GameState.state pointing at a state it is happy to see restored on return
+	(normally the real live state)."""
+	if _recording_snapshots.is_empty():
+		return {}
+
+	# Clamp the target into the valid recorded range.
+	var last_event := _recording_events.size() - 1
+	if target_index > last_event:
+		target_index = last_event
+
+	var snap_idx := _find_recording_snapshot_index_at_or_before(target_index)
+	var snapshot: Dictionary = _recording_snapshots[snap_idx]
+	var snapshot_event_idx: int = snapshot.get("event_index", -1)
+
+	# Fresh deep copy so we never alias the stored snapshot.
+	var base: Dictionary = GameState._deep_copy_dict(snapshot.get("state", {}))
+
+	# Temporarily point GameState at our scratch copy so we can reuse the exact
+	# live diff-application code, then restore the caller's state. The live state
+	# object itself is never mutated — only `base` is.
+	var preserved = GameState.state
+	GameState.state = base
+	for i in range(snapshot_event_idx + 1, target_index + 1):
+		if i < 0 or i >= _recording_events.size():
+			continue
+		var diffs = _recording_events[i].get("diffs", [])
+		if diffs is Array and not diffs.is_empty():
+			GameState.apply_state_changes(diffs)
+	var reconstructed = GameState.state
+	GameState.state = preserved
+	return reconstructed
 
 # ============================================================================
 # Timer Callback

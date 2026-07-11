@@ -354,8 +354,18 @@ func _model_suffix(unit_id: String) -> String:
 	var label = "model" if n == 1 else "models"
 	return " (%d %s)" % [n, label]
 
+func _current_history_marker() -> int:
+	"""Recording index that represents the board state as of this log line, used
+	by the in-game history browser (click a log entry → see the board then).
+	ReplayManager records an action's event just before GameEventLog logs it (it
+	is an earlier autoload), so for player/AI action entries this resolves to that
+	action's own resulting state. -1 when recording is unavailable/empty."""
+	if ReplayManager and ReplayManager.has_method("get_history_marker"):
+		return ReplayManager.get_history_marker()
+	return -1
+
 func _add_entry(text: String, entry_type: String) -> void:
-	entries.append({"text": text, "type": entry_type})
+	entries.append({"text": text, "type": entry_type, "history_index": _current_history_marker()})
 	print("[GameEventLog] %s" % text)
 	DebugLogger.info("GameEventLog: %s" % text, {})
 	emit_signal("entry_added", text, entry_type)
@@ -382,10 +392,18 @@ func add_ai_thinking_block(player: int, header: String, lines: Array, context: D
 	var text = "P%d AI: %s" % [player, header]
 	for line in lines:
 		text += "\n" + str(line)
-	entries.append({"text": text, "type": "ai_thinking_block", "context": context})
+	entries.append({"text": text, "type": "ai_thinking_block", "context": context, "history_index": _current_history_marker()})
 	print("[GameEventLog] %s" % text)
 	DebugLogger.info("GameEventLog: %s" % text, {})
 	emit_signal("entry_added", text, "ai_thinking_block")
+
+func get_last_entry_history_index() -> int:
+	"""History-browser marker of the most recent entry (-1 if none). GameLogPanel
+	reads this synchronously from its entry_added handler to make the new card
+	clickable for board reconstruction."""
+	if entries.is_empty():
+		return -1
+	return int(entries[entries.size() - 1].get("history_index", -1))
 
 func get_last_entry_context() -> Dictionary:
 	"""Board-link context of the most recent entry (empty if none). GameLogPanel
