@@ -11,7 +11,9 @@
         "AI melee: chase-vs-objective decisions are made at planning time and announced in the battle plan as ATTACK entries; the objective a hunter abandons re-opens for another unit to backfill.",
         "Game log honesty: per-unit decision cards now show the REAL assignment with its reason (capture / flip / reinforce / sole holder / attack), and when the chosen option scores lower than a rejected one the card says why (\"↳ why not the top score: obj_1 is already covered...\"). Previously ~58% of cards claimed a 'chosen' option that contradicted the action taken.",
         "AI formations: reserve declarations respect board presence — armies no longer bank nearly half their points in Strategic Reserves and concede the early objective game (the Custodes Lions list kept 950pts off-board; now capped near 25%).",
-        "Fixed: the phase banner and AI Actions overlay always showed 'Round 1' — they now show the actual battle round."
+        "Fixed: the phase banner and AI Actions overlay always showed 'Round 1' — they now show the actual battle round.",
+        "Fixed: a game-freezing crash in the shooting phase — when a weapon's single auto-assigned target was rejected (or its processing refreshed the weapon panel mid-update), the UI re-entered itself until the game locked up or crashed. Auto-assignments now dispatch after the panel finishes rendering.",
+        "Fixed: the AI burned ~200 wasted actions (minutes of real time) whenever the roll-off winner wasn't the active player — deployment-order and first-turn choices are now submitted as the winning player."
       ]
     },
     {

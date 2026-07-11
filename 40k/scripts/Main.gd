@@ -1811,10 +1811,12 @@ func _show_ai_unit_highlight(unit_id: String, color: Color) -> void:
 	"""Add pulsing highlight rings around all models of the given AI unit."""
 	# Skip if already highlighting this unit with same color
 	if unit_id == _ai_highlighted_unit_id and _ai_highlight_nodes.size() > 0:
-		# Check if color changed (e.g. unit went from move to charge)
-		if _ai_highlight_nodes.size() > 0 and _ai_highlight_nodes[0].highlight_color == color:
+		# Check if color changed (e.g. unit went from move to charge).
+		# The ring node may have been freed with the board (token rebuilds) —
+		# reading highlight_color off a freed instance was a live SCRIPT ERROR.
+		if is_instance_valid(_ai_highlight_nodes[0]) and _ai_highlight_nodes[0].highlight_color == color:
 			return
-		# Color changed — clear and re-apply
+		# Color changed (or rings freed) — clear and re-apply
 		_clear_ai_unit_highlights()
 
 	# Clear previous highlights if switching to a different unit
