@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.18.2",
+			"date": "2026-07-11",
+			"summary": "Fixed the Fight-phase pile-in 'ghost': moving a model during pile-in/consolidate no longer leaves a duplicate of it behind at its starting spot.",
+			"changes": [
+				"Fight phase pile-in/consolidate: dragging a model no longer strands a copy of it at its original position. Previously a model could appear twice — once where it moved to and once where it started — so it looked like two overlapping models.",
+				"Under the hood: rapid board refreshes could rebuild the whole token set twice in the same frame, leaving an invisible duplicate token on every model; an interactive drag then moved only one of the pair and revealed the other as a 'ghost'. The refresh now ignores overlapping re-runs so each model keeps exactly one token."
+			]
+		},
+		{
 			"version": "0.18.1",
 			"date": "2026-07-11",
 			"summary": "Fixed first-turn handling when Player 2 wins the roll-off to go first: the battle round no longer advances after a single player's turn. Previously that made Player 1's very first turn count as Battle Round 2, so the movement phase wrongly let units arrive from Reserves / Deep Strike on turn one (the AI would 'suggest' bringing reserves in immediately).",

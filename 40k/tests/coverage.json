@@ -2664,6 +2664,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "main.recreate_unit_visuals_reentrancy",
+      "description": "Windowed regression: Main._recreate_unit_visuals() guards against overlapping async runs, so two refreshes landing in one frame no longer rebuild the token set twice and leave duplicate/overlapping model tokens (the pile-in 'ghost'). Verified by pile_in_no_ghost_token.",
+      "scenarios": [
+        "pile_in_no_ghost_token"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.pile_in.ghost_token_fix",
+      "description": "Windowed regression: moving a model during Fight-phase pile-in/consolidate no longer leaves a duplicate of it at its original position. Verified by pile_in_no_ghost_token.",
+      "scenarios": [
+        "pile_in_no_ghost_token"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

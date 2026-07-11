@@ -932,6 +932,31 @@ func _do_expect_baseline_unchanged(_step: Dictionary) -> Dictionary:
 # HELPERS
 # ============================================================================
 
+# Test invariant for the pile-in "ghost token" regression: the highest number of
+# TokenLayer tokens that share the same (unit_id, model_id). 1 == healthy (every
+# model has exactly one token); 2+ == duplicate/overlapping tokens, which an
+# interactive pile-in/consolidate drag then splits into a moved token and a
+# stranded "ghost" at the original spot. Duplicates arose when the async
+# Main._recreate_unit_visuals() ran twice in one frame; a scenario asserts this
+# stays 1 even after firing concurrent recreates. Size-independent, so it is
+# robust to fixture changes. Callable from `execute_script` steps as a bare
+# `max_tokens_per_model()` (the runner is the Expression base instance).
+func max_tokens_per_model() -> int:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return -1
+	var tl := scene.get_node_or_null("BoardRoot/TokenLayer")
+	if tl == null:
+		return -1
+	var counts := {}
+	var mx := 0
+	for c in tl.get_children():
+		if c.has_meta("unit_id") and c.has_meta("model_id"):
+			var k := "%s/%s" % [str(c.get_meta("unit_id")), str(c.get_meta("model_id"))]
+			counts[k] = int(counts.get(k, 0)) + 1
+			mx = max(mx, int(counts[k]))
+	return mx
+
 func _send_click(screen_pos: Vector2) -> void:
 	# Warp the live cursor to the target BEFORE injecting the event. GUI Controls
 	# route by event position, but board/world handlers (e.g. DeploymentController
