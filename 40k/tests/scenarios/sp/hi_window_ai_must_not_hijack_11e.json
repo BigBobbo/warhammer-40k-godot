@@ -1,0 +1,47 @@
+{
+  "id": "hi_window_ai_must_not_hijack_11e",
+  "covers": [
+    "phases.ChargePhase.11e_heroic_intervention_end_of_phase",
+    "dialogs.HeroicInterventionDialog.decline",
+    "autoloads.AIPlayer.reactive_window_ownership"
+  ],
+  "fixture": "hi_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Guards the AI-hijacks-the-human's-Heroic-Intervention bug (user report 2026-07-11: 'P2 AI: Heroic Intervention with Stompa' — the Stompa belonged to the HUMAN). During the AI's (P2) Charge phase, ending the phase opens the 11e 15.11 HI window for the HUMAN defender (P1). The AI's main loop used to pick up the window's USE/DECLINE actions from get_available_actions(), evaluate them AS P1, fail validation on the player mismatch, and then force-DECLINE the human's window (~0.5s after it opened). This scenario ends P2's charge phase via the real button, enables the AI for P2 while the human's dialog is open, waits past several AI evaluation cycles, and asserts the window still belongs to the human; then the human clicks Decline and the phase completes. Pre-fix this fails at the 'window still awaiting' assert.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "screenshot", "label": "01_p2_charge_phase_loaded" },
+
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/HeroicInterventionDialog", "timeout_s": 3.0 },
+    { "act": "expect_phase_property", "property": "awaiting_heroic_intervention", "equals": true },
+    { "act": "expect_phase_property", "property": "heroic_intervention_player", "equals": 1 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "screenshot", "label": "02_hi_dialog_open_for_human_p1" },
+
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "AIPlayer._request_evaluation()" },
+    { "act": "wait_seconds", "seconds": 2.5 },
+
+    { "act": "expect_phase_property", "property": "awaiting_heroic_intervention", "equals": true },
+    { "act": "expect_phase_property", "property": "heroic_intervention_player", "equals": 1 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_node_visible", "node": "/root/HeroicInterventionDialog", "timeout_s": 1.0 },
+    { "act": "expect_cp", "player": 1, "delta_from_start": 0 },
+    { "act": "expect_cp", "player": 2, "delta_from_start": 0 },
+    { "act": "screenshot", "label": "03_window_survives_ai_enabled" },
+
+    { "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "expect_state", "path": "meta.phase", "not_equals": 9 },
+    { "act": "screenshot", "label": "04_human_declined_phase_completed" }
+  ]
+}
