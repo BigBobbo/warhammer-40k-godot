@@ -180,6 +180,7 @@ var reinforcements_button: Button = null
 var _selected_unit_for_reserves: String = ""
 var _reinforcement_placement_type: String = ""  # P2-80: chosen placement type (deep_strike or strategic_reserves)
 var _deep_strike_exclusion_visual: Node2D = null  # 9" exclusion bubble around enemy models
+var _strategic_reserves_zone_visual: Node2D = null  # 6"-from-edge valid band for Strategic Reserves
 
 # Deployment zone toggle (Z key) - allows viewing zones after deployment phase
 var _deployment_zones_toggled_on: bool = false
@@ -247,6 +248,8 @@ var _history_live_state: Dictionary = {}      # the real, live GameState.state (
 var _history_overlay: Control = null          # blocks input on the board while viewing
 var _history_banner_label: RichTextLabel = null
 var _history_saved_ai_enabled: bool = false   # AI enabled flag to restore on exit
+var _history_saved_log_panel_index: int = -1  # log panel's child index to restore on exit
+var _history_refresh_running: bool = false    # drops overlapping history board rebuilds
 
 # P3-117: Dice Roll History panel UI elements
 var _dice_history_panel: PanelContainer = null
@@ -2520,25 +2523,66 @@ func _on_scout_reserves_confirmed() -> void:
 	update_ui()
 
 func _show_deep_strike_exclusion() -> void:
-	"""Show 9-inch exclusion bubbles around all enemy models for reinforcement placement."""
+	"""Show placement helpers for reinforcement placement: the 9\" exclusion
+	bubbles around all enemy models, plus — when the unit is arriving from
+	Strategic Reserves — the valid 6\"-from-board-edge band it must be set up in."""
 	_hide_deep_strike_exclusion()  # Clean up any existing visual
 	var active_player = GameState.get_active_player()
 	var enemy_positions = GameState.get_enemy_model_positions(active_player)
-	if enemy_positions.is_empty():
-		return
-	_deep_strike_exclusion_visual = load("res://scripts/DeepStrikeExclusionVisual.gd").new()
-	if ghost_layer:
-		ghost_layer.add_child(_deep_strike_exclusion_visual)
-	else:
-		add_child(_deep_strike_exclusion_visual)
-	_deep_strike_exclusion_visual.show_exclusion(enemy_positions)
+	if not enemy_positions.is_empty():
+		_deep_strike_exclusion_visual = load("res://scripts/DeepStrikeExclusionVisual.gd").new()
+		if ghost_layer:
+			ghost_layer.add_child(_deep_strike_exclusion_visual)
+		else:
+			add_child(_deep_strike_exclusion_visual)
+		_deep_strike_exclusion_visual.show_exclusion(enemy_positions)
+	# Strategic Reserves also constrains placement to within 6" of a board edge.
+	# Show that valid band regardless of whether any enemies are on the board.
+	if _is_strategic_reserves_placement():
+		_show_strategic_reserves_zone()
 
 func _hide_deep_strike_exclusion() -> void:
-	"""Hide and free the deep strike exclusion visual."""
+	"""Hide and free the reinforcement placement helper visuals."""
 	if _deep_strike_exclusion_visual and is_instance_valid(_deep_strike_exclusion_visual):
 		_deep_strike_exclusion_visual.hide_exclusion()
 		_deep_strike_exclusion_visual.queue_free()
 		_deep_strike_exclusion_visual = null
+	_hide_strategic_reserves_zone()
+
+func _is_strategic_reserves_placement() -> bool:
+	"""True when the unit currently being placed is arriving via Strategic Reserves
+	(so the 6\"-from-edge constraint applies). Mirrors the effective placement type
+	used by DeploymentController._validate_reinforcement_position: the placement-type
+	override wins, otherwise the unit's own reserve_type (default strategic_reserves)."""
+	if not deployment_controller:
+		return false
+	var uid = deployment_controller.unit_id
+	if uid == "":
+		return false
+	var override_type = deployment_controller.reinforcement_placement_type
+	if override_type != "":
+		return override_type == "strategic_reserves"
+	var unit = GameState.get_unit(uid)
+	if unit.is_empty():
+		return false
+	return unit.get("reserve_type", "strategic_reserves") == "strategic_reserves"
+
+func _show_strategic_reserves_zone() -> void:
+	"""Show the within-6\"-of-edge valid placement band for Strategic Reserves."""
+	_hide_strategic_reserves_zone()
+	_strategic_reserves_zone_visual = load("res://scripts/StrategicReservesZoneVisual.gd").new()
+	if ghost_layer:
+		ghost_layer.add_child(_strategic_reserves_zone_visual)
+	else:
+		add_child(_strategic_reserves_zone_visual)
+	_strategic_reserves_zone_visual.show_zone()
+
+func _hide_strategic_reserves_zone() -> void:
+	"""Hide and free the Strategic Reserves valid-zone visual."""
+	if _strategic_reserves_zone_visual and is_instance_valid(_strategic_reserves_zone_visual):
+		_strategic_reserves_zone_visual.hide_zone()
+		_strategic_reserves_zone_visual.queue_free()
+		_strategic_reserves_zone_visual = null
 
 # T4-7: Rapid Ingress placement — same as reinforcement but uses PLACE_RAPID_INGRESS_REINFORCEMENT
 var _rapid_ingress_unit_id: String = ""
@@ -8790,6 +8834,10 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 
 	# Hide deep strike exclusion bubbles on phase change
 	_hide_deep_strike_exclusion()
+	# Abandon any in-progress reinforcement placement: clear the P2-80 placement-type
+	# choice so a stale Deep Strike / Strategic Reserves selection cannot leak into the
+	# next placement started in a later phase.
+	_reinforcement_placement_type = ""
 
 	# Clear transport panel when phase changes
 	update_transport_panel("")
@@ -10634,6 +10682,16 @@ func _enter_history_view_mode() -> void:
 
 	_build_history_overlay()
 
+	# Godot routes mouse input by TREE order, not z_index (z_index affects drawing
+	# only) — so raising the log panel's z_index alone still left the overlay (a
+	# later sibling) eating every click aimed at the panel, forcing the player to
+	# press Esc before picking another step. Move the panel after the overlay in
+	# the tree so log cards stay genuinely clickable and the player can switch
+	# straight to a different step while viewing. Original index restored on exit.
+	if game_log_panel and is_instance_valid(game_log_panel) and game_log_panel.get_parent() == self:
+		_history_saved_log_panel_index = game_log_panel.get_index()
+		move_child(game_log_panel, get_child_count() - 1)
+
 func _set_controllers_input_enabled(enabled: bool) -> void:
 	"""Enable/disable input processing on every phase controller — used to make the
 	board fully inert while the player browses a past step."""
@@ -10648,8 +10706,10 @@ func _build_history_overlay() -> void:
 		_history_overlay.visible = true
 		return
 
-	# Full-screen input blocker. Sits above the board/HUD but BELOW the game log
-	# panel (whose z is raised) so the player can keep clicking other log entries.
+	# Full-screen input blocker. The game log panel is kept usable on top of it by
+	# _enter_history_view_mode moving the panel AFTER this overlay in the tree
+	# (input picking follows tree order; the raised z_index below only handles
+	# draw order) so the player can keep clicking other log entries.
 	var overlay := Control.new()
 	overlay.name = "HistoryViewOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -10728,11 +10788,20 @@ func _history_refresh_visuals() -> void:
 	"""Rebuild the board tokens from the (historical) GameState.state. Deliberately
 	minimal: it recreates unit tokens and updates score/round labels only. It does
 	NOT rebuild phase controllers or run any phase logic — this is a passive view."""
+	# Guard against overlapping runs (same duplicate-token hazard as
+	# _recreate_unit_visuals): two log-card clicks landing within one frame would
+	# each rebuild the full token set after the await below. Dropping the second
+	# call is safe — this run reads GameState fresh AFTER the await, so it already
+	# renders the step of the latest click.
+	if _history_refresh_running:
+		return
+	_history_refresh_running = true
 	# Clear existing tokens
 	for child in token_layer.get_children():
 		child.queue_free()
 	await get_tree().process_frame
 	if not _history_view_active:
+		_history_refresh_running = false
 		return  # exited while we were awaiting
 
 	var units = GameState.state.get("units", {})
@@ -10764,6 +10833,7 @@ func _history_refresh_visuals() -> void:
 		_update_round_indicator()
 	if active_player_badge:
 		active_player_badge.text = "P%d" % GameState.get_active_player()
+	_history_refresh_running = false
 
 func _exit_history_view() -> void:
 	if not _history_view_active:
@@ -10781,13 +10851,18 @@ func _exit_history_view() -> void:
 	if game_log_panel and is_instance_valid(game_log_panel) and game_log_panel.has_method("clear_active_history"):
 		game_log_panel.clear_active_history()
 
-	# Remove the overlay and restore the log panel's normal z.
+	# Remove the overlay and restore the log panel's normal z + tree position
+	# (it was moved after the overlay so it could receive clicks — see
+	# _enter_history_view_mode; leaving it last would draw it above dialogs).
 	if _history_overlay and is_instance_valid(_history_overlay):
 		_history_overlay.queue_free()
 	_history_overlay = null
 	_history_banner_label = null
 	if game_log_panel and is_instance_valid(game_log_panel):
 		game_log_panel.z_index = UI_PANEL_Z
+		if _history_saved_log_panel_index >= 0 and game_log_panel.get_parent() == self:
+			move_child(game_log_panel, mini(_history_saved_log_panel_index, get_child_count() - 1))
+	_history_saved_log_panel_index = -1
 
 	# Rebuild the live board and re-run normal UI refresh.
 	_recreate_unit_visuals()

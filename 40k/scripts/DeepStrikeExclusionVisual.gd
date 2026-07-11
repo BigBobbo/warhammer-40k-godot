@@ -25,8 +25,7 @@ const FONT_SIZE: int = 13
 
 # Internal state
 var _exclusion_circles: Array = []  # Array of { center: Vector2, radius_px: float }
-var _merged_polygon: PackedVector2Array = PackedVector2Array()  # Union of all circles clipped to board
-var _merged_polygons: Array = []  # Multiple polygons after clipping
+var _merged_polygons: Array = []  # One clipped polygon per connected enemy cluster
 var _pulse_time: float = 0.0
 var _is_active: bool = false
 var _default_font: Font = null
@@ -74,7 +73,16 @@ func hide_exclusion() -> void:
 	queue_redraw()
 
 func _build_merged_polygon() -> void:
-	"""Merge all exclusion circles into polygon(s) clipped to the board."""
+	"""Merge exclusion circles into polygon(s) clipped to the board.
+
+	Enemy models frequently sit in several physically-separate clusters (e.g. a
+	block at the top of the board and another at the bottom). Each cluster must
+	produce its own exclusion polygon. The previous implementation progressively
+	merged every circle into one running polygon and, after each pairwise merge,
+	kept only the LARGEST resulting polygon — so any circle that did not touch the
+	largest connected blob was silently dropped and its exclusion zone never drew.
+	We now group circles into connected clusters first and merge each cluster on
+	its own, so every enemy group gets an exclusion zone."""
 	if _exclusion_circles.is_empty():
 		return
 
@@ -87,35 +95,132 @@ func _build_merged_polygon() -> void:
 		Vector2(0, board_height_px)
 	])
 
-	# Convert each circle to a polygon and progressively merge
-	var merged: PackedVector2Array = _circle_to_polygon(_exclusion_circles[0].center, _exclusion_circles[0].radius_px)
+	# Group circles into connected clusters (bubbles that overlap belong together),
+	# then merge each cluster independently and clip it to the board.
+	var clusters = _group_circles_into_clusters()
+	for cluster in clusters:
+		var merged = _merge_cluster(cluster)
+		if merged.size() < 3:
+			continue
+		var clipped = Geometry2D.intersect_polygons(merged, board_rect)
+		for poly in clipped:
+			if poly.size() >= 3:
+				_merged_polygons.append(poly)
 
-	for i in range(1, _exclusion_circles.size()):
-		var circle_poly = _circle_to_polygon(_exclusion_circles[i].center, _exclusion_circles[i].radius_px)
-		var union_result = Geometry2D.merge_polygons(merged, circle_poly)
-		if union_result.size() > 0:
-			# Take the largest polygon as the merged result
-			var largest_idx = 0
-			var largest_area = 0.0
-			for j in range(union_result.size()):
-				var area = abs(_polygon_area(union_result[j]))
-				if area > largest_area:
-					largest_area = area
-					largest_idx = j
-			merged = union_result[largest_idx]
+func _group_circles_into_clusters() -> Array:
+	"""Union-find grouping of exclusion circles whose bubbles overlap.
+	Returns an Array of clusters; each cluster is an Array of circle dictionaries."""
+	var n = _exclusion_circles.size()
+	var parent: Array = []
+	parent.resize(n)
+	for i in range(n):
+		parent[i] = i
 
-	# Clip to board boundaries
-	var clipped = Geometry2D.intersect_polygons(merged, board_rect)
-	for poly in clipped:
-		if poly.size() >= 3:
-			_merged_polygons.append(poly)
+	# Two circles are connected when their bubbles overlap (edge distance < 0).
+	for i in range(n):
+		var ci = _exclusion_circles[i]
+		for j in range(i + 1, n):
+			var cj = _exclusion_circles[j]
+			if ci.center.distance_to(cj.center) < ci.radius_px + cj.radius_px:
+				_union(parent, i, j)
+
+	var groups: Dictionary = {}
+	for i in range(n):
+		var root = _find(parent, i)
+		if not groups.has(root):
+			groups[root] = []
+		groups[root].append(_exclusion_circles[i])
+	return groups.values()
+
+func _find(parent: Array, i: int) -> int:
+	while parent[i] != i:
+		parent[i] = parent[parent[i]]  # path halving
+		i = parent[i]
+	return i
+
+func _union(parent: Array, a: int, b: int) -> void:
+	var ra = _find(parent, a)
+	var rb = _find(parent, b)
+	if ra != rb:
+		parent[rb] = ra
+
+func _merge_cluster(cluster: Array) -> PackedVector2Array:
+	"""Merge all circles in a connected cluster into its outer boundary polygon.
+
+	Circles are folded in connectivity order (only a circle that overlaps something
+	already merged is folded in), so the accumulating shape always stays one connected
+	blob and _largest_polygon reliably returns the outer boundary ring.
+
+	KNOWN LIMITATION: if a cluster forms a ring of enemies with an uncovered gap in the
+	middle (a legal deep-strike pocket >9\" from every model), that gap is an interior
+	'hole' ring in the union. We keep only the outer boundary here, and the fill in _draw
+	uses draw_colored_polygon which cannot express holes, so such a pocket is drawn as
+	excluded. This is a rare, purely-cosmetic over-exclusion — the authoritative legality
+	check is DeploymentController._validate_reinforcement_position, not this overlay — so
+	it never permits or blocks an actual placement. Punching the hole out would require
+	hole-aware triangulation of the fill and is deliberately out of scope."""
+	if cluster.is_empty():
+		return PackedVector2Array()
+
+	var merged: PackedVector2Array = _circle_to_polygon(cluster[0].center, cluster[0].radius_px)
+	var merged_circles: Array = [cluster[0]]
+	var pending: Array = []
+	for i in range(1, cluster.size()):
+		pending.append(cluster[i])
+
+	# Repeatedly fold in a pending circle that overlaps something already merged.
+	# Because the cluster is connected, every circle is eventually reachable.
+	var progress = true
+	while not pending.is_empty() and progress:
+		progress = false
+		var i = 0
+		while i < pending.size():
+			var pc = pending[i]
+			var overlaps = false
+			for mc in merged_circles:
+				if pc.center.distance_to(mc.center) < pc.radius_px + mc.radius_px:
+					overlaps = true
+					break
+			if overlaps:
+				var circle_poly = _circle_to_polygon(pc.center, pc.radius_px)
+				var union_result = Geometry2D.merge_polygons(merged, circle_poly)
+				merged = _largest_polygon(union_result)
+				merged_circles.append(pc)
+				pending.remove_at(i)
+				progress = true
+			else:
+				i += 1
+
+	return merged
+
+func _largest_polygon(polys: Array) -> PackedVector2Array:
+	"""Return the polygon with the greatest absolute area (the outer ring)."""
+	var largest := PackedVector2Array()
+	var largest_area := -1.0
+	for poly in polys:
+		var area = abs(_polygon_area(poly))
+		if area > largest_area:
+			largest_area = area
+			largest = poly
+	return largest
 
 func _circle_to_polygon(center: Vector2, radius: float) -> PackedVector2Array:
-	"""Convert a circle to a polygon approximation."""
+	"""Convert a circle to a polygon approximation.
+
+	The polygon is CIRCUMSCRIBED (vertices pushed out by 1/cos(PI/segments)) so it
+	fully contains the true circle instead of being inscribed inside it. This matters
+	because clustering and the fold-in test (_group_circles_into_clusters / _merge_cluster)
+	decide overlap from the TRUE circle radii, while the actual union is computed on these
+	polygons. An inscribed polygon can fall a fraction of a pixel short of the true circle,
+	so two barely-overlapping bubbles could pass the radius test yet produce disjoint
+	polygons — which merge_polygons would then leave unmerged and _largest_polygon would
+	silently drop. Circumscribing guarantees polygon overlap whenever the circles overlap.
+	The cost is enlarging every drawn bubble by ~0.2% (about 1px at these radii)."""
+	var effective_radius = radius / cos(PI / float(CIRCLE_SEGMENTS))
 	var points = PackedVector2Array()
 	for i in range(CIRCLE_SEGMENTS):
 		var angle = TAU * float(i) / float(CIRCLE_SEGMENTS)
-		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+		points.append(center + Vector2(cos(angle), sin(angle)) * effective_radius)
 	return points
 
 func _process(delta: float) -> void:
@@ -158,9 +263,9 @@ func _draw() -> void:
 			# Draw dashed line
 			_draw_dashed_line(p1, p2, pulse_alpha, march_offset)
 
-	# Draw a single label near the center of the screen-visible portion
-	if _merged_polygons.size() > 0:
-		_draw_exclusion_label(_merged_polygons[0], board_width_px, board_height_px, edge_threshold, pulse_alpha)
+	# Label every disjoint exclusion zone so each enemy cluster is annotated.
+	for poly in _merged_polygons:
+		_draw_exclusion_label(poly, board_width_px, board_height_px, edge_threshold, pulse_alpha)
 
 func _is_board_edge(p1: Vector2, p2: Vector2, board_w: float, board_h: float, threshold: float) -> bool:
 	"""Check if both points of an edge lie on the same board boundary."""
