@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.18.3",
+			"date": "2026-07-11",
+			"summary": "Fixed the AI 'Fire Overwatch' popup covering your control buttons: when the AI reacts during your turn (e.g. firing Overwatch while you arrive a unit from Reserves), the AI Actions log now floats to the left of the right-hand panel instead of sitting on top of your Undo / Reset / Confirm buttons — so you can always undo or confirm a deployment.",
+			"changes": [
+				"The AI Actions log (shown when the AI acts, including reactive Overwatch during your own turn) no longer overlaps the right-hand control panel. It now sits just left of that panel, over the board, so it never hides the reserve-deployment Undo / Reset Unit / Confirm Move buttons.",
+				"The overlay is also fully click-through now (a stray click on it always passes to the controls behind), so it can never intercept a button press even where it appears."
+			]
+		},
+		{
 			"version": "0.18.2",
 			"date": "2026-07-11",
 			"summary": "Fixed the Fight-phase pile-in 'ghost': moving a model during pile-in/consolidate no longer leaves a duplicate of it behind at its starting spot.",
