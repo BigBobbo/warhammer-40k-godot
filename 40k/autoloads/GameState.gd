@@ -1069,6 +1069,22 @@ func advance_battle_round() -> void:
 	state["meta"]["battle_round"] = get_battle_round() + 1
 	print("GameState: Advanced to battle round ", get_battle_round())
 
+func get_first_turn_player() -> int:
+	# Which player takes the FIRST turn of each battle round. Set by the
+	# first-turn roll-off (meta.first_turn_player); saves/flows that never ran
+	# it fall back to Player 1 (the historical assumption).
+	var ftp = int(state["meta"].get("first_turn_player", 0))
+	return ftp if (ftp == 1 or ftp == 2) else 1
+
+func is_last_turn_of_round(player: int) -> bool:
+	# True when the given player takes the SECOND (final) turn of each battle
+	# round — the battle round ends when their turn ends. Callers must NOT
+	# assume Player 2 always goes second: when the first-turn roll-off gives
+	# Player 2 the first turn, the round ends after Player 1's turn. Advancing
+	# after P2 unconditionally ended Round 1 after a single player turn,
+	# which unlocked reserves/deep strike arrivals on P1's first turn.
+	return player != get_first_turn_player()
+
 func is_game_complete() -> bool:
 	if state.get("meta", {}).get("game_ended", false):
 		return true

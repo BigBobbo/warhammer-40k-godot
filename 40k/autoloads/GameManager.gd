@@ -801,8 +801,10 @@ func process_end_scoring(action: Dictionary) -> Dictionary:
 		"value": next_player
 	})
 
-	# If Player 2 just finished their turn, advance battle round
-	if current_player == 2:
+	# If the round's SECOND player just finished their turn, advance battle
+	# round (the first-turn roll-off may have given Player 2 the first turn,
+	# in which case Player 1 closes each round — see GameState.is_last_turn_of_round).
+	if GameState.is_last_turn_of_round(current_player):
 		var new_battle_round = GameState.get_battle_round() + 1
 		print("GameManager: Completing battle round, advancing to battle round %d" % new_battle_round)
 

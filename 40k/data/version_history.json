@@ -2,7 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-
+			"version": "0.18.1",
+			"date": "2026-07-11",
+			"summary": "Fixed first-turn handling when Player 2 wins the roll-off to go first: the battle round no longer advances after a single player's turn. Previously that made Player 1's very first turn count as Battle Round 2, so the movement phase wrongly let units arrive from Reserves / Deep Strike on turn one (the AI would 'suggest' bringing reserves in immediately).",
+			"changes": [
+				"Reserves and Deep Strike units can no longer arrive on the first turn of the game when Player 2 takes the first turn — reinforcements are correctly gated to Battle Round 2 onward for both players.",
+				"The battle round now advances after the round's SECOND player finishes their turn (Player 1 when Player 2 went first), instead of always after Player 2 — so the game lasts the correct number of turns and ends on the right turn.",
+				"Start-of-round effects (per-round Command Point cap, kill counters, battle-round stratagem timing, Supply Drop objective removal, round-end autosave) now trigger on the correct turn when Player 2 goes first.",
+				"AI reserve/Deep Strike placement now reads the real battle round, fixing round-gated placement decisions."
+			]
+		},
+		{
 			"version": "0.18.0",
 			"date": "2026-07-11",
 			"summary": "Game-log step replay: click any entry in the game log to see the board exactly as it was at that moment. It's a read-only look back — the live game is never changed — with a banner and an Exit button (or Esc) to return.",

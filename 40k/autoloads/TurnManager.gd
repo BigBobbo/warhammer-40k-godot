@@ -59,8 +59,11 @@ func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 			var current_battle_round = GameState.get_battle_round()
 			var current_player = GameState.get_active_player()
 
-			# If we're at player 1 after scoring, battle round was advanced
-			if current_player == 1:
+			# If the active player after scoring is the round's first-turn player,
+			# a battle round just ended (control wrapped back to the first player).
+			# NOT hardcoded to Player 1 — when P2 takes the first turn the round
+			# ends after P1's turn and control returns to P2.
+			if current_player == GameState.get_first_turn_player():
 				print("TurnManager: Battle round advanced to ", current_battle_round)
 				emit_signal("battle_round_advanced", current_battle_round)
 

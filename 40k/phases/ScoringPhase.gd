@@ -108,13 +108,13 @@ func _on_phase_enter() -> void:
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		# Score end-of-your-turn missions for active player.
-		# 11e: on the game's FINAL turn (P2, last battle round) cards that say
-		# "at the end of your opponent's turn or the end of the fifth battle
-		# round, whichever comes first" (Beacon, Burden of Trust, Defend
-		# Stronghold) also score for the active player — they get no further
-		# opponent-turn end.
+		# 11e: on the game's FINAL turn (the round's last player, last battle
+		# round) cards that say "at the end of your opponent's turn or the end
+		# of the fifth battle round, whichever comes first" (Beacon, Burden of
+		# Trust, Defend Stronghold) also score for the active player — they get
+		# no further opponent-turn end.
 		var is_final_turn: bool = GameConstants.edition >= 11 \
-			and current_player == 2 \
+			and GameState.is_last_turn_of_round(current_player) \
 			and GameState.get_battle_round() >= GameState.MAX_BATTLE_ROUNDS
 		_secondary_results = secondary_mgr.score_secondary_missions_for_player(current_player, is_final_turn)
 		if _secondary_results.size() > 0:
@@ -453,10 +453,12 @@ func _handle_end_turn() -> Dictionary:
 		var battle_round = GameState.get_battle_round()
 		MissionManager.record_vp_snapshot(battle_round)
 
-	# Detect end-of-game: P2 finishing the final battle round (10e: 5 rounds).
+	# Detect end-of-game: the round's LAST player finishing the final battle
+	# round (10e: 5 rounds). With P1 first that is P2's turn; when the roll-off
+	# gave P2 the first turn it is P1's.
 	# Set meta.game_ended/winner in state so saves, replays, MCP queries, and
 	# PhaseManager._handle_game_end() (via is_game_complete()) all observe it.
-	if current_player == 2 and GameState.get_battle_round() >= GameState.MAX_BATTLE_ROUNDS:
+	if GameState.is_last_turn_of_round(current_player) and GameState.get_battle_round() >= GameState.MAX_BATTLE_ROUNDS:
 		return _handle_game_end_turn()
 
 	# Reset unit flags for the player whose turn is starting
@@ -469,8 +471,12 @@ func _handle_end_turn() -> Dictionary:
 		"value": next_player
 	})
 
-	# If Player 2 just finished their turn, advance battle round
-	if current_player == 2:
+	# If the round's SECOND player just finished their turn, advance battle
+	# round. NOT hardcoded to Player 2: the first-turn roll-off can give
+	# Player 2 the first turn, in which case Player 1 closes each round.
+	# (Hardcoding P2 ended Round 1 after one player turn whenever P2 went
+	# first, letting reserves/deep strike arrive on P1's FIRST turn.)
+	if GameState.is_last_turn_of_round(current_player):
 		var current_battle_round = GameState.get_battle_round()
 		# ISS-038: End of Battle Round step (07.03).
 		PhaseManager.emit_signal("battle_round_ending", current_battle_round)

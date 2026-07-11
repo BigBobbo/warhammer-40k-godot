@@ -824,6 +824,28 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 		print("MovementController: Clearing phase reference")
 		current_phase = null
 
+# Read-only accessor for tests/scenarios: how many "arrive from reserves"
+# rows the movement unit list is currently offering the player. 0 means no
+# reinforcements are on offer (correct on the first turn / before Round 2).
+# Counts the reserve rows between the "--- REINFORCEMENTS ---" header and the
+# "--- DEPLOYED UNITS ---" separator (the header itself is not counted).
+func get_reinforcement_row_count() -> int:
+	if not unit_list:
+		return 0
+	var count := 0
+	var in_reinforcements := false
+	for i in range(unit_list.get_item_count()):
+		var text := unit_list.get_item_text(i)
+		if text.begins_with("--- REINFORCEMENTS"):
+			in_reinforcements = true
+			continue
+		if text.begins_with("--- DEPLOYED UNITS"):
+			in_reinforcements = false
+			continue
+		if in_reinforcements:
+			count += 1
+	return count
+
 func _refresh_unit_list() -> void:
 	if not unit_list or not current_phase:
 		return

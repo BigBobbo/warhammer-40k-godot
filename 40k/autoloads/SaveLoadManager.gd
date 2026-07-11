@@ -149,13 +149,16 @@ func _on_phase_completed_autosave(completed_phase: int) -> void:
 	if not autosave_on_round_end:
 		return
 
-	# Auto-save at round end: when SCORING phase completes and it's the end of a battle round
-	# The round advances when Player 2's scoring completes (active_player switches to 1)
+	# Auto-save at round end: when SCORING phase completes and it's the end of a battle round.
+	# The round ends when the round's SECOND player finishes scoring and control
+	# wraps back to the first-turn player. NOT hardcoded to Player 1 — when the
+	# roll-off gives Player 2 the first turn, the round ends after P1's turn and
+	# active_player switches back to 2.
 	if completed_phase == GameStateData.Phase.SCORING:
 		var current_player = GameState.get_active_player()
-		# After scoring completes, ScoringPhase already switched active_player
-		# If active_player is now 1, Player 2 just finished → round ended
-		if current_player == 1:
+		# After scoring completes, ScoringPhase already switched active_player.
+		# If active_player is now the first-turn player, the round just ended.
+		if current_player == GameState.get_first_turn_player():
 			var battle_round = GameState.get_battle_round()
 			# battle_round was already incremented by ScoringPhase._handle_end_turn()
 			var completed_round = battle_round - 1

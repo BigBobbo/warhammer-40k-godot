@@ -4476,7 +4476,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		# Key insight: Orks should NOT abandon objectives to chase distant enemies
 		var hold_faction_aggression = _get_faction_aggression(snapshot, player)
 		var hold_is_melee = _is_melee_seeker(unit)
-		var hold_battle_round = snapshot.get("battle_round", 1)
+		var hold_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 		if assignment_action == "hold":
 			# Check if there's a nearby enemy worth charging
 			var skip_hold_for_melee = false
@@ -4545,7 +4545,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		var faction_aggression = _get_faction_aggression(snapshot, player)
 		var is_aggressive_faction = faction_aggression >= 1.5
 		var should_seek_enemies = _is_melee_seeker(unit)
-		var melee_battle_round = snapshot.get("battle_round", 1)
+		var melee_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 
 		# Determine if this unit is needed at its objective (don't abandon objectives)
 		var unit_centroid_for_obj = _get_unit_centroid(unit)
@@ -4741,7 +4741,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			# EXCEPT: melee units with NEARBY enemies (within charge range) should keep moving
 			var obj_hold_is_melee = _is_melee_seeker(unit)
 			var obj_hold_skip = false
-			var obj_hold_round = snapshot.get("battle_round", 1)
+			var obj_hold_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 			if obj_hold_is_melee and not enemies.is_empty():
 				var obj_hold_nearest = _get_nearest_enemy_for_charge(unit, enemies)
 				# Only leave objective for enemies within charge+move range, not the whole board
@@ -5018,7 +5018,10 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions: Array, player: int) -> Dictionary:
 	"""Decide which reserve unit to deploy and where to place it.
 	Called during the movement phase from Round 2+ when PLACE_REINFORCEMENT actions are available."""
-	var battle_round = snapshot.get("battle_round", 1)
+	# battle_round lives under meta in GameState snapshots — the old top-level
+	# read always returned the default 1, so round-gated placement rules (e.g.
+	# "no Strategic Reserves in the enemy DZ on Round 2") were never applied.
+	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 	var objectives = _get_objectives(snapshot)
 	var enemies = _get_enemy_units(snapshot, player)
 
@@ -6718,7 +6721,7 @@ static func _assign_units_to_objectives(
 			var hold_alive = _get_alive_models(hold_unit_data).size()
 			var hold_is_home = eval_for_obj.get("is_home", false)
 			var hold_fag = _get_faction_aggression(snapshot, player)
-			var hold_round = snapshot.get("battle_round", 1)
+			var hold_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 			var hold_unit_kw = hold_unit_data.get("meta", {}).get("keywords", [])
 			var hold_is_rv = not _is_melee_focused_unit(hold_unit_data) and ("VEHICLE" in hold_unit_kw) and _unit_has_ranged_weapons(hold_unit_data)
 			var hold_has_melee_role = _is_melee_focused_unit(hold_unit_data) or (hold_fag >= 1.5 and _unit_has_melee_weapons(hold_unit_data) and not hold_is_rv)
@@ -19051,7 +19054,10 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 	Returns a dictionary with:
 	- type: USE_RAPID_INGRESS + embedded _placement_action, or DECLINE_RAPID_INGRESS
 	"""
-	var battle_round = snapshot.get("battle_round", 1)
+	# battle_round lives under meta in GameState snapshots — the old top-level
+	# read always returned the default 1, so the "save last CP unless Round 4+"
+	# guard below never triggered (it thought it was always Round 1).
+	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 	var player_cp = _get_player_cp_from_snapshot(snapshot, defending_player)
 
 	print("AIDecisionMaker: [RAPID INGRESS] Evaluating for player %d (%d eligible units, %d CP, Round %d)" % [
