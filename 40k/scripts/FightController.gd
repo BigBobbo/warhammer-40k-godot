@@ -553,7 +553,9 @@ func _refresh_fight_sequence() -> void:
 	for i in range(fight_sequence.size()):
 		var unit_id = fight_sequence[i]
 		var unit = current_phase.get_unit(unit_id)
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		# display_name keeps duplicate squads (e.g. "... Alpha"/"... Beta") distinct.
+		var _uname_meta = unit.get("meta", {})
+		var unit_name = _uname_meta.get("display_name", _uname_meta.get("name", unit_id))
 		
 		# Add status indicators
 		if i < current_fight_index:
@@ -857,7 +859,9 @@ func _refresh_fighter_list() -> void:
 	for i in range(fight_sequence.size()):
 		var unit_id = fight_sequence[i]
 		var unit = current_phase.get_unit(unit_id)
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		# display_name keeps duplicate squads (e.g. "... Alpha"/"... Beta") distinct.
+		var _uname_meta = unit.get("meta", {})
+		var unit_name = _uname_meta.get("display_name", _uname_meta.get("name", unit_id))
 		
 		# Add status indicators
 		if unit_id in units_that_fought:

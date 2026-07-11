@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.18.3",
+			"date": "2026-07-11",
+			"summary": "Duplicate squads that share a name (e.g. three 'Custodian Guard' units) are now tellable apart: the name label under each model — and the Movement/Charge/Fight unit lists — show the distinguishing Alpha/Beta/Gamma suffix instead of collapsing every one to an identical 'Custodian Guard ..'.",
+			"changes": [
+				"On-board name labels now keep the disambiguating suffix. A long duplicate name like 'Custodian Guard Alpha' used to be cut to 'Custodian Guard ..' under every model, so you couldn't tell which models belonged to Alpha vs Beta vs Gamma — now the suffix is shown.",
+				"Very long names are shortened from the middle (e.g. 'Anointed Cust.. Epsilon') so the trailing squad suffix always stays visible.",
+				"The Movement, Charge and Fight unit-selection lists now show each duplicate squad's suffix (e.g. 'Custodian Guard Alpha', 'Custodian Guard Beta'), matching the Shooting list, so you can pick the right squad."
+			]
+		},
+		{
 			"version": "0.18.2",
 			"date": "2026-07-11",
 			"summary": "Fixed the Fight-phase pile-in 'ghost': moving a model during pile-in/consolidate no longer leaves a duplicate of it behind at its starting spot.",

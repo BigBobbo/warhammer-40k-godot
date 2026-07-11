@@ -656,7 +656,9 @@ func _refresh_ui() -> void:
 		if unit_id in units:
 			var unit = units[unit_id]
 			can_charge_count += 1
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			# display_name keeps duplicate squads (e.g. "... Alpha"/"... Beta") distinct.
+			var _uname_meta = unit.get("meta", {})
+			var unit_name = _uname_meta.get("display_name", _uname_meta.get("name", unit_id))
 			unit_selector.add_item(unit_name)
 			unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
 			print("    Added eligible unit ", unit_id, " (", unit_name, ") to selector")
