@@ -1,0 +1,28 @@
+{
+  "id": "pile_in_no_ghost_token",
+  "covers": [
+    "phases.FightPhase.pile_in_11e",
+    "main.recreate_unit_visuals_reentrancy",
+    "fight.pile_in.ghost_token_fix"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression for the pile-in 'ghost token' bug: after moving a model during pile-in, a duplicate of it stayed at the original spot, so it looked like two overlapping models. Root cause was Main._recreate_unit_visuals() — an async coroutine (deferred queue_free + await frame) that many refresh paths call. Two calls landing in the same frame (e.g. a fight-action refresh plus a phase/sync refresh) each rebuilt the FULL token set, leaving two overlapping tokens per model; the pile-in drag then moved only the first match and stranded its twin. Main now guards the function against re-entrant runs. This scenario fires two concurrent recreates in a single frame (the exact race) and asserts every model still has exactly one token (max_tokens_per_model == 1); before the fix it would be 2.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "script": "max_tokens_per_model()", "equals": 1 },
+    { "act": "screenshot", "label": "01_fight_phase_one_token_per_model" },
+
+    { "act": "execute_script", "script": "[main._recreate_unit_visuals(), main._recreate_unit_visuals()]" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script", "script": "max_tokens_per_model()", "equals": 1 },
+    { "act": "execute_script", "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child_count()", "expect_min": 40 },
+    { "act": "screenshot", "label": "02_no_duplicate_tokens_after_concurrent_recreate" }
+  ]
+}

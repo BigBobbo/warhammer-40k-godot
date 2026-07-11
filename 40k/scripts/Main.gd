@@ -7922,15 +7922,33 @@ func _sync_board_state_with_game_state() -> void:
 	# readers. Kept as a no-op so the two load-path call sites stay stable.
 	pass
 
+# Re-entrancy guard for _recreate_unit_visuals(). See the function below.
+var _recreate_unit_visuals_running: bool = false
+
 func _recreate_unit_visuals() -> void:
+	# Guard against overlapping runs. This is an async coroutine: queue_free is
+	# deferred, so we await a frame before recreating. Two calls landing in the
+	# same frame — common when a fight/charge action refresh (update_after_*_action)
+	# and a phase-change / sync refresh fire together — would EACH rebuild the
+	# full token set, leaving two overlapping tokens per model. That duplicate is
+	# invisible at rest, but an interactive pile-in / consolidate drag then moves
+	# only the first matching token and strands its twin at the original spot as a
+	# "ghost" (the reported bug). Dropping the re-entrant call is safe: this run's
+	# recreate loop reads GameState fresh AFTER the await, so it already reflects
+	# whatever state change triggered the dropped call.
+	if _recreate_unit_visuals_running:
+		print("Main: _recreate_unit_visuals() already running — skipping re-entrant call to avoid duplicate tokens")
+		return
+	_recreate_unit_visuals_running = true
+
 	# Clear existing tokens
 	print("Clearing existing token visuals...")
 	for child in token_layer.get_children():
 		child.queue_free()
-	
+
 	# Wait a frame for queue_free to process
 	await get_tree().process_frame
-	
+
 	# Recreate tokens for deployed units
 	var units = GameState.state.get("units", {})
 	var tokens_created = 0
@@ -7980,6 +7998,8 @@ func _recreate_unit_visuals() -> void:
 					print("        Skipped model (no position or dead)")
 	
 	print("Recreated ", tokens_created, " unit tokens")
+
+	_recreate_unit_visuals_running = false
 
 func _create_token_visual(unit_id: String, model: Dictionary) -> Node2D:
 	# Use the existing TokenVisual class
