@@ -3765,22 +3765,34 @@ static func _decide_roll_off(snapshot: Dictionary, available_actions: Array, pla
 
 	# Step 2: If the AI won and must choose a deploy role, deploy SECOND
 	# (be the Attacker) so it can react to the opponent's deployment.
+	# The offered action carries the roll-off WINNER as its player, and the
+	# phase validates the choice against the winner. AIPlayer stamps the
+	# EVALUATING player onto every decision, so when the winner is not the
+	# active player the stamped submission was rejected in a loop until the
+	# action-cap escape fired (~200 wasted actions). _ai_player_override
+	# tells AIPlayer to submit as the winner.
 	for action in available_actions:
 		if action.get("type") == "CHOOSE_DEPLOYMENT" and action.get("choice") == "second":
-			return {
+			var choose = {
 				"type": "CHOOSE_DEPLOYMENT",
 				"choice": "second",
 				"_ai_description": "AI chooses to deploy second (Attacker)"
 			}
+			if action.has("player"):
+				choose["_ai_player_override"] = int(action.player)
+			return choose
 
 	# Fallback: pick any available action
 	if not available_actions.is_empty():
 		var a = available_actions[0]
-		return {
+		var fb = {
 			"type": a.get("type", ""),
 			"choice": a.get("choice", ""),
 			"_ai_description": "Roll-off fallback action"
 		}
+		if a.has("player"):
+			fb["_ai_player_override"] = int(a.player)
+		return fb
 
 	return {}
 
@@ -3796,17 +3808,25 @@ static func _decide_first_turn_roll_off(snapshot: Dictionary, available_actions:
 
 	for action in available_actions:
 		if action.get("type") == "CONFIRM_FIRST_TURN":
-			return {
+			var confirm = {
 				"type": "CONFIRM_FIRST_TURN",
 				"_ai_description": "Confirming the first turn"
 			}
+			# Same winner-vs-evaluating-player mismatch as CHOOSE_DEPLOYMENT —
+			# submit as the player the phase offered the action to.
+			if action.has("player"):
+				confirm["_ai_player_override"] = int(action.player)
+			return confirm
 
 	if not available_actions.is_empty():
 		var a = available_actions[0]
-		return {
+		var fb = {
 			"type": a.get("type", ""),
 			"_ai_description": "First-turn roll-off fallback action"
 		}
+		if a.has("player"):
+			fb["_ai_player_override"] = int(a.player)
+		return fb
 
 	return {}
 

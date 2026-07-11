@@ -1653,6 +1653,11 @@ func _execute_next_action(player: int) -> void:
 
 	# Ensure player field is set
 	decision["player"] = player
+	# Roll-off style actions are offered TO a specific player (the roll-off
+	# winner) and validated against them; when that isn't the evaluating AI,
+	# submitting with the evaluating player's id was rejected in a loop.
+	if decision.has("_ai_player_override"):
+		decision["player"] = int(decision["_ai_player_override"])
 
 	# Process any thinking steps returned by the decision maker.
 	# A single step logs as a plain line; multiple steps for one decision are
