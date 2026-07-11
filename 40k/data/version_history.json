@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.20.0",
+			"date": "2026-07-11",
+			"summary": "Fixed the online Save & Load screen sometimes showing an empty 'Existing Saves' list even when you have saved games in the cloud. The list now retries automatically when the server is still waking up, tells you clearly if it still can't be reached (instead of a blank box), and has a new ⟳ Refresh button to reload it by hand.",
+			"changes": [
+				"Fixed: on the itch.io / web build, opening Save & Load right after the cloud server had gone idle could show NO saved games — the very first request has to wake the sleeping server, and that first attempt sometimes failed. That failure was silently drawn as an empty list, indistinguishable from 'you have no saves'. The game now automatically retries the request a few times (with a short, increasing delay) so a waking server recovers on its own.",
+				"New: a ⟳ Refresh button next to the Sort dropdown reloads the list of saved games from the server without reopening the dialog — handy if the server was slow to respond.",
+				"Improved: if the save list genuinely can't be loaded, the box now shows 'Couldn't reach the save server… press ⟳ Refresh to try again (your saved games are not lost)' instead of appearing empty. An empty account now clearly reads 'No saved games yet.'",
+				"Under the hood: cloud requests now transparently retry on connection/timeout and 502/503/504 gateway errors (the signature of a cold-starting server), and a failed save-list fetch emits a distinct error signal instead of masquerading as an empty result."
+			]
+		},
+		{
 			"version": "0.19.0",
 			"date": "2026-07-11",
 			"summary": "Reinforcement placement helpers are clearer: the red 'must be >9\" from enemy models' no-deploy zone now shows around EVERY enemy cluster (not just the biggest one), and units arriving from Strategic Reserves now get a green band showing where they CAN be placed — within 6\" of a board edge.",
