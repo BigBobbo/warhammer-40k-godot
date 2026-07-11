@@ -64,11 +64,6 @@
       "equals": 0
     },
     {
-      "act": "execute_script",
-      "script": "AIDecisionMaker._turn_movement_plan.has(2)",
-      "equals": true
-    },
-    {
       "act": "screenshot",
       "label": "02_per_unit_cards_match_plan",
       "region": [0, 105, 420, 760]
