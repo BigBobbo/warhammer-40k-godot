@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.18.5",
+			"date": "2026-07-11",
+			"summary": "History view: jump straight between game-log steps — while viewing a past step you can now click any other log entry to show that one, no need to press Esc first.",
+			"changes": [
+				"While viewing a past board state (after clicking a game-log entry), clicking a different log entry now switches the view directly to that step. Previously the read-only overlay silently swallowed clicks on the log, so you had to press Esc (Return to Live Game) before picking another step.",
+				"The game log stays fully usable while viewing history — scrolling the list and expanding card details work too, and the banner always names the step being shown.",
+				"Hardened the history board rebuild against two step clicks landing in the same frame, which could have created duplicate model tokens."
+			]
+		},
+		{
 			"version": "0.18.4",
 			"date": "2026-07-11",
 			"summary": "Fixed charge rolls being wrongly reported as failed when the roll would actually reach the enemy. A charging model only has to close to within engagement range (2\"), not touch base-to-base — e.g. a 9\" roll against a target 9.6\" away now succeeds (it only needs to travel 7.6\").",

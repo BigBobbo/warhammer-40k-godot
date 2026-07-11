@@ -247,6 +247,8 @@ var _history_live_state: Dictionary = {}      # the real, live GameState.state (
 var _history_overlay: Control = null          # blocks input on the board while viewing
 var _history_banner_label: RichTextLabel = null
 var _history_saved_ai_enabled: bool = false   # AI enabled flag to restore on exit
+var _history_saved_log_panel_index: int = -1  # log panel's child index to restore on exit
+var _history_refresh_running: bool = false    # drops overlapping history board rebuilds
 
 # P3-117: Dice Roll History panel UI elements
 var _dice_history_panel: PanelContainer = null
@@ -10634,6 +10636,16 @@ func _enter_history_view_mode() -> void:
 
 	_build_history_overlay()
 
+	# Godot routes mouse input by TREE order, not z_index (z_index affects drawing
+	# only) — so raising the log panel's z_index alone still left the overlay (a
+	# later sibling) eating every click aimed at the panel, forcing the player to
+	# press Esc before picking another step. Move the panel after the overlay in
+	# the tree so log cards stay genuinely clickable and the player can switch
+	# straight to a different step while viewing. Original index restored on exit.
+	if game_log_panel and is_instance_valid(game_log_panel) and game_log_panel.get_parent() == self:
+		_history_saved_log_panel_index = game_log_panel.get_index()
+		move_child(game_log_panel, get_child_count() - 1)
+
 func _set_controllers_input_enabled(enabled: bool) -> void:
 	"""Enable/disable input processing on every phase controller — used to make the
 	board fully inert while the player browses a past step."""
@@ -10648,8 +10660,10 @@ func _build_history_overlay() -> void:
 		_history_overlay.visible = true
 		return
 
-	# Full-screen input blocker. Sits above the board/HUD but BELOW the game log
-	# panel (whose z is raised) so the player can keep clicking other log entries.
+	# Full-screen input blocker. The game log panel is kept usable on top of it by
+	# _enter_history_view_mode moving the panel AFTER this overlay in the tree
+	# (input picking follows tree order; the raised z_index below only handles
+	# draw order) so the player can keep clicking other log entries.
 	var overlay := Control.new()
 	overlay.name = "HistoryViewOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -10728,11 +10742,20 @@ func _history_refresh_visuals() -> void:
 	"""Rebuild the board tokens from the (historical) GameState.state. Deliberately
 	minimal: it recreates unit tokens and updates score/round labels only. It does
 	NOT rebuild phase controllers or run any phase logic — this is a passive view."""
+	# Guard against overlapping runs (same duplicate-token hazard as
+	# _recreate_unit_visuals): two log-card clicks landing within one frame would
+	# each rebuild the full token set after the await below. Dropping the second
+	# call is safe — this run reads GameState fresh AFTER the await, so it already
+	# renders the step of the latest click.
+	if _history_refresh_running:
+		return
+	_history_refresh_running = true
 	# Clear existing tokens
 	for child in token_layer.get_children():
 		child.queue_free()
 	await get_tree().process_frame
 	if not _history_view_active:
+		_history_refresh_running = false
 		return  # exited while we were awaiting
 
 	var units = GameState.state.get("units", {})
@@ -10764,6 +10787,7 @@ func _history_refresh_visuals() -> void:
 		_update_round_indicator()
 	if active_player_badge:
 		active_player_badge.text = "P%d" % GameState.get_active_player()
+	_history_refresh_running = false
 
 func _exit_history_view() -> void:
 	if not _history_view_active:
@@ -10781,13 +10805,18 @@ func _exit_history_view() -> void:
 	if game_log_panel and is_instance_valid(game_log_panel) and game_log_panel.has_method("clear_active_history"):
 		game_log_panel.clear_active_history()
 
-	# Remove the overlay and restore the log panel's normal z.
+	# Remove the overlay and restore the log panel's normal z + tree position
+	# (it was moved after the overlay so it could receive clicks — see
+	# _enter_history_view_mode; leaving it last would draw it above dialogs).
 	if _history_overlay and is_instance_valid(_history_overlay):
 		_history_overlay.queue_free()
 	_history_overlay = null
 	_history_banner_label = null
 	if game_log_panel and is_instance_valid(game_log_panel):
 		game_log_panel.z_index = UI_PANEL_Z
+		if _history_saved_log_panel_index >= 0 and game_log_panel.get_parent() == self:
+			move_child(game_log_panel, mini(_history_saved_log_panel_index, get_child_count() - 1))
+	_history_saved_log_panel_index = -1
 
 	# Rebuild the live board and re-run normal UI refresh.
 	_recreate_unit_visuals()

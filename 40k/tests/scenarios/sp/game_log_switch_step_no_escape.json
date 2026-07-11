@@ -1,0 +1,81 @@
+{
+  "id": "game_log_switch_step_no_escape",
+  "covers": [
+    "ui.GameLogPanel.history_step_click",
+    "ui.GameLogPanel.real_click_history_card",
+    "ui.Main.history_view",
+    "ui.Main.history_overlay_input_order",
+    "replay.ReplayManager.build_recorded_state_at"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "History view: switch to another log step WITHOUT pressing Escape. Makes two real confirmed moves (Blade Champion, then Shield Captain) so two log cards carry recording markers, then opens history view by REAL-clicking the 'Shield Captain' moved card — synthesized mouse press/release through Input.parse_input_event, so normal viewport GUI picking decides what is hit. While the read-only overlay is still up, REAL-clicks the 'Blade Champion' card and asserts the view switches to that earlier step (Shield Captain back at its pre-move y=100) with history view still active, the same overlay still alive, and no duplicate tokens from the back-to-back board rebuilds. Guards the regression where the full-screen history overlay ate log-panel clicks — Godot routes mouse input by tree order, not z_index, so raising the panel's z_index alone left the overlay (a later sibling) swallowing clicks and forced players to press Esc before choosing another step. Finally exits with a real Escape key press and asserts the live state is restored.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "ReplayManager.cleanup()" },
+    { "act": "execute_script", "script": "ReplayManager.start_recording(false)" },
+    { "act": "execute_script", "script": "ReplayManager.is_recording", "equals": true },
+
+    { "act": "execute_script", "script": "main.movement_controller._select_unit_in_list_by_id(\"U_BLADE_CHAMPION_A\")", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "STAGE_MODEL_MOVE",
+      "actor_unit_id": "U_BLADE_CHAMPION_A",
+      "payload": { "model_id": "m1", "dest": [120, 320], "rotation": 0.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script", "script": "main.movement_controller._select_unit_in_list_by_id(\"U_SHIELD_CAPTAIN_A\")", "equals": true },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"flags\", {}).get(\"moved\", false)", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "STAGE_MODEL_MOVE",
+      "actor_unit_id": "U_SHIELD_CAPTAIN_A",
+      "payload": { "model_id": "m1", "dest": [50, 280], "rotation": 0.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script", "script": "main.phase_action_button.emit_signal(\"pressed\")" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").get(\"flags\", {}).get(\"moved\", false)", "equals": true },
+    { "act": "execute_script", "script": "int(GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").get(\"models\")[0].get(\"position\").get(\"y\"))", "equals": 280 },
+    { "act": "execute_script", "script": "int(GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"models\")[0].get(\"position\").get(\"y\"))", "equals": 320 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_history_cards()", "expect_min": 2 },
+    { "act": "screenshot", "label": "01_live_both_units_moved" },
+
+    { "act": "execute_script", "script": "main.game_log_panel.scroll_history_card_into_view(\"Shield-Captain\")", "equals": true },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "main.game_log_panel.real_click_history_card_matching(\"Shield-Captain\")", "equals": true },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "main.is_history_view_active()", "equals": true },
+    { "act": "execute_script", "script": "main._history_overlay != null", "equals": true },
+    { "act": "execute_script", "script": "main.game_log_panel.has_active_history()", "equals": true },
+    { "act": "execute_script", "script": "int(GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").get(\"models\")[0].get(\"position\").get(\"y\"))", "equals": 280 },
+    { "act": "execute_script", "script": "int(GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"models\")[0].get(\"position\").get(\"y\"))", "equals": 320 },
+    { "act": "screenshot", "label": "02_history_view_on_shield_captain_step" },
+
+    { "act": "execute_script", "script": "main.game_log_panel.scroll_history_card_into_view(\"Blade Champion\")", "equals": true },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "main.game_log_panel.real_click_history_card_matching(\"Blade Champion\")", "equals": true },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "main.is_history_view_active()", "equals": true },
+    { "act": "execute_script", "script": "main._history_overlay != null", "equals": true },
+    { "act": "execute_script", "script": "int(GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").get(\"models\")[0].get(\"position\").get(\"y\"))", "equals": 100 },
+    { "act": "execute_script", "script": "int(GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"models\")[0].get(\"position\").get(\"y\"))", "equals": 320 },
+    { "act": "execute_script", "script": "max_tokens_per_model()", "expect_max": 1 },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "screenshot", "label": "03_switched_to_blade_champion_step_no_escape" },
+
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "main.is_history_view_active()", "equals": false },
+    { "act": "execute_script", "script": "main.game_log_panel.has_active_history()", "equals": false },
+    { "act": "execute_script", "script": "int(GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").get(\"models\")[0].get(\"position\").get(\"y\"))", "equals": 280 },
+    { "act": "execute_script", "script": "int(GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"models\")[0].get(\"position\").get(\"y\"))", "equals": 320 },
+    { "act": "screenshot", "label": "04_returned_to_live_game" }
+  ]
+}
