@@ -2,6 +2,31 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.30.0",
+			"date": "2026-07-12",
+			"summary": "Removed the legacy hand-made terrain layouts (Chapter Approved 1-8 and the parse-test boards). The game now plays exclusively on the converted official 11e tournament layouts, and the main menu defaults to the current matchup's first official variant with its paired deployment.",
+			"changes": [
+				"Removed: the ten legacy terrain layouts (Chapter Approved Layouts 1-8 and two parse-test boards) and their hardcoded fallback. They pre-dated the official 11e set, used whole-rectangle footprints with hand-authored wall segments, and interacted badly with the new solid-wall movement rules.",
+				"The terrain dropdown now lists only the official 11e layouts: the selected Force-Disposition matchup's three variants (or the full official list if no matchup applies).",
+				"New games default to the default matchup's first official variant (Take and Hold mirror, variant 1) with its paired deployment pattern (Tipping Point) — previously the default was a legacy parse-test board with Search and Destroy.",
+				"Old saves and settings that reference a removed layout still load: saved games rebuild their terrain from the data stored in the save itself, and a stale layout selection falls back to the default official layout instead of an empty board."
+			]
+		},
+		{
+			"version": "0.29.0",
+			"date": "2026-07-12",
+			"summary": "Ruin walls now actually block vehicles and monsters. Big models (like the Stompa) can no longer walk through, charge through, or park on top of the solid walls on the tournament terrain layouts — and the whole base counts, not just its centre point.",
+			"changes": [
+				"Fixed: vehicles and monsters could move straight through — and end their move standing on — the 5\" ruin walls on the official-style (11e) terrain layouts. The dense-terrain movement rule was only enforced on an internal action the drag UI and the AI never used, and the 'cannot end overlapping a wall' rule only knew about the old hand-authored wall segments, which the new layouts don't have.",
+				"Movement legality is now shape-aware: the model's full base is swept along its path and checked at the destination, so a wide base (e.g. the Stompa's 180mm) can no longer straddle a wall its centre line never crossed.",
+				"Charge moves are checked too — a non-Fly vehicle can no longer charge through a ruin wall (Fly units still charge over terrain; nobody may END a charge inside a wall).",
+				"Infantry are unaffected — they still move through and stand among ruin walls freely, and step-over allowances still work: units that ignore terrain up to 4\" (Stompa's Stompin' Forward, the Nauts' Clankin' Forward, SUPER-HEAVY WALKER) can still cross features up to that height, just not 5\" walls.",
+				"Ruin footprints (the outlined areas around walls) remain enterable through their openings — only the solid wall pieces themselves block.",
+				"The AI now routes around walls instead of parking on them, and screens its candidate moves with the same rule the engine enforces.",
+				"Models left standing inside a wall by an older save can always move OUT of it — they just can't stay or go further in."
+			]
+		},
+		{
 			"version": "0.28.0",
 			"date": "2026-07-12",
 			"summary": "Every keyboard shortcut can now be remapped mid-game. Settings → Controls now lists ALL of the game's hotkeys (previously most were hardcoded and missing from the menu), grouped into Camera, Gameplay, Model, Panels & Overlays, AI, Debug and Replay Playback — click any binding and press a new key to change it, and it takes effect immediately.",
