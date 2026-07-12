@@ -1,0 +1,109 @@
+{
+  "id": "staged_fight_reroll_ui",
+  "covers": [
+    "ui.fight.staged_hit_wound_pause",
+    "ui.fight.command_reroll",
+    "ui.fight.continue_buttons",
+    "dialogs.FightSequenceDialog"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Drives the non-networked STAGED fight sequence through the real player path: pile-in halves passed, Warboss selected, attacks assigned, Fight! clicked -> FightSequenceDialog pauses after the hit roll ('Roll to Wound' + per-die Command Re-roll), a hit die is Command Re-rolled (CP spent), then the sequence continues stage by stage until the summary + Close. Verifies the fight no longer jumps straight through hit/wound rolls. Setup-only privileges: CP zeroed during selection to suppress the Epic Challenge prompt (not under test), then granted before Fight! so the Command Re-roll affordance appears; defender wounds inflated so the target survives all weapons.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[1].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[2].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[3].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/PileInStepDialog/Content/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/PileInStepDialog/Content/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 2}, true)" },
+    { "act": "screenshot", "label": "01_attacks_assigned_before_fight" },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "expect_node_visible", "node": "/root/FightSequenceDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/FightSequenceDialog/Content/Buttons/StagedContinueButton", "timeout_s": 3.0 },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").staged_continue_button.text.begins_with(\"Roll to Wound\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").reroll_row.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"Rolling to Hit\")",
+      "equals": true
+    },
+    { "act": "screenshot", "label": "02_hits_pause_with_reroll_row" },
+
+    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/RerollScroll/RerollRow/Die0", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "expect_state", "path": "players.2.cp", "equals": 1 },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"Command Re-roll\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").reroll_row.visible",
+      "equals": false
+    },
+    { "act": "screenshot", "label": "03_after_hit_command_reroll" },
+
+    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/StagedContinueButton", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 6 },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"Rolling to Wound\") or main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"0 wounds\")",
+      "equals": true
+    },
+    { "act": "screenshot", "label": "04_after_continue_to_wounds" },
+
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)"
+    },
+    { "act": "wait_frames", "frames": 4 },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").close_button.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"Melee attacks resolved\")",
+      "equals": true
+    },
+    { "act": "screenshot", "label": "05_sequence_complete_summary" },
+    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.has_fought", "equals": true },
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
+    { "act": "screenshot", "label": "06_next_fighter_selection_repops" }
+  ]
+}

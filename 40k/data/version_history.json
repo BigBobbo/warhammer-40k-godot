@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "0.24.0",
+      "date": "2026-07-12",
+      "summary": "The Fight phase no longer jumps straight through the dice: melee attacks now resolve weapon by weapon with a visible pause after the hit roll and after the wound roll — just like staged shooting — including a Command Re-roll (1 CP) button on each die.",
+      "changes": [
+        "Clicking Fight! now opens a Melee Resolution window that walks through each weapon in turn: the hit roll is shown and PAUSES ('Roll to Wound' button), then the wound roll is shown and pauses ('Continue to Saving Throws'), then saves resolve — so you can actually read what happened at every stage.",
+        "Command Re-roll (1 CP) is now available in melee: while paused after a hit or wound roll, click any die to re-roll it (once per phase, attacker's CP), exactly like the staged shooting flow.",
+        "Each weapon (e.g. Big choppa, Power klaw, and auto-included Extra Attacks weapons) resolves as its own step with a named 'Weapon X of Y' header and a running combat log inside the window.",
+        "A summary ('Melee attacks resolved — N enemy models destroyed') with a Close button ends the sequence; the next fighter selection then continues as before.",
+        "AI activations and multiplayer games keep the previous one-shot resolution (no pauses), matching how staged shooting behaves."
+      ]
+    },
+    {
       "version": "0.23.0",
       "date": "2026-07-11",
       "summary": "Made the online Save & Load screen far more reliable when the cloud server is slow or waking up. Instead of silently showing an empty 'Existing Saves' list (which looked like your saved games had vanished), it now retries automatically, shows a clear message if it still can't reach the server, and has a new ⟳ Refresh button to reload the list by hand.",
