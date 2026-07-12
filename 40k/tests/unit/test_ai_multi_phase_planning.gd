@@ -155,8 +155,12 @@ func _make_ranged_weapon(wname: String = "Bolt rifle", bs: int = 3,
 func _reset_phase_plan():
 	"""Reset the phase plan state between tests."""
 	AIDecisionMaker._phase_plan.clear()
-	AIDecisionMaker._phase_plan_built = false
+	AIDecisionMaker._phase_plan_built = {}
 	AIDecisionMaker._phase_plan_round = -1
+	# The phase plan became per-player; the default-player helpers
+	# (_get_phase_plan / _is_charge_target / _get_charge_intent) resolve
+	# player 0 -> _current_player, so the tests must act as player 2.
+	AIDecisionMaker._current_player = 2
 
 # =========================================================================
 # Phase plan building tests
@@ -253,13 +257,13 @@ func test_build_phase_plan_charge_intent_threshold():
 
 func test_is_charge_target():
 	_reset_phase_plan()
-	AIDecisionMaker._phase_plan = {
+	AIDecisionMaker._phase_plan = {2: {
 		"charge_target_ids": ["enemy_a", "enemy_b"],
 		"charge_intent": {},
 		"lock_targets": [],
 		"shooting_lanes": {}
-	}
-	AIDecisionMaker._phase_plan_built = true
+	}}
+	AIDecisionMaker._phase_plan_built = {2: true}
 
 	_assert(AIDecisionMaker._is_charge_target("enemy_a"), "_is_charge_target returns true for planned target")
 	_assert(AIDecisionMaker._is_charge_target("enemy_b"), "_is_charge_target returns true for second planned target")
@@ -270,15 +274,15 @@ func test_is_charge_target():
 
 func test_get_charge_intent():
 	_reset_phase_plan()
-	AIDecisionMaker._phase_plan = {
+	AIDecisionMaker._phase_plan = {2: {
 		"charge_intent": {
 			"unit_1": {"target_id": "enemy_a", "score": 5.0, "distance_inches": 8.0, "target_name": "Enemy A"}
 		},
 		"charge_target_ids": ["enemy_a"],
 		"lock_targets": [],
 		"shooting_lanes": {}
-	}
-	AIDecisionMaker._phase_plan_built = true
+	}}
+	AIDecisionMaker._phase_plan_built = {2: true}
 
 	var intent = AIDecisionMaker._get_charge_intent("unit_1")
 	_assert(not intent.is_empty(), "_get_charge_intent returns intent for planned unit")
@@ -298,13 +302,13 @@ func test_shooting_suppresses_charge_targets():
 	var snapshot = _create_test_snapshot()
 
 	# Set up phase plan with a charge target
-	AIDecisionMaker._phase_plan = {
+	AIDecisionMaker._phase_plan = {2: {
 		"charge_intent": {"melee_unit": {"target_id": "enemy_1", "score": 5.0}},
 		"charge_target_ids": ["enemy_1"],
 		"lock_targets": [],
 		"shooting_lanes": {}
-	}
-	AIDecisionMaker._phase_plan_built = true
+	}}
+	AIDecisionMaker._phase_plan_built = {2: true}
 	AIDecisionMaker._phase_plan_round = 2
 
 	# Add shooter and target
@@ -349,7 +353,7 @@ func test_charge_score_boosted_for_dangerous_shooters():
 		"lock_targets": ["enemy_shooter"],
 		"shooting_lanes": {}
 	}
-	AIDecisionMaker._phase_plan_built = true
+	AIDecisionMaker._phase_plan_built = {2: true}
 	AIDecisionMaker._phase_plan_round = 2
 
 	# Create charger
@@ -515,8 +519,8 @@ func test_phase_plan_reset_on_new_round():
 	_reset_phase_plan()
 
 	# Build plan for round 2
-	AIDecisionMaker._phase_plan = {"charge_intent": {"unit_1": {"target_id": "e1"}}}
-	AIDecisionMaker._phase_plan_built = true
+	AIDecisionMaker._phase_plan = {2: {"charge_intent": {"unit_1": {"target_id": "e1"}}}}
+	AIDecisionMaker._phase_plan_built = {2: true}
 	AIDecisionMaker._phase_plan_round = 2
 
 	# Simulating round 3 should reset the plan
@@ -529,7 +533,7 @@ func test_phase_plan_reset_on_new_round():
 	var current_round = 3
 	if AIDecisionMaker._phase_plan_round != current_round:
 		AIDecisionMaker._phase_plan.clear()
-		AIDecisionMaker._phase_plan_built = false
+		AIDecisionMaker._phase_plan_built = {}
 		AIDecisionMaker._phase_plan_round = current_round
 
 	_assert(AIDecisionMaker._phase_plan.is_empty(), "Phase plan cleared on new round")

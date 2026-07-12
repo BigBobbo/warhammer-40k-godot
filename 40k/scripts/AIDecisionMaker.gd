@@ -35,6 +35,17 @@ static func _rules_engine():
 		return main.root.get_node_or_null("RulesEngine")
 	return null
 
+# Late-bound reference to the DebugLogger autoload. Naked DebugLogger.* calls
+# fail to compile in `--script` (headless test) mode where autoload globals
+# are not yet registered at parse time — every autoload in this file must go
+# through a late-bound helper like this one.
+static func _debug_log_info(msg: String) -> void:
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		var dl = main.root.get_node_or_null("DebugLogger")
+		if dl and dl.has_method("info"):
+			dl.info(msg, {})
+
 # Late-bound reference to Measurement autoload
 static func _measurement():
 	var main = Engine.get_main_loop()
@@ -104,6 +115,17 @@ static var _movement_recorded_units: Dictionary = {}
 # {unit_id: [candidate dicts]}
 static var _last_movement_candidates: Dictionary = {}
 
+# COORD-4: Persistent movement battle plan — the army-wide unit→objective
+# assignment is computed ONCE per movement phase and then CONSUMED as each
+# unit acts, instead of being re-solved from scratch before every single
+# action. Without persistence the announced plan and the executed moves
+# diverge (a unit "planned" to obj_center actually goes to obj_nml_2 because
+# a later re-solve shuffled everything), which reads as the AI having no
+# holistic intent. Re-planning happens only for cause (new movable unit such
+# as a disembark, or a consumed plan) and is narrated when it does.
+# {player: {round, phase_signature, assignments: {unit_id: assignment}, replans: int}}
+static var _turn_movement_plan: Dictionary = {}
+
 # T7-46: Fight order optimization cache — built once per fight phase.
 # SOAK-3: keyed PER PLAYER — fight activation alternates between players, so a
 # single shared plan meant the second AI consumed the first AI's planned unit
@@ -168,6 +190,10 @@ static var _config_overrides: Dictionary = {}
 static var _config_loaded: bool = false
 # Track whether the movement plan summary has been logged (reset per phase)
 static var _movement_plan_logged: bool = false
+# Most recent VP-stakes narration composed by _evaluate_all_objectives —
+# consumed by the turn-intent card so the "what we're playing for" line lives
+# in the announced plan, not buried in whichever unit happens to act first.
+static var _last_vp_stakes_line: String = ""
 # Track whether the focus fire summary has been logged (reset per phase)
 static var _focus_fire_plan_logged: bool = false
 # Track whether fight order summary has been logged (reset per phase)
@@ -189,6 +215,7 @@ static func reset_caches() -> void:
 	_movement_intents.clear()
 	_movement_recorded_units.clear()
 	_last_movement_candidates.clear()
+	_turn_movement_plan.clear()
 	_fight_order_plan.clear()
 	_fight_order_plan_built.clear()
 	_secondary_awareness_p1.clear()
@@ -553,6 +580,14 @@ const WEIGHT_ENEMY_STRONG_OBJ: float = -5.0
 const WEIGHT_ALREADY_HELD_OBJ: float = -3.0   # Reduced from -8.0 — held objectives still need some units
 const WEIGHT_SCORING_URGENCY: float = 3.0
 const WEIGHT_OC_EFFICIENCY: float = 2.0
+# COORD-5: cap on EXTRA OC committed to an objective because of projected
+# (next-move) enemy pressure, on top of the live-contest need. Keeps the AI
+# from dogpiling its whole army onto one threatened marker.
+const PROJECTED_NEED_CAP: int = 4
+# COORD-4: score penalty per friendly unit already committed to an objective
+# when assigning leftover "support" units — diminishing returns stop every
+# spare unit from independently picking the same most-attractive marker.
+const SUPPORT_STACK_PENALTY: float = 3.5
 
 # Threat range awareness constants (AI-TACTIC-4, MOV-2)
 # Charge threat = enemy M + 12" charge + 1" engagement range
@@ -825,6 +860,130 @@ static func _is_melee_focused_unit(unit: Dictionary) -> bool:
 static func _is_melee_seeker(unit: Dictionary) -> bool:
 	return _is_melee_focused_unit(unit)
 
+## COORD-4: The single melee chase gate — decides at PLAN TIME whether a unit
+## abandons its objective assignment to seek an enemy, so the battle plan can
+## announce "ATTACK <enemy>" truthfully instead of the unit silently deviating
+## at execution. Consolidates the three previous inline copies (hold-assigned
+## skip, main seek block, on-objective skip) into one place with the SAME
+## thresholds. Returns {} for "follow the assignment", or:
+##   {target_id, target_name, distance_inches, advance: bool, reason}
+static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dictionary,
+		enemies: Dictionary, friendly_units: Dictionary, snapshot: Dictionary, player: int) -> Dictionary:
+	if not _is_melee_seeker(unit) or enemies.is_empty():
+		return {}
+	var nearest = _get_nearest_enemy_for_charge(unit, enemies)
+	if nearest.is_empty():
+		return {}
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var enemy_dist: float = nearest.distance_inches
+	var enemy_name: String = nearest.enemy_unit.get("meta", {}).get("name", "enemy")
+	var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+	var faction_aggression = _get_faction_aggression(snapshot, player)
+	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	var alive_count = _get_alive_models(unit).size()
+	var is_horde_unit = alive_count >= 10
+	var charge_range_inches = 12.0
+	var assignment_action = str(assignment.get("action", "move"))
+	var assigned_obj_id = assignment.get("objective_id", "")
+	var assigned_obj_pos = assignment.get("objective_pos", Vector2.INF)
+
+	# --- Hold-assigned units: only leave the objective for NEARBY enemies ---
+	# (port of the former skip_hold_for_melee block — same limits)
+	if assignment_action == "hold":
+		var hold_dist_limit: float
+		if battle_round <= 1:
+			if is_horde_unit:
+				hold_dist_limit = 12.0
+			else:
+				hold_dist_limit = 18.0 if faction_aggression >= 1.5 else 14.0
+		elif battle_round <= 2:
+			if is_horde_unit:
+				hold_dist_limit = 10.0
+			else:
+				hold_dist_limit = 14.0 if faction_aggression >= 1.5 else 12.0
+		else:
+			hold_dist_limit = 12.0 if faction_aggression >= 1.5 else 10.0
+		if enemy_dist > hold_dist_limit:
+			print("AIDecisionMaker: [HOLD-PRIORITY] %s staying on objective — enemy %s is %.1f\" away (limit=%.0f\", round=%d)" % [
+				unit_name, enemy_name, enemy_dist, hold_dist_limit, battle_round])
+			return {}
+		print("AIDecisionMaker: [MELEE-AGGRESSION] %s considering leaving hold to seek %s (%.1f\" away, limit=%.0f\", round=%d)" % [
+			unit_name, enemy_name, enemy_dist, hold_dist_limit, battle_round])
+
+	# --- Objective context: is the unit standing on its assigned objective? ---
+	var centroid = _get_unit_centroid(unit)
+	var unit_is_on_objective = false
+	var unit_objective_is_contested = false
+	if centroid != Vector2.INF and assigned_obj_pos != Vector2.INF:
+		unit_is_on_objective = centroid.distance_to(assigned_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX
+		if unit_is_on_objective:
+			for e_uid in enemies:
+				var e_centroid = _get_unit_centroid(enemies[e_uid])
+				if e_centroid != Vector2.INF and e_centroid.distance_to(assigned_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					unit_objective_is_contested = true
+					break
+
+	# --- Main seek gates (port of the former inline block — same order) ---
+	# SOAK-5 chase cap: never chase beyond the tunable threshold (floored at
+	# this unit's own move+advance+charge reach).
+	var chase_cap_inches = maxf(
+		get_param("MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES", MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES),
+		move_inches + 14.0)
+	if enemy_dist > chase_cap_inches:
+		print("AIDecisionMaker: [CHASE-CAP] %s ignores %s (%.1f\" away > %.0f\" cap) — following its assignment to %s" % [
+			unit_name, enemy_name, enemy_dist, chase_cap_inches, assigned_obj_id])
+		return {}
+	if not unit_is_on_objective and is_horde_unit and battle_round <= 2 and enemy_dist > charge_range_inches:
+		if faction_aggression >= 1.5:
+			print("AIDecisionMaker: [HORDE-AGGRESSION] %s (horde %d models) advances toward %s (%.1f\" away, aggression=%.1f, round %d)" % [
+				unit_name, alive_count, enemy_name, enemy_dist, faction_aggression, battle_round])
+		else:
+			print("AIDecisionMaker: [OBJ-PRIORITY] %s (horde %d models) prioritizes objective %s over chasing %s (%.1f\" > %.1f\" charge range, round %d)" % [
+				unit_name, alive_count, assigned_obj_id, enemy_name, enemy_dist, charge_range_inches, battle_round])
+			return {}
+	if unit_is_on_objective and unit_objective_is_contested and battle_round >= 2:
+		print("AIDecisionMaker: [OBJ-PRIORITY] %s stays on contested objective %s (round %d) instead of chasing %s (%.1f\" away)" % [
+			unit_name, assigned_obj_id, battle_round, enemy_name, enemy_dist])
+		return {}
+	if unit_is_on_objective and battle_round >= 3 and enemy_dist > 14.0:
+		print("AIDecisionMaker: [OBJ-PRIORITY] %s holds objective %s late game (round %d) — enemy %s too far (%.1f\")" % [
+			unit_name, assigned_obj_id, battle_round, enemy_name, enemy_dist])
+		return {}
+	if assignment_action == "hold" and enemy_dist > charge_range_inches + move_inches:
+		if battle_round <= 1 and faction_aggression >= 1.5 and enemy_dist <= charge_range_inches + move_inches + 6.0:
+			print("AIDecisionMaker: [R1-AGGRESSION] %s leaves hold to advance toward %s (%.1f\" away, R1 setup charge, aggression=%.1f)" % [
+				unit_name, enemy_name, enemy_dist, faction_aggression])
+		else:
+			print("AIDecisionMaker: [OBJ-PRIORITY] %s holds as assigned — enemy %s beyond move+charge (%.1f\" > %.1f\")" % [
+				unit_name, enemy_name, enemy_dist, charge_range_inches + move_inches])
+			return {}
+
+	# --- Advance vs normal move (port of the former advance decision) ---
+	var can_advance_and_charge_flag = unit.get("flags", {}).get("effect_advance_and_charge", false)
+	if not can_advance_and_charge_flag:
+		can_advance_and_charge_flag = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
+	var dist_after_normal_move = enemy_dist - move_inches
+	var in_charge_range_after_normal = dist_after_normal_move <= charge_range_inches
+	var should_advance = false
+	if can_advance_and_charge_flag:
+		should_advance = true
+	elif not in_charge_range_after_normal:
+		should_advance = true
+
+	var reason: String
+	if in_charge_range_after_normal:
+		reason = "closing to charge range (%.1f\" after move)" % maxf(dist_after_normal_move, 0.0)
+	else:
+		reason = "closing the distance (%.1f\" away)" % enemy_dist
+	return {
+		"target_id": nearest.enemy_id,
+		"target_name": enemy_name,
+		"distance_inches": enemy_dist,
+		"advance": should_advance,
+		"reason": reason,
+	}
+
 static func _get_nearest_enemy_for_charge(unit: Dictionary, enemies: Dictionary) -> Dictionary:
 	"""Find the nearest enemy unit and return {enemy_id, enemy_unit, distance_inches, centroid}.
 	Factors in terrain penalties to prefer enemies reachable without climbing through terrain."""
@@ -1049,6 +1208,10 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 	# Reset movement plan log flag when not in movement phase
 	if phase != GameStateData.Phase.MOVEMENT:
 		_movement_plan_logged = false
+		# COORD-4: the battle plan is a per-movement-phase commitment — clear it
+		# once the phase is over so the next movement phase re-plans fresh.
+		if not _turn_movement_plan.is_empty():
+			_turn_movement_plan.clear()
 
 	# T7-23: Reset multi-phase plan when a new round starts or when we enter
 	# a phase earlier than movement (i.e., command phase or earlier)
@@ -1060,6 +1223,7 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		# COORD-2: movement intents describe THIS round's moves — clear with the plan
 		_movement_intents.clear()
 		_movement_recorded_units.clear()
+		_turn_movement_plan.clear()
 
 	# T7-25: Reset secondary awareness when a new round starts (per-player)
 	if player == 1:
@@ -1164,6 +1328,7 @@ static func _snapshot_planning_state() -> Dictionary:
 		"movement_intents": _movement_intents.duplicate(true),
 		"movement_recorded_units": _movement_recorded_units.duplicate(true),
 		"last_movement_candidates": _last_movement_candidates.duplicate(true),
+		"turn_movement_plan": _turn_movement_plan.duplicate(true),
 		"fight_order_plan": _fight_order_plan.duplicate(true),
 		"fight_order_plan_built": _fight_order_plan_built.duplicate(true),
 		"fight_order_logged": _fight_order_logged,
@@ -1198,6 +1363,7 @@ static func _restore_planning_state(s: Dictionary) -> void:
 	_movement_intents = s["movement_intents"]
 	_movement_recorded_units = s["movement_recorded_units"]
 	_last_movement_candidates = s["last_movement_candidates"]
+	_turn_movement_plan = s["turn_movement_plan"]
 	_fight_order_plan = s["fight_order_plan"]
 	_fight_order_plan_built = s["fight_order_plan_built"]
 	_fight_order_logged = s["fight_order_logged"]
@@ -1731,27 +1897,44 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 		if n > 0:
 			dest = sum / float(n)
 
-	# Associate the destination with the objective it serves (if any): the
-	# nearest objective the move makes progress toward, within a generous band.
-	# A stationary unit only "claims" an objective it actually controls —
-	# sitting NEAR one is not the same as heading to it.
-	var assoc_range_px = OBJECTIVE_CONTROL_RANGE_PX if dtype == "REMAIN_STATIONARY" else CHARGE_RANGE_PX
+	# COORD-4: the assignment that produced this decision travels WITH the
+	# decision — the intent ledger and the decision card both use it, so the
+	# story in the log matches the plan and the action by construction.
+	var assignment: Dictionary = decision.get("_ai_assignment", {})
+	var assign_action = str(assignment.get("action", ""))
+	var assign_obj_id = str(assignment.get("objective_id", ""))
+
+	# Mark this unit's plan entry consumed. If it ever shows up movable again
+	# (failed move re-offered, reload), the consume check forces a re-plan.
+	if _turn_movement_plan.has(player) and _turn_movement_plan[player].get("assignments", {}).has(unit_id):
+		if not _turn_movement_plan[player].has("consumed"):
+			_turn_movement_plan[player]["consumed"] = {}
+		_turn_movement_plan[player]["consumed"][unit_id] = true
+
+	# Objective claimed by this move, for later units' incoming-OC awareness.
+	# Prefer the assignment's objective; screens/attacks and units with no plan
+	# entry fall back to the old destination heuristic (nearest objective the
+	# move makes progress toward, within a generous band).
 	var objective_id = ""
-	var obj_data = snapshot.get("board", {}).get("objectives", [])
-	var objectives = _get_objectives(snapshot)
-	var best_obj_dist = INF
-	for i in range(objectives.size()):
-		var obj_pos = objectives[i]
-		var d_dest = dest.distance_to(obj_pos)
-		if d_dest < best_obj_dist:
-			best_obj_dist = d_dest
-			# Only claim the objective if we are heading to/holding it:
-			# within the band at the destination, and not moving away from it.
-			var d_now = centroid.distance_to(obj_pos) if centroid != Vector2.INF else d_dest
-			if d_dest <= assoc_range_px and d_dest <= d_now + 1.0:
-				objective_id = obj_data[i].get("id", "obj_%d" % i) if i < obj_data.size() else "obj_%d" % i
-			else:
-				objective_id = ""
+	if assign_obj_id.begins_with("obj") and assign_action in ["hold", "move", "advance"]:
+		objective_id = assign_obj_id
+	else:
+		var assoc_range_px = OBJECTIVE_CONTROL_RANGE_PX if dtype == "REMAIN_STATIONARY" else CHARGE_RANGE_PX
+		var obj_data = snapshot.get("board", {}).get("objectives", [])
+		var objectives = _get_objectives(snapshot)
+		var best_obj_dist = INF
+		for i in range(objectives.size()):
+			var obj_pos = objectives[i]
+			var d_dest = dest.distance_to(obj_pos)
+			if d_dest < best_obj_dist:
+				best_obj_dist = d_dest
+				# Only claim the objective if we are heading to/holding it:
+				# within the band at the destination, and not moving away from it.
+				var d_now = centroid.distance_to(obj_pos) if centroid != Vector2.INF else d_dest
+				if d_dest <= assoc_range_px and d_dest <= d_now + 1.0:
+					objective_id = obj_data[i].get("id", "obj_%d" % i) if i < obj_data.size() else "obj_%d" % i
+				else:
+					objective_id = ""
 
 	_record_movement_intent(player, unit_id, {
 		"action": dtype,
@@ -1770,18 +1953,46 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 		_movement_recorded_units[player][unit_id] = true
 		var unit_candidates = _last_movement_candidates.get(unit_id, [])
 		if unit_candidates.size() > 1:
-			# Choose the candidate matching where the unit is actually headed
-			var chosen_idx = 0
-			for ci in range(unit_candidates.size()):
-				if unit_candidates[ci].get("objective_id", "") == objective_id:
-					chosen_idx = ci
-					break
+			# COORD-4: the chosen entry is the ASSIGNED objective — not a guess
+			# re-derived from the destination. Attacks/screens get a synthetic
+			# chosen entry so the card can say what the unit is really doing.
+			var chosen_idx = -1
+			if assign_obj_id.begins_with("obj") and assign_action in ["hold", "move", "advance"]:
+				for ci in range(unit_candidates.size()):
+					if unit_candidates[ci].get("objective_id", "") == assign_obj_id:
+						chosen_idx = ci
+						break
 			var cand_cards = []
-			for cand in unit_candidates:
+			var synthetic_chosen := {}
+			if chosen_idx < 0 and not assignment.is_empty():
+				# Attack / screen / block / no-matching-candidate: synthesize the
+				# chosen entry from the assignment itself.
+				var syn_desc: String
+				match assign_action:
+					"attack":
+						syn_desc = "Attack %s (%s)" % [assignment.get("attack_target_name", "?"), assignment.get("reason", "")]
+					"screen":
+						syn_desc = "Screen (%s)" % assignment.get("reason", "")
+					_:
+						syn_desc = "%s %s (%s)" % [assign_action.capitalize(), assign_obj_id, assignment.get("reason", "")]
+				var syn_pos = assignment.get("objective_pos", Vector2.INF)
+				synthetic_chosen = {
+					"description": syn_desc,
+					"score": assignment.get("score", 0.0),
+					"pos": [syn_pos.x, syn_pos.y] if syn_pos != Vector2.INF else [],
+					"score_breakdown": {"assigned_by": "battle plan (%s)" % assignment.get("assign_pass", "?")},
+				}
+			for cand_i in range(unit_candidates.size()):
+				var cand = unit_candidates[cand_i]
 				var cand_vp = float(cand.get("vp_value", 0.0))
 				var vp_note = " — worth ~%.0f VP" % cand_vp if cand_vp >= 1.0 else ""
+				var cand_desc = "%s %s (%s%s)" % [str(cand.get("action", "move")).capitalize(), cand.get("objective_id", "?"), cand.get("reason", ""), vp_note]
+				# The assigned candidate carries the assignment's reason (it may
+				# have been enriched during the greedy pass — capture/reinforce/etc.)
+				if cand_i == chosen_idx and not assignment.is_empty():
+					cand_desc = "%s %s (%s%s)" % [str(assignment.get("action", cand.get("action", "move"))).capitalize(), assign_obj_id, assignment.get("reason", cand.get("reason", "")), vp_note]
 				cand_cards.append({
-					"description": "%s %s (%s%s)" % [str(cand.get("action", "move")).capitalize(), cand.get("objective_id", "?"), cand.get("reason", ""), vp_note],
+					"description": cand_desc,
 					"score": cand.get("score", 0.0),
 					"pos": [cand.get("objective_pos", Vector2.ZERO).x, cand.get("objective_pos", Vector2.ZERO).y],
 					"score_breakdown": {
@@ -1791,12 +2002,39 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 						"unit_oc": cand.get("unit_oc", 0),
 					}
 				})
+			if not synthetic_chosen.is_empty():
+				cand_cards.push_front(synthetic_chosen)
+				chosen_idx = 0
+			elif chosen_idx < 0:
+				chosen_idx = 0
 			_add_decision_record("movement", unit_id, unit_name, cand_cards, chosen_idx,
 				{"WEIGHT_UNCONTROLLED_OBJ": get_param("WEIGHT_UNCONTROLLED_OBJ", WEIGHT_UNCONTROLLED_OBJ),
 				 "WEIGHT_CONTESTED_OBJ": get_param("WEIGHT_CONTESTED_OBJ", WEIGHT_CONTESTED_OBJ),
 				 "WEIGHT_VP_PER_POINT": get_param("WEIGHT_VP_PER_POINT", WEIGHT_VP_PER_POINT)},
 				{"phase": "movement", "round": snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)),
 				 "unit_pos": [centroid.x, centroid.y] if centroid != Vector2.INF else []})
+			# COORD-4: whenever the assignment overrode raw scores (hold rules,
+			# redirects, backfills), SAY SO — a card that reads "chose 10.9,
+			# rejected 20.2" with no explanation looks like the AI can't compare
+			# numbers, and erodes all trust in the log.
+			var chosen_score = float(cand_cards[chosen_idx].get("score", 0.0))
+			var best_other := -INF
+			for ci2 in range(cand_cards.size()):
+				if ci2 != chosen_idx:
+					best_other = maxf(best_other, float(cand_cards[ci2].get("score", 0.0)))
+			if best_other > chosen_score + 0.01:
+				var why: String
+				match assign_action:
+					"hold":
+						why = assignment.get("reason", "holding is worth more than the raw score shows")
+					"attack":
+						why = "melee seeker override — " + str(assignment.get("reason", ""))
+					_:
+						if assignment.has("coordination_note"):
+							why = str(assignment.coordination_note)
+						else:
+							why = "higher-scored objectives are already covered by other units this turn"
+				_add_thinking_step("  ↳ why not the top score: %s" % why)
 
 # =============================================================================
 # FORMATIONS PHASE
@@ -2276,6 +2514,17 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 			unit_best_action[unit_id] = action
 
 	# --- Score each candidate unit ---
+	# COORD-6: board-presence guard — every additional reserved unit weakens
+	# the army's opening board control. An 11-unit elite army that banks 950
+	# pts in Strategic Reserves (legal under the 50% cap) starts the game
+	# unable to cover 5 objectives and bleeds primary VP for two rounds. Apply
+	# a growing penalty as the SR commitment passes 25% of points (the
+	# competitive comfort line) and as on-board unit count approaches the
+	# objective count. Deep Strike keeps only the unit-count guard — its
+	# flexible arrival is usually worth it.
+	var objectives_on_board = _get_objectives(snapshot).size()
+	var min_board_units = objectives_on_board + 2
+	var comfort_sr_points = int(total_army_points * 0.25)
 	var scored_candidates = []
 	for unit_id in unit_best_action:
 		var action = unit_best_action[unit_id]
@@ -2291,6 +2540,21 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 			continue
 
 		var score = _score_unit_for_reserves(unit, unit_id, reserve_type, snapshot, player)
+
+		var presence_penalty := 0.0
+		var board_units_after = total_army_units - current_reserves_count - 1
+		if board_units_after < min_board_units:
+			presence_penalty += float(min_board_units - board_units_after) * 1.5
+		if reserve_type == "strategic_reserves":
+			var sr_points_after = current_reserves_points + unit_points
+			if sr_points_after > comfort_sr_points:
+				presence_penalty += float(sr_points_after - comfort_sr_points) / 100.0
+		if presence_penalty > 0.0 and score > 0.0:
+			print("AIDecisionMaker: [FORM-3/COORD-6] %s: board-presence penalty -%.1f (board units after: %d/%d min, SR pts: %d, comfort: %d)" % [
+				unit.get("meta", {}).get("name", unit_id), presence_penalty, board_units_after, min_board_units,
+				current_reserves_points + unit_points if reserve_type == "strategic_reserves" else current_reserves_points, comfort_sr_points])
+			score -= presence_penalty
+
 		if score > 0.0:
 			scored_candidates.append({
 				"action": action,
@@ -2312,6 +2576,9 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 	var best = scored_candidates[0]
 	if best.score < 2.0:
 		print("AIDecisionMaker: [FORM-3] Best candidate score %.1f below threshold — deploying all on table" % best.score)
+		if current_reserves_count > 0:
+			_add_thinking_step("Reserves capped at %d unit(s) / %d pts — keeping the rest on the board to cover %d objectives" % [
+				current_reserves_count, current_reserves_points, objectives_on_board])
 		return {}
 
 	var action = best.action
@@ -2646,6 +2913,14 @@ static func _classify_deployment_role(unit: Dictionary) -> String:
 
 	# Pure melee units deploy forward
 	if has_melee and not has_ranged:
+		return "melee"
+
+	# Mixed-weapon units whose OUTPUT is melee-dominated (Stormboyz with token
+	# pistols, choppa mobs with sluggas) are assault elements: deploy forward
+	# for movement lanes, not backfield for firing lanes. Uses the same
+	# _is_melee_focused_unit gate as the movement/charge seek logic so
+	# deployment and battle-plan behavior can't disagree about a unit's role.
+	if has_melee and _is_melee_focused_unit(unit):
 		return "melee"
 
 	# T-108: Anti-tank classifier — any high-S ranged weapon (S >= 9 or AP >= 3)
@@ -3502,22 +3777,34 @@ static func _decide_roll_off(snapshot: Dictionary, available_actions: Array, pla
 
 	# Step 2: If the AI won and must choose a deploy role, deploy SECOND
 	# (be the Attacker) so it can react to the opponent's deployment.
+	# The offered action carries the roll-off WINNER as its player, and the
+	# phase validates the choice against the winner. AIPlayer stamps the
+	# EVALUATING player onto every decision, so when the winner is not the
+	# active player the stamped submission was rejected in a loop until the
+	# action-cap escape fired (~200 wasted actions). _ai_player_override
+	# tells AIPlayer to submit as the winner.
 	for action in available_actions:
 		if action.get("type") == "CHOOSE_DEPLOYMENT" and action.get("choice") == "second":
-			return {
+			var choose = {
 				"type": "CHOOSE_DEPLOYMENT",
 				"choice": "second",
 				"_ai_description": "AI chooses to deploy second (Attacker)"
 			}
+			if action.has("player"):
+				choose["_ai_player_override"] = int(action.player)
+			return choose
 
 	# Fallback: pick any available action
 	if not available_actions.is_empty():
 		var a = available_actions[0]
-		return {
+		var fb = {
 			"type": a.get("type", ""),
 			"choice": a.get("choice", ""),
 			"_ai_description": "Roll-off fallback action"
 		}
+		if a.has("player"):
+			fb["_ai_player_override"] = int(a.player)
+		return fb
 
 	return {}
 
@@ -3533,17 +3820,25 @@ static func _decide_first_turn_roll_off(snapshot: Dictionary, available_actions:
 
 	for action in available_actions:
 		if action.get("type") == "CONFIRM_FIRST_TURN":
-			return {
+			var confirm = {
 				"type": "CONFIRM_FIRST_TURN",
 				"_ai_description": "Confirming the first turn"
 			}
+			# Same winner-vs-evaluating-player mismatch as CHOOSE_DEPLOYMENT —
+			# submit as the player the phase offered the action to.
+			if action.has("player"):
+				confirm["_ai_player_override"] = int(action.player)
+			return confirm
 
 	if not available_actions.is_empty():
 		var a = available_actions[0]
-		return {
+		var fb = {
 			"type": a.get("type", ""),
 			"_ai_description": "First-turn roll-off fallback action"
 		}
+		if a.has("player"):
+			fb["_ai_player_override"] = int(a.player)
+		return fb
 
 	return {}
 
@@ -4246,6 +4541,15 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 
 	if can_begin:
 		var move_decision = _select_movement_action(snapshot, available_actions, player)
+		# COORD-4: attach the battle-plan assignment that produced this decision,
+		# so the decision card narrates the REAL assignment (and its coordination
+		# reasons) instead of re-deriving a guess from the destination.
+		var md_uid = move_decision.get("actor_unit_id", "")
+		if md_uid != "":
+			var md_plan = _turn_movement_plan.get(player, {})
+			var md_assignment = md_plan.get("assignments", {}).get(md_uid, {})
+			if not md_assignment.is_empty():
+				move_decision["_ai_assignment"] = md_assignment
 		# COORD-2/3: record where this unit is headed (for later units' incoming-OC
 		# awareness) and emit its decision card + narration at the moment it acts.
 		_finalize_movement_decision(move_decision, snapshot, player)
@@ -4339,16 +4643,78 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				td.shoot_threat_px / PIXELS_PER_INCH, td.unit_value])
 
 	# =========================================================================
-	# PHASE 1: GLOBAL OBJECTIVE EVALUATION
+	# COORD-4: BUILD OR REUSE THE PERSISTENT BATTLE PLAN
+	# The army-wide assignment is computed ONCE per movement phase and then
+	# consumed unit by unit, so the plan the game log announces is the plan
+	# that actually gets executed. Re-planning happens only for cause (a unit
+	# that wasn't in the plan became movable — e.g. a disembark — or a new
+	# phase/round) and is narrated so the player can follow the change.
 	# =========================================================================
-	var obj_evaluations = _evaluate_all_objectives(snapshot, objectives, player, enemies, friendly_units, battle_round)
+	var stored_plan: Dictionary = _turn_movement_plan.get(player, {})
+	var need_plan := true
+	var replan_reason := ""
+	if not stored_plan.is_empty() and stored_plan.get("round", -1) == battle_round:
+		need_plan = false
+		for uid in movable_units:
+			var mt = movable_units[uid]
+			if "BEGIN_FALL_BACK" in mt and not "BEGIN_NORMAL_MOVE" in mt:
+				continue  # Engaged units are decided outside the plan
+			var uname = snapshot.get("units", {}).get(uid, {}).get("meta", {}).get("name", uid)
+			if not stored_plan.get("assignments", {}).has(uid):
+				need_plan = true
+				replan_reason = "%s became movable after the plan was made" % uname
+				break
+			if stored_plan.get("consumed", {}).has(uid):
+				# A unit that already executed its plan entry is movable again —
+				# the world no longer matches the plan (failed move re-offered,
+				# state reload, …). Re-plan rather than replay a stale order.
+				need_plan = true
+				replan_reason = "%s is movable again after already acting" % uname
+				break
 
-	# =========================================================================
-	# PHASE 2: UNIT-TO-OBJECTIVE ASSIGNMENT (with threat awareness)
-	# =========================================================================
-	var assignments = _assign_units_to_objectives(
-		snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round, threat_data
-	)
+	var assignments: Dictionary
+	if need_plan:
+		# PHASE 1: GLOBAL OBJECTIVE EVALUATION
+		var obj_evaluations = _evaluate_all_objectives(snapshot, objectives, player, enemies, friendly_units, battle_round)
+		# PHASE 2: UNIT-TO-OBJECTIVE ASSIGNMENT (with threat awareness)
+		assignments = _assign_units_to_objectives(
+			snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round, threat_data
+		)
+		var prior_replans = int(stored_plan.get("replans", -1))
+		# TURN-INTENT: capture the whole turn's context at plan time so the
+		# announced card can tell the full story in one place — stance, VP
+		# stakes, planned charges/lock targets — not just the unit moves.
+		var announce := {
+			"strategy_label": str(_get_round_strategy_modifiers(battle_round).get("label", "")),
+			"archetype_label": str(_get_army_strategy_modifiers(snapshot, player).get("label", "")),
+			"stakes": _last_vp_stakes_line,
+			"charge_lines": [],
+			"lock_line": "",
+		}
+		var plan_charge_intents = _get_phase_plan(player).get("charge_intent", {})
+		for ci_uid in plan_charge_intents:
+			var ci = plan_charge_intents[ci_uid]
+			var ci_name = snapshot.get("units", {}).get(ci_uid, {}).get("meta", {}).get("name", ci_uid)
+			announce.charge_lines.append("  Charge intent: %s → %s (%.1f\" away)" % [
+				ci_name, ci.get("target_name", "?"), float(ci.get("distance_inches", 0.0))])
+		var plan_lock_targets = _get_phase_plan(player).get("lock_targets", [])
+		if not plan_lock_targets.is_empty():
+			var lock_names: Array = []
+			for lt_id in plan_lock_targets:
+				lock_names.append(snapshot.get("units", {}).get(lt_id, {}).get("meta", {}).get("name", lt_id))
+			announce["lock_line"] = "  Tie up in melee: %s (dangerous shooters)" % ", ".join(lock_names.slice(0, 4))
+		_turn_movement_plan[player] = {
+			"round": battle_round,
+			"assignments": assignments,
+			"consumed": {},
+			"replans": prior_replans + 1,
+			"announce": announce,
+		}
+		if replan_reason != "":
+			_add_thinking_step("Re-planning movement: %s" % replan_reason)
+			_movement_plan_logged = false  # announce the updated plan
+	else:
+		assignments = stored_plan.get("assignments", {})
 
 	# =========================================================================
 	# PHASE 3: EXECUTE BEST ASSIGNMENT
@@ -4372,7 +4738,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		if not engaged_units.is_empty():
 			plan_summary_parts.append("%d engaged (must fall back or fight)" % engaged_units.size())
 		# Summarize assignment actions
-		var action_counts = {"hold": 0, "move": 0, "advance": 0, "screen": 0, "block": 0}
+		var action_counts = {"hold": 0, "move": 0, "advance": 0, "screen": 0, "block": 0, "attack": 0}
 		for uid in assignments:
 			var act = assignments[uid].get("action", "move")
 			action_counts[act] = action_counts.get(act, 0) + 1
@@ -4384,8 +4750,28 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			plan_summary_parts.append(", ".join(move_parts))
 		if not threat_data.is_empty():
 			plan_summary_parts.append("avoiding %d threat zones" % threat_data.size())
-		if not plan_summary_parts.is_empty():
-			_add_thinking_step("Movement plan: %d units — %s" % [movable_units.size(), "; ".join(plan_summary_parts)])
+		# TURN-INTENT: the announced card carries the whole turn's intent — the
+		# army's stance this round, what the round is worth in VP, planned
+		# charges and shooters to tie up — followed by the per-unit orders.
+		# (Header must keep starting with "Movement plan" — AIPlayer's card
+		# slicer and the movement_plan_integrity() gate match on that.)
+		var turn_announce: Dictionary = _turn_movement_plan.get(player, {}).get("announce", {})
+		var stance_parts: Array = []
+		if str(turn_announce.get("strategy_label", "")) != "":
+			stance_parts.append(str(turn_announce.strategy_label))
+		if str(turn_announce.get("archetype_label", "")) != "":
+			stance_parts.append("%s army" % turn_announce.archetype_label)
+		var plan_header = "Movement plan (Round %d%s): %d units — %s" % [
+			battle_round,
+			(", " + " / ".join(stance_parts)) if not stance_parts.is_empty() else "",
+			movable_units.size(), "; ".join(plan_summary_parts)]
+		_add_thinking_step(plan_header)
+		if str(turn_announce.get("stakes", "")) != "":
+			_add_thinking_step("  Playing for: %s" % str(turn_announce.stakes).trim_prefix("VP stakes this round "))
+		for ci_line in turn_announce.get("charge_lines", []):
+			_add_thinking_step(str(ci_line))
+		if str(turn_announce.get("lock_line", "")) != "":
+			_add_thinking_step(str(turn_announce.lock_line))
 		# COORD-3: verbose army-level battle plan — one line per unit so the
 		# game log tells the WHOLE story of the turn up front, not just the
 		# unit currently acting. Sorted by assignment score (most important first).
@@ -4406,7 +4792,12 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var p_action = str(pa.get("action", "move")).to_upper()
 			var p_reason = pa.get("reason", "")
 			var p_line: String
-			if p_obj in ["screen_denial", "screen_protect", "corridor_block"]:
+			if pa.get("action", "") == "attack":
+				# COORD-4: announce hunts truthfully — this unit is NOT going to
+				# an objective and the plan says so up front.
+				p_line = "  %s (OC%d): ATTACK %s, %.1f\" away — %s" % [
+					p_name, p_oc, pa.get("attack_target_name", "?"), p_dist_in, p_reason]
+			elif p_obj in ["screen_denial", "screen_protect", "corridor_block"]:
 				p_line = "  %s (OC%d): %s — %s" % [p_name, p_oc, p_action, p_reason]
 			elif p_obj == "none" or p_obj == "":
 				p_line = "  %s (OC%d): %s — %s" % [p_name, p_oc, p_action, p_reason]
@@ -4471,45 +4862,12 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		if assignment.has("coordination_note"):
 			_add_thinking_step("%s: %s" % [unit_name, assignment.coordination_note])
 
-		# --- OC-AWARE HOLD DECISION ---
-		# Balance melee aggression with objective control
-		# Key insight: Orks should NOT abandon objectives to chase distant enemies
-		var hold_faction_aggression = _get_faction_aggression(snapshot, player)
-		var hold_is_melee = _is_melee_seeker(unit)
-		var hold_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+		# --- HOLD DECISION ---
+		# COORD-4: chase-vs-hold was already decided at PLAN time by the melee
+		# chase gate — a "hold" assignment reaching this point means the gate
+		# declined, so the unit genuinely holds (and the plan said so).
 		if assignment_action == "hold":
-			# Check if there's a nearby enemy worth charging
-			var skip_hold_for_melee = false
-			if hold_is_melee and not enemies.is_empty():
-				var hold_nearest = _get_nearest_enemy_for_charge(unit, enemies)
-				# Smart distance limit: only skip hold for NEARBY enemies
-				# Round 1: more aggressive (objectives don't score), wider limit
-				# Round 2+: tighter limit to preserve objective control
-				# T16-1: Horde units (10+ models) use tighter limits — their OC is more valuable on objectives
-				var hold_alive_count = _get_alive_models(unit).size()
-				var is_horde_unit = hold_alive_count >= 10
-				var hold_dist_limit: float
-				if hold_battle_round <= 1:
-					if is_horde_unit:
-						hold_dist_limit = 12.0  # Horde: tighter limit in R1 — get to objectives first
-					else:
-						hold_dist_limit = 18.0 if hold_faction_aggression >= 1.5 else 14.0
-				elif hold_battle_round <= 2:
-					if is_horde_unit:
-						hold_dist_limit = 10.0  # Horde: very tight in R2 — scoring round
-					else:
-						hold_dist_limit = 14.0 if hold_faction_aggression >= 1.5 else 12.0
-				else:
-					# Mid-late game: only abandon objective for enemies in charge range
-					hold_dist_limit = 12.0 if hold_faction_aggression >= 1.5 else 10.0
-				if not hold_nearest.is_empty() and hold_nearest.distance_inches <= hold_dist_limit:
-					skip_hold_for_melee = true
-					print("AIDecisionMaker: [MELEE-AGGRESSION] %s skipping hold to seek %s (%.1f\" away, limit=%.0f\", round=%d)" % [
-						unit_name, hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), hold_nearest.distance_inches, hold_dist_limit, hold_battle_round])
-				elif not hold_nearest.is_empty():
-					print("AIDecisionMaker: [HOLD-PRIORITY] %s staying on objective — enemy %s is %.1f\" away (limit=%.0f\", round=%d)" % [
-						unit_name, hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), hold_nearest.distance_inches, hold_dist_limit, hold_battle_round])
-			if not skip_hold_for_melee and "REMAIN_STATIONARY" in move_types:
+			if "REMAIN_STATIONARY" in move_types:
 				var dist_inches = assignment.get("distance", 0.0) / PIXELS_PER_INCH
 				var reason = assignment.get("reason", "holding objective")
 				print("AIDecisionMaker: %s holds %s (%s, %.1f\" away)" % [unit_name, assigned_obj_id, reason, dist_inches])
@@ -4538,164 +4896,56 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					"_ai_description": "%s advances toward %s (%s)" % [unit_name, assigned_obj_id, reason]
 				}
 
-		# --- MELEE AGGRESSION: Melee units actively seek enemies ---
-		# If this unit is melee-focused, consider advancing toward the nearest enemy
-		# instead of moving toward objectives. Balance aggression with objective control.
-		var is_melee_unit = _is_melee_focused_unit(unit)
-		var faction_aggression = _get_faction_aggression(snapshot, player)
-		var is_aggressive_faction = faction_aggression >= 1.5
-		var should_seek_enemies = _is_melee_seeker(unit)
-		var melee_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
-
-		# Determine if this unit is needed at its objective (don't abandon objectives)
-		var unit_centroid_for_obj = _get_unit_centroid(unit)
-		var unit_is_on_objective = false
-		var unit_objective_is_contested = false
-		if unit_centroid_for_obj != Vector2.INF and assigned_obj_pos != Vector2.INF:
-			unit_is_on_objective = unit_centroid_for_obj.distance_to(assigned_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX
-			if unit_is_on_objective:
-				# Check if the objective is contested/enemy controlled — we might be needed
-				var obj_friendly_oc = 0
-				var obj_enemy_oc = 0
-				for f_uid in friendly_units:
-					var f_unit_data = friendly_units[f_uid]
-					var f_centroid = _get_unit_centroid(f_unit_data)
-					if f_centroid != Vector2.INF and f_centroid.distance_to(assigned_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-						obj_friendly_oc += int(f_unit_data.get("meta", {}).get("stats", {}).get("objective_control", 1))
-				for e_uid in enemies:
-					var e_unit_data = enemies[e_uid]
-					var e_centroid = _get_unit_centroid(e_unit_data)
-					if e_centroid != Vector2.INF and e_centroid.distance_to(assigned_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-						obj_enemy_oc += int(e_unit_data.get("meta", {}).get("stats", {}).get("objective_control", 1))
-				unit_objective_is_contested = obj_enemy_oc > 0
-
-		print("AIDecisionMaker: [MELEE-CHECK] %s: is_melee=%s, aggressive=%s, seek=%s, enemies=%d, on_obj=%s, contested=%s, round=%d, assignment=%s" % [
-			unit_name, is_melee_unit, is_aggressive_faction, should_seek_enemies, enemies.size(), unit_is_on_objective, unit_objective_is_contested, melee_battle_round, assignment_action])
-		if should_seek_enemies and not enemies.is_empty():
-			var nearest_enemy = _get_nearest_enemy_for_charge(unit, enemies)
-			if not nearest_enemy.is_empty():
-				var enemy_dist = nearest_enemy.distance_inches
-				var effective_dist = nearest_enemy.get("effective_distance_inches", enemy_dist)
-				var move_inches_melee = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
-				var melee_centroid = _get_unit_centroid(unit)
-				var enemy_pos = nearest_enemy.centroid
-				var enemy_name = nearest_enemy.enemy_unit.get("meta", {}).get("name", "enemy")
-
-				# Move directly toward enemy — _compute_movement_toward_target handles terrain pathing
-				var move_target = enemy_pos
-
-				var charge_range_inches = 12.0  # Pure charge range (without move)
-
-				# Smart melee aggression: balance enemy-seeking with objective control
-				# DON'T chase enemies when:
-				# 1. The enemy is beyond any real threat range (SOAK-5 chase cap)
-				# 2. Unit is on a contested objective in rounds 2+ (we need the OC)
-				# 3. Unit is on a safe objective in rounds 3+ and enemy is far (>14")
-				# 4. Unit is assigned to hold and enemy is beyond charge range
-				var should_chase = true
-				# SOAK-5: chase-distance cap for ALL seekers. Hold-assigned units
-				# already had distance limits; move-assigned units had NONE — the
-				# 2026-07-10 soak showed round-1 chases at 45"+ while objectives
-				# sat unclaimed (Ork primary VP ~6/game). Cap = the tunable
-				# threshold, never below this unit's move+advance+charge reach.
-				var chase_cap_inches = maxf(
-					get_param("MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES", MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES),
-					move_inches_melee + 14.0)
-				# T16-1: Horde units (10+ models) prioritize reaching their assigned objective
-				# in R1-R2 before chasing enemies. Their OC is critical for primary VP.
-				# EXCEPTION: Aggressive factions (Orks etc.) should advance toward enemies
-				# even in R1-R2 — accounts for mutual approach (both units closing).
-				var alive_count_for_chase = _get_alive_models(unit).size()
-				if enemy_dist > chase_cap_inches:
-					should_chase = false
-					print("AIDecisionMaker: [CHASE-CAP] %s ignores %s (%.1f\" away > %.0f\" cap) — following its assignment to %s" % [
-						unit_name, enemy_name, enemy_dist, chase_cap_inches, assigned_obj_id])
-				elif not unit_is_on_objective and alive_count_for_chase >= 10 and melee_battle_round <= 2 and enemy_dist > charge_range_inches:
-					if faction_aggression >= 1.5:
-						print("AIDecisionMaker: [HORDE-AGGRESSION] %s (horde %d models) advances toward %s (%.1f\" away, aggression=%.1f, round %d)" % [
-							unit_name, alive_count_for_chase, enemy_name, enemy_dist, faction_aggression, melee_battle_round])
-					else:
-						should_chase = false
-						print("AIDecisionMaker: [OBJ-PRIORITY] %s (horde %d models) prioritizes objective %s over chasing %s (%.1f\" > %.1f\" charge range, round %d)" % [
-							unit_name, alive_count_for_chase, assigned_obj_id, enemy_name, enemy_dist, charge_range_inches, melee_battle_round])
-				elif unit_is_on_objective and unit_objective_is_contested and melee_battle_round >= 2:
-					# Don't leave a contested objective — OC matters
-					should_chase = false
-					print("AIDecisionMaker: [OBJ-PRIORITY] %s stays on contested objective %s (round %d) instead of chasing %s (%.1f\" away)" % [
-						unit_name, assigned_obj_id, melee_battle_round, enemy_name, enemy_dist])
-				elif unit_is_on_objective and melee_battle_round >= 3 and enemy_dist > 14.0:
-					# Late game: don't abandon controlled objectives for distant enemies
-					should_chase = false
-					print("AIDecisionMaker: [OBJ-PRIORITY] %s holds objective %s late game (round %d) — enemy %s too far (%.1f\")" % [
-						unit_name, assigned_obj_id, melee_battle_round, enemy_name, enemy_dist])
-				elif assignment_action == "hold" and enemy_dist > charge_range_inches + move_inches_melee:
-					# Assigned to hold and enemy is beyond move+charge — stay put
-					# EXCEPTION: R1 aggressive factions — advance now to set up R2 charge
-					if melee_battle_round <= 1 and faction_aggression >= 1.5 and enemy_dist <= charge_range_inches + move_inches_melee + 6.0:
-						# Within advance+charge range — move toward enemy in R1 for next-turn charge
-						print("AIDecisionMaker: [R1-AGGRESSION] %s leaves hold to advance toward %s (%.1f\" away, R1 setup charge, aggression=%.1f)" % [
-							unit_name, enemy_name, enemy_dist, faction_aggression])
-					else:
-						should_chase = false
-						print("AIDecisionMaker: [OBJ-PRIORITY] %s holds as assigned — enemy %s beyond move+charge (%.1f\" > %.1f\")" % [
-							unit_name, enemy_name, enemy_dist, charge_range_inches + move_inches_melee])
-
-				if should_chase:
-					# Check if this unit can advance AND still charge (e.g. WAAAGH!, assault doctrine)
-					var can_advance_and_charge_flag = unit.get("flags", {}).get("effect_advance_and_charge", false)
-					if not can_advance_and_charge_flag:
-						can_advance_and_charge_flag = unit.get("flags", {}).get("effect_fall_back_and_charge", false) and false  # fall_back_and_charge != advance_and_charge
-					if not can_advance_and_charge_flag:
-						can_advance_and_charge_flag = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
-
-					# Only advance if normal move can't bring us into charge range,
-					# OR if we have advance+charge (no penalty). Advancing sets cannot_charge.
-					var dist_after_normal_move = enemy_dist - move_inches_melee
-					var in_charge_range_after_normal = dist_after_normal_move <= charge_range_inches
-					var should_advance_melee = false
-					if "BEGIN_ADVANCE" in move_types:
-						if can_advance_and_charge_flag:
-							should_advance_melee = true
-							print("AIDecisionMaker: [MELEE-ADVANCE+CHARGE] %s can advance and charge (flag set)" % unit_name)
-						elif not in_charge_range_after_normal:
-							should_advance_melee = true
-							print("AIDecisionMaker: [MELEE-ADVANCE-FAR] %s too far for normal+charge (%.1f\" - %.1f\"M = %.1f\" > 12\"), advancing" % [
-								unit_name, enemy_dist, move_inches_melee, dist_after_normal_move])
-						else:
-							print("AIDecisionMaker: [MELEE-NORMAL-CHARGE] %s normal move puts in charge range (%.1f\" - %.1f\"M = %.1f\" <= 12\"), preserving charge" % [
-								unit_name, enemy_dist, move_inches_melee, dist_after_normal_move])
-
-					if should_advance_melee:
-						var advance_dist = move_inches_melee + 2.0  # Average advance roll
-						var model_destinations_melee = _compute_movement_toward_target(
-							unit, unit_id, move_target, advance_dist, snapshot, enemies,
-							0.0, [], objectives  # No threat avoidance — melee units WANT to be close
-						)
-						if not model_destinations_melee.is_empty():
-							print("AIDecisionMaker: [MELEE-AGGRESSION] %s ADVANCES toward %s (%.1f\" away, effective=%.1f\", faction_aggression=%.1f)" % [
-								unit_name, enemy_name, enemy_dist, effective_dist, faction_aggression])
-							return {
-								"type": "BEGIN_ADVANCE",
-								"actor_unit_id": unit_id,
-								"_ai_model_destinations": model_destinations_melee,
-								"_ai_description": "%s advances aggressively toward %s (%.1f\" away)" % [unit_name, enemy_name, enemy_dist]
-							}
-
-					# Normal move toward enemy if we can't or shouldn't advance
-					if "BEGIN_NORMAL_MOVE" in move_types and melee_centroid != Vector2.INF:
-						var model_destinations_melee = _compute_movement_toward_target(
-							unit, unit_id, move_target, move_inches_melee, snapshot, enemies,
-							0.0, [], objectives  # No threat avoidance for melee aggression
-						)
-						if not model_destinations_melee.is_empty():
-							print("AIDecisionMaker: [MELEE-AGGRESSION] %s moves toward %s (%.1f\" away, effective=%.1f\", faction_aggression=%.1f)" % [
-								unit_name, enemy_name, enemy_dist, effective_dist, faction_aggression])
-							return {
-								"type": "BEGIN_NORMAL_MOVE",
-								"actor_unit_id": unit_id,
-								"_ai_model_destinations": model_destinations_melee,
-								"_ai_description": "%s moves aggressively toward %s (%.1f\" away)" % [unit_name, enemy_name, enemy_dist]
-							}
+		# --- ATTACK EXECUTION (COORD-4) ---
+		# The chase-vs-objective decision was made at PLAN time by the melee
+		# chase gate (see _melee_chase_gate / pass 2.5 in the assignment); here we
+		# just execute the announced attack. If the target has somehow vanished,
+		# fall back to the objective kept in the assignment.
+		if assignment_action == "attack":
+			var atk_target_id = assignment.get("attack_target_id", "")
+			var atk_target = enemies.get(atk_target_id, {})
+			var atk_centroid = _get_unit_centroid(atk_target) if not atk_target.is_empty() else Vector2.INF
+			var atk_unit_centroid = _get_unit_centroid(unit)
+			if atk_centroid == Vector2.INF or _get_alive_models(atk_target).is_empty():
+				_add_thinking_step("%s: attack target %s is gone — falling back to %s" % [
+					unit_name, assignment.get("attack_target_name", atk_target_id), assigned_obj_id])
+				assignment_action = "move"
+			elif atk_unit_centroid != Vector2.INF:
+				var atk_move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+				var atk_dist_inches = atk_unit_centroid.distance_to(atk_centroid) / PIXELS_PER_INCH
+				var atk_name = assignment.get("attack_target_name", atk_target_id)
+				var atk_reason = assignment.get("reason", "seeking melee")
+				if assignment.get("attack_advance", false) and "BEGIN_ADVANCE" in move_types:
+					var adv_dests = _compute_movement_toward_target(
+						unit, unit_id, atk_centroid, atk_move_inches + 2.0, snapshot, enemies,
+						0.0, [], objectives  # No threat avoidance — melee units WANT to be close
+					)
+					if not adv_dests.is_empty():
+						print("AIDecisionMaker: [MELEE-AGGRESSION] %s ADVANCES to attack %s (%.1f\" away)" % [
+							unit_name, atk_name, atk_dist_inches])
+						return {
+							"type": "BEGIN_ADVANCE",
+							"actor_unit_id": unit_id,
+							"_ai_model_destinations": adv_dests,
+							"_ai_description": "%s advances to attack %s (%.1f\" away — %s)" % [unit_name, atk_name, atk_dist_inches, atk_reason]
+						}
+				if "BEGIN_NORMAL_MOVE" in move_types:
+					var atk_dests = _compute_movement_toward_target(
+						unit, unit_id, atk_centroid, atk_move_inches, snapshot, enemies,
+						0.0, [], objectives  # No threat avoidance for melee aggression
+					)
+					if not atk_dests.is_empty():
+						print("AIDecisionMaker: [MELEE-AGGRESSION] %s moves to attack %s (%.1f\" away)" % [
+							unit_name, atk_name, atk_dist_inches])
+						return {
+							"type": "BEGIN_NORMAL_MOVE",
+							"actor_unit_id": unit_id,
+							"_ai_model_destinations": atk_dests,
+							"_ai_description": "%s moves to attack %s (%.1f\" away — %s)" % [unit_name, atk_name, atk_dist_inches, atk_reason]
+						}
+				# Could not compute an attack move — fall back to the objective
+				_add_thinking_step("%s: no valid path to attack %s — falling back to %s" % [unit_name, atk_name, assigned_obj_id])
+				assignment_action = "move"
 
 		# --- SCREEN MOVE toward denial/screening position (AI-TACTIC-3, MOV-4) ---
 		if assignment_action == "screen" and "BEGIN_NORMAL_MOVE" in move_types:
@@ -6098,6 +6348,35 @@ static func _evaluate_all_objectives(
 		var friendly_nearby = _count_units_near_position(obj_pos, friendly_units, CHARGE_RANGE_PX)
 		var enemy_nearby = _count_units_near_position(obj_pos, enemies, CHARGE_RANGE_PX)
 
+		# COORD-5: PROJECTED CONTEST PRESSURE — an "uncontrolled" objective sitting
+		# one move away from several enemy squads is not really free. Sum the OC of
+		# enemy units that can reach control range on their next move (M + ~2"
+		# slack, matching a cautious advance), excluding those already inside
+		# control range (counted in enemy_oc). Used to size how much OC we commit
+		# and to tell the player WHY the AI is massing units on a "free" objective.
+		var projected_enemy_oc = 0
+		var projected_names: Array = []
+		for e_uid in enemies:
+			var e_unit = enemies[e_uid]
+			if e_unit.get("flags", {}).get("battle_shocked", false):
+				continue
+			var e_status = e_unit.get("status", 0)
+			if e_status == GameStateData.UnitStatus.UNDEPLOYED or e_status == GameStateData.UnitStatus.IN_RESERVES:
+				continue
+			var e_oc = int(e_unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
+			if e_oc <= 0:
+				continue
+			var e_centroid = _get_unit_centroid(e_unit)
+			if e_centroid == Vector2.INF:
+				continue
+			var e_dist = e_centroid.distance_to(obj_pos)
+			if e_dist <= OBJECTIVE_CONTROL_RANGE_PX:
+				continue  # Already counted in enemy_oc
+			var e_move = float(e_unit.get("meta", {}).get("stats", {}).get("move", 6))
+			if e_dist <= (e_move + 2.0) * PIXELS_PER_INCH + OBJECTIVE_CONTROL_RANGE_PX:
+				projected_enemy_oc += e_oc
+				projected_names.append(e_unit.get("meta", {}).get("name", e_uid))
+
 		# Classify the objective state
 		var state = "uncontrolled"
 		if friendly_oc > 0 and friendly_oc > enemy_oc:
@@ -6259,18 +6538,26 @@ static func _evaluate_all_objectives(
 			"priority": priority,
 			"vp_value": vp_value,
 			"vp_sources": vp_result.sources,
-			"oc_needed": max(0, enemy_oc - friendly_oc + 1)  # OC we need to add to flip control
+			"oc_needed": max(0, enemy_oc - friendly_oc + 1),  # OC we need to add to flip control
+			"projected_enemy_oc": projected_enemy_oc,  # COORD-5: enemy OC one move away
+			"projected_names": projected_names
 		})
 
 	# Narrate the VP stakes once per evaluation (top objectives by VP), so the
-	# player sees WHAT the AI is playing for in mission terms.
+	# player sees WHAT the AI is playing for in mission terms. Also stash the
+	# line for the turn-intent card (the announced movement plan card leads
+	# with it, instead of it only appearing in the first acting unit's card).
 	if not vp_stake_notes.is_empty():
 		vp_stake_notes.sort_custom(func(a, b): return a.vp > b.vp)
 		var stake_parts: Array = []
 		for n in range(min(3, vp_stake_notes.size())):
 			var note = vp_stake_notes[n]
 			stake_parts.append("%s ~%.0f VP (%s)" % [note.id, note.vp, "; ".join(note.sources.slice(0, 2))])
-		_add_thinking_step("VP stakes this round (holding %d, enemy %d): %s" % [my_holds, their_holds, ", ".join(stake_parts)])
+		var stakes_line = "VP stakes this round (holding %d, enemy %d): %s" % [my_holds, their_holds, ", ".join(stake_parts)]
+		_last_vp_stakes_line = stakes_line
+		_add_thinking_step(stakes_line)
+	else:
+		_last_vp_stakes_line = ""
 
 	return evaluations
 
@@ -6290,15 +6577,30 @@ static func _assign_units_to_objectives(
 	var obj_oc_remaining = {}  # objective_id -> how much more OC is still needed there
 
 	# Initialize OC needs per objective
+	# COORD-5: the need is sized against PROJECTED contest, not just enemies
+	# already standing in control range — an empty objective one move from two
+	# enemy squads needs enough OC to survive the flip attempt, and committing
+	# a second unit there is deliberate reinforcement (narrated), not stacking.
+	var projected_need_cap = get_param_int("PROJECTED_NEED_CAP", PROJECTED_NEED_CAP)
 	for eval in obj_evaluations:
 		var obj_id = eval.id
+		var base_need := 0
 		if eval.state in ["held_safe"]:
-			obj_oc_remaining[obj_id] = 0  # Already fully held
+			base_need = 0  # Already fully held
 		elif eval.state == "held_threatened":
-			obj_oc_remaining[obj_id] = max(1, eval.enemy_oc)  # Might need reinforcement
+			base_need = max(1, eval.enemy_oc)  # Might need reinforcement
 		else:
 			# Need enough OC to control: enemy_oc + 1 (minus what we already have)
-			obj_oc_remaining[obj_id] = max(1, eval.oc_needed)
+			base_need = max(1, eval.oc_needed)
+		var projected_extra := 0
+		if eval.get("projected_enemy_oc", 0) > 0 and eval.state != "held_safe":
+			var projected_need = eval.projected_enemy_oc - eval.friendly_oc + 1
+			projected_extra = clampi(projected_need - base_need, 0, projected_need_cap)
+			if projected_extra > 0:
+				print("AIDecisionMaker: [COORD-5] %s: need %d -> %d (enemy can bring ~%d OC next move: %s)" % [
+					obj_id, base_need, base_need + projected_extra, eval.projected_enemy_oc,
+					", ".join(eval.get("projected_names", []).slice(0, 3))])
+		obj_oc_remaining[obj_id] = base_need + projected_extra
 
 	# =========================================================================
 	# COORD-2: INCOMING OC — account for friendly units that already took their
@@ -6732,10 +7034,24 @@ static func _assign_units_to_objectives(
 		# If multiple units on same held_safe objective, let extras move elsewhere
 
 		if should_hold:
-			assignments[uid] = cand
+			assignments[uid] = cand.duplicate()
 			assignments[uid]["action"] = "hold"
-			assignments[uid]["reason"] = "holding objective (OC: %d)" % cand.unit_oc
+			assignments[uid]["assign_pass"] = "hold"
+			# COORD-4: record why holding beats the raw scores (the decision card
+			# explains the override instead of looking like the AI mis-read numbers)
+			var hold_reason: String
+			var hold_eval = _get_obj_eval_by_id(obj_evaluations, oid)
+			if hold_eval.get("state", "") == "held_threatened":
+				hold_reason = "holding under threat (enemy OC %d nearby)" % hold_eval.get("enemy_oc", 0)
+			elif hold_eval.get("projected_enemy_oc", 0) > 0:
+				hold_reason = "holding (enemy can bring ~%d OC next move)" % hold_eval.get("projected_enemy_oc", 0)
+			elif units_on_obj.get(oid, 0) <= 1:
+				hold_reason = "sole holder — leaving would drop control"
+			else:
+				hold_reason = "holding objective (OC: %d)" % cand.unit_oc
+			assignments[uid]["reason"] = hold_reason
 			assigned_unit_ids[uid] = true
+			assignments[uid]["oc_consumed"] = min(cand.unit_oc, max(0, remaining))
 			obj_oc_remaining[oid] = max(0, remaining - cand.unit_oc)
 			# Decrease count so second unit on same obj can be freed
 			units_on_obj[oid] = units_on_obj.get(oid, 1) - 1
@@ -6749,6 +7065,37 @@ static func _assign_units_to_objectives(
 	# COORD-2: remember each unit's best candidate that was skipped because
 	# earlier movers already have it covered — so the redirect can be narrated.
 	var blocked_best = {}  # unit_id -> {objective_id, names}
+
+	# Shared capture-assignment applier (used by pass 2 and the COORD-4
+	# backfill pass after attack conversions re-open OC needs). Mutates the
+	# captured assignments / assigned_unit_ids / obj_oc_remaining dictionaries.
+	var apply_capture_assignment := func(cand: Dictionary) -> void:
+		var c_uid = cand.unit_id
+		var c_oid = cand.objective_id
+		var c_remaining = obj_oc_remaining.get(c_oid, 0)
+		assignments[c_uid] = cand.duplicate()
+		assigned_unit_ids[c_uid] = true
+		assignments[c_uid]["oc_consumed"] = min(cand.unit_oc, max(0, c_remaining))
+		obj_oc_remaining[c_oid] = max(0, c_remaining - cand.unit_oc)
+		# COORD-4/5: say WHY in board terms — capture vs flip vs reinforce — so
+		# both the plan block and the unit's decision card tell the real story.
+		var eval_for_assign = _get_obj_eval_by_id(obj_evaluations, c_oid)
+		var assign_reason: String = cand.reason
+		if cand.action in ["move", "advance"]:
+			var st = eval_for_assign.get("state", "")
+			var proj = eval_for_assign.get("projected_enemy_oc", 0)
+			if st in ["enemy_weak", "enemy_strong", "contested"]:
+				assign_reason = "flipping it (enemy holds with OC %d)" % eval_for_assign.get("enemy_oc", 0)
+			elif proj > 0:
+				assign_reason = "capturing it (enemy can bring ~%d OC next move)" % proj
+			else:
+				assign_reason = "capturing it (uncontrolled)"
+			if obj_oc_remaining[c_oid] > 0:
+				assign_reason += ", needs %d more OC after this unit" % obj_oc_remaining[c_oid]
+		assignments[c_uid]["reason"] = assign_reason
+		assignments[c_uid]["assign_pass"] = "capture"
+		print("AIDecisionMaker: Assigned %s to %s %s (score: %.1f, reason: %s)" % [c_uid, cand.action.to_upper(), c_oid, cand.score, assign_reason])
+
 	for cand in candidates:
 		var uid = cand.unit_id
 		var oid = cand.objective_id
@@ -6759,22 +7106,60 @@ static func _assign_units_to_objectives(
 		if remaining <= 0:
 			if incoming_oc.get(oid, 0) > 0 and not blocked_best.has(uid):
 				blocked_best[uid] = {"objective_id": oid, "names": incoming_names.get(oid, [])}
-			# Check if any other objective still needs units
-			var any_need = false
-			for other_oid in obj_oc_remaining:
-				if obj_oc_remaining[other_oid] > 0:
-					any_need = true
-					break
-			if not any_need:
-				# All objectives satisfied — assign to screen or best available
-				pass  # Fall through to pass 3
-
 			continue  # Skip objectives that don't need more OC
 
-		assignments[uid] = cand
-		assigned_unit_ids[uid] = true
-		obj_oc_remaining[oid] = max(0, remaining - cand.unit_oc)
-		print("AIDecisionMaker: Assigned %s to %s %s (score: %.1f, reason: %s)" % [uid, cand.action.to_upper(), oid, cand.score, cand.reason])
+		apply_capture_assignment.call(cand)
+
+	# =========================================================================
+	# PASS 2.5 (COORD-4): ATTACK-INTENT CONVERSION — melee seekers that would
+	# abandon their objective for a nearby enemy decide it HERE, at plan time,
+	# so (a) the plan announces the attack truthfully, and (b) the objective's
+	# OC need re-opens for pass 3 to backfill with another unit. Previously the
+	# seek override fired silently at execution: the objective kept looking
+	# "covered" to the planner while nobody was actually going there.
+	# =========================================================================
+	for uid in assignments.keys():
+		var a = assignments[uid]
+		if a.get("action", "") not in ["hold", "move", "advance"]:
+			continue
+		var a_unit = snapshot.get("units", {}).get(uid, {})
+		if a_unit.is_empty():
+			continue
+		var gate = _melee_chase_gate(a_unit, uid, a, enemies, friendly_units, snapshot, player)
+		if gate.is_empty():
+			continue
+		var a_oid = a.get("objective_id", "")
+		var reopened = int(a.get("oc_consumed", 0))
+		if reopened > 0 and obj_oc_remaining.has(a_oid):
+			obj_oc_remaining[a_oid] = obj_oc_remaining[a_oid] + reopened
+			print("AIDecisionMaker: [COORD-4] %s: OC need re-opened to %d (planned unit is attacking instead)" % [
+				a_oid, obj_oc_remaining[a_oid]])
+		var a_unit_name = a_unit.get("meta", {}).get("name", uid)
+		assignments[uid] = {
+			"objective_id": a_oid,  # kept as fallback if the target dies before this unit acts
+			"objective_pos": a.get("objective_pos", Vector2.INF),
+			"action": "attack",
+			"assign_pass": "attack",
+			"attack_target_id": gate.target_id,
+			"attack_target_name": gate.target_name,
+			"attack_advance": gate.advance,
+			"score": a.get("score", 0.0),
+			"reason": gate.reason,
+			"distance": gate.distance_inches * PIXELS_PER_INCH,
+			"unit_oc": a.get("unit_oc", 1),
+		}
+		print("AIDecisionMaker: [COORD-4] %s converted to ATTACK %s (%.1f\" away) — %s" % [
+			a_unit_name, gate.target_name, gate.distance_inches, gate.reason])
+
+	# COORD-4 backfill: OC needs re-opened by attack conversions get the next
+	# best still-unassigned unit, same greedy order as pass 2.
+	for cand in candidates:
+		if assigned_unit_ids.has(cand.unit_id):
+			continue
+		if obj_oc_remaining.get(cand.objective_id, 0) <= 0:
+			continue
+		apply_capture_assignment.call(cand)
+		assignments[cand.unit_id]["reason"] += " — backfilling for a unit that went hunting"
 
 	# PASS 3: Assign remaining units — screening / deep strike denial / support
 	# (AI-TACTIC-3, MOV-4) Check for enemy reserves to determine screening urgency
@@ -6837,6 +7222,20 @@ static func _assign_units_to_objectives(
 			return a_screen  # Screening candidates come first
 		return false  # Maintain original order otherwise
 	)
+
+	# COORD-4: shared support ledger — how many friendly units are already
+	# committed to each objective this phase (holds, captures, attack fallbacks
+	# don't count; incoming movers from earlier in the phase do). The support
+	# fallback applies diminishing returns against this so leftover units fan
+	# out instead of independently all picking the same most-attractive marker.
+	var support_counts := {}
+	for sc_uid in assignments:
+		var sc_oid = str(assignments[sc_uid].get("objective_id", ""))
+		var sc_action = str(assignments[sc_uid].get("action", ""))
+		if sc_oid.begins_with("obj") and sc_action in ["hold", "move", "advance"]:
+			support_counts[sc_oid] = support_counts.get(sc_oid, 0) + 1
+	for inc_oid in incoming_names:
+		support_counts[inc_oid] = support_counts.get(inc_oid, 0) + incoming_names[inc_oid].size()
 
 	var denial_idx = 0  # Track which denial position to assign next
 	var block_idx = 0   # T7-42: Track which corridor blocking position to assign next
@@ -6944,11 +7343,16 @@ static func _assign_units_to_objectives(
 					unit_name, block_pos.x, block_pos.y, block.reason])
 				continue
 
-		# --- FALLBACK: Assign to best remaining objective (original behavior) ---
-		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player)
+		# --- FALLBACK: Assign to best remaining objective (COORD-4: with the
+		# shared support ledger so spare units spread instead of stacking) ---
+		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player, support_counts)
 		if not best_obj.is_empty():
 			assignments[unit_id] = best_obj
+			assignments[unit_id]["assign_pass"] = "support"
 			assigned_unit_ids[unit_id] = true
+			var bo_oid = str(best_obj.get("objective_id", ""))
+			if bo_oid.begins_with("obj"):
+				support_counts[bo_oid] = support_counts.get(bo_oid, 0) + 1
 			print("AIDecisionMaker: Assigned %s to %s %s (support/screen)" % [unit_id, best_obj.action.to_upper(), best_obj.objective_id])
 		else:
 			# Truly nothing useful — remain stationary
@@ -8319,14 +8723,18 @@ static func _get_obj_eval_by_id(evaluations: Array, obj_id: String) -> Dictionar
 
 static func _find_best_remaining_objective(
 	centroid: Vector2, obj_evaluations: Array, enemies: Dictionary,
-	unit: Dictionary, snapshot: Dictionary, player: int
+	unit: Dictionary, snapshot: Dictionary, player: int, support_counts: Dictionary = {}
 ) -> Dictionary:
-	# For unassigned units: find the best objective to support or screen near
+	# For unassigned units: find the best objective to support or screen near.
+	# COORD-4: support_counts (obj_id -> units already committed there this
+	# phase) applies diminishing returns so spare units spread across markers
+	# instead of every one of them independently picking the same "best" one.
 	var best_score = -INF
 	var best = {}
 	var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
 	var has_ranged = _unit_has_ranged_weapons(unit)
+	var stack_penalty = get_param("SUPPORT_STACK_PENALTY", SUPPORT_STACK_PENALTY)
 
 	for eval in obj_evaluations:
 		var dist = centroid.distance_to(eval.position)
@@ -8348,10 +8756,17 @@ static func _find_best_remaining_objective(
 		if has_ranged and eval.enemy_nearby > 0:
 			score += 1.5
 
+		# COORD-4: diminishing returns per unit already committed there
+		var committed = int(support_counts.get(eval.id, 0))
+		if committed > 0:
+			score -= float(committed) * stack_penalty
+
 		if score > best_score:
 			best_score = score
 			var action = "move"
 			var reason = "supporting nearby objective"
+			if committed > 0:
+				reason = "reinforcing %s (%d unit%s already committed)" % [eval.id, committed, "" if committed == 1 else "s"]
 			if dist <= OBJECTIVE_CONTROL_RANGE_PX:
 				action = "hold"
 				reason = "already at objective"
@@ -8514,7 +8929,7 @@ static func _compute_movement_toward_target(
 
 	# Try the full move first, then progressively shorter moves
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	DebugLogger.info("AI_MOVE_DEBUG %s: centroid=(%.0f,%.0f) target=(%.0f,%.0f) move_px=%.1f safe_move_px=%.1f final_vec_len=%.1f" % [
+	_debug_log_info("AI_MOVE_DEBUG %s: centroid=(%.0f,%.0f) target=(%.0f,%.0f) move_px=%.1f safe_move_px=%.1f final_vec_len=%.1f" % [
 		unit_name, centroid.x, centroid.y, target_pos.x, target_pos.y, move_px, safe_move_px, final_move_vector.length()])
 	var fractions_to_try = [1.0, 0.75, 0.5, 0.25, 0.15, 0.1]
 	for fraction in fractions_to_try:
@@ -8534,12 +8949,12 @@ static func _compute_movement_toward_target(
 					var d = orig.distance_to(Vector2(destinations[mid][0], destinations[mid][1]))
 					if d > max_dist:
 						max_dist = d
-			DebugLogger.info("AI_MOVE_DEBUG %s: returning %d dests, fraction=%.2f, max_dist=%.1fpx (%.1fin), cap=%.1fpx" % [
+			_debug_log_info("AI_MOVE_DEBUG %s: returning %d dests, fraction=%.2f, max_dist=%.1fpx (%.1fin), cap=%.1fpx" % [
 				unit_name, destinations.size(), fraction, max_dist, max_dist / PIXELS_PER_INCH, safe_move_px])
 			return destinations
 
 	# Individual placement failed at all fractions — try formation move (maintains spacing)
-	DebugLogger.info("AI_MOVE_DEBUG %s: individual placement failed, trying formation move" % [unit_name])
+	_debug_log_info("AI_MOVE_DEBUG %s: individual placement failed, trying formation move" % [unit_name])
 	for fraction in fractions_to_try:
 		var try_vector = final_move_vector * fraction
 		var destinations = _try_formation_move(
@@ -8555,14 +8970,14 @@ static func _compute_movement_toward_target(
 					var d = orig.distance_to(Vector2(destinations[mid][0], destinations[mid][1]))
 					if d > max_dist:
 						max_dist = d
-			DebugLogger.info("AI_MOVE_DEBUG %s: formation move succeeded, fraction=%.2f, max_dist=%.1fpx (%.1fin)" % [
+			_debug_log_info("AI_MOVE_DEBUG %s: formation move succeeded, fraction=%.2f, max_dist=%.1fpx (%.1fin)" % [
 				unit_name, fraction, max_dist, max_dist / PIXELS_PER_INCH])
 			return destinations
 
 	# All fractions failed in the original direction — try alternate angles
 	# This helps large bases (Ghazghkull's 100mm) navigate around dense formations
 	var alt_angles = [deg_to_rad(45), deg_to_rad(-45), deg_to_rad(90), deg_to_rad(-90)]
-	DebugLogger.info("AI_MOVE_DEBUG %s: trying %d alternate angles" % [unit_name, alt_angles.size()])
+	_debug_log_info("AI_MOVE_DEBUG %s: trying %d alternate angles" % [unit_name, alt_angles.size()])
 	for angle in alt_angles:
 		var rotated_vector = final_move_vector.rotated(angle)
 		for fraction in [0.75, 0.25]:
@@ -8580,14 +8995,14 @@ static func _compute_movement_toward_target(
 						var d = orig.distance_to(Vector2(destinations[mid][0], destinations[mid][1]))
 						if d > max_dist:
 							max_dist = d
-				DebugLogger.info("AI_MOVE_DEBUG %s: alternate angle %.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
+				_debug_log_info("AI_MOVE_DEBUG %s: alternate angle %.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
 					unit_name, rad_to_deg(angle), fraction, max_dist, max_dist / PIXELS_PER_INCH])
 				return destinations
 
 	# Relaxed collision modes — progressively more permissive
 	# Level 1: 0.85x radius, forward + side angles, coarse fractions
 	var level1_angles = [0.0, deg_to_rad(45), deg_to_rad(-45), deg_to_rad(90), deg_to_rad(-90)]
-	DebugLogger.info("AI_MOVE_DEBUG %s: trying relaxed collision (0.85x radius)" % [unit_name])
+	_debug_log_info("AI_MOVE_DEBUG %s: trying relaxed collision (0.85x radius)" % [unit_name])
 	for angle in level1_angles:
 		var base_vec = final_move_vector if angle == 0.0 else final_move_vector.rotated(angle)
 		for fraction in [0.5, 0.25, 0.1]:
@@ -8605,14 +9020,14 @@ static func _compute_movement_toward_target(
 						var d = orig.distance_to(Vector2(destinations[mid][0], destinations[mid][1]))
 						if d > max_dist:
 							max_dist = d
-				DebugLogger.info("AI_MOVE_DEBUG %s: relaxed 0.85x angle=%.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
+				_debug_log_info("AI_MOVE_DEBUG %s: relaxed 0.85x angle=%.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
 					unit_name, rad_to_deg(angle), fraction, max_dist, max_dist / PIXELS_PER_INCH])
 				return destinations
 
 	# Level 2: 0.7x radius, all angles including backward
 	var level2_angles = [0.0, deg_to_rad(45), deg_to_rad(-45), deg_to_rad(90), deg_to_rad(-90),
 		deg_to_rad(135), deg_to_rad(-135), deg_to_rad(180)]
-	DebugLogger.info("AI_MOVE_DEBUG %s: trying relaxed collision (0.70x radius)" % [unit_name])
+	_debug_log_info("AI_MOVE_DEBUG %s: trying relaxed collision (0.70x radius)" % [unit_name])
 	for angle in level2_angles:
 		var base_vec = final_move_vector if angle == 0.0 else final_move_vector.rotated(angle)
 		for fraction in [0.5, 0.25, 0.1]:
@@ -8630,12 +9045,12 @@ static func _compute_movement_toward_target(
 						var d = orig.distance_to(Vector2(destinations[mid][0], destinations[mid][1]))
 						if d > max_dist:
 							max_dist = d
-				DebugLogger.info("AI_MOVE_DEBUG %s: relaxed 0.70x angle=%.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
+				_debug_log_info("AI_MOVE_DEBUG %s: relaxed 0.70x angle=%.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
 					unit_name, rad_to_deg(angle), fraction, max_dist, max_dist / PIXELS_PER_INCH])
 				return destinations
 
 	# Level 3: 0.5x radius — last resort for any unit stuck in congestion
-	DebugLogger.info("AI_MOVE_DEBUG %s: trying relaxed collision (0.50x radius, base %dmm)" % [unit_name, base_mm])
+	_debug_log_info("AI_MOVE_DEBUG %s: trying relaxed collision (0.50x radius, base %dmm)" % [unit_name, base_mm])
 	for angle in [0.0, deg_to_rad(30), deg_to_rad(-30), deg_to_rad(60), deg_to_rad(-60),
 			deg_to_rad(90), deg_to_rad(-90), deg_to_rad(135), deg_to_rad(-135), deg_to_rad(180)]:
 		var base_vec = final_move_vector if angle == 0.0 else final_move_vector.rotated(angle)
@@ -8654,11 +9069,11 @@ static func _compute_movement_toward_target(
 						var d = orig.distance_to(Vector2(destinations[mid][0], destinations[mid][1]))
 						if d > max_dist:
 							max_dist = d
-				DebugLogger.info("AI_MOVE_DEBUG %s: relaxed 0.50x angle=%.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
+				_debug_log_info("AI_MOVE_DEBUG %s: relaxed 0.50x angle=%.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
 					unit_name, rad_to_deg(angle), fraction, max_dist, max_dist / PIXELS_PER_INCH])
 				return destinations
 
-	DebugLogger.info("AI_MOVE_DEBUG %s: all relaxed modes failed" % [unit_name])
+	_debug_log_info("AI_MOVE_DEBUG %s: all relaxed modes failed" % [unit_name])
 	return {}
 
 static func _find_unblocked_move_enhanced(
@@ -9290,7 +9705,7 @@ static func _try_move_with_collision_check(
 	)
 
 	var _unit_name = unit.get("meta", {}).get("name", "")
-	DebugLogger.info("INTRA_OBSTACLE_DEBUG %s: built %d intra-unit obstacles, %d deployed, move_cap=%.0f" % [
+	_debug_log_info("INTRA_OBSTACLE_DEBUG %s: built %d intra-unit obstacles, %d deployed, move_cap=%.0f" % [
 		_unit_name, intra_unit_obstacles.size(), deployed_models.size(), move_cap_px])
 
 	for model in sorted_models:
@@ -9337,7 +9752,7 @@ static func _try_move_with_collision_check(
 
 		if not needs_resolve and _position_collides_with_deployed(dest, base_mm, all_obstacles, 1.0, base_type, base_dimensions, radius_factor):
 			needs_resolve = true
-			DebugLogger.info("INTRA_OBSTACLE_DEBUG %s.%s dest (%.0f,%.0f) collides (intra=%d, placed=%d, deployed=%d)" % [
+			_debug_log_info("INTRA_OBSTACLE_DEBUG %s.%s dest (%.0f,%.0f) collides (intra=%d, placed=%d, deployed=%d)" % [
 				_unit_name, model_id, dest.x, dest.y, intra_unit_obstacles.size(), placed_models.size(), deployed_models.size()])
 
 		# SOAK-4: ending on a wall is always rejected by the engine — resolve now
@@ -9356,7 +9771,7 @@ static func _try_move_with_collision_check(
 			)
 			if resolved_dest == Vector2.INF:
 				failed_models.append({"model": model, "intended_dest": dest})
-				DebugLogger.info("INTRA_OBSTACLE_DEBUG %s.%s FAILED to resolve collision" % [_unit_name, model_id])
+				_debug_log_info("INTRA_OBSTACLE_DEBUG %s.%s FAILED to resolve collision" % [_unit_name, model_id])
 				# Re-add to intra_unit_obstacles — this model stays at its original
 				# position, so subsequent models must still avoid it.
 				intra_unit_obstacles.append({
@@ -9369,7 +9784,7 @@ static func _try_move_with_collision_check(
 				var bailout_threshold = 0.6 if sorted_models.size() > 6 else 0.4
 				var min_failures = 5 if sorted_models.size() > 6 else 3
 				if failed_models.size() >= min_failures and float(failed_models.size()) / float(sorted_models.size()) > bailout_threshold:
-					DebugLogger.info("INTRA_OBSTACLE_DEBUG %s: early bailout — %d/%d models failed (>%.0f%%)" % [
+					_debug_log_info("INTRA_OBSTACLE_DEBUG %s: early bailout — %d/%d models failed (>%.0f%%)" % [
 						_unit_name, failed_models.size(), sorted_models.size(), bailout_threshold * 100])
 					return {}
 				continue
@@ -11307,6 +11722,17 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 
 	# Fire Overwatch: Evaluate whether to fire overwatch during opponent's charge
 	if action_types.has("USE_FIRE_OVERWATCH") or action_types.has("DECLINE_FIRE_OVERWATCH"):
+		# The overwatch window belongs to the DEFENDER, never the active
+		# player. AIPlayer acts as the window owner when that owner is an AI;
+		# refuse a mismatched window rather than answer it with the wrong
+		# identity (hijacking a human's reaction or failing validation).
+		var ow_window_player = player
+		if action_types.has("USE_FIRE_OVERWATCH"):
+			ow_window_player = action_types["USE_FIRE_OVERWATCH"][0].get("player", player)
+		elif action_types.has("DECLINE_FIRE_OVERWATCH"):
+			ow_window_player = action_types["DECLINE_FIRE_OVERWATCH"][0].get("player", player)
+		if int(ow_window_player) != int(player):
+			return {}
 		var ow_actions = action_types.get("USE_FIRE_OVERWATCH", [])
 		if not ow_actions.is_empty():
 			# Build eligible units list from available actions
@@ -11348,6 +11774,14 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 		elif action_types.has("DECLINE_HEROIC_INTERVENTION"):
 			hi_player = action_types["DECLINE_HEROIC_INTERVENTION"][0].get("player", player)
 
+		# The HI window belongs to the DEFENDER, never the active player.
+		# Refuse to answer another player's window: deciding it here used to
+		# hijack the human defender's reaction (evaluate the human's units,
+		# submit as the AI, fail validation, then force-DECLINE the window).
+		# AIPlayer acts as the window owner when that owner is an AI.
+		if int(hi_player) != int(player):
+			return {}
+
 		var hi_decision = evaluate_heroic_intervention(hi_player, charging_unit_id, snapshot)
 		if hi_decision.get("type", "") == "USE_HEROIC_INTERVENTION":
 			hi_decision["player"] = hi_player
@@ -11372,6 +11806,10 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 	# --- Step 0b: Apply Heroic Intervention movement if pending ---
 	if action_types.has("APPLY_HEROIC_INTERVENTION_MOVE"):
 		var a = action_types["APPLY_HEROIC_INTERVENTION_MOVE"][0]
+		# Same ownership rule as the HI decision window: never move another
+		# player's Heroic Intervention unit.
+		if int(a.get("player", player)) != int(player):
+			return {}
 		var uid = a.get("actor_unit_id", "")
 		var rolled_distance = a.get("rolled_distance", 0)
 		var target_ids = a.get("target_ids", [])
@@ -15964,6 +16402,9 @@ static func _assess_action_mission(units: Dictionary, player: int) -> float:
 	"""Generic assessment for action-based missions (Establish Locus, Cleanse, Deploy Teleport Homer).
 	These require performing actions during the shooting phase. The AI can perform these actions
 	by giving up shooting with a unit in a qualifying position."""
+	# No units means nobody can perform the action — flatly impossible.
+	if _count_alive_units_for_player(units, player) == 0:
+		return 0.0
 	# AI can now perform shooting-phase actions — moderate achievability
 	# Depends on having units in scoring positions (near center, in opponent zone, near objectives)
 	return 0.65  # Moderate achievability — AI can perform these if positioned well

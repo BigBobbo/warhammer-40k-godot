@@ -38,6 +38,17 @@ var _auto_assign_logged: bool = false  # Prevent duplicate auto-assign log messa
 # selection (single eligible target) do NOT set it — the click-to-switch
 # confirmation dialog only guards player-staged work.
 var _manual_assignment_made: bool = false
+# Reentrancy guard: resync_from_phase() refreshes the weapon tree, and the
+# tree auto-assigns single eligible targets, which EMITS an ASSIGN_TARGET. If
+# the phase rejects it (UI/phase eligibility disagreement, e.g. LoS), Main's
+# reject handler calls resync_from_phase() again -> refresh -> auto-assign ->
+# reject -> ... a synchronous cycle that overflowed the stack in AI games.
+# While resyncing, auto-assign renders but does not emit.
+var _in_resync: bool = false
+# Single-target auto-assignments queued during _refresh_weapon_tree, emitted
+# via call_deferred once the render loop is done (see comment at the queue
+# site — emitting mid-loop caused use-after-free on the tree's items).
+var _pending_auto_assigns: Array = []
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
 var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
 var active_allocation_overlay: Control = null  # WoundAllocationOverlay (10e) or AllocationGroupOverlay (11e)
@@ -274,10 +285,12 @@ func _exit_tree() -> void:
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
 
-	# Clean up LoS debug visualization
+	# Clean up LoS debug drawings but do NOT free the node — it is the
+	# persistent BoardRoot layer shared with Main's phase-independent L
+	# overlay (2026-07-12); freeing it here is what used to kill the L key
+	# for the rest of the game.
 	if los_debug_visual and is_instance_valid(los_debug_visual):
 		los_debug_visual.clear_all_debug_visuals()
-		los_debug_visual.queue_free()
 
 	# T5-MP3: Clean up shooting lines container
 	if shooting_lines_container and is_instance_valid(shooting_lines_container):
@@ -326,11 +339,17 @@ func _create_shooting_visuals() -> void:
 	los_visual.clear_points()
 	board_root.add_child(los_visual)
 	
-	# Create LoS debug visualization
-	los_debug_visual = preload("res://scripts/LoSDebugVisual.gd").new()
-	los_debug_visual.name = "LoSDebugVisual"
-	board_root.add_child(los_debug_visual)
-	print("ShootingController: Added LoS debug visualization")
+	# LoS debug visualization — reuse the persistent BoardRoot node Main
+	# creates (2026-07-12) so the L overlay works outside the shooting phase
+	# too; only create one here if it is somehow missing.
+	los_debug_visual = board_root.get_node_or_null("LoSDebugVisual")
+	if los_debug_visual:
+		print("ShootingController: Reusing persistent LoS debug visualization")
+	else:
+		los_debug_visual = preload("res://scripts/LoSDebugVisual.gd").new()
+		los_debug_visual.name = "LoSDebugVisual"
+		board_root.add_child(los_debug_visual)
+		print("ShootingController: Added LoS debug visualization")
 	
 	# Create range visualization node
 	range_visual = Node2D.new()
@@ -826,6 +845,8 @@ func resync_from_phase() -> void:
 	if not current_phase or not current_phase is ShootingPhase:
 		return
 
+	_in_resync = true
+
 	var phase_active: String = current_phase.active_shooter_id
 
 	if phase_active == "":
@@ -848,6 +869,7 @@ func resync_from_phase() -> void:
 		# auto_select=false: after a rejection, don't immediately re-drive a
 		# selection (which could re-reject and loop) — let the player choose.
 		_refresh_unit_list(false)
+		_in_resync = false
 		return
 
 	# The phase DOES have an active shooter — mirror it. If the controller had
@@ -868,6 +890,7 @@ func resync_from_phase() -> void:
 	_refresh_shooter_status()
 	_update_ui_state()
 	_refresh_unit_list(false)
+	_in_resync = false
 
 func _refresh_unit_list(auto_select: bool = true) -> void:
 	if not unit_selector:
@@ -1014,6 +1037,8 @@ func _refresh_weapon_tree() -> void:
 	if not weapon_tree or active_shooter_id == "":
 		return
 
+	# A fresh render supersedes any auto-assigns queued by a previous one
+	_pending_auto_assigns.clear()
 	weapon_tree.clear()
 	# T5-UX1: Hide damage preview when weapon tree is refreshed
 	_hide_damage_preview()
@@ -1184,8 +1209,17 @@ func _refresh_weapon_tree() -> void:
 				weapon_item.set_custom_color(1, Color(0.5, 0.85, 0.5))
 				weapon_item.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
 
-				# Auto-assign this target (log message shown once after loop)
-				_auto_assign_target(weapon_id, only_target_id)
+				# Auto-assign this target — DEFERRED. Emitting ASSIGN_TARGET here
+				# routes an action through the whole engine + UI stack while THIS
+				# loop is iterating live TreeItems; any handler that refreshes the
+				# tree (targets_available, resync-on-reject) frees them under our
+				# feet — observed as 'previously freed' errors and a segfault in
+				# create_item (benchmark seed 2001). Queue it; flush after the
+				# render completes, one clean stack per assignment. Never queue
+				# from a resync-driven refresh: a rejected auto-assign resyncs,
+				# and re-queueing there would livelock reject->resync->assign.
+				if not _in_resync:
+					_pending_auto_assigns.append([weapon_id, only_target_id, active_shooter_id])
 			else:
 				weapon_item.set_text(1, "(Click to Select)")
 				weapon_item.set_custom_color(1, Color(0.6, 0.6, 0.6, 0.7))
@@ -1196,6 +1230,12 @@ func _refresh_weapon_tree() -> void:
 	# If only one weapon type is usable (not disabled), auto-select it in the tree
 	# so the player can directly click on enemy units without selecting the weapon first
 	_try_auto_select_single_weapon()
+
+	# Flush queued single-target auto-assigns AFTER the tree finished rendering
+	# (deferred: each assignment routes through the full action pipeline and
+	# must not run inside this function's TreeItem loop).
+	if not _pending_auto_assigns.is_empty():
+		call_deferred("_flush_pending_auto_assigns")
 
 func _try_auto_select_single_weapon() -> void:
 	"""T5-UX2: If unit has only one usable weapon type, auto-select it in the weapon tree.
@@ -4992,8 +5032,25 @@ func _refresh_weapon_row_split_text(weapon_id: String) -> void:
 			return
 		child = child.get_next()
 
+func _flush_pending_auto_assigns() -> void:
+	"""Deferred worker for the auto-assigns queued during _refresh_weapon_tree.
+	Runs on idle with the render loop long finished — each ASSIGN_TARGET gets a
+	clean stack and any UI refresh it triggers cannot free live TreeItems."""
+	var entries = _pending_auto_assigns
+	_pending_auto_assigns = []
+	for e in entries:
+		if e.size() < 3 or str(e[2]) != active_shooter_id:
+			continue  # Shooter changed since the refresh that queued this
+		_auto_assign_target(str(e[0]), str(e[1]))
+
 func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 	"""Auto-assign a target to a weapon (used when only one eligible target exists)"""
+	if _in_resync:
+		# Rebuilding the UI from the phase after a rejection — re-emitting the
+		# assignment here is what caused the reject->resync->auto-assign
+		# stack-overflow loop. Render only; the player (or AI action) assigns.
+		print("ShootingController: suppressing auto-assign of %s -> %s during resync" % [weapon_id, target_id])
+		return
 	# Mark as assigned
 	weapon_assignments[weapon_id] = target_id
 

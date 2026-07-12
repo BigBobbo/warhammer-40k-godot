@@ -9173,7 +9173,7 @@ static func validate_charge_paths(unit_id: String, targets: Array, roll: int, pa
 		auto_fix_suggestions.append("Move models closer together to maintain coherency")
 
 	# 5. Validate base-to-base if possible
-	var base_to_base_validation = _validate_base_to_base_possible_rules(unit_id, paths, targets, board, roll)
+	var base_to_base_validation = validate_base_to_base_possible_rules(unit_id, paths, targets, board, roll)
 	if not base_to_base_validation.valid:
 		errors.append_array(base_to_base_validation.errors)
 		auto_fix_suggestions.append("Move models to achieve base-to-base contact when possible")
@@ -9555,7 +9555,7 @@ static func _validate_unit_coherency_for_charge_rules(unit_id: String, per_model
 # all-target coverage — MUST do so. Base-to-base contact (0") over-satisfies the
 # 1" band and is what the UI snap assist places models at. Function name kept for
 # call-site stability; it now enforces "within 1 inch", not literal base contact.
-static func _validate_base_to_base_possible_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary, rolled_distance: int = 0) -> Dictionary:
+static func validate_base_to_base_possible_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary, rolled_distance: int = 0) -> Dictionary:
 	var errors = []
 	var units = board.get("units", {})
 	var unit = units.get(unit_id, {})
