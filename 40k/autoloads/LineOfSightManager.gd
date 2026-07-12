@@ -30,10 +30,14 @@ func _ready() -> void:
 	print("[LineOfSightManager] Initialized - Hold 'G' to check what can see the cursor position")
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey:
-		if event.keycode == KEY_G:
+	if event is InputEventKey and not event.echo:
+		# Hold-to-check line of sight (rebindable: los_check, default G).
+		# Press (with exact modifiers) starts; any release ends so it can't stick on.
+		var _key: int = KeybindingManager.get_binding("los_check").get("key", 0)
+		if _key != 0 and event.keycode == _key:
 			if event.pressed:
-				start_los_calculation()
+				if KeybindingManager.matches_action(event, "los_check"):
+					start_los_calculation()
 			else:
 				end_los_calculation()
 	elif event is InputEventMouseMotion and is_calculating:
