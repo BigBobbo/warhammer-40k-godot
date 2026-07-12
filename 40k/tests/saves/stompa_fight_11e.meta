@@ -1,0 +1,24 @@
+{
+	"created_at": 1777928072.0,
+	"game_state": {
+		"active_player": 2,
+		"game_id": "stompa-fight-11e",
+		"is_multiplayer": false,
+		"phase": 9,
+		"player1_difficulty": 1,
+		"player1_type": "AI",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 4
+	},
+	"preview": {
+		"battle_round": 4.0,
+		"players": {}
+	},
+	"save_info": {
+		"description": "Stompa fight 11e regression fixture",
+		"save_type": "manual",
+		"tags": []
+	},
+	"version": "1.1.0"
+}

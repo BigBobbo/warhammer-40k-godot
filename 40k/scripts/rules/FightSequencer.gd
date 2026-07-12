@@ -112,6 +112,34 @@ func next_selection(board: Dictionary) -> Dictionary:
 	return {"done": true, "player": 0, "step": step, "candidates": []}
 
 
+## Pure preview of next_selection(): who would select next, and from which
+## candidates — WITHOUT advancing picker/step. get_available_actions polls
+## this every UI/AI refresh, so the poll must not mutate alternation state;
+## the walk is re-derived from (picker, step) + board each call and always
+## converges to the same answer next_selection() would return.
+func peek_selection(board: Dictionary) -> Dictionary:
+	var p := picker
+	var s := step
+	while true:
+		if s == "fights_first":
+			var mine = eligible_units(board, p, true)
+			if not mine.is_empty():
+				return {"done": false, "player": p, "step": s, "candidates": mine}
+			var theirs = eligible_units(board, _other(p), true)
+			if not theirs.is_empty():
+				return {"done": false, "player": _other(p), "step": s, "candidates": theirs}
+			s = "remaining"
+		else:
+			var mine = eligible_units(board, p, false)
+			if not mine.is_empty():
+				return {"done": false, "player": p, "step": s, "candidates": mine}
+			var theirs = eligible_units(board, _other(p), false)
+			if not theirs.is_empty():
+				return {"done": false, "player": _other(p), "step": s, "candidates": theirs}
+			return {"done": true, "player": 0, "step": s, "candidates": []}
+	return {"done": true, "player": 0, "step": s, "candidates": []}
+
+
 ## Mark the unit as selected to fight and report its available fight
 ## types (12.05/12.06): {fight_types: Array, fight_type: String}.
 ## Alternation passes to the other player (12.04).

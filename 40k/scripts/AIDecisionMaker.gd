@@ -13543,14 +13543,24 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 
 	# Step 4: If we need to select a fighter, select one
 	# T7-46: Use fight order optimization to pick the best unit to activate first
-	if action_types.has("SELECT_FIGHTER"):
-		var offered_action = action_types["SELECT_FIGHTER"][0]
+	# 2026-07-12: only consider offers addressed to the player we are evaluating
+	# for — 11e offers carry the sequencer's picking player. When the pending
+	# selection belongs to the opponent (a human mid-alternation), submitting
+	# their unit as ours fails validation and the failure fallback used to end
+	# the whole fight phase. Offers without a player field (10e legacy queue)
+	# pass through unchanged.
+	var my_select_offers: Array = []
+	for ofa_check in action_types.get("SELECT_FIGHTER", []):
+		if int(ofa_check.get("player", player)) == player:
+			my_select_offers.append(ofa_check)
+	if not my_select_offers.is_empty():
+		var offered_action = my_select_offers[0]
 		var offered_uid = offered_action.get("unit_id", "")
 		# SOAK-3: all unit ids actually offered — the engine may offer exactly
 		# one (the sequenced unit); a plan pick outside this set gets rejected
 		# and the failure fallback ends the whole fight phase.
 		var offered_ids: Array = []
-		for ofa in action_types["SELECT_FIGHTER"]:
+		for ofa in my_select_offers:
 			var ouid = ofa.get("unit_id", "")
 			if ouid != "":
 				offered_ids.append(ouid)
