@@ -154,7 +154,13 @@ func test_objective_evaluation_held_safe():
 	var evals = AIDecisionMaker._evaluate_all_objectives(snapshot, objectives, 2, enemies, friendlies, 1)
 	var home_eval = _find_eval(evals, "obj_home_2")
 	_assert(home_eval.state == "held_safe", "Home objective held safe (state=%s)" % home_eval.state)
-	_assert(home_eval.priority < 0, "Held safe objective has low priority (%.1f)" % home_eval.priority)
+	# Held-safe must rank BELOW an uncontrolled objective so spare units grab
+	# new ground first. The old `priority < 0` pin broke every time the held
+	# weight was retuned (-8.0 -> -3.0 plus retention bonuses); the relative
+	# ordering is the actual design intent and survives tuning.
+	var center_uncontrolled = _find_eval(evals, "obj_center")
+	_assert(home_eval.priority < center_uncontrolled.priority,
+		"Held safe (%.1f) ranks below uncontrolled (%.1f)" % [home_eval.priority, center_uncontrolled.priority])
 
 func test_objective_evaluation_contested():
 	print("\n--- test_objective_evaluation_contested ---")
@@ -440,40 +446,47 @@ func test_movement_toward_assigned_objective():
 
 func test_hold_for_shooting_enemies_in_range():
 	print("\n--- test_hold_for_shooting_enemies_in_range ---")
-	# Ranged unit with enemy in weapon range, objective is far away
-	# Should remain stationary to maintain shooting capability
+	# _should_hold_for_shooting contract (T7-14 era, still current):
+	#   * moving that KEEPS at least one target in weapon range -> move
+	#     (move-and-shoot strictly beats castling)
+	#   * moving that would LOSE every target, toward a low-priority objective
+	#     more than a turn away -> hold and shoot
+	# The old end-to-end version of this test pinned pre-T7-14 castling
+	# behavior ("hold whenever enemies are in range"), which the AI
+	# deliberately no longer does.
 	var snapshot = _create_test_snapshot()
-	snapshot.battle_round = 3  # Not round 1 (no urgency to rush forward)
+	snapshot.battle_round = 3
 
-	# Place one unit holding home so it doesn't interfere
-	_add_unit(snapshot, "u_home", 2, Vector2(880, 2160), "Home Holder", 2, 6, 5, ["INFANTRY"], [])
-
-	# Ranged unit at y=1600, enemy at y=1000 = 600px = 15" (within 24" range)
-	# Nearest objective is obj_nml_2 at (1360, 1680) or obj_center at (880, 1200)
 	_add_unit(snapshot, "u1", 2, Vector2(880, 1600), "Shooty Boyz", 2, 6, 5, ["INFANTRY"], [
 		{"name": "Bolt rifle", "type": "Ranged", "range": "24", "attacks": "2", "skill": "3",
 		 "strength": "4", "ap": "1", "damage": "1", "keywords": []}
 	])
+	var unit = snapshot.units["u1"]
+	var centroid = AIDecisionMaker._get_unit_centroid(unit)
+
+	# Case 1: enemy 15" ahead; objective further along the same axis. Moving
+	# 6" toward it keeps the enemy well inside 24" -> should NOT hold.
 	_add_unit(snapshot, "e1", 1, Vector2(880, 1000), "Enemy Guard", 2, 6, 5, ["INFANTRY"], [])
+	var enemies = {"e1": snapshot.units["e1"]}
+	var toward_enemy_obj = Vector2(880, 1200)  # 10" away, same direction as enemy
+	var hold_keeps = AIDecisionMaker._should_hold_for_shooting(
+		unit, centroid, toward_enemy_obj, 24.0, enemies, 6.0, {"score": 5.0})
+	_assert(hold_keeps == false,
+		"move keeps target in range -> move-and-shoot, not hold (got hold=%s)" % hold_keeps)
 
-	var actions = _make_available_actions(["u_home", "u1"])
-	# Process first decision (home unit holds)
-	var decision = AIDecisionMaker._decide_movement(snapshot, actions, 2)
-	var actor = decision.get("actor_unit_id", "")
-	if actor == "u_home":
-		# Remove home unit and get decision for u1
-		var remaining = []
-		for a in actions:
-			if a.get("actor_unit_id", "") != "u_home":
-				remaining.append(a)
-		snapshot.units["u_home"]["flags"]["moved"] = true
-		decision = AIDecisionMaker._decide_movement(snapshot, remaining, 2)
-
-	# The ranged unit should hold for shooting since enemies are in range
-	# and the objective is more than 1 turn away
-	var move_type = decision.get("type", "")
-	_assert(move_type == "REMAIN_STATIONARY",
-		"Ranged unit with enemies in range holds for shooting (type=%s)" % move_type)
+	# Case 2: enemy at ~23" (near max range); low-priority objective directly
+	# AWAY from it, 20"+ off (3+ turns). Moving 6" away pushes the enemy to
+	# ~29" — every target lost — so the unit should hold and shoot instead.
+	# (Reposition EVERY model — the range check uses the unit centroid.)
+	for m_i in range(snapshot.units["e1"]["models"].size()):
+		var em = snapshot.units["e1"]["models"][m_i]
+		em["position"] = Vector2(880 + m_i * 40, 1600 - 23 * 40)
+	enemies = {"e1": snapshot.units["e1"]}
+	var away_obj = Vector2(880, 1600 + 22 * 40)  # 22" away, opposite the enemy
+	var hold_loses = AIDecisionMaker._should_hold_for_shooting(
+		unit, centroid, away_obj, 24.0, enemies, 6.0, {"score": 5.0})
+	_assert(hold_loses == true,
+		"move loses ALL targets toward far low-priority objective -> hold (got hold=%s)" % hold_loses)
 
 func test_move_when_no_enemies_in_range():
 	print("\n--- test_move_when_no_enemies_in_range ---")

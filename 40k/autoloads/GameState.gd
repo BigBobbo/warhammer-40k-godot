@@ -28,6 +28,8 @@ const MAX_BATTLE_ROUNDS: int = 5
 # Whitelisted exceptions (pre-game initialization only, before any actions):
 #   - ArmyListManager.gd (army load populates units/factions)
 #   - MultiplayerLobby.gd / WebLobby.gd (lobby resets meta before game start)
+#   - AIBenchmarkRunner.gd (--ai-benchmark harness stamps game_config on the
+#     freshly loaded fixture before kicking the first phase)
 # Enforced by tests/test_iss001_pipeline_mutations.gd (static scan).
 var state: Dictionary = {}
 
