@@ -81,12 +81,17 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Build GUT command
+# -gexit is required: without it GUT prints its summary and then keeps the
+# process alive waiting for a manual window close, which on CI hangs the job
+# until timeout-minutes cancels it. With -gexit GUT quits nonzero when any
+# test fails (GutRunner._handle_quit), so the exit code stays meaningful.
 GUT_CMD=(
     godot
     --path "$PROJECT_ROOT"
     -s addons/gut/gut_cmdln.gd
     -gdir=res://tests/integration/
     -gprefix=test_multiplayer
+    -gexit
 )
 
 # Add specific test if requested
@@ -110,10 +115,10 @@ echo "  Starting Tests..."
 echo "=========================================="
 echo ""
 
-# Run the tests
-"${GUT_CMD[@]}"
-
-TEST_RESULT=$?
+# Run the tests. Guard against set -e: godot exits nonzero when tests fail
+# (via -gexit), and we still want the summary + exit-code passthrough below.
+TEST_RESULT=0
+"${GUT_CMD[@]}" || TEST_RESULT=$?
 
 echo ""
 echo "=========================================="

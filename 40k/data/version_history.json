@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "0.21.0",
+      "date": "2026-07-12",
+      "summary": "The AI's game log now opens each turn with a single 'turn intent' card — its stance for the round (e.g. AGGRESSIVE / MELEE army), what the round is worth in VP, which enemies it plans to charge or tie up, and every unit's orders. Fast melee units (Stormboyz, Custodian Guard) also deploy like assault troops now instead of lining up as gunline shooters.",
+      "changes": [
+        "Game log: the movement-plan card is now a full turn-intent briefing — round stance (strategy + army archetype), 'Playing for:' VP stakes, named charge intents (\"Charge intent: Stormboyz → Custodian Guard (20.8\\\" away)\"), and shooters the AI plans to tie up in melee, followed by the per-unit orders.",
+        "AI deployment: units whose weapons make them melee-focused (Stormboyz with token pistols, Custodian Guard with guardian spears) now classify as melee and deploy forward for movement lanes; previously any unit carrying a ranged weapon deployed as a 'ranged unit positioning for firing lanes'. Uses the same melee-focus gate as the movement/charge logic so deployment and battle plans agree about a unit's role.",
+        "Fixed: secondary missions requiring a unit action are now scored impossible when the player has no units left."
+      ]
+    },
+    {
       "version": "0.20.0",
       "date": "2026-07-11",
       "summary": "The AI now fights to a single battle plan per turn — and the game log tells the truth about it. The movement plan the AI announces is the plan its units actually execute, melee hunts are declared up front (\"ATTACK Custodian Guard\"), spare units spread across objectives instead of piling onto one, and every decision card explains WHY (including when coordination overrides the raw scores).",

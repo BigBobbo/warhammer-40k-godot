@@ -190,6 +190,10 @@ static var _config_overrides: Dictionary = {}
 static var _config_loaded: bool = false
 # Track whether the movement plan summary has been logged (reset per phase)
 static var _movement_plan_logged: bool = false
+# Most recent VP-stakes narration composed by _evaluate_all_objectives —
+# consumed by the turn-intent card so the "what we're playing for" line lives
+# in the announced plan, not buried in whichever unit happens to act first.
+static var _last_vp_stakes_line: String = ""
 # Track whether the focus fire summary has been logged (reset per phase)
 static var _focus_fire_plan_logged: bool = false
 # Track whether fight order summary has been logged (reset per phase)
@@ -2911,6 +2915,14 @@ static func _classify_deployment_role(unit: Dictionary) -> String:
 	if has_melee and not has_ranged:
 		return "melee"
 
+	# Mixed-weapon units whose OUTPUT is melee-dominated (Stormboyz with token
+	# pistols, choppa mobs with sluggas) are assault elements: deploy forward
+	# for movement lanes, not backfield for firing lanes. Uses the same
+	# _is_melee_focused_unit gate as the movement/charge seek logic so
+	# deployment and battle-plan behavior can't disagree about a unit's role.
+	if has_melee and _is_melee_focused_unit(unit):
+		return "melee"
+
 	# T-108: Anti-tank classifier — any high-S ranged weapon (S >= 9 or AP >= 3)
 	# qualifies the unit as anti-tank, useful for matchup-aware deployment.
 	if has_ranged:
@@ -4669,11 +4681,34 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round, threat_data
 		)
 		var prior_replans = int(stored_plan.get("replans", -1))
+		# TURN-INTENT: capture the whole turn's context at plan time so the
+		# announced card can tell the full story in one place — stance, VP
+		# stakes, planned charges/lock targets — not just the unit moves.
+		var announce := {
+			"strategy_label": str(_get_round_strategy_modifiers(battle_round).get("label", "")),
+			"archetype_label": str(_get_army_strategy_modifiers(snapshot, player).get("label", "")),
+			"stakes": _last_vp_stakes_line,
+			"charge_lines": [],
+			"lock_line": "",
+		}
+		var plan_charge_intents = _get_phase_plan(player).get("charge_intent", {})
+		for ci_uid in plan_charge_intents:
+			var ci = plan_charge_intents[ci_uid]
+			var ci_name = snapshot.get("units", {}).get(ci_uid, {}).get("meta", {}).get("name", ci_uid)
+			announce.charge_lines.append("  Charge intent: %s → %s (%.1f\" away)" % [
+				ci_name, ci.get("target_name", "?"), float(ci.get("distance_inches", 0.0))])
+		var plan_lock_targets = _get_phase_plan(player).get("lock_targets", [])
+		if not plan_lock_targets.is_empty():
+			var lock_names: Array = []
+			for lt_id in plan_lock_targets:
+				lock_names.append(snapshot.get("units", {}).get(lt_id, {}).get("meta", {}).get("name", lt_id))
+			announce["lock_line"] = "  Tie up in melee: %s (dangerous shooters)" % ", ".join(lock_names.slice(0, 4))
 		_turn_movement_plan[player] = {
 			"round": battle_round,
 			"assignments": assignments,
 			"consumed": {},
 			"replans": prior_replans + 1,
+			"announce": announce,
 		}
 		if replan_reason != "":
 			_add_thinking_step("Re-planning movement: %s" % replan_reason)
@@ -4715,8 +4750,28 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			plan_summary_parts.append(", ".join(move_parts))
 		if not threat_data.is_empty():
 			plan_summary_parts.append("avoiding %d threat zones" % threat_data.size())
-		if not plan_summary_parts.is_empty():
-			_add_thinking_step("Movement plan: %d units — %s" % [movable_units.size(), "; ".join(plan_summary_parts)])
+		# TURN-INTENT: the announced card carries the whole turn's intent — the
+		# army's stance this round, what the round is worth in VP, planned
+		# charges and shooters to tie up — followed by the per-unit orders.
+		# (Header must keep starting with "Movement plan" — AIPlayer's card
+		# slicer and the movement_plan_integrity() gate match on that.)
+		var turn_announce: Dictionary = _turn_movement_plan.get(player, {}).get("announce", {})
+		var stance_parts: Array = []
+		if str(turn_announce.get("strategy_label", "")) != "":
+			stance_parts.append(str(turn_announce.strategy_label))
+		if str(turn_announce.get("archetype_label", "")) != "":
+			stance_parts.append("%s army" % turn_announce.archetype_label)
+		var plan_header = "Movement plan (Round %d%s): %d units — %s" % [
+			battle_round,
+			(", " + " / ".join(stance_parts)) if not stance_parts.is_empty() else "",
+			movable_units.size(), "; ".join(plan_summary_parts)]
+		_add_thinking_step(plan_header)
+		if str(turn_announce.get("stakes", "")) != "":
+			_add_thinking_step("  Playing for: %s" % str(turn_announce.stakes).trim_prefix("VP stakes this round "))
+		for ci_line in turn_announce.get("charge_lines", []):
+			_add_thinking_step(str(ci_line))
+		if str(turn_announce.get("lock_line", "")) != "":
+			_add_thinking_step(str(turn_announce.lock_line))
 		# COORD-3: verbose army-level battle plan — one line per unit so the
 		# game log tells the WHOLE story of the turn up front, not just the
 		# unit currently acting. Sorted by assignment score (most important first).
@@ -6489,14 +6544,20 @@ static func _evaluate_all_objectives(
 		})
 
 	# Narrate the VP stakes once per evaluation (top objectives by VP), so the
-	# player sees WHAT the AI is playing for in mission terms.
+	# player sees WHAT the AI is playing for in mission terms. Also stash the
+	# line for the turn-intent card (the announced movement plan card leads
+	# with it, instead of it only appearing in the first acting unit's card).
 	if not vp_stake_notes.is_empty():
 		vp_stake_notes.sort_custom(func(a, b): return a.vp > b.vp)
 		var stake_parts: Array = []
 		for n in range(min(3, vp_stake_notes.size())):
 			var note = vp_stake_notes[n]
 			stake_parts.append("%s ~%.0f VP (%s)" % [note.id, note.vp, "; ".join(note.sources.slice(0, 2))])
-		_add_thinking_step("VP stakes this round (holding %d, enemy %d): %s" % [my_holds, their_holds, ", ".join(stake_parts)])
+		var stakes_line = "VP stakes this round (holding %d, enemy %d): %s" % [my_holds, their_holds, ", ".join(stake_parts)]
+		_last_vp_stakes_line = stakes_line
+		_add_thinking_step(stakes_line)
+	else:
+		_last_vp_stakes_line = ""
 
 	return evaluations
 
@@ -16368,6 +16429,9 @@ static func _assess_action_mission(units: Dictionary, player: int) -> float:
 	"""Generic assessment for action-based missions (Establish Locus, Cleanse, Deploy Teleport Homer).
 	These require performing actions during the shooting phase. The AI can perform these actions
 	by giving up shooting with a unit in a qualifying position."""
+	# No units means nobody can perform the action — flatly impossible.
+	if _count_alive_units_for_player(units, player) == 0:
+		return 0.0
 	# AI can now perform shooting-phase actions — moderate achievability
 	# Depends on having units in scoring positions (near center, in opponent zone, near objectives)
 	return 0.65  # Moderate achievability — AI can perform these if positioned well
