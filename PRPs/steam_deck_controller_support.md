@@ -1,6 +1,6 @@
 # Steam Deck / Controller Support — Research & Phased Implementation Plan
 
-**Status:** PLANNED — scoping decisions recorded 2026-07-12 (§8); ready for iteration 2 (M0+M1 implementation)
+**Status:** IN PROGRESS — M0 shipped 2026-07-12 (v0.22.0; windowed gates `pad_m0_menu_nav` + `pad_m0_camera` PASS). Next: M1 (virtual cursor).
 **Branch:** `claude/steam-deck-controller-support-1tzorb`
 **Date:** 2026-07-12 (game version at time of writing: 0.21.0)
 **Goal:** Make the full game playable — and eventually *pleasant* — on a Steam Deck with no mouse or keyboard, without regressing the existing mouse/keyboard experience.
@@ -529,15 +529,20 @@ usable via the virtual cursor (drag) — a native "measure from token to token"
 Each milestone is independently shippable and ends with its windowed-scenario
 gate + a `version_history.json` entry (these are player-facing changes).
 
-### M0 — Foundations (small)
+### M0 — Foundations (small) — ✅ SHIPPED 2026-07-12 (v0.22.0)
 InputMap additions (incl. `ui_accept`/`ui_cancel` joypad events),
-`InputDeviceManager`, glyph assets + `GlyphDB`, focus-ring visibility (the
-`WhiteDwarfTheme` focus StyleBox already exists — §3.4), hint-bar shell,
-camera on right stick + trigger zoom, **wire the dead UI-Scale setting to
-`content_scale_factor`** (§3.4), `simulate_joy_*` bridge commands.
-**Gate:** main menu + settings fully pad-navigable; camera drivable in-game;
-UI-Scale visibly rescales the HUD; scenario `pad_m0_menu_and_camera.json`
-passes.
+`InputDeviceManager`, glyph chips (`scripts/input/GlyphDB.gd` — programmatic
+chips rather than a texture pack, so they scale with UI Scale; swappable for
+textures later), focus-ring visibility (the `WhiteDwarfTheme` focus StyleBox
+already existed — §3.4), hint-bar shell (`PadHintBar` autoload), camera on
+right stick + trigger zoom in `Main._process`, **the dead UI-Scale setting
+wired to `content_scale_factor`** (§3.4), `simulate_joy_button`/
+`simulate_joy_axis` in both the MCP bridge and the scenario runner.
+**Gate (met):** windowed scenarios `pad_m0_menu_nav` (19/0 — D-pad walks the
+main menu, A opens Settings, focus lands on Close, A closes, focus restored)
+and `pad_m0_camera` (20/0 — right-stick pan moved the board ≥30 px, RT zoom,
+hint bar visible in pad mode, UI-Scale drives `content_scale_factor` and is
+restored) both PASS; KBM regression scenario unaffected.
 
 ### M1 — Whole-game fallback: the virtual cursor (medium)
 `VirtualCursor` autoload (move/click/drag synthesis), dialog focus-trapping +
