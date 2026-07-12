@@ -14390,11 +14390,6 @@ static func roll_hold_still_mortal_wounds(hit_context: Dictionary, all_critical_
 		rng_service = make_rng()
 	return _roll_hold_still_mortal_wounds(hit_context, all_critical_wound_count, rng_service)
 
-## 11.04 WHILE MOVING (11e): charging models that CAN end within 1" of a charge
-## target MUST do so. Public delegate for ChargePhase (single implementation).
-static func validate_base_to_base_possible_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary, rolled_distance: int = 0) -> Dictionary:
-	return _validate_base_to_base_possible_rules(unit_id, per_model_paths, target_ids, board, rolled_distance)
-
 ## Allocate `total_damage` into the target unit's model pool; returns the
 ## damage-application result (diffs, casualties).
 static func apply_damage_to_unit_pool(target_unit_id: String, total_damage: int, models: Array, board: Dictionary) -> Dictionary:
