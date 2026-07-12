@@ -99,8 +99,16 @@ func _ready() -> void:
 	# Connect to ruins style changes from settings
 	if SettingsService:
 		SettingsService.ruins_style_changed.connect(_on_ruins_style_changed)
+		if SettingsService.has_signal("terrain_debug_labels_changed"):
+			SettingsService.terrain_debug_labels_changed.connect(_on_terrain_debug_labels_changed)
 
 	print("[TerrainVisual] Initialized")
+
+## Re-render all terrain when the debug-labels setting flips, so the label
+## style switches live without reloading the board.
+func _on_terrain_debug_labels_changed(_enabled: bool) -> void:
+	if TerrainManager and TerrainManager.terrain_features.size() > 0:
+		_on_terrain_loaded(TerrainManager.terrain_features)
 
 func _on_terrain_loaded(terrain_features: Array) -> void:
 	# Clear existing terrain visuals
@@ -146,6 +154,10 @@ func _get_label_text(terrain_data: Dictionary) -> String:
 	var height_label = height_cat.substr(0, 1).to_upper()
 	return "%s %s (%s)" % [style.label_prefix, id_suffix, height_label]
 
+## Whether the verbose internal id labels + LoS badges should render.
+func _debug_labels_enabled() -> bool:
+	return SettingsService != null and SettingsService.terrain_debug_labels
+
 func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	var container = Node2D.new()
 	container.name = terrain_data.get("id", "terrain")
@@ -176,34 +188,43 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	border.default_color = _get_border_color(terrain_type)
 	border.joint_mode = Line2D.LINE_JOINT_ROUND
 
-	# Add terrain label with type-specific prefix and background
-	var label_panel = PanelContainer.new()
-	var label_style = StyleBoxFlat.new()
-	label_style.bg_color = Color(0.0, 0.0, 0.0, 0.55)
-	label_style.set_corner_radius_all(3)
-	label_style.content_margin_left = 4
-	label_style.content_margin_right = 4
-	label_style.content_margin_top = 1
-	label_style.content_margin_bottom = 1
-	label_panel.add_theme_stylebox_override("panel", label_style)
-	label_panel.position = terrain_data.get("position", Vector2.ZERO) - Vector2(30, 10)
+	# Terrain id label is debug-only. The verbose "Ruins corner-short-11 (T)"
+	# text on every piece of scenery reads as developer clutter, and the
+	# TerrainCoverOverlay shield (LB/+2/+1) already gives players the
+	# gameplay-relevant height/cover info at each piece's centroid.
+	var debug_labels = _debug_labels_enabled()
+	var blocks_los = terrain_data.get("blocks_los", false)
+	var label_panel: PanelContainer = null
+	if debug_labels:
+		label_panel = PanelContainer.new()
+		var label_style = StyleBoxFlat.new()
+		label_style.bg_color = Color(0.0, 0.0, 0.0, 0.55)
+		label_style.set_corner_radius_all(3)
+		label_style.content_margin_left = 4
+		label_style.content_margin_right = 4
+		label_style.content_margin_top = 1
+		label_style.content_margin_bottom = 1
+		label_panel.add_theme_stylebox_override("panel", label_style)
+		label_panel.position = terrain_data.get("position", Vector2.ZERO) - Vector2(30, 10)
 
-	var label = Label.new()
-	label.text = _get_label_text(terrain_data)
-	label.add_theme_font_size_override("font_size", 11)
-	label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
-	label_panel.add_child(label)
+		var label = Label.new()
+		label.text = _get_label_text(terrain_data)
+		label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+		label.add_theme_font_size_override("font_size", 11)
+		label_panel.add_child(label)
 
 	# Assemble the terrain piece
 	container.add_child(piece)
 	container.add_child(border)
-	container.add_child(label_panel)
+	if label_panel != null:
+		container.add_child(label_panel)
 
 	# Add type-specific decorative details
 	_add_terrain_decorations(container, terrain_data)
 
-	# Add LoS-blocker indicator if terrain blocks line-of-sight
-	if terrain_data.get("blocks_los", false):
+	# Add LoS-blocker badge only with debug labels on — the compact height chip
+	# already encodes blocks_los via its gold tint.
+	if blocks_los and debug_labels:
 		_add_los_blocker_indicator(container, terrain_data)
 
 	# Add walls if present - tactical map colors

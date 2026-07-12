@@ -3291,7 +3291,9 @@ func _fix_hud_layout() -> void:
 		hud_right.offset_top = top_height  # Leave space for top panel
 		hud_right.z_index = UI_PANEL_Z
 		var right_style = StyleBoxFlat.new()
-		right_style.bg_color = Color(0.06, 0.05, 0.04, 0.92)
+		# Fully opaque: any translucency here lets bright board content (tokens,
+		# zone fills) ghost through the panel and fight the unit list for legibility.
+		right_style.bg_color = Color(0.06, 0.05, 0.04, 1.0)
 		right_style.border_color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.5)
 		right_style.border_width_left = 2
 		right_style.set_content_margin_all(4)
@@ -3303,7 +3305,7 @@ func _fix_hud_layout() -> void:
 	if hud_bottom:
 		hud_bottom.z_index = UI_PANEL_Z
 		var bottom_style = StyleBoxFlat.new()
-		bottom_style.bg_color = Color(0.06, 0.05, 0.04, 0.95)
+		bottom_style.bg_color = Color(0.06, 0.05, 0.04, 1.0)
 		bottom_style.border_color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.5)
 		bottom_style.border_width_top = 2
 		bottom_style.set_content_margin_all(4)
@@ -8728,10 +8730,12 @@ func update_deployment_zone_visibility() -> void:
 
 	# Active zone colors: saturated and bright
 	# Inactive zone colors: desaturated (shifted toward gray) and dimmed
-	var p1_active_color = Color(0, 0.1, 1, 0.65)      # Bright saturated blue
-	var p1_dimmed_color = Color(0.25, 0.25, 0.45, 0.2) # Desaturated grayish-blue, low alpha
-	var p2_active_color = Color(1, 0.1, 0, 0.65)       # Bright saturated red
-	var p2_dimmed_color = Color(0.45, 0.25, 0.25, 0.2) # Desaturated grayish-red, low alpha
+	# Active alpha kept low — at 0.65 the zone fill flooded the board and hid
+	# the battlefield beneath it; the animated borders carry the emphasis.
+	var p1_active_color = Color(0, 0.1, 1, 0.3)        # Saturated blue, translucent
+	var p1_dimmed_color = Color(0.25, 0.25, 0.45, 0.12) # Desaturated grayish-blue, low alpha
+	var p2_active_color = Color(1, 0.1, 0, 0.3)         # Saturated red, translucent
+	var p2_dimmed_color = Color(0.45, 0.25, 0.25, 0.12) # Desaturated grayish-red, low alpha
 
 	var p1_active_border = Color(0, 0.3, 1, 1)         # Bright blue border
 	var p1_dimmed_border = Color(0.35, 0.35, 0.5, 0.4) # Desaturated dim blue border

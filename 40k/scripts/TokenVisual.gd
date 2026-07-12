@@ -60,6 +60,11 @@ func _ready() -> void:
 	if pm != null and pm.has_signal("phase_changed"):
 		if not pm.is_connected("phase_changed", _t09_on_phase_changed):
 			pm.connect("phase_changed", _t09_on_phase_changed)
+	# Letter/classic styles only redraw on interaction, so without this hook a
+	# style change in settings leaves every idle token rendering the old style.
+	if SettingsService and SettingsService.has_signal("unit_style_changed"):
+		if not SettingsService.is_connected("unit_style_changed", _on_unit_style_changed):
+			SettingsService.connect("unit_style_changed", _on_unit_style_changed)
 	# T08: two concentric rings expose faction vs player-slot color so
 	# scenarios can assert per-ring modulate. FactionRing draws inner ring;
 	# SlotRing draws a slightly larger thin outer ring. Both render on top
@@ -74,6 +79,10 @@ func _ready() -> void:
 func _t09_on_phase_changed(_new_phase) -> void:
 	if is_exhausted_this_phase:
 		set_exhausted_this_phase(false)
+
+
+func _on_unit_style_changed(_new_style: String) -> void:
+	queue_redraw()
 
 
 # T19: pulse the outer SlotRing's alpha between 0.7 and 1.0 to indicate the
@@ -1234,6 +1243,12 @@ func _draw_unit_name_label() -> void:
 	if unit.is_empty():
 		return
 
+	# One name plate per UNIT, not per model: drawing it under all 11 gretchin
+	# produces an unreadable smear of repeated text. Only the unit's first
+	# alive model carries the plate (it migrates as casualties are removed).
+	if not _is_unit_label_anchor(unit):
+		return
+
 	# Prefer display_name (includes Greek suffix for duplicates) over raw name
 	var meta = unit.get("meta", {})
 	var unit_name = meta.get("display_name", meta.get("name", ""))
@@ -1254,17 +1269,16 @@ func _draw_unit_name_label() -> void:
 	var label_y = base_radius + font_size + 3
 	var text_pos = Vector2(-text_size.x / 2.0, label_y)
 
-	# Add model count badge for first model of multi-model units
+	# Add model count badge for multi-model units
 	var count_text = ""
-	if model_number == 1:
-		var models = unit.get("models", [])
-		var total = models.size()
-		if total > 1:
-			var alive = 0
-			for m in models:
-				if m.get("current_wounds", 1) > 0:
-					alive += 1
-			count_text = "%d/%d" % [alive, total]
+	var models = unit.get("models", [])
+	var total = models.size()
+	if total > 1:
+		var alive = 0
+		for m in models:
+			if m.get("current_wounds", 1) > 0:
+				alive += 1
+		count_text = "%d/%d" % [alive, total]
 
 	# Build combined label
 	var display = unit_name
@@ -1284,6 +1298,18 @@ func _draw_unit_name_label() -> void:
 	draw_rect(bg_rect, Color(label_color, 0.3), false, 1.0)
 	draw_string(font, combined_pos + Vector2(0.5, 0.5), display, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, 0.7))
 	draw_string(font, combined_pos, display, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, label_color)
+
+# True when this token's model is the unit's first alive model — the single
+# model that carries the unit name plate. Falls back to model_number 1 when
+# the model id can't be matched (e.g. previews without meta).
+func _is_unit_label_anchor(unit: Dictionary) -> bool:
+	if not has_meta("model_id"):
+		return model_number == 1
+	var my_id = str(get_meta("model_id"))
+	for m in unit.get("models", []):
+		if m.get("current_wounds", m.get("wounds", 1)) > 0:
+			return str(m.get("id", "")) == my_id
+	return model_number == 1
 
 func _resolve_sprite() -> void:
 	_sprite_resolved = true

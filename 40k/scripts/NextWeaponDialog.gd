@@ -19,7 +19,7 @@ var attack_summary_panel: PanelContainer
 var summary_grid: GridContainer
 var dice_details_button: Button
 var dice_details_panel: PanelContainer
-var dice_details_log: RichTextLabel
+var dice_details_vbox: VBoxContainer
 var remaining_weapons_list: ItemList
 var continue_button: Button
 
@@ -82,10 +82,9 @@ func _create_ui() -> void:
 	dice_details_panel.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 100)
 	main_vbox.add_child(dice_details_panel)
 
-	dice_details_log = RichTextLabel.new()
-	dice_details_log.bbcode_enabled = true
-	dice_details_log.fit_content = true
-	dice_details_panel.add_child(dice_details_log)
+	dice_details_vbox = VBoxContainer.new()
+	dice_details_vbox.add_theme_constant_override("separation", 6)
+	dice_details_panel.add_child(dice_details_vbox)
 
 	main_vbox.add_child(HSeparator.new())
 
@@ -184,15 +183,15 @@ func _show_skipped_message(reason: String) -> void:
 	dice_details_button.visible = false
 
 func _populate_dice_details() -> void:
-	if not dice_details_log:
+	if not dice_details_vbox:
 		return
 
-	dice_details_log.clear()
+	for child in dice_details_vbox.get_children():
+		dice_details_vbox.remove_child(child)
+		child.queue_free()
 
 	var dice_rolls = last_weapon_result.get("dice_rolls", [])
-	if dice_rolls.is_empty():
-		dice_details_log.add_text("No dice roll data available")
-		return
+	var blocks_added := 0
 
 	for dice_block in dice_rolls:
 		var context = dice_block.get("context", "Unknown")
@@ -202,21 +201,47 @@ func _populate_dice_details() -> void:
 		var threshold = dice_block.get("threshold", "")
 		var rerolls = dice_block.get("rerolls", [])
 
-		# Format context name
-		var display_context = context.capitalize().replace("_", " ")
-		dice_details_log.append_text("[b]%s[/b] (need %s):\n" % [display_context, threshold])
-
-		# Show rerolls if any
-		if not rerolls.is_empty():
-			dice_details_log.append_text("  [color=yellow]Re-rolled:[/color] ")
-			for reroll in rerolls:
-				dice_details_log.append_text("[s]%d[/s]→%d " % [reroll.original, reroll.rerolled_to])
-			dice_details_log.append_text("\n")
-
-		# Show rolls
+		# Skip bookkeeping blocks with no actual dice (e.g. "resolution_start"),
+		# which used to render as an empty "(need ):" line.
 		var display_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
-		dice_details_log.append_text("  Rolls: %s\n" % str(display_rolls))
-		dice_details_log.append_text("  → [b][color=green]%d successes[/color][/b]\n\n" % successes)
+		if display_rolls.is_empty():
+			continue
+		blocks_added += 1
+
+		# Header: "To Hit — need 5+ → 3 successes"
+		var display_context = context.capitalize().replace("_", " ")
+		var threshold_text = str(threshold)
+		var header = Label.new()
+		if threshold_text != "":
+			header.text = "%s — need %s → %d successes" % [display_context, threshold_text, successes]
+		else:
+			header.text = "%s → %d successes" % [display_context, successes]
+		header.add_theme_font_size_override("font_size", 13)
+		header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT if successes > 0 else Color(0.7, 0.65, 0.6))
+		dice_details_vbox.add_child(header)
+
+		# Re-rolls, when present
+		if not rerolls.is_empty():
+			var reroll_parts: Array = []
+			for reroll in rerolls:
+				reroll_parts.append("%d→%d" % [reroll.original, reroll.rerolled_to])
+			var reroll_label = Label.new()
+			reroll_label.text = "  Re-rolled: %s" % ", ".join(reroll_parts)
+			reroll_label.add_theme_font_size_override("font_size", 12)
+			reroll_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.4))
+			dice_details_vbox.add_child(reroll_label)
+
+		# The dice themselves as colored pips (gold 6s, red 1s, green success,
+		# gray fail) instead of a raw "[1, 3, 3, ...]" text dump.
+		var threshold_int = threshold_text.to_int()
+		var row = DiceRowVisual.new()
+		row.set_dice(display_rolls, threshold_int, threshold_int > 0)
+		dice_details_vbox.add_child(row)
+
+	if blocks_added == 0:
+		var empty_label = Label.new()
+		empty_label.text = "No dice roll data available"
+		dice_details_vbox.add_child(empty_label)
 
 func _populate_remaining_weapons() -> void:
 	if not remaining_weapons_list:
