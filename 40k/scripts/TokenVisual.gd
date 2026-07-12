@@ -766,14 +766,15 @@ func _draw_letter_mode() -> void:
 			var to = poly_points[(i + 1) % poly_points.size()]
 			draw_line(from, to, border_shade, 2.0)
 
-	# --- Layer 3: Vehicle sprite, top-down unit art, or centered letter label ---
-	# VEHICLE tokens render a top-down tank sprite (faction colorway) on the
-	# base; units with bundled/user top-down art (SpriteResolver) render that;
-	# everything else keeps the Vassal-style letter counter.
-	if _get_tank_body_texture() != null:
-		_draw_tank_sprite(rot)
-	elif _get_unit_sprite_texture() != null:
+	# --- Layer 3: Top-down unit art, vehicle tank sprite, or letter label ---
+	# Units with dedicated top-down art (bundled or user drop-in, resolved by
+	# SpriteResolver) render that; VEHICLE tokens without dedicated art fall
+	# back to the generic tank sprite (faction colorway); everything else
+	# keeps the Vassal-style letter counter.
+	if _get_unit_sprite_texture() != null:
 		_draw_unit_sprite(rot)
+	elif _get_tank_body_texture() != null:
+		_draw_tank_sprite(rot)
 	else:
 		var label = _get_letter_label()
 		if label != "":
