@@ -1813,10 +1813,12 @@ func _show_ai_unit_highlight(unit_id: String, color: Color) -> void:
 	"""Add pulsing highlight rings around all models of the given AI unit."""
 	# Skip if already highlighting this unit with same color
 	if unit_id == _ai_highlighted_unit_id and _ai_highlight_nodes.size() > 0:
-		# Check if color changed (e.g. unit went from move to charge)
-		if _ai_highlight_nodes.size() > 0 and _ai_highlight_nodes[0].highlight_color == color:
+		# Check if color changed (e.g. unit went from move to charge).
+		# The ring node may have been freed with the board (token rebuilds) —
+		# reading highlight_color off a freed instance was a live SCRIPT ERROR.
+		if is_instance_valid(_ai_highlight_nodes[0]) and _ai_highlight_nodes[0].highlight_color == color:
 			return
-		# Color changed — clear and re-apply
+		# Color changed (or rings freed) — clear and re-apply
 		_clear_ai_unit_highlights()
 
 	# Clear previous highlights if switching to a different unit
@@ -8871,7 +8873,9 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 
 	# T5-V3: Show phase transition animation banner
 	if phase_transition_banner:
-		var banner_round = GameState.state.get("meta", {}).get("round", 1)
+		# The meta key is battle_round — reading the nonexistent "round" key made
+		# the banner show "Round 1" for the whole game.
+		var banner_round = GameState.get_battle_round()
 		var banner_player = GameState.get_active_player()
 		phase_transition_banner.show_phase_banner(new_phase, banner_round, banner_player)
 
@@ -8890,7 +8894,8 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 		var active_player_for_log = GameState.get_active_player()
 		if ai_player and ai_player.is_ai_player(active_player_for_log):
 			var phase_label = _get_phase_label_text(new_phase).replace(" Phase", "")
-			var round_num = GameState.state.get("meta", {}).get("round", 1)
+			# battle_round, not "round" — the wrong key froze the header at Rd 1
+			var round_num = GameState.get_battle_round()
 			_ai_action_log_overlay.add_phase_header(phase_label, round_num, active_player_for_log)
 
 	# T5-UX10: Auto-zoom to active player's deployment zone when entering deployment phase

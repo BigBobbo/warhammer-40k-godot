@@ -2693,6 +2693,42 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ai.movement.persistent_battle_plan",
+      "description": "COORD-4: the AI's army-wide movement plan is computed once per movement phase and CONSUMED as units act \u2014 the 'Movement plan' block announced in the game log matches the movement actions logged afterwards. Verified by ai_battle_plan_log_integrity.",
+      "scenarios": [
+        "ai_battle_plan_log_integrity"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.movement.plan_matches_actions",
+      "description": "The executed per-unit movement actions logged in the game log match the announced 'Movement plan' block \u2014 GameEventLog.movement_plan_integrity() zero mismatches over >=3 checked actions (COORD-4 gate).",
+      "scenarios": [
+        "ai_battle_plan_log_integrity"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.thinking.override_explanations",
+      "description": "When an AI decision card's chosen option scores lower than a rejected one, the card carries a 'why not the top score' coordination explanation instead of leaving the contradiction unexplained.",
+      "scenarios": [
+        "ai_battle_plan_log_integrity"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.GameLogPanel.ai_thinking_cards",
+      "description": "GameLogPanel renders AI thinking blocks as collapsible cards during a live AI movement phase (asserted via GameEventLog entry counts + screenshots in the battle-plan integrity scenario).",
+      "scenarios": [
+        "ai_battle_plan_log_integrity"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
