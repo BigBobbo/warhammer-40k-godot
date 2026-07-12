@@ -57,6 +57,14 @@ func note_synthetic_mouse(window_ms: int = 150) -> void:
 	_ignore_mouse_until_ms = Time.get_ticks_msec() + window_ms
 
 
+# For handlers that RECEIVE a joypad event before the _process poll has run
+# (input callbacks precede _process within a frame): a joypad event IS pad
+# input by definition, so they claim the mode inline instead of dropping the
+# session's first press.
+func claim_pad() -> void:
+	_claim(InputMode.PAD)
+
+
 func is_pad_active() -> bool:
 	return input_mode == InputMode.PAD
 
@@ -219,6 +227,19 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 func _on_tree_node_added(node: Node) -> void:
 	if node is AcceptDialog:
 		node.about_to_popup.connect(_on_dialog_about_to_popup.bind(node))
+		return
+	# WoundAllocationOverlay is a plain Control (not a Window), so it needs
+	# its own hook to receive pad focus when shown (§3.4 tricky-widget #4).
+	var script = node.get_script()
+	if script != null and str(script.resource_path).ends_with("WoundAllocationOverlay.gd"):
+		node.visibility_changed.connect(_on_wound_overlay_visibility.bind(node))
+
+
+func _on_wound_overlay_visibility(overlay: Node) -> void:
+	if not is_instance_valid(overlay) or not overlay.visible or not is_pad_active():
+		return
+	VirtualCursor.park()
+	_focus_dialog_deferred.call_deferred(overlay)
 
 
 func _on_dialog_about_to_popup(dialog: AcceptDialog) -> void:
@@ -228,7 +249,7 @@ func _on_dialog_about_to_popup(dialog: AcceptDialog) -> void:
 	_focus_dialog_deferred.call_deferred(dialog)
 
 
-func _focus_dialog_deferred(dialog: AcceptDialog) -> void:
+func _focus_dialog_deferred(dialog: Node) -> void:
 	# Give the _process poll a frame to claim PAD when this dialog was opened
 	# by the very first pad press of the session (the press that opened it
 	# may have been consumed before _input observers saw it).
@@ -242,10 +263,11 @@ func _focus_dialog_deferred(dialog: AcceptDialog) -> void:
 		guard += get_process_delta_time()
 	if not is_instance_valid(dialog) or not dialog.visible or not is_pad_active():
 		return
-	var ok := dialog.get_ok_button()
-	if ok != null and ok.visible:
-		ok.grab_focus()
-		return
+	if dialog is AcceptDialog:
+		var ok := (dialog as AcceptDialog).get_ok_button()
+		if ok != null and ok.visible:
+			ok.grab_focus()
+			return
 	var btn := _find_confirm_button(dialog)
 	if btn != null:
 		btn.grab_focus()
@@ -254,7 +276,7 @@ func _focus_dialog_deferred(dialog: AcceptDialog) -> void:
 # Prefer the confirm-ish custom button so pad-A means "proceed" — many
 # dialogs order their buttons [Go Back, Confirm...] and focusing the first
 # button would make A cancel. Falls back to the first focusable button.
-const _CONFIRM_WORDS := ["ok", "confirm", "end", "continue", "yes", "accept", "done", "close", "roll"]
+const _CONFIRM_WORDS := ["ok", "confirm", "end", "continue", "yes", "accept", "done", "close", "roll", "finish", "next", "apply"]
 
 func _find_confirm_button(root: Node) -> Button:
 	var candidates: Array = []

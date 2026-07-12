@@ -5116,8 +5116,15 @@ func _input(event: InputEvent) -> void:
 	# Pad Menu/Start button (M1): the phase action ("End X Phase") behind a
 	# confirm dialog, so a stray press can't skip half a turn. The dialog gets
 	# pad focus from InputDeviceManager's watcher: A confirms, B cancels.
+	# M2: in the shooting phase with an armed shooter + assignments, Start
+	# means "Confirm Targets" instead (PRP §4.3 — context-dependent Menu).
 	if event.is_action_pressed("pad_phase_action"):
-		if phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
+		if current_phase == GameStateData.Phase.SHOOTING and shooting_controller \
+				and is_instance_valid(shooting_controller) \
+				and str(shooting_controller.active_shooter_id) != "" \
+				and not shooting_controller.weapon_assignments.is_empty():
+			shooting_controller._on_confirm_pressed()
+		elif phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
 			_show_pad_phase_confirm()
 		get_viewport().set_input_as_handled()
 		return
