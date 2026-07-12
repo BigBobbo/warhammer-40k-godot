@@ -5094,7 +5094,34 @@ func _is_text_input_focused() -> bool:
 	var focused = get_viewport().gui_get_focus_owner()
 	return focused is LineEdit or focused is TextEdit
 
+
+# M1 controller support: Menu/Start presses the phase action button behind a
+# confirmation, reusing whatever the button currently does/says.
+var _pad_phase_confirm: ConfirmationDialog = null
+
+func _show_pad_phase_confirm() -> void:
+	if _pad_phase_confirm == null or not is_instance_valid(_pad_phase_confirm):
+		_pad_phase_confirm = ConfirmationDialog.new()
+		_pad_phase_confirm.title = "Confirm"
+		_pad_phase_confirm.confirmed.connect(_on_pad_phase_confirmed)
+		add_child(_pad_phase_confirm)
+	_pad_phase_confirm.dialog_text = phase_action_button.text.replace("[Enter] ", "").strip_edges() + "?"
+	_pad_phase_confirm.popup_centered()
+
+func _on_pad_phase_confirmed() -> void:
+	if phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
+		phase_action_button.emit_signal("pressed")
+
 func _input(event: InputEvent) -> void:
+	# Pad Menu/Start button (M1): the phase action ("End X Phase") behind a
+	# confirm dialog, so a stray press can't skip half a turn. The dialog gets
+	# pad focus from InputDeviceManager's watcher: A confirms, B cancels.
+	if event.is_action_pressed("pad_phase_action"):
+		if phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
+			_show_pad_phase_confirm()
+		get_viewport().set_input_as_handled()
+		return
+
 	# ESC key handling — highest priority: opens settings menu (or closes overlays first)
 	# Use direct keycode check for reliability (is_action_pressed can miss with physical_keycode-only mappings)
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:

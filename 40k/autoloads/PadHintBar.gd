@@ -8,14 +8,18 @@ extends CanvasLayer
 
 const GlyphDB := preload("res://scripts/input/GlyphDB.gd")
 
-# One chip per [glyph_id, label] pair.
+# One chip per [glyph_id, label] pair. M1 static set — M2's PadRouter makes
+# this contextual.
 const M0_HINTS := [
-	["dpad", "Move Focus"],
-	["a", "Select"],
+	["ls", "Cursor"],
+	["dpad", "Focus"],
+	["a", "Select / Click"],
 	["b", "Back"],
+	["x", "Right-Click"],
 	["rs", "Pan Camera"],
 	["lt", "Zoom Out"],
 	["rt", "Zoom In"],
+	["menu", "End Phase"],
 ]
 
 var _panel: PanelContainer

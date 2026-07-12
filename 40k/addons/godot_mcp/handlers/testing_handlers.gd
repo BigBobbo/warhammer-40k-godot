@@ -262,23 +262,28 @@ func simulate_joy_button(params: Dictionary) -> Dictionary:
 	var button_index: int = int(params["button_index"])
 	var duration: float = float(params.get("duration", 0.05))
 	var device: int = int(params.get("device", 0))
+	# `state`: "tap" (default), "press" (hold — e.g. start a cursor drag),
+	# "release" (end a held press).
+	var state: String = str(params.get("state", "tap"))
 
-	var press := InputEventJoypadButton.new()
-	press.device = device
-	press.button_index = button_index as JoyButton
-	press.pressed = true
-	Input.parse_input_event(press)
+	if state in ["tap", "press"]:
+		var press := InputEventJoypadButton.new()
+		press.device = device
+		press.button_index = button_index as JoyButton
+		press.pressed = true
+		Input.parse_input_event(press)
 
-	if host and host.get_tree():
+	if state == "tap" and host and host.get_tree():
 		await host.get_tree().create_timer(duration).timeout
 
-	var release := InputEventJoypadButton.new()
-	release.device = device
-	release.button_index = button_index as JoyButton
-	release.pressed = false
-	Input.parse_input_event(release)
+	if state in ["tap", "release"]:
+		var release := InputEventJoypadButton.new()
+		release.device = device
+		release.button_index = button_index as JoyButton
+		release.pressed = false
+		Input.parse_input_event(release)
 
-	return {"status": "ok", "button_index": button_index, "duration": duration}
+	return {"status": "ok", "button_index": button_index, "duration": duration, "state": state}
 
 
 func simulate_joy_axis(params: Dictionary) -> Dictionary:

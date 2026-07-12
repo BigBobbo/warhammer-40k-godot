@@ -635,6 +635,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+	# Close on ui_cancel so both Escape and the pad's B button work (M1).
+	if event.is_action_pressed("ui_cancel"):
 		_on_close_pressed()
 		get_viewport().set_input_as_handled()
