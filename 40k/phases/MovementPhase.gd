@@ -991,24 +991,11 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	# ISS-054 (11e 13.06): dense terrain blocks non-INFANTRY/BEASTS/
 	# SWARM/MOBILE models when a crossed section is >2\" high (>4\" with
 	# SUPER-HEAVY WALKER) — the 2D board cannot path the mandated
-	# vertical traversal, so the segment is refused.
-	if GameConstants.edition >= 11:
-		# Take-to-the-skies movers pass over models and terrain (21.03).
-		var flying_54: bool = active_moves.has(unit_id) and active_moves[unit_id].get("took_to_skies", false)
-		# Kustom Shokk Box (Speedwaaagh!): the bearer can move horizontally through
-		# terrain features when it uses its turbo (i.e. Advances) — bypass the
-		# 13.06 dense-terrain path block.
-		var ksb_54: bool = str(move_data.get("mode", "")) == "ADVANCE" and _unit_has_kustom_shokk_box(unit_id)
-		var tm_54 = get_node_or_null("/root/TerrainManager")
-		if not flying_54 and not ksb_54 and tm_54 != null and tm_54.has_method("can_move_through_11e"):
-			var kw_54 = GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
-			# ISS-073 (24.35): the SHW MOBILE gamble grants MOBILE for the move.
-			var extra_kw_54: Array = ["MOBILE"] if active_moves[unit_id].get("shw_mobile", false) else []
-			var trav = tm_54.can_move_through_11e(kw_54, current_pos, dest_vec, extra_kw_54)
-			if not trav.allowed:
-				return {"valid": false, "errors": ["Dense terrain blocks this model's path (13.06): %s" % str(trav.blockers)]}
-		elif ksb_54:
-			log_phase_message("  Kustom Shokk Box — turbo through dense terrain (13.06 bypass)")
+	# vertical traversal, so the segment is refused. Shape-aware: the
+	# model is passed so the whole base is swept, not just its centre.
+	var gate_54 = _check_dense_terrain_gate(unit_id, move_data, current_pos, dest_vec, model)
+	if not gate_54.valid:
+		return gate_54
 
 	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
 	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
@@ -1066,14 +1053,15 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
 		return {"valid": false, "errors": ["Cannot end move on top of another model"]}
 
-	# Check wall overlap — no model may end its move overlapping a wall segment
+	# Check wall overlap — no model may end its move overlapping a wall
 	# (path-traversal honors per-keyword blocks_movement separately). Mirrors
 	# the client-side gate in MovementController._end_model_drag; required
 	# here so SET_MODEL_DEST actions dispatched without the drag UI
-	# (multiplayer, tests, AI) still hit the same rule.
+	# (multiplayer, tests, AI) still hit the same rule. Keywords make the
+	# 11e solid-feature half of the check keyword-aware (infantry exempt).
 	var _wall_test_model_smd = model.duplicate(true)
 	_wall_test_model_smd["position"] = dest_vec
-	if Measurement.model_overlaps_any_wall(_wall_test_model_smd):
+	if Measurement.model_overlaps_any_wall(_wall_test_model_smd, _terrain_rule_keywords(unit_id, move_data)):
 		return {"valid": false, "errors": ["Cannot end move overlapping a wall"]}
 
 	# Check board edge - no part of model base can extend beyond the battlefield
@@ -1144,6 +1132,15 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	log_phase_message("DEBUG: Validating move for model %s" % model_id)
 	log_phase_message("  Original pos: %s, Current pos: %s, Dest: %s" % [original_pos, current_pos, dest_vec])
 
+	# ISS-054 (11e 13.06): the same dense-terrain path gate SET_MODEL_DEST
+	# runs. STAGE_MODEL_MOVE is the action the drag UI and the AI actually
+	# dispatch — without the gate here, vehicles/monsters walked straight
+	# through 5"-tall ruin walls (the Stompa-on-walls bug).
+	var gate_54_stage = _check_dense_terrain_gate(unit_id, move_data, current_pos, dest_vec, model)
+	if not gate_54_stage.valid:
+		log_phase_message("  FAILED: %s" % str(gate_54_stage.errors))
+		return gate_54_stage
+
 	# Calculate total distance from original position to destination
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
 	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
@@ -1212,14 +1209,15 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
 		return {"valid": false, "errors": ["Cannot end move on top of another model"]}
 
-	# Check wall overlap — no model may end its move overlapping a wall segment
+	# Check wall overlap — no model may end its move overlapping a wall
 	# (path-traversal honors per-keyword blocks_movement separately). Mirrors
 	# the client-side gate in MovementController._end_model_drag; required
 	# here so STAGE_MODEL_MOVE actions dispatched without the drag UI
-	# (multiplayer, tests, AI) still hit the same rule.
+	# (multiplayer, tests, AI) still hit the same rule. Keywords make the
+	# 11e solid-feature half of the check keyword-aware (infantry exempt).
 	var _wall_test_model_stage = model.duplicate(true)
 	_wall_test_model_stage["position"] = dest_vec
-	if Measurement.model_overlaps_any_wall(_wall_test_model_stage):
+	if Measurement.model_overlaps_any_wall(_wall_test_model_stage, _terrain_rule_keywords(unit_id, move_data)):
 		log_phase_message("  FAILED: Model would end move overlapping a wall")
 		return {"valid": false, "errors": ["Cannot end move overlapping a wall"]}
 
@@ -6591,6 +6589,43 @@ func _unit_has_stompin_forward(unit_id: String) -> bool:
 	if ability_mgr and ability_mgr.has_stompin_forward(unit_id):
 		return true
 	return false
+
+## Keywords used for the 13.06 solid-terrain checks (path gate + endpoint
+## wall overlap): the unit's own keywords plus per-move grants —
+##   ▪ MOBILE from the 24.35 SUPER-HEAVY WALKER gamble (shw_mobile), and
+##   ▪ the SUPER-HEAVY WALKER 4" step-over for OA-28/29 (Clankin'/Stompin'
+##     Forward move over terrain ≤4" height, same allowance 13.06 gives SHW).
+func _terrain_rule_keywords(unit_id: String, move_data: Dictionary) -> Array:
+	var kws: Array = get_unit(unit_id).get("meta", {}).get("keywords", []).duplicate()
+	if move_data.get("shw_mobile", false):
+		kws.append("MOBILE")
+	if _unit_has_stompin_forward(unit_id) or _unit_has_clankin_forward(unit_id):
+		kws.append("SUPER-HEAVY WALKER")
+	return kws
+
+## ISS-054 (11e 13.06) path gate shared by SET_MODEL_DEST and
+## STAGE_MODEL_MOVE validation: refuses a segment whose swept base crosses
+## a solid dense feature the unit cannot traverse. Bypasses:
+##   ▪ take-to-the-skies movers pass over models and terrain (21.03);
+##   ▪ Kustom Shokk Box (Speedwaaagh!): the bearer moves horizontally
+##     through terrain features when it uses its turbo (i.e. Advances).
+## Returns {valid, errors} like the validators it serves.
+func _check_dense_terrain_gate(unit_id: String, move_data: Dictionary, from_pos: Vector2, dest_vec: Vector2, model: Dictionary) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {"valid": true, "errors": []}
+	var flying_54: bool = move_data.get("took_to_skies", false)
+	var ksb_54: bool = str(move_data.get("mode", "")) == "ADVANCE" and _unit_has_kustom_shokk_box(unit_id)
+	var tm_54 = get_node_or_null("/root/TerrainManager")
+	if flying_54 or tm_54 == null or not tm_54.has_method("can_move_through_11e"):
+		return {"valid": true, "errors": []}
+	if ksb_54:
+		log_phase_message("  Kustom Shokk Box — turbo through dense terrain (13.06 bypass)")
+		return {"valid": true, "errors": []}
+	var kw_54 = _terrain_rule_keywords(unit_id, move_data)
+	var trav = tm_54.can_move_through_11e(kw_54, from_pos, dest_vec, [], model)
+	if not trav.allowed:
+		return {"valid": false, "errors": ["Dense terrain blocks this model's path (13.06): %s" % str(trav.blockers)]}
+	return {"valid": true, "errors": []}
 
 func _path_crosses_titanic_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:
 	# OA-29: Check if path crosses any TITANIC model bases (friendly or enemy).

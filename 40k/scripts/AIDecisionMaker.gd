@@ -9236,7 +9236,10 @@ static func _is_position_near_enemy(pos: Vector2, enemies: Dictionary, own_unit:
 # destinations against walls — the single largest cause of staged-move
 # rejections in the 2026-07-10 benchmark soak (1,135 of ~3,300 validation
 # failures), leaving units stuck ("all move attempts failed") for whole games.
-static func _dest_overlaps_wall(dest: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary) -> bool:
+# Stompa-on-walls fix: pass unit_keywords so the 11e solid-feature half of
+# the endpoint rule applies (vehicles/monsters may not stop on ruin walls;
+# infantry may).
+static func _dest_overlaps_wall(dest: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary, unit_keywords: Array = []) -> bool:
 	var meas = _measurement()
 	if meas == null or not meas.has_method("model_overlaps_any_wall"):
 		return false
@@ -9245,7 +9248,25 @@ static func _dest_overlaps_wall(dest: Vector2, base_mm: int, base_type: String, 
 		"base_mm": base_mm,
 		"base_type": base_type,
 		"base_dimensions": base_dimensions,
+	}, unit_keywords)
+
+# Stompa-on-walls fix: the engine (11e 13.06) rejects move segments whose
+# swept base crosses a solid dense feature — screen candidate destinations
+# the same way so the AI routes around ruin walls instead of dispatching
+# doomed staged moves.
+static func _path_blocked_by_solid_terrain(from_pos: Vector2, to_pos: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary, unit_keywords: Array) -> bool:
+	if from_pos == Vector2.INF:
+		return false
+	var tm = _terrain_manager()
+	if tm == null or not tm.has_method("can_move_through_11e"):
+		return false
+	var trav = tm.can_move_through_11e(unit_keywords, from_pos, to_pos, [], {
+		"position": from_pos,
+		"base_mm": base_mm,
+		"base_type": base_type,
+		"base_dimensions": base_dimensions,
 	})
+	return not trav.get("allowed", true)
 
 static func _try_move_with_collision_check(
 	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
@@ -9259,6 +9280,7 @@ static func _try_move_with_collision_check(
 	var placed_models: Array = []
 	var failed_models: Array = []
 	var model_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
+	var unit_kw: Array = unit.get("meta", {}).get("keywords", [])
 
 	# Build intra-unit obstacles: original positions of same-unit models that
 	# haven't been placed yet. MovementPhase checks staged models against
@@ -9316,7 +9338,6 @@ static func _try_move_with_collision_check(
 		# must check each model's path separately.
 		if move_cap_px > 0.0:
 			var orig_pos = original_positions.get(model_id, model_pos)
-			var unit_kw = unit.get("meta", {}).get("keywords", [])
 			var model_has_fly = "FLY" in unit_kw
 			var per_model_terrain = _estimate_charge_terrain_penalty(orig_pos, dest, model_has_fly, unit_kw)
 			var effective_cap_px = move_cap_px - (per_model_terrain * PIXELS_PER_INCH)
@@ -9341,7 +9362,12 @@ static func _try_move_with_collision_check(
 				_unit_name, model_id, dest.x, dest.y, intra_unit_obstacles.size(), placed_models.size(), deployed_models.size()])
 
 		# SOAK-4: ending on a wall is always rejected by the engine — resolve now
-		if not needs_resolve and _dest_overlaps_wall(dest, base_mm, base_type, base_dimensions):
+		if not needs_resolve and _dest_overlaps_wall(dest, base_mm, base_type, base_dimensions, unit_kw):
+			needs_resolve = true
+
+		# 13.06: sweeping the base through a solid dense feature is rejected
+		# by the engine — resolve now
+		if not needs_resolve and _path_blocked_by_solid_terrain(model_pos, dest, base_mm, base_type, base_dimensions, unit_kw):
 			needs_resolve = true
 
 		if not needs_resolve and not mv_models.is_empty():
@@ -9419,7 +9445,9 @@ static func _try_move_with_collision_check(
 					var all_obstacles = deployed_models + placed_models + intra_unit_obstacles
 					if _position_collides_with_deployed(candidate, base_mm, all_obstacles, 1.0, base_type, base_dimensions, radius_factor):
 						continue
-					if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions):
+					if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, unit_kw):
+						continue
+					if _path_blocked_by_solid_terrain(orig_pos, candidate, base_mm, base_type, base_dimensions, unit_kw):
 						continue
 					if _is_position_near_enemy(candidate, enemies, unit):
 						continue
@@ -9485,6 +9513,7 @@ static func _try_formation_move(
 	var coherency_max_px = (2.0 + base_radius_inches * 2.0) * PIXELS_PER_INCH
 	var required_connections = 1 if model_count <= 6 else 2
 	var step = model_radius * 2.0 + 8.0
+	var fm_unit_kw: Array = unit.get("meta", {}).get("keywords", [])
 
 	# Sort models by distance to dest_centroid (closest first)
 	# This ensures models nearest to the destination get placed first,
@@ -9564,7 +9593,10 @@ static func _try_formation_move(
 				if _position_collides_with_deployed(candidate, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
 					continue
 
-				if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions):
+				if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, fm_unit_kw):
+					continue
+
+				if _path_blocked_by_solid_terrain(orig_pos, candidate, base_mm, base_type, base_dimensions, fm_unit_kw):
 					continue
 
 				if _is_position_near_enemy(candidate, enemies, unit):
@@ -9675,6 +9707,7 @@ static func _resolve_movement_collision(
 	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
 	var base_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
 	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0, 5.0, -5.0]
+	var rc_unit_kw: Array = unit.get("meta", {}).get("keywords", [])
 
 	for multiplier in offsets:
 		var offset = perp * base_radius * multiplier
@@ -9691,7 +9724,9 @@ static func _resolve_movement_collision(
 
 		if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
 			continue
-		if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions):
+		if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
+			continue
+		if _path_blocked_by_solid_terrain(original_pos, candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
 			continue
 		if _is_position_near_enemy(candidate, enemies, unit):
 			continue
@@ -9714,7 +9749,9 @@ static func _resolve_movement_collision(
 					continue
 			if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
 				continue
-			if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions):
+			if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
+				continue
+			if _path_blocked_by_solid_terrain(original_pos, candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
 				continue
 			if _is_position_near_enemy(candidate, enemies, unit):
 				continue
@@ -9740,7 +9777,9 @@ static func _resolve_movement_collision(
 					continue
 			if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
 				continue
-			if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions):
+			if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
+				continue
+			if _path_blocked_by_solid_terrain(original_pos, candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
 				continue
 			if _is_position_near_enemy(candidate, enemies, unit):
 				continue

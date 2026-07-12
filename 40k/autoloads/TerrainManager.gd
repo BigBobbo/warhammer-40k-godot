@@ -1211,29 +1211,125 @@ func unit_fully_visible_11e(observer: Dictionary, unit: Dictionary) -> bool:
 ##     which the 2D board does not path (callers refuse the segment).
 ## MOBILE may be granted per-move (e.g. 24.35's gamble) via the
 ## extra_keywords argument.
-func can_move_through_11e(model_keywords: Array, from_pos: Vector2, to_pos: Vector2, extra_keywords: Array = []) -> Dictionary:
+##
+## Stompa-on-walls fix (two refinements):
+##   ▪ piece_class "area" footprints never block — they are enterable
+##     regions whose walls are their own "feature" pieces. Legacy layouts
+##     author no piece_class, so their whole-ruin rectangles keep blocking.
+##   ▪ pass the moving model via `model` to make the test shape-aware: the
+##     model's BASE is swept along the segment instead of testing only the
+##     centre line, so a wide base cannot straddle a wall its centre line
+##     never crosses. Pieces the base already overlaps at from_pos are
+##     exempt for that segment, so a model stranded inside a wall by a
+##     pre-fix save can always move OUT.
+func can_move_through_11e(model_keywords: Array, from_pos: Vector2, to_pos: Vector2, extra_keywords: Array = [], model: Dictionary = {}) -> Dictionary:
 	if GameConstants.edition < 11:
 		return {"allowed": true, "blockers": []}
+	var kws := _upper_keywords(model_keywords, extra_keywords)
+	if _passes_dense_11e(kws):
+		return {"allowed": true, "blockers": []}
+	var height_limit := _dense_height_limit_11e(kws)
+	var blockers: Array = []
+	for piece in terrain_features:
+		if not _is_solid_blocker_11e(piece, height_limit):
+			continue
+		var hit: bool
+		if model.is_empty():
+			hit = check_line_intersects_terrain(from_pos, to_pos, piece)
+		else:
+			hit = _swept_base_hits_piece(model, from_pos, to_pos, piece)
+		if hit:
+			blockers.append(str(piece.get("id", piece.get("type", "terrain"))))
+	return {"allowed": blockers.is_empty(), "blockers": blockers}
+
+## Endpoint companion to 13.06 (Stompa-on-walls fix): a model whose
+## keywords do not let it traverse dense terrain may not END a move,
+## deployment, disembark or pile-in with its base overlapping a solid
+## dense feature taller than its step-over limit — a Stompa cannot stand
+## in a ruin wall. Returns the blocking piece id, or "" when the position
+## is legal. Inert below edition 11, like can_move_through_11e.
+func solid_terrain_endpoint_blocker_11e(model: Dictionary, model_keywords: Array, extra_keywords: Array = []) -> String:
+	if GameConstants.edition < 11:
+		return ""
+	var kws := _upper_keywords(model_keywords, extra_keywords)
+	if _passes_dense_11e(kws):
+		return ""
+	var height_limit := _dense_height_limit_11e(kws)
+	for piece in terrain_features:
+		if not _is_solid_blocker_11e(piece, height_limit):
+			continue
+		if Measurement.model_overlaps_polygon(model, piece.get("polygon", PackedVector2Array())):
+			return str(piece.get("id", piece.get("type", "terrain")))
+	return ""
+
+func _upper_keywords(model_keywords: Array, extra_keywords: Array) -> Array:
 	var kws: Array = []
 	for k in model_keywords:
 		kws.append(str(k).to_upper())
 	for k in extra_keywords:
 		kws.append(str(k).to_upper())
-	var passes_dense := false
+	return kws
+
+## 13.06: these keywords traverse dense terrain freely.
+func _passes_dense_11e(upper_kws: Array) -> bool:
 	for k in ["INFANTRY", "BEASTS", "SWARM", "MOBILE"]:
-		if k in kws:
-			passes_dense = true
-			break
-	var height_limit := 4.0 if "SUPER-HEAVY WALKER" in kws else 2.0
-	var blockers: Array = []
-	for piece in features_crossing(from_pos, to_pos):
-		if category_of(piece) != CATEGORY_DENSE:
-			continue  # exposed/light: all models pass (13.06)
-		if passes_dense:
-			continue
-		if height_inches_of(piece) > height_limit:
-			blockers.append(str(piece.get("id", piece.get("type", "terrain"))))
-	return {"allowed": blockers.is_empty(), "blockers": blockers}
+		if k in upper_kws:
+			return true
+	return false
+
+## Step-over limit: dense sections at or below this height never block
+## (2", or 4" with SUPER-HEAVY WALKER / abilities that grant its allowance).
+func _dense_height_limit_11e(upper_kws: Array) -> float:
+	return 4.0 if "SUPER-HEAVY WALKER" in upper_kws else 2.0
+
+## A piece is a solid movement blocker when it is a dense FEATURE taller
+## than the step-over limit. "area" footprints are enterable regions, not
+## solid objects — their walls are separate feature pieces. Legacy layout
+## pieces carry no piece_class and keep blocking on the whole footprint.
+func _is_solid_blocker_11e(piece: Dictionary, height_limit: float) -> bool:
+	if str(piece.get("piece_class", "")) == "area":
+		return false
+	if category_of(piece) != CATEGORY_DENSE:
+		return false
+	return height_inches_of(piece) > height_limit
+
+## Shape-aware sweep: does the model's base, dragged from from_pos to
+## to_pos, overlap the piece's footprint at any point? Samples the segment
+## at quarter-base spacing (destination always included) and tests the full
+## base shape at each sample. A piece the base already overlaps at from_pos
+## never blocks — the escape clause that lets stranded models move out.
+func _swept_base_hits_piece(model: Dictionary, from_pos: Vector2, to_pos: Vector2, piece: Dictionary) -> bool:
+	var poly: PackedVector2Array = piece.get("polygon", PackedVector2Array())
+	if poly.size() < 3:
+		return false
+	var test_model: Dictionary = model.duplicate()
+	test_model["position"] = from_pos
+	if Measurement.model_overlaps_polygon(test_model, poly):
+		return false  # started overlapped — allow moving out
+	# Cheap reject: swept-base bounding box vs polygon bounding box.
+	var shape = Measurement.create_base_shape(model)
+	var local_bounds: Rect2 = shape.get_bounds()
+	var margin := maxf(local_bounds.size.x, local_bounds.size.y) * 0.5
+	var poly_min := poly[0]
+	var poly_max := poly[0]
+	for v in poly:
+		poly_min = poly_min.min(v)
+		poly_max = poly_max.max(v)
+	var sweep_min := from_pos.min(to_pos) - Vector2(margin, margin)
+	var sweep_max := from_pos.max(to_pos) + Vector2(margin, margin)
+	if sweep_max.x < poly_min.x or sweep_min.x > poly_max.x \
+			or sweep_max.y < poly_min.y or sweep_min.y > poly_max.y:
+		return false
+	# Sample the sweep densely enough that a wall stroke cannot slip
+	# between consecutive base placements (walls are ≥0.5" thick; the
+	# sampled discs overlap heavily at quarter-base spacing).
+	var step_px := maxf(minf(local_bounds.size.x, local_bounds.size.y) * 0.25, 8.0)
+	var samples := maxi(1, int(ceil(from_pos.distance_to(to_pos) / step_px)))
+	for i in range(1, samples + 1):
+		test_model["position"] = from_pos.lerp(to_pos, float(i) / float(samples))
+		if Measurement.model_overlaps_polygon(test_model, poly):
+			return true
+	return false
 
 
 ## ISS-053 (step 1) — 13.08 BENEFIT OF COVER qualification (the in-area

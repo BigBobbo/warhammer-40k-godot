@@ -83,6 +83,7 @@ const FAIL_BASE_CONTACT = "BASE_CONTACT"
 const FAIL_DIRECTION = "DIRECTION"
 const FAIL_MUST_END_CLOSER = "MUST_END_CLOSER"
 const FAIL_WALL = "WALL"
+const FAIL_TERRAIN = "TERRAIN"
 
 # Human-readable explanations for each failure category (teaches players the rules)
 # "{er}" is substituted with the edition's engagement range by get_failure_category_tooltip.
@@ -97,6 +98,7 @@ const FAIL_CATEGORY_TOOLTIPS = {
 	FAIL_DIRECTION: "Each model making a charge move must end that move closer to at least one of the charge target units than it started. Reposition the model so it ends nearer to a declared target.",
 	FAIL_MUST_END_CLOSER: "Each model making a charge move must end closer to at least one declared charge target than it started. Models cannot move laterally or away from all targets during a charge.",
 	FAIL_WALL: "Models cannot end their charge movement overlapping a terrain wall. Models may move through walls during the charge (per their keywords), but the final position must be clear of every wall segment.",
+	FAIL_TERRAIN: "A model's charge path passes through a solid terrain feature (such as a ruin wall) it cannot cross. Infantry-type units move through dense terrain freely and Fly units charge over it; other units must go around.",
 }
 
 func _init():
@@ -1911,16 +1913,29 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 			categorized_errors.append({"category": FAIL_OVERLAP, "detail": err})
 
 	# 3b. Validate no model ends overlapping a wall. Charging models may move
-	# *through* walls during the charge (path-traversal honors keywords), but
-	# no model may *end* on a wall segment — mirrors the movement-phase
-	# endpoint rule and the client-side ChargeController drag gate. Required
-	# server-side so APPLY_CHARGE_MOVE / heroic-intervention actions dispatched
-	# without the drag UI (multiplayer, tests, AI) still hit the rule.
+	# *through* authored wall segments during the charge (path-traversal
+	# honors keywords), but no model may *end* on a wall — mirrors the
+	# movement-phase endpoint rule and the client-side ChargeController drag
+	# gate. Required server-side so APPLY_CHARGE_MOVE / heroic-intervention
+	# actions dispatched without the drag UI (multiplayer, tests, AI) still
+	# hit the rule.
 	var wall_validation = _validate_no_wall_overlaps(unit_id, per_model_paths)
 	if not wall_validation.valid:
 		errors.append_array(wall_validation.errors)
 		for err in wall_validation.errors:
 			categorized_errors.append({"category": FAIL_WALL, "detail": err})
+
+	# 3c. ISS-054 (11e 13.06): solid dense terrain blocks the charge PATH of
+	# units that cannot traverse it — a Stompa cannot charge through a 5"
+	# ruin wall. FLY units charge over terrain, so they are exempt from the
+	# path sweep (their endpoints are still checked in 3b). Shape-aware: the
+	# whole base is swept along each path segment.
+	if not has_fly:
+		var terrain_validation = _validate_no_solid_terrain_on_paths(unit_id, per_model_paths, unit_keywords)
+		if not terrain_validation.valid:
+			errors.append_array(terrain_validation.errors)
+			for err in terrain_validation.errors:
+				categorized_errors.append({"category": FAIL_TERRAIN, "detail": err})
 
 	# 5. Validate engagement range with ALL targets
 	var engagement_validation = _validate_engagement_range_constraints(unit_id, per_model_paths, target_ids)
@@ -2563,6 +2578,9 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 
 func _validate_no_wall_overlaps(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
 	var errors = []
+	# Keywords make the 11e solid-feature half of the endpoint check
+	# keyword-aware (infantry may end among walls; vehicles/monsters may not).
+	var unit_keywords = get_unit(unit_id).get("meta", {}).get("keywords", [])
 
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
@@ -2577,8 +2595,35 @@ func _validate_no_wall_overlaps(unit_id: String, per_model_paths: Dictionary) ->
 		var check_model = model.duplicate(true)
 		check_model["position"] = final_pos
 
-		if Measurement.model_overlaps_any_wall(check_model):
+		if Measurement.model_overlaps_any_wall(check_model, unit_keywords):
 			errors.append("Model %s would end its charge overlapping a wall" % model_id)
+
+	return {"valid": errors.is_empty(), "errors": errors}
+
+## ISS-054 (11e 13.06): sweep each charge-path segment's base against solid
+## dense features (ruin walls and the like). Pieces the model already
+## overlaps at a segment start never block (escape clause for pre-fix
+## saves), matching TerrainManager.can_move_through_11e semantics.
+func _validate_no_solid_terrain_on_paths(unit_id: String, per_model_paths: Dictionary, unit_keywords: Array) -> Dictionary:
+	var errors = []
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null or not tm.has_method("can_move_through_11e"):
+		return {"valid": true, "errors": []}
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() >= 2):
+			continue
+		var model = _get_model_in_unit(unit_id, model_id)
+		if model.is_empty():
+			continue
+		for i in range(path.size() - 1):
+			var seg_from = Vector2(path[i][0], path[i][1])
+			var seg_to = Vector2(path[i + 1][0], path[i + 1][1])
+			var trav = tm.can_move_through_11e(unit_keywords, seg_from, seg_to, [], model)
+			if not trav.allowed:
+				errors.append("Model %s charge path is blocked by solid terrain (13.06): %s" % [model_id, str(trav.blockers)])
+				break
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
