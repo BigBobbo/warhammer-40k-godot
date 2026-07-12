@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.31.0",
+			"date": "2026-07-12",
+			"summary": "First top-down unit artwork: Custodian Guard squads now show a hand-drawn bird's-eye Custodian (gold armour, red helm crest, guardian spear) on their bases instead of a letter counter — the start of Vassal-style sprites for every model in the game.",
+			"changes": [
+				"New: top-down Custodian Guard sprite — tokens for any unit named 'Custodian Guard' render the gold spear-wielding figure on their base in the default (letter) visual style; the spear overhangs the base edge just like the tabletop model.",
+				"Units without artwork are unchanged and keep their letter counters (and vehicles keep their tank sprites); the art also appears in the 'enhanced' visual style.",
+				"Custom re-skins still work: a PNG dropped into user://sprites/ with the same name (custodian_guard.png) overrides the built-in art.",
+				"More sprites are on the way — the art pipeline (tools/sprites/generate_unit_sprites.py) is built to cover the rest of the Adeptus Custodes range next."
+			]
+		},
+		{
 			"version": "0.30.0",
 			"date": "2026-07-12",
 			"summary": "Removed the legacy hand-made terrain layouts (Chapter Approved 1-8 and the parse-test boards). The game now plays exclusively on the converted official 11e tournament layouts, and the main menu defaults to the current matchup's first official variant with its paired deployment.",
