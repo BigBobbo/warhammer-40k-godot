@@ -5,6 +5,19 @@ extends RefCounted
 # No scene tree access, no signals. Takes data in, returns action dictionaries out.
 # All methods are static for use without instantiation.
 
+# Display-name helpers for AI thinking/log lines. Prefer meta.display_name
+# (which carries the Alpha/Beta/... suffix ArmyListManager assigns to
+# duplicate squads) over the bare datasheet name, so a log line like
+# "Custodian Guard Alpha holds the objective" identifies WHICH duplicate
+# acted. Falls back to meta.name, then the caller-supplied fallback.
+static func _dn(unit: Dictionary, fallback = "") -> String:
+	return _dn_meta(unit.get("meta", {}), fallback)
+
+
+static func _dn_meta(unit_meta: Dictionary, fallback = "") -> String:
+	return str(unit_meta.get("display_name", unit_meta.get("name", fallback)))
+
+
 # --- Constants ---
 const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
@@ -1380,7 +1393,7 @@ static func _decide_random_movement(snapshot: Dictionary, available_actions: Arr
 	var uid = unit_ids[randi() % unit_ids.size()]
 	var move_types = movable_units[uid]
 	var unit = snapshot.get("units", {}).get(uid, {})
-	var unit_name = unit.get("meta", {}).get("name", uid)
+	var unit_name = _dn(unit, uid)
 
 	# 50% chance to remain stationary, 50% chance to move
 	if "REMAIN_STATIONARY" in move_types and randf() < 0.5:
@@ -1432,7 +1445,7 @@ static func _decide_random_shooting(snapshot: Dictionary, available_actions: Arr
 		var shoot_actions = action_types["SHOOT"]
 		var chosen = shoot_actions[randi() % shoot_actions.size()]
 		var result = chosen.duplicate()
-		var unit_name = snapshot.get("units", {}).get(result.get("actor_unit_id", ""), {}).get("meta", {}).get("name", "?")
+		var unit_name = _dn(snapshot.get("units", {}).get(result.get("actor_unit_id", ""), {}), "?")
 		result["_ai_description"] = "%s shoots randomly (Easy)" % unit_name
 		return result
 
@@ -1463,7 +1476,7 @@ static func _decide_random_charge(snapshot: Dictionary, available_actions: Array
 			var charges = action_types["DECLARE_CHARGE"]
 			var chosen = charges[randi() % charges.size()]
 			var result = chosen.duplicate()
-			var unit_name = snapshot.get("units", {}).get(result.get("actor_unit_id", ""), {}).get("meta", {}).get("name", "?")
+			var unit_name = _dn(snapshot.get("units", {}).get(result.get("actor_unit_id", ""), {}), "?")
 			result["_ai_description"] = "%s charges randomly (Easy)" % unit_name
 			return result
 
@@ -1516,7 +1529,7 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 			dangerous_shooters.append({
 				"unit_id": enemy_id,
 				"ranged_strength": ranged_strength,
-				"name": enemy.get("meta", {}).get("name", enemy_id)
+				"name": _dn(enemy, enemy_id)
 			})
 
 	# Sort by ranged strength descending (most dangerous first)
@@ -1546,7 +1559,7 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 		if state.get("is_engaged", false):
 			continue
 
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 
 		# After movement + charge, total reach is: M + 12" charge range
@@ -1601,7 +1614,7 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 				best_charge_score = score
 				best_charge_target = enemy_id
 				best_charge_dist = dist_inches
-				best_charge_name = enemy.get("meta", {}).get("name", enemy_id)
+				best_charge_name = _dn(enemy, enemy_id)
 
 		if best_charge_score >= get_param("PHASE_PLAN_CHARGE_INTENT_THRESHOLD", PHASE_PLAN_CHARGE_INTENT_THRESHOLD) and best_charge_target != "":
 			plan.charge_intent[unit_id] = {
@@ -1713,7 +1726,7 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
 	var centroid = _get_unit_centroid(unit)
 
@@ -1900,7 +1913,7 @@ static func _choose_warlord(snapshot: Dictionary, warlord_actions: Array, player
 	if best_action.is_empty():
 		return {}
 
-	var char_name = all_units.get(best_action.get("unit_id", ""), {}).get("meta", {}).get("name", "unknown")
+	var char_name = _dn(all_units.get(best_action.get("unit_id", ""), {}), "unknown")
 	best_action["_ai_description"] = "AI designates %s as Warlord" % char_name
 	print("AIDecisionMaker: Warlord designation — %s (score=%.1f)" % [char_name, best_score])
 	return best_action
@@ -1925,9 +1938,9 @@ static func _evaluate_best_leader_attachment(snapshot: Dictionary, attachment_ac
 	if best_action.is_empty():
 		return {}
 
-	var char_name = all_units.get(best_action.get("character_id", ""), {}).get("meta", {}).get("name", "unknown")
+	var char_name = _dn(all_units.get(best_action.get("character_id", ""), {}), "unknown")
 	var bg_id = best_action.get("bodyguard_id", "")
-	var bg_name = all_units.get(bg_id, {}).get("meta", {}).get("name", "unknown")
+	var bg_name = _dn(all_units.get(bg_id, {}), "unknown")
 	best_action["_ai_description"] = "AI attaches %s to %s (synergy: %.2f)" % [char_name, bg_name, best_score]
 	print("AIDecisionMaker: Leader attachment - %s -> %s (score=%.2f)" % [char_name, bg_name, best_score])
 	# Track this bodyguard as having a leader — prevents embarking in transports
@@ -1993,8 +2006,8 @@ static func _score_leader_bodyguard_pairing(char_id: String, bg_id: String, all_
 	var score = synergy * model_scale * points_scale
 
 	print("AIDecisionMaker: Score %s -> %s: off_r=%.2f off_m=%.2f def=%.2f tac=%.2f models=%d pts=%d => %.2f" % [
-		char_unit.get("meta", {}).get("name", char_id),
-		bg_unit.get("meta", {}).get("name", bg_id),
+		_dn(char_unit, char_id),
+		_dn(bg_unit, bg_id),
 		off_ranged, off_melee, def_mult, tactical_bonus, model_count, points, score
 	])
 
@@ -2130,10 +2143,10 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 
 		if total_score > best_score:
 			best_score = total_score
-			var transport_name = transport.get("meta", {}).get("name", transport_id)
+			var transport_name = _dn(transport, transport_id)
 			var unit_names = []
 			for uid in selected_unit_ids:
-				unit_names.append(all_units.get(uid, {}).get("meta", {}).get("name", uid))
+				unit_names.append(_dn(all_units.get(uid, {}), uid))
 			best_action = {
 				"type": "DECLARE_TRANSPORT_EMBARKATION",
 				"transport_id": transport_id,
@@ -2209,7 +2222,7 @@ static func _score_unit_for_embarkation(unit: Dictionary, unit_id: String, model
 		score += 0.1 * oc
 
 	print("AIDecisionMaker: [FORM-2] Score %s for transport: %.2f (T%d, Sv%d+, W%d, M%d\", %d models, %dpts)" % [
-		unit.get("meta", {}).get("name", unit_id), score, toughness, save, wounds, move, model_count, points])
+		_dn(unit, unit_id), score, toughness, save, wounds, move, model_count, points])
 	return score
 
 # =============================================================================
@@ -2315,7 +2328,7 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 		return {}
 
 	var action = best.action
-	var unit_name = all_units.get(best.unit_id, {}).get("meta", {}).get("name", "unknown")
+	var unit_name = _dn(all_units.get(best.unit_id, {}), "unknown")
 	var type_label = "Deep Strike" if best.reserve_type == "deep_strike" else "Strategic Reserves"
 	action["_ai_description"] = "AI declares %s in %s (score: %.1f, %dpts)" % [
 		unit_name, type_label, best.score, best.points]
@@ -2349,7 +2362,7 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 		var leader_data = unit.get("meta", {}).get("leader_data", {})
 		if not leader_data.get("can_lead", []).is_empty():
 			print("AIDecisionMaker: [FORM-3] Skip %s — CHARACTER with leader data (should attach)" %
-				unit.get("meta", {}).get("name", unit_id))
+				_dn(unit, unit_id))
 			return 0.0
 
 	# Fortifications cannot be placed in reserves (rules requirement)
@@ -2443,7 +2456,7 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 	if points <= get_param_int("SCREEN_CHEAP_UNIT_POINTS", SCREEN_CHEAP_UNIT_POINTS) and not has_deep_strike:
 		score *= 0.5  # Cheap units are better as Turn 1 screens than reserves
 
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	var type_label = "DS" if reserve_type == "deep_strike" else "SR"
 	print("AIDecisionMaker: [FORM-3] Score %s (%s): %.1f (melee=%s, ranged=%s, range=%.0f\", pts=%d)" % [
 		unit_name, type_label, score, has_melee, has_ranged, max_range, points])
@@ -2476,7 +2489,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 
 	# T7-18: Classify unit role for terrain-aware deployment
 	var unit_role = _classify_deployment_role(unit)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	var unit_keywords: Array = unit.get("meta", {}).get("keywords", [])
 	print("AIDecisionMaker: Deploying %s (role=%s)" % [unit_name, unit_role])
 
@@ -2848,7 +2861,7 @@ static func _get_deployed_enemy_analysis(snapshot: Dictionary, player: int) -> A
 			continue
 		var role = _classify_deployment_role(unit)
 		var points = int(unit.get("meta", {}).get("points", 0))
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		result.append({
 			"centroid": centroid,
 			"role": role,
@@ -3117,7 +3130,7 @@ static func _decide_scout(snapshot: Dictionary, available_actions: Array, player
 			if unit.is_empty():
 				continue
 
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			var unit_name = _dn(unit, unit_id)
 			var scout_distance = _get_scout_distance_from_unit(unit, snapshot)
 			if scout_distance <= 0.0:
 				scout_distance = 6.0  # Default scout distance
@@ -3680,7 +3693,7 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			var dk_uid = action.get("target_unit_id", "")
 			var dk_unit = snapshot.get("units", {}).get(dk_uid, {})
 			var dk_pts = float(dk_unit.get("meta", {}).get("points", 0))
-			var dk_name = dk_unit.get("meta", {}).get("name", dk_uid)
+			var dk_name = _dn(dk_unit, dk_uid)
 			var dk_on_obj = false
 			var dk_centroid = _get_unit_centroid(dk_unit)
 			if dk_centroid != Vector2.INF:
@@ -3758,7 +3771,7 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			var pv_unit = snapshot.get("units", {}).get(pv_uid, {})
 			var pv_wounds = _estimate_unit_remaining_wounds(pv_unit)
 			if pv_wounds >= 3.0:
-				_add_thinking_step("Psychic Veil on %s: 5/6 chance of an 18\" targeting shield vs 1/6 of D3 MW — casting" % pv_unit.get("meta", {}).get("name", pv_uid))
+				_add_thinking_step("Psychic Veil on %s: 5/6 chance of an 18\" targeting shield vs 1/6 of D3 MW — casting" % _dn(pv_unit, pv_uid))
 				return {
 					"type": "USE_PSYCHIC_VEIL",
 					"unit_id": pv_uid,
@@ -4038,7 +4051,7 @@ static func _select_oath_of_moment_target(snapshot: Dictionary, oath_actions: Ar
 		if not can_damage_target:
 			score *= 0.5  # Halve priority if we lack efficient weapons
 
-		var target_name = meta.get("name", target_id)
+		var target_name = _dn_meta(meta, target_id)
 		print("AIDecisionMaker: Oath of Moment candidate %s — score %.2f (T%d, Sv%d+, %.0fW remaining, invuln %d+)" % [
 			target_name, score, toughness, save, remaining_wounds, invuln if invuln > 0 else 0])
 
@@ -4399,7 +4412,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				break
 			var pa = assignments[plan_uid]
 			var p_unit = snapshot.get("units", {}).get(plan_uid, {})
-			var p_name = p_unit.get("meta", {}).get("name", plan_uid)
+			var p_name = _dn(p_unit, plan_uid)
 			var p_oc = int(p_unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
 			var p_obj = pa.get("objective_id", "")
 			var p_dist_in = pa.get("distance", 0.0) / PIXELS_PER_INCH
@@ -4416,13 +4429,13 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			plan_lines_logged += 1
 		for eng_uid in engaged_units:
 			var e_unit = snapshot.get("units", {}).get(eng_uid, {})
-			var e_name = e_unit.get("meta", {}).get("name", eng_uid)
+			var e_name = _dn(e_unit, eng_uid)
 			_add_thinking_step("  %s: ENGAGED — will decide fall back vs hold" % e_name)
 
 	# --- Handle engaged units first ---
 	for unit_id in engaged_units:
 		var unit = snapshot.get("units", {}).get(unit_id, {})
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		var move_types = movable_units[unit_id]
 		var decision = _decide_engaged_unit(unit, unit_id, unit_name, move_types, objectives, enemies, snapshot, player)
 		if not decision.is_empty():
@@ -4460,7 +4473,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 
 	for unit_id in assigned_units:
 		var unit = snapshot.get("units", {}).get(unit_id, {})
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		var move_types = movable_units[unit_id]
 		var assignment = assignments.get(unit_id, {})
 		var assigned_obj_pos = assignment.get("objective_pos", Vector2.INF)
@@ -4505,10 +4518,10 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				if not hold_nearest.is_empty() and hold_nearest.distance_inches <= hold_dist_limit:
 					skip_hold_for_melee = true
 					print("AIDecisionMaker: [MELEE-AGGRESSION] %s skipping hold to seek %s (%.1f\" away, limit=%.0f\", round=%d)" % [
-						unit_name, hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), hold_nearest.distance_inches, hold_dist_limit, hold_battle_round])
+						unit_name, _dn(hold_nearest.enemy_unit, "enemy"), hold_nearest.distance_inches, hold_dist_limit, hold_battle_round])
 				elif not hold_nearest.is_empty():
 					print("AIDecisionMaker: [HOLD-PRIORITY] %s staying on objective — enemy %s is %.1f\" away (limit=%.0f\", round=%d)" % [
-						unit_name, hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), hold_nearest.distance_inches, hold_dist_limit, hold_battle_round])
+						unit_name, _dn(hold_nearest.enemy_unit, "enemy"), hold_nearest.distance_inches, hold_dist_limit, hold_battle_round])
 			if not skip_hold_for_melee and "REMAIN_STATIONARY" in move_types:
 				var dist_inches = assignment.get("distance", 0.0) / PIXELS_PER_INCH
 				var reason = assignment.get("reason", "holding objective")
@@ -4579,7 +4592,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				var move_inches_melee = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 				var melee_centroid = _get_unit_centroid(unit)
 				var enemy_pos = nearest_enemy.centroid
-				var enemy_name = nearest_enemy.enemy_unit.get("meta", {}).get("name", "enemy")
+				var enemy_name = _dn(nearest_enemy.enemy_unit, "enemy")
 
 				# Move directly toward enemy — _compute_movement_toward_target handles terrain pathing
 				var move_target = enemy_pos
@@ -4765,10 +4778,10 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				if not obj_hold_nearest.is_empty() and obj_hold_nearest.distance_inches <= obj_hold_dist_limit:
 					obj_hold_skip = true
 					print("AIDecisionMaker: [MELEE-AGGRESSION] %s on objective but enemy %s is %.1f\" away (limit=%.0f\") — keep moving" % [
-						unit_name, obj_hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), obj_hold_nearest.distance_inches, obj_hold_dist_limit])
+						unit_name, _dn(obj_hold_nearest.enemy_unit, "enemy"), obj_hold_nearest.distance_inches, obj_hold_dist_limit])
 				elif not obj_hold_nearest.is_empty():
 					print("AIDecisionMaker: [OBJ-PRIORITY] %s holding objective — enemy %s at %.1f\" beyond limit %.0f\" (round %d)" % [
-						unit_name, obj_hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), obj_hold_nearest.distance_inches, obj_hold_dist_limit, obj_hold_round])
+						unit_name, _dn(obj_hold_nearest.enemy_unit, "enemy"), obj_hold_nearest.distance_inches, obj_hold_dist_limit, obj_hold_round])
 			if not obj_hold_skip and target_pos != Vector2.INF and centroid.distance_to(target_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
 				if "REMAIN_STATIONARY" in move_types:
 					var dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH
@@ -5039,7 +5052,7 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 		if unit.is_empty():
 			continue
 
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		var reserve_type = unit.get("reserve_type", "strategic_reserves")
 		var points = int(unit.get("meta", {}).get("points", 0))
 
@@ -5493,7 +5506,7 @@ static func _get_omni_scrambler_positions_from_snapshot(snapshot: Dictionary, de
 				break
 		if not has_omni:
 			continue
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		for model in unit.get("models", []):
 			if not model.get("alive", true):
 				continue
@@ -5639,8 +5652,8 @@ static func _decide_transport_disembark(snapshot: Dictionary, player: int) -> Di
 		if transport_flags.get("advanced", false) or transport_flags.get("fell_back", false):
 			continue
 
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		var transport_name = transport.get("meta", {}).get("name", transport_id)
+		var unit_name = _dn(unit, unit_id)
+		var transport_name = _dn(transport, transport_id)
 
 		# Score whether disembarking is beneficial
 		var score = _score_disembark_benefit(unit, unit_id, transport, transport_id,
@@ -5674,7 +5687,7 @@ static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transpor
 	if transport_pos == Vector2.INF:
 		return 0.0
 
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	var stats = unit.get("meta", {}).get("stats", {})
 	var oc = int(stats.get("oc", 1))
 
@@ -5995,7 +6008,7 @@ static func _compute_disembark_positions(unit: Dictionary, transport: Dictionary
 			positions.append(transport_pos)
 
 	print("AIDecisionMaker: [MOV-7] Computed %d disembark positions (%d alive) for %s" % [
-		positions.size(), alive_count, unit.get("meta", {}).get("name", "")])
+		positions.size(), alive_count, _dn(unit, "")])
 	return positions
 
 static func _is_pos_in_engagement(pos: Vector2, unit_radius_px: float, enemy_positions: Array) -> bool:
@@ -6876,7 +6889,7 @@ static func _assign_units_to_objectives(
 				assigned_unit_ids[unit_id] = true
 				screener_positions.append(denial_pos)
 				denial_idx += 1
-				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				var unit_name = _dn(unit, unit_id)
 				print("AIDecisionMaker: [SCREEN] Assigned %s to SCREEN at (%.0f,%.0f) — %s" % [
 					unit_name, denial_pos.x, denial_pos.y, denial.reason])
 				continue
@@ -6904,7 +6917,7 @@ static func _assign_units_to_objectives(
 					}
 					assigned_unit_ids[unit_id] = true
 					screener_positions.append(screen_pos)
-					var unit_name = unit.get("meta", {}).get("name", unit_id)
+					var unit_name = _dn(unit, unit_id)
 					print("AIDecisionMaker: [SCREEN] Assigned %s to SCREEN-PROTECT at (%.0f,%.0f)" % [
 						unit_name, screen_pos.x, screen_pos.y])
 					continue
@@ -6939,7 +6952,7 @@ static func _assign_units_to_objectives(
 				assigned_unit_ids[unit_id] = true
 				screener_positions.append(block_pos)
 				block_idx += 1
-				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				var unit_name = _dn(unit, unit_id)
 				print("AIDecisionMaker: [BLOCK] Assigned %s to BLOCK at (%.0f,%.0f) — %s" % [
 					unit_name, block_pos.x, block_pos.y, block.reason])
 				continue
@@ -7643,11 +7656,11 @@ static func _should_unit_advance(
 		adv_and_charge = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
 
 	if adv_and_shoot:
-		print("AIDecisionMaker: %s has Advance and Shoot — advancing has no shooting penalty" % unit.get("meta", {}).get("name", unit_id))
+		print("AIDecisionMaker: %s has Advance and Shoot — advancing has no shooting penalty" % _dn(unit, unit_id))
 		return true  # No downside to advancing
 
 	if adv_and_charge:
-		print("AIDecisionMaker: %s has Advance and Charge — advancing allows charge" % unit.get("meta", {}).get("name", unit_id))
+		print("AIDecisionMaker: %s has Advance and Charge — advancing allows charge" % _dn(unit, unit_id))
 		return true  # Can still charge after advancing
 
 	# Units without ranged weapons should always advance
@@ -7875,7 +7888,7 @@ static func _should_hold_for_heavy_bonus(
 		return false  # Charge intent overrides Heavy bonus
 
 	# Heavy bonus is worthwhile — stay stationary
-	var unit_name = unit.get("meta", {}).get("name", "unit")
+	var unit_name = _dn(unit, "unit")
 	print("AIDecisionMaker: [T7-26] %s has Heavy weapons (%.1f extra expected hits from +1 to hit) — holding stationary (%d targets in %.0f\" range, obj %.1f\" away)" % [
 		unit_name, heavy_data.total_expected_extra_hits, enemies_in_heavy_range.size(),
 		heavy_data.max_range_inches, dist_to_obj_inches])
@@ -8192,7 +8205,7 @@ static func _should_hold_for_shooting(
 			if would_benefit_from_closing:
 				break
 		if would_benefit_from_closing:
-			var unit_name = unit.get("meta", {}).get("name", "unit")
+			var unit_name = _dn(unit, "unit")
 			print("AIDecisionMaker: [T7-30] %s has Rapid Fire/Melta weapons (benefit=%.1f) — not holding, advancing toward half range" % [
 				unit_name, half_range_data.total_benefit])
 			return false  # Don't hold — let movement code push toward half range
@@ -8200,7 +8213,7 @@ static func _should_hold_for_shooting(
 	# Moving would lose all targets and objective isn't reachable this turn
 	# Prefer staying and shooting
 	print("AIDecisionMaker: %s has %d enemies in weapon range (max %.0f\") — holding for shooting rather than moving to distant objective (%.1f\" away, %d turns)" % [
-		unit.get("meta", {}).get("name", "unit"), enemies_in_range.size(), max_weapon_range,
+		_dn(unit, "unit"), enemies_in_range.size(), max_weapon_range,
 		dist_to_obj_inches, int(turns_to_reach)])
 	return true
 
@@ -8470,7 +8483,7 @@ static func _compute_movement_toward_target(
 
 	# --- MOV-1: Clamp movement to maintain weapon range on current targets ---
 	if max_weapon_range > 0.0:
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		final_move_vector = _clamp_move_for_weapon_range(
 			centroid, final_move_vector, max_weapon_range, enemies, unit_name
 		)
@@ -8513,7 +8526,7 @@ static func _compute_movement_toward_target(
 	var safe_move_px = move_px * 0.95
 
 	# Try the full move first, then progressively shorter moves
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	DebugLogger.info("AI_MOVE_DEBUG %s: centroid=(%.0f,%.0f) target=(%.0f,%.0f) move_px=%.1f safe_move_px=%.1f final_vec_len=%.1f" % [
 		unit_name, centroid.x, centroid.y, target_pos.x, target_pos.y, move_px, safe_move_px, final_move_vector.length()])
 	var fractions_to_try = [1.0, 0.75, 0.5, 0.25, 0.15, 0.1]
@@ -8810,7 +8823,7 @@ static func _get_enemy_reserves(snapshot: Dictionary, player: int) -> Array:
 			if has_alive:
 				var reserve_type = unit.get("reserve_type", "strategic_reserves")
 				var points = int(unit.get("meta", {}).get("points", 0))
-				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				var unit_name = _dn(unit, unit_id)
 				reserves.append({
 					"unit_id": unit_id,
 					"unit": unit,
@@ -9077,7 +9090,7 @@ static func _calculate_corridor_blocking_positions(
 			var enemy_value = _estimate_enemy_threat_level(enemy)
 			var priority = base_priority + proximity_bonus + enemy_value
 
-			var enemy_name = enemy.get("meta", {}).get("name", enemy_id)
+			var enemy_name = _dn(enemy, enemy_id)
 			blocking_positions.append({
 				"position": block_pos,
 				"priority": priority,
@@ -9289,7 +9302,7 @@ static func _try_move_with_collision_check(
 		return pa.dot(move_dir) > pb.dot(move_dir)
 	)
 
-	var _unit_name = unit.get("meta", {}).get("name", "")
+	var _unit_name = _dn(unit, "")
 	DebugLogger.info("INTRA_OBSTACLE_DEBUG %s: built %d intra-unit obstacles, %d deployed, move_cap=%.0f" % [
 		_unit_name, intra_unit_obstacles.size(), deployed_models.size(), move_cap_px])
 
@@ -9909,7 +9922,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		var best_action = _evaluate_secondary_actions(snapshot, action_types, player)
 		if not best_action.is_empty():
 			var a_unit = snapshot.get("units", {}).get(best_action.get("actor_unit_id", ""), {})
-			var a_name = a_unit.get("meta", {}).get("name", best_action.get("actor_unit_id", ""))
+			var a_name = _dn(a_unit, best_action.get("actor_unit_id", ""))
 			var a_desc = best_action.get("payload", {}).get("action_name", "")
 			print("AIDecisionMaker: %s performs action '%s' instead of shooting" % [a_name, a_desc])
 			_add_thinking_step("%s performs %s (secondary mission action)" % [a_name, a_desc])
@@ -9923,7 +9936,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		var best_burn = _evaluate_burn_objective_actions(snapshot, action_types, player)
 		if not best_burn.is_empty():
 			var b_unit = snapshot.get("units", {}).get(best_burn.get("actor_unit_id", ""), {})
-			var b_name = b_unit.get("meta", {}).get("name", best_burn.get("actor_unit_id", ""))
+			var b_name = _dn(b_unit, best_burn.get("actor_unit_id", ""))
 			var obj_id = best_burn.get("objective_id", "")
 			print("AIDecisionMaker: %s burns objective %s instead of shooting" % [b_name, obj_id])
 			_add_thinking_step("%s burns %s (Scorched Earth)" % [b_name, obj_id])
@@ -9937,7 +9950,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		var best_ritual = _evaluate_ritual_actions(snapshot, action_types, player)
 		if not best_ritual.is_empty():
 			var r_unit = snapshot.get("units", {}).get(best_ritual.get("actor_unit_id", ""), {})
-			var r_name = r_unit.get("meta", {}).get("name", best_ritual.get("actor_unit_id", ""))
+			var r_name = _dn(r_unit, best_ritual.get("actor_unit_id", ""))
 			var r_obj_id = best_ritual.get("objective_id", "")
 			print("AIDecisionMaker: %s performs ritual at %s instead of shooting" % [r_name, r_obj_id])
 			_add_thinking_step("%s performs ritual at %s (The Ritual)" % [r_name, r_obj_id])
@@ -9951,7 +9964,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		var best_terraform = _evaluate_terraform_actions(snapshot, action_types, player)
 		if not best_terraform.is_empty():
 			var t_unit = snapshot.get("units", {}).get(best_terraform.get("actor_unit_id", ""), {})
-			var t_name = t_unit.get("meta", {}).get("name", best_terraform.get("actor_unit_id", ""))
+			var t_name = _dn(t_unit, best_terraform.get("actor_unit_id", ""))
 			var t_obj_id = best_terraform.get("objective_id", "")
 			var t_flip = best_terraform.get("is_flip", false)
 			var t_action_desc = "flips" if t_flip else "terraforms"
@@ -9980,7 +9993,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			var ff_target_summary = {}  # target_name -> count of shooters assigned
 			for ff_uid in _focus_fire_plan:
 				var ff_unit = snapshot.get("units", {}).get(ff_uid, {})
-				var ff_name = ff_unit.get("meta", {}).get("name", ff_uid)
+				var ff_name = _dn(ff_unit, ff_uid)
 				var ff_assignments = _focus_fire_plan[ff_uid]
 				var ff_targets = {}
 				for ff_a in ff_assignments:
@@ -9990,7 +10003,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 					ff_targets[ff_tid] += 1
 				for ff_tid in ff_targets:
 					var ff_target = snapshot.get("units", {}).get(ff_tid, {})
-					var ff_tname = ff_target.get("meta", {}).get("name", ff_tid)
+					var ff_tname = _dn(ff_target, ff_tid)
 					print("  Focus fire: %s -> %s (%d weapon(s))" % [ff_name, ff_tname, ff_targets[ff_tid]])
 					ff_target_summary[ff_tname] = ff_target_summary.get(ff_tname, 0) + 1
 			# Log thinking step with focus fire plan summary
@@ -10031,7 +10044,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase"}
 
 		var unit = snapshot.get("units", {}).get(selected_unit_id, {})
-		var unit_name = unit.get("meta", {}).get("name", selected_unit_id)
+		var unit_name = _dn(unit, selected_unit_id)
 
 		# Get weapons for this unit
 		var weapons = unit.get("meta", {}).get("weapons", [])
@@ -10106,7 +10119,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 					continue
 				var wid = a.get("weapon_id", "")
 				if not _can_shooter_see_target(selected_unit_id, tid, wid, snapshot):
-					var tname = enemies[tid].get("meta", {}).get("name", tid)
+					var tname = _dn(enemies[tid], tid)
 					print("AIDecisionMaker: Dropping assignment %s -> %s (no LoS)" % [unit_name, tname])
 					continue
 				valid_assignments.append(a)
@@ -10136,7 +10149,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		for assignment in assignments:
 			var tid = assignment.get("target_unit_id", "")
 			var target = snapshot.get("units", {}).get(tid, {})
-			var tname = target.get("meta", {}).get("name", tid)
+			var tname = _dn(target, tid)
 			target_name_map[tid] = tname
 			if not target_damage.has(tid):
 				target_damage[tid] = 0.0
@@ -10306,7 +10319,7 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		# the charge will handle them, and shooting could kill models that
 		# would have been better engaged in combat.
 		if _is_charge_target(enemy_id):
-			var enemy_name = enemy.get("meta", {}).get("name", enemy_id)
+			var enemy_name = _dn(enemy, enemy_id)
 			print("AIDecisionMaker: [PHASE-PLAN] Suppressing shooting priority for %s (planned charge target, %.2f -> %.2f)" % [
 				enemy_name, base_value, base_value * get_param("PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET", PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET)])
 			base_value *= get_param("PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET", PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET)
@@ -10447,7 +10460,7 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 	print("AIDecisionMaker: T7-22 Macro target priority ranking:")
 	for enemy_id in ranked_targets:
 		var enemy = enemies[enemy_id]
-		var ename = enemy.get("meta", {}).get("name", enemy_id)
+		var ename = _dn(enemy, enemy_id)
 		var tval = target_values.get(enemy_id, 0.0)
 		var threshold = kill_thresholds.get(enemy_id, 0)
 		var target_type_name = _target_type_name(_classify_target_type(enemy))
@@ -10461,7 +10474,7 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		if alloc > 0:
 			var threshold = kill_thresholds.get(enemy_id, 0)
 			var enemy = enemies[enemy_id]
-			var ename = enemy.get("meta", {}).get("name", enemy_id)
+			var ename = _dn(enemy, enemy_id)
 			var kill_pct = (alloc / threshold * 100.0) if threshold > 0 else 0.0
 			var target_type_name = _target_type_name(_classify_target_type(enemy))
 			print("AIDecisionMaker: Focus fire -> %s [%s]: %.1f eff-adjusted dmg vs %.1f HP (%.0f%% kill, marginal alloc)" % [
@@ -10477,7 +10490,7 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		var wname = w.get("name", "?")
 		var role_name = _weapon_role_name(_classify_weapon_role(w))
 		var target = enemies.get(target_id, {})
-		var tname = target.get("meta", {}).get("name", target_id)
+		var tname = _dn(target, target_id)
 		var eff = _calculate_efficiency_multiplier(w, target)
 		print("AIDecisionMaker:   %s [%s] -> %s (efficiency: %.2f)" % [wname, role_name, tname, eff])
 
@@ -11003,7 +11016,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 			if kw in keywords:
 				value *= 1.4  # 40% boost for secondary mission kill targets
 				print("AIDecisionMaker: [SEC-TARGET] +40%% priority for %s (matches kill keyword '%s')" % [
-					meta.get("name", unit_id), kw])
+					_dn_meta(meta, unit_id), kw])
 				break  # Only apply once even if multiple keywords match
 
 	# Marked for Death: boost priority for specifically marked target units
@@ -11011,14 +11024,14 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	if unit_id in marked_targets:
 		value *= 1.5  # 50% boost for Marked for Death targets (higher than keyword match)
 		print("AIDecisionMaker: [SEC-TARGET] +50%% priority for %s (Marked for Death target)" % [
-			meta.get("name", unit_id)])
+			_dn_meta(meta, unit_id)])
 
 	# A Grievous Blow (11e): boost kills on units with a big Starting Strength
 	var big_unit_min = int(sec_awareness.get("kill_big_units_min", 0))
 	if big_unit_min > 0 and target_unit.get("models", []).size() >= big_unit_min:
 		value *= 1.4
 		print("AIDecisionMaker: [SEC-TARGET] +40%% priority for %s (Starting Strength %d ≥ %d — A Grievous Blow)" % [
-			meta.get("name", unit_id), target_unit.get("models", []).size(), big_unit_min])
+			_dn_meta(meta, unit_id), target_unit.get("models", []).size(), big_unit_min])
 
 	# 11e primary kill rules (Purge the Foe style): kills score primary VP too
 	if _get_primary_awareness(player).get("kill_pressure", false):
@@ -11265,7 +11278,7 @@ static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: A
 			# T7-7: Log weapon-target efficiency for fallback assignments
 			var role_name = _weapon_role_name(_classify_weapon_role(weapon))
 			var target = enemies.get(best_target_id, {})
-			var tname = target.get("meta", {}).get("name", best_target_id)
+			var tname = _dn(target, best_target_id)
 			var target_type_name = _target_type_name(_classify_target_type(target))
 			var eff = _calculate_efficiency_multiplier(weapon, target)
 			print("AIDecisionMaker: Fallback assign %s [%s] -> %s [%s] (efficiency: %.2f, score: %.2f)" % [
@@ -11382,7 +11395,7 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 		var a = action_types["COMPLETE_UNIT_CHARGE"][0]
 		var uid = a.get("actor_unit_id", "")
 		var unit = snapshot.get("units", {}).get(uid, {})
-		var unit_name = unit.get("meta", {}).get("name", uid)
+		var unit_name = _dn(unit, uid)
 		return {
 			"type": "COMPLETE_UNIT_CHARGE",
 			"actor_unit_id": uid,
@@ -11408,7 +11421,7 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 		var a = action_types["CHARGE_ROLL"][0]
 		var uid = a.get("actor_unit_id", "")
 		var unit = snapshot.get("units", {}).get(uid, {})
-		var unit_name = unit.get("meta", {}).get("name", uid)
+		var unit_name = _dn(unit, uid)
 		return {
 			"type": "CHARGE_ROLL",
 			"actor_unit_id": uid,
@@ -11426,7 +11439,7 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 		var a = action_types["SKIP_CHARGE"][0]
 		var uid = a.get("actor_unit_id", "")
 		var unit = snapshot.get("units", {}).get(uid, {})
-		var unit_name = unit.get("meta", {}).get("name", uid)
+		var unit_name = _dn(unit, uid)
 		return {
 			"type": "SKIP_CHARGE",
 			"actor_unit_id": uid,
@@ -11482,7 +11495,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 
 	for uid in charger_targets:
 		var unit = snapshot.get("units", {}).get(uid, {})
-		var unit_name = unit.get("meta", {}).get("name", uid)
+		var unit_name = _dn(unit, uid)
 		var unit_keywords = unit.get("meta", {}).get("keywords", [])
 		var has_melee = _unit_has_melee_weapons(unit)
 
@@ -11511,7 +11524,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var target_unit = enemies.get(target_id, {})
 			if target_unit.is_empty():
 				continue
-			var target_name = target_unit.get("meta", {}).get("name", target_id)
+			var target_name = _dn(target_unit, target_id)
 
 			# Calculate charge probability (2D6 must meet or exceed distance - ER)
 			# Include terrain penalties — charging through tall terrain adds climb distance.
@@ -11645,7 +11658,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 		var eval_parts = []
 		for uid_eval in charger_targets:
 			var u = snapshot.get("units", {}).get(uid_eval, {})
-			var uname = u.get("meta", {}).get("name", uid_eval)
+			var uname = _dn(u, uid_eval)
 			var num_targets = charger_targets[uid_eval].size()
 			eval_parts.append("%s (%d target(s))" % [uname, num_targets])
 		_add_thinking_step("Evaluating charges: %s" % ", ".join(eval_parts))
@@ -11672,13 +11685,13 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 	var charge_chosen_idx = 0
 	var charge_unit_id = best_action.get("actor_unit_id", "")
 	var charge_unit = snapshot.get("units", {}).get(charge_unit_id, {})
-	var charge_unit_name = charge_unit.get("meta", {}).get("name", charge_unit_id)
+	var charge_unit_name = _dn(charge_unit, charge_unit_id)
 	if charger_targets.has(charge_unit_id):
 		var idx = 0
 		for target_info in charger_targets[charge_unit_id]:
 			var tid = target_info.target_id
 			var t_unit = snapshot.get("units", {}).get(tid, {})
-			var t_name = t_unit.get("meta", {}).get("name", tid)
+			var t_name = _dn(t_unit, tid)
 			var t_dist = target_info.distance_inches
 			# Find the scored entry for this target
 			var t_score = 0.0
@@ -11973,7 +11986,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 				lock_bonus *= 1.5  # Very dangerous — high priority to lock
 			score += lock_bonus
 			print("AIDecisionMaker: [PHASE-PLAN] Charge bonus for locking shooter %s (+%.1f, ranged output: %.1f)" % [
-				target.get("meta", {}).get("name", target_id_for_lock), lock_bonus, ranged_strength])
+				_dn(target, target_id_for_lock), lock_bonus, ranged_strength])
 
 	# Bonus for targeting units with low toughness (likely kill)
 	var target_toughness = int(target.get("meta", {}).get("stats", {}).get("toughness", 4))
@@ -12024,7 +12037,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 					if funit_centroid.distance_to(target_centroid) <= _engagement_range_px() * 2.0:
 						score += 3.0  # Big bonus for concentrating attacks
 						print("AIDecisionMaker: [FOCUS-CHARGE] Bonus for %s — friendly unit already fighting target %s" % [
-							charger.get("meta", {}).get("name", ""), target.get("meta", {}).get("name", "")])
+							_dn(charger, ""), _dn(target, "")])
 						break
 
 	# --- T19-5: Proactive charge coordination seed — first charger gets bonus if other friendly
@@ -12064,7 +12077,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 					var seed_bonus = 3.0 + (2.0 * min(other_potential_chargers, 3))
 					score += seed_bonus
 					print("AIDecisionMaker: [CHARGE-COORD-SEED] %s first charge on %s — %d other units in charge range, seed bonus=+%.1f" % [
-						charger.get("meta", {}).get("name", ""), target.get("meta", {}).get("name", ""),
+						_dn(charger, ""), _dn(target, ""),
 						other_potential_chargers, seed_bonus])
 
 	# --- Charge coordination: bonus for piling onto targets already declared as charge targets ---
@@ -12085,13 +12098,13 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		if target_total_hp > 0 and combined_dmg >= target_total_hp:
 			score += gang_kill_bonus  # Gang up for the kill!
 			print("AIDecisionMaker: [CHARGE-COORD] KILL GANG-UP: %s + %d others can kill %s (%.1f + %.1f = %.1f dmg vs %.0f HP, bonus=+%.1f)" % [
-				charger.get("meta", {}).get("name", ""), num_already_charging, target.get("meta", {}).get("name", ""),
+				_dn(charger, ""), num_already_charging, _dn(target, ""),
 				melee_damage, dmg_already_incoming, combined_dmg, target_total_hp, gang_kill_bonus])
 		elif num_already_charging > 0:
 			# Still bonus for concentrating even if not a certain kill
 			score += gang_pile_bonus * num_already_charging
 			print("AIDecisionMaker: [CHARGE-COORD] Piling on %s — %d other charger(s) already incoming (+%.1f)" % [
-				target.get("meta", {}).get("name", ""), num_already_charging, gang_pile_bonus * num_already_charging])
+				_dn(target, ""), num_already_charging, gang_pile_bonus * num_already_charging])
 
 	# --- Bonus for wounded targets (close to dying) ---
 	var target_remaining_wounds = float(alive_models * target_wounds)
@@ -12101,7 +12114,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		if melee_damage >= target_remaining_wounds:
 			score += 5.0  # Likely kill! Very high priority
 			print("AIDecisionMaker: [KILL-PRIORITY] Charge can likely kill %s (%.1f dmg vs %.0f wounds)" % [
-				target.get("meta", {}).get("name", ""), melee_damage, target_remaining_wounds])
+				_dn(target, ""), melee_damage, target_remaining_wounds])
 
 	# --- T7-11: Deadly Demise leverage on doomed vehicles ---
 	# If the charger has Deadly Demise and is doomed (about to die anyway),
@@ -12186,7 +12199,7 @@ static func _estimate_overwatch_risk(charging_unit: Dictionary, snapshot: Dictio
 
 		if unit_ow_damage > best_ow_damage:
 			best_ow_damage = unit_ow_damage
-			best_shooter_name = unit.get("meta", {}).get("name", unit_id)
+			best_shooter_name = _dn(unit, unit_id)
 
 	# Classify risk level and compute score penalty
 	# Only the BEST overwatch shooter matters (overwatch is once per turn, 1 CP)
@@ -12445,7 +12458,7 @@ static func _select_post_roll_charge_targets(snapshot: Dictionary, unit_id: Stri
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty() or selectable.is_empty():
 		return declared_ids
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 
 	# Score every selectable target
 	var scored: Array = []
@@ -12455,7 +12468,7 @@ static func _select_post_roll_charge_targets(snapshot: Dictionary, unit_id: Stri
 			continue
 		scored.append({
 			"id": tid,
-			"name": t_unit.get("meta", {}).get("name", tid),
+			"name": _dn(t_unit, tid),
 			"score": _score_charge_target(unit, t_unit, snapshot, player),
 		})
 	if scored.is_empty():
@@ -12495,7 +12508,7 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 	if unit.is_empty():
 		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge (unit not found)"}
 
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	var alive_models = _get_alive_models_with_positions(unit)
 	if alive_models.is_empty():
 		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge for %s (no alive models)" % unit_name}
@@ -12884,7 +12897,7 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 	var target_names = []
 	for tid in target_ids:
 		var t = snapshot.get("units", {}).get(tid, {})
-		target_names.append(t.get("meta", {}).get("name", tid))
+		target_names.append(_dn(t, tid))
 
 	var charge_desc = "%s charges into %s (rolled %d\")" % [unit_name, ", ".join(target_names), rolled_distance]
 	if action_type == "APPLY_HEROIC_INTERVENTION_MOVE":
@@ -13103,7 +13116,7 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 					var order_names = []
 					for fuid in _fight_order_plan[player]:
 						var fu = snapshot.get("units", {}).get(fuid, {})
-						order_names.append(fu.get("meta", {}).get("name", fuid))
+						order_names.append(_dn(fu, fuid))
 					_add_thinking_step("Fight activation order: %s" % ", ".join(order_names))
 				else:
 					_add_thinking_step("No units available to fight")
@@ -13120,7 +13133,7 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		player_plan.erase(chosen_uid)
 
 		var unit = snapshot.get("units", {}).get(chosen_uid, {})
-		var unit_name = unit.get("meta", {}).get("name", chosen_uid)
+		var unit_name = _dn(unit, chosen_uid)
 
 		# Build description with expected melee damage info
 		# Use the fighter's owner to find enemies (not active player — P1's AI may process P2's fighters)
@@ -13135,7 +13148,7 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			var d = _get_closest_model_distance_inches(unit, enemy) if not unit.is_empty() else INF
 			if d < nearest_dist:
 				nearest_dist = d
-				nearest_enemy_name = enemy.get("meta", {}).get("name", eid)
+				nearest_enemy_name = _dn(enemy, eid)
 				fighter_melee_dmg = _estimate_melee_damage(unit, enemy)
 				fighter_target_hp = _calculate_kill_threshold(enemy)
 		var fighter_desc = "Select %s to fight" % unit_name
@@ -13258,16 +13271,16 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 			return {
 				"type": "SKIP_UNIT",
 				"unit_id": unit_id,
-				"_ai_description": "%s has no enemies in engagement range — activation ends" % unit.get("meta", {}).get("name", unit_id)
+				"_ai_description": "%s has no enemies in engagement range — activation ends" % _dn(unit, unit_id)
 			}
 		print("AIDecisionMaker: T7-29 no engaged enemies found for %s, skipping attacks — will consolidate" % unit_id)
 		return {
 			"type": "CONSOLIDATE",
 			"unit_id": unit_id,
-			"_ai_description": "%s has no enemies in engagement range — consolidating" % unit.get("meta", {}).get("name", unit_id)
+			"_ai_description": "%s has no enemies in engagement range — consolidating" % _dn(unit, unit_id)
 		}
 
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 
 	# Build WAAAGH! buffs dict for damage estimation (matches RulesEngine behavior)
 	var waaagh_buffs = {}
@@ -13341,7 +13354,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		# T7-29: Compute strategic value score for this target
 		var strategic_score = _score_fight_target(unit, enemy, target_best_damage, snapshot, player, objectives)
 
-		var target_name = enemy.get("meta", {}).get("name", enemy_id)
+		var target_name = _dn(enemy, enemy_id)
 		print("AIDecisionMaker: T7-29 fight target eval %s vs %s: damage=%.2f, strategic=%.2f, weapon='%s'" % [
 			unit_name, target_name, target_best_damage, strategic_score, target_best_weapon_name])
 
@@ -13370,7 +13383,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		return {}
 
 	var target_unit = snapshot.get("units", {}).get(best_target_id, {})
-	var target_name = target_unit.get("meta", {}).get("name", best_target_id)
+	var target_name = _dn(target_unit, best_target_id)
 	var ea_count = extra_attack_weapons.size()
 	print("AIDecisionMaker: T7-29 fight target optimized — %s selects '%s' vs %s (damage: %.2f, score: %.2f, primaries: %d, EA: %d)" % [
 		unit_name, best_weapon_name, target_name, best_raw_damage, best_composite_score, primary_weapons.size(), ea_count])
@@ -13381,7 +13394,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	var fight_idx = 0
 	for enemy_id in enemies:
 		var enemy = enemies[enemy_id]
-		var ename = enemy.get("meta", {}).get("name", enemy_id)
+		var ename = _dn(enemy, enemy_id)
 		var e_toughness = int(enemy.get("meta", {}).get("stats", {}).get("toughness", 4))
 		var e_save = int(enemy.get("meta", {}).get("stats", {}).get("save", 4))
 		var e_invuln = _get_target_invulnerable_save(enemy)
@@ -13513,7 +13526,7 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 			if expected_damage >= remaining_after_prior:
 				score += finish_bonus  # Big bonus: we can finish off what others started
 				print("AIDecisionMaker: [FIGHT-COORD] %s can finish off target (prior dmg %.1f + our %.1f >= %.1f HP, horde=%s)" % [
-					attacker.get("meta", {}).get("name", ""), prior_dmg, expected_damage, target_remaining_wounds, str(is_horde_attacker)])
+					_dn(attacker, ""), prior_dmg, expected_damage, target_remaining_wounds, str(is_horde_attacker)])
 			elif expected_damage >= remaining_after_prior * 0.5:
 				score += significant_bonus  # Medium bonus: combined damage is significant
 		elif remaining_after_prior <= 0:
@@ -13553,7 +13566,7 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 				var gang_seed_bonus = 4.0 + (2.0 * min(other_engaged_count, 3))
 				score += gang_seed_bonus
 				print("AIDecisionMaker: [FIGHT-COORD-SEED] %s initiating gang-up on %s — %d other friendly units (%d models) also engaged, bonus=+%.1f" % [
-					attacker.get("meta", {}).get("name", ""), target.get("meta", {}).get("name", ""),
+					_dn(attacker, ""), _dn(target, ""),
 					other_engaged_count, other_engaged_total_models, gang_seed_bonus])
 
 	return max(0.0, score)
@@ -13601,7 +13614,7 @@ static func _build_fight_order_plan(snapshot: Dictionary, player: int) -> Array:
 		score = _apply_difficulty_noise(score)
 		scored_fighters.append({"unit_id": unit_id, "score": score})
 
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		print("AIDecisionMaker: T7-46 fight order score — %s: %.2f" % [unit_name, score])
 
 	# Sort by descending score (highest priority first)
@@ -13615,7 +13628,7 @@ static func _build_fight_order_plan(snapshot: Dictionary, player: int) -> Array:
 	# Log the final order
 	var order_names = []
 	for uid in sorted_ids:
-		order_names.append(all_units[uid].get("meta", {}).get("name", uid))
+		order_names.append(_dn(all_units[uid], uid))
 	print("AIDecisionMaker: T7-46 fight order plan — %s" % " > ".join(order_names))
 
 	return sorted_ids
@@ -13630,7 +13643,7 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 	- Damage output: units dealing more damage benefit from going earlier
 	- Overkill avoidance: don't waste high-damage units early on easy kills"""
 	var score = 0.0
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 
 	# --- Find the best engaged enemy target for this unit ---
 	var engaged_entries = _get_engaging_enemy_units(unit, unit_id, enemies)
@@ -13802,7 +13815,7 @@ static func _compute_pile_in_action(snapshot: Dictionary, unit_id: String, playe
 			"_ai_description": "Pile in (unit not found)"
 		}
 
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	var movements = _compute_pile_in_movements(snapshot, unit_id, unit, player)
 
 	var description = ""
@@ -14102,7 +14115,7 @@ static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, p
 			"_ai_description": "Consolidate (unit not found)"
 		}
 
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 
 	# T4-4: Aircraft cannot Consolidate
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
@@ -14759,7 +14772,7 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 	if action_types_map.has("REMOVE_MODEL_FOR_COHERENCY"):
 		var rm = action_types_map["REMOVE_MODEL_FOR_COHERENCY"][0]
 		var rm_unit = snapshot.get("units", {}).get(rm.get("unit_id", ""), {})
-		var rm_name = rm_unit.get("meta", {}).get("name", rm.get("unit_id", ""))
+		var rm_name = _dn(rm_unit, rm.get("unit_id", ""))
 		_add_thinking_step("%s is out of coherency — removing %s to satisfy 03.03 (mandatory)" % [
 			rm_name, rm.get("model_id", "?")])
 		return {
@@ -15788,7 +15801,7 @@ static func _evaluate_secondary_actions(snapshot: Dictionary, action_types: Dict
 		var action_score = float(vp_value) * 1.5 - shooting_value
 
 		var unit = snapshot.get("units", {}).get(unit_id, {})
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		print("AIDecisionMaker: [SecondaryAction] %s — %s: VP=%d, shooting_value=%.1f, score=%.1f" % [
 			unit_name, action_name, vp_value, shooting_value, action_score])
 
@@ -15830,7 +15843,7 @@ static func _evaluate_burn_objective_actions(snapshot: Dictionary, action_types:
 		var burn_score = float(burn_vp) * 2.0 - shooting_value
 
 		var unit = snapshot.get("units", {}).get(unit_id, {})
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		print("AIDecisionMaker: [BurnObjective] %s — %s: burn_vp=%d, shooting_value=%.1f, score=%.1f" % [
 			unit_name, objective_id, burn_vp, shooting_value, burn_score])
 
@@ -15871,7 +15884,7 @@ static func _evaluate_ritual_actions(snapshot: Dictionary, action_types: Diction
 		var ritual_score = 10.0 - shooting_value
 
 		var unit = snapshot.get("units", {}).get(unit_id, {})
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		print("AIDecisionMaker: [RitualAction] %s — %s: estimated_value=10.0, shooting_value=%.1f, score=%.1f" % [
 			unit_name, objective_id, shooting_value, ritual_score])
 
@@ -15918,7 +15931,7 @@ static func _evaluate_terraform_actions(snapshot: Dictionary, action_types: Dict
 		var terraform_score = terraform_value - shooting_value
 
 		var unit = snapshot.get("units", {}).get(unit_id, {})
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		print("AIDecisionMaker: [TerraformAction] %s — %s: value=%.1f (flip=%s), shooting_value=%.1f, score=%.1f" % [
 			unit_name, objective_id, terraform_value, str(is_flip), shooting_value, terraform_score])
 
@@ -17709,7 +17722,7 @@ static func _evaluate_insane_bravery(snapshot: Dictionary, use_strat_actions: Ar
 		var unit = snapshot.get("units", {}).get(uid, {})
 		if unit.is_empty():
 			continue
-		var unit_name = unit.get("meta", {}).get("name", uid)
+		var unit_name = _dn(unit, uid)
 		var leadership = int(unit.get("meta", {}).get("stats", {}).get("leadership", 7))
 		var p_fail = _p_2d6_fail(leadership)
 
@@ -17739,7 +17752,7 @@ static func _evaluate_insane_bravery(snapshot: Dictionary, use_strat_actions: Ar
 	# Once per battle — demand real value before burning it
 	if best_score >= 1.2 and not best_action.is_empty():
 		var uid = best_action.get("target_unit_id", "")
-		var unit_name = snapshot.get("units", {}).get(uid, {}).get("meta", {}).get("name", uid)
+		var unit_name = _dn(snapshot.get("units", {}).get(uid, {}), uid)
 		_add_thinking_step("Using INSANE BRAVERY on %s (score %.2f ≥ 1.2) — auto-pass the battle-shock test" % [unit_name, best_score])
 		return {
 			"type": "USE_STRATAGEM",
@@ -17877,7 +17890,7 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 					var s = 2.0 + melee_power * 0.15 + (2.0 if gap_after_move >= 8.0 else 1.0)
 					if s > best_score:
 						best_score = s
-						best = {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+						best = {"unit_id": uid, "unit_name": _dn(unit, uid),
 							"score": s, "reason": "+2 Advance/Charge closes an %.0f\" gap" % gap_after_move}
 			return best
 
@@ -17910,9 +17923,9 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 								mob_id = m_uid
 								break
 						var pts = float(unit.get("meta", {}).get("points", 0))
-						return {"unit_id": mob_id, "unit_name": mob.get("meta", {}).get("name", mob_id),
+						return {"unit_id": mob_id, "unit_name": _dn(mob, mob_id),
 							"score": 2.5 + pts / 100.0,
-							"reason": "unshocks %s (regains OC + stratagem access)" % unit.get("meta", {}).get("name", uid),
+							"reason": "unshocks %s (regains OC + stratagem access)" % _dn(unit, uid),
 							"context": {"battle_shock_target_id": uid}}
 			return {}
 
@@ -17938,7 +17951,7 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 					var s = 2.0 + float(_get_alive_models(unit).size()) * 0.2
 					if s > best_score:
 						best_score = s
-						best = {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+						best = {"unit_id": uid, "unit_name": _dn(unit, uid),
 							"score": s, "reason": "Waaagh! buffs before a %.0f\" engagement" % dist}
 			return best
 
@@ -17970,7 +17983,7 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 				var s = 1.0 + strength * 0.25
 				if s > best_score:
 					best_score = s
-					best = {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+					best = {"unit_id": uid, "unit_name": _dn(unit, uid),
 						"score": s, "reason": "Lethal Hits on ranged output %.1f before it shoots" % strength}
 			return best
 
@@ -17996,7 +18009,7 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 				var s = 1.0 + float(bonus_attacks) * 0.35
 				if s > best_score:
 					best_score = s
-					best = {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+					best = {"unit_id": uid, "unit_name": _dn(unit, uid),
 						"score": s, "reason": "+%d melee attacks (%s)" % [bonus_attacks, "below half" if below_half else "below strength"]}
 			return best
 
@@ -18019,7 +18032,7 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 				var s = 0.5 + float(alive_n) * 0.3
 				if s > best_score:
 					best_score = s
-					best = {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+					best = {"unit_id": uid, "unit_name": _dn(unit, uid),
 						"score": s, "reason": "crit on 5+ across %d models' melee attacks" % alive_n}
 			return best
 
@@ -18035,7 +18048,7 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 					continue
 				var strength = _estimate_unit_ranged_strength(unit)
 				var s = 1.5 + strength * 0.2
-				return {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+				return {"unit_id": uid, "unit_name": _dn(unit, uid),
 					"score": s, "reason": "fell back but can still shoot/charge"}
 			return {}
 
@@ -18061,7 +18074,7 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 						# Only worth it when enemies aren't about to contest anyway
 						var enemy_oc = _get_oc_at_position(obj_pos, snapshot.get("units", {}), player, false)
 						if enemy_oc == 0:
-							return {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+							return {"unit_id": uid, "unit_name": _dn(unit, uid),
 								"score": 2.2, "reason": "locks the objective so the holder can push out"}
 			return {}
 
@@ -18076,7 +18089,7 @@ static func evaluate_epic_challenge(player: int, unit_id: String, snapshot: Dict
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return {}
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	var player_cp = _get_player_cp_from_snapshot(snapshot, player)
 	var cp_cost = _get_stratagem_cp_cost("epic_challenge_11e", 1)
 	if player_cp < cp_cost:
@@ -18102,7 +18115,7 @@ static func evaluate_epic_challenge(player: int, unit_id: String, snapshot: Dict
 			var char_unit = snapshot.get("units", {}).get(char_id, {})
 			if char_unit.is_empty() or _get_alive_models(char_unit).is_empty():
 				continue
-			var char_name = char_unit.get("meta", {}).get("name", char_id)
+			var char_name = _dn(char_unit, char_id)
 			var expected_dmg = _estimate_melee_damage(unit, char_unit)
 			var char_pts = float(char_unit.get("meta", {}).get("points", 0))
 			var char_hp = _estimate_unit_remaining_wounds(char_unit)
@@ -18136,7 +18149,7 @@ static func evaluate_katah_stance(player: int, unit_id: String, snapshot: Dictio
 	'both' needs Master of the Stances (once per battle) — save it for a
 	valuable engagement."""
 	var unit = snapshot.get("units", {}).get(unit_id, {})
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	var enemies = _get_enemy_units(snapshot, player)
 	var engaging = _get_engaging_enemy_units(unit, unit_id, enemies)
 
@@ -18149,7 +18162,7 @@ static func evaluate_katah_stance(player: int, unit_id: String, snapshot: Dictio
 		var pts = float(enemy.get("meta", {}).get("points", 0))
 		if t > max_t:
 			max_t = t
-			target_name = enemy.get("meta", {}).get("name", "")
+			target_name = _dn(enemy, "")
 		max_pts = maxf(max_pts, pts)
 
 	var stance = "dacatarai"
@@ -18198,7 +18211,7 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 				continue
 
 			var score = _score_defensive_stratagem_target(unit, strat)
-			var u_name = unit.get("meta", {}).get("name", unit_id)
+			var u_name = _dn(unit, unit_id)
 			considered.append("%s on %s: %.1f" % [strat.get("name", strat_id), u_name, score])
 			if score > best_score:
 				best_score = score
@@ -18212,7 +18225,7 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 	var use_threshold = 1.5 * float(max(1, best_cp))
 	if best_score >= use_threshold and best_stratagem_id != "" and best_target_unit_id != "":
 		var strat_target_unit = snapshot.get("units", {}).get(best_target_unit_id, {})
-		var unit_name = strat_target_unit.get("meta", {}).get("name", best_target_unit_id)
+		var unit_name = _dn(strat_target_unit, best_target_unit_id)
 		var unit_pts = int(strat_target_unit.get("meta", {}).get("points", 0))
 		for c in considered:
 			_add_thinking_step("  considered %s" % c)
@@ -18417,7 +18430,7 @@ static func evaluate_fire_overwatch(defending_player: int, eligible_units: Array
 
 	# Use overwatch if we expect at least ~1 hit and enemy is valuable
 	# Threshold: at least 0.5 expected hits (3+ total shots) AND enemy worth shooting at
-	var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
+	var enemy_name = _dn(enemy_unit, enemy_unit_id)
 	if best_expected_hits >= 0.5 and enemy_value >= 2.0 and best_unit_id != "":
 		_add_thinking_step("Fire Overwatch with %s at %s: %.1f expected hits on snap 6s, target value %.1f — firing" % [
 			best_unit_name, enemy_name, best_expected_hits, enemy_value])
@@ -18476,7 +18489,7 @@ static func evaluate_tank_shock(player: int, vehicle_unit_id: String, snapshot: 
 			"_ai_description": "AI declines Tank Shock (no vehicle data)"
 		}
 
-	var vehicle_name = vehicle_unit.get("meta", {}).get("name", vehicle_unit_id)
+	var vehicle_name = _dn(vehicle_unit, vehicle_unit_id)
 	var toughness = int(vehicle_unit.get("meta", {}).get("stats", {}).get("toughness", 4))
 	var is_11e = GameConstants.edition >= 11
 	var strat_label = "Crushing Impact" if is_11e else "Tank Shock"
@@ -19085,7 +19098,7 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 		if unit.is_empty():
 			continue
 
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = _dn(unit, unit_id)
 		var reserve_type = unit.get("reserve_type", "strategic_reserves")
 
 		var score = _score_reserves_deployment(unit, unit_id, reserve_type, objectives, enemies, snapshot, defending_player, battle_round)
@@ -19562,7 +19575,7 @@ static func _compute_sweeping_advance_action(snapshot: Dictionary, unit_id: Stri
 	if unit.is_empty():
 		return {"type": "DECLINE_SWEEPING_ADVANCE", "unit_id": unit_id, "_ai_description": "Decline Sweeping Advance (unit not found)"}
 
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	var models = unit.get("models", [])
 	var movements = {}
 
@@ -19645,7 +19658,7 @@ static func _compute_acrobatic_escape_action(snapshot: Dictionary, unit_id: Stri
 	if unit.is_empty():
 		return {"type": "DECLINE_ACROBATIC_ESCAPE", "unit_id": unit_id, "_ai_description": "Decline Acrobatic Escape (unit not found)"}
 
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_name = _dn(unit, unit_id)
 	var models = unit.get("models", [])
 	var movements = {}
 

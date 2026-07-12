@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.18.4",
+			"date": "2026-07-11",
+			"summary": "AI thinking log now names duplicate squads with their Alpha/Beta/Gamma suffix, so you can tell WHICH 'Custodian Guard' the AI is reasoning about.",
+			"changes": [
+				"All AI thinking/decision lines in the Game Log (movement plans, shooting picks, charge declarations, stratagem reasoning, etc.) now use each unit's full display name — e.g. 'Custodian Guard Alpha holds the objective' instead of the ambiguous 'Custodian Guard'.",
+				"Applies to both the AI's own squads and enemy squads it names as targets."
+			]
+		},
+		{
 			"version": "0.18.3",
 			"date": "2026-07-11",
 			"summary": "Duplicate squads that share a name (e.g. three 'Custodian Guard' units) are now tellable apart: the name label under each model — and the Movement/Charge/Fight unit lists — show the distinguishing Alpha/Beta/Gamma suffix instead of collapsing every one to an identical 'Custodian Guard ..'.",
