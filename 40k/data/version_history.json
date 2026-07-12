@@ -17,6 +17,27 @@
       ]
     },
     {
+      "version": "0.19.2",
+      "date": "2026-07-11",
+      "summary": "Fixed the AI hijacking your Heroic Intervention: at the end of the AI's Charge phase, your Heroic Intervention window now stays yours. Previously the AI answered it itself within a second — the log even claimed it used Heroic Intervention with YOUR unit (e.g. 'AI uses Heroic Intervention with Stompa') — and your dialog was declined for you before you could react.",
+      "changes": [
+        "The Heroic Intervention offer at the end of the AI's Charge phase belongs to the defending player (you). The AI no longer evaluates it, no longer logs 'AI uses Heroic Intervention with <your unit>', and no longer auto-declines your window — the dialog now stays up for its full 5-second countdown and your choice is the one that counts.",
+        "The same protection covers your Fire Overwatch window during the AI's charges, and your Heroic Intervention charge move once you accept — the AI can never resolve those for you.",
+        "In AI-vs-AI games the defending AI can now actually use Heroic Intervention: its attempts previously always failed an internal rules check ('can only be used on your opponent's turn') and were silently declined.",
+        "The gold 'HEROIC INTERVENTION available' banner in the dice log now shows the edition's real cost (1 CP in 11th edition — it was hardcoded to 2 CP)."
+      ]
+    },
+    {
+      "version": "0.19.1",
+      "date": "2026-07-11",
+      "summary": "History view: jump straight between game-log steps — while viewing a past step you can now click any other log entry to show that one, no need to press Esc first.",
+      "changes": [
+        "While viewing a past board state (after clicking a game-log entry), clicking a different log entry now switches the view directly to that step. Previously the read-only overlay silently swallowed clicks on the log, so you had to press Esc (Return to Live Game) before picking another step.",
+        "The game log stays fully usable while viewing history — scrolling the list and expanding card details work too, and the banner always names the step being shown.",
+        "Hardened the history board rebuild against two step clicks landing in the same frame, which could have created duplicate model tokens."
+      ]
+    },
+    {
       "version": "0.19.0",
       "date": "2026-07-11",
       "summary": "Reinforcement placement helpers are clearer: the red 'must be >9\" from enemy models' no-deploy zone now shows around EVERY enemy cluster (not just the biggest one), and units arriving from Strategic Reserves now get a green band showing where they CAN be placed — within 6\" of a board edge.",

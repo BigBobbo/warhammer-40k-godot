@@ -373,6 +373,36 @@ func _get_fight_phase_selecting_player() -> int:
 		return fight_phase.current_selecting_player
 	return -1
 
+func _get_pending_reactive_window_player() -> int:
+	"""Owner of the reactive decision window the current phase is blocked on,
+	or 0 when none is pending. Covers the ChargePhase windows that
+	get_available_actions() reduces to a single USE/DECLINE pair:
+	Heroic Intervention (decision + pending charge move) and Fire Overwatch.
+	These windows belong to the DEFENDING player — never the active player —
+	so the main loop must either act AS that player (if it is an AI) or idle
+	until the human's dialog resolves the window. Without this the active AI
+	answered the defender's window as itself (user report 2026-07-11: 'P2 AI:
+	Heroic Intervention with Stompa' — the Stompa was the human's unit), and
+	when the USE failed validation it force-DECLINED the human's window."""
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
+		return 0
+	var phase = _phase_manager_ref.current_phase_instance
+	# Heroic Intervention decision window (10e per-charge or 11e end-of-phase)
+	if "awaiting_heroic_intervention" in phase and phase.awaiting_heroic_intervention:
+		return int(phase.heroic_intervention_player)
+	# HI accepted and charge roll made — the HI unit's owner still owes the
+	# charge move (APPLY_HEROIC_INTERVENTION_MOVE is the only available action)
+	if "heroic_intervention_unit_id" in phase and str(phase.heroic_intervention_unit_id) != "" \
+			and "heroic_intervention_pending_charge" in phase \
+			and not phase.heroic_intervention_pending_charge.is_empty():
+		return int(phase.heroic_intervention_player)
+	# Fire Overwatch window during the Charge phase
+	if "awaiting_fire_overwatch" in phase and phase.awaiting_fire_overwatch:
+		return int(phase.fire_overwatch_player)
+	return 0
+
 func get_difficulty(player: int) -> int:
 	"""T7-40: Get the difficulty level for a given player."""
 	return ai_difficulty.get(player, AIDifficultyConfigData.Difficulty.NORMAL)
@@ -1503,6 +1533,26 @@ func _evaluate_and_act() -> void:
 	if fight_player > 0 and fight_player != active_player and is_ai_player(fight_player):
 		acting_player = fight_player
 		DebugLogger.info("AIPlayer._evaluate_and_act - fight phase selecting player override", {"acting_player": acting_player, "active_player": active_player})
+
+	# A pending reactive window (Heroic Intervention / Fire Overwatch in the
+	# Charge phase) belongs to the DEFENDER, not the active player, and
+	# get_available_actions() is reduced to that window until it resolves.
+	# If the window's owner is a HUMAN, the AI must idle — the dialog resolves
+	# it, phase_action_taken/the watchdog resume the loop afterwards. If the
+	# owner is an AI (AI-vs-AI, or an AI defender during a human's turn), act
+	# AS that player so the decision is evaluated and submitted with the
+	# correct identity — submitting it as the active player used to hijack the
+	# human's window (forced decline) and made AI defenders' USE always fail
+	# validation ("can only be used on your opponent's turn").
+	var reactive_player = _get_pending_reactive_window_player()
+	if reactive_player > 0:
+		if not is_ai_player(reactive_player):
+			DebugLogger.info("AIPlayer._evaluate_and_act - reactive window belongs to human player, AI waits", {"reactive_player": reactive_player})
+			_end_ai_thinking()
+			return
+		if reactive_player != acting_player:
+			acting_player = reactive_player
+			DebugLogger.info("AIPlayer._evaluate_and_act - reactive window owner override", {"acting_player": acting_player, "active_player": active_player})
 
 	if not is_ai_player(acting_player):
 		DebugLogger.info("AIPlayer._evaluate_and_act - not AI turn", {"active_player": active_player})
