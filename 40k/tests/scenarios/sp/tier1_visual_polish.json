@@ -1,0 +1,70 @@
+{
+  "id": "tier1_visual_polish",
+  "covers": ["ui.visual.tier1_polish"],
+  "fixture": "End of movement phase",
+  "description": "Tier-1 visual polish batch: opaque HUD panels (no board bleed-through), unit_style_changed redraw signal wired to tokens, one name plate per unit, terrain debug labels off by default (toggle restores full ids), RangeCircle fills removed, dice pips in the weapon resolution dialog.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "screenshot", "label": "01_fixture_loaded" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"HUD_Right\").get_theme_stylebox(\"panel\").bg_color.a",
+      "equals": 1.0 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"HUD_Bottom\").get_theme_stylebox(\"panel\").bg_color.a",
+      "equals": 1.0 },
+
+    { "act": "execute_script",
+      "script": "SettingsService.terrain_debug_labels",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TerrainVisual\").terrain_pieces[0].get_child(2).get_class()",
+      "not_equals": "PanelContainer" },
+
+    { "act": "execute_script",
+      "script": "SettingsService.set_terrain_debug_labels(true)" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "screenshot", "label": "02_terrain_debug_labels_on" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TerrainVisual\").terrain_pieces[0].get_child(2).get_class()",
+      "equals": "PanelContainer" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TerrainVisual\").terrain_pieces[0].get_child(2).get_child(0).text.length()",
+      "expect_min": 5 },
+    { "act": "execute_script",
+      "script": "SettingsService.set_terrain_debug_labels(false)" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "screenshot", "label": "03_terrain_debug_labels_off" },
+
+    { "act": "execute_script",
+      "script": "SettingsService.has_signal(\"unit_style_changed\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "SettingsService.unit_style_changed.get_connections().size()",
+      "expect_min": 1 },
+    { "act": "execute_script",
+      "script": "SettingsService.set_unit_visual_style_setting(\"classic\")" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "screenshot", "label": "04_style_switched_classic" },
+    { "act": "execute_script",
+      "script": "SettingsService.set_unit_visual_style_setting(\"letter\")" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/RangeCircle.gd\").new().circle_color.a",
+      "equals": 0.0 },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/NextWeaponDialog.gd\").source_code.contains(\"DiceRowVisual\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/NextWeaponDialog.gd\").source_code.contains(\"if display_rolls.is_empty():\")",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/TokenVisual.gd\").source_code.contains(\"_is_unit_label_anchor(unit)\")",
+      "equals": true },
+
+    { "act": "screenshot", "label": "05_final_state" }
+  ]
+}

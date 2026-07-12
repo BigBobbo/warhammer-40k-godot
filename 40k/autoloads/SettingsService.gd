@@ -41,6 +41,11 @@ var colorblind_mode: String = "none"
 # Unit label visibility — toggle the name text shown underneath models
 var show_unit_labels: bool = true
 
+# Terrain debug labels — when true, terrain pieces show their full internal id
+# ("Ruins corner-short-11 (T)") plus the LoS-blocker badge. When false (player
+# default) they show only a compact height glyph chip (T/M/L).
+var terrain_debug_labels: bool = false
+
 # Gameplay settings
 # When true, the computer automatically chooses which wounded/destroyed models
 # are removed during wound allocation instead of prompting the local player.
@@ -77,6 +82,8 @@ signal unit_labels_visibility_changed(visible: bool)
 signal board_style_changed(new_style: String)
 signal ruins_style_changed(new_style: String)
 signal auto_allocate_wounds_changed(enabled: bool)
+signal unit_style_changed(new_style: String)
+signal terrain_debug_labels_changed(enabled: bool)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -158,6 +165,9 @@ func _ready() -> void:
 
 func set_retro_mode(enabled: bool) -> void:
 	retro_mode = enabled
+	# Tokens in non-animating styles only redraw on interaction, so broadcast the
+	# change or they keep rendering the previous style until hovered.
+	unit_style_changed.emit(unit_visual_style)
 	DebugLogger.info("[SettingsService] Retro mode %s (deprecated)" % ("enabled" if enabled else "disabled"))
 
 func get_board_width_px() -> float:
@@ -325,8 +335,15 @@ func set_unit_visual_style_setting(style: String) -> void:
 		print("[SettingsService] Invalid visual style: %s" % style)
 		return
 	unit_visual_style = style
+	unit_style_changed.emit(unit_visual_style)
 	_save_settings()
 	print("[SettingsService] Unit visual style set to %s" % style)
+
+func set_terrain_debug_labels(enabled: bool) -> void:
+	terrain_debug_labels = enabled
+	terrain_debug_labels_changed.emit(terrain_debug_labels)
+	_save_settings()
+	print("[SettingsService] terrain_debug_labels set to %s" % str(enabled))
 
 # ============================================================================
 # P3-111: Settings Persistence
@@ -348,6 +365,7 @@ func _save_settings() -> void:
 	config.set_value("visual", "animation_speed", animation_speed)
 	config.set_value("visual", "colorblind_mode", colorblind_mode)
 	config.set_value("visual", "show_unit_labels", show_unit_labels)
+	config.set_value("visual", "terrain_debug_labels", terrain_debug_labels)
 	config.set_value("visual", "board_style", board_style)
 	config.set_value("visual", "ruins_style", ruins_style)
 
@@ -387,6 +405,7 @@ func _load_settings() -> void:
 	animation_speed = config.get_value("visual", "animation_speed", 1.0)
 	colorblind_mode = config.get_value("visual", "colorblind_mode", "none")
 	show_unit_labels = config.get_value("visual", "show_unit_labels", true)
+	terrain_debug_labels = config.get_value("visual", "terrain_debug_labels", false)
 	board_style = config.get_value("visual", "board_style", "grass")
 	ruins_style = config.get_value("visual", "ruins_style", "concrete")
 

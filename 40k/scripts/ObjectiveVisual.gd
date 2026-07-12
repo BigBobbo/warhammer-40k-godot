@@ -10,6 +10,8 @@ var control_indicator: Label
 var objective_marker: Node2D
 var objective_circle: Line2D
 var objective_polygon: Polygon2D
+var marker_trim: Line2D = null      # Gold rim of the 40mm marker disc (tinted by controller)
+var marker_emblem: Polygon2D = null # Compass-star emblem on the marker disc
 var tempting_target_label: Label = null  # Visual indicator for A Tempting Target
 var loot_objective_label: Label = null  # Visual indicator for Here Be Loot (OA-1)
 var card_action_label: Label = null  # 11e GDM card-action markers (Triangulated/Decoy/...)
@@ -149,49 +151,11 @@ func _create_visuals() -> void:
 
 	_create_marker_cross_and_labels(control_radius + 35)
 
-## The objective-point cross, control label, and id label — shared by the
-## circle and terrain-area rendering modes. label_offset is how far above
+## The physical objective marker disc, control label, and id label — shared by
+## the circle and terrain-area rendering modes. label_offset is how far above
 ## the marker the control label sits.
 func _create_marker_cross_and_labels(label_offset: float) -> void:
-	# Center marker - larger cross to indicate exact center
-	var marker_size = 22.0
-	var center_marker = Line2D.new()
-	center_marker.name = "CenterMarker"
-	center_marker.width = 3.0
-	center_marker.default_color = OBJ_CENTER_COLOR
-	center_marker.z_index = 2
-	center_marker.add_point(Vector2(-marker_size, 0))
-	center_marker.add_point(Vector2(marker_size, 0))
-	objective_marker.add_child(center_marker)
-
-	var center_marker2 = Line2D.new()
-	center_marker2.name = "CenterMarker2"
-	center_marker2.width = 3.0
-	center_marker2.default_color = OBJ_CENTER_COLOR
-	center_marker2.z_index = 2
-	center_marker2.add_point(Vector2(0, -marker_size))
-	center_marker2.add_point(Vector2(0, marker_size))
-	objective_marker.add_child(center_marker2)
-
-	# Diagonal cross lines for extra visibility
-	var diag_size = marker_size * 0.7
-	var diag1 = Line2D.new()
-	diag1.name = "DiagMarker1"
-	diag1.width = 2.0
-	diag1.default_color = Color(OBJ_CENTER_COLOR.r, OBJ_CENTER_COLOR.g, OBJ_CENTER_COLOR.b, 0.6)
-	diag1.z_index = 2
-	diag1.add_point(Vector2(-diag_size, -diag_size))
-	diag1.add_point(Vector2(diag_size, diag_size))
-	objective_marker.add_child(diag1)
-
-	var diag2 = Line2D.new()
-	diag2.name = "DiagMarker2"
-	diag2.width = 2.0
-	diag2.default_color = Color(OBJ_CENTER_COLOR.r, OBJ_CENTER_COLOR.g, OBJ_CENTER_COLOR.b, 0.6)
-	diag2.z_index = 2
-	diag2.add_point(Vector2(-diag_size, diag_size))
-	diag2.add_point(Vector2(diag_size, -diag_size))
-	objective_marker.add_child(diag2)
+	_create_marker_disc()
 
 	# Control indicator label - larger and with outline for readability
 	control_indicator = Label.new()
@@ -222,6 +186,62 @@ func _create_marker_cross_and_labels(label_offset: float) -> void:
 	id_label.position = Vector2(-60, -12)
 	id_label.z_index = 10
 	add_child(id_label)
+
+## A proper tabletop-style 40mm objective marker disc at the objective point,
+## replacing the old surveyor-cross. Dark plated disc, gold rim (tinted by the
+## controlling player via update_control), compass-star emblem.
+func _create_marker_disc() -> void:
+	var r = Measurement.inches_to_px(0.7874)  # 40mm marker → 20mm radius
+
+	var disc = Polygon2D.new()
+	disc.name = "MarkerDisc"
+	disc.color = Color(0.12, 0.12, 0.14, 1.0)
+	disc.polygon = _circle_points(r, 24)
+	disc.z_index = 2
+	objective_marker.add_child(disc)
+
+	var plate = Polygon2D.new()
+	plate.name = "MarkerPlate"
+	plate.color = Color(0.21, 0.2, 0.22, 1.0)
+	plate.polygon = _circle_points(r * 0.72, 24)
+	plate.z_index = 2
+	objective_marker.add_child(plate)
+
+	marker_emblem = Polygon2D.new()
+	marker_emblem.name = "MarkerEmblem"
+	marker_emblem.color = Color(0.9, 0.86, 0.72, 0.95)
+	var s = r * 0.58
+	var w = r * 0.13
+	marker_emblem.polygon = PackedVector2Array([
+		Vector2(0, -s), Vector2(w, -w), Vector2(s, 0), Vector2(w, w),
+		Vector2(0, s), Vector2(-w, w), Vector2(-s, 0), Vector2(-w, -w),
+	])
+	marker_emblem.z_index = 3
+	objective_marker.add_child(marker_emblem)
+
+	var hub = Polygon2D.new()
+	hub.name = "MarkerHub"
+	hub.color = Color(0.83, 0.59, 0.38, 1.0)
+	hub.polygon = _circle_points(r * 0.12, 10)
+	hub.z_index = 4
+	objective_marker.add_child(hub)
+
+	marker_trim = Line2D.new()
+	marker_trim.name = "MarkerTrim"
+	marker_trim.width = 3.0
+	marker_trim.default_color = OBJ_OUTLINE_COLOR
+	marker_trim.closed = true
+	marker_trim.z_index = 3
+	for p in _circle_points(r, 32):
+		marker_trim.add_point(p)
+	objective_marker.add_child(marker_trim)
+
+func _circle_points(radius: float, segments: int) -> PackedVector2Array:
+	var pts = PackedVector2Array()
+	for i in range(segments):
+		var angle = i * TAU / segments
+		pts.append(Vector2(cos(angle), sin(angle)) * radius)
+	return pts
 
 func update_control(player: int, contested: bool = false) -> void:
 	var faction_name = ""
@@ -257,6 +277,9 @@ func update_control(player: int, contested: bool = false) -> void:
 		objective_circle.default_color = outline_color
 	if objective_polygon:
 		objective_polygon.color = fill_color
+	# The marker disc rim shows who holds the objective at a glance.
+	if marker_trim:
+		marker_trim.default_color = outline_color
 	for outline in _area_outlines:
 		outline.default_color = outline_color
 	for fill in _area_fills:

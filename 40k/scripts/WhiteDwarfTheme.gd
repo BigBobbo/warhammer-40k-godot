@@ -27,7 +27,9 @@ const BORDER_GOLD_ACCENT = Color(0.83, 0.59, 0.38, 0.6)
 
 static func create_panel_style() -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.09, 0.07, 0.95)
+	# Opaque on purpose — HUD panels sit over the board and semi-transparent
+	# backgrounds let tokens/overlays bleed through the panel content.
+	style.bg_color = Color(0.1, 0.09, 0.07, 1.0)
 	style.border_color = WH_GOLD
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(3)
