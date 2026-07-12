@@ -1,0 +1,56 @@
+{
+  "id": "los_overlay_l_key",
+  "covers": [
+    "scripts/LoSDebugVisual.gd",
+    "scripts/LeftRosterStrip.gd",
+    "Main._toggle_los_debug",
+    "ShootingController._create_shooting_visuals"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "description": "Hold-L lines-of-sight overlay works in EVERY phase (regression: the LoSDebugVisual node only existed while ShootingController was alive, so L silently did nothing outside the shooting phase, and drew nothing inside it without an active shooter). Holding L in the Movement phase draws unit->unit sight lines (solid green clear / dashed red blocked) for the active player; releasing L clears them; the same works in the Shooting phase with no shooter selected. Also covers the roster strip hotkey move L->B (its old L binding was permanently shadowed by Main's L handler).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/LoSDebugVisual\") != null",
+      "equals": true },
+    { "act": "screenshot", "label": "01_movement_before_L" },
+
+    { "act": "execute_script", "script": "main.t32_synthesize_l(true)", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/LoSDebugVisual\").debug_enabled",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/LoSDebugVisual\").overview_lines.size()",
+      "expect_min": 1 },
+    { "act": "screenshot", "label": "02_movement_L_held_sight_lines" },
+
+    { "act": "execute_script", "script": "main.t32_synthesize_l(false)", "equals": false },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/LoSDebugVisual\").overview_lines.size()",
+      "equals": 0 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/LoSDebugVisual\").debug_enabled",
+      "equals": false },
+    { "act": "screenshot", "label": "03_movement_L_released_cleared" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(8)" },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "execute_script", "script": "main.t32_synthesize_l(true)", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/LoSDebugVisual\").overview_lines.size()",
+      "expect_min": 1 },
+    { "act": "screenshot", "label": "04_shooting_L_no_shooter_still_draws" },
+    { "act": "execute_script", "script": "main.t32_synthesize_l(false)", "equals": false },
+
+    { "act": "simulate_key", "keycode": "B" },
+    { "act": "expect_node_visible", "node": "/root/Main/LeftRoster" },
+    { "act": "simulate_key", "keycode": "B" },
+    { "act": "expect_node_property", "node": "/root/Main/LeftRoster", "property": "visible", "equals": false }
+  ]
+}

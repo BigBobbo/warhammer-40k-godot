@@ -2904,7 +2904,8 @@ func _setup_dashboard_toggle_buttons() -> void:
 	#   • Missions — opens / closes SecondaryMissionPanel (now hidden by
 	#     default, anchored top-center under the HUD bar).
 	#   • Roster — toggles the LeftRoster card strip (hidden by default,
-	#     also bound to KEY_L by the panel itself).
+	#     also bound to KEY_B by the panel itself; KEY_L belongs to the
+	#     LoS overlay).
 	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
 	if hud_container == null:
 		return
@@ -2921,7 +2922,7 @@ func _setup_dashboard_toggle_buttons() -> void:
 		var roster_btn := Button.new()
 		roster_btn.name = "RosterToggle"
 		roster_btn.text = "Roster"
-		roster_btn.tooltip_text = "Show / hide the left-side unit roster strip (L)"
+		roster_btn.tooltip_text = "Show / hide the left-side unit roster strip (B)"
 		roster_btn.pressed.connect(_on_roster_toggle_pressed)
 		hud_container.add_child(roster_btn)
 
@@ -4077,6 +4078,17 @@ func _setup_terrain() -> void:
 	print("Added LineOfSightVisual to BoardRoot")
 	print("Line of Sight: Hold 'V' to check what models can see the cursor position")
 
+	# Persistent L-overlay layer (2026-07-12): previously only
+	# ShootingController created LoSDebugVisual (and freed it on phase exit),
+	# so holding L silently did nothing in every other phase. Creating it here
+	# makes the L sight-line overlay work all game long; ShootingController
+	# now reuses this node instead of owning its own.
+	if not $BoardRoot.has_node("LoSDebugVisual"):
+		var los_dbg = preload("res://scripts/LoSDebugVisual.gd").new()
+		los_dbg.name = "LoSDebugVisual"
+		$BoardRoot.add_child(los_dbg)
+		print("Added persistent LoSDebugVisual to BoardRoot")
+
 	# Dev tools — hidden by default, toggled with Shift+D
 	var hud_container2 = $HUD_Bottom/HBoxContainer
 	if hud_container2:
@@ -4372,6 +4384,15 @@ func _toggle_los_debug() -> void:
 		los_debug = get_node_or_null("BoardRoot/LoSDebugVisual")
 		print("LoS debug: Using BoardRoot instance (fallback)")
 
+	# 2026-07-12: L must work in EVERY phase — if no instance exists yet
+	# (e.g. a save loaded straight into a non-shooting phase before
+	# _setup_terrain ran, or an old save flow), create the persistent one.
+	if not los_debug and has_node("BoardRoot"):
+		los_debug = preload("res://scripts/LoSDebugVisual.gd").new()
+		los_debug.name = "LoSDebugVisual"
+		$BoardRoot.add_child(los_debug)
+		print("LoS debug: Created persistent BoardRoot instance on demand")
+
 	if los_debug:
 		var was_enabled = los_debug.debug_enabled
 		print("LoS debug: Was enabled: ", was_enabled)
@@ -4385,12 +4406,21 @@ func _toggle_los_debug() -> void:
 		if los_button:
 			los_button.set_pressed_no_signal(is_now_enabled)
 
-		# If we just turned debug ON, refresh visuals if shooting phase is active
-		if not was_enabled and is_now_enabled and shooting_controller:
-			print("LoS debug: Calling refresh on ShootingController")
-			if shooting_controller.has_method("refresh_los_debug_visuals"):
-				shooting_controller.refresh_los_debug_visuals()
-				print("LoS debug: Refreshed visuals for active shooter")
+		# If we just turned debug ON, show sight lines in every phase:
+		# active shooter selected -> the shooting controller's per-model
+		# enhanced debug; otherwise -> the unit->unit sight-line overview
+		# (from the selected unit, or every active-player unit).
+		if not was_enabled and is_now_enabled:
+			var shooter_mode := false
+			if shooting_controller and "active_shooter_id" in shooting_controller \
+					and shooting_controller.active_shooter_id != "":
+				print("LoS debug: Calling refresh on ShootingController")
+				if shooting_controller.has_method("refresh_los_debug_visuals"):
+					shooting_controller.refresh_los_debug_visuals()
+					shooter_mode = true
+					print("LoS debug: Refreshed visuals for active shooter")
+			if not shooter_mode and los_debug.has_method("show_overview"):
+				los_debug.show_overview(_selected_unit_id_or_empty())
 	else:
 		print("LoS debug visual not found")
 
@@ -5273,8 +5303,13 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	
-	# T32: LoS debug — held-key power-user mode (was: persistent top-bar toggle)
-	if event is InputEventKey and event.keycode == KEY_L and not event.echo:
+	# T32: LoS debug — held-key power-user mode (was: persistent top-bar toggle).
+	# 2026-07-12: shows the sight-line overview in every phase (see
+	# LoSDebugVisual.show_overview). Chorded PRESSES (Ctrl+L = load, etc.) are
+	# not ours; releases always count so the held overlay can't get stuck ON
+	# when a modifier happens to be down at release time.
+	if event is InputEventKey and event.keycode == KEY_L and not event.echo \
+			and not (event.pressed and (event.shift_pressed or event.ctrl_pressed or event.meta_pressed)):
 		var want_on: bool = event.pressed
 		if want_on != los_debug_active:
 			_toggle_los_debug()
@@ -11845,7 +11880,8 @@ func _toggle_hotkey_help_overlay() -> void:
 		["U", "Toggle army panel"],
 		["S", "Toggle stratagems panel"],
 		["M", "Show secondary missions"],
-		["L", "Toggle LoS debug overlay"],
+		["L (hold)", "Show lines of sight (green clear / red blocked)"],
+		["B", "Toggle left roster strip"],
 		["G", "Toggle 1\" tactical grid overlay"],
 		["8", "Toggle visual style (letter / enhanced)"],
 		["9", "Toggle debug mode"],
