@@ -1,6 +1,6 @@
 # Steam Deck / Controller Support — Research & Phased Implementation Plan
 
-**Status:** PLANNING (iteration 1 — no implementation yet)
+**Status:** PLANNED — scoping decisions recorded 2026-07-12 (§8); ready for iteration 2 (M0+M1 implementation)
 **Branch:** `claude/steam-deck-controller-support-1tzorb`
 **Date:** 2026-07-12 (game version at time of writing: 0.21.0)
 **Goal:** Make the full game playable — and eventually *pleasant* — on a Steam Deck with no mouse or keyboard, without regressing the existing mouse/keyboard experience.
@@ -610,21 +610,23 @@ final UI, not a moving target.
 
 ---
 
-## 8. Open questions (need your call before implementation starts)
+## 8. Scoping decisions (recorded 2026-07-12)
 
-1. **Distribution target** — itch.io sideload only, or eventual Steam release?
-   (Decides how much M5 invests in GodotSteam/Steam Input vs the in-game OSK
-   path. The plan currently designs for "work everywhere, enhance under
-   Steam".)
-2. **First shippable slice** — confirm M1-first (whole game playable via
-   virtual cursor ASAP, then make it nice) vs native-first (M2/M3 before any
-   cursor work). The plan recommends M1-first.
-3. **Multiplayer priority on pad** — is pad-driven multiplayer (lobby, text
-   entry) needed early, or is solo-vs-AI + hotseat the Deck use case for now?
-   (Moves the OSK work between M4 and "later".)
-4. **Testing hardware** — do you have a Deck (and/or a desktop gamepad) for
-   hands-on milestone checks, or should validation lean entirely on the MCP
-   joypad-injection harness until late?
+1. **Distribution target: design for both** (itch.io sideload *and* a possible
+   later Steam release). Consequence: the in-game pad-navigable OSK is the
+   baseline text-entry path (M4) and nothing may hard-depend on Steamworks;
+   GodotSteam (floating keyboard, official Steam Input config, Deck Verified
+   checklist) stays an optional M5 enhancement behind a feature check.
+2. **First shippable slice: M0 + M1 (fallback-first).** Iteration 2 delivers
+   foundations + the virtual cursor so the entire game is Deck-playable at the
+   earliest date; native cycling/carry (M2/M3) follow.
+3. **Multiplayer priority: solo-vs-AI + hotseat first.** Lobby screens and the
+   OSK remain in M4; a multiplayer smoke scenario still lands there to prove
+   the shared action pipeline holds.
+4. **Testing hardware: a Steam Deck is available.** Every milestone gate gains
+   a hands-on Deck feel-check (sideloaded build) alongside the automated
+   MCP joypad-injection scenarios; M5's legibility/performance numbers are
+   measured on the real device, not only the 1280×800 emulated window.
 
 ---
 
