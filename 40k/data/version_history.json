@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "0.22.0",
+      "version": "0.25.0",
       "date": "2026-07-12",
       "summary": "First gamepad / Steam Deck foundations: menus are controller-navigable (D-pad moves focus, A selects, B backs out), the right stick pans the battle camera and the triggers zoom, a button-hint bar appears whenever a controller is used, and the UI Scale setting finally works.",
       "changes": [
@@ -11,6 +11,52 @@
         "A hint bar at the bottom of the screen shows the controller buttons that do something right now; it appears when a controller is used and disappears the moment you go back to mouse and keyboard.",
         "Fixed: the UI Scale slider (Settings → Visual) was saved but never applied — it now visibly resizes the whole interface, which will matter on small screens like the Steam Deck.",
         "This is milestone M0 of the controller roadmap (PRPs/steam_deck_controller_support.md); board interactions (moving models, targeting) are still mouse-only until M1-M3."
+      ]
+    },
+    {
+      "version": "0.24.1",
+      "date": "2026-07-12",
+      "summary": "Fixed AI charges failing AFTER a successful charge roll (\"charge move failed — skipping\"). The AI now plans its charge move with the exact same shape-aware rules the game enforces — real oval/rectangular base shapes, walls, terrain climb costs, unit coherency and the 11e 'end within 1\" if you can' rule — so a successful roll now actually lands the charge (e.g. Custodian Guard charging a packed Deffkoptas cluster).",
+      "changes": [
+        "AI charge moves are no longer rejected after a successful roll. Against crowded targets on oval bases (e.g. Deffkoptas), the old placement approximated bases as circles and skipped several rules, so up to ~90% of tight charges were computed illegally, bounced off validation, and were skipped — after the log had already shown a successful charge roll.",
+        "The AI placement engine now uses the same true base shapes (including oval rotation), wall overlap, terrain climb penalties, unit coherency and non-target engagement-range checks as the game's charge validator, and honours the 11e rule that every model that can end within 1\" of a target must do so.",
+        "Fixed the 11e 'must end within 1\"' check demanding impossible endpoints: it could insist on a spot that overlapped a wall, ignored terrain climb costs, or (against oval bases) landed just outside its own 1\" acceptance band — rejecting every legal move a player or AI made. It now only enforces endpoints that are themselves fully legal.",
+        "When a charge genuinely cannot be completed (e.g. the only path is blocked by walls), the AI now says so and fails the charge cleanly instead of submitting an illegal move first."
+      ]
+    },
+    {
+      "version": "0.24.0",
+      "date": "2026-07-12",
+      "summary": "The Fight phase no longer jumps straight through the dice: melee attacks now resolve weapon by weapon with a visible pause after the hit roll and after the wound roll — just like staged shooting — including a Command Re-roll (1 CP) button on each die.",
+      "changes": [
+        "Clicking Fight! now opens a Melee Resolution window that walks through each weapon in turn: the hit roll is shown and PAUSES ('Roll to Wound' button), then the wound roll is shown and pauses ('Continue to Saving Throws'), then saves resolve — so you can actually read what happened at every stage.",
+        "Command Re-roll (1 CP) is now available in melee: while paused after a hit or wound roll, click any die to re-roll it (once per phase, attacker's CP), exactly like the staged shooting flow.",
+        "Each weapon (e.g. Big choppa, Power klaw, and auto-included Extra Attacks weapons) resolves as its own step with a named 'Weapon X of Y' header and a running combat log inside the window.",
+        "A summary ('Melee attacks resolved — N enemy models destroyed') with a Close button ends the sequence; the next fighter selection then continues as before.",
+        "AI activations and multiplayer games keep the previous one-shot resolution (no pauses), matching how staged shooting behaves."
+      ]
+    },
+    {
+      "version": "0.23.0",
+      "date": "2026-07-11",
+      "summary": "Made the online Save & Load screen far more reliable when the cloud server is slow or waking up. Instead of silently showing an empty 'Existing Saves' list (which looked like your saved games had vanished), it now retries automatically, shows a clear message if it still can't reach the server, and has a new ⟳ Refresh button to reload the list by hand.",
+      "changes": [
+        "Fixed: on the itch.io / web build, opening Save & Load while the cloud server was still waking from idle could show NO saved games — the first request has to wake the sleeping server, and that attempt sometimes failed. The failure was silently drawn as an empty list, indistinguishable from 'you have no saves'. The game now automatically retries a few times (with a short, increasing delay) so a waking server recovers on its own.",
+        "New: a ⟳ Refresh button next to the Sort dropdown reloads the list of saved games from the server without reopening the dialog.",
+        "Improved: if the save list still can't be loaded, the box now says 'Couldn't reach the save server… press ⟳ Refresh to try again (your saved games are not lost)' instead of appearing empty. An empty account now clearly reads 'No saved games yet.'",
+        "Under the hood: cloud requests transparently retry on connection/timeout and 502/503/504 gateway errors (the signature of a cold-starting server), and a failed save-list fetch now reports a distinct error instead of masquerading as an empty result. (Note: if online saves seem to come and go, the server-side cause is documented for the maintainer in server/README.md — it must be fixed at the deployment, not in the game.)"
+      ]
+    },
+    {
+      "version": "0.22.0",
+      "date": "2026-07-12",
+      "summary": "Hold L to see lines of sight in ANY phase — solid green lines to enemies your units can see, dashed red to the ones they can't. Previously the L overlay only existed during the shooting phase (and even there usually drew nothing), so it looked broken. The left roster strip hotkey moved to B.",
+      "changes": [
+        "Hold L: draws a sight line from each of your units to every enemy unit — solid green when a clear line of sight exists (drawn along the actual sighting line, base-edge aware), dashed red between the nearest models when the view is blocked. Works in every phase now, not just shooting.",
+        "With a unit selected (mover, shooter, charger or fighter), holding L shows just that unit's lines of sight, checked with the same rules the shooting phase uses for target eligibility (including 11e hidden/obscuring visibility).",
+        "In the shooting phase with a shooter selected, L still shows the detailed per-model debug view (sample points, blocked attempts, terrain highlights).",
+        "The overlay refreshes automatically while held, so lines follow models as they move and no longer fade out after a few seconds.",
+        "Left roster strip hotkey is now B (was L, which the LoS overlay always captured first, so it never worked); the '?' shortcut overlay lists both keys."
       ]
     },
     {

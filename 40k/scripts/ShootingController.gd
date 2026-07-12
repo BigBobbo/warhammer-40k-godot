@@ -285,10 +285,12 @@ func _exit_tree() -> void:
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
 
-	# Clean up LoS debug visualization
+	# Clean up LoS debug drawings but do NOT free the node — it is the
+	# persistent BoardRoot layer shared with Main's phase-independent L
+	# overlay (2026-07-12); freeing it here is what used to kill the L key
+	# for the rest of the game.
 	if los_debug_visual and is_instance_valid(los_debug_visual):
 		los_debug_visual.clear_all_debug_visuals()
-		los_debug_visual.queue_free()
 
 	# T5-MP3: Clean up shooting lines container
 	if shooting_lines_container and is_instance_valid(shooting_lines_container):
@@ -337,11 +339,17 @@ func _create_shooting_visuals() -> void:
 	los_visual.clear_points()
 	board_root.add_child(los_visual)
 	
-	# Create LoS debug visualization
-	los_debug_visual = preload("res://scripts/LoSDebugVisual.gd").new()
-	los_debug_visual.name = "LoSDebugVisual"
-	board_root.add_child(los_debug_visual)
-	print("ShootingController: Added LoS debug visualization")
+	# LoS debug visualization — reuse the persistent BoardRoot node Main
+	# creates (2026-07-12) so the L overlay works outside the shooting phase
+	# too; only create one here if it is somehow missing.
+	los_debug_visual = board_root.get_node_or_null("LoSDebugVisual")
+	if los_debug_visual:
+		print("ShootingController: Reusing persistent LoS debug visualization")
+	else:
+		los_debug_visual = preload("res://scripts/LoSDebugVisual.gd").new()
+		los_debug_visual.name = "LoSDebugVisual"
+		board_root.add_child(los_debug_visual)
+		print("ShootingController: Added LoS debug visualization")
 	
 	# Create range visualization node
 	range_visual = Node2D.new()

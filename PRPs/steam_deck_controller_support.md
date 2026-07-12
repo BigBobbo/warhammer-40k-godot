@@ -1,6 +1,6 @@
 # Steam Deck / Controller Support — Research & Phased Implementation Plan
 
-**Status:** IN PROGRESS — M0 shipped 2026-07-12 (v0.22.0; windowed gates `pad_m0_menu_nav` + `pad_m0_camera` PASS). Next: M1 (virtual cursor).
+**Status:** IN PROGRESS — M0 shipped 2026-07-12 (v0.25.0 after merge re-versioning; windowed gates `pad_m0_menu_nav` + `pad_m0_camera` PASS). Next: M1 (virtual cursor).
 **Branch:** `claude/steam-deck-controller-support-1tzorb`
 **Date:** 2026-07-12 (game version at time of writing: 0.21.0)
 **Goal:** Make the full game playable — and eventually *pleasant* — on a Steam Deck with no mouse or keyboard, without regressing the existing mouse/keyboard experience.
@@ -529,7 +529,7 @@ usable via the virtual cursor (drag) — a native "measure from token to token"
 Each milestone is independently shippable and ends with its windowed-scenario
 gate + a `version_history.json` entry (these are player-facing changes).
 
-### M0 — Foundations (small) — ✅ SHIPPED 2026-07-12 (v0.22.0)
+### M0 — Foundations (small) — ✅ SHIPPED 2026-07-12 (v0.25.0)
 InputMap additions (incl. `ui_accept`/`ui_cancel` joypad events),
 `InputDeviceManager`, glyph chips (`scripts/input/GlyphDB.gd` — programmatic
 chips rather than a texture pack, so they scale with UI Scale; swappable for
