@@ -153,6 +153,25 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "simulate_key", "keycode": "KEY_ESCAPE" }
   ```
 
+- `simulate_joy_button`: dispatch a joypad button press+release through the
+  OS-event pipeline — drives InputMap actions, `ui_*` focus navigation and
+  InputDeviceManager device detection like a real pad. `button_index` uses
+  the JoyButton enum ints: 0=A 1=B 2=X 3=Y 4=Back(View) 6=Start(Menu) 9=LB
+  10=RB 11–14=D-pad up/down/left/right. Optional `device` (default 0).
+  ```json
+  { "act": "simulate_joy_button", "button_index": 12 }
+  ```
+
+- `simulate_joy_axis`: push a joypad axis to `value`, hold it for `hold_s`
+  seconds (default 0.3), then return it to neutral unless
+  `"auto_release": false`. While held, the axis feeds action strengths, so
+  per-frame consumers (pad camera pan, trigger zoom) integrate over the
+  hold. `axis` uses the JoyAxis enum ints: 0/1 left stick, 2/3 right stick,
+  4/5 triggers (0..1). Optional `device` (default 0).
+  ```json
+  { "act": "simulate_joy_axis", "axis": 2, "value": 1.0, "hold_s": 0.7 }
+  ```
+
 ### State asserts
 
 - `expect_state`: assert against `GameState.state` via dot-separated path.

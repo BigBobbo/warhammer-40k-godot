@@ -1,6 +1,18 @@
 {
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
+    {
+      "version": "0.25.0",
+      "date": "2026-07-12",
+      "summary": "First gamepad / Steam Deck foundations: menus are controller-navigable (D-pad moves focus, A selects, B backs out), the right stick pans the battle camera and the triggers zoom, a button-hint bar appears whenever a controller is used, and the UI Scale setting finally works.",
+      "changes": [
+        "Gamepad basics: D-pad / left stick moves the UI focus and A presses buttons (B cancels) across the main menu and Settings \u2014 both are now fully usable without a mouse, and focus is handed back sensibly when the Settings overlay closes.",
+        "Controller camera: the right stick pans the board and LT/RT zoom out/in, at the same speeds as the WASD/=/- keyboard controls.",
+        "A hint bar at the bottom of the screen shows the controller buttons that do something right now; it appears when a controller is used and disappears the moment you go back to mouse and keyboard.",
+        "Fixed: the UI Scale slider (Settings \u2192 Visual) was saved but never applied \u2014 it now visibly resizes the whole interface, which will matter on small screens like the Steam Deck.",
+        "This is milestone M0 of the controller roadmap (PRPs/steam_deck_controller_support.md); board interactions (moving models, targeting) are still mouse-only until M1-M3."
+      ]
+    },
 		{
 			"version": "0.24.3",
 			"date": "2026-07-12",

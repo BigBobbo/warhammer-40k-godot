@@ -5595,6 +5595,21 @@ func _process(delta: float) -> void:
 		view_zoom = clamp(view_zoom, 0.1, 3.0)
 		view_changed = true
 
+	# Pad camera (M0 controller foundations): right stick pans, triggers zoom.
+	# The pad_* actions are registered at runtime by InputDeviceManager.
+	if not _text_focused and InputMap.has_action("pad_camera_left"):
+		var pad_pan = Input.get_vector("pad_camera_left", "pad_camera_right", "pad_camera_up", "pad_camera_down")
+		if pad_pan != Vector2.ZERO:
+			view_offset += pad_pan.rotated(-view_rotation) * pan_speed
+			view_changed = true
+		var pad_zoom = Input.get_action_strength("pad_zoom_in") - Input.get_action_strength("pad_zoom_out")
+		if pad_zoom != 0.0:
+			# Same per-frame multiplicative step as the keyboard zoom above,
+			# scaled by trigger pressure.
+			view_zoom *= 1.0 + 0.03 * pad_zoom
+			view_zoom = clamp(view_zoom, 0.1, 3.0)
+			view_changed = true
+
 	# Focus commands
 	if not _text_focused and KeybindingManager.is_action_pressed("focus_p2_zone"):
 		focus_on_player2_zone()
