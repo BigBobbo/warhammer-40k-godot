@@ -1,0 +1,73 @@
+{
+	"id": "custodian_charge_congested_ovals",
+	"covers": [
+		"charge.ai_placement_oval_bases",
+		"charge.placement_congestion",
+		"ai.charge_move_validator_parity"
+	],
+	"fixture": "test_custodian_charge_ovals",
+	"rng_seed": 42,
+	"transition_to_phase": 9,
+	"description": "Regression for the reported 'Custodian Guard charge roll SUCCESS then charge move failed — skipping' bug. AI Custodian Guard (5x 40mm circular) charges a congested Deffkoptas cluster (75x42mm OVAL bases, 5/6 alive) with a second Deffkoptas unit adjacent — the geometry that made the old heuristic placement produce overlapping/inconsistent moves the phase validator rejected. The AI must complete the charge: charged_this_turn set, no 'charge move failed' in the log, and the unit fights the Deffkoptas (the fight phase only offers a fight to a unit within engagement range, so this doubles as the ER proof; a direct min-edge-distance check is racy because the AI-vs-AI runthrough kills the target in the same turn).",
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 1.0
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.phase",
+			"equals": 9
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.active_player",
+			"equals": 2
+		},
+		{
+			"act": "screenshot",
+			"label": "01_charge_phase_start"
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 5.0
+		},
+		{
+			"act": "screenshot",
+			"label": "02_after_ai_charge"
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 11.0
+		},
+		{
+			"act": "expect_state",
+			"path": "units.U_CUSTODIAN_GUARD_A.flags.charged_this_turn",
+			"equals": true
+		},
+		{
+			"act": "execute_script",
+			"script": "event_log_count_containing(\"charge move failed\")",
+			"equals": 0
+		},
+		{
+			"act": "execute_script",
+			"script": "event_log_count_containing(\"move validation failed\")",
+			"equals": 0
+		},
+		{
+			"act": "execute_script",
+			"script": "event_log_count_containing(\"charge roll\")",
+			"expect_min": 1
+		},
+		{
+			"act": "execute_script",
+			"script": "event_log_count_containing(\"Custodian Guard fights Deffkoptas\")",
+			"expect_min": 1
+		},
+		{
+			"act": "screenshot",
+			"label": "03_final_state"
+		}
+	]
+}

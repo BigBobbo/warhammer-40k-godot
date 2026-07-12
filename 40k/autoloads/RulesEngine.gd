@@ -9669,9 +9669,32 @@ static func validate_base_to_base_possible_rules(unit_id: String, per_model_path
 			var b2b_model = model.duplicate()
 			b2b_model["position"] = b2b_pos
 
+			# Constraint 0a: the candidate path must also afford any terrain
+			# vertical penalty — the distance validator charges it, so an
+			# endpoint only reachable by ignoring the climb cannot be demanded.
+			var unit_kw = unit.get("meta", {}).get("keywords", [])
+			var tm_penalty := 0.0
+			var tmgr_b2b = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if Engine.get_main_loop() is SceneTree else null
+			if tmgr_b2b and tmgr_b2b.has_method("calculate_charge_terrain_penalty"):
+				tm_penalty = tmgr_b2b.calculate_charge_terrain_penalty(start_pos, b2b_pos, "FLY" in unit_kw, unit_kw)
+			if distance_to_close + tm_penalty > rolled_distance:
+				continue
+
+			# Constraint 0b: an endpoint overlapping a wall is never legal
+			# (_validate_no_wall_overlaps rejects it), so it cannot be used to
+			# demand the close-distance obligation either.
+			if Measurement.model_overlaps_any_wall(b2b_model):
+				continue
+
 			# Straight-line-to-centre is approximate for non-circular bases; only
-			# flag when the candidate really does land within 1" of the target.
-			if Measurement.model_to_model_distance_inches(b2b_model, target_model) > close_inches + 0.25:
+			# flag when the candidate really does land within the 1" band. The
+			# acceptance tolerance MUST match the already-close band (band_tol)
+			# above: with a looser slack (this used 0.25) an oval-target
+			# candidate could land at e.g. 1.15" — accepted here, yet a model
+			# placed exactly there would still not count as "close", so the
+			# obligation demanded an endpoint that could not satisfy it and
+			# every legal move was rejected.
+			if Measurement.model_to_model_distance_inches(b2b_model, target_model) > close_inches + band_tol:
 				continue
 
 			# Constraint 1: Coherency

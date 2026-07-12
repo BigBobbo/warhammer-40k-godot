@@ -12920,14 +12920,21 @@ static func _select_post_roll_charge_targets(snapshot: Dictionary, unit_id: Stri
 	return [best.id]
 
 static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_distance: int, target_ids: Array, player: int, action_type: String = "APPLY_CHARGE_MOVE") -> Dictionary:
-	"""Compute model positions for a charge move. Each model must:
-	1. Move at most rolled_distance inches
-	2. End closer to at least one charge target than it started
-	3. At least one model must end within engagement range (1") of each declared target
-	4. No model may end within engagement range of a non-target enemy
-	5. Unit coherency must be maintained
-	6. No model overlaps
-	Returns an action dict with per_model_paths (type from action_type param), or a SKIP_CHARGE fallback."""
+	"""Compute per-model endpoints for a charge move using the SAME shape-aware
+	geometry the ChargePhase validator applies (true base shapes incl. oval
+	rotation via Measurement, walls, terrain penalties, coherency, non-target
+	engagement range, and the 11e 11.04 "must end within 1 inch if able"
+	obligation). Constraints honoured per model:
+	1. straight path + terrain vertical penalty fits the rolled distance
+	2. every moved model ends closer (centre AND edge) to a charge target
+	3. at least one model ends within engagement range of EACH declared target
+	4. no model ends within ER of a non-target enemy, on a wall, or
+	   overlapping any other base
+	5. unit coherency is maintained
+	6. every model that CAN legally end within 1" of a target does so (11.04)
+	Returns an APPLY_CHARGE_MOVE (or heroic-intervention) action, or a
+	SKIP_CHARGE when no legal charge move exists (the charge legitimately
+	fails after the roll)."""
 
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
@@ -12938,386 +12945,116 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 	if alive_models.is_empty():
 		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge for %s (no alive models)" % unit_name}
 
-	# Gather target model positions (closest model per target)
-	var target_positions = []  # Array of Vector2 (closest target model to charger centroid)
-	var charger_centroid = _get_unit_centroid(unit)
-	for target_id in target_ids:
-		var target_unit = snapshot.get("units", {}).get(target_id, {})
-		if target_unit.is_empty():
-			continue
-		var closest_pos = Vector2.INF
-		var closest_dist = INF
-		for tm in target_unit.get("models", []):
-			if not tm.get("alive", true):
-				continue
-			var tp = _get_model_position(tm)
-			if tp == Vector2.INF:
-				continue
-			var d = charger_centroid.distance_to(tp)
-			if d < closest_dist:
-				closest_dist = d
-				closest_pos = tp
-		if closest_pos != Vector2.INF:
-			target_positions.append(closest_pos)
+	# Work on a copy — the coverage step below may drop unreachable targets.
+	target_ids = target_ids.duplicate()
 
-	if target_positions.is_empty():
-		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge for %s (no target positions)" % unit_name}
-
-	# Primary target: the first (typically only) target
-	var primary_target_pos = target_positions[0]
-
-	# Get all non-target enemy model positions to avoid ending in their engagement range
-	var non_target_enemies = []  # Array of {position: Vector2, base_radius_px: float}
+	# ── Shared placement context: full model dicts so every check can use the
+	# true base shape (incl. oval rotation), exactly like the phase validator.
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var ctx = {
+		"meas": _measurement(),
+		"tmgr": _terrain_manager(),
+		"roll_in": float(rolled_distance),
+		"er_in": GameConstants.engagement_range_inches(),
+		"has_fly": "FLY" in unit_keywords,
+		"keywords": unit_keywords,
+		"target_models": [],      # [{model, unit_id}] alive target models
+		"non_target_models": [],  # enemy models we must NOT end in ER of
+		"obstacles": [],          # every other on-board model (overlap checks)
+		"placed": [],             # own models at their chosen final spots
+	}
 	for uid in snapshot.get("units", {}):
+		if uid == unit_id:
+			continue
 		var u = snapshot.units[uid]
-		if u.get("owner", 0) == player:
-			continue  # Skip friendly
-		if uid in target_ids:
-			continue  # Skip declared targets
 		var u_status = u.get("status", 0)
 		if u_status == GameStateData.UnitStatus.UNDEPLOYED or u_status == GameStateData.UnitStatus.IN_RESERVES:
 			continue
+		var is_enemy = u.get("owner", 0) != player
+		var is_target = uid in target_ids
 		for m in u.get("models", []):
 			if not m.get("alive", true):
 				continue
-			var mp = _get_model_position(m)
-			if mp == Vector2.INF:
+			if _get_model_position(m) == Vector2.INF:
 				continue
-			var br = _model_bounding_radius_px(m.get("base_mm", 32), m.get("base_type", "circular"), m.get("base_dimensions", {}))
-			non_target_enemies.append({"position": mp, "base_radius_px": br})
+			var m_dup = m.duplicate()
+			ctx.obstacles.append(m_dup)
+			if is_enemy and is_target:
+				ctx.target_models.append({"model": m_dup, "unit_id": uid})
+			elif is_enemy:
+				ctx.non_target_models.append(m_dup)
 
-	# Get deployed models for collision checking (excluding this unit)
-	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+	if ctx.target_models.is_empty():
+		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge for %s (no target positions)" % unit_name}
 
-	# Get target model info for engagement range checking
-	# Store full base info so we can compute directional radius for placement
-	var target_model_info = []  # Array of {position, base_radius_px, base_mm, base_type, base_dimensions, rotation, target_id}
-	for target_id in target_ids:
-		var target_unit = snapshot.get("units", {}).get(target_id, {})
-		for tm in target_unit.get("models", []):
-			if not tm.get("alive", true):
-				continue
-			var tp = _get_model_position(tm)
-			if tp == Vector2.INF:
-				continue
-			var t_base_mm = tm.get("base_mm", 32)
-			var t_base_type = tm.get("base_type", "circular")
-			var t_base_dims = tm.get("base_dimensions", {})
-			var t_rotation = tm.get("rotation", 0.0)
-			var br = _model_min_radius_px(t_base_mm, t_base_type, t_base_dims)
-			target_model_info.append({
-				"position": tp, "base_radius_px": br, "target_id": target_id,
-				"base_mm": t_base_mm, "base_type": t_base_type,
-				"base_dimensions": t_base_dims, "rotation": t_rotation
-			})
-
-	var move_budget_px = rolled_distance * PIXELS_PER_INCH
-	var first_model = alive_models[0]
-	var base_mm = first_model.get("base_mm", 32)
-	var base_type = first_model.get("base_type", "circular")
-	var base_dimensions = first_model.get("base_dimensions", {})
-	var my_base_radius_px = _model_min_radius_px(base_mm, base_type, base_dimensions)
-	var my_bounding_radius_px = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
-
-	# --- Compute destinations for each model ---
-	# Strategy: for multi-target charges, find a position that reaches all targets.
-	# For single-target, move toward the target into base-to-base contact.
-	# The lead model should get into base-to-base or just within engagement range
-	# Remaining models maintain coherency and follow
-
-	# For multi-target charges, compute the centroid of all target positions
-	# and move toward it (this maximizes chance of reaching all targets)
-	var charge_destination = primary_target_pos
-	if target_positions.size() > 1:
-		var centroid = Vector2.ZERO
-		for tp in target_positions:
-			centroid += tp
-		centroid /= target_positions.size()
-		charge_destination = centroid
-		print("AIDecisionMaker: Multi-target charge — using centroid of %d targets as destination" % target_positions.size())
-
-	var per_model_paths = {}
-	var placed_positions = []  # Track placed positions for intra-unit overlap avoidance
-
-	# Sort models by distance to charge destination (closest first)
+	# Nearest models charge first — they take the base-contact spots and the
+	# rest anchor coherency to them.
 	var model_distances = []
 	for model in alive_models:
-		var mid = model.get("id", "")
 		var mpos = _get_model_position(model)
-		var dist = mpos.distance_to(charge_destination)
-		model_distances.append({"model": model, "id": mid, "pos": mpos, "dist": dist})
+		var best_edge = INF
+		for te in ctx.target_models:
+			best_edge = min(best_edge, _cm_edge_in(ctx.meas, model, te.model))
+		model_distances.append({"model": model, "id": model.get("id", ""), "pos": mpos, "dist": best_edge})
 	model_distances.sort_custom(func(a, b): return a.dist < b.dist)
 
-	var engagement_range_px = _engagement_range_px()  # 1" = 40px
-	var any_model_in_er = {}  # target_id -> bool (track if we've gotten a model in ER per target)
+	var covered = {}
 	for tid in target_ids:
-		any_model_in_er[tid] = false
+		covered[tid] = false
 
-	var model_index = 0  # Track model index for angular offset
+	var per_model_paths = {}
 	for md in model_distances:
-		var model = md.model
-		var mid = md.id
-		var start_pos = md.pos
-		var start_dist_to_target = md.dist
-
-		# Direction toward primary target
-		var direction = (primary_target_pos - start_pos).normalized()
-		if direction == Vector2.ZERO:
-			direction = Vector2.RIGHT
-
-		# Calculate ideal destination: close to target within engagement range
-		# Use directional radius for accurate placement (avoids overlap on non-circular bases)
-		var closest_target_model = _find_closest_target_model_info(start_pos, target_model_info)
-		var target_for_model = closest_target_model.position if not closest_target_model.is_empty() else primary_target_pos
-
-		var dir_to_target = (target_for_model - start_pos).normalized()
-		if dir_to_target == Vector2.ZERO:
-			dir_to_target = Vector2.RIGHT
-
-		# Compute directional radii for accurate placement (accounts for oval/rectangular bases)
-		var my_radius_toward = _model_radius_toward_px(base_mm, base_type, base_dimensions, dir_to_target)
-		var target_radius_toward = 20.0
-		if not closest_target_model.is_empty():
-			target_radius_toward = _model_radius_toward_px(
-				closest_target_model.get("base_mm", 32),
-				closest_target_model.get("base_type", "circular"),
-				closest_target_model.get("base_dimensions", {}),
-				-dir_to_target,
-				closest_target_model.get("rotation", 0.0))
-		var ideal_center_dist = my_radius_toward + target_radius_toward + 2.0  # Base-to-base contact (2px margin for safety)
-
-		var target_center_dist = start_pos.distance_to(target_for_model)
-		var desired_move_dist = target_center_dist - ideal_center_dist
-		# Clamp to move budget
-		var actual_move_dist = clamp(desired_move_dist, 0.0, move_budget_px)
-
-		var candidate_pos = start_pos + dir_to_target * actual_move_dist
-
-		# For subsequent models (index > 0), apply angular offset around the target
-		# to avoid overlapping with previously placed models
-		if model_index > 0:
-			var angle_offset = (PI / 3.0) * model_index  # 60 degrees apart per model
-			if model_index % 2 == 0:
-				angle_offset = -angle_offset / 2.0  # Alternate sides
-			var rotated_dir = Vector2(
-				dir_to_target.x * cos(angle_offset) - dir_to_target.y * sin(angle_offset),
-				dir_to_target.x * sin(angle_offset) + dir_to_target.y * cos(angle_offset)
-			)
-			candidate_pos = target_for_model - rotated_dir * ideal_center_dist
-			# Ensure within move budget
-			var dist_from_start = start_pos.distance_to(candidate_pos)
-			if dist_from_start > move_budget_px:
-				candidate_pos = start_pos + (candidate_pos - start_pos).normalized() * move_budget_px
-
-		# Clamp to board bounds
-		candidate_pos.x = clamp(candidate_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
-		candidate_pos.y = clamp(candidate_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
-
-		# Check constraints and adjust (use bounding radius for collision/non-target ER safety)
-		candidate_pos = _adjust_charge_position(
-			candidate_pos, start_pos, move_budget_px, my_bounding_radius_px,
-			target_model_info, non_target_enemies, deployed_models,
-			placed_positions, base_mm, base_type, base_dimensions
-		)
-
-		# Verify the model ends closer to at least one target than it started
-		var ends_closer = false
-		for tp_info in target_model_info:
-			var original_dist = start_pos.distance_to(tp_info.position)
-			var new_dist = candidate_pos.distance_to(tp_info.position)
-			if new_dist < original_dist:
-				ends_closer = true
-				break
-
-		if not ends_closer and start_pos.distance_to(candidate_pos) > 1.0:
-			# Fallback: don't move this model (stay in place is valid if it was already close)
-			candidate_pos = start_pos
-
-		# Ensure the model reaches base-to-base contact with a charge target.
-		# Per 10e rules, charging models MUST make base contact when possible.
-		# Base contact is checked as edge-to-edge distance <= 0.25" (10px).
-		# This OVERRIDES non-target enemy avoidance — base contact with charge target is mandatory.
-		# Use directional radius for accurate edge-to-edge distance on non-circular bases.
-		var in_b2b_with_target = false
-		var b2b_tolerance_px = 10.0  # 0.25 inches = 10px (matches ChargePhase BASE_CONTACT_TOLERANCE_INCHES)
-		for tp_info in target_model_info:
-			var b2b_dir = (tp_info.position - candidate_pos).normalized()
-			var b2b_my_r = _model_radius_toward_px(base_mm, base_type, base_dimensions, b2b_dir)
-			var b2b_tgt_r = _model_radius_toward_px(
-				tp_info.get("base_mm", 32), tp_info.get("base_type", "circular"),
-				tp_info.get("base_dimensions", {}), -b2b_dir, tp_info.get("rotation", 0.0))
-			var edge_dist_px = candidate_pos.distance_to(tp_info.position) - b2b_my_r - b2b_tgt_r
-			if edge_dist_px <= b2b_tolerance_px:
-				in_b2b_with_target = true
-				break
-		if not in_b2b_with_target:
-			# Model isn't in base contact — force move to base-to-base with closest target
-			# Use candidate_pos (which has angular offset) for direction, not start_pos
-			var best_target = _find_closest_target_model_info(candidate_pos, target_model_info)
-			if not best_target.is_empty():
-				var btpos = best_target.position
-				var dir_to_bt = (btpos - candidate_pos).normalized()
-				if dir_to_bt == Vector2.ZERO:
-					dir_to_bt = Vector2.RIGHT
-				var bt_my_r = _model_radius_toward_px(base_mm, base_type, base_dimensions, dir_to_bt)
-				var bt_tgt_r = _model_radius_toward_px(
-					best_target.get("base_mm", 32), best_target.get("base_type", "circular"),
-					best_target.get("base_dimensions", {}), -dir_to_bt, best_target.get("rotation", 0.0))
-				var base_contact_center_dist = bt_my_r + bt_tgt_r + 2.0  # 2px safety margin
-				var base_contact_pos = btpos - dir_to_bt * base_contact_center_dist
-				var dist_to_contact = start_pos.distance_to(base_contact_pos)
-				if dist_to_contact <= move_budget_px:
-					# Check both intra-unit and inter-unit collisions
-					var all_obstacles_for_b2b = deployed_models + placed_positions
-					var collides_any = _position_collides_with_deployed(
-						base_contact_pos, base_mm, all_obstacles_for_b2b, 1.0, base_type, base_dimensions)
-					if not collides_any:
-						candidate_pos = base_contact_pos
-						var final_edge_dist = candidate_pos.distance_to(btpos) - bt_my_r - bt_tgt_r
-						print("AIDecisionMaker: Forced charge to base contact (edge_dist=%.1fpx, %.2f\")" % [
-							final_edge_dist, final_edge_dist / PIXELS_PER_INCH])
-					else:
-						# Base contact blocked — search for collision-free position within ER
-						var er_limit_center = bt_my_r + bt_tgt_r + engagement_range_px
-						var all_obs = deployed_models + placed_positions
-						var found_er_pos = false
-						for scan_ring in range(1, 25):
-							var scan_radius = base_contact_center_dist + scan_ring * 4.0
-							if scan_radius > er_limit_center:
-								break
-							var scan_points = maxi(16, scan_ring * 8)
-							for si in range(scan_points):
-								var sa = (2.0 * PI * si) / scan_points
-								var sp = Vector2(btpos.x + cos(sa) * scan_radius, btpos.y + sin(sa) * scan_radius)
-								if start_pos.distance_to(sp) > move_budget_px:
-									continue
-								sp.x = clamp(sp.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
-								sp.y = clamp(sp.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
-								if not _position_collides_with_deployed(sp, base_mm, all_obs, 1.0, base_type, base_dimensions):
-									candidate_pos = sp
-									var scan_edge = sp.distance_to(btpos) - bt_my_r - bt_tgt_r
-									print("AIDecisionMaker: Found ER-valid position via ring scan (edge=%.1fpx, %.2f\")" % [
-										scan_edge, scan_edge / PIXELS_PER_INCH])
-									found_er_pos = true
-									break
-							if found_er_pos:
-								break
-						if not found_er_pos:
-							print("AIDecisionMaker: No collision-free position within ER — keeping adjusted position")
-				else:
-					candidate_pos = start_pos + dir_to_bt * move_budget_px
-					print("AIDecisionMaker: Charge move maxed out (%.1fpx budget, %.1fpx needed for contact)" % [
-						move_budget_px, dist_to_contact])
-
-		# Track which targets have a model in engagement range (1" = 40px)
-		for tp_info in target_model_info:
-			var er_dir = (tp_info.position - candidate_pos).normalized()
-			var er_my_r = _model_radius_toward_px(base_mm, base_type, base_dimensions, er_dir)
-			var er_tgt_r = _model_radius_toward_px(
-				tp_info.get("base_mm", 32), tp_info.get("base_type", "circular"),
-				tp_info.get("base_dimensions", {}), -er_dir, tp_info.get("rotation", 0.0))
-			var edge_dist_px = candidate_pos.distance_to(tp_info.position) - er_my_r - er_tgt_r
-			if edge_dist_px <= engagement_range_px:
-				any_model_in_er[tp_info.target_id] = true
-		# Also track b2b contact (use directional radius)
-		var in_er_of_any_target = false
-		for tp_info in target_model_info:
-			var b2b2_dir = (tp_info.position - candidate_pos).normalized()
-			var b2b2_my_r = _model_radius_toward_px(base_mm, base_type, base_dimensions, b2b2_dir)
-			var b2b2_tgt_r = _model_radius_toward_px(
-				tp_info.get("base_mm", 32), tp_info.get("base_type", "circular"),
-				tp_info.get("base_dimensions", {}), -b2b2_dir, tp_info.get("rotation", 0.0))
-			var edge_dist_px = candidate_pos.distance_to(tp_info.position) - b2b2_my_r - b2b2_tgt_r
-			if edge_dist_px <= engagement_range_px:
-				in_er_of_any_target = true
-				break
-
-		# Record the path (start -> end)
-		per_model_paths[mid] = [
-			[start_pos.x, start_pos.y],
-			[candidate_pos.x, candidate_pos.y]
-		]
-
-		# Debug: log placement details
-		var move_px = start_pos.distance_to(candidate_pos)
-		print("AI_CHARGE_DEBUG model=%s start=(%.0f,%.0f) end=(%.0f,%.0f) move=%.1fpx(%.2f\") budget=%.1fpx base_mm=%s base_type=%s" % [
-			mid, start_pos.x, start_pos.y, candidate_pos.x, candidate_pos.y,
-			move_px, move_px / PIXELS_PER_INCH, move_budget_px, base_mm, base_type])
-		for tp_info in target_model_info:
-			var dbg_dir = (tp_info.position - candidate_pos).normalized()
-			var dbg_my_r = _model_radius_toward_px(base_mm, base_type, base_dimensions, dbg_dir)
-			var dbg_tgt_r = _model_radius_toward_px(
-				tp_info.get("base_mm", 32), tp_info.get("base_type", "circular"),
-				tp_info.get("base_dimensions", {}), -dbg_dir, tp_info.get("rotation", 0.0))
-			var edge_d = candidate_pos.distance_to(tp_info.position) - dbg_my_r - dbg_tgt_r
-			print("AI_CHARGE_DEBUG   → target %s at (%.0f,%.0f): center_dist=%.1f edge_dist=%.1fpx(%.2f\") my_r=%.1f tgt_r=%.1f" % [
-				tp_info.target_id, tp_info.position.x, tp_info.position.y,
-				candidate_pos.distance_to(tp_info.position), edge_d, edge_d / PIXELS_PER_INCH,
-				dbg_my_r, dbg_tgt_r])
-
-		placed_positions.append({
-			"position": candidate_pos,
-			"base_mm": base_mm,
-			"base_type": base_type,
-			"base_dimensions": base_dimensions
-		})
-
-		model_index += 1
-
-	# Verify we achieved engagement range with all targets
-	var all_targets_reached = true
-	var unreached_targets = []
-	for tid in target_ids:
-		if not any_model_in_er.get(tid, false):
-			all_targets_reached = false
-			unreached_targets.append(tid)
-			print("AIDecisionMaker: Charge move for %s failed to reach target %s engagement range" % [unit_name, tid])
-
-	if not all_targets_reached and target_ids.size() > 1:
-		# Multi-target charge failed to reach all targets.
-		# Recompute for just the closest reachable target (fallback to single-target charge).
-		print("AIDecisionMaker: Multi-target charge failed — retrying with closest reachable target only")
-		var reached_targets = []
-		for tid in target_ids:
-			if any_model_in_er.get(tid, false):
-				reached_targets.append(tid)
-		if not reached_targets.is_empty():
-			# Find the closest reached target and reposition for base contact
-			var closest_reached_tid = reached_targets[0]
-			var closest_reached_info = []
-			for tp_info in target_model_info:
-				if tp_info.target_id == closest_reached_tid:
-					closest_reached_info.append(tp_info)
-			if not closest_reached_info.is_empty():
-				# Recompute move for just this target (base-to-base contact)
-				per_model_paths.clear()
-				placed_positions.clear()
-				for md in model_distances:
-					var _model = md.model
-					var _mid = md.id
-					var _start_pos = md.pos
-					var best_t = _find_closest_target_model_info(_start_pos, closest_reached_info)
-					if best_t.is_empty():
-						per_model_paths[_mid] = [[_start_pos.x, _start_pos.y], [_start_pos.x, _start_pos.y]]
-						continue
-					var _bt_radius = best_t.base_radius_px
-					var _contact_dist = my_base_radius_px + _bt_radius + 1.0
-					var _dir = (best_t.position - _start_pos).normalized()
-					if _dir == Vector2.ZERO:
-						_dir = Vector2.RIGHT
-					var _contact_pos = best_t.position - _dir * _contact_dist
-					var _move_dist = _start_pos.distance_to(_contact_pos)
-					if _move_dist > move_budget_px:
-						_contact_pos = _start_pos + _dir * move_budget_px
-					_contact_pos.x = clamp(_contact_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
-					_contact_pos.y = clamp(_contact_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
-					per_model_paths[_mid] = [[_start_pos.x, _start_pos.y], [_contact_pos.x, _contact_pos.y]]
-				print("AIDecisionMaker: Recomputed charge move for single target %s (base-to-base)" % closest_reached_tid)
+		var chosen = _cm_choose_endpoint(ctx, md.model, md.pos, covered)
+		if chosen.has("pos"):
+			per_model_paths[md.id] = [[md.pos.x, md.pos.y], [chosen.pos.x, chosen.pos.y]]
+			var placed_m = md.model.duplicate()
+			placed_m["position"] = chosen.pos
+			ctx.placed.append(placed_m)
+			_cm_update_coverage(ctx, placed_m, covered)
+			var mv = md.pos.distance_to(chosen.pos)
+			print("AI_CHARGE_DEBUG model=%s start=(%.0f,%.0f) end=(%.0f,%.0f) move=%.1fpx(%.2f\") kind=%s edge_to_target=%.2f\"" % [
+				md.id, md.pos.x, md.pos.y, chosen.pos.x, chosen.pos.y,
+				mv, mv / PIXELS_PER_INCH, chosen.get("kind", "?"), chosen.get("edge_in", INF)])
 		else:
-			# No targets reached at all — shouldn't happen if roll was sufficient
-			print("AIDecisionMaker: No targets reachable — submitting move anyway for phase handling")
-	elif not all_targets_reached:
-		print("AIDecisionMaker: Single-target charge failed to reach — submitting move for phase handling")
+			# No legal advance for this model: it stays put. Emit NO path — the
+			# validator skips unmoved models for the closer/direction checks —
+			# but it still occupies its spot and anchors coherency.
+			ctx.placed.append(md.model.duplicate())
+			print("AI_CHARGE_DEBUG model=%s stays at (%.0f,%.0f) — no legal advance found" % [md.id, md.pos.x, md.pos.y])
+
+	# ── The charge must reach engagement range of every declared target ──
+	var uncovered = []
+	for tid in target_ids:
+		if not covered.get(tid, false):
+			uncovered.append(tid)
+	if not uncovered.is_empty():
+		if uncovered.size() >= target_ids.size():
+			# Nothing reachable at all — the charge legitimately fails.
+			if action_type == "APPLY_CHARGE_MOVE":
+				print("AIDecisionMaker: No legal charge move reaches any target for %s — failing the charge" % unit_name)
+				return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id,
+					"_ai_description": "%s cannot complete the charge move — charge fails" % unit_name}
+			print("AIDecisionMaker: Heroic intervention move could not reach ER — submitting best effort")
+		else:
+			# Partial coverage: proceed against the reachable subset (11e picks
+			# targets with the move; the roll-time filter already vetted reach).
+			for tid in uncovered:
+				target_ids.erase(tid)
+			print("AIDecisionMaker: Charge move for %s could not reach %s — proceeding against %s" % [
+				unit_name, str(uncovered), str(target_ids)])
+
+	# ── 11.04 sweep: pull every model that can still legally reach the 1"
+	# band into it, judged against the FINAL configuration (mirrors
+	# RulesEngine.validate_base_to_base_possible_rules).
+	_cm_repair_close_obligation(ctx, per_model_paths, model_distances, target_ids)
+
+	# ── Belt-and-braces: the validator judges whole-unit coherency over the
+	# final configuration (stayed models included). If anyone is stranded,
+	# fail the charge honestly instead of submitting a move the phase bounces.
+	if action_type == "APPLY_CHARGE_MOVE" and not _cm_unit_coherent(ctx.meas, ctx.placed):
+		print("AIDecisionMaker: Charge placement for %s breaks unit coherency — failing the charge" % unit_name)
+		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id,
+			"_ai_description": "%s cannot complete the charge move in coherency — charge fails" % unit_name}
 
 	var target_names = []
 	for tid in target_ids:
@@ -13344,122 +13081,358 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 		"_ai_description": charge_desc
 	}
 
-static func _find_closest_target_model_info(pos: Vector2, target_model_info: Array) -> Dictionary:
-	"""Find the closest target model info dict to a given position."""
-	var closest = {}
-	var closest_dist = INF
-	for info in target_model_info:
-		var d = pos.distance_to(info.position)
-		if d < closest_dist:
-			closest_dist = d
-			closest = info
-	return closest
+# ── Shape-aware charge placement helpers (validator parity) ─────────────────
+# These mirror ChargePhase._validate_charge_movement_constraints piece by
+# piece: same Measurement true-shape distances, same wall/coherency/ER rules,
+# and the same 11.04 close-distance obligation, so a move computed here is
+# accepted by the phase instead of bouncing (roll SUCCESS → move rejected →
+# "charge move failed — skipping").
 
-static func _adjust_charge_position(
-	candidate: Vector2, start_pos: Vector2, move_budget_px: float,
-	my_base_radius_px: float, target_model_info: Array,
-	non_target_enemies: Array, deployed_models: Array,
-	placed_positions: Array, base_mm: int, base_type: String,
-	base_dimensions: Dictionary
-) -> Vector2:
-	"""Adjust a candidate charge position to satisfy constraints:
-	- Must not exceed move budget from start
-	- Must not overlap with deployed models or already-placed models
-	- Must not end in engagement range of non-target enemies
-	Returns the adjusted position."""
+static func _cm_edge_in(meas, model_a: Dictionary, model_b: Dictionary) -> float:
+	"""True edge-to-edge distance in inches between two models (shape-aware
+	when the Measurement autoload is reachable, directional-radius fallback)."""
+	var pa = _get_model_position(model_a)
+	var pb = _get_model_position(model_b)
+	if pa == Vector2.INF or pb == Vector2.INF:
+		return INF
+	if meas:
+		return meas.model_to_model_distance_inches(model_a, model_b)
+	var d = pb - pa
+	var ra = _model_radius_toward_px(model_a.get("base_mm", 32), model_a.get("base_type", "circular"), model_a.get("base_dimensions", {}), d, model_a.get("rotation", 0.0))
+	var rb = _model_radius_toward_px(model_b.get("base_mm", 32), model_b.get("base_type", "circular"), model_b.get("base_dimensions", {}), -d, model_b.get("rotation", 0.0))
+	return max(0.0, pa.distance_to(pb) - ra - rb) / PIXELS_PER_INCH
 
-	var pos = candidate
+static func _cm_overlaps(meas, model_a: Dictionary, model_b: Dictionary) -> bool:
+	"""True base overlap (bounding-circle prefilter, then exact shape test)."""
+	var pa = _get_model_position(model_a)
+	var pb = _get_model_position(model_b)
+	if pa == Vector2.INF or pb == Vector2.INF:
+		return false
+	var ra = _model_bounding_radius_px(model_a.get("base_mm", 32), model_a.get("base_type", "circular"), model_a.get("base_dimensions", {}))
+	var rb = _model_bounding_radius_px(model_b.get("base_mm", 32), model_b.get("base_type", "circular"), model_b.get("base_dimensions", {}))
+	if pa.distance_to(pb) > ra + rb + 1.0:
+		return false
+	if meas:
+		return meas.models_overlap(model_a, model_b)
+	return pa.distance_to(pb) < ra + rb  # conservative fallback
 
-	# 1. Ensure within move budget
-	var move_dist = start_pos.distance_to(pos)
-	if move_dist > move_budget_px:
-		var dir = (pos - start_pos).normalized()
-		pos = start_pos + dir * move_budget_px
+static func _cm_in_er(ctx: Dictionary, model_a: Dictionary, model_b: Dictionary) -> bool:
+	"""Shape-aware engagement range test with barricade-aware ER (matches
+	ChargePhase._get_effective_engagement_range)."""
+	var pa = _get_model_position(model_a)
+	var pb = _get_model_position(model_b)
+	if pa == Vector2.INF or pb == Vector2.INF:
+		return false
+	var er_in: float = ctx.er_in
+	var tmgr = ctx.tmgr
+	if tmgr and tmgr.has_method("get_engagement_range_for_positions"):
+		er_in = tmgr.get_engagement_range_for_positions(pa, pb)
+	var ra = _model_bounding_radius_px(model_a.get("base_mm", 32), model_a.get("base_type", "circular"), model_a.get("base_dimensions", {}))
+	var rb = _model_bounding_radius_px(model_b.get("base_mm", 32), model_b.get("base_type", "circular"), model_b.get("base_dimensions", {}))
+	if pa.distance_to(pb) - ra - rb > er_in * PIXELS_PER_INCH + 2.0:
+		return false  # cheap reject: even bounding circles are out of range
+	var meas = ctx.meas
+	if meas:
+		return meas.is_in_engagement_range_shape_aware(model_a, model_b, er_in)
+	return _cm_edge_in(null, model_a, model_b) <= er_in
 
-	# 2. Check for non-target enemy engagement range violation
-	var er_px = _engagement_range_px()
-	for nte in non_target_enemies:
-		var edge_dist = pos.distance_to(nte.position) - my_base_radius_px - nte.base_radius_px
-		if edge_dist <= er_px:
-			# Push away from non-target enemy
-			var push_dir = (pos - nte.position).normalized()
-			if push_dir == Vector2.ZERO:
-				push_dir = Vector2.RIGHT
-			var needed_dist = my_base_radius_px + nte.base_radius_px + er_px + 5.0  # 5px safety margin
-			pos = nte.position + push_dir * needed_dist
+static func _cm_within_coherency(meas, model_a: Dictionary, model_b: Dictionary) -> bool:
+	if meas:
+		return meas.is_within_coherency(model_a, model_b)
+	return _cm_edge_in(null, model_a, model_b) <= 2.0
 
-			# Re-check move budget after push
-			move_dist = start_pos.distance_to(pos)
-			if move_dist > move_budget_px:
-				var dir = (pos - start_pos).normalized()
-				pos = start_pos + dir * move_budget_px
-
-	# 3. Check for overlap with deployed models
-	var all_obstacles = deployed_models + placed_positions
-	if _position_collides_with_deployed(pos, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
-		# Two-pass spiral search: first pass keeps engagement range with a target,
-		# second pass accepts any collision-free position within move budget.
-		var step = my_base_radius_px * 2.0 + 4.0
-		var best_in_er: Vector2 = Vector2.INF
-		var best_any: Vector2 = Vector2.INF
-		var best_in_er_dist := INF
-		var best_any_dist := INF
-		var target_er_px = _engagement_range_px()
-
-		# Search around the closest target position (not the candidate) so we
-		# find positions that stay within engagement range even under congestion
-		var search_center = pos
-		if not target_model_info.is_empty():
-			var ct = _find_closest_target_model_info(pos, target_model_info)
-			if not ct.is_empty():
-				search_center = ct.position
-
-		for ring in range(1, 13):
-			var ring_radius = step * ring * 0.5
-			var points_in_ring = maxi(12, ring * 8)
-			for p_idx in range(points_in_ring):
-				var angle = (2.0 * PI * p_idx) / points_in_ring
-				var test_pos = Vector2(
-					search_center.x + cos(angle) * ring_radius,
-					search_center.y + sin(angle) * ring_radius
-				)
-				if start_pos.distance_to(test_pos) > move_budget_px:
-					continue
-				test_pos.x = clamp(test_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
-				test_pos.y = clamp(test_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
-				if _position_collides_with_deployed(test_pos, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
-					continue
-				var nte_ok = true
-				for nte in non_target_enemies:
-					var edge_dist = test_pos.distance_to(nte.position) - my_base_radius_px - nte.base_radius_px
-					if edge_dist <= er_px:
-						nte_ok = false
-						break
-				if not nte_ok:
-					continue
-				var dist_from_orig = pos.distance_to(test_pos)
-				var in_er_of_target = false
-				for tmi in target_model_info:
-					var t_edge = test_pos.distance_to(tmi.position) - my_base_radius_px - tmi.base_radius_px
-					if t_edge <= target_er_px:
-						in_er_of_target = true
-						break
-				if in_er_of_target and dist_from_orig < best_in_er_dist:
-					best_in_er = test_pos
-					best_in_er_dist = dist_from_orig
-				if dist_from_orig < best_any_dist:
-					best_any = test_pos
-					best_any_dist = dist_from_orig
-
-			if best_in_er != Vector2.INF:
+static func _cm_feasible(ctx: Dictionary, model: Dictionary, start_pos: Vector2, end_pos: Vector2) -> Dictionary:
+	"""Check a candidate charge endpoint against every constraint the phase
+	validator applies. Returns {ok, edge_in (min true edge distance to any
+	target model at the endpoint), move_in}."""
+	var res = {"ok": false, "edge_in": INF, "move_in": 0.0}
+	if end_pos.x < BASE_MARGIN_PX or end_pos.x > BOARD_WIDTH_PX - BASE_MARGIN_PX \
+			or end_pos.y < BASE_MARGIN_PX or end_pos.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+		return res
+	var move_px = start_pos.distance_to(end_pos)
+	if move_px < 1.0:
+		return res  # non-moves are handled by the caller ("stay" = no path)
+	var move_in = move_px / PIXELS_PER_INCH
+	# Straight-segment path: distance + terrain vertical penalty must fit the
+	# roll (the phase allows +0.02 slack; stay just inside it so borderline
+	# charges — e.g. gap 5.98" on a roll of 4 — remain playable).
+	var penalty_in = _estimate_charge_terrain_penalty(start_pos, end_pos, ctx.has_fly, ctx.keywords)
+	if move_in + penalty_in > ctx.roll_in - 0.005:
+		return res
+	var me_end = model.duplicate()
+	me_end["position"] = end_pos
+	var me_start = model.duplicate()
+	me_start["position"] = start_pos
+	# Must end closer to a charge target: centre-wise (direction check) AND
+	# edge-wise (must-end-closer check), matching both phase validators.
+	var closer_center = false
+	var start_edge_min = INF
+	var end_edge_min = INF
+	for te in ctx.target_models:
+		var tp = _get_model_position(te.model)
+		if tp == Vector2.INF:
+			continue
+		if end_pos.distance_to(tp) < start_pos.distance_to(tp) - 0.01:
+			closer_center = true
+		start_edge_min = min(start_edge_min, _cm_edge_in(ctx.meas, me_start, te.model))
+		end_edge_min = min(end_edge_min, _cm_edge_in(ctx.meas, me_end, te.model))
+	if not closer_center or end_edge_min >= start_edge_min:
+		return res
+	# May not end on a wall
+	if ctx.meas and ctx.meas.model_overlaps_any_wall(me_end):
+		return res
+	# May not overlap ANY other base (targets included) or an already-placed
+	# friend's final spot
+	for ob in ctx.obstacles:
+		if _cm_overlaps(ctx.meas, me_end, ob):
+			return res
+	for pl in ctx.placed:
+		if _cm_overlaps(ctx.meas, me_end, pl):
+			return res
+	# May not end within ER of a non-target enemy (barricade-aware ER)
+	for ntm in ctx.non_target_models:
+		if _cm_in_er(ctx, me_end, ntm):
+			return res
+	# Coherency: anchor to at least one already-final friend
+	if not ctx.placed.is_empty():
+		var coherent = false
+		for pl in ctx.placed:
+			if _cm_within_coherency(ctx.meas, me_end, pl):
+				coherent = true
 				break
+		if not coherent:
+			return res
+	res.ok = true
+	res.edge_in = end_edge_min
+	res.move_in = move_in
+	return res
 
-		if best_in_er != Vector2.INF:
-			return best_in_er
-		if best_any != Vector2.INF:
-			return best_any
+static func _cm_best_candidate(ctx: Dictionary, model: Dictionary, start_pos: Vector2, te_order: Array, gaps: Array, max_edge_in: float) -> Dictionary:
+	"""Find a feasible endpoint at one of the edge `gaps` (inches) from a
+	target model, with true final edge distance ≤ max_edge_in. Prefers the
+	first target in te_order, the tightest gap, then the shortest move."""
+	var my_mm = model.get("base_mm", 32)
+	var my_type = model.get("base_type", "circular")
+	var my_dims = model.get("base_dimensions", {})
+	var my_rot = model.get("rotation", 0.0)
+	var me_start = model.duplicate()
+	me_start["position"] = start_pos
+	for te in te_order:
+		var tm = te.model
+		var tpos = _get_model_position(tm)
+		if tpos == Vector2.INF:
+			continue
+		var start_edge = _cm_edge_in(ctx.meas, me_start, tm)
+		for g in gaps:
+			var best = {}
+			var best_move = INF
+			# 1) straight-line closer — the validator's own candidate shape
+			var move_in = start_edge - g
+			if move_in > 0.05 and move_in <= ctx.roll_in:
+				var dirv = tpos - start_pos
+				if dirv.length() > 0.001:
+					dirv = dirv.normalized()
+					var pos = start_pos + dirv * move_in * PIXELS_PER_INCH
+					var f = _cm_feasible(ctx, model, start_pos, pos)
+					if f.ok and f.edge_in <= max_edge_in + 0.001 and f.move_in < best_move:
+						best = {"pos": pos, "edge_in": f.edge_in}
+						best_move = f.move_in
+			# 2) ring of contact points around the target base (true directional
+			#    radii, so oval/rectangular bases place correctly)
+			var steps = 20
+			for si in range(steps):
+				var ang = TAU * float(si) / float(steps)
+				var d = Vector2(cos(ang), sin(ang))
+				var t_r = _model_radius_toward_px(tm.get("base_mm", 32), tm.get("base_type", "circular"), tm.get("base_dimensions", {}), d, tm.get("rotation", 0.0))
+				var m_r = _model_radius_toward_px(my_mm, my_type, my_dims, -d, my_rot)
+				var pos = tpos + d * (t_r + m_r + g * PIXELS_PER_INCH)
+				var f = _cm_feasible(ctx, model, start_pos, pos)
+				if f.ok and f.edge_in <= max_edge_in + 0.001 and f.move_in < best_move:
+					best = {"pos": pos, "edge_in": f.edge_in}
+					best_move = f.move_in
+			if best.has("pos"):
+				return best
+	return {}
 
-	return pos
+static func _cm_choose_endpoint(ctx: Dictionary, model: Dictionary, start_pos: Vector2, covered: Dictionary) -> Dictionary:
+	"""Pick this model's charge endpoint. Priority: (a) the 1" close band —
+	11.04 makes it mandatory when legally possible (and it gives base
+	contact); (b) anywhere inside ER; (c) the longest legal advance toward
+	the fight; (d) stay put (empty dict → caller emits no path)."""
+	# Highest priority to declared targets not yet covered, then nearest first
+	var te_order = []
+	for te in ctx.target_models:
+		te_order.append({
+			"model": te.model, "unit_id": te.unit_id,
+			"pr": 0 if not covered.get(te.unit_id, false) else 1,
+			"d2": start_pos.distance_squared_to(_get_model_position(te.model)),
+		})
+	te_order.sort_custom(func(a, b): return a.pr < b.pr if a.pr != b.pr else a.d2 < b.d2)
+
+	# (a) 1" band — tight gaps first (base contact); 0.98/0.995 mirror the
+	# validator's own "close to exactly 1.0" alternative endpoint so a
+	# budget-limited model can still just make the band.
+	var band = _cm_best_candidate(ctx, model, start_pos, te_order, [0.1, 0.4, 0.7, 0.98, 0.995], 1.0)
+	if band.has("pos"):
+		band["kind"] = "band"
+		return band
+	# (b) inside ER but outside the band — only legal because (a) had no spot.
+	# Include near-the-ER-boundary gaps so a minimum-success roll (budget ==
+	# gap − ER) still finds its endpoint.
+	if ctx.er_in > 1.35:
+		var er_cand = _cm_best_candidate(ctx, model, start_pos, te_order,
+			[1.2, min(ctx.er_in - 0.35, 1.6), ctx.er_in - 0.15, ctx.er_in - 0.03, ctx.er_in - 0.01], ctx.er_in - 0.005)
+		if er_cand.has("pos"):
+			er_cand["kind"] = "er"
+			return er_cand
+	# (c) advance as far as legally possible toward the fight
+	var dirs = []
+	if not te_order.is_empty():
+		var tv = _get_model_position(te_order[0].model) - start_pos
+		if tv.length() > 0.001:
+			dirs.append(tv.normalized())
+	if not ctx.placed.is_empty():
+		var c = Vector2.ZERO
+		for pl in ctx.placed:
+			c += _get_model_position(pl)
+		c /= ctx.placed.size()
+		var cv = c - start_pos
+		if cv.length() > 1.0:
+			dirs.append(cv.normalized())
+	for frac in [1.0, 0.85, 0.7, 0.55, 0.4, 0.25]:
+		for dirv in dirs:
+			var pos = start_pos + dirv * ctx.roll_in * PIXELS_PER_INCH * frac
+			var f = _cm_feasible(ctx, model, start_pos, pos)
+			if f.ok:
+				return {"pos": pos, "edge_in": f.edge_in, "kind": "advance"}
+	# small angular wiggles to slip past blockers
+	if not dirs.is_empty():
+		for ang_off in [0.35, -0.35, 0.7, -0.7]:
+			var dirv = dirs[0].rotated(ang_off)
+			var pos = start_pos + dirv * ctx.roll_in * PIXELS_PER_INCH * 0.6
+			var f = _cm_feasible(ctx, model, start_pos, pos)
+			if f.ok:
+				return {"pos": pos, "edge_in": f.edge_in, "kind": "advance"}
+	# (c2) cohesion ring: tuck in next to an already-placed friend (a follower
+	# on a minimum-success roll often cannot advance far, but a spot beside
+	# the leaders keeps coherency while still ending closer to the target)
+	if not ctx.placed.is_empty():
+		var friend_order = []
+		for pl in ctx.placed:
+			friend_order.append({
+				"model": pl, "unit_id": "",
+				"d2": start_pos.distance_squared_to(_get_model_position(pl)),
+			})
+		friend_order.sort_custom(func(a, b): return a.d2 < b.d2)
+		if friend_order.size() > 3:
+			friend_order.resize(3)
+		var tuck = _cm_best_candidate(ctx, model, start_pos, friend_order, [0.3, 0.9, 1.5], INF)
+		if tuck.has("pos"):
+			tuck["kind"] = "cohesion"
+			return tuck
+	return {}
+
+static func _cm_update_coverage(ctx: Dictionary, placed_model: Dictionary, covered: Dictionary) -> void:
+	for te in ctx.target_models:
+		if covered.get(te.unit_id, false):
+			continue
+		if _cm_in_er(ctx, placed_model, te.model):
+			covered[te.unit_id] = true
+
+static func _cm_unit_coherent(meas, placed_list: Array) -> bool:
+	"""Whole-unit coherency: every model within 2\" of at least one other —
+	the same condition ChargePhase._validate_unit_coherency_for_charge tests
+	over the final configuration."""
+	if placed_list.size() < 2:
+		return true
+	for i in range(placed_list.size()):
+		var has_neighbour = false
+		for j in range(placed_list.size()):
+			if i == j:
+				continue
+			if _cm_within_coherency(meas, placed_list[i], placed_list[j]):
+				has_neighbour = true
+				break
+		if not has_neighbour:
+			return false
+	return true
+
+static func _cm_repair_close_obligation(ctx: Dictionary, per_model_paths: Dictionary, model_distances: Array, target_ids: Array) -> void:
+	"""11e 11.04: a model that CAN legally end within 1" of a charge target
+	MUST do so. Re-judge every placed model against the FINAL configuration
+	(the frame RulesEngine.validate_base_to_base_possible_rules uses) and
+	pull stragglers into the band when a legal spot exists."""
+	for _sweep in range(2):
+		var changed = false
+		for md in model_distances:
+			var mid = md.id
+			if not per_model_paths.has(mid):
+				continue
+			var self_idx = -1
+			for i in range(ctx.placed.size()):
+				if ctx.placed[i].get("id", "") == mid:
+					self_idx = i
+					break
+			if self_idx == -1:
+				continue
+			var cur_edge = INF
+			for te in ctx.target_models:
+				cur_edge = min(cur_edge, _cm_edge_in(ctx.meas, ctx.placed[self_idx], te.model))
+			if cur_edge <= 1.03:
+				continue  # already satisfies the band
+			var others = ctx.placed.duplicate()
+			others.remove_at(self_idx)
+			var sub_ctx = {
+				"meas": ctx.meas, "tmgr": ctx.tmgr, "roll_in": ctx.roll_in,
+				"er_in": ctx.er_in, "has_fly": ctx.has_fly, "keywords": ctx.keywords,
+				"target_models": ctx.target_models,
+				"non_target_models": ctx.non_target_models,
+				"obstacles": ctx.obstacles,
+				"placed": others,
+			}
+			var sp: Vector2 = md.pos
+			var te_order = []
+			for te in ctx.target_models:
+				te_order.append({
+					"model": te.model, "unit_id": te.unit_id, "pr": 0,
+					"d2": sp.distance_squared_to(_get_model_position(te.model)),
+				})
+			te_order.sort_custom(func(a, b): return a.d2 < b.d2)
+			# Accept up to 1.045" — the validator's "already close" band is
+			# close_inches + 0.05, so anything under it clears the obligation.
+			var band = _cm_best_candidate(sub_ctx, md.model, sp, te_order, [0.1, 0.4, 0.7, 0.98, 0.995], 1.045)
+			if not band.has("pos"):
+				continue
+			# Moving into the band must not un-cover any declared target
+			var trial = md.model.duplicate()
+			trial["position"] = band.pos
+			var trial_placed = others.duplicate()
+			trial_placed.append(trial)
+			var still_covered = true
+			for tid in target_ids:
+				var cov = false
+				for pm in trial_placed:
+					for te in ctx.target_models:
+						if te.unit_id == tid and _cm_in_er(ctx, pm, te.model):
+							cov = true
+							break
+					if cov:
+						break
+				if not cov:
+					still_covered = false
+					break
+			if not still_covered:
+				continue
+			# …and must not strand a model that was anchoring coherency to us —
+			# the validator judges the WHOLE final configuration.
+			if not _cm_unit_coherent(ctx.meas, trial_placed):
+				continue
+			per_model_paths[mid] = [[sp.x, sp.y], [band.pos.x, band.pos.y]]
+			ctx.placed[self_idx] = trial
+			changed = true
+			print("AI_CHARGE_DEBUG 11.04 repair: pulled model %s into the 1\" band at (%.0f,%.0f)" % [mid, band.pos.x, band.pos.y])
+		if not changed:
+			break
 
 # =============================================================================
 # FIGHT PHASE

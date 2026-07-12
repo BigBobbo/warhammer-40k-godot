@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "0.24.1",
+      "date": "2026-07-12",
+      "summary": "Fixed AI charges failing AFTER a successful charge roll (\"charge move failed — skipping\"). The AI now plans its charge move with the exact same shape-aware rules the game enforces — real oval/rectangular base shapes, walls, terrain climb costs, unit coherency and the 11e 'end within 1\" if you can' rule — so a successful roll now actually lands the charge (e.g. Custodian Guard charging a packed Deffkoptas cluster).",
+      "changes": [
+        "AI charge moves are no longer rejected after a successful roll. Against crowded targets on oval bases (e.g. Deffkoptas), the old placement approximated bases as circles and skipped several rules, so up to ~90% of tight charges were computed illegally, bounced off validation, and were skipped — after the log had already shown a successful charge roll.",
+        "The AI placement engine now uses the same true base shapes (including oval rotation), wall overlap, terrain climb penalties, unit coherency and non-target engagement-range checks as the game's charge validator, and honours the 11e rule that every model that can end within 1\" of a target must do so.",
+        "Fixed the 11e 'must end within 1\"' check demanding impossible endpoints: it could insist on a spot that overlapped a wall, ignored terrain climb costs, or (against oval bases) landed just outside its own 1\" acceptance band — rejecting every legal move a player or AI made. It now only enforces endpoints that are themselves fully legal.",
+        "When a charge genuinely cannot be completed (e.g. the only path is blocked by walls), the AI now says so and fails the charge cleanly instead of submitting an illegal move first."
+      ]
+    },
+    {
       "version": "0.24.0",
       "date": "2026-07-12",
       "summary": "The Fight phase no longer jumps straight through the dice: melee attacks now resolve weapon by weapon with a visible pause after the hit roll and after the wound roll — just like staged shooting — including a Command Re-roll (1 CP) button on each die.",
