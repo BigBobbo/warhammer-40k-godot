@@ -13045,7 +13045,7 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 
 	# ── 11.04 sweep: pull every model that can still legally reach the 1"
 	# band into it, judged against the FINAL configuration (mirrors
-	# RulesEngine._validate_base_to_base_possible_rules).
+	# RulesEngine.validate_base_to_base_possible_rules).
 	_cm_repair_close_obligation(ctx, per_model_paths, model_distances, target_ids)
 
 	# ── Belt-and-braces: the validator judges whole-unit coherency over the
@@ -13360,7 +13360,7 @@ static func _cm_unit_coherent(meas, placed_list: Array) -> bool:
 static func _cm_repair_close_obligation(ctx: Dictionary, per_model_paths: Dictionary, model_distances: Array, target_ids: Array) -> void:
 	"""11e 11.04: a model that CAN legally end within 1" of a charge target
 	MUST do so. Re-judge every placed model against the FINAL configuration
-	(the frame RulesEngine._validate_base_to_base_possible_rules uses) and
+	(the frame RulesEngine.validate_base_to_base_possible_rules uses) and
 	pull stragglers into the band when a legal spot exists."""
 	for _sweep in range(2):
 		var changed = false
