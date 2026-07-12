@@ -2128,7 +2128,7 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 	# charge target MUST do so. Delegates to the single implementation in
 	# RulesEngine so the rule cannot drift between the two call sites (this was
 	# a ~200-line duplicate that had already diverged on tolerance).
-	return RulesEngine._validate_base_to_base_possible_rules(unit_id, per_model_paths, target_ids, game_state_snapshot, rolled_distance)
+	return RulesEngine.validate_base_to_base_possible_rules(unit_id, per_model_paths, target_ids, game_state_snapshot, rolled_distance)
 
 func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
 	# 10e Rule: Each model making a charge move must end that move closer to at

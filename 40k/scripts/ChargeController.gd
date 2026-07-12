@@ -656,7 +656,9 @@ func _refresh_ui() -> void:
 		if unit_id in units:
 			var unit = units[unit_id]
 			can_charge_count += 1
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			# display_name keeps duplicate squads (e.g. "... Alpha"/"... Beta") distinct.
+			var _uname_meta = unit.get("meta", {})
+			var unit_name = _uname_meta.get("display_name", _uname_meta.get("name", unit_id))
 			unit_selector.add_item(unit_name)
 			unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
 			print("    Added eligible unit ", unit_id, " (", unit_name, ") to selector")
@@ -3177,7 +3179,8 @@ func _on_heroic_intervention_opportunity(player: int, eligible_units: Array, cha
 		return
 
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gold]HEROIC INTERVENTION available for Player %d! (2 CP)[/color]\n" % player)
+		var hi_cp := 1 if GameConstants.edition >= 11 else 2
+		dice_log_display.append_text("[color=gold]HEROIC INTERVENTION available for Player %d! (%d CP)[/color]\n" % [player, hi_cp])
 
 	# Load and show the dialog
 	var dialog_script = load("res://dialogs/HeroicInterventionDialog.gd")

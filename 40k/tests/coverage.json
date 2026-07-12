@@ -2107,6 +2107,7 @@
       "scenarios": [
         "iss15_heroic_intervention_fray_11e",
         "iss15_heroic_intervention_decline_11e",
+        "hi_window_ai_must_not_hijack_11e",
         "mp:tests/test_core_stratagems_11e.gd"
       ],
       "last_verified_commit": "HEAD",
@@ -2135,7 +2136,17 @@
       "id": "dialogs.HeroicInterventionDialog.decline",
       "description": "15.11 decline path: the end-of-phase dialog's DeclineButton completes the deferred charge phase with no CP spent; the auto-decline timer now actually arms (autostart \u2014 setup() runs before the dialog enters the tree).",
       "scenarios": [
-        "iss15_heroic_intervention_decline_11e"
+        "iss15_heroic_intervention_decline_11e",
+        "hi_window_ai_must_not_hijack_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.AIPlayer.reactive_window_ownership",
+      "description": "Reactive charge-phase windows (Heroic Intervention decision + pending HI move, Fire Overwatch) belong to the DEFENDER: the AI main loop idles while a HUMAN owns the window (no hijack, no forced decline \u2014 2026-07-11 'AI uses Heroic Intervention with Stompa' report) and acts AS the owning player when that owner is an AI, so AI-vs-AI Heroic Intervention actually resolves with the right identity. Headless net: tests/test_ai_reactive_window_guard.gd.",
+      "scenarios": [
+        "hi_window_ai_must_not_hijack_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -2659,6 +2670,42 @@
       "description": "Windowed regression: moving a model during Fight-phase pile-in/consolidate no longer leaves a duplicate of it at its original position. Verified by pile_in_no_ghost_token.",
       "scenarios": [
         "pile_in_no_ghost_token"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.movement.persistent_battle_plan",
+      "description": "COORD-4: the AI's army-wide movement plan is computed once per movement phase and CONSUMED as units act \u2014 the 'Movement plan' block announced in the game log matches the movement actions logged afterwards. Verified by ai_battle_plan_log_integrity.",
+      "scenarios": [
+        "ai_battle_plan_log_integrity"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.movement.plan_matches_actions",
+      "description": "The executed per-unit movement actions logged in the game log match the announced 'Movement plan' block \u2014 GameEventLog.movement_plan_integrity() zero mismatches over >=3 checked actions (COORD-4 gate).",
+      "scenarios": [
+        "ai_battle_plan_log_integrity"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.thinking.override_explanations",
+      "description": "When an AI decision card's chosen option scores lower than a rejected one, the card carries a 'why not the top score' coordination explanation instead of leaving the contradiction unexplained.",
+      "scenarios": [
+        "ai_battle_plan_log_integrity"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.GameLogPanel.ai_thinking_cards",
+      "description": "GameLogPanel renders AI thinking blocks as collapsible cards during a live AI movement phase (asserted via GameEventLog entry counts + screenshots in the battle-plan integrity scenario).",
+      "scenarios": [
+        "ai_battle_plan_log_integrity"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

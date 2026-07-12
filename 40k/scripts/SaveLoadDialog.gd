@@ -41,7 +41,9 @@ var current_sort_mode: int = SortMode.DATE_NEWEST
 var current_filter_text: String = ""
 var sort_option_button: OptionButton
 var filter_input: LineEdit
+var refresh_button: Button  # Manual re-fetch of the save list (cold-start recovery)
 var _unfiltered_save_files: Array = []  # Full list before filtering
+var _save_list_load_failed: bool = false  # True when the last fetch errored (vs. genuinely empty)
 
 # SAVE-19: Export/Import UI references
 var export_button: Button
@@ -60,6 +62,7 @@ func _ready() -> void:
 	# Connect to SaveLoadManager async signal for web
 	if is_web_platform and SaveLoadManager and not _save_files_signal_connected:
 		SaveLoadManager.save_files_received.connect(_on_save_files_received)
+		SaveLoadManager.save_files_load_failed.connect(_on_save_files_load_failed)
 		SaveLoadManager.delete_completed.connect(_on_delete_completed)
 		_save_files_signal_connected = true
 		print("SaveLoadDialog: Connected to async save_files_received signal for web")
@@ -304,6 +307,17 @@ func _build_ui() -> void:
 	sort_option_button.item_selected.connect(_on_sort_mode_changed)
 	sort_filter_row.add_child(sort_option_button)
 
+	# Refresh button — re-fetch the save list. Important on the web/itch.io build,
+	# where the cloud server sleeps when idle and the first fetch can fail while it
+	# wakes; a manual retry lets the player recover without reopening the dialog.
+	refresh_button = Button.new()
+	refresh_button.text = "⟳ Refresh"
+	refresh_button.custom_minimum_size = Vector2(95, 30)
+	refresh_button.tooltip_text = "Reload the list of saved games from the server"
+	WhiteDwarfThemeData.apply_to_button(refresh_button)
+	refresh_button.pressed.connect(_on_refresh_button_pressed)
+	sort_filter_row.add_child(refresh_button)
+
 	# SAVE-11: Horizontal layout for saves list + preview panel
 	var list_and_preview = HBoxContainer.new()
 	list_and_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -464,10 +478,14 @@ func refresh_saves_list() -> void:
 	saves_list.clear()
 	save_files_data.clear()
 	selected_save_index = -1
+	_save_list_load_failed = false  # New fetch — clear any prior error state
 
 	if is_web_platform:
 		saves_list.add_item("Loading saves...")
 		saves_list.set_item_disabled(0, true)
+		saves_list.set_item_selectable(0, false)
+		if refresh_button:
+			refresh_button.disabled = true  # Prevent spamming while a fetch is in flight
 		_update_button_states()
 		SaveLoadManager.get_save_files()
 		print("SaveLoadDialog: Initiated async save list fetch for web")
@@ -487,6 +505,11 @@ func _populate_saves_list(save_files: Array) -> void:
 
 # SAVE-14: Apply current sort mode and filter text to rebuild the displayed list
 func _apply_sort_and_filter() -> void:
+	# If the last fetch failed, keep the error message visible — sorting/filtering
+	# an unloaded list would just replace the error with a misleading "No saved
+	# games yet." (A successful fetch clears the flag before it reaches here.)
+	if _save_list_load_failed:
+		return
 	if not saves_list:
 		return
 
@@ -521,6 +544,17 @@ func _apply_sort_and_filter() -> void:
 		var item_index = saves_list.get_item_count() - 1
 		var tooltip = _create_save_tooltip(save_info)
 		saves_list.set_item_tooltip(item_index, tooltip)
+
+	# Friendly empty-state so a blank box is never ambiguous. Distinguish a
+	# filtered-out list from a genuinely empty one. (Load failures are handled
+	# separately by _on_save_files_load_failed and never reach here.)
+	if save_files_data.is_empty():
+		var empty_msg := "No saved games yet."
+		if not current_filter_text.is_empty():
+			empty_msg = "No saves match \"%s\"." % current_filter_text
+		saves_list.add_item(empty_msg)
+		saves_list.set_item_disabled(0, true)
+		saves_list.set_item_selectable(0, false)
 
 	_update_button_states()
 	print("SaveLoadDialog: Populated list with ", save_files_data.size(), " save files (filter: '%s', sort: %d)" % [current_filter_text, current_sort_mode])
@@ -598,7 +632,44 @@ func _on_filter_text_changed(new_text: String) -> void:
 
 func _on_save_files_received(save_files: Array) -> void:
 	print("SaveLoadDialog: Received %d save files from cloud" % save_files.size())
+	_save_list_load_failed = false
+	if refresh_button:
+		refresh_button.disabled = false
 	_populate_saves_list(save_files)
+
+# The list fetch failed outright (server unreachable after CloudStorage's own
+# retries). Show a clear error + Retry instead of a silent empty list, so the
+# player knows their saves aren't gone — the server just couldn't be reached.
+func _on_save_files_load_failed(error: String) -> void:
+	print("SaveLoadDialog: Save list load FAILED: ", error)
+	_save_list_load_failed = true
+	if refresh_button:
+		refresh_button.disabled = false
+	if not saves_list:
+		return
+	saves_list.clear()
+	save_files_data.clear()
+	_unfiltered_save_files.clear()
+	selected_save_index = -1
+	_set_preview_placeholder()
+
+	var lines = [
+		"⚠  Couldn't reach the save server.",
+		"It may be waking up from idle — wait a moment,",
+		"then press ⟳ Refresh to try again.",
+		"(Your saved games are not lost.)"
+	]
+	for line in lines:
+		saves_list.add_item(line)
+	for i in range(saves_list.get_item_count()):
+		saves_list.set_item_disabled(i, true)
+		saves_list.set_item_selectable(i, false)
+
+	_update_button_states()
+
+func _on_refresh_button_pressed() -> void:
+	print("SaveLoadDialog: Manual refresh requested")
+	refresh_saves_list()
 
 func _on_delete_completed(save_name: String) -> void:
 	print("SaveLoadDialog: Delete completed for: ", save_name)

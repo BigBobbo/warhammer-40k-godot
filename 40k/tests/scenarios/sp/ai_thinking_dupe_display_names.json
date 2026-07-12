@@ -1,0 +1,30 @@
+{
+  "id": "ai_thinking_dupe_display_names",
+  "covers": [
+    "ai.thinking.duplicate_unit_display_names",
+    "scripts.AIDecisionMaker.display_name_logs",
+    "ui.GameLogPanel.ai_thinking_cards"
+  ],
+  "fixture": "custodian_guard_dupes",
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "Companion to custodian_guard_dupe_labels: the AI thinking log must identify WHICH duplicate squad it is reasoning about. Player 1 owns three squads whose display_names are 'Custodian Guard Alpha/Beta/Gamma' (all sharing meta.name 'Custodian Guard'). P1 plays its Command+Movement phases as AI; assert at least one AI thinking entry names a squad WITH its Greek suffix — the old AIDecisionMaker used bare meta.name, so every log line said just 'Custodian Guard' and the player couldn't tell which squad the AI meant.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "GameState.set_active_player(1)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+
+    { "act": "wait_seconds", "seconds": 4.0 },
+    { "act": "execute_script", "script": "GameEventLog.count_ai_thinking_entries()", "expect_min": 1 },
+
+    { "act": "wait_seconds", "seconds": 12.0 },
+    { "act": "execute_script", "script": "GameEventLog.count_ai_thinking_entries()", "expect_min": 3 },
+    { "act": "execute_script", "script": "GameEventLog.has_ai_entry_containing_any([\"Custodian Guard Alpha\", \"Custodian Guard Beta\", \"Custodian Guard Gamma\"])", "equals": true },
+    { "act": "execute_script", "script": "main.game_log_panel.get_ai_card_count()", "expect_min": 1 },
+    { "act": "screenshot", "label": "01_ai_thinking_with_suffixed_names", "region": [0, 105, 400, 720] },
+    { "act": "screenshot", "label": "02_full_screen" }
+  ]
+}

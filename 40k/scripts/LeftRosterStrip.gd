@@ -26,9 +26,11 @@ func _ready() -> void:
 	name = "LeftRoster"
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	# Hidden by default — HUD_Right already lists every unit, and the
-	# left-edge strip was overlapping GameLogPanel. Press L (or hit the
+	# left-edge strip was overlapping GameLogPanel. Press B (or hit the
 	# toolbar toggle Main wires in _install_design_guidelines_overlays)
-	# to bring it in.
+	# to bring it in. (Was L, but Main._input consumes L for the LoS
+	# overlay before _unhandled_key_input ever runs, so an L binding here
+	# can never fire.)
 	visible = false
 	_sync_viewport_size()
 	var vp := get_viewport()
@@ -62,7 +64,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey):
 		return
 	var k := event as InputEventKey
-	if k.pressed and not k.echo and k.keycode == KEY_L:
+	# Toggle roster strip (rebindable: toggle_roster_strip, default B)
+	if k.pressed and not k.echo and KeybindingManager.matches_action(k, "toggle_roster_strip"):
 		toggle_visible()
 		get_viewport().set_input_as_handled()
 

@@ -248,6 +248,8 @@ var _history_live_state: Dictionary = {}      # the real, live GameState.state (
 var _history_overlay: Control = null          # blocks input on the board while viewing
 var _history_banner_label: RichTextLabel = null
 var _history_saved_ai_enabled: bool = false   # AI enabled flag to restore on exit
+var _history_saved_log_panel_index: int = -1  # log panel's child index to restore on exit
+var _history_refresh_running: bool = false    # drops overlapping history board rebuilds
 
 # P3-117: Dice Roll History panel UI elements
 var _dice_history_panel: PanelContainer = null
@@ -1811,10 +1813,12 @@ func _show_ai_unit_highlight(unit_id: String, color: Color) -> void:
 	"""Add pulsing highlight rings around all models of the given AI unit."""
 	# Skip if already highlighting this unit with same color
 	if unit_id == _ai_highlighted_unit_id and _ai_highlight_nodes.size() > 0:
-		# Check if color changed (e.g. unit went from move to charge)
-		if _ai_highlight_nodes.size() > 0 and _ai_highlight_nodes[0].highlight_color == color:
+		# Check if color changed (e.g. unit went from move to charge).
+		# The ring node may have been freed with the board (token rebuilds) —
+		# reading highlight_color off a freed instance was a live SCRIPT ERROR.
+		if is_instance_valid(_ai_highlight_nodes[0]) and _ai_highlight_nodes[0].highlight_color == color:
 			return
-		# Color changed — clear and re-apply
+		# Color changed (or rings freed) — clear and re-apply
 		_clear_ai_unit_highlights()
 
 	# Clear previous highlights if switching to a different unit
@@ -2900,7 +2904,8 @@ func _setup_dashboard_toggle_buttons() -> void:
 	#   • Missions — opens / closes SecondaryMissionPanel (now hidden by
 	#     default, anchored top-center under the HUD bar).
 	#   • Roster — toggles the LeftRoster card strip (hidden by default,
-	#     also bound to KEY_L by the panel itself).
+	#     also bound to KEY_B by the panel itself; KEY_L belongs to the
+	#     LoS overlay).
 	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
 	if hud_container == null:
 		return
@@ -2917,7 +2922,7 @@ func _setup_dashboard_toggle_buttons() -> void:
 		var roster_btn := Button.new()
 		roster_btn.name = "RosterToggle"
 		roster_btn.text = "Roster"
-		roster_btn.tooltip_text = "Show / hide the left-side unit roster strip (L)"
+		roster_btn.tooltip_text = "Show / hide the left-side unit roster strip (B)"
 		roster_btn.pressed.connect(_on_roster_toggle_pressed)
 		hud_container.add_child(roster_btn)
 
@@ -3291,7 +3296,9 @@ func _fix_hud_layout() -> void:
 		hud_right.offset_top = top_height  # Leave space for top panel
 		hud_right.z_index = UI_PANEL_Z
 		var right_style = StyleBoxFlat.new()
-		right_style.bg_color = Color(0.06, 0.05, 0.04, 0.92)
+		# Fully opaque: any translucency here lets bright board content (tokens,
+		# zone fills) ghost through the panel and fight the unit list for legibility.
+		right_style.bg_color = Color(0.06, 0.05, 0.04, 1.0)
 		right_style.border_color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.5)
 		right_style.border_width_left = 2
 		right_style.set_content_margin_all(4)
@@ -3303,7 +3310,7 @@ func _fix_hud_layout() -> void:
 	if hud_bottom:
 		hud_bottom.z_index = UI_PANEL_Z
 		var bottom_style = StyleBoxFlat.new()
-		bottom_style.bg_color = Color(0.06, 0.05, 0.04, 0.95)
+		bottom_style.bg_color = Color(0.06, 0.05, 0.04, 1.0)
 		bottom_style.border_color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.5)
 		bottom_style.border_width_top = 2
 		bottom_style.set_content_margin_all(4)
@@ -4073,6 +4080,17 @@ func _setup_terrain() -> void:
 	print("Added LineOfSightVisual to BoardRoot")
 	print("Line of Sight: Hold 'V' to check what models can see the cursor position")
 
+	# Persistent L-overlay layer (2026-07-12): previously only
+	# ShootingController created LoSDebugVisual (and freed it on phase exit),
+	# so holding L silently did nothing in every other phase. Creating it here
+	# makes the L sight-line overlay work all game long; ShootingController
+	# now reuses this node instead of owning its own.
+	if not $BoardRoot.has_node("LoSDebugVisual"):
+		var los_dbg = preload("res://scripts/LoSDebugVisual.gd").new()
+		los_dbg.name = "LoSDebugVisual"
+		$BoardRoot.add_child(los_dbg)
+		print("Added persistent LoSDebugVisual to BoardRoot")
+
 	# Dev tools — hidden by default, toggled with Shift+D
 	var hud_container2 = $HUD_Bottom/HBoxContainer
 	if hud_container2:
@@ -4368,6 +4386,15 @@ func _toggle_los_debug() -> void:
 		los_debug = get_node_or_null("BoardRoot/LoSDebugVisual")
 		print("LoS debug: Using BoardRoot instance (fallback)")
 
+	# 2026-07-12: L must work in EVERY phase — if no instance exists yet
+	# (e.g. a save loaded straight into a non-shooting phase before
+	# _setup_terrain ran, or an old save flow), create the persistent one.
+	if not los_debug and has_node("BoardRoot"):
+		los_debug = preload("res://scripts/LoSDebugVisual.gd").new()
+		los_debug.name = "LoSDebugVisual"
+		$BoardRoot.add_child(los_debug)
+		print("LoS debug: Created persistent BoardRoot instance on demand")
+
 	if los_debug:
 		var was_enabled = los_debug.debug_enabled
 		print("LoS debug: Was enabled: ", was_enabled)
@@ -4381,12 +4408,21 @@ func _toggle_los_debug() -> void:
 		if los_button:
 			los_button.set_pressed_no_signal(is_now_enabled)
 
-		# If we just turned debug ON, refresh visuals if shooting phase is active
-		if not was_enabled and is_now_enabled and shooting_controller:
-			print("LoS debug: Calling refresh on ShootingController")
-			if shooting_controller.has_method("refresh_los_debug_visuals"):
-				shooting_controller.refresh_los_debug_visuals()
-				print("LoS debug: Refreshed visuals for active shooter")
+		# If we just turned debug ON, show sight lines in every phase:
+		# active shooter selected -> the shooting controller's per-model
+		# enhanced debug; otherwise -> the unit->unit sight-line overview
+		# (from the selected unit, or every active-player unit).
+		if not was_enabled and is_now_enabled:
+			var shooter_mode := false
+			if shooting_controller and "active_shooter_id" in shooting_controller \
+					and shooting_controller.active_shooter_id != "":
+				print("LoS debug: Calling refresh on ShootingController")
+				if shooting_controller.has_method("refresh_los_debug_visuals"):
+					shooting_controller.refresh_los_debug_visuals()
+					shooter_mode = true
+					print("LoS debug: Refreshed visuals for active shooter")
+			if not shooter_mode and los_debug.has_method("show_overview"):
+				los_debug.show_overview(_selected_unit_id_or_empty())
 	else:
 		print("LoS debug visual not found")
 
@@ -5135,8 +5171,8 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
 		_handle_right_click(event)
 
-	# Army panel toggle - KEY_U
-	if event is InputEventKey and event.pressed and event.keycode == KEY_U:
+	# Army panel toggle (rebindable: toggle_army_panel, default U)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_army_panel"):
 		_toggle_army_panel()
 		get_viewport().set_input_as_handled()
 		return
@@ -5150,70 +5186,67 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# T-095/T-110: Hotkey help overlay - KEY_QUESTION (?) or KEY_SLASH with shift
-	if event is InputEventKey and event.pressed and not event.echo and (event.keycode == KEY_QUESTION or (event.keycode == KEY_SLASH and event.shift_pressed)):
+	# T-095/T-110: Hotkey help overlay (rebindable: hotkey_help, default Shift+/).
+	# KEY_QUESTION kept as a fallback for layouts that emit '?' as its own keycode.
+	if event is InputEventKey and event.pressed and not event.echo and (KeybindingManager.matches_action(event, "hotkey_help") or event.keycode == KEY_QUESTION):
 		_toggle_hotkey_help_overlay()
 		get_viewport().set_input_as_handled()
 		return
 
-	# Aura rings toggle - KEY_A
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_A \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# Aura rings toggle (rebindable: toggle_aura_rings, default A)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_aura_rings"):
 		_toggle_aura_rings()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T-109: Grid overlay toggle - KEY_G
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_G \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T-109: Grid overlay toggle (rebindable: toggle_grid_overlay, default G)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_grid_overlay"):
 		_toggle_grid_overlay()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T-099: VP timeline panel toggle - KEY_V
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_V \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T-099: VP timeline panel toggle (rebindable: toggle_vp_timeline, default V)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_vp_timeline"):
 		_toggle_vp_timeline_panel()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T13: fit-to-board camera keybind - KEY_F (no modifier)
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T13: fit-to-board camera keybind (rebindable: fit_view_board, default F)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "fit_view_board"):
 		fit_view_to_board()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T14: fit-to-selection camera keybind - Shift+F
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F \
-			and event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T14: fit-to-selection camera keybind (rebindable: fit_view_selection, default Shift+F)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "fit_view_selection"):
 		var sel_id := _selected_unit_id_or_empty()
 		if sel_id != "":
 			fit_view_to_selection(sel_id)
 		get_viewport().set_input_as_handled()
 		return
 
-	# T31: ruler tool R (public) / Shift+R (private) / ESC exits
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_R \
-			and not event.ctrl_pressed and not event.meta_pressed:
-		var ruler = get_node_or_null("BoardRoot/RulerTool")
-		if ruler != null:
-			ruler.set_active(true)
-			ruler.is_private = event.shift_pressed
-			get_viewport().set_input_as_handled()
-			return
+	# T31: ruler tool (rebindable: ruler_tool, default R). Shift = private line; ESC exits.
+	# Match the bound key while ignoring Shift so Shift can select the private variant.
+	if event is InputEventKey and event.pressed and not event.echo and not event.ctrl_pressed and not event.meta_pressed:
+		var _ruler_key: int = KeybindingManager.get_binding("ruler_tool").get("key", 0)
+		if _ruler_key != 0 and event.keycode == _ruler_key:
+			var ruler = get_node_or_null("BoardRoot/RulerTool")
+			if ruler != null:
+				ruler.set_active(true)
+				ruler.is_private = event.shift_pressed
+				get_viewport().set_input_as_handled()
+				return
 
-	# T10: Tab held -> threat overlay on; release -> off.
-	if event is InputEventKey and event.keycode == KEY_TAB and not event.echo:
+	# T10: threat overlay held key (rebindable: threat_overlay, default Tab). Press -> on, release -> off.
+	if event is InputEventKey and not event.echo and KeybindingManager.matches_action(event, "threat_overlay"):
 		var to = get_node_or_null("BoardRoot/ThreatOverlay")
 		if to != null:
 			to.set_active(event.pressed)
 			get_viewport().set_input_as_handled()
 			return
 
-	# T39: datasheet modal — KEY_I opens for selected unit
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_I \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T39: datasheet modal (rebindable: datasheet_modal, default I) opens for selected unit
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "datasheet_modal"):
 		var ds = get_node_or_null("DatasheetModal")
 		if ds != null:
 			var sel_id := _selected_unit_id_or_empty()
@@ -5235,51 +5268,55 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# T-102: Chat panel toggle - KEY_T (text/chat). Only shows in networked games.
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_T \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T-102: Chat panel toggle (rebindable: toggle_chat_panel, default T). Only shows in networked games.
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_chat_panel"):
 		_toggle_chat_panel()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T-103: Weapon range comparison panel - KEY_W
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_W \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T-103: Weapon range comparison panel (rebindable: weapon_range_panel, default W)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "weapon_range_panel"):
 		_toggle_weapon_range_comparison_panel()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T-023: stratagem panel toggle - KEY_S (skip when text input focused)
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_S \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T-023: stratagem panel toggle (rebindable: toggle_stratagem_panel, default S; skip when text input focused)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_stratagem_panel"):
 		_toggle_stratagem_panel()
 		get_viewport().set_input_as_handled()
 		return
 
-	# Visual style toggle - KEY_8 (letter <-> enhanced)
-	if event is InputEventKey and event.pressed and event.keycode == KEY_8:
+	# Visual style toggle (rebindable: toggle_visual_style, default 8; letter <-> enhanced)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_visual_style"):
 		_toggle_visual_style()
 		get_viewport().set_input_as_handled()
 		return
 
-	# Debug mode toggle - highest priority
-	if event is InputEventKey and event.pressed and event.keycode == KEY_9:
+	# Debug mode toggle (rebindable: toggle_debug_mode, default 9)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_debug_mode"):
 		print("Debug mode key (9) pressed!")
 		DebugManager.toggle_debug_mode()
 		get_viewport().set_input_as_handled()
 		return
-	
-	# T32: LoS debug — held-key power-user mode (was: persistent top-bar toggle)
-	if event is InputEventKey and event.keycode == KEY_L and not event.echo:
-		var want_on: bool = event.pressed
-		if want_on != los_debug_active:
-			_toggle_los_debug()
-			los_debug_active = want_on
-		get_viewport().set_input_as_handled()
-		return
-	
-	# Objective control check debug - KEY_O
-	if event is InputEventKey and event.pressed and event.keycode == KEY_O:
+
+	# T32: LoS debug — held-key power-user mode (rebindable: los_debug, default L).
+	# 2026-07-12: shows the sight-line overview in every phase (see
+	# LoSDebugVisual.show_overview). On PRESS we require an exact modifier match
+	# (so Ctrl+L = load, etc. are not ours); on RELEASE we ignore modifiers so the
+	# held overlay can't get stuck ON when a modifier happens to be down at release.
+	if event is InputEventKey and not event.echo:
+		var _los_key: int = KeybindingManager.get_binding("los_debug").get("key", 0)
+		if _los_key != 0 and event.keycode == _los_key \
+				and (not event.pressed or KeybindingManager.matches_action(event, "los_debug")):
+			var want_on: bool = event.pressed
+			if want_on != los_debug_active:
+				_toggle_los_debug()
+				los_debug_active = want_on
+			get_viewport().set_input_as_handled()
+			return
+
+	# Objective control check debug (rebindable: objective_check, default O)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "objective_check"):
 		print("\n=== MANUAL OBJECTIVE CONTROL CHECK (O key pressed) ===")
 		if MissionManager:
 			MissionManager.check_all_objectives()
@@ -5370,8 +5407,8 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# Dev tools toggle — Shift+D
-	if event is InputEventKey and event.pressed and event.keycode == KEY_D and event.shift_pressed:
+	# Dev tools toggle (rebindable: toggle_dev_tools, default Shift+D)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_dev_tools"):
 		_toggle_dev_tools()
 		get_viewport().set_input_as_handled()
 		return
@@ -5555,6 +5592,21 @@ func _process(delta: float) -> void:
 		view_zoom *= 0.97
 		view_zoom = clamp(view_zoom, 0.1, 3.0)
 		view_changed = true
+
+	# Pad camera (M0 controller foundations): right stick pans, triggers zoom.
+	# The pad_* actions are registered at runtime by InputDeviceManager.
+	if not _text_focused and InputMap.has_action("pad_camera_left"):
+		var pad_pan = Input.get_vector("pad_camera_left", "pad_camera_right", "pad_camera_up", "pad_camera_down")
+		if pad_pan != Vector2.ZERO:
+			view_offset += pad_pan.rotated(-view_rotation) * pan_speed
+			view_changed = true
+		var pad_zoom = Input.get_action_strength("pad_zoom_in") - Input.get_action_strength("pad_zoom_out")
+		if pad_zoom != 0.0:
+			# Same per-frame multiplicative step as the keyboard zoom above,
+			# scaled by trigger pressure.
+			view_zoom *= 1.0 + 0.03 * pad_zoom
+			view_zoom = clamp(view_zoom, 0.1, 3.0)
+			view_changed = true
 
 	# Focus commands
 	if not _text_focused and KeybindingManager.is_action_pressed("focus_p2_zone"):
@@ -8728,10 +8780,12 @@ func update_deployment_zone_visibility() -> void:
 
 	# Active zone colors: saturated and bright
 	# Inactive zone colors: desaturated (shifted toward gray) and dimmed
-	var p1_active_color = Color(0, 0.1, 1, 0.65)      # Bright saturated blue
-	var p1_dimmed_color = Color(0.25, 0.25, 0.45, 0.2) # Desaturated grayish-blue, low alpha
-	var p2_active_color = Color(1, 0.1, 0, 0.65)       # Bright saturated red
-	var p2_dimmed_color = Color(0.45, 0.25, 0.25, 0.2) # Desaturated grayish-red, low alpha
+	# Active alpha kept low — at 0.65 the zone fill flooded the board and hid
+	# the battlefield beneath it; the animated borders carry the emphasis.
+	var p1_active_color = Color(0, 0.1, 1, 0.3)        # Saturated blue, translucent
+	var p1_dimmed_color = Color(0.25, 0.25, 0.45, 0.12) # Desaturated grayish-blue, low alpha
+	var p2_active_color = Color(1, 0.1, 0, 0.3)         # Saturated red, translucent
+	var p2_dimmed_color = Color(0.45, 0.25, 0.25, 0.12) # Desaturated grayish-red, low alpha
 
 	var p1_active_border = Color(0, 0.3, 1, 1)         # Bright blue border
 	var p1_dimmed_border = Color(0.35, 0.35, 0.5, 0.4) # Desaturated dim blue border
@@ -8869,7 +8923,9 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 
 	# T5-V3: Show phase transition animation banner
 	if phase_transition_banner:
-		var banner_round = GameState.state.get("meta", {}).get("round", 1)
+		# The meta key is battle_round — reading the nonexistent "round" key made
+		# the banner show "Round 1" for the whole game.
+		var banner_round = GameState.get_battle_round()
 		var banner_player = GameState.get_active_player()
 		phase_transition_banner.show_phase_banner(new_phase, banner_round, banner_player)
 
@@ -8888,7 +8944,8 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 		var active_player_for_log = GameState.get_active_player()
 		if ai_player and ai_player.is_ai_player(active_player_for_log):
 			var phase_label = _get_phase_label_text(new_phase).replace(" Phase", "")
-			var round_num = GameState.state.get("meta", {}).get("round", 1)
+			# battle_round, not "round" — the wrong key froze the header at Rd 1
+			var round_num = GameState.get_battle_round()
 			_ai_action_log_overlay.add_phase_header(phase_label, round_num, active_player_for_log)
 
 	# T5-UX10: Auto-zoom to active player's deployment zone when entering deployment phase
@@ -10680,6 +10737,16 @@ func _enter_history_view_mode() -> void:
 
 	_build_history_overlay()
 
+	# Godot routes mouse input by TREE order, not z_index (z_index affects drawing
+	# only) — so raising the log panel's z_index alone still left the overlay (a
+	# later sibling) eating every click aimed at the panel, forcing the player to
+	# press Esc before picking another step. Move the panel after the overlay in
+	# the tree so log cards stay genuinely clickable and the player can switch
+	# straight to a different step while viewing. Original index restored on exit.
+	if game_log_panel and is_instance_valid(game_log_panel) and game_log_panel.get_parent() == self:
+		_history_saved_log_panel_index = game_log_panel.get_index()
+		move_child(game_log_panel, get_child_count() - 1)
+
 func _set_controllers_input_enabled(enabled: bool) -> void:
 	"""Enable/disable input processing on every phase controller — used to make the
 	board fully inert while the player browses a past step."""
@@ -10694,8 +10761,10 @@ func _build_history_overlay() -> void:
 		_history_overlay.visible = true
 		return
 
-	# Full-screen input blocker. Sits above the board/HUD but BELOW the game log
-	# panel (whose z is raised) so the player can keep clicking other log entries.
+	# Full-screen input blocker. The game log panel is kept usable on top of it by
+	# _enter_history_view_mode moving the panel AFTER this overlay in the tree
+	# (input picking follows tree order; the raised z_index below only handles
+	# draw order) so the player can keep clicking other log entries.
 	var overlay := Control.new()
 	overlay.name = "HistoryViewOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -10774,11 +10843,20 @@ func _history_refresh_visuals() -> void:
 	"""Rebuild the board tokens from the (historical) GameState.state. Deliberately
 	minimal: it recreates unit tokens and updates score/round labels only. It does
 	NOT rebuild phase controllers or run any phase logic — this is a passive view."""
+	# Guard against overlapping runs (same duplicate-token hazard as
+	# _recreate_unit_visuals): two log-card clicks landing within one frame would
+	# each rebuild the full token set after the await below. Dropping the second
+	# call is safe — this run reads GameState fresh AFTER the await, so it already
+	# renders the step of the latest click.
+	if _history_refresh_running:
+		return
+	_history_refresh_running = true
 	# Clear existing tokens
 	for child in token_layer.get_children():
 		child.queue_free()
 	await get_tree().process_frame
 	if not _history_view_active:
+		_history_refresh_running = false
 		return  # exited while we were awaiting
 
 	var units = GameState.state.get("units", {})
@@ -10810,6 +10888,7 @@ func _history_refresh_visuals() -> void:
 		_update_round_indicator()
 	if active_player_badge:
 		active_player_badge.text = "P%d" % GameState.get_active_player()
+	_history_refresh_running = false
 
 func _exit_history_view() -> void:
 	if not _history_view_active:
@@ -10827,13 +10906,18 @@ func _exit_history_view() -> void:
 	if game_log_panel and is_instance_valid(game_log_panel) and game_log_panel.has_method("clear_active_history"):
 		game_log_panel.clear_active_history()
 
-	# Remove the overlay and restore the log panel's normal z.
+	# Remove the overlay and restore the log panel's normal z + tree position
+	# (it was moved after the overlay so it could receive clicks — see
+	# _enter_history_view_mode; leaving it last would draw it above dialogs).
 	if _history_overlay and is_instance_valid(_history_overlay):
 		_history_overlay.queue_free()
 	_history_overlay = null
 	_history_banner_label = null
 	if game_log_panel and is_instance_valid(game_log_panel):
 		game_log_panel.z_index = UI_PANEL_Z
+		if _history_saved_log_panel_index >= 0 and game_log_panel.get_parent() == self:
+			move_child(game_log_panel, mini(_history_saved_log_panel_index, get_child_count() - 1))
+	_history_saved_log_panel_index = -1
 
 	# Rebuild the live board and re-run normal UI refresh.
 	_recreate_unit_visuals()
@@ -11804,17 +11888,21 @@ func _toggle_hotkey_help_overlay() -> void:
 	_gsep10.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
 	_gsep10.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_gsep10)
+	# Key labels are pulled live from KeybindingManager so this reflects any
+	# mid-game rebinds the player made in Settings → Controls.
+	var _kbm = KeybindingManager
 	var entries := [
 		["Enter / Return", "Advance phase / confirm action"],
-		["?  /  Shift+/", "Show / hide this help"],
+		[_kbm.get_key_display_name("hotkey_help"), "Show / hide this help"],
 		["Esc", "Settings menu / close dialogs"],
-		["U", "Toggle army panel"],
-		["S", "Toggle stratagems panel"],
-		["M", "Show secondary missions"],
-		["L", "Toggle LoS debug overlay"],
-		["G", "Toggle 1\" tactical grid overlay"],
-		["8", "Toggle visual style (letter / enhanced)"],
-		["9", "Toggle debug mode"],
+		[_kbm.get_key_display_name("toggle_army_panel"), "Toggle army panel"],
+		[_kbm.get_key_display_name("toggle_stratagem_panel"), "Toggle stratagems panel"],
+		[_kbm.get_key_display_name("toggle_missions_panel"), "Show secondary missions"],
+		["%s (hold)" % _kbm.get_key_display_name("los_debug"), "Show lines of sight (green clear / red blocked)"],
+		[_kbm.get_key_display_name("toggle_roster_strip"), "Toggle left roster strip"],
+		[_kbm.get_key_display_name("toggle_grid_overlay"), "Toggle 1\" tactical grid overlay"],
+		[_kbm.get_key_display_name("toggle_visual_style"), "Toggle visual style (letter / enhanced)"],
+		[_kbm.get_key_display_name("toggle_debug_mode"), "Toggle debug mode"],
 	]
 	for entry in entries:
 		var row := HBoxContainer.new()
@@ -11834,7 +11922,7 @@ func _toggle_hotkey_help_overlay() -> void:
 	_gsep11.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_gsep11)
 	var hint := Label.new()
-	hint.text = "Press ? again to close"
+	hint.text = "Rebind any key in Settings (Esc) → Controls"
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(hint)

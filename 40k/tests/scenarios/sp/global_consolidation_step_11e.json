@@ -68,6 +68,10 @@
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },
 
     { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
@@ -79,6 +83,10 @@
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },
 
     { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
@@ -90,6 +98,10 @@
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },
 
     { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 0 },

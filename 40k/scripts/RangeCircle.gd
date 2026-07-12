@@ -7,7 +7,10 @@ extends Node2D
 
 var radius: float = 100.0
 var weapon_name: String = "Weapon"
-var circle_color: Color = Color(0, 1, 0, 0.15)  # Semi-transparent green fill
+# No fill: a weapon range disc can cover half the battlefield, and with one
+# disc per weapon the fills stack — even at low alpha a multi-weapon unit
+# tinted the whole board. The outline + label carry the information.
+var circle_color: Color = Color(0, 1, 0, 0.0)
 var outline_color: Color = Color.GREEN
 var outline_width: float = 2.0
 var dashed: bool = false  # If true, draw dashed outline instead of solid
@@ -24,7 +27,7 @@ func setup(range_px: float, weapon: String, custom_color: Color = Color(-1, -1, 
 	# Allow custom colors (negative means use default)
 	if custom_color.r >= 0:
 		outline_color = custom_color
-		circle_color = Color(custom_color.r, custom_color.g, custom_color.b, 0.1 if is_dashed else 0.15)
+		circle_color = Color(custom_color.r, custom_color.g, custom_color.b, 0.0)
 
 	queue_redraw()
 

@@ -75,7 +75,7 @@ func test_model_in_b2b_is_valid():
 		"marine_1": [[0, 0], [touching_x, 0]]
 	}
 
-	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+	var result = RulesEngineScript.validate_base_to_base_possible_rules(
 		"charger_unit", per_model_paths, ["target_unit"], board, 7
 	)
 
@@ -106,7 +106,7 @@ func test_model_could_reach_within_1in_but_didnt():
 		"marine_1": [[0, 0], [stop_x, 0]]
 	}
 
-	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+	var result = RulesEngineScript.validate_base_to_base_possible_rules(
 		"charger_unit", per_model_paths, ["target_unit"], board, 7
 	)
 
@@ -138,7 +138,7 @@ func test_per_model_second_model_must_close():
 		"marine_b": [[0, 80], [150, 80]]         # stops ~2.5" from ork_2
 	}
 
-	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+	var result = RulesEngineScript.validate_base_to_base_possible_rules(
 		"charger_unit", per_model_paths, ["target_unit"], board, 10
 	)
 
@@ -162,7 +162,7 @@ func test_per_model_both_models_close_is_valid():
 		"marine_a": [[0, 0], [300 - 50.4, 0]],   # base contact with ork_1
 		"marine_b": [[0, 80], [300 - 50.4, 80]]  # base contact with ork_2
 	}
-	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+	var result = RulesEngineScript.validate_base_to_base_possible_rules(
 		"charger_unit", per_model_paths, ["target_unit"], board, 10
 	)
 	assert_true(result.valid, "Both models in contact should be valid: %s" % str(result.errors))
@@ -192,7 +192,7 @@ func test_model_cannot_reach_b2b_is_valid():
 		"marine_1": [[0, 0], [stop_x, 0]]
 	}
 
-	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+	var result = RulesEngineScript.validate_base_to_base_possible_rules(
 		"charger_unit", per_model_paths, ["target_unit"], board, 12
 	)
 
@@ -223,7 +223,7 @@ func test_multiple_models_mixed_reachability():
 		"marine_2": [[-340, 0], [-60, 0]]  # Moves but can't reach b2b
 	}
 
-	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+	var result = RulesEngineScript.validate_base_to_base_possible_rules(
 		"charger_unit", per_model_paths, ["target_unit"], board, 7
 	)
 
@@ -253,7 +253,7 @@ func test_dead_target_models_ignored():
 		"marine_1": [[0, 0], [stop_x, 0]]
 	}
 
-	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+	var result = RulesEngineScript.validate_base_to_base_possible_rules(
 		"charger_unit", per_model_paths, ["target_unit"], board, 12
 	)
 
@@ -270,7 +270,7 @@ func test_empty_paths_handled_gracefully():
 	})
 
 	# Empty per_model_paths
-	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+	var result = RulesEngineScript.validate_base_to_base_possible_rules(
 		"charger_unit", {}, ["target_unit"], board, 7
 	)
 
@@ -298,7 +298,7 @@ func test_model_within_tolerance_is_b2b():
 		"marine_1": [[0, 0], [almost_touching_x, 0]]
 	}
 
-	var result = RulesEngineScript._validate_base_to_base_possible_rules(
+	var result = RulesEngineScript.validate_base_to_base_possible_rules(
 		"charger_unit", per_model_paths, ["target_unit"], board, 7
 	)
 

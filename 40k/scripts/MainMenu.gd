@@ -142,6 +142,12 @@ func _ready() -> void:
 	# Version badge + "What's New" summary (helps tell which build is running)
 	_create_version_display()
 
+	# M0 controller foundations: the menu must be drivable without a mouse —
+	# something has to own focus for D-pad/stick navigation to work at all,
+	# and the scroll view has to follow the focused control.
+	$ScrollContainer.follow_focus = true
+	start_button.grab_focus()
+
 	print("MainMenu: Ready with default selections")
 
 func _apply_theme() -> void:
@@ -1486,6 +1492,9 @@ func _on_settings_button_pressed() -> void:
 	print("MainMenu: Settings button pressed")
 	var settings_menu = SettingsMenuScript.new()
 	settings_menu.show_return_to_menu = false
+	# Pad navigation: hand focus back when the overlay closes, otherwise the
+	# D-pad goes dead until the player touches the mouse.
+	settings_menu.settings_closed.connect(settings_button.grab_focus)
 	add_child(settings_menu)
 
 func _on_quit_button_pressed() -> void:

@@ -28,11 +28,14 @@ func _run_tests():
 	var slm = root.get_node_or_null("SaveLoadManager")
 	var aidm = load("res://scripts/AIDecisionMaker.gd")
 
-	# Seed some strategy caches as a mid-game AI would
+	# Seed some strategy caches as a mid-game AI would.
+	# _phase_plan / _phase_plan_built became per-player dictionaries (SOAK-3);
+	# the old bool assignment stopped this script from compiling, which made
+	# the test hang to the runner timeout instead of reporting.
 	aidm._focus_fire_plan["U_X"] = {"target": "U_Y"}
 	aidm._focus_fire_plan_built = true
-	aidm._phase_plan["move"] = ["U_X"]
-	aidm._phase_plan_built = true
+	aidm._phase_plan[2] = {"charge_intent": {"U_X": {"target_id": "U_Y"}}}
+	aidm._phase_plan_built = {2: true}
 	_check("caches seeded", aidm._focus_fire_plan_built and not aidm._focus_fire_plan.is_empty())
 
 	# Policy is wired: AIPlayer listens to load_completed directly
@@ -45,7 +48,7 @@ func _run_tests():
 	_check("focus-fire cache cleared on load",
 		aidm._focus_fire_plan.is_empty() and aidm._focus_fire_plan_built == false)
 	_check("phase plan cleared on load",
-		aidm._phase_plan.is_empty() and aidm._phase_plan_built == false)
+		aidm._phase_plan.is_empty() and aidm._phase_plan_built.is_empty())
 
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(0 if failed == 0 else 1)
