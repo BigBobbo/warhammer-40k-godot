@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "0.22.0",
+      "date": "2026-07-12",
+      "summary": "Hold L to see lines of sight in ANY phase — solid green lines to enemies your units can see, dashed red to the ones they can't. Previously the L overlay only existed during the shooting phase (and even there usually drew nothing), so it looked broken. The left roster strip hotkey moved to B.",
+      "changes": [
+        "Hold L: draws a sight line from each of your units to every enemy unit — solid green when a clear line of sight exists (drawn along the actual sighting line, base-edge aware), dashed red between the nearest models when the view is blocked. Works in every phase now, not just shooting.",
+        "With a unit selected (mover, shooter, charger or fighter), holding L shows just that unit's lines of sight, checked with the same rules the shooting phase uses for target eligibility (including 11e hidden/obscuring visibility).",
+        "In the shooting phase with a shooter selected, L still shows the detailed per-model debug view (sample points, blocked attempts, terrain highlights).",
+        "The overlay refreshes automatically while held, so lines follow models as they move and no longer fade out after a few seconds.",
+        "Left roster strip hotkey is now B (was L, which the LoS overlay always captured first, so it never worked); the '?' shortcut overlay lists both keys."
+      ]
+    },
+    {
       "version": "0.21.0",
       "date": "2026-07-12",
       "summary": "The AI's game log now opens each turn with a single 'turn intent' card — its stance for the round (e.g. AGGRESSIVE / MELEE army), what the round is worth in VP, which enemies it plans to charge or tie up, and every unit's orders. Fast melee units (Stormboyz, Custodian Guard) also deploy like assault troops now instead of lining up as gunline shooters.",

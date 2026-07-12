@@ -23,15 +23,53 @@ const TERRAIN_HIGHLIGHT_COLOR = Color(1.0, 0.5, 0.0, 0.8)  # Orange
 const TERRAIN_BLOCKED_COLOR = Color(1.0, 0.0, 0.0, 0.8)  # Red
 const TERRAIN_COVER_COLOR = Color(1.0, 1.0, 0.0, 0.8)  # Yellow
 
+# ===== L-KEY SIGHT-LINE OVERVIEW (phase-independent) =====
+# While the L overlay is held, draw one sight line per (friendly unit ->
+# enemy unit) pair: solid green when a clear line exists, dashed red between
+# the nearest models when the pair budget found none. Unlike los_lines
+# (5-second expiry, fed by the shooting controller's per-model debug), these
+# persist until the overlay turns off and auto-refresh while models move.
+const OVERVIEW_REFRESH_INTERVAL := 0.5
+const OVERVIEW_CLEAR_COLOR := Color(0.25, 1.0, 0.35, 0.9)
+const OVERVIEW_BLOCKED_COLOR := Color(1.0, 0.3, 0.25, 0.7)
+const OVERVIEW_LINE_WIDTH := 2.5
+# Nearest model pairs tried per unit pair before declaring it blocked.
+# check_enhanced_visibility already samples base-edge points per pair, so a
+# small pair budget keeps the all-units sweep inside a frame budget while a
+# selected unit gets extra pairs for "only the flank model can see" layouts.
+const OVERVIEW_MAX_PAIRS_SELECTED := 3
+const OVERVIEW_MAX_PAIRS_ALL := 1
+
+var overview_active: bool = false
+var overview_source_unit_id: String = ""  # "" -> every unit of the active player
+var overview_lines: Array = []  # {from: Vector2, to: Vector2, is_clear: bool}
+var _overview_accum: float = 0.0
+var _overview_sig: int = 0
+
 func _ready() -> void:
 	z_index = 10  # Above most things for visibility
 	name = "LoSDebugVisual"
+	set_process(false)  # only ticks while the L overview is active
 	print("[LoSDebugVisual] Initialized")
 
 func _draw() -> void:
 	if not debug_enabled:
 		return
-	
+
+	# Overview sight lines (L overlay): green solid = clear, red dashed = blocked
+	# (key is "is_clear" — "clear" would collide with Dictionary.clear())
+	for ol in overview_lines:
+		var oc: Color = OVERVIEW_CLEAR_COLOR if ol["is_clear"] else OVERVIEW_BLOCKED_COLOR
+		if ol["is_clear"]:
+			draw_line(ol["from"], ol["to"], oc, OVERVIEW_LINE_WIDTH)
+		else:
+			draw_dashed_line(ol["from"], ol["to"], oc, OVERVIEW_LINE_WIDTH, 14.0)
+		draw_circle(ol["from"], OVERVIEW_LINE_WIDTH * 1.8, oc)
+		# Arrowhead at the target end so direction reads at a glance
+		var odir = (ol["to"] - ol["from"]).normalized()
+		draw_line(ol["to"], ol["to"] - odir.rotated(0.45) * 13.0, oc, OVERVIEW_LINE_WIDTH)
+		draw_line(ol["to"], ol["to"] - odir.rotated(-0.45) * 13.0, oc, OVERVIEW_LINE_WIDTH)
+
 	# Draw all LoS lines
 	for los_data in los_lines:
 		var from_pos = los_data.from
@@ -170,6 +208,7 @@ func clear_all_highlights() -> void:
 
 func clear_all_debug_visuals() -> void:
 	# Comprehensive cleanup method for all LoS debug visualizations
+	hide_overview()
 	clear_los_lines()
 	clear_all_highlights()
 	_remove_all_child_visuals()  # NEW: Remove child nodes
@@ -225,6 +264,7 @@ func _point_in_polygon(point: Vector2, polygon: PackedVector2Array) -> bool:
 func set_debug_enabled(enabled: bool) -> void:
 	debug_enabled = enabled
 	if not enabled:
+		hide_overview()
 		clear_los_lines()
 		clear_all_highlights()
 		_remove_all_child_visuals()  # NEW: Remove child Node2D objects
@@ -232,6 +272,154 @@ func set_debug_enabled(enabled: bool) -> void:
 
 func toggle_debug() -> void:
 	set_debug_enabled(not debug_enabled)
+
+
+# ===== L-KEY SIGHT-LINE OVERVIEW =====
+
+# Show unit->unit sight lines from `source_unit_id` (or from every unit of
+# the active player when "") to all enemy units. Requires debug_enabled.
+func show_overview(source_unit_id: String = "") -> void:
+	overview_active = true
+	overview_source_unit_id = source_unit_id
+	_overview_accum = 0.0
+	_overview_sig = 0
+	# Drop any stale shooter-mode drawings so the overlay reads clean.
+	clear_los_lines()
+	clear_all_highlights()
+	_remove_all_child_visuals()
+	_rebuild_overview()
+	set_process(true)
+	print("[LoSDebugVisual] Overview ON (source=%s, %d lines)" % [
+		source_unit_id if source_unit_id != "" else "<active player>", overview_lines.size()])
+
+
+func hide_overview() -> void:
+	if not overview_active and overview_lines.is_empty():
+		return
+	overview_active = false
+	overview_source_unit_id = ""
+	overview_lines.clear()
+	set_process(false)
+	queue_redraw()
+	print("[LoSDebugVisual] Overview OFF")
+
+
+# Auto-refresh while active so the lines track model moves / selection, and
+# never silently go stale. Cheap signature check gates the actual rebuild.
+func _process(delta: float) -> void:
+	if not overview_active or not debug_enabled:
+		return
+	_overview_accum += delta
+	if _overview_accum < OVERVIEW_REFRESH_INTERVAL:
+		return
+	_overview_accum = 0.0
+	var sig := _overview_state_signature()
+	if sig != _overview_sig:
+		_rebuild_overview()
+
+
+func _overview_state_signature() -> int:
+	var parts: Array = [overview_source_unit_id]
+	var units: Dictionary = GameState.state.get("units", {})
+	parts.append(int(GameState.state.get("meta", {}).get("active_player", 0)))
+	for uid in units:
+		var u = units[uid]
+		if typeof(u) != TYPE_DICTIONARY:
+			continue
+		for m in u.get("models", []):
+			if typeof(m) != TYPE_DICTIONARY or not m.get("alive", true):
+				continue
+			var p := _get_model_position_from_dict(m)
+			parts.append(int(p.x))
+			parts.append(int(p.y))
+	return hash(parts)
+
+
+func _rebuild_overview() -> void:
+	overview_lines.clear()
+	_overview_sig = _overview_state_signature()
+	var board = GameState.create_snapshot()
+	var units: Dictionary = board.get("units", {})
+
+	var sources: Array = []
+	if overview_source_unit_id != "" and units.has(overview_source_unit_id):
+		sources.append(overview_source_unit_id)
+	else:
+		var active_player := int(board.get("meta", {}).get("active_player", 1))
+		for uid in units:
+			var u = units[uid]
+			if typeof(u) != TYPE_DICTIONARY:
+				continue
+			if int(u.get("owner", 0)) == active_player:
+				sources.append(uid)
+
+	var max_pairs: int = OVERVIEW_MAX_PAIRS_SELECTED if overview_source_unit_id != "" else OVERVIEW_MAX_PAIRS_ALL
+	for src_id in sources:
+		var src = units[src_id]
+		var src_owner := int(src.get("owner", 0))
+		for tgt_id in units:
+			if str(tgt_id) == str(src_id):
+				continue
+			var tgt = units[tgt_id]
+			if typeof(tgt) != TYPE_DICTIONARY:
+				continue
+			if int(tgt.get("owner", 0)) == src_owner:
+				continue
+			var line := _unit_pair_sight_line(src, tgt, board, max_pairs)
+			if not line.is_empty():
+				overview_lines.append(line)
+	queue_redraw()
+
+
+# Best sight line between two units, mirroring the shooting-eligibility LoS
+# path (11e hidden/obscuring gates + EnhancedLineOfSight), tried over the
+# `max_pairs` nearest model pairs. Blocked pairs fall back to a nearest-model
+# center line so the player still sees WHICH pair was judged.
+func _unit_pair_sight_line(src: Dictionary, tgt: Dictionary, board: Dictionary, max_pairs: int) -> Dictionary:
+	var src_models := _alive_positioned_models(src)
+	var tgt_models := _alive_positioned_models(tgt)
+	if src_models.is_empty() or tgt_models.is_empty():
+		return {}
+
+	var pairs: Array = []
+	for a in src_models:
+		for t in tgt_models:
+			pairs.append([a.pos.distance_squared_to(t.pos), a, t])
+	pairs.sort_custom(func(x, y): return x[0] < y[0])
+
+	# 11e visibility gates (13.09 HIDDEN detection / 13.10-13.11 obscuring)
+	# to match RulesEngine._check_target_visibility.
+	var tm = null
+	if GameConstants.edition >= 11:
+		tm = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
+
+	var budget: int = mini(max_pairs, pairs.size())
+	for i in range(budget):
+		var a = pairs[i][1]
+		var t = pairs[i][2]
+		if tm != null:
+			if not tm.hidden_model_visible_to(t.model, tgt, a.model):
+				continue
+			if not tm.model_visible_11e(a.model, t.model):
+				continue
+		var r = EnhancedLineOfSight.check_enhanced_visibility(a.model, t.model, board)
+		if r.has_los and r.sight_line.size() >= 2:
+			return {"from": r.sight_line[0], "to": r.sight_line[1], "is_clear": true}
+
+	var nearest = pairs[0]
+	return {"from": nearest[1].pos, "to": nearest[2].pos, "is_clear": false}
+
+
+func _alive_positioned_models(unit: Dictionary) -> Array:
+	var out: Array = []
+	for m in unit.get("models", []):
+		if typeof(m) != TYPE_DICTIONARY or not m.get("alive", true):
+			continue
+		var p := _get_model_position_from_dict(m)
+		if p == Vector2.ZERO:
+			continue
+		out.append({"pos": p, "model": m})
+	return out
 
 func _remove_all_child_visuals() -> void:
 	# Remove all child Node2D objects created for debug visualization
