@@ -2,8 +2,8 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.18.4",
-			"date": "2026-07-11",
+			"version": "0.24.3",
+			"date": "2026-07-12",
 			"summary": "AI thinking log now names duplicate squads with their Alpha/Beta/Gamma suffix, so you can tell WHICH 'Custodian Guard' the AI is reasoning about.",
 			"changes": [
 				"All AI thinking/decision lines in the Game Log (movement plans, shooting picks, charge declarations, stratagem reasoning, etc.) now use each unit's full display name — e.g. 'Custodian Guard Alpha holds the objective' instead of the ambiguous 'Custodian Guard'.",
@@ -11,13 +11,134 @@
 			]
 		},
 		{
-			"version": "0.18.3",
-			"date": "2026-07-11",
+			"version": "0.24.2",
+			"date": "2026-07-12",
 			"summary": "Duplicate squads that share a name (e.g. three 'Custodian Guard' units) are now tellable apart: the name label under each model — and the Movement/Charge/Fight unit lists — show the distinguishing Alpha/Beta/Gamma suffix instead of collapsing every one to an identical 'Custodian Guard ..'.",
 			"changes": [
 				"On-board name labels now keep the disambiguating suffix. A long duplicate name like 'Custodian Guard Alpha' used to be cut to 'Custodian Guard ..' under every model, so you couldn't tell which models belonged to Alpha vs Beta vs Gamma — now the suffix is shown.",
 				"Very long names are shortened from the middle (e.g. 'Anointed Cust.. Epsilon') so the trailing squad suffix always stays visible.",
 				"The Movement, Charge and Fight unit-selection lists now show each duplicate squad's suffix (e.g. 'Custodian Guard Alpha', 'Custodian Guard Beta'), matching the Shooting list, so you can pick the right squad."
+			]
+		},
+		{
+			"version": "0.24.1",
+			"date": "2026-07-12",
+			"summary": "Fixed AI charges failing AFTER a successful charge roll (\"charge move failed — skipping\"). The AI now plans its charge move with the exact same shape-aware rules the game enforces — real oval/rectangular base shapes, walls, terrain climb costs, unit coherency and the 11e 'end within 1\" if you can' rule — so a successful roll now actually lands the charge (e.g. Custodian Guard charging a packed Deffkoptas cluster).",
+			"changes": [
+				"AI charge moves are no longer rejected after a successful roll. Against crowded targets on oval bases (e.g. Deffkoptas), the old placement approximated bases as circles and skipped several rules, so up to ~90% of tight charges were computed illegally, bounced off validation, and were skipped — after the log had already shown a successful charge roll.",
+				"The AI placement engine now uses the same true base shapes (including oval rotation), wall overlap, terrain climb penalties, unit coherency and non-target engagement-range checks as the game's charge validator, and honours the 11e rule that every model that can end within 1\" of a target must do so.",
+				"Fixed the 11e 'must end within 1\"' check demanding impossible endpoints: it could insist on a spot that overlapped a wall, ignored terrain climb costs, or (against oval bases) landed just outside its own 1\" acceptance band — rejecting every legal move a player or AI made. It now only enforces endpoints that are themselves fully legal.",
+				"When a charge genuinely cannot be completed (e.g. the only path is blocked by walls), the AI now says so and fails the charge cleanly instead of submitting an illegal move first."
+			]
+		},
+		{
+			"version": "0.24.0",
+			"date": "2026-07-12",
+			"summary": "The Fight phase no longer jumps straight through the dice: melee attacks now resolve weapon by weapon with a visible pause after the hit roll and after the wound roll — just like staged shooting — including a Command Re-roll (1 CP) button on each die.",
+			"changes": [
+				"Clicking Fight! now opens a Melee Resolution window that walks through each weapon in turn: the hit roll is shown and PAUSES ('Roll to Wound' button), then the wound roll is shown and pauses ('Continue to Saving Throws'), then saves resolve — so you can actually read what happened at every stage.",
+				"Command Re-roll (1 CP) is now available in melee: while paused after a hit or wound roll, click any die to re-roll it (once per phase, attacker's CP), exactly like the staged shooting flow.",
+				"Each weapon (e.g. Big choppa, Power klaw, and auto-included Extra Attacks weapons) resolves as its own step with a named 'Weapon X of Y' header and a running combat log inside the window.",
+				"A summary ('Melee attacks resolved — N enemy models destroyed') with a Close button ends the sequence; the next fighter selection then continues as before.",
+				"AI activations and multiplayer games keep the previous one-shot resolution (no pauses), matching how staged shooting behaves."
+			]
+		},
+		{
+			"version": "0.23.0",
+			"date": "2026-07-11",
+			"summary": "Made the online Save & Load screen far more reliable when the cloud server is slow or waking up. Instead of silently showing an empty 'Existing Saves' list (which looked like your saved games had vanished), it now retries automatically, shows a clear message if it still can't reach the server, and has a new ⟳ Refresh button to reload the list by hand.",
+			"changes": [
+				"Fixed: on the itch.io / web build, opening Save & Load while the cloud server was still waking from idle could show NO saved games — the first request has to wake the sleeping server, and that attempt sometimes failed. The failure was silently drawn as an empty list, indistinguishable from 'you have no saves'. The game now automatically retries a few times (with a short, increasing delay) so a waking server recovers on its own.",
+				"New: a ⟳ Refresh button next to the Sort dropdown reloads the list of saved games from the server without reopening the dialog.",
+				"Improved: if the save list still can't be loaded, the box now says 'Couldn't reach the save server… press ⟳ Refresh to try again (your saved games are not lost)' instead of appearing empty. An empty account now clearly reads 'No saved games yet.'",
+				"Under the hood: cloud requests transparently retry on connection/timeout and 502/503/504 gateway errors (the signature of a cold-starting server), and a failed save-list fetch now reports a distinct error instead of masquerading as an empty result. (Note: if online saves seem to come and go, the server-side cause is documented for the maintainer in server/README.md — it must be fixed at the deployment, not in the game.)"
+			]
+		},
+		{
+			"version": "0.22.0",
+			"date": "2026-07-12",
+			"summary": "Hold L to see lines of sight in ANY phase — solid green lines to enemies your units can see, dashed red to the ones they can't. Previously the L overlay only existed during the shooting phase (and even there usually drew nothing), so it looked broken. The left roster strip hotkey moved to B.",
+			"changes": [
+				"Hold L: draws a sight line from each of your units to every enemy unit — solid green when a clear line of sight exists (drawn along the actual sighting line, base-edge aware), dashed red between the nearest models when the view is blocked. Works in every phase now, not just shooting.",
+				"With a unit selected (mover, shooter, charger or fighter), holding L shows just that unit's lines of sight, checked with the same rules the shooting phase uses for target eligibility (including 11e hidden/obscuring visibility).",
+				"In the shooting phase with a shooter selected, L still shows the detailed per-model debug view (sample points, blocked attempts, terrain highlights).",
+				"The overlay refreshes automatically while held, so lines follow models as they move and no longer fade out after a few seconds.",
+				"Left roster strip hotkey is now B (was L, which the LoS overlay always captured first, so it never worked); the '?' shortcut overlay lists both keys."
+			]
+		},
+		{
+			"version": "0.21.0",
+			"date": "2026-07-12",
+			"summary": "The AI's game log now opens each turn with a single 'turn intent' card — its stance for the round (e.g. AGGRESSIVE / MELEE army), what the round is worth in VP, which enemies it plans to charge or tie up, and every unit's orders. Fast melee units (Stormboyz, Custodian Guard) also deploy like assault troops now instead of lining up as gunline shooters.",
+			"changes": [
+				"Game log: the movement-plan card is now a full turn-intent briefing — round stance (strategy + army archetype), 'Playing for:' VP stakes, named charge intents (\"Charge intent: Stormboyz → Custodian Guard (20.8\\\" away)\"), and shooters the AI plans to tie up in melee, followed by the per-unit orders.",
+				"AI deployment: units whose weapons make them melee-focused (Stormboyz with token pistols, Custodian Guard with guardian spears) now classify as melee and deploy forward for movement lanes; previously any unit carrying a ranged weapon deployed as a 'ranged unit positioning for firing lanes'. Uses the same melee-focus gate as the movement/charge logic so deployment and battle plans agree about a unit's role.",
+				"Fixed: secondary missions requiring a unit action are now scored impossible when the player has no units left."
+			]
+		},
+		{
+			"version": "0.20.0",
+			"date": "2026-07-11",
+			"summary": "The AI now fights to a single battle plan per turn — and the game log tells the truth about it. The movement plan the AI announces is the plan its units actually execute, melee hunts are declared up front (\"ATTACK Custodian Guard\"), spare units spread across objectives instead of piling onto one, and every decision card explains WHY (including when coordination overrides the raw scores).",
+			"changes": [
+				"AI movement: the army-wide unit-to-objective plan is computed once per movement phase and then followed, instead of being re-solved before every single unit action (which made announced plans and executed moves contradict each other). Re-plans only happen for cause (e.g. a unit disembarks mid-phase) and are called out in the log.",
+				"AI coordination: leftover units now spread across objectives with diminishing returns instead of all independently picking the same marker; objectives one enemy move away from being contested get sized reinforcement (\"capturing it — enemy can bring ~4 OC next move\").",
+				"AI melee: chase-vs-objective decisions are made at planning time and announced in the battle plan as ATTACK entries; the objective a hunter abandons re-opens for another unit to backfill.",
+				"Game log honesty: per-unit decision cards now show the REAL assignment with its reason (capture / flip / reinforce / sole holder / attack), and when the chosen option scores lower than a rejected one the card says why (\"↳ why not the top score: obj_1 is already covered...\"). Previously ~58% of cards claimed a 'chosen' option that contradicted the action taken.",
+				"AI formations: reserve declarations respect board presence — armies no longer bank nearly half their points in Strategic Reserves and concede the early objective game (the Custodes Lions list kept 950pts off-board; now capped near 25%).",
+				"Fixed: the phase banner and AI Actions overlay always showed 'Round 1' — they now show the actual battle round.",
+				"Fixed: a game-freezing crash in the shooting phase — when a weapon's single auto-assigned target was rejected (or its processing refreshed the weapon panel mid-update), the UI re-entered itself until the game locked up or crashed. Auto-assignments now dispatch after the panel finishes rendering.",
+				"Fixed: the AI burned ~200 wasted actions (minutes of real time) whenever the roll-off winner wasn't the active player — deployment-order and first-turn choices are now submitted as the winning player."
+			]
+		},
+		{
+			"version": "0.19.2",
+			"date": "2026-07-11",
+			"summary": "Fixed the AI hijacking your Heroic Intervention: at the end of the AI's Charge phase, your Heroic Intervention window now stays yours. Previously the AI answered it itself within a second — the log even claimed it used Heroic Intervention with YOUR unit (e.g. 'AI uses Heroic Intervention with Stompa') — and your dialog was declined for you before you could react.",
+			"changes": [
+				"The Heroic Intervention offer at the end of the AI's Charge phase belongs to the defending player (you). The AI no longer evaluates it, no longer logs 'AI uses Heroic Intervention with <your unit>', and no longer auto-declines your window — the dialog now stays up for its full 5-second countdown and your choice is the one that counts.",
+				"The same protection covers your Fire Overwatch window during the AI's charges, and your Heroic Intervention charge move once you accept — the AI can never resolve those for you.",
+				"In AI-vs-AI games the defending AI can now actually use Heroic Intervention: its attempts previously always failed an internal rules check ('can only be used on your opponent's turn') and were silently declined.",
+				"The gold 'HEROIC INTERVENTION available' banner in the dice log now shows the edition's real cost (1 CP in 11th edition — it was hardcoded to 2 CP)."
+			]
+		},
+		{
+			"version": "0.19.1",
+			"date": "2026-07-11",
+			"summary": "History view: jump straight between game-log steps — while viewing a past step you can now click any other log entry to show that one, no need to press Esc first.",
+			"changes": [
+				"While viewing a past board state (after clicking a game-log entry), clicking a different log entry now switches the view directly to that step. Previously the read-only overlay silently swallowed clicks on the log, so you had to press Esc (Return to Live Game) before picking another step.",
+				"The game log stays fully usable while viewing history — scrolling the list and expanding card details work too, and the banner always names the step being shown.",
+				"Hardened the history board rebuild against two step clicks landing in the same frame, which could have created duplicate model tokens."
+			]
+		},
+		{
+			"version": "0.19.0",
+			"date": "2026-07-11",
+			"summary": "Reinforcement placement helpers are clearer: the red 'must be >9\" from enemy models' no-deploy zone now shows around EVERY enemy cluster (not just the biggest one), and units arriving from Strategic Reserves now get a green band showing where they CAN be placed — within 6\" of a board edge.",
+			"changes": [
+				"Fixed: when placing a unit from Deep Strike or Strategic Reserves, the 9\" exclusion bubbles now render around all enemy models. Before, only the single largest connected clump of enemies drew its no-deploy zone; other enemy groups elsewhere on the board were left unmarked, making it look like you could legally arrive next to them. Each separate enemy cluster now gets its own labelled '9\" exclusion' zone.",
+				"New: units arriving from Strategic Reserves now show a green 'within 6\" of edge' band around the board perimeter — the area where they are allowed to be set up. (Deep Strike units, which may arrive anywhere >9\" from enemies, do not show this band.)",
+				"Under the hood: the enemy-exclusion overlay grouped models into connected clusters but only kept the largest merged shape after each step, silently discarding every other cluster; it now merges each cluster independently. The new Strategic Reserves band matches the placement validator exactly (model centre within 6\" of the nearest board edge)."
+			]
+		},
+		{
+			"version": "0.18.4",
+			"date": "2026-07-11",
+			"summary": "Fixed charge rolls being wrongly reported as failed when the roll would actually reach the enemy. A charging model only has to close to within engagement range (2\"), not touch base-to-base — e.g. a 9\" roll against a target 9.6\" away now succeeds (it only needs to travel 7.6\").",
+			"changes": [
+				"Charge rolls that can reach a target's engagement range are no longer marked FAILED. Previously the after-roll target check compared the full base-to-base gap against the raw roll, ignoring the 2\" engagement range — so a 9\" roll against a target 9.6\" away failed even though the model only needed to move 7.6\" to get within 2\".",
+				"The reachable ceiling for selecting charge targets is now 'roll + engagement range' (capped at the 12\" declaration range) instead of just the roll, matching how the charge move itself is measured.",
+				"Genuinely out-of-reach charges still fail correctly (e.g. a 9\" roll cannot reach a target 12\" away, which needs 10\")."
+			]
+		},
+		{
+			"version": "0.18.3",
+			"date": "2026-07-11",
+			"summary": "Fixed the AI 'Fire Overwatch' popup covering your control buttons: when the AI reacts during your turn (e.g. firing Overwatch while you arrive a unit from Reserves), the AI Actions log now floats to the left of the right-hand panel instead of sitting on top of your Undo / Reset / Confirm buttons — so you can always undo or confirm a deployment.",
+			"changes": [
+				"The AI Actions log (shown when the AI acts, including reactive Overwatch during your own turn) no longer overlaps the right-hand control panel. It now sits just left of that panel, over the board, so it never hides the reserve-deployment Undo / Reset Unit / Confirm Move buttons.",
+				"The overlay is also fully click-through now (a stray click on it always passes to the controls behind), so it can never intercept a button press even where it appears."
 			]
 		},
 		{

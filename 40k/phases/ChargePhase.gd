@@ -608,7 +608,7 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	# raw first 2D6 made re-rolled/bonused charges fail against a stale list.
 	if GameConstants.edition >= 11:
 		var tmpl_11e = MoveTypes.get_type("charge")
-		charge_data["selectable_targets"] = tmpl_11e._targets_within(unit_id, GameState.state, min(12.0, float(total_distance)))
+		charge_data["selectable_targets"] = tmpl_11e._targets_within(unit_id, GameState.state, ChargeMove11e.selectable_distance_ceiling(float(total_distance)))
 
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var target_ids = charge_data.targets
@@ -743,13 +743,15 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 		]))
 
 	# ISS-049 step 2 (11e 11.02): targets are selected after the roll, from
-	# enemies within 12" AND within the roll. Computed HERE — from the FINAL
-	# total (after re-rolls and +N bonuses) — and the original declaration is
-	# re-filtered against it. Pre-declared targets the roll cannot reach are
-	# dropped; ones a re-roll newly reaches come back.
+	# enemies within 12" AND reachable by the roll. Reachable means the roll can
+	# close the gap to ENGAGEMENT RANGE (not full base contact), so the raw-gap
+	# ceiling is min(12, roll + ER) — see ChargeMove11e.selectable_distance_ceiling.
+	# Computed HERE — from the FINAL total (after re-rolls and +N bonuses) — and
+	# the original declaration is re-filtered against it. Pre-declared targets the
+	# roll cannot reach are dropped; ones a re-roll newly reaches come back.
 	if GameConstants.edition >= 11:
 		var tmpl_11e = MoveTypes.get_type("charge")
-		var selectable: Array = tmpl_11e._targets_within(unit_id, GameState.state, min(12.0, float(total_distance)))
+		var selectable: Array = tmpl_11e._targets_within(unit_id, GameState.state, ChargeMove11e.selectable_distance_ceiling(float(total_distance)))
 		charge_data["selectable_targets"] = selectable
 		var declared: Array = charge_data.get("declared_targets", charge_data.targets)
 		if not declared.is_empty():
@@ -2111,7 +2113,7 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 	# charge target MUST do so. Delegates to the single implementation in
 	# RulesEngine so the rule cannot drift between the two call sites (this was
 	# a ~200-line duplicate that had already diverged on tolerance).
-	return RulesEngine._validate_base_to_base_possible_rules(unit_id, per_model_paths, target_ids, game_state_snapshot, rolled_distance)
+	return RulesEngine.validate_base_to_base_possible_rules(unit_id, per_model_paths, target_ids, game_state_snapshot, rolled_distance)
 
 func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
 	# 10e Rule: Each model making a charge move must end that move closer to at

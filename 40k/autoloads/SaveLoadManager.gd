@@ -11,6 +11,7 @@ signal save_failed(error: String)
 signal load_failed(error: String)
 signal autosave_completed(file_path: String)
 signal save_files_received(save_files: Array)
+signal save_files_load_failed(error: String)  # Distinct from an empty list — the fetch itself failed
 signal delete_completed(save_name: String)
 signal export_completed(file_path: String)
 signal export_failed(error: String)
@@ -659,7 +660,12 @@ func _on_cloud_request_failed(operation: String, error: String) -> void:
 		"get_save":
 			emit_signal("load_failed", "Cloud load failed: " + error)
 		"list_saves":
-			emit_signal("save_files_received", [])
+			# SAVE: do NOT emit an empty save_files list here — an empty list is
+			# indistinguishable from "you have no saves" and hides the real error
+			# from the player (the classic "my online saves vanished" report, which
+			# is usually just the fly.io server still waking from idle). Emit a
+			# distinct failure signal so the UI can show an error + Retry instead.
+			emit_signal("save_files_load_failed", "Cloud list failed: " + error)
 		"delete_save":
 			emit_signal("save_failed", "Cloud delete failed: " + error)
 
@@ -844,10 +850,15 @@ func check_save_exists_async(file_name: String) -> void:
 	# Request saves list and check when received
 	var _check_name = sanitized_name
 	var _on_list_received: Callable
-	_on_list_received = func(saves: Array) -> void:
-		# Disconnect one-shot handler
+	var _on_list_failed: Callable
+	# Shared teardown so whichever one-shot fires first disconnects both.
+	var _disconnect_both = func() -> void:
 		if save_files_received.is_connected(_on_list_received):
 			save_files_received.disconnect(_on_list_received)
+		if save_files_load_failed.is_connected(_on_list_failed):
+			save_files_load_failed.disconnect(_on_list_failed)
+	_on_list_received = func(saves: Array) -> void:
+		_disconnect_both.call()
 		var found = false
 		for save_info in saves:
 			var display_name = save_info.get("display_name", "")
@@ -856,8 +867,16 @@ func check_save_exists_async(file_name: String) -> void:
 				break
 		print("SaveLoadManager: SAVE-5 Async check for '%s': exists=%s" % [_check_name, str(found)])
 		emit_signal("save_exists_checked", _check_name, found)
+	_on_list_failed = func(err: String) -> void:
+		# Could not fetch the list — we cannot confirm existence. Assume it does
+		# not exist so the save proceeds (better than silently blocking on a
+		# transient server hiccup); the write path has its own error handling.
+		_disconnect_both.call()
+		print("SaveLoadManager: SAVE-5 Async check for '%s' failed (%s) — assuming not-exists" % [_check_name, err])
+		emit_signal("save_exists_checked", _check_name, false)
 
 	save_files_received.connect(_on_list_received)
+	save_files_load_failed.connect(_on_list_failed)
 	CloudStorage.list_saves()
 
 func get_save_info(file_name: String) -> Dictionary:

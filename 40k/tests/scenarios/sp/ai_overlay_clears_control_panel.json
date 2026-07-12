@@ -1,0 +1,19 @@
+{
+  "id": "ai_overlay_clears_control_panel",
+  "covers": ["scripts.AIActionLogOverlay._build_ui", "scripts.AIActionLogOverlay._get_right_hud_width", "ui.ai_action_overlay.no_control_panel_overlap"],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "description": "Regression for the reserves-deploy Undo being blocked: when the AI fires reactive Overwatch during the human's Movement phase (e.g. while arriving a unit from reserves) the AI Action log overlay pops up. It must float to the LEFT of the right-hand control panel (HUD_Right) and never overlap it, so the player's Undo / Reset / Confirm buttons stay visible and clickable. Before the fix the overlay was anchored flush to the screen's right edge and sat directly on top of those controls.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right" },
+    { "act": "execute_script", "script": "main.get_node(\"AIActionLogOverlay\").add_thinking_entry(2, \"Fire Overwatch window (enemy moved)\")" },
+    { "act": "execute_script", "script": "main.get_node(\"AIActionLogOverlay\").add_action_entry(2, {}, \"AI fires overwatch with Allarus Custodians at Deffkoptas (4.6 expected hits)\")" },
+    { "act": "expect_node_visible", "node": "/root/Main/AIActionLogOverlay" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "01_overlay_left_of_controls" },
+    { "act": "execute_script", "script": "main.get_node(\"AIActionLogOverlay\").get_global_rect().intersects(main.get_node(\"HUD_Right\").get_global_rect())", "equals": false },
+    { "act": "execute_script", "script": "main.get_node(\"AIActionLogOverlay\").get_global_rect().end.x <= main.get_node(\"HUD_Right\").get_global_rect().position.x", "equals": true },
+    { "act": "expect_node_property", "node": "/root/Main/AIActionLogOverlay", "property": "mouse_filter", "equals": 2 }
+  ]
+}

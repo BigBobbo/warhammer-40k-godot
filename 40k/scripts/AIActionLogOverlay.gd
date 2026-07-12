@@ -10,8 +10,9 @@ const WhiteDwarfThemeData = preload("res://scripts/WhiteDwarfTheme.gd")
 # Layout constants
 const OVERLAY_WIDTH: float = 320.0
 const OVERLAY_MAX_HEIGHT: float = 200.0
-const OVERLAY_MARGIN_RIGHT: float = 10.0
+const OVERLAY_MARGIN_RIGHT: float = 10.0  # Gap between the overlay and the right-hand control panel
 const OVERLAY_MARGIN_BOTTOM: float = 310.0  # Above the bottom stats panel
+const DEFAULT_RIGHT_HUD_WIDTH: float = 400.0  # Fallback panel width if HUD_Right can't be located
 const FONT_SIZE: int = 11
 const HEADER_FONT_SIZE: int = 12
 const MAX_VISIBLE_ENTRIES: int = 30  # Max entries before trimming old ones
@@ -55,13 +56,24 @@ func _ready() -> void:
 func _build_ui() -> void:
 	name = "AIActionLogOverlay"
 
-	# Anchor to bottom-right corner
+	# Anchor to the bottom-right corner.
 	anchor_left = 1.0
 	anchor_right = 1.0
 	anchor_top = 1.0
 	anchor_bottom = 1.0
-	offset_left = -(OVERLAY_WIDTH + OVERLAY_MARGIN_RIGHT)
-	offset_right = -OVERLAY_MARGIN_RIGHT
+
+	# The right-hand HUD panel (HUD_Right) hosts the player's active-control
+	# buttons — reserve-deployment Undo/Reset, movement Confirm/Reset, the model
+	# type picker, etc. Historically this overlay was anchored flush to the
+	# screen's right edge, which parked it directly on top of those buttons. When
+	# a reactive AI action fires during the human's turn (e.g. Fire Overwatch
+	# while the player is arriving a unit from reserves) the log popped up over
+	# the Undo button, and the player could not dismiss the log or undo the drop.
+	# Shift the overlay left of the control panel so it floats over the board and
+	# never obscures the interactive controls.
+	var right_panel_width := _get_right_hud_width()
+	offset_right = -(right_panel_width + OVERLAY_MARGIN_RIGHT)
+	offset_left = offset_right - OVERLAY_WIDTH
 	offset_top = -(OVERLAY_MAX_HEIGHT + OVERLAY_MARGIN_BOTTOM)
 	offset_bottom = -OVERLAY_MARGIN_BOTTOM
 
@@ -97,6 +109,9 @@ func _build_ui() -> void:
 	_gsep1.custom_minimum_size = Vector2(0, 2)
 	_gsep1.color = Color(WhiteDwarfThemeData.WH_GOLD.r, WhiteDwarfThemeData.WH_GOLD.g, WhiteDwarfThemeData.WH_GOLD.b, 0.4)
 	_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# ColorRect defaults to MOUSE_FILTER_STOP; keep the whole overlay click-through
+	# so it can never intercept a click meant for the controls behind it.
+	_gsep1.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(_gsep1)
 
 	# Scroll container for log entries
@@ -105,6 +120,15 @@ func _build_ui() -> void:
 	_scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The ScrollContainer's auto-generated scrollbars default to MOUSE_FILTER_STOP,
+	# so once the log overflows they would swallow clicks in a thin strip. Make
+	# them ignore the mouse too so the overlay is fully click-through.
+	var _vbar := _scroll_container.get_v_scroll_bar()
+	if _vbar:
+		_vbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var _hbar := _scroll_container.get_h_scroll_bar()
+	if _hbar:
+		_hbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(_scroll_container)
 
 	# RichTextLabel for color-coded BBCode entries
@@ -297,6 +321,23 @@ func clear_log() -> void:
 	_entry_count = 0
 
 # ── Private Helpers ───────────────────────────────────────────────────────
+
+func _get_right_hud_width() -> float:
+	"""Width of the right-hand control panel (HUD_Right), so the overlay can be
+	positioned to its left and never cover the player's active controls.
+
+	The overlay is added as a direct child of Main, alongside HUD_Right, so we
+	look it up as a sibling. HUD_Right is right-anchored with a negative left
+	offset; the magnitude of that offset is its width. Falls back to a sane
+	default when the panel can't be located (e.g. a non-Main scene)."""
+	var parent := get_parent()
+	if parent:
+		var hud_right := parent.get_node_or_null("HUD_Right")
+		if hud_right and hud_right is Control:
+			var w: float = absf((hud_right as Control).offset_left)
+			if w > 0.0:
+				return w
+	return DEFAULT_RIGHT_HUD_WIDTH
 
 func _auto_scroll() -> void:
 	"""Scroll to the bottom of the log after the current frame processes layout."""

@@ -27,6 +27,7 @@ const WRITE_WHITELIST = [
 	"ArmyListManager.gd",
 	"MultiplayerLobby.gd",
 	"WebLobby.gd",
+	"AIBenchmarkRunner.gd",
 ]
 
 const SCAN_DIRS = ["res://phases", "res://scripts", "res://autoloads", "res://dialogs"]
