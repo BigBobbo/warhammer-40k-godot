@@ -56,6 +56,8 @@ func _run_tests():
 	test_decide_shooting_uses_focus_fire_plan()
 	test_decide_shooting_populates_model_ids()
 	test_focus_fire_plan_reset_on_phase_change()
+	test_shooting_plan_store_and_card()
+	test_shooting_plan_replan_on_new_shooter()
 	test_build_unit_assignments_fallback_populates_model_ids()
 	test_get_alive_model_ids()
 	# T7-6 enhancements
@@ -183,6 +185,9 @@ func _make_ranged_weapon(wname: String = "Bolt rifle", bs: int = 3,
 func _reset_focus_fire_state() -> void:
 	AIDecisionMaker._focus_fire_plan_built = false
 	AIDecisionMaker._focus_fire_plan.clear()
+	AIDecisionMaker._turn_shooting_plan.clear()
+	AIDecisionMaker._last_focus_fire_book.clear()
+	AIDecisionMaker._shooting_replan_reason = ""
 
 # =========================================================================
 # Tests: _calculate_kill_threshold
@@ -406,6 +411,68 @@ func test_decide_shooting_populates_model_ids():
 		if model_ids.size() > 0:
 			_assert(model_ids[0] == "m1", "First model_id is m1 (got %s)" % model_ids[0])
 
+func test_shooting_plan_store_and_card():
+	# COORD-7: _decide_shooting persists the announced plan into
+	# _turn_shooting_plan[player] (with consume tracking) and emits the
+	# "Shooting plan" card as thinking steps (header + two-space lines).
+	_reset_focus_fire_state()
+	var snapshot = _create_test_snapshot()
+	var weapon = _make_ranged_weapon("Bolt rifle", 3, 4, 1, 1, 2, 24)
+	_add_unit(snapshot, "shooter", 2, Vector2(0, 0), "AI Shooter", 5, ["INFANTRY"], [weapon])
+	_add_unit(snapshot, "enemy", 1, Vector2(400, 0), "Enemy", 5, ["INFANTRY"], [], 4, 3, 2)
+	var available = [{"type": "SELECT_SHOOTER", "actor_unit_id": "shooter"}]
+
+	var decision = AIDecisionMaker._decide_shooting(snapshot, available, 2)
+	_assert(decision.get("type", "") == "SHOOT", "SHOOT decision produced (got %s)" % decision.get("type", ""))
+
+	var sp = AIDecisionMaker._turn_shooting_plan.get(2, {})
+	_assert(not sp.is_empty(), "Shooting plan store populated for player 2")
+	_assert(sp.get("replans", -1) == 0, "First plan is replans=0 (got %s)" % str(sp.get("replans")))
+	_assert(sp.get("consumed", {}).has("shooter"), "Acting shooter marked consumed in plan store")
+	_assert(sp.get("shooter_targets", {}).has("AI Shooter"), "Announced shooter->targets map keyed by display name")
+
+	# _decide_shooting is called directly (not via decide(), which is what
+	# attaches _ai_thinking_steps to the result) — read the static buffer.
+	var steps = AIDecisionMaker.take_thinking_steps()
+	var has_header = false
+	var has_focus_line = false
+	for s in steps:
+		if str(s).begins_with("Shooting plan (Round"):
+			has_header = true
+		if str(s).begins_with("  FOCUS "):
+			has_focus_line = true
+	_assert(has_header, "Card header 'Shooting plan (Round N)' emitted as thinking step")
+	_assert(has_focus_line, "FOCUS allocation line emitted as thinking step")
+
+func test_shooting_plan_replan_on_new_shooter():
+	# COORD-7: a SELECT_SHOOTER-eligible unit the plan never accounted for
+	# (mid-phase arrival) triggers a narrated replan instead of silently
+	# dropping to greedy fallback.
+	_reset_focus_fire_state()
+	var snapshot = _create_test_snapshot()
+	var weapon = _make_ranged_weapon("Bolt rifle", 3, 4, 1, 1, 2, 24)
+	_add_unit(snapshot, "shooter_a", 2, Vector2(0, 0), "Squad A", 5, ["INFANTRY"], [weapon])
+	_add_unit(snapshot, "enemy", 1, Vector2(400, 0), "Enemy", 5, ["INFANTRY"], [], 4, 3, 2)
+
+	# First decide: plan built for shooter_a only
+	var decision_a = AIDecisionMaker._decide_shooting(snapshot, [{"type": "SELECT_SHOOTER", "actor_unit_id": "shooter_a"}], 2)
+	_assert(decision_a.get("type", "") == "SHOOT", "Shooter A shoots from initial plan")
+	AIDecisionMaker.take_thinking_steps()  # flush plan-A card steps
+	_assert(AIDecisionMaker._turn_shooting_plan.get(2, {}).get("replans", -1) == 0, "Initial plan replans=0")
+
+	# Mid-phase arrival: shooter_b (never seen by the plan) becomes eligible
+	var weapon_b = _make_ranged_weapon("Bolt rifle", 3, 4, 1, 1, 2, 24)
+	_add_unit(snapshot, "shooter_b", 2, Vector2(0, 80), "Squad B", 5, ["INFANTRY"], [weapon_b])
+	var decision_b = AIDecisionMaker._decide_shooting(snapshot, [{"type": "SELECT_SHOOTER", "actor_unit_id": "shooter_b"}], 2)
+	_assert(decision_b.get("type", "") == "SHOOT", "Shooter B shoots after replan (got %s)" % decision_b.get("type", ""))
+	var sp_b = AIDecisionMaker._turn_shooting_plan.get(2, {})
+	_assert(sp_b.get("replans", -1) == 1, "Replan bumped replans to 1 (got %s)" % str(sp_b.get("replans")))
+	var has_replan_header = false
+	for s in AIDecisionMaker.take_thinking_steps():
+		if str(s).begins_with("Shooting plan (Round") and "replan #1" in str(s):
+			has_replan_header = true
+	_assert(has_replan_header, "Replan card header narrates 'replan #1' with reason")
+
 func test_focus_fire_plan_reset_on_phase_change():
 	_reset_focus_fire_state()
 	AIDecisionMaker._focus_fire_plan_built = true
@@ -419,6 +486,7 @@ func test_focus_fire_plan_reset_on_phase_change():
 
 	_assert(not AIDecisionMaker._focus_fire_plan_built, "Focus fire plan reset when entering non-shooting phase")
 	_assert(AIDecisionMaker._focus_fire_plan.is_empty(), "Focus fire plan data cleared on phase change")
+	_assert(AIDecisionMaker._turn_shooting_plan.is_empty(), "COORD-7 shooting plan store cleared on phase change")
 
 # =========================================================================
 # Tests: _build_unit_assignments_fallback

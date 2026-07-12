@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "0.22.0",
+      "date": "2026-07-12",
+      "summary": "The AI announces a Shooting plan card each shooting phase — focus-fire targets with expected damage, honest replans, and a fire-lanes preview in the movement plan.",
+      "changes": [
+        "New 'Shooting plan' card in the game log at the start of each AI shooting phase: FOCUS lines show each priority target with expected damage vs its remaining wounds (kill %) and which units are firing at it.",
+        "Targets the AI plans to charge instead are listed as 'Soften only'; units with no coordinated allocation are listed as 'Free fire'.",
+        "If the plan changes mid-phase (a target dies early, a new shooter arrives), the AI re-coordinates the remaining shooters and logs a 'replan' card with the reason — no more silent target switches.",
+        "The movement plan card now previews fire lanes: how many units will be in shooting position and the expected priority targets."
+      ]
+    },
+    {
       "version": "0.21.0",
       "date": "2026-07-12",
       "summary": "The AI's game log now opens each turn with a single 'turn intent' card — its stance for the round (e.g. AGGRESSIVE / MELEE army), what the round is worth in VP, which enemies it plans to charge or tie up, and every unit's orders. Fast melee units (Stormboyz, Custodian Guard) also deploy like assault troops now instead of lining up as gunline shooters.",

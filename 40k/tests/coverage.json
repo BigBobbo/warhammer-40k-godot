@@ -3960,6 +3960,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ai.shooting.plan_card",
+      "description": "AI shooting phase opens with a 'Shooting plan' card in the game log: FOCUS allocations with expected damage vs HP and kill %, soften-only lines for planned charge targets, and free-fire lines for uncoordinated shooters.",
+      "scenarios": [
+        "ai_shooting_plan_log_integrity"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.shooting.plan_matches_actions",
+      "description": "Executed 'shoots at' combat headers from shooters listed in the Shooting plan hit only their announced targets (GameEventLog.shooting_plan_integrity() zero mismatches); replans are narrated as new cards, never silent.",
+      "scenarios": [
+        "ai_shooting_plan_log_integrity"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

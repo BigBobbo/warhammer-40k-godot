@@ -1715,23 +1715,33 @@ func _execute_next_action(player: int) -> void:
 	# the left game log stays readable at high verbosity.
 	var thinking_steps = decision.get("_ai_thinking_steps", [])
 	var thinking_context = decision.get("_ai_thinking_context", {})
-	# COORD-3: the once-per-phase army battle plan ("Movement plan: …" plus its
-	# indented per-unit lines) gets its OWN card with a clear header instead of
-	# hiding inside the first acting unit's decision block.
-	var plan_start := -1
-	for ts_i in range(thinking_steps.size()):
-		if str(thinking_steps[ts_i]).begins_with("Movement plan"):
-			plan_start = ts_i
-			break
-	if plan_start >= 0:
-		var plan_end := plan_start + 1
-		while plan_end < thinking_steps.size() and str(thinking_steps[plan_end]).begins_with("  "):
-			plan_end += 1
-		var plan_lines: Array = thinking_steps.slice(plan_start, plan_end)
-		_log_ai_thinking_block(player, str(plan_lines[0]), plan_lines.slice(1), {})
-		var remaining: Array = thinking_steps.slice(0, plan_start)
-		remaining.append_array(thinking_steps.slice(plan_end))
-		thinking_steps = remaining
+	# COORD-3/COORD-7: once-per-phase army plan cards ("Movement plan: …" or
+	# "Shooting plan: …" plus their indented lines) each get their OWN card
+	# with a clear header instead of hiding inside the first acting unit's
+	# decision block. Loop: a decision's steps carry at most one card, but
+	# looping keeps this correct if that ever changes.
+	var plan_card_headers := ["Movement plan", "Shooting plan"]
+	var sliced_a_plan := true
+	while sliced_a_plan:
+		sliced_a_plan = false
+		var plan_start := -1
+		for ts_i in range(thinking_steps.size()):
+			for hdr in plan_card_headers:
+				if str(thinking_steps[ts_i]).begins_with(hdr):
+					plan_start = ts_i
+					break
+			if plan_start >= 0:
+				break
+		if plan_start >= 0:
+			var plan_end := plan_start + 1
+			while plan_end < thinking_steps.size() and str(thinking_steps[plan_end]).begins_with("  "):
+				plan_end += 1
+			var plan_lines: Array = thinking_steps.slice(plan_start, plan_end)
+			_log_ai_thinking_block(player, str(plan_lines[0]), plan_lines.slice(1), {})
+			var remaining: Array = thinking_steps.slice(0, plan_start)
+			remaining.append_array(thinking_steps.slice(plan_end))
+			thinking_steps = remaining
+			sliced_a_plan = true
 	if thinking_steps.size() == 1:
 		_log_ai_thinking(player, thinking_steps[0])
 	elif thinking_steps.size() > 1:

@@ -81,6 +81,21 @@ static func _can_shooter_see_target(shooter_unit_id: String, target_unit_id: Str
 # Stores {unit_id: [{weapon_id, target_unit_id}]} mapping
 static var _focus_fire_plan: Dictionary = {}
 static var _focus_fire_plan_built: bool = false
+# COORD-7: Shooting plan store — mirrors _turn_movement_plan so the announced
+# "Shooting plan" card can be integrity-checked against executed shots and
+# replans are narrated instead of silently degrading to greedy fallback.
+# {player: {round, assignments, replans, shooter_targets}} where
+# shooter_targets maps unit display name -> {target display name: true}.
+# _focus_fire_plan stays the live "remaining work" dict (erase-on-consume) —
+# headless tests poke it directly; this store keeps the full announced plan.
+static var _turn_shooting_plan: Dictionary = {}
+# Side channel from _build_focus_fire_plan: the allocation book
+# {target_id: {name, type, points, kill_threshold, allocated, value,
+#  shooters: [unit names], charge_suppressed}} — the function's return value
+# stays {unit_id: assignments} for existing callers and tests.
+static var _last_focus_fire_book: Dictionary = {}
+# Reason string for the next Shooting plan card when a replan was triggered.
+static var _shooting_replan_reason: String = ""
 
 # Grenade stratagem evaluation — checked once per shooting phase
 static var _grenade_evaluated: bool = false
@@ -1186,6 +1201,11 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 			_focus_fire_plan.clear()
 		_grenade_evaluated = false
 		_focus_fire_plan_logged = false
+		# COORD-7: the shooting plan is a per-shooting-phase commitment
+		if not _turn_shooting_plan.is_empty():
+			_turn_shooting_plan.clear()
+		_last_focus_fire_book.clear()
+		_shooting_replan_reason = ""
 
 	# T7-46: Reset fight order plan when not in fight phase
 	if phase != GameStateData.Phase.FIGHT:
@@ -1321,6 +1341,9 @@ static func _snapshot_planning_state() -> Dictionary:
 		"focus_fire_plan": _focus_fire_plan.duplicate(true),
 		"focus_fire_plan_built": _focus_fire_plan_built,
 		"focus_fire_plan_logged": _focus_fire_plan_logged,
+		"turn_shooting_plan": _turn_shooting_plan.duplicate(true),
+		"last_focus_fire_book": _last_focus_fire_book.duplicate(true),
+		"shooting_replan_reason": _shooting_replan_reason,
 		"grenade_evaluated": _grenade_evaluated,
 		"phase_plan": _phase_plan.duplicate(true),
 		"phase_plan_built": _phase_plan_built.duplicate(true),
@@ -1356,6 +1379,9 @@ static func _restore_planning_state(s: Dictionary) -> void:
 	_focus_fire_plan = s["focus_fire_plan"]
 	_focus_fire_plan_built = s["focus_fire_plan_built"]
 	_focus_fire_plan_logged = s["focus_fire_plan_logged"]
+	_turn_shooting_plan = s["turn_shooting_plan"]
+	_last_focus_fire_book = s["last_focus_fire_book"]
+	_shooting_replan_reason = s["shooting_replan_reason"]
 	_grenade_evaluated = s["grenade_evaluated"]
 	_phase_plan = s["phase_plan"]
 	_phase_plan_built = s["phase_plan_built"]
@@ -4703,6 +4729,24 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			for lt_id in plan_lock_targets:
 				lock_names.append(snapshot.get("units", {}).get(lt_id, {}).get("meta", {}).get("name", lt_id))
 			announce["lock_line"] = "  Tie up in melee: %s (dangerous shooters)" % ", ".join(lock_names.slice(0, 4))
+		# COORD-7: predictive fire-lanes preview from the cross-phase plan.
+		# Phrased as expectation — the authoritative allocation is announced
+		# by the Shooting plan card at shooting-phase start.
+		var plan_lanes = _get_phase_plan(player).get("shooting_lanes", {})
+		announce["fire_line"] = ""
+		if not plan_lanes.is_empty():
+			var lane_counts := {}  # target_id -> shooters with a lane to it
+			for lane_uid in plan_lanes:
+				for lane in plan_lanes[lane_uid]:
+					var lane_tid = str(lane.get("target_id", ""))
+					lane_counts[lane_tid] = int(lane_counts.get(lane_tid, 0)) + 1
+			var lane_tids = lane_counts.keys()
+			lane_tids.sort_custom(func(a, b): return lane_counts[a] > lane_counts[b])
+			var lane_names: Array = []
+			for lane_tid in lane_tids.slice(0, 3):
+				lane_names.append(snapshot.get("units", {}).get(lane_tid, {}).get("meta", {}).get("name", lane_tid))
+			announce["fire_line"] = "  Fire lanes: %d unit(s) in shooting position — expected priority fire on %s" % [
+				plan_lanes.size(), ", ".join(lane_names)]
 		_turn_movement_plan[player] = {
 			"round": battle_round,
 			"assignments": assignments,
@@ -4772,6 +4816,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			_add_thinking_step(str(ci_line))
 		if str(turn_announce.get("lock_line", "")) != "":
 			_add_thinking_step(str(turn_announce.lock_line))
+		if str(turn_announce.get("fire_line", "")) != "":
+			_add_thinking_step(str(turn_announce.fire_line))
 		# COORD-3: verbose army-level battle plan — one line per unit so the
 		# game log tells the WHOLE story of the turn up front, not just the
 		# unit currently acting. Sorted by assignment score (most important first).
@@ -10378,6 +10424,22 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 	# Step 5: Use the SHOOT action for a full shooting sequence
 	# This is the cleanest path - select + assign + confirm in one action
 	if action_types.has("SELECT_SHOOTER"):
+		# COORD-7 replan trigger: an eligible shooter that the plan never
+		# accounted for appeared mid-phase (disembark, extra shooting round).
+		# Rebuild the coordination rather than silently dropping that unit to
+		# greedy fallback. Bounded by 3 replans per phase.
+		if _focus_fire_plan_built:
+			var sp0 = _turn_shooting_plan.get(player, {})
+			if not sp0.is_empty() and int(sp0.get("replans", 0)) < 3:
+				var accounted0 = sp0.get("consumed", {})
+				for sa0 in action_types["SELECT_SHOOTER"]:
+					var sid0 = sa0.get("actor_unit_id", sa0.get("unit_id", ""))
+					if sid0 != "" and not _focus_fire_plan.has(sid0) and not accounted0.has(sid0):
+						var new_name = snapshot.get("units", {}).get(sid0, {}).get("meta", {}).get("name", sid0)
+						_shooting_replan_reason = "%s became eligible after the plan was made" % new_name
+						_focus_fire_plan_built = false
+						break
+
 		# Build focus fire plan if not already built for this shooting phase.
 		# The plan coordinates weapon assignments across ALL shooting units to
 		# concentrate fire on kill thresholds rather than spreading damage.
@@ -10391,34 +10453,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			_focus_fire_plan_built = true
 			print("AIDecisionMaker: Built focus fire plan for %d units, %d target assignments" % [
 				shooter_unit_ids.size(), _focus_fire_plan.size()])
-			# Build focus fire thinking summary for game log
-			var ff_target_summary = {}  # target_name -> count of shooters assigned
-			for ff_uid in _focus_fire_plan:
-				var ff_unit = snapshot.get("units", {}).get(ff_uid, {})
-				var ff_name = ff_unit.get("meta", {}).get("name", ff_uid)
-				var ff_assignments = _focus_fire_plan[ff_uid]
-				var ff_targets = {}
-				for ff_a in ff_assignments:
-					var ff_tid = ff_a.get("target_unit_id", "")
-					if not ff_targets.has(ff_tid):
-						ff_targets[ff_tid] = 0
-					ff_targets[ff_tid] += 1
-				for ff_tid in ff_targets:
-					var ff_target = snapshot.get("units", {}).get(ff_tid, {})
-					var ff_tname = ff_target.get("meta", {}).get("name", ff_tid)
-					print("  Focus fire: %s -> %s (%d weapon(s))" % [ff_name, ff_tname, ff_targets[ff_tid]])
-					ff_target_summary[ff_tname] = ff_target_summary.get(ff_tname, 0) + 1
-			# Log thinking step with focus fire plan summary
-			if not _focus_fire_plan_logged:
-				_focus_fire_plan_logged = true
-				if not ff_target_summary.is_empty():
-					var ff_parts = []
-					for tname in ff_target_summary:
-						ff_parts.append("%s (%d shooter(s))" % [tname, ff_target_summary[tname]])
-					_add_thinking_step("Focus fire plan: %d shooters coordinating — priority targets: %s" % [
-						shooter_unit_ids.size(), ", ".join(ff_parts)])
-				else:
-					_add_thinking_step("Shooting plan: %d units with ranged weapons, evaluating targets" % shooter_unit_ids.size())
+			_store_and_announce_shooting_plan(snapshot, player, shooter_unit_ids)
 
 		# Pick the first available shooter that has a plan
 		# T-108: Skip battle-shocked units — they cannot shoot per 10e core rules.
@@ -10476,6 +10511,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		if ranged_weapons.is_empty():
 			# Remove from plan and skip
 			_focus_fire_plan.erase(selected_unit_id)
+			_mark_shooting_plan_consumed(player, selected_unit_id)
 			return {
 				"type": "SKIP_UNIT",
 				"actor_unit_id": selected_unit_id,
@@ -10500,6 +10536,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			if fallback_enemies.is_empty():
 				print("AIDecisionMaker: T7-48 %s in engagement but no enemies within engagement range — skipping" % unit_name)
 				_focus_fire_plan.erase(selected_unit_id)
+				_mark_shooting_plan_consumed(player, selected_unit_id)
 				return {
 					"type": "SKIP_UNIT",
 					"actor_unit_id": selected_unit_id,
@@ -10511,6 +10548,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		if _focus_fire_plan.has(selected_unit_id):
 			assignments = _focus_fire_plan[selected_unit_id]
 			_focus_fire_plan.erase(selected_unit_id)
+			_mark_shooting_plan_consumed(player, selected_unit_id)
 			# Filter out assignments targeting units that may have been destroyed by earlier shooters
 			# T7-LOS: Also filter out assignments where shooter can't see the target (LoS blocked)
 			var valid_assignments = []
@@ -10526,10 +10564,31 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 					continue
 				valid_assignments.append(a)
 			assignments = valid_assignments
-			# If all plan targets were destroyed, fall back to greedy scoring
 			if assignments.is_empty() and not fallback_enemies.is_empty():
-				assignments = _build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot)
-				print("AIDecisionMaker: Plan targets destroyed, using fallback for %s (%d assignments)" % [unit_name, assignments.size()])
+				# COORD-7: all of this unit's planned targets are gone (killed
+				# ahead of schedule / LoS lost). Instead of a silent greedy
+				# fallback for just this unit, re-coordinate the REMAINING
+				# shooters against live kill thresholds and announce a replan
+				# card — this is the "don't waste fire on dead-on-expectation
+				# targets" behavior, bounded at 3 replans per phase.
+				var sp_b = _turn_shooting_plan.get(player, {})
+				if not sp_b.is_empty() and int(sp_b.get("replans", 0)) < 3:
+					var remaining_ids = []
+					for sa_b in action_types["SELECT_SHOOTER"]:
+						var sid_b = sa_b.get("actor_unit_id", sa_b.get("unit_id", ""))
+						if sid_b != "":
+							remaining_ids.append(sid_b)
+					_shooting_replan_reason = "%s's planned target(s) destroyed ahead of schedule" % unit_name
+					_focus_fire_plan = _build_focus_fire_plan(snapshot, remaining_ids, player)
+					_store_and_announce_shooting_plan(snapshot, player, remaining_ids)
+					if _focus_fire_plan.has(selected_unit_id):
+						assignments = _focus_fire_plan[selected_unit_id]
+						_focus_fire_plan.erase(selected_unit_id)
+					_mark_shooting_plan_consumed(player, selected_unit_id)
+					print("AIDecisionMaker: COORD-7 replan after destroyed targets — %s now has %d assignments" % [unit_name, assignments.size()])
+				if assignments.is_empty():
+					assignments = _build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot)
+					print("AIDecisionMaker: Plan targets destroyed, using fallback for %s (%d assignments)" % [unit_name, assignments.size()])
 			else:
 				print("AIDecisionMaker: Using focus fire plan for %s (%d assignments)" % [unit_name, assignments.size()])
 		else:
@@ -10611,6 +10670,101 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 # =============================================================================
 # FOCUS FIRE PLAN BUILDER
 # =============================================================================
+
+static func _store_and_announce_shooting_plan(snapshot: Dictionary, player: int, shooter_unit_ids: Array) -> void:
+	"""COORD-7: persist the freshly built focus-fire plan into
+	_turn_shooting_plan[player] and emit the 'Shooting plan' card.
+
+	The card's first step is the header; every following step starts with two
+	spaces so AIPlayer's card slicer promotes the whole block to its own log
+	card. (Header must keep starting with "Shooting plan" — the slicer and
+	GameEventLog.shooting_plan_integrity() match on that. It must NOT contain
+	the substring "Movement plan", which the movement gate keys on.)"""
+	var sp_round = int(snapshot.get("meta", {}).get("battle_round", 1))
+	var prior_sp = _turn_shooting_plan.get(player, {})
+	var sp_replans = int(prior_sp.get("replans", -1)) + 1
+
+	# Per-shooter announced target names (display names — the integrity gate
+	# matches them against 'PX: <shooter> shoots at <target>' combat headers).
+	var shooter_targets = {}
+	# Units the plan has accounted for: planned units are accounted when they
+	# act (consume-time), unplanned units immediately (they free-fire greedy —
+	# their reappearance in SELECT_SHOOTER must not trigger replans).
+	var accounted = {}
+	var free_fire_names = []
+	for sid in shooter_unit_ids:
+		if not _focus_fire_plan.has(sid):
+			accounted[sid] = true
+			free_fire_names.append(snapshot.get("units", {}).get(sid, {}).get("meta", {}).get("name", sid))
+	for sp_uid in _focus_fire_plan:
+		var sp_uname = snapshot.get("units", {}).get(sp_uid, {}).get("meta", {}).get("name", sp_uid)
+		if not shooter_targets.has(sp_uname):
+			shooter_targets[sp_uname] = {}
+		for sp_a in _focus_fire_plan[sp_uid]:
+			var sp_tid = sp_a.get("target_unit_id", "")
+			var sp_tname = snapshot.get("units", {}).get(sp_tid, {}).get("meta", {}).get("name", sp_tid)
+			shooter_targets[sp_uname][sp_tname] = true
+
+	_turn_shooting_plan[player] = {
+		"round": sp_round,
+		"assignments": _focus_fire_plan.duplicate(true),
+		"consumed": accounted,
+		"replans": sp_replans,
+		"shooter_targets": shooter_targets,
+	}
+
+	# --- The card ---
+	var book = _last_focus_fire_book
+	var focused = []
+	var softened = []
+	var expected_kills = 0
+	for tid in book:
+		var b = book[tid]
+		if b.get("charge_suppressed", false) and b.get("allocated", 0.0) <= 0.0:
+			softened.append(b)
+			continue
+		focused.append(b)
+		if b.get("kill_threshold", 0.0) > 0.0 and b.get("allocated", 0.0) >= b.get("kill_threshold", 0.0):
+			expected_kills += 1
+	focused.sort_custom(func(a, b): return a.get("value", 0.0) > b.get("value", 0.0))
+
+	var header = "Shooting plan (Round %d" % sp_round
+	if sp_replans > 0:
+		header += ", replan #%d" % sp_replans
+	header += "): %d shooters — %d target(s), %d expected kill(s)" % [
+		shooter_unit_ids.size(), focused.size(), expected_kills]
+	if sp_replans > 0 and _shooting_replan_reason != "":
+		header += " — %s" % _shooting_replan_reason
+	_shooting_replan_reason = ""
+	_add_thinking_step(header)
+	_focus_fire_plan_logged = true
+
+	if _last_vp_stakes_line != "":
+		_add_thinking_step("  Playing for: %s" % _last_vp_stakes_line.trim_prefix("VP stakes this round "))
+
+	var focus_cap = 10
+	for b in focused:
+		if focus_cap <= 0:
+			_add_thinking_step("  … and %d more target(s)" % (focused.size() - 10))
+			break
+		focus_cap -= 1
+		var kt = b.get("kill_threshold", 0.0)
+		var alloc = b.get("allocated", 0.0)
+		var pct = (alloc / kt * 100.0) if kt > 0.0 else 0.0
+		_add_thinking_step("  FOCUS %s [%s, %dpts]: %.1f expected vs %.0f HP (%.0f%% kill) — %s" % [
+			b.get("name", "?"), b.get("type", "?"), b.get("points", 0),
+			alloc, kt, pct, ", ".join(b.get("shooters", []))])
+	for b in softened:
+		_add_thinking_step("  Soften only: %s — planned charge target, shooting deprioritized" % b.get("name", "?"))
+	for fname in free_fire_names:
+		_add_thinking_step("  Free fire: %s — no coordinated allocation, targets opportunistically" % fname)
+
+static func _mark_shooting_plan_consumed(player: int, unit_id: String) -> void:
+	"""COORD-7: record that a planned shooter has acted (or been skipped) so
+	its later absence from _focus_fire_plan is not read as a mid-phase
+	arrival needing a replan."""
+	if _turn_shooting_plan.has(player):
+		_turn_shooting_plan[player].get("consumed", {})[unit_id] = true
 
 static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array, player: int) -> Dictionary:
 	"""
@@ -10696,6 +10850,9 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 	var kill_thresholds = {}
 	# target_value[enemy_id] = priority score for killing this target
 	var target_values = {}
+	# COORD-7: targets deprioritized because they are planned charge targets —
+	# surfaced in the Shooting plan card as "Soften only" lines.
+	var suppressed_targets = {}
 
 	# T7-24: Calculate tempo modifier once for all targets
 	var shooting_tempo = _calculate_tempo_modifier(snapshot, player)
@@ -10725,6 +10882,7 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			print("AIDecisionMaker: [PHASE-PLAN] Suppressing shooting priority for %s (planned charge target, %.2f -> %.2f)" % [
 				enemy_name, base_value, base_value * get_param("PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET", PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET)])
 			base_value *= get_param("PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET", PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET)
+			suppressed_targets[enemy_id] = true
 
 		target_values[enemy_id] = base_value
 
@@ -10895,6 +11053,36 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		var tname = target.get("meta", {}).get("name", target_id)
 		var eff = _calculate_efficiency_multiplier(w, target)
 		print("AIDecisionMaker:   %s [%s] -> %s (efficiency: %.2f)" % [wname, role_name, tname, eff])
+
+	# COORD-7: export the allocation book for the Shooting plan card. Side
+	# channel keeps this function's return shape ({unit_id: assignments})
+	# unchanged for existing callers and headless tests.
+	_last_focus_fire_book = {}
+	var book_shooters = {}  # enemy_id -> {unit display name: true}
+	for uid in plan:
+		var pu = snapshot.get("units", {}).get(uid, {})
+		var pu_name = pu.get("meta", {}).get("name", uid)
+		for a in plan[uid]:
+			var btid = a.get("target_unit_id", "")
+			if not book_shooters.has(btid):
+				book_shooters[btid] = {}
+			book_shooters[btid][pu_name] = true
+	for enemy_id in enemies:
+		var b_alloc = allocated_damage.get(enemy_id, 0.0)
+		var b_suppressed = suppressed_targets.has(enemy_id)
+		if b_alloc <= 0.0 and not b_suppressed:
+			continue
+		var be = enemies[enemy_id]
+		_last_focus_fire_book[enemy_id] = {
+			"name": be.get("meta", {}).get("name", enemy_id),
+			"type": _target_type_name(_classify_target_type(be)),
+			"points": int(be.get("meta", {}).get("points", 0)),
+			"kill_threshold": kill_thresholds.get(enemy_id, 0.0),
+			"allocated": b_alloc,
+			"value": target_values.get(enemy_id, 0.0),
+			"shooters": book_shooters.get(enemy_id, {}).keys(),
+			"charge_suppressed": b_suppressed,
+		}
 
 	return plan
 

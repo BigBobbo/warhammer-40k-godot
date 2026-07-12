@@ -1,0 +1,87 @@
+{
+  "id": "ai_shooting_plan_log_integrity",
+  "covers": [
+    "ai.shooting.plan_card",
+    "ai.shooting.plan_matches_actions"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 23,
+  "description": "COORD-7 gate: P2 (Orks, AI at Hard) plays a live Shooting phase. Asserts (a) the army-wide 'Shooting plan' card (FOCUS allocations with expected damage vs HP, soften-only charge targets, free-fire units) reaches GameEventLog as its own card, and (b) the plan is honest — executed 'shoots at' combat headers from shooters listed in the plan hit only their announced targets (GameEventLog.shooting_plan_integrity() reports zero mismatches), with replans narrated as new cards rather than silent greedy fallback. Screenshots capture the log panel with the plan card visible.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"}, {2: 2})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.set_ai_speed_preset(0)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.clear()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_KAPTIN_BADRUKK_A\"][\"models\"][0].merge({\"position\": {\"x\": 850.0, \"y\": 350.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WEIRDBOY_J\"][\"models\"][0].merge({\"position\": {\"x\": 1100.0, \"y\": 400.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WARBOSS_IN_MEGA_ARMOUR_D\"][\"models\"][0].merge({\"position\": {\"x\": 600.0, \"y\": 500.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(2)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(8)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shooting_plan_card_in_log",
+      "region": [0, 105, 420, 760]
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 22.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.has_ai_entry_containing_any([\"Shooting plan\"])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.shooting_plan_integrity()[\"plans\"] >= 1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.shooting_plan_integrity()[\"checked\"] >= 1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.shooting_plan_integrity()[\"mismatches\"].size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_shots_match_announced_plan",
+      "region": [0, 105, 420, 760]
+    }
+  ]
+}

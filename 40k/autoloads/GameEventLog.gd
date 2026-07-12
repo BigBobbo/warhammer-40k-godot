@@ -656,5 +656,58 @@ func movement_plan_integrity() -> Dictionary:
 			mismatches.append("%s -> %s (planned: %s)" % [uname_a, target, str(plan_map[uname_a].keys())])
 	return {"plans": plans, "checked": checked, "mismatches": mismatches}
 
+func shooting_plan_integrity() -> Dictionary:
+	"""COORD-7 gate: do the executed shots logged after a 'Shooting plan'
+	card match the plan's announced FOCUS allocations? Returns
+	{plans, checked, mismatches: [line, ...]}.
+
+	FOCUS lines carry the shooter list after an em-dash; a combat header
+	'PX: <shooter> shoots at <target>' from a listed shooter must hit one of
+	that shooter's announced targets. Shooters absent from the plan card
+	(free-fire / greedy fallback) are skipped, mirroring how the movement
+	gate skips unplanned units. A replan card resets the expectation — shots
+	after it are checked against the NEW card."""
+	var plans := 0
+	var checked := 0
+	var mismatches: Array = []
+	var plan_map := {}  # shooter display name -> {target display name: true}
+	var focus_re := RegEx.new()
+	focus_re.compile("^  FOCUS (.+?) \\[.*\\) — (.+)$")
+	var shot_re := RegEx.new()
+	shot_re.compile("^P\\d: (.+?) shoots at (.+?)( — .*)?$")
+	for e in entries:
+		var etype = str(e.get("type", ""))
+		var text = str(e.get("text", ""))
+		if etype == "ai_thinking_block" and "Shooting plan" in text.split("\n")[0]:
+			plans += 1
+			plan_map.clear()
+			for line in text.split("\n"):
+				var m = focus_re.search(line)
+				if m:
+					var tname = m.get_string(1).strip_edges()
+					for shooter_name in m.get_string(2).split(", "):
+						var sn = shooter_name.strip_edges()
+						if sn == "":
+							continue
+						if not plan_map.has(sn):
+							plan_map[sn] = {}
+						plan_map[sn][tname] = true
+			continue
+		if etype != "combat_header" and etype != "p1_action" and etype != "p2_action":
+			continue
+		if plan_map.is_empty():
+			continue
+		var sm = shot_re.search(text)
+		if sm == null:
+			continue
+		var shooter = sm.get_string(1)
+		var target = sm.get_string(2)
+		if not plan_map.has(shooter):
+			continue
+		checked += 1
+		if not plan_map[shooter].has(target):
+			mismatches.append("%s -> %s (planned: %s)" % [shooter, target, str(plan_map[shooter].keys())])
+	return {"plans": plans, "checked": checked, "mismatches": mismatches}
+
 func clear() -> void:
 	entries.clear()
