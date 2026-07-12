@@ -106,6 +106,18 @@ The wire protocol is one JSON object per line:
   on-disk file is full resolution.
 - `simulate_click`, `simulate_mouse_move`, `simulate_drag`,
   `simulate_key_press`, `simulate_action`
+- `simulate_joy_button` — inject a joypad button press+release through the
+  OS-event pipeline (`Input.parse_input_event`), so InputMap actions, `ui_*`
+  focus navigation and InputDeviceManager device detection all react as with
+  a real pad. Params: `button_index` (JoyButton enum: 0=A 1=B 2=X 3=Y
+  4=Back/View 6=Start/Menu 9=LB 10=RB 11–14=D-pad), optional `duration`,
+  `device`.
+- `simulate_joy_axis` — push a joypad axis to `value`, hold `duration`
+  seconds, then return to neutral unless `auto_release: false`. Held axes
+  feed action strengths, so per-frame consumers (pad camera pan / trigger
+  zoom) integrate over the hold. Params: `axis` (JoyAxis enum: 0/1 left
+  stick, 2/3 right stick, 4/5 triggers), `value`, `duration`, `device`,
+  `auto_release`.
 - `get_scene_state` — recursive tree dump with positions, visibility, and
   script-defined properties
 - `execute_script` — evaluate GDScript against an optional target node.

@@ -1,0 +1,30 @@
+{
+  "id": "pad_m0_menu_nav",
+  "covers": ["controller.m0.menu_focus_nav"],
+  "description": "M0 controller foundations: the main menu is fully pad-navigable. Focus starts on Start Game, D-pad (joypad button 12) walks the button stack, A (button 0) opens Settings which lands focus on its Close button, pressing A there closes Settings and hands focus back to the Settings button.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "str(main.get_viewport().gui_get_focus_owner().name)", "equals": "StartButton" },
+    { "act": "screenshot", "label": "01_menu_focus_start" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "execute_script", "script": "str(main.get_viewport().gui_get_focus_owner().name)", "equals": "MultiplayerButton" },
+    { "act": "execute_script", "script": "PadHintBar.get_node(\"PadHintPanel\").visible", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "execute_script", "script": "str(main.get_viewport().gui_get_focus_owner().name)", "equals": "SettingsButton" },
+    { "act": "screenshot", "label": "02_focus_on_settings" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner().text", "equals": "Close" },
+    { "act": "screenshot", "label": "03_settings_open_focus_close" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "str(main.get_viewport().gui_get_focus_owner().name)", "equals": "SettingsButton" },
+    { "act": "screenshot", "label": "04_settings_closed_focus_restored" }
+  ]
+}

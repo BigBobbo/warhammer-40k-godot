@@ -846,6 +846,15 @@ func get_reinforcement_row_count() -> int:
 			count += 1
 	return count
 
+# Read-only accessor for tests/scenarios: the current unit-list row texts.
+# Used to assert duplicate squads render distinct (display_name) rows.
+func get_unit_list_texts() -> Array:
+	var out := []
+	if unit_list:
+		for i in range(unit_list.get_item_count()):
+			out.append(unit_list.get_item_text(i))
+	return out
+
 func _refresh_unit_list() -> void:
 	if not unit_list or not current_phase:
 		return
@@ -893,7 +902,11 @@ func _refresh_unit_list() -> void:
 		var unit_id = action.get("actor_unit_id", "")
 		if unit_id != "" and not added_units.has(unit_id):
 			var unit = current_phase.get_unit(unit_id)
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			# Use display_name so duplicate squads (e.g. "Custodian Guard Alpha"
+			# vs "Custodian Guard Beta") stay distinguishable in the unit list
+			# instead of collapsing to an identical "Custodian Guard" for each.
+			var _uname_meta = unit.get("meta", {})
+			var unit_name = _uname_meta.get("display_name", _uname_meta.get("name", unit_id))
 			var action_type = action.get("type", "")
 
 			# Show attached character name alongside bodyguard unit

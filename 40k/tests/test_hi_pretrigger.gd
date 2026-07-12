@@ -67,7 +67,12 @@ func _run_tests():
 		"actor_unit_id": "U_WARBOSS_B",
 		"payload": {"target_unit_ids": ["U_CUSTODIAN_GUARD_B"]}
 	})
-	# (Fire Overwatch is auto-declined by AI logic when no eligible shooter)
+	# The defender's Fire Overwatch window must be declined by the DEFENDER.
+	# The AI used to auto-decline it even for a human defender (the "AI
+	# hijacking the human defender's window" bug fixed in #563); with that
+	# gone, this headless test plays the defender's part explicitly.
+	if phase.awaiting_fire_overwatch:
+		phase.execute_action({"type": "DECLINE_FIRE_OVERWATCH", "player": 1})
 
 	# Issue #329: pass deterministic rng_seed so the 2D6 charge roll never flakes.
 	# Warboss only needs ~1.75" to reach engagement range, so any seed works for

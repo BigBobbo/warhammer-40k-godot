@@ -54,6 +54,9 @@ func _ready() -> void:
 	_build_ui()
 	_load_current_settings()
 	_connect_signals()
+	# M0 controller foundations: land pad focus somewhere visible so D-pad
+	# navigation works the moment the overlay opens.
+	_close_button.grab_focus()
 	print("[SettingsMenu] P3-111: Ready")
 
 func _build_ui() -> void:
@@ -232,6 +235,7 @@ func _create_tab_scroll() -> ScrollContainer:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	var content = VBoxContainer.new()

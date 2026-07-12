@@ -61,6 +61,9 @@ var current_fighter_owner: int = -1
 var active_melee_allocation_overlay: WoundAllocationOverlay = null
 var processing_melee_saves_signal: bool = false
 
+# STAGED FIGHT: the sequence dialog showing hit/wound pauses + Command Re-roll
+var active_fight_sequence_dialog = null
+
 # UI Elements
 var unit_selector: ItemList
 var attack_tree: Tree
@@ -472,6 +475,11 @@ func set_phase(phase: BasePhase) -> void:
 		# Acrobatic Escape signal
 		if phase.has_signal("acrobatic_escape_available") and not phase.acrobatic_escape_available.is_connected(_on_acrobatic_escape_available):
 			phase.acrobatic_escape_available.connect(_on_acrobatic_escape_available)
+		# STAGED FIGHT: open the sequence dialog when a fighter's attacks are
+		# confirmed (before ROLL_DICE in the same batch), so the dialog catches
+		# every dice_rolled / fight_stage_paused emission.
+		if phase.has_signal("fighting_begun") and not phase.fighting_begun.is_connected(_on_fighting_begun_staged):
+			phase.fighting_begun.connect(_on_fighting_begun_staged)
 
 		print("DEBUG: FightController signals connected, setting up UI")
 
@@ -553,7 +561,9 @@ func _refresh_fight_sequence() -> void:
 	for i in range(fight_sequence.size()):
 		var unit_id = fight_sequence[i]
 		var unit = current_phase.get_unit(unit_id)
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		# display_name keeps duplicate squads (e.g. "... Alpha"/"... Beta") distinct.
+		var _uname_meta = unit.get("meta", {})
+		var unit_name = _uname_meta.get("display_name", _uname_meta.get("name", unit_id))
 		
 		# Add status indicators
 		if i < current_fight_index:
@@ -857,7 +867,9 @@ func _refresh_fighter_list() -> void:
 	for i in range(fight_sequence.size()):
 		var unit_id = fight_sequence[i]
 		var unit = current_phase.get_unit(unit_id)
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		# display_name keeps duplicate squads (e.g. "... Alpha"/"... Beta") distinct.
+		var _uname_meta = unit.get("meta", {})
+		var unit_name = _uname_meta.get("display_name", _uname_meta.get("name", unit_id))
 		
 		# Add status indicators
 		if unit_id in units_that_fought:
@@ -1922,6 +1934,56 @@ func _on_attacks_confirmed(assignments: Array) -> void:
 	}
 	print("[FightController] Sending BATCH_FIGHT_ACTIONS with %d sub-actions" % sub_actions.size())
 	emit_signal("fight_action_requested", batch_action)
+
+# =============================================================================
+# STAGED FIGHT: sequence dialog (hit pause / wound pause / Command Re-roll)
+# =============================================================================
+
+func _on_fighting_begun_staged(unit_id: String) -> void:
+	# The staged sequence only runs in non-networked play for human attackers —
+	# mirror FightPhase._should_stage_fight so we never open a dialog that will
+	# get no pause events.
+	if NetworkManager.is_networked():
+		return
+	var fighter_owner = GameState.get_unit(unit_id).get("owner", -1)
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.get("enabled") and ai_player_node.is_ai_player(fighter_owner):
+		return
+
+	# Replace any dialog left over from a previous activation.
+	if active_fight_sequence_dialog != null and is_instance_valid(active_fight_sequence_dialog):
+		active_fight_sequence_dialog.queue_free()
+		active_fight_sequence_dialog = null
+
+	var dialog_script = load("res://dialogs/FightSequenceDialog.gd")
+	if not dialog_script:
+		push_error("FightController: Failed to load FightSequenceDialog.gd")
+		return
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	var fighter_name = GameState.get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	# Add to the tree FIRST (_ready builds the UI nodes), THEN setup() — which
+	# connects the phase signals. Both happen during CONFIRM processing, before
+	# ROLL_DICE runs in the same batch, so no dice/pause event is missed.
+	get_tree().root.add_child(dialog)
+	dialog.setup(current_phase, fighter_name)
+	dialog.staged_continue_requested.connect(_on_fight_staged_continue_requested)
+	dialog.staged_reroll_requested.connect(_on_fight_staged_reroll_requested)
+	dialog.popup_centered()
+	active_fight_sequence_dialog = dialog
+	print("[FightController] FightSequenceDialog opened for %s" % fighter_name)
+
+func _on_fight_staged_continue_requested(next_step: String) -> void:
+	var action_type = "CONTINUE_TO_WOUNDS" if next_step == "wounds" else "CONTINUE_TO_SAVES"
+	print("[FightController] Staged continue: %s" % action_type)
+	emit_signal("fight_action_requested", {"type": action_type})
+
+func _on_fight_staged_reroll_requested(stage: String, die_index: int) -> void:
+	print("[FightController] Staged Command Re-roll: %s die %d" % [stage, die_index])
+	emit_signal("fight_action_requested", {
+		"type": "USE_FIGHT_REROLL",
+		"payload": {"stage": stage, "die_index": die_index}
+	})
 
 func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	"""Show consolidate dialog and enable interactive movement"""

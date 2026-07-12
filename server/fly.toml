@@ -2,6 +2,20 @@
 app = "warhammer-40k-godot"
 primary_region = "ams"
 
+# ⚠ SINGLE MACHINE ONLY — the save/army database is a plain SQLite file on the
+# `game_data` volume below. Fly volumes are single-attach: each extra machine
+# gets its OWN separate volume, so a 2nd machine has an EMPTY database. With
+# auto_start/min_machines_running=0, requests route to whichever machine wakes,
+# and players then see their online saves appear and vanish at random (they hit
+# the machine with data vs. the empty one). This app MUST run exactly ONE
+# machine on ONE volume. If saves "disappear":
+#   fly machines list -a warhammer-40k-godot     # expect exactly ONE machine
+#   fly volumes  list -a warhammer-40k-godot     # expect exactly ONE game_data volume
+# Destroy any extra machine and its empty volume (keep the one whose volume holds
+# the data — check with `fly volumes list` block counts / the boot log line
+# "Persistence at boot: N saved game(s)"). Do NOT `fly scale count 2` or add HA
+# machines without first moving to a replicated store (e.g. LiteFS) or Postgres.
+
 [build]
   dockerfile = "Dockerfile"
 

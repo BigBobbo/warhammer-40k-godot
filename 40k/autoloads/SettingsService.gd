@@ -144,6 +144,9 @@ func _ready() -> void:
 	_setup_audio_buses()
 	_apply_audio_settings()
 
+	# M0 controller foundations: the persisted UI Scale finally has a consumer.
+	_apply_ui_scale()
+
 	# Initialize StateSerializer with settings
 	if StateSerializer:
 		StateSerializer.set_pretty_print(save_files_pretty_print)
@@ -246,9 +249,18 @@ func set_audio_muted(muted: bool) -> void:
 
 func set_ui_scale(value: float) -> void:
 	ui_scale = clampf(value, 0.5, 2.0)
+	_apply_ui_scale()
 	ui_scale_changed.emit(ui_scale)
 	_save_settings()
 	print("[SettingsService] UI scale set to %.2f" % ui_scale)
+
+func _apply_ui_scale() -> void:
+	# With stretch mode canvas_items the whole canvas multiplies by the
+	# window's content scale — this is what makes the UI Scale slider
+	# actually resize the HUD (it was persisted but consumed by nothing).
+	var w = get_window()
+	if w:
+		w.content_scale_factor = ui_scale
 
 func set_animation_speed(value: float) -> void:
 	animation_speed = clampf(value, 0.25, 3.0)

@@ -317,6 +317,10 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_hover_board_at(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
+		"simulate_joy_button":
+			rec.merge(await _do_simulate_joy_button(step), true)
+		"simulate_joy_axis":
+			rec.merge(await _do_simulate_joy_axis(step), true)
 		"expect_state":
 			rec.merge(_do_expect_state(step), true)
 		"expect_cp":
@@ -638,6 +642,60 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	return {"pass": true}
 
 
+func _do_simulate_joy_button(step: Dictionary) -> Dictionary:
+	# M0 controller support: inject a raw joypad button press+release through
+	# the OS-event pipeline (Input.parse_input_event) so InputMap actions,
+	# ui_* focus navigation and InputDeviceManager device detection all react
+	# as with a real pad. JoyButton enum: 0=A 1=B 2=X 3=Y 4=Back(View)
+	# 6=Start(Menu) 9=LB 10=RB 11-14=D-pad up/down/left/right.
+	if not step.has("button_index"):
+		return {"pass": false, "error": "simulate_joy_button needs `button_index`"}
+	var button_index: int = int(step["button_index"])
+	var device: int = int(step.get("device", 0))
+	var press := InputEventJoypadButton.new()
+	press.device = device
+	press.button_index = button_index as JoyButton
+	press.pressed = true
+	Input.parse_input_event(press)
+	await get_tree().process_frame
+	var release := InputEventJoypadButton.new()
+	release.device = device
+	release.button_index = button_index as JoyButton
+	release.pressed = false
+	Input.parse_input_event(release)
+	await get_tree().process_frame
+	return {"pass": true, "button_index": button_index}
+
+
+func _do_simulate_joy_axis(step: Dictionary) -> Dictionary:
+	# Push a joypad axis to `value`, hold it for `hold_s` seconds, then return
+	# it to neutral unless auto_release=false. While held, the axis feeds
+	# action strengths so per-frame consumers (pad camera pan / trigger zoom)
+	# integrate over the hold. JoyAxis enum: 0/1 left stick, 2/3 right stick,
+	# 4/5 triggers (0..1).
+	if not step.has("axis"):
+		return {"pass": false, "error": "simulate_joy_axis needs `axis`"}
+	var axis: int = int(step["axis"])
+	var value: float = float(step.get("value", 1.0))
+	var hold_s: float = float(step.get("hold_s", 0.3))
+	var device: int = int(step.get("device", 0))
+	var motion := InputEventJoypadMotion.new()
+	motion.device = device
+	motion.axis = axis as JoyAxis
+	motion.axis_value = value
+	Input.parse_input_event(motion)
+	if hold_s > 0.0:
+		await get_tree().create_timer(hold_s).timeout
+	if bool(step.get("auto_release", true)):
+		var neutral := InputEventJoypadMotion.new()
+		neutral.device = device
+		neutral.axis = axis as JoyAxis
+		neutral.axis_value = 0.0
+		Input.parse_input_event(neutral)
+		await get_tree().process_frame
+	return {"pass": true, "axis": axis, "value": value, "hold_s": hold_s}
+
+
 func _do_expect_state(step: Dictionary) -> Dictionary:
 	var path: String = str(step.get("path", ""))
 	if path == "":
@@ -941,6 +999,37 @@ func _do_expect_baseline_unchanged(_step: Dictionary) -> Dictionary:
 # stays 1 even after firing concurrent recreates. Size-independent, so it is
 # robust to fixture changes. Callable from `execute_script` steps as a bare
 # `max_tokens_per_model()` (the runner is the Expression base instance).
+# Shape-aware minimum edge-to-edge distance (inches) between the alive models
+# of two units, straight from GameState. Callable from `execute_script` steps
+# as `min_edge_distance_between_units("U_A", "U_B")` — e.g. with expect_max 2.0
+# to assert a completed charge really stands in engagement range.
+func min_edge_distance_between_units(unit_a_id: String, unit_b_id: String) -> float:
+	var units = GameState.state.get("units", {})
+	var ua = units.get(unit_a_id, {})
+	var ub = units.get(unit_b_id, {})
+	var best := 9999.0
+	for ma in ua.get("models", []):
+		if not ma.get("alive", true) or ma.get("position") == null:
+			continue
+		for mb in ub.get("models", []):
+			if not mb.get("alive", true) or mb.get("position") == null:
+				continue
+			best = min(best, Measurement.model_to_model_distance_inches(ma, mb))
+	return best
+
+# Count GameEventLog entries whose text contains `needle`. Callable from
+# `execute_script` steps, e.g. `event_log_count_containing("charge move failed")`
+# with equals 0 to assert a failure message never reached the player-facing log.
+func event_log_count_containing(needle: String) -> int:
+	var log_node := get_tree().root.get_node_or_null("GameEventLog")
+	if log_node == null:
+		return -1
+	var n := 0
+	for e in log_node.get_all_entries():
+		if str(e.get("text", "")).find(needle) != -1:
+			n += 1
+	return n
+
 func max_tokens_per_model() -> int:
 	var scene := get_tree().current_scene
 	if scene == null:

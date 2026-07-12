@@ -93,6 +93,47 @@ npm run test:e2e  # boots the server on a temp DB and drives the real page
                   # headless (Playwright; uses /opt/pw-browsers/chromium)
 ```
 
+## Save & army persistence on fly.io (read this if "online saves disappear")
+
+Saves and army lists are stored in a single **SQLite** file
+(`DB_PATH=/data/persistence.db`) on a fly.io **volume** named `game_data`. The
+server boots durable — a save survives the machine's auto-stop/auto-start cycle
+(verified: write → SIGTERM → reboot → still present) — and on shutdown
+`db.close()` checkpoints the WAL. At boot it logs `Persistence at boot: N saved
+game(s), M army list(s)` so you can see immediately whether the volume that came
+up has the data.
+
+**The one failure mode to know about: more than one machine.** Fly volumes are
+*single-attach* — each machine gets its **own** `game_data` volume. If the app
+ever runs 2+ machines (an accidental `fly deploy` that leaves the old machine, a
+`fly scale count 2`, or fly's HA default), the second machine has a **separate,
+empty** database. With `auto_start_machines` + `min_machines_running = 0`,
+requests route to whichever machine wakes, so players see their online saves
+**appear and vanish at random** depending on which machine served the request.
+This looks exactly like "my saved games aren't showing" even though the data is
+safe on the *other* machine's volume.
+
+Keep it to **exactly one machine on one volume**:
+
+```bash
+fly machines list -a warhammer-40k-godot   # expect ONE machine
+fly volumes  list -a warhammer-40k-godot   # expect ONE game_data volume
+# If there are extras: identify the volume WITH the data (its machine's boot log
+# shows "Persistence at boot: N saved game(s)" with N > 0), then destroy the
+# empty extra machine + its volume:
+fly machines destroy <empty-machine-id> -a warhammer-40k-godot --force
+fly volumes  destroy <empty-volume-id>  -a warhammer-40k-godot
+```
+
+Do not add HA machines without first moving to a replicated store
+([LiteFS](https://fly.io/docs/litefs/)) or an external database (fly Postgres);
+plain SQLite-on-a-volume assumes a single node.
+
+The game client is resilient to a briefly-unreachable server (it retries
+cold-start failures and shows a **⟳ Refresh** button + a clear error instead of
+a blank list), but it cannot paper over a split database — that must be fixed
+here, at the deployment.
+
 ## Licensing
 
 The dataset is CC BY 4.0 (Alpaca Software and the 40kdc community

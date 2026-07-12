@@ -189,6 +189,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _delegate_to_current_phase(action)
 		"BATCH_FIGHT_ACTIONS":
 			return _delegate_to_current_phase(action)
+		"USE_FIGHT_REROLL":  # Staged fight: Command Re-roll a hit/wound die
+			return _delegate_to_current_phase(action)
 
 		# Roll-off actions — deployment-order roll-off (pre-deployment) and the
 		# separate first-turn roll-off (post-deployment).

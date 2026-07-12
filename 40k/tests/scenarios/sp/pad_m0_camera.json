@@ -1,0 +1,33 @@
+{
+  "id": "pad_m0_camera",
+  "covers": ["controller.m0.camera", "controller.m0.ui_scale"],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "M0 controller foundations in-game: joypad bindings registered (ui_accept has a pad button), right-stick axis pans the board camera, right trigger zooms in, the hint bar appears in pad mode, and the UI Scale setting visibly drives the window content scale (and is restored).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "execute_script", "script": "InputDeviceManager.has_joy_ui_accept()", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.registered_actions.size()", "expect_min": 6 },
+    { "act": "screenshot", "label": "01_loaded" },
+
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"cam_x0\", main.view_offset.x)" },
+    { "act": "simulate_joy_axis", "axis": 2, "value": 1.0, "hold_s": 0.7 },
+    { "act": "execute_script", "script": "abs(main.view_offset.x - InputDeviceManager.get_meta(\"cam_x0\"))", "expect_min": 30 },
+    { "act": "screenshot", "label": "02_panned" },
+
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"zoom0\", main.view_zoom)" },
+    { "act": "simulate_joy_axis", "axis": 5, "value": 1.0, "hold_s": 0.5 },
+    { "act": "execute_script", "script": "main.view_zoom - InputDeviceManager.get_meta(\"zoom0\")", "expect_min": 0.03 },
+    { "act": "screenshot", "label": "03_zoomed_in" },
+    { "act": "execute_script", "script": "PadHintBar.get_node(\"PadHintPanel\").visible", "equals": true },
+
+    { "act": "execute_script", "script": "SettingsService.set_ui_scale(1.4)" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "execute_script", "script": "abs(main.get_window().content_scale_factor - 1.4)", "expect_max": 0.001 },
+    { "act": "screenshot", "label": "04_ui_scale_140" },
+
+    { "act": "execute_script", "script": "SettingsService.set_ui_scale(1.0)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "abs(main.get_window().content_scale_factor - 1.0)", "expect_max": 0.001 }
+  ]
+}

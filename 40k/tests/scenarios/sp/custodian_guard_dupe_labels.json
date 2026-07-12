@@ -1,0 +1,50 @@
+{
+ "id": "custodian_guard_dupe_labels",
+ "covers": [
+  "tokenvisual.unit_name_label",
+  "tokenvisual.duplicate_disambiguation",
+  "tokens.compact_unit_name"
+ ],
+ "fixture": "custodian_guard_dupes",
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "description": "Regression for the indistinguishable-token-labels bug: three duplicate 'Custodian Guard' squads (display_names 'Custodian Guard Alpha/Beta/Gamma', each >18 chars) are deployed for player 1. The old on-board label tail-truncated every one to 'Custodian Guard ..', hiding the only differing part (the Greek suffix). Assert (a) the fixture really carries the long duplicate display_names, (b) TokenVisual._compact_unit_name keeps each suffix so the three labels stay distinct, (c) the elision path still preserves the suffix for names over the 24-char cap, and screenshot the board so the three distinct labels are visible under the tokens.",
+ "steps": [
+  { "act": "wait_seconds", "seconds": 0.8 },
+  { "act": "expect_phase", "equals": 7 },
+
+  { "act": "expect_token_visible", "unit_id": "U_BOYZ_E", "timeout_s": 3.0 },
+  { "act": "expect_token_visible", "unit_id": "U_BOYZ_F", "timeout_s": 3.0 },
+  { "act": "expect_token_visible", "unit_id": "U_BOYZ_K", "timeout_s": 3.0 },
+
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_E\").get(\"meta\", {}).get(\"display_name\", \"\")", "equals": "Custodian Guard Alpha" },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_F\").get(\"meta\", {}).get(\"display_name\", \"\")", "equals": "Custodian Guard Beta" },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_K\").get(\"meta\", {}).get(\"display_name\", \"\")", "equals": "Custodian Guard Gamma" },
+
+  { "act": "execute_script", "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0)._compact_unit_name(\"Custodian Guard Alpha\")", "equals": "Custodian Guard Alpha" },
+  { "act": "execute_script", "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0)._compact_unit_name(\"Custodian Guard Beta\")", "equals": "Custodian Guard Beta" },
+  { "act": "execute_script", "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0)._compact_unit_name(\"Custodian Guard Gamma\")", "equals": "Custodian Guard Gamma" },
+
+  { "act": "execute_script", "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0)._compact_unit_name(\"Custodian Guard Alpha\") != main.get_node(\"BoardRoot/TokenLayer\").get_child(0)._compact_unit_name(\"Custodian Guard Gamma\")", "equals": true },
+
+  { "act": "execute_script", "script": "(\"Custodian Guard Alpha\".substr(0, 16) + \"..\") == (\"Custodian Guard Gamma\".substr(0, 16) + \"..\")", "equals": true },
+
+  { "act": "execute_script", "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0)._compact_unit_name(\"Anointed Custodian Guard Epsilon\").ends_with(\"Epsilon\")", "equals": true },
+  { "act": "execute_script", "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0)._compact_unit_name(\"Anointed Custodian Guard Epsilon\").length() <= 24", "equals": true },
+
+  { "act": "execute_script", "script": "main.get_node(\"MovementController\").get_unit_list_texts().size()", "expect_min": 3 },
+  { "act": "execute_script", "script": "\"|\".join(main.get_node(\"MovementController\").get_unit_list_texts()).find(\"Custodian Guard Alpha\") >= 0", "equals": true },
+  { "act": "execute_script", "script": "\"|\".join(main.get_node(\"MovementController\").get_unit_list_texts()).find(\"Custodian Guard Beta\") >= 0", "equals": true },
+  { "act": "execute_script", "script": "\"|\".join(main.get_node(\"MovementController\").get_unit_list_texts()).find(\"Custodian Guard Gamma\") >= 0", "equals": true },
+
+  { "act": "screenshot", "label": "01_board_overview" },
+
+  { "act": "execute_script", "script": "main.fit_view_to_decision([\"U_BOYZ_E\", \"U_BOYZ_F\"])", "equals": true },
+  { "act": "wait_frames", "frames": 6 },
+  { "act": "screenshot", "label": "02_zoomed_alpha_beta_labels" },
+
+  { "act": "execute_script", "script": "main.fit_view_to_selection(\"U_BOYZ_K\")", "equals": true },
+  { "act": "wait_frames", "frames": 6 },
+  { "act": "screenshot", "label": "03_zoomed_gamma_label" }
+ ]
+}

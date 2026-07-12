@@ -279,4 +279,7 @@ func test_while_active_with_enemies():
 		"scoring": {"when": "while_active"},
 	}
 	var score = AIDecisionMaker._evaluate_mission_achievability(snapshot, mission, 2, 2)
-	_assert(score == 1.0, "While-active always achievable with enemies alive (got: %.1f)" % score)
+	# The exact value is tiered by round/kill progress (T19-4: 0.75 in R1-2,
+	# staged later) — the design intent is simply "comfortably above the 0.20
+	# discard bar while enemies are alive", so pin that instead of == 1.0.
+	_assert(score >= 0.5, "While-active clearly keepable with enemies alive (got: %.2f)" % score)

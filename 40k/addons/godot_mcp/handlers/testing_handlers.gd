@@ -251,6 +251,68 @@ func simulate_action(params: Dictionary) -> Dictionary:
 	return {"status": "ok", "action": action, "duration": duration}
 
 
+func simulate_joy_button(params: Dictionary) -> Dictionary:
+	# M0 controller support: inject a raw joypad button press+release through
+	# the same pipeline OS events use (Input.parse_input_event), so InputMap
+	# actions, ui_* focus navigation and InputDeviceManager detection all
+	# react as with a real pad. JoyButton enum: 0=A 1=B 2=X 3=Y 4=Back(View)
+	# 6=Start(Menu) 9=LB 10=RB 11-14=D-pad up/down/left/right.
+	if not params.has("button_index"):
+		return {"status": "error", "message": "Missing 'button_index' (JoyButton enum, e.g. 0=A)"}
+	var button_index: int = int(params["button_index"])
+	var duration: float = float(params.get("duration", 0.05))
+	var device: int = int(params.get("device", 0))
+
+	var press := InputEventJoypadButton.new()
+	press.device = device
+	press.button_index = button_index as JoyButton
+	press.pressed = true
+	Input.parse_input_event(press)
+
+	if host and host.get_tree():
+		await host.get_tree().create_timer(duration).timeout
+
+	var release := InputEventJoypadButton.new()
+	release.device = device
+	release.button_index = button_index as JoyButton
+	release.pressed = false
+	Input.parse_input_event(release)
+
+	return {"status": "ok", "button_index": button_index, "duration": duration}
+
+
+func simulate_joy_axis(params: Dictionary) -> Dictionary:
+	# Push a joypad axis to `value`, hold it for `duration`, then return it to
+	# neutral unless auto_release=false. JoyAxis enum: 0/1 left stick, 2/3
+	# right stick, 4/5 triggers (0..1). Held axes feed action strengths, so
+	# per-frame consumers (pad camera pan/zoom) integrate over the hold.
+	if not params.has("axis"):
+		return {"status": "error", "message": "Missing 'axis' (JoyAxis enum, e.g. 2=right stick X)"}
+	var axis: int = int(params["axis"])
+	var value: float = float(params.get("value", 1.0))
+	var duration: float = float(params.get("duration", 0.3))
+	var device: int = int(params.get("device", 0))
+	var auto_release: bool = bool(params.get("auto_release", true))
+
+	var motion := InputEventJoypadMotion.new()
+	motion.device = device
+	motion.axis = axis as JoyAxis
+	motion.axis_value = value
+	Input.parse_input_event(motion)
+
+	if host and host.get_tree():
+		await host.get_tree().create_timer(duration).timeout
+
+	if auto_release:
+		var neutral := InputEventJoypadMotion.new()
+		neutral.device = device
+		neutral.axis = axis as JoyAxis
+		neutral.axis_value = 0.0
+		Input.parse_input_event(neutral)
+
+	return {"status": "ok", "axis": axis, "value": value, "duration": duration, "auto_release": auto_release}
+
+
 # --- Scene state inspection ----------------------------------------------
 
 func get_scene_state(params: Dictionary) -> Dictionary:
