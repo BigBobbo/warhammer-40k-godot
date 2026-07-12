@@ -1223,6 +1223,34 @@ func _draw_model_type_ring(radius: float) -> void:
 	draw_arc(Vector2.ZERO, ring_radius, 0, TAU, 48, ring_color, 2.0)
 
 
+# Max characters shown for a unit's on-board name label before it is elided.
+# Chosen so a base name plus a Greek-letter suffix (e.g. "Custodian Guard
+# Epsilon", 23 chars) still fits without truncation.
+const UNIT_LABEL_MAX_CHARS := 24
+
+
+func _compact_unit_name(display_name: String) -> String:
+	# Shorten an over-long unit name for the on-board label WITHOUT dropping the
+	# trailing disambiguator. ArmyListManager appends a Greek-letter suffix
+	# ("Alpha", "Delta", …) to duplicate squads so the player can tell them
+	# apart, and that suffix sits at the END of display_name. The old
+	# tail-truncation ("Custodian Guard Alpha" -> "Custodian Guard ..") chopped
+	# exactly that suffix off, collapsing every duplicate to an identical label.
+	# Instead, keep the suffix intact and elide the middle of the base name.
+	if display_name.length() <= UNIT_LABEL_MAX_CHARS:
+		return display_name
+	var space := display_name.rfind(" ")
+	if space > 0:
+		var suffix := display_name.substr(space + 1)
+		# Reserve room for the head + ".." joiner + the space before the suffix.
+		var head_room := UNIT_LABEL_MAX_CHARS - suffix.length() - 3
+		if suffix.length() > 0 and head_room >= 3:
+			return display_name.substr(0, head_room).strip_edges() + ".. " + suffix
+	# Single word, or an unusually long trailing word: fall back to plain
+	# tail truncation.
+	return display_name.substr(0, UNIT_LABEL_MAX_CHARS - 2) + ".."
+
+
 func _draw_unit_name_label() -> void:
 	if SettingsService and not SettingsService.show_unit_labels:
 		return
@@ -1240,9 +1268,10 @@ func _draw_unit_name_label() -> void:
 	if unit_name == "":
 		return
 
-	# Truncate long names to keep label compact
-	if unit_name.length() > 18:
-		unit_name = unit_name.substr(0, 16) + ".."
+	# Shorten long names to keep the label compact, but keep the disambiguating
+	# suffix (e.g. "Alpha"/"Delta") visible so duplicate squads stay tellable
+	# apart. See _compact_unit_name().
+	unit_name = _compact_unit_name(unit_name)
 
 	var font = _get_faction_font()
 	var font_size = 11
