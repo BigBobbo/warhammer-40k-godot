@@ -1,0 +1,31 @@
+{
+  "id": "cursor_los_x_key",
+  "covers": [
+    "autoloads/LineOfSightManager.gd",
+    "scripts/LineOfSightVisual.gd",
+    "Main.synthesize_x_cursor_los"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "description": "Hold-X cursor line-of-sight probe: with the mouse over a board position, holding X highlights every model that can see that point (gold sight lines + rings via LineOfSightManager/LineOfSightVisual) and releasing X clears it. Regression guard: this tool was bound to V, then G, in _unhandled_input and both keys were consumed first by other toggles (VP timeline / tactical grid), leaving it unreachable; Main._input now drives it on X. The probed point (260,1250) sits in the open west corridor of the audit_baseline_postdeploy layout, which at least the top-edge Witchseekers can see.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "hover_board_at", "x": 260, "y": 1250 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "screenshot", "label": "01_before_X" },
+
+    { "act": "execute_script", "script": "main.synthesize_x_cursor_los(true)", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "LineOfSightManager.is_calculating", "equals": true },
+    { "act": "execute_script", "script": "LineOfSightManager.visible_models.size()", "expect_min": 1 },
+    { "act": "expect_node_property", "node": "/root/Main/BoardRoot/LineOfSightVisual", "property": "is_showing", "equals": true },
+    { "act": "screenshot", "label": "02_X_held_models_with_los_highlighted" },
+
+    { "act": "execute_script", "script": "main.synthesize_x_cursor_los(false)", "equals": false },
+    { "act": "execute_script", "script": "LineOfSightManager.is_calculating", "equals": false },
+    { "act": "expect_node_property", "node": "/root/Main/BoardRoot/LineOfSightVisual", "property": "is_showing", "equals": false },
+    { "act": "screenshot", "label": "03_X_released_cleared" }
+  ]
+}

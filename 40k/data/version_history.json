@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "0.23.0",
+      "date": "2026-07-12",
+      "summary": "Hold X to check line of sight to a spot before you commit to it: every model that can see the mouse position lights up with a gold sight line — perfect for asking 'if I move here, who can see me?' The tool existed but was unreachable because its old keys (V, then G) were taken over by other shortcuts.",
+      "changes": [
+        "Hold X ('X marks the spot'): a crosshair marks the cursor position and every model with line of sight to it — yours AND the enemy's — draws a gold sighting line with a highlight ring and unit name (blue inner ring = player 1, red = player 2). Release to clear.",
+        "Use it while planning a move: hover the destination (it also works mid-drag) and instantly see which enemies would have line of sight to a model standing there, and what it could see out to (72\" range).",
+        "The probe now tracks the cursor by polling too, so it keeps updating even when panels swallow mouse-move events; the check is base-edge aware and follows the same terrain rules as shooting (ruins, obscuring, walls, heights).",
+        "Fixed the tool being unreachable: its key handling moved into the main input handler on X — the old V and G bindings were consumed first by the VP timeline and tactical grid toggles, so it never fired. The '?' shortcut overlay lists it."
+      ]
+    },
+    {
       "version": "0.22.0",
       "date": "2026-07-12",
       "summary": "Hold L to see lines of sight in ANY phase — solid green lines to enemies your units can see, dashed red to the ones they can't. Previously the L overlay only existed during the shooting phase (and even there usually drew nothing), so it looked broken. The left roster strip hotkey moved to B.",
