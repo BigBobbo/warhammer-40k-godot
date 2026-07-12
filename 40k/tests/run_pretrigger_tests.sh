@@ -41,6 +41,7 @@ cp -n tests/saves/*.meta saves/ 2>/dev/null || true
 TESTS=(
     "tests/test_co_pretrigger.gd"
     "tests/test_hi_pretrigger.gd"
+    "tests/test_ai_reactive_window_guard.gd"
     "tests/test_ri_pretrigger.gd"
     "tests/test_audit_fixes_verification.gd"
     "tests/test_m6_base_touching_regression.gd"
@@ -137,6 +138,7 @@ TESTS=(
     "tests/test_fullauto_faction_rules.gd"
     "tests/test_custodes_lions_silent_hunters.gd"
     "tests/test_ai_movement_coordination.gd"
+    "tests/test_ai_battle_plan.gd"
 )
 
 FAILED=0
@@ -149,12 +151,14 @@ for test in "${TESTS[@]}"; do
     echo "Running: $test"
     echo "================================================"
 
-    # Capture output, filter for test result lines
-    OUTPUT=$(timeout 180 godot --headless --path . -s "$test" 2>&1 | grep -E "PASS|FAIL|Result|=== test" || true)
+    # Capture output, filter for test result lines. Summary formats vary:
+    # "=== Result: N passed, M failed ===", "=== Results: ...", and bare
+    # "=== N passed, M failed ===" — match on the counts, not the prefix.
+    OUTPUT=$(timeout 180 godot --headless --path . -s "$test" 2>&1 | grep -E "PASS|FAIL|Result|[0-9]+ passed, [0-9]+ failed|=== test" || true)
     echo "$OUTPUT"
 
     # Extract the final result line and parse pass/fail counts
-    RESULT_LINE=$(echo "$OUTPUT" | grep -E "Result:" | tail -1)
+    RESULT_LINE=$(echo "$OUTPUT" | grep -E "[0-9]+ passed, [0-9]+ failed" | tail -1)
     if [ -z "$RESULT_LINE" ]; then
         echo "  ERROR: no result line found for $test"
         FAILED=$((FAILED + 1))

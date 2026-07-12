@@ -248,6 +248,8 @@ var _history_live_state: Dictionary = {}      # the real, live GameState.state (
 var _history_overlay: Control = null          # blocks input on the board while viewing
 var _history_banner_label: RichTextLabel = null
 var _history_saved_ai_enabled: bool = false   # AI enabled flag to restore on exit
+var _history_saved_log_panel_index: int = -1  # log panel's child index to restore on exit
+var _history_refresh_running: bool = false    # drops overlapping history board rebuilds
 
 # P3-117: Dice Roll History panel UI elements
 var _dice_history_panel: PanelContainer = null
@@ -1811,10 +1813,12 @@ func _show_ai_unit_highlight(unit_id: String, color: Color) -> void:
 	"""Add pulsing highlight rings around all models of the given AI unit."""
 	# Skip if already highlighting this unit with same color
 	if unit_id == _ai_highlighted_unit_id and _ai_highlight_nodes.size() > 0:
-		# Check if color changed (e.g. unit went from move to charge)
-		if _ai_highlight_nodes.size() > 0 and _ai_highlight_nodes[0].highlight_color == color:
+		# Check if color changed (e.g. unit went from move to charge).
+		# The ring node may have been freed with the board (token rebuilds) —
+		# reading highlight_color off a freed instance was a live SCRIPT ERROR.
+		if is_instance_valid(_ai_highlight_nodes[0]) and _ai_highlight_nodes[0].highlight_color == color:
 			return
-		# Color changed — clear and re-apply
+		# Color changed (or rings freed) — clear and re-apply
 		_clear_ai_unit_highlights()
 
 	# Clear previous highlights if switching to a different unit
@@ -2900,7 +2904,8 @@ func _setup_dashboard_toggle_buttons() -> void:
 	#   • Missions — opens / closes SecondaryMissionPanel (now hidden by
 	#     default, anchored top-center under the HUD bar).
 	#   • Roster — toggles the LeftRoster card strip (hidden by default,
-	#     also bound to KEY_L by the panel itself).
+	#     also bound to KEY_B by the panel itself; KEY_L belongs to the
+	#     LoS overlay).
 	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
 	if hud_container == null:
 		return
@@ -2917,7 +2922,7 @@ func _setup_dashboard_toggle_buttons() -> void:
 		var roster_btn := Button.new()
 		roster_btn.name = "RosterToggle"
 		roster_btn.text = "Roster"
-		roster_btn.tooltip_text = "Show / hide the left-side unit roster strip (L)"
+		roster_btn.tooltip_text = "Show / hide the left-side unit roster strip (B)"
 		roster_btn.pressed.connect(_on_roster_toggle_pressed)
 		hud_container.add_child(roster_btn)
 
@@ -4073,6 +4078,17 @@ func _setup_terrain() -> void:
 	print("Added LineOfSightVisual to BoardRoot")
 	print("Line of Sight: Hold 'V' to check what models can see the cursor position")
 
+	# Persistent L-overlay layer (2026-07-12): previously only
+	# ShootingController created LoSDebugVisual (and freed it on phase exit),
+	# so holding L silently did nothing in every other phase. Creating it here
+	# makes the L sight-line overlay work all game long; ShootingController
+	# now reuses this node instead of owning its own.
+	if not $BoardRoot.has_node("LoSDebugVisual"):
+		var los_dbg = preload("res://scripts/LoSDebugVisual.gd").new()
+		los_dbg.name = "LoSDebugVisual"
+		$BoardRoot.add_child(los_dbg)
+		print("Added persistent LoSDebugVisual to BoardRoot")
+
 	# Dev tools — hidden by default, toggled with Shift+D
 	var hud_container2 = $HUD_Bottom/HBoxContainer
 	if hud_container2:
@@ -4368,6 +4384,15 @@ func _toggle_los_debug() -> void:
 		los_debug = get_node_or_null("BoardRoot/LoSDebugVisual")
 		print("LoS debug: Using BoardRoot instance (fallback)")
 
+	# 2026-07-12: L must work in EVERY phase — if no instance exists yet
+	# (e.g. a save loaded straight into a non-shooting phase before
+	# _setup_terrain ran, or an old save flow), create the persistent one.
+	if not los_debug and has_node("BoardRoot"):
+		los_debug = preload("res://scripts/LoSDebugVisual.gd").new()
+		los_debug.name = "LoSDebugVisual"
+		$BoardRoot.add_child(los_debug)
+		print("LoS debug: Created persistent BoardRoot instance on demand")
+
 	if los_debug:
 		var was_enabled = los_debug.debug_enabled
 		print("LoS debug: Was enabled: ", was_enabled)
@@ -4381,12 +4406,21 @@ func _toggle_los_debug() -> void:
 		if los_button:
 			los_button.set_pressed_no_signal(is_now_enabled)
 
-		# If we just turned debug ON, refresh visuals if shooting phase is active
-		if not was_enabled and is_now_enabled and shooting_controller:
-			print("LoS debug: Calling refresh on ShootingController")
-			if shooting_controller.has_method("refresh_los_debug_visuals"):
-				shooting_controller.refresh_los_debug_visuals()
-				print("LoS debug: Refreshed visuals for active shooter")
+		# If we just turned debug ON, show sight lines in every phase:
+		# active shooter selected -> the shooting controller's per-model
+		# enhanced debug; otherwise -> the unit->unit sight-line overview
+		# (from the selected unit, or every active-player unit).
+		if not was_enabled and is_now_enabled:
+			var shooter_mode := false
+			if shooting_controller and "active_shooter_id" in shooting_controller \
+					and shooting_controller.active_shooter_id != "":
+				print("LoS debug: Calling refresh on ShootingController")
+				if shooting_controller.has_method("refresh_los_debug_visuals"):
+					shooting_controller.refresh_los_debug_visuals()
+					shooter_mode = true
+					print("LoS debug: Refreshed visuals for active shooter")
+			if not shooter_mode and los_debug.has_method("show_overview"):
+				los_debug.show_overview(_selected_unit_id_or_empty())
 	else:
 		print("LoS debug visual not found")
 
@@ -5269,8 +5303,13 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	
-	# T32: LoS debug — held-key power-user mode (was: persistent top-bar toggle)
-	if event is InputEventKey and event.keycode == KEY_L and not event.echo:
+	# T32: LoS debug — held-key power-user mode (was: persistent top-bar toggle).
+	# 2026-07-12: shows the sight-line overview in every phase (see
+	# LoSDebugVisual.show_overview). Chorded PRESSES (Ctrl+L = load, etc.) are
+	# not ours; releases always count so the held overlay can't get stuck ON
+	# when a modifier happens to be down at release time.
+	if event is InputEventKey and event.keycode == KEY_L and not event.echo \
+			and not (event.pressed and (event.shift_pressed or event.ctrl_pressed or event.meta_pressed)):
 		var want_on: bool = event.pressed
 		if want_on != los_debug_active:
 			_toggle_los_debug()
@@ -8869,7 +8908,9 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 
 	# T5-V3: Show phase transition animation banner
 	if phase_transition_banner:
-		var banner_round = GameState.state.get("meta", {}).get("round", 1)
+		# The meta key is battle_round — reading the nonexistent "round" key made
+		# the banner show "Round 1" for the whole game.
+		var banner_round = GameState.get_battle_round()
 		var banner_player = GameState.get_active_player()
 		phase_transition_banner.show_phase_banner(new_phase, banner_round, banner_player)
 
@@ -8888,7 +8929,8 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 		var active_player_for_log = GameState.get_active_player()
 		if ai_player and ai_player.is_ai_player(active_player_for_log):
 			var phase_label = _get_phase_label_text(new_phase).replace(" Phase", "")
-			var round_num = GameState.state.get("meta", {}).get("round", 1)
+			# battle_round, not "round" — the wrong key froze the header at Rd 1
+			var round_num = GameState.get_battle_round()
 			_ai_action_log_overlay.add_phase_header(phase_label, round_num, active_player_for_log)
 
 	# T5-UX10: Auto-zoom to active player's deployment zone when entering deployment phase
@@ -10680,6 +10722,16 @@ func _enter_history_view_mode() -> void:
 
 	_build_history_overlay()
 
+	# Godot routes mouse input by TREE order, not z_index (z_index affects drawing
+	# only) — so raising the log panel's z_index alone still left the overlay (a
+	# later sibling) eating every click aimed at the panel, forcing the player to
+	# press Esc before picking another step. Move the panel after the overlay in
+	# the tree so log cards stay genuinely clickable and the player can switch
+	# straight to a different step while viewing. Original index restored on exit.
+	if game_log_panel and is_instance_valid(game_log_panel) and game_log_panel.get_parent() == self:
+		_history_saved_log_panel_index = game_log_panel.get_index()
+		move_child(game_log_panel, get_child_count() - 1)
+
 func _set_controllers_input_enabled(enabled: bool) -> void:
 	"""Enable/disable input processing on every phase controller — used to make the
 	board fully inert while the player browses a past step."""
@@ -10694,8 +10746,10 @@ func _build_history_overlay() -> void:
 		_history_overlay.visible = true
 		return
 
-	# Full-screen input blocker. Sits above the board/HUD but BELOW the game log
-	# panel (whose z is raised) so the player can keep clicking other log entries.
+	# Full-screen input blocker. The game log panel is kept usable on top of it by
+	# _enter_history_view_mode moving the panel AFTER this overlay in the tree
+	# (input picking follows tree order; the raised z_index below only handles
+	# draw order) so the player can keep clicking other log entries.
 	var overlay := Control.new()
 	overlay.name = "HistoryViewOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -10774,11 +10828,20 @@ func _history_refresh_visuals() -> void:
 	"""Rebuild the board tokens from the (historical) GameState.state. Deliberately
 	minimal: it recreates unit tokens and updates score/round labels only. It does
 	NOT rebuild phase controllers or run any phase logic — this is a passive view."""
+	# Guard against overlapping runs (same duplicate-token hazard as
+	# _recreate_unit_visuals): two log-card clicks landing within one frame would
+	# each rebuild the full token set after the await below. Dropping the second
+	# call is safe — this run reads GameState fresh AFTER the await, so it already
+	# renders the step of the latest click.
+	if _history_refresh_running:
+		return
+	_history_refresh_running = true
 	# Clear existing tokens
 	for child in token_layer.get_children():
 		child.queue_free()
 	await get_tree().process_frame
 	if not _history_view_active:
+		_history_refresh_running = false
 		return  # exited while we were awaiting
 
 	var units = GameState.state.get("units", {})
@@ -10810,6 +10873,7 @@ func _history_refresh_visuals() -> void:
 		_update_round_indicator()
 	if active_player_badge:
 		active_player_badge.text = "P%d" % GameState.get_active_player()
+	_history_refresh_running = false
 
 func _exit_history_view() -> void:
 	if not _history_view_active:
@@ -10827,13 +10891,18 @@ func _exit_history_view() -> void:
 	if game_log_panel and is_instance_valid(game_log_panel) and game_log_panel.has_method("clear_active_history"):
 		game_log_panel.clear_active_history()
 
-	# Remove the overlay and restore the log panel's normal z.
+	# Remove the overlay and restore the log panel's normal z + tree position
+	# (it was moved after the overlay so it could receive clicks — see
+	# _enter_history_view_mode; leaving it last would draw it above dialogs).
 	if _history_overlay and is_instance_valid(_history_overlay):
 		_history_overlay.queue_free()
 	_history_overlay = null
 	_history_banner_label = null
 	if game_log_panel and is_instance_valid(game_log_panel):
 		game_log_panel.z_index = UI_PANEL_Z
+		if _history_saved_log_panel_index >= 0 and game_log_panel.get_parent() == self:
+			move_child(game_log_panel, mini(_history_saved_log_panel_index, get_child_count() - 1))
+	_history_saved_log_panel_index = -1
 
 	# Rebuild the live board and re-run normal UI refresh.
 	_recreate_unit_visuals()
@@ -11811,7 +11880,8 @@ func _toggle_hotkey_help_overlay() -> void:
 		["U", "Toggle army panel"],
 		["S", "Toggle stratagems panel"],
 		["M", "Show secondary missions"],
-		["L", "Toggle LoS debug overlay"],
+		["L (hold)", "Show lines of sight (green clear / red blocked)"],
+		["B", "Toggle left roster strip"],
 		["G", "Toggle 1\" tactical grid overlay"],
 		["8", "Toggle visual style (letter / enhanced)"],
 		["9", "Toggle debug mode"],

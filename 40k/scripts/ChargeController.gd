@@ -3177,7 +3177,8 @@ func _on_heroic_intervention_opportunity(player: int, eligible_units: Array, cha
 		return
 
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gold]HEROIC INTERVENTION available for Player %d! (2 CP)[/color]\n" % player)
+		var hi_cp := 1 if GameConstants.edition >= 11 else 2
+		dice_log_display.append_text("[color=gold]HEROIC INTERVENTION available for Player %d! (%d CP)[/color]\n" % [player, hi_cp])
 
 	# Load and show the dialog
 	var dialog_script = load("res://dialogs/HeroicInterventionDialog.gd")

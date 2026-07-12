@@ -599,5 +599,62 @@ func has_ai_entry_containing_any(substrings: Array) -> bool:
 				return true
 	return false
 
+func movement_plan_integrity() -> Dictionary:
+	"""COORD-4 gate: does the game log's announced Movement plan match the
+	movement actions that were actually logged afterwards? Returns
+	{plans, checked, mismatches: [line, ...]}. Unit display names are not
+	unique (e.g. two 'Warbikers'), so a unit name maps to the SET of
+	objectives/targets planned under that name — an action matches if its
+	destination is in the set. 'remains stationary (all move attempts
+	failed)' lines are execution failures, not plan divergence, and are
+	skipped."""
+	var plans := 0
+	var checked := 0
+	var mismatches: Array = []
+	var plan_map := {}  # unit name -> {dest set}
+	var plan_re := RegEx.new()
+	plan_re.compile("^  (.+?) \\(OC\\d+\\): (MOVE|ADVANCE|HOLD|ATTACK) ([^,]+),")
+	var act_re := RegEx.new()
+	act_re.compile("^P\\d: (.+?) (?:moves toward|advances toward|holds) (obj[a-z_0-9]+)")
+	var atk_re := RegEx.new()
+	atk_re.compile("^P\\d: (.+?) (?:moves to attack|advances to attack) (.+?) \\(")
+	for e in entries:
+		var etype = str(e.get("type", ""))
+		var text = str(e.get("text", ""))
+		if etype == "ai_thinking_block" and "Movement plan" in text.split("\n")[0]:
+			plans += 1
+			plan_map.clear()
+			for line in text.split("\n"):
+				var m = plan_re.search(line)
+				if m:
+					var uname = m.get_string(1)
+					if not plan_map.has(uname):
+						plan_map[uname] = {}
+					plan_map[uname][m.get_string(3).strip_edges()] = true
+			continue
+		if etype != "p1_action" and etype != "p2_action":
+			continue
+		if plan_map.is_empty():
+			continue
+		if "all move attempts failed" in text:
+			continue
+		var am = act_re.search(text)
+		var target := ""
+		var uname_a := ""
+		if am:
+			uname_a = am.get_string(1)
+			target = am.get_string(2)
+		else:
+			var km = atk_re.search(text)
+			if km:
+				uname_a = km.get_string(1)
+				target = km.get_string(2)
+		if uname_a == "" or not plan_map.has(uname_a):
+			continue
+		checked += 1
+		if not plan_map[uname_a].has(target):
+			mismatches.append("%s -> %s (planned: %s)" % [uname_a, target, str(plan_map[uname_a].keys())])
+	return {"plans": plans, "checked": checked, "mismatches": mismatches}
+
 func clear() -> void:
 	entries.clear()
