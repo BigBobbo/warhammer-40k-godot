@@ -166,8 +166,46 @@ func play_floating_number(model_pos: Vector2, damage: int, is_kill: bool = false
 
 	print("[DamageFeedbackVisual] T5-V12: Floating number -%d at %s (kill=%s)" % [damage, str(model_pos), str(is_kill)])
 
+# Kenney CC0 explosion flipbook frames (see assets/tilepack/CREDITS.md)
+const _EXPLOSION_FRAMES := [
+	"res://assets/tilepack/explosion1.png",
+	"res://assets/tilepack/explosion2.png",
+	"res://assets/tilepack/explosion3.png",
+	"res://assets/tilepack/explosion4.png",
+	"res://assets/tilepack/explosion5.png",
+	"res://assets/tilepack/explosionSmoke3.png",
+	"res://assets/tilepack/explosionSmoke4.png",
+	"res://assets/tilepack/explosionSmoke5.png",
+]
+const EXPLOSION_DURATION := 0.55
+const EXPLOSION_SMOKE_LINGER := 0.35
+
+## Explosion sprite flipbook at the death position, scaled to the model base.
+func _spawn_explosion_sprite(model_pos: Vector2, base_radius_px: float) -> void:
+	var sprite = Sprite2D.new()
+	sprite.name = "DeathExplosion"
+	sprite.texture = load(_EXPLOSION_FRAMES[0])
+	sprite.position = model_pos
+	sprite.rotation = randf() * TAU
+	var tex_size = float(max(sprite.texture.get_width(), sprite.texture.get_height()))
+	sprite.scale = Vector2.ONE * (base_radius_px * 2.4 / tex_size)
+	sprite.z_index = 55
+	add_child(sprite)
+
+	var frame_count = _EXPLOSION_FRAMES.size()
+	var tween = sprite.create_tween()
+	tween.tween_method(func(f: float) -> void:
+		var idx = clampi(int(f), 0, frame_count - 1)
+		sprite.texture = load(_EXPLOSION_FRAMES[idx]),
+		0.0, float(frame_count - 1), EXPLOSION_DURATION)
+	tween.tween_property(sprite, "modulate:a", 0.0, EXPLOSION_SMOKE_LINGER)
+	tween.tween_callback(sprite.queue_free)
+
 func play_death_animation(model_pos: Vector2, base_radius_px: float) -> void:
 	"""Play death animation: expanding ring + particles + skull marker."""
+	# Effect 0: explosion sprite flipbook
+	_spawn_explosion_sprite(model_pos, base_radius_px)
+
 	# Effect 1: Expanding red ring
 	_effects.append({
 		"type": "death_ring",

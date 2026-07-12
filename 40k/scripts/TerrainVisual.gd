@@ -314,12 +314,13 @@ func _add_terrain_decorations(container: Node2D, terrain_data: Dictionary) -> vo
 	var position = terrain_data.get("position", Vector2.ZERO)
 	var size = terrain_data.get("size", Vector2(100, 100))
 	var polygon_points = terrain_data.get("polygon", PackedVector2Array())
+	var terrain_id = str(terrain_data.get("id", "terrain"))
 
 	match terrain_type:
 		"ruins":
-			_add_ruins_decorations(container, position, size, polygon_points)
+			_add_ruins_decorations(container, terrain_id, position, size, polygon_points)
 		"woods", "forest":
-			_add_woods_decorations(container, position, size)
+			_add_woods_decorations(container, terrain_id, position, size, polygon_points)
 		"crater":
 			_add_crater_decorations(container, position, size)
 		"hill":
@@ -329,65 +330,81 @@ func _add_terrain_decorations(container: Node2D, terrain_data: Dictionary) -> vo
 		"impassable":
 			_add_impassable_decorations(container, position, size, polygon_points)
 
-## Ruins: small interior line segments suggesting broken walls/rubble
-func _add_ruins_decorations(container: Node2D, position: Vector2, size: Vector2, polygon_points: PackedVector2Array) -> void:
-	var half = size * 0.3
-	var rubble_color = Color(0.5, 0.42, 0.35, 0.35)
+# Scatter-prop sprite pools (Kenney CC0, see assets/tilepack/CREDITS.md).
+const _RUINS_PROPS := [
+	"res://assets/tilepack/crateWood.png",
+	"res://assets/tilepack/crateMetal.png",
+	"res://assets/tilepack/barrelBlack_top.png",
+	"res://assets/tilepack/sandbagBrown.png",
+	"res://assets/tilepack/sandbagBeige.png",
+]
+const _TREE_PROPS := [
+	"res://assets/tilepack/treeGreen_small.png",
+	"res://assets/tilepack/treeGreen_large.png",
+	"res://assets/tilepack/treeBrown_small.png",
+]
 
-	# Add a few small interior line segments to suggest rubble
-	var offsets = [
-		[Vector2(-half.x * 0.5, -half.y * 0.3), Vector2(-half.x * 0.1, -half.y * 0.6)],
-		[Vector2(half.x * 0.2, half.y * 0.1), Vector2(half.x * 0.6, half.y * 0.3)],
-		[Vector2(-half.x * 0.3, half.y * 0.4), Vector2(half.x * 0.1, half.y * 0.2)],
-	]
+## Deterministically scatter prop sprites inside a terrain footprint. Seeded by
+## the terrain id so the same layout renders the same props every load.
+func _scatter_props(container: Node2D, terrain_id: String, position: Vector2, size: Vector2, polygon_points: PackedVector2Array, pool: Array, count: int, prop_alpha: float = 0.95) -> void:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = hash(terrain_id)
+	var half = size * 0.5
+	var placed = 0
+	var attempts = 0
+	while placed < count and attempts < count * 8:
+		attempts += 1
+		var p = position + Vector2(rng.randf_range(-half.x * 0.8, half.x * 0.8), rng.randf_range(-half.y * 0.8, half.y * 0.8))
+		if polygon_points.size() >= 3 and not Geometry2D.is_point_in_polygon(p, polygon_points):
+			continue
+		var sprite = Sprite2D.new()
+		sprite.texture = load(pool[rng.randi() % pool.size()])
+		sprite.position = p
+		sprite.rotation = rng.randf_range(0.0, TAU)
+		# Native sprite size is crate-the-size-of-a-tank at board scale; shrink
+		# to genuine scatter-prop proportions with a little variance.
+		sprite.scale = Vector2.ONE * rng.randf_range(0.5, 0.68)
+		sprite.modulate = Color(1, 1, 1, prop_alpha)
+		sprite.z_index = 1  # Above terrain fill, below walls (2)
+		container.add_child(sprite)
+		placed += 1
 
-	for offset_pair in offsets:
-		var line = Line2D.new()
-		line.add_point(position + offset_pair[0])
-		line.add_point(position + offset_pair[1])
-		line.default_color = rubble_color
-		line.width = 2.0
-		container.add_child(line)
+## Ruins: crates, barrels and sandbags strewn inside the footprint
+func _add_ruins_decorations(container: Node2D, terrain_id: String, position: Vector2, size: Vector2, polygon_points: PackedVector2Array) -> void:
+	# Scale prop count with footprint area (a 4x6" ruin gets ~4, big ones ~8)
+	var area_sq_inches = (size.x / 40.0) * (size.y / 40.0)
+	var count = clampi(int(area_sq_inches / 6.0), 3, 8)
+	_scatter_props(container, terrain_id, position, size, polygon_points, _RUINS_PROPS, count)
 
-## Woods/Forest: small circles suggesting tree canopy viewed from above
-func _add_woods_decorations(container: Node2D, position: Vector2, size: Vector2) -> void:
-	var tree_color = Color(0.15, 0.35, 0.12, 0.3)
-	var half = size * 0.3
+## Woods/Forest: top-down tree sprites
+func _add_woods_decorations(container: Node2D, terrain_id: String, position: Vector2, size: Vector2, polygon_points: PackedVector2Array) -> void:
+	var area_sq_inches = (size.x / 40.0) * (size.y / 40.0)
+	var count = clampi(int(area_sq_inches / 4.0), 4, 10)
+	_scatter_props(container, terrain_id, position, size, polygon_points, _TREE_PROPS, count)
 
-	# Place a few "tree" circles (approximated with small polygons)
-	var tree_positions = [
-		position + Vector2(-half.x * 0.4, -half.y * 0.3),
-		position + Vector2(half.x * 0.3, -half.y * 0.1),
-		position + Vector2(-half.x * 0.1, half.y * 0.4),
-		position + Vector2(half.x * 0.5, half.y * 0.3),
-	]
-
-	for tree_pos in tree_positions:
-		var tree = Polygon2D.new()
-		var radius = min(size.x, size.y) * 0.08
-		var circle_points = PackedVector2Array()
-		for i in range(8):
-			var angle = i * TAU / 8
-			circle_points.append(tree_pos + Vector2(cos(angle), sin(angle)) * radius)
-		tree.polygon = circle_points
-		tree.color = tree_color
-		container.add_child(tree)
-
-## Crater: concentric rings suggesting a blast depression
+## Crater: oil-spill scorch mark + concentric rings suggesting a blast depression
 func _add_crater_decorations(container: Node2D, position: Vector2, size: Vector2) -> void:
+	var scorch = Sprite2D.new()
+	scorch.texture = load("res://assets/tilepack/oilSpill_large.png")
+	scorch.position = position
+	var target = min(size.x, size.y) * 0.55
+	var tex_size = float(max(scorch.texture.get_width(), scorch.texture.get_height()))
+	scorch.scale = Vector2.ONE * (target / tex_size)
+	scorch.modulate = Color(1, 1, 1, 0.55)
+	scorch.z_index = 1
+	container.add_child(scorch)
+
 	var ring_color = Color(0.22, 0.2, 0.18, 0.3)
 	var radius_outer = min(size.x, size.y) * 0.3
-	var radius_inner = radius_outer * 0.5
 
-	for radius in [radius_outer, radius_inner]:
-		var ring = Line2D.new()
-		for i in range(17):  # 16 segments + close
-			var angle = i * TAU / 16
-			ring.add_point(position + Vector2(cos(angle), sin(angle)) * radius)
-		ring.default_color = ring_color
-		ring.width = 1.5
-		ring.joint_mode = Line2D.LINE_JOINT_ROUND
-		container.add_child(ring)
+	var ring = Line2D.new()
+	for i in range(17):  # 16 segments + close
+		var angle = i * TAU / 16
+		ring.add_point(position + Vector2(cos(angle), sin(angle)) * radius_outer)
+	ring.default_color = ring_color
+	ring.width = 1.5
+	ring.joint_mode = Line2D.LINE_JOINT_ROUND
+	container.add_child(ring)
 
 ## Hill: contour lines suggesting elevation
 func _add_hill_decorations(container: Node2D, position: Vector2, size: Vector2) -> void:
@@ -405,44 +422,23 @@ func _add_hill_decorations(container: Node2D, position: Vector2, size: Vector2) 
 		contour.joint_mode = Line2D.LINE_JOINT_ROUND
 		container.add_child(contour)
 
-## Barricade: dashed center line suggesting a linear barrier
+## Barricade: metal barricade sprites tiled along the longer axis
 func _add_barricade_decorations(container: Node2D, position: Vector2, size: Vector2, polygon_points: PackedVector2Array) -> void:
-	var dash_color = Color(0.5, 0.5, 0.55, 0.4)
-
-	# Draw dashed line through the center along the longer axis
-	var half = size * 0.35
-	if size.x >= size.y:
-		# Horizontal dashes
-		var y_center = position.y
-		var dash_len = size.x * 0.08
-		var gap = dash_len * 0.6
-		var x_start = position.x - half.x
-		var x_end = position.x + half.x
-		var x = x_start
-		while x < x_end:
-			var dash = Line2D.new()
-			dash.add_point(Vector2(x, y_center))
-			dash.add_point(Vector2(min(x + dash_len, x_end), y_center))
-			dash.default_color = dash_color
-			dash.width = 3.0
-			container.add_child(dash)
-			x += dash_len + gap
-	else:
-		# Vertical dashes
-		var x_center = position.x
-		var dash_len = size.y * 0.08
-		var gap = dash_len * 0.6
-		var y_start = position.y - half.y
-		var y_end = position.y + half.y
-		var y = y_start
-		while y < y_end:
-			var dash = Line2D.new()
-			dash.add_point(Vector2(x_center, y))
-			dash.add_point(Vector2(x_center, min(y + dash_len, y_end)))
-			dash.default_color = dash_color
-			dash.width = 3.0
-			container.add_child(dash)
-			y += dash_len + gap
+	var tex: Texture2D = load("res://assets/tilepack/barricadeMetal.png")
+	var seg_w = float(tex.get_width())
+	var horizontal = size.x >= size.y
+	var run = (size.x if horizontal else size.y) * 0.9
+	var count = maxi(1, int(run / (seg_w + 4.0)))
+	var start = -(count - 1) * (seg_w + 4.0) * 0.5
+	for i in range(count):
+		var sprite = Sprite2D.new()
+		sprite.texture = tex
+		var offset = start + i * (seg_w + 4.0)
+		sprite.position = position + (Vector2(offset, 0) if horizontal else Vector2(0, offset))
+		if not horizontal:
+			sprite.rotation = PI / 2.0
+		sprite.z_index = 1
+		container.add_child(sprite)
 
 ## Impassable: X-pattern warning marks
 func _add_impassable_decorations(container: Node2D, position: Vector2, size: Vector2, polygon_points: PackedVector2Array) -> void:

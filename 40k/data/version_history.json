@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.21.0",
+			"date": "2026-07-12",
+			"summary": "Big visual upgrade using top-down sprite art (CC0 Kenney tilepack): vehicles now render as actual tanks, terrain is scattered with crates/barrels/sandbags/trees, objective markers are proper control discs, and destroyed models burst into an explosion.",
+			"changes": [
+				"New: VEHICLE units (Battlewagon, Grav-tank, Dreadnoughts, etc.) render as top-down tank sprites with a faction colorway (Orks green, Custodes sand, Marines blue, Chaos red, Necrons dark) and a turret that rotates with the model's facing, instead of a lettered disc",
+				"New: objective markers are now a proper 40mm marker disc with a compass-star emblem and a gold rim that tints to the controlling player's color (grey/gold when uncontrolled), replacing the plain asterisk",
+				"New: terrain pieces are scattered with themed props — crates, barrels and sandbags in ruins, top-down trees in woods, an oil-spill scorch in craters, and metal barricade segments on barricades",
+				"New: destroyed models play a top-down explosion + smoke burst at the point of death",
+				"Improved: Enhanced and Retro unit styles now tint the model body by faction color instead of a generic blue/red player color, so Orks look green, Custodes gold, and so on",
+				"Assets: bundled a small CC0 (public-domain) subset of Kenney's top-down sprite packs under assets/tilepack with credits"
+			]
+		},
+		{
 			"version": "0.20.0",
 			"date": "2026-07-12",
 			"summary": "Visual polish batch: cleaner battlefield (terrain debug labels off by default, no more giant weapon-range tint), readable side panels (no board bleed-through), one name plate per unit, and dice pips in the shooting results dialog.",
