@@ -219,6 +219,45 @@ func _run_tests():
 	_check("a Fights First unit became eligible mid-step: return to FF combats (12.04)",
 		pick.step == "fights_first" and pick.candidates == ["BLUE_SQUAD"], str(pick))
 
+	print("\n-- peek_selection is a pure preview of next_selection (2026-07-12) --")
+	# get_available_actions polls the sequencer every UI/AI refresh; the poll
+	# must NOT advance picker/step or the alternation desyncs and the wrong
+	# unit gets offered (the reported Stompa-never-fights bug).
+	b = _pg41_board()
+	seq = FightSequencer.new()
+	seq.begin(b, 1)
+	var peek1 = seq.peek_selection(b)
+	var peek2 = seq.peek_selection(b)
+	_check("peek is idempotent — repeated calls return the same result",
+		peek1 == peek2, "%s vs %s" % [str(peek1), str(peek2)])
+	var picker_before = seq.picker
+	var step_before = seq.step
+	seq.peek_selection(b)
+	_check("peek does not mutate picker", seq.picker == picker_before, "picker=%d" % seq.picker)
+	_check("peek does not mutate step", seq.step == step_before, "step=%s" % seq.step)
+	var real = seq.next_selection(b)
+	_check("peek matches the authoritative next_selection (player)", peek1.player == real.player,
+		"peek=%d real=%d" % [peek1.player, real.player])
+	_check("peek matches the authoritative next_selection (candidates)",
+		peek1.candidates == real.candidates, "%s vs %s" % [str(peek1.candidates), str(real.candidates)])
+	_check("peek matches the authoritative next_selection (step)", peek1.step == real.step,
+		"%s vs %s" % [str(peek1.step), str(real.step)])
+	# Peek across the fights_first -> remaining transition: after both FF units
+	# have fought, peek must still (without mutating) surface the remaining
+	# combatant for the correct player — this is exactly the offer that used to
+	# come from the desynced legacy queue instead.
+	b = _pg41_board()
+	b.units["BLUE_SQUAD"].models[0].position = {"x": 460, "y": 460}  # engage the transport
+	seq = FightSequencer.new()
+	seq.begin(b, 1)
+	seq.select_to_fight("RED_MONSTER", b)   # RED FF
+	seq.select_to_fight("RED_SQUAD", b)     # RED FF (BLUE has no FF)
+	var peek_rem = seq.peek_selection(b)
+	_check("peek crosses FF->remaining without mutating: offers a remaining unit to BLUE",
+		peek_rem.step == "remaining" and peek_rem.player == 2, str(peek_rem))
+	_check("peek across the step boundary still leaves seq.step untouched",
+		seq.step == "fights_first", "step=%s" % seq.step)
+
 	GameConstants.edition = 10
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(0 if failed == 0 else 1)

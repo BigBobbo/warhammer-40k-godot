@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.31.0",
+			"date": "2026-07-12",
+			"summary": "Fixed a Fight phase bug where one of your units in combat could be skipped entirely when playing against the AI. If the AI reached a point where it couldn't select one of its own units, it would end the whole Fight phase — forfeiting every remaining fight, including yours (e.g. a Stompa in base contact that never got to swing).",
+			"changes": [
+				"Fight phase: the list of units offered the 'select to fight' action is now driven by the real 11th-edition fight sequencer, tagged with the correct player, instead of a legacy queue that drifted out of order once fights happened out of sequence. Your engaged units are now always offered their fight in the right order.",
+				"AI: when the AI can't select a fighter it now re-checks the fight order and continues, instead of ending the entire Fight phase and forfeiting every remaining fight (yours included). It only ends the fight when the sequencer confirms no unit on either side is still eligible.",
+				"AI: the AI no longer tries to pick your units to fight during the alternating fight sequence — it only considers selection offers addressed to it."
+			]
+		},
+		{
 			"version": "0.30.0",
 			"date": "2026-07-12",
 			"summary": "Removed the legacy hand-made terrain layouts (Chapter Approved 1-8 and the parse-test boards). The game now plays exclusively on the converted official 11e tournament layouts, and the main menu defaults to the current matchup's first official variant with its paired deployment.",

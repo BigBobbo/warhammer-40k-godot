@@ -1,0 +1,80 @@
+{
+  "id": "stompa_gets_to_fight_11e",
+  "covers": [
+    "fight.select_fighter_offer_11e",
+    "scripts.rules.FightSequencer.peek_selection"
+  ],
+  "fixture": "stompa_fight_11e",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression for the 2026-07-12 report: an engaged Stompa was never offered its fight. Four units are in base contact and alternate through the 11e Fight step (12.04): P2 Warboss + Stompa (Orks), P1 Custodian Guard + Telemon (Custodes). The bug was in get_available_actions: it drove SELECT_FIGHTER offers off the legacy fight_sequence queue via current_fight_index, which advances one-per-fight regardless of WHICH unit fought. Once a player legally picked out of queue order, the queue desynced and the getter offered a unit the validator then rejected ('Not your selection'); the AI acted on that stale offer, hit its failure fallback, and END_FIGHT forfeited every remaining fight — including the human Stompa. The getter now offers exactly the FightSequencer's candidates, tagged with the picking player, via the new pure peek_selection(). This scenario drives the full alternation with disable_ai and asserts, at the key moment (Warboss + Custodian Guard already fought), that the offer is the Stompa for Player 2 — and that selecting it succeeds and it deals damage. Setup-only privileges: CP zeroed to suppress stratagem prompts; model wounds inflated so no unit dies mid-alternation and the aliveness of the drag/attack targets stays deterministic.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 2 },
+    { "act": "screenshot", "label": "01_pile_in_step_opens" },
+
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 2 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 1 },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.peek_selection(GameState.state)[\"player\"]", "equals": 2 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.peek_selection(GameState.state)[\"candidates\"]", "equals": ["U_WARBOSS_B"] },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_WARBOSS_B", "player": 2 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_EPIC_CHALLENGE", "unit_id": "U_WARBOSS_B", "player": 2 } },
+    { "act": "dispatch_action", "action": { "type": "ASSIGN_ATTACKS", "unit_id": "U_WARBOSS_B", "target_id": "U_TELEMON_HEAVY_DREADNOUGHT_I", "weapon_id": "power_klaw_melee", "player": 2 } },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_AND_RESOLVE_ATTACKS", "player": 2 } },
+    { "act": "dispatch_action", "action": { "type": "ROLL_DICE", "player": 2, "payload": { "fast_roll": true } } },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.peek_selection(GameState.state)[\"player\"]", "equals": 1 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.peek_selection(GameState.state)[\"candidates\"]", "equals": ["U_CUSTODIAN_GUARD_B"] },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_CUSTODIAN_GUARD_B", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "SELECT_KATAH_STANCE", "unit_id": "U_CUSTODIAN_GUARD_B", "stance": "dacatarai", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "ASSIGN_ATTACKS", "unit_id": "U_CUSTODIAN_GUARD_B", "target_id": "U_STOMPA_A", "weapon_id": "guardian_spear_melee", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_AND_RESOLVE_ATTACKS", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "ROLL_DICE", "player": 1, "payload": { "fast_roll": true } } },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "screenshot", "label": "02_warboss_and_custodian_guard_have_fought" },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.fought.has(\"U_WARBOSS_B\")", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.fought.has(\"U_CUSTODIAN_GUARD_B\")", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.fought.has(\"U_STOMPA_A\")", "equals": false },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.peek_selection(GameState.state)[\"player\"]", "equals": 2 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.peek_selection(GameState.state)[\"candidates\"]", "equals": ["U_STOMPA_A"] },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.picker", "equals": 2 },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_STOMPA_A", "player": 2 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_phase_property", "property": "active_fighter_id", "equals": "U_STOMPA_A" },
+    { "act": "screenshot", "label": "03_stompa_selected_to_fight" },
+
+    { "act": "dispatch_action", "action": { "type": "ASSIGN_ATTACKS", "unit_id": "U_STOMPA_A", "target_id": "U_CUSTODIAN_GUARD_B", "weapon_id": "mega_choppa___sweep_melee", "player": 2 } },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_AND_RESOLVE_ATTACKS", "player": 2 } },
+    { "act": "dispatch_action", "action": { "type": "ROLL_DICE", "player": 2, "payload": { "fast_roll": true } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.fought.has(\"U_STOMPA_A\")", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().units_that_fought.has(\"U_STOMPA_A\")", "equals": true },
+    { "act": "screenshot", "label": "04_stompa_fought" }
+  ]
+}

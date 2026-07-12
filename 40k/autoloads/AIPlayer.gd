@@ -28,6 +28,7 @@ var _failed_deploy_unit_ids: Array = []  # Units that failed both deployment and
 var _failed_reinforcement_unit_ids: Array = []  # Units that failed reinforcement placement — skip to avoid infinite loop
 var _failed_transport_ids: Array = []  # Transports that completed or failed embarkation — skip to avoid re-embarkation
 var _pile_in_retry_units: Array = []  # Units that already had an empty pile-in retry — next failure sends CONSOLIDATE
+var _select_fighter_retry_count: int = 0  # Consecutive SELECT_FIGHTER failures — reset on any success; escalates to END_FIGHT only after 3
 var _pending_advance_moves: Dictionary = {}  # unit_id -> decision — awaiting advance roll resolution before staging moves
 var _last_thinking_phase: int = -1  # Track which phase we last logged a "thinking" message for
 var _last_thinking_round: int = -1  # Track which round we last logged a "thinking" message for
@@ -242,6 +243,7 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 	_failed_reinforcement_unit_ids.clear()
 	_failed_transport_ids.clear()
 	_pile_in_retry_units.clear()
+	_select_fighter_retry_count = 0
 	_pending_advance_moves.clear()
 	_last_thinking_phase = -1
 	_last_thinking_round = -1
@@ -374,6 +376,23 @@ func _get_fight_phase_selecting_player() -> int:
 		return fight_phase.current_selecting_player
 	return -1
 
+func _fight_step_over() -> bool:
+	"""True when the fight phase reports no unit is eligible to fight any more —
+	the only state where the SELECT_FIGHTER failure fallback may safely send
+	END_FIGHT (at 11e END_FIGHT forfeits every remaining fight via the 12.07
+	forfeit loop). Defensive default is true so an unreadable phase keeps the
+	old escape-hatch behavior instead of looping."""
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
+		return true
+	var phase = _phase_manager_ref.current_phase_instance
+	if "sequencer_11e" in phase and phase.sequencer_11e != null:
+		return not phase.sequencer_11e.has_eligible(GameState.state)
+	if phase.has_method("_all_eligible_units_have_fought"):
+		return phase._all_eligible_units_have_fought()
+	return true
+
 func _get_pending_reactive_window_player() -> int:
 	"""Owner of the reactive decision window the current phase is blocked on,
 	or 0 when none is pending. Covers the ChargePhase windows that
@@ -419,6 +438,7 @@ func reset_runtime_state() -> void:
 	_failed_reinforcement_unit_ids.clear()
 	_failed_transport_ids.clear()
 	_pile_in_retry_units.clear()
+	_select_fighter_retry_count = 0
 	_pending_advance_moves.clear()
 	_last_thinking_phase = -1
 	_last_thinking_round = -1
@@ -1808,18 +1828,36 @@ func _execute_next_action(player: int) -> void:
 		push_error("AIPlayer: Action failed: %s - Error: %s" % [decision.get("type", "?"), error_msg])
 		print("AIPlayer: Failed action details: %s" % str(decision))
 
-		# Handle failed SELECT_FIGHTER — unit no longer in engagement range, send END_FIGHT
+		# Handle failed SELECT_FIGHTER. A rejected selection does NOT mean the
+		# unit left combat — it usually means the offer was stale (the other
+		# player's pick, or eligibility shifted). END_FIGHT here is
+		# catastrophic at 11e: the 12.07 forfeit loop marks EVERY remaining
+		# unit as fought (2026-07-12 report: an engaged Stompa never got to
+		# fight). Re-evaluate against fresh offers while fighting continues;
+		# END_FIGHT only when the phase says nobody is eligible, or as a
+		# last-resort escape after repeated consecutive failures.
 		if decision.get("type") == "SELECT_FIGHTER":
 			var failed_unit_id = decision.get("unit_id", "")
 			var fight_unit_name = _get_unit_name(failed_unit_id)
-			print("AIPlayer: SELECT_FIGHTER failed for %s, sending END_FIGHT" % failed_unit_id)
-			_log_ai_event(player, "%s no longer in combat — ending fight" % fight_unit_name)
-			_current_phase_actions += 1
-			NetworkIntegration.route_action({
-				"type": "END_FIGHT",
-				"player": player,
-				"_ai_description": "End fight — %s not in engagement range" % fight_unit_name
-			})
+			_select_fighter_retry_count += 1
+			if not _fight_step_over() and _select_fighter_retry_count <= 3:
+				print("AIPlayer: SELECT_FIGHTER failed for %s (%s) — re-evaluating (retry %d/3)" % [
+					failed_unit_id, str(error_msg), _select_fighter_retry_count])
+				_log_ai_event(player, "%s selection rejected (%s) — re-checking fight order" % [
+					fight_unit_name, _format_error_concise(error_msg)])
+				_request_evaluation()
+			else:
+				print("AIPlayer: SELECT_FIGHTER failed for %s, sending END_FIGHT (fight step over: %s, retries: %d)" % [
+					failed_unit_id, str(_fight_step_over()), _select_fighter_retry_count])
+				_select_fighter_retry_count = 0
+				_log_ai_event(player, "%s could not be selected (%s) — ending fight" % [
+					fight_unit_name, _format_error_concise(error_msg)])
+				_current_phase_actions += 1
+				NetworkIntegration.route_action({
+					"type": "END_FIGHT",
+					"player": player,
+					"_ai_description": "End fight — %s could not be selected" % fight_unit_name
+				})
 
 		# Handle failed deployment specifically
 		elif decision.get("type") == "DEPLOY_UNIT":
@@ -2020,6 +2058,10 @@ func _execute_next_action(player: int) -> void:
 			_log_ai_event(player, "%s reinforcement failed (%s) — retrying" % [reinf_unit_name, _format_error_concise(error_msg)])
 			_handle_failed_reinforcement(player, decision)
 	else:
+		# Any successful action means the loop is progressing — clear the
+		# consecutive SELECT_FIGHTER failure counter.
+		_select_fighter_retry_count = 0
+
 		# Track successful transport embarkation to prevent re-embarkation of same transport
 		if decision.get("type") == "DECLARE_TRANSPORT_EMBARKATION":
 			var transport_id = decision.get("transport_id", "")
