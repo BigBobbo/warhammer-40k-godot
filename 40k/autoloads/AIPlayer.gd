@@ -153,7 +153,8 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_F10:
+		# Export AI decision log (rebindable: ai_export_log, default F10)
+		if KeybindingManager.matches_action(event, "ai_export_log"):
 			export_decision_log()
 			get_viewport().set_input_as_handled()
 

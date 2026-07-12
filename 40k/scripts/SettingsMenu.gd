@@ -620,17 +620,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		var new_shift = event.shift_pressed
 		var new_ctrl = event.ctrl_pressed
 		var new_alt = event.alt_pressed
+		var new_meta = event.meta_pressed
 
 		# Check for conflicts
-		var conflict_id = KeybindingManager.find_conflict(_capturing_action_id, new_key, new_shift, new_ctrl, new_alt)
+		var conflict_id = KeybindingManager.find_conflict(_capturing_action_id, new_key, new_shift, new_ctrl, new_alt, new_meta)
 		if conflict_id != "":
 			# Auto-swap: clear the conflicting binding by setting it to KEY_NONE (0)
-			KeybindingManager.set_binding(conflict_id, 0, false, false, false)
+			KeybindingManager.set_binding(conflict_id, 0, false, false, false, false)
 			_update_keybinding_display(conflict_id)
 			print("[SettingsMenu] Conflict resolved: cleared '%s'" % conflict_id)
 
 		# Apply the new binding
-		KeybindingManager.set_binding(_capturing_action_id, new_key, new_shift, new_ctrl, new_alt)
+		KeybindingManager.set_binding(_capturing_action_id, new_key, new_shift, new_ctrl, new_alt, new_meta)
 		_update_keybinding_display(_capturing_action_id)
 
 		# Exit capture mode

@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.28.0",
+			"date": "2026-07-12",
+			"summary": "Every keyboard shortcut can now be remapped mid-game. Settings → Controls now lists ALL of the game's hotkeys (previously most were hardcoded and missing from the menu), grouped into Camera, Gameplay, Model, Panels & Overlays, AI, Debug and Replay Playback — click any binding and press a new key to change it, and it takes effect immediately.",
+			"changes": [
+				"Added ~40 previously-unlisted shortcuts to the Controls tab so they can be reassigned: Army panel (U), Stratagems (S), Missions (M), Weapon range (W), Datasheet (I), Chat (T), Roster strip (B), Aura rings (A), Tactical grid (G), VP timeline (V), Visual style (8), Fit-to-board (F) / Fit-to-selection (Shift+F), Ruler (R), Threat overlay (Tab), Line-of-sight overlays (L / hold-G check), the AI replay + playback controls, and the debug tools (9 / O / Shift+D / F10).",
+				"Every one of these keys now flows through the rebinding system, so changing it in Settings → Controls changes it in the actual game — no restart needed. Rebinds are saved and persist between sessions.",
+				"Bindings are organised into clear categories with a Reset (per-key) and Reset All Defaults button, and the on-screen '?' hotkey help now shows your current keys instead of the factory defaults.",
+				"Note: several shortcuts still SHIP on the same default key as another (e.g. W is both 'pan up' and 'weapon range'; G is terrain / grid / LoS-check) — they are now all visible in the menu so you can give each one its own key."
+			]
+		},
+		{
 			"version": "0.27.0",
 			"date": "2026-07-12",
 			"summary": "The AI's game log now opens each turn with a single 'turn intent' card — its stance for the round (e.g. AGGRESSIVE / MELEE army), what the round is worth in VP, which enemies it plans to charge or tie up, and every unit's orders. Fast melee units (Stormboyz, Custodian Guard) also deploy like assault troops now instead of lining up as gunline shooters.",
