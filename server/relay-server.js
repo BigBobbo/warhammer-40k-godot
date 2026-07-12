@@ -68,6 +68,18 @@ try {
 
 console.log(`Database initialized at ${DB_PATH}`);
 
+// Log persisted row counts at boot. If the fly.io volume ever comes up empty
+// (e.g. a mount/volume problem), this line makes it obvious in the logs that the
+// server started with 0 saved games — turning a confusing "my online saves
+// disappeared" report into a one-line diagnosis.
+try {
+  const saveCount = db.prepare('SELECT COUNT(*) AS n FROM game_saves').get().n;
+  const armyCount = db.prepare('SELECT COUNT(*) AS n FROM army_lists').get().n;
+  console.log(`Persistence at boot: ${saveCount} saved game(s), ${armyCount} army list(s)`);
+} catch (e) {
+  console.error('Could not count persisted rows at boot:', e.message);
+}
+
 // Prepared statements
 const stmts = {
   upsertPlayer: db.prepare(`

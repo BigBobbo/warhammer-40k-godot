@@ -970,6 +970,8 @@ static func resolve_shoot_wounds(hit_context: Dictionary, board: Dictionary, rng
 # Only the chosen die is re-rolled; the untouched dice keep their result. A die
 # re-rolled here is not auto-re-rolled again (re-roll modifiers masked off — a
 # dice can only be re-rolled once). Returns an updated to_hit display block.
+# Works for BOTH ranged and melee hit contexts (melee stores WS under "bs" and
+# sets is_melee, which routes the display block context + skips DAKKASTORM).
 static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
 		rng_service = make_rng()
@@ -1000,7 +1002,8 @@ static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service:
 				crits += 1
 			else:
 				regular += 1
-	if has_dakkastorm(hit_context.get("actor_unit", {})) and regular > 0:
+	# DAKKASTORM converts hits to crits for RANGED attacks only — never melee.
+	if not hit_context.get("is_melee", false) and has_dakkastorm(hit_context.get("actor_unit", {})) and regular > 0:
 		crits += regular
 		regular = 0
 	hit_context["hits"] = hits
@@ -1015,7 +1018,7 @@ static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service:
 	hit_context["total_hits_for_wounds"] = hits + int(hit_context.get("sustained_bonus_hits", 0))
 
 	var block = {
-		"context": "to_hit",
+		"context": "hit_roll_melee" if hit_context.get("is_melee", false) else "to_hit",
 		"threshold": str(hit_context.get("bs", 4)) + "+",
 		"rolls_raw": hit_context["hit_rolls"],
 		"rolls_modified": hit_context["modified_rolls"],
@@ -1056,11 +1059,14 @@ static func reroll_wound_die(wound_context: Dictionary, die_index: int, board: D
 	var wounds_from_rolls = 0
 	var crit_wounds = 0
 	var regular_wounds = 0
+	var all_crit_wounds = 0  # ALL critical wounds regardless of DW (melee Hold Still)
 	for e in evals:
 		if e.get("auto_fail", false):
 			continue
 		if e.get("is_wound", false):
 			wounds_from_rolls += 1
+			if e.get("is_crit", false):
+				all_crit_wounds += 1
 			if has_dev and e.get("is_crit", false):
 				crit_wounds += 1
 			else:
@@ -1083,18 +1089,31 @@ static func reroll_wound_die(wound_context: Dictionary, die_index: int, board: D
 		}
 	var save_data = {}
 	if wounds_caused > 0:
-		save_data = prepare_save_resolution(
-			wounds_caused,
-			wound_context.get("target_unit_id", ""),
-			wound_context.get("actor_unit_id", ""),
-			wound_context.get("weapon_profile", {}),
-			board,
-			dev_data,
-			wound_context.get("melta_data", {}),
-			precision_data
-		)
+		# Melee wound contexts rebuild save data via the melee AP-modifier chain
+		# (no cover / melta in melee) — same overlay format either way.
+		if wound_context.get("is_melee", false):
+			save_data = prepare_melee_save_resolution(
+				wounds_caused,
+				wound_context.get("target_unit_id", ""),
+				wound_context.get("actor_unit_id", ""),
+				wound_context.get("weapon_profile", {}),
+				board,
+				dev_data,
+				precision_data
+			)
+		else:
+			save_data = prepare_save_resolution(
+				wounds_caused,
+				wound_context.get("target_unit_id", ""),
+				wound_context.get("actor_unit_id", ""),
+				wound_context.get("weapon_profile", {}),
+				board,
+				dev_data,
+				wound_context.get("melta_data", {}),
+				precision_data
+			)
 	var block = {
-		"context": "to_wound",
+		"context": "wound_roll_melee" if wound_context.get("is_melee", false) else "to_wound",
 		"threshold": str(wound_context.get("wound_threshold", 4)) + "+",
 		"rolls_raw": wound_context["wound_rolls"],
 		"successes": wounds_caused,
@@ -1107,6 +1126,9 @@ static func reroll_wound_die(wound_context: Dictionary, die_index: int, board: D
 		"wound_context": wound_context,
 		"dice_block": block,
 		"wounds_caused": wounds_caused,
+		"critical_wounds": crit_wounds,
+		"regular_wounds": regular_wounds,
+		"all_critical_wounds": all_crit_wounds,
 		"save_data": save_data,
 		"old_value": old_eval.get("raw", 0),
 		"new_value": new_raw
@@ -10500,17 +10522,234 @@ static func resolve_melee_attacks_interactive(action: Dictionary, board: Diction
 
 	return result
 
+# ==========================================
+# STAGED FIGHT (interactive Command Re-roll between hit and wound rolls)
+# resolve_melee_hits() rolls ONLY the hit roll for a single melee assignment and
+# returns a hit_context; the caller may pause (offer Command Re-roll on a hit die
+# via reroll_hit_die), then call resolve_melee_wounds(hit_context) which rolls the
+# wound roll and prepares save data. resolve_melee_saves_auto() runs the saving
+# throw + damage tail for the auto-allocate path. Mirrors the staged shooting API
+# (resolve_shoot_hits / resolve_shoot_wounds); the composed
+# _resolve_melee_assignment stays behaviour-identical for the fast paths.
+# ==========================================
+
+static func resolve_melee_hits(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+	if not rng_service:
+		rng_service = make_rng()
+	var result = {"success": true, "phase": "FIGHT", "dice": [], "log_text": "", "no_hits": true, "early_exit": false}
+	var actor_unit_id = action.get("actor_unit_id", "")
+	var assignments = action.get("payload", {}).get("assignments", [])
+	if assignments.is_empty():
+		result.success = false
+		result.log_text = "No attack assignments provided"
+		return result
+	# Staged path resolves ONE assignment at a time.
+	var assignment = assignments[0]
+	var h = _resolve_melee_assignment_hits(assignment, actor_unit_id, board, rng_service)
+	result.dice = h.get("dice", [])
+	result.log_text = h.get("log_text", "")
+	result.no_hits = h.get("no_hits", false)
+	result.early_exit = h.get("early_exit", false)
+	# Always propagate hit_context (present even on a miss) so the staged path can
+	# Command Re-roll a missed die and continue to wounds if it becomes a hit.
+	result["hit_context"] = h.get("hit_context", {})
+	return result
+
+# include_hold_still: pass true when the caller will resolve saves interactively
+# (Hold Still MW ride on the save_data, matching resolve_melee_attacks_interactive);
+# pass false when resolve_melee_saves_auto will run — its tail rolls Hold Still
+# itself, exactly like the auto monolith.
+static func resolve_melee_wounds(hit_context: Dictionary, board: Dictionary, rng_service: RNGService = null, include_hold_still: bool = true) -> Dictionary:
+	if not rng_service:
+		rng_service = make_rng()
+	var w = _resolve_melee_assignment_wounds(hit_context, board, rng_service)
+	var result = {
+		"success": true,
+		"phase": "FIGHT",
+		"dice": w.get("dice", []),
+		"log_text": w.get("log_text", ""),
+		"no_wounds": w.get("no_wounds", false),
+		"wounds_caused": w.get("wounds_caused", 0),
+		"all_critical_wound_count": w.get("all_critical_wound_count", 0),
+		"wound_context": w.get("wound_context", {}),
+		"wound_result": w,
+		"save_data_list": [],
+		"hold_still_mortal_wounds": 0
+	}
+	if w.get("no_wounds", false):
+		return result
+	# Package interactive-save data exactly like resolve_melee_attacks_interactive
+	# (dev wounds / precision / Hold Still), so the same overlay flow works.
+	var packaged = {"log_text": ""}
+	_build_melee_stop_before_saves(packaged, hit_context, w, rng_service, include_hold_still)
+	result["hold_still_mortal_wounds"] = packaged.get("hold_still_mortal_wounds", 0)
+	result["log_text"] = packaged.get("log_text", result["log_text"])
+	var dw_data = {
+		"has_devastating_wounds": hit_context.get("weapon_has_devastating_wounds", false),
+		"critical_wounds": w.get("critical_wound_count", 0),
+		"regular_wounds": w.get("regular_wound_count", 0)
+	}
+	var prec_data = {
+		"has_precision": hit_context.get("weapon_has_precision", false),
+		"precision_wounds": hit_context.get("critical_hits", 0) if hit_context.get("weapon_has_precision", false) else 0,
+		"critical_hits": hit_context.get("critical_hits", 0)
+	}
+	var save_data = prepare_melee_save_resolution(
+		w.get("wounds_caused", 0),
+		hit_context.get("target_id", ""),
+		hit_context.get("attacker_id", ""),
+		hit_context.get("weapon_profile", {}),
+		board,
+		dw_data,
+		prec_data
+	)
+	if save_data.get("success", false):
+		var hs_mw = int(result["hold_still_mortal_wounds"])
+		if hs_mw > 0:
+			save_data["hold_still_mortal_wounds"] = hs_mw
+		result["save_data_list"] = [save_data]
+	return result
+
+# Staged fight auto-allocate tail: run the PHASE 6-7 saving throws + damage for
+# one assignment whose hits/wounds were rolled via the staged calls above.
+static func resolve_melee_saves_auto(hit_context: Dictionary, wound_result: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+	if not rng_service:
+		rng_service = make_rng()
+	var s = _resolve_melee_assignment_saves(hit_context, wound_result, board, rng_service)
+	return {
+		"success": true,
+		"phase": "FIGHT",
+		"diffs": s.get("diffs", []),
+		"dice": s.get("dice", []),
+		"log_text": s.get("log_text", "")
+	}
+
 # Resolve a single melee assignment (models with weapon -> target)
 # Full pipeline mirroring shooting: hit rolls (with critical tracking, Sustained Hits),
 # wound rolls (with Lethal Hits, Devastating Wounds), save rolls (with invulnerable saves),
 # FNP, and damage application.
 # P0-58: When stop_before_saves=true, stops after wound rolls and returns save prep data
 # for interactive wound allocation overlay (defender-controlled wound allocation).
+#
+# STAGED FIGHT: composed from the hits / wounds / saves thirds below so the staged
+# fight path (resolve_melee_hits / resolve_melee_wounds / resolve_melee_saves_auto)
+# can pause between the hit roll and the wound roll for Command Re-roll — exactly
+# mirroring the ranged _resolve_assignment_until_wounds split. Behaviour and RNG
+# order are identical to the original monolith.
 static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService, stop_before_saves: bool = false) -> Dictionary:
+	var h = _resolve_melee_assignment_hits(assignment, actor_unit_id, board, rng)
+	var result = {
+		"diffs": [],
+		"dice": (h.get("dice", []) as Array).duplicate(),
+		"log_text": h.get("log_text", "")
+	}
+	if h.get("early_exit", false) or h.get("no_hits", false):
+		return result
+
+	var hit_context = h.get("hit_context", {})
+	var w = _resolve_melee_assignment_wounds(hit_context, board, rng)
+	for wdb in w.get("dice", []):
+		result.dice.append(wdb)
+	if w.get("no_wounds", false):
+		result.log_text = w.get("log_text", "")
+		return result
+
+	# P0-58: When stop_before_saves=true, return wound data for interactive save allocation
+	if stop_before_saves:
+		_build_melee_stop_before_saves(result, hit_context, w, rng)
+		return result
+
+	var s = _resolve_melee_assignment_saves(hit_context, w, board, rng)
+	result.diffs.append_array(s.get("diffs", []))
+	for sdb in s.get("dice", []):
+		result.dice.append(sdb)
+	result.log_text = s.get("log_text", "")
+	return result
+
+# OA-19: HOLD STILL AND SAY 'AARGH!' — roll D6 mortal wounds per critical wound
+# for the 'urty syringe (non-VEHICLE targets). Shared between the interactive
+# (stop_before_saves) packaging and the staged fight path so the roll happens at
+# the same point relative to the wound roll in both.
+static func _roll_hold_still_mortal_wounds(hit_context: Dictionary, all_critical_wound_count: int, rng: RNGService) -> int:
+	if all_critical_wound_count <= 0:
+		return 0
+	var attacker_unit = hit_context.get("actor_unit", {})
+	var target_unit = hit_context.get("target_unit", {})
+	var weapon_name = str(hit_context.get("weapon_name", ""))
+	if not _has_hold_still_ability(attacker_unit):
+		return 0
+	if not weapon_name.to_lower().contains("urty syringe"):
+		return 0
+	if unit_has_keyword(target_unit, "VEHICLE"):
+		print("RulesEngine: HOLD STILL AND SAY 'AARGH!' (interactive) — target %s is VEHICLE, excluded" % hit_context.get("target_name", ""))
+		return 0
+	var hs_mw_count = 0
+	for _hs_i in range(all_critical_wound_count):
+		hs_mw_count += rng.roll_d6(1)[0]
+	print("RulesEngine: HOLD STILL AND SAY 'AARGH!' (interactive) — %d critical wound(s), %d mortal wounds pending" % [all_critical_wound_count, hs_mw_count])
+	return hs_mw_count
+
+# P0-58 packaging shared by the interactive monolith path and the staged fight
+# path: stamps the hit/wound tallies + Hold Still mortal wounds onto `result`
+# and builds the awaiting-saves log line. Set include_hold_still=false when the
+# save/damage tail (_resolve_melee_assignment_saves) will run afterwards — it
+# rolls and applies Hold Still itself, and rolling here too would double it.
+static func _build_melee_stop_before_saves(result: Dictionary, hit_context: Dictionary, w: Dictionary, rng: RNGService, include_hold_still: bool = true) -> void:
+	var is_torrent = hit_context.get("is_torrent", false)
+	var hits = int(hit_context.get("hits", 0))
+	var critical_hits = int(hit_context.get("critical_hits", 0))
+	var sustained_bonus_hits = int(hit_context.get("sustained_bonus_hits", 0))
+	var total_attacks = int(hit_context.get("total_attacks", 0))
+	var total_hits_for_wounds = int(hit_context.get("total_hits_for_wounds", 0))
+	var wounds_caused = int(w.get("wounds_caused", 0))
+	var auto_wounds = int(w.get("auto_wounds", 0))
+	result["wounds_caused"] = wounds_caused
+	result["critical_wound_count"] = w.get("critical_wound_count", 0)
+	result["regular_wound_count"] = w.get("regular_wound_count", 0)
+	result["weapon_has_devastating_wounds"] = hit_context.get("weapon_has_devastating_wounds", false)
+	result["weapon_has_precision"] = hit_context.get("weapon_has_precision", false)
+	result["critical_hits"] = critical_hits
+	result["weapon_profile"] = hit_context.get("weapon_profile", {})
+	result["target_id"] = hit_context.get("target_id", "")
+	result["attacker_id"] = hit_context.get("attacker_id", "")
+	result["target_name"] = hit_context.get("target_name", "")
+	result["attacker_name"] = hit_context.get("attacker_name", "")
+	result["weapon_name"] = hit_context.get("weapon_name", "")
+	result["stop_before_saves"] = true
+	# OA-19: Compute Hold Still mortal wound count for interactive path
+	result["hold_still_mortal_wounds"] = _roll_hold_still_mortal_wounds(hit_context, int(w.get("all_critical_wound_count", 0)), rng) if include_hold_still else 0
+	# Build log text for the hit/wound portion
+	var hw_parts = []
+	hw_parts.append("Melee: %s (%s) → %s" % [result["attacker_name"], result["weapon_name"], result["target_name"]])
+	if is_torrent:
+		hw_parts.append("Torrent: %d auto-hits" % hits)
+	else:
+		var hw_hit_detail = "Hit: %d/%d" % [hits, total_attacks]
+		if critical_hits > 0:
+			hw_hit_detail += " [%d crit]" % critical_hits
+		hw_parts.append(hw_hit_detail)
+	if sustained_bonus_hits > 0:
+		hw_parts.append("+%d Sustained Hits" % sustained_bonus_hits)
+	var hw_wound_detail = "Wound: %d/%d" % [wounds_caused, total_hits_for_wounds]
+	if auto_wounds > 0:
+		hw_wound_detail += " (%d Lethal)" % auto_wounds
+	hw_parts.append(hw_wound_detail)
+	hw_parts.append("Awaiting defender save allocation...")
+	result.log_text = " - ".join(hw_parts)
+	print("RulesEngine: P0-58 — Melee hits/wounds resolved, %d wounds caused, returning for interactive saves" % wounds_caused)
+
+# Melee hits third: PHASES 1-4 of the original monolith (attack counting, combat
+# stats, weapon abilities, hit rolls). Returns {dice, log_text, early_exit,
+# no_hits, hit_context}. The hit_context carries per-die evals (reroll_hit_die
+# support) and every stat the wounds/saves thirds need. WS is ALSO stored under
+# the ranged "bs"/"bs_per_attack" keys so reroll_hit_die works unchanged.
+static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
 	var result = {
 		"diffs": [],
 		"dice": [],
-		"log_text": ""
+		"log_text": "",
+		"early_exit": false,
+		"no_hits": false
 	}
 
 	var attacker_id = assignment.get("attacker", "")
@@ -10520,12 +10759,14 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	if weapon_id.is_empty():
 		result.log_text = "No weapon specified for melee attack"
+		result.early_exit = true
 		return result
 
 	# Get weapon profile (melee weapons use same format as ranged)
 	var weapon_profile = get_weapon_profile(weapon_id, board)
 	if weapon_profile.is_empty():
 		result.log_text = "Weapon profile not found: " + weapon_id
+		result.early_exit = true
 		return result
 
 	var units = board.get("units", {})
@@ -10534,6 +10775,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	if attacker_unit.is_empty() or target_unit.is_empty():
 		result.log_text = "Attacker or target unit not found"
+		result.early_exit = true
 		return result
 
 	var attacker_name = attacker_unit.get("meta", {}).get("name", attacker_id)
@@ -10712,6 +10954,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	if total_attacks == 0:
 		result.log_text = "No valid attacking models (0/%d in engagement range)" % total_alive_models
+		result.early_exit = true
 		return result
 
 	# ===== PHASE 2: GET COMBAT STATS =====
@@ -10913,6 +11156,14 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var sustained_result = {"bonus_hits": 0, "rolls": []}
 	var total_hits_for_wounds = 0
 	var hit_rolls = []
+	# STAGED FIGHT: per-die records for Command Re-roll (mirrors the ranged path).
+	# Declarations hoisted out of the non-torrent branch so the hit_context can be
+	# built unconditionally; behaviour is unchanged (torrent makes no hit roll).
+	var hit_evals = []
+	var modified_rolls = []
+	var melee_hit_reroll_data = []
+	var melee_crit_threshold = 6  # Default: only unmodified 6s are critical hits
+	var melee_hit_modifiers = HitModifier.NONE
 
 	if is_torrent:
 		# TORRENT: All attacks automatically hit - no roll needed
@@ -10934,7 +11185,6 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		hit_rolls = rng.roll_d6(total_attacks)
 
 		# MARTIAL MASTERY — CRIT ON 5+ (P2-27): Shield Host detachment
-		var melee_crit_threshold = 6  # Default: only unmodified 6s are critical hits
 		if melee_attacker_flags.get("martial_mastery_crit_5", false):
 			melee_crit_threshold = 5
 			print("RulesEngine: Martial Mastery (Crit on 5+) — melee critical hit threshold lowered to 5+")
@@ -10952,8 +11202,6 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 				print("RulesEngine: DRAG IT DOWN — melee critical hits on 5+ (target is Prey)")
 
 		# Build melee hit modifiers using the HitModifier system
-		var melee_hit_modifiers = HitModifier.NONE
-
 		# Get hit modifiers from assignment
 		if assignment.has("modifiers") and assignment.modifiers.has("hit"):
 			var hit_mods = assignment.modifiers.hit
@@ -11028,7 +11276,6 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			melee_hit_modifiers = melee_hit_modifiers & ~HitModifier.MINUS_ONE
 			print("RulesEngine: [PSYCHIC] (melee) — ignoring hit-roll penalties for %s" % weapon_name)
 
-		var melee_hit_reroll_data = []
 		# ISS-012: per-roll evaluation shared with the ranged paths
 		# (AttackSequence.evaluate_hit_roll). melee_crit_threshold covers
 		# Martial Mastery (5+); it is always <= 6, so the legacy redundant
@@ -11038,6 +11285,8 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			# MA-11: Use per-model WS for this attack's threshold
 			var attack_ws = ws_per_attack[i] if i < ws_per_attack.size() else ws
 			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_ws, melee_hit_modifiers, melee_crit_threshold, rng)
+			modified_rolls.append(hit_eval.final_roll)
+			hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit})
 			if hit_eval.rerolled:
 				melee_hit_reroll_data.append({
 					"original": hit_eval.reroll_from,
@@ -11059,6 +11308,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# (If Lethal Hits: critical hits auto-wound, but sustained bonus hits still roll)
 		total_hits_for_wounds = hits + sustained_bonus_hits
 
+		# NOTE: the block shape is pinned by tests/fixtures/attack_goldens.json —
+		# per-die modified rolls / reroll data live in hit_context (and flow to the
+		# staged dialog via fight_stage_paused), not here.
 		result.dice.append({
 			"context": "hit_roll_melee",
 			"threshold": str(ws) + "+",
@@ -11081,12 +11333,104 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			"precision_weapon": weapon_has_precision
 		})
 
+	# Build the hit context up-front so it is available even on a full miss —
+	# the staged fight path may Command Re-roll a MISSED die (turning it into a
+	# hit), which needs the per-die evals/modifiers preserved here. WS values are
+	# duplicated under the ranged "bs"/"bs_per_attack" keys for reroll_hit_die.
+	var hit_context = {
+		"is_melee": true,
+		"assignment": assignment,
+		"actor_unit_id": actor_unit_id,
+		"attacker_id": attacker_id,
+		"target_id": target_id,
+		"target_unit_id": target_id,
+		"weapon_id": weapon_id,
+		"weapon_profile": weapon_profile,
+		"weapon_name": weapon_name,
+		"attacker_name": attacker_name,
+		"target_name": target_name,
+		"actor_unit": attacker_unit,
+		"target_unit": target_unit,
+		# Combat stats (post-modifier) needed by the wounds / saves thirds
+		"ws": ws,
+		"strength": strength,
+		"toughness": toughness,
+		"ap": ap,
+		"damage": damage,
+		"base_save": base_save,
+		"has_dead_brutal": has_dead_brutal,
+		"model_count": model_count,
+		"total_alive_models": total_alive_models,
+		# Weapon abilities
+		"weapon_has_lethal_hits": weapon_has_lethal_hits,
+		"weapon_has_devastating_wounds": weapon_has_devastating_wounds,
+		"weapon_has_precision": weapon_has_precision,
+		"sustained_data": sustained_data,
+		"is_torrent": is_torrent,
+		# Hit tallies + per-die records
+		"hits": hits,
+		"critical_hits": critical_hits,
+		"regular_hits": regular_hits,
+		"sustained_bonus_hits": sustained_bonus_hits,
+		"total_hits_for_wounds": total_hits_for_wounds,
+		"total_attacks": total_attacks,
+		"hit_rolls": hit_rolls,
+		"modified_rolls": modified_rolls,
+		"hit_evals": hit_evals,
+		"reroll_data": melee_hit_reroll_data,
+		# reroll_hit_die compatibility (ranged field names)
+		"bs": ws,
+		"bs_per_attack": ws_per_attack,
+		"hit_modifiers": melee_hit_modifiers,
+		"critical_hit_threshold": melee_crit_threshold,
+		"hit_fail_band": 1,
+	}
+	result["hit_context"] = hit_context
+
 	if hits == 0 and sustained_bonus_hits == 0:
 		var melee_miss_log = "Melee: %s (%s) → %s: %d attacks, 0 hits" % [attacker_name, weapon_name, target_name, total_attacks]
 		if not hit_rolls.is_empty():
 			melee_miss_log += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(ws)]
 		result.log_text = melee_miss_log
+		result.no_hits = true
 		return result
+
+	return result
+
+# Melee wounds third: PHASE 5 of the original monolith (wound rolls with Lethal
+# Hits / Devastating Wounds / Anti-Keyword / Twin-linked). Takes the hit_context
+# from _resolve_melee_assignment_hits; returns {dice, log_text, no_wounds,
+# wounds_caused, critical_wound_count, regular_wound_count,
+# all_critical_wound_count, auto_wounds, wound_rolls, wound_threshold,
+# melee_wound_modifier_net, wound_context}. wound_context carries per-die evals
+# so reroll_wound_die works for melee.
+static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dictionary, rng: RNGService) -> Dictionary:
+	var result = {
+		"dice": [],
+		"log_text": "",
+		"no_wounds": false
+	}
+	var assignment = hit_context["assignment"]
+	var attacker_id = hit_context["attacker_id"]
+	var target_id = hit_context["target_id"]
+	var weapon_id = hit_context["weapon_id"]
+	var weapon_name = hit_context["weapon_name"]
+	var attacker_name = hit_context["attacker_name"]
+	var target_name = hit_context["target_name"]
+	var units = board.get("units", {})
+	var attacker_unit = units.get(attacker_id, {})
+	var target_unit = units.get(target_id, {})
+	var strength = hit_context["strength"]
+	var toughness = hit_context["toughness"]
+	var weapon_has_lethal_hits = hit_context["weapon_has_lethal_hits"]
+	var weapon_has_devastating_wounds = hit_context["weapon_has_devastating_wounds"]
+	var is_torrent = hit_context["is_torrent"]
+	var hits = int(hit_context["hits"])
+	var critical_hits = int(hit_context["critical_hits"])
+	var regular_hits = int(hit_context["regular_hits"])
+	var sustained_bonus_hits = int(hit_context["sustained_bonus_hits"])
+	var total_hits_for_wounds = int(hit_context["total_hits_for_wounds"])
+	var total_attacks = int(hit_context["total_attacks"])
 
 	# ===== PHASE 5: WOUND ROLLS =====
 	# With Lethal Hits, Sustained Hits, Devastating Wounds, and Anti-Keyword interactions
@@ -11218,6 +11562,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var regular_wound_count = 0
 	var all_critical_wound_count = 0  # OA-19: Track ALL critical wounds (for Hold Still and Say 'Aargh!')
 	var melee_wound_reroll_data = []  # Track twin-linked / modifier re-rolls
+	var wound_evals = []  # STAGED FIGHT: per-die records for reroll_wound_die
 
 	if weapon_has_lethal_hits and not is_torrent and lethal_hits_auto_wound_11e(weapon_id, board, assignment):
 		# Lethal Hits: Critical hits (unmodified 6s to hit) automatically wound - no wound roll
@@ -11232,6 +11577,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			for roll in wound_rolls:
 				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng)
+				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail})
 				if wound_eval.rerolled:
 					melee_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -11255,6 +11601,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			for roll in wound_rolls:
 				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng)
+				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail})
 				if wound_eval.rerolled:
 					melee_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -11305,59 +11652,89 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		"wound_modifiers_applied": melee_wound_modifiers
 	})
 
+	# Package the wound stage for the composer / staged fight path. wound_context
+	# mirrors the ranged wound_context field names so reroll_wound_die works.
+	result["wounds_caused"] = wounds_caused
+	result["critical_wound_count"] = critical_wound_count
+	result["regular_wound_count"] = regular_wound_count
+	result["all_critical_wound_count"] = all_critical_wound_count
+	result["auto_wounds"] = auto_wounds
+	result["wound_rolls"] = wound_rolls
+	result["wound_threshold"] = wound_threshold
+	result["melee_wound_modifier_net"] = melee_wound_modifier_net
+	result["wound_context"] = {
+		"is_melee": true,
+		"wound_evals": wound_evals,
+		"wound_rolls": wound_rolls,
+		"wound_modifiers": melee_wound_modifiers,
+		"wound_threshold": wound_threshold,
+		"critical_wound_threshold": melee_critical_wound_threshold,
+		"weapon_has_devastating_wounds": weapon_has_devastating_wounds,
+		"weapon_has_precision": hit_context.get("weapon_has_precision", false),
+		"auto_wounds": auto_wounds,
+		"critical_hits": critical_hits,
+		"target_unit_id": target_id,
+		"actor_unit_id": attacker_id,
+		"weapon_profile": hit_context.get("weapon_profile", {}),
+		"melta_data": {},
+	}
+
 	if wounds_caused == 0:
 		var hit_text = "%d hits" % hits
 		if sustained_bonus_hits > 0:
 			hit_text += " (+%d sustained)" % sustained_bonus_hits
 		result.log_text = "Melee: %s (%s) → %s: %d attacks, %s, 0 wounds" % [attacker_name, weapon_name, target_name, total_attacks, hit_text]
+		result.no_wounds = true
 		return result
 
-	# P0-58: When stop_before_saves=true, return wound data for interactive save allocation
-	if stop_before_saves:
-		result["wounds_caused"] = wounds_caused
-		result["critical_wound_count"] = critical_wound_count
-		result["regular_wound_count"] = regular_wound_count
-		result["weapon_has_devastating_wounds"] = weapon_has_devastating_wounds
-		result["weapon_has_precision"] = weapon_has_precision
-		result["critical_hits"] = critical_hits
-		result["weapon_profile"] = weapon_profile
-		result["target_id"] = target_id
-		result["attacker_id"] = attacker_id
-		result["target_name"] = target_name
-		result["attacker_name"] = attacker_name
-		result["weapon_name"] = weapon_name
-		result["stop_before_saves"] = true
-		# OA-19: Compute Hold Still mortal wound count for interactive path
-		var hs_mw_count = 0
-		if all_critical_wound_count > 0 and _has_hold_still_ability(attacker_unit):
-			if weapon_name.to_lower().contains("urty syringe"):
-				if not unit_has_keyword(target_unit, "VEHICLE"):
-					for _hs_i in range(all_critical_wound_count):
-						hs_mw_count += rng.roll_d6(1)[0]
-					print("RulesEngine: HOLD STILL AND SAY 'AARGH!' (interactive) — %d critical wound(s), %d mortal wounds pending" % [all_critical_wound_count, hs_mw_count])
-				else:
-					print("RulesEngine: HOLD STILL AND SAY 'AARGH!' (interactive) — target %s is VEHICLE, excluded" % target_name)
-		result["hold_still_mortal_wounds"] = hs_mw_count
-		# Build log text for the hit/wound portion
-		var hw_parts = []
-		hw_parts.append("Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name])
-		if is_torrent:
-			hw_parts.append("Torrent: %d auto-hits" % hits)
-		else:
-			var hw_hit_detail = "Hit: %d/%d" % [hits, total_attacks]
-			if critical_hits > 0:
-				hw_hit_detail += " [%d crit]" % critical_hits
-			hw_parts.append(hw_hit_detail)
-		if sustained_bonus_hits > 0:
-			hw_parts.append("+%d Sustained Hits" % sustained_bonus_hits)
-		var hw_wound_detail = "Wound: %d/%d" % [wounds_caused, total_hits_for_wounds]
-		if auto_wounds > 0:
-			hw_wound_detail += " (%d Lethal)" % auto_wounds
-		hw_parts.append(hw_wound_detail)
-		hw_parts.append("Awaiting defender save allocation...")
-		result.log_text = " - ".join(hw_parts)
-		print("RulesEngine: P0-58 — Melee hits/wounds resolved, %d wounds caused, returning for interactive saves" % wounds_caused)
-		return result
+	return result
+
+# Melee saves third: PHASES 6-7 of the original monolith (saving throws, FNP,
+# damage application, Hold Still mortal wounds). Takes the hit_context and the
+# wounds-third result; returns {diffs, dice, log_text}. Only the auto-resolve
+# path reaches this — the interactive path stops before saves.
+static func _resolve_melee_assignment_saves(hit_context: Dictionary, w: Dictionary, board: Dictionary, rng: RNGService) -> Dictionary:
+	var result = {
+		"diffs": [],
+		"dice": [],
+		"log_text": ""
+	}
+	var assignment = hit_context["assignment"]
+	var actor_unit_id = hit_context["actor_unit_id"]
+	var attacker_id = hit_context["attacker_id"]
+	var target_id = hit_context["target_id"]
+	var weapon_id = hit_context["weapon_id"]
+	var weapon_name = hit_context["weapon_name"]
+	var weapon_profile = hit_context["weapon_profile"]
+	var attacker_name = hit_context["attacker_name"]
+	var target_name = hit_context["target_name"]
+	var units = board.get("units", {})
+	var attacker_unit = units.get(attacker_id, {})
+	var target_unit = units.get(target_id, {})
+	var ws = hit_context["ws"]
+	var ap = hit_context["ap"]
+	var damage = hit_context["damage"]
+	var base_save = hit_context["base_save"]
+	var has_dead_brutal = hit_context["has_dead_brutal"]
+	var model_count = int(hit_context["model_count"])
+	var total_alive_models = int(hit_context["total_alive_models"])
+	var weapon_has_devastating_wounds = hit_context["weapon_has_devastating_wounds"]
+	var weapon_has_precision = hit_context["weapon_has_precision"]
+	var is_torrent = hit_context["is_torrent"]
+	var hits = int(hit_context["hits"])
+	var critical_hits = int(hit_context["critical_hits"])
+	var sustained_bonus_hits = int(hit_context["sustained_bonus_hits"])
+	var total_attacks = int(hit_context["total_attacks"])
+	var total_hits_for_wounds = int(hit_context["total_hits_for_wounds"])
+	var hit_rolls = hit_context["hit_rolls"]
+	var wounds_caused = int(w["wounds_caused"])
+	var critical_wound_count = int(w["critical_wound_count"])
+	var regular_wound_count = int(w["regular_wound_count"])
+	var all_critical_wound_count = int(w["all_critical_wound_count"])
+	var auto_wounds = int(w["auto_wounds"])
+	var wound_rolls = w["wound_rolls"]
+	var wound_threshold = w["wound_threshold"]
+	var melee_wound_modifier_net = int(w["melee_wound_modifier_net"])
 
 	# ===== PHASE 6: SAVE ROLLS =====
 	# A1 (11e): melee saves/damage via the SAME defender allocation-group path as
@@ -14028,6 +14405,13 @@ static func check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionary
 ## type-aware format).
 static func generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
 	return _generate_weapon_id(weapon_name, weapon_type)
+
+## Staged fight: re-roll Hold Still (OA-19) mortal wounds for a melee
+## hit_context after a Command Re-roll changed the critical-wound tally.
+static func roll_hold_still_mortal_wounds(hit_context: Dictionary, all_critical_wound_count: int, rng_service: RNGService = null) -> int:
+	if not rng_service:
+		rng_service = make_rng()
+	return _roll_hold_still_mortal_wounds(hit_context, all_critical_wound_count, rng_service)
 
 ## Allocate `total_damage` into the target unit's model pool; returns the
 ## damage-application result (diffs, casualties).
