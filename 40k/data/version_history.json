@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.21.0",
+			"date": "2026-07-12",
+			"summary": "Removed the legacy hand-made terrain layouts (Chapter Approved 1-8 and the parse-test boards). The game now plays exclusively on the converted official 11e tournament layouts, and the main menu defaults to the current matchup's first official variant with its paired deployment.",
+			"changes": [
+				"Removed: the ten legacy terrain layouts (Chapter Approved Layouts 1-8 and two parse-test boards) and their hardcoded fallback. They pre-dated the official 11e set, used whole-rectangle footprints with hand-authored wall segments, and interacted badly with the new solid-wall movement rules.",
+				"The terrain dropdown now lists only the official 11e layouts: the selected Force-Disposition matchup's three variants (or the full official list if no matchup applies).",
+				"New games default to the default matchup's first official variant (Take and Hold mirror, variant 1) with its paired deployment pattern (Tipping Point) — previously the default was a legacy parse-test board with Search and Destroy.",
+				"Old saves and settings that reference a removed layout still load: saved games rebuild their terrain from the data stored in the save itself, and a stale layout selection falls back to the default official layout instead of an empty board."
+			]
+		},
+		{
 			"version": "0.20.0",
 			"date": "2026-07-12",
 			"summary": "Ruin walls now actually block vehicles and monsters. Big models (like the Stompa) can no longer walk through, charge through, or park on top of the solid walls on the tournament terrain layouts — and the whole base counts, not just its centre point.",

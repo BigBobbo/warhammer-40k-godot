@@ -9,7 +9,12 @@ signal terrain_visibility_changed(visible: bool)
 
 var terrain_features: Array = []
 var terrain_visible: bool = true
-var current_layout: String = "layout_2"
+
+## Boot/fallback layout. The legacy hand-made layouts (layout_1..8, parse
+## tests) were removed — the converted official 11e layouts are the only
+## authored terrain now, and this is the default matchup's first variant.
+const DEFAULT_LAYOUT := "take_and_hold_mirror_1"
+var current_layout: String = DEFAULT_LAYOUT
 
 # D3-a: objective markers authored by the loaded layout (the converted 11e
 # layouts carry an objectives[] array; legacy layouts don't). Raw JSON dicts
@@ -58,29 +63,9 @@ func _ready() -> void:
 	load_terrain_layout(current_layout)
 
 func _preload_layout_metadata() -> void:
-	# Load metadata (name, description, recommended deployments) from all layout JSON files
-	var ids_to_load: Array = []
-	for i in range(1, 9):
-		ids_to_load.append("layout_%d" % i)
-	# Parse-test layouts (catalog-based parser output, see tools/PARSE_TERRAIN_GUIDE.md)
-	ids_to_load.append("layout_parse_test")
-	ids_to_load.append("layout_parse_test_1")
-	for layout_id in ids_to_load:
-		var json_path = "res://terrain_layouts/%s.json" % layout_id
-		if FileAccess.file_exists(json_path):
-			var file = FileAccess.open(json_path, FileAccess.READ)
-			if file:
-				var json = JSON.new()
-				var parse_result = json.parse(file.get_as_text())
-				file.close()
-				if parse_result == OK:
-					var data = json.data
-					_layout_metadata[layout_id] = {
-						"id": data.get("id", layout_id),
-						"name": data.get("name", layout_id),
-						"description": data.get("description", ""),
-						"recommended_deployments": data.get("recommended_deployments", [])
-					}
+	# The converted official 11e layouts (index_11e.json) are the only
+	# authored terrain — the legacy layout_1..8 / parse-test JSONs were
+	# removed along with their hardcoded fallback.
 	_preload_11e_layout_index()
 	print("[TerrainManager] Preloaded metadata for ", _layout_metadata.size(), " terrain layouts")
 
@@ -123,16 +108,7 @@ func get_layout_metadata(layout_id: String) -> Dictionary:
 	return _layout_metadata.get(layout_id, {})
 
 func get_all_layout_ids() -> Array:
-	var ids = []
-	for i in range(1, 9):
-		var layout_id = "layout_%d" % i
-		if _layout_metadata.has(layout_id):
-			ids.append(layout_id)
-	for extra_id in ["layout_parse_test", "layout_parse_test_1"]:
-		if _layout_metadata.has(extra_id):
-			ids.append(extra_id)
-	ids.append_array(_layout_ids_11e)
-	return ids
+	return _layout_ids_11e.duplicate()
 
 ## Ids of the converted official 11e layouts (matchup/variant metadata is in
 ## get_layout_metadata). Empty if the generated index is absent.
@@ -172,14 +148,16 @@ func load_terrain_layout(layout_name: String) -> void:
 	# Try loading from JSON first
 	if _load_layout_from_json(layout_name):
 		print("[TerrainManager] Loaded layout '%s' from JSON (%d terrain pieces)" % [layout_name, terrain_features.size()])
+	elif layout_name != DEFAULT_LAYOUT:
+		# Unknown/removed layout id (e.g. a stale setting or an old save that
+		# referenced the deleted legacy layouts) — fall back to the default
+		# official layout rather than an empty board.
+		print("[TerrainManager] Unknown layout '%s' — falling back to '%s'" % [layout_name, DEFAULT_LAYOUT])
+		if _load_layout_from_json(DEFAULT_LAYOUT):
+			current_layout = DEFAULT_LAYOUT
+			print("[TerrainManager] Loaded fallback layout '%s' (%d terrain pieces)" % [DEFAULT_LAYOUT, terrain_features.size()])
 	else:
-		# Fallback to hardcoded layouts
-		match layout_name:
-			"layout_2":
-				_setup_layout_2()
-				print("[TerrainManager] Loaded layout_2 from hardcoded fallback (%d terrain pieces)" % terrain_features.size())
-			_:
-				print("[TerrainManager] Unknown layout: ", layout_name)
+		print("[TerrainManager] Unknown layout: ", layout_name)
 
 	# Issue #385: mirror the loaded terrain into GameState.state.board.terrain
 	# so MovementPhase._position_intersects_terrain (which reads from there)
@@ -359,33 +337,6 @@ func _convert_json_walls(terrain_id: String, json_walls: Array, position_px: Vec
 		walls.append(wall)
 
 	return walls
-
-func _setup_layout_2() -> void:
-	# Chapter Approved Layout 2 - Hardcoded fallback
-	# Board is 44"x60" (1760x2400 pixels at 40px per inch)
-	var board_width = 1760
-	var board_height = 2400
-
-	# 6" x 4" ruins (4 pieces) - 240x160 pixels
-	_add_terrain_piece("ruins_1", Vector2(720, 200), Vector2(240, 160), HeightCategory.TALL, 90.0)
-	_add_terrain_piece("ruins_2", Vector2(1040, 2200), Vector2(240, 160), HeightCategory.TALL, 90.0)
-	_add_terrain_piece("ruins_3", Vector2(440, 1080), Vector2(240, 160), HeightCategory.TALL, 90.0)
-	_add_terrain_piece("ruins_4", Vector2(1320, 1320), Vector2(240, 160), HeightCategory.TALL, 90.0)
-
-	# 10" x 5" ruins (2 pieces) - 400x200 pixels
-	_add_terrain_piece("ruins_5", Vector2(260, 1400), Vector2(400, 200), HeightCategory.TALL, 90.0)
-	_add_terrain_piece("ruins_6", Vector2(1500, 1000), Vector2(400, 200), HeightCategory.TALL, 90.0)
-
-	# 12" x 6" ruins (6 pieces) - 480x240 pixels
-	_add_terrain_piece("ruins_7", Vector2(1360, 320), Vector2(480, 240), HeightCategory.TALL, 0.0)
-	_add_terrain_piece("ruins_8", Vector2(400, 440), Vector2(480, 240), HeightCategory.MEDIUM, 0.0)
-	_add_terrain_piece("ruins_9", Vector2(1360, 1960), Vector2(480, 240), HeightCategory.LOW, 0.0)
-	_add_terrain_piece("ruins_10", Vector2(400, 2080), Vector2(480, 240), HeightCategory.TALL, 0.0)
-	_add_terrain_piece("ruins_11", Vector2(880, 760), Vector2(480, 240), HeightCategory.MEDIUM, -45.0)
-	_add_terrain_piece("ruins_12", Vector2(880, 1640), Vector2(480, 240), HeightCategory.TALL, -45.0)
-
-	# Add walls to terrain pieces based on layout diagram
-	_add_sample_walls_to_terrain()
 
 func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat: HeightCategory, rotation_degrees: float = 0.0, terrain_type: String = "ruins", traits: Array = []) -> void:
 	# Create polygon from position and size (rectangle)
@@ -732,139 +683,6 @@ func _add_walls_to_terrain(terrain_id: String, walls: Array) -> void:
 		if terrain.id == terrain_id:
 			terrain["walls"] = walls
 			break
-
-func _add_sample_walls_to_terrain() -> void:
-	# Add walls to select terrain pieces based on the layout diagram
-	# These walls represent the light grey sections in the attached layout
-
-	# ruins_1 - 6"x4" piece at (720, 200), rotated 90 degrees
-	# Since it's rotated 90 degrees, width and height are swapped
-	var ruins_1_walls = []
-	var r1_pos = Vector2(720, 200)
-	# After 90 degree rotation: original 240x160 becomes 160x240
-	var r1_half = Vector2(80, 120)  # Half of rotated size
-	ruins_1_walls.append({
-		"id": "ruins_1_wall_north",
-		"start": Vector2(640, 80),  # Left edge of rotated ruins_1
-		"end": Vector2(800, 80),    # Right edge of rotated ruins_1
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	ruins_1_walls.append({
-		"id": "ruins_1_wall_west",
-		"start": Vector2(640, 80),   # Top-left corner
-		"end": Vector2(640, 200),    # Mid-left side
-		"type": "window",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": false
-	})
-	_add_walls_to_terrain("ruins_1", ruins_1_walls)
-
-	# ruins_7 - 12"x6" piece at (1360, 320), no rotation
-	var ruins_7_walls = []
-	# Position: 1360, 320; Size: 480x240
-	# Boundaries: x: 1120-1600, y: 200-440
-	ruins_7_walls.append({
-		"id": "ruins_7_wall_north",
-		"start": Vector2(1120, 200),  # Top-left corner
-		"end": Vector2(1600, 200),    # Top-right corner
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	ruins_7_walls.append({
-		"id": "ruins_7_wall_south",
-		"start": Vector2(1120, 440),  # Bottom-left corner
-		"end": Vector2(1600, 440),    # Bottom-right corner
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	ruins_7_walls.append({
-		"id": "ruins_7_wall_west",
-		"start": Vector2(1120, 280),  # Left side, upper third
-		"end": Vector2(1120, 360),    # Left side, lower third
-		"type": "door",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": false
-	})
-	# Add an east wall with a window
-	ruins_7_walls.append({
-		"id": "ruins_7_wall_east",
-		"start": Vector2(1600, 250),  # Right side
-		"end": Vector2(1600, 390),    # Right side
-		"type": "window",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": false  # Windows don't block line of sight
-	})
-	_add_walls_to_terrain("ruins_7", ruins_7_walls)
-
-	# ruins_8 - 12"x6" piece at (400, 440), no rotation
-	var ruins_8_walls = []
-	# Position: 400, 440; Size: 480x240
-	# Boundaries: x: 160-640, y: 320-560
-	ruins_8_walls.append({
-		"id": "ruins_8_wall_east",
-		"start": Vector2(640, 320),   # Right side, top
-		"end": Vector2(640, 560),     # Right side, bottom
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	ruins_8_walls.append({
-		"id": "ruins_8_wall_center",
-		"start": Vector2(280, 440),   # Center horizontal wall, left
-		"end": Vector2(520, 440),     # Center horizontal wall, right
-		"type": "window",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": false
-	})
-	_add_walls_to_terrain("ruins_8", ruins_8_walls)
-
-	# ruins_10 - 12"x6" piece at (400, 2080), no rotation
-	var ruins_10_walls = []
-	# Position: 400, 2080; Size: 480x240
-	# Boundaries: x: 160-640, y: 1960-2200
-	ruins_10_walls.append({
-		"id": "ruins_10_wall_north",
-		"start": Vector2(160, 1960),   # Top-left corner
-		"end": Vector2(640, 1960),     # Top-right corner
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	ruins_10_walls.append({
-		"id": "ruins_10_wall_west",
-		"start": Vector2(160, 1960),   # Left side, top
-		"end": Vector2(160, 2200),     # Left side, bottom
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	_add_walls_to_terrain("ruins_10", ruins_10_walls)
-
-	# ruins_11 - 12"x6" piece at (880, 760), rotated -45 degrees
-	var ruins_11_walls = []
-	# For rotated piece, calculate wall along one edge
-	var r11_pos = Vector2(880, 760)
-	var r11_rot = deg_to_rad(-45.0)
-
-	# Top edge of rotated rectangle
-	var start_offset = Vector2(-240, -120).rotated(r11_rot)
-	var end_offset = Vector2(240, -120).rotated(r11_rot)
-
-	ruins_11_walls.append({
-		"id": "ruins_11_wall_north",
-		"start": r11_pos + start_offset,
-		"end": r11_pos + end_offset,
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	_add_walls_to_terrain("ruins_11", ruins_11_walls)
-
-	print("[TerrainManager] Added walls to terrain pieces")
 
 func toggle_terrain_visibility() -> void:
 	set_terrain_visibility(not terrain_visible)

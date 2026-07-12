@@ -47,18 +47,11 @@ var _derived_displays_active: bool = false
 @onready var quit_button: Button = $ScrollContainer/MenuContainer/ButtonSection/QuitButton
 
 # Configuration options
-var terrain_options = [
-	{"id": "layout_1", "name": "Chapter Approved Layout 1"},
-	{"id": "layout_2", "name": "Chapter Approved Layout 2"},
-	{"id": "layout_3", "name": "Chapter Approved Layout 3"},
-	{"id": "layout_4", "name": "Chapter Approved Layout 4"},
-	{"id": "layout_5", "name": "Chapter Approved Layout 5"},
-	{"id": "layout_6", "name": "Chapter Approved Layout 6"},
-	{"id": "layout_7", "name": "Chapter Approved Layout 7"},
-	{"id": "layout_8", "name": "Chapter Approved Layout 8"},
-	{"id": "layout_parse_test", "name": "CA2025 02 Layout"},
-	{"id": "layout_parse_test_1", "name": "Parse Test — Layout 1"}
-]
+# The legacy hand-made layouts (Chapter Approved 1-8, parse tests) were
+# removed — the dropdown is populated from the converted official 11e
+# layouts: the current Force-Disposition matchup's variants, falling back to
+# the full official list (see _refresh_matchup_terrain_options).
+var terrain_options = []
 
 var mission_options = [
 	{"id": "take_and_hold", "name": "Take and Hold"},
@@ -126,13 +119,12 @@ func _ready() -> void:
 	_setup_save_load_dialog()
 
 	# Set defaults
-	terrain_dropdown.selected = _find_option_index(terrain_options, "layout_parse_test")
 	mission_dropdown.selected = 0
 	deployment_dropdown.selected = _find_option_index(deployment_options, "search_and_destroy")
 
 	# D5: list the default matchup's official 11e layouts in the terrain
-	# dropdown. Boot-time refresh preserves the selection above — official
-	# layouts are only auto-selected when a player changes a disposition.
+	# dropdown and default to the first of them (the base list is empty now
+	# that the legacy layouts are gone).
 	_refresh_matchup_terrain_options(false)
 
 	# Set default army selections based on available armies
@@ -722,6 +714,15 @@ func _refresh_matchup_terrain_options(select_official: bool) -> void:
 				"id": str(meta.get("id", "")),
 				"name": "11e: %s" % str(meta.get("name", meta.get("id", "")))
 			})
+		if terrain_options.is_empty():
+			# No base layouts (legacy set removed) and no matchup — offer the
+			# full official 11e list so the dropdown is never empty.
+			for layout_id in tm.get_all_layout_ids():
+				var meta_all = tm.get_layout_metadata(layout_id)
+				terrain_options.append({
+					"id": str(layout_id),
+					"name": "11e: %s" % str(meta_all.get("name", layout_id))
+				})
 	terrain_dropdown.clear()
 	for option in terrain_options:
 		terrain_dropdown.add_item(option.name)
@@ -738,8 +739,11 @@ func _refresh_matchup_terrain_options(select_official: bool) -> void:
 	if select_official or _derived_displays_active:
 		_apply_layout_deployment_default()
 	_refresh_derived_mission_display()
+	var _sel_terrain_id = "<none>"
+	if terrain_dropdown.selected >= 0 and terrain_dropdown.selected < terrain_options.size():
+		_sel_terrain_id = terrain_options[terrain_dropdown.selected].id
 	print("MainMenu: matchup %s vs %s -> %d official layouts (terrain: %s)" % [
-		p1_disp, p2_disp, _matchup_layouts.size(), terrain_options[terrain_dropdown.selected].id])
+		p1_disp, p2_disp, _matchup_layouts.size(), _sel_terrain_id])
 
 ## Short, informative name for one official 11e terrain variant. The matchup is
 ## already conveyed by the Force Disposition dropdowns, so surface the variant

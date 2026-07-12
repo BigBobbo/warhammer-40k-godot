@@ -7,89 +7,154 @@
   ],
   "fixture": "audit_383_battleshock_shoot",
   "edition": 11,
-  "description": "Official 11e terrain layouts (40kdc conversion, docs/40KDC_TERRAIN_MIGRATION_SPEC.md): loads the converted disruption_vs_purge_the_foe_1 layout into a live shooting-phase game, asserts all 44 polygon pieces reach the runtime with exact transposed geometry, and drives two real terrain interactions. (1) LoS: the Contemptor-Achillus Dreadnought's eligible-target list (the same RulesEngine query the shooting UI uses) keeps the clear-lane Kommandos but loses Boyz E, and model_visible_11e confirms the converted obscuring area blocks that sight line. (2) 14.01 terrain-as-objective: with legacy layout_1 the Shield-Captain (OC 2, unshocked, 1.42\" from the marker) controls obj_center via the classic 3.79\" radius (control=1); after the swap a Center-linked terrain area covers the objective, so only models on the area count — the Telemon and Caladius are first parked far away (being 'within' an area is any part of the base overlapping it, and both big bases graze trapezoid-1's edges from outside), leaving the battle-shocked Dreadnought as sole occupant of the save-restored single area_at area (no source_pieces), and control flips to 0. (3) Linked-pair union: re-deriving objectives from the loaded layout gives obj_center its two source_pieces (both centre trapezoids count as ONE objective), and control flips to 1 — the Shield-Captain stands in the OTHER trapezoid (area-trapezoid-2) and now counts.",
+  "description": "Official 11e terrain layouts (40kdc conversion, docs/40KDC_TERRAIN_MIGRATION_SPEC.md): loads the converted disruption_vs_purge_the_foe_1 layout into a live shooting-phase game, asserts all 44 polygon pieces reach the runtime with exact transposed geometry, and drives two real terrain interactions. (1) LoS: the Contemptor-Achillus Dreadnought's eligible-target list (the same RulesEngine query the shooting UI uses) keeps the clear-lane Kommandos but loses Boyz E, and model_visible_11e confirms the converted obscuring area blocks that sight line. (2) 14.01 terrain-as-objective: the fixture stores no terrain, so the boot-default layout (take_and_hold_mirror_1, whose centre area covers 880,1200) is live and the Shield-Captain (OC 2, unshocked, 1.42\" from the marker) controls obj_center via the classic radius (control=1); after the swap a Center-linked terrain area covers the objective, so only models on the area count \u2014 the Telemon and Caladius are first parked far away (being 'within' an area is any part of the base overlapping it, and both big bases graze trapezoid-1's edges from outside), leaving the battle-shocked Dreadnought as sole occupant of the save-restored single area_at area (no source_pieces), and control flips to 0. (3) Linked-pair union: re-deriving objectives from the loaded layout gives obj_center its two source_pieces (both centre trapezoids count as ONE objective), and control flips to 1 \u2014 the Shield-Captain stands in the OTHER trapezoid (area-trapezoid-2) and now counts.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
-    { "act": "screenshot", "label": "01_fixture_legacy_layout1" },
-
-    { "act": "execute_script",
-      "script": "MissionManager.check_all_objectives()" },
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fixture_default_terrain"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.check_all_objectives()"
+    },
+    {
+      "act": "execute_script",
       "script": "TerrainManager.area_at(Vector2(880, 1200)).is_empty()",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "MissionManager.objective_control_state.get(\"obj_center\", -1)",
-      "equals": 1 },
-
-    { "act": "execute_script",
-      "script": "TerrainManager.load_terrain_layout(\"disruption_vs_purge_the_foe_1\")" },
-    { "act": "wait_frames", "frames": 8 },
-
-    { "act": "execute_script",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.load_terrain_layout(\"disruption_vs_purge_the_foe_1\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
       "script": "TerrainManager.terrain_features.size()",
-      "equals": 44 },
-    { "act": "execute_script",
+      "equals": 44
+    },
+    {
+      "act": "execute_script",
       "script": "GameState.state[\"board\"][\"terrain\"].size()",
-      "equals": 44 },
-    { "act": "execute_script",
+      "equals": 44
+    },
+    {
+      "act": "execute_script",
       "script": "TerrainManager.terrain_features[0][\"piece_class\"]",
-      "equals": "area" },
-    { "act": "execute_script",
+      "equals": "area"
+    },
+    {
+      "act": "execute_script",
       "script": "int(round(TerrainManager.terrain_features[0][\"polygon\"][0].x))",
-      "equals": 680 },
-    { "act": "execute_script",
+      "equals": 680
+    },
+    {
+      "act": "execute_script",
       "script": "int(round(TerrainManager.terrain_features[0][\"polygon\"][0].y))",
-      "equals": 970 },
-    { "act": "execute_script",
+      "equals": 970
+    },
+    {
+      "act": "execute_script",
       "script": "TerrainManager.terrain_features[0][\"traits\"].has(\"obscuring\")",
-      "equals": true },
-    { "act": "screenshot", "label": "02_terrain_11e_loaded" },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_terrain_11e_loaded"
+    },
+    {
+      "act": "execute_script",
       "script": "RulesEngine.get_eligible_targets(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", GameState.create_snapshot()).has(\"U_KOMMANDOS_H\")",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "RulesEngine.get_eligible_targets(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", GameState.create_snapshot()).has(\"U_BOYZ_E\")",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "TerrainManager.model_visible_11e(GameState.state[\"units\"][\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"][\"models\"][0], GameState.state[\"units\"][\"U_BOYZ_E\"][\"models\"][0])",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "TerrainManager.model_visible_11e(GameState.state[\"units\"][\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"][\"models\"][0], GameState.state[\"units\"][\"U_KOMMANDOS_H\"][\"models\"][0])",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "TerrainManager.area_at(Vector2(880, 1200)).get(\"link_group\", \"\")",
-      "equals": "Center" },
-    { "act": "execute_script",
+      "equals": "Center"
+    },
+    {
+      "act": "execute_script",
       "script": "Vector2(GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"][\"models\"][0][\"position\"][\"x\"], GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"][\"models\"][0][\"position\"][\"y\"]).distance_to(Vector2(880, 1200))",
-      "expect_max": 151.6 },
-    { "act": "execute_script",
+      "expect_max": 151.6
+    },
+    {
+      "act": "execute_script",
       "script": "GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"][\"flags\"].get(\"battle_shocked\", false)",
-      "equals": false },
-    { "act": "execute_script",
-      "script": "GameState.state[\"units\"][\"U_TELEMON_HEAVY_DREADNOUGHT_I\"][\"models\"][0].merge({\"position\": Vector2(80.0, 1200.0)}, true)" },
-    { "act": "execute_script",
-      "script": "GameState.state[\"units\"][\"U_CALADIUS_GRAV-TANK_E\"][\"models\"][0].merge({\"position\": Vector2(1680.0, 1200.0)}, true)" },
-    { "act": "execute_script",
-      "script": "MissionManager.check_all_objectives()" },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_TELEMON_HEAVY_DREADNOUGHT_I\"][\"models\"][0].merge({\"position\": Vector2(80.0, 1200.0)}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_CALADIUS_GRAV-TANK_E\"][\"models\"][0].merge({\"position\": Vector2(1680.0, 1200.0)}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.check_all_objectives()"
+    },
+    {
+      "act": "execute_script",
       "script": "MissionManager.objective_control_state.get(\"obj_center\", -1)",
-      "equals": 0 },
-
-    { "act": "execute_script",
-      "script": "MissionManager._setup_objectives_for_deployment(\"search_and_destroy\")" },
-    { "act": "execute_script",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager._setup_objectives_for_deployment(\"search_and_destroy\")"
+    },
+    {
+      "act": "execute_script",
       "script": "MissionManager._get_objective_by_id(\"obj_center\").get(\"source_pieces\", []).size()",
-      "equals": 2 },
-    { "act": "execute_script",
-      "script": "MissionManager.check_all_objectives()" },
-    { "act": "execute_script",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.check_all_objectives()"
+    },
+    {
+      "act": "execute_script",
       "script": "MissionManager.objective_control_state.get(\"obj_center\", -1)",
-      "equals": 1 },
-
-    { "act": "wait_frames", "frames": 4 },
-    { "act": "screenshot", "label": "03_shooting_ui_and_1401_checked" }
+      "equals": 1
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "03_shooting_ui_and_1401_checked"
+    }
   ]
 }

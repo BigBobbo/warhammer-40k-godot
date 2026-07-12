@@ -273,25 +273,31 @@ wall edge type.
 
 ## In-game verification
 
-After the JSON looks right, prove it loads in the actual game:
+NOTE: parser outputs are no longer committed — the legacy hand-made layouts
+(`layout_1`..`layout_8`, `layout_parse_test*`) and their visual scenario were
+removed from the repo; the converted official 11e layouts
+(`index_11e.json` + per-matchup files) are the only committed terrain. The
+tools in this guide still work for iterating on a parse locally; render the
+result without Godot via:
 
 ```bash
-# Edit tests/scenarios/visual/parse_test_terrain_screenshot.json to load
-# your new layout id, then:
-export DISPLAY=:99
-bash 40k/tests/run_scenario.sh tests/scenarios/visual/parse_test_terrain_screenshot.json
+python3 tools/render_layout.py 40k/terrain_layouts/<your_layout>.json out.png
 ```
 
-Screenshot lands at `~/.local/share/godot/app_userdata/40k/test_results/scenarios/<id>_<label>.png`.
+or load it in a running game with the MCP bridge
+(`execute_script`: `TerrainManager.load_terrain_layout("<your_layout>")`) and
+`capture_screenshot`.
 
 ## To register a layout in the game's UI
 
-Currently `TerrainManager._preload_layout_metadata()` only scans
-`layout_1`..`layout_8`. To add a new layout to the in-game dropdown:
-
-1. Name the file `layout_<N>.json` (or change the preload loop)
-2. Add the option to `scripts/MainMenu.gd`'s terrain dropdown
+The in-game dropdown is driven by the official 11e layout registry:
+`TerrainManager._preload_11e_layout_index()` reads
+`40k/terrain_layouts/index_11e.json`, and the main menu offers the current
+Force-Disposition matchup's variants (see
+`MainMenu._refresh_matchup_terrain_options`). To ship a new layout, add its
+JSON to `40k/terrain_layouts/` and register it in `index_11e.json` with a
+`mission_matchup_id` + `variant`.
 
 For pure parse-tests (just iterating against the source), keep the name
-free-form (e.g. `layout_parse_test.json`) and load it via `execute_script`
-in a scenario.
+free-form and load it via `execute_script` — unregistered layout JSONs still
+load by filename through `TerrainManager.load_terrain_layout()`.
