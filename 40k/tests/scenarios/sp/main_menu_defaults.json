@@ -1,31 +1,42 @@
 {
   "id": "main_menu_defaults",
-  "covers": ["mainmenu.defaults", "terrain.parse_test", "deployment.search_and_destroy"],
-  "description": "Boots the MainMenu scene (no fixture) and asserts the default selections a first-time player sees: terrain defaults to 'CA2025 02 Layout' (layout_parse_test) and deployment defaults to 'Search and Destroy'. Drives the real OptionButton widgets via the live scene root.",
-
+  "covers": [
+    "mainmenu.defaults"
+  ],
+  "description": "Boots the MainMenu scene (no fixture) and asserts the default selections a first-time player sees: with the legacy hand-made layouts removed, terrain defaults to the default Force-Disposition matchup's first official 11e variant (take_and_hold_mirror_1) and deployment follows that layout's paired pattern (Tipping Point). Drives the real OptionButton widgets via the live scene root.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 1.0 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_script().resource_path",
-      "equals": "res://scripts/MainMenu.gd" },
-
-    { "act": "execute_script",
-      "script": "main.terrain_dropdown.get_item_text(main.terrain_dropdown.selected)",
-      "equals": "CA2025 02 Layout" },
-
-    { "act": "execute_script",
+      "equals": "res://scripts/MainMenu.gd"
+    },
+    {
+      "act": "execute_script",
       "script": "main.terrain_options[main.terrain_dropdown.selected].id",
-      "equals": "layout_parse_test" },
-
-    { "act": "execute_script",
+      "equals": "take_and_hold_mirror_1"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.terrain_options.size()",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
       "script": "main.deployment_dropdown.get_item_text(main.deployment_dropdown.selected)",
-      "equals": "Search and Destroy" },
-
-    { "act": "execute_script",
+      "equals": "Tipping Point"
+    },
+    {
+      "act": "execute_script",
       "script": "main.deployment_options[main.deployment_dropdown.selected].id",
-      "equals": "search_and_destroy" },
-
-    { "act": "screenshot", "label": "main_menu_defaults" }
+      "equals": "tipping_point"
+    },
+    {
+      "act": "screenshot",
+      "label": "main_menu_defaults"
+    }
   ]
 }

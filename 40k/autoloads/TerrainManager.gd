@@ -9,7 +9,12 @@ signal terrain_visibility_changed(visible: bool)
 
 var terrain_features: Array = []
 var terrain_visible: bool = true
-var current_layout: String = "layout_2"
+
+## Boot/fallback layout. The legacy hand-made layouts (layout_1..8, parse
+## tests) were removed — the converted official 11e layouts are the only
+## authored terrain now, and this is the default matchup's first variant.
+const DEFAULT_LAYOUT := "take_and_hold_mirror_1"
+var current_layout: String = DEFAULT_LAYOUT
 
 # D3-a: objective markers authored by the loaded layout (the converted 11e
 # layouts carry an objectives[] array; legacy layouts don't). Raw JSON dicts
@@ -58,29 +63,9 @@ func _ready() -> void:
 	load_terrain_layout(current_layout)
 
 func _preload_layout_metadata() -> void:
-	# Load metadata (name, description, recommended deployments) from all layout JSON files
-	var ids_to_load: Array = []
-	for i in range(1, 9):
-		ids_to_load.append("layout_%d" % i)
-	# Parse-test layouts (catalog-based parser output, see tools/PARSE_TERRAIN_GUIDE.md)
-	ids_to_load.append("layout_parse_test")
-	ids_to_load.append("layout_parse_test_1")
-	for layout_id in ids_to_load:
-		var json_path = "res://terrain_layouts/%s.json" % layout_id
-		if FileAccess.file_exists(json_path):
-			var file = FileAccess.open(json_path, FileAccess.READ)
-			if file:
-				var json = JSON.new()
-				var parse_result = json.parse(file.get_as_text())
-				file.close()
-				if parse_result == OK:
-					var data = json.data
-					_layout_metadata[layout_id] = {
-						"id": data.get("id", layout_id),
-						"name": data.get("name", layout_id),
-						"description": data.get("description", ""),
-						"recommended_deployments": data.get("recommended_deployments", [])
-					}
+	# The converted official 11e layouts (index_11e.json) are the only
+	# authored terrain — the legacy layout_1..8 / parse-test JSONs were
+	# removed along with their hardcoded fallback.
 	_preload_11e_layout_index()
 	print("[TerrainManager] Preloaded metadata for ", _layout_metadata.size(), " terrain layouts")
 
@@ -123,16 +108,7 @@ func get_layout_metadata(layout_id: String) -> Dictionary:
 	return _layout_metadata.get(layout_id, {})
 
 func get_all_layout_ids() -> Array:
-	var ids = []
-	for i in range(1, 9):
-		var layout_id = "layout_%d" % i
-		if _layout_metadata.has(layout_id):
-			ids.append(layout_id)
-	for extra_id in ["layout_parse_test", "layout_parse_test_1"]:
-		if _layout_metadata.has(extra_id):
-			ids.append(extra_id)
-	ids.append_array(_layout_ids_11e)
-	return ids
+	return _layout_ids_11e.duplicate()
 
 ## Ids of the converted official 11e layouts (matchup/variant metadata is in
 ## get_layout_metadata). Empty if the generated index is absent.
@@ -172,14 +148,16 @@ func load_terrain_layout(layout_name: String) -> void:
 	# Try loading from JSON first
 	if _load_layout_from_json(layout_name):
 		print("[TerrainManager] Loaded layout '%s' from JSON (%d terrain pieces)" % [layout_name, terrain_features.size()])
+	elif layout_name != DEFAULT_LAYOUT:
+		# Unknown/removed layout id (e.g. a stale setting or an old save that
+		# referenced the deleted legacy layouts) — fall back to the default
+		# official layout rather than an empty board.
+		print("[TerrainManager] Unknown layout '%s' — falling back to '%s'" % [layout_name, DEFAULT_LAYOUT])
+		if _load_layout_from_json(DEFAULT_LAYOUT):
+			current_layout = DEFAULT_LAYOUT
+			print("[TerrainManager] Loaded fallback layout '%s' (%d terrain pieces)" % [DEFAULT_LAYOUT, terrain_features.size()])
 	else:
-		# Fallback to hardcoded layouts
-		match layout_name:
-			"layout_2":
-				_setup_layout_2()
-				print("[TerrainManager] Loaded layout_2 from hardcoded fallback (%d terrain pieces)" % terrain_features.size())
-			_:
-				print("[TerrainManager] Unknown layout: ", layout_name)
+		print("[TerrainManager] Unknown layout: ", layout_name)
 
 	# Issue #385: mirror the loaded terrain into GameState.state.board.terrain
 	# so MovementPhase._position_intersects_terrain (which reads from there)
@@ -359,33 +337,6 @@ func _convert_json_walls(terrain_id: String, json_walls: Array, position_px: Vec
 		walls.append(wall)
 
 	return walls
-
-func _setup_layout_2() -> void:
-	# Chapter Approved Layout 2 - Hardcoded fallback
-	# Board is 44"x60" (1760x2400 pixels at 40px per inch)
-	var board_width = 1760
-	var board_height = 2400
-
-	# 6" x 4" ruins (4 pieces) - 240x160 pixels
-	_add_terrain_piece("ruins_1", Vector2(720, 200), Vector2(240, 160), HeightCategory.TALL, 90.0)
-	_add_terrain_piece("ruins_2", Vector2(1040, 2200), Vector2(240, 160), HeightCategory.TALL, 90.0)
-	_add_terrain_piece("ruins_3", Vector2(440, 1080), Vector2(240, 160), HeightCategory.TALL, 90.0)
-	_add_terrain_piece("ruins_4", Vector2(1320, 1320), Vector2(240, 160), HeightCategory.TALL, 90.0)
-
-	# 10" x 5" ruins (2 pieces) - 400x200 pixels
-	_add_terrain_piece("ruins_5", Vector2(260, 1400), Vector2(400, 200), HeightCategory.TALL, 90.0)
-	_add_terrain_piece("ruins_6", Vector2(1500, 1000), Vector2(400, 200), HeightCategory.TALL, 90.0)
-
-	# 12" x 6" ruins (6 pieces) - 480x240 pixels
-	_add_terrain_piece("ruins_7", Vector2(1360, 320), Vector2(480, 240), HeightCategory.TALL, 0.0)
-	_add_terrain_piece("ruins_8", Vector2(400, 440), Vector2(480, 240), HeightCategory.MEDIUM, 0.0)
-	_add_terrain_piece("ruins_9", Vector2(1360, 1960), Vector2(480, 240), HeightCategory.LOW, 0.0)
-	_add_terrain_piece("ruins_10", Vector2(400, 2080), Vector2(480, 240), HeightCategory.TALL, 0.0)
-	_add_terrain_piece("ruins_11", Vector2(880, 760), Vector2(480, 240), HeightCategory.MEDIUM, -45.0)
-	_add_terrain_piece("ruins_12", Vector2(880, 1640), Vector2(480, 240), HeightCategory.TALL, -45.0)
-
-	# Add walls to terrain pieces based on layout diagram
-	_add_sample_walls_to_terrain()
 
 func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat: HeightCategory, rotation_degrees: float = 0.0, terrain_type: String = "ruins", traits: Array = []) -> void:
 	# Create polygon from position and size (rectangle)
@@ -733,139 +684,6 @@ func _add_walls_to_terrain(terrain_id: String, walls: Array) -> void:
 			terrain["walls"] = walls
 			break
 
-func _add_sample_walls_to_terrain() -> void:
-	# Add walls to select terrain pieces based on the layout diagram
-	# These walls represent the light grey sections in the attached layout
-
-	# ruins_1 - 6"x4" piece at (720, 200), rotated 90 degrees
-	# Since it's rotated 90 degrees, width and height are swapped
-	var ruins_1_walls = []
-	var r1_pos = Vector2(720, 200)
-	# After 90 degree rotation: original 240x160 becomes 160x240
-	var r1_half = Vector2(80, 120)  # Half of rotated size
-	ruins_1_walls.append({
-		"id": "ruins_1_wall_north",
-		"start": Vector2(640, 80),  # Left edge of rotated ruins_1
-		"end": Vector2(800, 80),    # Right edge of rotated ruins_1
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	ruins_1_walls.append({
-		"id": "ruins_1_wall_west",
-		"start": Vector2(640, 80),   # Top-left corner
-		"end": Vector2(640, 200),    # Mid-left side
-		"type": "window",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": false
-	})
-	_add_walls_to_terrain("ruins_1", ruins_1_walls)
-
-	# ruins_7 - 12"x6" piece at (1360, 320), no rotation
-	var ruins_7_walls = []
-	# Position: 1360, 320; Size: 480x240
-	# Boundaries: x: 1120-1600, y: 200-440
-	ruins_7_walls.append({
-		"id": "ruins_7_wall_north",
-		"start": Vector2(1120, 200),  # Top-left corner
-		"end": Vector2(1600, 200),    # Top-right corner
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	ruins_7_walls.append({
-		"id": "ruins_7_wall_south",
-		"start": Vector2(1120, 440),  # Bottom-left corner
-		"end": Vector2(1600, 440),    # Bottom-right corner
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	ruins_7_walls.append({
-		"id": "ruins_7_wall_west",
-		"start": Vector2(1120, 280),  # Left side, upper third
-		"end": Vector2(1120, 360),    # Left side, lower third
-		"type": "door",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": false
-	})
-	# Add an east wall with a window
-	ruins_7_walls.append({
-		"id": "ruins_7_wall_east",
-		"start": Vector2(1600, 250),  # Right side
-		"end": Vector2(1600, 390),    # Right side
-		"type": "window",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": false  # Windows don't block line of sight
-	})
-	_add_walls_to_terrain("ruins_7", ruins_7_walls)
-
-	# ruins_8 - 12"x6" piece at (400, 440), no rotation
-	var ruins_8_walls = []
-	# Position: 400, 440; Size: 480x240
-	# Boundaries: x: 160-640, y: 320-560
-	ruins_8_walls.append({
-		"id": "ruins_8_wall_east",
-		"start": Vector2(640, 320),   # Right side, top
-		"end": Vector2(640, 560),     # Right side, bottom
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	ruins_8_walls.append({
-		"id": "ruins_8_wall_center",
-		"start": Vector2(280, 440),   # Center horizontal wall, left
-		"end": Vector2(520, 440),     # Center horizontal wall, right
-		"type": "window",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": false
-	})
-	_add_walls_to_terrain("ruins_8", ruins_8_walls)
-
-	# ruins_10 - 12"x6" piece at (400, 2080), no rotation
-	var ruins_10_walls = []
-	# Position: 400, 2080; Size: 480x240
-	# Boundaries: x: 160-640, y: 1960-2200
-	ruins_10_walls.append({
-		"id": "ruins_10_wall_north",
-		"start": Vector2(160, 1960),   # Top-left corner
-		"end": Vector2(640, 1960),     # Top-right corner
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	ruins_10_walls.append({
-		"id": "ruins_10_wall_west",
-		"start": Vector2(160, 1960),   # Left side, top
-		"end": Vector2(160, 2200),     # Left side, bottom
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	_add_walls_to_terrain("ruins_10", ruins_10_walls)
-
-	# ruins_11 - 12"x6" piece at (880, 760), rotated -45 degrees
-	var ruins_11_walls = []
-	# For rotated piece, calculate wall along one edge
-	var r11_pos = Vector2(880, 760)
-	var r11_rot = deg_to_rad(-45.0)
-
-	# Top edge of rotated rectangle
-	var start_offset = Vector2(-240, -120).rotated(r11_rot)
-	var end_offset = Vector2(240, -120).rotated(r11_rot)
-
-	ruins_11_walls.append({
-		"id": "ruins_11_wall_north",
-		"start": r11_pos + start_offset,
-		"end": r11_pos + end_offset,
-		"type": "solid",
-		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
-		"blocks_los": true
-	})
-	_add_walls_to_terrain("ruins_11", ruins_11_walls)
-
-	print("[TerrainManager] Added walls to terrain pieces")
-
 func toggle_terrain_visibility() -> void:
 	set_terrain_visibility(not terrain_visible)
 
@@ -1211,29 +1029,125 @@ func unit_fully_visible_11e(observer: Dictionary, unit: Dictionary) -> bool:
 ##     which the 2D board does not path (callers refuse the segment).
 ## MOBILE may be granted per-move (e.g. 24.35's gamble) via the
 ## extra_keywords argument.
-func can_move_through_11e(model_keywords: Array, from_pos: Vector2, to_pos: Vector2, extra_keywords: Array = []) -> Dictionary:
+##
+## Stompa-on-walls fix (two refinements):
+##   ▪ piece_class "area" footprints never block — they are enterable
+##     regions whose walls are their own "feature" pieces. Legacy layouts
+##     author no piece_class, so their whole-ruin rectangles keep blocking.
+##   ▪ pass the moving model via `model` to make the test shape-aware: the
+##     model's BASE is swept along the segment instead of testing only the
+##     centre line, so a wide base cannot straddle a wall its centre line
+##     never crosses. Pieces the base already overlaps at from_pos are
+##     exempt for that segment, so a model stranded inside a wall by a
+##     pre-fix save can always move OUT.
+func can_move_through_11e(model_keywords: Array, from_pos: Vector2, to_pos: Vector2, extra_keywords: Array = [], model: Dictionary = {}) -> Dictionary:
 	if GameConstants.edition < 11:
 		return {"allowed": true, "blockers": []}
+	var kws := _upper_keywords(model_keywords, extra_keywords)
+	if _passes_dense_11e(kws):
+		return {"allowed": true, "blockers": []}
+	var height_limit := _dense_height_limit_11e(kws)
+	var blockers: Array = []
+	for piece in terrain_features:
+		if not _is_solid_blocker_11e(piece, height_limit):
+			continue
+		var hit: bool
+		if model.is_empty():
+			hit = check_line_intersects_terrain(from_pos, to_pos, piece)
+		else:
+			hit = _swept_base_hits_piece(model, from_pos, to_pos, piece)
+		if hit:
+			blockers.append(str(piece.get("id", piece.get("type", "terrain"))))
+	return {"allowed": blockers.is_empty(), "blockers": blockers}
+
+## Endpoint companion to 13.06 (Stompa-on-walls fix): a model whose
+## keywords do not let it traverse dense terrain may not END a move,
+## deployment, disembark or pile-in with its base overlapping a solid
+## dense feature taller than its step-over limit — a Stompa cannot stand
+## in a ruin wall. Returns the blocking piece id, or "" when the position
+## is legal. Inert below edition 11, like can_move_through_11e.
+func solid_terrain_endpoint_blocker_11e(model: Dictionary, model_keywords: Array, extra_keywords: Array = []) -> String:
+	if GameConstants.edition < 11:
+		return ""
+	var kws := _upper_keywords(model_keywords, extra_keywords)
+	if _passes_dense_11e(kws):
+		return ""
+	var height_limit := _dense_height_limit_11e(kws)
+	for piece in terrain_features:
+		if not _is_solid_blocker_11e(piece, height_limit):
+			continue
+		if Measurement.model_overlaps_polygon(model, piece.get("polygon", PackedVector2Array())):
+			return str(piece.get("id", piece.get("type", "terrain")))
+	return ""
+
+func _upper_keywords(model_keywords: Array, extra_keywords: Array) -> Array:
 	var kws: Array = []
 	for k in model_keywords:
 		kws.append(str(k).to_upper())
 	for k in extra_keywords:
 		kws.append(str(k).to_upper())
-	var passes_dense := false
+	return kws
+
+## 13.06: these keywords traverse dense terrain freely.
+func _passes_dense_11e(upper_kws: Array) -> bool:
 	for k in ["INFANTRY", "BEASTS", "SWARM", "MOBILE"]:
-		if k in kws:
-			passes_dense = true
-			break
-	var height_limit := 4.0 if "SUPER-HEAVY WALKER" in kws else 2.0
-	var blockers: Array = []
-	for piece in features_crossing(from_pos, to_pos):
-		if category_of(piece) != CATEGORY_DENSE:
-			continue  # exposed/light: all models pass (13.06)
-		if passes_dense:
-			continue
-		if height_inches_of(piece) > height_limit:
-			blockers.append(str(piece.get("id", piece.get("type", "terrain"))))
-	return {"allowed": blockers.is_empty(), "blockers": blockers}
+		if k in upper_kws:
+			return true
+	return false
+
+## Step-over limit: dense sections at or below this height never block
+## (2", or 4" with SUPER-HEAVY WALKER / abilities that grant its allowance).
+func _dense_height_limit_11e(upper_kws: Array) -> float:
+	return 4.0 if "SUPER-HEAVY WALKER" in upper_kws else 2.0
+
+## A piece is a solid movement blocker when it is a dense FEATURE taller
+## than the step-over limit. "area" footprints are enterable regions, not
+## solid objects — their walls are separate feature pieces. Legacy layout
+## pieces carry no piece_class and keep blocking on the whole footprint.
+func _is_solid_blocker_11e(piece: Dictionary, height_limit: float) -> bool:
+	if str(piece.get("piece_class", "")) == "area":
+		return false
+	if category_of(piece) != CATEGORY_DENSE:
+		return false
+	return height_inches_of(piece) > height_limit
+
+## Shape-aware sweep: does the model's base, dragged from from_pos to
+## to_pos, overlap the piece's footprint at any point? Samples the segment
+## at quarter-base spacing (destination always included) and tests the full
+## base shape at each sample. A piece the base already overlaps at from_pos
+## never blocks — the escape clause that lets stranded models move out.
+func _swept_base_hits_piece(model: Dictionary, from_pos: Vector2, to_pos: Vector2, piece: Dictionary) -> bool:
+	var poly: PackedVector2Array = piece.get("polygon", PackedVector2Array())
+	if poly.size() < 3:
+		return false
+	var test_model: Dictionary = model.duplicate()
+	test_model["position"] = from_pos
+	if Measurement.model_overlaps_polygon(test_model, poly):
+		return false  # started overlapped — allow moving out
+	# Cheap reject: swept-base bounding box vs polygon bounding box.
+	var shape = Measurement.create_base_shape(model)
+	var local_bounds: Rect2 = shape.get_bounds()
+	var margin := maxf(local_bounds.size.x, local_bounds.size.y) * 0.5
+	var poly_min := poly[0]
+	var poly_max := poly[0]
+	for v in poly:
+		poly_min = poly_min.min(v)
+		poly_max = poly_max.max(v)
+	var sweep_min := from_pos.min(to_pos) - Vector2(margin, margin)
+	var sweep_max := from_pos.max(to_pos) + Vector2(margin, margin)
+	if sweep_max.x < poly_min.x or sweep_min.x > poly_max.x \
+			or sweep_max.y < poly_min.y or sweep_min.y > poly_max.y:
+		return false
+	# Sample the sweep densely enough that a wall stroke cannot slip
+	# between consecutive base placements (walls are ≥0.5" thick; the
+	# sampled discs overlap heavily at quarter-base spacing).
+	var step_px := maxf(minf(local_bounds.size.x, local_bounds.size.y) * 0.25, 8.0)
+	var samples := maxi(1, int(ceil(from_pos.distance_to(to_pos) / step_px)))
+	for i in range(1, samples + 1):
+		test_model["position"] = from_pos.lerp(to_pos, float(i) / float(samples))
+		if Measurement.model_overlaps_polygon(test_model, poly):
+			return true
+	return false
 
 
 ## ISS-053 (step 1) — 13.08 BENEFIT OF COVER qualification (the in-area

@@ -1,0 +1,54 @@
+{
+  "id": "tier2_asset_polish",
+  "covers": ["ui.visual.tier2_assets"],
+  "fixture": "End of movement phase",
+  "description": "Tier-2 asset polish: objective marker discs with controller-tinted rim, Kenney tank sprites on VEHICLE tokens, sprite scatter on terrain, casualty explosion flipbook, faction-colored enhanced/retro token bodies. Tree-walking asserts run through tests/helpers/tier2_probe.gd because the runner evaluates single Expressions.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "screenshot", "label": "01_fixture_loaded" },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.exists(\"res://assets/tilepack/tankBody_green_outline.png\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "ResourceLoader.exists(\"res://assets/tilepack/explosion1.png\")",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/helpers/tier2_probe.gd\").new().count_marker_trims(main)",
+      "expect_min": 3 },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/helpers/tier2_probe.gd\").new().count_full_marker_discs(main)",
+      "expect_min": 3 },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/helpers/tier2_probe.gd\").new().vehicle_token_count(main)",
+      "expect_min": 1 },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/helpers/tier2_probe.gd\").new().all_vehicles_have_tank_sprite(main)",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/helpers/tier2_probe.gd\").new().count_tilepack_scatter(main)",
+      "expect_min": 20 },
+    { "act": "screenshot", "label": "02_board_with_sprites" },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/helpers/tier2_probe.gd\").new().trigger_explosion_count(main, 880.0, 1200.0)",
+      "expect_min": 1 },
+    { "act": "wait_seconds", "seconds": 0.1 },
+    { "act": "screenshot", "label": "03_explosion" },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/TokenVisual.gd\").source_code.contains(\"_get_faction_primary_color()\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/DamageFeedbackVisual.gd\").source_code.contains(\"_spawn_explosion_sprite\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/TerrainVisual.gd\").source_code.contains(\"_scatter_props\")",
+      "equals": true },
+
+    { "act": "screenshot", "label": "04_final" }
+  ]
+}

@@ -209,16 +209,28 @@ func model_overlaps_wall(model: Dictionary, wall: Dictionary) -> bool:
 
 # Check if model overlaps with any wall in terrain. This is an ENDPOINT check —
 # units may pass *through* walls during movement (path-traversal honors each
-# wall's per-keyword `blocks_movement` map via TerrainManager.can_unit_cross_wall),
-# but no unit may *end* its movement / deployment / pile-in overlapping a wall.
-# The `unit_keywords` argument is retained for callsite compatibility but is no
-# longer consulted: wall overlap at a final position is universally rejected.
-func model_overlaps_any_wall(model: Dictionary, _unit_keywords: Array = []) -> bool:
+# wall's per-keyword `blocks_movement` map via TerrainManager.can_unit_cross_wall
+# and, at 11e, TerrainManager.can_move_through_11e), but no unit may *end* its
+# movement / deployment / pile-in overlapping a wall.
+#
+# Walls come in two representations, both covered here:
+#   ▪ authored wall SEGMENTS (legacy layouts' terrain.walls): overlap at a
+#     final position is universally rejected — keywords are not consulted.
+#   ▪ solid dense FEATURE pieces (the converted 11e layouts author walls as
+#     polygon pieces, piece_class "feature", with no segment list): at
+#     edition 11 these reject units that cannot traverse dense terrain per
+#     13.06 — INFANTRY/BEASTS/SWARM/MOBILE may stand among them freely,
+#     everyone else is blocked unless the piece is within their step-over
+#     height (2", 4" for SUPER-HEAVY WALKER). Pass the unit's keywords;
+#     callers that omit them get the strict (non-infantry) treatment.
+func model_overlaps_any_wall(model: Dictionary, unit_keywords: Array = []) -> bool:
 	for terrain in TerrainManager.terrain_features:
 		var walls = terrain.get("walls", [])
 		for wall in walls:
 			if model_overlaps_wall(model, wall):
 				return true
+	if TerrainManager.solid_terrain_endpoint_blocker_11e(model, unit_keywords) != "":
+		return true
 	return false
 
 # Issue #87: returns true if any part of the model's base at `pos`

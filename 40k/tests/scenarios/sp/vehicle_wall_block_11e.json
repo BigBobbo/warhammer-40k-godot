@@ -1,0 +1,48 @@
+{
+  "id": "vehicle_wall_block_11e",
+  "covers": [
+    "movement.terrain.solid_wall_blocks_vehicles_11e",
+    "terrainmanager.can_move_through_11e.shape_aware",
+    "phases.MovementPhase.STAGE_MODEL_MOVE.dense_terrain_gate"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "edition": 11,
+  "description": "Stompa-on-walls fix, player path: on the converted 11e layouts, ruin walls are dense 5\" feature pieces with no authored wall segments, and vehicles used to drag straight onto them (the engine never gated STAGE_MODEL_MOVE and ignored base width). Setup swaps in take_and_hold_mirror_1 and teleports the Telemon Heavy Dreadnought (VEHICLE/WALKER, 100mm base, no FLY) to open ground east of the L-shaped wall corner-ruin-balanced-left-46 (5\" dense). Asserts: (a) a real drag-drop whose centre lands CLEAR of the wall but whose base would overlap it is refused — no staged move, model stays put; (b) a drag to genuinely open ground stages and confirms normally.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script", "script": "TerrainManager.load_terrain_layout(\"take_and_hold_mirror_1\")" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_TELEMON_HEAVY_DREADNOUGHT_I\"][\"models\"][0].merge({\"position\": {\"x\": 1220.0, \"y\": 1140.0}}, true)" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_TELEMON_HEAVY_DREADNOUGHT_I\"][\"models\"][0].merge({\"position\": {\"x\": 1220.0, \"y\": 1140.0}}, true)" },
+    { "act": "execute_script", "script": "main._recreate_unit_visuals()" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "01_telemon_beside_5in_wall" },
+
+    { "act": "click_unit", "unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_TELEMON_HEAVY_DREADNOUGHT_I" },
+    { "act": "screenshot", "label": "02_telemon_selected_for_move" },
+
+    { "act": "drag_board", "from_x": 1220, "from_y": 1140, "to_x": 1144, "to_y": 1120 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_TELEMON_HEAVY_DREADNOUGHT_I\")", "equals": false },
+    { "act": "execute_script", "script": "abs(GameState.get_unit(\"U_TELEMON_HEAVY_DREADNOUGHT_I\").get(\"models\")[0].get(\"position\").get(\"x\") - 1220.0) < 0.5", "equals": true },
+    { "act": "screenshot", "label": "03_drop_onto_wall_refused" },
+
+    { "act": "drag_board", "from_x": 1220, "from_y": 1140, "to_x": 1212, "to_y": 1112 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_TELEMON_HEAVY_DREADNOUGHT_I\")", "equals": true },
+    { "act": "screenshot", "label": "04_open_ground_drop_staged" },
+
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_TELEMON_HEAVY_DREADNOUGHT_I.flags.moved", "equals": true },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_TELEMON_HEAVY_DREADNOUGHT_I\").get(\"models\")[0].get(\"position\").get(\"y\") < 1139.0", "equals": true },
+    { "act": "execute_script", "script": "TerrainManager.solid_terrain_endpoint_blocker_11e(GameState.get_unit(\"U_TELEMON_HEAVY_DREADNOUGHT_I\").get(\"models\")[0], [\"VEHICLE\"])", "equals": "" },
+    { "act": "screenshot", "label": "05_legal_move_confirmed" }
+  ]
+}

@@ -64,7 +64,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey):
 		return
 	var k := event as InputEventKey
-	if k.pressed and not k.echo and k.keycode == KEY_B:
+	# Toggle roster strip (rebindable: toggle_roster_strip, default B)
+	if k.pressed and not k.echo and KeybindingManager.matches_action(k, "toggle_roster_strip"):
 		toggle_visible()
 		get_viewport().set_input_as_handled()
 

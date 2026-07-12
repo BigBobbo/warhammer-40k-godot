@@ -1,6 +1,6 @@
 # Steam Deck / Controller Support — Research & Phased Implementation Plan
 
-**Status:** IN PROGRESS — M0 shipped 2026-07-12 (v0.25.0, PR #571 merged); M1 shipped 2026-07-12 (v0.26.0 — a complete solo turn played pad-only); M2 shipped 2026-07-12 (v0.27.0; gates `pad_m2_unit_cycle` + `pad_m2_shooting_native` PASS — shooting phase completed with zero virtual-cursor use). Next: M3 (model carry — native stick movement).
+**Status:** IN PROGRESS — M0 shipped 2026-07-12 (v0.25.0, PR #571 merged); M1 shipped 2026-07-12 (v0.31.0 after merge re-versioning — a complete solo turn played pad-only); M2 shipped 2026-07-12 (v0.32.0; gates `pad_m2_unit_cycle` + `pad_m2_shooting_native` PASS — shooting phase completed with zero virtual-cursor use). Next: M3 (model carry — native stick movement).
 **Branch:** `claude/steam-deck-controller-support-1tzorb`
 **Date:** 2026-07-12 (game version at time of writing: 0.21.0)
 **Goal:** Make the full game playable — and eventually *pleasant* — on a Steam Deck with no mouse or keyboard, without regressing the existing mouse/keyboard experience.
@@ -544,7 +544,7 @@ and `pad_m0_camera` (20/0 — right-stick pan moved the board ≥30 px, RT zoom,
 hint bar visible in pad mode, UI-Scale drives `content_scale_factor` and is
 restored) both PASS; KBM regression scenario unaffected.
 
-### M1 — Whole-game fallback: the virtual cursor (medium) — ✅ SHIPPED 2026-07-12 (v0.26.0)
+### M1 — Whole-game fallback: the virtual cursor (medium) — ✅ SHIPPED 2026-07-12 (v0.31.0)
 Shipped: `VirtualCursor` autoload — left stick drives the REAL pointer
 (`Input.warp_mouse` + synthesized motion/button events, per the §3.3 recipe),
 A/X = left/right click (hold-A = drag), with a visible cursor ring,
@@ -575,7 +575,7 @@ re-run green. Deployment-by-cursor uses the same click/drag paths but has no
 dedicated windowed scenario yet — explicit coverage lands with M3's
 deployment carry work.
 
-### M2 — Cycling, selection & panel focus (medium) — ✅ SHIPPED 2026-07-12 (v0.27.0)
+### M2 — Cycling, selection & panel focus (medium) — ✅ SHIPPED 2026-07-12 (v0.32.0)
 Shipped: `PadRouter` autoload — LB/RB cycles whichever list is live (the
 right-panel unit list generically, driven through `item_selected` exactly
 like a mouse row-click; eligible shooters then eligible targets in the

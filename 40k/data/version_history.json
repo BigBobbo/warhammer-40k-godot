@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
     {
-      "version": "0.27.0",
+      "version": "0.32.0",
       "date": "2026-07-12",
       "summary": "Native controller controls arrive: LB/RB cycles your units (the camera jumps to each one), the shooting phase is fully playable without the cursor \u2014 cycle eligible shooters, cycle eligible targets, A assigns, Start confirms \u2014 Y opens the datasheet, X skips the active shooter, a D-pad press hops into the side panels and B hops back out. The button hints at the bottom now change with what you're doing.",
       "changes": [
@@ -16,7 +16,7 @@
       ]
     },
     {
-      "version": "0.26.0",
+      "version": "0.31.0",
       "date": "2026-07-12",
       "summary": "The whole game is now playable with a controller: the left stick drives a virtual cursor that clicks and drags anything the mouse can (select units, drag models, press any button), pushing the cursor against the screen edge pans the camera, the Menu button ends the phase behind a confirm dialog, and every dialog that pops up lands controller focus on its confirm button so A proceeds and B backs out.",
       "changes": [
@@ -29,18 +29,79 @@
         "Fixed: controller input was invisible to the input-device tracker when a dialog was open or a handler consumed the event first \u2014 glyph hints and cursor availability now switch reliably."
       ]
     },
-    {
-      "version": "0.25.0",
-      "date": "2026-07-12",
-      "summary": "First gamepad / Steam Deck foundations: menus are controller-navigable (D-pad moves focus, A selects, B backs out), the right stick pans the battle camera and the triggers zoom, a button-hint bar appears whenever a controller is used, and the UI Scale setting finally works.",
-      "changes": [
-        "Gamepad basics: D-pad / left stick moves the UI focus and A presses buttons (B cancels) across the main menu and Settings \u2014 both are now fully usable without a mouse, and focus is handed back sensibly when the Settings overlay closes.",
-        "Controller camera: the right stick pans the board and LT/RT zoom out/in, at the same speeds as the WASD/=/- keyboard controls.",
-        "A hint bar at the bottom of the screen shows the controller buttons that do something right now; it appears when a controller is used and disappears the moment you go back to mouse and keyboard.",
-        "Fixed: the UI Scale slider (Settings \u2192 Visual) was saved but never applied \u2014 it now visibly resizes the whole interface, which will matter on small screens like the Steam Deck.",
-        "This is milestone M0 of the controller roadmap (PRPs/steam_deck_controller_support.md); board interactions (moving models, targeting) are still mouse-only until M1-M3."
-      ]
-    },
+		{
+			"version": "0.30.0",
+			"date": "2026-07-12",
+			"summary": "Removed the legacy hand-made terrain layouts (Chapter Approved 1-8 and the parse-test boards). The game now plays exclusively on the converted official 11e tournament layouts, and the main menu defaults to the current matchup's first official variant with its paired deployment.",
+			"changes": [
+				"Removed: the ten legacy terrain layouts (Chapter Approved Layouts 1-8 and two parse-test boards) and their hardcoded fallback. They pre-dated the official 11e set, used whole-rectangle footprints with hand-authored wall segments, and interacted badly with the new solid-wall movement rules.",
+				"The terrain dropdown now lists only the official 11e layouts: the selected Force-Disposition matchup's three variants (or the full official list if no matchup applies).",
+				"New games default to the default matchup's first official variant (Take and Hold mirror, variant 1) with its paired deployment pattern (Tipping Point) — previously the default was a legacy parse-test board with Search and Destroy.",
+				"Old saves and settings that reference a removed layout still load: saved games rebuild their terrain from the data stored in the save itself, and a stale layout selection falls back to the default official layout instead of an empty board."
+			]
+		},
+		{
+			"version": "0.29.0",
+			"date": "2026-07-12",
+			"summary": "Ruin walls now actually block vehicles and monsters. Big models (like the Stompa) can no longer walk through, charge through, or park on top of the solid walls on the tournament terrain layouts — and the whole base counts, not just its centre point.",
+			"changes": [
+				"Fixed: vehicles and monsters could move straight through — and end their move standing on — the 5\" ruin walls on the official-style (11e) terrain layouts. The dense-terrain movement rule was only enforced on an internal action the drag UI and the AI never used, and the 'cannot end overlapping a wall' rule only knew about the old hand-authored wall segments, which the new layouts don't have.",
+				"Movement legality is now shape-aware: the model's full base is swept along its path and checked at the destination, so a wide base (e.g. the Stompa's 180mm) can no longer straddle a wall its centre line never crossed.",
+				"Charge moves are checked too — a non-Fly vehicle can no longer charge through a ruin wall (Fly units still charge over terrain; nobody may END a charge inside a wall).",
+				"Infantry are unaffected — they still move through and stand among ruin walls freely, and step-over allowances still work: units that ignore terrain up to 4\" (Stompa's Stompin' Forward, the Nauts' Clankin' Forward, SUPER-HEAVY WALKER) can still cross features up to that height, just not 5\" walls.",
+				"Ruin footprints (the outlined areas around walls) remain enterable through their openings — only the solid wall pieces themselves block.",
+				"The AI now routes around walls instead of parking on them, and screens its candidate moves with the same rule the engine enforces.",
+				"Models left standing inside a wall by an older save can always move OUT of it — they just can't stay or go further in."
+			]
+		},
+		{
+			"version": "0.28.0",
+			"date": "2026-07-12",
+			"summary": "Every keyboard shortcut can now be remapped mid-game. Settings → Controls now lists ALL of the game's hotkeys (previously most were hardcoded and missing from the menu), grouped into Camera, Gameplay, Model, Panels & Overlays, AI, Debug and Replay Playback — click any binding and press a new key to change it, and it takes effect immediately.",
+			"changes": [
+				"Added ~40 previously-unlisted shortcuts to the Controls tab so they can be reassigned: Army panel (U), Stratagems (S), Missions (M), Weapon range (W), Datasheet (I), Chat (T), Roster strip (B), Aura rings (A), Tactical grid (G), VP timeline (V), Visual style (8), Fit-to-board (F) / Fit-to-selection (Shift+F), Ruler (R), Threat overlay (Tab), Line-of-sight overlays (L / hold-G check), the AI replay + playback controls, and the debug tools (9 / O / Shift+D / F10).",
+				"Every one of these keys now flows through the rebinding system, so changing it in Settings → Controls changes it in the actual game — no restart needed. Rebinds are saved and persist between sessions.",
+				"Bindings are organised into clear categories with a Reset (per-key) and Reset All Defaults button, and the on-screen '?' hotkey help now shows your current keys instead of the factory defaults.",
+				"Note: several shortcuts still SHIP on the same default key as another (e.g. W is both 'pan up' and 'weapon range'; G is terrain / grid / LoS-check) — they are now all visible in the menu so you can give each one its own key."
+			]
+		},
+		{
+			"version": "0.27.0",
+			"date": "2026-07-12",
+			"summary": "The AI's game log now opens each turn with a single 'turn intent' card — its stance for the round (e.g. AGGRESSIVE / MELEE army), what the round is worth in VP, which enemies it plans to charge or tie up, and every unit's orders. Fast melee units (Stormboyz, Custodian Guard) also deploy like assault troops now instead of lining up as gunline shooters.",
+			"changes": [
+				"Game log: the movement-plan card is now a full turn-intent briefing — round stance (strategy + army archetype), 'Playing for:' VP stakes, named charge intents (\"Charge intent: Stormboyz → Custodian Guard (20.8\\\" away)\"), and shooters the AI plans to tie up in melee, followed by the per-unit orders.",
+				"AI deployment: units whose weapons make them melee-focused (Stormboyz with token pistols, Custodian Guard with guardian spears) now classify as melee and deploy forward for movement lanes; previously any unit carrying a ranged weapon deployed as a 'ranged unit positioning for firing lanes'. Uses the same melee-focus gate as the movement/charge logic so deployment and battle plans agree about a unit's role.",
+				"Fixed: secondary missions requiring a unit action are now scored impossible when the player has no units left."
+			]
+		},
+		{
+			"version": "0.26.0",
+			"date": "2026-07-11",
+			"summary": "The AI now fights to a single battle plan per turn — and the game log tells the truth about it. The movement plan the AI announces is the plan its units actually execute, melee hunts are declared up front (\"ATTACK Custodian Guard\"), spare units spread across objectives instead of piling onto one, and every decision card explains WHY (including when coordination overrides the raw scores).",
+			"changes": [
+				"AI movement: the army-wide unit-to-objective plan is computed once per movement phase and then followed, instead of being re-solved before every single unit action (which made announced plans and executed moves contradict each other). Re-plans only happen for cause (e.g. a unit disembarks mid-phase) and are called out in the log.",
+				"AI coordination: leftover units now spread across objectives with diminishing returns instead of all independently picking the same marker; objectives one enemy move away from being contested get sized reinforcement (\"capturing it — enemy can bring ~4 OC next move\").",
+				"AI melee: chase-vs-objective decisions are made at planning time and announced in the battle plan as ATTACK entries; the objective a hunter abandons re-opens for another unit to backfill.",
+				"Game log honesty: per-unit decision cards now show the REAL assignment with its reason (capture / flip / reinforce / sole holder / attack), and when the chosen option scores lower than a rejected one the card says why (\"↳ why not the top score: obj_1 is already covered...\"). Previously ~58% of cards claimed a 'chosen' option that contradicted the action taken.",
+				"AI formations: reserve declarations respect board presence — armies no longer bank nearly half their points in Strategic Reserves and concede the early objective game (the Custodes Lions list kept 950pts off-board; now capped near 25%).",
+				"Fixed: the phase banner and AI Actions overlay always showed 'Round 1' — they now show the actual battle round.",
+				"Fixed: a game-freezing crash in the shooting phase — when a weapon's single auto-assigned target was rejected (or its processing refreshed the weapon panel mid-update), the UI re-entered itself until the game locked up or crashed. Auto-assignments now dispatch after the panel finishes rendering.",
+				"Fixed: the AI burned ~200 wasted actions (minutes of real time) whenever the roll-off winner wasn't the active player — deployment-order and first-turn choices are now submitted as the winning player."
+			]
+		},
+		{
+			"version": "0.25.0",
+			"date": "2026-07-12",
+			"summary": "First gamepad / Steam Deck foundations: menus are controller-navigable (D-pad moves focus, A selects, B backs out), the right stick pans the battle camera and the triggers zoom, a button-hint bar appears whenever a controller is used, and the UI Scale setting finally works.",
+			"changes": [
+				"Gamepad basics: D-pad / left stick moves the UI focus and A presses buttons (B cancels) across the main menu and Settings — both are now fully usable without a mouse, and focus is handed back sensibly when the Settings overlay closes.",
+				"Controller camera: the right stick pans the board and LT/RT zoom out/in, at the same speeds as the WASD/=/- keyboard controls.",
+				"A hint bar at the bottom of the screen shows the controller buttons that do something right now; it appears when a controller is used and disappears the moment you go back to mouse and keyboard.",
+				"Fixed: the UI Scale slider (Settings → Visual) was saved but never applied — it now visibly resizes the whole interface, which will matter on small screens like the Steam Deck.",
+				"This is milestone M0 of the controller roadmap (PRPs/steam_deck_controller_support.md); board interactions (moving models, targeting) are still mouse-only until M1-M3."
+			]
+		},
 		{
 			"version": "0.24.3",
 			"date": "2026-07-12",
@@ -104,31 +165,6 @@
 				"In the shooting phase with a shooter selected, L still shows the detailed per-model debug view (sample points, blocked attempts, terrain highlights).",
 				"The overlay refreshes automatically while held, so lines follow models as they move and no longer fade out after a few seconds.",
 				"Left roster strip hotkey is now B (was L, which the LoS overlay always captured first, so it never worked); the '?' shortcut overlay lists both keys."
-			]
-		},
-		{
-			"version": "0.21.0",
-			"date": "2026-07-12",
-			"summary": "The AI's game log now opens each turn with a single 'turn intent' card — its stance for the round (e.g. AGGRESSIVE / MELEE army), what the round is worth in VP, which enemies it plans to charge or tie up, and every unit's orders. Fast melee units (Stormboyz, Custodian Guard) also deploy like assault troops now instead of lining up as gunline shooters.",
-			"changes": [
-				"Game log: the movement-plan card is now a full turn-intent briefing — round stance (strategy + army archetype), 'Playing for:' VP stakes, named charge intents (\"Charge intent: Stormboyz → Custodian Guard (20.8\\\" away)\"), and shooters the AI plans to tie up in melee, followed by the per-unit orders.",
-				"AI deployment: units whose weapons make them melee-focused (Stormboyz with token pistols, Custodian Guard with guardian spears) now classify as melee and deploy forward for movement lanes; previously any unit carrying a ranged weapon deployed as a 'ranged unit positioning for firing lanes'. Uses the same melee-focus gate as the movement/charge logic so deployment and battle plans agree about a unit's role.",
-				"Fixed: secondary missions requiring a unit action are now scored impossible when the player has no units left."
-			]
-		},
-		{
-			"version": "0.20.0",
-			"date": "2026-07-11",
-			"summary": "The AI now fights to a single battle plan per turn — and the game log tells the truth about it. The movement plan the AI announces is the plan its units actually execute, melee hunts are declared up front (\"ATTACK Custodian Guard\"), spare units spread across objectives instead of piling onto one, and every decision card explains WHY (including when coordination overrides the raw scores).",
-			"changes": [
-				"AI movement: the army-wide unit-to-objective plan is computed once per movement phase and then followed, instead of being re-solved before every single unit action (which made announced plans and executed moves contradict each other). Re-plans only happen for cause (e.g. a unit disembarks mid-phase) and are called out in the log.",
-				"AI coordination: leftover units now spread across objectives with diminishing returns instead of all independently picking the same marker; objectives one enemy move away from being contested get sized reinforcement (\"capturing it — enemy can bring ~4 OC next move\").",
-				"AI melee: chase-vs-objective decisions are made at planning time and announced in the battle plan as ATTACK entries; the objective a hunter abandons re-opens for another unit to backfill.",
-				"Game log honesty: per-unit decision cards now show the REAL assignment with its reason (capture / flip / reinforce / sole holder / attack), and when the chosen option scores lower than a rejected one the card says why (\"↳ why not the top score: obj_1 is already covered...\"). Previously ~58% of cards claimed a 'chosen' option that contradicted the action taken.",
-				"AI formations: reserve declarations respect board presence — armies no longer bank nearly half their points in Strategic Reserves and concede the early objective game (the Custodes Lions list kept 950pts off-board; now capped near 25%).",
-				"Fixed: the phase banner and AI Actions overlay always showed 'Round 1' — they now show the actual battle round.",
-				"Fixed: a game-freezing crash in the shooting phase — when a weapon's single auto-assigned target was rejected (or its processing refreshed the weapon panel mid-update), the UI re-entered itself until the game locked up or crashed. Auto-assignments now dispatch after the panel finishes rendering.",
-				"Fixed: the AI burned ~200 wasted actions (minutes of real time) whenever the roll-off winner wasn't the active player — deployment-order and first-turn choices are now submitted as the winning player."
 			]
 		},
 		{
