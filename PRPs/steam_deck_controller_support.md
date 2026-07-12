@@ -1,6 +1,6 @@
 # Steam Deck / Controller Support — Research & Phased Implementation Plan
 
-**Status:** IN PROGRESS — M0 shipped 2026-07-12 (v0.25.0 after merge re-versioning; windowed gates `pad_m0_menu_nav` + `pad_m0_camera` PASS). Next: M1 (virtual cursor).
+**Status:** IN PROGRESS — M0 shipped 2026-07-12 (v0.25.0, PR #571 merged); M1 shipped 2026-07-12 (v0.31.0 after merge re-versioning — a complete solo turn played pad-only); M2 shipped 2026-07-12 (v0.32.0; gates `pad_m2_unit_cycle` + `pad_m2_shooting_native` PASS — shooting phase completed with zero virtual-cursor use). Next: M3 (model carry — native stick movement).
 **Branch:** `claude/steam-deck-controller-support-1tzorb`
 **Date:** 2026-07-12 (game version at time of writing: 0.21.0)
 **Goal:** Make the full game playable — and eventually *pleasant* — on a Steam Deck with no mouse or keyboard, without regressing the existing mouse/keyboard experience.
@@ -544,22 +544,61 @@ and `pad_m0_camera` (20/0 — right-stick pan moved the board ≥30 px, RT zoom,
 hint bar visible in pad mode, UI-Scale drives `content_scale_factor` and is
 restored) both PASS; KBM regression scenario unaffected.
 
-### M1 — Whole-game fallback: the virtual cursor (medium)
-`VirtualCursor` autoload (move/click/drag synthesis), dialog focus-trapping +
-B-closes-modal, Menu = end-phase menu. **Gate:** a complete solo turn — deploy
-→ command → move → shoot → charge → fight → score — played pad-only via
-cursor in scenario `pad_m1_full_turn_cursor.json`. *This is the "Steam Deck
-Playable" bar: from here on, everything is reachable on a Deck.*
+### M1 — Whole-game fallback: the virtual cursor (medium) — ✅ SHIPPED 2026-07-12 (v0.31.0)
+Shipped: `VirtualCursor` autoload — left stick drives the REAL pointer
+(`Input.warp_mouse` + synthesized motion/button events, per the §3.3 recipe),
+A/X = left/right click (hold-A = drag), with a visible cursor ring,
+quadratic response curve, **edge-push camera panning** (driving the cursor
+against the screen edge pans the board — how off-screen targets stay
+reachable), and an explicit CURSOR ⇄ FOCUS mode split (stick → cursor owns
+A/X; D-pad or a dialog popup → parks the cursor so A/B act on the focused
+control — this is what prevents one press double-activating a hovered token
+AND a focused button). `InputDeviceManager` gained **propagation-proof
+device detection** (a `pad_probe_buttons` InputMap action polled in
+`_process`, because scene `_input` runs before autoloads and exclusive
+dialog Windows swallow events entirely — discovered the hard way), a
+synthetic-mouse handshake so the cursor's own warps don't read as "mouse
+used", and a **dialog watcher**: every `AcceptDialog` that pops in pad mode
+gets its confirm-ish button focused (custom-button dialogs order
+[Go Back, Confirm…], so first-button focus would make A cancel), with a
+guard that withholds focus until ui_accept is released (no chained
+double-confirms). Menu/Start = phase action behind a ConfirmationDialog;
+SettingsMenu closes on `ui_cancel` (Esc + pad B).
+**Gate (met):** `pad_m1_cursor_basics` (24/0 — stick moves the real pointer,
+glide+A click-selects a unit, hold-A drag stages a model move, clicking
+"Confirm Move" lands it in GameState) and `pad_m1_full_turn_cursor` (73/0 —
+a complete solo turn command → movement (real cursor drag) → shooting
+(summary dialog) → charge → fight (unfought-units dialog) → scoring
+(mission-discard dialog) → player 2's command phase, pad-only, incl. B
+natively cancelling the end-phase confirm); M0 scenarios + KBM baseline
+re-run green. Deployment-by-cursor uses the same click/drag paths but has no
+dedicated windowed scenario yet — explicit coverage lands with M3's
+deployment carry work.
 
-### M2 — Cycling, selection & panel focus (medium)
-`PadRouter` + `BoardCycler`; LB/RB unit cycling with camera pan + highlight;
-Y datasheet; X context actions; phase panels focus-navigable (the ~220
-procedurally-built buttons are covered by one shared `FocusWiring.apply()`
-helper called from the ~7 per-phase panel-rebuild sites, plus the
-first-focus-on-popup helper for the 37 `AcceptDialog`s); Shooting phase fully
-native (reusing the existing `shoot_*` cycling semantics), incl. LB/RB target
-cycling. **Gate:** Shooting phase completed with zero virtual-cursor use
-(`pad_m2_shooting_native.json`).
+### M2 — Cycling, selection & panel focus (medium) — ✅ SHIPPED 2026-07-12 (v0.32.0)
+Shipped: `PadRouter` autoload — LB/RB cycles whichever list is live (the
+right-panel unit list generically, driven through `item_selected` exactly
+like a mouse row-click; eligible shooters then eligible targets in the
+shooting phase, reusing the `shoot_*` keyboard semantics), with camera
+centering on the cycled unit/target. A assigns the highlighted target (after
+syncing SELECT_SHOOTER to the phase — the controller's auto-select is
+cosmetic and the phase would reject the assignment otherwise), X skips the
+shooter, B deselects/releases focus, Y toggles the datasheet, D-pad enters
+panel focus when nothing is focused, and Start is context-dependent in
+shooting (Confirm Targets while assignments pend). The hint bar is now
+contextual (board / targeting / panel-focus sets). WoundAllocationOverlay
+(a plain Control, invisible to the AcceptDialog watcher) gets its own
+focus hook. The planned bulk `FocusWiring.apply()` pass proved unnecessary
+for M2: procedural Buttons default to `FOCUS_ALL` already — only the four
+`FOCUS_CLICK` nodes in Main.tscn needed flipping; a fuller per-phase
+focus-order audit moves into M4.
+**Gate (met):** `pad_m2_shooting_native` (35/0 — an entire shooting
+activation with zero virtual-cursor use: cycle shooter → cycle targets →
+assign → Confirm Targets via Start → defender's stratagem window → staged
+dice + wound allocation walked with A → X skips remaining weapons →
+`has_shot` verified in GameState) and `pad_m2_unit_cycle` (26/0 — movement
+phase bumper cycling, Y datasheet toggle, D-pad panel-focus entry, B
+release). All M0/M1 pad scenarios + the KBM baseline re-run green (7/7).
 
 ### M3 — Model carry: native movement (large — the heart of the feature)
 `ModelCarryController` for Deployment and Movement first (budget readout,

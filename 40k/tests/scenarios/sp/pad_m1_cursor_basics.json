@@ -1,0 +1,39 @@
+{
+  "id": "pad_m1_cursor_basics",
+  "covers": ["controller.m1.virtual_cursor"],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "M1 virtual cursor: left-stick axis moves the real pointer (warp + synthetic motion), gliding to a unit token and tapping A click-selects it in the Movement phase, hold-A + glide drags a model (staged move appears), and gliding to the procedurally-built 'Confirm Move' button and tapping A confirms — a full mouse interaction sequence performed pad-only.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"m0\", main.get_viewport().get_mouse_position().x)" },
+    { "act": "simulate_joy_axis", "axis": 0, "value": 1.0, "hold_s": 0.5 },
+    { "act": "execute_script", "script": "main.get_viewport().get_mouse_position().x - InputDeviceManager.get_meta(\"m0\")", "expect_min": 60 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": true },
+    { "act": "screenshot", "label": "01_cursor_active" },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_BLADE_CHAMPION_A" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "screenshot", "label": "02_unit_selected_by_cursor" },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_BLADE_CHAMPION_A" },
+    { "act": "simulate_joy_button", "button_index": 0, "state": "press" },
+    { "act": "pad_cursor_glide", "x": 120.0, "y": 220.0 },
+    { "act": "simulate_joy_button", "button_index": 0, "state": "release" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves.size()", "expect_min": 1 },
+    { "act": "screenshot", "label": "03_model_dragged" },
+
+    { "act": "pad_cursor_glide", "button_text": "Confirm Move" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "abs(GameState.state.units.U_BLADE_CHAMPION_A.models[0].position.y - 220.0)", "expect_max": 15 },
+    { "act": "screenshot", "label": "04_move_confirmed" }
+  ]
+}

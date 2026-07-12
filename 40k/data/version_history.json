@@ -1,6 +1,34 @@
 {
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
+    {
+      "version": "0.32.0",
+      "date": "2026-07-12",
+      "summary": "Native controller controls arrive: LB/RB cycles your units (the camera jumps to each one), the shooting phase is fully playable without the cursor \u2014 cycle eligible shooters, cycle eligible targets, A assigns, Start confirms \u2014 Y opens the datasheet, X skips the active shooter, a D-pad press hops into the side panels and B hops back out. The button hints at the bottom now change with what you're doing.",
+      "changes": [
+        "LB/RB cycle: in most phases the bumpers step through the unit list (exactly like clicking rows); in the shooting phase they step through eligible shooters and \u2014 once a shooter is armed \u2014 through its eligible targets, with the camera panning to whatever is highlighted.",
+        "Native shooting: A assigns the highlighted target to the current weapon, X skips the active shooter, B deselects, and Start becomes 'Confirm Targets' while assignments are pending (it stays 'End Phase' otherwise, still behind a confirmation).",
+        "Y toggles the datasheet of the highlighted target or selected unit.",
+        "D-pad with nothing focused enters the side panels (unit list first) so every panel button is reachable without the cursor; B releases focus back to the board.",
+        "The controller hint bar is now contextual \u2014 it shows cycling/assign hints while targeting, navigation hints while in panels, and the standard set on the board.",
+        "Wound-allocation prompts now receive controller focus like dialogs do, so A presses Finish/Continue there too.",
+        "Fixed: the very first controller press of a session could be swallowed while the game still considered the mouse active."
+      ]
+    },
+    {
+      "version": "0.31.0",
+      "date": "2026-07-12",
+      "summary": "The whole game is now playable with a controller: the left stick drives a virtual cursor that clicks and drags anything the mouse can (select units, drag models, press any button), pushing the cursor against the screen edge pans the camera, the Menu button ends the phase behind a confirm dialog, and every dialog that pops up lands controller focus on its confirm button so A proceeds and B backs out.",
+      "changes": [
+        "Virtual cursor: the left stick moves a visible pointer that behaves exactly like the mouse \u2014 A is left-click (hold A to drag models), X is right-click. Everything reachable by mouse is now reachable by pad, in every phase.",
+        "Edge-push camera: driving the cursor against the edge of the screen pans the board (standard RTS behaviour), so off-screen units are reachable with the stick alone.",
+        "Cursor vs focus: moving the stick gives the buttons to the cursor; touching the D-pad (or any dialog opening) hands them back to focus navigation \u2014 so one press can never click the board AND press a focused button at once.",
+        "Menu (Start) button ends the current phase behind an 'End X Phase?' confirmation \u2014 A confirms, B cancels.",
+        "Dialogs are controller-first now: any dialog that appears while playing on pad focuses its confirm button (not 'Go Back'), so A means proceed and B dismisses; the Settings overlay also closes on B.",
+        "A full solo turn \u2014 command, movement (moving a model by cursor drag), shooting, charge, fight and scoring, into the next player's turn \u2014 is verified played entirely without mouse or keyboard.",
+        "Fixed: controller input was invisible to the input-device tracker when a dialog was open or a handler consumed the event first \u2014 glyph hints and cursor availability now switch reliably."
+      ]
+    },
 		{
 			"version": "0.30.0",
 			"date": "2026-07-12",

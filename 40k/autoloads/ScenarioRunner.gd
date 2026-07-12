@@ -321,6 +321,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_simulate_joy_button(step), true)
 		"simulate_joy_axis":
 			rec.merge(await _do_simulate_joy_axis(step), true)
+		"pad_cursor_glide":
+			rec.merge(await _do_pad_cursor_glide(step), true)
 		"expect_state":
 			rec.merge(_do_expect_state(step), true)
 		"expect_cp":
@@ -652,19 +654,24 @@ func _do_simulate_joy_button(step: Dictionary) -> Dictionary:
 		return {"pass": false, "error": "simulate_joy_button needs `button_index`"}
 	var button_index: int = int(step["button_index"])
 	var device: int = int(step.get("device", 0))
-	var press := InputEventJoypadButton.new()
-	press.device = device
-	press.button_index = button_index as JoyButton
-	press.pressed = true
-	Input.parse_input_event(press)
-	await get_tree().process_frame
-	var release := InputEventJoypadButton.new()
-	release.device = device
-	release.button_index = button_index as JoyButton
-	release.pressed = false
-	Input.parse_input_event(release)
-	await get_tree().process_frame
-	return {"pass": true, "button_index": button_index}
+	# `state`: "tap" (default, press+release), "press" (hold — e.g. start a
+	# cursor drag), "release" (end a held press).
+	var state: String = str(step.get("state", "tap"))
+	if state in ["tap", "press"]:
+		var press := InputEventJoypadButton.new()
+		press.device = device
+		press.button_index = button_index as JoyButton
+		press.pressed = true
+		Input.parse_input_event(press)
+		await get_tree().process_frame
+	if state in ["tap", "release"]:
+		var release := InputEventJoypadButton.new()
+		release.device = device
+		release.button_index = button_index as JoyButton
+		release.pressed = false
+		Input.parse_input_event(release)
+		await get_tree().process_frame
+	return {"pass": true, "button_index": button_index, "state": state}
 
 
 func _do_simulate_joy_axis(step: Dictionary) -> Dictionary:
@@ -694,6 +701,101 @@ func _do_simulate_joy_axis(step: Dictionary) -> Dictionary:
 		Input.parse_input_event(neutral)
 		await get_tree().process_frame
 	return {"pass": true, "axis": axis, "value": value, "hold_s": hold_s}
+
+
+func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
+	# M1 test seam for the virtual cursor: glide the cursor to a target
+	# through the SAME per-frame move/warp/motion-synthesis pipeline the left
+	# stick uses — only the steering is deterministic. Target one of:
+	#   { "unit_id": "U_X" }          — a unit's token
+	#   { "node": "/root/Main/..." }  — a Control's centre
+	#   { "button_text": "Confirm Move" } — first visible enabled Button with
+	#     that exact text (procedurally-built panels have no stable NodePath)
+	#   { "x": .., "y": .. }          — board/world px (like click_board_at)
+	#   { "x": .., "y": .., "space": "screen" } — raw screen px
+	var vc = get_node_or_null("/root/VirtualCursor")
+	if vc == null:
+		return {"pass": false, "error": "no VirtualCursor autoload"}
+	var target := Vector2.INF
+	if step.has("button_text"):
+		var wanted := str(step["button_text"])
+		var btn := _find_visible_button_by_text(wanted)
+		if btn == null:
+			return {"pass": false, "error": "no visible enabled Button with text '%s'" % wanted}
+		target = btn.get_global_rect().get_center()
+	elif step.has("unit_id"):
+		var token: Node = _find_unit_token(str(step["unit_id"]))
+		if token == null:
+			return {"pass": false, "error": "no token for unit %s" % str(step["unit_id"])}
+		target = _node2d_to_screen(token)
+		if target == Vector2.INF:
+			return {"pass": false, "error": "could not project token to screen"}
+	elif step.has("node"):
+		var node: Node = get_node_or_null(NodePath(str(step["node"])))
+		if node == null or not (node is Control):
+			return {"pass": false, "error": "no Control at path %s" % str(step.get("node"))}
+		target = (node as Control).get_global_rect().get_center()
+	elif step.has("x") and step.has("y"):
+		var p := Vector2(float(step["x"]), float(step["y"]))
+		if str(step.get("space", "board")) == "screen":
+			target = p
+		else:
+			var scene := get_tree().current_scene
+			if scene == null or not scene.has_method("world_to_screen_position"):
+				return {"pass": false, "error": "current scene cannot project board coords"}
+			target = scene.world_to_screen_position(p)
+	else:
+		return {"pass": false, "error": "pad_cursor_glide needs unit_id, node, or x/y"}
+	# The cursor's edge-push pans the camera when the target starts off-screen,
+	# which moves the target's SCREEN position while the glide is in flight —
+	# so re-resolve and re-glide until the cursor rests on the current target.
+	var rounds := 0
+	while rounds < 8:
+		rounds += 1
+		var resolved = _resolve_glide_target(step)
+		if resolved == null:
+			return {"pass": false, "error": "glide target vanished while re-resolving"}
+		target = resolved
+		if (vc.get_cursor_pos() - target).length() <= 4.0:
+			return {"pass": true, "target": [target.x, target.y], "rounds": rounds}
+		var ok: bool = await vc.glide_to_screen(target, float(step.get("timeout_s", 4.0)))
+		if not ok:
+			return {"pass": false, "target": [target.x, target.y],
+					"error": "glide did not arrive within timeout (round %d)" % rounds}
+	return {"pass": false, "error": "glide target never stabilised after %d rounds" % rounds}
+
+
+func _resolve_glide_target(step: Dictionary):
+	if step.has("button_text"):
+		var btn := _find_visible_button_by_text(str(step["button_text"]))
+		return null if btn == null else btn.get_global_rect().get_center()
+	if step.has("unit_id"):
+		var token: Node = _find_unit_token(str(step["unit_id"]))
+		if token == null:
+			return null
+		var p := _node2d_to_screen(token)
+		return null if p == Vector2.INF else p
+	if step.has("node"):
+		var node: Node = get_node_or_null(NodePath(str(step["node"])))
+		return null if (node == null or not (node is Control)) else (node as Control).get_global_rect().get_center()
+	var world := Vector2(float(step["x"]), float(step["y"]))
+	if str(step.get("space", "board")) == "screen":
+		return world
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("world_to_screen_position"):
+		return null
+	return scene.world_to_screen_position(world)
+
+
+func _find_visible_button_by_text(wanted: String) -> Button:
+	var queue: Array = [get_tree().root]
+	while not queue.is_empty():
+		var n: Node = queue.pop_front()
+		if n is Button and n.visible and n.is_visible_in_tree() and not n.disabled and str(n.text).strip_edges() == wanted:
+			return n
+		for child in n.get_children():
+			queue.append(child)
+	return null
 
 
 func _do_expect_state(step: Dictionary) -> Dictionary:
