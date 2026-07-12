@@ -75,7 +75,10 @@ jobs:
   multipeer-tests:
     name: Multi-peer integration (GUT)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 39 tests, each booting two windowed Godot instances with a real
+    # connection handshake, legitimately needs ~15 min on a 2-core runner;
+    # 20 minutes was borderline once honest readiness gating landed.
+    timeout-minutes: 30
     needs: headless-audit
     steps:
       - name: Checkout

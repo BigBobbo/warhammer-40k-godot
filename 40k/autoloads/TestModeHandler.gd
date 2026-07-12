@@ -36,6 +36,15 @@ var _game_state_cache = null
 # invocation finds the phase torn down and clobbers the success result with
 # "No active phase instance". See task notes / `/tmp/mp_run4.log`.
 var _commands_in_flight: Dictionary = {}
+# Boot-completion flag for multiplayer test instances. Set once the auto-host
+# flow has started the game (and auto-loaded any save) or the auto-join flow
+# has landed in the Main scene. Until then, mutating test commands are refused
+# with error=BOOTING so a mid-boot peer can never half-execute a test action
+# (and the boot flow's own game start can't silently clobber a test's phase
+# transition). Read-only status/query commands are always allowed.
+var _boot_complete: bool = false
+# Commands that are safe to execute while an instance is still booting.
+const READ_ONLY_ACTIONS := ["get_game_state", "get_network_status", "get_available_units", "capture_screenshot"]
 const COMMANDS_SUBDIR := "test_results/test_commands/commands"
 const RESULTS_SUBDIR := "test_results/test_commands/results"
 const TEST_ARTIFACTS_SUBDIR := "test_results/test_artifacts"
@@ -185,10 +194,11 @@ func _setup_test_mode():
 func _schedule_auto_host():
 	print("TestModeHandler: Scheduling auto-host...")
 
-	# Wait for main menu to load and be ready
-	await get_tree().create_timer(2.0).timeout
-
-	var main_menu = get_tree().current_scene
+	# Wait for the main menu to load — condition-based with a 10s ceiling.
+	# The old fixed 2.0s both overshot on fast boots and undershot on slow
+	# CI boxes; with per-test instance relaunches these waits dominate suite
+	# wall-clock, so poll instead of guessing.
+	var main_menu = await _wait_for_scene_with_method("_on_multiplayer_button_pressed", 10.0)
 	print("TestModeHandler: Current scene: ", main_menu.name if main_menu else "null")
 
 	# Automatically click multiplayer and host
@@ -196,8 +206,8 @@ func _schedule_auto_host():
 		print("TestModeHandler: Triggering multiplayer mode...")
 		main_menu._on_multiplayer_button_pressed()
 
-		# Wait for scene change to complete
-		await get_tree().create_timer(1.5).timeout
+		# Wait for the lobby scene to load
+		await _wait_for_scene_with_method("_on_host_button_pressed", 10.0)
 
 		# Now we should be in multiplayer lobby
 		var lobby = get_tree().current_scene
@@ -232,7 +242,7 @@ func _schedule_auto_host():
 				print("TestModeHandler: PhaseManager already has phase instance")
 
 			# Wait for game scene to load and verify phase initialization
-			await get_tree().create_timer(3.0).timeout  # Increased wait time for scene load
+			await get_tree().create_timer(1.0).timeout
 
 			# Wait for GameState singleton to be ready before checking phase
 			var max_gs_retries = 20
@@ -250,8 +260,13 @@ func _schedule_auto_host():
 				push_error("TestModeHandler: GameState singleton failed to initialize after %d attempts" % max_gs_retries)
 				return
 
-			# Verify phase initialization with retry logic
-			var max_retries = 10
+			# Legacy phase verification: multiplayer games now boot into
+			# FORMATIONS by design (10e flow), so demanding DEPLOYMENT here
+			# fails routinely — tests advance phases themselves via the
+			# transition_to_phase command. Keep a short 2-attempt check for
+			# the auto_load_save flows that do land in a later phase, but do
+			# NOT burn 5s per boot on a condition that no longer holds.
+			var max_retries = 2
 			var retry_count = 0
 			while retry_count < max_retries:
 				var current_phase = _gs().get_current_phase()
@@ -274,22 +289,42 @@ func _schedule_auto_host():
 				retry_count += 1
 
 			if retry_count >= max_retries:
-				push_error("TestModeHandler: Game failed to enter Deployment phase after %d attempts" % max_retries)
+				print("TestModeHandler: Boot phase is not DEPLOYMENT (FORMATIONS is the expected 10e boot phase) — tests drive their own transitions")
 
 			# If we have a save to auto-load, schedule it
 			if test_config.has("auto_load_save"):
 				await get_tree().create_timer(2.0).timeout
 				_auto_load_save(test_config["auto_load_save"])
+				# Give the load (and its multiplayer state sync) a moment to
+				# apply before declaring the instance ready for test commands.
+				await get_tree().create_timer(1.0).timeout
+
+			# Boot is done: game started, phase settled (or legacy verify gave
+			# up — tests drive their own transitions), optional save loaded.
+			# From here on, mutating test commands are allowed.
+			_boot_complete = true
+			print("TestModeHandler: Host boot complete")
 		else:
 			print("TestModeHandler: ERROR - Lobby scene doesn't have _on_host_button_pressed method")
+
+func _wait_for_scene_with_method(method_name: String, timeout: float) -> Node:
+	"""Poll until the current scene exposes `method_name` (i.e. the expected
+	scene finished loading), or timeout. Returns the scene node (or the
+	current scene at timeout, letting the caller's has_method guard report
+	the failure)."""
+	var deadline = Time.get_ticks_msec() + int(timeout * 1000)
+	while Time.get_ticks_msec() < deadline:
+		var sc = get_tree().current_scene
+		if sc and sc.has_method(method_name):
+			return sc
+		await get_tree().create_timer(0.1).timeout
+	return get_tree().current_scene
 
 func _schedule_auto_join():
 	print("TestModeHandler: Scheduling auto-join...")
 
-	# Wait for main menu to load and be ready
-	await get_tree().create_timer(2.0).timeout
-
-	var main_menu = get_tree().current_scene
+	# Wait for the main menu to load — condition-based (see _schedule_auto_host)
+	var main_menu = await _wait_for_scene_with_method("_on_multiplayer_button_pressed", 10.0)
 	print("TestModeHandler: Current scene: ", main_menu.name if main_menu else "null")
 
 	# Automatically click multiplayer and join
@@ -297,8 +332,8 @@ func _schedule_auto_join():
 		print("TestModeHandler: Triggering multiplayer mode...")
 		main_menu._on_multiplayer_button_pressed()
 
-		# Wait for scene change to complete
-		await get_tree().create_timer(1.5).timeout
+		# Wait for the lobby scene to load
+		await _wait_for_scene_with_method("_on_join_button_pressed", 10.0)
 
 		# Now we should be in multiplayer lobby
 		var lobby = get_tree().current_scene
@@ -315,6 +350,24 @@ func _schedule_auto_join():
 			if lobby.has_method("_on_join_button_pressed"):
 				print("TestModeHandler: Joining host at ", test_config.get("host_ip", "127.0.0.1"))
 				lobby._on_join_button_pressed()
+
+				# Boot completes once the game scene loads — the host starts
+				# the game after our join lands, which swaps both peers to
+				# Main and runs its _ready() initialization. Waiting for that
+				# here means wait_for_connection() can't return while this
+				# client is still mid-boot (the old behavior let tests issue
+				# phase transitions that Main._ready() then reverted).
+				var boot_deadline = Time.get_ticks_msec() + 90000
+				while Time.get_ticks_msec() < boot_deadline:
+					var sc = get_tree().current_scene
+					if sc and sc.name == "Main":
+						break
+					await get_tree().create_timer(0.25).timeout
+				# One settle beat so Main._ready() finishes before commands run.
+				await get_tree().create_timer(0.5).timeout
+				_boot_complete = true
+				var scene_now = get_tree().current_scene
+				print("TestModeHandler: Client boot complete (scene=%s)" % (scene_now.name if scene_now else "null"))
 			else:
 				print("TestModeHandler: ERROR - Lobby scene doesn't have _on_join_button_pressed method")
 
@@ -445,10 +498,28 @@ func _check_for_commands():
 		print("TestModeHandler: Command directory not accessible: ", _command_dir_res)
 		return
 
+	# Both multiplayer test instances (host + client) run from the same project
+	# path and therefore scan the SAME commands directory. The harness encodes
+	# the addressee in the filename ("host_<pid>_cmd_NNN.json" /
+	# "client_<pid>_cmd_NNN.json") — an instance must only execute commands
+	# addressed to its own role, or commands race between the two scanners:
+	# double execution corrupts the shared result file, and wrong-peer
+	# execution mutates the wrong process's state (both observed in the
+	# 2026-07-12 suite runs). Single-instance modes keep the unfiltered scan.
+	var role_prefix := ""
+	match current_test_mode:
+		TestMode.AUTO_HOST:
+			role_prefix = "host_"
+		TestMode.AUTO_JOIN:
+			role_prefix = "client_"
+
 	dir.list_dir_begin()
 	var file_name = dir.get_next()
 
 	while file_name != "":
+		if role_prefix != "" and not file_name.begins_with(role_prefix):
+			file_name = dir.get_next()
+			continue
 		if file_name.ends_with(".json") and not file_name.begins_with("."):
 			# Skip if this command is already in flight (handler is mid-await).
 			# Without this, the 100ms scan loop re-enters _execute_command_file
@@ -519,11 +590,28 @@ func _execute_command(command: Dictionary) -> Dictionary:
 
 	print("TestModeHandler: Executing action: ", action)
 
+	# Refuse mutating commands while a multiplayer test instance is still
+	# booting (menu clicks, lobby, game start, optional auto-load). Executing
+	# them mid-boot produced half-applied state and phase transitions that the
+	# boot flow's own game start then silently reverted. The harness's
+	# wait_for_connection() gates on boot_complete via get_network_status, so
+	# a well-behaved test never sees this error — it exists to make any
+	# residual mid-boot command a loud, attributable failure.
+	if current_test_mode in [TestMode.AUTO_HOST, TestMode.AUTO_JOIN] \
+			and not _boot_complete and not (action in READ_ONLY_ACTIONS):
+		return {
+			"success": false,
+			"message": "Instance still booting — mutating command '%s' refused" % action,
+			"error": "BOOTING"
+		}
+
 	match action:
 		"load_save":
 			return await _handle_load_save(params)
 		"deploy_unit":
-			return _handle_deploy_unit(params)
+			return await _handle_deploy_unit(params)
+		"get_network_status":
+			return _handle_get_network_status(params)
 		"undo_deployment":
 			return _handle_undo_deployment(params)
 		"complete_deployment":
@@ -566,16 +654,33 @@ func _write_result(command_file: String, sequence: int, result: Dictionary, exec
 		"timestamp": Time.get_ticks_msec(),
 		"sequence": sequence,
 		"execution_time_ms": execution_time,
+		# Identity stamp: which instance answered. The harness verifies this
+		# against the command's addressee so any mis-routed pickup becomes a
+		# loud WRONG_RESPONDER failure instead of a silent wrong-state read.
+		"responder": {
+			"is_host": current_test_mode == TestMode.AUTO_HOST,
+			"instance": test_config.get("instance_name", ""),
+			"pid": OS.get_process_id()
+		},
 		"result": result
 	}
 
-	var file = FileAccess.open(result_path, FileAccess.WRITE)
+	# Write to a temp name then rename: rename is atomic on the same
+	# filesystem, so the harness's poll can never observe a partial file
+	# (interleaved concurrent writes previously produced unparseable JSON
+	# with doubled tails).
+	var tmp_path = result_path + ".tmp"
+	var file = FileAccess.open(tmp_path, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(result_data, "\t"))
 		file.close()
-		print("TestModeHandler: Result written to: ", result_file_name)
+		var rename_err = DirAccess.rename_absolute(tmp_path, result_path)
+		if rename_err == OK:
+			print("TestModeHandler: Result written to: ", result_file_name)
+		else:
+			push_error("TestModeHandler: Failed to move result into place: %s (err %d)" % [result_path, rename_err])
 	else:
-		push_error("TestModeHandler: Failed to write result file: " + result_path)
+		push_error("TestModeHandler: Failed to write result file: " + tmp_path)
 
 # ============================================================================
 # Action Handlers
@@ -761,15 +866,6 @@ func _handle_deploy_unit(params: Dictionary) -> Dictionary:
 			"error": "MISSING_PARAMETER"
 		}
 
-	# Get GameManager
-	var game_manager = get_node_or_null("/root/GameManager")
-	if not game_manager:
-		return {
-			"success": false,
-			"message": "GameManager not found",
-			"error": "GAME_MANAGER_NOT_FOUND"
-		}
-
 	# Check if we're in deployment phase (via GameState)
 	var game_state = _gs()
 	if game_state and game_state.has_method("get_current_phase"):
@@ -782,25 +878,82 @@ func _handle_deploy_unit(params: Dictionary) -> Dictionary:
 			}
 	# If GameState not available, skip phase check (test environment)
 
-	# Try to deploy the unit
-	var pos_vector = Vector2(position["x"], position["y"])
-	var success = game_manager.deploy_unit(unit_id, pos_vector)
-
-	if success:
-		return {
-			"success": true,
-			"message": "Unit deployed successfully",
-			"data": {
-				"unit_id": unit_id,
-				"position": position
-			}
-		}
-	else:
+	var unit = game_state.get_unit(unit_id) if game_state else {}
+	if unit.is_empty():
 		return {
 			"success": false,
-			"message": "Failed to deploy unit (check deployment zone, terrain, etc.)",
+			"message": "Unit not found: %s" % unit_id,
+			"error": "UNIT_NOT_FOUND"
+		}
+
+	# Build the same DEPLOY_UNIT action the deployment UI submits. Models are
+	# spread in a compact grid (base diameter + gap, rows of 5) around the
+	# requested anchor: the old GameManager.deploy_unit shortcut stacked every
+	# model on one point, which real shape-aware overlap validation rejects.
+	# The grid stays within 2" coherency (edge gap is 4px << 80px).
+	var models = unit.get("models", [])
+	var anchor = Vector2(float(position["x"]), float(position["y"]))
+	var spacing := 0.0
+	for m in models:
+		spacing = max(spacing, Measurement.mm_to_px(float(m.get("base_mm", 32))))
+	spacing += 4.0
+	var model_positions = []
+	var model_rotations = []
+	for i in range(models.size()):
+		var col = i % 5
+		var row = int(i / 5.0)
+		model_positions.append(Vector2(anchor.x + col * spacing, anchor.y + row * spacing))
+		model_rotations.append(0.0)
+
+	var action = {
+		"type": "DEPLOY_UNIT",
+		"unit_id": unit_id,
+		"model_positions": model_positions,
+		"model_rotations": model_rotations,
+		"phase": GameStateData.Phase.DEPLOYMENT,
+		"player": unit.get("owner", 0)
+	}
+
+	# Route through the exact path the deployment UI uses (NetworkIntegration):
+	# single-player executes on the phase instance with full zone/overlap
+	# validation; multiplayer submits through NetworkManager so the host
+	# validates and broadcasts — BOTH peers converge. The old shortcut
+	# (GameManager.deploy_unit -> apply_action) skipped validation entirely
+	# and mutated only this process's state.
+	var route_result = NetworkIntegration.route_action(action)
+	if not route_result.get("success", false):
+		return {
+			"success": false,
+			"message": "Failed to deploy unit: %s" % str(route_result.get("errors", route_result.get("error", "validation failed"))),
 			"error": "DEPLOYMENT_FAILED"
 		}
+
+	if route_result.get("pending", false):
+		# Networked submit is fire-and-forget; the applied diffs land via RPC.
+		# Wait until the local GameState reflects the deploy so the caller
+		# gets a truthful verdict — a host-side validation rejection leaves
+		# the unit's status unchanged and times out here.
+		var deadline = Time.get_ticks_msec() + 5000
+		while Time.get_ticks_msec() < deadline:
+			var u = game_state.get_unit(unit_id)
+			if not u.is_empty() and u.get("status", GameStateData.UnitStatus.UNDEPLOYED) == GameStateData.UnitStatus.DEPLOYED:
+				return {
+					"success": true,
+					"message": "Unit deployed successfully",
+					"data": {"unit_id": unit_id, "position": position}
+				}
+			await get_tree().create_timer(0.1).timeout
+		return {
+			"success": false,
+			"message": "Failed to deploy unit (rejected by host validation or not propagated within 5s — check deployment zone, terrain, turn order)",
+			"error": "DEPLOYMENT_FAILED"
+		}
+
+	return {
+		"success": true,
+		"message": "Unit deployed successfully",
+		"data": {"unit_id": unit_id, "position": position}
+	}
 
 func _handle_undo_deployment(params: Dictionary) -> Dictionary:
 	print("TestModeHandler: Handling undo_deployment action")
@@ -824,6 +977,15 @@ func _handle_undo_deployment(params: Dictionary) -> Dictionary:
 	var success = game_manager.undo_last_action()
 
 	if success:
+		# GameManager's undo reverses diffs locally only — there is no
+		# product-level networked undo for confirmed deployments. In a
+		# networked test the host pushes its post-undo state to the client
+		# through the same full-state sync the load flow uses, so both peers
+		# converge on the undone state.
+		var nm = get_node_or_null("/root/NetworkManager")
+		if nm and nm.has_method("is_networked") and nm.is_networked() and nm.is_host():
+			print("TestModeHandler: Undo applied on host — syncing state to client via sync_loaded_state()")
+			nm.sync_loaded_state()
 		return {
 			"success": true,
 			"message": "Deployment undone",
@@ -849,7 +1011,39 @@ func _handle_complete_deployment(params: Dictionary) -> Dictionary:
 			"error": "GAME_MANAGER_NOT_FOUND"
 		}
 
-	# Mark deployment as complete
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.has_method("is_networked") and nm.is_networked():
+		# Networked: route the real END_DEPLOYMENT action through the UI's
+		# path so the HOST validates, applies, and drives the (broadcast)
+		# phase cascade. The old GameManager shortcut ran a LOCAL cascade on
+		# whichever peer executed it — observed 2026-07-12 as the client
+		# stuck in Redeployment while the host reached First-Turn Roll-Off.
+		# auto_timeout mirrors the deployment-timer flow: the test declares
+		# the player done with units still undeployed, which strict
+		# validation would otherwise reject ("Not all units deployed").
+		var action = {
+			"type": "END_DEPLOYMENT",
+			"player_id": player_id,
+			"player": player_id,
+			"auto_timeout": true
+		}
+		var route_result = NetworkIntegration.route_action(action)
+		if not route_result.get("success", false):
+			return {
+				"success": false,
+				"message": "Failed to complete deployment: %s" % str(route_result.get("errors", route_result.get("error", "rejected"))),
+				"error": "COMPLETION_FAILED"
+			}
+		return {
+			"success": true,
+			"message": "Player %d deployment complete%s" % [player_id, " (submitted to host)" if route_result.get("pending", false) else ""],
+			"data": {
+				"player_id": player_id,
+				"deployment_complete": true
+			}
+		}
+
+	# Single-player test mode: keep the original GameManager path bit-for-bit.
 	if game_manager.has_method("complete_deployment"):
 		var success = game_manager.complete_deployment(player_id)
 
@@ -874,6 +1068,36 @@ func _handle_complete_deployment(params: Dictionary) -> Dictionary:
 			"message": "Complete deployment method not found",
 			"error": "METHOD_NOT_FOUND"
 		}
+
+func _handle_get_network_status(_params: Dictionary) -> Dictionary:
+	# Read-only readiness probe for the multiplayer test harness. Reports the
+	# REAL network link state (not just "this process answered a command"):
+	# the harness's wait_for_connection() requires the host to report a
+	# connected peer and both instances to report boot_complete before any
+	# test action runs.
+	var nm = get_node_or_null("/root/NetworkManager")
+	var hosting := false
+	var connected := false
+	var peer_count := 0
+	if nm and nm.has_method("is_networked") and nm.is_networked():
+		hosting = nm.is_host()
+		if "peer_to_player_map" in nm:
+			peer_count = nm.peer_to_player_map.size()
+		var mp_peer = multiplayer.multiplayer_peer
+		connected = mp_peer != null and mp_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
+	var scene = get_tree().current_scene
+	return {
+		"success": true,
+		"message": "Network status",
+		"data": {
+			"is_host_mode": current_test_mode == TestMode.AUTO_HOST,
+			"hosting": hosting,
+			"connected": connected,
+			"peer_count": peer_count,
+			"scene": scene.name if scene else "",
+			"boot_complete": _boot_complete
+		}
+	}
 
 func _handle_get_game_state(params: Dictionary) -> Dictionary:
 	print("TestModeHandler: Handling get_game_state action")
@@ -956,9 +1180,25 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 		state_data["player_turn"]
 	])
 
-	# Try to get unit information from GameState directly
+	# Try to get unit information from GameState directly. Each unit is
+	# shallow-copied so we can attach a derived "deployed" bool (the raw
+	# state only stores the UnitStatus enum in "status"; the multiplayer
+	# integration tests assert on unit.deployed) without mutating live state.
 	if game_state and game_state.state.has("units"):
-		state_data["units"] = game_state.state.get("units", {})
+		var units_out = {}
+		var raw_units = game_state.state.get("units", {})
+		for uid in raw_units:
+			var u = raw_units[uid].duplicate()
+			var st = u.get("status", GameStateData.UnitStatus.UNDEPLOYED)
+			u["deployed"] = st in [
+				GameStateData.UnitStatus.DEPLOYED,
+				GameStateData.UnitStatus.MOVED,
+				GameStateData.UnitStatus.SHOT,
+				GameStateData.UnitStatus.CHARGED,
+				GameStateData.UnitStatus.FOUGHT
+			]
+			units_out[uid] = u
+		state_data["units"] = units_out
 
 	# Expose ShootingPhase.active_shooter_id when the active phase is a
 	# ShootingPhase. Multi-peer integration tests use this to verify a

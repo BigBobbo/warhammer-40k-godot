@@ -89,17 +89,20 @@ GUT_CMD=(
     godot
     --path "$PROJECT_ROOT"
     -s addons/gut/gut_cmdln.gd
-    -gdir=res://tests/integration/
-    -gprefix=test_multiplayer
     -gexit
 )
 
-# Add specific test if requested
+# Add specific test if requested. Always pass -gdir: a CLI -gdir REPLACES the
+# .gutconfig.json dirs (unit+integration+network) — omitting it makes GUT run
+# the whole config tree regardless of -gtest. Single-file mode selects the one
+# file by using its basename as the prefix.
 if [ -n "$TEST_FILE" ]; then
-    echo -e "${YELLOW}Running specific test:${NC} $TEST_FILE"
-    GUT_CMD+=(-gtest="$TEST_FILE")
+    TEST_BASE=$(basename "$TEST_FILE" .gd)
+    echo -e "${YELLOW}Running specific test file:${NC} $TEST_BASE.gd"
+    GUT_CMD+=(-gdir=res://tests/integration/ -gprefix="$TEST_BASE")
 else
     echo -e "${YELLOW}Running all multiplayer integration tests${NC}"
+    GUT_CMD+=(-gdir=res://tests/integration/ -gprefix=test_multiplayer)
 fi
 
 # Add verbosity
@@ -117,8 +120,23 @@ echo ""
 
 # Run the tests. Guard against set -e: godot exits nonzero when tests fail
 # (via -gexit), and we still want the summary + exit-code passthrough below.
-TEST_RESULT=0
-"${GUT_CMD[@]}" || TEST_RESULT=$?
+# Output is tee'd so we can detect the silent-green failure mode below.
+GUT_OUTPUT_LOG=$(mktemp /tmp/gut_multiplayer_XXXX.log)
+# Without pipefail the pipeline's status is tee's (always 0), which would
+# swallow godot's failing exit code — read PIPESTATUS[0] instead.
+"${GUT_CMD[@]}" 2>&1 | tee "$GUT_OUTPUT_LOG"
+TEST_RESULT=${PIPESTATUS[0]}
+
+# GUT exits 0 when it collected NOTHING (e.g. a parse error in a helper makes
+# every test script fail to load -> "Nothing was run") — that must not read
+# as a pass. Require the Totals block that only a real run prints.
+if [ $TEST_RESULT -eq 0 ] && ! grep -q -- "---- Totals ----" "$GUT_OUTPUT_LOG"; then
+    echo ""
+    echo -e "${RED}ERROR: GUT exited 0 but no tests were run (no Totals block).${NC}"
+    echo "Look for 'Parse Error' / 'Nothing was run' above."
+    TEST_RESULT=1
+fi
+rm -f "$GUT_OUTPUT_LOG"
 
 echo ""
 echo "=========================================="

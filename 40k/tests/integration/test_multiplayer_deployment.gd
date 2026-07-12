@@ -154,7 +154,7 @@ func test_deployment_single_unit():
 	# Player 1 zone is y=0 to y=480, need to account for model base radius (~51px for 32mm base)
 	var result = await simulate_host_action("deploy_unit", {
 		"unit_id": test_unit_id,
-		"position": {"x": 100.0, "y": 100.0}  # Safely within deployment zone
+		"position": {"x": 150.0, "y": 200.0}  # Clear of board edges, ruins_8 walls (x>=280) and zone edge for a 150mm oval base
 	})
 
 	# Verify deployment succeeded
@@ -272,7 +272,7 @@ func test_deployment_alternating_turns():
 	# Deploy unit as current player
 	var deploy_result = await simulate_host_action("deploy_unit", {
 		"unit_id": test_unit_id,
-		"position": {"x": 100.0, "y": 100.0}  # Safely within deployment zone
+		"position": {"x": 150.0, "y": 200.0}  # Clear of board edges, ruins_8 walls (x>=280) and zone edge for a 150mm oval base
 	})
 
 	assert_true(deploy_result.get("success", false),
@@ -346,7 +346,7 @@ func test_deployment_wrong_turn():
 	# Player 2 zone is y=1920 to y=2400
 	var result = await simulate_client_action("deploy_unit", {
 		"unit_id": test_unit_id,
-		"position": {"x": 100.0, "y": 2100.0}  # In Player 2's deployment zone
+		"position": {"x": 150.0, "y": 2200.0}  # Clear of board edges, ruins_10 walls (x>=280) and zone edge for a 150mm oval base
 	})
 
 	print("[TEST] Wrong turn deployment result: success=", result.get("success", false), " message=", result.get("message", ""))
@@ -623,12 +623,23 @@ func test_deployment_completion_both_players():
 	assert_ne(phase2, "Deployment",
 		"Phase should advance away from Deployment once both players complete")
 
-	# And both host and client should agree on the new phase
-	var client_state = await simulate_client_action("get_game_state", {})
-	assert_true(client_state.get("success", false), "Client should return game state")
-	var client_phase = client_state.get("data", {}).get("current_phase", "")
-	assert_eq(phase2, client_phase,
-		"Host and client should agree on phase after deployment complete (host='%s', client='%s')" % [phase2, client_phase])
+	# And both host and client should agree on the new phase. The engine
+	# auto-advances through Redeployment / First-Turn Roll-Off after
+	# deployment, so poll until the cascade settles into agreement instead
+	# of comparing two snapshots taken mid-transition (host='First-Turn
+	# Roll-Off' vs client='Redeployment' was a real observed race).
+	var agreed_phase := {"host": "", "client": ""}
+	var phases_agree = func():
+		var hs = await simulate_host_action("get_game_state", {})
+		var cs = await simulate_client_action("get_game_state", {})
+		if not (hs.get("success", false) and cs.get("success", false)):
+			return false
+		agreed_phase["host"] = hs.get("data", {}).get("current_phase", "")
+		agreed_phase["client"] = cs.get("data", {}).get("current_phase", "")
+		return agreed_phase["host"] == agreed_phase["client"] and agreed_phase["host"] != "Deployment"
+	var did_agree = await wait_for_condition(phases_agree, 15.0, 1.0, "host+client agree on post-deployment phase")
+	assert_true(did_agree,
+		"Host and client should agree on phase after deployment complete (host='%s', client='%s')" % [agreed_phase["host"], agreed_phase["client"]])
 
 	print("[TEST] PASSED: Deployment completion advances phase and stays synced")
 
@@ -670,7 +681,7 @@ func test_deployment_undo_action():
 	# Deploy unit
 	var deploy_result = await simulate_host_action("deploy_unit", {
 		"unit_id": test_unit_id,
-		"position": {"x": 100.0, "y": 100.0}  # Safely within deployment zone
+		"position": {"x": 150.0, "y": 200.0}  # Clear of board edges, ruins_8 walls (x>=280) and zone edge for a 150mm oval base
 	})
 
 	assert_true(deploy_result.get("success", false), "Unit should deploy successfully")

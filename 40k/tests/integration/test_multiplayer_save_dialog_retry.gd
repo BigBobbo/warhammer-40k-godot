@@ -402,8 +402,11 @@ func test_save_dialog_retry_broadcast_id_helpers_present():
 	assert_true(stamp_calls >= 2,
 		"_stamp_save_broadcast_id must be called by every saves_required emit site (got %d call(s); expected >=2 for resolve_shooting + sequential weapon paths)" % stamp_calls)
 
-	# The id format prefix used in logs / debug output ("sbid-...")
-	assert_true(text.contains("\"sbid-\"") or text.contains("'sbid-'"),
+	# The id format prefix used in logs / debug output. The source builds the
+	# id as a format string (`"sbid-%d-%d" % [...]`), so the literal to match
+	# is `"sbid-` with no closing quote — the old pattern `"sbid-"` never
+	# occurred in the file and this assertion had been red since it was added.
+	assert_true(text.contains("\"sbid-") or text.contains("'sbid-"),
 		"save_broadcast_id should use 'sbid-' prefix (matches NetworkManager + ShootingController log lines)")
 
 	print("[TEST] PASSED: %d _stamp_save_broadcast_id call sites (>=2 required)" % stamp_calls)

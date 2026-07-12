@@ -22,7 +22,10 @@ var visual_debugging: bool = true
 var capture_screenshots_on_failure: bool = true
 var capture_screenshots_on_success: bool = false  # Optional: capture on all tests
 var save_state_on_completion: bool = true  # Save game state after each test
-var connection_timeout: float = 15.0
+# Full boot of two windowed instances (menu -> lobby -> host/join -> game
+# start -> Main._ready) takes 15-25s on a software-rendered CI box with three
+# Godot processes sharing cores; the old 15s budget lost that race routinely.
+var connection_timeout: float = 60.0
 var sync_timeout: float = 10.0
 
 # Latency simulation configuration
@@ -102,8 +105,17 @@ func launch_host_and_client(save_file: String = "") -> bool:
 
 	print("[Test] Host instance launched successfully on port %d" % host_port)
 
-	# Wait a moment for host to initialize
-	await wait_for_seconds(3.0)
+	# Wait until the host is actually hosting (ENet server up) before
+	# launching the client, so the client's auto-join can't race a
+	# not-yet-listening host. Condition-based: polls get_network_status
+	# instead of the old fixed 3s guess.
+	var host_hosting = func():
+		var st = await simulate_host_action("get_network_status", {})
+		return st.get("success", false) and st.get("data", {}).get("hosting", false)
+	if not await wait_for_condition(host_hosting, 30.0, 0.5, "host instance reaches hosting state"):
+		_mark_test_failed("Host instance did not reach hosting state within 30s")
+		assert_true(false, "Host instance did not reach hosting state within 30s")
+		return false
 
 	# Launch client with same save file (for consistency in multiplayer)
 	# Pass the host_port as the last parameter so client knows where to connect
@@ -117,29 +129,52 @@ func launch_host_and_client(save_file: String = "") -> bool:
 	return true
 
 func wait_for_connection() -> bool:
-	print("[Test] Waiting for client to connect to host...")
+	print("[Test] Waiting for real host<->client link + boot completion...")
 
-	var start_time = Time.get_ticks_msec() / 1000.0
+	# The old check ("a get_game_state round-trip succeeded") only proved that
+	# SOME instance answered a command — the client could still be on the main
+	# menu, and its late join then reset the phase mid-test. This version
+	# requires the genuine terminal state: the host reports a connected peer,
+	# the client reports its ENet link up, and BOTH report boot_complete (game
+	# scene loaded, boot automation done, optional save auto-load applied).
+	var both_ready = func():
+		var host_st = await simulate_host_action("get_network_status", {})
+		if not host_st.get("success", false):
+			return false
+		var hd = host_st.get("data", {})
+		if not (hd.get("hosting", false) and hd.get("peer_count", 0) >= 2 and hd.get("boot_complete", false)):
+			print("[Test] Awaiting host readiness: %s" % str(hd))
+			return false
+		var client_st = await simulate_client_action("get_network_status", {})
+		if not client_st.get("success", false):
+			return false
+		var cd = client_st.get("data", {})
+		if not (cd.get("connected", false) and cd.get("boot_complete", false)):
+			print("[Test] Awaiting client readiness: %s" % str(cd))
+			return false
+		return true
 
-	# Use a more reliable method: check the actual game instances via command files
-	# This bypasses the broken log monitoring
-	while (Time.get_ticks_msec() / 1000.0) - start_time < connection_timeout:
-		# Wait a bit for connection to establish
-		await wait_for_seconds(1.0)
-
-		# Try to get game state from host - if we can communicate, connection is working
-		var test_result = await simulate_host_action("get_game_state", {})
-
-		if test_result.get("success", false):
-			print("[Test] Connection verified - action simulation working!")
-			return true
-		else:
-			print("[Test] Waiting for connection... (got error: %s)" % test_result.get("message", "unknown"))
-
-		await wait_for_seconds(0.5)
+	if await wait_for_condition(both_ready, connection_timeout, 1.0, "host+client connected and boot-complete"):
+		print("[Test] Connection verified — host sees a peer, both instances boot-complete")
+		return true
 
 	_mark_test_failed("Connection timeout - client did not connect to host within %d seconds" % connection_timeout)
 	assert_true(false, "Connection timeout - client did not connect to host within %d seconds" % connection_timeout)
+	return false
+
+func wait_for_condition(condition: Callable, timeout: float, poll: float = 0.5, desc: String = "") -> bool:
+	"""Generic condition wait: polls `condition` (sync or async Callable
+	returning bool) every `poll` seconds until it holds or `timeout` elapses.
+	Prefer this over fixed wait_for_seconds() sleeps — fixed sleeps encode a
+	guess about how slow the machine is and flake when the guess is wrong."""
+	var start_time = Time.get_ticks_msec() / 1000.0
+	while (Time.get_ticks_msec() / 1000.0) - start_time < timeout:
+		var ok = await condition.call()
+		if ok:
+			return true
+		await wait_for_seconds(poll)
+	if desc != "":
+		print("[Test] wait_for_condition timed out after %.1fs: %s" % [timeout, desc])
 	return false
 
 func load_test_save(save_name: String, on_host: bool = true) -> bool:
@@ -214,7 +249,7 @@ func get_shooting_test_save() -> String:
 # Utility Functions
 # ============================================================================
 
-func advance_to_deployment_phase(timeout: float = 5.0) -> bool:
+func advance_to_deployment_phase(timeout: float = 20.0) -> bool:
 	"""Advance the host (and via broadcast, the client) into DEPLOYMENT.
 
 	Tests that boot into FORMATIONS (the real-game start phase per 10e rules)
@@ -250,6 +285,7 @@ func advance_to_deployment_phase(timeout: float = 5.0) -> bool:
 	# take a frame or two to propagate. wait_for_seconds is the existing
 	# integration-test rhythm.
 	var start_time = Time.get_ticks_msec() / 1000.0
+	var reissued := false
 	while (Time.get_ticks_msec() / 1000.0) - start_time < timeout:
 		var host_state = await simulate_host_action("get_game_state", {})
 		var client_state = await simulate_client_action("get_game_state", {})
@@ -258,6 +294,13 @@ func advance_to_deployment_phase(timeout: float = 5.0) -> bool:
 		if host_phase == "Deployment" and client_phase == "Deployment":
 			print("[Test] Both peers in Deployment phase")
 			return true
+		# Belt-and-braces: if something (e.g. a late game-start re-init)
+		# reverted the host to Formations after our transition, re-issue it
+		# once rather than polling a state that can no longer converge.
+		if host_phase == "Formations" and not reissued:
+			reissued = true
+			print("[Test] Host regressed to Formations — re-issuing transition_to_phase")
+			await simulate_host_action("transition_to_phase", {"phase": 1})
 		print("[Test] Awaiting deployment sync: host='%s', client='%s'" % [host_phase, client_phase])
 		await wait_for_seconds(0.5)
 
@@ -281,23 +324,23 @@ func wait_for_phase(phase_name: String, timeout: float = 10.0) -> bool:
 
 	return false
 
-func simulate_host_action(action: String, params: Dictionary = {}) -> Dictionary:
+func simulate_host_action(action: String, params: Dictionary = {}, timeout: float = 10.0) -> Dictionary:
 	"""
 	Simulates an action on the host instance
 	Returns result dictionary with 'success', 'message', and optional 'data' fields
 	"""
 	print("[Test] Host performing action: %s with params: %s" % [action, params])
-	return await _simulate_action(host_instance, action, params)
+	return await _simulate_action(host_instance, action, params, timeout)
 
-func simulate_client_action(action: String, params: Dictionary = {}) -> Dictionary:
+func simulate_client_action(action: String, params: Dictionary = {}, timeout: float = 10.0) -> Dictionary:
 	"""
 	Simulates an action on the client instance
 	Returns result dictionary with 'success', 'message', and optional 'data' fields
 	"""
 	print("[Test] Client performing action: %s with params: %s" % [action, params])
-	return await _simulate_action(client_instance, action, params)
+	return await _simulate_action(client_instance, action, params, timeout)
 
-func _simulate_action(instance: GameInstance, action: String, params: Dictionary) -> Dictionary:
+func _simulate_action(instance: GameInstance, action: String, params: Dictionary, timeout: float = 10.0) -> Dictionary:
 	"""
 	Internal helper to simulate an action on a specific instance
 	Writes command file, waits for result, and returns the result.
@@ -343,7 +386,7 @@ func _simulate_action(instance: GameInstance, action: String, params: Dictionary
 		"version": "1.0",
 		"timestamp": Time.get_ticks_msec(),
 		"sequence": sequence,
-		"timeout_ms": 5000,
+		"timeout_ms": int(timeout * 1000),
 		"command": {
 			"action": action,
 			"parameters": params
@@ -368,9 +411,11 @@ func _simulate_action(instance: GameInstance, action: String, params: Dictionary
 	file.store_string(JSON.stringify(command_data, "\t"))
 	file.close()
 
-	# Wait for result
+	# Wait for result. Default 10s: load_save / complete_deployment trigger
+	# full scene reloads that legitimately approach 5s on a software-rendered
+	# box running three Godot processes; the old hard 5s budget flaked there.
 	print("[Test] Waiting for result file...")
-	var result = await _wait_for_result(command_file, 5.0)
+	var result = await _wait_for_result(command_file, timeout)
 
 	return result
 
@@ -464,8 +509,26 @@ func _wait_for_result(command_file: String, timeout: float) -> Dictionary:
 				# Delete result file
 				DirAccess.remove_absolute(result_path)
 
-				# Return the result
 				var result_data = json.data
+
+				# Verify the answering instance matches the addressee. Any
+				# mis-routed pickup (both peers scan the same directory) must
+				# be a loud, attributable failure — a silently wrong-state
+				# answer is how "connection verified" used to pass while the
+				# client was still on the main menu.
+				var responder = result_data.get("responder", {})
+				if responder.has("is_host"):
+					var expected_host = command_file.begins_with("host_")
+					if responder.get("is_host", false) != expected_host:
+						var responder_role = "host" if responder.get("is_host", false) else "client"
+						push_error("[Test] Result for %s was answered by the %s instance!" % [command_file, responder_role])
+						return {
+							"success": false,
+							"message": "Result answered by wrong instance (%s)" % responder_role,
+							"error": "WRONG_RESPONDER"
+						}
+
+				# Return the result
 				print("[Test] Action completed: success=%s, message=%s" % [
 					result_data.get("result", {}).get("success", false),
 					result_data.get("result", {}).get("message", "")
