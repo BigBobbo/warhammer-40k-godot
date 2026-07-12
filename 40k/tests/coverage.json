@@ -2729,6 +2729,1237 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "TerrainManager.calculate_movement_terrain_penalty",
+      "description": "TerrainManager.calculate_movement_terrain_penalty returns 0 for units exempt from difficult ground (INFANTRY over ruins), driven through a real move.",
+      "scenarios": [
+        "infantry_ruin_no_move_penalty"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.movement.battle_plan_logged",
+      "description": "AI movement phase opens with a battle-plan card in the game log before any unit acts.",
+      "scenarios": [
+        "ai_coordinated_movement"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.movement.intent_ledger",
+      "description": "Per-unit movement intents are recorded and consumed as units act (announced plan == executed plan).",
+      "scenarios": [
+        "ai_coordinated_movement"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.movement.per_unit_decision_cards",
+      "description": "Each AI unit's movement decision is logged as its own thinking card with scores and reasons.",
+      "scenarios": [
+        "ai_coordinated_movement"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.stratagems.command_phase_window",
+      "description": "AI evaluates command-phase stratagem windows and narrates use/decline in the game log.",
+      "scenarios": [
+        "ai_11e_verbose_thinking"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.thinking.board_linked_cards",
+      "description": "AI thinking cards link to board positions (clicking focuses the referenced unit/objective).",
+      "scenarios": [
+        "ai_vp_thought_links"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.thinking.negative_decisions_narrated",
+      "description": "Decisions NOT taken (declined charges, held units) are narrated with reasons in the log.",
+      "scenarios": [
+        "ai_11e_verbose_thinking"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.thinking.verbose_game_log",
+      "description": "Verbose AI thinking mode surfaces full decision reasoning in the game log panel.",
+      "scenarios": [
+        "ai_11e_verbose_thinking",
+        "ai_coordinated_movement"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ai.thinking.vp_denominated_scoring",
+      "description": "AI thinking cards express option scores in VP-denominated terms a player can audit.",
+      "scenarios": [
+        "ai_vp_thought_links"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "armies.orks_taktikal.load_path",
+      "description": "orks_taktikal army list loads from data with detachment, enhancements and units intact.",
+      "scenarios": [
+        "taktikal_enhancements_load"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.CharacterAttachmentManager.enhancement_can_lead",
+      "description": "CharacterAttachmentManager honors enhancement-granted leader eligibility (e.g. Skwad Leader).",
+      "scenarios": [
+        "taktikal_enhancements_load"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.EffectPrimitives.grant_blast",
+      "description": "EffectPrimitives.grant_blast attaches BLAST to weapons for the effect's duration.",
+      "scenarios": [
+        "custodes_silent_hunters_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.EffectPrimitives.grant_precision",
+      "description": "EffectPrimitives.grant_precision attaches PRECISION to weapons for the effect's duration.",
+      "scenarios": [
+        "custodes_lions_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.EffectPrimitives.grant_rapid_fire",
+      "description": "EffectPrimitives.grant_rapid_fire attaches RAPID FIRE X to weapons for the effect's duration.",
+      "scenarios": [
+        "custodes_silent_hunters_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.SecondaryMissionManager.beacon_unit",
+      "description": "SecondaryMissionManager tracks the designated beacon unit for the Beacon secondary.",
+      "scenarios": [
+        "iss065c_beacon_designation_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.SecondaryMissionManager.guards",
+      "description": "SecondaryMissionManager tracks guard designations for Burden of Trust.",
+      "scenarios": [
+        "iss065d_guard_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.SecondaryMissionManager.pending_interactions",
+      "description": "SecondaryMissionManager queues opponent-facing prompts (A Tempting Target) as pending interactions.",
+      "scenarios": [
+        "iss065a_tempting_target_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.StratagemManager.eligible_unit_display_names",
+      "description": "StratagemManager resolves eligible units to player-readable display names for pickers.",
+      "scenarios": [
+        "grenade_unit_picker_display_names"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.StratagemManager.target_condition_enforcement",
+      "description": "StratagemManager enforces per-stratagem target conditions when building eligible-target lists.",
+      "scenarios": [
+        "taktikal_retreat_panel"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.base_contact.bulk_snap",
+      "description": "Snap-to-contact button moves all chargers into base contact in one action.",
+      "scenarios": [
+        "snap_to_contact_button"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.base_contact.per_model_enforced",
+      "description": "Base-to-base possibility is enforced per model on charge moves, not just per unit.",
+      "scenarios": [
+        "charge_base_contact_enforced"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.base_contact.reject_short_move",
+      "description": "A charge move that could reach base contact but stops short is rejected.",
+      "scenarios": [
+        "charge_base_contact_enforced"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.base_contact.within_1_inch",
+      "description": "Charge moves must end within engagement range (1\") with base contact when achievable.",
+      "scenarios": [
+        "charge_base_contact_enforced"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.bug.false_insufficient_roll",
+      "description": "Regression: charge over a ruin corner no longer misreports a sufficient roll as insufficient.",
+      "scenarios": [
+        "charge_over_ruin_corner_succeeds"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.bug.false_success_over_declared",
+      "description": "Regression: over-declared charges (unreachable extra target) no longer report success.",
+      "scenarios": [
+        "charge_overdeclare_fails"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.reachability.all_targets",
+      "description": "Charge declaration requires ALL declared targets to be reachable on the rolled distance.",
+      "scenarios": [
+        "charge_overdeclare_fails",
+        "charge_requirement_hint"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.terrain.path_around_corner",
+      "description": "Charge pathing routes around ruin corners instead of clipping through walls.",
+      "scenarios": [
+        "charge_over_ruin_corner_succeeds"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.terrain.stop_at_engagement_range",
+      "description": "Charge moves through terrain stop at engagement range rather than overlapping the target.",
+      "scenarios": [
+        "charge_over_ruin_corner_succeeds"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.turbo_boosted_hard_lock",
+      "description": "Turbo-boosted (advanced) units are hard-locked out of charging that turn.",
+      "scenarios": [
+        "speedwaaagh_turbo_boostas"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.ux.declaration_reachability_hint",
+      "description": "Charge declaration UI hints which targets are reachable before the roll is committed.",
+      "scenarios": [
+        "charge_requirement_hint"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.ux.snap_to_contact_button",
+      "description": "Charge UI offers a snap-to-contact button during the move step.",
+      "scenarios": [
+        "snap_to_contact_button"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "chargephase.apply_charge_move.b2b",
+      "description": "ChargePhase.apply_charge_move validates base-to-base feasibility via the public rules helper.",
+      "scenarios": [
+        "charge_base_contact_enforced"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "command.detachment_rule.da_boss_is_watchin",
+      "description": "Da Boss is Watchin' detachment rule triggers in the command phase for Bully Boyz.",
+      "scenarios": [
+        "bully_boyz_da_boss_is_watchin"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "command.detachment_rule.lissen_ere_taktiks",
+      "description": "Lissen 'Ere, Taktiks detachment rule issues a taktik in the command phase.",
+      "scenarios": [
+        "taktikal_lissen_ere_taktiks"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.AttackAssignmentDialog.ok_button_hidden",
+      "description": "AttackAssignmentDialog hides its OK button (single-confirm fight flow, 11e).",
+      "scenarios": [
+        "fight_dialogs_single_confirm_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.ConsolidateDialog",
+      "description": "ConsolidateDialog drives the global consolidation step at the bottom dock.",
+      "scenarios": [
+        "global_consolidation_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.FightSelectionDialog.ok_button_hidden",
+      "description": "FightSelectionDialog hides its OK button (single-confirm fight flow, 11e).",
+      "scenarios": [
+        "fight_dialogs_single_confirm_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.PileInDialog",
+      "description": "PileInDialog drives the global pile-in step at the bottom dock.",
+      "scenarios": [
+        "global_consolidation_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "enhancements.taktikal_brigade.morks_kunnin",
+      "description": "Mork's Kunnin' enhancement loads with its rules effect.",
+      "scenarios": [
+        "taktikal_enhancements_load"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "enhancements.taktikal_brigade.skwad_leader",
+      "description": "Skwad Leader enhancement loads and grants leader eligibility.",
+      "scenarios": [
+        "taktikal_enhancements_load"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "faction.bully_boyz.second_waaagh_scoped",
+      "description": "Bully Boyz second Waaagh! benefit is scoped to the correct units only.",
+      "scenarios": [
+        "bully_boyz_da_boss_is_watchin"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "faction.custodes.lions_of_the_emperor",
+      "description": "Custodes 'Lions Of The Emperor' detachment loads with its stratagems and rules.",
+      "scenarios": [
+        "custodes_lions_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "faction.custodes.silent_hunters",
+      "description": "Custodes 'Silent Hunters' detachment loads with its stratagems and rules.",
+      "scenarios": [
+        "custodes_silent_hunters_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "faction.da_big_hunt.prey_selection",
+      "description": "Da Big Hunt prey selection flow designates the prey unit.",
+      "scenarios": [
+        "da_big_hunt_drag_it_down"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "faction.dread_mob.button_effect_roll",
+      "description": "Dread Mob 'Try Dat Button!' rolls and applies its random effect.",
+      "scenarios": [
+        "dread_mob_try_dat_button"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "faction.speedwaaagh.turbo_advance_no_roll",
+      "description": "Speedwaaagh turbo-boost advances a fixed distance with no advance roll.",
+      "scenarios": [
+        "speedwaaagh_turbo_boostas"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "faction.taktikal_brigade.gob_boomer",
+      "description": "Gob Boomer upgrade behavior for Taktikal Brigade verified live.",
+      "scenarios": [
+        "taktikal_lissen_ere_taktiks"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "faction.taktikal_brigade.issue_taktik",
+      "description": "Taktikal Brigade issues taktiks to eligible units in the command phase.",
+      "scenarios": [
+        "taktikal_lissen_ere_taktiks"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.detachment_rule.try_dat_button",
+      "description": "Try Dat Button! detachment rule resolves during the fight phase for Dread Mob.",
+      "scenarios": [
+        "dread_mob_try_dat_button"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.stratagem.armed_to_da_teef",
+      "description": "Fight-phase stratagem 'Armed to da Teef' resolves end-to-end through the real StratagemPanel flow.",
+      "scenarios": [
+        "bully_boyz_armed_to_da_teef"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.stratagem.competitive_streak",
+      "description": "Fight-phase stratagem 'Competitive Streak' resolves end-to-end through the real StratagemPanel flow.",
+      "scenarios": [
+        "green_tide_competitive_streak"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.stratagem.devastating_drift",
+      "description": "Fight-phase stratagem 'Devastating Drift' resolves end-to-end through the real StratagemPanel flow.",
+      "scenarios": [
+        "rollin_deff_devastating_drift"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.stratagem.drag_it_down",
+      "description": "Fight-phase stratagem 'Drag It Down' resolves end-to-end through the real StratagemPanel flow.",
+      "scenarios": [
+        "da_big_hunt_drag_it_down"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.stratagem.fight_proppa",
+      "description": "Fight-phase stratagem 'Fight Proppa' resolves end-to-end through the real StratagemPanel flow.",
+      "scenarios": [
+        "fight_proppa_choice"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.stratagem.klankin_klaws",
+      "description": "Fight-phase stratagem 'Klankin' Klaws' resolves end-to-end through the real StratagemPanel flow.",
+      "scenarios": [
+        "dread_mob_klankin_klaws"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.stratagem.mount_up_ladz",
+      "description": "Fight-phase stratagem 'Mount Up, Ladz!' resolves end-to-end through the real StratagemPanel flow.",
+      "scenarios": [
+        "blitz_brigade_mount_up_ladz"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.stratagem.speediest_freeks",
+      "description": "Fight-phase stratagem 'Speediest Freeks' resolves end-to-end through the real StratagemPanel flow.",
+      "scenarios": [
+        "kult_of_speed_speediest_freeks"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "log.GameEventLog.history_index",
+      "description": "GameEventLog tracks a history index for step-by-step replay navigation.",
+      "scenarios": [
+        "game_log_step_replay"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "log.ability.hidden_by_default",
+      "description": "Ability log entries are hidden by default until the ability filter is enabled.",
+      "scenarios": [
+        "game_log_ability_filter"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "log.ability.real_manager_path",
+      "description": "Ability log entries originate from the real manager code path, not synthetic writes.",
+      "scenarios": [
+        "game_log_ability_filter"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "log.ability.tagging",
+      "description": "Ability-sourced log entries carry ability tags for filtering.",
+      "scenarios": [
+        "game_log_ability_filter"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "log.coverage.designate_warlord",
+      "description": "Warlord designation is logged in the game log.",
+      "scenarios": [
+        "game_log_clarity_filters"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "log.coverage.fall_back",
+      "description": "Fall Back moves are logged in the game log.",
+      "scenarios": [
+        "game_log_clarity_filters"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "log.coverage.katah_stance",
+      "description": "Ka'tah stance selection is logged in the game log.",
+      "scenarios": [
+        "game_log_clarity_filters"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "log.coverage.reserves_arrival",
+      "description": "Reserves arrivals are logged in the game log.",
+      "scenarios": [
+        "game_log_clarity_filters"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "log.coverage.secondary_action",
+      "description": "Secondary-mission actions are logged in the game log.",
+      "scenarios": [
+        "game_log_clarity_filters"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "log.coverage.transport_embark",
+      "description": "Transport embarkation is logged in the game log.",
+      "scenarios": [
+        "game_log_clarity_filters"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.auto_confirm_on_end_phase",
+      "description": "Ending the movement phase auto-confirms a staged, unconfirmed move.",
+      "scenarios": [
+        "movement_auto_confirm"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.auto_confirm_on_unit_switch",
+      "description": "Switching units auto-confirms the previous unit's staged move.",
+      "scenarios": [
+        "movement_auto_confirm"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.click_select_unit",
+      "description": "Clicking a unit token selects it for movement (no list-only selection).",
+      "scenarios": [
+        "click_select_unit_movement"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.detachment_rule.turbo_boostas",
+      "description": "Turbo Boostas detachment rule modifies advance behavior for Kult of Speed-style lists.",
+      "scenarios": [
+        "speedwaaagh_turbo_boostas"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.engagement_range.ring_matches_rule_11e",
+      "description": "Engagement-range ring overlay matches the 11e rule distance exactly.",
+      "scenarios": [
+        "movement_er_ring_matches_check_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.stratagem.taktikal_retreat",
+      "description": "Taktikal Retreat stratagem resolves through the panel with a friendly-unit picker.",
+      "scenarios": [
+        "taktikal_retreat_panel"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.terrain.infantry_difficult_ground_exemption",
+      "description": "INFANTRY are exempt from difficult-ground movement penalties over traversable ruins.",
+      "scenarios": [
+        "infantry_ruin_no_move_penalty"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movementcontroller.t094_er_overlay_edition_aware",
+      "description": "MovementController's engagement-range overlay radius is edition-aware (T094).",
+      "scenarios": [
+        "movement_er_ring_matches_check_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.attack_assignment",
+      "description": "FightPhase attack assignment resolves through the dialog flow with real state changes.",
+      "scenarios": [
+        "fight_dialogs_single_confirm_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "replay.ReplayManager.build_recorded_state_at",
+      "description": "ReplayManager.build_recorded_state_at reconstructs board state for a chosen history step.",
+      "scenarios": [
+        "game_log_step_replay",
+        "game_log_switch_step_no_escape"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "replay.ReplayManager.record_all_games",
+      "description": "ReplayManager records all games (not only multiplayer) for history replay.",
+      "scenarios": [
+        "game_log_step_replay"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.melee_scoped_lethal_hits",
+      "description": "Lethal Hits granted by a melee-scoped effect applies to melee weapons only.",
+      "scenarios": [
+        "fight_proppa_choice"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.secondaries.a_tempting_target.opponent_prompt",
+      "description": "A Tempting Target prompts the OPPONENT to choose, via the pending-interaction flow.",
+      "scenarios": [
+        "iss065a_tempting_target_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.secondaries.beacon.designation_prompt",
+      "description": "Beacon secondary prompts for beacon-unit designation at the right time.",
+      "scenarios": [
+        "iss065c_beacon_designation_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.secondaries.burden_of_trust.guard_prompt",
+      "description": "Burden of Trust prompts for guard designation at the right time.",
+      "scenarios": [
+        "iss065d_guard_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.secondaries.plunder.action_button",
+      "description": "Plunder secondary exposes its perform-action button in the shooting phase UI.",
+      "scenarios": [
+        "iss065b_plunder_action_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.AIActionLogOverlay._build_ui",
+      "description": "AIActionLogOverlay builds its UI without overlapping the right-hand control panel.",
+      "scenarios": [
+        "ai_overlay_clears_control_panel"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.AIActionLogOverlay._get_right_hud_width",
+      "description": "AIActionLogOverlay measures the right HUD width to position itself clear of it.",
+      "scenarios": [
+        "ai_overlay_clears_control_panel"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.DialogUtils.popup_at_bottom",
+      "description": "DialogUtils.popup_at_bottom docks dialogs to the bottom of the viewport.",
+      "scenarios": [
+        "global_consolidation_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.click_select_shooter",
+      "description": "Clicking a unit token selects it as the shooter (with unit-switch confirm dialog).",
+      "scenarios": [
+        "click_select_shooter_shooting"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.grenade_then_shoot_desync",
+      "description": "Regression: using Grenade then shooting no longer desyncs controller and phase state.",
+      "scenarios": [
+        "grenade_then_shoot_desync"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.no_eligible_targets_feedback",
+      "description": "Selecting a shooter with no eligible targets shows explicit feedback instead of silence.",
+      "scenarios": [
+        "shooting_no_targets_feedback"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.perform_secondary_action.plunder",
+      "description": "Performing the Plunder secondary action resolves through the shooting phase.",
+      "scenarios": [
+        "iss065b_plunder_action_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.rejected_action_toast",
+      "description": "Rejected shooting actions surface an error toast to the player.",
+      "scenarios": [
+        "grenade_then_shoot_desync"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.stratagem.grenade.unit_picker",
+      "description": "Grenade stratagem opens a unit picker listing eligible units by display name.",
+      "scenarios": [
+        "grenade_unit_picker_display_names"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.stratagem.long_uncontrolled_bursts",
+      "description": "Long, Uncontrolled Bursts stratagem resolves through the panel in the shooting phase.",
+      "scenarios": [
+        "more_dakka_bursts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.blitz_brigade.loading",
+      "description": "'Blitz Brigade' detachment stratagem definitions load from data and surface in the StratagemPanel.",
+      "scenarios": [
+        "blitz_brigade_mount_up_ladz"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.bully_boyz.loading",
+      "description": "'Bully Boyz' detachment stratagem definitions load from data and surface in the StratagemPanel.",
+      "scenarios": [
+        "bully_boyz_armed_to_da_teef"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.da_big_hunt.loading",
+      "description": "'Da Big Hunt' detachment stratagem definitions load from data and surface in the StratagemPanel.",
+      "scenarios": [
+        "da_big_hunt_drag_it_down"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.dread_mob.loading",
+      "description": "'Dread Mob' detachment stratagem definitions load from data and surface in the StratagemPanel.",
+      "scenarios": [
+        "dread_mob_klankin_klaws"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.green_tide.loading",
+      "description": "'Green Tide' detachment stratagem definitions load from data and surface in the StratagemPanel.",
+      "scenarios": [
+        "green_tide_competitive_streak"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.grenade_once_per_phase",
+      "description": "Grenade stratagem is limited to once per phase.",
+      "scenarios": [
+        "grenade_then_shoot_desync"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.kult_of_speed.loading",
+      "description": "'Kult Of Speed' detachment stratagem definitions load from data and surface in the StratagemPanel.",
+      "scenarios": [
+        "kult_of_speed_speediest_freeks"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.lions_of_the_emperor.defiant_to_the_last",
+      "description": "'Defiant to the Last' stratagem resolves through the real panel flow with its rules effect applied.",
+      "scenarios": [
+        "custodes_lions_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.lions_of_the_emperor.peerless_warrior",
+      "description": "'Peerless Warrior' stratagem resolves through the real panel flow with its rules effect applied.",
+      "scenarios": [
+        "custodes_lions_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.more_dakka.loading",
+      "description": "'More Dakka' detachment stratagem definitions load from data and surface in the StratagemPanel.",
+      "scenarios": [
+        "more_dakka_bursts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.rollin_deff.loading",
+      "description": "'Rollin Deff' detachment stratagem definitions load from data and surface in the StratagemPanel.",
+      "scenarios": [
+        "rollin_deff_devastating_drift"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.silent_hunters.synchronised_inferno",
+      "description": "'Synchronised Inferno' stratagem resolves through the real panel flow with its rules effect applied.",
+      "scenarios": [
+        "custodes_silent_hunters_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.silent_hunters.umbral_prosecution",
+      "description": "'Umbral Prosecution' stratagem resolves through the real panel flow with its rules effect applied.",
+      "scenarios": [
+        "custodes_silent_hunters_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.taktikal_brigade.loading",
+      "description": "'Taktikal Brigade' detachment stratagem definitions load from data and surface in the StratagemPanel.",
+      "scenarios": [
+        "fight_proppa_choice",
+        "taktikal_retreat_panel"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "terrain.difficult_ground.traversable_exemption",
+      "description": "Traversable terrain exempts eligible movers from difficult-ground penalties.",
+      "scenarios": [
+        "infantry_ruin_no_move_penalty"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "transport.embark_via_stratagem",
+      "description": "Units embark into a transport via stratagem outside the normal deployment flow.",
+      "scenarios": [
+        "blitz_brigade_mount_up_ladz"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.AIThoughtLinkVisual.render",
+      "description": "AIThoughtLinkVisual renders board-linked highlights for AI thought cards.",
+      "scenarios": [
+        "ai_vp_thought_links"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.GameLogPanel.ability_filter",
+      "description": "GameLogPanel offers an ability filter toggle controlling ability-entry visibility.",
+      "scenarios": [
+        "game_log_ability_filter"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.GameLogPanel.category_filters",
+      "description": "GameLogPanel offers per-category filters for log entries.",
+      "scenarios": [
+        "game_log_clarity_filters"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.GameLogPanel.filter_toggle",
+      "description": "GameLogPanel filter toggles show/hide matching log entries live.",
+      "scenarios": [
+        "game_log_clarity_filters"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.GameLogPanel.history_step_click",
+      "description": "Clicking a history step in GameLogPanel opens the replay view at that step.",
+      "scenarios": [
+        "game_log_step_replay",
+        "game_log_switch_step_no_escape"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.GameLogPanel.real_click_history_card",
+      "description": "A real mouse click on a history card (not a synthetic call) opens the replay step.",
+      "scenarios": [
+        "game_log_switch_step_no_escape"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.GrenadeTargetDialog.display_names",
+      "description": "GrenadeTargetDialog lists units by player-readable display names.",
+      "scenarios": [
+        "grenade_unit_picker_display_names"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.Main.history_overlay_input_order",
+      "description": "History overlay consumes input ahead of the board so Escape/clicks act on the overlay.",
+      "scenarios": [
+        "game_log_switch_step_no_escape"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.Main.history_view",
+      "description": "Main hosts a history replay view reconstructing past steps.",
+      "scenarios": [
+        "game_log_step_replay",
+        "game_log_switch_step_no_escape"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.Main.stratagem_choice_dialog",
+      "description": "Main surfaces a stratagem choice dialog for multi-option stratagems.",
+      "scenarios": [
+        "fight_proppa_choice"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.StratagemChoiceDialog.push_it",
+      "description": "StratagemChoiceDialog presents the Push It! option flow for Klankin' Klaws.",
+      "scenarios": [
+        "dread_mob_klankin_klaws"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.StratagemPanel.faction_rows",
+      "description": "StratagemPanel lists the active army's faction/detachment stratagem rows.",
+      "scenarios": [
+        "blitz_brigade_mount_up_ladz",
+        "bully_boyz_armed_to_da_teef",
+        "da_big_hunt_drag_it_down",
+        "dread_mob_klankin_klaws",
+        "fight_proppa_choice",
+        "green_tide_competitive_streak",
+        "kult_of_speed_speediest_freeks",
+        "more_dakka_bursts",
+        "rollin_deff_devastating_drift",
+        "taktikal_retreat_panel"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.StratagemPanel.friendly_target_picker",
+      "description": "StratagemPanel opens a friendly-unit target picker for self-targeted stratagems.",
+      "scenarios": [
+        "taktikal_retreat_panel"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.ai_action_overlay.no_control_panel_overlap",
+      "description": "AI action overlay never overlaps the right-hand control panel at any HUD width.",
+      "scenarios": [
+        "ai_overlay_clears_control_panel"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.fight.single_confirm_affordance",
+      "description": "Fight flow presents exactly one confirm affordance per step (11e single-confirm).",
+      "scenarios": [
+        "fight_dialogs_single_confirm_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.layout.ConsolidateDialog_bottom_dock",
+      "description": "ConsolidateDialog docks to the bottom of the screen.",
+      "scenarios": [
+        "global_consolidation_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.layout.ConsolidationStepDialog_fits_content",
+      "description": "ConsolidationStepDialog sizes itself to fit its content without clipping.",
+      "scenarios": [
+        "fight_step_dialogs_height"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.layout.MissionDiscardDialog_fits_content",
+      "description": "MissionDiscardDialog sizes itself to fit its content without clipping.",
+      "scenarios": [
+        "mission_discard_dialog_height"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.layout.PileInDialog_bottom_dock",
+      "description": "PileInDialog docks to the bottom of the screen.",
+      "scenarios": [
+        "global_consolidation_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.layout.PileInStepDialog_fits_content",
+      "description": "PileInStepDialog sizes itself to fit its content without clipping.",
+      "scenarios": [
+        "fight_step_dialogs_height"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.log.dice_line_wrapping",
+      "description": "Dice-roll log lines wrap within the panel instead of overflowing the row height.",
+      "scenarios": [
+        "gamelog_dice_line_height"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.phase_banner.shooting_icon",
+      "description": "Phase banner shows the shooting-phase icon.",
+      "scenarios": [
+        "shooting_phase_banner_icon"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.shooting.command_reroll",
+      "description": "Staged shooting UI offers the Command Re-roll decision at the hit/wound pause.",
+      "scenarios": [
+        "staged_shooting_reroll_ui"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.shooting.continue_buttons",
+      "description": "Staged shooting UI advances through explicit Continue buttons.",
+      "scenarios": [
+        "staged_shooting_reroll_ui"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.shooting.staged_hit_wound_pause",
+      "description": "Shooting resolution pauses between hit and wound stages for player decisions.",
+      "scenarios": [
+        "staged_shooting_reroll_ui"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.unit_switch_confirm_dialog",
+      "description": "Switching selected units mid-action prompts a confirm dialog.",
+      "scenarios": [
+        "click_select_shooter_shooting",
+        "click_select_unit_movement"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
