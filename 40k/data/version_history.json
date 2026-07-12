@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "0.23.0",
+      "date": "2026-07-11",
+      "summary": "Made the online Save & Load screen far more reliable when the cloud server is slow or waking up. Instead of silently showing an empty 'Existing Saves' list (which looked like your saved games had vanished), it now retries automatically, shows a clear message if it still can't reach the server, and has a new ⟳ Refresh button to reload the list by hand.",
+      "changes": [
+        "Fixed: on the itch.io / web build, opening Save & Load while the cloud server was still waking from idle could show NO saved games — the first request has to wake the sleeping server, and that attempt sometimes failed. The failure was silently drawn as an empty list, indistinguishable from 'you have no saves'. The game now automatically retries a few times (with a short, increasing delay) so a waking server recovers on its own.",
+        "New: a ⟳ Refresh button next to the Sort dropdown reloads the list of saved games from the server without reopening the dialog.",
+        "Improved: if the save list still can't be loaded, the box now says 'Couldn't reach the save server… press ⟳ Refresh to try again (your saved games are not lost)' instead of appearing empty. An empty account now clearly reads 'No saved games yet.'",
+        "Under the hood: cloud requests transparently retry on connection/timeout and 502/503/504 gateway errors (the signature of a cold-starting server), and a failed save-list fetch now reports a distinct error instead of masquerading as an empty result. (Note: if online saves seem to come and go, the server-side cause is documented for the maintainer in server/README.md — it must be fixed at the deployment, not in the game.)"
+      ]
+    },
+    {
       "version": "0.22.0",
       "date": "2026-07-12",
       "summary": "Hold L to see lines of sight in ANY phase — solid green lines to enemies your units can see, dashed red to the ones they can't. Previously the L overlay only existed during the shooting phase (and even there usually drew nothing), so it looked broken. The left roster strip hotkey moved to B.",

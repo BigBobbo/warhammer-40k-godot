@@ -19,11 +19,22 @@ const PRODUCTION_URL = "https://warhammer-40k-godot.fly.dev"
 const LOCAL_URL = "http://localhost:9080"
 const REQUEST_TIMEOUT = 15.0  # Covers fly.io cold start
 
+# Cold-start resilience: the fly.io server scales to zero when idle
+# (min_machines_running = 0). The first request after an idle period has to wake
+# the machine, which can time out (transport failure) or return a gateway error
+# (502/503/504) before Node is listening. Without a retry, that transient
+# failure surfaces to the player as an *empty* save/army list — indistinguishable
+# from "you have nothing saved". We transparently retry those specific failures a
+# few times with a short backoff before giving up.
+const MAX_TRANSPORT_RETRIES = 3
+const RETRY_BACKOFF_BASE = 1.5  # seconds; multiplied by the attempt number
+
 var base_url: String = ""
 var player_id: String = ""
 var http_request: HTTPRequest = null
 var request_queue: Array = []
 var is_processing: bool = false
+var _current_request: Dictionary = {}  # The request currently in flight (for retries)
 
 func _ready() -> void:
 	# Determine server URL
@@ -196,24 +207,18 @@ func _process_next_request() -> void:
 
 	is_processing = true
 	var req = request_queue.pop_front()
+	_current_request = req
+	_send_request(req)
 
+# Send (or re-send, on retry) a single request. The request dict may carry an
+# "_attempts" counter that _on_request_completed increments before re-sending.
+func _send_request(req: Dictionary) -> void:
 	var url = base_url + req.path
 	var headers = ["Content-Type: application/json"]
 	if not req.get("public", false):
 		headers.append("X-Player-ID: " + player_id)
 
-	var http_method: int
-	match req.method:
-		"GET":
-			http_method = HTTPClient.METHOD_GET
-		"POST":
-			http_method = HTTPClient.METHOD_POST
-		"PUT":
-			http_method = HTTPClient.METHOD_PUT
-		"DELETE":
-			http_method = HTTPClient.METHOD_DELETE
-		_:
-			http_method = HTTPClient.METHOD_GET
+	var http_method = _http_method_enum(req.method)
 
 	var body_str = ""
 	if req.body != null:
@@ -223,18 +228,53 @@ func _process_next_request() -> void:
 	http_request.set_meta("current_operation", req.operation)
 	http_request.set_meta("current_context", req.context)
 
-	print("CloudStorage: %s %s" % [req.method, req.path])
+	var attempt = int(req.get("_attempts", 0))
+	if attempt > 0:
+		print("CloudStorage: RETRY %d/%d %s %s" % [attempt, MAX_TRANSPORT_RETRIES, req.method, req.path])
+	else:
+		print("CloudStorage: %s %s" % [req.method, req.path])
 	var error = http_request.request(url, headers, http_method, body_str)
 	if error != OK:
 		print("CloudStorage: Failed to send request: ", error)
 		emit_signal("request_failed", req.operation, "Failed to send HTTP request")
 		_process_next_request()
 
+func _http_method_enum(method: String) -> int:
+	match method:
+		"GET":
+			return HTTPClient.METHOD_GET
+		"POST":
+			return HTTPClient.METHOD_POST
+		"PUT":
+			return HTTPClient.METHOD_PUT
+		"DELETE":
+			return HTTPClient.METHOD_DELETE
+		_:
+			return HTTPClient.METHOD_GET
+
 func _on_request_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray) -> void:
 	var operation = http_request.get_meta("current_operation", "unknown")
 	var context = http_request.get_meta("current_context", {})
 
-	if result != HTTPRequest.RESULT_SUCCESS:
+	# Cold-start resilience: a transport failure (timeout / can't connect) or a
+	# gateway error (502/503/504) is the signature of the fly.io machine waking
+	# from idle. Retry a few times before surfacing an error, so a sleeping
+	# server does not look like an empty save list to the player.
+	var is_transport_failure = result != HTTPRequest.RESULT_SUCCESS
+	var is_gateway_error = response_code == 502 or response_code == 503 or response_code == 504
+	if is_transport_failure or is_gateway_error:
+		var attempts = int(_current_request.get("_attempts", 0))
+		if attempts < MAX_TRANSPORT_RETRIES:
+			_current_request["_attempts"] = attempts + 1
+			var delay = RETRY_BACKOFF_BASE * float(attempts + 1)
+			var reason = ("transport result %d" % result) if is_transport_failure else ("HTTP %d" % response_code)
+			print("CloudStorage: %s failed (%s) — retry %d/%d in %.1fs (server may be waking up)" % [
+				operation, reason, attempts + 1, MAX_TRANSPORT_RETRIES, delay])
+			await get_tree().create_timer(delay).timeout
+			_send_request(_current_request)
+			return
+
+	if is_transport_failure:
 		var error_msg = "HTTP request failed (result: %d)" % result
 		print("CloudStorage: %s - %s" % [operation, error_msg])
 		emit_signal("request_failed", operation, error_msg)
