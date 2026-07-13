@@ -9,10 +9,10 @@ var deployment_zone_depth_inches: float = 12.0
 var unit_visual_style: String = "letter"
 
 # How a unit's custom/auto-assigned color is applied to its token in letter
-# mode: "full" fills the whole base with the color (original behavior); "ring"
-# keeps a neutral base and draws the color only as a ring just inside the base
-# perimeter, so the model art stays readable and squads are told apart by ring.
-var unit_color_display_mode: String = "full"
+# mode: "ring" (default) keeps a neutral base and draws the color only as a ring
+# just inside the base perimeter, so the model art stays readable and squads are
+# told apart by ring; "full" fills the whole base with the color (original look).
+var unit_color_display_mode: String = "ring"
 
 # Sprite directory for user-provided token art (Phase 2)
 var sprite_directory: String = "user://sprites/"
@@ -431,7 +431,7 @@ func _load_settings() -> void:
 
 	# Visual
 	unit_visual_style = config.get_value("visual", "unit_visual_style", "letter")
-	unit_color_display_mode = config.get_value("visual", "unit_color_display_mode", "full")
+	unit_color_display_mode = config.get_value("visual", "unit_color_display_mode", "ring")
 	retro_mode = config.get_value("visual", "retro_mode", false)
 	ui_scale = config.get_value("visual", "ui_scale", 1.0)
 	animation_speed = config.get_value("visual", "animation_speed", 1.0)
