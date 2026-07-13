@@ -618,26 +618,15 @@ func _check_scout_coherency(unit: Dictionary, staged_positions: Dictionary, orig
 			final_model["position"] = original_positions[model_id]
 		final_models.append(final_model)
 
-	var model_count = final_models.size()
-	var required_connections = 1 if model_count <= 6 else 2
+	# Delegate to the edition-aware single source of truth (11e 03.03: within 2" of a
+	# mate AND within 9" of every other model in the unit).
+	var result = AttackSequence.check_unit_coherency({"models": final_models})
+	if result.get("coherent", true):
+		return {"valid": true, "errors": []}
 
-	for i in range(final_models.size()):
-		var connections = 0
-		for j in range(final_models.size()):
-			if i == j:
-				continue
-			if Measurement.is_within_coherency(final_models[i], final_models[j]):
-				connections += 1
-				if connections >= required_connections:
-					break
-
-		if connections < required_connections:
-			var model_id = final_models[i].get("id", "model %d" % i)
-			var needed_str = "%d model(s)" % required_connections
-			log_phase_message("Scout coherency check failed: model %s has %d connections, needs %s" % [model_id, connections, needed_str])
-			return {"valid": false, "errors": ["Unit coherency broken: model %s is not within 2\" of %s" % [model_id, needed_str]]}
-
-	return {"valid": true, "errors": []}
+	var offenders = result.get("offenders", [])
+	log_phase_message("Scout coherency check failed: %d model(s) out of coherency (%s)" % [offenders.size(), ", ".join(offenders)])
+	return {"valid": false, "errors": ["Unit coherency broken: %d model(s) out of coherency — every model must be within 2\" of a mate AND within 9\" of every other model in the unit" % offenders.size()]}
 
 func _scout_position_overlaps_other_units(pos: Vector2, model_data: Dictionary, scout_unit_id: String) -> bool:
 	# Shape-aware overlap check against every model that is NOT part of the

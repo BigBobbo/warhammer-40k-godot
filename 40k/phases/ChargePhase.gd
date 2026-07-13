@@ -2106,22 +2106,15 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 	if final_models.size() < 2:
 		return {"valid": true, "errors": []}  # Single model or no movement
 
-	# Check that each model is within 2" horizontally AND 5" vertically of at least one other model
-	for i in range(final_models.size()):
-		var has_nearby_model = false
+	# Delegate to the edition-aware single source of truth (11e 03.03: within 2" of a
+	# mate AND within 9" of every other model in the unit).
+	var result = AttackSequence.check_unit_coherency({"models": final_models})
+	if result.get("coherent", true):
+		return {"valid": true, "errors": []}
 
-		for j in range(final_models.size()):
-			if i == j:
-				continue
-
-			if Measurement.is_within_coherency(final_models[i], final_models[j]):
-				has_nearby_model = true
-				break
-
-		if not has_nearby_model:
-			errors.append("Unit coherency broken: model %d too far from other models" % i)
-
-	return {"valid": errors.is_empty(), "errors": errors}
+	var offenders = result.get("offenders", [])
+	errors.append("Unit coherency broken: %d model(s) out of coherency — every model must be within 2\" of a mate AND within 9\" of every other model in the unit" % offenders.size())
+	return {"valid": false, "errors": errors}
 
 func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionary, target_ids: Array, rolled_distance: int) -> Dictionary:
 	# 11.04 WHILE MOVING (11e): each charging model that CAN end within 1" of a

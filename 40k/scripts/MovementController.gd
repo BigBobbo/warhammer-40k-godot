@@ -3130,17 +3130,17 @@ func _update_coherency_preview(ghost_world_pos: Vector2) -> void:
 			"in_coherency": in_coherency
 		})
 
-	# Determine required connections for coherency (10th Ed rules)
-	var total_alive = alive_models.size()
-	var required_connections = 1 if total_alive <= 6 else 2
-	var ghost_is_coherent = coherent_count >= required_connections
+	# Determine coherency via the edition-aware single source of truth (11e 03.03:
+	# within 2" of a mate AND within 9" of every other model in the unit). The ghost is
+	# coherent when dropping the dragged model here leaves it satisfying coherency.
+	var coherency_models = other_models_data.duplicate()
+	coherency_models.append(ghost_model)
+	var ghost_id = str(ghost_model.get("id", "__ghost__"))
+	var coh_result = AttackSequence.check_unit_coherency({"models": coherency_models})
+	var ghost_is_coherent = not (ghost_id in coh_result.get("offenders", []))
 
 	# Build status text
-	var status_text = ""
-	if ghost_is_coherent:
-		status_text = "Coherent"
-	else:
-		status_text = "%d/%d needed" % [coherent_count, required_connections]
+	var status_text = "Coherent" if ghost_is_coherent else "Out of coherency"
 
 	# Update the ghost visual with coherency data
 	ghost_token.set_coherency_preview(lines_data, status_text, ghost_is_coherent)

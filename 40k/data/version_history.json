@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.41.1",
+			"date": "2026-07-13",
+			"summary": "Unit coherency is now enforced by the 11th-edition rule (core rules 03.03) everywhere in the game — deployment, movement, advance, scout, charge and fight. A unit is in coherency only while every model is within 2\" of at least one other model AND within 9\" of EVERY other model in the unit, so spreading a unit (e.g. Warbikers with an attached Deffkilla Wartrike) too far is now blocked with a message that names the exact 9\" rule instead of the old vague 'within 2\" of mates'.",
+			"changes": [
+				"Coherency now uses the 11th-edition rule across ALL phases: every model must be within 2\" of at least one mate AND within 9\" of every other model in the unit. The old 10th-edition 'units of 7+ models need two neighbours each' behaviour has been removed from deployment, movement, advance, scout, charge and fight.",
+				"Fight and charge coherency were previously under-enforced (they only checked the 2\" rule and ignored the 9\" spread) — they now apply the full 11th-edition rule, so a unit can no longer legally string itself out beyond 9\" during a pile-in, consolidation or charge.",
+				"The deploy error now tells you how many models are out of coherency and which rule is broken — e.g. 'Some models are more than 9\" apart — pull the unit closer together' or 'Some models are more than 2\" from their nearest mate'.",
+				"The on-board deployment coherency circles and the live movement coherency indicator now match the deploy/move gates exactly (all use one shared 11th-edition check), so a model that is touching a neighbour but sits more than 9\" from a far-flung mate correctly shows out-of-coherency instead of misleading green.",
+				"All coherency checks in the game — every phase, the deploy-action validator, the movement UI and the AI's formation planner — now share one single source of truth, so they can never disagree."
+			]
+		},
+		{
 			"version": "0.41.0",
 			"date": "2026-07-13",
 			"summary": "Unit colors now display as a ring by default instead of filling the whole base, and duplicate squads of the same unit are automatically given different colors. The new Settings > Visual 'Unit Color' option defaults to 'Ring Only', which keeps a neutral base and paints your chosen color as a ring inside the base edge so the model art stays clear — switch it to 'Full Base' for the original solid-base look. Deploying a second squad of the same name (e.g. a second Boyz) now auto-picks a different color from the first.",
