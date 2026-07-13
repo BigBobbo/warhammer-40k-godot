@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.42.1",
+			"date": "2026-07-13",
+			"summary": "The colored squad-identifying ring on each unit/model token is now drawn BELOW the model art instead of on top of it. Previously the ring painted over the sprite (e.g. a thick green band across the top of the Stompa), which looked wrong; now the sprite renders on top and the ring reads as a band peeking out around the base perimeter.",
+			"changes": [
+				"Unit Color 'Ring Only' mode: the squad color ring is now rendered beneath the token's top-down art/letter, so the model sprite is no longer obscured by the ring. The ring still hugs the base perimeter where the art is mostly transparent, so it stays visible for telling squads apart."
+			]
+		},
+		{
 			"version": "0.42.0",
 			"date": "2026-07-13",
 			"summary": "Every secondary-mission unit picker now names duplicate squads clearly AND lets you click the target on the battlefield — extending the Beacon, Marked for Death and Punishment (Condemn) pickers to match Burden of Trust and A Tempting Target. Duplicate squads read like the roster ('Boyz (20 models)' / 'Boyz (10 models)'), and each picker has a 'Pick on board' button.",

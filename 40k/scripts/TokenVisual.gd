@@ -780,6 +780,14 @@ func _draw_letter_mode() -> void:
 			var to = poly_points[(i + 1) % poly_points.size()]
 			draw_line(from, to, border_shade, 2.0)
 
+	# --- Layer 2c: Unit color ring (ring color mode) ---
+	# Drawn BELOW the model art (Layer 3) so the sprite/letter renders on top of
+	# the squad-identifying color band rather than being obscured by it (a thick
+	# ring over e.g. the Stompa sprite looked wrong). The ring still reads clearly
+	# because it hugs the base perimeter, where top-down art is mostly transparent.
+	if ring_mode:
+		_draw_unit_color_ring(radius, token_color, shape_type, rot)
+
 	# --- Layer 3: Top-down unit art, vehicle tank sprite, or letter label ---
 	# Units with dedicated top-down art (bundled or user drop-in, resolved by
 	# SpriteResolver) render that; VEHICLE tokens without dedicated art fall
@@ -803,12 +811,6 @@ func _draw_letter_mode() -> void:
 			# Faux-bold: draw 3x with sub-pixel offsets
 			for offset in [Vector2(-0.5, 0), Vector2(0.5, 0), Vector2(0, 0)]:
 				draw_string(font, text_pos + offset, label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)
-
-	# --- Layer 3c: Unit color ring (ring color mode) ---
-	# Drawn on top of the model art so the squad-identifying color is always
-	# visible as a band just inside the base perimeter.
-	if ring_mode:
-		_draw_unit_color_ring(radius, token_color, shape_type, rot)
 
 	# --- Layer 3b: MA-20 model type colored ring ---
 	_draw_model_type_ring(radius)
