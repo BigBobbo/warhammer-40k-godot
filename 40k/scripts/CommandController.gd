@@ -23,16 +23,19 @@ var phase_info_label: Label
 var dice_roll_visual: DiceRollVisual  # P3-118: Dice roll visualization for reroll comparisons
 var _active_review_dialog: SecondaryMissionReviewDialog = null
 
-# Burden of Trust — "Pick on board" mode. While a pick is active the guard
-# dialog is hidden and the next click on one of the player's units on the board
-# nominates it as that objective's guard. All state is cleared when the dialog
-# closes or the pick is cancelled, so _unhandled_input is a no-op otherwise.
+# Burden of Trust guard dialog references, used by its "Pick on board" buttons.
 var _guard_dialog: AcceptDialog = null
 var _guard_pickers: Array = []                 # [{objective_id, picker}]
 var _guard_eligible_ids: Dictionary = {}       # unit_id -> true (valid guards)
-var _guard_pick_objective: String = ""         # "" when not board-picking
-var _guard_pick_banner: CanvasLayer = null
-var _guard_pick_banner_label: Label = null
+
+# Reusable "Pick on board" session shared by every secondary picker (Burden of
+# Trust, Beacon, A Tempting Target, Marked for Death, Punishment/Condemn). While
+# a session is active the source dialog is hidden and the next click on an
+# eligible unit / objective marker is fed back via a callback. An empty
+# _board_pick means idle, so _unhandled_input is a no-op during normal play.
+var _board_pick: Dictionary = {}
+var _board_pick_banner: CanvasLayer = null
+var _board_pick_banner_label: Label = null
 
 func _ready() -> void:
 	_setup_ui_references()
@@ -68,7 +71,7 @@ func _exit_tree() -> void:
 		_active_review_dialog = null
 
 	# Drop any live "Pick on board" banner (it lives under the scene root).
-	_remove_pick_banner()
+	_remove_board_pick_banner()
 
 	# Clean up right panel elements
 	var container = SceneRefs.hud_right_vbox()
@@ -1270,6 +1273,39 @@ func _show_condemn_dialog(pending: Dictionary, player: int) -> void:
 		content.add_child(check)
 		checkboxes.append(check)
 
+	# "Pick on board" — click enemy units on the battlefield to toggle them,
+	# instead of ticking the list. Multi-select: stays armed until Done.
+	var condemn_eligible_ids := {}
+	for entry in pending.get("eligible", []):
+		condemn_eligible_ids[str(entry.get("id", ""))] = true
+	var condemn_board_btn = Button.new()
+	condemn_board_btn.name = "PickCondemnOnBoard"
+	condemn_board_btn.text = "Pick on board"
+	condemn_board_btn.tooltip_text = "Click, then click enemy units on the battlefield to condemn them (up to %d); press Done when finished" % max_picks
+	condemn_board_btn.custom_minimum_size = Vector2(410, 32)
+	condemn_board_btn.pressed.connect(func():
+		if resolved[0]:
+			return
+		_begin_board_pick({
+			"kind": "unit",
+			"eligible": condemn_eligible_ids,
+			"multi": true,
+			"reshow": dialog,
+			"prompt": "Click enemy units to condemn (up to %d), then Done" % max_picks,
+			"wrong_msg": "That isn't a condemnable enemy unit — click an eligible enemy unit, or Done.",
+			"on_pick": func(uid):
+				for c in checkboxes:
+					if is_instance_valid(c) and str(c.get_meta("unit_id")) == uid:
+						c.button_pressed = not c.button_pressed  # toggled signal enforces the cap
+						break
+				var n := 0
+				for c in checkboxes:
+					if is_instance_valid(c) and c.button_pressed:
+						n += 1
+				return "%d / %d selected" % [n, max_picks],
+		}))
+	content.add_child(condemn_board_btn)
+
 	content.add_child(HSeparator.new())
 	var button_row = HBoxContainer.new()
 	button_row.name = "Actions"
@@ -1546,7 +1582,7 @@ func _show_marked_for_death_dialog(drawing_player: int, opponent: int, details: 
 		if attachment.get("is_leader_attached", false):
 			print("CommandController: Skipping attached leader %s for Marked for Death eligibility" % unit_id)
 			continue
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = DialogUtils.unit_label(unit)
 		opponent_units.append({"unit_id": unit_id, "unit_name": unit_name})
 
 	if opponent_units.is_empty():
@@ -1554,8 +1590,10 @@ func _show_marked_for_death_dialog(drawing_player: int, opponent: int, details: 
 		return
 
 	var dialog = MarkedForDeathDialog.new()
+	dialog.name = "MarkedForDeathDialog"
 	dialog.setup(drawing_player, opponent, opponent_units, details)
 	dialog.marked_for_death_resolved.connect(_on_marked_for_death_resolved.bind(drawing_player))
+	_wire_marked_for_death_board_pick(dialog)
 	get_tree().root.add_child(dialog)
 	DialogUtils.popup_centered_capped(dialog)
 	print("CommandController: Marked for Death dialog shown — P%d (opponent) selects Alpha, P%d (card holder) selects Gamma" % [opponent, drawing_player])
@@ -1571,6 +1609,37 @@ func _on_marked_for_death_resolved(alpha_targets: Array, gamma_target: String, d
 		"gamma_target": gamma_target,
 	})
 
+## Route a MarkedForDeathDialog's "Pick on board" requests to the reusable board
+## pick: Alpha is multi-toggle (click enemy units, Done when finished), Gamma is
+## a single click. Both drive the dialog's own selection code paths.
+func _wire_marked_for_death_board_pick(dialog) -> void:
+	dialog.board_pick_requested.connect(func(kind: String, eligible_ids: Array):
+		var elig := {}
+		for id in eligible_ids:
+			elig[str(id)] = true
+		if kind == "gamma":
+			_begin_board_pick({
+				"kind": "unit",
+				"eligible": elig,
+				"reshow": dialog,
+				"prompt": "Click the enemy unit on the board to mark as the Gamma target",
+				"wrong_msg": "That isn't an eligible enemy unit — click one of the remaining targets, or Cancel.",
+				"on_pick": func(uid):
+					if is_instance_valid(dialog):
+						dialog.board_select_gamma(uid),
+			})
+		else:
+			_begin_board_pick({
+				"kind": "unit",
+				"eligible": elig,
+				"multi": true,
+				"reshow": dialog,
+				"prompt": "Click enemy units to toggle as Alpha targets, then Done",
+				"wrong_msg": "That isn't an eligible enemy unit — click an enemy unit, or Done.",
+				"on_pick": func(uid):
+					return dialog.board_toggle_alpha(uid) if is_instance_valid(dialog) else "",
+			}))
+
 func _on_ai_alpha_targets_selected(drawing_player: int, alpha_targets: Array, eligible_units: Array) -> void:
 	"""Handle AI opponent's alpha target selection — show gamma-only dialog for human card holder."""
 	print("CommandController: AI selected alpha targets %s, showing gamma selection dialog for human P%d" % [
@@ -1583,7 +1652,7 @@ func _on_ai_alpha_targets_selected(drawing_player: int, alpha_targets: Array, el
 	for eu in eligible_units:
 		if eu.get("id", "") not in alpha_targets:
 			var unit = GameState.get_unit(eu.get("id", ""))
-			var unit_name = eu.get("name", eu.get("id", ""))
+			var unit_name = DialogUtils.unit_label(unit) if not unit.is_empty() else str(eu.get("name", eu.get("id", "")))
 			remaining_units.append({"unit_id": eu.get("id", ""), "unit_name": unit_name})
 
 	if remaining_units.is_empty():
@@ -1600,11 +1669,15 @@ func _on_ai_alpha_targets_selected(drawing_player: int, alpha_targets: Array, el
 	# Build the full opponent_units list (for display of alpha selections in dialog)
 	var all_opponent_units = []
 	for eu in eligible_units:
-		all_opponent_units.append({"unit_id": eu.get("id", ""), "unit_name": eu.get("name", eu.get("id", ""))})
+		var eu_unit = GameState.get_unit(eu.get("id", ""))
+		var eu_name = DialogUtils.unit_label(eu_unit) if not eu_unit.is_empty() else str(eu.get("name", eu.get("id", "")))
+		all_opponent_units.append({"unit_id": eu.get("id", ""), "unit_name": eu_name})
 
 	var dialog = MarkedForDeathDialog.new()
+	dialog.name = "MarkedForDeathDialog"
 	dialog.setup_gamma_only(drawing_player, opponent, all_opponent_units, alpha_targets)
 	dialog.marked_for_death_resolved.connect(_on_marked_for_death_resolved.bind(drawing_player))
+	_wire_marked_for_death_board_pick(dialog)
 	get_tree().root.add_child(dialog)
 	DialogUtils.popup_centered_capped(dialog)
 	print("CommandController: Marked for Death gamma-only dialog shown for P%d (card holder)" % drawing_player)
@@ -1637,6 +1710,21 @@ func _show_tempting_target_dialog(drawing_player: int, opponent: int, details: D
 	dialog.name = "TemptingTargetDialog"
 	dialog.setup(opponent, nml_objectives)
 	dialog.tempting_target_resolved.connect(_on_tempting_target_resolved.bind(drawing_player))
+	# "Pick on board": arm a board pick over the eligible NML objective markers.
+	var nml_obj_ids := {}
+	for obj in nml_objectives:
+		nml_obj_ids[str(obj.get("id", ""))] = true
+	dialog.board_pick_requested.connect(func():
+		_begin_board_pick({
+			"kind": "objective",
+			"eligible": nml_obj_ids,
+			"reshow": dialog,
+			"prompt": "Click an objective marker in No Man's Land to designate as the Tempting Target",
+			"wrong_msg": "That isn't an eligible No Man's Land objective — click one of the NML markers, or Cancel.",
+			"on_pick": func(obj_id):
+				if is_instance_valid(dialog):
+					dialog.select_objective(obj_id),
+		}))
 	get_tree().root.add_child(dialog)
 	DialogUtils.popup_centered_capped(dialog)
 	print("CommandController: A Tempting Target dialog shown for player %d to select objective" % opponent)
@@ -1733,6 +1821,39 @@ func _show_beacon_dialog(drawing_player: int) -> void:
 			})
 			dialog.queue_free())
 		unit_list.add_child(btn)
+
+	# "Pick on board" — click your unit on the battlefield instead of scrolling
+	# the list. Hides this dialog; the next click on one of your units designates
+	# it as the Beacon.
+	var beacon_eligible_ids := {}
+	for entry in eligible:
+		beacon_eligible_ids[str(entry.get("unit_id", ""))] = true
+	var board_btn = Button.new()
+	board_btn.name = "PickBeaconOnBoard"
+	board_btn.text = "Pick on board"
+	board_btn.tooltip_text = "Click, then click one of your units on the battlefield to designate it as your Beacon"
+	board_btn.custom_minimum_size = Vector2(410, 34)
+	board_btn.pressed.connect(func():
+		if resolved[0]:
+			return
+		_begin_board_pick({
+			"kind": "unit",
+			"eligible": beacon_eligible_ids,
+			"reshow": dialog,
+			"prompt": "Click one of your units on the board to designate as your Beacon",
+			"wrong_msg": "That isn't one of your eligible units — click one of your units, or Cancel.",
+			"on_pick": func(uid):
+				if resolved[0]:
+					return
+				resolved[0] = true
+				emit_signal("command_action_requested", {
+					"type": "RESOLVE_BEACON_UNIT",
+					"player": drawing_player,
+					"unit_id": uid,
+				})
+				dialog.queue_free(),
+		}))
+	content.add_child(board_btn)
 
 	# Closing without picking is not a dead end — the card just stays pending
 	# and the prompt reopens on the next Command phase entry.
@@ -1962,38 +2083,135 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 	print("CommandController: Burden of Trust guard dialog shown for player %d (%d objectives)" % [player, objectives.size()])
 
 
-# --- Burden of Trust: "Pick on board" flow ------------------------------------
-
-## Enter board-pick mode for one objective: hide the guard dialog and wait for
-## the player to click one of their units on the battlefield (see
-## _unhandled_input). A floating banner explains the mode and offers Cancel.
-func _enter_guard_board_pick(objective_id: String) -> void:
-	if _guard_dialog == null or not is_instance_valid(_guard_dialog):
-		return
-	_guard_pick_objective = objective_id
-	_guard_dialog.hide()
-	_show_pick_banner(objective_id)
-	print("CommandController: Burden of Trust board-pick armed for %s" % objective_id)
+# --- Reusable "Pick on board" flow -------------------------------------------
+# A board-pick session lets a dialog hand selection off to the battlefield: the
+# source dialog hides, a banner appears, and the next click on an eligible unit
+# or objective marker is fed back to the dialog via a callback. Single-select
+# ends on the first valid click; multi-select stays armed (with a live status in
+# the banner) until the player presses Done. All state lives in _board_pick, so
+# _unhandled_input is a no-op whenever a pick is not armed.
+#
+# cfg keys:
+#   kind:      "unit" | "objective"
+#   eligible:  Dictionary id->true (empty = any target of that kind is valid)
+#   multi:     bool — stay armed until Done (default false)
+#   reshow:    Window to hide during the pick and show again at the end
+#   on_pick:   Callable(id) — optionally returns a String status (shown in the
+#              banner while multi-selecting, e.g. "2 / 3 selected")
+#   prompt:    String banner text
+#   wrong_msg: String shown when an invalid spot is clicked
+func _begin_board_pick(cfg: Dictionary) -> void:
+	_board_pick = cfg
+	var dlg = cfg.get("reshow", null)
+	if dlg != null and is_instance_valid(dlg):
+		dlg.hide()
+	_show_board_pick_banner(str(cfg.get("prompt", "Click a target on the board")), bool(cfg.get("multi", false)))
+	print("CommandController: board-pick armed (kind=%s, multi=%s)" % [str(cfg.get("kind", "unit")), str(cfg.get("multi", false))])
 
 ## Board clicks only do something while a "Pick on board" is armed; otherwise
 ## this returns immediately so normal Command-phase input is untouched.
 func _unhandled_input(event: InputEvent) -> void:
-	if _guard_pick_objective == "":
+	if _board_pick.is_empty():
 		return
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		get_viewport().set_input_as_handled()
-		var main = SceneRefs.main()
-		if main == null or not main.has_method("_find_unit_at_world_pos"):
-			_exit_guard_board_pick(true)
-			return
-		var world_pos = main.screen_to_world_position(event.position)
-		var uid: String = str(main._find_unit_at_world_pos(world_pos))
-		if uid != "" and _guard_eligible_ids.has(uid):
-			_assign_guard_from_board(_guard_pick_objective, uid)
-			_exit_guard_board_pick(true)
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	get_viewport().set_input_as_handled()
+	var main = SceneRefs.main()
+	if main == null:
+		_end_board_pick(true)
+		return
+	var world_pos = main.screen_to_world_position(event.position)
+	var kind := str(_board_pick.get("kind", "unit"))
+	var hit_id := ""
+	if kind == "objective" and main.has_method("_find_objective_at_world_pos"):
+		hit_id = str(main._find_objective_at_world_pos(world_pos))
+	elif main.has_method("_find_unit_at_world_pos"):
+		hit_id = str(main._find_unit_at_world_pos(world_pos))
+	var eligible: Dictionary = _board_pick.get("eligible", {})
+	if hit_id != "" and (eligible.is_empty() or eligible.has(hit_id)):
+		var cb: Callable = _board_pick.get("on_pick", Callable())
+		var status = ""
+		if cb.is_valid():
+			status = cb.call(hit_id)
+		if bool(_board_pick.get("multi", false)):
+			var base := str(_board_pick.get("prompt", ""))
+			var status_str := str(status) if status != null else ""
+			_update_board_pick_banner(base + ("  —  " + status_str if status_str != "" else ""))
 		else:
-			# Missed, or clicked a unit that can't guard (enemy / off-board).
-			_update_pick_banner("That isn't one of your units on the battlefield — click one of your units, or Cancel.")
+			_end_board_pick(true)
+	else:
+		_update_board_pick_banner(str(_board_pick.get("wrong_msg", "That isn't a valid target — click again, or Cancel.")))
+
+## Leave board-pick mode, remove the banner and (optionally) re-show the dialog.
+func _end_board_pick(reshow: bool) -> void:
+	var dlg = null
+	if not _board_pick.is_empty():
+		dlg = _board_pick.get("reshow", null)
+	_board_pick = {}
+	_remove_board_pick_banner()
+	if reshow and dlg != null and is_instance_valid(dlg):
+		dlg.show()
+
+func _show_board_pick_banner(text: String, multi: bool) -> void:
+	_remove_board_pick_banner()
+	_board_pick_banner = CanvasLayer.new()
+	_board_pick_banner.name = "BoardPickBanner"
+	_board_pick_banner.layer = 128  # above the board
+	var panel = PanelContainer.new()
+	panel.name = "BannerPanel"
+	panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	panel.position = Vector2(0, 12)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	var hbox = HBoxContainer.new()
+	hbox.name = "BannerRow"
+	hbox.add_theme_constant_override("separation", 12)
+	panel.add_child(hbox)
+	_board_pick_banner_label = Label.new()
+	_board_pick_banner_label.name = "BannerLabel"
+	_board_pick_banner_label.text = text
+	_board_pick_banner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	_board_pick_banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hbox.add_child(_board_pick_banner_label)
+	if multi:
+		var done_btn = Button.new()
+		done_btn.name = "DoneBoardPick"
+		done_btn.text = "Done"
+		done_btn.pressed.connect(func(): _end_board_pick(true))
+		hbox.add_child(done_btn)
+	var cancel_btn = Button.new()
+	cancel_btn.name = "CancelBoardPick"
+	cancel_btn.text = "Cancel"
+	cancel_btn.pressed.connect(func(): _end_board_pick(true))
+	hbox.add_child(cancel_btn)
+	_board_pick_banner.add_child(panel)
+	get_tree().root.add_child(_board_pick_banner)
+
+func _update_board_pick_banner(text: String) -> void:
+	if _board_pick_banner_label != null and is_instance_valid(_board_pick_banner_label):
+		_board_pick_banner_label.text = text
+
+func _remove_board_pick_banner() -> void:
+	if _board_pick_banner != null and is_instance_valid(_board_pick_banner):
+		_board_pick_banner.queue_free()
+	_board_pick_banner = null
+	_board_pick_banner_label = null
+
+
+# --- Burden of Trust: "Pick on board" (uses the reusable flow above) ----------
+
+## Enter board-pick mode for one objective: click one of your units to guard it.
+func _enter_guard_board_pick(objective_id: String) -> void:
+	if _guard_dialog == null or not is_instance_valid(_guard_dialog):
+		return
+	var obj_name := objective_id.replace("obj_", "Objective ").replace("_", " ").capitalize()
+	_begin_board_pick({
+		"kind": "unit",
+		"eligible": _guard_eligible_ids,
+		"reshow": _guard_dialog,
+		"prompt": "Click one of your units on the board to guard %s" % obj_name,
+		"wrong_msg": "That isn't one of your units on the battlefield — click one of your units, or Cancel.",
+		"on_pick": func(uid): _assign_guard_from_board(objective_id, uid),
+	})
 
 ## Write a board-picked unit into its objective's dropdown (selecting the
 ## matching item so Confirm Guards reads it back).
@@ -2011,58 +2229,12 @@ func _assign_guard_from_board(objective_id: String, unit_id: String) -> void:
 				return
 		return
 
-## Leave board-pick mode, remove the banner and (optionally) re-show the dialog.
-func _exit_guard_board_pick(reshow: bool) -> void:
-	_guard_pick_objective = ""
-	_remove_pick_banner()
-	if reshow and _guard_dialog != null and is_instance_valid(_guard_dialog):
-		_guard_dialog.show()
-
 ## Full reset when the guard dialog itself closes (confirm / keep / escape).
 func _clear_guard_pick_state() -> void:
-	_guard_pick_objective = ""
-	_remove_pick_banner()
+	_end_board_pick(false)  # cancel any armed pick without reshowing the closing dialog
 	_guard_dialog = null
 	_guard_pickers = []
 	_guard_eligible_ids = {}
-
-func _show_pick_banner(objective_id: String) -> void:
-	_remove_pick_banner()
-	var obj_name := objective_id.replace("obj_", "Objective ").replace("_", " ").capitalize()
-	_guard_pick_banner = CanvasLayer.new()
-	_guard_pick_banner.name = "GuardBoardPickBanner"
-	_guard_pick_banner.layer = 128  # above the board, below nothing that matters here
-	var panel = PanelContainer.new()
-	panel.name = "BannerPanel"
-	panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	panel.position = Vector2(0, 12)
-	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	var hbox = HBoxContainer.new()
-	hbox.name = "BannerRow"
-	hbox.add_theme_constant_override("separation", 12)
-	panel.add_child(hbox)
-	_guard_pick_banner_label = Label.new()
-	_guard_pick_banner_label.text = "Click one of your units on the board to guard %s" % obj_name
-	_guard_pick_banner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-	_guard_pick_banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hbox.add_child(_guard_pick_banner_label)
-	var cancel_btn = Button.new()
-	cancel_btn.name = "CancelBoardPick"
-	cancel_btn.text = "Cancel"
-	cancel_btn.pressed.connect(func(): _exit_guard_board_pick(true))
-	hbox.add_child(cancel_btn)
-	_guard_pick_banner.add_child(panel)
-	get_tree().root.add_child(_guard_pick_banner)
-
-func _update_pick_banner(text: String) -> void:
-	if _guard_pick_banner_label != null and is_instance_valid(_guard_pick_banner_label):
-		_guard_pick_banner_label.text = text
-
-func _remove_pick_banner() -> void:
-	if _guard_pick_banner != null and is_instance_valid(_guard_pick_banner):
-		_guard_pick_banner.queue_free()
-	_guard_pick_banner = null
-	_guard_pick_banner_label = null
 
 
 # T-096: compute command phase sub-step progress (1/3 → 3/3)

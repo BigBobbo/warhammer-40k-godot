@@ -1,0 +1,52 @@
+{
+  "id": "iss_marked_for_death_board_pick_11e",
+  "covers": [
+    "rules.secondaries.marked_for_death",
+    "ui.command.marked_for_death_board_pick"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "11e Marked for Death 'Pick on board': the enemy-unit picker offers a 'Pick on board' button. This drives the REAL click path for the Alpha step (multi-toggle): arm the board pick, click two enemy tokens, press Done, and assert the dialog's own selected_alpha_targets holds exactly those two units (proving board clicks flow through the same selection code a list click uses). The Gamma step reuses the same single-select flow validated for Beacon.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"CommandController\")._show_marked_for_death_dialog(1, 2, {\"alpha_targets\": 2})" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "expect_node_visible", "node": "/root/MarkedForDeathDialog", "timeout_s": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/MarkedForDeathDialog/MainContainer/UnitScroll/UnitListContainer/PickAlphaOnBoard", "timeout_s": 2.0 },
+
+    { "act": "click_node", "node": "/root/MarkedForDeathDialog/MainContainer/UnitScroll/UnitListContainer/PickAlphaOnBoard", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"MarkedForDeathDialog\").visible", "equals": false },
+    { "act": "expect_node_visible", "node": "/root/BoardPickBanner/BannerPanel/BannerRow/DoneBoardPick", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_mfd_alpha_board_pick_armed" },
+
+    { "act": "click_unit", "unit_id": "U_STRIKE_FORCE_A" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "click_unit", "unit_id": "U_BATTLEWAGON_G" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "click_node", "node": "/root/BoardPickBanner/BannerPanel/BannerRow/DoneBoardPick", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"MarkedForDeathDialog\").visible", "equals": true },
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"MarkedForDeathDialog\").selected_alpha_targets.size()", "equals": 2 },
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"MarkedForDeathDialog\").selected_alpha_targets.has(\"U_STRIKE_FORCE_A\")", "equals": true },
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"MarkedForDeathDialog\").selected_alpha_targets.has(\"U_BATTLEWAGON_G\")", "equals": true },
+
+    { "act": "screenshot", "label": "02_mfd_alpha_board_pick_applied" }
+  ]
+}

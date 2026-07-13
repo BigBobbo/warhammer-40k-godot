@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.41.0",
+			"date": "2026-07-13",
+			"summary": "Every secondary-mission unit/objective picker now names duplicate squads clearly AND lets you click the target on the battlefield. Beacon, Marked for Death, A Tempting Target and Punishment (Condemn) join Burden of Trust: duplicate squads read like the roster ('Boyz (20 models)' / 'Boyz (10 models)'), and each picker has a 'Pick on board' button to select by clicking the unit or objective marker directly.",
+			"changes": [
+				"Beacon: the designate-your-beacon list shows the display name + model count (so two 'Boyz' or two 'Warbosses' are distinguishable), and a 'Pick on board' button lets you click your unit on the battlefield to designate it.",
+				"A Tempting Target: 'Pick on board' lets the selecting player click an objective marker in No Man's Land instead of picking from the list.",
+				"Marked for Death: the enemy-unit picker is disambiguated and both steps (Alpha targets, Gamma target) can be chosen by clicking the enemy units on the board.",
+				"Punishment / Condemn: the up-to-3 enemy picker is disambiguated and supports multi-select on the board — click each enemy unit to toggle it, then Done.",
+				"Oath of Moment's target list is disambiguated the same way.",
+				"All pickers keep their original list/dropdown; 'Pick on board' hides the dialog, shows a banner with Cancel (and Done for multi-select), and re-opens with your pick applied — clicking empty space or an ineligible target is a no-op, never a dead end."
+			]
+		},
+		{
 			"version": "0.40.0",
 			"date": "2026-07-13",
 			"summary": "Burden of Trust guards can now be nominated straight from the board: each objective row in the 'Assign Guards' dialog has a 'Pick on board' button — click it, then click one of your units on the battlefield to make it that objective's guard. The dropdown stays as an alternative.",

@@ -1,0 +1,52 @@
+{
+  "id": "iss_tempting_target_board_pick_11e",
+  "covers": [
+    "rules.secondaries.a_tempting_target",
+    "ui.command.tempting_target_board_pick",
+    "main.find_objective_at_world_pos"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "11e A Tempting Target 'Pick on board': the objective picker offers a 'Pick on board' button that hides the dialog and lets the selector click an objective MARKER in No Man's Land on the battlefield. Drives the REAL click path: show the dialog, click PickObjectiveOnBoard, assert the dialog hides + banner shows, click_board_at the obj_nml_2 marker position, and assert P1's a_tempting_target mission resolves to obj_nml_2 (exercising Main._find_objective_at_world_pos).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager._player_state[\"1\"].merge({\"active\": [{\"id\": \"a_tempting_target\", \"mission_data\": {}, \"pending_interaction\": true}]}, true)" },
+
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"CommandController\")._show_tempting_target_dialog(1, 2, {})" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "expect_node_visible", "node": "/root/TemptingTargetDialog", "timeout_s": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/TemptingTargetDialog/MainContainer/PickObjectiveOnBoard", "timeout_s": 2.0 },
+
+    { "act": "click_node", "node": "/root/TemptingTargetDialog/MainContainer/PickObjectiveOnBoard", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"TemptingTargetDialog\").visible", "equals": false },
+    { "act": "expect_node_visible", "node": "/root/BoardPickBanner", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_tempting_board_pick_armed" },
+
+    { "act": "click_board_at", "x": 1320, "y": 1440 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "script": "get_tree().root.get_node_or_null(\"BoardPickBanner\") == null", "equals": true },
+    { "act": "execute_script", "script": "get_tree().root.get_node_or_null(\"TemptingTargetDialog\") == null", "equals": true },
+    { "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[\"1\"][\"active\"][0][\"mission_data\"].get(\"tempting_target_id\", \"\"))",
+      "equals": "obj_nml_2" },
+
+    { "act": "screenshot", "label": "02_tempting_board_pick_applied" }
+  ]
+}

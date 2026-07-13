@@ -876,7 +876,7 @@ func get_eligible_oath_targets(player: int) -> Array:
 		if not has_alive:
 			continue
 
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = DialogUtils.unit_label(unit)
 		targets.append({
 			"unit_id": unit_id,
 			"unit_name": unit_name

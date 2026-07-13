@@ -10,6 +10,10 @@ class_name MarkedForDeathDialog
 # Fallback: If opponent has fewer than 3 units, adjust selections accordingly
 
 signal marked_for_death_resolved(alpha_targets: Array, gamma_target: String)
+# Emitted when the player presses "Pick on board" — CommandController arms the
+# board pick. kind is "alpha" (multi-toggle) or "gamma" (single); eligible_ids
+# are the unit_ids selectable at that step.
+signal board_pick_requested(kind: String, eligible_ids: Array)
 
 var opponent_units: Array = []  # Array of { unit_id, unit_name }
 var selected_alpha_targets: Array = []  # Array of unit_id strings
@@ -66,6 +70,7 @@ func setup_gamma_only(drawing: int, opponent: int, units: Array, pre_selected_al
 func _build_ui() -> void:
 	min_size = DialogConstants.MEDIUM
 	var main_container = VBoxContainer.new()
+	main_container.name = "MainContainer"
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
@@ -106,6 +111,7 @@ func _build_ui() -> void:
 
 	# Scroll container for unit list
 	var scroll = ScrollContainer.new()
+	scroll.name = "UnitScroll"
 	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 220)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
@@ -192,6 +198,27 @@ func _populate_alpha_list() -> void:
 		btn.pressed.connect(_on_alpha_unit_toggled.bind(unit_id))
 		unit_list_container.add_child(btn)
 
+	# "Pick on board" — toggle Alpha targets by clicking the enemy units directly.
+	var alpha_ids := []
+	for ud in opponent_units:
+		alpha_ids.append(str(ud.get("unit_id", "")))
+	var alpha_board_btn = Button.new()
+	alpha_board_btn.name = "PickAlphaOnBoard"
+	alpha_board_btn.text = "Pick on board"
+	alpha_board_btn.tooltip_text = "Click, then click enemy units on the battlefield to toggle them as Alpha targets"
+	alpha_board_btn.custom_minimum_size = Vector2(460, 32)
+	alpha_board_btn.pressed.connect(func(): board_pick_requested.emit("alpha", alpha_ids))
+	unit_list_container.add_child(alpha_board_btn)
+
+## Public entries so CommandController's board-pick drives the same code paths a
+## list click uses.
+func board_toggle_alpha(unit_id: String) -> String:
+	_on_alpha_unit_toggled(unit_id)
+	return "%d / %d selected" % [selected_alpha_targets.size(), required_alpha_count]
+
+func board_select_gamma(unit_id: String) -> void:
+	_on_gamma_unit_selected(unit_id)
+
 func _on_alpha_unit_toggled(unit_id: String) -> void:
 	if unit_id in selected_alpha_targets:
 		selected_alpha_targets.erase(unit_id)
@@ -275,6 +302,18 @@ func _show_gamma_selection() -> void:
 		btn.custom_minimum_size = Vector2(460, 35)
 		btn.pressed.connect(_on_gamma_unit_selected.bind(unit_id))
 		unit_list_container.add_child(btn)
+
+	# "Pick on board" — click the Gamma target enemy unit directly.
+	var gamma_ids := []
+	for ud in remaining_units:
+		gamma_ids.append(str(ud.get("unit_id", "")))
+	var gamma_board_btn = Button.new()
+	gamma_board_btn.name = "PickGammaOnBoard"
+	gamma_board_btn.text = "Pick on board"
+	gamma_board_btn.tooltip_text = "Click, then click the enemy unit on the battlefield to designate as the Gamma target"
+	gamma_board_btn.custom_minimum_size = Vector2(460, 32)
+	gamma_board_btn.pressed.connect(func(): board_pick_requested.emit("gamma", gamma_ids))
+	unit_list_container.add_child(gamma_board_btn)
 
 func _on_gamma_unit_selected(unit_id: String) -> void:
 	selected_gamma_target = unit_id
