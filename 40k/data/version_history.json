@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.35.1",
+			"date": "2026-07-13",
+			"summary": "Removed the red barrel props from ruins terrain. Viewed top-down they read as flat red circles that looked like objective or blast markers rather than scenery, so ruins now scatter only crates and sandbags.",
+			"changes": [
+				"Ruins terrain no longer scatters the top-down barrel sprite (the red circles); crates and sandbags remain."
+			]
+		},
+		{
 			"version": "0.35.0",
 			"date": "2026-07-12",
 			"summary": "Every unit in the two default armies now has top-down artwork. All 12 units across Recon Stomps (Orks) and Custodes Lions (Adeptus Custodes) render bird's-eye sprites on their bases — including the Stompa's full effigy hull, rotor-spinning Deffkoptas and Warbikes that fill their oval bases, and gold Allarus Terminators.",

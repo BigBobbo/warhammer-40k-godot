@@ -334,7 +334,6 @@ func _add_terrain_decorations(container: Node2D, terrain_data: Dictionary) -> vo
 const _RUINS_PROPS := [
 	"res://assets/tilepack/crateWood.png",
 	"res://assets/tilepack/crateMetal.png",
-	"res://assets/tilepack/barrelBlack_top.png",
 	"res://assets/tilepack/sandbagBrown.png",
 	"res://assets/tilepack/sandbagBeige.png",
 ]
@@ -369,7 +368,7 @@ func _scatter_props(container: Node2D, terrain_id: String, position: Vector2, si
 		container.add_child(sprite)
 		placed += 1
 
-## Ruins: crates, barrels and sandbags strewn inside the footprint
+## Ruins: crates and sandbags strewn inside the footprint
 func _add_ruins_decorations(container: Node2D, terrain_id: String, position: Vector2, size: Vector2, polygon_points: PackedVector2Array) -> void:
 	# Scale prop count with footprint area (a 4x6" ruin gets ~4, big ones ~8)
 	var area_sq_inches = (size.x / 40.0) * (size.y / 40.0)
