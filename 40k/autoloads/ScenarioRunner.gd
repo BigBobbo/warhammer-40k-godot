@@ -1223,6 +1223,32 @@ func first_token_ring_mode() -> bool:
 func set_color_display_mode(mode: String) -> String:
 	SettingsService.set_unit_color_display_mode(mode)
 	return SettingsService.unit_color_display_mode
+# Whether the OptionButton at `node_path` carries an item whose metadata equals
+# `metadata`. The Burden of Trust guard dropdown stores each candidate unit_id as
+# its item metadata, so this asserts a specific unit is offered as a guard.
+# Callable from `execute_script`, e.g.
+# option_button_has_metadata("/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center", "U_STRIKE_FORCE_A")
+# with equals true to prove a unit that is NOT in range is still selectable.
+func option_button_has_metadata(node_path: String, metadata: String) -> bool:
+	var ob := get_tree().root.get_node_or_null(node_path)
+	if ob == null or not (ob is OptionButton):
+		return false
+	for i in range(ob.item_count):
+		if str(ob.get_item_metadata(i)) == metadata:
+			return true
+	return false
+
+# The visible item text carrying `metadata` in the OptionButton at `node_path`
+# ("" if absent). Lets a scenario assert the "(in range)" / "(embarked)"
+# annotation the guard dropdown appends, e.g. checking it contains "in range".
+func option_button_text_for_metadata(node_path: String, metadata: String) -> String:
+	var ob := get_tree().root.get_node_or_null(node_path)
+	if ob == null or not (ob is OptionButton):
+		return ""
+	for i in range(ob.item_count):
+		if str(ob.get_item_metadata(i)) == metadata:
+			return ob.get_item_text(i)
+	return ""
 
 func _send_click(screen_pos: Vector2) -> void:
 	# Warp the live cursor to the target BEFORE injecting the event. GUI Controls
