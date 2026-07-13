@@ -1553,6 +1553,15 @@ func get_unit_color(unit_id: String) -> Color:
 		return Color.from_string(hex, Color.TRANSPARENT)
 	return Color.TRANSPARENT
 
+func clear_unit_color(unit_id: String) -> void:
+	# Reset a unit's stored token color to "unassigned" so the next
+	# auto_assign_unit_color / draw re-picks one. Mirrors set_unit_color — the
+	# unit_visuals map is UI metadata and is mutated directly here (in GameState,
+	# the state owner) rather than by a caller reaching into GameState.state.
+	_ensure_unit_visuals()
+	if state["unit_visuals"].has(unit_id):
+		state["unit_visuals"][unit_id]["color"] = ""
+
 func set_unit_label(unit_id: String, label: String) -> void:
 	_ensure_unit_visuals()
 	if not state["unit_visuals"].has(unit_id):

@@ -1180,8 +1180,7 @@ func same_name_colors_distinct(player: int) -> bool:
 		var u = GameState.state["units"][uid]
 		if int(u.get("owner", 0)) != player:
 			continue
-		if GameState.state["unit_visuals"].has(uid):
-			GameState.state["unit_visuals"][uid]["color"] = ""
+		GameState.clear_unit_color(uid)
 		var nm := str(u.get("meta", {}).get("name", ""))
 		if not by_name.has(nm):
 			by_name[nm] = []
