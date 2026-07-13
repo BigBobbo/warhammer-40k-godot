@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.41.5",
+			"date": "2026-07-13",
+			"summary": "When the AI reacts during YOUR turn — Fire Overwatch, Counter-Offensive, Heroic Intervention, a defensive stratagem or Rapid Ingress — a prominent red banner now slides down from the top of the screen to announce it (e.g. 'AI FIRES OVERWATCH — Allarus Custodians at your Deffkoptas'). These out-of-turn actions were previously only a line in the game log that was easy to miss. The banner is non-blocking, so any decision dialog the reaction raises (Counter-Offensive / Heroic Intervention already prompt you) stays fully usable.",
+			"changes": [
+				"Added a prominent top-of-screen banner that announces AI reactive actions taken during your turn: Fire Overwatch, Counter-Offensive, Heroic Intervention, defensive reactive stratagems, and Rapid Ingress.",
+				"Incoming attacks (Overwatch / Counter-Offensive / Heroic Intervention) show in red; other reactions show in gold. The banner auto-dismisses and never blocks your clicks.",
+				"The banner only appears in games with a human player (not AI-vs-AI spectating)."
+			]
+		},
+		{
 			"version": "0.41.4",
 			"date": "2026-07-13",
 			"summary": "The AI turn summary is no longer a floating popup on the right of the screen. It used to sit on top of your existing menus (making them hard to read) and re-appeared every time the AI paused mid-turn, even after you closed it. Everything it showed — what the AI moved, the reinforcements it brought in, the charges it declared and why — is already written to the game log, so the game log is now the single place to read what the AI did. The separate real-time 'AI Actions' overlay that duplicated the same information has also been retired from human-vs-AI games (it now only appears when you're spectating an AI-vs-AI match).",

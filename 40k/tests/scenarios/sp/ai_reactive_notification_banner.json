@@ -1,0 +1,23 @@
+{
+  "id": "ai_reactive_notification_banner",
+  "covers": [
+    "scripts.AIReactiveNotificationBanner.show_reaction",
+    "scripts.Main._maybe_announce_ai_reactive_action",
+    "ui.ai_reactive_action.prominent_notification"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "description": "When the AI takes a reactive action during the human's turn (e.g. Fire Overwatch), a prominent top-centre banner announces it. Configures P2 as an AI (non-spectator), then drives the real AIPlayer.ai_action_taken signal — the same signal the reactive handlers emit. Asserts: (a) the banner starts hidden, (b) a NON-reactive action (a normal move) does NOT raise it, and (c) a USE_FIRE_OVERWATCH reactive action DOES raise it with the AI's own description text. Screenshot shows the banner over the board.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"}, {2: 2})" },
+    { "act": "execute_script", "script": "main.get_node(\"AIReactiveNotificationBanner\").visible", "equals": false },
+    { "act": "execute_script", "script": "AIPlayer.emit_signal(\"ai_action_taken\", 2, {\"type\": \"CONFIRM_UNIT_MOVE\", \"unit_id\": \"x\"}, \"AI moves a unit\")" },
+    { "act": "execute_script", "script": "main.get_node(\"AIReactiveNotificationBanner\").visible", "equals": false },
+    { "act": "execute_script", "script": "AIPlayer.emit_signal(\"ai_action_taken\", 2, {\"type\": \"USE_FIRE_OVERWATCH\"}, \"AI fires Overwatch with Allarus Custodians at your Deffkoptas (4.6 expected hits)\")" },
+    { "act": "execute_script", "script": "main.get_node(\"AIReactiveNotificationBanner\").visible", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.get_node(\"AIReactiveNotificationBanner\").get_detail_text().contains(\"Overwatch\")", "equals": true },
+    { "act": "execute_script", "script": "main.get_node(\"AIReactiveNotificationBanner\").get_headline_text()", "equals": "AI FIRES OVERWATCH" },
+    { "act": "screenshot", "label": "01_overwatch_reactive_banner" }
+  ]
+}

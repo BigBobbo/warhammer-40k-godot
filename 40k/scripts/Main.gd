@@ -143,6 +143,10 @@ var _ai_action_log_overlay: AIActionLogOverlay = null
 # T7-56: AI turn replay panel
 var _ai_turn_replay_panel: AITurnReplayPanel = null
 
+# Prominent heads-up banner for AI reactive actions taken during the human's turn
+# (Fire Overwatch, Counter-Offensive, Heroic Intervention, defensive stratagems…).
+var _ai_reactive_banner: AIReactiveNotificationBanner = null
+
 # T7-19: The post-turn AI summary is no longer a floating popup. It overlapped the
 # existing right-hand menus and re-appeared every time the AI paused mid-turn. The
 # AI's actions and reasoning are already written to the game log (GameEventLog),
@@ -520,6 +524,9 @@ func _ready() -> void:
 	# T7-56: Setup AI turn replay panel
 	_setup_ai_turn_replay_panel()
 
+	# Prominent heads-up for AI reactive actions during the human's turn
+	_setup_ai_reactive_banner()
+
 	# T7-55: Setup spectator mode speed indicator
 	_setup_spectator_speed_hud()
 
@@ -776,6 +783,12 @@ func _on_ai_action_taken(_player: int, action: Dictionary, _description: String)
 	# After AI actions that change unit positions, sync token visuals from GameState
 	var action_type = action.get("type", "")
 	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
+
+	# Prominent heads-up when the AI takes a reactive action during the human's
+	# turn (Fire Overwatch, Counter-Offensive, Heroic Intervention, a defensive
+	# reactive stratagem…). These fire out-of-band while the player is mid-turn,
+	# so a game-log line alone is easy to miss.
+	_maybe_announce_ai_reactive_action(action_type, _description)
 
 	# T7-58: Show charge arrow visuals when AI declares a charge
 	if action_type == "DECLARE_CHARGE" and charge_controller and is_instance_valid(charge_controller):
@@ -1616,6 +1629,41 @@ func _toggle_ai_turn_replay_panel() -> void:
 	"""T7-56: Toggle the AI turn replay panel visibility."""
 	if _ai_turn_replay_panel:
 		_ai_turn_replay_panel.toggle_panel()
+
+# =============================================================================
+# AI Reactive Action Notification Banner
+# =============================================================================
+
+# Reactive AI action types (things the AI does out-of-turn, during the HUMAN's
+# turn) that warrant a prominent heads-up. Maps the action type to a short
+# all-caps headline and whether it is an incoming attack (red) or another play
+# (gold). Only USE_* entries appear here — declines are non-events.
+const AI_REACTIVE_NOTIFICATIONS := {
+	"USE_FIRE_OVERWATCH": {"headline": "AI FIRES OVERWATCH", "attack": true},
+	"USE_COUNTER_OFFENSIVE": {"headline": "AI COUNTER-OFFENSIVE", "attack": true},
+	"USE_HEROIC_INTERVENTION": {"headline": "AI HEROIC INTERVENTION", "attack": true},
+	"USE_REACTIVE_STRATAGEM": {"headline": "AI REACTIVE STRATAGEM", "attack": false},
+	"USE_RAPID_INGRESS": {"headline": "AI RAPID INGRESS", "attack": false},
+}
+
+func _setup_ai_reactive_banner() -> void:
+	_ai_reactive_banner = AIReactiveNotificationBanner.new()
+	add_child(_ai_reactive_banner)
+	print("Main: AI reactive action notification banner created")
+
+func _maybe_announce_ai_reactive_action(action_type: String, description: String) -> void:
+	"""Show the prominent reactive-action banner when the AI takes an out-of-turn
+	reactive action against the human. No-op in spectator (AI vs AI) games — there
+	is no human to notify."""
+	if _is_spectator_mode:
+		return
+	if not _ai_reactive_banner or not is_instance_valid(_ai_reactive_banner):
+		return
+	if not AI_REACTIVE_NOTIFICATIONS.has(action_type):
+		return
+	var info = AI_REACTIVE_NOTIFICATIONS[action_type]
+	var detail = description if description != "" else str(info["headline"])
+	_ai_reactive_banner.show_reaction(str(info["headline"]), detail, bool(info["attack"]))
 
 # =============================================================================
 # T7-55: Spectator Mode Speed Indicator HUD
