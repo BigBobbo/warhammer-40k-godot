@@ -111,7 +111,8 @@ The wire protocol is one JSON object per line:
   focus navigation and InputDeviceManager device detection all react as with
   a real pad. Params: `button_index` (JoyButton enum: 0=A 1=B 2=X 3=Y
   4=Back/View 6=Start/Menu 9=LB 10=RB 11–14=D-pad), optional `duration`,
-  `device`.
+  `device`, and `state` (`tap` default / `press` / `release` — hold A with
+  `press` to drag with the virtual cursor, then `release` to drop).
 - `simulate_joy_axis` — push a joypad axis to `value`, hold `duration`
   seconds, then return to neutral unless `auto_release: false`. Held axes
   feed action strengths, so per-frame consumers (pad camera pan / trigger

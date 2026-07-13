@@ -171,6 +171,25 @@ Each step is a dict with an `act` field plus act-specific keys.
   ```json
   { "act": "simulate_joy_axis", "axis": 2, "value": 1.0, "hold_s": 0.7 }
   ```
+  `simulate_joy_button` also accepts `"state"`: `"tap"` (default,
+  press+release), `"press"` (hold — e.g. start a virtual-cursor drag), or
+  `"release"` (end a held press).
+
+- `pad_cursor_glide`: drive the M1 virtual cursor to a target through the
+  same per-frame move/warp/motion-synthesis pipeline the left stick uses
+  (only the steering is deterministic). If the target starts off-screen the
+  cursor's edge-push pans the camera, so the act re-resolves the target and
+  re-glides until the cursor rests on it. Target one of: `unit_id` (token),
+  `node` (a Control's NodePath), `button_text` (first visible enabled
+  Button with that exact text — for procedurally-built panels with no
+  stable path), or `x`/`y` board px (`"space": "screen"` for raw screen
+  px). Combine with `simulate_joy_button` 0 for clicks and
+  `state: press/release` pairs for drags.
+  ```json
+  { "act": "pad_cursor_glide", "unit_id": "U_BLADE_CHAMPION_A" }
+  { "act": "pad_cursor_glide", "button_text": "Confirm Move" }
+  { "act": "pad_cursor_glide", "x": 120.0, "y": 220.0 }
+  ```
 
 ### State asserts
 

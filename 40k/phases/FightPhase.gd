@@ -3946,9 +3946,34 @@ func get_available_actions() -> Array:
 		log_phase_message("[11e 12.07] Consolidate step — returning %d consolidation action(s)" % actions.size())
 		return actions
 
-	# If no active fighter, need to select one
-	# Skip units that are no longer in engagement range (enemies may have been destroyed during earlier fights)
-	if active_fighter_id == "" and current_fight_index < fight_sequence.size():
+	# If no active fighter, need to select one.
+	# 11e (12.04): the sequencer is the selection AUTHORITY — offer exactly ITS
+	# candidates, tagged with the picking player. The legacy fight_sequence
+	# queue assumes fights happen in its precomputed order: current_fight_index
+	# advances by one per fight no matter WHICH unit fought, so as soon as a
+	# player legally picks any candidate other than the queue head, the queue
+	# desyncs and this getter used to offer a unit _validate_select_fighter
+	# then rejects ("Not your selection"). The AI submitted that stale offer,
+	# hit the failure fallback, and END_FIGHT forfeited every remaining fight
+	# (2026-07-12 report: an engaged Stompa never got to fight).
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		if active_fighter_id == "":
+			var sel_11e = sequencer_11e.peek_selection(GameState.state)
+			if not sel_11e.done:
+				for cand_id in sel_11e.candidates:
+					actions.append({
+						"type": "SELECT_FIGHTER",
+						"unit_id": cand_id,
+						"player": sel_11e.player,
+						"description": "Select %s to fight (%s step, 12.04)" % [cand_id, sel_11e.step]
+					})
+				log_phase_message("[11e 12.04] Sequencer offers %d SELECT_FIGHTER candidate(s) for Player %d (%s step)" % [
+					sel_11e.candidates.size(), sel_11e.player, sel_11e.step])
+		else:
+			log_phase_message("NOT adding SELECT_FIGHTER: active_fighter_id='%s'" % active_fighter_id)
+	# 10e: legacy queue-driven offer. Skip units that are no longer in
+	# engagement range (enemies may have been destroyed during earlier fights).
+	elif active_fighter_id == "" and current_fight_index < fight_sequence.size():
 		while current_fight_index < fight_sequence.size():
 			var candidate_unit_id = fight_sequence[current_fight_index]
 			var candidate_unit = game_state_snapshot.get("units", {}).get(candidate_unit_id, {})
@@ -3968,31 +3993,6 @@ func get_available_actions() -> Array:
 	else:
 		log_phase_message("NOT adding SELECT_FIGHTER: active_fighter_id='%s', index=%d, size=%d" % [active_fighter_id, current_fight_index, fight_sequence.size()])
 
-	# ISS-050 / AI-vs-AI benchmark finding: at 11e the sequencer (12.04) is the
-	# selection authority — _validate_select_fighter accepts its candidates even
-	# when the legacy fight_sequence queue is empty (e.g. a Fights-First unit
-	# with no queued fights). If the queue-based branch above offered nothing
-	# while a selection is actually pending, surface the sequencer's candidates
-	# so action-driven players (the AI) can answer instead of hanging.
-	if GameConstants.edition >= 11 and active_fighter_id == "" and sequencer_11e != null:
-		var has_select := false
-		for a in actions:
-			if a.get("type", "") == "SELECT_FIGHTER":
-				has_select = true
-				break
-		if not has_select:
-			var sel_11e = sequencer_11e.next_selection(GameState.state)
-			if not sel_11e.done:
-				for cand_id in sel_11e.candidates:
-					actions.append({
-						"type": "SELECT_FIGHTER",
-						"unit_id": cand_id,
-						"player": sel_11e.player,
-						"description": "Select %s to fight (%s step, 12.04)" % [cand_id, sel_11e.step]
-					})
-				log_phase_message("[11e 12.04] Sequencer offers %d SELECT_FIGHTER candidate(s) for Player %d (%s step)" % [
-					sel_11e.candidates.size(), sel_11e.player, sel_11e.step])
-	
 	# If active fighter is selected, show simple control actions
 	if active_fighter_id != "":
 		if pending_attacks.is_empty():
