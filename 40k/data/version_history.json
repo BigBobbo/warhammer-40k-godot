@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.41.4",
+			"date": "2026-07-13",
+			"summary": "Fixed: when the AI charged one of your units, the computer would then pile in (move) your own charged unit for you during the Fight phase, so you never got control of it. Now, on the AI's turn, the AI only ever piles in, fights and consolidates its OWN units — every time it is your half of the Pile In, Fight or Consolidate step, the game waits for you and shows your dialog instead of the AI acting for you.",
+			"changes": [
+				"Fixed: the AI no longer takes your Pile In move for you after charging your unit — your Pile In dialog now appears and waits for you to position your models.",
+				"Same fix applies across the whole Fight phase: the AI will not select/attack with your fighters, nor consolidate your units, during your half of a step — it idles until you act.",
+				"The AI still plays its own half of each Fight-phase step normally, and the phase hands back and forth correctly between you and the AI (no stalls)."
+			]
+		},
+		{
 			"version": "0.41.3",
 			"date": "2026-07-13",
 			"summary": "When your opponent draws 'A Tempting Target', you can now designate the No Man's Land objective by clicking its marker directly on the board — not just by picking a name from the list. The dialog's objective names (e.g. 'Objective NML_1') aren't always obvious, so a new 'Pick on board' button hides the dialog, highlights the eligible objectives and lets you click the one you want on the battlefield.",

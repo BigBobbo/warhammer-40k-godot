@@ -196,7 +196,7 @@ func _request_evaluation() -> void:
 		print("AIPlayer: T7-36 Step-by-step mode — paused, waiting for user continue")
 
 	# T7-20: Signal that AI is now thinking (only on first evaluation of a sequence)
-	if not _ai_thinking:
+	if not _ai_thinking and _human_fight_turn_pending() == 0:
 		var active_player = GameState.get_active_player()
 		# In fight phase, the selecting player may be AI even when active player is human
 		var thinking_player = active_player
@@ -325,6 +325,13 @@ func _is_any_ai_player_active() -> bool:
 	# sees it (the reported "Player 1 always goes first / no roll-off shown" bug).
 	if _ai_suppressed_for_roll_off():
 		return false
+	# A human owns the current Fight-phase interaction (their half of a global
+	# Pile In/Consolidate step, or their turn to select/activate a fighter) —
+	# the AI idles even on its own turn, so the watchdog must not treat it as
+	# active (otherwise it would keep forcing evaluations while the human plays
+	# their pile-in/fight/consolidate).
+	if _human_fight_turn_pending() > 0:
+		return false
 	var active = GameState.get_active_player()
 	if is_ai_player(active):
 		return true
@@ -375,6 +382,66 @@ func _get_fight_phase_selecting_player() -> int:
 	if "current_selecting_player" in fight_phase:
 		return fight_phase.current_selecting_player
 	return -1
+
+func _human_fight_turn_pending() -> int:
+	"""During the Fight phase, return the HUMAN player who currently owns a
+	pending interaction the AI must NOT resolve on their behalf, or 0 when none
+	is pending. The Fight phase alternates between BOTH players in each of its
+	steps, so even on the AI's OWN turn the human still acts for their units:
+	the 12.02 Pile In step, the 12.04 Fight step (selecting / activating their
+	fighters), and the 12.07 Consolidate step each have a human half. The
+	reported bug: after the AI charged a human unit, the active AI piled in the
+	human's OWN unit during the human's half of the Pile In step, because
+	_evaluate_and_act defaulted the acting player to the active AI. This is the
+	Fight-phase analogue of _get_pending_reactive_window_player() (Charge-phase
+	windows). Returns 0 once the fight step is over so the active player's
+	END_FIGHT still goes through (current_selecting_player can still point at
+	the opponent at that point)."""
+	if GameState.get_current_phase() != GameStateData.Phase.FIGHT:
+		return 0
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
+		return 0
+	var fp = _phase_manager_ref.current_phase_instance
+
+	# 12.02 Pile In step — a player only "rests" here (their picker dialog is
+	# shown) when they have eligible units; a player with none is auto-passed by
+	# _advance_pile_in_step_11e. So an ACTIVE step pointing at a human means the
+	# human owes a pile-in decision the AI must not make for them.
+	if "pile_in_step_11e" in fp and "piling_in_player_11e" in fp:
+		if int(fp.pile_in_step_11e) == int(fp.PileInStep11e.ACTIVE):
+			var pp = int(fp.piling_in_player_11e)
+			if pp > 0 and not is_ai_player(pp):
+				return pp
+
+	# 12.07 Consolidate step — same shape (skip while a 12.08 forced fight has
+	# temporarily taken the step over; that forced fight is owned by whoever
+	# holds the fighter and is handled by the fight-step branch below).
+	if "consolidation_step_11e" in fp and "consolidating_player_11e" in fp:
+		if int(fp.consolidation_step_11e) == int(fp.ConsolidationStep11e.ACTIVE) \
+				and not fp._forced_fights_pending_11e():
+			var cp = int(fp.consolidating_player_11e)
+			if cp > 0 and not is_ai_player(cp):
+				return cp
+
+	# 12.04 Fight step (11e sequencer only; 10e keeps its existing behavior).
+	# A human's fighter mid-activation, or a human whose turn it is to select
+	# the next fighter, owns the turn. A "done" sequencer means the fight step
+	# is over — return 0 so the active player's END_FIGHT is not blocked.
+	if "sequencer_11e" in fp and fp.sequencer_11e != null:
+		var active_fighter = str(fp.active_fighter_id) if "active_fighter_id" in fp else ""
+		if active_fighter != "":
+			var af_owner = int(GameState.state.get("units", {}).get(active_fighter, {}).get("owner", 0))
+			if af_owner > 0 and not is_ai_player(af_owner):
+				return af_owner
+		else:
+			var sel = fp.sequencer_11e.peek_selection(GameState.state)
+			if not sel.get("done", true):
+				var sp = int(sel.get("player", 0))
+				if sp > 0 and not is_ai_player(sp):
+					return sp
+	return 0
 
 func _fight_step_over() -> bool:
 	"""True when the fight phase reports no unit is eligible to fight any more —
@@ -1554,6 +1621,20 @@ func _evaluate_and_act() -> void:
 	if fight_player > 0 and fight_player != active_player and is_ai_player(fight_player):
 		acting_player = fight_player
 		DebugLogger.info("AIPlayer._evaluate_and_act - fight phase selecting player override", {"acting_player": acting_player, "active_player": active_player})
+
+	# The Fight phase alternates between BOTH players in each of its steps
+	# (12.02 Pile In, 12.04 Fight, 12.07 Consolidate), so on the AI's OWN turn
+	# the human still acts for their own units. If a human currently owns the
+	# pending fight-phase interaction, the AI must not resolve it for them —
+	# idle and let the human's dialog drive it. Without this the active AI piled
+	# in / fought / consolidated the human's OWN units during the human's half
+	# of a step (reported: after the AI charged a human unit, the AI moved that
+	# unit during the Pile In step instead of leaving pile-in to the player).
+	var human_fight_player = _human_fight_turn_pending()
+	if human_fight_player > 0:
+		DebugLogger.info("AIPlayer._evaluate_and_act - fight-phase turn belongs to human, AI waits", {"human_fight_player": human_fight_player, "active_player": active_player})
+		_end_ai_thinking()
+		return
 
 	# A pending reactive window (Heroic Intervention / Fire Overwatch in the
 	# Charge phase) belongs to the DEFENDER, not the active player, and
