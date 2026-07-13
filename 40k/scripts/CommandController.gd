@@ -34,6 +34,21 @@ var _guard_pick_objective: String = ""         # "" when not board-picking
 var _guard_pick_banner: CanvasLayer = null
 var _guard_pick_banner_label: Label = null
 
+# A Tempting Target — "Pick on board" mode. Mirrors the guard flow: while a pick
+# is armed the dialog is hidden and the next click on an NML objective marker on
+# the board designates it as the Tempting Target. State clears when the dialog
+# closes or the pick is cancelled, so _unhandled_input is a no-op otherwise.
+var _tempting_dialog: TemptingTargetDialog = null
+var _tempting_drawing_player: int = 0
+var _tempting_nml_ids: Dictionary = {}         # obj_id -> Vector2 (board/world pos)
+var _tempting_pick_active: bool = false
+var _tempting_pick_banner: CanvasLayer = null
+var _tempting_pick_banner_label: Label = null
+
+# Objective control radius (3" + 20mm) in inches — matches ObjectiveVisual's
+# visible ring, so a click anywhere on/near a marker registers as that objective.
+const _TEMPTING_HIT_RADIUS_INCHES := 3.78740157
+
 func _ready() -> void:
 	_setup_ui_references()
 	print("CommandController ready")
@@ -69,6 +84,7 @@ func _exit_tree() -> void:
 
 	# Drop any live "Pick on board" banner (it lives under the scene root).
 	_remove_pick_banner()
+	_clear_tempting_pick_state()
 
 	# Clean up right panel elements
 	var container = SceneRefs.hud_right_vbox()
@@ -1637,12 +1653,25 @@ func _show_tempting_target_dialog(drawing_player: int, opponent: int, details: D
 	dialog.name = "TemptingTargetDialog"
 	dialog.setup(opponent, nml_objectives)
 	dialog.tempting_target_resolved.connect(_on_tempting_target_resolved.bind(drawing_player))
+	dialog.board_pick_requested.connect(_enter_tempting_board_pick)
 	get_tree().root.add_child(dialog)
 	DialogUtils.popup_centered_capped(dialog)
+
+	# Track the live dialog + valid NML objective positions so the "Pick on board"
+	# flow can hide the dialog and resolve from a clicked marker (see
+	# _enter_tempting_board_pick / _unhandled_input).
+	_tempting_dialog = dialog
+	_tempting_drawing_player = drawing_player
+	_tempting_nml_ids = {}
+	for obj in nml_objectives:
+		var oid := str(obj.get("id", ""))
+		if oid != "":
+			_tempting_nml_ids[oid] = _tempting_obj_world_pos(obj)
+
 	print("CommandController: A Tempting Target dialog shown for player %d to select objective" % opponent)
 
 func _on_tempting_target_resolved(objective_id: String, drawing_player: int) -> void:
-	"""Handle Tempting Target objective selection from dialog."""
+	"""Handle Tempting Target objective selection from the dialog's list buttons."""
 	print("CommandController: A Tempting Target resolved — Objective: %s (drawing player: %d)" % [
 		objective_id, drawing_player])
 	emit_signal("command_action_requested", {
@@ -1650,6 +1679,9 @@ func _on_tempting_target_resolved(objective_id: String, drawing_player: int) -> 
 		"player": drawing_player,
 		"objective_id": objective_id,
 	})
+	# The list-button path frees the dialog itself; just drop our board-pick refs
+	# (turns off any highlights/banner) without freeing it again.
+	_reset_tempting_refs_soft()
 
 # ============================================================================
 # 11e BEACON — DRAWER DESIGNATES THE BEACON UNIT
@@ -1978,6 +2010,10 @@ func _enter_guard_board_pick(objective_id: String) -> void:
 ## Board clicks only do something while a "Pick on board" is armed; otherwise
 ## this returns immediately so normal Command-phase input is untouched.
 func _unhandled_input(event: InputEvent) -> void:
+	# A Tempting Target board pick takes priority when armed.
+	if _tempting_pick_active:
+		_handle_tempting_pick_input(event)
+		return
 	if _guard_pick_objective == "":
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -2063,6 +2099,153 @@ func _remove_pick_banner() -> void:
 		_guard_pick_banner.queue_free()
 	_guard_pick_banner = null
 	_guard_pick_banner_label = null
+
+
+# --- A Tempting Target: "Pick on board" flow ---------------------------------
+
+## Resolve an NML objective's board/world position from its data. Positions are
+## Dictionaries in fresh state but deserialize as Vector2 from saves — handle
+## both, falling back to the live visual so we always match what's on screen.
+func _tempting_obj_world_pos(obj: Dictionary) -> Vector2:
+	var p = obj.get("position", null)
+	if p is Vector2:
+		return p
+	if p is Dictionary and p.has("x") and p.has("y"):
+		return Vector2(float(p.get("x", 0)), float(p.get("y", 0)))
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm != null and "objectives_visual_refs" in mm:
+		var vis = mm.objectives_visual_refs.get(str(obj.get("id", "")), null)
+		if vis != null and is_instance_valid(vis):
+			return vis.position
+	return Vector2.ZERO
+
+## Enter board-pick mode: hide the dialog, highlight the NML objectives and wait
+## for the player to click one on the battlefield (see _unhandled_input). A
+## floating banner explains the mode and offers Cancel.
+func _enter_tempting_board_pick() -> void:
+	if _tempting_dialog == null or not is_instance_valid(_tempting_dialog):
+		return
+	_tempting_pick_active = true
+	_tempting_dialog.hide()
+	_set_tempting_highlights(true)
+	_show_tempting_pick_banner()
+	print("CommandController: A Tempting Target board-pick armed (%d objectives)" % _tempting_nml_ids.size())
+
+## Handle a board click while a Tempting Target pick is armed. A hit on one of
+## the NML objective markers resolves the card; a miss updates the banner.
+func _handle_tempting_pick_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	get_viewport().set_input_as_handled()
+	var main = SceneRefs.main()
+	if main == null or not main.has_method("screen_to_world_position"):
+		_exit_tempting_board_pick(true)
+		return
+	var world_pos = main.screen_to_world_position(event.position)
+	var oid := _find_tempting_objective_at_world_pos(world_pos)
+	if oid != "":
+		_resolve_tempting_from_board(oid)
+	else:
+		_update_tempting_banner("That isn't a No Man's Land objective — click one of the highlighted markers, or Cancel.")
+
+## Nearest NML objective marker within the control radius of world_pos, or "".
+func _find_tempting_objective_at_world_pos(world_pos: Vector2) -> String:
+	var hit_radius := Measurement.inches_to_px(_TEMPTING_HIT_RADIUS_INCHES)
+	var closest_id := ""
+	var closest_dist := INF
+	for oid in _tempting_nml_ids:
+		var opos: Vector2 = _tempting_nml_ids[oid]
+		var d := opos.distance_to(world_pos)
+		if d <= hit_radius and d < closest_dist:
+			closest_dist = d
+			closest_id = oid
+	return closest_id
+
+## Resolve the card from a board-picked objective, then tear down the pick UI.
+func _resolve_tempting_from_board(objective_id: String) -> void:
+	print("CommandController: A Tempting Target picked on board — %s" % objective_id)
+	var drawing_player := _tempting_drawing_player
+	_clear_tempting_pick_state()  # removes banner + highlights, frees the hidden dialog
+	_on_tempting_target_resolved(objective_id, drawing_player)
+
+## Leave board-pick mode, remove the banner/highlights and (optionally) re-show
+## the dialog so the player can still use the list.
+func _exit_tempting_board_pick(reshow: bool) -> void:
+	_tempting_pick_active = false
+	_set_tempting_highlights(false)
+	_remove_tempting_pick_banner()
+	if reshow and _tempting_dialog != null and is_instance_valid(_tempting_dialog):
+		_tempting_dialog.show()
+
+## Drop board-pick refs without freeing the dialog (the list-button path frees
+## itself). Turns off highlights/banner first so nothing dangles.
+func _reset_tempting_refs_soft() -> void:
+	_tempting_pick_active = false
+	_set_tempting_highlights(false)
+	_remove_tempting_pick_banner()
+	_tempting_dialog = null
+	_tempting_nml_ids = {}
+	_tempting_drawing_player = 0
+
+## Full reset: also free the (hidden) dialog. Used by the board-pick resolve and
+## on controller teardown. Guards against a double queue_free.
+func _clear_tempting_pick_state() -> void:
+	_tempting_pick_active = false
+	_set_tempting_highlights(false)
+	_remove_tempting_pick_banner()
+	if _tempting_dialog != null and is_instance_valid(_tempting_dialog) and not _tempting_dialog.is_queued_for_deletion():
+		_tempting_dialog.queue_free()
+	_tempting_dialog = null
+	_tempting_nml_ids = {}
+	_tempting_drawing_player = 0
+
+## Highlight (or un-highlight) the pickable NML objective markers on the board.
+func _set_tempting_highlights(on: bool) -> void:
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm == null or not ("objectives_visual_refs" in mm):
+		return
+	for oid in _tempting_nml_ids:
+		var vis = mm.objectives_visual_refs.get(oid, null)
+		if vis != null and is_instance_valid(vis) and vis.has_method("highlight"):
+			vis.highlight(on)
+
+func _show_tempting_pick_banner() -> void:
+	_remove_tempting_pick_banner()
+	_tempting_pick_banner = CanvasLayer.new()
+	_tempting_pick_banner.name = "TemptingBoardPickBanner"
+	_tempting_pick_banner.layer = 128
+	var panel = PanelContainer.new()
+	panel.name = "BannerPanel"
+	panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	panel.position = Vector2(0, 12)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	var hbox = HBoxContainer.new()
+	hbox.name = "BannerRow"
+	hbox.add_theme_constant_override("separation", 12)
+	panel.add_child(hbox)
+	_tempting_pick_banner_label = Label.new()
+	_tempting_pick_banner_label.name = "BannerLabel"
+	_tempting_pick_banner_label.text = "Click an objective marker in No Man's Land to designate the Tempting Target"
+	_tempting_pick_banner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	_tempting_pick_banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hbox.add_child(_tempting_pick_banner_label)
+	var cancel_btn = Button.new()
+	cancel_btn.name = "CancelBoardPick"
+	cancel_btn.text = "Cancel"
+	cancel_btn.pressed.connect(func(): _exit_tempting_board_pick(true))
+	hbox.add_child(cancel_btn)
+	_tempting_pick_banner.add_child(panel)
+	get_tree().root.add_child(_tempting_pick_banner)
+
+func _update_tempting_banner(text: String) -> void:
+	if _tempting_pick_banner_label != null and is_instance_valid(_tempting_pick_banner_label):
+		_tempting_pick_banner_label.text = text
+
+func _remove_tempting_pick_banner() -> void:
+	if _tempting_pick_banner != null and is_instance_valid(_tempting_pick_banner):
+		_tempting_pick_banner.queue_free()
+	_tempting_pick_banner = null
+	_tempting_pick_banner_label = null
 
 
 # T-096: compute command phase sub-step progress (1/3 → 3/3)

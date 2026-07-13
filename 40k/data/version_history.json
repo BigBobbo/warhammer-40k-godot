@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.41.2",
+			"date": "2026-07-13",
+			"summary": "When your opponent draws 'A Tempting Target', you can now designate the No Man's Land objective by clicking its marker directly on the board — not just by picking a name from the list. The dialog's objective names (e.g. 'Objective NML_1') aren't always obvious, so a new 'Pick on board' button hides the dialog, highlights the eligible objectives and lets you click the one you want on the battlefield.",
+			"changes": [
+				"A Tempting Target: added a 'Pick on board (click an objective marker)' button to the objective-selection dialog. It hides the dialog, highlights the No Man's Land objectives and designates whichever marker you click as the Tempting Target.",
+				"The name list still works exactly as before — the board pick is an additional option, and a 'Cancel' banner button returns you to the list.",
+				"Clicking empty space or a non-eligible objective while picking on the board shows a hint instead of resolving, so a mis-click can't pick the wrong objective."
+			]
+		},
+		{
 			"version": "0.41.1",
 			"date": "2026-07-13",
 			"summary": "Unit coherency is now enforced by the 11th-edition rule (core rules 03.03) everywhere in the game — deployment, movement, advance, scout, charge and fight. A unit is in coherency only while every model is within 2\" of at least one other model AND within 9\" of EVERY other model in the unit, so spreading a unit (e.g. Warbikers with an attached Deffkilla Wartrike) too far is now blocked with a message that names the exact 9\" rule instead of the old vague 'within 2\" of mates'.",
