@@ -2,13 +2,26 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.41.2",
+			"version": "0.41.3",
 			"date": "2026-07-13",
 			"summary": "When your opponent draws 'A Tempting Target', you can now designate the No Man's Land objective by clicking its marker directly on the board — not just by picking a name from the list. The dialog's objective names (e.g. 'Objective NML_1') aren't always obvious, so a new 'Pick on board' button hides the dialog, highlights the eligible objectives and lets you click the one you want on the battlefield.",
 			"changes": [
 				"A Tempting Target: added a 'Pick on board (click an objective marker)' button to the objective-selection dialog. It hides the dialog, highlights the No Man's Land objectives and designates whichever marker you click as the Tempting Target.",
 				"The name list still works exactly as before — the board pick is an additional option, and a 'Cancel' banner button returns you to the list.",
 				"Clicking empty space or a non-eligible objective while picking on the board shows a hint instead of resolving, so a mis-click can't pick the wrong objective."
+			]
+		},
+		{
+			"version": "0.41.2",
+			"date": "2026-07-13",
+			"summary": "The measuring tape has been rebuilt into a reliable click-to-measure tool and no longer fights with the chat panel. Press T (its default key) to arm the tape, click a start point then an end point on the board to drop a measured line, and repeat to chain measurements. Right-click or ESC cancels a half-drawn line, pressing T again puts the tape away, and Y still clears every line. A banner across the top of the screen reminds you of these controls while the tape is armed. Chat now lives on C so it no longer steals the T key.",
+			"changes": [
+				"Measuring tape is now a click-to-measure tool: press T to arm it, click a start point, then click an end point to draw a measured line. It stays armed so you can measure again and again.",
+				"Fixed: T used to open the chat panel instead of the tape (both were bound to T). The tape now wins T by default, and chat has moved to the C key.",
+				"Fixed: you can now stop and cancel a measurement — right-click or ESC cancels a line you're in the middle of drawing, and pressing T again (or ESC when nothing is in progress) puts the tape away.",
+				"Clicking to place the end of a line now works (previously the click did nothing); the finished line and its distance label persist on the board until you clear them.",
+				"While the tape is armed, a banner at the top of the screen shows the controls (click start/end, right-click/ESC to cancel, Y to clear, T to exit), and the on-board clicks no longer select or move your units.",
+				"Press Y at any time to clear all measurement lines. The measuring-tape and clear-measurements keys remain rebindable in Settings → Controls."
 			]
 		},
 		{
