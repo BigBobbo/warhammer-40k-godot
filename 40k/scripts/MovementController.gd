@@ -1773,7 +1773,10 @@ func _auto_select_next_unmoved() -> void:
 	if not unit_list or not is_instance_valid(unit_list):
 		return
 	for i in range(unit_list.get_item_count()):
-		var entry_unit_id: String = unit_list.get_item_metadata(i)
+		# get_item_metadata() returns null for list items without metadata (e.g.
+		# section headers) — coerce to "" instead of crashing on the typed assign.
+		var _meta = unit_list.get_item_metadata(i)
+		var entry_unit_id: String = _meta if _meta is String else ""
 		if entry_unit_id == "":
 			continue
 		var unit = GameState.get_unit(entry_unit_id)
