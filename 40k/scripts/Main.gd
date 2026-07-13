@@ -143,8 +143,10 @@ var _ai_action_log_overlay: AIActionLogOverlay = null
 # T7-56: AI turn replay panel
 var _ai_turn_replay_panel: AITurnReplayPanel = null
 
-# T7-19: AI turn summary panel (post-turn summary popup)
-var _ai_turn_summary_panel: AITurnSummaryPanel = null
+# T7-19: The post-turn AI summary is no longer a floating popup. It overlapped the
+# existing right-hand menus and re-appeared every time the AI paused mid-turn. The
+# AI's actions and reasoning are already written to the game log (GameEventLog),
+# so that is now the single place the player reads what the AI did.
 
 # T7-55: Spectator mode (AI vs AI) speed indicator HUD
 var _spectator_speed_label: Label = null
@@ -518,9 +520,6 @@ func _ready() -> void:
 	# T7-56: Setup AI turn replay panel
 	_setup_ai_turn_replay_panel()
 
-	# T7-19: Setup AI turn summary panel
-	_setup_ai_turn_summary_panel()
-
 	# T7-55: Setup spectator mode speed indicator
 	_setup_spectator_speed_hud()
 
@@ -596,11 +595,8 @@ func _initialize_ai_player() -> void:
 			ai_player.turn_history_updated.connect(_ai_turn_replay_panel.refresh)
 			print("Main: Connected AIPlayer.turn_history_updated to replay panel (T7-56)")
 
-	# T7-19: Connect ai_turn_ended to the turn summary panel
-	if _ai_turn_summary_panel:
-		if not ai_player.ai_turn_ended.is_connected(_ai_turn_summary_panel.show_summary):
-			ai_player.ai_turn_ended.connect(_ai_turn_summary_panel.show_summary)
-			print("Main: Connected AIPlayer.ai_turn_ended to turn summary panel (T7-19)")
+	# T7-19: The AI turn summary is no longer shown as a floating popup — the AI's
+	# actions and reasoning are already logged to the game log (GameEventLog).
 
 	# T7-54: Connect AI signals to the action log overlay
 	if _ai_action_log_overlay:
@@ -699,10 +695,8 @@ func _reinitialize_ai_after_load() -> void:
 		if not ai_player.turn_history_updated.is_connected(_ai_turn_replay_panel.refresh):
 			ai_player.turn_history_updated.connect(_ai_turn_replay_panel.refresh)
 
-	# T7-19: Reconnect to turn summary panel
-	if _ai_turn_summary_panel:
-		if not ai_player.ai_turn_ended.is_connected(_ai_turn_summary_panel.show_summary):
-			ai_player.ai_turn_ended.connect(_ai_turn_summary_panel.show_summary)
+	# T7-19: The AI turn summary popup was removed; the summary now lives in the
+	# game log (GameEventLog), so there is nothing to reconnect here.
 
 	# T7-54: Reconnect AI signals to action log overlay
 	if _ai_action_log_overlay:
@@ -1622,15 +1616,6 @@ func _toggle_ai_turn_replay_panel() -> void:
 	"""T7-56: Toggle the AI turn replay panel visibility."""
 	if _ai_turn_replay_panel:
 		_ai_turn_replay_panel.toggle_panel()
-
-# =============================================================================
-# T7-19: AI Turn Summary Panel
-# =============================================================================
-
-func _setup_ai_turn_summary_panel() -> void:
-	_ai_turn_summary_panel = AITurnSummaryPanel.new()
-	add_child(_ai_turn_summary_panel)
-	print("Main: AI turn summary panel created (T7-19)")
 
 # =============================================================================
 # T7-55: Spectator Mode Speed Indicator HUD

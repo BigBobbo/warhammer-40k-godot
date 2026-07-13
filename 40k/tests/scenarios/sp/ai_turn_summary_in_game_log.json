@@ -1,0 +1,29 @@
+{
+  "id": "ai_turn_summary_in_game_log",
+  "covers": [
+    "ui.ai_turn_summary.no_floating_popup",
+    "ui.ai_action_overlay.hidden_in_human_vs_ai",
+    "ai.summary.routed_to_game_log"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 23,
+  "description": "The AI turn summary is no longer a floating right-side popup (it overlapped the existing menus and re-appeared on every AI pause), and the real-time AI action overlay no longer duplicates the game log in human-vs-AI play. Configures P2 as an AI at Hard, drives a live Movement phase, and asserts: (a) no AITurnSummaryPanel node exists under Main, (b) the AIActionLogOverlay stays hidden throughout the AI's turn (spectator-only now), and (c) the AI's actions AND reasoning are written to the game log (GameEventLog) — so everything the popup used to show is preserved in one place. Screenshots show the game log populated with the AI's turn and no floating overlay on the right.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main.get_node_or_null(\"AITurnSummaryPanel\") == null", "equals": true },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"}, {2: 2})" },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(0)" },
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "GameState.set_active_player(2)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(7)" },
+    { "act": "wait_seconds", "seconds": 6.0 },
+    { "act": "execute_script", "script": "main.get_node(\"AIActionLogOverlay\").visible", "equals": false },
+    { "act": "wait_seconds", "seconds": 12.0 },
+    { "act": "execute_script", "script": "main.get_node(\"AIActionLogOverlay\").visible", "equals": false },
+    { "act": "execute_script", "script": "GameEventLog.get_all_entries().size() > 0", "equals": true },
+    { "act": "execute_script", "script": "GameEventLog.count_ai_thinking_entries() > 0", "equals": true },
+    { "act": "screenshot", "label": "01_ai_turn_in_game_log_no_popup", "region": [0, 105, 420, 760] },
+    { "act": "screenshot", "label": "02_full_screen_no_floating_overlay" }
+  ]
+}

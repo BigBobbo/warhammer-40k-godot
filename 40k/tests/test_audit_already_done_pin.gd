@@ -788,8 +788,11 @@ func _test_t110_qol_umbrella_partial() -> void:
 	_check("MeasuringTape integrated", "_setup_measuring_tape" in main)
 	_check("StratagemPanel button wired (T-023, this session)",
 		"_toggle_stratagem_panel" in main)
-	_check("AI thinking overlay + summary panel present",
-		"ai_thinking_overlay" in main and "AITurnSummaryPanel" in main)
+	# T7-19: the floating AITurnSummaryPanel popup was removed (it overlapped the
+	# right-hand menus and re-appeared every AI pause); the AI turn summary now
+	# lives in the game log. The AI thinking overlay is unaffected.
+	_check("AI thinking overlay present; summary popup removed",
+		"ai_thinking_overlay" in main and not ("AITurnSummaryPanel" in main))
 
 
 func _test_t102_verification_pass() -> void:
@@ -906,7 +909,11 @@ func _test_t090_ai_thinking_summary() -> void:
 	print("\n-- T-090: AI thinking indicator + turn summary --")
 	var src = _read("res://scripts/Main.gd")
 	_check("ai_thinking_overlay declared", "ai_thinking_overlay" in src)
-	_check("AITurnSummaryPanel declared", "AITurnSummaryPanel" in src)
+	# T7-19: the AI turn summary is no longer a floating popup (AITurnSummaryPanel).
+	# It overlapped the right-hand menus and re-appeared on every AI pause, so it
+	# was removed; the AI's actions/reasoning are written to the game log instead.
+	_check("AI turn summary popup removed", not ("AITurnSummaryPanel" in src))
+	_check("game log panel present (home of the AI summary)", "_setup_game_log_panel" in src)
 	_check("_setup_ai_thinking_indicator wired", "_setup_ai_thinking_indicator" in src)
 	_check("_show_ai_thinking_indicator handler", "_show_ai_thinking_indicator" in src)
 

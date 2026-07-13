@@ -3148,11 +3148,17 @@ func _update_coherency_preview(ghost_world_pos: Vector2) -> void:
 	# Update the coherency status label
 	_update_coherency_status_label(status_text, ghost_is_coherent)
 
-	# Only log when coherency state changes to avoid per-frame spam
+	# Only log when coherency state changes to avoid per-frame spam.
+	# NB: this preview used to count "connections vs required_connections"; the
+	# coherency check was refactored to the 11e rule via AttackSequence
+	# .check_unit_coherency() above, which removed the required_connections
+	# variable. The debug line was left referencing it, which made the whole
+	# script fail to parse (breaking MovementController.new() and thus the human
+	# movement phase). Report the models-in-coherency-range count instead.
 	if ghost_is_coherent != _last_coherency_state:
-		print("P3-116: Coherency preview — %s (%d/%d connections, need %d)" % [
+		print("P3-116: Coherency preview — %s (%d/%d models in coherency range)" % [
 			"OK" if ghost_is_coherent else "BROKEN",
-			coherent_count, total_count, required_connections
+			coherent_count, total_count
 		])
 		_last_coherency_state = ghost_is_coherent
 

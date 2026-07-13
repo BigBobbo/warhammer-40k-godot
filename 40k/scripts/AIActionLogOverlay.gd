@@ -46,6 +46,11 @@ var _fade_timer: float = 0.0
 var _is_active: bool = false  # Whether AI is currently acting
 var _entry_count: int = 0
 var _is_spectator_mode: bool = false  # T7-55: cached spectator mode flag
+# Whether this floating overlay is allowed to display at all. It now only appears
+# in spectator (AI vs AI) games; in human-vs-AI play the AI's actions are recorded
+# in the game log (GameEventLog) instead of a duplicate floating overlay, so the
+# overlay stays disabled and every show/append method below is a no-op.
+var _display_enabled: bool = false
 
 func _ready() -> void:
 	_build_ui()
@@ -157,6 +162,8 @@ func _process(delta: float) -> void:
 
 func on_ai_turn_started(_player: int) -> void:
 	"""Called when AI begins thinking — show the overlay and reset fade timer."""
+	if not _display_enabled:
+		return
 	_is_active = true
 	_fade_timer = 0.0
 	_cancel_fade()
@@ -177,6 +184,8 @@ func on_ai_turn_ended(_player: int, _action_summary: Array) -> void:
 
 func add_action_entry(player: int, _action: Dictionary, description: String) -> void:
 	"""Add a real-time AI action entry to the overlay."""
+	if not _display_enabled:
+		return
 	if description == "":
 		return
 
@@ -212,6 +221,8 @@ func add_action_entry(player: int, _action: Dictionary, description: String) -> 
 func add_thinking_entry(player: int, text: String) -> void:
 	"""Add a thinking/reasoning entry to the overlay — shown in a dimmer color to
 	distinguish AI reasoning from actual actions taken."""
+	if not _display_enabled:
+		return
 	if text == "":
 		return
 
@@ -236,6 +247,8 @@ func add_thinking_entry(player: int, text: String) -> void:
 
 func add_phase_header(phase_name: String, round_num: int, player: int) -> void:
 	"""Add a phase header separator when AI enters a new phase."""
+	if not _display_enabled:
+		return
 	var color_hex = COLOR_PHASE_HEADER.to_html(false)
 	var bbcode = "[b][color=#%s]── %s (Rd %d, P%d) ──[/color][/b]\n" % [color_hex, phase_name, round_num, player]
 	_log_label.append_text(bbcode)
@@ -243,12 +256,22 @@ func add_phase_header(phase_name: String, round_num: int, player: int) -> void:
 	_auto_scroll()
 
 func set_spectator_mode(is_spectator: bool) -> void:
-	"""T7-55: Set whether we're in spectator mode (longer fade, always visible)."""
+	"""T7-55: Set whether we're in spectator mode (longer fade, always visible).
+	Doubles as the enable switch for this overlay: it now displays only in
+	spectator (AI vs AI) games. In human-vs-AI play the AI's actions live in the
+	game log, so the overlay stays disabled and hidden."""
 	_is_spectator_mode = is_spectator
-	print("[AIActionLogOverlay] T7-55: Spectator mode set to %s" % is_spectator)
+	_display_enabled = is_spectator
+	if not _display_enabled and visible:
+		_cancel_fade()
+		visible = false
+		modulate.a = 1.0
+	print("[AIActionLogOverlay] T7-55: Spectator mode set to %s (display_enabled=%s)" % [is_spectator, _display_enabled])
 
 func add_phase_summary(player: int, phase_name: String, summary: Dictionary) -> void:
 	"""T7-55: Add a phase summary block showing what a player did in the completed phase."""
+	if not _display_enabled:
+		return
 	if summary.is_empty():
 		return
 
