@@ -9537,39 +9537,45 @@ static func _validate_charge_direction_constraint_rules(unit_id: String, per_mod
 
 # Validate unit coherency for charge
 static func _validate_unit_coherency_for_charge_rules(unit_id: String, per_model_paths: Dictionary, board: Dictionary) -> Dictionary:
-	var errors = []
 	var units = board.get("units", {})
 	var unit = units.get(unit_id, {})
 
 	# Build model dicts with final positions for shape-aware distance
 	var final_models = []
+	var moved_ids := {}
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
 		if path is Array and path.size() > 0:
+			moved_ids[model_id] = true
 			var model = _get_model_in_unit_rules(unit, model_id)
 			var model_at_final = model.duplicate()
 			model_at_final["position"] = Vector2(path[-1][0], path[-1][1])
 			final_models.append(model_at_final)
 
+	# Coherency is a whole-unit condition: include the UNMOVED alive models at their
+	# current positions so a single dragged model cannot legally break away from the
+	# rest of its unit (mirrors ChargePhase._validate_unit_coherency_for_charge).
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		if model.get("position") == null:
+			continue
+		var mid = model.get("id", "")
+		if moved_ids.has(mid):
+			continue
+		final_models.append(model)
+
 	if final_models.size() < 2:
 		return {"valid": true, "errors": []}  # Single model or no movement
 
-	# Check that each model is within 2" horizontally AND 5" vertically of at least one other model
-	for i in range(final_models.size()):
-		var has_nearby_model = false
+	# Delegate to the edition-aware single source of truth (11e 03.03: within 2" of a
+	# mate AND within 9" of every other model in the unit).
+	var result = AttackSequence.check_unit_coherency({"models": final_models})
+	if result.get("coherent", true):
+		return {"valid": true, "errors": []}
 
-		for j in range(final_models.size()):
-			if i == j:
-				continue
-
-			if Measurement.is_within_coherency(final_models[i], final_models[j]):
-				has_nearby_model = true
-				break
-
-		if not has_nearby_model:
-			errors.append("Unit coherency broken: model %d too far from other models" % i)
-
-	return {"valid": errors.is_empty(), "errors": errors}
+	var offenders = result.get("offenders", [])
+	return {"valid": false, "errors": ["Unit coherency broken: %d model(s) out of coherency — every model must be within 2\" of a mate AND within 9\" of every other model in the unit" % offenders.size()]}
 
 # Charge close-distance enforcement (11e Charge Move 11.04, "WHILE MOVING").
 # Per-model rule: every charging model that CAN end its move within 1" of a

@@ -9883,12 +9883,13 @@ static func _try_move_with_collision_check(
 						if _path_crosses_monster_vehicle(orig_pos, candidate, model_radius * radius_factor, mv_models):
 							continue
 
-					# Check coherency with placed models
+					# Check coherency with placed models. Neighbour requirement mirrors
+					# AttackSequence.check_unit_coherency: 11e needs 1, legacy 10e needs 2 at 7+.
 					var coherent_count = 0
 					for pm in placed_models:
 						if candidate.distance_to(pm.position) <= coherency_max_px:
 							coherent_count += 1
-					var required = 1 if (destinations.size() + failed_models.size()) <= 6 else 2
+					var required = 2 if (GameConstants.edition < 11 and (destinations.size() + failed_models.size()) >= 7) else 1
 					if coherent_count >= mini(required, destinations.size()):
 						destinations[model_id] = [candidate.x, candidate.y]
 						placed_models.append({
@@ -9939,7 +9940,8 @@ static func _try_formation_move(
 	var model_count = alive_models.size()
 	var base_radius_inches = (base_mm / 2.0) / 25.4
 	var coherency_max_px = (2.0 + base_radius_inches * 2.0) * PIXELS_PER_INCH
-	var required_connections = 1 if model_count <= 6 else 2
+	# Neighbour requirement mirrors AttackSequence.check_unit_coherency (11e: 1; legacy 10e: 2 at 7+).
+	var required_connections = 2 if (GameConstants.edition < 11 and model_count >= 7) else 1
 	var step = model_radius * 2.0 + 8.0
 	var fm_unit_kw: Array = unit.get("meta", {}).get("keywords", [])
 
@@ -17028,7 +17030,8 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 	var base_radius_inches = (base_mm / 2.0) / 25.4
 	var coherency_max_px = (2.0 + base_radius_inches * 2.0) * PIXELS_PER_INCH
 
-	var required_connections = 1 if positions.size() <= 6 else 2
+	# Neighbour requirement mirrors AttackSequence.check_unit_coherency (11e: 1; legacy 10e: 2 at 7+).
+	var required_connections = 2 if (GameConstants.edition < 11 and positions.size() >= 7) else 1
 
 	for pos in positions:
 		# Combine deployed models + already-placed formation models for collision
@@ -17107,23 +17110,28 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 	return resolved
 
 static func _check_formation_coherency(positions: Array, base_mm: int) -> bool:
-	"""Check that all positions maintain 2\" unit coherency (each model within 2\" of at least one other).
-	For 7+ model units, each model must be within 2\" of at least 2 others.
-	Uses edge-to-edge distance (center distance minus both base radii)."""
+	"""Check 11e unit coherency (core rules 03.03) for a set of same-base positions:
+	each model within 2\" edge-to-edge of at least one other AND within 9\" edge-to-edge of
+	every other. Neighbour count and envelope mirror AttackSequence.check_unit_coherency
+	(legacy 10e needs 2 neighbours at 7+ and has no envelope). Uses center distance minus
+	both base radii."""
 	if positions.size() <= 1:
 		return true
-	var required_connections = 1 if positions.size() <= 6 else 2
+	var required_connections = 2 if (GameConstants.edition < 11 and positions.size() >= 7) else 1
 	var base_radius_inches = (base_mm / 2.0) / 25.4
-	var coherency_threshold_px = (GameConstants.coherency_distance_inches() + base_radius_inches * 2.0) * PIXELS_PER_INCH  # 2" edge-to-edge = 2" + both radii center-to-center
+	var near_px = (GameConstants.coherency_distance_inches() + base_radius_inches * 2.0) * PIXELS_PER_INCH  # 2" edge-to-edge
+	var envelope_px = (GameConstants.coherency_envelope_inches() + base_radius_inches * 2.0) * PIXELS_PER_INCH  # 9" edge-to-edge
+	var apply_envelope = GameConstants.edition >= 11
 	for i in range(positions.size()):
 		var connections = 0
 		for j in range(positions.size()):
 			if i == j:
 				continue
-			if positions[i].distance_to(positions[j]) <= coherency_threshold_px:
+			var d = positions[i].distance_to(positions[j])
+			if d <= near_px:
 				connections += 1
-				if connections >= required_connections:
-					break
+			if apply_envelope and d > envelope_px:
+				return false  # 9" envelope broken
 		if connections < required_connections:
 			return false
 	return true
