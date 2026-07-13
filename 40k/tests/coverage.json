@@ -2727,6 +2727,24 @@
       ],
       "last_verified_commit": "4abfc9b",
       "status": "covered"
+    },
+    {
+      "id": "ui.GameLogPanel.long_entry_truncation",
+      "description": "A long simple GameLogPanel entry (>200 chars, e.g. a verbose AI move rationale like 'Prosecutors moves toward obj_center …') renders as a truncated preview carrying a VISIBLE 'show more' toggle instead of silently trailing off. Validated by 'game_log_long_entry_expandable' (collapsed: last_card_is_expandable == true, last_card_is_expanded == false, small visible char count + screenshot).",
+      "scenarios": [
+        "game_log_long_entry_expandable"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.GameLogPanel.show_more_toggle",
+      "description": "Expanding a truncated GameLogPanel entry via its 'show more' toggle swaps in the full text (button flips to 'show less') and is reversible. Validated by 'game_log_long_entry_expandable' (expand_last_card -> last_card_is_expanded == true, visible char count jumps from ~201 to the full ~302 + screenshot).",
+      "scenarios": [
+        "game_log_long_entry_expandable"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

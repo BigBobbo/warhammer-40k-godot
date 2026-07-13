@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.37.1",
+			"date": "2026-07-13",
+			"summary": "Long game-log entries — like the AI's move rationale — are no longer silently cut off. A truncated entry now shows a clear 'show more' button you can click to read the full text, and 'show less' to collapse it again.",
+			"changes": [
+				"Game Log: entries longer than the preview length now render a visible 'show more' / 'show less' toggle instead of trailing off with an unlabelled '…'. Clicking the entry text also expands it.",
+				"Raised the preview length so typical one-line AI decision rationales (e.g. 'Prosecutors moves toward obj_center …') display in full with no clicking needed; only genuinely long entries get the toggle.",
+				"Expanding a long entry is now reversible, so reading it no longer permanently grows the log."
+			]
+		},
+		{
 			"version": "0.37.0",
 			"date": "2026-07-13",
 			"summary": "Hold X to check line of sight to a spot before you commit to it: every model that can see the mouse position lights up with a gold sight line — perfect for asking 'if I move here, who can see me?' The tool existed but was unreachable because its keys (V, then G) were taken over by other shortcuts.",
