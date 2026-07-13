@@ -339,20 +339,63 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 
 	# Mission info — at e11 (GDM 2026) each player scores their OWN
 	# disposition-paired primary card, so show both instead of the shared
-	# 10e mission name. "~" marks cards built from approximate source rows.
+	# 10e mission name. Each card shows its title, the official scoring blurb
+	# and a per-rule VP breakdown so a player can read exactly what it awards
+	# (not just the name). "~" marks cards built from approximate source rows.
 	if GameConstants.edition >= 11 and not MissionManager.player_primary_missions.is_empty():
+		var primary_title = Label.new()
+		primary_title.text = "PRIMARY MISSIONS"
+		primary_title.add_theme_font_size_override("font_size", 13)
+		primary_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+		if FactionPalettes:
+			primary_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+		panel.add_child(primary_title)
+
 		for p in [1, 2]:
+			if p == 2:
+				panel.add_child(_create_spacer(4))
 			var card = MissionManager.get_primary_mission_for_player(p)
 			var disp = MissionManager.player_dispositions.get(str(p), "")
+			var p_color = FactionPalettes.get_player_border_color(p) if FactionPalettes else Color(0.8, 0.8, 0.6)
+
+			# Card title (kept as P{p}PrimaryMissionLabel for the panel scenario)
 			var card_label = Label.new()
 			card_label.name = "P%dPrimaryMissionLabel" % p
 			card_label.text = "P%d Primary: %s%s (%s)" % [
 				p, card.get("name", "?"),
 				" ~" if card.get("approximate", false) else "",
 				PrimaryMissionData11e.get_disposition_name(disp)]
-			card_label.add_theme_font_size_override("font_size", 11)
-			card_label.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
+			card_label.add_theme_font_size_override("font_size", 12)
+			card_label.add_theme_color_override("font_color", p_color)
+			if FactionPalettes:
+				card_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+			card_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			panel.add_child(card_label)
+
+			# Official scoring blurb (prose)
+			var blurb: String = PrimaryMissionData11e.get_card_text(card)
+			if blurb != "":
+				var text_label = Label.new()
+				text_label.name = "P%dPrimaryTextLabel" % p
+				text_label.text = blurb
+				text_label.add_theme_font_size_override("font_size", 10)
+				text_label.add_theme_color_override("font_color", Color(0.62, 0.6, 0.52))
+				text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				panel.add_child(text_label)
+
+			# Per-rule VP breakdown (what the engine actually scores)
+			var lines: Array = PrimaryMissionData11e.get_scoring_lines(card)
+			if not lines.is_empty():
+				var rules_label = Label.new()
+				rules_label.name = "P%dPrimaryRulesLabel" % p
+				var strs := PackedStringArray()
+				for l in lines:
+					strs.append("• " + str(l))
+				rules_label.text = "\n".join(strs)
+				rules_label.add_theme_font_size_override("font_size", 10)
+				rules_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
+				rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				panel.add_child(rules_label)
 	else:
 		var mission_name = MissionManager.get_current_mission_name()
 		var mission_info = Label.new()
