@@ -2036,7 +2036,8 @@ func get_pending_condemn_choice_11e(player: int) -> Dictionary:
 		var unit = GameState.state.get("units", {}).get(unit_id, {})
 		eligible.append({
 			"id": unit_id,
-			"label": unit.get("meta", {}).get("name", unit_id),
+			# Disambiguated label so duplicate enemy squads are distinguishable.
+			"label": DialogUtils.unit_label(unit),
 		})
 	if eligible.is_empty():
 		return {}

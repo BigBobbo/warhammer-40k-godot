@@ -1,0 +1,63 @@
+{
+  "id": "iss_beacon_names_and_board_pick_11e",
+  "covers": [
+    "rules.secondaries.beacon.designation",
+    "ui.command.beacon_dialog_names",
+    "ui.command.beacon_dialog_board_pick"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "11e Beacon designation UX: the drawer's unit picker (a) disambiguates duplicate squads with display name + model count (two 'Boyz' become 'Boyz (20 models)' / 'Boyz (10 models)'), and (b) offers a 'Pick on board' button that hides the dialog and lets the drawer click one of their units on the battlefield to designate it as the Beacon. Drives the REAL click path and asserts beacon_unit_id lands on the clicked unit.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(2)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"].merge({\"deck\": [\"beacon\"], \"active\": []}, true)" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/BeaconUnitDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/BeaconUnitDialog/Content/PickBeaconOnBoard", "timeout_s": 2.0 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"BeaconUnitDialog/Content/UnitScroll/UnitList/Pick_U_BOYZ_F\").text.contains(\"20 models\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"BeaconUnitDialog/Content/UnitScroll/UnitList/Pick_U_BOYZ_K\").text.contains(\"10 models\")",
+      "equals": true },
+
+    { "act": "screenshot", "label": "01_beacon_names" },
+
+    { "act": "click_node", "node": "/root/BeaconUnitDialog/Content/PickBeaconOnBoard", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"BeaconUnitDialog\").visible",
+      "equals": false },
+    { "act": "expect_node_visible", "node": "/root/BoardPickBanner", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "02_beacon_board_pick_armed" },
+
+    { "act": "click_unit", "unit_id": "U_STRIKE_FORCE_A" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node_or_null(\"BoardPickBanner\") == null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"beacon_unit_id\", \"\"))",
+      "equals": "U_STRIKE_FORCE_A" },
+
+    { "act": "screenshot", "label": "03_beacon_applied" }
+  ]
+}

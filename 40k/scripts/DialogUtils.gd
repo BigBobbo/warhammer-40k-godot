@@ -2,6 +2,16 @@ class_name DialogUtils
 
 ## Shared helpers for showing dialogs safely.
 
+## Human-readable label for a unit in a picker/list: the display name (which
+## carries the Alpha/Beta suffix for duplicate squads) plus the model count, so
+## two same-named squads (e.g. two "Boyz") are distinguishable — matching the
+## roster panel's "Name (N models)" convention. Model count uses total models
+## (units.models.size()), the same as the roster, so the numbers line up.
+static func unit_label(unit: Dictionary) -> String:
+	var meta = unit.get("meta", {})
+	var name = str(meta.get("display_name", meta.get("name", "Unit")))
+	return "%s (%d models)" % [name, unit.get("models", []).size()]
+
 ## Show `dialog` centered, clamped so it can never exceed the viewport, then
 ## snugly re-fit to its real content on the next frame.
 ##
