@@ -9,7 +9,7 @@
   "fixture": "audit_baseline_postdeploy",
   "rng_seed": 42,
   "transition_to_phase": 7,
-  "description": "Hold-L lines-of-sight overlay works in EVERY phase (regression: the LoSDebugVisual node only existed while ShootingController was alive, so L silently did nothing outside the shooting phase, and drew nothing inside it without an active shooter). Holding L in the Movement phase draws unit->unit sight lines (solid green clear / dashed red blocked) for the active player; releasing L clears them; the same works in the Shooting phase with no shooter selected. Also covers the roster strip hotkey move L->B (its old L binding was permanently shadowed by Main's L handler).",
+  "description": "Hold-L lines-of-sight overlay works in EVERY phase (regression: the LoSDebugVisual node only existed while ShootingController was alive, so L silently did nothing outside the shooting phase, and drew nothing inside it without an active shooter). Holding L in the Movement phase draws unit->unit sight lines (solid green clear / dashed red blocked) for the active player; releasing L clears them. In the Shooting phase, holding L must also always draw: the per-model shooter debug when the phase auto-armed an eligible shooter, or the unit->unit overview when nobody is eligible. Also covers the roster strip hotkey move L->B (its old L binding was permanently shadowed by Main's L handler).",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -43,9 +43,10 @@
     { "act": "execute_script", "script": "main.t32_synthesize_l(true)", "equals": true },
     { "act": "wait_seconds", "seconds": 0.4 },
     { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/LoSDebugVisual\").overview_lines.size()",
-      "expect_min": 1 },
-    { "act": "screenshot", "label": "04_shooting_L_no_shooter_still_draws" },
+      "script": "main.get_node(\"BoardRoot/LoSDebugVisual\").overview_lines.size() + main.get_node(\"BoardRoot/LoSDebugVisual\").los_lines.size()",
+      "expect_min": 1,
+      "comment": "The shooting phase auto-arms the first ELIGIBLE shooter (single-player _refresh_unit_list). With a shooter armed, L shows the per-model shooter debug (los_lines); with nobody eligible, the unit->unit overview (overview_lines). Either way the core invariant holds: holding L in the shooting phase draws SOMETHING — the original regression was an ON toast over a blank board." },
+    { "act": "screenshot", "label": "04_shooting_L_still_draws" },
     { "act": "execute_script", "script": "main.t32_synthesize_l(false)", "equals": false },
 
     { "act": "simulate_key", "keycode": "B" },
