@@ -1,0 +1,61 @@
+{
+  "id": "iss_trust_dropdown_all_units_11e",
+  "covers": [
+    "rules.secondaries.burden_of_trust.guard_prompt",
+    "autoloads.SecondaryMissionManager.guards",
+    "ui.command.guard_dialog_dropdown"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "11e Burden of Trust guard selection: the per-objective dropdown must offer EVERY friendly unit on the battlefield (the card lets you select any one friendly unit per objective), not only units currently within range. Regression guard for the 'trust secondary unit dropdown' bug where a unit sitting on the objective could be missing from the list because SELECTION was wrongly range-filtered (range only gates scoring). With P2's Warboss teleported onto obj_center (in range) and the rest of the army elsewhere, the obj_center dropdown lists all 11 P2 units + a 'No guard' entry; the in-range Warboss is tagged '(in range)' while a not-in-range unit (U_STRIKE_FORCE_A) is present but NOT tagged; and a row exists for an objective the player has no unit near (obj_home_1), proving every objective is offered.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.apply_state_changes([{\"op\": \"set\", \"path\": \"units.U_WARBOSS_B.models.0.position\", \"value\": Vector2(880, 1230)}])" },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(2)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"].merge({\"deck\": [\"burden_of_trust\"], \"active\": []}, true)" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center", "timeout_s": 2.0 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\").item_count",
+      "equals": 12 },
+
+    { "act": "execute_script",
+      "script": "option_button_has_metadata(\"/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\", \"U_STRIKE_FORCE_A\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "option_button_has_metadata(\"/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\", \"U_WARBOSS_B\")",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "option_button_text_for_metadata(\"/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\", \"U_WARBOSS_B\").contains(\"in range\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "option_button_text_for_metadata(\"/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\", \"U_STRIKE_FORCE_A\").contains(\"in range\")",
+      "equals": false },
+
+    { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_home_1/Guard_obj_home_1", "timeout_s": 2.0 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\").show_popup()" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "screenshot", "label": "01_guard_dropdown_all_units" }
+  ]
+}

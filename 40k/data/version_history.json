@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.35.1",
+			"date": "2026-07-13",
+			"summary": "Burden of Trust guard selection now lets you pick ANY of your units to guard an objective, not just the single highest-priority one it auto-picked. The dropdown lists every friendly unit on the battlefield, marks the ones currently in range (they score right now), and shows a row for every objective.",
+			"changes": [
+				"Fixed: the 'Assign Guards' dropdown previously offered only one unit per objective, so a unit sitting on the objective (e.g. Gretchin Beta) could be missing — you can now choose any friendly unit, matching the card ('select one friendly unit per objective to guard it').",
+				"Units currently within range of the objective are tagged '(in range)' and listed first, so you can see at a glance which picks would score at the end of your opponent's turn.",
+				"The prompt now shows a row for every objective on the board (not only ones you already have a unit on), so you can pre-assign a guard for an objective you are about to capture.",
+				"Embarked units are tagged '(embarked)'; scoring is unchanged (a guarded objective still only scores while its guard is in range and you control it)."
+			]
+		},
+		{
 			"version": "0.35.0",
 			"date": "2026-07-12",
 			"summary": "Every unit in the two default armies now has top-down artwork. All 12 units across Recon Stomps (Orks) and Custodes Lions (Adeptus Custodes) render bird's-eye sprites on their bases — including the Stompa's full effigy hull, rotor-spinning Deffkoptas and Warbikes that fill their oval bases, and gold Allarus Terminators.",

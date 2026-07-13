@@ -1783,7 +1783,7 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 	content.add_child(header)
 
 	var desc = Label.new()
-	desc.text = "At the end of your opponent's turn you score 2 VP (max 5) for each guarded objective you control while its guard is within range of it."
+	desc.text = "Pick any friendly unit to guard each objective (units in range now are marked). At the end of your opponent's turn you score 2 VP (max 5) for each guarded objective you control while its guard is within range of it."
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.add_theme_font_size_override("font_size", 12)
 	desc.add_theme_color_override("font_color", Color.GRAY)
@@ -1824,7 +1824,15 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 		var idx := 1
 		for eu in entry.get("eligible", []):
 			var uid: String = str(eu.get("unit_id", ""))
-			picker.add_item(str(eu.get("unit_name", uid)))
+			# Any friendly unit can be picked; annotate the ones that are actually
+			# in range now (they score) or embarked (they can't score until they
+			# disembark and get in range) so the choice is informed.
+			var item_label: String = str(eu.get("unit_name", uid))
+			if eu.get("embarked", false):
+				item_label += " (embarked)"
+			elif eu.get("in_range", false):
+				item_label += " (in range)"
+			picker.add_item(item_label)
 			picker.set_item_metadata(idx, uid)
 			unit_ids.append(uid)
 			if str(current_guards.get(obj_id, "")) == uid:
