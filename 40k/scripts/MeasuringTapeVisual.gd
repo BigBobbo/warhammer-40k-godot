@@ -26,6 +26,7 @@ func _ready() -> void:
 	if MeasuringTapeManager:
 		MeasuringTapeManager.measurement_added.connect(_on_measurement_added)
 		MeasuringTapeManager.measurements_cleared.connect(_on_measurements_cleared)
+		MeasuringTapeManager.measure_mode_changed.connect(_on_measure_mode_changed)
 
 	print("[MeasuringTapeVisual] Initialized with z_index ", z_index)
 
@@ -155,7 +156,12 @@ func _on_measurement_added(_measurement: Dictionary) -> void:
 func _on_measurements_cleared() -> void:
 	queue_redraw()
 
+func _on_measure_mode_changed(_active: bool) -> void:
+	# Redraw so a cancelled in-progress preview clears immediately.
+	queue_redraw()
+
 func _process(_delta: float) -> void:
-	# Redraw if actively measuring to show preview
-	if MeasuringTapeManager and MeasuringTapeManager.is_measuring:
+	# Redraw while the tool is armed so the live preview tracks the cursor and a
+	# cancelled in-progress line clears on the very next frame.
+	if MeasuringTapeManager and (MeasuringTapeManager.is_measuring or MeasuringTapeManager.measure_mode_active):
 		queue_redraw()

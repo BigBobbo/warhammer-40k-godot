@@ -45,7 +45,7 @@ func _register_defaults() -> void:
 	# ── Gameplay ──
 	_register("toggle_deploy_zones", "Toggle Deploy Zones", CATEGORY_GAMEPLAY, KEY_Z)
 	_register("toggle_terrain", "Toggle Terrain", CATEGORY_GAMEPLAY, KEY_G)
-	_register("measuring_tape", "Measuring Tape (hold)", CATEGORY_GAMEPLAY, KEY_T)
+	_register("measuring_tape", "Measuring Tape (toggle)", CATEGORY_GAMEPLAY, KEY_T)
 	_register("clear_measurements", "Clear Measurements", CATEGORY_GAMEPLAY, KEY_Y)
 	_register("quick_save", "Quick Save", CATEGORY_GAMEPLAY, KEY_BRACKETLEFT)
 	_register("quick_load", "Quick Load", CATEGORY_GAMEPLAY, KEY_BRACKETRIGHT)
@@ -91,7 +91,9 @@ func _register_defaults() -> void:
 	_register("toggle_stratagem_panel", "Toggle Stratagems Panel", CATEGORY_PANELS, KEY_S)
 	_register("toggle_missions_panel", "Toggle Missions Panel", CATEGORY_PANELS, KEY_M)
 	_register("toggle_replay_panel", "Toggle AI Replay Panel", CATEGORY_PANELS, KEY_R)
-	_register("toggle_chat_panel", "Toggle Chat Panel", CATEGORY_PANELS, KEY_T)
+	# Default C, not T: T is the measuring tape. Chat is networked-only, so it
+	# yields the more-used key to the tape (which the player expects on T).
+	_register("toggle_chat_panel", "Toggle Chat Panel", CATEGORY_PANELS, KEY_C)
 	_register("weapon_range_panel", "Toggle Weapon Range Panel", CATEGORY_PANELS, KEY_W)
 	_register("datasheet_modal", "Open Unit Datasheet", CATEGORY_PANELS, KEY_I)
 	_register("toggle_roster_strip", "Toggle Roster Strip", CATEGORY_PANELS, KEY_B)

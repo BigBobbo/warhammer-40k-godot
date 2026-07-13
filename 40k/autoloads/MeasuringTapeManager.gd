@@ -5,12 +5,18 @@ extends Node
 
 signal measurement_added(measurement: Dictionary)
 signal measurements_cleared()
+signal measure_mode_changed(active: bool)
 
 var measurements: Array = []  # Array of measurement dictionaries
 var is_measuring: bool = false
 var measurement_start: Vector2 = Vector2.ZERO
 var current_preview: Dictionary = {}  # Preview line while dragging
 var save_measurements: bool = false  # Toggle for persistence
+
+# Click-to-measure mode. When active, the first board click places the start
+# point, the second click finalises the line, and the tool stays armed so
+# measurements can be chained. Right-click / ESC cancel; the toggle key exits.
+var measure_mode_active: bool = false
 
 func _ready() -> void:
 	# Initialize from settings
@@ -19,6 +25,51 @@ func _ready() -> void:
 		print("[MeasuringTapeManager] Initialized with save_persistence: ", save_measurements)
 	else:
 		print("[MeasuringTapeManager] Initialized (SettingsService not available)")
+
+# ============================================================================
+# Click-to-measure mode
+# ============================================================================
+
+func set_measure_mode(enabled: bool) -> void:
+	if measure_mode_active == enabled:
+		return
+	measure_mode_active = enabled
+	if not enabled:
+		# Leaving the tool must drop any half-drawn line so it does not linger.
+		cancel_measurement()
+	emit_signal("measure_mode_changed", measure_mode_active)
+	print("[MeasuringTapeManager] Measure mode: ", measure_mode_active)
+
+func toggle_measure_mode() -> void:
+	set_measure_mode(not measure_mode_active)
+
+# Handle a board click while the tool is armed. First click places the start,
+# second click finalises the measurement (and re-arms for the next one).
+# Returns true when the click was consumed by the tool.
+func handle_measure_click(world_pos: Vector2) -> bool:
+	if not measure_mode_active:
+		return false
+	if is_measuring:
+		# Second click — commit the line, then stay armed for another measure.
+		complete_measurement(world_pos)
+	else:
+		# First click — place the start point (unless we are at the cap).
+		if not can_add_measurement():
+			print("[MeasuringTapeManager] Maximum measurements reached (%d). Clear them before adding more." % MAX_MEASUREMENTS)
+			return true
+		start_measurement(world_pos)
+	return true
+
+# Cancel the in-progress line if there is one; otherwise exit measure mode.
+# Returns true when it consumed the action (i.e. the tool was doing something).
+func cancel_or_exit() -> bool:
+	if not measure_mode_active:
+		return false
+	if is_measuring:
+		cancel_measurement()
+	else:
+		set_measure_mode(false)
+	return true
 
 func start_measurement(start_pos: Vector2) -> void:
 	is_measuring = true

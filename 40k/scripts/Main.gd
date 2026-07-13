@@ -4043,7 +4043,7 @@ func _setup_measuring_tape() -> void:
 	measuring_tape_visual.name = "MeasuringTapeVisual"
 	$BoardRoot.add_child(measuring_tape_visual)
 	print("Added MeasuringTapeVisual to BoardRoot")
-	print("Measuring Tape: Hold 't' and drag to measure, press 'y' to clear all measurements")
+	print("Measuring Tape: press '%s' to arm, click a start then an end point to measure, ESC/right-click to cancel, '%s' to clear all" % [KeybindingManager.get_primary_key_display("measuring_tape") if KeybindingManager else "T", KeybindingManager.get_primary_key_display("clear_measurements") if KeybindingManager else "Y"])
 	
 	# Measuring tape save toggle — hidden in dev tools container (toolbar cleanup)
 	var hud_container = $HUD_Bottom/HBoxContainer
@@ -4115,6 +4115,42 @@ func _setup_terrain() -> void:
 func _on_measuring_tape_save_toggle(pressed: bool) -> void:
 	SettingsService.set_save_measurements(pressed)
 	print("Measuring tape save persistence: ", pressed)
+
+# Show/hide the on-screen banner that tells the player the measuring tape is
+# armed and how to drive it. Created lazily; freed when the tool exits.
+func _update_measure_mode_hint() -> void:
+	var active: bool = MeasuringTapeManager and MeasuringTapeManager.measure_mode_active
+	var hint := get_node_or_null("MeasureModeHint") as Label
+	if not active:
+		if hint:
+			hint.queue_free()
+		return
+	if hint == null:
+		hint = Label.new()
+		hint.name = "MeasureModeHint"
+		hint.add_theme_font_size_override("font_size", 16)
+		hint.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8, 1.0))
+		hint.add_theme_color_override("font_outline_color", Color(0.1, 0.08, 0.05, 0.9))
+		hint.add_theme_constant_override("outline_size", 6)
+		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hint.anchor_left = 0.0
+		hint.anchor_right = 1.0
+		hint.anchor_top = 0.0
+		hint.offset_top = 96
+		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hint.z_index = 600  # above HUD panels (UI_PANEL_Z = 500)
+		add_child(hint)
+	var tape_key := KeybindingManager.get_primary_key_display("measuring_tape") if KeybindingManager else "T"
+	var clear_key := KeybindingManager.get_primary_key_display("clear_measurements") if KeybindingManager else "Y"
+	hint.text = "📏  MEASURING — click a start point, then an end point   •   right-click / ESC cancel   •   %s clear   •   %s exit" % [clear_key, tape_key]
+
+# True when a screen-space point sits over one of the persistent HUD panels
+# (right column / bottom bar), so tape clicks there don't get eaten from the UI.
+func _is_point_over_hud(screen_pos: Vector2) -> bool:
+	var ui_rect := get_viewport().get_visible_rect()
+	var right_hud_rect := Rect2(ui_rect.size.x - 400, 0, 400, ui_rect.size.y)
+	var bottom_hud_rect := Rect2(0, ui_rect.size.y - 100, ui_rect.size.x, 100)
+	return right_hud_rect.has_point(screen_pos) or bottom_hud_rect.has_point(screen_pos)
 
 func _setup_transport_panel() -> void:
 	print("Setting up transport panel...")
@@ -5145,6 +5181,12 @@ func _input(event: InputEvent) -> void:
 			_ai_turn_replay_panel.hide_panel()
 			get_viewport().set_input_as_handled()
 			return
+		# Measuring tape: ESC cancels the in-progress line, or exits the tool.
+		if MeasuringTapeManager and MeasuringTapeManager.measure_mode_active:
+			MeasuringTapeManager.cancel_or_exit()
+			_update_measure_mode_hint()
+			get_viewport().set_input_as_handled()
+			return
 		if shooting_controller and shooting_controller.active_shooter_id != "":
 			# Let ShootingController handle ESC for deselect/cancel
 			return
@@ -5187,6 +5229,25 @@ func _input(event: InputEvent) -> void:
 				var focused = get_viewport().gui_get_focus_owner()
 				if focused != null:
 					focused.release_focus()
+
+	# Measuring tape (click-to-measure): while the tool is armed, board clicks
+	# place the line's endpoints instead of interacting with units. Handled here,
+	# before any phase/selection click logic, so nothing else consumes the click.
+	if MeasuringTapeManager and MeasuringTapeManager.measure_mode_active \
+			and event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			# Ignore clicks over the HUD panels so buttons stay usable.
+			if not _is_point_over_hud(event.position):
+				var mt_world_pos = screen_to_world_position(event.position)
+				MeasuringTapeManager.handle_measure_click(mt_world_pos)
+				get_viewport().set_input_as_handled()
+				return
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			# Right-click cancels the current line, or exits the tool.
+			MeasuringTapeManager.cancel_or_exit()
+			_update_measure_mode_hint()
+			get_viewport().set_input_as_handled()
+			return
 
 	# Handle mouse clicks for scout move placement (ScoutMovesPhase)
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -5256,6 +5317,15 @@ func _input(event: InputEvent) -> void:
 		var sel_id := _selected_unit_id_or_empty()
 		if sel_id != "":
 			fit_view_to_selection(sel_id)
+		get_viewport().set_input_as_handled()
+		return
+
+	# Measuring tape: toggle click-to-measure mode (rebindable: measuring_tape,
+	# default T). Handled BEFORE the chat-panel toggle (also default T) so the
+	# tape wins the key rather than being shadowed by chat.
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "measuring_tape"):
+		MeasuringTapeManager.toggle_measure_mode()
+		_update_measure_mode_hint()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -5500,35 +5570,17 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# Measuring Tape controls - 't' to measure, 'y' to clear
-	if event is InputEventKey:
-		# Start/stop measuring with measuring tape key
-		var _mt_binding = KeybindingManager.get_binding("measuring_tape")
-		if _mt_binding.size() > 0 and (event.keycode == _mt_binding.key or (_mt_binding.alt_key != 0 and event.keycode == _mt_binding.alt_key)):
-			if event.pressed and not MeasuringTapeManager.is_measuring:
-				var mouse_pos = get_viewport().get_mouse_position()
-				var world_pos = screen_to_world_position(mouse_pos)
-				MeasuringTapeManager.start_measurement(world_pos)
-				get_viewport().set_input_as_handled()
-			elif not event.pressed and MeasuringTapeManager.is_measuring:
-				var mouse_pos = get_viewport().get_mouse_position()
-				var world_pos = screen_to_world_position(mouse_pos)
-				if MeasuringTapeManager.can_add_measurement():
-					MeasuringTapeManager.complete_measurement(world_pos)
-				else:
-					print("Maximum number of measurements reached (10). Clear with '%s' key." % KeybindingManager.get_key_display_name("clear_measurements"))
-					MeasuringTapeManager.cancel_measurement()
-				get_viewport().set_input_as_handled()
-			return
+	# Measuring Tape: clear all measurements with the clear key (default Y).
+	# The toggle key and the click-to-place endpoints are handled earlier in
+	# _input (see "Measuring tape" blocks above).
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "clear_measurements"):
+		MeasuringTapeManager.clear_all_measurements()
+		print("All measurements cleared")
+		get_viewport().set_input_as_handled()
+		return
 
-		# Clear all measurements with clear measurements key
-		if event.pressed and KeybindingManager.matches_action(event, "clear_measurements"):
-			MeasuringTapeManager.clear_all_measurements()
-			print("All measurements cleared")
-			get_viewport().set_input_as_handled()
-			return
-
-	# Update measurement preview while dragging
+	# While the tool is armed and the start point is placed, track the cursor so
+	# the preview line stretches to it live.
 	if event is InputEventMouseMotion and MeasuringTapeManager.is_measuring:
 		var world_pos = screen_to_world_position(event.position)
 		MeasuringTapeManager.update_measurement(world_pos)
@@ -11967,6 +12019,8 @@ func _toggle_hotkey_help_overlay() -> void:
 		["%s (hold)" % _kbm.get_key_display_name("los_debug"), "Show lines of sight (green clear / red blocked)"],
 		["%s (hold)" % _kbm.get_key_display_name("los_check"), "Show what can see the cursor position"],
 		[_kbm.get_key_display_name("toggle_roster_strip"), "Toggle left roster strip"],
+		["%s (toggle)" % _kbm.get_key_display_name("measuring_tape"), "Measuring tape — click start then end point"],
+		[_kbm.get_key_display_name("clear_measurements"), "Clear all measurements"],
 		[_kbm.get_key_display_name("toggle_grid_overlay"), "Toggle 1\" tactical grid overlay"],
 		[_kbm.get_key_display_name("toggle_visual_style"), "Toggle visual style (letter / enhanced)"],
 		[_kbm.get_key_display_name("toggle_debug_mode"), "Toggle debug mode"],
