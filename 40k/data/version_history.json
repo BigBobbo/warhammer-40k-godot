@@ -32,6 +32,17 @@
 			]
 		},
 		{
+			"version": "0.38.1",
+			"date": "2026-07-13",
+			"summary": "Fixed the AI abandoning most of its moves. The AI planned moves its own rules engine then rejected, so unit after unit gave up and stayed in the deployment zone. It now checks the same rules the game enforces before committing, so its units actually advance.",
+			"changes": [
+				"AI no longer routes moves through Monster/Vehicle bases it can't cross — it modelled big rectangular bases (e.g. the Battlewagon) as a too-small circle and clipped their ends, so every such move was thrown out. It now uses the exact base shape and paths around them.",
+				"AI moves now keep unit coherency: when a model had to shuffle around an obstacle it could end up too far from its squad, so the whole move was rejected at confirm time. Models are now relocated only to spots that keep the unit together.",
+				"AI no longer stacks models on top of each other in tight spaces (its 'squeeze in' fallback could overlap bases the game forbids).",
+				"Net effect: far fewer units freeze in place, so the AI presses objectives and plays the board instead of standing still. Also fixed a harmless script error that fired when the AI reset or undid a move."
+			]
+		},
+		{
 			"version": "0.38.0",
 			"date": "2026-07-13",
 			"summary": "The Scoring phase now spells out each player's primary mission in full: alongside the card name you get the official scoring blurb and a plain-English, per-rule VP breakdown, so you can see exactly how your primary scores without a rulebook.",
