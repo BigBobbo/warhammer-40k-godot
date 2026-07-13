@@ -2103,6 +2103,7 @@ func get_pending_guard_choice(player: int) -> Dictionary:
 				eligible.append({
 					"unit_id": fu["unit_id"],
 					"unit_name": fu["unit_name"],
+					"model_count": fu.get("model_count", 0),
 					"embarked": fu.get("embarked", false),
 					"in_range": in_range,
 				})
@@ -2139,9 +2140,16 @@ func _get_guard_eligible_units(player: int) -> Array:
 		var status = unit.get("status", GameStateData.UnitStatus.UNDEPLOYED)
 		if status == GameStateData.UnitStatus.IN_RESERVES or status == GameStateData.UnitStatus.DEPLOYING:
 			continue  # not physically on the battlefield
+		var meta = unit.get("meta", {})
 		result.append({
 			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id),
+			# Prefer display_name (carries the Alpha/Beta suffix for duplicate
+			# squads) so two "Boyz" units are distinguishable, matching the roster
+			# panel. model_count further disambiguates same-named squads and uses
+			# the same total-models count the roster shows (units.models.size())
+			# so the numbers line up with what the player reads on the right.
+			"unit_name": meta.get("display_name", meta.get("name", unit_id)),
+			"model_count": unit.get("models", []).size(),
 			"embarked": unit.get("embarked_in", null) != null,
 		})
 	return result

@@ -51,6 +51,13 @@
       "script": "option_button_text_for_metadata(\"/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\", \"U_STRIKE_FORCE_A\").contains(\"in range\")",
       "equals": false },
 
+    { "act": "execute_script",
+      "script": "option_button_text_for_metadata(\"/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\", \"U_BOYZ_E\").contains(\"20 models\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "option_button_text_for_metadata(\"/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\", \"U_BOYZ_K\").contains(\"10 models\")",
+      "equals": true },
+
     { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_home_1/Guard_obj_home_1", "timeout_s": 2.0 },
 
     { "act": "execute_script",

@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.35.2",
+			"date": "2026-07-13",
+			"summary": "The Burden of Trust guard dropdown now names each unit the same way as the roster panel — including the Alpha/Beta suffix and the model count — so two 'Boyz' squads (or two Warbosses) are no longer indistinguishable.",
+			"changes": [
+				"Guard dropdown entries now read e.g. 'Boyz Alpha (20 models, in range)' instead of a bare 'Boyz', so you can tell duplicate squads apart when nominating a guard.",
+				"The '(in range)' / '(embarked)' hint is now folded into the same parenthetical as the model count for a cleaner, single-line label."
+			]
+		},
+		{
 			"version": "0.35.1",
 			"date": "2026-07-13",
 			"summary": "Burden of Trust guard selection now lets you pick ANY of your units to guard an objective, not just the single highest-priority one it auto-picked. The dropdown lists every friendly unit on the battlefield, marks the ones currently in range (they score right now), and shows a row for every objective.",

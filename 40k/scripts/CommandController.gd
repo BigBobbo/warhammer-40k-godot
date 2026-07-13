@@ -1824,14 +1824,18 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 		var idx := 1
 		for eu in entry.get("eligible", []):
 			var uid: String = str(eu.get("unit_id", ""))
-			# Any friendly unit can be picked; annotate the ones that are actually
+			# Any friendly unit can be picked. Show the model count (and the
+			# Alpha/Beta suffix carried by the display name) so duplicate squads
+			# like two "Boyz" are distinguishable, and annotate the ones actually
 			# in range now (they score) or embarked (they can't score until they
 			# disembark and get in range) so the choice is informed.
-			var item_label: String = str(eu.get("unit_name", uid))
+			var tags := PackedStringArray()
+			tags.append("%d models" % int(eu.get("model_count", 0)))
 			if eu.get("embarked", false):
-				item_label += " (embarked)"
+				tags.append("embarked")
 			elif eu.get("in_range", false):
-				item_label += " (in range)"
+				tags.append("in range")
+			var item_label: String = "%s (%s)" % [str(eu.get("unit_name", uid)), ", ".join(tags)]
 			picker.add_item(item_label)
 			picker.set_item_metadata(idx, uid)
 			unit_ids.append(uid)
