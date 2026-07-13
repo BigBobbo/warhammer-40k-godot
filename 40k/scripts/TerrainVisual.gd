@@ -101,12 +101,20 @@ func _ready() -> void:
 		SettingsService.ruins_style_changed.connect(_on_ruins_style_changed)
 		if SettingsService.has_signal("terrain_debug_labels_changed"):
 			SettingsService.terrain_debug_labels_changed.connect(_on_terrain_debug_labels_changed)
+		if SettingsService.has_signal("terrain_scatter_changed"):
+			SettingsService.terrain_scatter_changed.connect(_on_terrain_scatter_changed)
 
 	print("[TerrainVisual] Initialized")
 
 ## Re-render all terrain when the debug-labels setting flips, so the label
 ## style switches live without reloading the board.
 func _on_terrain_debug_labels_changed(_enabled: bool) -> void:
+	if TerrainManager and TerrainManager.terrain_features.size() > 0:
+		_on_terrain_loaded(TerrainManager.terrain_features)
+
+## Re-render all terrain when the scatter-props setting flips, so the decorative
+## crates/sandbags/trees appear or disappear live without reloading the board.
+func _on_terrain_scatter_changed(_enabled: bool) -> void:
 	if TerrainManager and TerrainManager.terrain_features.size() > 0:
 		_on_terrain_loaded(TerrainManager.terrain_features)
 
@@ -157,6 +165,12 @@ func _get_label_text(terrain_data: Dictionary) -> String:
 ## Whether the verbose internal id labels + LoS badges should render.
 func _debug_labels_enabled() -> bool:
 	return SettingsService != null and SettingsService.terrain_debug_labels
+
+## Whether decorative scatter props (crates, sandbags, trees, per-type details)
+## should render. Defaults to true when SettingsService is unavailable so the
+## automated harness/tests still see the props unless a test opts out.
+func _scatter_enabled() -> bool:
+	return SettingsService == null or SettingsService.show_terrain_scatter
 
 func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	var container = Node2D.new()
@@ -219,8 +233,10 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	if label_panel != null:
 		container.add_child(label_panel)
 
-	# Add type-specific decorative details
-	_add_terrain_decorations(container, terrain_data)
+	# Add type-specific decorative details (crates, sandbags, trees, scorch
+	# marks, …) unless the player has hidden scatter props for a cleaner board.
+	if _scatter_enabled():
+		_add_terrain_decorations(container, terrain_data)
 
 	# Add LoS-blocker badge only with debug labels on — the compact height chip
 	# already encodes blocks_los via its gold tint.

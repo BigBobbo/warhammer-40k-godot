@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.36.0",
+			"date": "2026-07-13",
+			"summary": "Added a Settings toggle to hide terrain scatter props. Settings > Visual now has a 'Terrain Scatter Props (crates, sandbags, trees)' checkbox — turn it off for a cleaner, less cluttered board that shows just the terrain footprints, borders and walls. On by default; the choice is saved between sessions.",
+			"changes": [
+				"New Settings > Visual checkbox 'Terrain Scatter Props (crates, sandbags, trees)' — toggles the decorative props scattered on terrain pieces.",
+				"Takes effect immediately on the board (no reload needed) and persists across sessions.",
+				"When off, terrain still shows its footprints, borders, objective markers and walls — only the cosmetic scatter is hidden."
+			]
+		},
+		{
 			"version": "0.35.1",
 			"date": "2026-07-13",
 			"summary": "Removed the red barrel props from ruins terrain. Viewed top-down they read as flat red circles that looked like objective or blast markers rather than scenery, so ruins now scatter only crates and sandbags.",
