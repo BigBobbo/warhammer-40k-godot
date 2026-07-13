@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.36.0",
+			"date": "2026-07-13",
+			"summary": "Burden of Trust guards can now be nominated straight from the board: each objective row in the 'Assign Guards' dialog has a 'Pick on board' button — click it, then click one of your units on the battlefield to make it that objective's guard. The dropdown stays as an alternative.",
+			"changes": [
+				"New 'Pick on board' button on every objective row: it hides the dialog, shows a banner, and the next click on one of your units assigns it as that objective's guard, then re-opens the dialog with the pick applied.",
+				"A 'Cancel' button on the banner (and clicking empty space / a non-eligible unit) returns you to the dialog without changing anything.",
+				"The dropdown selection and 'Pick on board' stay in sync, so you can mix and match; Confirm Guards / Keep Auto Picks work exactly as before."
+			]
+		},
+		{
 			"version": "0.35.2",
 			"date": "2026-07-13",
 			"summary": "The Burden of Trust guard dropdown now names each unit the same way as the roster panel — including the Alpha/Beta suffix and the model count — so two 'Boyz' squads (or two Warbosses) are no longer indistinguishable.",
