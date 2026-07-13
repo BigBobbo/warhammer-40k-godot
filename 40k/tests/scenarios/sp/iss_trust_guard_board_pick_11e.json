@@ -1,0 +1,82 @@
+{
+  "id": "iss_trust_guard_board_pick_11e",
+  "covers": [
+    "rules.secondaries.burden_of_trust.guard_prompt",
+    "ui.command.guard_dialog_board_pick"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "11e Burden of Trust 'Pick on board': instead of hunting the dropdown, the player can click a 'Pick on board' button on an objective row, which hides the guard dialog and shows a banner; the next click on one of their units on the battlefield nominates it as that objective's guard and re-opens the dialog with the pick applied. Drives the REAL click path: click_node the PickBoard button, assert the dialog hides + banner shows, click_unit a real token (U_STRIKE_FORCE_A) on the board, and assert the dialog re-opens with obj_center's guard now set to that unit (it started auto-assigned to U_WARBOSS_B).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.apply_state_changes([{\"op\": \"set\", \"path\": \"units.U_WARBOSS_B.models.0.position\", \"value\": Vector2(880, 1230)}])" },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(2)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"].merge({\"deck\": [\"burden_of_trust\"], \"active\": []}, true)" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/PickBoard_obj_center", "timeout_s": 2.0 },
+
+    { "act": "execute_script",
+      "script": "str(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\").get_item_metadata(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\").selected))",
+      "equals": "U_WARBOSS_B" },
+
+    { "act": "click_node", "node": "/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/PickBoard_obj_center", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"GuardSelectionDialog\").visible",
+      "equals": false },
+    { "act": "expect_node_visible", "node": "/root/GuardBoardPickBanner", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_board_pick_armed" },
+
+    { "act": "click_unit", "unit_id": "U_STRIKE_FORCE_A" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"GuardSelectionDialog\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node_or_null(\"GuardBoardPickBanner\") == null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "str(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\").get_item_metadata(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\").selected))",
+      "equals": "U_STRIKE_FORCE_A" },
+
+    { "act": "screenshot", "label": "02_board_pick_applied" },
+
+    { "act": "click_node", "node": "/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_nml_1/PickBoard_obj_nml_1", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "expect_node_visible", "node": "/root/GuardBoardPickBanner/BannerPanel/BannerRow/CancelBoardPick", "timeout_s": 2.0 },
+    { "act": "click_node", "node": "/root/GuardBoardPickBanner/BannerPanel/BannerRow/CancelBoardPick", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"GuardSelectionDialog\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node_or_null(\"GuardBoardPickBanner\") == null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "str(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_nml_1/Guard_obj_nml_1\").get_item_metadata(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_nml_1/Guard_obj_nml_1\").selected))",
+      "equals": "" },
+    { "act": "execute_script",
+      "script": "str(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\").get_item_metadata(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\").selected))",
+      "equals": "U_STRIKE_FORCE_A" }
+  ]
+}

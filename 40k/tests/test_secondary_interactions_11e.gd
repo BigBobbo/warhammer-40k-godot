@@ -194,8 +194,30 @@ func _run_tests():
 	_check("revision window pending for the human prompt",
 		bot_mission.get("mission_data", {}).get("guards_prompt_pending", false) == true)
 	var pending_choice = mgr.get_pending_guard_choice(1)
-	_check("pending guard choice exposes eligible units per objective",
-		pending_choice.get("objectives", []).size() == 2, str(pending_choice))
+	# Per the card, SELECTION is NOT range-limited: every objective is offered a
+	# row and every friendly unit on the battlefield is eligible for each of them.
+	# (Range only annotates which picks would score right now and gates scoring.)
+	# Board here has 5 objectives, so all 5 are exposed even though only two have
+	# a unit sitting on them.
+	var pc_objectives = pending_choice.get("objectives", [])
+	_check("pending guard choice exposes EVERY objective, not just in-range ones",
+		pc_objectives.size() == 5, str(pc_objectives.size()))
+	var nml1_ids := {}
+	var g1_in_range_on_nml1 := false
+	var g2_in_range_on_nml1 := false
+	for o in pc_objectives:
+		if str(o.get("objective_id", "")) == "obj_nml_1":
+			for e in o.get("eligible", []):
+				nml1_ids[str(e.get("unit_id", ""))] = true
+				if str(e.get("unit_id", "")) == "U_G1":
+					g1_in_range_on_nml1 = bool(e.get("in_range", false))
+				if str(e.get("unit_id", "")) == "U_G2":
+					g2_in_range_on_nml1 = bool(e.get("in_range", false))
+	_check("every friendly unit is eligible for an objective regardless of range",
+		nml1_ids.has("U_G1") and nml1_ids.has("U_G2"), str(nml1_ids.keys()))
+	_check("in_range flag marks the unit on obj_nml_1 (U_G1) but not the far unit (U_G2)",
+		g1_in_range_on_nml1 and not g2_in_range_on_nml1,
+		"g1=%s g2=%s" % [str(g1_in_range_on_nml1), str(g2_in_range_on_nml1)])
 	var count_guarded = mgr._count_guarded_objectives(1, {}, bot_mission)
 	_check("both guarded objectives count while controlled + in range", count_guarded == 2, str(count_guarded))
 	# Guard dies -> its objective is no longer guarded
