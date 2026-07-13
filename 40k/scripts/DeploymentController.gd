@@ -1628,14 +1628,12 @@ func _coherency_model_at(index: int, unit_data: Dictionary) -> Dictionary:
 
 func _compute_coherency_status() -> Dictionary:
 	"""Single source of truth for deployment coherency over the currently-placed
-	temp models. Delegates to the edition-aware AttackSequence.check_unit_coherency()
-	so deployment matches every other phase and the active ruleset.
+	temp models. Delegates to AttackSequence.check_unit_coherency() so deployment
+	matches every other phase.
 
-	11e (core rules 03.03): a unit of 2+ models is in coherency only while EVERY model is
+	11th edition (core rules 03.03): a unit of 2+ models is in coherency only while EVERY model is
 	  • within 2\" horizontally / 5\" vertically of at least ONE other model in the unit, AND
 	  • within 9\" horizontally / 5\" vertically of EVERY other model in the unit (the envelope).
-	(The legacy 10e '7+ models need 2 neighbours' rule, and the absence of the envelope,
-	live inside check_unit_coherency behind its edition gate — not duplicated here.)
 
 	Returns {unit_empty, placed_count, total_models, incoherent_indices,
 	spread_violation, isolation_violation}."""
@@ -1675,9 +1673,7 @@ func _compute_coherency_status() -> Dictionary:
 	# thresholds check_unit_coherency uses.
 	if not result.get("coherent", true):
 		var coh_px = Measurement.inches_to_px(GameConstants.coherency_distance_inches())
-		var envelope_px = 0.0
-		if GameConstants.edition >= 11:
-			envelope_px = Measurement.inches_to_px(GameConstants.coherency_envelope_inches())
+		var envelope_px = Measurement.inches_to_px(GameConstants.coherency_envelope_inches())
 		for a in range(synthetic_models.size()):
 			var neighbors = 0
 			for b in range(synthetic_models.size()):
@@ -1686,7 +1682,7 @@ func _compute_coherency_status() -> Dictionary:
 				var d = Measurement.model_to_model_distance_px(synthetic_models[a], synthetic_models[b])
 				if d <= coh_px:
 					neighbors += 1
-				if envelope_px > 0.0 and d > envelope_px:
+				if d > envelope_px:
 					status["spread_violation"] = true
 			if neighbors < 1:
 				status["isolation_violation"] = true

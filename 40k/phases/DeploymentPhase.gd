@@ -168,10 +168,10 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 					var id_j = model_j.get("id", "model %d" % j)
 					errors.append("Models %s and %s overlap each other" % [id_i, id_j])
 
-	# Issue #335: Validate unit coherency (2" horizontal / 5" vertical) after per-model zone checks.
-	# Per WH40K 10e core rules, deployed units must be set up in unit coherency:
-	# - 2-6 models: each model within 2" horizontally + 5" vertically of at least 1 sibling
-	# - 7+ models:  each model within 2" horizontally + 5" vertically of at least 2 siblings
+	# Issue #335: Validate unit coherency after per-model zone checks.
+	# Per WH40K 11th-edition core rules (03.03), a deployed unit is in coherency only while
+	# every model is within 2" horizontally / 5" vertically of at least one other model AND
+	# within 9" horizontally / 5" vertically of every other model in the unit.
 	if not unit.is_empty() and model_positions.size() > 1:
 		var coherency_check = _check_deployment_coherency(model_positions, model_rotations, unit)
 		if not coherency_check.valid:
@@ -185,10 +185,9 @@ func _check_deployment_coherency(model_positions: Array, model_rotations: Array,
 	source of truth also used by ScoringPhase and DeploymentController._is_unit_coherent()
 	— so the deploy-action validator, the UI deploy gate and the rest of the game all
 	enforce exactly one ruleset.
-	11e (core rules 03.03): a unit is in coherency only while every model is within 2\"
-	horizontally / 5\" vertically of at least one other model AND within 9\" of every
-	other model in the unit. (The legacy 10e '7+ models need 2 neighbours' rule lives
-	inside check_unit_coherency behind its edition gate.)
+	11th edition (core rules 03.03): a unit is in coherency only while every model is within
+	2\" horizontally / 5\" vertically of at least one other model AND within 9\" of every
+	other model in the unit.
 	Models with null positions (not yet placed) are skipped — full coherency is only
 	enforced once all models are placed. Returns {valid: bool, errors: Array}."""
 	var unit_models = unit.get("models", [])
@@ -222,8 +221,6 @@ func _check_deployment_coherency(model_positions: Array, model_rotations: Array,
 	var offenders = result.get("offenders", [])
 	log_phase_message("Deployment coherency check failed: %d model(s) out of coherency (%s)" % [offenders.size(), ", ".join(offenders)])
 	var reason := "every model must be within 2\" of at least one other model AND within 9\" of every other model in the unit"
-	if GameConstants.edition < 11:
-		reason = "every model must be within 2\" of the required number of other models in the unit"
 	return {"valid": false, "errors": ["Unit coherency broken: %s (%d model(s) out of coherency)." % [reason, offenders.size()]]}
 
 func _validate_composite_deploy_action(action: Dictionary) -> Dictionary:
