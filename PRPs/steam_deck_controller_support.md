@@ -1,6 +1,6 @@
 # Steam Deck / Controller Support — Research & Phased Implementation Plan
 
-**Status:** IN PROGRESS — M0 shipped 2026-07-12 (v0.25.0, PR #571 merged); M1 shipped 2026-07-12 (v0.31.0 after merge re-versioning — a complete solo turn played pad-only); M2 shipped 2026-07-12 (v0.32.0; gates `pad_m2_unit_cycle` + `pad_m2_shooting_native` PASS — shooting phase completed with zero virtual-cursor use). Next: M3 (model carry — native stick movement).
+**Status:** IN PROGRESS — M0 shipped 2026-07-12 (v0.25.0, PR #571); M1+M2 shipped 2026-07-12 (v0.31.0/v0.32.0, PR #576); M3 shipped 2026-07-13 (v0.33.0; gates `pad_m3_carry_move` + `pad_m3_carry_deploy` PASS — stick-carried models through the real drag/stage/coherency pipeline in Movement and Deployment). Next: M4 (full native sweep, stratagems, text entry) — including the deferred charge/pile-in carry scenarios.
 **Branch:** `claude/steam-deck-controller-support-1tzorb`
 **Date:** 2026-07-12 (game version at time of writing: 0.21.0)
 **Goal:** Make the full game playable — and eventually *pleasant* — on a Steam Deck with no mouse or keyboard, without regressing the existing mouse/keyboard experience.
@@ -600,13 +600,41 @@ dice + wound allocation walked with A → X skips remaining weapons →
 phase bumper cycling, Y datasheet toggle, D-pad panel-focus entry, B
 release). All M0/M1 pad scenarios + the KBM baseline re-run green (7/7).
 
-### M3 — Model carry: native movement (large — the heart of the feature)
-`ModelCarryController` for Deployment and Movement first (budget readout,
-rotation on bumpers, formation presets, per-model d-pad hop, undo/reset), then
-the same mode reused for Charge moves, pile-in, consolidate. **Gate:**
-Deployment + full Movement phase + a charge executed pad-native
-(`pad_m3_carry_*.json` suite); positions/legality byte-identical to the same
-actions performed by `dispatch_action` (diff against the action log).
+### M3 — Model carry: native movement (large — the heart of the feature) — ✅ SHIPPED 2026-07-13 (v0.33.0, partial: charge/fight carry wired but not yet scenario-gated)
+Shipped: the carry rides the virtual cursor rather than a separate
+`ModelCarryController` — A (cursor parked, unit selected) warps the pointer
+to the active model and holds a synthetic LMB, so **the real drag pipeline
+runs underneath** (move caps, terrain penalties, overlap, coherency, staging
+and CONFIRM_UNIT_MOVE are enforced by the same code the mouse uses — the
+plan's "byte-identical legality" goal by construction). Stick speed drops to
+a linear precision curve while carrying. A drops (stages), B cancels back to
+the pickup point, LB/RB rotates via the *synthesized rebindable*
+`rotate_left`/`rotate_right` key events (respects rebinds; covers Movement,
+Deployment and Charge controllers at once), D-pad ◀ ▶ hops the unit's alive
+models (index resets when the unit changes), X undoes the last staged model.
+Deployment: A warps cursor+ghost to the deployment-zone centroid and every
+A after that is a placement click; the transport embark dialog gets pad
+focus. `_handle_back` (B) now clears panel focus AND parks the cursor in one
+press. Fixed along the way: buttons created via `AcceptDialog.add_button()`
+live in the dialog's INTERNAL button row, which `get_children()` skips by
+default — every pad/scenario button-finder now passes
+`get_children(true)`, and the scenario runner projects tokens through the
+scene's own `world_to_screen_position` (the viewport canvas transform
+follows the unused Camera2D and can drift from the CanvasLayer the board
+actually renders in).
+**Gate (met):** `pad_m3_carry_move` (63/0 — pick up, glide-drag, drop
+staged, hop to model 2, second stage, X undo back to 1, Confirm lands
+exactly the kept move in GameState with the undone model unmoved, then the
+oval-based jetbike is carried, rotated ≥0.2 rad with LB and cancelled) and
+`pad_m3_carry_deploy` (32/0 — Battlewagon placed in-zone after ghost
+rotation, Confirm → embark dialog → Deploy Without Embarking → deployment
+alternates to player 1). Full pad suite + KBM baseline: 9/9.
+**Deferred to the M4 turn:** windowed scenarios for charge-move / pile-in /
+consolidate carry (the CHARGE branch is wired through the same pickup path
+but is NOT yet validated — treat charge-by-pad as unverified until its
+scenario lands), and a budget-clamp so the carried model can't be dragged
+past its remaining inches (currently the drop is rejected exactly like an
+over-cap mouse drop; clamping at the cap edge is better UX).
 
 ### M4 — Full native sweep + stratagems + text entry (medium)
 Command/Scoring flows, stratagem & reactive prompts (overwatch etc.), save/load

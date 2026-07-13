@@ -25,6 +25,7 @@ extends CanvasLayer
 signal cursor_mode_changed(active: bool)
 
 const BASE_SPEED := 1500.0  # px/s at full stick deflection (before response curve)
+const CARRY_SPEED := 800.0  # px/s while carrying a model — precision over travel
 const GLIDE_SPEED := 2200.0  # px/s for test-seam glides (deterministic)
 const ARRIVE_EPSILON := 2.0
 
@@ -85,8 +86,13 @@ func _process(delta: float) -> void:
 	var vec := Input.get_vector("pad_cursor_left", "pad_cursor_right", "pad_cursor_up", "pad_cursor_down")
 	if vec != Vector2.ZERO:
 		_set_cursor_active(true)
-		# Quadratic response: gentle deflection = precision, full = speed.
-		_move_cursor(vec.normalized() * BASE_SPEED * vec.length() * vec.length() * delta)
+		if PadRouter.is_carrying():
+			# Carrying a model: linear response with a lower ceiling — inch
+			# budgets are small and precision beats travel speed.
+			_move_cursor(vec * CARRY_SPEED * delta)
+		else:
+			# Quadratic response: gentle deflection = precision, full = speed.
+			_move_cursor(vec.normalized() * BASE_SPEED * vec.length() * vec.length() * delta)
 
 
 func _move_cursor(rel: Vector2) -> void:
@@ -114,6 +120,22 @@ func _move_cursor(rel: Vector2) -> void:
 
 func get_cursor_pos() -> Vector2:
 	return _pos
+
+
+# M3 carry seams (PadRouter): jump the pointer somewhere (activating cursor
+# mode) and press/release the synthetic left button — both routed through the
+# same warp+event pipeline as stick movement, so drag handlers can't tell the
+# difference from a mouse.
+func warp_to(screen_pos: Vector2) -> void:
+	if not _initialized_pos:
+		_pos = get_viewport().get_visible_rect().size / 2.0
+		_initialized_pos = true
+	_set_cursor_active(true)
+	_move_cursor(screen_pos - _pos)
+
+
+func set_left_button(pressed: bool) -> void:
+	_emit_button(MOUSE_BUTTON_LEFT, pressed)
 
 
 func _edge_pan(push: Vector2) -> void:
@@ -145,6 +167,11 @@ func _input(event: InputEvent) -> void:
 			return
 		match event.button_index:
 			JOY_BUTTON_A:
+				# During an M3 carry the router owns A (drop/cancel semantics);
+				# a second synthetic LMB press mid-drag would confuse the drag
+				# handlers.
+				if PadRouter.is_carrying():
+					return
 				_emit_button(MOUSE_BUTTON_LEFT, event.pressed)
 				get_viewport().set_input_as_handled()
 			JOY_BUTTON_X:
@@ -197,6 +224,9 @@ func _on_device_changed(mode: int) -> void:
 # ============================================================================
 
 func glide_to_screen(target: Vector2, timeout_s: float = 6.0) -> bool:
+	# The glide is pad-layer input by definition; claim the mode so a scenario
+	# whose very first act is a glide isn't gated out of _process.
+	InputDeviceManager.claim_pad()
 	_glide_target = target
 	var elapsed := 0.0
 	while _glide_target != null and elapsed < timeout_s:
