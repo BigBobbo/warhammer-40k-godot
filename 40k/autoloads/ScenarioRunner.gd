@@ -1132,6 +1132,24 @@ func event_log_count_containing(needle: String) -> int:
 			n += 1
 	return n
 
+# Width in px of the static top-down sprite resolved onto the first token of
+# `unit_id`: -1 if no token exists, 0 if the token has no sprite (letter
+# fallback). Callable from `execute_script` steps, e.g.
+# unit_token_sprite_width("U_CUSTODIAN_GUARD_B") with equals 512 to assert the
+# bundled Custodian Guard art landed on the board token.
+func unit_token_sprite_width(unit_id: String) -> int:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return -1
+	var tl := scene.get_node_or_null("BoardRoot/TokenLayer")
+	if tl == null:
+		return -1
+	for c in tl.get_children():
+		if c.has_meta("unit_id") and str(c.get_meta("unit_id")) == unit_id:
+			var tex = c._get_unit_sprite_texture()
+			return tex.get_width() if tex != null else 0
+	return -1
+
 func max_tokens_per_model() -> int:
 	var scene := get_tree().current_scene
 	if scene == null:

@@ -766,10 +766,14 @@ func _draw_letter_mode() -> void:
 			var to = poly_points[(i + 1) % poly_points.size()]
 			draw_line(from, to, border_shade, 2.0)
 
-	# --- Layer 3: Vehicle sprite, or centered letter label ---
-	# VEHICLE tokens render a top-down tank sprite (faction colorway) on the
-	# base; everything else keeps the Vassal-style letter counter.
-	if _get_tank_body_texture() != null:
+	# --- Layer 3: Top-down unit art, vehicle tank sprite, or letter label ---
+	# Units with dedicated top-down art (bundled or user drop-in, resolved by
+	# SpriteResolver) render that; VEHICLE tokens without dedicated art fall
+	# back to the generic tank sprite (faction colorway); everything else
+	# keeps the Vassal-style letter counter.
+	if _get_unit_sprite_texture() != null:
+		_draw_unit_sprite(rot)
+	elif _get_tank_body_texture() != null:
 		_draw_tank_sprite(rot)
 	else:
 		var label = _get_letter_label()
@@ -1359,6 +1363,25 @@ func _resolve_sprite() -> void:
 	var unit_type = _get_unit_type()
 
 	_sprite_texture = SpriteResolver.resolve_sprite(unit_name, faction, unit_type)
+
+
+func _get_unit_sprite_texture() -> Texture2D:
+	if not _sprite_resolved:
+		_resolve_sprite()
+	return _sprite_texture
+
+
+func _draw_unit_sprite(rot: float) -> void:
+	# Top-down unit art drawn 1:1 over the base: the sprite's square canvas maps
+	# to the base diameter, so the figure fills its base and weapons may overhang
+	# the base circle (Vassal-style). Rotates with the model's facing like tanks.
+	var bounds = base_shape.get_bounds()
+	var tex = _sprite_texture
+	var fit = min(bounds.size.x / tex.get_width(), bounds.size.y / tex.get_height())
+	draw_set_transform(Vector2.ZERO, rot, Vector2(fit, fit))
+	var tex_size = Vector2(tex.get_width(), tex.get_height())
+	draw_texture_rect(tex, Rect2(-tex_size / 2.0, tex_size), false)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _get_tank_body_texture() -> Texture2D:

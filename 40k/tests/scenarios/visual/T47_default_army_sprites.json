@@ -1,0 +1,42 @@
+{
+  "id": "T47_default_army_sprites",
+  "covers": ["tokens.unit_sprites", "tokens.default_army_topdown_art"],
+  "fixture": "grenade_dupes",
+  "disable_ai": true,
+  "description": "Every unit in the two default army lists (Recon Stomps orks vs Custodes Lions) has bundled top-down art that resolves through SpriteResolver: all 12 unit names resolve at their expected canvas widths (square 512 for round bases, 287/324-wide tall canvases for the oval bikes/koptas/wartrike), and the deployed fixture tokens (Wartrike, Gretchin, Mek, Warbikers, Blade Champion) carry the art on the live board. Witchseekers (no art) keep the letter fallback. Screenshots capture the ork sprite cluster and the Blade Champion.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Custodian Guard\", \"Adeptus Custodes\", \"INFANTRY\").get_width()", "equals": 512 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Allarus Custodians\", \"Adeptus Custodes\", \"INFANTRY\").get_width()", "equals": 512 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Blade Champion\", \"Adeptus Custodes\", \"INFANTRY\").get_width()", "equals": 512 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Prosecutors\", \"Adeptus Custodes\", \"INFANTRY\").get_width()", "equals": 512 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Stompa\", \"Orks\", \"VEHICLE\").get_width()", "equals": 512 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Gretchin\", \"Orks\", \"INFANTRY\").get_width()", "equals": 512 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Mek\", \"Orks\", \"INFANTRY\").get_width()", "equals": 512 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Stormboyz\", \"Orks\", \"INFANTRY\").get_width()", "equals": 512 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Wazdakka Gutsmek\", \"Orks\", \"VEHICLE\").get_width()", "equals": 512 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Warbikers\", \"Orks\", \"INFANTRY\").get_width()", "equals": 287 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Deffkoptas\", \"Orks\", \"VEHICLE\").get_width()", "equals": 287 },
+    { "act": "execute_script", "script": "SpriteResolver.resolve_sprite(\"Deffkilla Wartrike\", \"Orks\", \"INFANTRY\").get_width()", "equals": 324 },
+
+    { "act": "expect_token_visible", "unit_id": "U_DEFFKILLA_WARTRIKE_A", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "unit_token_sprite_width(\"U_DEFFKILLA_WARTRIKE_A\")", "equals": 324 },
+    { "act": "execute_script", "script": "unit_token_sprite_width(\"U_GRETCHIN_A\")", "equals": 512 },
+    { "act": "execute_script", "script": "unit_token_sprite_width(\"U_MEK_A\")", "equals": 512 },
+    { "act": "execute_script", "script": "unit_token_sprite_width(\"U_WARBIKERS_A\")", "equals": 287 },
+    { "act": "execute_script", "script": "unit_token_sprite_width(\"U_BLADE_CHAMPION_A\")", "equals": 512 },
+    { "act": "execute_script", "script": "unit_token_sprite_width(\"U_WITCHSEEKERS_C\")", "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "main.fit_view_to_decision([\"U_DEFFKILLA_WARTRIKE_A\", \"U_GRETCHIN_A\", \"U_MEK_B\", \"U_WARBIKERS_A\", \"U_WARBIKERS_B\"])",
+      "equals": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "screenshot", "label": "01_ork_sprites_cluster" },
+
+    { "act": "execute_script", "script": "main.fit_view_to_selection(\"U_BLADE_CHAMPION_A\")", "equals": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "screenshot", "label": "02_blade_champion" }
+  ]
+}
