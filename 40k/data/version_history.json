@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.38.1",
+			"version": "0.38.2",
 			"date": "2026-07-13",
 			"summary": "Unit coherency is now enforced by the 11th-edition rule (core rules 03.03) everywhere in the game — deployment, movement, advance, scout, charge and fight. A unit is in coherency only while every model is within 2\" of at least one other model AND within 9\" of EVERY other model in the unit, so spreading a unit (e.g. Warbikers with an attached Deffkilla Wartrike) too far is now blocked with a message that names the exact 9\" rule instead of the old vague 'within 2\" of mates'.",
 			"changes": [
@@ -11,6 +11,17 @@
 				"The deploy error now tells you how many models are out of coherency and which rule is broken — e.g. 'Some models are more than 9\" apart — pull the unit closer together' or 'Some models are more than 2\" from their nearest mate'.",
 				"The on-board deployment coherency circles and the live movement coherency indicator now match the deploy/move gates exactly (all use one shared 11th-edition check), so a model that is touching a neighbour but sits more than 9\" from a far-flung mate correctly shows out-of-coherency instead of misleading green.",
 				"All coherency checks in the game — every phase, the deploy-action validator, the movement UI and the AI's formation planner — now share one single source of truth, so they can never disagree."
+			]
+		},
+		{
+			"version": "0.38.1",
+			"date": "2026-07-13",
+			"summary": "Fixed the AI abandoning most of its moves. The AI planned moves its own rules engine then rejected, so unit after unit gave up and stayed in the deployment zone. It now checks the same rules the game enforces before committing, so its units actually advance.",
+			"changes": [
+				"AI no longer routes moves through Monster/Vehicle bases it can't cross — it modelled big rectangular bases (e.g. the Battlewagon) as a too-small circle and clipped their ends, so every such move was thrown out. It now uses the exact base shape and paths around them.",
+				"AI moves now keep unit coherency: when a model had to shuffle around an obstacle it could end up too far from its squad, so the whole move was rejected at confirm time. Models are now relocated only to spots that keep the unit together.",
+				"AI no longer stacks models on top of each other in tight spaces (its 'squeeze in' fallback could overlap bases the game forbids).",
+				"Net effect: far fewer units freeze in place, so the AI presses objectives and plays the board instead of standing still. Also fixed a harmless script error that fired when the AI reset or undid a move."
 			]
 		},
 		{

@@ -9709,6 +9709,18 @@ static func _try_move_with_collision_check(
 	var failed_models: Array = []
 	var model_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
 	var unit_kw: Array = unit.get("meta", {}).get("keywords", [])
+	# Max center-to-center distance for 2" edge-to-edge coherency (engine rule).
+	# Passed into collision resolution so a relocated model stays coherent with
+	# the rest of the unit, and used as the final gate below.
+	# Use the SMALLEST base in the unit: the engine measures coherency
+	# edge-to-edge with each model's real radius, so for a mixed-base unit
+	# (e.g. Ghazghkull 100mm + Makari 40mm) a uniform 100mm threshold
+	# OVER-estimates the allowed gap and lets an engine-incoherent formation
+	# slip through. The smaller radius is the conservative, always-legal choice.
+	var coherency_base_mm := base_mm
+	for _m in alive_models:
+		coherency_base_mm = mini(coherency_base_mm, int(_m.get("base_mm", base_mm)))
+	var coherency_max_px = (GameConstants.coherency_distance_inches() + (coherency_base_mm / 2.0 / 25.4) * 2.0) * PIXELS_PER_INCH
 
 	# Build intra-unit obstacles: original positions of same-unit models that
 	# haven't been placed yet. MovementPhase checks staged models against
@@ -9799,14 +9811,33 @@ static func _try_move_with_collision_check(
 			needs_resolve = true
 
 		if not needs_resolve and not mv_models.is_empty():
-			if _path_crosses_monster_vehicle(model_pos, dest, model_radius * radius_factor, mv_models):
+			if _path_crosses_monster_vehicle(model_pos, dest, base_mm, base_type, base_dimensions, mv_models, model.get("rotation", 0.0)):
+				needs_resolve = true
+
+		# Engine-exact overlap: the circular pre-check above uses radius_factor and
+		# can accept a relaxed placement whose REAL base overlaps another model.
+		if not needs_resolve and _dest_really_overlaps(dest, base_mm, base_type, base_dimensions, all_obstacles, model.get("rotation", 0.0)):
+			needs_resolve = true
+
+		# Coherency: if translating this model leaves it out of coherency with the
+		# unit's already-placed models, resolve toward a coherent spot (prevents
+		# the CONFIRM-time "Unit coherency broken" rejection). Skipped for the
+		# first placed model (nothing to be coherent with yet).
+		if not needs_resolve and not placed_models.is_empty():
+			var _coh_ok := false
+			for pm in placed_models:
+				if dest.distance_to(pm.position) <= coherency_max_px:
+					_coh_ok = true
+					break
+			if not _coh_ok:
 				needs_resolve = true
 
 		if needs_resolve:
 			var orig_pos = original_positions.get(model_id, model_pos)
 			var resolved_dest = _resolve_movement_collision(
 				dest, move_vector, base_mm, base_type, base_dimensions,
-				all_obstacles, enemies, unit, orig_pos, move_cap_px, mv_models, radius_factor
+				all_obstacles, enemies, unit, orig_pos, move_cap_px, mv_models, radius_factor,
+				placed_models, coherency_max_px
 			)
 			if resolved_dest == Vector2.INF:
 				failed_models.append({"model": model, "intended_dest": dest})
@@ -9838,9 +9869,8 @@ static func _try_move_with_collision_check(
 		})
 
 	# Place failed models near already-placed ones using spiral search
+	# (reuses the function-scope coherency_max_px computed above)
 	if not failed_models.is_empty() and not placed_models.is_empty():
-		var base_radius_inches = (base_mm / 2.0) / 25.4
-		var coherency_max_px = (2.0 + base_radius_inches * 2.0) * PIXELS_PER_INCH
 		var step = model_radius * 2.0 + 8.0
 
 		for fm in failed_models:
@@ -9880,8 +9910,13 @@ static func _try_move_with_collision_check(
 					if _is_position_near_enemy(candidate, enemies, unit):
 						continue
 					if not mv_models.is_empty() and orig_pos != Vector2.INF:
-						if _path_crosses_monster_vehicle(orig_pos, candidate, model_radius * radius_factor, mv_models):
+						if _path_crosses_monster_vehicle(orig_pos, candidate, base_mm, base_type, base_dimensions, mv_models, model.get("rotation", 0.0)):
 							continue
+					# Reject placements whose real base overlaps another model
+					# (relaxed radius_factor can slip real overlaps past the
+					# circular pre-check) — the engine would reject these.
+					if _dest_really_overlaps(candidate, base_mm, base_type, base_dimensions, deployed_models + placed_models + intra_unit_obstacles, model.get("rotation", 0.0)):
+						continue
 
 					# Check coherency with placed models. Neighbour requirement mirrors
 					# AttackSequence.check_unit_coherency: 11e needs 1, legacy 10e needs 2 at 7+.
@@ -9912,6 +9947,20 @@ static func _try_move_with_collision_check(
 		print("AIDecisionMaker: All %d models failed collision check, trying formation placement" % alive_models.size())
 		return _try_formation_move(alive_models, move_vector, enemies, unit, deployed_models, base_mm, base_type, base_dimensions, original_positions, move_cap_px, mv_models)
 
+	# Final coherency gate (engine-exact): the AI moves EVERY model, so the whole
+	# destination set must satisfy the same 2"-edge coherency rule the engine
+	# checks at CONFIRM. If a resolved placement still left the formation
+	# incoherent, reject this attempt so the caller retries at a shorter fraction
+	# (models stay closer to their coherent origins) — better than dispatching a
+	# move the engine will reject with "Unit coherency broken".
+	if destinations.size() >= 2:
+		var final_positions: Array = []
+		for mid in destinations:
+			final_positions.append(Vector2(destinations[mid][0], destinations[mid][1]))
+		if not _check_formation_coherency(final_positions, coherency_base_mm):
+			_debug_log_info("AI_MOVE_DEBUG %s: coherency gate rejected formation (%d models) — retrying shorter" % [_unit_name, destinations.size()])
+			return {}
+
 	return destinations
 
 static func _try_formation_move(
@@ -9938,8 +9987,13 @@ static func _try_formation_move(
 
 	var model_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
 	var model_count = alive_models.size()
-	var base_radius_inches = (base_mm / 2.0) / 25.4
-	var coherency_max_px = (2.0 + base_radius_inches * 2.0) * PIXELS_PER_INCH
+	# Smallest base in the unit — conservative coherency threshold for mixed-base
+	# units (see _try_move_with_collision_check for the rationale).
+	var fm_coherency_base_mm := base_mm
+	for _m in alive_models:
+		fm_coherency_base_mm = mini(fm_coherency_base_mm, int(_m.get("base_mm", base_mm)))
+	var base_radius_inches = (fm_coherency_base_mm / 2.0) / 25.4
+	var coherency_max_px = (GameConstants.coherency_distance_inches() + base_radius_inches * 2.0) * PIXELS_PER_INCH
 	# Neighbour requirement mirrors AttackSequence.check_unit_coherency (11e: 1; legacy 10e: 2 at 7+).
 	var required_connections = 2 if (GameConstants.edition < 11 and model_count >= 7) else 1
 	var step = model_radius * 2.0 + 8.0
@@ -10033,8 +10087,12 @@ static func _try_formation_move(
 					continue
 
 				if not mv_models.is_empty() and orig_pos != Vector2.INF:
-					if _path_crosses_monster_vehicle(orig_pos, candidate, model_radius, mv_models):
+					if _path_crosses_monster_vehicle(orig_pos, candidate, base_mm, base_type, base_dimensions, mv_models, model.get("rotation", 0.0)):
 						continue
+
+				# Real-base overlap gate (engine-exact) — see _dest_really_overlaps.
+				if _dest_really_overlaps(candidate, base_mm, base_type, base_dimensions, deployed_models + placed_obstacles + fm_intra_obstacles, model.get("rotation", 0.0)):
+					continue
 
 				if not placed_positions.is_empty():
 					var coh_count = 0
@@ -10065,6 +10123,17 @@ static func _try_formation_move(
 
 	if destinations.size() < alive_models.size():
 		return {}
+
+	# Final coherency gate (engine-exact) — greedy placement connects each new
+	# model to prior ones but does not guarantee every model ends with the
+	# required connection count (2 for 7+ model units). Reject if not fully
+	# coherent so the caller retries rather than dispatching a doomed CONFIRM.
+	if destinations.size() >= 2:
+		var fm_final_positions: Array = []
+		for mid in destinations:
+			fm_final_positions.append(Vector2(destinations[mid][0], destinations[mid][1]))
+		if not _check_formation_coherency(fm_final_positions, fm_coherency_base_mm):
+			return {}
 
 	print("AIDecisionMaker: Formation placement succeeded — %d models placed around (%.0f, %.0f)" % [destinations.size(), dest_centroid.x, dest_centroid.y])
 	return destinations
@@ -10106,25 +10175,98 @@ static func _get_monster_vehicle_models(snapshot: Dictionary, exclude_unit_id: S
 				"position": p,
 				"base_mm": model.get("base_mm", 32),
 				"base_type": model.get("base_type", "circular"),
-				"base_dimensions": model.get("base_dimensions", {})
+				"base_dimensions": model.get("base_dimensions", {}),
+				# Rotation is required for shape-aware overlap of rectangular/oval
+				# MV bases (e.g. the 180x110mm Battlewagon) — without it the
+				# footprint orientation is wrong and the crossing check drifts
+				# from the engine's.
+				"rotation": model.get("rotation", 0.0)
 			})
 	return models
 
+# MOV-FIX (2026-07-13): the AI's MONSTER/VEHICLE path-crossing test used to
+# approximate every MV base as a circle of radius (length+width)/4 and, worse,
+# shrank the moving model's radius by the relaxed-mode radius_factor. For the
+# Battlewagon (rectangular 180x110mm) that circle is 72.5mm but the true
+# half-length is 90mm, so the AI routed paths straight through the wagon's long
+# ends. The engine (MovementPhase._path_crosses_monster_vehicle_bases) samples
+# the path every ~10px and rejects via the shape+rotation-aware
+# Measurement.models_overlap — so the AI staged doomed moves that the engine
+# threw out with "Cannot move through Monster or Vehicle models" (the single
+# largest movement-staging failure in the benchmark: 50 in one 4-round game,
+# 23 of 25 against the Battlewagon; circular-based Dreadnoughts never tripped
+# it). This now mirrors the engine exactly. MV-crossing is a HARD rule, so it
+# NEVER applies radius_factor — relaxed collision modes must still route around
+# Monsters/Vehicles.
 static func _path_crosses_monster_vehicle(from_pos: Vector2, to_pos: Vector2,
-	model_radius: float, mv_models: Array) -> bool:
-	var path_length = from_pos.distance_to(to_pos)
-	if path_length < 1.0:
+	base_mm: int, base_type: String, base_dimensions: Dictionary,
+	mv_models: Array, rotation: float = 0.0) -> bool:
+	if mv_models.is_empty():
 		return false
-	var num_samples = maxi(2, int(path_length / 10.0))
+	var meas = _measurement()
+	var path_length = from_pos.distance_to(to_pos)
+	# Even a "stay put" endpoint must be checked (num_samples>=2 handles this).
+	var num_samples = maxi(2, int(maxf(path_length, 1.0) / 10.0))
+	var mover = {
+		"position": Vector2.ZERO,
+		"base_mm": base_mm,
+		"base_type": base_type,
+		"base_dimensions": base_dimensions,
+		"rotation": rotation
+	}
 	for i in range(num_samples + 1):
 		var t = float(i) / float(num_samples)
 		var sample_pos = from_pos.lerp(to_pos, t)
+		mover["position"] = sample_pos
 		for mv in mv_models:
-			var mv_radius = _model_movement_radius_px(
-				mv.get("base_mm", 32), mv.get("base_type", "circular"), mv.get("base_dimensions", {}))
-			var min_dist = model_radius + mv_radius
-			if sample_pos.distance_to(mv.position) < min_dist:
-				return true
+			if meas != null and meas.has_method("models_overlap"):
+				if meas.models_overlap(mover, mv):
+					return true
+			else:
+				# No Measurement autoload (unit tests): fall back to a
+				# conservative bounding-circle so we still never UNDER-detect.
+				var mv_r = _model_bounding_radius_px(
+					mv.get("base_mm", 32), mv.get("base_type", "circular"), mv.get("base_dimensions", {}))
+				var my_r = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+				if sample_pos.distance_to(mv.position) < my_r + mv_r:
+					return true
+	return false
+
+# MOV-FIX (2026-07-13): shape+rotation-aware "does this destination really
+# overlap another model's base" check, matching the engine's
+# MovementPhase._position_overlaps_other_models (Measurement.models_overlap).
+# The relaxed collision modes multiply BOTH base radii by radius_factor
+# (0.85/0.7/0.5), so their circular pre-check happily accepts placements whose
+# REAL bases overlap — which the engine then rejects with "Cannot end move on
+# top of another model". This gate is applied to every position the AI is about
+# to accept so a relaxed placement can still squeeze into a legal gap but can
+# never end up genuinely on top of another model. A cheap distance pre-filter
+# keeps it from running models_overlap against the whole board.
+static func _dest_really_overlaps(dest: Vector2, base_mm: int, base_type: String,
+	base_dimensions: Dictionary, obstacles: Array, rotation: float = 0.0) -> bool:
+	var meas = _measurement()
+	if meas == null or not meas.has_method("models_overlap"):
+		return false  # can't shape-check; rely on the circular pre-checks
+	var my_bound = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	var mover = {
+		"position": dest,
+		"base_mm": base_mm,
+		"base_type": base_type,
+		"base_dimensions": base_dimensions,
+		"rotation": rotation
+	}
+	for ob in obstacles:
+		var ob_pos = ob.get("position", null)
+		if ob_pos == null:
+			continue
+		var op: Vector2 = ob_pos if ob_pos is Vector2 else Vector2(float(ob_pos.get("x", 0)), float(ob_pos.get("y", 0)))
+		var ob_bound = _model_bounding_radius_px(
+			ob.get("base_mm", 32), ob.get("base_type", "circular"), ob.get("base_dimensions", {}))
+		# Distance pre-filter: bases can only overlap if their bounding circles do.
+		if dest.distance_to(op) > my_bound + ob_bound:
+			continue
+		if meas.models_overlap(mover, ob):
+			return true
 	return false
 
 static func _resolve_movement_collision(
@@ -10132,12 +10274,37 @@ static func _resolve_movement_collision(
 	base_type: String, base_dimensions: Dictionary,
 	obstacles: Array, enemies: Dictionary, unit: Dictionary,
 	original_pos: Vector2 = Vector2.INF, move_cap_px: float = 0.0,
-	mv_models: Array = [], radius_factor: float = 1.0
+	mv_models: Array = [], radius_factor: float = 1.0,
+	unit_placed: Array = [], coherency_max_px: float = 0.0
 ) -> Vector2:
 	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
 	var base_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
 	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0, 5.0, -5.0]
 	var rc_unit_kw: Array = unit.get("meta", {}).get("keywords", [])
+
+	# MOV-FIX (2026-07-13): a resolved candidate is only ACCEPTED if it (a) does
+	# not really overlap another base (engine-exact, defeats relaxed-mode
+	# overlaps) and (b) stays within unit coherency of an already-placed model.
+	# Without (b) the collision search happily relocated a model up to 5x base
+	# radius (~2.6") sideways or many rings away, so every individual STAGE
+	# passed but CONFIRM was rejected with "Unit coherency broken" — 22 of these
+	# in one benchmark game, permanently freezing units like the Custodian Guard.
+	var _accept := func(candidate: Vector2) -> bool:
+		if _dest_really_overlaps(candidate, base_mm, base_type, base_dimensions, obstacles):
+			return false
+		if not unit_placed.is_empty() and coherency_max_px > 0.0:
+			var coh := false
+			for pm in unit_placed:
+				var pp = pm.get("position", null) if pm is Dictionary else pm
+				if pp == null:
+					continue
+				var ppv: Vector2 = pp if pp is Vector2 else Vector2(float(pp.get("x", 0)), float(pp.get("y", 0)))
+				if candidate.distance_to(ppv) <= coherency_max_px:
+					coh = true
+					break
+			if not coh:
+				return false
+		return true
 
 	for multiplier in offsets:
 		var offset = perp * base_radius * multiplier
@@ -10161,9 +10328,10 @@ static func _resolve_movement_collision(
 		if _is_position_near_enemy(candidate, enemies, unit):
 			continue
 		if not mv_models.is_empty() and original_pos != Vector2.INF:
-			if _path_crosses_monster_vehicle(original_pos, candidate, base_radius * radius_factor, mv_models):
+			if _path_crosses_monster_vehicle(original_pos, candidate, base_mm, base_type, base_dimensions, mv_models):
 				continue
-		return candidate
+		if _accept.call(candidate):
+			return candidate
 
 	var back_dir = -move_vector.normalized()
 	for multiplier in [1.0, -1.0, 2.0, -2.0, 3.0, -3.0]:
@@ -10186,11 +10354,14 @@ static func _resolve_movement_collision(
 			if _is_position_near_enemy(candidate, enemies, unit):
 				continue
 			if not mv_models.is_empty() and original_pos != Vector2.INF:
-				if _path_crosses_monster_vehicle(original_pos, candidate, base_radius * radius_factor, mv_models):
+				if _path_crosses_monster_vehicle(original_pos, candidate, base_mm, base_type, base_dimensions, mv_models):
 					continue
-			return candidate
+			if _accept.call(candidate):
+				return candidate
 
-	# Third pass: full spiral search around destination for horde congestion
+	# Third pass: full spiral search around destination for horde congestion.
+	# Coherency is still enforced via _accept, so this can only relocate a model
+	# to a spot that keeps the unit legal (or fail, letting a shorter move try).
 	var step = base_radius * 2.0 + 4.0
 	for ring in range(1, 10):
 		var ring_radius = step * ring
@@ -10214,9 +10385,10 @@ static func _resolve_movement_collision(
 			if _is_position_near_enemy(candidate, enemies, unit):
 				continue
 			if not mv_models.is_empty() and original_pos != Vector2.INF:
-				if _path_crosses_monster_vehicle(original_pos, candidate, base_radius * radius_factor, mv_models):
+				if _path_crosses_monster_vehicle(original_pos, candidate, base_mm, base_type, base_dimensions, mv_models):
 					continue
-			return candidate
+			if _accept.call(candidate):
+				return candidate
 
 	return Vector2.INF
 
