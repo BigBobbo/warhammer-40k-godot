@@ -1,7 +1,8 @@
 extends Node2D
 
 # LineOfSightVisual - Renders the Line of Sight visualization
-# Shows which models can see the mouse cursor position when V key is held
+# Shows which models can see the mouse cursor position while X is held
+# (driven by LineOfSightManager, whose start/end is called from Main._input)
 
 # Visual settings
 const TARGET_COLOR = Color(1.0, 0.2, 0.1, 0.8)  # Red-orange for target (better contrast on green)
@@ -34,7 +35,7 @@ func _ready() -> void:
 		LineOfSightManager.los_calculation_ended.connect(_on_calculation_ended)
 		LineOfSightManager.set_visual_node(self)
 
-	print("[LineOfSightVisual] Initialized - Will show models that can see cursor position")
+	print("[LineOfSightVisual] Initialized - Hold X to show models that can see the cursor position")
 
 func _draw() -> void:
 	if not is_showing or target_position == Vector2.ZERO:

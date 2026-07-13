@@ -19,6 +19,11 @@ const CARD_GAP := 3
 const CARD_CORNER_RADIUS := 5
 const CARD_PADDING := 8
 const MAX_CARDS := 300
+# Simple (non-combat) log entries longer than this are shown as a preview with a
+# visible "show more"/"show less" toggle, so long AI move rationales stay fully
+# readable without dumping a wall of text into every card. Typical one-line
+# rationales fit under this cap and render in full with no toggle.
+const SIMPLE_CARD_PREVIEW_CHARS := 200
 
 # --- Entry Categories ---
 enum EntryCategory {
@@ -481,6 +486,56 @@ func last_simple_card_has_dice_visual() -> bool:
 		return false
 	var last = _card_container.get_child(_card_container.get_child_count() - 1)
 	return _node_has_dice_visual(last)
+
+func _last_card() -> Control:
+	if _card_container == null or _card_container.get_child_count() == 0:
+		return null
+	return _card_container.get_child(_card_container.get_child_count() - 1)
+
+func last_card_is_expandable() -> bool:
+	# Test introspection helper: true if the most recently added simple card is a
+	# truncated entry carrying a "show more"/"show less" toggle.
+	var card = _last_card()
+	return card != null and card.has_meta("expand_toggle")
+
+func last_card_is_expanded() -> bool:
+	# Test introspection helper: true if the last expandable card is currently
+	# showing its full (un-truncated) text.
+	var card = _last_card()
+	if card == null or not card.has_meta("expand_label"):
+		return false
+	var label = card.get_meta("expand_label")
+	if not is_instance_valid(label):
+		return false
+	# get_parsed_text() strips BBCode, so this compares the VISIBLE text length to
+	# the stored full text — proving the toggle actually swapped in the full entry.
+	var shown_len := int(label.get_parsed_text().strip_edges().length())
+	var full_len := int(String(card.get_meta("expand_full_text", "")).length())
+	return shown_len >= full_len
+
+func last_card_visible_char_count() -> int:
+	# Test introspection helper: length of the currently-visible (BBCode-stripped)
+	# text on the last expandable card. Grows when the card is expanded.
+	var card = _last_card()
+	if card == null or not card.has_meta("expand_label"):
+		return -1
+	var label = card.get_meta("expand_label")
+	if not is_instance_valid(label):
+		return -1
+	return int(label.get_parsed_text().strip_edges().length())
+
+func expand_last_card() -> bool:
+	# Test introspection helper: drive the last expandable card's toggle the same
+	# way a real click does (the button emits `pressed` on click), then report
+	# whether it is now expanded. Returns false if there is nothing to expand.
+	var card = _last_card()
+	if card == null or not card.has_meta("expand_toggle"):
+		return false
+	var btn = card.get_meta("expand_toggle")
+	if not is_instance_valid(btn):
+		return false
+	btn.pressed.emit()
+	return last_card_is_expanded()
 
 func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
 	"""Build an HBox row containing prefix label + graphical dice + suffix label."""
@@ -1040,13 +1095,13 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 		hbox.add_child(dice_content)
 		return card
 
-	# Text label — truncate long entries with expand on click
-	var display_text = text
-	var is_truncated = false
-	var max_chars = 120
-	if entry_type != "phase_header" and text.length() > max_chars:
-		display_text = text.substr(0, max_chars).strip_edges() + "..."
-		is_truncated = true
+	# Text label — long entries collapse to a preview with a VISIBLE "show more" /
+	# "show less" toggle so the full reasoning (e.g. an AI move rationale) is always
+	# reachable and reversible, not hidden behind an unlabeled click target.
+	var is_truncated := entry_type != "phase_header" and text.length() > SIMPLE_CARD_PREVIEW_CHARS
+	var preview_text := text
+	if is_truncated:
+		preview_text = text.substr(0, SIMPLE_CARD_PREVIEW_CHARS).strip_edges() + "…"
 
 	var label = RichTextLabel.new()
 	label.bbcode_enabled = true
@@ -1055,21 +1110,58 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.add_theme_font_size_override("normal_font_size", 11)
 	label.add_theme_font_size_override("bold_font_size", 12)
-	label.append_text(_format_entry_text(display_text, entry_type))
+	label.append_text(_format_entry_text(preview_text, entry_type))
 
-	if is_truncated:
-		var full_text = text
-		var fmt_type = entry_type
-		label.meta_clicked.connect(func(_meta): pass)
-		label.gui_input.connect(func(event):
-			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-				label.text = ""
-				label.append_text(_format_entry_text(full_text, fmt_type))
-		)
-		label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		label.tooltip_text = "Click to expand"
+	if not is_truncated:
+		hbox.add_child(label)
+		return card
 
-	hbox.add_child(label)
+	# Truncated: stack the label above a show more/less toggle inside a VBox so the
+	# icon stays top-aligned beside the growing text block.
+	var text_vbox = VBoxContainer.new()
+	text_vbox.add_theme_constant_override("separation", 1)
+	text_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_vbox.add_child(label)
+
+	var toggle_btn = Button.new()
+	toggle_btn.text = "  show more"
+	toggle_btn.add_theme_font_size_override("font_size", 9)
+	toggle_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	toggle_btn.flat = true
+	toggle_btn.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
+	toggle_btn.add_theme_color_override("font_hover_color", Color(0.7, 0.8, 0.9))
+	toggle_btn.tooltip_text = "Show the full log entry"
+	text_vbox.add_child(toggle_btn)
+
+	var full_text := text
+	var fmt_type := entry_type
+	# The button text is the single source of truth for the expanded/collapsed
+	# state, so the label-click shortcut and the button stay in sync.
+	toggle_btn.pressed.connect(func():
+		var expand: bool = toggle_btn.text.strip_edges() == "show more"
+		label.text = ""
+		label.append_text(_format_entry_text(full_text if expand else preview_text, fmt_type))
+		toggle_btn.text = "  show less" if expand else "  show more"
+		card.set_meta("expand_state", expand)
+	)
+
+	# Keep the whole line clickable as a discoverability bonus: clicking the
+	# collapsed text expands it (delegates to the same toggle handler).
+	label.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			if toggle_btn.text.strip_edges() == "show more":
+				toggle_btn.pressed.emit()
+	)
+	label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	label.tooltip_text = "Click to expand"
+
+	# Introspection hooks for windowed scenarios validating the expand/collapse.
+	card.set_meta("expand_toggle", toggle_btn)
+	card.set_meta("expand_label", label)
+	card.set_meta("expand_full_text", full_text)
+	card.set_meta("expand_state", false)
+
+	hbox.add_child(text_vbox)
 
 	return card
 

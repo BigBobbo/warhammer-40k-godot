@@ -1457,9 +1457,15 @@ func _clear_visuals() -> void:
 	# Clear target highlights
 	_clear_target_highlights()
 
-	# Clear LoS debug visuals if present
+	# Clear LoS debug visuals if present — shooter drawings only. A live
+	# held-L overview must survive shooter-workflow housekeeping (set_phase
+	# runs deferred on phase entry and would otherwise blank an overlay the
+	# player just opened); refresh_los_debug_visuals still swaps the overview
+	# out explicitly when a shooter goes active.
 	if los_debug_visual and is_instance_valid(los_debug_visual):
-		if los_debug_visual.has_method("clear_all_debug_visuals"):
+		if los_debug_visual.has_method("clear_shooter_visuals"):
+			los_debug_visual.clear_shooter_visuals()
+		elif los_debug_visual.has_method("clear_all_debug_visuals"):
 			los_debug_visual.clear_all_debug_visuals()
 
 	# T5-MP3: Clear shooting lines (remote player feedback)

@@ -1,0 +1,29 @@
+{
+  "id": "game_log_long_entry_expandable",
+  "covers": [
+    "ui.GameLogPanel.long_entry_truncation",
+    "ui.GameLogPanel.show_more_toggle"
+  ],
+  "fixture": "custodian_guard_dupes",
+  "edition": 11,
+  "disable_ai": true,
+  "description": "A long game-log entry (e.g. a verbose AI move rationale like the reported 'Prosecutors moves toward obj_center …') must not be silently cut off. It renders as a preview carrying a VISIBLE 'show more' toggle (last_card_is_expandable), starts collapsed (last_card_is_expanded == false, small visible char count), and expanding it reveals the full text (last_card_is_expanded == true, visible char count jumps to the full length). Regression guard for the AI-decision-text truncation report.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "GameEventLog.add_entry(\"P2: Prosecutors moves toward obj_center (capturing it, enemy can bring ~10 OC next move, needs 3 more OC after this unit, obj 13.3in away). Extra rationale padding added here so the entry clearly exceeds the 200 character preview cap and forces the show more toggle to render for this regression check.\", \"p2_action\")" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script", "script": "main.game_log_panel.last_card_is_expandable()", "equals": true },
+    { "act": "execute_script", "script": "main.game_log_panel.last_card_is_expanded()", "equals": false },
+    { "act": "execute_script", "script": "main.game_log_panel.last_card_visible_char_count()", "expect_max": 210 },
+    { "act": "screenshot", "label": "01_collapsed_show_more", "region": [0, 105, 400, 520] },
+
+    { "act": "execute_script", "script": "main.game_log_panel.expand_last_card()", "equals": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script", "script": "main.game_log_panel.last_card_is_expanded()", "equals": true },
+    { "act": "execute_script", "script": "main.game_log_panel.last_card_visible_char_count()", "expect_min": 260 },
+    { "act": "screenshot", "label": "02_expanded_full_text", "region": [0, 105, 400, 520] }
+  ]
+}

@@ -4078,7 +4078,7 @@ func _setup_terrain() -> void:
 	los_visual.name = "LineOfSightVisual"
 	$BoardRoot.add_child(los_visual)
 	print("Added LineOfSightVisual to BoardRoot")
-	print("Line of Sight: Hold 'V' to check what models can see the cursor position")
+	print("Line of Sight: Hold 'X' to check what models can see the cursor position")
 
 	# Persistent L-overlay layer (2026-07-12): previously only
 	# ShootingController created LoSDebugVisual (and freed it on phase exit),
@@ -5349,6 +5349,26 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
+	# Cursor-LoS probe (rebindable: los_check, default X — "X marks the spot"):
+	# every model that can see the mouse position gets a gold sight line +
+	# highlight ring (LineOfSightManager + LineOfSightVisual). The tool used to
+	# listen for V, then G, in _unhandled_input and both keys were captured
+	# first by other toggles (VP timeline / tactical grid) — Main drives it
+	# directly so a panel binding can't shadow it again. Same held-key modifier
+	# rules as los_debug above.
+	if event is InputEventKey and not event.echo:
+		var _probe_key: int = KeybindingManager.get_binding("los_check").get("key", 0)
+		if _probe_key != 0 and event.keycode == _probe_key \
+				and (not event.pressed or KeybindingManager.matches_action(event, "los_check")):
+			var cursor_los_mgr = get_node_or_null("/root/LineOfSightManager")
+			if cursor_los_mgr != null:
+				if event.pressed:
+					cursor_los_mgr.start_los_calculation()
+				else:
+					cursor_los_mgr.end_los_calculation()
+				get_viewport().set_input_as_handled()
+				return
+
 	# Objective control check debug (rebindable: objective_check, default O)
 	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "objective_check"):
 		print("\n=== MANUAL OBJECTIVE CONTROL CHECK (O key pressed) ===")
@@ -5696,6 +5716,18 @@ func t32_synthesize_l(pressed: bool) -> bool:
 	ev.pressed = pressed
 	_input(ev)
 	return los_debug_active
+
+
+# Cursor-LoS test seam: synthesize KEY_X press/release through _input (same
+# pattern as t32_synthesize_l). Returns LineOfSightManager.is_calculating
+# after processing so scenarios can assert the probe engaged/disengaged.
+func synthesize_x_cursor_los(pressed: bool) -> bool:
+	var ev := InputEventKey.new()
+	ev.keycode = KEY_X
+	ev.pressed = pressed
+	_input(ev)
+	var mgr = get_node_or_null("/root/LineOfSightManager")
+	return mgr != null and mgr.is_calculating
 
 
 # T13: synthesize the F key press and route through _input. Used by the
@@ -11933,6 +11965,7 @@ func _toggle_hotkey_help_overlay() -> void:
 		[_kbm.get_key_display_name("toggle_stratagem_panel"), "Toggle stratagems panel"],
 		[_kbm.get_key_display_name("toggle_missions_panel"), "Show secondary missions"],
 		["%s (hold)" % _kbm.get_key_display_name("los_debug"), "Show lines of sight (green clear / red blocked)"],
+		["%s (hold)" % _kbm.get_key_display_name("los_check"), "Show what can see the cursor position"],
 		[_kbm.get_key_display_name("toggle_roster_strip"), "Toggle left roster strip"],
 		[_kbm.get_key_display_name("toggle_grid_overlay"), "Toggle 1\" tactical grid overlay"],
 		[_kbm.get_key_display_name("toggle_visual_style"), "Toggle visual style (letter / enhanced)"],
