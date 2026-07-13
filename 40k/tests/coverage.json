@@ -2709,6 +2709,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "fight.select_fighter_offer_11e",
+      "description": "FIGHT phase (11e 12.04): get_available_actions offers SELECT_FIGHTER for exactly the FightSequencer's current candidates, tagged with the picking player, instead of the legacy fight_sequence queue that desynced once fights happened out of order. Regression for the 2026-07-12 report where an engaged Stompa was never offered its fight (the AI acted on a stale offer and END_FIGHT forfeited every remaining fight). Validated by 'stompa_gets_to_fight_11e'.",
+      "scenarios": [
+        "stompa_gets_to_fight_11e"
+      ],
+      "last_verified_commit": "4abfc9b",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.rules.FightSequencer.peek_selection",
+      "description": "FightSequencer.peek_selection() \u2014 a pure, non-mutating preview of next_selection() used by get_available_actions on every UI/AI poll; must not advance picker/step. Validated by 'stompa_gets_to_fight_11e' (live) and test_iss050_fight_phase_11e.gd (headless purity/parity).",
+      "scenarios": [
+        "stompa_gets_to_fight_11e"
+      ],
+      "last_verified_commit": "4abfc9b",
+      "status": "covered"
     }
   ]
 }
