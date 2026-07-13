@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.37.0",
+			"date": "2026-07-13",
+			"summary": "Unit colors can now show as a ring instead of filling the whole base, and duplicate squads of the same unit are automatically given different colors. Settings > Visual has a new 'Unit Color' option (Full Base / Ring Only) — 'Ring Only' keeps a neutral base and paints your chosen color as a ring inside the base edge, so the model art stays clear. Deploying a second squad of the same name (e.g. a second Boyz) now auto-picks a different color from the first.",
+			"changes": [
+				"New Settings > Visual dropdown 'Unit Color' with 'Full Base' (original) and 'Ring Only' — Ring Only draws the unit color as a ring just inside the base perimeter over a neutral base.",
+				"Right-click > Change Color still sets the color; the new setting only changes whether it fills the base or shows as a ring. Applies live to every token, no reload needed, and persists between sessions.",
+				"Duplicate squads of the same unit type/name now get distinct auto-assigned colors as you deploy them (fixes a bug where every squad came out the same color).",
+				"Takes effect in the default 'Letter' unit style where the token color is used."
+			]
+		},
+		{
 			"version": "0.36.0",
 			"date": "2026-07-13",
 			"summary": "Added a Settings toggle to hide terrain scatter props. Settings > Visual now has a 'Terrain Scatter Props (crates, sandbags, trees)' checkbox — turn it off for a cleaner, less cluttered board that shows just the terrain footprints, borders and walls. On by default; the choice is saved between sessions.",

@@ -1166,6 +1166,65 @@ func max_tokens_per_model() -> int:
 			mx = max(mx, int(counts[k]))
 	return mx
 
+# Regression guard for the auto token-color bug: every SET of same-named units
+# (same meta.name) belonging to `player` must end up with DISTINCT colors so two
+# "Boyz" squads never render identically. Clears then re-runs
+# auto_assign_unit_color for all of the player's units so it tests the
+# assignment logic itself, not whatever colors the fixture was saved with (the
+# old hex-roundtrip bug returned palette[0] for every unit). Callable from
+# execute_script as same_name_colors_distinct(1) with equals true.
+func same_name_colors_distinct(player: int) -> bool:
+	GameState._ensure_unit_visuals()
+	var by_name := {}
+	for uid in GameState.state.get("units", {}):
+		var u = GameState.state["units"][uid]
+		if int(u.get("owner", 0)) != player:
+			continue
+		if GameState.state["unit_visuals"].has(uid):
+			GameState.state["unit_visuals"][uid]["color"] = ""
+		var nm := str(u.get("meta", {}).get("name", ""))
+		if not by_name.has(nm):
+			by_name[nm] = []
+		by_name[nm].append(uid)
+	# Re-assign every one of the player's units (order = dict/id order).
+	for uid in GameState.state.get("units", {}):
+		if int(GameState.state["units"][uid].get("owner", 0)) == player:
+			GameState.auto_assign_unit_color(uid)
+	# Within each same-name group, colors must be unique.
+	for nm in by_name:
+		var ids: Array = by_name[nm]
+		if ids.size() < 2:
+			continue
+		var seen := {}
+		for uid in ids:
+			var hex := GameState.get_unit_color(uid).to_html(false)
+			if seen.has(hex):
+				return false
+			seen[hex] = true
+	return true
+
+# True when the first board token reports "ring" color-display mode — proves the
+# SettingsService.unit_color_display_mode setting reaches TokenVisual. Callable
+# from execute_script as first_token_ring_mode() with equals true/false.
+func first_token_ring_mode() -> bool:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return false
+	var tl := scene.get_node_or_null("BoardRoot/TokenLayer")
+	if tl == null:
+		return false
+	for c in tl.get_children():
+		if c.has_method("_is_ring_color_mode"):
+			return c._is_ring_color_mode()
+	return false
+
+# Set the unit color-display mode and return the resulting stored value so an
+# execute_script step can both drive the toggle and assert it in one call:
+# set_color_display_mode("ring") with equals "ring".
+func set_color_display_mode(mode: String) -> String:
+	SettingsService.set_unit_color_display_mode(mode)
+	return SettingsService.unit_color_display_mode
+
 func _send_click(screen_pos: Vector2) -> void:
 	# Warp the live cursor to the target BEFORE injecting the event. GUI Controls
 	# route by event position, but board/world handlers (e.g. DeploymentController

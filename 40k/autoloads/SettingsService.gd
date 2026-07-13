@@ -8,6 +8,12 @@ var deployment_zone_depth_inches: float = 12.0
 # Unit visual style: "letter" (colored base+letter), "enhanced" (gradient+sprites), "style_a" (silhouettes), "style_b" (faction glyphs), "classic" (plain)
 var unit_visual_style: String = "letter"
 
+# How a unit's custom/auto-assigned color is applied to its token in letter
+# mode: "full" fills the whole base with the color (original behavior); "ring"
+# keeps a neutral base and draws the color only as a ring just inside the base
+# perimeter, so the model art stays readable and squads are told apart by ring.
+var unit_color_display_mode: String = "full"
+
 # Sprite directory for user-provided token art (Phase 2)
 var sprite_directory: String = "user://sprites/"
 
@@ -89,6 +95,7 @@ signal board_style_changed(new_style: String)
 signal ruins_style_changed(new_style: String)
 signal auto_allocate_wounds_changed(enabled: bool)
 signal unit_style_changed(new_style: String)
+signal unit_color_display_changed(new_mode: String)
 signal terrain_debug_labels_changed(enabled: bool)
 signal terrain_scatter_changed(enabled: bool)
 
@@ -346,6 +353,15 @@ func set_unit_visual_style_setting(style: String) -> void:
 	_save_settings()
 	print("[SettingsService] Unit visual style set to %s" % style)
 
+func set_unit_color_display_mode(mode: String) -> void:
+	if mode not in ["full", "ring"]:
+		print("[SettingsService] Invalid unit color display mode: %s" % mode)
+		return
+	unit_color_display_mode = mode
+	unit_color_display_changed.emit(unit_color_display_mode)
+	_save_settings()
+	print("[SettingsService] Unit color display mode set to %s" % mode)
+
 func set_terrain_debug_labels(enabled: bool) -> void:
 	terrain_debug_labels = enabled
 	terrain_debug_labels_changed.emit(terrain_debug_labels)
@@ -373,6 +389,7 @@ func _save_settings() -> void:
 
 	# Visual
 	config.set_value("visual", "unit_visual_style", unit_visual_style)
+	config.set_value("visual", "unit_color_display_mode", unit_color_display_mode)
 	config.set_value("visual", "retro_mode", retro_mode)
 	config.set_value("visual", "ui_scale", ui_scale)
 	config.set_value("visual", "animation_speed", animation_speed)
@@ -414,6 +431,7 @@ func _load_settings() -> void:
 
 	# Visual
 	unit_visual_style = config.get_value("visual", "unit_visual_style", "letter")
+	unit_color_display_mode = config.get_value("visual", "unit_color_display_mode", "full")
 	retro_mode = config.get_value("visual", "retro_mode", false)
 	ui_scale = config.get_value("visual", "ui_scale", 1.0)
 	animation_speed = config.get_value("visual", "animation_speed", 1.0)
