@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
     {
+      "version": "0.33.1",
+      "date": "2026-07-13",
+      "summary": "Wazdakka Gutsmek now sits on his correct 120mm x 92mm oval base instead of a 32mm round one, so his footprint, movement, engagement range and charges match the tabletop model.",
+      "changes": [
+        "Wazdakka Gutsmek's base is now a 120mm x 92mm oval (previously a 32mm round base), matching his physical Warhammer 40,000 model.",
+        "This affects his board footprint, base-to-base contact, engagement range and how the token renders and rotates."
+      ]
+    },
+    {
       "version": "0.33.0",
       "date": "2026-07-13",
       "summary": "Model carry \u2014 the heart of controller play: with a unit selected, press A to pick its model up onto the cursor, steer it with the left stick (slower, precise speed while carrying), A drops it, LB/RB rotates it, D-pad left/right hops between the unit's models, B cancels back to where it was picked up, and X undoes the last placed model. Works in the Movement phase and Deployment (including transport embark prompts).",

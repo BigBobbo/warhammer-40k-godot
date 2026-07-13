@@ -544,10 +544,15 @@
      "id": "m1",
      "wounds": 10,
      "current_wounds": 10,
-     "base_mm": 32,
+     "base_mm": 120,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 92,
+      "width": 120
+     }
     }
    ]
   },
