@@ -433,6 +433,35 @@ static func _load_cards() -> void:
 		],
 	})
 
+	# Attach the official prose scoring blurbs (source of truth for the
+	# human-readable card text shown in the Scoring panel).
+	_attach_texts()
+
+## Load the official prose scoring text from the 40kdc dataset and attach it to
+## each card as card["text"]. Matched by id (underscore<->hyphen). Best-effort:
+## if the file is missing/unreadable the cards simply carry no blurb and the UI
+## falls back to the generated per-rule breakdown.
+static func _attach_texts() -> void:
+	var path := "res://data/40kdc/missionCards.json"
+	if not FileAccess.file_exists(path):
+		return
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return
+	var raw := f.get_as_text()
+	f.close()
+	var data = JSON.parse_string(raw)
+	if typeof(data) != TYPE_ARRAY:
+		return
+	var text_by_id := {}
+	for entry in data:
+		if typeof(entry) == TYPE_DICTIONARY and entry.get("card_type", "") == "primary":
+			text_by_id[str(entry.get("id", ""))] = str(entry.get("text", ""))
+	for key in _cards:
+		var json_id: String = str(_cards[key].get("id", "")).replace("_", "-")
+		if text_by_id.has(json_id):
+			_cards[key]["text"] = text_by_id[json_id]
+
 # ============================================================================
 # PUBLIC API
 # ============================================================================
@@ -465,3 +494,148 @@ static func is_valid_disposition(disposition: String) -> bool:
 
 static func get_disposition_name(disposition: String) -> String:
 	return DISPOSITION_NAMES.get(disposition, disposition)
+
+# ============================================================================
+# HUMAN-READABLE SCORING TEXT (for the in-game primary-mission panel)
+# ============================================================================
+
+## Official prose description of a card's scoring, sourced verbatim from the
+## 40kdc dataset (missionCards.json). Empty string if the card has no blurb.
+static func get_card_text(card: Dictionary) -> String:
+	return str(card.get("text", ""))
+
+## One readable line per scoring rule, in card order — e.g.
+## "Command phase (R2+): +3VP — per objective you control". Rendered under the
+## card name in the Scoring panel so a player can read exactly what the card
+## awards instead of only its title. Derived from the SAME structured rules the
+## engine scores, so the text can never drift from the actual behaviour.
+static func get_scoring_lines(card: Dictionary) -> Array:
+	var lines: Array = []
+	for rule in card.get("rules", []):
+		lines.append(describe_rule(rule))
+	return lines
+
+static func describe_rule(rule: Dictionary) -> String:
+	return "%s: %s — %s" % [_describe_timing(rule), _describe_vp(rule), _describe_condition(rule)]
+
+static func _describe_timing(rule: Dictionary) -> String:
+	var base := ""
+	match str(rule.get("when", "")):
+		"command": base = "Command phase"
+		"eot": base = "End of turn"
+		"eot_any": base = "End of any turn"
+		"eog": base = "End of game"
+		_: base = str(rule.get("when", "?"))
+	var rtxt := _describe_rounds(rule.get("rounds", []))
+	return base if rtxt == "" else "%s %s" % [base, rtxt]
+
+static func _describe_rounds(rounds) -> String:
+	if typeof(rounds) != TYPE_ARRAY or rounds.size() < 2:
+		return ""
+	var lo := int(rounds[0])
+	var hi := int(rounds[1])
+	if lo <= 1 and hi >= 5:
+		return ""  # every round — no qualifier needed
+	if lo == hi:
+		return "(R%d)" % lo
+	if hi >= 5:
+		return "(R%d+)" % lo
+	return "(R%d–%d)" % [lo, hi]
+
+static func _describe_vp(rule: Dictionary) -> String:
+	if rule.has("vp_per"):
+		return "+%dVP" % int(rule["vp_per"])
+	if rule.has("vp"):
+		return "+%dVP" % int(rule["vp"])
+	return "VP"
+
+static func _describe_condition(rule: Dictionary) -> String:
+	var t := str(rule.get("type", ""))
+	var excl := " (excl. home)" if rule.get("exclude_home", false) else ""
+	match t:
+		"hold_min":
+			var n := int(rule.get("min", 1))
+			return "control %d+ objective%s%s" % [n, "s" if n != 1 else "", excl]
+		"per_objective":
+			var s := "per objective you control"
+			if rule.get("zone", "") == "enemy_territory":
+				s += " in enemy territory"
+			elif rule.get("exclude_home", false):
+				s += " (excl. home)"
+			if rule.get("require_hold_home", false):
+				s += ", while you hold your own home"
+			return s
+		"per_new_objective":
+			return "per objective newly taken this turn"
+		"hold_more":
+			return "control more objectives than your opponent"
+		"hold_enemy_home":
+			return "control the enemy's home objective"
+		"hold_central":
+			return "control the central objective"
+		"hold_central_plus_nml":
+			return "control the central objective + another No Man's Land objective"
+		"hold_new":
+			return "control an objective you didn't hold at the start of your turn%s" % excl
+		"destroyed_min":
+			var dn := int(rule.get("min", 1))
+			return "destroy %d+ enemy unit%s" % [dn, "s" if dn != 1 else ""]
+		"destroyed_per_unit":
+			return "per enemy unit you destroy this turn"
+		"killed_more_than_opponent_last_turn":
+			return "destroy more units than your opponent did on their last turn"
+		"quarters":
+			return "have units in %d+ table quarters" % int(rule.get("min", 3))
+		"triangulated_count":
+			return "Triangulate %s objective(s)" % _tier_text(rule)
+		"consecrated_count":
+			return "Consecrate %s objective(s)" % _tier_text(rule)
+		"consecrated_enemy_home":
+			return "Consecrate the enemy's home objective"
+		"condemned_left":
+			return "a Condemned enemy unit leaves the battlefield"
+		"sabotage_per_objective":
+			return "per objective you Sabotage (bonus in enemy territory)"
+		"central_operation_markers":
+			return "control the central objective, +1VP per operation marker on it"
+		"destroyed_near_central":
+			return "destroy an enemy unit on a central objective"
+		"vanguard_terrain_area":
+			return "complete a Vanguard Operation in enemy territory"
+		"sensor_sweep_vp":
+			return "complete a Sensor Sweep action"
+		"relic_final_marker":
+			return "be the last player holding a relic marker"
+		"decoyed_score":
+			return "per objective you Decoy (bonus in enemy territory)"
+		"decoyed_total_eog":
+			return "Decoy %d+ objectives in total" % int(rule.get("min", 4))
+		"no_enemy_markers":
+			return "no enemy operation markers remain"
+		"intel_tokens_placed":
+			return "per Extract Intelligence action you complete"
+		"operation_markers_min":
+			return "have %d+ operation markers on the battlefield" % int(rule.get("min", 3))
+		"intel_token_on_enemy_home":
+			return "place a marker near the enemy's home objective"
+		"trapped_score":
+			return "per terrain area you Booby Trap this turn (bonus if it holds an objective)"
+		"destroyed_started_on_objective":
+			return "destroy an enemy unit that started the turn on an objective"
+		"destroyed_in_terrain_area":
+			return "destroy an enemy unit in %s terrain area" % ("a trapped" if rule.get("trapped_only", false) else "a")
+		"no_enemy_wholly_in_my_dz":
+			return "no enemy units are wholly within your territory"
+		"action":
+			return "complete the '%s' action" % str(rule.get("action_name", "mission"))
+		_:
+			return t.replace("_", " ")
+
+## Tier label for the exclusive_group count rules (Triangulate / Consecrate):
+## "exactly 2", "1–2" or "3+" depending on the rule's count bounds.
+static func _tier_text(rule: Dictionary) -> String:
+	var lo := int(rule.get("count_min", 1))
+	if rule.has("count_max"):
+		var hi := int(rule["count_max"])
+		return str(lo) if lo == hi else "%d–%d" % [lo, hi]
+	return "%d+" % lo

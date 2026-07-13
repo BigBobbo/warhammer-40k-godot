@@ -1,14 +1,15 @@
 {
   "id": "iss064c_primary_mission_panel_11e",
   "covers": [
-    "ui.ScoringPanel.primary_missions_11e"
+    "ui.ScoringPanel.primary_missions_11e",
+    "ui.ScoringPanel.primary_scoring_text_11e"
   ],
   "fixture": "audit_374_kunnin",
   "edition": 11,
   "rng_seed": 42,
   "transition_to_phase": 11,
   "disable_ai": true,
-  "description": "Audit Tier-1 #1 UI surface (GDM 2026): at e11 the Scoring-phase right panel shows each player's OWN disposition-paired primary card instead of the shared 10e mission name. P1 Priority Assets vs P2 Purge the Foe pairs to Vital Link (flagged ~ approximate) and Destroyer's Wrath; the panel rebuild renders both named labels with the exact card + disposition text.",
+  "description": "Audit Tier-1 #1 UI surface (GDM 2026): at e11 the Scoring-phase right panel shows each player's OWN disposition-paired primary card — the card name, the official scoring blurb, AND a per-rule VP breakdown (not just the title). P1 Priority Assets vs P2 Purge the Foe pairs to Vital Link (flagged ~ approximate) and Destroyer's Wrath; the panel renders both named header labels, the prose text labels, and the rules labels with the exact VP lines.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 11 },
@@ -27,6 +28,25 @@
       "node": "/root/Main/HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2PrimaryMissionLabel",
       "property": "text",
       "equals": "P2 Primary: Destroyer's Wrath (Purge the Foe)" },
-    { "act": "screenshot", "label": "01_per_player_primary_cards_in_panel" }
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P1PrimaryTextLabel" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P1PrimaryTextLabel\").text.find(\"Maintain Control action\") >= 0",
+      "equals": true },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P1PrimaryRulesLabel" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P1PrimaryRulesLabel\").text.find(\"+10VP\") >= 0 and main.get_node(\"HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P1PrimaryRulesLabel\").text.find(\"enemy's home objective\") >= 0",
+      "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2PrimaryTextLabel" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2PrimaryTextLabel\").text.find(\"out-killing the opponent\") >= 0",
+      "equals": true },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2PrimaryRulesLabel" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2PrimaryRulesLabel\").text.find(\"destroy 1+ enemy unit\") >= 0 and main.get_node(\"HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2PrimaryRulesLabel\").text.find(\"+6VP\") >= 0",
+      "equals": true },
+
+    { "act": "screenshot", "label": "01_primary_cards_scoring_text_in_panel" }
   ]
 }

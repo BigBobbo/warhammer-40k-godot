@@ -65,7 +65,10 @@ func _register_defaults() -> void:
 	_register("toggle_grid_overlay", "Toggle Tactical Grid", CATEGORY_GAMEPLAY, KEY_G)
 	_register("ruler_tool", "Ruler Tool (Shift = private)", CATEGORY_GAMEPLAY, KEY_R)
 	_register("threat_overlay", "Threat Overlay (hold)", CATEGORY_GAMEPLAY, KEY_TAB)
-	_register("los_check", "Check Line of Sight (hold)", CATEGORY_GAMEPLAY, KEY_G)
+	# Default X, NOT G: toggle_grid_overlay already owns G and Main._input
+	# consumes it before the probe could ever fire — the same shadowing that
+	# killed this tool's earlier V and G bindings.
+	_register("los_check", "Check Line of Sight (hold)", CATEGORY_GAMEPLAY, KEY_X)
 	_register("los_debug", "Sight-Line Overlay (hold)", CATEGORY_GAMEPLAY, KEY_L)
 
 	# Shooting phase (T5-UX12 → KeybindingManager registration 2026-05-05)

@@ -29,6 +29,7 @@ var _colorblind_dropdown: OptionButton
 var _board_style_dropdown: OptionButton
 var _ruins_style_dropdown: OptionButton
 var _terrain_debug_checkbox: CheckBox
+var _terrain_scatter_checkbox: CheckBox
 
 var _auto_allocate_checkbox: CheckBox
 
@@ -166,6 +167,7 @@ func _build_ui() -> void:
 	_animation_speed_label = _get_last_value_label()
 	_colorblind_dropdown = _add_dropdown_row(visual_content, "Colorblind Mode:", ["None", "Protanopia (Red-Green)", "Deuteranopia (Green-Red)", "Tritanopia (Blue-Yellow)"], "_on_colorblind_changed")
 	_terrain_debug_checkbox = _add_checkbox_row(visual_content, "Terrain Debug Labels (internal ids + LoS badges)", "_on_terrain_debug_labels_toggled")
+	_terrain_scatter_checkbox = _add_checkbox_row(visual_content, "Terrain Scatter Props (crates, sandbags, trees)", "_on_terrain_scatter_toggled")
 
 	# ── Gameplay Tab ──
 	var gameplay_scroll = _create_tab_scroll()
@@ -489,6 +491,8 @@ func _load_current_settings() -> void:
 		_colorblind_dropdown.selected = cb_index
 	if _terrain_debug_checkbox:
 		_terrain_debug_checkbox.button_pressed = SettingsService.terrain_debug_labels
+	if _terrain_scatter_checkbox:
+		_terrain_scatter_checkbox.button_pressed = SettingsService.show_terrain_scatter
 
 	# Gameplay
 	if _auto_allocate_checkbox:
@@ -570,6 +574,9 @@ func _on_colorblind_changed(index: int) -> void:
 
 func _on_terrain_debug_labels_toggled(pressed: bool) -> void:
 	SettingsService.set_terrain_debug_labels(pressed)
+
+func _on_terrain_scatter_toggled(pressed: bool) -> void:
+	SettingsService.set_show_terrain_scatter(pressed)
 
 # ============================================================================
 # Gameplay Callbacks
