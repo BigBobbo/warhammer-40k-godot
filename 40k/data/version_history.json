@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.35.1",
+			"date": "2026-07-13",
+			"summary": "Deployment coherency now explains itself. When a deploy is blocked for coherency, the error spells out that units of 7+ models (e.g. Warbikers with an attached Deffkilla Wartrike) need every model within 2\" of at least TWO others, and says how many models are failing — instead of the old vague 'within 2\" of mates'.",
+			"changes": [
+				"Coherency deploy error now reads e.g. 'Cannot deploy: 2 model(s) out of coherency. This unit has 7 models, so EVERY model must be within 2\" of at least 2 others in the unit - not just 1.'",
+				"Fixed the on-board coherency range circles: for a 7+ model unit, a model that touches only one mate now correctly shows RED (out of coherency) instead of misleading green. The circles now use the exact same check as the deploy gate, so the visual and the confirm button can never disagree.",
+				"Coherency has nothing to do with 9\" - it is only 2\" horizontal (and 5\" vertical). The size threshold (2-6 models need 1 neighbour, 7+ need 2) is now made explicit to the player."
+			]
+		},
+		{
 			"version": "0.35.0",
 			"date": "2026-07-12",
 			"summary": "Every unit in the two default armies now has top-down artwork. All 12 units across Recon Stomps (Orks) and Custodes Lions (Adeptus Custodes) render bird's-eye sprites on their bases — including the Stompa's full effigy hull, rotor-spinning Deffkoptas and Warbikes that fill their oval bases, and gold Allarus Terminators.",

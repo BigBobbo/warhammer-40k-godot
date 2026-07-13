@@ -788,7 +788,7 @@ func undo() -> void:
 func confirm() -> void:
 	# Enforce unit coherency before allowing deployment
 	if not _is_unit_coherent():
-		_show_toast("Cannot deploy: unit is not in coherency (all models must be within 2\" of mates)", Color.RED)
+		_show_toast(_coherency_failure_message(), Color.RED)
 		return
 
 	# In reinforcement OR scout-reserves mode, emit signal BEFORE clearing state
@@ -1534,16 +1534,17 @@ func _update_coherency_circles() -> void:
 
 func _update_coherency_circles_static() -> void:
 	"""DEPLOY-VIS-5: When no ghost is active, show coherency status between placed models.
-	Each placed model's circle is green if it has at least one neighbor within 2\",
-	red if it has no neighbors within 2\"."""
-	var unit_data = GameState.get_unit(unit_id)
-	if unit_data.is_empty():
+	A model's circle is green when it satisfies the unit's coherency requirement —
+	within 2\" of at least 1 other model for 2-6 model units, at least 2 others for
+	7+ model units — and red when it does not. Uses the same _compute_coherency_status()
+	as the confirm-time enforcement so the visual and the deploy gate never disagree
+	(previously a 7+ unit could show all-green while confirm rejected it)."""
+	if coherency_circles.is_empty():
 		return
-
-	var placed_indices = []
-	for i in range(temp_positions.size()):
-		if temp_positions[i] != null:
-			placed_indices.append(i)
+	var status = _compute_coherency_status()
+	if status["unit_empty"]:
+		return
+	var incoherent_indices = status["incoherent_indices"]
 
 	for i in range(coherency_circles.size()):
 		if i >= temp_positions.size() or temp_positions[i] == null:
@@ -1552,38 +1553,12 @@ func _update_coherency_circles_static() -> void:
 			continue
 		coherency_circles[i].visible = true
 
-		# Single model is always coherent
-		if placed_indices.size() <= 1:
+		# A lone placed model is always coherent
+		if status["placed_count"] <= 1:
 			coherency_circles[i].set_in_range(true)
 			continue
 
-		# Check if this model has at least one neighbor within 2"
-		var has_neighbor = false
-		var model_i: Dictionary
-		if is_combined_deployment and i < combined_models.size():
-			model_i = combined_models[i]["model_data"].duplicate()
-		else:
-			model_i = unit_data["models"][i].duplicate()
-		model_i["position"] = temp_positions[i]
-		model_i["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
-
-		for j in placed_indices:
-			if j == i:
-				continue
-			var model_j: Dictionary
-			if is_combined_deployment and j < combined_models.size():
-				model_j = combined_models[j]["model_data"].duplicate()
-			else:
-				model_j = unit_data["models"][j].duplicate()
-			model_j["position"] = temp_positions[j]
-			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
-
-			var dist = Measurement.model_to_model_distance_inches(model_i, model_j)
-			if dist <= GameConstants.coherency_distance_inches() + Measurement.DISTANCE_TOLERANCE_INCHES:
-				has_neighbor = true
-				break
-
-		coherency_circles[i].set_in_range(has_neighbor)
+		coherency_circles[i].set_in_range(not (i in incoherent_indices))
 
 func _create_token_visual(unit_id: String, model_index: int, pos: Vector2, is_preview: bool = false, rotation: float = 0.0) -> Node2D:
 	var token = Node2D.new()
@@ -1635,60 +1610,81 @@ func _circle_wholly_in_polygon(center: Vector2, radius: float, polygon: PackedVe
 func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vector2) -> float:
 	return Measurement.point_to_line_distance(point, line_start, line_end)
 
-func _check_coherency_warning() -> void:
-	var unit_data = GameState.get_unit(unit_id)
-	if unit_data.is_empty():
-		emit_signal("coherency_warning_changed", false, "")
-		return
+func _coherency_model_at(index: int, unit_data: Dictionary) -> Dictionary:
+	"""Build a positioned model dict for coherency math from the temp placement
+	buffers, honouring combined (multi-profile) deployments."""
+	var model: Dictionary
+	if is_combined_deployment and index < combined_models.size():
+		model = combined_models[index]["model_data"].duplicate()
+	else:
+		model = unit_data["models"][index].duplicate()
+	model["position"] = temp_positions[index]
+	model["rotation"] = temp_rotations[index] if index < temp_rotations.size() else 0.0
+	return model
 
-	# Build list of placed model indices and their data
+func _compute_coherency_status() -> Dictionary:
+	"""Single source of truth for deployment coherency over the currently-placed
+	temp models. Per 10e: a unit of 2-6 models needs every model within 2\"
+	horizontally / 5\" vertically of at least ONE other model; a unit of 7+ models
+	needs every model within range of at least TWO others (attached leaders count
+	toward the model total). Distance is edge-to-edge.
+	Returns {unit_empty, placed_count, total_models, required_neighbors, incoherent_indices}."""
+	var unit_data = GameState.get_unit(unit_id)
+
 	var placed_indices = []
 	for i in range(temp_positions.size()):
 		if temp_positions[i] != null:
 			placed_indices.append(i)
 
-	if placed_indices.size() < 2:
-		emit_signal("coherency_warning_changed", false, "")
-		return
-
-	# Per 10th edition: units with 2-6 models need each model within 2" of at least 1 other.
-	# Units with 7+ models need each model within 2" of at least 2 others.
-	var total_models = temp_positions.size()  # Use combined total for combined deployments
+	# Use the combined total (includes unplaced slots) so the 7+ threshold is based
+	# on the whole unit, not just how many are currently on the board.
+	var total_models = temp_positions.size()
 	var required_neighbors = 1 if total_models <= 6 else 2
-	var incoherent_indices = []
+	var status = {
+		"unit_empty": unit_data.is_empty(),
+		"placed_count": placed_indices.size(),
+		"total_models": total_models,
+		"required_neighbors": required_neighbors,
+		"incoherent_indices": [],
+	}
+	if unit_data.is_empty() or placed_indices.size() < 2:
+		return status
 
 	for i in placed_indices:
-		# Get model data from combined_models or unit_data
-		var model_i: Dictionary
-		if is_combined_deployment and i < combined_models.size():
-			model_i = combined_models[i]["model_data"].duplicate()
-		else:
-			model_i = unit_data["models"][i].duplicate()
-		model_i["position"] = temp_positions[i]
-		model_i["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
-
+		var model_i = _coherency_model_at(i, unit_data)
 		var neighbor_count = 0
 		for j in placed_indices:
 			if i == j:
 				continue
-			var model_j: Dictionary
-			if is_combined_deployment and j < combined_models.size():
-				model_j = combined_models[j]["model_data"].duplicate()
-			else:
-				model_j = unit_data["models"][j].duplicate()
-			model_j["position"] = temp_positions[j]
-			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
-
 			# Use shape-aware coherency check: 2" horizontal AND 5" vertical
-			if Measurement.is_within_coherency(model_i, model_j):
+			if Measurement.is_within_coherency(model_i, _coherency_model_at(j, unit_data)):
 				neighbor_count += 1
 				if neighbor_count >= required_neighbors:
 					break
-
 		if neighbor_count < required_neighbors:
-			incoherent_indices.append(i)
+			status["incoherent_indices"].append(i)
+	return status
 
+func _coherency_failure_message() -> String:
+	"""Player-facing explanation of why deployment coherency failed. Spells out the
+	2-neighbour requirement for 7+ model units, which the old generic message hid."""
+	var status = _compute_coherency_status()
+	var bad = status["incoherent_indices"].size()
+	var req = int(status["required_neighbors"])
+	var total = int(status["total_models"])
+	if req >= 2:
+		return "Cannot deploy: %d model(s) out of coherency. This unit has %d models, so EVERY model must be within 2\" of at least 2 others in the unit — not just 1." % [bad, total]
+	return "Cannot deploy: %d model(s) out of coherency. Every model must be within 2\" of at least 1 other model in the unit." % bad
+
+func _check_coherency_warning() -> void:
+	var status = _compute_coherency_status()
+	if status["unit_empty"] or status["placed_count"] < 2:
+		emit_signal("coherency_warning_changed", false, "")
+		return
+
+	var incoherent_indices = status["incoherent_indices"]
 	if incoherent_indices.size() > 0:
+		var required_neighbors = int(status["required_neighbors"])
 		var rule_text = "within 2\" horizontally and 5\" vertically of %d+ model(s)" % required_neighbors
 		var msg = "Coherency warning: %d model(s) not %s" % [incoherent_indices.size(), rule_text]
 		print("[WARNING] %s" % msg)
@@ -1703,57 +1699,19 @@ func _is_unit_coherent() -> bool:
 	7+ models = each within 2\" horizontally and 5\" vertically of at least 2 others.
 	Single-model units are always coherent.
 	Distance is measured edge-to-edge (nearest base edge to nearest base edge)."""
-	var unit_data = GameState.get_unit(unit_id)
-	if unit_data.is_empty():
+	var status = _compute_coherency_status()
+	if status["unit_empty"]:
 		return true
 
-	var placed_indices = []
-	for i in range(temp_positions.size()):
-		if temp_positions[i] != null:
-			placed_indices.append(i)
-
-	# Single model or empty — always coherent
-	if placed_indices.size() <= 1:
+	# Single model (or none) placed — always coherent
+	if status["placed_count"] <= 1:
 		return true
 
-	# Check all models are placed before enforcing
-	var total_models = temp_positions.size()
-	if placed_indices.size() < total_models:
-		# Not all models placed yet — can't enforce coherency
+	# Not all models placed yet — can't enforce coherency
+	if status["placed_count"] < status["total_models"]:
 		return true
 
-	var required_neighbors = 1 if placed_indices.size() <= 6 else 2
-
-	for i in placed_indices:
-		var model_i: Dictionary
-		if is_combined_deployment and i < combined_models.size():
-			model_i = combined_models[i]["model_data"].duplicate()
-		else:
-			model_i = unit_data["models"][i].duplicate()
-		model_i["position"] = temp_positions[i]
-		model_i["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
-
-		var neighbor_count = 0
-		for j in placed_indices:
-			if i == j:
-				continue
-			var model_j: Dictionary
-			if is_combined_deployment and j < combined_models.size():
-				model_j = combined_models[j]["model_data"].duplicate()
-			else:
-				model_j = unit_data["models"][j].duplicate()
-			model_j["position"] = temp_positions[j]
-			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
-
-			# Use shape-aware coherency check: 2" horizontal AND 5" vertical
-			if Measurement.is_within_coherency(model_i, model_j):
-				neighbor_count += 1
-				if neighbor_count >= required_neighbors:
-					break
-		if neighbor_count < required_neighbors:
-			return false
-
-	return true
+	return status["incoherent_indices"].is_empty()
 
 func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation: float, polygon: PackedVector2Array) -> bool:
 	return Measurement.shape_wholly_in_polygon(center, model_data, rotation, polygon)
