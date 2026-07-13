@@ -1,0 +1,286 @@
+{
+  "id": "pad_m3_carry_move",
+  "covers": [
+    "controller.m3.carry_movement",
+    "controller.m3.model_hop",
+    "controller.m3.rotate"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "M3 model carry in the Movement phase: A (cursor parked) picks up the active model onto the cursor with a held synthetic LMB (the real drag pipeline runs), the stick drives it within the move cap and unit coherency, A drops (staged_moves grows), D-pad right hops to the next model for a second carry, X undoes the last staged model, Confirm Move lands only the kept move in GameState; then the oval-based jetbike is carried, rotated with LB (rebindable rotate_left synthesized), and the carry cancelled with B.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"w0y\", GameState.state.units[\"U_WITCHSEEKERS_C\"].models[0].position.y)"
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"w1y\", GameState.state.units[\"U_WITCHSEEKERS_C\"].models[1].position.y)"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "unit_id": "U_WITCHSEEKERS_C"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_WITCHSEEKERS_C"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "execute_script",
+      "script": "VirtualCursor.is_cursor_active()",
+      "equals": false
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.dragging_model",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_model_picked_up"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 850.0,
+      "y": 100.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_first_model_dropped"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.carry_model_index",
+      "equals": 1
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": true
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 910.0,
+      "y": 100.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "03_second_model_dropped"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 2
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "04_second_model_undone"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Confirm Move"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WITCHSEEKERS_C\"].models[0].position.y - InputDeviceManager.get_meta(\"w0y\")",
+      "expect_min": 35
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(GameState.state.units[\"U_WITCHSEEKERS_C\"].models[1].position.y - InputDeviceManager.get_meta(\"w1y\"))",
+      "expect_max": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "05_move_confirmed_undo_respected"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "unit_id": "U_SHIELD_CAPTAIN_JETBIKE_A"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_SHIELD_CAPTAIN_JETBIKE_A"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"rot0\", main.movement_controller.selected_model.get(\"rotation\", 0.0))"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(main.movement_controller.selected_model.get(\"rotation\", 0.0) - InputDeviceManager.get_meta(\"rot0\"))",
+      "expect_min": 0.2
+    },
+    {
+      "act": "screenshot",
+      "label": "06_carried_jetbike_rotated"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": false
+    }
+  ]
+}

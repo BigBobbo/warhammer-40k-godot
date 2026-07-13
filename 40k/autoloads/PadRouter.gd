@@ -44,10 +44,31 @@ const HINTS_FOCUS := [
 	["a", "Press"],
 	["b", "Back To Board"],
 ]
+const HINTS_CARRY := [
+	["ls", "Move Model"],
+	["a", "Drop"],
+	["lb", "Rotate ⟲"],
+	["rb", "Rotate ⟳"],
+	["b", "Cancel"],
+	["menu", "Confirm / End"],
+]
 
 # The target currently highlighted by LB/RB in shooting TARGET_SELECT mode
 # (empty when none). Windowed scenarios assert this.
 var target_highlight_id: String = ""
+
+# M3 model-carry state: the model currently "picked up" rides the virtual
+# cursor (warp + held synthetic LMB — the real drag code runs underneath).
+# carry_model_index is which of the selected unit's alive models D-pad ◀ ▶
+# hops to. Windowed scenarios assert both.
+var carry_active: bool = false
+var carry_model_index: int = 0
+var _carry_pickup_screen := Vector2.ZERO
+var _carry_unit_id: String = ""  # resets carry_model_index when the unit changes
+
+
+func is_carrying() -> bool:
+	return carry_active
 
 
 func _ready() -> void:
@@ -62,10 +83,16 @@ func _input(event: InputEvent) -> void:
 	InputDeviceManager.claim_pad()
 	match event.button_index:
 		JOY_BUTTON_LEFT_SHOULDER:
-			_cycle(-1)
+			if carry_active:
+				_synth_rotate(true)
+			else:
+				_cycle(-1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_RIGHT_SHOULDER:
-			_cycle(1)
+			if carry_active:
+				_synth_rotate(false)
+			else:
+				_cycle(1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_Y:
 			if _toggle_datasheet():
@@ -74,15 +101,30 @@ func _input(event: InputEvent) -> void:
 			if _context_action():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_A:
-			if _assign_highlighted_target():
+			if _handle_a():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_B:
 			if _handle_back():
 				get_viewport().set_input_as_handled()
-		JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT:
+		JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN:
 			if _enter_panel_focus():
 				get_viewport().set_input_as_handled()
+		JOY_BUTTON_DPAD_LEFT:
+			if _hop_model(-1) or _enter_panel_focus():
+				get_viewport().set_input_as_handled()
+		JOY_BUTTON_DPAD_RIGHT:
+			if _hop_model(1) or _enter_panel_focus():
+				get_viewport().set_input_as_handled()
 	_update_hints()
+
+
+func _handle_a() -> bool:
+	if carry_active:
+		_drop_carry()
+		return true
+	if _assign_highlighted_target():
+		return true
+	return _try_begin_carry()
 
 
 # ============================================================================
@@ -162,7 +204,7 @@ func _find_visible_item_list(root: Node) -> ItemList:
 		var n: Node = queue.pop_front()
 		if n is ItemList and n.is_visible_in_tree() and n.item_count > 0:
 			return n
-		for child in n.get_children():
+		for child in n.get_children(true):
 			queue.append(child)
 	return null
 
@@ -203,20 +245,40 @@ func _assign_highlighted_target() -> bool:
 
 
 func _context_action() -> bool:
-	if VirtualCursor.is_cursor_active():
+	if VirtualCursor.is_cursor_active() and not carry_active:
 		return false  # cursor mode owns X (right-click); VC consumed it anyway
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null and str(sc.active_shooter_id) != "":
 		sc._keyboard_skip_unit()
 		target_highlight_id = ""
 		return true
+	# Movement: X = undo last staged model (plan §4.2 context action).
+	var m := get_tree().current_scene
+	if m != null and ("current_phase" in m) and m.current_phase == GameStateData.Phase.MOVEMENT \
+			and not carry_active and m.movement_controller != null and is_instance_valid(m.movement_controller) \
+			and str(m.movement_controller.active_unit_id) != "" \
+			and m.movement_controller.has_method("_on_undo_model_pressed"):
+		m.movement_controller._on_undo_model_pressed()
+		return true
 	return false
 
 
 func _handle_back() -> bool:
+	if carry_active:
+		_cancel_carry()
+		return true
+	# One B returns fully to the board: release panel focus AND park the
+	# cursor together — leaving either behind makes the next A ambiguous
+	# (click vs press-focused vs pickup).
+	var did_reset := false
 	var focused := get_viewport().gui_get_focus_owner()
 	if focused != null:
 		focused.release_focus()
+		did_reset = true
+	if VirtualCursor.is_cursor_active():
+		VirtualCursor.park()
+		did_reset = true
+	if did_reset:
 		return true
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null and str(sc.active_shooter_id) != "":
@@ -224,6 +286,150 @@ func _handle_back() -> bool:
 		target_highlight_id = ""
 		return true
 	return false
+
+
+# ============================================================================
+# M3 model carry — pickup/drop/cancel/hop/rotate
+# ============================================================================
+
+func _try_begin_carry() -> bool:
+	if VirtualCursor.is_cursor_active():
+		return false  # cursor mode: A is a click (VirtualCursor consumed it)
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m):
+		return false
+	match m.current_phase:
+		GameStateData.Phase.MOVEMENT, GameStateData.Phase.CHARGE:
+			var ctrl = m.movement_controller if m.current_phase == GameStateData.Phase.MOVEMENT else m.charge_controller
+			if ctrl == null or not is_instance_valid(ctrl) or str(ctrl.active_unit_id) == "":
+				return false
+			var unit_id := str(ctrl.active_unit_id)
+			if unit_id != _carry_unit_id:
+				_carry_unit_id = unit_id
+				carry_model_index = 0
+			var pos = _model_world_pos(unit_id, carry_model_index)
+			if pos == null:
+				carry_model_index = 0
+				pos = _model_world_pos(unit_id, 0)
+			if pos == null:
+				return false
+			# Center first, THEN project — the warp target must use the final
+			# camera transform.
+			_center_camera_on_world(pos)
+			var screen: Vector2 = m.world_to_screen_position(pos)
+			VirtualCursor.warp_to(screen)
+			VirtualCursor.set_left_button(true)
+			_carry_pickup_screen = screen
+			carry_active = true
+			return true
+		GameStateData.Phase.DEPLOYMENT:
+			# Placement is click-driven with a cursor-following ghost, so
+			# "pickup" is just parking the cursor over the deployment zone;
+			# every A after that is a normal cursor click that places a model.
+			var dc = m.deployment_controller
+			if dc == null or not is_instance_valid(dc) or not dc.is_placing():
+				return false
+			var center := _deployment_zone_center()
+			if center == Vector2.INF:
+				return false
+			_center_camera_on_world(center)
+			VirtualCursor.warp_to(m.world_to_screen_position(center))
+			return true
+	return false
+
+
+func _drop_carry() -> void:
+	VirtualCursor.set_left_button(false)
+	carry_active = false
+
+
+func _cancel_carry() -> void:
+	# The mouse-parity cancel: put the model back where it was picked up and
+	# release (there is no dedicated drag-cancel in the mouse flow either).
+	VirtualCursor.warp_to(_carry_pickup_screen)
+	VirtualCursor.set_left_button(false)
+	carry_active = false
+
+
+func _hop_model(dir: int) -> bool:
+	if carry_active:
+		return false
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m):
+		return false
+	if m.current_phase != GameStateData.Phase.MOVEMENT and m.current_phase != GameStateData.Phase.CHARGE:
+		return false
+	var ctrl = m.movement_controller if m.current_phase == GameStateData.Phase.MOVEMENT else m.charge_controller
+	if ctrl == null or not is_instance_valid(ctrl) or str(ctrl.active_unit_id) == "":
+		return false
+	if str(ctrl.active_unit_id) != _carry_unit_id:
+		_carry_unit_id = str(ctrl.active_unit_id)
+		carry_model_index = 0
+	var unit = GameState.get_unit(str(ctrl.active_unit_id))
+	var alive := 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			alive += 1
+	if alive == 0:
+		return false
+	carry_model_index = wrapi(carry_model_index + dir, 0, alive)
+	var pos = _model_world_pos(str(ctrl.active_unit_id), carry_model_index)
+	if pos != null:
+		_center_camera_on_world(pos)
+	return true
+
+
+# Returns the world-space position (Vector2) of the unit's Nth alive model,
+# or null when out of range.
+func _model_world_pos(unit_id: String, alive_index: int):
+	var unit = GameState.get_unit(unit_id)
+	var idx := 0
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		if idx == alive_index:
+			var pos = model.get("position", null)
+			if pos is Dictionary and pos.has("x"):
+				return Vector2(float(pos.x), float(pos.y))
+			elif pos is Vector2:
+				return pos
+			return null
+		idx += 1
+	return null
+
+
+func _deployment_zone_center() -> Vector2:
+	var player := GameState.get_active_player() if GameState.has_method("get_active_player") else int(GameState.state.get("meta", {}).get("active_player", 1))
+	# PackedVector2Array — don't type-gate on Array, just iterate.
+	var zone = BoardState.get_deployment_zone_for_player(player)
+	if zone == null or zone.size() == 0:
+		return Vector2.INF
+	var center := Vector2.ZERO
+	for point in zone:
+		center += point
+	return center / zone.size()
+
+
+# Pad rotation reuses the rebindable rotate_left/rotate_right keyboard
+# semantics: synthesize the currently-bound key event so MovementController /
+# DeploymentController / ChargeController react exactly as they do to Q/E,
+# including rebinds. The synthetic window stops the device tracker reading
+# our own key events as "keyboard used".
+func _synth_rotate(left: bool) -> void:
+	var binding = KeybindingManager.get_binding("rotate_left" if left else "rotate_right")
+	if binding.is_empty() or int(binding.get("key", 0)) == 0:
+		return
+	InputDeviceManager.note_synthetic_mouse()
+	var press := InputEventKey.new()
+	press.keycode = binding.key as Key
+	press.pressed = true
+	Input.parse_input_event(press)
+	var release := InputEventKey.new()
+	release.keycode = binding.key as Key
+	release.pressed = false
+	Input.parse_input_event(release)
 
 
 # ============================================================================
@@ -254,7 +460,7 @@ func _find_first_focusable(root: Node) -> Control:
 		if n is Control and n.focus_mode == Control.FOCUS_ALL and n.is_visible_in_tree() \
 				and not (n is BaseButton and n.disabled):
 			return n
-		for child in n.get_children():
+		for child in n.get_children(true):
 			queue.append(child)
 	return null
 
@@ -325,7 +531,9 @@ func _shooting_controller_in_shooting_phase() -> Node:
 
 func _update_hints() -> void:
 	var hints := HINTS_BOARD
-	if get_viewport().gui_get_focus_owner() != null:
+	if carry_active:
+		hints = HINTS_CARRY
+	elif get_viewport().gui_get_focus_owner() != null:
 		hints = HINTS_FOCUS
 	else:
 		var sc = _shooting_controller_in_shooting_phase()

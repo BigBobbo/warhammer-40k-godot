@@ -793,7 +793,7 @@ func _find_visible_button_by_text(wanted: String) -> Button:
 		var n: Node = queue.pop_front()
 		if n is Button and n.visible and n.is_visible_in_tree() and not n.disabled and str(n.text).strip_edges() == wanted:
 			return n
-		for child in n.get_children():
+		for child in n.get_children(true):
 			queue.append(child)
 	return null
 
@@ -1284,6 +1284,15 @@ func _coerce_vector2(value):
 
 
 func _node2d_to_screen(node: Node2D) -> Vector2:
+	# Board tokens live under Main's CanvasLayer, which IGNORES the Camera2D —
+	# but viewport.get_canvas_transform() follows it, so the two can drift
+	# apart mid-run. Project through the scene's own BoardRoot transform (the
+	# exact lens every board input handler inverts) whenever possible.
+	var scene := get_tree().current_scene
+	if scene != null and scene.has_method("world_to_screen_position"):
+		var parent := node.get_parent()
+		if parent != null and str(parent.name) == "TokenLayer":
+			return scene.world_to_screen_position(node.position)
 	var viewport := node.get_viewport()
 	if viewport == null:
 		return Vector2.INF
