@@ -12467,6 +12467,27 @@ func _find_unit_at_world_pos(world_pos: Vector2) -> String:
 	return closest_uid
 
 
+func _find_objective_at_world_pos(world_pos: Vector2) -> String:
+	# Resolve a board world position to the nearest objective marker whose
+	# control-radius footprint (the drawn 3"+20mm circle, ObjectiveVisual's
+	# OBJECTIVE_RADIUS_INCHES) contains the point. Used by "pick on board" flows
+	# that let a player click an objective marker instead of a list entry.
+	var hit_radius := Measurement.inches_to_px(3.78740157)
+	var best_id := ""
+	var best_dist := INF
+	for obj in GameState.state.get("board", {}).get("objectives", []):
+		var pos = obj.get("position", null)
+		if pos == null:
+			continue
+		if pos is Dictionary:
+			pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+		var d: float = pos.distance_to(world_pos)
+		if d <= hit_radius and d < best_dist:
+			best_dist = d
+			best_id = str(obj.get("id", ""))
+	return best_id
+
+
 func _screen_to_world(screen_pos: Vector2):
 	# Convert screen position to world coordinates through the BoardRoot transform
 	if not has_node("BoardRoot"):

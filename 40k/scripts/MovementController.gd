@@ -3150,9 +3150,9 @@ func _update_coherency_preview(ghost_world_pos: Vector2) -> void:
 
 	# Only log when coherency state changes to avoid per-frame spam
 	if ghost_is_coherent != _last_coherency_state:
-		print("P3-116: Coherency preview — %s (%d/%d connections, need %d)" % [
+		print("P3-116: Coherency preview — %s (%d/%d in coherency)" % [
 			"OK" if ghost_is_coherent else "BROKEN",
-			coherent_count, total_count, required_connections
+			coherent_count, total_count
 		])
 		_last_coherency_state = ghost_is_coherent
 

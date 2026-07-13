@@ -39,11 +39,11 @@
     { "act": "screenshot", "label": "01_dialog_with_pick_on_board_button" },
 
     { "act": "click_node",
-      "node": "/root/TemptingTargetDialog/MainContainer/PickOnBoard",
+      "node": "/root/TemptingTargetDialog/MainContainer/PickObjectiveOnBoard",
       "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
 
-    { "act": "expect_node_visible", "node": "/root/TemptingBoardPickBanner", "timeout_s": 4.0 },
+    { "act": "expect_node_visible", "node": "/root/BoardPickBanner", "timeout_s": 4.0 },
     { "act": "execute_script",
       "script": "not get_tree().root.get_node(\"TemptingTargetDialog\").visible",
       "equals": true },
@@ -62,7 +62,7 @@
       "script": "AIPlayer._human_secondary_interaction_pending()",
       "equals": false },
     { "act": "execute_script",
-      "script": "get_tree().root.get_node_or_null(\"TemptingBoardPickBanner\") == null",
+      "script": "get_tree().root.get_node_or_null(\"BoardPickBanner\") == null",
       "equals": true },
 
     { "act": "execute_script", "script": "AIPlayer.set(\"enabled\", false)" },

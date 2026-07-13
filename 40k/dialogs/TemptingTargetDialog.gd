@@ -7,10 +7,7 @@ class_name TemptingTargetDialog
 # in No Man's Land as the "Tempting Target". Player 1 scores VP by controlling it.
 
 signal tempting_target_resolved(objective_id: String)
-# Emitted when the player chooses to pick the objective by clicking it on the
-# board instead of using the list. CommandController hides this dialog, arms a
-# board-pick mode, and resolves the pick from the clicked objective marker.
-signal board_pick_requested()
+signal board_pick_requested()  # player clicked "Pick on board" — CommandController arms the board pick
 
 var nml_objectives: Array = []  # Array of { id, position, zone }
 var opponent_player: int = 0
@@ -55,21 +52,10 @@ func _build_ui() -> void:
 
 	# Instruction
 	var instruction = Label.new()
-	instruction.text = "Select an objective from the list, or click one on the board:"
-	instruction.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	instruction.text = "Select an objective:"
 	instruction.add_theme_font_size_override("font_size", 14)
 	instruction.add_theme_color_override("font_color", Color.CYAN)
 	main_container.add_child(instruction)
-
-	# "Pick on board" — hides this dialog and lets the player click the objective
-	# marker they want directly on the battlefield. Objective names in the list
-	# aren't always obvious, so clicking the real marker is often clearer.
-	var board_btn = Button.new()
-	board_btn.name = "PickOnBoard"
-	board_btn.text = "🎯  Pick on board (click an objective marker)"
-	board_btn.custom_minimum_size = Vector2(410, 36)
-	board_btn.pressed.connect(_on_board_pick_pressed)
-	main_container.add_child(board_btn)
 
 	# Scroll container for objective list
 	var scroll = ScrollContainer.new()
@@ -85,7 +71,22 @@ func _build_ui() -> void:
 	# Populate objectives
 	_populate_objective_list()
 
+	# "Pick on board" — click the objective marker on the battlefield instead of
+	# picking it from the list. CommandController arms the board pick.
+	var board_btn = Button.new()
+	board_btn.name = "PickObjectiveOnBoard"
+	board_btn.text = "Pick on board"
+	board_btn.tooltip_text = "Click, then click an objective marker in No Man's Land on the battlefield"
+	board_btn.custom_minimum_size = Vector2(410, 34)
+	board_btn.pressed.connect(func(): board_pick_requested.emit())
+	main_container.add_child(board_btn)
+
 	add_child(main_container)
+
+## Public entry so CommandController's board-pick can drive the same resolution
+## path a list-button click uses.
+func select_objective(objective_id: String) -> void:
+	_on_objective_selected(objective_id)
 
 func _populate_objective_list() -> void:
 	for child in objective_list_container.get_children():
@@ -122,11 +123,3 @@ func _on_objective_selected(objective_id: String) -> void:
 	emit_signal("tempting_target_resolved", objective_id)
 	hide()
 	queue_free()
-
-func _on_board_pick_pressed() -> void:
-	# Hand control to CommandController's board-pick mode. Do NOT queue_free here:
-	# CommandController re-shows this dialog if the player cancels the board pick,
-	# and frees it once a marker is clicked.
-	print("TemptingTargetDialog: Board-pick requested")
-	emit_signal("board_pick_requested")
-	hide()

@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.42.0",
+			"date": "2026-07-13",
+			"summary": "Every secondary-mission unit picker now names duplicate squads clearly AND lets you click the target on the battlefield — extending the Beacon, Marked for Death and Punishment (Condemn) pickers to match Burden of Trust and A Tempting Target. Duplicate squads read like the roster ('Boyz (20 models)' / 'Boyz (10 models)'), and each picker has a 'Pick on board' button.",
+			"changes": [
+				"Beacon: the designate-your-beacon list shows the display name + model count (so two 'Boyz' or two 'Warbosses' are distinguishable), and a 'Pick on board' button lets you click your unit on the battlefield to designate it.",
+				"Marked for Death: the enemy-unit picker is disambiguated and both steps (Alpha targets, Gamma target) can be chosen by clicking the enemy units on the board.",
+				"Punishment / Condemn: the up-to-3 enemy picker is disambiguated and supports multi-select on the board — click each enemy unit to toggle it, then Done.",
+				"Oath of Moment's target list is disambiguated the same way.",
+				"The 'Pick on board' flow is now one shared system across all these pickers (and A Tempting Target and Burden of Trust): the dialog hides, a banner shows Cancel (plus Done for multi-select), and clicking empty space or an ineligible target is a no-op — never a dead end."
+			]
+		},
+		{
 			"version": "0.41.3",
 			"date": "2026-07-13",
 			"summary": "When your opponent draws 'A Tempting Target', you can now designate the No Man's Land objective by clicking its marker directly on the board — not just by picking a name from the list. The dialog's objective names (e.g. 'Objective NML_1') aren't always obvious, so a new 'Pick on board' button hides the dialog, highlights the eligible objectives and lets you click the one you want on the battlefield.",

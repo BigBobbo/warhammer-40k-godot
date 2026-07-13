@@ -1989,7 +1989,9 @@ func _get_beacon_eligible_units(player: int) -> Array:
 			continue
 		result.append({
 			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id),
+			# Disambiguated label (display name + model count) so duplicate squads
+			# are distinguishable in the Beacon picker; matches the roster panel.
+			"unit_name": DialogUtils.unit_label(unit),
 			"embarked": embarked_in != null,
 		})
 	return result
