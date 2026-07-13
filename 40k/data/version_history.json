@@ -1,6 +1,29 @@
 {
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
+		{
+			"version": "0.34.0",
+			"date": "2026-07-12",
+			"summary": "Every unit in the two default armies now has top-down artwork. All 12 units across Recon Stomps (Orks) and Custodes Lions (Adeptus Custodes) render bird's-eye sprites on their bases — including the Stompa's full effigy hull, rotor-spinning Deffkoptas and Warbikes that fill their oval bases, and gold Allarus Terminators.",
+			"changes": [
+				"New ork art: Stompa (effigy face, mega-choppa + supa-gatler arms, hazard stripes on the 180mm base), Deffkilla Wartrike, Deffkoptas, Warbikers, Wazdakka Gutsmek, Stormboyz (rokkit pack + flame), Mek (giant spanner), and Gretchin (big-eared grots).",
+				"New Custodes art: Allarus Custodians (terminator bulk with castellan axe), Blade Champion (red cloak + longsword), and Prosecutors (black Sisters of Silence armour with gold trim); Custodian Guard shipped in 0.33.0.",
+				"Bike, kopta and wartrike sprites are drawn on tall canvases that fill their oval bases and rotate with the model's facing.",
+				"Units with dedicated artwork now show it even if they are vehicles — the generic tank sprite remains the fallback for vehicles without their own art (e.g. the Battlewagon), and letter counters remain for everything else.",
+				"Player re-skins still override: drop a PNG named after the unit (e.g. stompa.png) into user://sprites/."
+			]
+		},
+		{
+			"version": "0.33.0",
+			"date": "2026-07-12",
+			"summary": "First top-down unit artwork: Custodian Guard squads now show a hand-drawn bird's-eye Custodian (gold armour, red helm crest, guardian spear) on their bases instead of a letter counter — the start of Vassal-style sprites for every model in the game.",
+			"changes": [
+				"New: top-down Custodian Guard sprite — tokens for any unit named 'Custodian Guard' render the gold spear-wielding figure on their base in the default (letter) visual style; the spear overhangs the base edge just like the tabletop model.",
+				"Units without artwork are unchanged and keep their letter counters (and vehicles keep their tank sprites); the art also appears in the 'enhanced' visual style.",
+				"Custom re-skins still work: a PNG dropped into user://sprites/ with the same name (custodian_guard.png) overrides the built-in art.",
+				"More sprites are on the way — the art pipeline (tools/sprites/generate_unit_sprites.py) is built to cover the rest of the Adeptus Custodes range next."
+			]
+		},
     {
       "version": "0.32.0",
       "date": "2026-07-12",
@@ -37,29 +60,6 @@
 				"Fight phase: the list of units offered the 'select to fight' action is now driven by the real 11th-edition fight sequencer, tagged with the correct player, instead of a legacy queue that drifted out of order once fights happened out of sequence. Your engaged units are now always offered their fight in the right order.",
 				"AI: when the AI can't select a fighter it now re-checks the fight order and continues, instead of ending the entire Fight phase and forfeiting every remaining fight (yours included). It only ends the fight when the sequencer confirms no unit on either side is still eligible.",
 				"AI: the AI no longer tries to pick your units to fight during the alternating fight sequence — it only considers selection offers addressed to it."
-			]
-		},
-		{
-			"version": "0.32.0",
-			"date": "2026-07-12",
-			"summary": "Every unit in the two default armies now has top-down artwork. All 12 units across Recon Stomps (Orks) and Custodes Lions (Adeptus Custodes) render bird's-eye sprites on their bases — including the Stompa's full effigy hull, rotor-spinning Deffkoptas and Warbikes that fill their oval bases, and gold Allarus Terminators.",
-			"changes": [
-				"New ork art: Stompa (effigy face, mega-choppa + supa-gatler arms, hazard stripes on the 180mm base), Deffkilla Wartrike, Deffkoptas, Warbikers, Wazdakka Gutsmek, Stormboyz (rokkit pack + flame), Mek (giant spanner), and Gretchin (big-eared grots).",
-				"New Custodes art: Allarus Custodians (terminator bulk with castellan axe), Blade Champion (red cloak + longsword), and Prosecutors (black Sisters of Silence armour with gold trim); Custodian Guard shipped in 0.31.0.",
-				"Bike, kopta and wartrike sprites are drawn on tall canvases that fill their oval bases and rotate with the model's facing.",
-				"Units with dedicated artwork now show it even if they are vehicles — the generic tank sprite remains the fallback for vehicles without their own art (e.g. the Battlewagon), and letter counters remain for everything else.",
-				"Player re-skins still override: drop a PNG named after the unit (e.g. stompa.png) into user://sprites/."
-			]
-		},
-		{
-			"version": "0.31.0",
-			"date": "2026-07-12",
-			"summary": "First top-down unit artwork: Custodian Guard squads now show a hand-drawn bird's-eye Custodian (gold armour, red helm crest, guardian spear) on their bases instead of a letter counter — the start of Vassal-style sprites for every model in the game.",
-			"changes": [
-				"New: top-down Custodian Guard sprite — tokens for any unit named 'Custodian Guard' render the gold spear-wielding figure on their base in the default (letter) visual style; the spear overhangs the base edge just like the tabletop model.",
-				"Units without artwork are unchanged and keep their letter counters (and vehicles keep their tank sprites); the art also appears in the 'enhanced' visual style.",
-				"Custom re-skins still work: a PNG dropped into user://sprites/ with the same name (custodian_guard.png) overrides the built-in art.",
-				"More sprites are on the way — the art pipeline (tools/sprites/generate_unit_sprites.py) is built to cover the rest of the Adeptus Custodes range next."
 			]
 		},
 		{
