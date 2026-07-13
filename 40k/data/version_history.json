@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.42.3",
+			"date": "2026-07-13",
+			"summary": "Fixed a bug that broke the Movement phase completely: when you entered Movement, the right-hand unit list was empty and clicking your models did nothing, so you couldn't move anyone. This was caused by a coding error introduced with the 11th-edition coherency update (0.41.1) that stopped the Movement controller from loading. Movement now works again — the unit list populates, and selecting a unit (from the list or by clicking its models on the board) starts its move as before.",
+			"changes": [
+				"Fixed: entering the Movement phase showed an empty right-hand panel and ignored clicks on your models, making it impossible to move units. This affected every game, and was most visible after loading a save.",
+				"Root cause was a leftover reference to a variable removed during the 0.41.1 coherency migration, which made the whole Movement controller script fail to load."
+			]
+		},
+		{
 			"version": "0.42.2",
 			"date": "2026-07-13",
 			"summary": "Fixed: when the AI charged one of your units, the computer would then pile in (move) your own charged unit for you during the Fight phase, so you never got control of it. Now, on the AI's turn, the AI only ever piles in, fights and consolidates its OWN units — every time it is your half of the Pile In, Fight or Consolidate step, the game waits for you and shows your dialog instead of the AI acting for you.",
