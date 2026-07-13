@@ -9,6 +9,24 @@
   ],
   "tiles": [
     {
+      "id": "tokens.auto_color_same_name",
+      "description": "Duplicate squads sharing a meta.name (e.g. two Boyz squads) get DISTINCT auto-assigned token colors. GameState.auto_assign_unit_color picks the first faction-palette color unused army-wide, falling back to same-name-unused when the palette is exhausted. Regression guard for the hex-roundtrip compare bug where Color.is_equal_approx never matched the stored 8-bit hex, so every unit came out palette[0].",
+      "scenarios": [
+        "unit_color_ring_display"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tokens.color_ring_display",
+      "description": "Settings > Visual 'Unit Color' = 'Ring Only' (default) makes TokenVisual draw the unit color as a ring inside a neutral base instead of filling the whole base. Toggling SettingsService.unit_color_display_mode emits unit_color_display_changed and reaches the live board token, asserted via TokenVisual._is_ring_color_mode().",
+      "scenarios": [
+        "unit_color_ring_display"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "ai.speed.top_menu_dropdown",
       "description": "In-game 'AI Speed' OptionButton in the top menu bar (HUD_Bottom/HBoxContainer, rendered as the top row) next to the AI Suggestion button. Reveals itself through the natural Main._ready() flow for single-viewer human-vs-AI games; a real click opens the popup and keyboard navigation selects a preset that drives AIPlayer.set_ai_speed_preset.",
       "scenarios": [

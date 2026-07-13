@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.41.0",
+			"date": "2026-07-13",
+			"summary": "Unit colors now display as a ring by default instead of filling the whole base, and duplicate squads of the same unit are automatically given different colors. The new Settings > Visual 'Unit Color' option defaults to 'Ring Only', which keeps a neutral base and paints your chosen color as a ring inside the base edge so the model art stays clear — switch it to 'Full Base' for the original solid-base look. Deploying a second squad of the same name (e.g. a second Boyz) now auto-picks a different color from the first.",
+			"changes": [
+				"Unit colors now show as a ring around the model by default (neutral base, color band just inside the base perimeter) so the model art stays readable.",
+				"New Settings > Visual dropdown 'Unit Color' — 'Ring Only' (default) or 'Full Base' (the original solid colored base).",
+				"Right-click > Change Color still sets the color; the setting only changes whether it fills the base or shows as a ring. Applies live to every token, no reload needed, and persists between sessions.",
+				"Duplicate squads of the same unit type/name now get distinct auto-assigned colors as you deploy them (fixes a bug where every squad came out the same color).",
+				"Takes effect in the default 'Letter' unit style where the token color is used."
+			]
+		},
+		{
 			"version": "0.40.0",
 			"date": "2026-07-13",
 			"summary": "Burden of Trust guards can now be nominated straight from the board: each objective row in the 'Assign Guards' dialog has a 'Pick on board' button — click it, then click one of your units on the battlefield to make it that objective's guard. The dropdown stays as an alternative.",
