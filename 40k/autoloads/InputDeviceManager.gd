@@ -188,7 +188,10 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventJoypadMotion and absf(event.axis_value) >= PAD_AXIS_CLAIM:
 		_claim(InputMode.PAD)
 	elif event is InputEventKey and event.pressed:
-		_claim(InputMode.KBM)
+		# The synthetic window also covers keys: PadRouter synthesizes the
+		# rebindable rotate_left/right key events for pad rotation (M3).
+		if Time.get_ticks_msec() >= _ignore_mouse_until_ms:
+			_claim(InputMode.KBM)
 	elif event is InputEventMouseButton and event.pressed:
 		if Time.get_ticks_msec() >= _ignore_mouse_until_ms:
 			_claim(InputMode.KBM)
@@ -285,7 +288,7 @@ func _find_confirm_button(root: Node) -> Button:
 		var n: Node = queue.pop_front()
 		if n is Button and n.visible and n.focus_mode != Control.FOCUS_NONE and not n.disabled:
 			candidates.append(n)
-		for child in n.get_children():
+		for child in n.get_children(true):
 			queue.append(child)
 	if candidates.is_empty():
 		return null

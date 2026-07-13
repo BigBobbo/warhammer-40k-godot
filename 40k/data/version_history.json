@@ -2,6 +2,20 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
     {
+      "version": "0.33.0",
+      "date": "2026-07-13",
+      "summary": "Model carry \u2014 the heart of controller play: with a unit selected, press A to pick its model up onto the cursor, steer it with the left stick (slower, precise speed while carrying), A drops it, LB/RB rotates it, D-pad left/right hops between the unit's models, B cancels back to where it was picked up, and X undoes the last placed model. Works in the Movement phase and Deployment (including transport embark prompts).",
+      "changes": [
+        "Movement phase: A (with the cursor parked) picks up the active model \u2014 the real drag rules run underneath, so move caps, terrain, overlaps and unit coherency are enforced exactly as with the mouse; A drops and stages the move, Confirm Move commits it.",
+        "D-pad left/right hops between the selected unit's models so multi-model squads can be moved model by model without hunting; X undoes the last staged model.",
+        "LB/RB rotates the carried model (oval and large bases) \u2014 the same rebindable rotate keys as Q/E, so custom bindings apply on pad too.",
+        "Deployment: A jumps the cursor (and the placement ghost) into your deployment zone, A places each model, LB/RB rotates the ghost, and transport prompts like 'Embark Units in Battlewagon' get pad focus.",
+        "While carrying, the stick uses a slower precision speed \u2014 inch budgets are small and overshooting past the move cap was too easy at cursor speed.",
+        "B now returns you fully to the board in one press (releases panel focus AND parks the cursor) \u2014 previously it could take two presses and the next A could misfire as a click.",
+        "Fixed: controller focus could not reach buttons created inside a dialog's built-in button row (e.g. 'Confirm Embarkation') \u2014 dialog focus and button lookups now see them."
+      ]
+    },
+    {
       "version": "0.32.0",
       "date": "2026-07-12",
       "summary": "Native controller controls arrive: LB/RB cycles your units (the camera jumps to each one), the shooting phase is fully playable without the cursor \u2014 cycle eligible shooters, cycle eligible targets, A assigns, Start confirms \u2014 Y opens the datasheet, X skips the active shooter, a D-pad press hops into the side panels and B hops back out. The button hints at the bottom now change with what you're doing.",
