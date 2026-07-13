@@ -14789,29 +14789,39 @@ static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, p
 	}
 
 static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionary, player: int) -> String:
-	"""Determine whether the AI should consolidate toward enemies (ENGAGEMENT) or
-	toward the nearest objective (OBJECTIVE).
-	- ENGAGEMENT: at least one alive enemy model is within 4" (3" move + 1" ER)
-	  of at least one alive friendly model in this unit.
-	- OBJECTIVE: no enemy is reachable but an objective exists.
-	- NONE: neither target is available.
-	T7-43: In rounds 4-5, prefer OBJECTIVE over ENGAGEMENT when enemies are only
-	marginally reachable (3-4") and an uncontrolled/contested objective is nearby."""
+	"""Determine which consolidation mode the AI should use. The 12.08 modes are
+	MANDATORY and assessed in a fixed order with hard range gates — the mode
+	returned here MUST match what FightPhase._validate_consolidate_11e will accept,
+	or the move is rejected and the player sees "consolidate failed — skipping
+	movement" for a unit that legitimately has no legal move:
+	- ENGAGEMENT: an alive enemy model is within 3" (edge-to-edge) of one of our
+	  models — the rules gate for Ongoing/Engaging consolidation. (Engaging is
+	  mandatory when in range, so we never divert to an objective instead.)
+	- OBJECTIVE: no enemy within 3", but an objective is within range (3" + the
+	  objective marker radius, matching ConsolidationMove.OBJECTIVE_RANGE_INCHES).
+	- NONE: neither is in range — the unit holds position (empty movements, a
+	  clean no-op). This is the common case after wiping out the enemy you fought.
+	Previously this over-reached — ENGAGEMENT for enemies up to 4" away and
+	OBJECTIVE whenever ANY objective existed anywhere on the board — so the AI
+	computed illegal moves the validator rejected on almost every board."""
 	var unit_owner = int(unit.get("owner", player))
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 	var has_fly = "FLY" in unit_keywords
 
-	var engagement_check_range_px = (3.0 + GameConstants.engagement_range_inches()) * PIXELS_PER_INCH  # 3" pile-in move + ER
-	# T7-43: Tighter range for "firmly engaged" — enemy within 2" means we should stay
-	var firm_engagement_range_px = 2.0 * PIXELS_PER_INCH
+	# 12.08 Engaging gate: "within 3\" of one or more enemy units" (edge-to-edge).
+	# Ongoing (already engaged, within 1" ER) is a subset, so 3" covers both.
+	var engaging_range_px = 3.0 * PIXELS_PER_INCH
+	# 12.08 Objective gate: within 3" of the objective, measured model-edge to
+	# marker centre — the extra ~0.79" is the 20mm marker radius (keep in sync
+	# with ConsolidationMove.OBJECTIVE_RANGE_INCHES / MissionManager).
+	var objective_range_px = 3.78740157 * PIXELS_PER_INCH
 
 	var alive_models = _get_alive_models_with_positions(unit)
 	if alive_models.is_empty():
 		return "NONE"
 
-	# Check if any enemy model is within 4" of any of our models (edge-to-edge)
-	var enemy_reachable = false
-	var enemy_firmly_engaged = false
+	# Is any alive enemy model within 3" (edge-to-edge) of any of our models?
+	var enemy_in_range = false
 	for model in alive_models:
 		var mpos = _get_model_position(model)
 		if mpos == Vector2.INF:
@@ -14836,33 +14846,34 @@ static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionar
 					continue
 				var ebr = _model_bounding_radius_px(em.get("base_mm", 32), em.get("base_type", "circular"), em.get("base_dimensions", {}))
 				var edge_dist_px = mpos.distance_to(ep) - mbr - ebr
-				if edge_dist_px <= engagement_check_range_px:
-					enemy_reachable = true
-				if edge_dist_px <= firm_engagement_range_px:
-					enemy_firmly_engaged = true
+				if edge_dist_px <= engaging_range_px:
+					enemy_in_range = true
+					break
+			if enemy_in_range:
+				break
+		if enemy_in_range:
+			break
 
-	if enemy_reachable:
-		# T7-43: In rounds 4-5, if enemies are only marginally reachable (not firmly engaged),
-		# prefer consolidating toward objectives instead. Objective control > kills in late game.
-		var consol_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
-		if consol_battle_round >= 4 and not enemy_firmly_engaged:
-			var objectives = _get_objectives(snapshot)
-			if not objectives.is_empty():
-				# Check if any objective is nearby and uncontrolled/contested
-				var unit_centroid = _get_unit_centroid(unit)
-				if unit_centroid != Vector2.INF:
-					for obj_pos in objectives:
-						var obj_dist = unit_centroid.distance_to(obj_pos)
-						if obj_dist <= 6.0 * PIXELS_PER_INCH:  # Objective within 6" — worth consolidating toward
-							print("AIDecisionMaker: [STRATEGY] Round %d — consolidating toward objective instead of marginally reachable enemy" % consol_battle_round)
-							return "OBJECTIVE"
+	# Engaging/Ongoing is MANDATORY when an enemy is within 3" (12.08) — take it.
+	if enemy_in_range:
 		return "ENGAGEMENT"
 
-	# No enemy reachable — check for objectives
-	var objectives = _get_objectives(snapshot)
-	if not objectives.is_empty():
-		return "OBJECTIVE"
+	# Otherwise Objective consolidation, but ONLY if an objective is actually in
+	# range (model edge within 3" + marker radius). An objective merely existing
+	# somewhere on the board does not permit a consolidation move toward it.
+	for obj_pos in _get_objectives(snapshot):
+		for model in alive_models:
+			var mpos = _get_model_position(model)
+			if mpos == Vector2.INF:
+				continue
+			var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
+			if mpos.distance_to(obj_pos) - mbr <= objective_range_px:
+				return "OBJECTIVE"
 
+	# No enemy within 3" and no objective within 3" — there is no legal 12.08
+	# consolidation move, so the unit holds position (this is the expected result
+	# after wiping out the enemy you were fighting with nothing else nearby).
+	print("AIDecisionMaker: %s has no legal consolidation move (no enemy or objective within 3\") — holding position" % _dn(unit, unit.get("id", "")))
 	return "NONE"
 
 static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int) -> Dictionary:
