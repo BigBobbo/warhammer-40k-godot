@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.38.0",
+			"date": "2026-07-13",
+			"summary": "The Scoring phase now spells out each player's primary mission in full: alongside the card name you get the official scoring blurb and a plain-English, per-rule VP breakdown, so you can see exactly how your primary scores without a rulebook.",
+			"changes": [
+				"Primary mission panel (Scoring phase): each player's disposition-paired card now shows a 'PRIMARY MISSIONS' section with the card title, the official mission text, and a bullet list of every scoring rule — e.g. 'End of game: +10VP — control the enemy's home objective'.",
+				"Each rule line reads its timing (Command phase / End of turn / End of game), the battle-round window (R2+, R1–2, ...), the VP, and the condition, generated from the same rules the game actually scores so the text can't drift from the maths.",
+				"Card names are colour-coded per player and cards built from approximate rules are still marked with a '~'.",
+				"No change to how primaries score — this is display only."
+			]
+		},
+		{
 			"version": "0.37.1",
 			"date": "2026-07-13",
 			"summary": "Long game-log entries — like the AI's move rationale — are no longer silently cut off. A truncated entry now shows a clear 'show more' button you can click to read the full text, and 'show less' to collapse it again.",
