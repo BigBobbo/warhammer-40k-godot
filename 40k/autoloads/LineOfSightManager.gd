@@ -2,7 +2,12 @@ extends Node
 const GameStateData = preload("res://autoloads/GameState.gd")
 
 # LineOfSightManager - Manages Line of Sight visualization system
-# Shows all models that can see the mouse cursor position when holding 'V' key
+# Shows all models that can see the mouse cursor position while the
+# los_check key is held (rebindable, default X — "X marks the spot").
+# Main._input drives start/end directly — this tool previously listened for
+# V, then G, in _unhandled_input and both keys were captured first by other
+# toggles (VP timeline / tactical grid), which left it unreachable. Do NOT
+# bind it to a key here again; keep Main as the one owner of the keymap.
 
 signal los_visibility_changed(visible_models: Array, target_pos: Vector2)
 signal los_calculation_started()
@@ -16,7 +21,7 @@ var visual_node: Node2D = null
 
 # Configuration
 var grid_resolution: int = 20  # pixels per grid cell (for area visualization)
-var max_range_inches: float = 48.0  # Maximum visibility range
+var max_range_inches: float = 72.0  # Maximum visibility range (longest common gun range)
 var debug_mode: bool = false
 
 # Performance optimization
@@ -27,24 +32,28 @@ func _ready() -> void:
 	name = "LineOfSightManager"
 	set_process_unhandled_input(true)
 	set_process(false)  # Only process when calculating
-	print("[LineOfSightManager] Initialized - Hold 'G' to check what can see the cursor position")
+	print("[LineOfSightManager] Initialized - Hold 'X' to check what can see the cursor position")
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and not event.echo:
-		# Hold-to-check line of sight (rebindable: los_check, default G).
-		# Press (with exact modifiers) starts; any release ends so it can't stick on.
-		var _key: int = KeybindingManager.get_binding("los_check").get("key", 0)
-		if _key != 0 and event.keycode == _key:
-			if event.pressed:
-				if KeybindingManager.matches_action(event, "los_check"):
-					start_los_calculation()
-			else:
-				end_los_calculation()
-	elif event is InputEventMouseMotion and is_calculating:
+	# Key handling lives in Main._input (rebindable action los_check; see
+	# header comment); only track cursor movement here while a calculation
+	# is live.
+	if event is InputEventMouseMotion and is_calculating:
 		# Update calculation if mouse moved significantly
 		if event.position.distance_to(_last_mouse_pos) > _mouse_move_threshold:
 			_last_mouse_pos = event.position
 			_update_los_calculation()
+
+func _process(_delta: float) -> void:
+	# Poll the cursor too: while the probe is live, motion events can be
+	# swallowed by HUD controls before _unhandled_input sees them, which
+	# would freeze the highlight on a stale position.
+	if not is_calculating:
+		return
+	var mp := get_viewport().get_mouse_position()
+	if mp.distance_to(_last_mouse_pos) > _mouse_move_threshold:
+		_last_mouse_pos = mp
+		_update_los_calculation()
 
 func start_los_calculation() -> void:
 	if is_calculating:
