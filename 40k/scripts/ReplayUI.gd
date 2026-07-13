@@ -333,32 +333,33 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventKey and event.pressed:
-		match event.keycode:
-			KEY_SPACE:
-				_on_play_pause_pressed()
-				get_viewport().set_input_as_handled()
-			KEY_LEFT:
-				_on_step_back_pressed()
-				get_viewport().set_input_as_handled()
-			KEY_RIGHT:
-				_on_step_forward_pressed()
-				get_viewport().set_input_as_handled()
-			KEY_S:
-				_on_speed_pressed()
-				get_viewport().set_input_as_handled()
-			KEY_ESCAPE:
-				_on_exit_pressed()
-				get_viewport().set_input_as_handled()
-			KEY_HOME:
-				ReplayManager.jump_to_position(-1)
-				if main_scene and main_scene.has_method("_replay_refresh_visuals"):
-					main_scene._replay_refresh_visuals()
-				get_viewport().set_input_as_handled()
-			KEY_END:
-				ReplayManager.jump_to_position(ReplayManager.get_total_events() - 1)
-				if main_scene and main_scene.has_method("_replay_refresh_visuals"):
-					main_scene._replay_refresh_visuals()
-				get_viewport().set_input_as_handled()
+		# Replay playback controls (rebindable via KeybindingManager, "Replay Playback" category).
+		# Escape always exits regardless of rebinds.
+		if KeybindingManager.matches_action(event, "replay_play_pause"):
+			_on_play_pause_pressed()
+			get_viewport().set_input_as_handled()
+		elif KeybindingManager.matches_action(event, "replay_step_back"):
+			_on_step_back_pressed()
+			get_viewport().set_input_as_handled()
+		elif KeybindingManager.matches_action(event, "replay_step_forward"):
+			_on_step_forward_pressed()
+			get_viewport().set_input_as_handled()
+		elif KeybindingManager.matches_action(event, "replay_speed"):
+			_on_speed_pressed()
+			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_ESCAPE:
+			_on_exit_pressed()
+			get_viewport().set_input_as_handled()
+		elif KeybindingManager.matches_action(event, "replay_jump_start"):
+			ReplayManager.jump_to_position(-1)
+			if main_scene and main_scene.has_method("_replay_refresh_visuals"):
+				main_scene._replay_refresh_visuals()
+			get_viewport().set_input_as_handled()
+		elif KeybindingManager.matches_action(event, "replay_jump_end"):
+			ReplayManager.jump_to_position(ReplayManager.get_total_events() - 1)
+			if main_scene and main_scene.has_method("_replay_refresh_visuals"):
+				main_scene._replay_refresh_visuals()
+			get_viewport().set_input_as_handled()
 
 # ============================================================================
 # Signal Handlers

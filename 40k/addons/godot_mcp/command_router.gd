@@ -44,6 +44,7 @@ func _register_routes() -> void:
 		"capture_screenshot",
 		"simulate_click", "simulate_mouse_move", "simulate_drag",
 		"simulate_key_press", "simulate_action",
+		"simulate_joy_button", "simulate_joy_axis",
 		"get_scene_state", "execute_script",
 		"wait_frames", "wait_seconds",
 		"get_log_path", "read_debug_log",

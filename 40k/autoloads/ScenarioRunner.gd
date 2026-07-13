@@ -317,6 +317,12 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_hover_board_at(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
+		"simulate_joy_button":
+			rec.merge(await _do_simulate_joy_button(step), true)
+		"simulate_joy_axis":
+			rec.merge(await _do_simulate_joy_axis(step), true)
+		"pad_cursor_glide":
+			rec.merge(await _do_pad_cursor_glide(step), true)
 		"expect_state":
 			rec.merge(_do_expect_state(step), true)
 		"expect_cp":
@@ -638,6 +644,160 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	return {"pass": true}
 
 
+func _do_simulate_joy_button(step: Dictionary) -> Dictionary:
+	# M0 controller support: inject a raw joypad button press+release through
+	# the OS-event pipeline (Input.parse_input_event) so InputMap actions,
+	# ui_* focus navigation and InputDeviceManager device detection all react
+	# as with a real pad. JoyButton enum: 0=A 1=B 2=X 3=Y 4=Back(View)
+	# 6=Start(Menu) 9=LB 10=RB 11-14=D-pad up/down/left/right.
+	if not step.has("button_index"):
+		return {"pass": false, "error": "simulate_joy_button needs `button_index`"}
+	var button_index: int = int(step["button_index"])
+	var device: int = int(step.get("device", 0))
+	# `state`: "tap" (default, press+release), "press" (hold — e.g. start a
+	# cursor drag), "release" (end a held press).
+	var state: String = str(step.get("state", "tap"))
+	if state in ["tap", "press"]:
+		var press := InputEventJoypadButton.new()
+		press.device = device
+		press.button_index = button_index as JoyButton
+		press.pressed = true
+		Input.parse_input_event(press)
+		await get_tree().process_frame
+	if state in ["tap", "release"]:
+		var release := InputEventJoypadButton.new()
+		release.device = device
+		release.button_index = button_index as JoyButton
+		release.pressed = false
+		Input.parse_input_event(release)
+		await get_tree().process_frame
+	return {"pass": true, "button_index": button_index, "state": state}
+
+
+func _do_simulate_joy_axis(step: Dictionary) -> Dictionary:
+	# Push a joypad axis to `value`, hold it for `hold_s` seconds, then return
+	# it to neutral unless auto_release=false. While held, the axis feeds
+	# action strengths so per-frame consumers (pad camera pan / trigger zoom)
+	# integrate over the hold. JoyAxis enum: 0/1 left stick, 2/3 right stick,
+	# 4/5 triggers (0..1).
+	if not step.has("axis"):
+		return {"pass": false, "error": "simulate_joy_axis needs `axis`"}
+	var axis: int = int(step["axis"])
+	var value: float = float(step.get("value", 1.0))
+	var hold_s: float = float(step.get("hold_s", 0.3))
+	var device: int = int(step.get("device", 0))
+	var motion := InputEventJoypadMotion.new()
+	motion.device = device
+	motion.axis = axis as JoyAxis
+	motion.axis_value = value
+	Input.parse_input_event(motion)
+	if hold_s > 0.0:
+		await get_tree().create_timer(hold_s).timeout
+	if bool(step.get("auto_release", true)):
+		var neutral := InputEventJoypadMotion.new()
+		neutral.device = device
+		neutral.axis = axis as JoyAxis
+		neutral.axis_value = 0.0
+		Input.parse_input_event(neutral)
+		await get_tree().process_frame
+	return {"pass": true, "axis": axis, "value": value, "hold_s": hold_s}
+
+
+func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
+	# M1 test seam for the virtual cursor: glide the cursor to a target
+	# through the SAME per-frame move/warp/motion-synthesis pipeline the left
+	# stick uses — only the steering is deterministic. Target one of:
+	#   { "unit_id": "U_X" }          — a unit's token
+	#   { "node": "/root/Main/..." }  — a Control's centre
+	#   { "button_text": "Confirm Move" } — first visible enabled Button with
+	#     that exact text (procedurally-built panels have no stable NodePath)
+	#   { "x": .., "y": .. }          — board/world px (like click_board_at)
+	#   { "x": .., "y": .., "space": "screen" } — raw screen px
+	var vc = get_node_or_null("/root/VirtualCursor")
+	if vc == null:
+		return {"pass": false, "error": "no VirtualCursor autoload"}
+	var target := Vector2.INF
+	if step.has("button_text"):
+		var wanted := str(step["button_text"])
+		var btn := _find_visible_button_by_text(wanted)
+		if btn == null:
+			return {"pass": false, "error": "no visible enabled Button with text '%s'" % wanted}
+		target = btn.get_global_rect().get_center()
+	elif step.has("unit_id"):
+		var token: Node = _find_unit_token(str(step["unit_id"]))
+		if token == null:
+			return {"pass": false, "error": "no token for unit %s" % str(step["unit_id"])}
+		target = _node2d_to_screen(token)
+		if target == Vector2.INF:
+			return {"pass": false, "error": "could not project token to screen"}
+	elif step.has("node"):
+		var node: Node = get_node_or_null(NodePath(str(step["node"])))
+		if node == null or not (node is Control):
+			return {"pass": false, "error": "no Control at path %s" % str(step.get("node"))}
+		target = (node as Control).get_global_rect().get_center()
+	elif step.has("x") and step.has("y"):
+		var p := Vector2(float(step["x"]), float(step["y"]))
+		if str(step.get("space", "board")) == "screen":
+			target = p
+		else:
+			var scene := get_tree().current_scene
+			if scene == null or not scene.has_method("world_to_screen_position"):
+				return {"pass": false, "error": "current scene cannot project board coords"}
+			target = scene.world_to_screen_position(p)
+	else:
+		return {"pass": false, "error": "pad_cursor_glide needs unit_id, node, or x/y"}
+	# The cursor's edge-push pans the camera when the target starts off-screen,
+	# which moves the target's SCREEN position while the glide is in flight —
+	# so re-resolve and re-glide until the cursor rests on the current target.
+	var rounds := 0
+	while rounds < 8:
+		rounds += 1
+		var resolved = _resolve_glide_target(step)
+		if resolved == null:
+			return {"pass": false, "error": "glide target vanished while re-resolving"}
+		target = resolved
+		if (vc.get_cursor_pos() - target).length() <= 4.0:
+			return {"pass": true, "target": [target.x, target.y], "rounds": rounds}
+		var ok: bool = await vc.glide_to_screen(target, float(step.get("timeout_s", 4.0)))
+		if not ok:
+			return {"pass": false, "target": [target.x, target.y],
+					"error": "glide did not arrive within timeout (round %d)" % rounds}
+	return {"pass": false, "error": "glide target never stabilised after %d rounds" % rounds}
+
+
+func _resolve_glide_target(step: Dictionary):
+	if step.has("button_text"):
+		var btn := _find_visible_button_by_text(str(step["button_text"]))
+		return null if btn == null else btn.get_global_rect().get_center()
+	if step.has("unit_id"):
+		var token: Node = _find_unit_token(str(step["unit_id"]))
+		if token == null:
+			return null
+		var p := _node2d_to_screen(token)
+		return null if p == Vector2.INF else p
+	if step.has("node"):
+		var node: Node = get_node_or_null(NodePath(str(step["node"])))
+		return null if (node == null or not (node is Control)) else (node as Control).get_global_rect().get_center()
+	var world := Vector2(float(step["x"]), float(step["y"]))
+	if str(step.get("space", "board")) == "screen":
+		return world
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("world_to_screen_position"):
+		return null
+	return scene.world_to_screen_position(world)
+
+
+func _find_visible_button_by_text(wanted: String) -> Button:
+	var queue: Array = [get_tree().root]
+	while not queue.is_empty():
+		var n: Node = queue.pop_front()
+		if n is Button and n.visible and n.is_visible_in_tree() and not n.disabled and str(n.text).strip_edges() == wanted:
+			return n
+		for child in n.get_children(true):
+			queue.append(child)
+	return null
+
+
 func _do_expect_state(step: Dictionary) -> Dictionary:
 	var path: String = str(step.get("path", ""))
 	if path == "":
@@ -941,6 +1101,55 @@ func _do_expect_baseline_unchanged(_step: Dictionary) -> Dictionary:
 # stays 1 even after firing concurrent recreates. Size-independent, so it is
 # robust to fixture changes. Callable from `execute_script` steps as a bare
 # `max_tokens_per_model()` (the runner is the Expression base instance).
+# Shape-aware minimum edge-to-edge distance (inches) between the alive models
+# of two units, straight from GameState. Callable from `execute_script` steps
+# as `min_edge_distance_between_units("U_A", "U_B")` — e.g. with expect_max 2.0
+# to assert a completed charge really stands in engagement range.
+func min_edge_distance_between_units(unit_a_id: String, unit_b_id: String) -> float:
+	var units = GameState.state.get("units", {})
+	var ua = units.get(unit_a_id, {})
+	var ub = units.get(unit_b_id, {})
+	var best := 9999.0
+	for ma in ua.get("models", []):
+		if not ma.get("alive", true) or ma.get("position") == null:
+			continue
+		for mb in ub.get("models", []):
+			if not mb.get("alive", true) or mb.get("position") == null:
+				continue
+			best = min(best, Measurement.model_to_model_distance_inches(ma, mb))
+	return best
+
+# Count GameEventLog entries whose text contains `needle`. Callable from
+# `execute_script` steps, e.g. `event_log_count_containing("charge move failed")`
+# with equals 0 to assert a failure message never reached the player-facing log.
+func event_log_count_containing(needle: String) -> int:
+	var log_node := get_tree().root.get_node_or_null("GameEventLog")
+	if log_node == null:
+		return -1
+	var n := 0
+	for e in log_node.get_all_entries():
+		if str(e.get("text", "")).find(needle) != -1:
+			n += 1
+	return n
+
+# Width in px of the static top-down sprite resolved onto the first token of
+# `unit_id`: -1 if no token exists, 0 if the token has no sprite (letter
+# fallback). Callable from `execute_script` steps, e.g.
+# unit_token_sprite_width("U_CUSTODIAN_GUARD_B") with equals 512 to assert the
+# bundled Custodian Guard art landed on the board token.
+func unit_token_sprite_width(unit_id: String) -> int:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return -1
+	var tl := scene.get_node_or_null("BoardRoot/TokenLayer")
+	if tl == null:
+		return -1
+	for c in tl.get_children():
+		if c.has_meta("unit_id") and str(c.get_meta("unit_id")) == unit_id:
+			var tex = c._get_unit_sprite_texture()
+			return tex.get_width() if tex != null else 0
+	return -1
+
 func max_tokens_per_model() -> int:
 	var scene := get_tree().current_scene
 	if scene == null:
@@ -1075,6 +1284,15 @@ func _coerce_vector2(value):
 
 
 func _node2d_to_screen(node: Node2D) -> Vector2:
+	# Board tokens live under Main's CanvasLayer, which IGNORES the Camera2D —
+	# but viewport.get_canvas_transform() follows it, so the two can drift
+	# apart mid-run. Project through the scene's own BoardRoot transform (the
+	# exact lens every board input handler inverts) whenever possible.
+	var scene := get_tree().current_scene
+	if scene != null and scene.has_method("world_to_screen_position"):
+		var parent := node.get_parent()
+		if parent != null and str(parent.name) == "TokenLayer":
+			return scene.world_to_screen_position(node.position)
 	var viewport := node.get_viewport()
 	if viewport == null:
 		return Vector2.INF

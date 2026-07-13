@@ -1088,16 +1088,6 @@
       "status": "covered"
     },
     {
-      "id": "deployment.search_and_destroy",
-      "description": "HONEST SCOPE: only asserts the deployment dropdown DEFAULTS to 'Search and Destroy'; does not exercise S&D deployment logic.",
-      "scenarios": [
-        "main_menu_defaults"
-      ],
-      "fidelity": "HANDLER",
-      "last_verified_commit": "28088acc",
-      "status": "covered"
-    },
-    {
       "id": "iss064.no_double_hazard",
       "description": "CONFIRM_UNIT_MOVE does not re-apply hazards at ed.11 (alive count unchanged after begin).",
       "scenarios": [
@@ -1129,7 +1119,7 @@
     },
     {
       "id": "mainmenu.defaults",
-      "description": "MainMenu boots with terrain defaulting to 'CA2025 02 Layout' and deployment to 'Search and Destroy' (live OptionButton widgets).",
+      "description": "MainMenu boots with terrain defaulting to the default matchup's first official 11e variant (take_and_hold_mirror_1) and deployment following that layout's paired pattern (live OptionButton widgets).",
       "scenarios": [
         "main_menu_defaults"
       ],
@@ -1639,16 +1629,6 @@
         "iss048_shooting_types_11e"
       ],
       "fidelity": "RULES",
-      "last_verified_commit": "28088acc",
-      "status": "covered"
-    },
-    {
-      "id": "terrain.parse_test",
-      "description": "HONEST SCOPE: only asserts the terrain dropdown DEFAULTS to the layout_parse_test option; does not exercise terrain parsing itself.",
-      "scenarios": [
-        "main_menu_defaults"
-      ],
-      "fidelity": "HANDLER",
       "last_verified_commit": "28088acc",
       "status": "covered"
     },
@@ -2351,7 +2331,7 @@
     },
     {
       "id": "mainmenu.deployment_follows_layout",
-      "description": "D5: selecting an official 11e layout snaps the deployment dropdown to the layout card's paired pattern (incl. the 11e-new tipping_point option); legacy layouts leave it untouched",
+      "description": "D5: selecting an official 11e layout snaps the deployment dropdown to the layout card's paired pattern (incl. the 11e-new tipping_point option)",
       "scenarios": [
         "terrain_11e_menu_matchup"
       ],
@@ -2728,6 +2708,24 @@
         "ai_battle_plan_log_integrity"
       ],
       "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.select_fighter_offer_11e",
+      "description": "FIGHT phase (11e 12.04): get_available_actions offers SELECT_FIGHTER for exactly the FightSequencer's current candidates, tagged with the picking player, instead of the legacy fight_sequence queue that desynced once fights happened out of order. Regression for the 2026-07-12 report where an engaged Stompa was never offered its fight (the AI acted on a stale offer and END_FIGHT forfeited every remaining fight). Validated by 'stompa_gets_to_fight_11e'.",
+      "scenarios": [
+        "stompa_gets_to_fight_11e"
+      ],
+      "last_verified_commit": "4abfc9b",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.rules.FightSequencer.peek_selection",
+      "description": "FightSequencer.peek_selection() \u2014 a pure, non-mutating preview of next_selection() used by get_available_actions on every UI/AI poll; must not advance picker/step. Validated by 'stompa_gets_to_fight_11e' (live) and test_iss050_fight_phase_11e.gd (headless purity/parity).",
+      "scenarios": [
+        "stompa_gets_to_fight_11e"
+      ],
+      "last_verified_commit": "4abfc9b",
       "status": "covered"
     }
   ]

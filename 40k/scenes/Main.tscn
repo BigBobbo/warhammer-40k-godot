@@ -94,7 +94,7 @@ layout_mode = 2
 
 [node name="UnitListPanel" type="ItemList" parent="HUD_Right/VBoxContainer"]
 layout_mode = 2
-focus_mode = 1
+focus_mode = 2
 size_flags_vertical = 3
 
 [node name="UnitCard" type="VBoxContainer" parent="HUD_Right/VBoxContainer"]
@@ -122,19 +122,19 @@ layout_mode = 2
 [node name="UndoButton" type="Button" parent="HUD_Right/VBoxContainer/UnitCard/ButtonContainer"]
 visible = false
 layout_mode = 2
-focus_mode = 1
+focus_mode = 2
 text = "Undo"
 
 [node name="ResetButton" type="Button" parent="HUD_Right/VBoxContainer/UnitCard/ButtonContainer"]
 visible = false
 layout_mode = 2
-focus_mode = 1
+focus_mode = 2
 text = "Reset Unit"
 
 [node name="ConfirmButton" type="Button" parent="HUD_Right/VBoxContainer/UnitCard/ButtonContainer"]
 visible = false
 layout_mode = 2
-focus_mode = 1
+focus_mode = 2
 text = "Confirm"
 
 [node name="UnitStatsPanel" type="PanelContainer" parent="."]

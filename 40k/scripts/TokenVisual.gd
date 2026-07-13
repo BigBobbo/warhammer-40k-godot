@@ -17,6 +17,11 @@ var _pulse_time: float = 0.0
 var _sprite_resolved: bool = false
 var _sprite_texture: Texture2D = null
 
+# Built-in Kenney tank sprites drawn on VEHICLE tokens in letter mode
+var _tank_resolved: bool = false
+var _tank_body_tex: Texture2D = null
+var _tank_barrel_tex: Texture2D = null
+
 # Faction font cache (for letter mode)
 var _faction_font: Font = null
 
@@ -60,6 +65,11 @@ func _ready() -> void:
 	if pm != null and pm.has_signal("phase_changed"):
 		if not pm.is_connected("phase_changed", _t09_on_phase_changed):
 			pm.connect("phase_changed", _t09_on_phase_changed)
+	# Letter/classic styles only redraw on interaction, so without this hook a
+	# style change in settings leaves every idle token rendering the old style.
+	if SettingsService and SettingsService.has_signal("unit_style_changed"):
+		if not SettingsService.is_connected("unit_style_changed", _on_unit_style_changed):
+			SettingsService.connect("unit_style_changed", _on_unit_style_changed)
 	# T08: two concentric rings expose faction vs player-slot color so
 	# scenarios can assert per-ring modulate. FactionRing draws inner ring;
 	# SlotRing draws a slightly larger thin outer ring. Both render on top
@@ -74,6 +84,10 @@ func _ready() -> void:
 func _t09_on_phase_changed(_new_phase) -> void:
 	if is_exhausted_this_phase:
 		set_exhausted_this_phase(false)
+
+
+func _on_unit_style_changed(_new_style: String) -> void:
+	queue_redraw()
 
 
 # T19: pulse the outer SlotRing's alpha between 0.7 and 1.0 to indicate the
@@ -528,11 +542,9 @@ func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 
 	if use_retro:
 		# --- Retro mode: flat base + top-down pixel art (Hotline Miami style) ---
-		var base_color: Color
-		if owner_player == 1:
-			base_color = Color(0.15, 0.18, 0.3, 1.0)
-		else:
-			base_color = Color(0.35, 0.08, 0.06, 1.0)
+		# Faction-tinted base (orks green, custodes gold) instead of player slot color.
+		var base_color: Color = _get_faction_primary_color().darkened(0.55)
+		base_color.a = 1.0
 
 		# Simple flat circle base
 		if shape_type == "circular":
@@ -552,14 +564,13 @@ func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 		_draw_retro_pixel_art(radius, border_color)
 	else:
 		# --- Standard enhanced mode: gradient base + metallic rim ---
-		var dark_color: Color
-		var light_color: Color
-		if owner_player == 1:
-			dark_color = Color(0.2, 0.25, 0.45, 1.0)
-			light_color = Color(0.35, 0.4, 0.6, 1.0)
-		else:
-			dark_color = Color(0.5, 0.12, 0.1, 1.0)
-			light_color = Color(0.65, 0.25, 0.2, 1.0)
+		# Base gradient derives from the faction's primary color (orks green,
+		# custodes gold, ...) with the player slot color only as fallback.
+		var primary := _get_faction_primary_color()
+		var dark_color := primary.darkened(0.45)
+		dark_color.a = 1.0
+		var light_color := primary.lightened(0.1)
+		light_color.a = 1.0
 
 		if shape_type == "circular":
 			TokenDrawUtils.draw_gradient_circle(self, Vector2.ZERO, radius, dark_color)
@@ -755,20 +766,29 @@ func _draw_letter_mode() -> void:
 			var to = poly_points[(i + 1) % poly_points.size()]
 			draw_line(from, to, border_shade, 2.0)
 
-	# --- Layer 3: Centered letter label ---
-	var label = _get_letter_label()
-	if label != "":
-		var text_color = FactionPalettes.get_contrast_text_color(token_color)
-		var font = _get_faction_font()
-		# Font size ~60% of base diameter, smaller for multi-char labels
-		var base_font_size = int(radius * 1.2)
-		var font_size = base_font_size if label.length() <= 2 else int(base_font_size * 0.65)
-		var text_size = font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
-		var text_pos = Vector2(-text_size.x / 2.0, text_size.y / 4.0)
+	# --- Layer 3: Top-down unit art, vehicle tank sprite, or letter label ---
+	# Units with dedicated top-down art (bundled or user drop-in, resolved by
+	# SpriteResolver) render that; VEHICLE tokens without dedicated art fall
+	# back to the generic tank sprite (faction colorway); everything else
+	# keeps the Vassal-style letter counter.
+	if _get_unit_sprite_texture() != null:
+		_draw_unit_sprite(rot)
+	elif _get_tank_body_texture() != null:
+		_draw_tank_sprite(rot)
+	else:
+		var label = _get_letter_label()
+		if label != "":
+			var text_color = FactionPalettes.get_contrast_text_color(token_color)
+			var font = _get_faction_font()
+			# Font size ~60% of base diameter, smaller for multi-char labels
+			var base_font_size = int(radius * 1.2)
+			var font_size = base_font_size if label.length() <= 2 else int(base_font_size * 0.65)
+			var text_size = font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+			var text_pos = Vector2(-text_size.x / 2.0, text_size.y / 4.0)
 
-		# Faux-bold: draw 3x with sub-pixel offsets
-		for offset in [Vector2(-0.5, 0), Vector2(0.5, 0), Vector2(0, 0)]:
-			draw_string(font, text_pos + offset, label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)
+			# Faux-bold: draw 3x with sub-pixel offsets
+			for offset in [Vector2(-0.5, 0), Vector2(0.5, 0), Vector2(0, 0)]:
+				draw_string(font, text_pos + offset, label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)
 
 	# --- Layer 3b: MA-20 model type colored ring ---
 	_draw_model_type_ring(radius)
@@ -868,12 +888,9 @@ func _draw_retro_pixel_art(radius: float, border_color: Color) -> void:
 	if has_meta("unit_id"):
 		unit_type = _get_unit_type()
 
-	# Use faction-tinted color for the pixel art
-	var pixel_color: Color
-	if owner_player == 1:
-		pixel_color = Color(0.5, 0.55, 0.75, 1.0)  # Blue-steel
-	else:
-		pixel_color = Color(0.75, 0.35, 0.3, 1.0)  # Crimson
+	# Use faction-tinted color for the pixel art (player slot color as fallback)
+	var pixel_color: Color = _get_faction_primary_color().lightened(0.2)
+	pixel_color.a = 1.0
 	var accent = _get_faction_accent_color()
 	accent.a = 1.0
 
@@ -1223,6 +1240,34 @@ func _draw_model_type_ring(radius: float) -> void:
 	draw_arc(Vector2.ZERO, ring_radius, 0, TAU, 48, ring_color, 2.0)
 
 
+# Max characters shown for a unit's on-board name label before it is elided.
+# Chosen so a base name plus a Greek-letter suffix (e.g. "Custodian Guard
+# Epsilon", 23 chars) still fits without truncation.
+const UNIT_LABEL_MAX_CHARS := 24
+
+
+func _compact_unit_name(display_name: String) -> String:
+	# Shorten an over-long unit name for the on-board label WITHOUT dropping the
+	# trailing disambiguator. ArmyListManager appends a Greek-letter suffix
+	# ("Alpha", "Delta", …) to duplicate squads so the player can tell them
+	# apart, and that suffix sits at the END of display_name. The old
+	# tail-truncation ("Custodian Guard Alpha" -> "Custodian Guard ..") chopped
+	# exactly that suffix off, collapsing every duplicate to an identical label.
+	# Instead, keep the suffix intact and elide the middle of the base name.
+	if display_name.length() <= UNIT_LABEL_MAX_CHARS:
+		return display_name
+	var space := display_name.rfind(" ")
+	if space > 0:
+		var suffix := display_name.substr(space + 1)
+		# Reserve room for the head + ".." joiner + the space before the suffix.
+		var head_room := UNIT_LABEL_MAX_CHARS - suffix.length() - 3
+		if suffix.length() > 0 and head_room >= 3:
+			return display_name.substr(0, head_room).strip_edges() + ".. " + suffix
+	# Single word, or an unusually long trailing word: fall back to plain
+	# tail truncation.
+	return display_name.substr(0, UNIT_LABEL_MAX_CHARS - 2) + ".."
+
+
 func _draw_unit_name_label() -> void:
 	if SettingsService and not SettingsService.show_unit_labels:
 		return
@@ -1234,15 +1279,22 @@ func _draw_unit_name_label() -> void:
 	if unit.is_empty():
 		return
 
+	# One name plate per UNIT, not per model: drawing it under all 11 gretchin
+	# produces an unreadable smear of repeated text. Only the unit's first
+	# alive model carries the plate (it migrates as casualties are removed).
+	if not _is_unit_label_anchor(unit):
+		return
+
 	# Prefer display_name (includes Greek suffix for duplicates) over raw name
 	var meta = unit.get("meta", {})
 	var unit_name = meta.get("display_name", meta.get("name", ""))
 	if unit_name == "":
 		return
 
-	# Truncate long names to keep label compact
-	if unit_name.length() > 18:
-		unit_name = unit_name.substr(0, 16) + ".."
+	# Shorten long names to keep the label compact, but keep the disambiguating
+	# suffix (e.g. "Alpha"/"Delta") visible so duplicate squads stay tellable
+	# apart. See _compact_unit_name().
+	unit_name = _compact_unit_name(unit_name)
 
 	var font = _get_faction_font()
 	var font_size = 11
@@ -1254,17 +1306,16 @@ func _draw_unit_name_label() -> void:
 	var label_y = base_radius + font_size + 3
 	var text_pos = Vector2(-text_size.x / 2.0, label_y)
 
-	# Add model count badge for first model of multi-model units
+	# Add model count badge for multi-model units
 	var count_text = ""
-	if model_number == 1:
-		var models = unit.get("models", [])
-		var total = models.size()
-		if total > 1:
-			var alive = 0
-			for m in models:
-				if m.get("current_wounds", 1) > 0:
-					alive += 1
-			count_text = "%d/%d" % [alive, total]
+	var models = unit.get("models", [])
+	var total = models.size()
+	if total > 1:
+		var alive = 0
+		for m in models:
+			if m.get("current_wounds", 1) > 0:
+				alive += 1
+		count_text = "%d/%d" % [alive, total]
 
 	# Build combined label
 	var display = unit_name
@@ -1285,6 +1336,18 @@ func _draw_unit_name_label() -> void:
 	draw_string(font, combined_pos + Vector2(0.5, 0.5), display, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, 0.7))
 	draw_string(font, combined_pos, display, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, label_color)
 
+# True when this token's model is the unit's first alive model — the single
+# model that carries the unit name plate. Falls back to model_number 1 when
+# the model id can't be matched (e.g. previews without meta).
+func _is_unit_label_anchor(unit: Dictionary) -> bool:
+	if not has_meta("model_id"):
+		return model_number == 1
+	var my_id = str(get_meta("model_id"))
+	for m in unit.get("models", []):
+		if m.get("current_wounds", m.get("wounds", 1)) > 0:
+			return str(m.get("id", "")) == my_id
+	return model_number == 1
+
 func _resolve_sprite() -> void:
 	_sprite_resolved = true
 	if not has_meta("unit_id"):
@@ -1300,6 +1363,68 @@ func _resolve_sprite() -> void:
 	var unit_type = _get_unit_type()
 
 	_sprite_texture = SpriteResolver.resolve_sprite(unit_name, faction, unit_type)
+
+
+func _get_unit_sprite_texture() -> Texture2D:
+	if not _sprite_resolved:
+		_resolve_sprite()
+	return _sprite_texture
+
+
+func _draw_unit_sprite(rot: float) -> void:
+	# Top-down unit art drawn 1:1 over the base: the sprite's square canvas maps
+	# to the base diameter, so the figure fills its base and weapons may overhang
+	# the base circle (Vassal-style). Rotates with the model's facing like tanks.
+	var bounds = base_shape.get_bounds()
+	var tex = _sprite_texture
+	var fit = min(bounds.size.x / tex.get_width(), bounds.size.y / tex.get_height())
+	draw_set_transform(Vector2.ZERO, rot, Vector2(fit, fit))
+	var tex_size = Vector2(tex.get_width(), tex.get_height())
+	draw_texture_rect(tex, Rect2(-tex_size / 2.0, tex_size), false)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _get_tank_body_texture() -> Texture2D:
+	if not _tank_resolved:
+		_resolve_tank_sprites()
+	return _tank_body_tex
+
+
+func _resolve_tank_sprites() -> void:
+	_tank_resolved = true
+	if not has_meta("unit_id"):
+		return
+	if _get_unit_type() != "VEHICLE":
+		return
+	var unit = GameState.get_unit(get_meta("unit_id"))
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var titanic := false
+	for k in keywords:
+		if str(k).to_upper() == "TITANIC":
+			titanic = true
+			break
+	var faction = _get_faction_name()
+	_tank_body_tex = TokenTankSprites.body_texture(faction, owner_player, titanic)
+	# The oversized titanic hull reads better without the standard turret.
+	_tank_barrel_tex = null if titanic else TokenTankSprites.barrel_texture(faction, owner_player)
+
+
+func _draw_tank_sprite(rot: float) -> void:
+	var bounds = base_shape.get_bounds()
+	var body = _tank_body_tex
+	var fit = min(bounds.size.x * 0.95 / body.get_width(), bounds.size.y * 0.95 / body.get_height())
+	draw_set_transform(Vector2.ZERO, rot, Vector2(fit, fit))
+	var body_size = Vector2(body.get_width(), body.get_height())
+	draw_texture_rect(body, Rect2(-body_size / 2.0, body_size), false)
+	if _tank_barrel_tex != null:
+		var barrel = _tank_barrel_tex
+		var barrel_size = Vector2(barrel.get_width(), barrel.get_height())
+		# The Kenney barrel texture points muzzle-down with the turret ring at
+		# its top; flip it 180° so the gun faces the hull front (up at rot 0)
+		# with the turret ring parked mid-hull.
+		draw_set_transform(Vector2.ZERO, rot + PI, Vector2(fit, fit))
+		draw_texture_rect(barrel, Rect2(Vector2(-barrel_size.x / 2.0, -barrel_size.y * 0.28), barrel_size), false)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _resolve_animated_sprite() -> void:
@@ -1565,6 +1690,16 @@ func _get_unit_type() -> String:
 			return "MONSTER"
 
 	return "INFANTRY"
+
+# Faction primary color for token bodies (enhanced/retro modes); falls back to
+# the player slot color when the faction doesn't resolve.
+func _get_faction_primary_color() -> Color:
+	var faction = _get_faction_name()
+	if faction != "" and FactionPalettes:
+		return FactionPalettes.get_primary_color(faction)
+	if owner_player == 1:
+		return Color(0.2, 0.25, 0.45, 1.0)
+	return Color(0.5, 0.12, 0.1, 1.0)
 
 func _get_faction_name() -> String:
 	var unit_id = get_meta("unit_id") if has_meta("unit_id") else ""

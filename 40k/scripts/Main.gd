@@ -3296,7 +3296,9 @@ func _fix_hud_layout() -> void:
 		hud_right.offset_top = top_height  # Leave space for top panel
 		hud_right.z_index = UI_PANEL_Z
 		var right_style = StyleBoxFlat.new()
-		right_style.bg_color = Color(0.06, 0.05, 0.04, 0.92)
+		# Fully opaque: any translucency here lets bright board content (tokens,
+		# zone fills) ghost through the panel and fight the unit list for legibility.
+		right_style.bg_color = Color(0.06, 0.05, 0.04, 1.0)
 		right_style.border_color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.5)
 		right_style.border_width_left = 2
 		right_style.set_content_margin_all(4)
@@ -3308,7 +3310,7 @@ func _fix_hud_layout() -> void:
 	if hud_bottom:
 		hud_bottom.z_index = UI_PANEL_Z
 		var bottom_style = StyleBoxFlat.new()
-		bottom_style.bg_color = Color(0.06, 0.05, 0.04, 0.95)
+		bottom_style.bg_color = Color(0.06, 0.05, 0.04, 1.0)
 		bottom_style.border_color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.5)
 		bottom_style.border_width_top = 2
 		bottom_style.set_content_margin_all(4)
@@ -5094,7 +5096,41 @@ func _is_text_input_focused() -> bool:
 	var focused = get_viewport().gui_get_focus_owner()
 	return focused is LineEdit or focused is TextEdit
 
+
+# M1 controller support: Menu/Start presses the phase action button behind a
+# confirmation, reusing whatever the button currently does/says.
+var _pad_phase_confirm: ConfirmationDialog = null
+
+func _show_pad_phase_confirm() -> void:
+	if _pad_phase_confirm == null or not is_instance_valid(_pad_phase_confirm):
+		_pad_phase_confirm = ConfirmationDialog.new()
+		_pad_phase_confirm.title = "Confirm"
+		_pad_phase_confirm.confirmed.connect(_on_pad_phase_confirmed)
+		add_child(_pad_phase_confirm)
+	_pad_phase_confirm.dialog_text = phase_action_button.text.replace("[Enter] ", "").strip_edges() + "?"
+	_pad_phase_confirm.popup_centered()
+
+func _on_pad_phase_confirmed() -> void:
+	if phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
+		phase_action_button.emit_signal("pressed")
+
 func _input(event: InputEvent) -> void:
+	# Pad Menu/Start button (M1): the phase action ("End X Phase") behind a
+	# confirm dialog, so a stray press can't skip half a turn. The dialog gets
+	# pad focus from InputDeviceManager's watcher: A confirms, B cancels.
+	# M2: in the shooting phase with an armed shooter + assignments, Start
+	# means "Confirm Targets" instead (PRP §4.3 — context-dependent Menu).
+	if event.is_action_pressed("pad_phase_action"):
+		if current_phase == GameStateData.Phase.SHOOTING and shooting_controller \
+				and is_instance_valid(shooting_controller) \
+				and str(shooting_controller.active_shooter_id) != "" \
+				and not shooting_controller.weapon_assignments.is_empty():
+			shooting_controller._on_confirm_pressed()
+		elif phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
+			_show_pad_phase_confirm()
+		get_viewport().set_input_as_handled()
+		return
+
 	# ESC key handling — highest priority: opens settings menu (or closes overlays first)
 	# Use direct keycode check for reliability (is_action_pressed can miss with physical_keycode-only mappings)
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
@@ -5169,8 +5205,8 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
 		_handle_right_click(event)
 
-	# Army panel toggle - KEY_U
-	if event is InputEventKey and event.pressed and event.keycode == KEY_U:
+	# Army panel toggle (rebindable: toggle_army_panel, default U)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_army_panel"):
 		_toggle_army_panel()
 		get_viewport().set_input_as_handled()
 		return
@@ -5184,70 +5220,67 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# T-095/T-110: Hotkey help overlay - KEY_QUESTION (?) or KEY_SLASH with shift
-	if event is InputEventKey and event.pressed and not event.echo and (event.keycode == KEY_QUESTION or (event.keycode == KEY_SLASH and event.shift_pressed)):
+	# T-095/T-110: Hotkey help overlay (rebindable: hotkey_help, default Shift+/).
+	# KEY_QUESTION kept as a fallback for layouts that emit '?' as its own keycode.
+	if event is InputEventKey and event.pressed and not event.echo and (KeybindingManager.matches_action(event, "hotkey_help") or event.keycode == KEY_QUESTION):
 		_toggle_hotkey_help_overlay()
 		get_viewport().set_input_as_handled()
 		return
 
-	# Aura rings toggle - KEY_A
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_A \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# Aura rings toggle (rebindable: toggle_aura_rings, default A)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_aura_rings"):
 		_toggle_aura_rings()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T-109: Grid overlay toggle - KEY_G
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_G \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T-109: Grid overlay toggle (rebindable: toggle_grid_overlay, default G)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_grid_overlay"):
 		_toggle_grid_overlay()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T-099: VP timeline panel toggle - KEY_V
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_V \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T-099: VP timeline panel toggle (rebindable: toggle_vp_timeline, default V)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_vp_timeline"):
 		_toggle_vp_timeline_panel()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T13: fit-to-board camera keybind - KEY_F (no modifier)
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T13: fit-to-board camera keybind (rebindable: fit_view_board, default F)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "fit_view_board"):
 		fit_view_to_board()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T14: fit-to-selection camera keybind - Shift+F
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F \
-			and event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T14: fit-to-selection camera keybind (rebindable: fit_view_selection, default Shift+F)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "fit_view_selection"):
 		var sel_id := _selected_unit_id_or_empty()
 		if sel_id != "":
 			fit_view_to_selection(sel_id)
 		get_viewport().set_input_as_handled()
 		return
 
-	# T31: ruler tool R (public) / Shift+R (private) / ESC exits
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_R \
-			and not event.ctrl_pressed and not event.meta_pressed:
-		var ruler = get_node_or_null("BoardRoot/RulerTool")
-		if ruler != null:
-			ruler.set_active(true)
-			ruler.is_private = event.shift_pressed
-			get_viewport().set_input_as_handled()
-			return
+	# T31: ruler tool (rebindable: ruler_tool, default R). Shift = private line; ESC exits.
+	# Match the bound key while ignoring Shift so Shift can select the private variant.
+	if event is InputEventKey and event.pressed and not event.echo and not event.ctrl_pressed and not event.meta_pressed:
+		var _ruler_key: int = KeybindingManager.get_binding("ruler_tool").get("key", 0)
+		if _ruler_key != 0 and event.keycode == _ruler_key:
+			var ruler = get_node_or_null("BoardRoot/RulerTool")
+			if ruler != null:
+				ruler.set_active(true)
+				ruler.is_private = event.shift_pressed
+				get_viewport().set_input_as_handled()
+				return
 
-	# T10: Tab held -> threat overlay on; release -> off.
-	if event is InputEventKey and event.keycode == KEY_TAB and not event.echo:
+	# T10: threat overlay held key (rebindable: threat_overlay, default Tab). Press -> on, release -> off.
+	if event is InputEventKey and not event.echo and KeybindingManager.matches_action(event, "threat_overlay"):
 		var to = get_node_or_null("BoardRoot/ThreatOverlay")
 		if to != null:
 			to.set_active(event.pressed)
 			get_viewport().set_input_as_handled()
 			return
 
-	# T39: datasheet modal — KEY_I opens for selected unit
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_I \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T39: datasheet modal (rebindable: datasheet_modal, default I) opens for selected unit
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "datasheet_modal"):
 		var ds = get_node_or_null("DatasheetModal")
 		if ds != null:
 			var sel_id := _selected_unit_id_or_empty()
@@ -5269,74 +5302,75 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# T-102: Chat panel toggle - KEY_T (text/chat). Only shows in networked games.
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_T \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T-102: Chat panel toggle (rebindable: toggle_chat_panel, default T). Only shows in networked games.
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_chat_panel"):
 		_toggle_chat_panel()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T-103: Weapon range comparison panel - KEY_W
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_W \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T-103: Weapon range comparison panel (rebindable: weapon_range_panel, default W)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "weapon_range_panel"):
 		_toggle_weapon_range_comparison_panel()
 		get_viewport().set_input_as_handled()
 		return
 
-	# T-023: stratagem panel toggle - KEY_S (skip when text input focused)
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_S \
-			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+	# T-023: stratagem panel toggle (rebindable: toggle_stratagem_panel, default S; skip when text input focused)
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_stratagem_panel"):
 		_toggle_stratagem_panel()
 		get_viewport().set_input_as_handled()
 		return
 
-	# Visual style toggle - KEY_8 (letter <-> enhanced)
-	if event is InputEventKey and event.pressed and event.keycode == KEY_8:
+	# Visual style toggle (rebindable: toggle_visual_style, default 8; letter <-> enhanced)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_visual_style"):
 		_toggle_visual_style()
 		get_viewport().set_input_as_handled()
 		return
 
-	# Debug mode toggle - highest priority
-	if event is InputEventKey and event.pressed and event.keycode == KEY_9:
+	# Debug mode toggle (rebindable: toggle_debug_mode, default 9)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_debug_mode"):
 		print("Debug mode key (9) pressed!")
 		DebugManager.toggle_debug_mode()
 		get_viewport().set_input_as_handled()
 		return
-	
-	# T32: LoS debug — held-key power-user mode (was: persistent top-bar toggle).
-	# 2026-07-12: shows the sight-line overview in every phase (see
-	# LoSDebugVisual.show_overview). Chorded PRESSES (Ctrl+L = load, etc.) are
-	# not ours; releases always count so the held overlay can't get stuck ON
-	# when a modifier happens to be down at release time.
-	if event is InputEventKey and event.keycode == KEY_L and not event.echo \
-			and not (event.pressed and (event.shift_pressed or event.ctrl_pressed or event.meta_pressed)):
-		var want_on: bool = event.pressed
-		if want_on != los_debug_active:
-			_toggle_los_debug()
-			los_debug_active = want_on
-		get_viewport().set_input_as_handled()
-		return
 
-	# Cursor-LoS probe — hold X ("X marks the spot"): every model that can see
-	# the mouse position gets a gold sight line + highlight ring
-	# (LineOfSightManager + LineOfSightVisual). The tool used to listen for V,
-	# then G, in _unhandled_input and both keys were captured first by other
-	# toggles (VP timeline / tactical grid) — Main drives it directly now so a
-	# panel binding can't shadow it again. Chorded presses are not ours;
-	# releases always count so the held probe can't stick on.
-	if event is InputEventKey and event.keycode == KEY_X and not event.echo \
-			and not (event.pressed and (event.shift_pressed or event.ctrl_pressed or event.meta_pressed)):
-		var cursor_los_mgr = get_node_or_null("/root/LineOfSightManager")
-		if cursor_los_mgr != null:
-			if event.pressed:
-				cursor_los_mgr.start_los_calculation()
-			else:
-				cursor_los_mgr.end_los_calculation()
+	# T32: LoS debug — held-key power-user mode (rebindable: los_debug, default L).
+	# 2026-07-12: shows the sight-line overview in every phase (see
+	# LoSDebugVisual.show_overview). On PRESS we require an exact modifier match
+	# (so Ctrl+L = load, etc. are not ours); on RELEASE we ignore modifiers so the
+	# held overlay can't get stuck ON when a modifier happens to be down at release.
+	if event is InputEventKey and not event.echo:
+		var _los_key: int = KeybindingManager.get_binding("los_debug").get("key", 0)
+		if _los_key != 0 and event.keycode == _los_key \
+				and (not event.pressed or KeybindingManager.matches_action(event, "los_debug")):
+			var want_on: bool = event.pressed
+			if want_on != los_debug_active:
+				_toggle_los_debug()
+				los_debug_active = want_on
 			get_viewport().set_input_as_handled()
 			return
 
-	# Objective control check debug - KEY_O
-	if event is InputEventKey and event.pressed and event.keycode == KEY_O:
+	# Cursor-LoS probe (rebindable: los_check, default X — "X marks the spot"):
+	# every model that can see the mouse position gets a gold sight line +
+	# highlight ring (LineOfSightManager + LineOfSightVisual). The tool used to
+	# listen for V, then G, in _unhandled_input and both keys were captured
+	# first by other toggles (VP timeline / tactical grid) — Main drives it
+	# directly so a panel binding can't shadow it again. Same held-key modifier
+	# rules as los_debug above.
+	if event is InputEventKey and not event.echo:
+		var _probe_key: int = KeybindingManager.get_binding("los_check").get("key", 0)
+		if _probe_key != 0 and event.keycode == _probe_key \
+				and (not event.pressed or KeybindingManager.matches_action(event, "los_check")):
+			var cursor_los_mgr = get_node_or_null("/root/LineOfSightManager")
+			if cursor_los_mgr != null:
+				if event.pressed:
+					cursor_los_mgr.start_los_calculation()
+				else:
+					cursor_los_mgr.end_los_calculation()
+				get_viewport().set_input_as_handled()
+				return
+
+	# Objective control check debug (rebindable: objective_check, default O)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "objective_check"):
 		print("\n=== MANUAL OBJECTIVE CONTROL CHECK (O key pressed) ===")
 		if MissionManager:
 			MissionManager.check_all_objectives()
@@ -5427,8 +5461,8 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# Dev tools toggle — Shift+D
-	if event is InputEventKey and event.pressed and event.keycode == KEY_D and event.shift_pressed:
+	# Dev tools toggle (rebindable: toggle_dev_tools, default Shift+D)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_dev_tools"):
 		_toggle_dev_tools()
 		get_viewport().set_input_as_handled()
 		return
@@ -5612,6 +5646,21 @@ func _process(delta: float) -> void:
 		view_zoom *= 0.97
 		view_zoom = clamp(view_zoom, 0.1, 3.0)
 		view_changed = true
+
+	# Pad camera (M0 controller foundations): right stick pans, triggers zoom.
+	# The pad_* actions are registered at runtime by InputDeviceManager.
+	if not _text_focused and InputMap.has_action("pad_camera_left"):
+		var pad_pan = Input.get_vector("pad_camera_left", "pad_camera_right", "pad_camera_up", "pad_camera_down")
+		if pad_pan != Vector2.ZERO:
+			view_offset += pad_pan.rotated(-view_rotation) * pan_speed
+			view_changed = true
+		var pad_zoom = Input.get_action_strength("pad_zoom_in") - Input.get_action_strength("pad_zoom_out")
+		if pad_zoom != 0.0:
+			# Same per-frame multiplicative step as the keyboard zoom above,
+			# scaled by trigger pressure.
+			view_zoom *= 1.0 + 0.03 * pad_zoom
+			view_zoom = clamp(view_zoom, 0.1, 3.0)
+			view_changed = true
 
 	# Focus commands
 	if not _text_focused and KeybindingManager.is_action_pressed("focus_p2_zone"):
@@ -8797,10 +8846,12 @@ func update_deployment_zone_visibility() -> void:
 
 	# Active zone colors: saturated and bright
 	# Inactive zone colors: desaturated (shifted toward gray) and dimmed
-	var p1_active_color = Color(0, 0.1, 1, 0.65)      # Bright saturated blue
-	var p1_dimmed_color = Color(0.25, 0.25, 0.45, 0.2) # Desaturated grayish-blue, low alpha
-	var p2_active_color = Color(1, 0.1, 0, 0.65)       # Bright saturated red
-	var p2_dimmed_color = Color(0.45, 0.25, 0.25, 0.2) # Desaturated grayish-red, low alpha
+	# Active alpha kept low — at 0.65 the zone fill flooded the board and hid
+	# the battlefield beneath it; the animated borders carry the emphasis.
+	var p1_active_color = Color(0, 0.1, 1, 0.3)        # Saturated blue, translucent
+	var p1_dimmed_color = Color(0.25, 0.25, 0.45, 0.12) # Desaturated grayish-blue, low alpha
+	var p2_active_color = Color(1, 0.1, 0, 0.3)         # Saturated red, translucent
+	var p2_dimmed_color = Color(0.45, 0.25, 0.25, 0.12) # Desaturated grayish-red, low alpha
 
 	var p1_active_border = Color(0, 0.3, 1, 1)         # Bright blue border
 	var p1_dimmed_border = Color(0.35, 0.35, 0.5, 0.4) # Desaturated dim blue border
@@ -11903,19 +11954,22 @@ func _toggle_hotkey_help_overlay() -> void:
 	_gsep10.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
 	_gsep10.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_gsep10)
+	# Key labels are pulled live from KeybindingManager so this reflects any
+	# mid-game rebinds the player made in Settings → Controls.
+	var _kbm = KeybindingManager
 	var entries := [
 		["Enter / Return", "Advance phase / confirm action"],
-		["?  /  Shift+/", "Show / hide this help"],
+		[_kbm.get_key_display_name("hotkey_help"), "Show / hide this help"],
 		["Esc", "Settings menu / close dialogs"],
-		["U", "Toggle army panel"],
-		["S", "Toggle stratagems panel"],
-		["M", "Show secondary missions"],
-		["L (hold)", "Show lines of sight (green clear / red blocked)"],
-		["X (hold)", "Show what can see the cursor position"],
-		["B", "Toggle left roster strip"],
-		["G", "Toggle 1\" tactical grid overlay"],
-		["8", "Toggle visual style (letter / enhanced)"],
-		["9", "Toggle debug mode"],
+		[_kbm.get_key_display_name("toggle_army_panel"), "Toggle army panel"],
+		[_kbm.get_key_display_name("toggle_stratagem_panel"), "Toggle stratagems panel"],
+		[_kbm.get_key_display_name("toggle_missions_panel"), "Show secondary missions"],
+		["%s (hold)" % _kbm.get_key_display_name("los_debug"), "Show lines of sight (green clear / red blocked)"],
+		["%s (hold)" % _kbm.get_key_display_name("los_check"), "Show what can see the cursor position"],
+		[_kbm.get_key_display_name("toggle_roster_strip"), "Toggle left roster strip"],
+		[_kbm.get_key_display_name("toggle_grid_overlay"), "Toggle 1\" tactical grid overlay"],
+		[_kbm.get_key_display_name("toggle_visual_style"), "Toggle visual style (letter / enhanced)"],
+		[_kbm.get_key_display_name("toggle_debug_mode"), "Toggle debug mode"],
 	]
 	for entry in entries:
 		var row := HBoxContainer.new()
@@ -11935,7 +11989,7 @@ func _toggle_hotkey_help_overlay() -> void:
 	_gsep11.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_gsep11)
 	var hint := Label.new()
-	hint.text = "Press ? again to close"
+	hint.text = "Rebind any key in Settings (Esc) → Controls"
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(hint)

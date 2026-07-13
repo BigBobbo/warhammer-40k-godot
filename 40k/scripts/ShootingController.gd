@@ -1317,20 +1317,24 @@ func _create_target_highlight(unit_id: String, color: Color) -> void:
 	if unit.is_empty():
 		return
 	
-	# Create highlight for each model in the unit
+	# One thin ring per model, tight to its base. The old fixed-30px rings with
+	# 0.3-alpha fills and extra pulse arcs stacked into an unreadable orange
+	# blob on any clustered unit.
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
-		
+
 		var pos = _get_model_position(model)
 		if pos == Vector2.ZERO:
 			continue
-		
-		# Create a circle highlight indicator
+
+		var ring_radius = Measurement.base_radius_px(model.get("base_mm", 32)) + 4.0
+		var ring_color = color
+		ring_color.a = 0.6
 		var highlight = Node2D.new()
 		highlight.position = pos
-		highlight.set_meta("highlight_color", color)
-		highlight.set_meta("base_radius", 30.0)
+		highlight.set_meta("highlight_color", ring_color)
+		highlight.set_meta("base_radius", ring_radius)
 
 		# Add custom draw script for the highlight
 		var script_source = """
@@ -1342,18 +1346,7 @@ func _ready():
 func _draw():
 	var color = get_meta("highlight_color", Color.GREEN)
 	var radius = get_meta("base_radius", 30.0)
-
-	# Draw outer ring
-	draw_arc(Vector2.ZERO, radius, 0, TAU, 32, color, 3.0, true)
-
-	# Draw inner filled circle with transparency
-	var fill_color = color
-	fill_color.a = 0.3
-	draw_circle(Vector2.ZERO, radius - 2, fill_color)
-
-	# Draw pulsing effect
-	if color == Color.GREEN:  # In range - add extra emphasis
-		draw_arc(Vector2.ZERO, radius + 5, 0, TAU, 32, color, 1.0, true)
+	draw_arc(Vector2.ZERO, radius, 0, TAU, 32, color, 2.0, true)
 """
 		var highlight_script = GDScript.new()
 		highlight_script.source_code = script_source

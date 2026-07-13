@@ -43,6 +43,11 @@ signal pile_in_step_required(data: Dictionary)  # 11e 12.02: global Pile In step
 # analogue of ShootingPhase.shooting_begun — remote/visual feedback hook).
 # Was emitted UNDECLARED, raising a runtime error on every melee confirm.
 signal fighting_begun(unit_id: String)
+# STAGED FIGHT: paused after the hit roll ("hits") or wound roll ("wounds") of
+# the current weapon so the attacker can read the dice / use Command Re-roll;
+# "complete" fires when the whole staged sequence finishes. Mirrors
+# ShootingPhase.shooting_stage_paused.
+signal fight_stage_paused(stage: String, info: Dictionary)
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -60,6 +65,14 @@ var units_that_piled_in: Dictionary = {}  # unit_id -> true, tracks which units 
 var pending_melee_save_data: Array = []  # Save data list for WoundAllocationOverlay
 var pending_melee_hit_wound_result: Dictionary = {}  # Dice/log from hit+wound resolution
 var awaiting_melee_saves: bool = false  # True while waiting for defender to allocate wounds
+
+# STAGED FIGHT (non-networked, human attacker): assignment-by-assignment melee
+# resolution with pauses after the hit roll and the wound roll (Command Re-roll
+# windows) — mirrors ShootingPhase's sequential_staged mode. Empty = inactive.
+# Keys: assignments, current_index, stage ("hits_pending"/"wounds_pending"/
+# "saves_pending"), hit_context, wound_result, wound_context, save_data_list,
+# assignment_dice, interactive_saves, total_casualties, reroll flags.
+var staged_fight_state: Dictionary = {}
 
 # New subphase tracking
 var fights_first_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
@@ -154,6 +167,7 @@ func _on_phase_enter() -> void:
 	pending_attacks.clear()
 	confirmed_attacks.clear()
 	resolution_state.clear()
+	staged_fight_state.clear()
 	dice_log.clear()
 	units_that_fought.clear()
 	units_that_piled_in.clear()
@@ -560,6 +574,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_batch_fight_actions(action)
 		"APPLY_MELEE_SAVES":
 			return _validate_apply_melee_saves(action)
+		"CONTINUE_TO_WOUNDS", "CONTINUE_TO_SAVES", "USE_FIGHT_REROLL":  # Staged sequential steps
+			return _validate_staged_fight_continue(action)
 		"USE_MOMENT_SHACKLE":
 			var ms_uid = action.get("unit_id", "")
 			if ms_uid not in _moment_shackle_pending_units:
@@ -631,6 +647,12 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_batch_fight_actions(action)
 		"APPLY_MELEE_SAVES":
 			return _process_apply_melee_saves(action)
+		"CONTINUE_TO_WOUNDS":  # Staged: roll the wound roll for the paused weapon
+			return _staged_fight_continue_to_wounds()
+		"CONTINUE_TO_SAVES":  # Staged: hand the paused weapon's wounds to saves
+			return _staged_fight_continue_to_saves()
+		"USE_FIGHT_REROLL":  # Staged: Command Re-roll a hit or wound die
+			return _process_use_fight_reroll(action)
 		"USE_MOMENT_SHACKLE":
 			return _process_use_moment_shackle(action)
 		"DECLINE_MOMENT_SHACKLE":
@@ -1534,7 +1556,15 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 		var _ss = get_node_or_null("/root/SettingsService")
 		_auto_alloc_11e = _ss == null or _ss.get_auto_allocate_wounds()
 
-	if defender_is_human and not _auto_alloc_11e:
+	# STAGED FIGHT: in non-networked play a HUMAN attacker resolves weapon by
+	# weapon with pauses after the hit roll and the wound roll (Command Re-roll
+	# windows) — mirrors ShootingPhase's sequential_staged mode. AI attackers,
+	# networked games and explicit fast_roll keep the one-shot paths below.
+	var interactive_saves = defender_is_human and not _auto_alloc_11e
+	if _should_stage_fight(action):
+		return _staged_fight_begin(interactive_saves)
+
+	if interactive_saves:
 		# P0-58: Interactive path — resolve hits+wounds only, then let defender allocate wounds
 		return _process_roll_dice_interactive(melee_action)
 	else:
@@ -1718,6 +1748,443 @@ func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 	final_result["consolidate_distance"] = consol_dist
 
 	return final_result
+
+# =============================================================================
+# STAGED FIGHT RESOLUTION (mirrors ShootingPhase's sequential_staged mode)
+#
+# In non-networked play a HUMAN attacker resolves melee weapon by weapon:
+#   ROLL_DICE            -> roll hits for weapon 1, PAUSE (fight_stage_paused "hits")
+#   CONTINUE_TO_WOUNDS   -> roll wounds, PAUSE (fight_stage_paused "wounds")
+#   CONTINUE_TO_SAVES    -> saving throws (auto-allocate or WoundAllocationOverlay),
+#                           then next weapon's hits or finish the activation
+#   USE_FIGHT_REROLL     -> Command Re-roll one hit/wound die at either pause
+#
+# Networked games and AI attackers keep the one-shot paths above (mirrors how
+# staged shooting / Command Re-roll are host/SP only elsewhere).
+# =============================================================================
+
+func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:
+	var result = {
+		"success": success,
+		"phase": phase_type,
+		"timestamp": Time.get_unix_time_from_system()
+	}
+	if success:
+		result["changes"] = changes
+		for key in additional_data:
+			result[key] = additional_data[key]
+	else:
+		result["error"] = error
+	return result
+
+func _should_stage_fight(action: Dictionary) -> bool:
+	if action.get("payload", {}).get("fast_roll", false):
+		return false
+	if NetworkManager.is_networked():
+		return false
+	# Only stage for human attackers — AI activations must not pause.
+	var fighter_owner = get_unit(active_fighter_id).get("owner", get_current_player())
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.get("enabled") and ai_player.has_method("is_ai_player") and ai_player.is_ai_player(fighter_owner):
+		return false
+	return true
+
+func _fight_reroll_available() -> bool:
+	# A staged hit/wound Command Re-roll is offered when the ATTACKING player has
+	# not already used Command Re-roll this phase and can pay the CP.
+	var sm = get_node_or_null("/root/StratagemManager")
+	if sm == null or not sm.has_method("is_command_reroll_available"):
+		return false
+	var fighter_owner = get_unit(active_fighter_id).get("owner", get_current_player())
+	var chk = sm.is_command_reroll_available(fighter_owner)
+	return chk.get("available", false)
+
+func _staged_fight_begin(interactive_saves: bool) -> Dictionary:
+	staged_fight_state = {
+		"assignments": confirmed_attacks.duplicate(true),
+		"current_index": 0,
+		"stage": "",
+		"hit_context": {},
+		"wound_result": {},
+		"wound_context": {},
+		"save_data_list": [],
+		"interactive_saves": interactive_saves,
+		"total_casualties": 0,
+		"completed": []
+	}
+	log_phase_message("Starting staged fight resolution (%d weapon assignment(s))" % staged_fight_state.assignments.size())
+	return _staged_fight_roll_hits([])
+
+func _staged_fight_target_destroyed(target_id: String) -> bool:
+	var unit = get_unit(target_id)
+	if unit.is_empty():
+		return true
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			return false
+	return true
+
+func _staged_fight_roll_hits(carry_changes: Array) -> Dictionary:
+	var assignments = staged_fight_state.get("assignments", [])
+	var idx = int(staged_fight_state.get("current_index", 0))
+
+	# Skip assignments whose target has been destroyed by an earlier weapon.
+	while idx < assignments.size():
+		var target_id = assignments[idx].get("target", "")
+		if target_id != "" and not _staged_fight_target_destroyed(target_id):
+			break
+		var skipped_weapon = RulesEngine.get_weapon_profile(assignments[idx].get("weapon", ""), game_state_snapshot).get("name", assignments[idx].get("weapon", ""))
+		log_phase_message("Skipped %s — target destroyed" % skipped_weapon)
+		emit_signal("dice_rolled", {"context": "weapon_progress",
+			"message": "Skipped %s — target destroyed" % skipped_weapon})
+		idx += 1
+		staged_fight_state.current_index = idx
+
+	if idx >= assignments.size():
+		return _staged_fight_finish(carry_changes)
+
+	var assignment = assignments[idx]
+	var weapon_id = assignment.get("weapon", "")
+	var target_id = assignment.get("target", "")
+	var weapon_name = RulesEngine.get_weapon_profile(weapon_id, game_state_snapshot).get("name", weapon_id)
+	var target_name = get_unit(target_id).get("meta", {}).get("name", target_id)
+	var fighter_name = get_unit(active_fighter_id).get("meta", {}).get("name", active_fighter_id)
+
+	GameEventLog.add_combat_header("P%d: %s → %s with %s (weapon %d/%d)" % [
+		get_unit(active_fighter_id).get("owner", get_current_player()), fighter_name, target_name, weapon_name,
+		idx + 1, assignments.size()])
+
+	var progress = {
+		"context": "weapon_progress",
+		"message": "Weapon %d of %d — %s → %s" % [idx + 1, assignments.size(), weapon_name, target_name],
+		"weapon_name": weapon_name,
+		"target_name": target_name,
+		"current_index": idx,
+		"total_weapons": assignments.size(),
+		"stage": "hits"
+	}
+	emit_signal("dice_rolled", progress)
+
+	var melee_action = {"type": "FIGHT", "actor_unit_id": active_fighter_id, "payload": {"assignments": [assignment]}}
+	var rng = RulesEngine.make_rng()
+	var hres = RulesEngine.resolve_melee_hits(melee_action, game_state_snapshot, rng)
+	if not hres.get("success", false):
+		return create_result(false, [], hres.get("log_text", "Melee hit resolution failed"))
+
+	for db in hres.get("dice", []):
+		dice_log.append(db)
+		emit_signal("dice_rolled", db)
+		if db.get("context", "") == "hit_roll_melee":
+			_emit_melee_hit_detail(db)
+	if hres.get("log_text", "") != "":
+		log_phase_message(hres.get("log_text", ""))
+
+	if hres.get("early_exit", false):
+		# No eligible models / bad assignment — skip to the next weapon.
+		staged_fight_state.current_index = idx + 1
+		return _staged_fight_roll_hits(carry_changes)
+
+	var hc = hres.get("hit_context", {})
+	staged_fight_state.stage = "hits_pending"
+	staged_fight_state.hit_context = hc
+	staged_fight_state.wound_result = {}
+	staged_fight_state.wound_context = {}
+	staged_fight_state.save_data_list = []
+
+	var can_reroll = _fight_reroll_available() and not hc.get("is_torrent", false) and not (hc.get("hit_rolls", []) as Array).is_empty()
+	var pause_info = {
+		"weapon_name": weapon_name,
+		"target_name": target_name,
+		"unit_name": fighter_name,
+		"current_index": idx,
+		"total_weapons": assignments.size(),
+		"reroll_available": can_reroll,
+		"hit_rolls": hc.get("hit_rolls", []),
+		"modified_rolls": hc.get("modified_rolls", []),
+		"hits": hc.get("hits", 0),
+		"threshold": str(hc.get("ws", hc.get("bs", 4))) + "+"
+	}
+	emit_signal("fight_stage_paused", "hits", pause_info)
+	log_phase_message("Weapon %d of %d hit roll complete — awaiting attacker to continue to wound roll" % [idx + 1, assignments.size()])
+	return create_result(true, carry_changes, "", {
+		"staged_pause": "hits",
+		"current_weapon_index": idx,
+		"total_weapons": assignments.size(),
+		"weapon_name": weapon_name,
+		"target_name": target_name,
+		"reroll_available": can_reroll,
+		"hit_rolls": hc.get("hit_rolls", []),
+		"hits": hc.get("hits", 0),
+		"dice": hres.get("dice", [])
+	})
+
+func _staged_fight_continue_to_wounds() -> Dictionary:
+	if staged_fight_state.get("stage", "") != "hits_pending":
+		return create_result(false, [], "Not awaiting continue-to-wounds")
+	var hc = staged_fight_state.get("hit_context", {})
+	var idx = int(staged_fight_state.get("current_index", 0))
+	var assignments = staged_fight_state.get("assignments", [])
+	var interactive_saves = staged_fight_state.get("interactive_saves", false)
+
+	var rng = RulesEngine.make_rng()
+	# Hold Still MW ride on the interactive save_data; the auto tail rolls its own.
+	var wres = RulesEngine.resolve_melee_wounds(hc, game_state_snapshot, rng, interactive_saves)
+
+	for db in wres.get("dice", []):
+		dice_log.append(db)
+		emit_signal("dice_rolled", db)
+		if db.get("context", "") == "wound_roll_melee":
+			_emit_melee_wound_detail(db)
+	if wres.get("log_text", "") != "":
+		log_phase_message(wres.get("log_text", ""))
+
+	staged_fight_state.wound_result = wres.get("wound_result", {})
+	staged_fight_state.wound_context = wres.get("wound_context", {})
+	staged_fight_state.save_data_list = wres.get("save_data_list", [])
+
+	if wres.get("no_wounds", false):
+		# No wounds — this weapon is done; hazardous check, then next weapon.
+		staged_fight_state.stage = ""
+		return _staged_fight_assignment_complete([])
+
+	staged_fight_state.stage = "wounds_pending"
+	var wc = wres.get("wound_context", {})
+	var can_reroll = _fight_reroll_available() and not (wc.get("wound_evals", []) as Array).is_empty()
+	var wounds = 0
+	var sdl = wres.get("save_data_list", [])
+	if not sdl.is_empty():
+		wounds = int(sdl[0].get("wounds_to_save", wres.get("wounds_caused", 0)))
+	else:
+		wounds = int(wres.get("wounds_caused", 0))
+	var pause_info = {
+		"current_index": idx,
+		"total_weapons": assignments.size(),
+		"reroll_available": can_reroll,
+		"wound_rolls": wc.get("wound_rolls", []),
+		"wounds": wounds,
+		"target_name": get_unit(assignments[idx].get("target", "")).get("meta", {}).get("name", ""),
+		"threshold": str(wc.get("wound_threshold", 4)) + "+"
+	}
+	emit_signal("fight_stage_paused", "wounds", pause_info)
+	log_phase_message("Weapon %d of %d wound roll complete — awaiting attacker to continue to saving throws" % [idx + 1, assignments.size()])
+	return create_result(true, [], "", {
+		"staged_pause": "wounds",
+		"current_weapon_index": idx,
+		"total_weapons": assignments.size(),
+		"reroll_available": can_reroll,
+		"wounds": wounds,
+		"dice": wres.get("dice", [])
+	})
+
+func _staged_fight_continue_to_saves() -> Dictionary:
+	if staged_fight_state.get("stage", "") != "wounds_pending":
+		return create_result(false, [], "Not awaiting continue-to-saves")
+	var hc = staged_fight_state.get("hit_context", {})
+	var wound_result = staged_fight_state.get("wound_result", {})
+	var save_data_list = staged_fight_state.get("save_data_list", [])
+
+	if staged_fight_state.get("interactive_saves", false) and not save_data_list.is_empty():
+		# Defender allocates wounds via WoundAllocationOverlay; the staged
+		# sequence resumes in _process_apply_melee_saves.
+		staged_fight_state.stage = "saves_pending"
+		pending_melee_save_data = save_data_list
+		pending_melee_hit_wound_result = {"diffs": [], "dice": []}
+		awaiting_melee_saves = true
+		emit_signal("saves_required", save_data_list)
+		log_phase_message("Awaiting defender wound allocation for melee combat (staged)...")
+		return create_result(true, [], "", {
+			"awaiting_melee_saves": true,
+			"save_data_list": save_data_list
+		})
+
+	# Auto-allocate: run the save/damage tail synchronously (rolls Hold Still
+	# itself, exactly like the one-shot monolith path).
+	var rng = RulesEngine.make_rng()
+	var sres = RulesEngine.resolve_melee_saves_auto(hc, wound_result, game_state_snapshot, rng)
+	var changes = sres.get("diffs", [])
+	var save_blocks = []
+	for db in sres.get("dice", []):
+		dice_log.append(db)
+		emit_signal("dice_rolled", db)
+		save_blocks.append(db)
+	if sres.get("log_text", "") != "":
+		log_phase_message(sres.get("log_text", ""))
+
+	var casualties = 0
+	for diff in changes:
+		if str(diff.get("path", "")).ends_with(".alive") and diff.get("value") == false:
+			casualties += 1
+	staged_fight_state.total_casualties = int(staged_fight_state.get("total_casualties", 0)) + casualties
+
+	# Verbose save/FNP log lines (normalize save_roll_melee -> save_roll)
+	for sb in save_blocks:
+		var ctx = sb.get("context", "")
+		if ctx == "save_roll_melee" or ctx == "save_roll" or ctx == "save":
+			var nsb = sb.duplicate()
+			nsb["context"] = "save_roll"
+			_emit_melee_save_detail(nsb)
+		elif ctx == "feel_no_pain":
+			_emit_melee_fnp_detail(sb)
+	if casualties > 0:
+		var cas_label = "model" if casualties == 1 else "models"
+		GameEventLog.add_combat_result("  Result: %d %s destroyed" % [casualties, cas_label])
+	else:
+		GameEventLog.add_combat_result("  Result: No models destroyed")
+
+	staged_fight_state.stage = ""
+	return _staged_fight_assignment_complete(changes)
+
+# One weapon fully resolved (saves applied or no wounds) — run its Hazardous
+# check, advance to the next weapon or finish the activation.
+func _staged_fight_assignment_complete(changes: Array) -> Dictionary:
+	var assignments = staged_fight_state.get("assignments", [])
+	var idx = int(staged_fight_state.get("current_index", 0))
+	if idx < assignments.size():
+		var assignment = assignments[idx]
+		var weapon_id = assignment.get("weapon", "")
+		var fighter_unit = get_unit(active_fighter_id)
+		if RulesEngine.is_hazardous_weapon(weapon_id, game_state_snapshot) \
+				or fighter_unit.get("flags", {}).get("effect_grant_hazardous_melee", false):
+			var models_that_fought = assignment.get("models", []).size()
+			var rng = RulesEngine.make_rng()
+			var hazard = RulesEngine.resolve_hazardous_check(active_fighter_id, weapon_id, models_that_fought, game_state_snapshot, rng)
+			if hazard.get("hazardous_triggered", false):
+				changes = changes + hazard.get("diffs", [])
+			for db in hazard.get("dice", []):
+				dice_log.append(db)
+				emit_signal("dice_rolled", db)
+			if hazard.get("log_text", "") != "":
+				log_phase_message(hazard.get("log_text", ""))
+		staged_fight_state.completed.append(assignment)
+	staged_fight_state.current_index = idx + 1
+	return _staged_fight_roll_hits(changes)
+
+func _staged_fight_finish(changes: Array) -> Dictionary:
+	var total_casualties = int(staged_fight_state.get("total_casualties", 0))
+	var fighter_name = get_unit(active_fighter_id).get("meta", {}).get("name", active_fighter_id)
+	var summary = {"success": true, "diffs": changes, "casualties": total_casualties}
+
+	emit_signal("fight_stage_paused", "complete", {
+		"unit_name": fighter_name,
+		"casualties": total_casualties,
+		"total_weapons": staged_fight_state.get("assignments", []).size()
+	})
+
+	# Emit resolution signals for each target (mirrors _process_roll_dice_auto)
+	for assignment in staged_fight_state.get("assignments", []):
+		emit_signal("attacks_resolved", active_fighter_id, assignment.get("target", ""), summary)
+		emit_signal("fight_resolved", active_fighter_id, summary)
+
+	staged_fight_state.clear()
+	confirmed_attacks.clear()
+	_trigger_unit_animation(active_fighter_id, "idle")
+	log_phase_message("Melee combat resolved for %s (staged)" % active_fighter_id)
+
+	var final_result = create_result(true, changes)
+	final_result["log_text"] = "Melee combat resolved for %s" % fighter_name
+
+	# 11e: no per-fighter consolidation — the activation ends when the
+	# attacks are resolved (consolidation is the global 12.07 step).
+	if GameConstants.edition >= 11:
+		return _finish_fight_activation_11e(final_result)
+
+	var consol_dist = _get_consolidation_distance(active_fighter_id)
+	emit_signal("consolidate_required", active_fighter_id, consol_dist)
+	final_result["trigger_consolidate"] = true
+	final_result["consolidate_unit_id"] = active_fighter_id
+	final_result["consolidate_distance"] = consol_dist
+	return final_result
+
+func _process_use_fight_reroll(action: Dictionary) -> Dictionary:
+	var payload = action.get("payload", {})
+	var stage = str(payload.get("stage", ""))
+	var die_index = int(payload.get("die_index", -1))
+	var expected = "hits_pending" if stage == "hits" else ("wounds_pending" if stage == "wounds" else "")
+	if expected == "" or staged_fight_state.get("stage", "") != expected:
+		return create_result(false, [], "No re-roll available at this stage")
+
+	# Spend the CP + record the once-per-phase Command Re-roll usage (attacker).
+	var sm = get_node_or_null("/root/StratagemManager")
+	if sm == null or not sm.has_method("execute_command_reroll"):
+		return create_result(false, [], "Command Re-roll unavailable")
+	var fighter_owner = get_unit(active_fighter_id).get("owner", get_current_player())
+	var strat_result = sm.execute_command_reroll(fighter_owner, active_fighter_id, {"roll_type": stage + "_roll"})
+	if not strat_result.get("success", false):
+		return create_result(false, [], str(strat_result.get("reason", "Cannot use Command Re-roll")))
+
+	var rng = RulesEngine.make_rng()
+	if stage == "hits":
+		var hc = staged_fight_state.get("hit_context", {})
+		var rr = RulesEngine.reroll_hit_die(hc, die_index, rng)
+		if not rr.get("success", false):
+			return create_result(false, [], str(rr.get("error", "Re-roll failed")))
+		emit_signal("dice_rolled", {"context": "reroll_note",
+			"message": "Command Re-roll (1 CP): hit die %d → %d" % [rr.get("old_display", rr.get("old_value", 0)), rr.get("new_display", rr.get("new_value", 0))]})
+		emit_signal("dice_rolled", rr.get("dice_block", {}))
+		dice_log.append(rr.get("dice_block", {}))
+		var uhc = rr.get("hit_context", {})
+		staged_fight_state.hit_context = uhc
+		emit_signal("fight_stage_paused", "hits", {
+			"reroll_available": false,
+			"hit_rolls": uhc.get("hit_rolls", []),
+			"modified_rolls": uhc.get("modified_rolls", []),
+			"hits": uhc.get("hits", 0)
+		})
+		return create_result(true, [], "", {
+			"staged_pause": "hits", "reroll_used": true, "reroll_available": false,
+			"dice_block": rr.get("dice_block", {}), "hits": uhc.get("hits", 0)
+		})
+	else:
+		var wc = staged_fight_state.get("wound_context", {})
+		var rr = RulesEngine.reroll_wound_die(wc, die_index, game_state_snapshot, rng)
+		if not rr.get("success", false):
+			return create_result(false, [], str(rr.get("error", "Re-roll failed")))
+		var new_wounds = int(rr.get("wounds_caused", 0))
+		# Keep the wound_result tallies in sync — the auto save tail reads them.
+		var wres = staged_fight_state.get("wound_result", {})
+		wres["wounds_caused"] = new_wounds
+		wres["critical_wound_count"] = rr.get("critical_wounds", 0)
+		wres["regular_wound_count"] = rr.get("regular_wounds", 0)
+		wres["all_critical_wound_count"] = rr.get("all_critical_wounds", 0)
+		# Rebuild the pending save list (may now have more/fewer wounds).
+		if new_wounds > 0:
+			var sd = rr.get("save_data", {})
+			if staged_fight_state.get("interactive_saves", false):
+				var hs_mw = RulesEngine.roll_hold_still_mortal_wounds(
+					staged_fight_state.get("hit_context", {}), int(rr.get("all_critical_wounds", 0)), rng)
+				if hs_mw > 0:
+					sd["hold_still_mortal_wounds"] = hs_mw
+			staged_fight_state.save_data_list = [sd]
+		else:
+			staged_fight_state.save_data_list = []
+		emit_signal("dice_rolled", {"context": "reroll_note",
+			"message": "Command Re-roll (1 CP): wound die %d → %d" % [rr.get("old_value", 0), rr.get("new_value", 0)]})
+		emit_signal("dice_rolled", rr.get("dice_block", {}))
+		dice_log.append(rr.get("dice_block", {}))
+		emit_signal("fight_stage_paused", "wounds", {
+			"reroll_available": false,
+			"wound_rolls": rr.get("wound_context", {}).get("wound_rolls", []),
+			"wounds": new_wounds
+		})
+		return create_result(true, [], "", {
+			"staged_pause": "wounds", "reroll_used": true, "reroll_available": false,
+			"dice_block": rr.get("dice_block", {}), "wounds": new_wounds
+		})
+
+func _validate_staged_fight_continue(action: Dictionary) -> Dictionary:
+	var t = action.get("type", "")
+	if t == "CONTINUE_TO_WOUNDS":
+		if staged_fight_state.get("stage", "") != "hits_pending":
+			return {"valid": false, "errors": ["Not awaiting continue-to-wounds"]}
+	elif t == "CONTINUE_TO_SAVES":
+		if staged_fight_state.get("stage", "") != "wounds_pending":
+			return {"valid": false, "errors": ["Not awaiting continue-to-saves"]}
+	elif t == "USE_FIGHT_REROLL":
+		var stage = str(action.get("payload", {}).get("stage", ""))
+		var expected = "hits_pending" if stage == "hits" else ("wounds_pending" if stage == "wounds" else "")
+		if expected == "" or staged_fight_state.get("stage", "") != expected:
+			return {"valid": false, "errors": ["No re-roll available at this stage"]}
+	return {"valid": true, "errors": []}
 
 # T3-12: Batch fight actions to avoid multiplayer race conditions
 # Instead of sending individual ASSIGN_ATTACKS + CONFIRM + ROLL_DICE with fixed delays,
@@ -1985,6 +2452,18 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 			total_casualties += hs_casualties
 			GameEventLog.add_combat_result("  Hold Still and Say 'Aargh!': %d mortal wounds → %s (%d slain)" % [hs_mw, hs_target_name, hs_casualties])
 			log_phase_message("Hold Still and Say 'Aargh!': %d mortal wounds → %s (%d casualties)" % [hs_mw, hs_target_name, hs_casualties])
+
+	# STAGED FIGHT: these saves belong to ONE weapon of a staged sequence —
+	# advance to the next weapon (or finish the activation) instead of ending
+	# the activation here.
+	if not staged_fight_state.is_empty() and staged_fight_state.get("stage", "") == "saves_pending":
+		awaiting_melee_saves = false
+		pending_melee_save_data.clear()
+		pending_melee_hit_wound_result.clear()
+		staged_fight_state.total_casualties = int(staged_fight_state.get("total_casualties", 0)) + total_casualties
+		staged_fight_state.stage = ""
+		log_phase_message("Staged melee saves applied (%d casualties) — continuing sequence" % total_casualties)
+		return _staged_fight_assignment_complete(all_diffs)
 
 	# Clear pending state
 	awaiting_melee_saves = false
@@ -3401,6 +3880,34 @@ func get_available_actions() -> Array:
 		log_phase_message("P0-58: Awaiting melee saves — returning APPLY_MELEE_SAVES only")
 		return actions
 
+	# STAGED FIGHT: while paused after a hit/wound roll, the attacker's options
+	# are exactly: continue to the next stage, or Command Re-roll one die.
+	var staged_stage = staged_fight_state.get("stage", "")
+	if staged_stage == "hits_pending":
+		actions.append({
+			"type": "CONTINUE_TO_WOUNDS",
+			"description": "Roll to wound for the paused weapon"
+		})
+		if _fight_reroll_available():
+			actions.append({
+				"type": "USE_FIGHT_REROLL",
+				"payload": {"stage": "hits", "die_index": 0},
+				"description": "Command Re-roll (1 CP) — re-roll one hit die"
+			})
+		return actions
+	elif staged_stage == "wounds_pending":
+		actions.append({
+			"type": "CONTINUE_TO_SAVES",
+			"description": "Continue to saving throws for the paused weapon"
+		})
+		if _fight_reroll_available():
+			actions.append({
+				"type": "USE_FIGHT_REROLL",
+				"payload": {"stage": "wounds", "die_index": 0},
+				"description": "Command Re-roll (1 CP) — re-roll one wound die"
+			})
+		return actions
+
 	# 11e 12.02: during the global Pile In step, the piling-in player's
 	# options are exactly: pile in one of their remaining eligible units,
 	# or end their half.
@@ -3439,9 +3946,34 @@ func get_available_actions() -> Array:
 		log_phase_message("[11e 12.07] Consolidate step — returning %d consolidation action(s)" % actions.size())
 		return actions
 
-	# If no active fighter, need to select one
-	# Skip units that are no longer in engagement range (enemies may have been destroyed during earlier fights)
-	if active_fighter_id == "" and current_fight_index < fight_sequence.size():
+	# If no active fighter, need to select one.
+	# 11e (12.04): the sequencer is the selection AUTHORITY — offer exactly ITS
+	# candidates, tagged with the picking player. The legacy fight_sequence
+	# queue assumes fights happen in its precomputed order: current_fight_index
+	# advances by one per fight no matter WHICH unit fought, so as soon as a
+	# player legally picks any candidate other than the queue head, the queue
+	# desyncs and this getter used to offer a unit _validate_select_fighter
+	# then rejects ("Not your selection"). The AI submitted that stale offer,
+	# hit the failure fallback, and END_FIGHT forfeited every remaining fight
+	# (2026-07-12 report: an engaged Stompa never got to fight).
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		if active_fighter_id == "":
+			var sel_11e = sequencer_11e.peek_selection(GameState.state)
+			if not sel_11e.done:
+				for cand_id in sel_11e.candidates:
+					actions.append({
+						"type": "SELECT_FIGHTER",
+						"unit_id": cand_id,
+						"player": sel_11e.player,
+						"description": "Select %s to fight (%s step, 12.04)" % [cand_id, sel_11e.step]
+					})
+				log_phase_message("[11e 12.04] Sequencer offers %d SELECT_FIGHTER candidate(s) for Player %d (%s step)" % [
+					sel_11e.candidates.size(), sel_11e.player, sel_11e.step])
+		else:
+			log_phase_message("NOT adding SELECT_FIGHTER: active_fighter_id='%s'" % active_fighter_id)
+	# 10e: legacy queue-driven offer. Skip units that are no longer in
+	# engagement range (enemies may have been destroyed during earlier fights).
+	elif active_fighter_id == "" and current_fight_index < fight_sequence.size():
 		while current_fight_index < fight_sequence.size():
 			var candidate_unit_id = fight_sequence[current_fight_index]
 			var candidate_unit = game_state_snapshot.get("units", {}).get(candidate_unit_id, {})
@@ -3461,31 +3993,6 @@ func get_available_actions() -> Array:
 	else:
 		log_phase_message("NOT adding SELECT_FIGHTER: active_fighter_id='%s', index=%d, size=%d" % [active_fighter_id, current_fight_index, fight_sequence.size()])
 
-	# ISS-050 / AI-vs-AI benchmark finding: at 11e the sequencer (12.04) is the
-	# selection authority — _validate_select_fighter accepts its candidates even
-	# when the legacy fight_sequence queue is empty (e.g. a Fights-First unit
-	# with no queued fights). If the queue-based branch above offered nothing
-	# while a selection is actually pending, surface the sequencer's candidates
-	# so action-driven players (the AI) can answer instead of hanging.
-	if GameConstants.edition >= 11 and active_fighter_id == "" and sequencer_11e != null:
-		var has_select := false
-		for a in actions:
-			if a.get("type", "") == "SELECT_FIGHTER":
-				has_select = true
-				break
-		if not has_select:
-			var sel_11e = sequencer_11e.next_selection(GameState.state)
-			if not sel_11e.done:
-				for cand_id in sel_11e.candidates:
-					actions.append({
-						"type": "SELECT_FIGHTER",
-						"unit_id": cand_id,
-						"player": sel_11e.player,
-						"description": "Select %s to fight (%s step, 12.04)" % [cand_id, sel_11e.step]
-					})
-				log_phase_message("[11e 12.04] Sequencer offers %d SELECT_FIGHTER candidate(s) for Player %d (%s step)" % [
-					sel_11e.candidates.size(), sel_11e.player, sel_11e.step])
-	
 	# If active fighter is selected, show simple control actions
 	if active_fighter_id != "":
 		if pending_attacks.is_empty():

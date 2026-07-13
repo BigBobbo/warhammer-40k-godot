@@ -1,0 +1,23 @@
+{
+  "id": "T48_oval_sprite_rotation",
+  "covers": ["tokens.unit_sprites", "tokens.oval_base_sprite_fit"],
+  "fixture": "test_custodian_charge_ovals",
+  "disable_ai": true,
+  "description": "Deffkopta art on oval bases: the tall 287x512 sprite canvas fills the 42x75mm oval base, VEHICLE tokens with dedicated art draw it instead of the generic tank sprite, and the art rotates with the models' facing (the fixture's koptas are rotated 0.3 and 1.2 rad). Screenshot captures both rotated koptas next to a Custodian Guard squad.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_token_visible", "unit_id": "U_DEFFKOPTAS_A", "timeout_s": 3.0 },
+
+    { "act": "execute_script", "script": "unit_token_sprite_width(\"U_DEFFKOPTAS_A\")", "equals": 287 },
+    { "act": "execute_script", "script": "unit_token_sprite_width(\"U_DEFFKOPTAS_B\")", "equals": 287 },
+    { "act": "execute_script", "script": "unit_token_sprite_width(\"U_CUSTODIAN_GUARD_A\")", "equals": 512 },
+
+    { "act": "execute_script",
+      "script": "main.fit_view_to_decision([\"U_DEFFKOPTAS_A\", \"U_DEFFKOPTAS_B\", \"U_CUSTODIAN_GUARD_A\"])",
+      "equals": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "screenshot", "label": "01_rotated_koptas_and_guard" }
+  ]
+}

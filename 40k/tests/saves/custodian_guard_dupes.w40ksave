@@ -1,0 +1,7136 @@
+{
+	"_serialization": {
+		"game_version": "1.2.0",
+		"serializer": "StateSerializer",
+		"timestamp": 1783271760.17705,
+		"version": "1.2.0"
+	},
+	"board": {
+		"deployment_zones": [
+			{
+				"player": 1.0,
+				"poly": [
+					{
+						"x": 0.0,
+						"y": 0.0
+					},
+					{
+						"x": 0.0,
+						"y": 18.0
+					},
+					{
+						"x": 44.0,
+						"y": 18.0
+					},
+					{
+						"x": 44.0,
+						"y": 0.0
+					}
+				]
+			},
+			{
+				"player": 2.0,
+				"poly": [
+					{
+						"x": 0.0,
+						"y": 42.0
+					},
+					{
+						"x": 0.0,
+						"y": 60.0
+					},
+					{
+						"x": 44.0,
+						"y": 60.0
+					},
+					{
+						"x": 44.0,
+						"y": 42.0
+					}
+				]
+			}
+		],
+		"objectives": [
+			{
+				"designation": "central",
+				"id": "obj_center",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 1200.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"designation": "home",
+				"id": "obj_home_1",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 400.0
+				},
+				"radius_mm": 40.0,
+				"zone": "player1"
+			},
+			{
+				"designation": "expansion",
+				"id": "obj_nml_1",
+				"position": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 1200.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"designation": "expansion",
+				"id": "obj_nml_2",
+				"position": {
+					"_type": "Vector2",
+					"x": 1520.0,
+					"y": 1200.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"designation": "home",
+				"id": "obj_home_2",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 2000.0
+				},
+				"radius_mm": 40.0,
+				"zone": "player2"
+			}
+		],
+		"size": {
+			"height": 60,
+			"width": 44
+		},
+		"terrain": [
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_1",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 80.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 80.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 720.0,
+					"y": 200.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 320.0
+						},
+						"id": "ruins_1_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 80.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 680.0,
+							"y": 80.0
+						},
+						"id": "ruins_1_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 80.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_2",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1040.0,
+					"y": 2200.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2320.0
+						},
+						"id": "ruins_2_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2080.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2320.0
+						},
+						"id": "ruins_2_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 1080.0,
+							"y": 2320.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_3",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 960.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 440.0,
+					"y": 1080.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						"id": "ruins_3_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 1200.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_4",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1320.0,
+					"y": 1320.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1200.0
+						},
+						"id": "ruins_4_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_5",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 260.0,
+					"y": 1400.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 200.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1600.0
+						},
+						"id": "ruins_5_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1600.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_6",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 800.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 800.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1500.0,
+					"y": 1000.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 200.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 800.0
+						},
+						"id": "ruins_6_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 800.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_7",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 440.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 320.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 200.0
+						},
+						"id": "ruins_7_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 200.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 440.0
+						},
+						"id": "ruins_7_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 440.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 360.0
+						},
+						"id": "ruins_7_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 280.0
+						},
+						"type": "door"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 390.0
+						},
+						"id": "ruins_7_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 250.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "medium",
+				"id": "ruins_8",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 560.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 560.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 440.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 560.0
+						},
+						"id": "ruins_8_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 440.0
+						},
+						"id": "ruins_8_wall_center",
+						"start": {
+							"_type": "Vector2",
+							"x": 280.0,
+							"y": 440.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "low",
+				"id": "ruins_9",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1960.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_10",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 1960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 2200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 2200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 2080.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 1960.0
+						},
+						"id": "ruins_10_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1960.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 2200.0
+						},
+						"id": "ruins_10_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1960.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "medium",
+				"id": "ruins_11",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 844.852783203125
+						},
+						{
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 505.441558837891
+						},
+						{
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 675.147216796875
+						},
+						{
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1014.55847167969
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 760.0
+				},
+				"rotation": -45.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 505.441558837891
+						},
+						"id": "ruins_11_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 844.852783203125
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_12",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 1724.85278320312
+						},
+						{
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 1385.44152832031
+						},
+						{
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 1555.14721679688
+						},
+						{
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1894.55847167969
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 1640.0
+				},
+				"rotation": -45.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 1555.14721679688
+						},
+						"id": "ruins_12_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1894.55847167969
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "low",
+				"id": "woods_1",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 80.0,
+							"y": 640.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 640.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 800.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 80.0,
+							"y": 800.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 720.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 160.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "woods"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "low",
+				"id": "woods_2",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1680.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1680.0,
+							"y": 1760.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 1760.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1600.0,
+					"y": 1680.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 160.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "woods"
+			}
+		],
+		"terrain_features": [
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_1",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 80.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 80.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 720.0,
+					"y": 200.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 320.0
+						},
+						"id": "ruins_1_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 80.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 680.0,
+							"y": 80.0
+						},
+						"id": "ruins_1_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 80.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_2",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1040.0,
+					"y": 2200.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2320.0
+						},
+						"id": "ruins_2_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2080.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2320.0
+						},
+						"id": "ruins_2_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 1080.0,
+							"y": 2320.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_3",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 960.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 440.0,
+					"y": 1080.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						"id": "ruins_3_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 1200.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_4",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1320.0,
+					"y": 1320.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1200.0
+						},
+						"id": "ruins_4_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_5",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 260.0,
+					"y": 1400.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 200.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1600.0
+						},
+						"id": "ruins_5_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1600.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_6",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 800.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 800.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1500.0,
+					"y": 1000.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 200.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 800.0
+						},
+						"id": "ruins_6_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 800.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_7",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 440.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 320.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 200.0
+						},
+						"id": "ruins_7_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 200.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 440.0
+						},
+						"id": "ruins_7_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 440.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 360.0
+						},
+						"id": "ruins_7_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 280.0
+						},
+						"type": "door"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 390.0
+						},
+						"id": "ruins_7_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 250.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "medium",
+				"id": "ruins_8",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 560.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 560.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 440.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 560.0
+						},
+						"id": "ruins_8_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 440.0
+						},
+						"id": "ruins_8_wall_center",
+						"start": {
+							"_type": "Vector2",
+							"x": 280.0,
+							"y": 440.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "low",
+				"id": "ruins_9",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1960.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_10",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 1960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 2200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 2200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 2080.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 1960.0
+						},
+						"id": "ruins_10_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1960.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 2200.0
+						},
+						"id": "ruins_10_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1960.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "medium",
+				"id": "ruins_11",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 844.852783203125
+						},
+						{
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 505.441558837891
+						},
+						{
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 675.147216796875
+						},
+						{
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1014.55847167969
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 760.0
+				},
+				"rotation": -45.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 505.441558837891
+						},
+						"id": "ruins_11_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 844.852783203125
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_12",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 1724.85278320312
+						},
+						{
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 1385.44152832031
+						},
+						{
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 1555.14721679688
+						},
+						{
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1894.55847167969
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 1640.0
+				},
+				"rotation": -45.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 1555.14721679688
+						},
+						"id": "ruins_12_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1894.55847167969
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "low",
+				"id": "woods_1",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 80.0,
+							"y": 640.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 640.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 800.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 80.0,
+							"y": 800.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 720.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 160.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "woods"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "low",
+				"id": "woods_2",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1680.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1680.0,
+							"y": 1760.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 1760.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1600.0,
+					"y": 1680.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 160.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "woods"
+			}
+		],
+		"terrain_layout": "layout_2"
+	},
+	"faction_ability_manager": {
+		"active_doctrine": {
+			"1": "",
+			"2": ""
+		},
+		"active_effects": {
+			"1": {},
+			"2": {}
+		},
+		"active_mastery": {
+			"1": "",
+			"2": ""
+		},
+		"bionik_workshop_resolved": false,
+		"bionik_workshop_results": {},
+		"da_kaptin_used_round": {
+			"1": 0,
+			"2": 0
+		},
+		"doctrines_used": {
+			"1": [],
+			"2": []
+		},
+		"loot_objective": {
+			"1": "",
+			"2": ""
+		},
+		"loot_objective_round": {
+			"1": 0,
+			"2": 0
+		},
+		"mastery_selected_round": {
+			"1": 0,
+			"2": 0
+		},
+		"plant_waaagh_banner_used": {},
+		"player_abilities": {
+			"1": [],
+			"2": []
+		},
+		"player_detachment": {
+			"1": "",
+			"2": ""
+		},
+		"razgit_redeploys_used": {
+			"1": 0,
+			"2": 0
+		},
+		"razgit_resolved": false,
+		"waaagh_active": {
+			"1": false,
+			"2": false
+		},
+		"waaagh_used": {
+			"1": false,
+			"2": false
+		}
+	},
+	"factions": {
+		"1": {
+			"created_date": "2025-02-20",
+			"data_source": "40kdc-data 1.0.19 (11th edition, launch)",
+			"detachment": "War Horde",
+			"edition": 11.0,
+			"name": "Orks",
+			"player_name": "",
+			"points": 2000.0,
+			"schema": 2.0,
+			"team_name": ""
+		},
+		"2": {
+			"created_date": "2025-03-01",
+			"data_source": "40kdc-data 1.0.19 (11th edition, launch)",
+			"detachment": "Shield Host",
+			"edition": 11.0,
+			"name": "Adeptus Custodes",
+			"player_name": "",
+			"points": 1000.0,
+			"schema": 2.0,
+			"team_name": ""
+		}
+	},
+	"history": [],
+	"meta": {
+		"active_player": 1,
+		"battle_round": 1,
+		"created_at": 1783271430.1536,
+		"deployment_type": "hammer_anvil",
+		"dispositions_11e": {
+			"1": "take_and_hold",
+			"2": "take_and_hold"
+		},
+		"game_id": "c82eb33d-5b6e-f841-aa09-3f9272a7bc449210",
+		"mission_type": "take_and_hold",
+		"phase": 6,
+		"turn_number": 1,
+		"version": "1.1.0"
+	},
+	"mission_manager": {
+		"alive_at_turn_start_11e": {},
+		"burn_in_progress": {},
+		"burned_objectives_arr": [],
+		"burned_objectives_meta": {},
+		"character_claimed_objectives": {},
+		"control_at_turn_start": {},
+		"current_mission": {
+			"description": "Score VP by controlling objectives at the end of your Command phase.",
+			"id": "take_and_hold",
+			"max_vp": 50,
+			"name": "Take and Hold",
+			"objectives_used": "all",
+			"scoring": {
+				"count_home_objectives": true,
+				"max_vp_per_turn": 15,
+				"vp_per_objective": 5,
+				"when": "command_phase_end"
+			},
+			"scoring_rules": {
+				"count_home_objectives": true,
+				"max_vp_per_turn": 15,
+				"vp_per_objective": 5,
+				"when": "command_phase_end"
+			},
+			"scoring_type": "hold_objectives",
+			"special_rules": [],
+			"start_round": 2,
+			"type": "primary"
+		},
+		"eog_primary_scored": false,
+		"kills_per_round": {},
+		"kills_this_round": {
+			"1": 0,
+			"2": 0
+		},
+		"objective_control_state": {
+			"obj_center": 0,
+			"obj_home_1": 0,
+			"obj_home_2": 0,
+			"obj_nml_1": 0,
+			"obj_nml_2": 0
+		},
+		"pending_burns": {},
+		"pending_rituals": {},
+		"pending_terraforms": {},
+		"player_dispositions": {
+			"1": "take_and_hold",
+			"2": "take_and_hold"
+		},
+		"player_primary_missions": {
+			"1": {
+				"deck": "take_and_hold",
+				"id": "battlefield_dominance",
+				"name": "Battlefield Dominance",
+				"played_vs": "take_and_hold",
+				"rules": [
+					{
+						"rounds": [
+							1,
+							2
+						],
+						"type": "hold_more",
+						"vp": 2,
+						"when": "eot"
+					},
+					{
+						"exclude_home": false,
+						"rounds": [
+							2,
+							5
+						],
+						"type": "per_objective",
+						"vp_per": 3,
+						"when": "command"
+					},
+					{
+						"exclude_home": true,
+						"require_hold_home": true,
+						"rounds": [
+							2,
+							5
+						],
+						"type": "per_objective",
+						"vp_per": 2,
+						"when": "command"
+					}
+				]
+			},
+			"2": {
+				"deck": "take_and_hold",
+				"id": "battlefield_dominance",
+				"name": "Battlefield Dominance",
+				"played_vs": "take_and_hold",
+				"rules": [
+					{
+						"rounds": [
+							1,
+							2
+						],
+						"type": "hold_more",
+						"vp": 2,
+						"when": "eot"
+					},
+					{
+						"exclude_home": false,
+						"rounds": [
+							2,
+							5
+						],
+						"type": "per_objective",
+						"vp_per": 3,
+						"when": "command"
+					},
+					{
+						"exclude_home": true,
+						"require_hold_home": true,
+						"rounds": [
+							2,
+							5
+						],
+						"type": "per_objective",
+						"vp_per": 2,
+						"when": "command"
+					}
+				]
+			}
+		},
+		"primary_state_11e": {
+			"1": {
+				"card_action_resolved_this_turn": false,
+				"condemn_prompt_pending": false,
+				"condemn_resolved_turn": "",
+				"condemned": [],
+				"condemned_left_this_turn": false,
+				"consecrated": [],
+				"decoyed": [],
+				"decoyed_ever": [],
+				"decoyed_this_turn": [],
+				"intel_placed_this_turn": 0,
+				"intel_started_this_turn": false,
+				"intel_tokens": [],
+				"intel_units_this_turn": 0,
+				"operation_markers": 0,
+				"sabotage_started_this_turn": false,
+				"sabotaged_this_turn": [],
+				"sensor_swept_this_turn": false,
+				"trapped": [],
+				"trapped_this_turn": [],
+				"triangulated": [],
+				"vanguard_completed_this_turn": false,
+				"vanguard_started_this_turn": false
+			},
+			"2": {
+				"card_action_resolved_this_turn": false,
+				"condemn_prompt_pending": false,
+				"condemn_resolved_turn": "",
+				"condemned": [],
+				"condemned_left_this_turn": false,
+				"consecrated": [],
+				"decoyed": [],
+				"decoyed_ever": [],
+				"decoyed_this_turn": [],
+				"intel_placed_this_turn": 0,
+				"intel_started_this_turn": false,
+				"intel_tokens": [],
+				"intel_units_this_turn": 0,
+				"operation_markers": 0,
+				"sabotage_started_this_turn": false,
+				"sabotaged_this_turn": [],
+				"sensor_swept_this_turn": false,
+				"trapped": [],
+				"trapped_this_turn": [],
+				"triangulated": [],
+				"vanguard_completed_this_turn": false,
+				"vanguard_started_this_turn": false
+			}
+		},
+		"primary_vp_this_turn": {
+			"1": 0,
+			"2": 0
+		},
+		"relic_markers_11e": [],
+		"relic_setup_prompt_pending": false,
+		"removed_objectives": [],
+		"ritual_objectives": {},
+		"sticky_objectives": {},
+		"supply_drop_resolved_round_4": false,
+		"terraformed_objectives": {},
+		"units_alive_at_round_start": {},
+		"vp_timeline": {}
+	},
+	"phase_log": [],
+	"players": {
+		"1": {
+			"bonus_cp_gained_this_round": 0,
+			"cp": 3,
+			"primary_vp": 0,
+			"secondary_vp": 0,
+			"vp": 0
+		},
+		"2": {
+			"bonus_cp_gained_this_round": 0,
+			"cp": 3,
+			"primary_vp": 0,
+			"secondary_vp": 0,
+			"vp": 0
+		}
+	},
+	"secondary_missions": {
+		"active_actions": {
+			"1": [],
+			"2": []
+		},
+		"objective_control_at_turn_start": {},
+		"player_state": {
+			"1": {
+				"active": [],
+				"deck": [],
+				"discard": [],
+				"initialized": false,
+				"mode": "tactical",
+				"secondary_vp": 0,
+				"secondary_vp_this_turn": 0,
+				"vp_by_mission": {}
+			},
+			"2": {
+				"active": [],
+				"deck": [],
+				"discard": [],
+				"initialized": false,
+				"mode": "tactical",
+				"secondary_vp": 0,
+				"secondary_vp_this_turn": 0,
+				"vp_by_mission": {}
+			}
+		},
+		"units_destroyed_this_turn": []
+	},
+	"stratagem_manager": {
+		"active_effects": [],
+		"player_faction_stratagems": {
+			"1": [
+				"faction_ork_war_horde_unbridled_carnage",
+				"faction_ork_war_horde_\u2019ard_as_nails",
+				"faction_ork_war_horde_mob_rule",
+				"faction_ork_war_horde_\u2019ere_we_go",
+				"faction_ork_war_horde_careen",
+				"faction_ork_war_horde_orks_is_never_beaten"
+			],
+			"2": [
+				"faction_ac_shield_host_arcane_genetic_alchemy",
+				"faction_ac_shield_host_avenge_the_fallen",
+				"faction_ac_shield_host_unwavering_sentinels",
+				"faction_ac_shield_host_multipotentiality",
+				"faction_ac_shield_host_vigilance_eternal",
+				"faction_ac_shield_host_archeotech_munitions"
+			]
+		},
+		"usage_history": {
+			"1": [],
+			"2": []
+		}
+	},
+	"unit_ability_manager": {
+		"active_ability_effects": [],
+		"active_aura_effects": {},
+		"applied_this_phase": {},
+		"mekaniak_used_this_turn": {},
+		"once_per_battle_used": {},
+		"once_per_round_used": {},
+		"scatter_used_this_turn": {}
+	},
+	"unit_visuals": {},
+	"units": {
+		"U_BATTLEWAGON_G": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_BATTLEWAGON_G",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Add 2 to this model's Toughness characteristic.\nThis model gains an ability.",
+						"name": "'Ard Case",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers D6 mortal wounds.",
+						"name": "Deadly Demise D6",
+						"type": "Core"
+					},
+					{
+						"description": "Subtract 1 from the attacking unit's Armour Penetration characteristic.",
+						"name": "Ramshackle",
+						"type": "Datasheet"
+					},
+					{
+						"description": "This model has a transport capacity of 22 ORKS INFANTRY models.",
+						"name": "TRANSPORT",
+						"type": "Core"
+					}
+				],
+				"display_name": "Battlewagon",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLEWAGON",
+					"ORKS",
+					"TRANSPORT",
+					"VEHICLE"
+				],
+				"name": "Battlewagon",
+				"points": 145.0,
+				"stats": {
+					"invuln": 6.0,
+					"leadership": 7.0,
+					"move": 10.0,
+					"objective_control": 5.0,
+					"save": 3.0,
+					"toughness": 12.0,
+					"wounds": 16.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Battlewagon",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Deff rolla",
+					"1x Grabbin' klaw",
+					"1x Kannon",
+					"1x Lobba",
+					"1x Wreckin' ball",
+					"1x 'Ard Case"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 2.0
+							}
+						],
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							}
+						],
+						"ap": "0",
+						"attacks": "D6+3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kannon \u2013 Frag",
+						"range": "36",
+						"special_rules": "blast",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "D6",
+						"name": "Kannon \u2013 Shell",
+						"range": "36",
+						"strength": "10",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D6+1",
+						"ballistic_skill": "5",
+						"damage": "2",
+						"name": "Killkannon",
+						"range": "24",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							},
+							{
+								"id": "indirect_fire"
+							}
+						],
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Lobba",
+						"range": "48",
+						"special_rules": "blast, indirect fire",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "anti",
+								"keyword": "VEHICLE",
+								"threshold": 4.0
+							}
+						],
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "5",
+						"name": "Zzap gun",
+						"range": "36",
+						"special_rules": "anti-vehicle 4+",
+						"strength": "D6+6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Deff rolla",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"abilities": [
+							{
+								"id": "extra_attacks"
+							}
+						],
+						"ap": "-2",
+						"attacks": "2",
+						"damage": "2",
+						"name": "Grabbin' klaw",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "6",
+						"damage": "1",
+						"name": "Tracks and wheels",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"abilities": [
+							{
+								"id": "extra_attacks"
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"damage": "D6",
+						"name": "Wreckin' ball",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 16.0,
+					"id": "m1",
+					"position": {
+						"x": 1600.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 16.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_BATTLEWAGON_G",
+			"status": 2,
+			"transport_data": {
+				"capacity": 22,
+				"capacity_keywords": [
+					"ORKS",
+					"INFANTRY"
+				],
+				"capacity_multipliers": {},
+				"embarked_units": [],
+				"excluded_keywords": [],
+				"firing_deck": 0
+			}
+		},
+		"U_BLADE_CHAMPION_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_BLADE_CHAMPION_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, the unit gains the Advance & Charge ability.",
+						"name": "Martial Inspiration",
+						"type": "Datasheet"
+					},
+					{
+						"description": "After being attached to a unit, you can re-roll the Charge roll.",
+						"name": "Swift Onslaught",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Blade Champion",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BLADE CHAMPION",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"CUSTODIAN GUARD",
+						"CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
+						"CUSTODIAN WARDENS",
+						"SAGITTARUM CUSTODIANS"
+					]
+				},
+				"name": "Blade Champion",
+				"points": 110.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blade Champion",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "precision"
+							}
+						],
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Vaultswords \u2013 Behemor",
+						"range": "Melee",
+						"special_rules": "precision",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "sustained_hits",
+								"x": 1.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "9",
+						"damage": "1",
+						"name": "Vaultswords \u2013 Hurricanis",
+						"range": "Melee",
+						"special_rules": "sustained hits 1",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "devastating_wounds"
+							}
+						],
+						"ap": "-3",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Vaultswords \u2013 Victus",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 560.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BLADE_CHAMPION_A",
+			"status": 2
+		},
+		"U_BOYZ_E": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_BOYZ_E",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "This model gains the Extra Leader Attachment ability.",
+						"name": "Bodyguard",
+						"type": "Datasheet"
+					},
+					{
+						"description": "The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives).",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Alpha",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Custodian Guard",
+				"points": 150.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9-19 Boy",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 2.0
+							}
+						],
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "anti",
+								"keyword": "INFANTRY",
+								"threshold": 4.0
+							},
+							{
+								"id": "devastating_wounds"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							}
+						],
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "pistol"
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m1",
+					"position": {
+						"x": 1080.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 1125.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 1170.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 1215.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 1260.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"x": 1080.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"x": 1125.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"x": 1170.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"x": 1215.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"x": 1260.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"position": {
+						"x": 1080.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m12",
+					"position": {
+						"x": 1125.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m13",
+					"position": {
+						"x": 1170.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m14",
+					"position": {
+						"x": 1215.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m15",
+					"position": {
+						"x": 1260.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m16",
+					"position": {
+						"x": 1080.0,
+						"y": 935.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m17",
+					"position": {
+						"x": 1125.0,
+						"y": 935.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m18",
+					"position": {
+						"x": 1170.0,
+						"y": 935.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m19",
+					"position": {
+						"x": 1215.0,
+						"y": 935.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m20",
+					"position": {
+						"x": 1260.0,
+						"y": 935.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_BOYZ_E",
+			"status": 2
+		},
+		"U_BOYZ_F": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_BOYZ_F",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "This model gains the Extra Leader Attachment ability.",
+						"name": "Bodyguard",
+						"type": "Datasheet"
+					},
+					{
+						"description": "The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives).",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Custodian Guard",
+				"points": 150.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9-19 Boy",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 2.0
+							}
+						],
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "anti",
+								"keyword": "INFANTRY",
+								"threshold": 4.0
+							},
+							{
+								"id": "devastating_wounds"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							}
+						],
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "pistol"
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m1",
+					"position": {
+						"x": 1340.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 1385.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 1430.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 1475.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 1520.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"x": 1340.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"x": 1385.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"x": 1430.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"x": 1475.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"x": 1520.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"position": {
+						"x": 1340.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m12",
+					"position": {
+						"x": 1385.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m13",
+					"position": {
+						"x": 1430.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m14",
+					"position": {
+						"x": 1475.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m15",
+					"position": {
+						"x": 1520.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m16",
+					"position": {
+						"x": 1340.0,
+						"y": 935.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m17",
+					"position": {
+						"x": 1385.0,
+						"y": 935.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m18",
+					"position": {
+						"x": 1430.0,
+						"y": 935.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m19",
+					"position": {
+						"x": 1475.0,
+						"y": 935.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m20",
+					"position": {
+						"x": 1520.0,
+						"y": 935.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_BOYZ_F",
+			"status": 2
+		},
+		"U_BOYZ_K": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_BOYZ_K",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "This model gains the Extra Leader Attachment ability.",
+						"name": "Bodyguard",
+						"type": "Datasheet"
+					},
+					{
+						"description": "The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives).",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Gamma",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Custodian Guard",
+				"points": 75.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9-19 Boy",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 2.0
+							}
+						],
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "anti",
+								"keyword": "INFANTRY",
+								"threshold": 4.0
+							},
+							{
+								"id": "devastating_wounds"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							}
+						],
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "pistol"
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m1",
+					"position": {
+						"x": 2640.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 2685.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 2730.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 2775.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 2820.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"x": 2640.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"x": 2685.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"x": 2730.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"x": 2775.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"x": 2820.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_BOYZ_K",
+			"status": 2
+		},
+		"U_CALADIUS_GRAV-TANK_E": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_CALADIUS_GRAV-TANK_E",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit's weapons gain [LETHAL HITS].",
+						"name": "Advanced Firepower",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Caladius Grav-tank",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CALADIUS GRAV-TANK",
+					"FLY",
+					"IMPERIUM",
+					"VEHICLE"
+				],
+				"name": "Caladius Grav-tank",
+				"points": 210.0,
+				"stats": {
+					"invuln": 5.0,
+					"leadership": 6.0,
+					"move": 10.0,
+					"objective_control": 4.0,
+					"save": 2.0,
+					"toughness": 11.0,
+					"wounds": 14.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Caladius Grav-tank",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "twin_linked"
+							}
+						],
+						"ap": "-3",
+						"attacks": "4",
+						"ballistic_skill": "2",
+						"damage": "D6+2",
+						"name": "Twin arachnus heavy blaze cannon",
+						"range": "48",
+						"special_rules": "twin linked",
+						"strength": "12",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 4.0
+							},
+							{
+								"id": "twin_linked"
+							}
+						],
+						"ap": "-1",
+						"attacks": "4",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Twin iliastus accelerator cannon",
+						"range": "48",
+						"special_rules": "rapid fire 4, twin linked",
+						"strength": "10",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "sustained_hits",
+								"x": 1.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "3",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Twin lastrum bolt cannon",
+						"range": "36",
+						"special_rules": "sustained hits 1",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "4",
+						"damage": "1",
+						"name": "Armoured hull",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_dimensions": {
+						"length": 109.0,
+						"width": 170.0
+					},
+					"base_mm": 170.0,
+					"base_type": "oval",
+					"current_wounds": 14.0,
+					"id": "m1",
+					"position": {
+						"x": 1600.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 14.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CALADIUS_GRAV-TANK_E",
+			"status": 2
+		},
+		"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers 1 mortal wound.",
+						"name": "Deadly Demise 1",
+						"type": "Core"
+					},
+					{
+						"description": "If the unit charged this turn, the target suffers d3 mortal wounds.",
+						"name": "Dread Foe",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Contemptor-Achillus Dreadnought",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CONTEMPTOR-ACHILLUS DREADNOUGHT",
+					"IMPERIUM",
+					"VEHICLE",
+					"WALKER"
+				],
+				"name": "Contemptor-Achillus Dreadnought",
+				"points": 155.0,
+				"stats": {
+					"invuln": 5.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 3.0,
+					"save": 2.0,
+					"toughness": 9.0,
+					"wounds": 10.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Contemptor-Achillus Dreadnought",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Achillus dreadspear \u2013 Achillus dreadspear",
+						"range": "12",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "ignores_cover"
+							},
+							{
+								"id": "torrent"
+							}
+						],
+						"ap": "-1",
+						"attacks": "D6",
+						"ballistic_skill": "N/A",
+						"damage": "1",
+						"name": "Infernus incinerator",
+						"range": "12",
+						"special_rules": "ignores cover, torrent",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 2.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Lastrum storm bolter",
+						"range": "24",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "twin_linked"
+							}
+						],
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Twin adrathic destructor",
+						"range": "18",
+						"special_rules": "twin linked",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "lance"
+							}
+						],
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "D6+1",
+						"name": "Achillus dreadspear \u2013 Achillus dreadspear",
+						"range": "Melee",
+						"special_rules": "lance",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 60.0,
+					"current_wounds": 10.0,
+					"id": "m1",
+					"position": {
+						"x": 1860.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 10.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_B": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_CUSTODIAN_GUARD_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 170.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"Custodian Guard",
+					"Custodian Guard (Shield), Praesidium Shield"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear \u2013 Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							},
+							{
+								"id": "pistol"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Sentinel blade \u2013 Ranged",
+						"range": "12",
+						"special_rules": "assault, pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear \u2013 Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "1",
+						"name": "Misericordia",
+						"range": "Melee",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "1",
+						"name": "Sentinel blade \u2013 Melee",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 820.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 865.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 910.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 955.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CUSTODIAN_GUARD_B",
+			"status": 2
+		},
+		"U_GHAZGHKULL_THRAKA_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_GHAZGHKULL_THRAKA_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit's weapons gain [LETHAL HITS].",
+						"name": "Ghazghkull's Waaagh! Banner (Aura)",
+						"type": "Datasheet"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "During the Fight phase, after being attached to a unit:\n  -> The unit gets +1 to Hit rolls.\n  -> The unit gets +1 to Wound rolls.",
+						"name": "Prophet of Da Great Waaagh!",
+						"type": "Datasheet"
+					},
+					{
+						"description": "This model must be your Warlord.",
+						"name": "Supreme Commander",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Ghazghkull Thraka",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"EPIC HERO",
+					"GHAZGKULL THRAKA",
+					"INFANTRY",
+					"ORKS",
+					"WARBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ",
+						"BREAKA BOYZ",
+						"MEGANOBZ",
+						"NOBZ"
+					]
+				},
+				"name": "Ghazghkull Thraka",
+				"points": 235.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 5.0,
+					"objective_control": 4.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 10.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Ghazghkull Thraka",
+						"line": 1.0
+					},
+					{
+						"description": "1 Makari",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"1x Gork's Klaw",
+					"1x Mork's Roar",
+					"1x Makari's Stabba"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 4.0
+							}
+						],
+						"ap": "0",
+						"attacks": "12",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Mork's Roar",
+						"range": "36",
+						"special_rules": "rapid fire 4",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-3",
+						"attacks": "6",
+						"damage": "4",
+						"name": "Gork's Klaw \u2013 Strike",
+						"range": "Melee",
+						"strength": "14",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "12",
+						"damage": "2",
+						"name": "Gork's Klaw \u2013 Sweep",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "devastating_wounds"
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"damage": "1",
+						"name": "Makari's stabba",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 80.0,
+					"current_wounds": 10.0,
+					"id": "m1",
+					"position": {
+						"x": 3680.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 10.0
+				},
+				{
+					"alive": true,
+					"base_mm": 25.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 3725.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_GHAZGHKULL_THRAKA_A",
+			"status": 2
+		},
+		"U_KOMMANDOS_H": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_KOMMANDOS_H",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "During the Shooting phase, until the end of the phase, this model has a 5+ invulnerable save.",
+						"name": "Distraction Grot",
+						"type": "Datasheet"
+					},
+					{
+						"description": "The unit gains the Combat Squads ability.",
+						"name": "Patrol Squad",
+						"type": "Datasheet"
+					},
+					{
+						"description": "For the rest of the battle, this model cannot fire Overwatch.",
+						"name": "Sneaky Gitz",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Kommandos",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"GRENADES",
+					"INFANTRY",
+					"KOMMANDOS",
+					"ORKS",
+					"SMOKE"
+				],
+				"name": "Kommandos",
+				"points": 120.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9 Kommando",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"10x Choppa",
+					"10x Slugga"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "pistol"
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m1",
+					"position": {
+						"x": 1860.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 1905.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 1950.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 1995.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 2040.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"x": 1860.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"x": 1905.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"x": 1950.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"x": 1995.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"x": 2040.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_KOMMANDOS_H",
+			"status": 2
+		},
+		"U_LOOTAS_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_LOOTAS_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "During the Shooting phase against A targets, you can re-roll a Hit roll of 1.",
+						"name": "Dat's Our Loot!",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Lootas",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"INFANTRY",
+					"LOOTAS",
+					"ORKS"
+				],
+				"name": "Lootas",
+				"points": 100.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1-2 Spanner",
+						"line": 1.0
+					},
+					{
+						"description": "4-8 Loota",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"1x Spanner",
+					"1x Close combat weapon",
+					"1x Kustom mega-blasta",
+					"2x Loota (KMB)",
+					"2x Close combat weapon",
+					"2x Kustom mega-blasta",
+					"8x Loota",
+					"8x Close combat weapon",
+					"8x Deffgun"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 2.0
+							}
+						],
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "heavy"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "6",
+						"damage": "2",
+						"name": "Deffgun",
+						"range": "48",
+						"special_rules": "heavy, rapid fire 1",
+						"strength": "8",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "hazardous"
+							}
+						],
+						"ap": "-2",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "D6",
+						"name": "Kustom mega-blasta",
+						"range": "24",
+						"special_rules": "hazardous",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 2900.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 2945.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 2990.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 3035.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 3080.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"x": 2900.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"x": 2945.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"x": 2990.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"x": 3035.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"x": 3080.0,
+						"y": 845.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"position": {
+						"x": 2900.0,
+						"y": 890.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_LOOTAS_A",
+			"status": 2
+		},
+		"U_MEGANOBZ_L": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_MEGANOBZ_L",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Feel No Pain 5+ ability.",
+						"name": "Krumpin' Time",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Meganobz",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"GRENADES",
+					"INFANTRY",
+					"MEGA ARMOUR",
+					"MEGANOBZ",
+					"ORKS"
+				],
+				"name": "Meganobz",
+				"points": 150.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 5.0,
+					"objective_control": 1.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 3.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Meganob with Mega-Shoota",
+						"line": 1.0
+					},
+					{
+						"description": "1-5 Meganob",
+						"line": 2.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 2.0
+							}
+						],
+						"ap": "0",
+						"attacks": "4",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kustom shoota",
+						"range": "18",
+						"special_rules": "rapid fire 2",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-3",
+						"attacks": "2",
+						"damage": "2",
+						"name": "Killsaw",
+						"range": "Melee",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m1",
+					"position": {
+						"x": 3160.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m2",
+					"position": {
+						"x": 3205.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m3",
+					"position": {
+						"x": 3250.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m4",
+					"position": {
+						"x": 3295.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m5",
+					"position": {
+						"x": 3340.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_MEGANOBZ_L",
+			"status": 2
+		},
+		"U_NOB_WAAAGH_BANNER_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_NOB_WAAAGH_BANNER_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					}
+				],
+				"display_name": "Bannernob",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BANNERNOB",
+					"CHARACTER",
+					"INFANTRY",
+					"ORKS"
+				],
+				"name": "Bannernob",
+				"points": 50.0,
+				"stats": {
+					"invuln": 5.0,
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 6.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Bannernob",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kustom shoota",
+					"1x Waaagh! banner"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 3940.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_NOB_WAAAGH_BANNER_A",
+			"status": 2
+		},
+		"U_PAINBOSS_I": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_PAINBOSS_I",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "This model regains up to 3 lost wounds.",
+						"name": "Sawbonez",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Painboss",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BEAST SNAGGA",
+					"CHARACTER",
+					"INFANTRY",
+					"ORKS",
+					"PAINBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BEAST SNAGGA BOYZ",
+						"SQUIGHOG BOYZ"
+					]
+				},
+				"name": "Painboss",
+				"points": 60.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Painboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Beast Snagga klaw",
+					"1x Grot Orderly"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "anti",
+								"keyword": "MONSTER",
+								"threshold": 4.0
+							},
+							{
+								"id": "anti",
+								"keyword": "VEHICLE",
+								"threshold": 4.0
+							}
+						],
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Beast Snagga klaw",
+						"range": "Melee",
+						"special_rules": "anti-monster 4+, anti-vehicle 4+",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 2120.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_PAINBOSS_I",
+			"status": 2
+		},
+		"U_SHIELD_CAPTAIN_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_SHIELD_CAPTAIN_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, the unit gains the Once Per Battle Special ability.",
+						"name": "Master of the Stances",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Shield-Captain",
+				"enhancements": [],
+				"is_warlord": true,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY",
+					"SHIELD-CAPTAIN"
+				],
+				"leader_data": {
+					"can_lead": [
+						"CUSTODIAN GUARD",
+						"CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
+						"CUSTODIAN WARDENS",
+						"SAGITTARUM CUSTODIANS"
+					]
+				},
+				"name": "Shield-Captain",
+				"points": 110.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Shield-Captain",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"Shield-Captain (Shield), Praesidium Shield"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear \u2013 Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							},
+							{
+								"id": "pistol"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Sentinel blade \u2013 Ranged",
+						"range": "12",
+						"special_rules": "assault, pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "7",
+						"damage": "2",
+						"name": "Guardian spear \u2013 Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "7",
+						"damage": "1",
+						"name": "Sentinel blade \u2013 Melee",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 300.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_SHIELD_CAPTAIN_A",
+			"status": 2
+		},
+		"U_SHIELD_CAPTAIN_JETBIKE_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_SHIELD_CAPTAIN_JETBIKE_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, you can use one Stratagem on this model for 0CP.",
+						"name": "Strategic Mastery",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Fight phase, the unit is eligible to shoot and declare a charge in a turn in which it Fell Back.",
+						"name": "Sweeping Advance",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Shield-Captain on Dawneagle Jetbike",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CHARACTER",
+					"DAWNEAGLE JETBIKE",
+					"FLY",
+					"IMPERIUM",
+					"MOUNTED",
+					"SHIELD-CAPTAIN"
+				],
+				"leader_data": {
+					"can_lead": [
+						"AGAMATUS CUSTODIANS",
+						"VERTUS PRAETORS"
+					]
+				},
+				"name": "Shield-Captain on Dawneagle Jetbike",
+				"points": 140.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 12.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 7.0,
+					"wounds": 8.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Shield-Captain on Dawneagle Jetbike",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "twin_linked"
+							}
+						],
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "2",
+						"damage": "D6+1",
+						"name": "Salvo launcher",
+						"range": "24",
+						"special_rules": "twin linked",
+						"strength": "10",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "lance"
+							}
+						],
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Interceptor lance",
+						"range": "Melee",
+						"special_rules": "lance",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_dimensions": {
+						"length": 42.0,
+						"width": 75.0
+					},
+					"base_mm": 75.0,
+					"base_type": "oval",
+					"current_wounds": 8.0,
+					"id": "m1",
+					"position": {
+						"x": 2380.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 8.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_SHIELD_CAPTAIN_JETBIKE_A",
+			"status": 2
+		},
+		"U_TELEMON_HEAVY_DREADNOUGHT_I": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers D3 mortal wounds.",
+						"name": "Deadly Demise D3",
+						"type": "Core"
+					},
+					{
+						"description": "Add 2 to the unit's Attacks characteristic.",
+						"name": "Devoted to Destruction",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Each time an attack targets the unit, reduce the Damage of that attack by 1.",
+						"name": "Guardian Eternal",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Telemon Heavy Dreadnought",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"IMPERIUM",
+					"TELEMON HEAVY DREADNOUGHT",
+					"VEHICLE",
+					"WALKER"
+				],
+				"name": "Telemon Heavy Dreadnought",
+				"points": 225.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 8.0,
+					"objective_control": 4.0,
+					"save": 2.0,
+					"toughness": 10.0,
+					"wounds": 12.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Telemon Heavy Dreadnought",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "devastating_wounds"
+							}
+						],
+						"ap": "-1",
+						"attacks": "12",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Arachnus storm cannon",
+						"range": "24",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "4",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Iliastus accelerator culverin",
+						"range": "48",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							}
+						],
+						"ap": "0",
+						"attacks": "D6+3",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Spiculus bolt launcher",
+						"range": "36",
+						"special_rules": "blast",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "twin_linked"
+							}
+						],
+						"ap": "-3",
+						"attacks": "4",
+						"ballistic_skill": "2",
+						"damage": "D6+2",
+						"name": "Twin arachnus heavy blaze cannon",
+						"range": "48",
+						"special_rules": "twin linked",
+						"strength": "12",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "5",
+						"damage": "1",
+						"name": "Armoured feet",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Telemon caestus",
+						"range": "Melee",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 100.0,
+					"current_wounds": 12.0,
+					"id": "m1",
+					"position": {
+						"x": 2120.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 12.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+			"status": 2
+		},
+		"U_WARBOSS_B": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WARBOSS_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Add 4 to the unit's Attacks characteristic.",
+						"name": "Da Biggest and da Best",
+						"type": "Datasheet"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					}
+				],
+				"display_name": "Warboss Alpha",
+				"enhancements": [],
+				"is_warlord": true,
+				"keywords": [
+					"CHARACTER",
+					"GRENADES",
+					"INFANTRY",
+					"ORKS",
+					"WARBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ",
+						"BREAKA BOYZ",
+						"NOBZ"
+					]
+				},
+				"name": "Warboss",
+				"points": 75.0,
+				"stats": {
+					"invuln": 5.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kombi-weapon",
+					"1x Power klaw",
+					"1x Twin sluggas"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "anti",
+								"keyword": "INFANTRY",
+								"threshold": 4.0
+							},
+							{
+								"id": "devastating_wounds"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "pistol"
+							},
+							{
+								"id": "twin_linked"
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Twin sluggas",
+						"range": "12",
+						"special_rules": "pistol, twin linked",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "extra_attacks"
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Attack squig",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 300.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_WARBOSS_B",
+			"status": 2
+		},
+		"U_WARBOSS_C": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WARBOSS_C",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Add 4 to the unit's Attacks characteristic.",
+						"name": "Da Biggest and da Best",
+						"type": "Datasheet"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					}
+				],
+				"display_name": "Warboss Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"GRENADES",
+					"INFANTRY",
+					"ORKS",
+					"WARBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ",
+						"BREAKA BOYZ",
+						"NOBZ"
+					]
+				},
+				"name": "Warboss",
+				"points": 75.0,
+				"stats": {
+					"invuln": 5.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kombi-weapon",
+					"1x Power klaw",
+					"1x Twin sluggas"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "anti",
+								"keyword": "INFANTRY",
+								"threshold": 4.0
+							},
+							{
+								"id": "devastating_wounds"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "pistol"
+							},
+							{
+								"id": "twin_linked"
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Twin sluggas",
+						"range": "12",
+						"special_rules": "pistol, twin linked",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "extra_attacks"
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Attack squig",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 560.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_WARBOSS_C",
+			"status": 2
+		},
+		"U_WARBOSS_IN_MEGA_ARMOUR_D": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Modify this model's Damage characteristic to 3.",
+						"name": "Dead Brutal",
+						"type": "Datasheet"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "During the Fight phase, after being attached to a unit, the unit gets +1 to Hit rolls.",
+						"name": "Might is Right",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Warboss in Mega Armour",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"MEGA ARMOUR",
+					"ORKS",
+					"WARBOSS",
+					"WARBOSS IN MEGA ARMOUR"
+				],
+				"leader_data": {
+					"can_lead": [
+						"MEGANOBZ"
+					]
+				},
+				"name": "Warboss in Mega Armour",
+				"points": 80.0,
+				"stats": {
+					"invuln": 5.0,
+					"leadership": 6.0,
+					"move": 5.0,
+					"objective_control": 1.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 7.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss in Mega Armour",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x 'Uge choppa"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 2.0
+							}
+						],
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "4",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Uge choppa",
+						"range": "Melee",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 50.0,
+					"current_wounds": 7.0,
+					"id": "m1",
+					"position": {
+						"x": 820.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 7.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+			"status": 2
+		},
+		"U_WAZBOM_BLASTAJET": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WAZBOM_BLASTAJET",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "During the Shooting phase against A targets, you can re-roll a Hit roll of 1.",
+						"name": "Blastajet Attack Run",
+						"type": "Datasheet"
+					},
+					{
+						"description": "This model has a 4+ invulnerable save.",
+						"name": "Blastajet Force Field",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Wazbom Blastajet",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"AIRCRAFT",
+					"FLY",
+					"GRENADES",
+					"ORKS",
+					"SPEED FREEKS",
+					"VEHICLE",
+					"WAZBOM BLASTAJET"
+				],
+				"name": "Wazbom Blastajet",
+				"points": 165.0,
+				"stats": {
+					"invuln": 6.0,
+					"leadership": 7.0,
+					"move": 20.0,
+					"objective_control": 0.0,
+					"save": 3.0,
+					"toughness": 9.0,
+					"wounds": 12.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Wazbom Blastajet",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							}
+						],
+						"ap": "-3",
+						"attacks": "D3",
+						"ballistic_skill": "4",
+						"damage": "4",
+						"name": "Smasha gun",
+						"range": "48",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							},
+							{
+								"id": "hazardous"
+							},
+							{
+								"id": "twin_linked"
+							}
+						],
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "4",
+						"damage": "D6",
+						"name": "Twin wazbom mega-kannon",
+						"range": "36",
+						"special_rules": "blast, hazardous, twin linked",
+						"strength": "12",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Armoured hull",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_dimensions": {
+						"length": 95.0,
+						"width": 150.0
+					},
+					"base_mm": 150.0,
+					"base_type": "oval",
+					"current_wounds": 12.0,
+					"id": "m1",
+					"position": {
+						"x": 3420.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 12.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_WAZBOM_BLASTAJET",
+			"status": 2
+		},
+		"U_WEIRDBOY_J": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WEIRDBOY_J",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Once per turn, the target suffers d6 mortal wounds.",
+						"name": "Da Jump",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers D3 mortal wounds.",
+						"name": "Deadly Demise D3",
+						"type": "Core"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "After being attached to a unit:\n  -> Add 1 to the unit's Strength characteristic.\n  -> Add 1 to the unit's Damage characteristic.",
+						"name": "Waaagh! Energy",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Weirdboy",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"ORKS",
+					"PSYKER",
+					"WEIRDBOY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BEAST SNAGGA BOYZ",
+						"BOYZ",
+						"BREAKA BOYZ"
+					]
+				},
+				"name": "Weirdboy",
+				"points": 65.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Weirdboy",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x 'Eadbanger",
+					"1x Weirdboy staff"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "precision"
+							},
+							{
+								"id": "psychic"
+							}
+						],
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "4",
+						"damage": "1",
+						"name": "Eadbanger",
+						"range": "24",
+						"special_rules": "precision, psychic",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "psychic"
+							}
+						],
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "D3",
+						"name": "Weirdboy staff",
+						"range": "Melee",
+						"special_rules": "psychic",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 2380.0,
+						"y": 800.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_WEIRDBOY_J",
+			"status": 2
+		},
+		"U_WITCHSEEKERS_C": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WITCHSEEKERS_C",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "During the Shooting phase, enemy units nearby must take a Battle-shock test.",
+						"name": "Sanctified Flames",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Before the first battle round, the unit can make a Scout move of up to 6\".",
+						"name": "Scouts 6\"",
+						"type": "Core"
+					}
+				],
+				"display_name": "Witchseekers Alpha",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ANATHEMA PSYKANA",
+					"IMPERIUM",
+					"INFANTRY",
+					"WITCHSEEKERS"
+				],
+				"name": "Witchseekers",
+				"points": 50.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 3.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Witchseeker Sister Superior",
+						"line": 1.0
+					},
+					{
+						"description": "3-9 Witchseeker",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"Witchseeker Sister Superior",
+					"Witchseeker"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "ignores_cover"
+							},
+							{
+								"id": "torrent"
+							}
+						],
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": "N/A",
+						"damage": "1",
+						"name": "Witchseeker flamer",
+						"range": "12",
+						"special_rules": "ignores cover, torrent",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 1080.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 1125.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 1170.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 1215.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WITCHSEEKERS_C",
+			"status": 2
+		},
+		"U_WITCHSEEKERS_D": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WITCHSEEKERS_D",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "During the Shooting phase, enemy units nearby must take a Battle-shock test.",
+						"name": "Sanctified Flames",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Before the first battle round, the unit can make a Scout move of up to 6\".",
+						"name": "Scouts 6\"",
+						"type": "Core"
+					}
+				],
+				"display_name": "Witchseekers Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ANATHEMA PSYKANA",
+					"IMPERIUM",
+					"INFANTRY",
+					"WITCHSEEKERS"
+				],
+				"name": "Witchseekers",
+				"points": 50.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 3.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Witchseeker Sister Superior",
+						"line": 1.0
+					},
+					{
+						"description": "3-9 Witchseeker",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"Witchseeker Sister Superior",
+					"Witchseeker"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "ignores_cover"
+							},
+							{
+								"id": "torrent"
+							}
+						],
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": "N/A",
+						"damage": "1",
+						"name": "Witchseeker flamer",
+						"range": "12",
+						"special_rules": "ignores cover, torrent",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 1340.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 1385.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 1430.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 1475.0,
+						"y": 1300.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WITCHSEEKERS_D",
+			"status": 2
+		}
+	}
+}

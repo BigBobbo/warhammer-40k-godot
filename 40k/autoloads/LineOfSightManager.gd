@@ -2,12 +2,12 @@ extends Node
 const GameStateData = preload("res://autoloads/GameState.gd")
 
 # LineOfSightManager - Manages Line of Sight visualization system
-# Shows all models that can see the mouse cursor position while X is held
-# ("X marks the spot"). Main._input drives start/end directly — this tool
-# previously listened for V, then G, in _unhandled_input and both keys were
-# captured first by other toggles (VP timeline / tactical grid), which left
-# it unreachable. Do NOT bind it to a key here again; keep Main as the one
-# owner of the keymap.
+# Shows all models that can see the mouse cursor position while the
+# los_check key is held (rebindable, default X — "X marks the spot").
+# Main._input drives start/end directly — this tool previously listened for
+# V, then G, in _unhandled_input and both keys were captured first by other
+# toggles (VP timeline / tactical grid), which left it unreachable. Do NOT
+# bind it to a key here again; keep Main as the one owner of the keymap.
 
 signal los_visibility_changed(visible_models: Array, target_pos: Vector2)
 signal los_calculation_started()
@@ -35,8 +35,9 @@ func _ready() -> void:
 	print("[LineOfSightManager] Initialized - Hold 'X' to check what can see the cursor position")
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Key handling lives in Main._input (see header comment); only track
-	# cursor movement here while a calculation is live.
+	# Key handling lives in Main._input (rebindable action los_check; see
+	# header comment); only track cursor movement here while a calculation
+	# is live.
 	if event is InputEventMouseMotion and is_calculating:
 		# Update calculation if mouse moved significantly
 		if event.position.distance_to(_last_mouse_pos) > _mouse_move_threshold:

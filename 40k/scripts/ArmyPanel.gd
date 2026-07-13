@@ -234,6 +234,7 @@ func _on_close() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_ESCAPE or event.keycode == KEY_U:
+		# Escape always closes; the army-panel key (rebindable: toggle_army_panel, default U) closes it too.
+		if event.keycode == KEY_ESCAPE or KeybindingManager.matches_action(event, "toggle_army_panel"):
 			_on_close()
 			get_viewport().set_input_as_handled()

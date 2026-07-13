@@ -1,0 +1,38 @@
+{
+  "id": "T46_custodian_guard_sprite",
+  "covers": ["tokens.unit_sprites", "tokens.custodian_guard_topdown"],
+  "fixture": "custodian_guard_dupes",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Bundled top-down Custodian Guard art (res://assets/unit_sprites/custodian_guard.png) resolves through SpriteResolver onto board tokens in default letter mode: the Custodian Guard unit renders the gold spear-wielding sprite instead of a letter counter, while a unit with no bundled art (Warboss) keeps the letter fallback. Screenshots capture the sprite zoomed on the 40mm Custodian Guard squad and in a wider frame next to letter-mode character tokens.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_token_visible", "unit_id": "U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
+
+    { "act": "execute_script",
+      "script": "SpriteResolver.resolve_sprite(\"Custodian Guard\", \"Adeptus Custodes\", \"INFANTRY\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "unit_token_sprite_width(\"U_CUSTODIAN_GUARD_B\")",
+      "equals": 512 },
+
+    { "act": "execute_script",
+      "script": "unit_token_sprite_width(\"U_WARBOSS_B\")",
+      "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "main.fit_view_to_selection(\"U_CUSTODIAN_GUARD_B\")",
+      "equals": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "screenshot", "label": "01_custodian_guard_sprite_zoom" },
+
+    { "act": "execute_script",
+      "script": "main.fit_view_to_decision([\"U_CUSTODIAN_GUARD_B\", \"U_SHIELD_CAPTAIN_A\", \"U_BLADE_CHAMPION_A\"])",
+      "equals": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "screenshot", "label": "02_sprite_vs_letter_tokens" }
+  ]
+}

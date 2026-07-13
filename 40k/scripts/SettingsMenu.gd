@@ -28,6 +28,7 @@ var _animation_speed_label: Label
 var _colorblind_dropdown: OptionButton
 var _board_style_dropdown: OptionButton
 var _ruins_style_dropdown: OptionButton
+var _terrain_debug_checkbox: CheckBox
 
 var _auto_allocate_checkbox: CheckBox
 
@@ -53,6 +54,9 @@ func _ready() -> void:
 	_build_ui()
 	_load_current_settings()
 	_connect_signals()
+	# M0 controller foundations: land pad focus somewhere visible so D-pad
+	# navigation works the moment the overlay opens.
+	_close_button.grab_focus()
 	print("[SettingsMenu] P3-111: Ready")
 
 func _build_ui() -> void:
@@ -161,6 +165,7 @@ func _build_ui() -> void:
 	_animation_speed_slider = _add_slider_row(visual_content, "Animation Speed:", 0.25, 3.0, 0.25, "_on_animation_speed_changed")
 	_animation_speed_label = _get_last_value_label()
 	_colorblind_dropdown = _add_dropdown_row(visual_content, "Colorblind Mode:", ["None", "Protanopia (Red-Green)", "Deuteranopia (Green-Red)", "Tritanopia (Blue-Yellow)"], "_on_colorblind_changed")
+	_terrain_debug_checkbox = _add_checkbox_row(visual_content, "Terrain Debug Labels (internal ids + LoS badges)", "_on_terrain_debug_labels_toggled")
 
 	# ── Gameplay Tab ──
 	var gameplay_scroll = _create_tab_scroll()
@@ -230,6 +235,7 @@ func _create_tab_scroll() -> ScrollContainer:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	var content = VBoxContainer.new()
@@ -481,6 +487,8 @@ func _load_current_settings() -> void:
 	var cb_index = ["none", "protanopia", "deuteranopia", "tritanopia"].find(SettingsService.colorblind_mode)
 	if cb_index >= 0:
 		_colorblind_dropdown.selected = cb_index
+	if _terrain_debug_checkbox:
+		_terrain_debug_checkbox.button_pressed = SettingsService.terrain_debug_labels
 
 	# Gameplay
 	if _auto_allocate_checkbox:
@@ -560,6 +568,9 @@ func _on_colorblind_changed(index: int) -> void:
 	if index >= 0 and index < modes.size():
 		SettingsService.set_colorblind_mode(modes[index])
 
+func _on_terrain_debug_labels_toggled(pressed: bool) -> void:
+	SettingsService.set_terrain_debug_labels(pressed)
+
 # ============================================================================
 # Gameplay Callbacks
 # ============================================================================
@@ -609,17 +620,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		var new_shift = event.shift_pressed
 		var new_ctrl = event.ctrl_pressed
 		var new_alt = event.alt_pressed
+		var new_meta = event.meta_pressed
 
 		# Check for conflicts
-		var conflict_id = KeybindingManager.find_conflict(_capturing_action_id, new_key, new_shift, new_ctrl, new_alt)
+		var conflict_id = KeybindingManager.find_conflict(_capturing_action_id, new_key, new_shift, new_ctrl, new_alt, new_meta)
 		if conflict_id != "":
 			# Auto-swap: clear the conflicting binding by setting it to KEY_NONE (0)
-			KeybindingManager.set_binding(conflict_id, 0, false, false, false)
+			KeybindingManager.set_binding(conflict_id, 0, false, false, false, false)
 			_update_keybinding_display(conflict_id)
 			print("[SettingsMenu] Conflict resolved: cleared '%s'" % conflict_id)
 
 		# Apply the new binding
-		KeybindingManager.set_binding(_capturing_action_id, new_key, new_shift, new_ctrl, new_alt)
+		KeybindingManager.set_binding(_capturing_action_id, new_key, new_shift, new_ctrl, new_alt, new_meta)
 		_update_keybinding_display(_capturing_action_id)
 
 		# Exit capture mode
@@ -631,6 +643,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+	# Close on ui_cancel so both Escape and the pad's B button work (M1).
+	if event.is_action_pressed("ui_cancel"):
 		_on_close_pressed()
 		get_viewport().set_input_as_handled()

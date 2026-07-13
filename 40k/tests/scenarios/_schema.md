@@ -153,6 +153,44 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "simulate_key", "keycode": "KEY_ESCAPE" }
   ```
 
+- `simulate_joy_button`: dispatch a joypad button press+release through the
+  OS-event pipeline — drives InputMap actions, `ui_*` focus navigation and
+  InputDeviceManager device detection like a real pad. `button_index` uses
+  the JoyButton enum ints: 0=A 1=B 2=X 3=Y 4=Back(View) 6=Start(Menu) 9=LB
+  10=RB 11–14=D-pad up/down/left/right. Optional `device` (default 0).
+  ```json
+  { "act": "simulate_joy_button", "button_index": 12 }
+  ```
+
+- `simulate_joy_axis`: push a joypad axis to `value`, hold it for `hold_s`
+  seconds (default 0.3), then return it to neutral unless
+  `"auto_release": false`. While held, the axis feeds action strengths, so
+  per-frame consumers (pad camera pan, trigger zoom) integrate over the
+  hold. `axis` uses the JoyAxis enum ints: 0/1 left stick, 2/3 right stick,
+  4/5 triggers (0..1). Optional `device` (default 0).
+  ```json
+  { "act": "simulate_joy_axis", "axis": 2, "value": 1.0, "hold_s": 0.7 }
+  ```
+  `simulate_joy_button` also accepts `"state"`: `"tap"` (default,
+  press+release), `"press"` (hold — e.g. start a virtual-cursor drag), or
+  `"release"` (end a held press).
+
+- `pad_cursor_glide`: drive the M1 virtual cursor to a target through the
+  same per-frame move/warp/motion-synthesis pipeline the left stick uses
+  (only the steering is deterministic). If the target starts off-screen the
+  cursor's edge-push pans the camera, so the act re-resolves the target and
+  re-glides until the cursor rests on it. Target one of: `unit_id` (token),
+  `node` (a Control's NodePath), `button_text` (first visible enabled
+  Button with that exact text — for procedurally-built panels with no
+  stable path), or `x`/`y` board px (`"space": "screen"` for raw screen
+  px). Combine with `simulate_joy_button` 0 for clicks and
+  `state: press/release` pairs for drags.
+  ```json
+  { "act": "pad_cursor_glide", "unit_id": "U_BLADE_CHAMPION_A" }
+  { "act": "pad_cursor_glide", "button_text": "Confirm Move" }
+  { "act": "pad_cursor_glide", "x": 120.0, "y": 220.0 }
+  ```
+
 ### State asserts
 
 - `expect_state`: assert against `GameState.state` via dot-separated path.

@@ -82,8 +82,8 @@ func _test_main_gd_wires_panel() -> void:
 		"@onready var stratagem_panel_button" in src)
 	_check("_toggle_stratagem_panel function defined",
 		"func _toggle_stratagem_panel" in src)
-	_check("KEY_S hotkey wired in _input",
-		"event.keycode == KEY_S" in src and "_toggle_stratagem_panel" in src)
+	_check("Stratagem hotkey wired in _input (rebindable via KeybindingManager)",
+		"matches_action(event, \"toggle_stratagem_panel\")" in src and "_toggle_stratagem_panel" in src)
 	_check("button.pressed connected to toggle",
 		"stratagem_panel_button.pressed.connect(_toggle_stratagem_panel)" in src)
 	_check("use-requested handler wires StratagemManager.use_stratagem",

@@ -56989,6 +56989,11 @@
   "faction_keywords": [
    "Orks"
   ],
+  "base_size_mm": {
+   "shape": "oval",
+   "width": 120,
+   "length": 92
+  },
   "model_count": {
    "min": 1,
    "max": 1
