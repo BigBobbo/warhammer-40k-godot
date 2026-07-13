@@ -46,6 +46,12 @@ var show_unit_labels: bool = true
 # default) they show only a compact height glyph chip (T/M/L).
 var terrain_debug_labels: bool = false
 
+# Terrain scatter props — when true (default) terrain pieces render their
+# decorative scatter sprites (ruins: crates + sandbags, woods: trees) and other
+# cosmetic per-type details. When false the board shows only the terrain
+# footprints, borders and walls, for a cleaner/less cluttered look.
+var show_terrain_scatter: bool = true
+
 # Gameplay settings
 # When true, the computer automatically chooses which wounded/destroyed models
 # are removed during wound allocation instead of prompting the local player.
@@ -84,6 +90,7 @@ signal ruins_style_changed(new_style: String)
 signal auto_allocate_wounds_changed(enabled: bool)
 signal unit_style_changed(new_style: String)
 signal terrain_debug_labels_changed(enabled: bool)
+signal terrain_scatter_changed(enabled: bool)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -345,6 +352,12 @@ func set_terrain_debug_labels(enabled: bool) -> void:
 	_save_settings()
 	print("[SettingsService] terrain_debug_labels set to %s" % str(enabled))
 
+func set_show_terrain_scatter(enabled: bool) -> void:
+	show_terrain_scatter = enabled
+	terrain_scatter_changed.emit(show_terrain_scatter)
+	_save_settings()
+	print("[SettingsService] show_terrain_scatter set to %s" % str(enabled))
+
 # ============================================================================
 # P3-111: Settings Persistence
 # ============================================================================
@@ -366,6 +379,7 @@ func _save_settings() -> void:
 	config.set_value("visual", "colorblind_mode", colorblind_mode)
 	config.set_value("visual", "show_unit_labels", show_unit_labels)
 	config.set_value("visual", "terrain_debug_labels", terrain_debug_labels)
+	config.set_value("visual", "show_terrain_scatter", show_terrain_scatter)
 	config.set_value("visual", "board_style", board_style)
 	config.set_value("visual", "ruins_style", ruins_style)
 
@@ -406,6 +420,7 @@ func _load_settings() -> void:
 	colorblind_mode = config.get_value("visual", "colorblind_mode", "none")
 	show_unit_labels = config.get_value("visual", "show_unit_labels", true)
 	terrain_debug_labels = config.get_value("visual", "terrain_debug_labels", false)
+	show_terrain_scatter = config.get_value("visual", "show_terrain_scatter", true)
 	board_style = config.get_value("visual", "board_style", "grass")
 	ruins_style = config.get_value("visual", "ruins_style", "concrete")
 

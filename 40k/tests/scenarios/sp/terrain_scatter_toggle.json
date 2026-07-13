@@ -1,0 +1,59 @@
+{
+  "id": "terrain_scatter_toggle",
+  "covers": [
+    "settings.show_terrain_scatter",
+    "board.terrain.scatter_props",
+    "ui.settings_menu.visual"
+  ],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 6,
+  "description": "Player-facing toggle for terrain scatter props (crates/sandbags/trees). Drives the SettingsService.show_terrain_scatter setting that the Settings > Visual 'Terrain Scatter Props' checkbox is wired to, and proves TerrainVisual re-renders live: with the setting ON the ruins pieces scatter decorative Sprite2D props (count >= 1); toggling it OFF removes every scatter sprite (count == 0) while the terrain footprints/features remain (44 features untouched); toggling back ON restores the props (deterministic, seeded by terrain id). A full-frame pixel_diff confirms the board visibly changes between the off and on captures.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "SettingsService.set_show_terrain_scatter(true)" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.size()",
+      "expect_min": 1 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainVisual\").find_children(\"*\", \"Sprite2D\", true, false).size()",
+      "expect_min": 1 },
+
+    { "act": "screenshot", "label": "scatter_on" },
+
+    { "act": "execute_script",
+      "script": "SettingsService.set_show_terrain_scatter(false)" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script",
+      "script": "SettingsService.show_terrain_scatter",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainVisual\").find_children(\"*\", \"Sprite2D\", true, false).size()",
+      "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.size()",
+      "expect_min": 1 },
+
+    { "act": "screenshot", "label": "scatter_off" },
+
+    { "act": "execute_script",
+      "script": "SettingsService.set_show_terrain_scatter(true)" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainVisual\").find_children(\"*\", \"Sprite2D\", true, false).size()",
+      "expect_min": 1 },
+
+    { "act": "pixel_diff",
+      "before": "scatter_off",
+      "after": "scatter_on",
+      "expect_min_pct": 0.02 }
+  ]
+}
