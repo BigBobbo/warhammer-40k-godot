@@ -1,0 +1,72 @@
+{
+  "id": "iss065b_tempting_target_board_pick_11e",
+  "covers": [
+    "rules.secondaries.a_tempting_target.board_pick",
+    "ui.CommandController.tempting_target_board_pick"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "description": "A Tempting Target objective NAMES aren't always obvious, so the player can now designate the objective by clicking its marker on the board. When the AI (P2) draws A Tempting Target the human (P1) is prompted; instead of picking from the name list they click 'Pick on board', which hides the dialog and shows a banner, then click the obj_nml_1 marker on the battlefield (board px 440,960). The card resolves to obj_nml_1 exactly as the list-button path would, and the pending interaction clears.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(2)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"].merge({\"deck\": [\"a_tempting_target\"], \"active\": []}, true)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"deck\"].size()",
+      "equals": 1 },
+
+    { "act": "execute_script",
+      "script": "GameState.state[\"meta\"][\"game_config\"].merge({\"player2_type\": \"AI\"}, true)" },
+    { "act": "execute_script", "script": "AIPlayer.ai_players.merge({2: true}, true)" },
+    { "act": "execute_script", "script": "AIPlayer.set(\"enabled\", true)" },
+    { "act": "execute_script", "script": "AIPlayer.is_ai_player(2)", "equals": true },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"pending_interaction\"]",
+      "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/TemptingTargetDialog", "timeout_s": 6.0 },
+    { "act": "screenshot", "label": "01_dialog_with_pick_on_board_button" },
+
+    { "act": "click_node",
+      "node": "/root/TemptingTargetDialog/MainContainer/PickObjectiveOnBoard",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/BoardPickBanner", "timeout_s": 4.0 },
+    { "act": "execute_script",
+      "script": "not get_tree().root.get_node(\"TemptingTargetDialog\").visible",
+      "equals": true },
+    { "act": "screenshot", "label": "02_board_pick_armed_banner_visible" },
+
+    { "act": "click_board_at", "x": 440, "y": 960 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"tempting_target_id\", \"\"))",
+      "equals": "obj_nml_1" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"pending_interaction\"]",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "AIPlayer._human_secondary_interaction_pending()",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node_or_null(\"BoardPickBanner\") == null",
+      "equals": true },
+
+    { "act": "execute_script", "script": "AIPlayer.set(\"enabled\", false)" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "screenshot", "label": "03_objective_resolved_via_board_click" }
+  ]
+}

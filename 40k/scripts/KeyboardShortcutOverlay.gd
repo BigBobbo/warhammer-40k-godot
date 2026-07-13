@@ -103,7 +103,7 @@ func _build_ui() -> void:
 	_add_shortcut(_dz, "Toggle deployment zones")
 	_add_shortcut(_tt, "Toggle terrain")
 	_add_shortcut(_ul, "Toggle unit labels")
-	_add_shortcut("%s (hold)" % _mt, "Measuring tape")
+	_add_shortcut("%s (toggle)" % _mt, "Measuring tape — click start then end")
 	_add_shortcut(_cm, "Clear measurements")
 	_add_shortcut("W/A/S/D", "Pan camera")
 	_add_shortcut("%s  /  %s" % [_zu, _zd], "Zoom in/out")

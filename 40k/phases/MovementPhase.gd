@@ -1278,32 +1278,20 @@ func _validate_confirm_unit_move(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _check_models_coherency(final_models: Array) -> Dictionary:
-	"""Check unit coherency for an array of model dicts with positions.
-	Each model must be within 2" horizontally AND 5" vertically of at least one other model
-	(2 others for 7+ model units). Returns {valid: bool, errors: Array}."""
+	"""Check unit coherency for an array of model dicts with positions (11e core rules 03.03):
+	every model must be within 2" horizontally / 5" vertically of at least one other model AND
+	within 9" of every other model in the unit. Delegates to the edition-aware
+	AttackSequence.check_unit_coherency() single source of truth. Returns {valid, errors}."""
 	if final_models.size() <= 1:
 		return {"valid": true, "errors": []}
 
-	var model_count = final_models.size()
-	var required_connections = 1 if model_count <= 6 else 2
+	var result = AttackSequence.check_unit_coherency({"models": final_models})
+	if result.get("coherent", true):
+		return {"valid": true, "errors": []}
 
-	for i in range(final_models.size()):
-		var connections = 0
-		for j in range(final_models.size()):
-			if i == j:
-				continue
-			if Measurement.is_within_coherency(final_models[i], final_models[j]):
-				connections += 1
-				if connections >= required_connections:
-					break  # No need to check further
-
-		if connections < required_connections:
-			var model_id = final_models[i].get("id", "model %d" % i)
-			var needed_str = "%d model(s)" % required_connections
-			log_phase_message("Coherency check failed: model %s has %d connections, needs %s" % [model_id, connections, needed_str])
-			return {"valid": false, "errors": ["Unit coherency broken: model %s is not within 2\" horizontally and 5\" vertically of %s" % [model_id, needed_str]]}
-
-	return {"valid": true, "errors": []}
+	var offenders = result.get("offenders", [])
+	log_phase_message("Coherency check failed: %d model(s) out of coherency (%s)" % [offenders.size(), ", ".join(offenders)])
+	return {"valid": false, "errors": ["Unit coherency broken: %d model(s) out of coherency — every model must be within 2\" of a mate AND within 9\" of every other model in the unit" % offenders.size()]}
 
 func _validate_unit_coherency_after_move(unit_id: String, move_data: Dictionary) -> Dictionary:
 	"""Validate that the unit maintains coherency after all staged moves are applied.
@@ -7716,28 +7704,9 @@ func _check_group_unit_coherency(group_moves: Array, unit_id: String) -> bool:
 			moved_model["position"] = Vector2(dest[0], dest[1])
 			final_models[model_id] = moved_model
 
-	# Check coherency rules using shape-aware edge-to-edge distance
-	var model_count = final_models.size()
-
-	for model_id1 in final_models:
-		var connections = 0
-
-		for model_id2 in final_models:
-			if model_id1 == model_id2:
-				continue
-
-			var distance = Measurement.model_to_model_distance_inches(final_models[model_id1], final_models[model_id2])
-
-			if distance <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES:
-				connections += 1
-
-		# Coherency rules based on unit size
-		var required_connections = 1 if model_count <= 6 else 2
-
-		if connections < required_connections:
-			return false
-
-	return true
+	# Check coherency via the edition-aware single source of truth (11e 03.03:
+	# within 2" of a mate AND within 9" of every other model in the unit).
+	return AttackSequence.check_unit_coherency({"models": final_models.values()}).get("coherent", true)
 
 func _check_terrain_collision(position: Vector2, model: Dictionary) -> bool:
 	"""Check if a position collides with impassable terrain using shape-aware bounds"""

@@ -3516,10 +3516,10 @@ func _validate_base_to_base_if_possible(unit_id: String, movements: Dictionary, 
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dictionary:
-	# Use similar logic to MovementPhase coherency checking
+	# Delegates to the edition-aware AttackSequence.check_unit_coherency() single source
+	# of truth (11e 03.03: within 2" of a mate AND within 9" of every other model).
 	var unit = get_unit(unit_id)
 	var models = unit.get("models", [])
-	var errors = []
 
 	# Build model dicts with updated positions
 	var all_models = []
@@ -3537,20 +3537,15 @@ func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dic
 				continue
 			all_models.append(model)
 
-	# Check coherency rule: within 2" horizontally AND 5" vertically (shape-aware edge-to-edge)
-	for i in range(all_models.size()):
-		var has_nearby_model = false
-		for j in range(all_models.size()):
-			if i == j:
-				continue
-			if Measurement.is_within_coherency(all_models[i], all_models[j]):
-				has_nearby_model = true
-				break
+	if all_models.size() <= 1:
+		return {"valid": true, "errors": []}
 
-		if not has_nearby_model and all_models.size() > 1:
-			errors.append("Model %d breaks unit coherency (not within 2\" horizontally and 5\" vertically of any other model)" % i)
-	
-	return {"valid": errors.is_empty(), "errors": errors}
+	var result = AttackSequence.check_unit_coherency({"models": all_models})
+	if result.get("coherent", true):
+		return {"valid": true, "errors": []}
+
+	var offenders = result.get("offenders", [])
+	return {"valid": false, "errors": ["Unit coherency broken: %d model(s) out of coherency — every model must be within 2\" of a mate AND within 9\" of every other model in the unit" % offenders.size()]}
 
 func _clear_unit_fight_state(unit_id: String) -> void:
 	# Clear any temporary fight flags

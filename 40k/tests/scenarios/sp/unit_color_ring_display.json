@@ -1,0 +1,23 @@
+{
+  "id": "unit_color_ring_display",
+  "covers": ["tokens.auto_color_same_name", "tokens.color_ring_display"],
+  "fixture": "custodian_guard_dupes",
+  "transition_to_phase": 6,
+  "description": "Two player-facing token-color behaviours: (1) duplicate same-name squads get DISTINCT auto-assigned colors (regression guard for the hex-roundtrip bug that painted every squad palette[0]); (2) the 'Unit Color: Ring Only' display setting makes TokenVisual draw the color as a ring inside a neutral base instead of filling the whole base. The setting is checked end-to-end: toggling SettingsService reaches the live board token via _is_ring_color_mode().",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "script": "set_color_display_mode(\"full\")", "equals": "full" },
+    { "act": "execute_script", "script": "first_token_ring_mode()", "equals": false },
+    { "act": "screenshot", "label": "before_full_base" },
+
+    { "act": "execute_script", "script": "same_name_colors_distinct(1)", "equals": true },
+
+    { "act": "execute_script", "script": "set_color_display_mode(\"ring\")", "equals": "ring" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "first_token_ring_mode()", "equals": true },
+    { "act": "screenshot", "label": "after_ring_only" },
+
+    { "act": "execute_script", "script": "set_color_display_mode(\"full\")", "equals": "full" }
+  ]
+}

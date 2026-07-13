@@ -435,12 +435,15 @@ func set_card_action_badges(badges: Array) -> void:
 	card_action_label.visible = true
 
 func highlight(enabled: bool) -> void:
-	if enabled:
-		objective_circle.width = 7.0
-		modulate.a = 1.0
-	else:
-		objective_circle.width = 5.0
-		modulate.a = 1.0
+	# Terrain-hosted objectives have no control-radius circle — thicken the area
+	# outlines instead so highlight() works for both rendering modes.
+	var width := 7.0 if enabled else 5.0
+	if objective_circle:
+		objective_circle.width = width
+	for outline in _area_outlines:
+		if outline != null and is_instance_valid(outline):
+			outline.width = width
+	modulate.a = 1.0
 
 func get_objective_id() -> String:
 	return objective_data.get("id", "")
