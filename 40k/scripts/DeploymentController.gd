@@ -1534,11 +1534,11 @@ func _update_coherency_circles() -> void:
 
 func _update_coherency_circles_static() -> void:
 	"""DEPLOY-VIS-5: When no ghost is active, show coherency status between placed models.
-	A model's circle is green when it satisfies the unit's coherency requirement —
-	within 2\" of at least 1 other model for 2-6 model units, at least 2 others for
-	7+ model units — and red when it does not. Uses the same _compute_coherency_status()
-	as the confirm-time enforcement so the visual and the deploy gate never disagree
-	(previously a 7+ unit could show all-green while confirm rejected it)."""
+	A model's circle is green when it satisfies the unit's 11e coherency requirement
+	(within 2\" of at least one other model AND within 9\" of every other model) and red
+	when it does not. Uses the same _compute_coherency_status() as the confirm-time
+	enforcement so the visual and the deploy gate never disagree — e.g. a model that is
+	touching a neighbour but is more than 9\" from a far-flung mate now correctly shows red."""
 	if coherency_circles.is_empty():
 		return
 	var status = _compute_coherency_status()
@@ -1612,7 +1612,9 @@ func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vect
 
 func _coherency_model_at(index: int, unit_data: Dictionary) -> Dictionary:
 	"""Build a positioned model dict for coherency math from the temp placement
-	buffers, honouring combined (multi-profile) deployments."""
+	buffers, honouring combined (multi-profile) deployments. Sets a unique index-based
+	id and alive=true so AttackSequence.check_unit_coherency's offender list maps
+	cleanly back to model indices for the visuals."""
 	var model: Dictionary
 	if is_combined_deployment and index < combined_models.size():
 		model = combined_models[index]["model_data"].duplicate()
@@ -1620,15 +1622,23 @@ func _coherency_model_at(index: int, unit_data: Dictionary) -> Dictionary:
 		model = unit_data["models"][index].duplicate()
 	model["position"] = temp_positions[index]
 	model["rotation"] = temp_rotations[index] if index < temp_rotations.size() else 0.0
+	model["alive"] = true
+	model["id"] = "coh_%d" % index
 	return model
 
 func _compute_coherency_status() -> Dictionary:
 	"""Single source of truth for deployment coherency over the currently-placed
-	temp models. Per 10e: a unit of 2-6 models needs every model within 2\"
-	horizontally / 5\" vertically of at least ONE other model; a unit of 7+ models
-	needs every model within range of at least TWO others (attached leaders count
-	toward the model total). Distance is edge-to-edge.
-	Returns {unit_empty, placed_count, total_models, required_neighbors, incoherent_indices}."""
+	temp models. Delegates to the edition-aware AttackSequence.check_unit_coherency()
+	so deployment matches every other phase and the active ruleset.
+
+	11e (core rules 03.03): a unit of 2+ models is in coherency only while EVERY model is
+	  • within 2\" horizontally / 5\" vertically of at least ONE other model in the unit, AND
+	  • within 9\" horizontally / 5\" vertically of EVERY other model in the unit (the envelope).
+	(The legacy 10e '7+ models need 2 neighbours' rule, and the absence of the envelope,
+	live inside check_unit_coherency behind its edition gate — not duplicated here.)
+
+	Returns {unit_empty, placed_count, total_models, incoherent_indices,
+	spread_violation, isolation_violation}."""
 	var unit_data = GameState.get_unit(unit_id)
 
 	var placed_indices = []
@@ -1636,45 +1646,63 @@ func _compute_coherency_status() -> Dictionary:
 		if temp_positions[i] != null:
 			placed_indices.append(i)
 
-	# Use the combined total (includes unplaced slots) so the 7+ threshold is based
-	# on the whole unit, not just how many are currently on the board.
-	var total_models = temp_positions.size()
-	var required_neighbors = 1 if total_models <= 6 else 2
 	var status = {
 		"unit_empty": unit_data.is_empty(),
 		"placed_count": placed_indices.size(),
-		"total_models": total_models,
-		"required_neighbors": required_neighbors,
+		"total_models": temp_positions.size(),
 		"incoherent_indices": [],
+		"spread_violation": false,    # 11e 9" envelope broken (models too far apart)
+		"isolation_violation": false, # a model has no mate within 2"
 	}
 	if unit_data.is_empty() or placed_indices.size() < 2:
 		return status
 
+	# Build a synthetic unit from the temp positions and ask the canonical checker.
+	var synthetic_models: Array = []
+	var id_to_index := {}
 	for i in placed_indices:
-		var model_i = _coherency_model_at(i, unit_data)
-		var neighbor_count = 0
-		for j in placed_indices:
-			if i == j:
-				continue
-			# Use shape-aware coherency check: 2" horizontal AND 5" vertical
-			if Measurement.is_within_coherency(model_i, _coherency_model_at(j, unit_data)):
-				neighbor_count += 1
-				if neighbor_count >= required_neighbors:
-					break
-		if neighbor_count < required_neighbors:
-			status["incoherent_indices"].append(i)
+		var m = _coherency_model_at(i, unit_data)
+		id_to_index[m["id"]] = i
+		synthetic_models.append(m)
+
+	var result = AttackSequence.check_unit_coherency({"models": synthetic_models})
+	for offender in result.get("offenders", []):
+		if id_to_index.has(offender):
+			status["incoherent_indices"].append(id_to_index[offender])
+
+	# Classify WHY (informational only — the verdict above is authoritative) so the
+	# player-facing message can name the specific broken condition. Mirrors the
+	# thresholds check_unit_coherency uses.
+	if not result.get("coherent", true):
+		var coh_px = Measurement.inches_to_px(GameConstants.coherency_distance_inches())
+		var envelope_px = 0.0
+		if GameConstants.edition >= 11:
+			envelope_px = Measurement.inches_to_px(GameConstants.coherency_envelope_inches())
+		for a in range(synthetic_models.size()):
+			var neighbors = 0
+			for b in range(synthetic_models.size()):
+				if a == b:
+					continue
+				var d = Measurement.model_to_model_distance_px(synthetic_models[a], synthetic_models[b])
+				if d <= coh_px:
+					neighbors += 1
+				if envelope_px > 0.0 and d > envelope_px:
+					status["spread_violation"] = true
+			if neighbors < 1:
+				status["isolation_violation"] = true
 	return status
 
 func _coherency_failure_message() -> String:
-	"""Player-facing explanation of why deployment coherency failed. Spells out the
-	2-neighbour requirement for 7+ model units, which the old generic message hid."""
+	"""Player-facing explanation of why deployment coherency failed. States the full 11e
+	rule (2\" to a mate AND 9\" to every model) and names whichever condition is broken."""
 	var status = _compute_coherency_status()
 	var bad = status["incoherent_indices"].size()
-	var req = int(status["required_neighbors"])
-	var total = int(status["total_models"])
-	if req >= 2:
-		return "Cannot deploy: %d model(s) out of coherency. This unit has %d models, so EVERY model must be within 2\" of at least 2 others in the unit — not just 1." % [bad, total]
-	return "Cannot deploy: %d model(s) out of coherency. Every model must be within 2\" of at least 1 other model in the unit." % bad
+	var msg = "Cannot deploy: %d model(s) out of coherency. Every model must be within 2\" of at least one other model in the unit AND within 9\" of every other model in the unit." % bad
+	if status["spread_violation"]:
+		msg += " Some models are more than 9\" apart — pull the unit closer together."
+	elif status["isolation_violation"]:
+		msg += " Some models are more than 2\" from their nearest mate."
+	return msg
 
 func _check_coherency_warning() -> void:
 	var status = _compute_coherency_status()
@@ -1684,9 +1712,11 @@ func _check_coherency_warning() -> void:
 
 	var incoherent_indices = status["incoherent_indices"]
 	if incoherent_indices.size() > 0:
-		var required_neighbors = int(status["required_neighbors"])
-		var rule_text = "within 2\" horizontally and 5\" vertically of %d+ model(s)" % required_neighbors
-		var msg = "Coherency warning: %d model(s) not %s" % [incoherent_indices.size(), rule_text]
+		var msg = "Coherency warning: %d model(s) out of coherency" % incoherent_indices.size()
+		if status["spread_violation"]:
+			msg += " — some are >9\" from another model in the unit"
+		elif status["isolation_violation"]:
+			msg += " — some are >2\" from any mate"
 		print("[WARNING] %s" % msg)
 		_show_toast(msg, Color.YELLOW)
 		emit_signal("coherency_warning_changed", true, msg)
@@ -1694,10 +1724,10 @@ func _check_coherency_warning() -> void:
 		emit_signal("coherency_warning_changed", false, "")
 
 func _is_unit_coherent() -> bool:
-	"""Check if the currently placed models satisfy unit coherency rules.
-	Per 10e rules: 2-6 models = each within 2\" horizontally and 5\" vertically of at least 1 other;
-	7+ models = each within 2\" horizontally and 5\" vertically of at least 2 others.
-	Single-model units are always coherent.
+	"""Check if the currently placed models satisfy unit coherency rules (11e 03.03):
+	every model within 2\" horizontally / 5\" vertically of at least one other model AND
+	within 9\" of every other model in the unit. Single-model units are always coherent.
+	Coherency is only enforced once every model in the unit is placed.
 	Distance is measured edge-to-edge (nearest base edge to nearest base edge)."""
 	var status = _compute_coherency_status()
 	if status["unit_empty"]:
