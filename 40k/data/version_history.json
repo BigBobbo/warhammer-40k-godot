@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.37.0",
+			"version": "0.39.0",
 			"date": "2026-07-13",
 			"summary": "Unit colors now display as a ring by default instead of filling the whole base, and duplicate squads of the same unit are automatically given different colors. The new Settings > Visual 'Unit Color' option defaults to 'Ring Only', which keeps a neutral base and paints your chosen color as a ring inside the base edge so the model art stays clear — switch it to 'Full Base' for the original solid-base look. Deploying a second squad of the same name (e.g. a second Boyz) now auto-picks a different color from the first.",
 			"changes": [
@@ -11,6 +11,39 @@
 				"Right-click > Change Color still sets the color; the setting only changes whether it fills the base or shows as a ring. Applies live to every token, no reload needed, and persists between sessions.",
 				"Duplicate squads of the same unit type/name now get distinct auto-assigned colors as you deploy them (fixes a bug where every squad came out the same color).",
 				"Takes effect in the default 'Letter' unit style where the token color is used."
+			]
+		},
+		{
+			"version": "0.38.0",
+			"date": "2026-07-13",
+			"summary": "The Scoring phase now spells out each player's primary mission in full: alongside the card name you get the official scoring blurb and a plain-English, per-rule VP breakdown, so you can see exactly how your primary scores without a rulebook.",
+			"changes": [
+				"Primary mission panel (Scoring phase): each player's disposition-paired card now shows a 'PRIMARY MISSIONS' section with the card title, the official mission text, and a bullet list of every scoring rule — e.g. 'End of game: +10VP — control the enemy's home objective'.",
+				"Each rule line reads its timing (Command phase / End of turn / End of game), the battle-round window (R2+, R1–2, ...), the VP, and the condition, generated from the same rules the game actually scores so the text can't drift from the maths.",
+				"Card names are colour-coded per player and cards built from approximate rules are still marked with a '~'.",
+				"No change to how primaries score — this is display only."
+			]
+		},
+		{
+			"version": "0.37.1",
+			"date": "2026-07-13",
+			"summary": "Long game-log entries — like the AI's move rationale — are no longer silently cut off. A truncated entry now shows a clear 'show more' button you can click to read the full text, and 'show less' to collapse it again.",
+			"changes": [
+				"Game Log: entries longer than the preview length now render a visible 'show more' / 'show less' toggle instead of trailing off with an unlabelled '…'. Clicking the entry text also expands it.",
+				"Raised the preview length so typical one-line AI decision rationales (e.g. 'Prosecutors moves toward obj_center …') display in full with no clicking needed; only genuinely long entries get the toggle.",
+				"Expanding a long entry is now reversible, so reading it no longer permanently grows the log."
+			]
+		},
+		{
+			"version": "0.37.0",
+			"date": "2026-07-13",
+			"summary": "Hold X to check line of sight to a spot before you commit to it: every model that can see the mouse position lights up with a gold sight line — perfect for asking 'if I move here, who can see me?' The tool existed but was unreachable because its keys (V, then G) were taken over by other shortcuts.",
+			"changes": [
+				"Hold X ('X marks the spot'): a crosshair marks the cursor position and every model with line of sight to it — yours AND the enemy's — draws a gold sighting line with a highlight ring and unit name (blue inner ring = player 1, red = player 2). Release to clear.",
+				"Use it while planning a move: hover the destination (it also works mid-drag) and instantly see which enemies would have line of sight to a model standing there, and what it could see out to (72\" range).",
+				"The probe tracks the cursor by polling too, so it keeps updating even when panels swallow mouse-move events; the check is base-edge aware and follows the same terrain rules as shooting (ruins, obscuring, walls, heights).",
+				"Holding L in the shooting phase keeps its overlay through phase-entry housekeeping now, whether a shooter was auto-armed (per-model debug) or not (unit-to-unit overview).",
+				"Fixed the tool being unreachable: its key handling moved into the main input handler as the rebindable 'Check Line of Sight (hold)' action (Settings → Controls), defaulting to X — the old V and G bindings (and the parallel los_check registration on G) were consumed first by the VP timeline and tactical grid toggles, so it never fired. The '?' shortcut overlay lists it."
 			]
 		},
 		{
@@ -54,57 +87,57 @@
 				"More sprites are on the way — the art pipeline (tools/sprites/generate_unit_sprites.py) is built to cover the rest of the Adeptus Custodes range next."
 			]
 		},
-    {
-      "version": "0.33.1",
-      "date": "2026-07-13",
-      "summary": "Wazdakka Gutsmek now sits on his correct 120mm x 92mm oval base instead of a 32mm round one, so his footprint, movement, engagement range and charges match the tabletop model.",
-      "changes": [
-        "Wazdakka Gutsmek's base is now a 120mm x 92mm oval (previously a 32mm round base), matching his physical Warhammer 40,000 model.",
-        "This affects his board footprint, base-to-base contact, engagement range and how the token renders and rotates."
-      ]
-    },
-    {
-      "version": "0.33.0",
-      "date": "2026-07-13",
-      "summary": "Model carry \u2014 the heart of controller play: with a unit selected, press A to pick its model up onto the cursor, steer it with the left stick (slower, precise speed while carrying), A drops it, LB/RB rotates it, D-pad left/right hops between the unit's models, B cancels back to where it was picked up, and X undoes the last placed model. Works in the Movement phase and Deployment (including transport embark prompts).",
-      "changes": [
-        "Movement phase: A (with the cursor parked) picks up the active model \u2014 the real drag rules run underneath, so move caps, terrain, overlaps and unit coherency are enforced exactly as with the mouse; A drops and stages the move, Confirm Move commits it.",
-        "D-pad left/right hops between the selected unit's models so multi-model squads can be moved model by model without hunting; X undoes the last staged model.",
-        "LB/RB rotates the carried model (oval and large bases) \u2014 the same rebindable rotate keys as Q/E, so custom bindings apply on pad too.",
-        "Deployment: A jumps the cursor (and the placement ghost) into your deployment zone, A places each model, LB/RB rotates the ghost, and transport prompts like 'Embark Units in Battlewagon' get pad focus.",
-        "While carrying, the stick uses a slower precision speed \u2014 inch budgets are small and overshooting past the move cap was too easy at cursor speed.",
-        "B now returns you fully to the board in one press (releases panel focus AND parks the cursor) \u2014 previously it could take two presses and the next A could misfire as a click.",
-        "Fixed: controller focus could not reach buttons created inside a dialog's built-in button row (e.g. 'Confirm Embarkation') \u2014 dialog focus and button lookups now see them."
-      ]
-    },
-    {
-      "version": "0.32.0",
-      "date": "2026-07-12",
-      "summary": "Native controller controls arrive: LB/RB cycles your units (the camera jumps to each one), the shooting phase is fully playable without the cursor \u2014 cycle eligible shooters, cycle eligible targets, A assigns, Start confirms \u2014 Y opens the datasheet, X skips the active shooter, a D-pad press hops into the side panels and B hops back out. The button hints at the bottom now change with what you're doing.",
-      "changes": [
-        "LB/RB cycle: in most phases the bumpers step through the unit list (exactly like clicking rows); in the shooting phase they step through eligible shooters and \u2014 once a shooter is armed \u2014 through its eligible targets, with the camera panning to whatever is highlighted.",
-        "Native shooting: A assigns the highlighted target to the current weapon, X skips the active shooter, B deselects, and Start becomes 'Confirm Targets' while assignments are pending (it stays 'End Phase' otherwise, still behind a confirmation).",
-        "Y toggles the datasheet of the highlighted target or selected unit.",
-        "D-pad with nothing focused enters the side panels (unit list first) so every panel button is reachable without the cursor; B releases focus back to the board.",
-        "The controller hint bar is now contextual \u2014 it shows cycling/assign hints while targeting, navigation hints while in panels, and the standard set on the board.",
-        "Wound-allocation prompts now receive controller focus like dialogs do, so A presses Finish/Continue there too.",
-        "Fixed: the very first controller press of a session could be swallowed while the game still considered the mouse active."
-      ]
-    },
-    {
-      "version": "0.31.0",
-      "date": "2026-07-12",
-      "summary": "The whole game is now playable with a controller: the left stick drives a virtual cursor that clicks and drags anything the mouse can (select units, drag models, press any button), pushing the cursor against the screen edge pans the camera, the Menu button ends the phase behind a confirm dialog, and every dialog that pops up lands controller focus on its confirm button so A proceeds and B backs out.",
-      "changes": [
-        "Virtual cursor: the left stick moves a visible pointer that behaves exactly like the mouse \u2014 A is left-click (hold A to drag models), X is right-click. Everything reachable by mouse is now reachable by pad, in every phase.",
-        "Edge-push camera: driving the cursor against the edge of the screen pans the board (standard RTS behaviour), so off-screen units are reachable with the stick alone.",
-        "Cursor vs focus: moving the stick gives the buttons to the cursor; touching the D-pad (or any dialog opening) hands them back to focus navigation \u2014 so one press can never click the board AND press a focused button at once.",
-        "Menu (Start) button ends the current phase behind an 'End X Phase?' confirmation \u2014 A confirms, B cancels.",
-        "Dialogs are controller-first now: any dialog that appears while playing on pad focuses its confirm button (not 'Go Back'), so A means proceed and B dismisses; the Settings overlay also closes on B.",
-        "A full solo turn \u2014 command, movement (moving a model by cursor drag), shooting, charge, fight and scoring, into the next player's turn \u2014 is verified played entirely without mouse or keyboard.",
-        "Fixed: controller input was invisible to the input-device tracker when a dialog was open or a handler consumed the event first \u2014 glyph hints and cursor availability now switch reliably."
-      ]
-    },
+		{
+			"version": "0.33.1",
+			"date": "2026-07-13",
+			"summary": "Wazdakka Gutsmek now sits on his correct 120mm x 92mm oval base instead of a 32mm round one, so his footprint, movement, engagement range and charges match the tabletop model.",
+			"changes": [
+				"Wazdakka Gutsmek's base is now a 120mm x 92mm oval (previously a 32mm round base), matching his physical Warhammer 40,000 model.",
+				"This affects his board footprint, base-to-base contact, engagement range and how the token renders and rotates."
+			]
+		},
+		{
+			"version": "0.33.0",
+			"date": "2026-07-13",
+			"summary": "Model carry — the heart of controller play: with a unit selected, press A to pick its model up onto the cursor, steer it with the left stick (slower, precise speed while carrying), A drops it, LB/RB rotates it, D-pad left/right hops between the unit's models, B cancels back to where it was picked up, and X undoes the last placed model. Works in the Movement phase and Deployment (including transport embark prompts).",
+			"changes": [
+				"Movement phase: A (with the cursor parked) picks up the active model — the real drag rules run underneath, so move caps, terrain, overlaps and unit coherency are enforced exactly as with the mouse; A drops and stages the move, Confirm Move commits it.",
+				"D-pad left/right hops between the selected unit's models so multi-model squads can be moved model by model without hunting; X undoes the last staged model.",
+				"LB/RB rotates the carried model (oval and large bases) — the same rebindable rotate keys as Q/E, so custom bindings apply on pad too.",
+				"Deployment: A jumps the cursor (and the placement ghost) into your deployment zone, A places each model, LB/RB rotates the ghost, and transport prompts like 'Embark Units in Battlewagon' get pad focus.",
+				"While carrying, the stick uses a slower precision speed — inch budgets are small and overshooting past the move cap was too easy at cursor speed.",
+				"B now returns you fully to the board in one press (releases panel focus AND parks the cursor) — previously it could take two presses and the next A could misfire as a click.",
+				"Fixed: controller focus could not reach buttons created inside a dialog's built-in button row (e.g. 'Confirm Embarkation') — dialog focus and button lookups now see them."
+			]
+		},
+		{
+			"version": "0.32.0",
+			"date": "2026-07-12",
+			"summary": "Native controller controls arrive: LB/RB cycles your units (the camera jumps to each one), the shooting phase is fully playable without the cursor — cycle eligible shooters, cycle eligible targets, A assigns, Start confirms — Y opens the datasheet, X skips the active shooter, a D-pad press hops into the side panels and B hops back out. The button hints at the bottom now change with what you're doing.",
+			"changes": [
+				"LB/RB cycle: in most phases the bumpers step through the unit list (exactly like clicking rows); in the shooting phase they step through eligible shooters and — once a shooter is armed — through its eligible targets, with the camera panning to whatever is highlighted.",
+				"Native shooting: A assigns the highlighted target to the current weapon, X skips the active shooter, B deselects, and Start becomes 'Confirm Targets' while assignments are pending (it stays 'End Phase' otherwise, still behind a confirmation).",
+				"Y toggles the datasheet of the highlighted target or selected unit.",
+				"D-pad with nothing focused enters the side panels (unit list first) so every panel button is reachable without the cursor; B releases focus back to the board.",
+				"The controller hint bar is now contextual — it shows cycling/assign hints while targeting, navigation hints while in panels, and the standard set on the board.",
+				"Wound-allocation prompts now receive controller focus like dialogs do, so A presses Finish/Continue there too.",
+				"Fixed: the very first controller press of a session could be swallowed while the game still considered the mouse active."
+			]
+		},
+		{
+			"version": "0.31.0",
+			"date": "2026-07-12",
+			"summary": "The whole game is now playable with a controller: the left stick drives a virtual cursor that clicks and drags anything the mouse can (select units, drag models, press any button), pushing the cursor against the screen edge pans the camera, the Menu button ends the phase behind a confirm dialog, and every dialog that pops up lands controller focus on its confirm button so A proceeds and B backs out.",
+			"changes": [
+				"Virtual cursor: the left stick moves a visible pointer that behaves exactly like the mouse — A is left-click (hold A to drag models), X is right-click. Everything reachable by mouse is now reachable by pad, in every phase.",
+				"Edge-push camera: driving the cursor against the edge of the screen pans the board (standard RTS behaviour), so off-screen units are reachable with the stick alone.",
+				"Cursor vs focus: moving the stick gives the buttons to the cursor; touching the D-pad (or any dialog opening) hands them back to focus navigation — so one press can never click the board AND press a focused button at once.",
+				"Menu (Start) button ends the current phase behind an 'End X Phase?' confirmation — A confirms, B cancels.",
+				"Dialogs are controller-first now: any dialog that appears while playing on pad focuses its confirm button (not 'Go Back'), so A means proceed and B dismisses; the Settings overlay also closes on B.",
+				"A full solo turn — command, movement (moving a model by cursor drag), shooting, charge, fight and scoring, into the next player's turn — is verified played entirely without mouse or keyboard.",
+				"Fixed: controller input was invisible to the input-device tracker when a dialog was open or a handler consumed the event first — glyph hints and cursor availability now switch reliably."
+			]
+		},
 		{
 			"version": "0.31.0",
 			"date": "2026-07-12",

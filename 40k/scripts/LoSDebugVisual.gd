@@ -215,6 +215,18 @@ func clear_all_debug_visuals() -> void:
 	queue_redraw()
 	print("[LoSDebugVisual] Cleared all debug visualizations")
 
+# Shooter-workflow housekeeping (phase entry, shot resolved, shooter
+# deselected): drop the per-model shooter drawings but leave a live held-L
+# overview alone. ShootingController.set_phase runs deferred on phase entry
+# and used to call clear_all_debug_visuals(), which nuked an overview the
+# player (or a scenario) had just opened — the overlay went blank while L
+# was still held.
+func clear_shooter_visuals() -> void:
+	clear_los_lines()
+	clear_all_highlights()
+	_remove_all_child_visuals()
+	queue_redraw()
+
 # Global access method for cross-controller cleanup
 static func get_global_instance() -> LoSDebugVisual:
 	# Try to get the main scene root
