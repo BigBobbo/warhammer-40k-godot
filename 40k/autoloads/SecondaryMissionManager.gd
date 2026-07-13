@@ -2066,6 +2066,18 @@ func _auto_assign_guards(player: int, mission: Dictionary) -> void:
 
 ## The pending guard-revision window for the Command-phase prompt. Returns {}
 ## when no Burden of Trust card is waiting on the player.
+##
+## Per the card text — "you can select one friendly unit per objective to guard
+## it; ... while that unit is within range of the objective and you control it,
+## the objective is guarded" — the SELECTION is not range-limited: any friendly
+## unit on the battlefield may be picked to guard any objective. The "within
+## range" clause only decides whether a guarded objective SCORES, which is
+## handled at scoring time in _count_guarded_objectives(). So every friendly
+## unit is offered for every objective; we merely ANNOTATE the units currently
+## in range (in_range) so the player can see which picks would score right now.
+## (Previously only in-range units were offered, so a unit sitting on an
+## objective could be missing from that objective's dropdown — see iss "trust
+## secondary unit dropdown".)
 func get_pending_guard_choice(player: int) -> Dictionary:
 	for mission in _player_state[str(player)]["active"]:
 		if mission.get("id", "") != "burden_of_trust" or mission.get("pending_interaction", false):
@@ -2073,8 +2085,9 @@ func get_pending_guard_choice(player: int) -> Dictionary:
 		if not mission.get("mission_data", {}).get("guards_prompt_pending", false):
 			continue
 		var control_radius = Measurement.inches_to_px(3.0) + Measurement.base_radius_px(40)
-		var objectives_out = []
+		var friendly = _get_guard_eligible_units(player)  # every on-field friendly unit
 		var units = GameState.state.get("units", {})
+		var objectives_out = []
 		for obj in GameState.state.get("board", {}).get("objectives", []):
 			var obj_id = str(obj.get("id", ""))
 			var obj_pos = obj.get("position", null)
@@ -2083,14 +2096,22 @@ func get_pending_guard_choice(player: int) -> Dictionary:
 			if obj_pos is Dictionary:
 				obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
 			var eligible = []
-			for unit_id in units:
-				var unit = units[unit_id]
-				if unit.get("owner", 0) != player:
-					continue
-				if _is_unit_excluded(unit, []):
-					continue
-				if _has_model_within_range(unit, obj_pos, control_radius):
-					eligible.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id)})
+			for fu in friendly:
+				var unit = units.get(fu["unit_id"], {})
+				# Embarked units can never be "within range" of a marker.
+				var in_range = (not fu.get("embarked", false)) and _has_model_within_range(unit, obj_pos, control_radius)
+				eligible.append({
+					"unit_id": fu["unit_id"],
+					"unit_name": fu["unit_name"],
+					"model_count": fu.get("model_count", 0),
+					"embarked": fu.get("embarked", false),
+					"in_range": in_range,
+				})
+			# In-range units first (they can score now); then natural name order.
+			eligible.sort_custom(func(a, b):
+				if a["in_range"] != b["in_range"]:
+					return a["in_range"]
+				return str(a["unit_name"]).naturalnocasecmp_to(str(b["unit_name"])) < 0)
 			if not eligible.is_empty():
 				objectives_out.append({"objective_id": obj_id, "eligible": eligible})
 		return {
@@ -2099,6 +2120,39 @@ func get_pending_guard_choice(player: int) -> Dictionary:
 			"objectives": objectives_out,
 		}
 	return {}
+
+## Friendly units that may be selected as a Burden of Trust guard: every unit on
+## the battlefield (deployed / has acted, or embarked in an on-field transport)
+## with at least one alive model. Deliberately NOT range-filtered — the card
+## lets you pick any friendly unit per objective; range only gates scoring.
+## Strategic Reserves / undeployed units are excluded (they are not on the
+## battlefield and so can never be within range of a marker to score).
+func _get_guard_eligible_units(player: int) -> Array:
+	var result = []
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		# _is_unit_excluded drops undeployed units and units with no alive models.
+		if _is_unit_excluded(unit, []):
+			continue
+		var status = unit.get("status", GameStateData.UnitStatus.UNDEPLOYED)
+		if status == GameStateData.UnitStatus.IN_RESERVES or status == GameStateData.UnitStatus.DEPLOYING:
+			continue  # not physically on the battlefield
+		var meta = unit.get("meta", {})
+		result.append({
+			"unit_id": unit_id,
+			# Prefer display_name (carries the Alpha/Beta suffix for duplicate
+			# squads) so two "Boyz" units are distinguishable, matching the roster
+			# panel. model_count further disambiguates same-named squads and uses
+			# the same total-models count the roster shows (units.models.size())
+			# so the numbers line up with what the player reads on the right.
+			"unit_name": meta.get("display_name", meta.get("name", unit_id)),
+			"model_count": unit.get("models", []).size(),
+			"embarked": unit.get("embarked_in", null) != null,
+		})
+	return result
 
 ## Apply the player's revised guard picks. Enforces one distinct unit per
 ## objective; unknown objectives/units are dropped.

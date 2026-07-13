@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.38.2",
+			"version": "0.41.1",
 			"date": "2026-07-13",
 			"summary": "Unit coherency is now enforced by the 11th-edition rule (core rules 03.03) everywhere in the game — deployment, movement, advance, scout, charge and fight. A unit is in coherency only while every model is within 2\" of at least one other model AND within 9\" of EVERY other model in the unit, so spreading a unit (e.g. Warbikers with an attached Deffkilla Wartrike) too far is now blocked with a message that names the exact 9\" rule instead of the old vague 'within 2\" of mates'.",
 			"changes": [
@@ -11,6 +11,48 @@
 				"The deploy error now tells you how many models are out of coherency and which rule is broken — e.g. 'Some models are more than 9\" apart — pull the unit closer together' or 'Some models are more than 2\" from their nearest mate'.",
 				"The on-board deployment coherency circles and the live movement coherency indicator now match the deploy/move gates exactly (all use one shared 11th-edition check), so a model that is touching a neighbour but sits more than 9\" from a far-flung mate correctly shows out-of-coherency instead of misleading green.",
 				"All coherency checks in the game — every phase, the deploy-action validator, the movement UI and the AI's formation planner — now share one single source of truth, so they can never disagree."
+			]
+		},
+		{
+			"version": "0.41.0",
+			"date": "2026-07-13",
+			"summary": "Unit colors now display as a ring by default instead of filling the whole base, and duplicate squads of the same unit are automatically given different colors. The new Settings > Visual 'Unit Color' option defaults to 'Ring Only', which keeps a neutral base and paints your chosen color as a ring inside the base edge so the model art stays clear — switch it to 'Full Base' for the original solid-base look. Deploying a second squad of the same name (e.g. a second Boyz) now auto-picks a different color from the first.",
+			"changes": [
+				"Unit colors now show as a ring around the model by default (neutral base, color band just inside the base perimeter) so the model art stays readable.",
+				"New Settings > Visual dropdown 'Unit Color' — 'Ring Only' (default) or 'Full Base' (the original solid colored base).",
+				"Right-click > Change Color still sets the color; the setting only changes whether it fills the base or shows as a ring. Applies live to every token, no reload needed, and persists between sessions.",
+				"Duplicate squads of the same unit type/name now get distinct auto-assigned colors as you deploy them (fixes a bug where every squad came out the same color).",
+				"Takes effect in the default 'Letter' unit style where the token color is used."
+			]
+		},
+		{
+			"version": "0.40.0",
+			"date": "2026-07-13",
+			"summary": "Burden of Trust guards can now be nominated straight from the board: each objective row in the 'Assign Guards' dialog has a 'Pick on board' button — click it, then click one of your units on the battlefield to make it that objective's guard. The dropdown stays as an alternative.",
+			"changes": [
+				"New 'Pick on board' button on every objective row: it hides the dialog, shows a banner, and the next click on one of your units assigns it as that objective's guard, then re-opens the dialog with the pick applied.",
+				"A 'Cancel' button on the banner (and clicking empty space / a non-eligible unit) returns you to the dialog without changing anything.",
+				"The dropdown selection and 'Pick on board' stay in sync, so you can mix and match; Confirm Guards / Keep Auto Picks work exactly as before."
+			]
+		},
+		{
+			"version": "0.39.1",
+			"date": "2026-07-13",
+			"summary": "The Burden of Trust guard dropdown now names each unit the same way as the roster panel — including the Alpha/Beta suffix and the model count — so two 'Boyz' squads (or two Warbosses) are no longer indistinguishable.",
+			"changes": [
+				"Guard dropdown entries now read e.g. 'Boyz Alpha (20 models, in range)' instead of a bare 'Boyz', so you can tell duplicate squads apart when nominating a guard.",
+				"The '(in range)' / '(embarked)' hint is now folded into the same parenthetical as the model count for a cleaner, single-line label."
+			]
+		},
+		{
+			"version": "0.39.0",
+			"date": "2026-07-13",
+			"summary": "Burden of Trust guard selection now lets you pick ANY of your units to guard an objective, not just the single highest-priority one it auto-picked. The dropdown lists every friendly unit on the battlefield, marks the ones currently in range (they score right now), and shows a row for every objective.",
+			"changes": [
+				"Fixed: the 'Assign Guards' dropdown previously offered only one unit per objective, so a unit sitting on the objective (e.g. Gretchin Beta) could be missing — you can now choose any friendly unit, matching the card ('select one friendly unit per objective to guard it').",
+				"Units currently within range of the objective are tagged '(in range)' and listed first, so you can see at a glance which picks would score at the end of your opponent's turn.",
+				"The prompt now shows a row for every objective on the board (not only ones you already have a unit on), so you can pre-assign a guard for an objective you are about to capture.",
+				"Embarked units are tagged '(embarked)'; scoring is unchanged (a guarded objective still only scores while its guard is in range and you control it)."
 			]
 		},
 		{

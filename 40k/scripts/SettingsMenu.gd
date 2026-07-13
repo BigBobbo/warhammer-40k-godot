@@ -21,6 +21,7 @@ var _music_volume_label: Label
 var _sfx_volume_label: Label
 
 var _visual_style_dropdown: OptionButton
+var _unit_color_display_dropdown: OptionButton
 var _ui_scale_slider: HSlider
 var _ui_scale_label: Label
 var _animation_speed_slider: HSlider
@@ -161,6 +162,7 @@ func _build_ui() -> void:
 	_board_style_dropdown = _add_dropdown_row(visual_content, "Board Texture:", ["Grass", "Mud", "Desert", "Stone", "Felt", "Tilepack", "None (Solid)"], "_on_board_style_changed")
 	_ruins_style_dropdown = _add_dropdown_row(visual_content, "Ruins Texture:", ["Concrete", "Marble", "Brick", "Weathered Stone", "None (Solid)"], "_on_ruins_style_changed")
 	_visual_style_dropdown = _add_dropdown_row(visual_content, "Unit Style:", ["Letter (Default)", "Enhanced", "Silhouettes", "Faction Glyphs", "Classic"], "_on_visual_style_changed")
+	_unit_color_display_dropdown = _add_dropdown_row(visual_content, "Unit Color:", ["Full Base", "Ring Only"], "_on_unit_color_display_changed")
 	_ui_scale_slider = _add_slider_row(visual_content, "UI Scale:", 0.5, 2.0, 0.1, "_on_ui_scale_changed")
 	_ui_scale_label = _get_last_value_label()
 	_animation_speed_slider = _add_slider_row(visual_content, "Animation Speed:", 0.25, 3.0, 0.25, "_on_animation_speed_changed")
@@ -482,6 +484,10 @@ func _load_current_settings() -> void:
 	var style_index = ["letter", "enhanced", "style_a", "style_b", "classic"].find(SettingsService.unit_visual_style)
 	if style_index >= 0:
 		_visual_style_dropdown.selected = style_index
+	if _unit_color_display_dropdown:
+		var color_mode_index = ["full", "ring"].find(SettingsService.unit_color_display_mode)
+		if color_mode_index >= 0:
+			_unit_color_display_dropdown.selected = color_mode_index
 	_ui_scale_slider.value = SettingsService.ui_scale
 	_update_scale_label(_ui_scale_label, SettingsService.ui_scale)
 	_animation_speed_slider.value = SettingsService.animation_speed
@@ -558,6 +564,11 @@ func _on_visual_style_changed(index: int) -> void:
 	var styles = ["letter", "enhanced", "style_a", "style_b", "classic"]
 	if index >= 0 and index < styles.size():
 		SettingsService.set_unit_visual_style_setting(styles[index])
+
+func _on_unit_color_display_changed(index: int) -> void:
+	var modes = ["full", "ring"]
+	if index >= 0 and index < modes.size():
+		SettingsService.set_unit_color_display_mode(modes[index])
 
 func _on_ui_scale_changed(value: float) -> void:
 	SettingsService.set_ui_scale(value)

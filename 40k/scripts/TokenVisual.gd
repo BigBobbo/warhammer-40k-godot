@@ -31,6 +31,11 @@ var is_exhausted_this_phase: bool = false
 const T09_EXHAUSTION_MODULATE := Color(0.6, 0.6, 0.6, 1.0)
 const T09_NORMAL_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
 
+# Neutral base fill used in "ring" color-display mode (letter style). The unit's
+# color is drawn only as a ring on top of this, so the base itself is a plain
+# dark slate that keeps the model art and colored ring readable.
+const LETTER_RING_BASE_FILL := Color(0.24, 0.24, 0.27, 1.0)
+
 # Animated sprite system
 var _anim_resolved: bool = false
 var _animations: Dictionary = {}               # animation_name -> SpriteAnimationData
@@ -70,6 +75,10 @@ func _ready() -> void:
 	if SettingsService and SettingsService.has_signal("unit_style_changed"):
 		if not SettingsService.is_connected("unit_style_changed", _on_unit_style_changed):
 			SettingsService.connect("unit_style_changed", _on_unit_style_changed)
+	# Toggling full-base vs ring color display must repaint idle tokens too.
+	if SettingsService and SettingsService.has_signal("unit_color_display_changed"):
+		if not SettingsService.is_connected("unit_color_display_changed", _on_unit_style_changed):
+			SettingsService.connect("unit_color_display_changed", _on_unit_style_changed)
 	# T08: two concentric rings expose faction vs player-slot color so
 	# scenarios can assert per-ring modulate. FactionRing draws inner ring;
 	# SlotRing draws a slightly larger thin outer ring. Both render on top
@@ -747,14 +756,19 @@ func _draw_letter_mode() -> void:
 
 	# Get unit color (auto-assign if not yet set)
 	var token_color = _get_token_color()
-	var border_shade = Color(token_color.r * 0.6, token_color.g * 0.6, token_color.b * 0.6)
+	# In "ring" color mode the base stays a neutral color and token_color is drawn
+	# only as a ring inside the perimeter (see Layer 3c); in "full" mode the whole
+	# base is filled with token_color as before.
+	var ring_mode = _is_ring_color_mode()
+	var base_fill = LETTER_RING_BASE_FILL if ring_mode else token_color
+	var border_shade = Color(base_fill.r * 0.6, base_fill.g * 0.6, base_fill.b * 0.6)
 
 	# --- Layer 1: Solid fill ---
 	if shape_type == "circular":
-		draw_circle(Vector2.ZERO, radius, token_color)
+		draw_circle(Vector2.ZERO, radius, base_fill)
 	else:
 		var poly_points = _get_shape_polygon(rot)
-		draw_colored_polygon(poly_points, token_color)
+		draw_colored_polygon(poly_points, base_fill)
 
 	# --- Layer 2: Thin darker border ---
 	if shape_type == "circular":
@@ -778,7 +792,7 @@ func _draw_letter_mode() -> void:
 	else:
 		var label = _get_letter_label()
 		if label != "":
-			var text_color = FactionPalettes.get_contrast_text_color(token_color)
+			var text_color = FactionPalettes.get_contrast_text_color(base_fill)
 			var font = _get_faction_font()
 			# Font size ~60% of base diameter, smaller for multi-char labels
 			var base_font_size = int(radius * 1.2)
@@ -789,6 +803,12 @@ func _draw_letter_mode() -> void:
 			# Faux-bold: draw 3x with sub-pixel offsets
 			for offset in [Vector2(-0.5, 0), Vector2(0.5, 0), Vector2(0, 0)]:
 				draw_string(font, text_pos + offset, label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)
+
+	# --- Layer 3c: Unit color ring (ring color mode) ---
+	# Drawn on top of the model art so the squad-identifying color is always
+	# visible as a band just inside the base perimeter.
+	if ring_mode:
+		_draw_unit_color_ring(radius, token_color, shape_type, rot)
 
 	# --- Layer 3b: MA-20 model type colored ring ---
 	_draw_model_type_ring(radius)
@@ -839,6 +859,38 @@ func _get_token_color() -> Color:
 	if color == Color.TRANSPARENT:
 		color = GameState.auto_assign_unit_color(unit_id)
 	return color
+
+
+func _is_ring_color_mode() -> bool:
+	# The color is shown as a ring (neutral base) rather than filling the base.
+	return SettingsService != null and SettingsService.unit_color_display_mode == "ring"
+
+
+func _draw_unit_color_ring(radius: float, ring_color: Color, shape_type: String, rot: float) -> void:
+	# Draw the unit's color as a band just inside the base perimeter, following
+	# the base shape. Width scales with base size but stays legible on tiny bases.
+	var ring_width: float = max(3.5, radius * 0.18)
+	var c := ring_color
+	c.a = 1.0
+	if shape_type == "circular":
+		# Centre the band so its outer edge sits ~1px inside the base border.
+		var r: float = radius - ring_width * 0.5 - 1.0
+		if r <= 0.0:
+			r = radius * 0.5
+		draw_arc(Vector2.ZERO, r, 0, TAU, 48, c, ring_width)
+	else:
+		var pts := _get_shape_polygon(rot)
+		var inset: float = ring_width * 0.5 + 1.0
+		var ring_pts := PackedVector2Array()
+		for p in pts:
+			var l: float = p.length()
+			if l > inset:
+				ring_pts.append(p * ((l - inset) / l))
+			else:
+				ring_pts.append(p)
+		if ring_pts.size() > 0:
+			ring_pts.append(ring_pts[0])
+			draw_polyline(ring_pts, c, ring_width)
 
 
 func _get_letter_label() -> String:

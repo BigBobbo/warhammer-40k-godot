@@ -1553,6 +1553,15 @@ func get_unit_color(unit_id: String) -> Color:
 		return Color.from_string(hex, Color.TRANSPARENT)
 	return Color.TRANSPARENT
 
+func clear_unit_color(unit_id: String) -> void:
+	# Reset a unit's stored token color to "unassigned" so the next
+	# auto_assign_unit_color / draw re-picks one. Mirrors set_unit_color — the
+	# unit_visuals map is UI metadata and is mutated directly here (in GameState,
+	# the state owner) rather than by a caller reaching into GameState.state.
+	_ensure_unit_visuals()
+	if state["unit_visuals"].has(unit_id):
+		state["unit_visuals"][unit_id]["color"] = ""
+
 func set_unit_label(unit_id: String, label: String) -> void:
 	_ensure_unit_visuals()
 	if not state["unit_visuals"].has(unit_id):
@@ -1577,15 +1586,61 @@ func get_used_colors_for_player(player: int) -> Array:
 	return colors
 
 func auto_assign_unit_color(unit_id: String) -> Color:
+	# Pick a distinct token color for this unit. Multiple squads of the SAME name
+	# (e.g. two "Boyz" squads, whose meta.name is identical — only display_name
+	# gets the Greek suffix) must each get a different color so the player can
+	# tell them apart on the board. We prefer a palette color no unit is using
+	# army-wide; if the faction palette is exhausted, we at least keep same-named
+	# siblings distinct.
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return Color(0.4, 0.4, 0.4)
 	var player = unit.get("owner", 1)
 	var faction_name = state.get("factions", {}).get(str(player), {}).get("name", "")
-	var used = get_used_colors_for_player(player)
-	var color = FactionPalettes.get_auto_color(faction_name, used)
-	set_unit_color(unit_id, color)
-	return color
+	var base_name = str(unit.get("meta", {}).get("name", ""))
+	var palette = FactionPalettes.get_palette(faction_name)
+	if palette.is_empty():
+		var fallback = Color(0.4, 0.4, 0.4)
+		set_unit_color(unit_id, fallback)
+		return fallback
+
+	# Colors already assigned to this player's units, keyed by hex string.
+	# NOTE: comparison is by hex (color.to_html) rather than Color.is_equal_approx
+	# because set_unit_color stores an 8-bit-quantised hex; comparing that back
+	# against the float palette entry with is_equal_approx never matched, so the
+	# old code always returned palette[0] and every unit came out the same color.
+	var used_all := {}
+	var used_siblings := {}
+	_ensure_unit_visuals()
+	for uid in state["unit_visuals"]:
+		if uid == unit_id:
+			continue
+		var other = get_unit(uid)
+		if other.get("owner", 0) != player:
+			continue
+		var hex = state["unit_visuals"][uid].get("color", "")
+		if hex == "":
+			continue
+		used_all[hex] = true
+		if str(other.get("meta", {}).get("name", "")) == base_name:
+			used_siblings[hex] = true
+
+	# 1) first palette color unused by ANY of the player's units
+	var chosen = palette[0]
+	var found := false
+	for color in palette:
+		if not used_all.has(color.to_html(false)):
+			chosen = color
+			found = true
+			break
+	# 2) palette exhausted army-wide — keep at least same-named squads distinct
+	if not found:
+		for color in palette:
+			if not used_siblings.has(color.to_html(false)):
+				chosen = color
+				break
+	set_unit_color(unit_id, chosen)
+	return chosen
 
 
 ## ISS-025: the action-pipeline diff applier (moved from PhaseManager —

@@ -23,6 +23,17 @@ var phase_info_label: Label
 var dice_roll_visual: DiceRollVisual  # P3-118: Dice roll visualization for reroll comparisons
 var _active_review_dialog: SecondaryMissionReviewDialog = null
 
+# Burden of Trust — "Pick on board" mode. While a pick is active the guard
+# dialog is hidden and the next click on one of the player's units on the board
+# nominates it as that objective's guard. All state is cleared when the dialog
+# closes or the pick is cancelled, so _unhandled_input is a no-op otherwise.
+var _guard_dialog: AcceptDialog = null
+var _guard_pickers: Array = []                 # [{objective_id, picker}]
+var _guard_eligible_ids: Dictionary = {}       # unit_id -> true (valid guards)
+var _guard_pick_objective: String = ""         # "" when not board-picking
+var _guard_pick_banner: CanvasLayer = null
+var _guard_pick_banner_label: Label = null
+
 func _ready() -> void:
 	_setup_ui_references()
 	print("CommandController ready")
@@ -55,6 +66,9 @@ func _exit_tree() -> void:
 		_active_review_dialog.hide()
 		_active_review_dialog.queue_free()
 		_active_review_dialog = null
+
+	# Drop any live "Pick on board" banner (it lives under the scene root).
+	_remove_pick_banner()
 
 	# Clean up right panel elements
 	var container = SceneRefs.hud_right_vbox()
@@ -1783,7 +1797,7 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 	content.add_child(header)
 
 	var desc = Label.new()
-	desc.text = "At the end of your opponent's turn you score 2 VP (max 5) for each guarded objective you control while its guard is within range of it."
+	desc.text = "Pick any friendly unit to guard each objective (units in range now are marked). At the end of your opponent's turn you score 2 VP (max 5) for each guarded objective you control while its guard is within range of it."
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.add_theme_font_size_override("font_size", 12)
 	desc.add_theme_color_override("font_color", Color.GRAY)
@@ -1804,6 +1818,9 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 	scroll.add_child(rows)
 	content.add_child(scroll)
 
+	# Reset the "Pick on board" mode state for this fresh dialog.
+	_guard_eligible_ids = {}
+
 	var pickers: Array = []  # [{objective_id, option_button, unit_ids}]
 	for entry in objectives:
 		var obj_id: String = str(entry.get("objective_id", ""))
@@ -1812,7 +1829,7 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 		row.add_theme_constant_override("separation", 8)
 		var obj_label = Label.new()
 		obj_label.text = obj_id.replace("obj_", "Objective ").replace("_", " ").capitalize()
-		obj_label.custom_minimum_size = Vector2(150, 0)
+		obj_label.custom_minimum_size = Vector2(130, 0)
 		row.add_child(obj_label)
 
 		var picker = OptionButton.new()
@@ -1824,13 +1841,38 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 		var idx := 1
 		for eu in entry.get("eligible", []):
 			var uid: String = str(eu.get("unit_id", ""))
-			picker.add_item(str(eu.get("unit_name", uid)))
+			# Any friendly unit can be picked. Show the model count (and the
+			# Alpha/Beta suffix carried by the display name) so duplicate squads
+			# like two "Boyz" are distinguishable, and annotate the ones actually
+			# in range now (they score) or embarked (they can't score until they
+			# disembark and get in range) so the choice is informed.
+			var tags := PackedStringArray()
+			tags.append("%d models" % int(eu.get("model_count", 0)))
+			if eu.get("embarked", false):
+				tags.append("embarked")
+			elif eu.get("in_range", false):
+				tags.append("in range")
+			var item_label: String = "%s (%s)" % [str(eu.get("unit_name", uid)), ", ".join(tags)]
+			picker.add_item(item_label)
 			picker.set_item_metadata(idx, uid)
 			unit_ids.append(uid)
+			if uid != "":
+				_guard_eligible_ids[uid] = true
 			if str(current_guards.get(obj_id, "")) == uid:
 				picker.select(idx)
 			idx += 1
 		row.add_child(picker)
+
+		# "Pick on board" — hide the dialog and let the player click the unit they
+		# want directly on the battlefield instead of hunting through the dropdown.
+		var board_btn = Button.new()
+		board_btn.name = "PickBoard_%s" % obj_id
+		board_btn.text = "Pick on board"
+		board_btn.tooltip_text = "Click, then click one of your units on the board to guard %s" % obj_label.text
+		board_btn.custom_minimum_size = Vector2(120, 32)
+		board_btn.pressed.connect(_enter_guard_board_pick.bind(obj_id))
+		row.add_child(board_btn)
+
 		rows.add_child(row)
 		pickers.append({"objective_id": obj_id, "picker": picker})
 
@@ -1868,6 +1910,7 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 			used[uid] = true
 			picks[p["objective_id"]] = uid
 		resolved[0] = true
+		_clear_guard_pick_state()
 		emit_signal("command_action_requested", {
 			"type": "RESOLVE_GUARDS",
 			"player": player,
@@ -1884,6 +1927,7 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 		if resolved[0]:
 			return
 		resolved[0] = true
+		_clear_guard_pick_state()
 		emit_signal("command_action_requested", {"type": "DISMISS_GUARDS", "player": player})
 		dialog.queue_free())
 	button_row.add_child(skip_btn)
@@ -1894,8 +1938,14 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 		if resolved[0]:
 			return
 		resolved[0] = true
+		_clear_guard_pick_state()
 		emit_signal("command_action_requested", {"type": "DISMISS_GUARDS", "player": player})
 		dialog.queue_free())
+
+	# Track the live dialog + its pickers so the "Pick on board" flow can hide the
+	# dialog, resolve a board click to a unit, and write the pick back.
+	_guard_dialog = dialog
+	_guard_pickers = pickers
 
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
@@ -1910,6 +1960,109 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 	# viewport; the inner ObjectiveScroll absorbs any overflow.
 	DialogUtils.popup_centered_capped(dialog, DialogConstants.MEDIUM, 230.0 + float(objectives.size()) * 40.0)
 	print("CommandController: Burden of Trust guard dialog shown for player %d (%d objectives)" % [player, objectives.size()])
+
+
+# --- Burden of Trust: "Pick on board" flow ------------------------------------
+
+## Enter board-pick mode for one objective: hide the guard dialog and wait for
+## the player to click one of their units on the battlefield (see
+## _unhandled_input). A floating banner explains the mode and offers Cancel.
+func _enter_guard_board_pick(objective_id: String) -> void:
+	if _guard_dialog == null or not is_instance_valid(_guard_dialog):
+		return
+	_guard_pick_objective = objective_id
+	_guard_dialog.hide()
+	_show_pick_banner(objective_id)
+	print("CommandController: Burden of Trust board-pick armed for %s" % objective_id)
+
+## Board clicks only do something while a "Pick on board" is armed; otherwise
+## this returns immediately so normal Command-phase input is untouched.
+func _unhandled_input(event: InputEvent) -> void:
+	if _guard_pick_objective == "":
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		get_viewport().set_input_as_handled()
+		var main = SceneRefs.main()
+		if main == null or not main.has_method("_find_unit_at_world_pos"):
+			_exit_guard_board_pick(true)
+			return
+		var world_pos = main.screen_to_world_position(event.position)
+		var uid: String = str(main._find_unit_at_world_pos(world_pos))
+		if uid != "" and _guard_eligible_ids.has(uid):
+			_assign_guard_from_board(_guard_pick_objective, uid)
+			_exit_guard_board_pick(true)
+		else:
+			# Missed, or clicked a unit that can't guard (enemy / off-board).
+			_update_pick_banner("That isn't one of your units on the battlefield — click one of your units, or Cancel.")
+
+## Write a board-picked unit into its objective's dropdown (selecting the
+## matching item so Confirm Guards reads it back).
+func _assign_guard_from_board(objective_id: String, unit_id: String) -> void:
+	for p in _guard_pickers:
+		if str(p.get("objective_id", "")) != objective_id:
+			continue
+		var picker: OptionButton = p.get("picker")
+		if picker == null or not is_instance_valid(picker):
+			return
+		for i in range(picker.item_count):
+			if str(picker.get_item_metadata(i)) == unit_id:
+				picker.select(i)
+				print("CommandController: %s guard set to %s via board pick" % [objective_id, unit_id])
+				return
+		return
+
+## Leave board-pick mode, remove the banner and (optionally) re-show the dialog.
+func _exit_guard_board_pick(reshow: bool) -> void:
+	_guard_pick_objective = ""
+	_remove_pick_banner()
+	if reshow and _guard_dialog != null and is_instance_valid(_guard_dialog):
+		_guard_dialog.show()
+
+## Full reset when the guard dialog itself closes (confirm / keep / escape).
+func _clear_guard_pick_state() -> void:
+	_guard_pick_objective = ""
+	_remove_pick_banner()
+	_guard_dialog = null
+	_guard_pickers = []
+	_guard_eligible_ids = {}
+
+func _show_pick_banner(objective_id: String) -> void:
+	_remove_pick_banner()
+	var obj_name := objective_id.replace("obj_", "Objective ").replace("_", " ").capitalize()
+	_guard_pick_banner = CanvasLayer.new()
+	_guard_pick_banner.name = "GuardBoardPickBanner"
+	_guard_pick_banner.layer = 128  # above the board, below nothing that matters here
+	var panel = PanelContainer.new()
+	panel.name = "BannerPanel"
+	panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	panel.position = Vector2(0, 12)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	var hbox = HBoxContainer.new()
+	hbox.name = "BannerRow"
+	hbox.add_theme_constant_override("separation", 12)
+	panel.add_child(hbox)
+	_guard_pick_banner_label = Label.new()
+	_guard_pick_banner_label.text = "Click one of your units on the board to guard %s" % obj_name
+	_guard_pick_banner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	_guard_pick_banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hbox.add_child(_guard_pick_banner_label)
+	var cancel_btn = Button.new()
+	cancel_btn.name = "CancelBoardPick"
+	cancel_btn.text = "Cancel"
+	cancel_btn.pressed.connect(func(): _exit_guard_board_pick(true))
+	hbox.add_child(cancel_btn)
+	_guard_pick_banner.add_child(panel)
+	get_tree().root.add_child(_guard_pick_banner)
+
+func _update_pick_banner(text: String) -> void:
+	if _guard_pick_banner_label != null and is_instance_valid(_guard_pick_banner_label):
+		_guard_pick_banner_label.text = text
+
+func _remove_pick_banner() -> void:
+	if _guard_pick_banner != null and is_instance_valid(_guard_pick_banner):
+		_guard_pick_banner.queue_free()
+	_guard_pick_banner = null
+	_guard_pick_banner_label = null
 
 
 # T-096: compute command phase sub-step progress (1/3 → 3/3)
