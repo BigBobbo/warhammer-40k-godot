@@ -3427,8 +3427,10 @@ func _is_model_in_base_contact_with_enemy(unit_id: String, model_id: String) -> 
 		return false
 
 	var models = unit.get("models", [])
-	var model_index = int(model_id)
-	if model_index >= models.size():
+	# Resolve by id/index, not int(model_id) — int("m2") == 2 mis-indexes the
+	# 1-based model ids the FightController submits (m2 is at index 1).
+	var model_index = _fight_model_index_for_key(models, model_id)
+	if model_index < 0:
 		return false
 
 	var model = models[model_index]
@@ -3469,8 +3471,10 @@ func _validate_base_to_base_if_possible(unit_id: String, movements: Dictionary, 
 	var unit_owner = unit.get("owner", 0)
 
 	for model_id in movements:
-		var model_index = int(model_id)
-		if model_index >= models.size():
+		# Resolve by id/index, not int(model_id) — int("m2") == 2 mis-indexes
+		# the 1-based model ids the FightController submits.
+		var model_index = _fight_model_index_for_key(models, model_id)
+		if model_index < 0:
 			continue
 
 		var model = models[model_index]
@@ -4271,8 +4275,11 @@ func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: Strin
 	var temp_consolidating_unit = consolidating_unit.duplicate(true)
 	var temp_models = temp_consolidating_unit.get("models", [])
 	for model_id in movements:
-		var idx = int(model_id)
-		if idx < temp_models.size():
+		# Resolve by id/index, not int(model_id) — int("m2") == 2 mis-indexes
+		# the 1-based model ids the FightController submits, so the wrong model's
+		# position was moved when scanning post-consolidation fight eligibility.
+		var idx = _fight_model_index_for_key(temp_models, model_id)
+		if idx >= 0:
 			var new_pos = movements[model_id]
 			temp_models[idx]["position"] = {"x": new_pos.x, "y": new_pos.y}
 
@@ -4412,9 +4419,16 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 	for model_id in movements:
 		var new_pos = movements[model_id]
 		if new_pos is Vector2:
-			# Get the model data
-			var model_index = int(model_id) if model_id is String else model_id
-			if model_index < models.size():
+			# Resolve the movement key ("m2" id or "1" index) to an array index.
+			# NOT int(model_id): GDScript's int("m2") == 2 (it parses the trailing
+			# digits), which is off by one for the 1-based model ids the
+			# FightController submits (m2 is at index 1, not 2). That mis-index
+			# compared the moving model against a sibling's — and its own — stale
+			# position, producing phantom "would overlap with <unit>/N" errors
+			# during pile-in / consolidate, and skipped the last model entirely
+			# (int("m3") == size).
+			var model_index = _fight_model_index_for_key(models, model_id)
+			if model_index >= 0:
 				var model = models[model_index]
 
 				# Build model dict with new position
@@ -4437,10 +4451,17 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 						if not other_model.get("alive", true):
 							continue
 
-						# Get position (use new position if this model is also moving)
+						# Get position. If this other model is ALSO being moved in
+						# the same submission, compare against its proposed position
+						# rather than the stale one. Its movement may be keyed by
+						# index ("1") or by model id ("m2").
 						var other_position = _get_model_position(check_unit_id, str(i))
-						if check_unit_id == unit_id and movements.has(str(i)):
-							other_position = movements[str(i)]
+						if check_unit_id == unit_id:
+							var other_id = str(other_model.get("id", ""))
+							if movements.has(str(i)):
+								other_position = movements[str(i)]
+							elif other_id != "" and movements.has(other_id):
+								other_position = movements[other_id]
 
 						if other_position == null:
 							continue
@@ -4924,6 +4945,21 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 			log_phase_message("[11e 12.02] Player %d ends their pile-in half via END_FIGHT" % piling_in_player_11e)
 			return _advance_pile_in_step_11e(create_result(true, []))
 		if consolidation_step_11e == ConsolidationStep11e.NOT_STARTED:
+			# Fight-phase scope fix: "End Fight Phase" ends only the ENDING
+			# player's own fights. Per 12.04, when one player stops selecting,
+			# the OTHER player still fights all of their remaining eligible
+			# units — so if the opponent is owed a fight, hand the Fight step
+			# over to them instead of forfeiting everyone and jumping to the
+			# Consolidate step (the previous behaviour, which wrongly cut the
+			# opponent's units out of the phase).
+			var ending_player := int(action.get("player", GameState.get_active_player()))
+			var opponent := 2 if ending_player == 1 else 1
+			if sequencer_11e != null \
+					and _player_has_eligible_fights_11e(ending_player) \
+					and _player_has_eligible_fights_11e(opponent):
+				_forfeit_player_fights_11e(ending_player)
+				log_phase_message("[11e 12.04] Player %d ended their fights — Player %d still fights their remaining units" % [ending_player, opponent])
+				return _resume_fight_step_after_end_11e(create_result(true, []))
 			return _begin_consolidation_step_11e()
 		if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
 			if sequencer_11e != null:
@@ -4936,6 +4972,50 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 			return _advance_consolidation_step_11e(create_result(true, []))
 
 	return _run_end_of_fight_triggers(create_result(true, []))
+
+# True while `player` still owns at least one unit the sequencer would offer
+# a fight to. Used by END_FIGHT to decide whether the opponent still gets to
+# fight (12.04) before the phase moves on to the Consolidate step.
+func _player_has_eligible_fights_11e(player: int) -> bool:
+	if sequencer_11e == null:
+		return false
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+			return true
+	return false
+
+# Mark every remaining eligible fight owned by `player` as fought — they
+# forfeit those fights because the player chose to end their fighting. Only
+# this player's units are touched; the opponent's stay eligible so they still
+# get to fight (12.04).
+func _forfeit_player_fights_11e(player: int) -> void:
+	if sequencer_11e == null:
+		return
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+			log_phase_message("[11e 12.04] %s forfeits its fight (Player %d ended their fights)" % [unit_id, player])
+			sequencer_11e.mark_fought(unit_id)
+
+# After the ending player forfeits their own fights, hand the Fight step over
+# to the opponent (12.04) and emit the next fight-selection request. Mirrors
+# _finish_fight_activation_11e's hand-off so the AI / controller / network
+# sync all pick it up the same way. If the sequencer unexpectedly reports no
+# one left, fall through to the Consolidate step instead of stalling.
+func _resume_fight_step_after_end_11e(result: Dictionary) -> Dictionary:
+	_switch_selecting_player()
+	var dialog_data = _build_fight_selection_dialog_data()
+	if dialog_data.is_empty():
+		return _begin_consolidation_step_11e()
+	emit_signal("fight_selection_required", dialog_data)
+	result["trigger_fight_selection"] = true
+	result["fight_selection_data"] = dialog_data
+	return result
 
 # End-of-fight-phase triggers (12.09): Sweeping Advance, then Acrobatic
 # Escape, then phase completion. At edition >= 11 this runs only after the
@@ -5443,9 +5523,15 @@ func _is_unit_within_distance_of_enemies(unit: Dictionary, distance_inches: floa
 
 	return false
 
-func get_unfought_eligible_units() -> Array:
+func get_unfought_eligible_units(only_player: int = -1) -> Array:
 	"""Return array of {unit_id, unit_name, player, subphase} for units that haven't fought yet.
-	Used by the end-fight-phase confirmation dialog (T5-UX7)."""
+	Used by the end-fight-phase confirmation dialog (T5-UX7).
+
+	When only_player >= 1, restrict the result to that player's units. The
+	end-fight confirmation passes the ending (active) player so the warning
+	lists only the units THAT player would forfeit — the opponent's units are
+	not forfeited by ending your own fights (12.04), so listing them as
+	"won't fight" would be misleading."""
 	var unfought = []
 
 	# 11e: the sequencer is authoritative — the 10e tier lists can disagree
@@ -5454,6 +5540,8 @@ func get_unfought_eligible_units() -> Array:
 		for unit_id in GameState.state.get("units", {}):
 			if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
 				var unit = GameState.state.units[unit_id]
+				if only_player >= 1 and int(unit.get("owner", 0)) != only_player:
+					continue
 				unfought.append({
 					"unit_id": unit_id,
 					"unit_name": unit.get("meta", {}).get("name", unit_id),
@@ -5465,6 +5553,8 @@ func get_unfought_eligible_units() -> Array:
 	var all_units = game_state_snapshot.get("units", {})
 
 	for player_key in ["1", "2"]:
+		if only_player >= 1 and int(player_key) != only_player:
+			continue
 		for unit_id in fights_first_sequence.get(player_key, []):
 			if unit_id not in units_that_fought:
 				var unit_name = all_units.get(unit_id, {}).get("meta", {}).get("name", unit_id)
@@ -5881,6 +5971,17 @@ func _resolve_fight_model(unit_id: String, key) -> Dictionary:
 		if str(i) == str(key) or str(models[i].get("id", "")) == str(key):
 			return models[i]
 	return {}
+
+func _fight_model_index_for_key(models: Array, key) -> int:
+	# A movement key may be an array index ("0") or a model id ("m1"). Return the
+	# matching array index, or -1 if none. Mirrors _resolve_fight_model so the
+	# overlap validator agrees with the rest of the fight-move pipeline. Do NOT
+	# use int(key): GDScript's int("m2") parses the trailing digits and returns
+	# 2, which is off by one for 1-based model ids (m2 is at index 1).
+	for i in models.size():
+		if str(i) == str(key) or str(models[i].get("id", "")) == str(key):
+			return i
+	return -1
 
 func _simulate_fight_board_with_movements(unit_id: String, movements: Dictionary) -> Dictionary:
 	# Deep copy of live state with the proposed model positions applied —

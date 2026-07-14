@@ -33,6 +33,14 @@ var moved_models: Dictionary = {}  # model_id -> new_position
 var _moved_model_order: Array = []  # Order in which models were moved (for last-undone)
 var _model_origin_positions: Dictionary = {}  # model_id -> Vector2 pre-charge position
 var _model_origin_rotations: Dictionary = {}  # model_id -> float pre-charge rotation
+# Multi-step charge movement (mirrors the Movement phase): a charging model may be
+# dragged in several hops around terrain/obstacles, each hop adding to the total
+# distance until the charge roll is spent or the move is confirmed. This holds the
+# full waypoint list (origin first) per model so (a) the accumulated distance is
+# capped against the charge roll and (b) the real multi-segment polyline is sent to
+# ChargePhase for terrain-aware validation instead of a straight line that could cut
+# back through terrain the player carefully routed around.
+var _model_charge_paths: Dictionary = {}  # model_id -> Array[Vector2] waypoints incl. origin
 var undo_charge_model_button: Button = null
 var auto_path_charge_button: Button = null  # T-092: auto-suggests valid charge positions
 # T-092: Snap-to-contact fallback sweep — approach-direction offsets (degrees)
@@ -148,13 +156,21 @@ func _input(event: InputEvent) -> void:
 		var mouse_event = event as InputEventMouseButton
 		
 		if mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			# Check if the click is within the confirm button area
-			if is_instance_valid(confirm_button) and confirm_button.visible:
-				var button_rect = confirm_button.get_global_rect()
-				if button_rect.has_point(mouse_event.global_position):
-					print("DEBUG: Click is within confirm button area, not handling")
-					return  # Let the button handle this click
-			
+			# Let the charge-panel action buttons (Confirm / Undo Last Model /
+			# Snap to Contact) receive their own clicks. The
+			# get_viewport().set_input_as_handled() below marks this press handled
+			# BEFORE Godot's GUI pass runs, so any charge-panel button sitting
+			# under the cursor would never fire its `pressed` signal and the click
+			# would silently do nothing. Originally only confirm_button was
+			# whitelisted here — that is why "Undo Last Model" appeared dead when a
+			# player clicked it (and why "Snap to Contact" only worked via the
+			# test's emit_pressed shortcut, not a real mouse click).
+			for panel_button in [confirm_button, undo_charge_model_button, auto_path_charge_button]:
+				if is_instance_valid(panel_button) and panel_button.visible:
+					if panel_button.get_global_rect().has_point(mouse_event.global_position):
+						print("DEBUG: Click is within a charge-panel button, not handling")
+						return  # Let the button handle this click
+
 			print("DEBUG: ChargeController _input - Left mouse button, pressed: ", mouse_event.pressed)
 			if mouse_event.pressed:
 				_handle_mouse_down(mouse_event.global_position)
@@ -198,8 +214,11 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 		var unit_id = child.get_meta("unit_id")
 		var model_id = child.get_meta("model_id")
 
-		# Check if this is our charging unit and a model we need to move
-		if unit_id != active_unit_id or model_id not in models_to_move:
+		# Check if this is our charging unit and a model we can move. Multi-step:
+		# a model that has already been placed (in moved_models) can be picked up
+		# again to continue its move around terrain until the charge distance is
+		# spent or the move is confirmed — not just models still at their origin.
+		if unit_id != active_unit_id or (model_id not in models_to_move and model_id not in moved_models):
 			continue
 
 		# Check if the click is on this token
@@ -617,11 +636,18 @@ func _refresh_ui() -> void:
 	
 	# Use ChargePhase's eligible units method which respects completed_charges
 	var eligible_unit_ids = current_phase.get_eligible_charge_units()
+	# Only surface units that actually have an enemy within 12" (a chargeable
+	# target). A unit can be "eligible to charge" per the rules yet have no target
+	# in range, which was reported as confusing — it appears chargeable but
+	# selecting it shows an empty ELIGIBLE TARGETS list. Filtering here keeps the
+	# UNITS THAT CAN CHARGE list consistent with the targets each unit can reach.
+	var chargeable_unit_ids = _filter_units_with_charge_targets(eligible_unit_ids)
 	var current_player = current_phase.get_current_player()
 	var units = current_phase.get_units_for_player(current_player)
-	
+
 	print("ChargeController: Refreshing UI for player ", current_player)
 	print("ChargeController: Eligible units from phase: ", eligible_unit_ids)
+	print("ChargeController: Chargeable (target within 12\") units: ", chargeable_unit_ids)
 	print("ChargeController: Completed charges: ", current_phase.get_completed_charges() if current_phase.has_method("get_completed_charges") else "N/A")
 	
 	# Debug help: Show why units might not be eligible
@@ -650,9 +676,12 @@ func _refresh_ui() -> void:
 				print("    BLOCKED: Unit has already charged this phase")
 			else:
 				print("    SHOULD BE ELIGIBLE - this might be a bug")
-	
+	elif chargeable_unit_ids.is_empty():
+		# Units can charge per the rules but none has an enemy within 12".
+		print("ChargeController: ", eligible_unit_ids.size(), " unit(s) can charge but none has a target within 12\" — none shown.")
+
 	var can_charge_count = 0
-	for unit_id in eligible_unit_ids:
+	for unit_id in chargeable_unit_ids:
 		if unit_id in units:
 			var unit = units[unit_id]
 			can_charge_count += 1
@@ -662,7 +691,7 @@ func _refresh_ui() -> void:
 			unit_selector.add_item(unit_name)
 			unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
 			print("    Added eligible unit ", unit_id, " (", unit_name, ") to selector")
-	
+
 	print("ChargeController: Found ", can_charge_count, " units that can still charge")
 	
 	# CRITICAL: Ensure charge buttons exist and remain visible after refresh
@@ -676,6 +705,31 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	var unit_id = unit.get("id", "")
 	var board = GameState.create_snapshot()
 	return RulesEngine.eligible_to_charge(unit_id, board)
+
+func get_displayed_charge_unit_ids() -> Array:
+	# The unit ids currently listed in the UNITS THAT CAN CHARGE selector, i.e.
+	# after the target-within-12" filter. Read-only accessor exposed for windowed
+	# scenario tests / tooling so they can assert exactly which units are shown.
+	var ids: Array = []
+	if not is_instance_valid(unit_selector):
+		return ids
+	for i in range(unit_selector.get_item_count()):
+		ids.append(unit_selector.get_item_metadata(i))
+	return ids
+
+func _filter_units_with_charge_targets(unit_ids: Array) -> Array:
+	# Keep only units that have at least one enemy within 12" (a chargeable
+	# target). Uses the SAME RulesEngine query that populates the ELIGIBLE TARGETS
+	# list (charge_targets_within_12), so a unit is shown in UNITS THAT CAN CHARGE
+	# only when selecting it would actually offer a target to charge. This is a
+	# display-only refinement; the phase's own eligibility (used by AI / phase
+	# logic) is unchanged.
+	var result: Array = []
+	var board = GameState.create_snapshot()
+	for unit_id in unit_ids:
+		if not RulesEngine.charge_targets_within_12(unit_id, board).is_empty():
+			result.append(unit_id)
+	return result
 
 func _update_button_states() -> void:
 	if not current_phase:
@@ -697,7 +751,27 @@ func _update_button_states() -> void:
 		roll_button.disabled = not can_roll
 	if is_instance_valid(skip_button):
 		skip_button.disabled = not can_skip
-	
+
+	# T-092 fix: the confirm-row buttons (Snap to Contact + Undo Last Model)
+	# must only be interactable while an active charge move is in progress.
+	# Previously only confirm_button's visibility was toggled (in
+	# _enable_charge_movement / _on_confirm_charge_moves); the Snap and Undo
+	# buttons were never hidden or disabled after creation, so they lingered
+	# visible + ENABLED after a charge was confirmed, between charges, and
+	# while a Command Re-roll decision was still pending. Clicking Snap in any
+	# of those states does nothing — _on_auto_path_charge early-returns on the
+	# empty models_to_move — which reads to the player as "the Snap to Contact
+	# button doesn't do anything". Gate both on awaiting_movement here so they
+	# track the charge-move state everywhere _update_button_states runs (unit
+	# select, reset, next-charge refresh, roll made, decline reroll, ...).
+	if is_instance_valid(auto_path_charge_button):
+		auto_path_charge_button.visible = awaiting_movement
+		# Only snap-able while there are still models left to place.
+		auto_path_charge_button.disabled = models_to_move.is_empty()
+	if is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.visible = awaiting_movement
+		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+
 	# Update charge status
 	_update_charge_status()
 
@@ -1094,6 +1168,7 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 	_moved_model_order.clear()  # T-092: reset undo stack
 	_model_origin_positions.clear()  # T-092: reset origin cache
 	_model_origin_rotations.clear()  # T-092
+	_model_charge_paths.clear()  # multi-step: reset per-model hop paths
 	_clear_movement_visuals()
 
 	# Get all alive models in the unit
@@ -1117,6 +1192,7 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 					p = pos
 				_model_origin_positions[model_id] = p
 				_model_origin_rotations[model_id] = model.get("rotation", 0.0)
+				_model_charge_paths[model_id] = [p]  # multi-step: path starts at the origin
 			print("DEBUG: Added model ", model_id, " to models_to_move")
 	
 	print("Models to move: ", models_to_move)
@@ -1136,6 +1212,17 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 		print("DEBUG: Confirm button size: ", confirm_button.size)
 	else:
 		print("WARNING: Confirm button not created!")
+
+	# T-092 fix: reveal the Snap to Contact + Undo Last Model buttons alongside
+	# confirm now that a charge move is active. _update_button_states() (called
+	# right after the roll resolves) keeps them in sync from here on, but show
+	# them explicitly so they appear even on any path that skips that refresh.
+	if is_instance_valid(auto_path_charge_button):
+		auto_path_charge_button.visible = true
+		auto_path_charge_button.disabled = models_to_move.is_empty()
+	if is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.visible = true
+		undo_charge_model_button.disabled = _moved_model_order.is_empty()
 
 func _clear_movement_visuals() -> void:
 	# Clear ghost visual
@@ -1239,6 +1326,7 @@ func _add_confirm_button() -> void:
 
 	# T-092: per-model undo button next to confirm
 	undo_charge_model_button = Button.new()
+	undo_charge_model_button.name = "UndoLastModelButton"
 	undo_charge_model_button.text = "Undo Last Model"
 	undo_charge_model_button.disabled = true
 	_WhiteDwarfTheme.apply_to_button(undo_charge_model_button)
@@ -1271,6 +1359,12 @@ func _on_undo_last_charge_model() -> void:
 	# Restore GameState position + rotation
 	var origin_pos: Vector2 = _model_origin_positions.get(model_id, Vector2.ZERO)
 	var origin_rot: float = _model_origin_rotations.get(model_id, 0.0)
+	# Multi-step: undo removes ALL of this model's hops — discard its recorded path
+	# so it re-drags fresh from the origin with the full charge distance available.
+	if origin_pos != Vector2.ZERO:
+		_model_charge_paths[model_id] = [origin_pos]
+	else:
+		_model_charge_paths[model_id] = []
 	if origin_pos != Vector2.ZERO and active_unit_id != "":
 		_update_model_position_in_gamestate(active_unit_id, model_id, origin_pos)
 		_move_token_visual(active_unit_id, model_id, origin_pos, origin_rot)
@@ -1280,6 +1374,17 @@ func _on_undo_last_charge_model() -> void:
 			charge_info_label.text = "All models moved! Click 'Confirm Charge Moves' to complete"
 		else:
 			charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
+	# The per-model Used/Left readout described the model we just reverted, so
+	# reset it — otherwise it keeps showing a distance for a model now back at
+	# its origin, which reads as "undo did nothing".
+	if is_instance_valid(charge_used_label):
+		charge_used_label.text = "Used: 0.0\""
+		charge_used_label.modulate = Color.WHITE
+	if is_instance_valid(charge_left_label):
+		charge_left_label.text = "Left: %.1f\"" % charge_distance
+		charge_left_label.modulate = Color.WHITE
+	if is_instance_valid(charge_terrain_label):
+		charge_terrain_label.visible = false
 	# Disable confirm if nothing has been moved
 	if confirm_button and is_instance_valid(confirm_button):
 		confirm_button.disabled = moved_models.is_empty()
@@ -1439,13 +1544,16 @@ func _update_model_drag(world_pos: Vector2) -> void:
 		else:
 			ghost_visual.modulate = Color(1, 0, 0, 0.7)  # Red for invalid
 
-	# Calculate distance moved for display (including terrain penalty - T2-8)
+	# Calculate distance moved for display (including terrain penalty - T2-8).
+	# original_pos is this HOP's start; add the distance already committed on
+	# earlier hops so the preview shows the running total against the charge roll.
 	var original_pos = dragging_model.get("original_position")
 	if original_pos:
 		var distance_moved_px = original_pos.distance_to(effective_pos)
 		var distance_moved_inches = Measurement.px_to_inches(distance_moved_px)
 		var terrain_penalty = _calculate_terrain_penalty_for_path(original_pos, effective_pos)
-		var effective_distance = distance_moved_inches + terrain_penalty
+		var prior_distance = _get_model_charge_accumulated(model_id)
+		var effective_distance = prior_distance + distance_moved_inches + terrain_penalty
 
 		# P3-98: Update distance display with preview (show effective distance including terrain breakdown)
 		_update_charge_distance_display_with_preview(effective_distance, is_valid, terrain_penalty)
@@ -1479,16 +1587,24 @@ func _end_model_drag(world_pos: Vector2) -> void:
 	if _validate_charge_position(dragging_model, final_pos):
 		print("Model ", model_id, " moved to valid position")
 		
-		# Calculate and store distance moved
+		# Calculate and store distance moved. start_pos is the model's position at
+		# the START of this hop (GameState is not updated until below), which is the
+		# origin on the first hop and the previous drop on later hops.
 		var start_pos = _get_model_position(dragging_model)
 		if start_pos:
-			var distance_moved_px = start_pos.distance_to(final_pos)
-			var distance_moved_inches = Measurement.px_to_inches(distance_moved_px)
-			# P3-98: Include terrain penalty in final distance display
-			var terrain_penalty = _calculate_terrain_penalty_for_path(start_pos, final_pos)
+			# Multi-step: append this hop's endpoint to the model's recorded path so
+			# the accumulated distance and the real polyline survive to the confirm.
+			# The path's last point is this hop's start (origin on the first hop).
+			var hop_path: Array = _model_charge_paths.get(model_id, [])
+			if hop_path.is_empty():
+				hop_path = [start_pos]
+			hop_path.append(final_pos)
+			_model_charge_paths[model_id] = hop_path
 
-			# Update distance display for this model (with terrain breakdown)
-			_update_charge_distance_display(model_id, distance_moved_inches, terrain_penalty)
+			# Show the TOTAL distance spent across all hops (not just this one) so the
+			# player can see how much of the charge roll remains for further steps.
+			var accumulated_inches = _get_model_charge_accumulated(model_id)
+			_update_charge_distance_display(model_id, accumulated_inches, 0.0)
 
 		# Store the new position AND rotation
 		moved_models[model_id] = {
@@ -1818,8 +1934,26 @@ func _refine_snap_position(model: Dictionary, target_model: Dictionary, initial_
 	# Return the midpoint of our final range (should be very close to contact)
 	return (far_pos + near_pos) * 0.5
 
+# Multi-step charge: total inches already committed by a model across every
+# previous hop this charge (straight-line + per-segment terrain penalty), matching
+# how ChargePhase measures the confirmed polyline path. Returns 0 for a model that
+# is still at its origin (path has only the origin point).
+func _get_model_charge_accumulated(model_id: String) -> float:
+	var path = _model_charge_paths.get(model_id, [])
+	if path.size() < 2:
+		return 0.0
+	var total := 0.0
+	for i in range(1, path.size()):
+		total += Measurement.px_to_inches(path[i - 1].distance_to(path[i]))
+		total += _calculate_terrain_penalty_for_path(path[i - 1], path[i])
+	return total
+
 func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
-	# Check 1: Movement distance (including terrain penalty - T2-8)
+	var model_id = model.get("id", "")
+
+	# Check 1: Movement distance (including terrain penalty - T2-8).
+	# old_pos is the model's CURRENT position — its origin on the first hop, or the
+	# previous drop position on later hops of a multi-step charge move.
 	var old_pos = _get_model_position(model)
 	if old_pos == null:
 		return false
@@ -1830,12 +1964,19 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 	var terrain_penalty = _calculate_terrain_penalty_for_path(old_pos, new_pos)
 	var effective_distance = distance_moved + terrain_penalty
 
-	if effective_distance > charge_distance + MOVEMENT_CAP_EPSILON:
+	# Multi-step: this hop is capped by whatever charge distance remains after the
+	# hops already committed — the whole path must fit inside the charge roll, just
+	# like accumulated movement in the Movement phase.
+	var prior_distance = _get_model_charge_accumulated(model_id)
+	var total_distance = prior_distance + effective_distance
+
+	if total_distance > charge_distance + MOVEMENT_CAP_EPSILON:
 		if terrain_penalty > 0.0:
-			print("Movement too far with terrain: %.1f\" + %.1f\" terrain = %.1f\" > %d\"" % [
-				distance_moved, terrain_penalty, effective_distance, charge_distance])
+			print("Movement too far with terrain: %.1f\" prior + %.1f\" + %.1f\" terrain = %.1f\" > %d\"" % [
+				prior_distance, distance_moved, terrain_penalty, total_distance, charge_distance])
 		else:
-			print("Movement too far: ", distance_moved, " > ", charge_distance)
+			print("Movement too far: %.1f\" prior + %.1f\" = %.1f\" > %d\"" % [
+				prior_distance, distance_moved, total_distance, charge_distance])
 		return false
 
 	# Check 2: Model overlap detection
@@ -1849,10 +1990,17 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 		print("Charge move would place model off the board")
 		return false
 
-	# Check 3: Must end closer to at least one declared target (10e rule)
-	# This gives live feedback during drag - final enforcement is in ChargePhase
+	# Check 3: Must end closer to at least one declared target (10e rule).
+	# The rule is about the WHOLE charge move, so this compares the candidate
+	# position to the model's PRE-CHARGE ORIGIN, not to the current hop's start.
+	# That lets a multi-step move take an intermediate hop that isn't itself closer
+	# than the previous hop (e.g. a sideways step around terrain) as long as the
+	# model still ends up closer than where it began. Final enforcement is in
+	# ChargePhase against path[0] -> path[-1]. On the first hop origin == old_pos,
+	# so single-step behaviour is unchanged.
+	var charge_origin = _model_origin_positions.get(model_id, old_pos)
 	var model_at_old = model.duplicate()
-	model_at_old["position"] = old_pos
+	model_at_old["position"] = charge_origin
 	var model_at_new = model.duplicate()
 	model_at_new["position"] = new_pos
 
@@ -1860,8 +2008,8 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 	if charge_targets.is_empty() and current_phase:
 		charge_targets = _get_charge_targets_from_phase(active_unit_id)
 
-	# Only enforce if the model actually moved a meaningful distance
-	if old_pos.distance_to(new_pos) > 1.0 and not charge_targets.is_empty():  # > 1 pixel
+	# Only enforce if the model actually moved a meaningful distance from its origin
+	if charge_origin.distance_to(new_pos) > 1.0 and not charge_targets.is_empty():  # > 1 pixel
 		var ends_closer = false
 		for target_id in charge_targets:
 			var target = GameState.get_unit(target_id)
@@ -1910,7 +2058,23 @@ func _on_confirm_charge_moves() -> void:
 					old_pos = _get_model_position(model)
 					break
 
-		if old_pos and new_pos:
+		# Multi-step: emit the FULL recorded hop path (origin -> ... -> final) so the
+		# phase validates the real polyline the player dragged — its per-segment
+		# terrain sweep and total-distance measure only make sense on the actual
+		# route. A straight origin->final line could cut back through terrain the
+		# player routed around and be wrongly rejected (or wrongly accepted).
+		var hop_path: Array = _model_charge_paths.get(model_id, [])
+		if hop_path.size() >= 2 and old_pos and new_pos:
+			var pts: Array = []
+			for p in hop_path:
+				pts.append([p.x, p.y])
+			# Pin the endpoints to the authoritative origin/drop positions.
+			pts[0] = [old_pos.x, old_pos.y]
+			pts[pts.size() - 1] = [new_pos.x, new_pos.y]
+			per_model_paths[model_id] = pts
+			per_model_rotations[model_id] = new_rotation
+			print("DEBUG: Created multi-step path for ", model_id, " (%d points): " % pts.size(), per_model_paths[model_id], " with rotation: ", rad_to_deg(new_rotation))
+		elif old_pos and new_pos:
 			per_model_paths[model_id] = [[old_pos.x, old_pos.y], [new_pos.x, new_pos.y]]
 			per_model_rotations[model_id] = new_rotation
 			print("DEBUG: Created path for ", model_id, ": ", per_model_paths[model_id], " with rotation: ", rad_to_deg(new_rotation))
@@ -1977,6 +2141,16 @@ func _on_confirm_charge_moves() -> void:
 		# Token visuals are re-synced to GameState (pre-drag origins) by
 		# Main.update_after_charge_action(); drag ghosts/lines are stale now.
 		_clear_movement_visuals()
+		# Re-arm every charging model for re-positioning from its origin: their
+		# GameState positions have been reset to the pre-charge origins, so clear
+		# each recorded hop path back to [origin] and make them all pickable again
+		# (they were removed from models_to_move as they were dragged, and
+		# moved_models was just cleared, so without this nothing would be draggable).
+		models_to_move.clear()
+		for mid in _model_origin_positions:
+			if mid not in models_to_move:
+				models_to_move.append(mid)
+			_model_charge_paths[mid] = [_model_origin_positions[mid]]
 		awaiting_movement = true
 		_pending_complete_unit_id = ""
 		if is_instance_valid(confirm_button):
@@ -1993,6 +2167,14 @@ func _on_confirm_charge_moves() -> void:
 	_clear_movement_visuals()
 	if is_instance_valid(confirm_button):
 		confirm_button.visible = false
+	# T-092 fix: hide the Snap to Contact + Undo buttons together with confirm
+	# so they don't linger visible + clickable (and silently no-op) once this
+	# charge is done. _update_ui_for_next_charge() → _update_button_states()
+	# also enforces this, but hide here so there's no one-frame flash.
+	if is_instance_valid(auto_path_charge_button):
+		auto_path_charge_button.visible = false
+	if is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.visible = false
 
 	# Update UI for next charge selection
 	_update_ui_for_next_charge()
@@ -2163,9 +2345,10 @@ func _update_ui_for_next_charge() -> void:
 	_ensure_charge_panel_visible()
 	_ensure_charge_buttons_exist()
 	
-	# Check if more units can charge
+	# Check if more units can charge (only those with a target within 12", to
+	# match what UNITS THAT CAN CHARGE now shows).
 	if current_phase and is_instance_valid(current_phase):
-		var eligible_units = current_phase.get_eligible_charge_units()
+		var eligible_units = _filter_units_with_charge_targets(current_phase.get_eligible_charge_units())
 		if eligible_units.size() > 0:
 			# Immediately show available units and update status
 			if is_instance_valid(charge_info_label):
@@ -2292,7 +2475,8 @@ func _update_charge_status() -> void:
 		return
 
 	var completed = current_phase.get_completed_charges().size()
-	var eligible = current_phase.get_eligible_charge_units().size()
+	# Count only units with a target within 12", matching the filtered list.
+	var eligible = _filter_units_with_charge_targets(current_phase.get_eligible_charge_units()).size()
 
 	if is_instance_valid(charge_status_label):
 		charge_status_label.text = "Charges: %d completed, %d eligible" % [completed, eligible]
@@ -3566,7 +3750,14 @@ func _clear_charge_trajectory_preview() -> void:
 # + own_base_radius + 0.5") from the nearest target model along the
 # straight-line approach.
 func _on_auto_path_charge() -> void:
-	if active_unit_id == "" or models_to_move.is_empty():
+	# T-092 fix: the button is now hidden/disabled unless a charge move is
+	# active (see _update_button_states), but guard defensively — if it is ever
+	# triggered with nothing to place, tell the player instead of silently
+	# doing nothing (the original "Snap to Contact does nothing" symptom).
+	if active_unit_id == "" or not awaiting_movement or models_to_move.is_empty():
+		print("[T-092 auto-path] Snap to Contact ignored — no active charge move (active_unit=%s, awaiting_movement=%s, models_to_move=%d)" % [active_unit_id, str(awaiting_movement), models_to_move.size()])
+		if is_instance_valid(charge_info_label) and awaiting_movement and models_to_move.is_empty():
+			charge_info_label.text = "All models already in engagement range — click 'Confirm Charge Moves'"
 		return
 	var unit = GameState.get_unit(active_unit_id)
 	if unit.is_empty():
@@ -3636,6 +3827,9 @@ func _on_auto_path_charge() -> void:
 						continue
 					# Stage the move (mirroring _end_model_drag behavior)
 					moved_models[model_id] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
+					# Multi-step: record the single-hop path (origin -> placement) so the
+					# accumulated distance and confirmed polyline match dragged models.
+					_model_charge_paths[model_id] = [origin, candidate]
 					if model_id in _moved_model_order:
 						_moved_model_order.erase(model_id)
 					_moved_model_order.append(model_id)

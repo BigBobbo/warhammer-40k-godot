@@ -1,0 +1,73 @@
+{
+  "id": "ai_turn_summary_in_log",
+  "covers": [
+    "ui.GameLogPanel.ai_turn_summary_card",
+    "ai.turn_summary.logged_not_popup",
+    "ui.AITurnSummaryPanel.no_popup"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "description": "The post-AI-turn digest now lands in the game log instead of a floating right-hand pop-up that overlapped the existing menus. Drives the exact ai_turn_ended code path (AITurnSummaryPanel.show_summary) with a representative P2 action summary and asserts: (a) a single 'ai_turn_summary' entry reaches GameEventLog, (b) its text carries the header 'AI Turn Summary' plus the per-phase breakdown (units moved, reinforcements, charges, fights) and the notable action descriptions, (c) the AITurnSummaryPanel node no longer builds any pop-up UI (zero child controls), so the summary is shown nowhere but the log. The screenshot captures the collapsible 'AI Turn Summary' card in the right-hand log panel.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.clear()"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"AITurnSummaryPanel\").get_child_count()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"AITurnSummaryPanel\").show_summary(2, [{\"phase\":7,\"action_type\":\"CONFIRM_UNIT_MOVE\",\"description\":\"\"},{\"phase\":7,\"action_type\":\"CONFIRM_UNIT_MOVE\",\"description\":\"\"},{\"phase\":7,\"action_type\":\"PLACE_REINFORCEMENT\",\"description\":\"Allarus Custodians arrives from Strategic Reserves\"},{\"phase\":7,\"action_type\":\"PLACE_REINFORCEMENT\",\"description\":\"Custodian Guard Delta arrives from Strategic Reserves\"},{\"phase\":9,\"action_type\":\"DECLARE_CHARGE\",\"description\":\"Prosecutors declares charge against Stormboyz Alpha\"},{\"phase\":9,\"action_type\":\"SKIP_CHARGE\",\"description\":\"\"},{\"phase\":9,\"action_type\":\"SKIP_CHARGE\",\"description\":\"\"},{\"phase\":9,\"action_type\":\"SKIP_CHARGE\",\"description\":\"\"},{\"phase\":10,\"action_type\":\"SELECT_FIGHTER\",\"description\":\"\"},{\"phase\":10,\"action_type\":\"SELECT_FIGHTER\",\"description\":\"\"}])"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.count_entries_of_type(\"ai_turn_summary\")",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.entries[-1][\"text\"].contains(\"AI Turn Summary\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.entries[-1][\"text\"].contains(\"Units moved: 2\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.entries[-1][\"text\"].contains(\"Reinforcements arrived: 2\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.entries[-1][\"text\"].contains(\"Charges declared: 1\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.entries[-1][\"text\"].contains(\"Units fought: 2\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.entries[-1][\"text\"].contains(\"Allarus Custodians arrives from Strategic Reserves\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_ai_turn_summary_card_in_log",
+      "region": [0, 105, 440, 800]
+    }
+  ]
+}

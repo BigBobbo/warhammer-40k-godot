@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.43.0",
+			"version": "0.43.9",
 			"date": "2026-07-14",
 			"summary": "Single-weapon shooting now steps through the dice roll-by-roll, just like a unit firing several weapon types already did. When you select a unit, pick a target and confirm, the game now opens a pop-up that rolls to hit and PAUSES so you can read the result (and spend Command Re-roll on a die), then rolls to wound and PAUSES again, before handing off to the defender's saving throws. Previously a single-weapon shot rolled its hits and wounds together in one go and jumped straight to saves, so there was no window to react between the hit and wound rolls. A 'Fast Roll' button in the pop-up resolves the rest at once whenever you don't want to step through.",
 			"changes": [
@@ -10,6 +10,147 @@
 				"Command Re-roll (1 CP) is now offered on the hit roll AND the wound roll of a single-weapon shot — click a die in the pop-up to re-roll it (once per phase), the same as when firing multiple weapons.",
 				"Added a 'Fast Roll' button to the roll pop-up: from either pause it resolves the remaining rolls immediately and goes straight to saves, so you're never forced to click through when you don't need to.",
 				"Firing several weapon types is unchanged — you still get the weapon-ordering pop-up first, then choose Fast Roll or step through the sequence."
+			]
+		},
+		{
+			"version": "0.43.8",
+			"date": "2026-07-14",
+			"summary": "Fixed shooting-phase target assignment by clicking on an enemy unit not filling the 'Current Targets' list. When you selected a weapon and clicked an enemy that had several of your models able to fire at it, the Split Fire picker opened, you chose how many to send, and the assignment was actually made — but the 'Current Targets' panel stayed empty and the 'Confirm Targets' button stayed greyed out, so it looked like nothing happened and you couldn't proceed. Assigning via the 'Quick Assign' buttons worked because it refreshed the panel directly. Now the panel and buttons refresh after every target you commit, whichever way you assigned it.",
+			"changes": [
+				"Fixed: clicking an enemy unit to assign shooting targets now fills the 'Current Targets' list and enables 'Confirm Targets'. Previously, assignments made through the Split Fire picker (or the Devastating Wounds choice prompt) committed silently — the target was assigned but the on-screen list and buttons never updated.",
+				"The fix refreshes the assignment UI at the moment the assignment is actually committed, so it works the same whether the picker/choice dialog was involved or not — matching how the 'Quick Assign' and 'Apply to All' buttons already behaved."
+			]
+		},
+		{
+			"version": "0.43.7",
+			"date": "2026-07-14",
+			"summary": "Moved the AI Turn Summary into the game log instead of a floating pop-up. After each computer turn a summary of what the AI did (units moved, reinforcements arrived, charges declared, units fought, etc.) used to appear as a separate window pinned to the right-hand side of the screen — but it was drawn on top of the existing menus and combat log, so it overlapped them and was awkward to read. That pop-up is gone. The same summary now appears as a single card in the right-hand game log, labelled 'AI Turn Summary', with the full per-phase breakdown shown by default so you can read it at a glance — plus a 'hide details' toggle if you want to collapse it. It filters with the log's 'AI' category and can be clicked to review the board at that point in the game.",
+			"changes": [
+				"The post-turn 'AI Turn Summary' no longer appears as a separate pop-up window that covered the existing menus.",
+				"The same information (units moved, reinforcements, charges, fights, stratagems, notable moments) is now logged as an 'AI Turn Summary' card in the right-hand game log, expanded by default so the full per-phase breakdown is visible.",
+				"Use the card's 'hide details' toggle to collapse it; it hides/shows with the log's 'AI' filter like other AI entries."
+			]
+		},
+		{
+			"version": "0.43.6",
+			"date": "2026-07-14",
+			"summary": "The charge phase's 'UNITS THAT CAN CHARGE' list now only shows units that actually have an enemy within 12\" — i.e. a target that a charge could reach. Previously the list showed every unit that was allowed to charge, even ones with no enemy anywhere near them, so you'd select a unit expecting to charge and find an empty 'ELIGIBLE TARGETS' box. The list is now filtered so every unit shown has at least one reachable target, which is far less confusing.",
+			"changes": [
+				"Charge phase: 'UNITS THAT CAN CHARGE' now lists only units with at least one enemy within 12\" (a target a charge could reach). Units eligible to charge but with no enemy in range are hidden.",
+				"The 'ELIGIBLE TARGETS' list a selected unit shows is now guaranteed non-empty — selecting any listed unit always presents at least one target.",
+				"The 'X eligible' charge counter in the right panel now counts only these in-range units, so it matches the list you see."
+			]
+		},
+		{
+			"version": "0.43.5",
+			"date": "2026-07-14",
+			"summary": "Charge moves can now be made in multiple steps, exactly like Movement-phase moves. Previously, once you dragged a charging model and let go, that model was 'done' — you couldn't pick it up again, so there was no way to route it around a wall, terrain, or your own models and still use the rest of your charge distance. Now each charging model can be dragged as many times as you like; every drag adds to the total distance used and the model can keep moving until it reaches engagement range or spends its charge roll. Only 'Confirm Charge Moves' finalises the charge.",
+			"changes": [
+				"Multi-step charge movement: drag a charging model, release, then drag it again — each hop accumulates toward the model's charge distance (the 'Used'/'Left' readout updates across hops), so you can steer around obstacles instead of being limited to a single straight drag.",
+				"A charging model that has already been placed can be picked up and moved again before you confirm; the total path is capped at the charge roll, and an over-budget drag is rejected (the model snaps back) just like in the Movement phase.",
+				"The 'ends closer to a target' charge rule is now measured against where the model STARTED its charge, not the start of the current hop, so an intermediate sideways step around cover no longer gets wrongly rejected.",
+				"Confirming a multi-step charge sends the real multi-point path to the rules engine, so a route you carefully steered around terrain is validated as-drawn (it won't be second-guessed by a straight line cutting back through the terrain you avoided)."
+			]
+		},
+		{
+			"version": "0.43.4",
+			"date": "2026-07-14",
+			"summary": "Fixed the charge-phase 'Undo Last Model' button doing nothing when clicked. After you dragged a model during a charge, clicking 'Undo Last Model' left the model exactly where you dropped it — the click never reached the button. The charge board handler was swallowing every left-click before the button could react, and only the 'Confirm Charge Moves' button had been excluded from that. 'Undo Last Model' now works: the model snaps back to where it started that charge and re-joins the list of models still to move.",
+			"changes": [
+				"Fixed: the charge-phase 'Undo Last Model' button now responds to a real mouse click. Previously the click was intercepted by the board's model-drag handler and discarded, so nothing happened.",
+				"Undoing a model now also resets the 'Used / Left' charge-distance readout, instead of leaving it showing the reverted model's old distance.",
+				"Same underlying fix also protects the 'Snap to Contact' button from having a real click swallowed — only 'Confirm Charge Moves' had been guarded before."
+			]
+		},
+		{
+			"version": "0.43.3",
+			"date": "2026-07-14",
+			"summary": "Fixed the Consolidate step being blocked by leftover menus. After the last fight of the phase, the 'Fight — Melee Resolution' summary (and, in some flows, an 'Assign Attacks' window) stayed open in the middle of the screen if you hadn't clicked Close on it. When the Consolidate step then began, those windows sat stacked on top of the battlefield, so when you picked a unit to consolidate you couldn't see it to drag it. The game now automatically clears those leftover fight windows the moment the Consolidate step opens, so the unit picker and the bottom-docked Consolidate menu appear over a clear board.",
+			"changes": [
+				"Consolidate step: any leftover 'Fight — Melee Resolution' or 'Assign Attacks' window from the last fight is now dismissed automatically when the Consolidate step begins — you no longer have to hunt for a Close button before you can consolidate.",
+				"When you pick a unit to consolidate, the board is now fully visible so you can see and drag that unit's models (the Consolidate menu stays docked at the bottom of the screen as before).",
+				"The combat results those windows showed are still available at any time in the right-hand COMBAT LOG panel."
+			]
+		},
+		{
+			"version": "0.43.2",
+			"date": "2026-07-14",
+			"summary": "Fixed the confusing Fight phase controls. The right-hand panel used to show a 'MELEE ATTACKS' weapon list with a 'CURRENT TARGETS' box and 'Clear All' / 'Fight!' / 'Auto-Fight' buttons — but that whole set was a dead, leftover way of fighting: selecting a weapon there and clicking an enemy did nothing, and 'Auto-Fight' did nothing either. Meanwhile the real, working Fight flow is the pop-up dialog in the middle of the screen that asks you to pick a fighter and then assign attacks. Having both on screen made it look like the game was broken when you tried the panel. The dead panel controls have been removed, so there is now a single, working way to fight: the pop-up dialogs.",
+			"changes": [
+				"Removed the non-working right-panel 'MELEE ATTACKS' weapon tree, 'CURRENT TARGETS' basket, and the 'Clear All' / 'Fight!' / 'Auto-Fight' buttons from the Fight phase.",
+				"Attack allocation is now driven solely by the centre-screen pop-ups (pick a unit to fight, then assign each weapon to a target and confirm) — the flow that already worked.",
+				"The right panel still shows the useful read-outs: the fight sequence, the running phase damage tally, the combat log with dice results, fight status, and the Pile In / Consolidate movement buttons.",
+				"Under the hood these panel controls never told the game which weapon you'd selected, so the list of valid targets was always empty — which is why clicking an enemy and 'Auto-Fight' both silently did nothing."
+			]
+		},
+		{
+			"version": "0.43.1",
+			"date": "2026-07-14",
+			"summary": "Fixed a Fight-phase bug where the game asked YOU to choose targets for the computer's attacks. When the AI's units fought (e.g. you playing Orks vs the AI's Custodes), the 'who do you want to allocate these attacks to?' target-selection dialog popped up for you instead of the AI just picking its own targets and fighting. Cause: the Fight controller only refreshed the 'whose fighter is this?' owner when a human picked a fighter from a dialog, so once one of your units had fought, that owner stayed pointed at you; when the AI's unit fought next, the controller thought the human owned it and showed you the AI's attack-allocation dialog. The controller now updates the owner every time any unit is selected to fight, so the AI silently resolves its own attacks and the dialog only ever appears for your own units.",
+			"changes": [
+				"Fixed: the Fight phase no longer shows you the attack-target dialog for the computer's units. The AI now picks targets and fights with its own units automatically, and you are only asked to allocate attacks for units you control.",
+				"Same fix also stops the AI's Pile In and Consolidate prompts from being shown to you \u2014 the controller now tracks the active fighter's real owner and hands each dialog to the correct player as control alternates back and forth during the Fight phase."
+			]
+		},
+		{
+			"version": "0.43.0",
+			"date": "2026-07-14",
+			"summary": "Added a new pickable army: the Orks 'Battlewagons' list (2000 pts, Rollin' Deff / Speedwaaagh! themed). It shows up in the Player 1/Player 2 army dropdowns like any other list and is ready to deploy and play. The list is a grot-and-gitz horde built around three Battlewagons (each with Targetin' Gizmos) and a trio of Big Meks, backed by Meks, Burna Boyz, Deffkoptas, Gretchin, Lootas, Stormboyz, Tankbustas and Warbikers. New top-down unit art was drawn for every model type that didn't already have a sprite, so the whole army reads at a glance on the board.",
+			"changes": [
+				"New army list 'Battlewagons' (Orks, 2000 pts) selectable in the main-menu army dropdowns: 3 Big Meks, 3 Meks (one with the Dakkamek enhancement), 3 Battlewagons (each with the Targetin' Gizmos upgrade), 2 Burna Boyz, 2 Deffkoptas, 3 Gretchin, 3 Lootas, Stormboyz, 2 Tankbustas (one carrying a Pulsa Rokkit) and 2 Warbikers.",
+				"New top-down sprites drawn in the same Vassal-style as the existing art: Big Mek (power klaw + kustom mega-blasta), Battlewagon (deff rolla, turret, wreckin' ball and tracks on a proper rectangular vehicle base), Burna Boyz (flamer gout), Lootas (oversized three-barrel deffgun) and Tankbustas (rokkit launcha with a bomb squig).",
+				"Reused the existing Mek, Gretchin, Stormboyz, Warbikers and Deffkoptas sprites for those units in the new list."
+			]
+		},
+		{
+			"version": "0.42.9",
+			"date": "2026-07-14",
+			"summary": "Fixed the Charge phase 'Snap to Contact' button appearing to do nothing. The button (along with 'Undo Last Model') only ever appeared when you were actively moving a charging unit, but once you confirmed that charge — or between charges, or while a Command Re-roll prompt was still open — it was left on screen looking clickable even though there was nothing to move. Clicking it in those states silently did nothing. The Confirm / Snap to Contact / Undo Last Model buttons now hide together the moment a charge is finished, so 'Snap to Contact' is only shown when it will actually move models.",
+			"changes": [
+				"Fixed: the 'Snap to Contact' button no longer lingers on screen after a charge is confirmed (and between charges, and while a Command Re-roll dialog is open). Previously it stayed visible and enabled with nothing to move, so clicking it did nothing.",
+				"The 'Snap to Contact' and 'Undo Last Model' buttons now show only while you are actively positioning a charging unit, and 'Snap to Contact' is greyed out once every model is already in engagement range (use 'Confirm Charge Moves' at that point).",
+				"If 'Snap to Contact' is ever triggered with nothing to place, it now tells you why instead of doing nothing silently."
+			]
+		},
+		{
+			"version": "0.42.8",
+			"date": "2026-07-14",
+			"summary": "Fixed a Fight-phase bug that falsely blocked Pile In and Consolidate moves. When you tried to pile in a unit whose models are numbered from 1 (Warbikers, and most multi-model units), the game could wrongly claim a model 'would overlap' with one of its own squadmates — comparing the model against its own old position instead of its neighbours — and refuse the move even though the models were nowhere near each other. It could also skip the last model in the unit entirely when checking for overlaps. Pile In and Consolidate now check each model against the right neighbours, so legitimate moves are accepted and only genuine base overlaps are rejected.",
+			"changes": [
+				"Fixed the phantom 'Model mN would overlap with <unit>/N' error during Pile In and Consolidate. The overlap check was mis-matching model IDs to positions (an off-by-one caused by the models being numbered from 1), so it compared a moving model against its own stale position and rejected valid moves.",
+				"The last model in a unit is now included in the overlap check instead of being silently skipped.",
+				"The same ID-matching fix was applied to the 'already in base contact' and post-consolidation fight-eligibility checks, which shared the bug.",
+				"Note on base-to-base: a model still shows the red 'B2B' lock only when its base is genuinely within the 0.25\" contact tolerance of an enemy. Remember a model's BASE (the full oval/circle outline), not the smaller model artwork, is what counts for contact — a bike's long oval base can be touching an enemy even when the motorcycle art looks clear of it."
+			]
+		},
+		{
+			"version": "0.42.7",
+			"date": "2026-07-14",
+			"summary": "Fixed 'End Fight Phase' ending the fight for your opponent too. When you clicked End Fight Phase, the game forfeited every remaining combat — including your opponent's units that were still owed a fight — and jumped straight to consolidation. Now, ending the Fight phase only stops YOUR own units from fighting; your opponent still gets to fight all of their remaining eligible units (core rule 12.04: when one player stops selecting, the other fights all their remaining units). The confirmation warning also lists only your own unfought units now, not your opponent's.",
+			"changes": [
+				"Fixed: clicking 'End Fight Phase' no longer forfeits your opponent's fights. Only your own remaining units stop fighting — the opponent's eligible units are handed the Fight step and their selection dialog re-opens so they can fight.",
+				"The 'End Fight Phase?' warning now lists only the units YOU would forfeit (your own), instead of also listing the opponent's units as 'won't fight' — which was misleading, since they still get to fight.",
+				"Once your opponent has also finished fighting (or has nothing eligible), ending the Fight phase proceeds to the Consolidate step as before."
+			]
+		},
+		{
+			"version": "0.42.6",
+			"date": "2026-07-14",
+			"summary": "Fixed the red enemy 'engagement range' circles from the Movement phase lingering on the board after you advanced to the Shooting phase. Those red rings are only there to show where your models can't move during your Movement phase; they now clear away the moment the phase ends, so the Shooting phase board is no longer cluttered by them.",
+			"changes": [
+				"Fixed: the red engagement-range rings drawn around enemy units during the Movement phase (the 'don't move here' circles) no longer stay on the board once you move on to the Shooting phase — they are cleared when the Movement phase ends.",
+				"The same cleanup also removes the leftover blue move-range and coherency overlays that could linger past the Movement phase, so nothing movement-only survives into the next phase."
+			]
+		},
+		{
+			"version": "0.42.5",
+			"date": "2026-07-14",
+			"summary": "The melee (Fight) resolution window now shows dice as proper d6 face icons everywhere, instead of a mix of plain numbers in the Combat Log and numbers-in-boxes on the Command Re-roll row. The pip faces match the dice used in the Shooting resolution log and the animated dice roller, so dice look consistent across the whole game — gold for 6s, red for 1s, green/red for pass/fail against the target number.",
+			"changes": [
+				"Fight phase Combat Log: hit, wound, save and Feel No Pain rolls now render as inline d6 face icons (rounded square + pips) rather than bracketed number lists like [ 1 5 5 3 6 6 4 4 2 ].",
+				"Command Re-roll row: each clickable die now shows its face icon instead of a number in a square; hover it to see the value and re-roll it.",
+				"Dice colours follow the same rules as the rest of the game: 6 = gold (critical), 1 = red (fumble), and otherwise green when the roll passes its target and red when it fails.",
+				"Command Re-roll results in the log now show the original face → the new face as icons too."
 			]
 		},
 		{
