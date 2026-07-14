@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.43.9",
+			"date": "2026-07-14",
+			"summary": "Single-weapon shooting now steps through the dice roll-by-roll, just like a unit firing several weapon types already did. When you select a unit, pick a target and confirm, the game now opens a pop-up that rolls to hit and PAUSES so you can read the result (and spend Command Re-roll on a die), then rolls to wound and PAUSES again, before handing off to the defender's saving throws. Previously a single-weapon shot rolled its hits and wounds together in one go and jumped straight to saves, so there was no window to react between the hit and wound rolls. A 'Fast Roll' button in the pop-up resolves the rest at once whenever you don't want to step through.",
+			"changes": [
+				"Shooting with a single weapon type now shows the same step-by-step roll pop-up that multi-weapon shooting uses: Roll to Hit → (pause) → Roll to Wound → (pause) → Saving throws.",
+				"Command Re-roll (1 CP) is now offered on the hit roll AND the wound roll of a single-weapon shot — click a die in the pop-up to re-roll it (once per phase), the same as when firing multiple weapons.",
+				"Added a 'Fast Roll' button to the roll pop-up: from either pause it resolves the remaining rolls immediately and goes straight to saves, so you're never forced to click through when you don't need to.",
+				"Firing several weapon types is unchanged — you still get the weapon-ordering pop-up first, then choose Fast Roll or step through the sequence."
+			]
+		},
+		{
 			"version": "0.43.8",
 			"date": "2026-07-14",
 			"summary": "Fixed shooting-phase target assignment by clicking on an enemy unit not filling the 'Current Targets' list. When you selected a weapon and clicked an enemy that had several of your models able to fire at it, the Split Fire picker opened, you chose how many to send, and the assignment was actually made — but the 'Current Targets' panel stayed empty and the 'Confirm Targets' button stayed greyed out, so it looked like nothing happened and you couldn't proceed. Assigning via the 'Quick Assign' buttons worked because it refreshed the panel directly. Now the panel and buttons refresh after every target you commit, whichever way you assigned it.",

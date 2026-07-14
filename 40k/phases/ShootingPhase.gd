@@ -395,7 +395,7 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_apply_saves(action)
 		"CONTINUE_SEQUENCE":  # Continue to next weapon in sequential mode
 			return _validate_continue_sequence(action)
-		"CONTINUE_TO_WOUNDS", "CONTINUE_TO_SAVES", "USE_SHOOTING_REROLL":  # Staged sequential steps
+		"CONTINUE_TO_WOUNDS", "CONTINUE_TO_SAVES", "USE_SHOOTING_REROLL", "FAST_FINISH_SHOOTING":  # Staged sequential steps
 			return _validate_staged_continue(action)
 		"COMPLETE_SHOOTING_FOR_UNIT":  # Complete shooting after final weapon
 			return _validate_complete_shooting_for_unit(action)
@@ -509,6 +509,9 @@ func process_action(action: Dictionary) -> Dictionary:
 		"USE_SHOOTING_REROLL":  # Staged: Command Re-roll a hit or wound die
 			DebugLogger.info("ShootingPhase: Matched USE_SHOOTING_REROLL")
 			return _process_use_shooting_reroll(action)
+		"FAST_FINISH_SHOOTING":  # Staged: skip remaining pauses and resolve the rest now
+			DebugLogger.info("ShootingPhase: Matched FAST_FINISH_SHOOTING")
+			return _process_fast_finish_shooting(action)
 		"COMPLETE_SHOOTING_FOR_UNIT":  # Complete shooting after final weapon
 			DebugLogger.info("ShootingPhase: Matched COMPLETE_SHOOTING_FOR_UNIT")
 			return _process_complete_shooting_for_unit(action)
@@ -1179,9 +1182,19 @@ func _continue_after_reactive_stratagems() -> Dictionary:
 	DebugLogger.info(str("║ Single weapon path: ", weapon_count == 1))
 	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
-	# If 2+ weapon types, emit signal for weapon ordering dialog
-	if weapon_count >= 2:
-		log_phase_message("Multiple weapon types detected - awaiting weapon order selection")
+	# Show the weapon roll dialog for:
+	#   • any multi-weapon shot (choose firing order), OR
+	#   • a single-weapon shot in NON-networked play — where the dialog auto-starts
+	#     STEP-BY-STEP resolution (hit roll → pause → wound roll → pause → saves) so
+	#     the attacker can read each roll and use Command Re-roll between steps.
+	# Networked single-weapon shots keep the original one-shot resolution below,
+	# because the staged pauses (like Command Re-roll) are single-player/host-only.
+	var show_roll_dialog = (weapon_count >= 2) or (weapon_count == 1 and not NetworkManager.is_networked())
+	if show_roll_dialog:
+		if weapon_count >= 2:
+			log_phase_message("Multiple weapon types detected - awaiting weapon order selection")
+		else:
+			log_phase_message("Single weapon - awaiting step-by-step roll dialog")
 		emit_signal("weapon_order_required", confirmed_assignments)
 
 		# Initialize resolution state for weapon ordering
@@ -1197,7 +1210,7 @@ func _continue_after_reactive_stratagems() -> Dictionary:
 			"confirmed_assignments": confirmed_assignments
 		})
 
-	# Single weapon type - proceed with normal resolution
+	# Single weapon type (networked) - proceed with normal one-shot resolution
 	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
 	DebugLogger.info("║ SINGLE WEAPON PATH - _process_confirm_targets")
 	DebugLogger.info("║ Initializing resolution_state with mode: 'ready'")
@@ -3623,7 +3636,9 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 		"dice": dice_data
 	})
 
-func _staged_continue_to_wounds() -> Dictionary:
+func _staged_continue_to_wounds(pause: bool = true) -> Dictionary:
+	# pause == false is the "Fast Roll" escape: roll the wound roll and go straight
+	# to the saving throws without stopping at the wound pause.
 	if resolution_state.get("stage", "") != "hits_pending":
 		return create_result(false, [], "Not awaiting continue-to-wounds")
 	var hit_context = resolution_state.get("staged_hit_context", {})
@@ -3665,6 +3680,9 @@ func _staged_continue_to_wounds() -> Dictionary:
 	# Wounds caused — PAUSE so the attacker can read the wound roll / Command
 	# Re-roll a wound die before the defender makes saves.
 	resolution_state.stage = "wounds_pending"
+	# Fast Roll: skip the wound pause entirely and hand off to saving throws now.
+	if not pause:
+		return _staged_continue_to_saves()
 	var wc = resolution_state.get("staged_wound_context", {})
 	var can_reroll = _shooting_reroll_available() and not (wc.get("wound_evals", []) as Array).is_empty()
 	emit_signal("shooting_stage_paused", "wounds", {
@@ -3785,7 +3803,24 @@ func _validate_staged_continue(action: Dictionary) -> Dictionary:
 		var expected = "hits_pending" if stage == "hits" else ("wounds_pending" if stage == "wounds" else "")
 		if expected == "" or resolution_state.get("stage", "") != expected:
 			return {"valid": false, "errors": ["No re-roll available at this stage"]}
+	elif t == "FAST_FINISH_SHOOTING":
+		if resolution_state.get("stage", "") not in ["hits_pending", "wounds_pending"]:
+			return {"valid": false, "errors": ["Nothing to fast-finish"]}
 	return {"valid": true, "errors": []}
+
+func _process_fast_finish_shooting(_action: Dictionary) -> Dictionary:
+	# "Fast Roll" from a staged pause: resolve the remaining step(s) of the current
+	# weapon without further pausing. From the hit pause this rolls the wound roll
+	# and hands straight off to saving throws; from the wound pause it hands off to
+	# saving throws directly. Everything after saves is unchanged.
+	if resolution_state.get("mode", "") != "sequential_staged":
+		return create_result(false, [], "Not in staged resolution")
+	var stage = resolution_state.get("stage", "")
+	if stage == "hits_pending":
+		return _staged_continue_to_wounds(false)
+	elif stage == "wounds_pending":
+		return _staged_continue_to_saves()
+	return create_result(false, [], "Nothing to fast-finish")
 
 
 # T5-MP4-RELIABILITY: Save broadcast identity helpers

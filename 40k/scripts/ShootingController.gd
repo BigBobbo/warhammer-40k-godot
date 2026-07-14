@@ -2898,6 +2898,8 @@ func _connect_staged_dialog_signals(dialog) -> void:
 		dialog.staged_continue_requested.connect(_on_staged_continue_requested)
 	if dialog.has_signal("staged_reroll_requested") and not dialog.staged_reroll_requested.is_connected(_on_staged_reroll_requested):
 		dialog.staged_reroll_requested.connect(_on_staged_reroll_requested)
+	if dialog.has_signal("staged_fast_finish_requested") and not dialog.staged_fast_finish_requested.is_connected(_on_staged_fast_finish_requested):
+		dialog.staged_fast_finish_requested.connect(_on_staged_fast_finish_requested)
 
 func _on_staged_continue_requested(next_step: String) -> void:
 	# next_step: "wounds" (roll to wound) or "saves" (hand off to saving throws)
@@ -2913,6 +2915,11 @@ func _on_staged_reroll_requested(stage: String, die_index: int) -> void:
 		"type": "USE_SHOOTING_REROLL",
 		"payload": {"stage": stage, "die_index": die_index}
 	})
+
+func _on_staged_fast_finish_requested() -> void:
+	# "Fast Roll" from a staged pause — resolve the rest of the shot with no more pauses.
+	print("ShootingController: staged Fast Roll — finishing shot without further pauses")
+	emit_signal("shoot_action_requested", {"type": "FAST_FINISH_SHOOTING"})
 
 func _on_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> void:
 	"""Handle weapon order confirmation from WeaponOrderDialog"""
