@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.43.8",
+			"date": "2026-07-14",
+			"summary": "Fixed shooting-phase target assignment by clicking on an enemy unit not filling the 'Current Targets' list. When you selected a weapon and clicked an enemy that had several of your models able to fire at it, the Split Fire picker opened, you chose how many to send, and the assignment was actually made — but the 'Current Targets' panel stayed empty and the 'Confirm Targets' button stayed greyed out, so it looked like nothing happened and you couldn't proceed. Assigning via the 'Quick Assign' buttons worked because it refreshed the panel directly. Now the panel and buttons refresh after every target you commit, whichever way you assigned it.",
+			"changes": [
+				"Fixed: clicking an enemy unit to assign shooting targets now fills the 'Current Targets' list and enables 'Confirm Targets'. Previously, assignments made through the Split Fire picker (or the Devastating Wounds choice prompt) committed silently — the target was assigned but the on-screen list and buttons never updated.",
+				"The fix refreshes the assignment UI at the moment the assignment is actually committed, so it works the same whether the picker/choice dialog was involved or not — matching how the 'Quick Assign' and 'Apply to All' buttons already behaved."
+			]
+		},
+		{
 			"version": "0.43.7",
 			"date": "2026-07-14",
 			"summary": "Moved the AI Turn Summary into the game log instead of a floating pop-up. After each computer turn a summary of what the AI did (units moved, reinforcements arrived, charges declared, units fought, etc.) used to appear as a separate window pinned to the right-hand side of the screen — but it was drawn on top of the existing menus and combat log, so it overlapped them and was awkward to read. That pop-up is gone. The same summary now appears as a single card in the right-hand game log, labelled 'AI Turn Summary', with the full per-phase breakdown shown by default so you can read it at a glance — plus a 'hide details' toggle if you want to collapse it. It filters with the log's 'AI' category and can be clicked to review the board at that point in the game.",

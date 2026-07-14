@@ -4945,6 +4945,16 @@ func _post_assign_ui_update(weapon_id: String, target_id: String, chosen_model_i
 	_last_preview_target_id = ""
 	_update_damage_preview(weapon_id)
 
+	# Refresh the "Current Targets" basket + confirm/clear/undo buttons.
+	# CRITICAL: this must run here (not only at the synchronous _update_ui_state()
+	# call in _select_target_for_current_weapon) because the split-fire picker and
+	# the [DEVASTATING WOUNDS] ability dialog commit the assignment ASYNCHRONOUSLY
+	# from their confirm callbacks — long after that synchronous call already ran
+	# against an empty weapon_assignments map. Without this, a board-click that
+	# opens the picker would populate the forecast but leave CURRENT TARGETS empty,
+	# while quick-assign (which calls _update_ui_state directly) worked fine.
+	_update_ui_state()
+
 # SPLIT-FIRE: Re-render the column-2 text of a weapon row to show every pending
 # (target → count) entry for that weapon. Called after every assign / undo /
 # clear so the tree stays in sync with the phase's pending_assignments.
