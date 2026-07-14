@@ -2,12 +2,23 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.42.5",
+			"version": "0.42.6",
 			"date": "2026-07-14",
 			"summary": "Fixed the red enemy 'engagement range' circles from the Movement phase lingering on the board after you advanced to the Shooting phase. Those red rings are only there to show where your models can't move during your Movement phase; they now clear away the moment the phase ends, so the Shooting phase board is no longer cluttered by them.",
 			"changes": [
 				"Fixed: the red engagement-range rings drawn around enemy units during the Movement phase (the 'don't move here' circles) no longer stay on the board once you move on to the Shooting phase — they are cleared when the Movement phase ends.",
 				"The same cleanup also removes the leftover blue move-range and coherency overlays that could linger past the Movement phase, so nothing movement-only survives into the next phase."
+			]
+		},
+		{
+			"version": "0.42.5",
+			"date": "2026-07-14",
+			"summary": "The melee (Fight) resolution window now shows dice as proper d6 face icons everywhere, instead of a mix of plain numbers in the Combat Log and numbers-in-boxes on the Command Re-roll row. The pip faces match the dice used in the Shooting resolution log and the animated dice roller, so dice look consistent across the whole game — gold for 6s, red for 1s, green/red for pass/fail against the target number.",
+			"changes": [
+				"Fight phase Combat Log: hit, wound, save and Feel No Pain rolls now render as inline d6 face icons (rounded square + pips) rather than bracketed number lists like [ 1 5 5 3 6 6 4 4 2 ].",
+				"Command Re-roll row: each clickable die now shows its face icon instead of a number in a square; hover it to see the value and re-roll it.",
+				"Dice colours follow the same rules as the rest of the game: 6 = gold (critical), 1 = red (fumble), and otherwise green when the roll passes its target and red when it fails.",
+				"Command Re-roll results in the log now show the original face → the new face as icons too."
 			]
 		},
 		{
