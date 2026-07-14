@@ -10,6 +10,7 @@ signal weapon_order_confirmed(weapon_order: Array, fast_roll: bool)
 # hit roll and wound roll of the current weapon, driving these:
 signal staged_continue_requested(next_step: String)      # "wounds" or "saves"
 signal staged_reroll_requested(stage: String, die_index: int)  # Command Re-roll a hit/wound die
+signal staged_fast_finish_requested()                    # "Fast Roll" — resolve the rest with no more pauses
 
 # Weapon ordering data
 var weapon_assignments: Array = []  # Original assignments from shooting phase
@@ -31,9 +32,13 @@ var dice_log_rich_text: RichTextLabel
 
 # Staged-resolution UI
 var staged_continue_button: Button   # "Roll to Wound ▶" / "Continue to Saving Throws ▶"
+var fast_finish_button: Button       # "Fast Roll ⏩" — skip remaining pauses (single-weapon staged)
 var reroll_label: Label              # "Command Re-roll available (1 CP)…"
 var reroll_row: HBoxContainer        # one button per die to re-roll
 var current_stage: String = ""       # "hits" | "wounds" while paused
+# When true this dialog was opened for a SINGLE weapon and auto-started the
+# step-by-step roll (hit → pause → wound → pause → saves) with no ordering step.
+var _single_weapon_staged: bool = false
 
 func _ready() -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -113,6 +118,19 @@ func _ready() -> void:
 	WhiteDwarfTheme.apply_primary_button(staged_continue_button)
 	button_hbox.add_child(staged_continue_button)
 	staged_continue_button.visible = false
+
+	# "Fast Roll" escape for the single-weapon step-by-step flow: resolve the rest
+	# of the shot at once (skip the remaining hit/wound pauses). Only shown while a
+	# single-weapon staged resolution is paused.
+	fast_finish_button = Button.new()
+	fast_finish_button.name = "FastFinishButton"
+	fast_finish_button.text = "Fast Roll ⏩"
+	fast_finish_button.tooltip_text = "Resolve the rest of this shot at once (skip the remaining step-by-step pauses)"
+	fast_finish_button.pressed.connect(_on_fast_finish_pressed)
+	fast_finish_button.custom_minimum_size = Vector2(140, 42)
+	WhiteDwarfTheme.apply_secondary_button(fast_finish_button)
+	button_hbox.add_child(fast_finish_button)
+	fast_finish_button.visible = false
 
 	close_button = Button.new()
 	close_button.name = "CloseButton"
@@ -279,6 +297,50 @@ func setup(assignments: Array, phase = null) -> void:
 	print("║ Total weapon types: %d" % weapon_order.size())
 	print("║ Skipped assignments: %d" % skipped_count)
 	print("╚═══════════════════════════════════════════════════════════════")
+
+	# SINGLE-WEAPON STEP-BY-STEP: with only one weapon type there is nothing to
+	# order, so skip the ordering step entirely and go straight into staged
+	# resolution — the attacker immediately sees the to-hit roll, can Command
+	# Re-roll, then continues to the wound roll, then saves. Deferred so setup()
+	# fully returns before the (synchronous) resolution chain runs.
+	if weapon_order.size() == 1 and not NetworkManager.is_networked():
+		call_deferred("_auto_start_single_weapon")
+
+func _auto_start_single_weapon() -> void:
+	"""Kick off staged step-by-step resolution for a single-weapon shot."""
+	if is_resolving:
+		return  # guard against a double-trigger
+	_single_weapon_staged = true
+
+	# Name the weapon + target so the header reads naturally (ordering is hidden).
+	var wid = weapon_order[0]
+	var data = weapon_data.get(wid, {})
+	var wname = data.get("name", wid)
+	var tname = ""
+	var assigns = data.get("assignments", [])
+	if not assigns.is_empty():
+		var tid = assigns[0].get("target_unit_id", "")
+		if current_phase and current_phase.has_method("get_unit"):
+			var tunit = current_phase.get_unit(tid)
+			if tunit and not tunit.is_empty():
+				tname = tunit.get("meta", {}).get("name", tid)
+		if tname == "":
+			tname = tid
+
+	title = "Shooting — %s" % wname
+
+	# Hide the (meaningless) ordering controls for a single weapon.
+	fast_roll_button.visible = false
+	start_sequence_button.visible = false
+
+	# Start the staged sequence (rolls the hit roll and pauses).
+	_on_start_sequence_pressed()
+
+	# Restore a single-weapon-friendly instruction (start overwrote it).
+	if tname != "":
+		instruction_label.text = "Firing %s at %s.\nRoll to Hit, then continue to the wound roll. You can Command Re-roll a die at each step." % [wname, tname]
+	else:
+		instruction_label.text = "Firing %s.\nRoll to Hit, then continue to the wound roll. You can Command Re-roll a die at each step." % wname
 
 func _compare_weapon_damage(a: String, b: String) -> bool:
 	"""Compare weapon damage for sorting (used by sort_custom)"""
@@ -546,6 +608,8 @@ func _on_stage_paused(stage: String, info: Dictionary) -> void:
 		staged_continue_button.text = "Continue to Saving Throws ▶"
 		staged_continue_button.tooltip_text = "Hand off to the defender to make saving throws"
 	staged_continue_button.visible = true
+	# Single-weapon step-by-step: offer a Fast Roll escape to resolve the rest at once.
+	fast_finish_button.visible = _single_weapon_staged
 	close_button.visible = false
 	# Command Re-roll affordance
 	if reroll_available:
@@ -592,6 +656,7 @@ func _on_reroll_die_pressed(die_index: int) -> void:
 
 func _on_staged_continue_pressed() -> void:
 	staged_continue_button.visible = false
+	fast_finish_button.visible = false
 	reroll_label.visible = false
 	reroll_row.visible = false
 	_clear_reroll_row()
@@ -603,6 +668,19 @@ func _on_staged_continue_pressed() -> void:
 		emit_signal("staged_continue_requested", "saves")
 		hide()
 		queue_free()
+
+func _on_fast_finish_pressed() -> void:
+	# "Fast Roll": resolve the remaining step(s) of this shot without further
+	# pauses, then free the dialog so the saving-throw overlay (or the completion
+	# dialog, if no wounds) can take over.
+	staged_continue_button.visible = false
+	fast_finish_button.visible = false
+	reroll_label.visible = false
+	reroll_row.visible = false
+	_clear_reroll_row()
+	emit_signal("staged_fast_finish_requested")
+	hide()
+	queue_free()
 
 func _add_to_dice_log(text: String, color: Color) -> void:
 	"""Add colored text to dice log"""

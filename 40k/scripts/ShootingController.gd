@@ -2898,6 +2898,8 @@ func _connect_staged_dialog_signals(dialog) -> void:
 		dialog.staged_continue_requested.connect(_on_staged_continue_requested)
 	if dialog.has_signal("staged_reroll_requested") and not dialog.staged_reroll_requested.is_connected(_on_staged_reroll_requested):
 		dialog.staged_reroll_requested.connect(_on_staged_reroll_requested)
+	if dialog.has_signal("staged_fast_finish_requested") and not dialog.staged_fast_finish_requested.is_connected(_on_staged_fast_finish_requested):
+		dialog.staged_fast_finish_requested.connect(_on_staged_fast_finish_requested)
 
 func _on_staged_continue_requested(next_step: String) -> void:
 	# next_step: "wounds" (roll to wound) or "saves" (hand off to saving throws)
@@ -2913,6 +2915,11 @@ func _on_staged_reroll_requested(stage: String, die_index: int) -> void:
 		"type": "USE_SHOOTING_REROLL",
 		"payload": {"stage": stage, "die_index": die_index}
 	})
+
+func _on_staged_fast_finish_requested() -> void:
+	# "Fast Roll" from a staged pause — resolve the rest of the shot with no more pauses.
+	print("ShootingController: staged Fast Roll — finishing shot without further pauses")
+	emit_signal("shoot_action_requested", {"type": "FAST_FINISH_SHOOTING"})
 
 func _on_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> void:
 	"""Handle weapon order confirmation from WeaponOrderDialog"""
@@ -4944,6 +4951,16 @@ func _post_assign_ui_update(weapon_id: String, target_id: String, chosen_model_i
 	# Refresh damage preview
 	_last_preview_target_id = ""
 	_update_damage_preview(weapon_id)
+
+	# Refresh the "Current Targets" basket + confirm/clear/undo buttons.
+	# CRITICAL: this must run here (not only at the synchronous _update_ui_state()
+	# call in _select_target_for_current_weapon) because the split-fire picker and
+	# the [DEVASTATING WOUNDS] ability dialog commit the assignment ASYNCHRONOUSLY
+	# from their confirm callbacks — long after that synchronous call already ran
+	# against an empty weapon_assignments map. Without this, a board-click that
+	# opens the picker would populate the forecast but leave CURRENT TARGETS empty,
+	# while quick-assign (which calls _update_ui_state directly) worked fine.
+	_update_ui_state()
 
 # SPLIT-FIRE: Re-render the column-2 text of a weapon row to show every pending
 # (target → count) entry for that weapon. Called after every assign / undo /

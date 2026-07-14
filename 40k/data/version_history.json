@@ -2,12 +2,73 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.43.6",
+			"version": "0.44.1",
 			"date": "2026-07-14",
 			"summary": "Fight-phase cleanup: rejected fight actions now tell you WHY, and two dead leftover buttons were removed. Previously, when a fight action was refused (for example, clicking a unit to fight before the Pile In step had finished), the game showed a red 'Fight action failed: Unknown error' banner that hid the real reason. It now shows the actual rule, e.g. 'The Pile In step (12.02) must finish before units are selected to fight'. The old per-unit 'Pile In' and 'Consolidate' buttons in the fight side panel — a leftover from the 10th-edition rules where those were part of each unit's activation — have been removed; in the current rules pile-in and consolidation are handled by their own dedicated steps, and those two buttons were permanently greyed out and did nothing.",
 			"changes": [
 				"Rejected fight actions now show the real reason instead of a generic 'Unknown error'. The same fix also restores the real message for rejected Shooting and Charge actions.",
 				"Removed the non-functional per-unit 'Pile In' / 'Consolidate' buttons from the Fight controls panel — pile-in and consolidation are driven by their own dedicated on-screen steps, so those buttons were dead controls that could never be clicked."
+			]
+		},
+		{
+			"version": "0.44.0",
+			"date": "2026-07-14",
+			"summary": "Models on non-circular bases (bikes, and vehicles like the Caladius Grav-tank or a rectangular Battlewagon) can now be pivoted about their centre while piling in — exactly the way you already rotate them in the Movement phase. Right-click-drag a model during pile-in to turn it, or use the Q/E rotate keys, so an oval or rectangular base can be oriented to reach the enemy. As in the Movement phase, the 2\" pivot cost is counted against the model's 3\" pile-in move, so a model that turns can only shuffle 1\" of ground; round infantry bases don't need to pivot and are unaffected.",
+			"changes": [
+				"Pile in: right-click-drag (or press Q / E) to rotate a model on a non-circular base about its centre, matching the Movement-phase rotation controls — useful for pointing a bike or tank so its long base reaches into combat.",
+				"The pivot costs 2\" out of the 3\" pile-in move (Pariah Nexus rule), so a model that turns can still move up to 1\"; the move is rejected if a turn-plus-shuffle would exceed that reduced allowance.",
+				"Only bases that actually need to pivot can be turned — any non-round base, or a round base over 32mm on a flying stem for a Vehicle; standard round infantry bases are left as-is.",
+				"The new facing is saved with the model and applied when the pile-in is confirmed, so a bike/tank keeps the way you turned it. Rotation also works the same way in the end-of-phase Consolidate step."
+			]
+		},
+		{
+			"version": "0.43.10",
+			"date": "2026-07-14",
+			"summary": "AI actions no longer pop up in a separate floating window — they're now shown only in the Game Log. Previously, when the computer took its turn (or reacted during yours), a small 'AI Actions' ticker appeared in the bottom-right corner duplicating what the AI was thinking and doing, then faded away. That information was useful but easy to miss and cluttered the board. All of it — the AI's reasoning, the actions it takes, and (in AI-vs-AI spectator games) the per-phase summaries — now flows into the left-hand Game Log panel like every other event, so there's a single place to follow the whole battle and nothing pops up over the battlefield.",
+			"changes": [
+				"Removed the separate bottom-right 'AI Actions' pop-up overlay. The AI's reasoning and actions already appear in the Game Log, so this window was redundant and could briefly cover the board.",
+				"AI-vs-AI spectator per-phase summaries (e.g. 'Units moved: 3, Units advanced: 1') are now written into the Game Log as an entry instead of only showing in the old pop-up.",
+				"No information is lost — everything the pop-up showed is in the Game Log panel, which you can filter (AI, Move, Shoot, etc.) and scroll back through at any time."
+			]
+		},
+		{
+			"version": "0.43.9",
+			"date": "2026-07-14",
+			"summary": "Single-weapon shooting now steps through the dice roll-by-roll, just like a unit firing several weapon types already did. When you select a unit, pick a target and confirm, the game now opens a pop-up that rolls to hit and PAUSES so you can read the result (and spend Command Re-roll on a die), then rolls to wound and PAUSES again, before handing off to the defender's saving throws. Previously a single-weapon shot rolled its hits and wounds together in one go and jumped straight to saves, so there was no window to react between the hit and wound rolls. A 'Fast Roll' button in the pop-up resolves the rest at once whenever you don't want to step through.",
+			"changes": [
+				"Shooting with a single weapon type now shows the same step-by-step roll pop-up that multi-weapon shooting uses: Roll to Hit → (pause) → Roll to Wound → (pause) → Saving throws.",
+				"Command Re-roll (1 CP) is now offered on the hit roll AND the wound roll of a single-weapon shot — click a die in the pop-up to re-roll it (once per phase), the same as when firing multiple weapons.",
+				"Added a 'Fast Roll' button to the roll pop-up: from either pause it resolves the remaining rolls immediately and goes straight to saves, so you're never forced to click through when you don't need to.",
+				"Firing several weapon types is unchanged — you still get the weapon-ordering pop-up first, then choose Fast Roll or step through the sequence."
+			]
+		},
+		{
+			"version": "0.43.8",
+			"date": "2026-07-14",
+			"summary": "Fixed shooting-phase target assignment by clicking on an enemy unit not filling the 'Current Targets' list. When you selected a weapon and clicked an enemy that had several of your models able to fire at it, the Split Fire picker opened, you chose how many to send, and the assignment was actually made — but the 'Current Targets' panel stayed empty and the 'Confirm Targets' button stayed greyed out, so it looked like nothing happened and you couldn't proceed. Assigning via the 'Quick Assign' buttons worked because it refreshed the panel directly. Now the panel and buttons refresh after every target you commit, whichever way you assigned it.",
+			"changes": [
+				"Fixed: clicking an enemy unit to assign shooting targets now fills the 'Current Targets' list and enables 'Confirm Targets'. Previously, assignments made through the Split Fire picker (or the Devastating Wounds choice prompt) committed silently — the target was assigned but the on-screen list and buttons never updated.",
+				"The fix refreshes the assignment UI at the moment the assignment is actually committed, so it works the same whether the picker/choice dialog was involved or not — matching how the 'Quick Assign' and 'Apply to All' buttons already behaved."
+			]
+		},
+		{
+			"version": "0.43.7",
+			"date": "2026-07-14",
+			"summary": "Moved the AI Turn Summary into the game log instead of a floating pop-up. After each computer turn a summary of what the AI did (units moved, reinforcements arrived, charges declared, units fought, etc.) used to appear as a separate window pinned to the right-hand side of the screen — but it was drawn on top of the existing menus and combat log, so it overlapped them and was awkward to read. That pop-up is gone. The same summary now appears as a single card in the right-hand game log, labelled 'AI Turn Summary', with the full per-phase breakdown shown by default so you can read it at a glance — plus a 'hide details' toggle if you want to collapse it. It filters with the log's 'AI' category and can be clicked to review the board at that point in the game.",
+			"changes": [
+				"The post-turn 'AI Turn Summary' no longer appears as a separate pop-up window that covered the existing menus.",
+				"The same information (units moved, reinforcements, charges, fights, stratagems, notable moments) is now logged as an 'AI Turn Summary' card in the right-hand game log, expanded by default so the full per-phase breakdown is visible.",
+				"Use the card's 'hide details' toggle to collapse it; it hides/shows with the log's 'AI' filter like other AI entries."
+			]
+		},
+		{
+			"version": "0.43.6",
+			"date": "2026-07-14",
+			"summary": "The charge phase's 'UNITS THAT CAN CHARGE' list now only shows units that actually have an enemy within 12\" — i.e. a target that a charge could reach. Previously the list showed every unit that was allowed to charge, even ones with no enemy anywhere near them, so you'd select a unit expecting to charge and find an empty 'ELIGIBLE TARGETS' box. The list is now filtered so every unit shown has at least one reachable target, which is far less confusing.",
+			"changes": [
+				"Charge phase: 'UNITS THAT CAN CHARGE' now lists only units with at least one enemy within 12\" (a target a charge could reach). Units eligible to charge but with no enemy in range are hidden.",
+				"The 'ELIGIBLE TARGETS' list a selected unit shows is now guaranteed non-empty — selecting any listed unit always presents at least one target.",
+				"The 'X eligible' charge counter in the right panel now counts only these in-range units, so it matches the list you see."
 			]
 		},
 		{

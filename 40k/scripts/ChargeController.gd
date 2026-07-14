@@ -636,11 +636,18 @@ func _refresh_ui() -> void:
 	
 	# Use ChargePhase's eligible units method which respects completed_charges
 	var eligible_unit_ids = current_phase.get_eligible_charge_units()
+	# Only surface units that actually have an enemy within 12" (a chargeable
+	# target). A unit can be "eligible to charge" per the rules yet have no target
+	# in range, which was reported as confusing — it appears chargeable but
+	# selecting it shows an empty ELIGIBLE TARGETS list. Filtering here keeps the
+	# UNITS THAT CAN CHARGE list consistent with the targets each unit can reach.
+	var chargeable_unit_ids = _filter_units_with_charge_targets(eligible_unit_ids)
 	var current_player = current_phase.get_current_player()
 	var units = current_phase.get_units_for_player(current_player)
-	
+
 	print("ChargeController: Refreshing UI for player ", current_player)
 	print("ChargeController: Eligible units from phase: ", eligible_unit_ids)
+	print("ChargeController: Chargeable (target within 12\") units: ", chargeable_unit_ids)
 	print("ChargeController: Completed charges: ", current_phase.get_completed_charges() if current_phase.has_method("get_completed_charges") else "N/A")
 	
 	# Debug help: Show why units might not be eligible
@@ -669,9 +676,12 @@ func _refresh_ui() -> void:
 				print("    BLOCKED: Unit has already charged this phase")
 			else:
 				print("    SHOULD BE ELIGIBLE - this might be a bug")
-	
+	elif chargeable_unit_ids.is_empty():
+		# Units can charge per the rules but none has an enemy within 12".
+		print("ChargeController: ", eligible_unit_ids.size(), " unit(s) can charge but none has a target within 12\" — none shown.")
+
 	var can_charge_count = 0
-	for unit_id in eligible_unit_ids:
+	for unit_id in chargeable_unit_ids:
 		if unit_id in units:
 			var unit = units[unit_id]
 			can_charge_count += 1
@@ -681,7 +691,7 @@ func _refresh_ui() -> void:
 			unit_selector.add_item(unit_name)
 			unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
 			print("    Added eligible unit ", unit_id, " (", unit_name, ") to selector")
-	
+
 	print("ChargeController: Found ", can_charge_count, " units that can still charge")
 	
 	# CRITICAL: Ensure charge buttons exist and remain visible after refresh
@@ -695,6 +705,31 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	var unit_id = unit.get("id", "")
 	var board = GameState.create_snapshot()
 	return RulesEngine.eligible_to_charge(unit_id, board)
+
+func get_displayed_charge_unit_ids() -> Array:
+	# The unit ids currently listed in the UNITS THAT CAN CHARGE selector, i.e.
+	# after the target-within-12" filter. Read-only accessor exposed for windowed
+	# scenario tests / tooling so they can assert exactly which units are shown.
+	var ids: Array = []
+	if not is_instance_valid(unit_selector):
+		return ids
+	for i in range(unit_selector.get_item_count()):
+		ids.append(unit_selector.get_item_metadata(i))
+	return ids
+
+func _filter_units_with_charge_targets(unit_ids: Array) -> Array:
+	# Keep only units that have at least one enemy within 12" (a chargeable
+	# target). Uses the SAME RulesEngine query that populates the ELIGIBLE TARGETS
+	# list (charge_targets_within_12), so a unit is shown in UNITS THAT CAN CHARGE
+	# only when selecting it would actually offer a target to charge. This is a
+	# display-only refinement; the phase's own eligibility (used by AI / phase
+	# logic) is unchanged.
+	var result: Array = []
+	var board = GameState.create_snapshot()
+	for unit_id in unit_ids:
+		if not RulesEngine.charge_targets_within_12(unit_id, board).is_empty():
+			result.append(unit_id)
+	return result
 
 func _update_button_states() -> void:
 	if not current_phase:
@@ -2310,9 +2345,10 @@ func _update_ui_for_next_charge() -> void:
 	_ensure_charge_panel_visible()
 	_ensure_charge_buttons_exist()
 	
-	# Check if more units can charge
+	# Check if more units can charge (only those with a target within 12", to
+	# match what UNITS THAT CAN CHARGE now shows).
 	if current_phase and is_instance_valid(current_phase):
-		var eligible_units = current_phase.get_eligible_charge_units()
+		var eligible_units = _filter_units_with_charge_targets(current_phase.get_eligible_charge_units())
 		if eligible_units.size() > 0:
 			# Immediately show available units and update status
 			if is_instance_valid(charge_info_label):
@@ -2439,7 +2475,8 @@ func _update_charge_status() -> void:
 		return
 
 	var completed = current_phase.get_completed_charges().size()
-	var eligible = current_phase.get_eligible_charge_units().size()
+	# Count only units with a target within 12", matching the filtered list.
+	var eligible = _filter_units_with_charge_targets(current_phase.get_eligible_charge_units()).size()
 
 	if is_instance_valid(charge_status_label):
 		charge_status_label.text = "Charges: %d completed, %d eligible" % [completed, eligible]
