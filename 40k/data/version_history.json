@@ -2,13 +2,43 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.42.5",
+			"version": "0.42.8",
 			"date": "2026-07-14",
 			"summary": "Fixed the Charge phase 'Snap to Contact' button appearing to do nothing. The button (along with 'Undo Last Model') only ever appeared when you were actively moving a charging unit, but once you confirmed that charge — or between charges, or while a Command Re-roll prompt was still open — it was left on screen looking clickable even though there was nothing to move. Clicking it in those states silently did nothing. The Confirm / Snap to Contact / Undo Last Model buttons now hide together the moment a charge is finished, so 'Snap to Contact' is only shown when it will actually move models.",
 			"changes": [
 				"Fixed: the 'Snap to Contact' button no longer lingers on screen after a charge is confirmed (and between charges, and while a Command Re-roll dialog is open). Previously it stayed visible and enabled with nothing to move, so clicking it did nothing.",
 				"The 'Snap to Contact' and 'Undo Last Model' buttons now show only while you are actively positioning a charging unit, and 'Snap to Contact' is greyed out once every model is already in engagement range (use 'Confirm Charge Moves' at that point).",
 				"If 'Snap to Contact' is ever triggered with nothing to place, it now tells you why instead of doing nothing silently."
+			]
+		},
+		{
+			"version": "0.42.7",
+			"date": "2026-07-14",
+			"summary": "Fixed 'End Fight Phase' ending the fight for your opponent too. When you clicked End Fight Phase, the game forfeited every remaining combat — including your opponent's units that were still owed a fight — and jumped straight to consolidation. Now, ending the Fight phase only stops YOUR own units from fighting; your opponent still gets to fight all of their remaining eligible units (core rule 12.04: when one player stops selecting, the other fights all their remaining units). The confirmation warning also lists only your own unfought units now, not your opponent's.",
+			"changes": [
+				"Fixed: clicking 'End Fight Phase' no longer forfeits your opponent's fights. Only your own remaining units stop fighting — the opponent's eligible units are handed the Fight step and their selection dialog re-opens so they can fight.",
+				"The 'End Fight Phase?' warning now lists only the units YOU would forfeit (your own), instead of also listing the opponent's units as 'won't fight' — which was misleading, since they still get to fight.",
+				"Once your opponent has also finished fighting (or has nothing eligible), ending the Fight phase proceeds to the Consolidate step as before."
+			]
+		},
+		{
+			"version": "0.42.6",
+			"date": "2026-07-14",
+			"summary": "Fixed the red enemy 'engagement range' circles from the Movement phase lingering on the board after you advanced to the Shooting phase. Those red rings are only there to show where your models can't move during your Movement phase; they now clear away the moment the phase ends, so the Shooting phase board is no longer cluttered by them.",
+			"changes": [
+				"Fixed: the red engagement-range rings drawn around enemy units during the Movement phase (the 'don't move here' circles) no longer stay on the board once you move on to the Shooting phase — they are cleared when the Movement phase ends.",
+				"The same cleanup also removes the leftover blue move-range and coherency overlays that could linger past the Movement phase, so nothing movement-only survives into the next phase."
+			]
+		},
+		{
+			"version": "0.42.5",
+			"date": "2026-07-14",
+			"summary": "The melee (Fight) resolution window now shows dice as proper d6 face icons everywhere, instead of a mix of plain numbers in the Combat Log and numbers-in-boxes on the Command Re-roll row. The pip faces match the dice used in the Shooting resolution log and the animated dice roller, so dice look consistent across the whole game — gold for 6s, red for 1s, green/red for pass/fail against the target number.",
+			"changes": [
+				"Fight phase Combat Log: hit, wound, save and Feel No Pain rolls now render as inline d6 face icons (rounded square + pips) rather than bracketed number lists like [ 1 5 5 3 6 6 4 4 2 ].",
+				"Command Re-roll row: each clickable die now shows its face icon instead of a number in a square; hover it to see the value and re-roll it.",
+				"Dice colours follow the same rules as the rest of the game: 6 = gold (critical), 1 = red (fumble), and otherwise green when the roll passes its target and red when it fails.",
+				"Command Re-roll results in the log now show the original face → the new face as icons too."
 			]
 		},
 		{
