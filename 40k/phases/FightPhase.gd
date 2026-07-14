@@ -3449,7 +3449,7 @@ func _find_closest_enemy_position(unit_id: String, from_pos: Vector2) -> Vector2
 
 	return closest_pos
 
-const BASE_CONTACT_TOLERANCE_INCHES: float = 0.25  # Match RulesEngine tolerance for digital positioning
+const BASE_CONTACT_TOLERANCE_INCHES: float = 0.1  # Match RulesEngine tolerance for digital positioning (was 0.25 — too generous)
 
 func _is_model_in_base_contact_with_enemy(unit_id: String, model_id: String) -> bool:
 	"""T4-5: Check if a model is currently in base-to-base contact with any enemy model.
