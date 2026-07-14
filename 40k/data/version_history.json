@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.43.0",
+			"date": "2026-07-14",
+			"summary": "Charge moves can now be made in multiple steps, exactly like Movement-phase moves. Previously, once you dragged a charging model and let go, that model was 'done' — you couldn't pick it up again, so there was no way to route it around a wall, terrain, or your own models and still use the rest of your charge distance. Now each charging model can be dragged as many times as you like; every drag adds to the total distance used and the model can keep moving until it reaches engagement range or spends its charge roll. Only 'Confirm Charge Moves' finalises the charge.",
+			"changes": [
+				"Multi-step charge movement: drag a charging model, release, then drag it again — each hop accumulates toward the model's charge distance (the 'Used'/'Left' readout updates across hops), so you can steer around obstacles instead of being limited to a single straight drag.",
+				"A charging model that has already been placed can be picked up and moved again before you confirm; the total path is capped at the charge roll, and an over-budget drag is rejected (the model snaps back) just like in the Movement phase.",
+				"The 'ends closer to a target' charge rule is now measured against where the model STARTED its charge, not the start of the current hop, so an intermediate sideways step around cover no longer gets wrongly rejected.",
+				"Confirming a multi-step charge sends the real multi-point path to the rules engine, so a route you carefully steered around terrain is validated as-drawn (it won't be second-guessed by a straight line cutting back through the terrain you avoided)."
+			]
+		},
+		{
 			"version": "0.42.4",
 			"date": "2026-07-13",
 			"summary": "Fixed the confusing 'consolidate failed — skipping movement' messages in the Fight phase. When a unit had no legal Consolidation move — most commonly right after it wiped out the only enemy it was fighting, with no other enemy or objective within 3\" — the AI would still try to shuffle it toward the nearest objective (even one 10\"+ away), the rules would correctly reject the move, and the log filled with alarming 'consolidate failed' / 'validation failed' lines. The unit still couldn't legally move (that part was correct 10th-edition behaviour: Consolidation must end closer to an enemy within 3\" or an objective within 3\"), but the game now recognises that up front and the unit simply holds position — no scary 'failed' spam.",
