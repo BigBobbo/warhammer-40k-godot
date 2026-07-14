@@ -33,6 +33,14 @@ var moved_models: Dictionary = {}  # model_id -> new_position
 var _moved_model_order: Array = []  # Order in which models were moved (for last-undone)
 var _model_origin_positions: Dictionary = {}  # model_id -> Vector2 pre-charge position
 var _model_origin_rotations: Dictionary = {}  # model_id -> float pre-charge rotation
+# Multi-step charge movement (mirrors the Movement phase): a charging model may be
+# dragged in several hops around terrain/obstacles, each hop adding to the total
+# distance until the charge roll is spent or the move is confirmed. This holds the
+# full waypoint list (origin first) per model so (a) the accumulated distance is
+# capped against the charge roll and (b) the real multi-segment polyline is sent to
+# ChargePhase for terrain-aware validation instead of a straight line that could cut
+# back through terrain the player carefully routed around.
+var _model_charge_paths: Dictionary = {}  # model_id -> Array[Vector2] waypoints incl. origin
 var undo_charge_model_button: Button = null
 var auto_path_charge_button: Button = null  # T-092: auto-suggests valid charge positions
 # T-092: Snap-to-contact fallback sweep — approach-direction offsets (degrees)
@@ -206,8 +214,11 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 		var unit_id = child.get_meta("unit_id")
 		var model_id = child.get_meta("model_id")
 
-		# Check if this is our charging unit and a model we need to move
-		if unit_id != active_unit_id or model_id not in models_to_move:
+		# Check if this is our charging unit and a model we can move. Multi-step:
+		# a model that has already been placed (in moved_models) can be picked up
+		# again to continue its move around terrain until the charge distance is
+		# spent or the move is confirmed — not just models still at their origin.
+		if unit_id != active_unit_id or (model_id not in models_to_move and model_id not in moved_models):
 			continue
 
 		# Check if the click is on this token
@@ -1122,6 +1133,7 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 	_moved_model_order.clear()  # T-092: reset undo stack
 	_model_origin_positions.clear()  # T-092: reset origin cache
 	_model_origin_rotations.clear()  # T-092
+	_model_charge_paths.clear()  # multi-step: reset per-model hop paths
 	_clear_movement_visuals()
 
 	# Get all alive models in the unit
@@ -1145,6 +1157,7 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 					p = pos
 				_model_origin_positions[model_id] = p
 				_model_origin_rotations[model_id] = model.get("rotation", 0.0)
+				_model_charge_paths[model_id] = [p]  # multi-step: path starts at the origin
 			print("DEBUG: Added model ", model_id, " to models_to_move")
 	
 	print("Models to move: ", models_to_move)
@@ -1311,6 +1324,12 @@ func _on_undo_last_charge_model() -> void:
 	# Restore GameState position + rotation
 	var origin_pos: Vector2 = _model_origin_positions.get(model_id, Vector2.ZERO)
 	var origin_rot: float = _model_origin_rotations.get(model_id, 0.0)
+	# Multi-step: undo removes ALL of this model's hops — discard its recorded path
+	# so it re-drags fresh from the origin with the full charge distance available.
+	if origin_pos != Vector2.ZERO:
+		_model_charge_paths[model_id] = [origin_pos]
+	else:
+		_model_charge_paths[model_id] = []
 	if origin_pos != Vector2.ZERO and active_unit_id != "":
 		_update_model_position_in_gamestate(active_unit_id, model_id, origin_pos)
 		_move_token_visual(active_unit_id, model_id, origin_pos, origin_rot)
@@ -1490,13 +1509,16 @@ func _update_model_drag(world_pos: Vector2) -> void:
 		else:
 			ghost_visual.modulate = Color(1, 0, 0, 0.7)  # Red for invalid
 
-	# Calculate distance moved for display (including terrain penalty - T2-8)
+	# Calculate distance moved for display (including terrain penalty - T2-8).
+	# original_pos is this HOP's start; add the distance already committed on
+	# earlier hops so the preview shows the running total against the charge roll.
 	var original_pos = dragging_model.get("original_position")
 	if original_pos:
 		var distance_moved_px = original_pos.distance_to(effective_pos)
 		var distance_moved_inches = Measurement.px_to_inches(distance_moved_px)
 		var terrain_penalty = _calculate_terrain_penalty_for_path(original_pos, effective_pos)
-		var effective_distance = distance_moved_inches + terrain_penalty
+		var prior_distance = _get_model_charge_accumulated(model_id)
+		var effective_distance = prior_distance + distance_moved_inches + terrain_penalty
 
 		# P3-98: Update distance display with preview (show effective distance including terrain breakdown)
 		_update_charge_distance_display_with_preview(effective_distance, is_valid, terrain_penalty)
@@ -1530,16 +1552,24 @@ func _end_model_drag(world_pos: Vector2) -> void:
 	if _validate_charge_position(dragging_model, final_pos):
 		print("Model ", model_id, " moved to valid position")
 		
-		# Calculate and store distance moved
+		# Calculate and store distance moved. start_pos is the model's position at
+		# the START of this hop (GameState is not updated until below), which is the
+		# origin on the first hop and the previous drop on later hops.
 		var start_pos = _get_model_position(dragging_model)
 		if start_pos:
-			var distance_moved_px = start_pos.distance_to(final_pos)
-			var distance_moved_inches = Measurement.px_to_inches(distance_moved_px)
-			# P3-98: Include terrain penalty in final distance display
-			var terrain_penalty = _calculate_terrain_penalty_for_path(start_pos, final_pos)
+			# Multi-step: append this hop's endpoint to the model's recorded path so
+			# the accumulated distance and the real polyline survive to the confirm.
+			# The path's last point is this hop's start (origin on the first hop).
+			var hop_path: Array = _model_charge_paths.get(model_id, [])
+			if hop_path.is_empty():
+				hop_path = [start_pos]
+			hop_path.append(final_pos)
+			_model_charge_paths[model_id] = hop_path
 
-			# Update distance display for this model (with terrain breakdown)
-			_update_charge_distance_display(model_id, distance_moved_inches, terrain_penalty)
+			# Show the TOTAL distance spent across all hops (not just this one) so the
+			# player can see how much of the charge roll remains for further steps.
+			var accumulated_inches = _get_model_charge_accumulated(model_id)
+			_update_charge_distance_display(model_id, accumulated_inches, 0.0)
 
 		# Store the new position AND rotation
 		moved_models[model_id] = {
@@ -1869,8 +1899,26 @@ func _refine_snap_position(model: Dictionary, target_model: Dictionary, initial_
 	# Return the midpoint of our final range (should be very close to contact)
 	return (far_pos + near_pos) * 0.5
 
+# Multi-step charge: total inches already committed by a model across every
+# previous hop this charge (straight-line + per-segment terrain penalty), matching
+# how ChargePhase measures the confirmed polyline path. Returns 0 for a model that
+# is still at its origin (path has only the origin point).
+func _get_model_charge_accumulated(model_id: String) -> float:
+	var path = _model_charge_paths.get(model_id, [])
+	if path.size() < 2:
+		return 0.0
+	var total := 0.0
+	for i in range(1, path.size()):
+		total += Measurement.px_to_inches(path[i - 1].distance_to(path[i]))
+		total += _calculate_terrain_penalty_for_path(path[i - 1], path[i])
+	return total
+
 func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
-	# Check 1: Movement distance (including terrain penalty - T2-8)
+	var model_id = model.get("id", "")
+
+	# Check 1: Movement distance (including terrain penalty - T2-8).
+	# old_pos is the model's CURRENT position — its origin on the first hop, or the
+	# previous drop position on later hops of a multi-step charge move.
 	var old_pos = _get_model_position(model)
 	if old_pos == null:
 		return false
@@ -1881,12 +1929,19 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 	var terrain_penalty = _calculate_terrain_penalty_for_path(old_pos, new_pos)
 	var effective_distance = distance_moved + terrain_penalty
 
-	if effective_distance > charge_distance + MOVEMENT_CAP_EPSILON:
+	# Multi-step: this hop is capped by whatever charge distance remains after the
+	# hops already committed — the whole path must fit inside the charge roll, just
+	# like accumulated movement in the Movement phase.
+	var prior_distance = _get_model_charge_accumulated(model_id)
+	var total_distance = prior_distance + effective_distance
+
+	if total_distance > charge_distance + MOVEMENT_CAP_EPSILON:
 		if terrain_penalty > 0.0:
-			print("Movement too far with terrain: %.1f\" + %.1f\" terrain = %.1f\" > %d\"" % [
-				distance_moved, terrain_penalty, effective_distance, charge_distance])
+			print("Movement too far with terrain: %.1f\" prior + %.1f\" + %.1f\" terrain = %.1f\" > %d\"" % [
+				prior_distance, distance_moved, terrain_penalty, total_distance, charge_distance])
 		else:
-			print("Movement too far: ", distance_moved, " > ", charge_distance)
+			print("Movement too far: %.1f\" prior + %.1f\" = %.1f\" > %d\"" % [
+				prior_distance, distance_moved, total_distance, charge_distance])
 		return false
 
 	# Check 2: Model overlap detection
@@ -1900,10 +1955,17 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 		print("Charge move would place model off the board")
 		return false
 
-	# Check 3: Must end closer to at least one declared target (10e rule)
-	# This gives live feedback during drag - final enforcement is in ChargePhase
+	# Check 3: Must end closer to at least one declared target (10e rule).
+	# The rule is about the WHOLE charge move, so this compares the candidate
+	# position to the model's PRE-CHARGE ORIGIN, not to the current hop's start.
+	# That lets a multi-step move take an intermediate hop that isn't itself closer
+	# than the previous hop (e.g. a sideways step around terrain) as long as the
+	# model still ends up closer than where it began. Final enforcement is in
+	# ChargePhase against path[0] -> path[-1]. On the first hop origin == old_pos,
+	# so single-step behaviour is unchanged.
+	var charge_origin = _model_origin_positions.get(model_id, old_pos)
 	var model_at_old = model.duplicate()
-	model_at_old["position"] = old_pos
+	model_at_old["position"] = charge_origin
 	var model_at_new = model.duplicate()
 	model_at_new["position"] = new_pos
 
@@ -1911,8 +1973,8 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 	if charge_targets.is_empty() and current_phase:
 		charge_targets = _get_charge_targets_from_phase(active_unit_id)
 
-	# Only enforce if the model actually moved a meaningful distance
-	if old_pos.distance_to(new_pos) > 1.0 and not charge_targets.is_empty():  # > 1 pixel
+	# Only enforce if the model actually moved a meaningful distance from its origin
+	if charge_origin.distance_to(new_pos) > 1.0 and not charge_targets.is_empty():  # > 1 pixel
 		var ends_closer = false
 		for target_id in charge_targets:
 			var target = GameState.get_unit(target_id)
@@ -1961,7 +2023,23 @@ func _on_confirm_charge_moves() -> void:
 					old_pos = _get_model_position(model)
 					break
 
-		if old_pos and new_pos:
+		# Multi-step: emit the FULL recorded hop path (origin -> ... -> final) so the
+		# phase validates the real polyline the player dragged — its per-segment
+		# terrain sweep and total-distance measure only make sense on the actual
+		# route. A straight origin->final line could cut back through terrain the
+		# player routed around and be wrongly rejected (or wrongly accepted).
+		var hop_path: Array = _model_charge_paths.get(model_id, [])
+		if hop_path.size() >= 2 and old_pos and new_pos:
+			var pts: Array = []
+			for p in hop_path:
+				pts.append([p.x, p.y])
+			# Pin the endpoints to the authoritative origin/drop positions.
+			pts[0] = [old_pos.x, old_pos.y]
+			pts[pts.size() - 1] = [new_pos.x, new_pos.y]
+			per_model_paths[model_id] = pts
+			per_model_rotations[model_id] = new_rotation
+			print("DEBUG: Created multi-step path for ", model_id, " (%d points): " % pts.size(), per_model_paths[model_id], " with rotation: ", rad_to_deg(new_rotation))
+		elif old_pos and new_pos:
 			per_model_paths[model_id] = [[old_pos.x, old_pos.y], [new_pos.x, new_pos.y]]
 			per_model_rotations[model_id] = new_rotation
 			print("DEBUG: Created path for ", model_id, ": ", per_model_paths[model_id], " with rotation: ", rad_to_deg(new_rotation))
@@ -2028,6 +2106,16 @@ func _on_confirm_charge_moves() -> void:
 		# Token visuals are re-synced to GameState (pre-drag origins) by
 		# Main.update_after_charge_action(); drag ghosts/lines are stale now.
 		_clear_movement_visuals()
+		# Re-arm every charging model for re-positioning from its origin: their
+		# GameState positions have been reset to the pre-charge origins, so clear
+		# each recorded hop path back to [origin] and make them all pickable again
+		# (they were removed from models_to_move as they were dragged, and
+		# moved_models was just cleared, so without this nothing would be draggable).
+		models_to_move.clear()
+		for mid in _model_origin_positions:
+			if mid not in models_to_move:
+				models_to_move.append(mid)
+			_model_charge_paths[mid] = [_model_origin_positions[mid]]
 		awaiting_movement = true
 		_pending_complete_unit_id = ""
 		if is_instance_valid(confirm_button):
@@ -3702,6 +3790,9 @@ func _on_auto_path_charge() -> void:
 						continue
 					# Stage the move (mirroring _end_model_drag behavior)
 					moved_models[model_id] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
+					# Multi-step: record the single-hop path (origin -> placement) so the
+					# accumulated distance and confirmed polyline match dragged models.
+					_model_charge_paths[model_id] = [origin, candidate]
 					if model_id in _moved_model_order:
 						_moved_model_order.erase(model_id)
 					_moved_model_order.append(model_id)
