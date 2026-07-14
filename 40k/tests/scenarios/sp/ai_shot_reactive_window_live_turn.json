@@ -1,0 +1,37 @@
+{
+  "id": "ai_shot_reactive_window_live_turn",
+  "covers": [
+    "phases.ShootingPhase._maybe_open_reactive_window_for_ai_shot",
+    "phases.ShootingPhase._resume_after_reactive_decision",
+    "autoloads.AIPlayer._get_pending_reactive_window_player",
+    "autoloads.AIPlayer._evaluate_and_act.reactive_window_idle",
+    "ui.ai_shooting.defender_reactive_stratagem_live_turn"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "description": "Live end-to-end: a real AI shooting turn pauses for the human's reactive stratagem, shows the Go to Ground dialog, and then RESUMES (closing the re-wake gap). A P1 INFANTRY unit (Custodian Guard) is repositioned next to one AI shooter (Warboss in Mega Armour); every other DEPLOYED Ork shooter is flagged has_shot so exactly one shot fires (no decision churn). The AI (P2, Hard, Normal speed) is driven live: it selects the shooter and targets the human unit, at which point the shot PAUSES — reactive_stratagem_defender = P1, the StratagemDialog is shown to the human, and AIPlayer reports the window belongs to the human so the active AI idles. The human then declines; the AI resumes the shot and, having no other shooters, ends the Shooting phase and advances to Charge — proving the AI re-wakes after the pause rather than freezing.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"][0].merge({\"position\": {\"x\": 200.0, \"y\": 2150.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"][1].merge({\"position\": {\"x\": 260.0, \"y\": 2150.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"][2].merge({\"position\": {\"x\": 200.0, \"y\": 2210.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"][3].merge({\"position\": {\"x\": 260.0, \"y\": 2210.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"players\"][\"1\"].merge({\"cp\": 5}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_KAPTIN_BADRUKK_A\"][\"flags\"].merge({\"has_shot\": true}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_NOB_WAAAGH_BANNER_A\"][\"flags\"].merge({\"has_shot\": true}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WARBOSS_B\"][\"flags\"].merge({\"has_shot\": true}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WARBOSS_C\"][\"flags\"].merge({\"has_shot\": true}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WEIRDBOY_J\"][\"flags\"].merge({\"has_shot\": true}, true)" },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"}, {2: 2})" },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
+    { "act": "execute_script", "script": "GameState.set_active_player(2)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(8)" },
+    { "act": "wait_seconds", "seconds": 4.5 },
+    { "act": "execute_script", "script": "int(PhaseManager.get_current_phase_instance().reactive_stratagem_defender)", "equals": 1 },
+    { "act": "execute_script", "script": "GameState.get_tree().root.get_node_or_null(\"StratagemDialog\") != null", "equals": true },
+    { "act": "execute_script", "script": "int(AIPlayer._get_pending_reactive_window_player())", "equals": 1 },
+    { "act": "screenshot", "label": "01_live_ai_shot_go_to_ground_offered" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().execute_action({\"type\": \"DECLINE_REACTIVE_STRATAGEM\"}).get(\"success\", true) or true" },
+    { "act": "wait_seconds", "seconds": 6.0 },
+    { "act": "execute_script", "script": "int(GameState.get_current_phase()) != 8", "equals": true }
+  ]
+}
