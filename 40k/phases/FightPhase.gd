@@ -3427,8 +3427,10 @@ func _is_model_in_base_contact_with_enemy(unit_id: String, model_id: String) -> 
 		return false
 
 	var models = unit.get("models", [])
-	var model_index = int(model_id)
-	if model_index >= models.size():
+	# Resolve by id/index, not int(model_id) — int("m2") == 2 mis-indexes the
+	# 1-based model ids the FightController submits (m2 is at index 1).
+	var model_index = _fight_model_index_for_key(models, model_id)
+	if model_index < 0:
 		return false
 
 	var model = models[model_index]
@@ -3469,8 +3471,10 @@ func _validate_base_to_base_if_possible(unit_id: String, movements: Dictionary, 
 	var unit_owner = unit.get("owner", 0)
 
 	for model_id in movements:
-		var model_index = int(model_id)
-		if model_index >= models.size():
+		# Resolve by id/index, not int(model_id) — int("m2") == 2 mis-indexes
+		# the 1-based model ids the FightController submits.
+		var model_index = _fight_model_index_for_key(models, model_id)
+		if model_index < 0:
 			continue
 
 		var model = models[model_index]
@@ -4271,8 +4275,11 @@ func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: Strin
 	var temp_consolidating_unit = consolidating_unit.duplicate(true)
 	var temp_models = temp_consolidating_unit.get("models", [])
 	for model_id in movements:
-		var idx = int(model_id)
-		if idx < temp_models.size():
+		# Resolve by id/index, not int(model_id) — int("m2") == 2 mis-indexes
+		# the 1-based model ids the FightController submits, so the wrong model's
+		# position was moved when scanning post-consolidation fight eligibility.
+		var idx = _fight_model_index_for_key(temp_models, model_id)
+		if idx >= 0:
 			var new_pos = movements[model_id]
 			temp_models[idx]["position"] = {"x": new_pos.x, "y": new_pos.y}
 
@@ -4412,9 +4419,16 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 	for model_id in movements:
 		var new_pos = movements[model_id]
 		if new_pos is Vector2:
-			# Get the model data
-			var model_index = int(model_id) if model_id is String else model_id
-			if model_index < models.size():
+			# Resolve the movement key ("m2" id or "1" index) to an array index.
+			# NOT int(model_id): GDScript's int("m2") == 2 (it parses the trailing
+			# digits), which is off by one for the 1-based model ids the
+			# FightController submits (m2 is at index 1, not 2). That mis-index
+			# compared the moving model against a sibling's — and its own — stale
+			# position, producing phantom "would overlap with <unit>/N" errors
+			# during pile-in / consolidate, and skipped the last model entirely
+			# (int("m3") == size).
+			var model_index = _fight_model_index_for_key(models, model_id)
+			if model_index >= 0:
 				var model = models[model_index]
 
 				# Build model dict with new position
@@ -4437,10 +4451,17 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 						if not other_model.get("alive", true):
 							continue
 
-						# Get position (use new position if this model is also moving)
+						# Get position. If this other model is ALSO being moved in
+						# the same submission, compare against its proposed position
+						# rather than the stale one. Its movement may be keyed by
+						# index ("1") or by model id ("m2").
 						var other_position = _get_model_position(check_unit_id, str(i))
-						if check_unit_id == unit_id and movements.has(str(i)):
-							other_position = movements[str(i)]
+						if check_unit_id == unit_id:
+							var other_id = str(other_model.get("id", ""))
+							if movements.has(str(i)):
+								other_position = movements[str(i)]
+							elif other_id != "" and movements.has(other_id):
+								other_position = movements[other_id]
 
 						if other_position == null:
 							continue
@@ -5950,6 +5971,17 @@ func _resolve_fight_model(unit_id: String, key) -> Dictionary:
 		if str(i) == str(key) or str(models[i].get("id", "")) == str(key):
 			return models[i]
 	return {}
+
+func _fight_model_index_for_key(models: Array, key) -> int:
+	# A movement key may be an array index ("0") or a model id ("m1"). Return the
+	# matching array index, or -1 if none. Mirrors _resolve_fight_model so the
+	# overlap validator agrees with the rest of the fight-move pipeline. Do NOT
+	# use int(key): GDScript's int("m2") parses the trailing digits and returns
+	# 2, which is off by one for 1-based model ids (m2 is at index 1).
+	for i in models.size():
+		if str(i) == str(key) or str(models[i].get("id", "")) == str(key):
+			return i
+	return -1
 
 func _simulate_fight_board_with_movements(unit_id: String, movements: Dictionary) -> Dictionary:
 	# Deep copy of live state with the proposed model positions applied —

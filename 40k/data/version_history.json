@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.42.8",
+			"date": "2026-07-14",
+			"summary": "Fixed a Fight-phase bug that falsely blocked Pile In and Consolidate moves. When you tried to pile in a unit whose models are numbered from 1 (Warbikers, and most multi-model units), the game could wrongly claim a model 'would overlap' with one of its own squadmates — comparing the model against its own old position instead of its neighbours — and refuse the move even though the models were nowhere near each other. It could also skip the last model in the unit entirely when checking for overlaps. Pile In and Consolidate now check each model against the right neighbours, so legitimate moves are accepted and only genuine base overlaps are rejected.",
+			"changes": [
+				"Fixed the phantom 'Model mN would overlap with <unit>/N' error during Pile In and Consolidate. The overlap check was mis-matching model IDs to positions (an off-by-one caused by the models being numbered from 1), so it compared a moving model against its own stale position and rejected valid moves.",
+				"The last model in a unit is now included in the overlap check instead of being silently skipped.",
+				"The same ID-matching fix was applied to the 'already in base contact' and post-consolidation fight-eligibility checks, which shared the bug.",
+				"Note on base-to-base: a model still shows the red 'B2B' lock only when its base is genuinely within the 0.25\" contact tolerance of an enemy. Remember a model's BASE (the full oval/circle outline), not the smaller model artwork, is what counts for contact — a bike's long oval base can be touching an enemy even when the motorcycle art looks clear of it."
+			]
+		},
+		{
 			"version": "0.42.7",
 			"date": "2026-07-14",
 			"summary": "Fixed 'End Fight Phase' ending the fight for your opponent too. When you clicked End Fight Phase, the game forfeited every remaining combat — including your opponent's units that were still owed a fight — and jumped straight to consolidation. Now, ending the Fight phase only stops YOUR own units from fighting; your opponent still gets to fight all of their remaining eligible units (core rule 12.04: when one player stops selecting, the other fights all their remaining units). The confirmation warning also lists only your own unfought units now, not your opponent's.",
