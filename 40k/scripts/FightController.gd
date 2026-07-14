@@ -1964,6 +1964,13 @@ func _on_fight_staged_reroll_requested(stage: String, die_index: int) -> void:
 
 func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	"""Show consolidate dialog and enable interactive movement"""
+	# The Consolidate move is a drag-on-the-battlefield interaction, so clear any
+	# leftover board-covering fight dialogs (the staged FightSequenceDialog lingers
+	# on its "Close" summary; a stray AttackAssignmentDialog can survive too) before
+	# opening the bottom-docked ConsolidateDialog — otherwise the player can't see
+	# the models they're being asked to move.
+	_dismiss_blocking_fight_dialogs()
+
 	# Skip dialog for AI players - they submit CONSOLIDATE actions directly
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(current_fighter_owner):
@@ -2113,6 +2120,13 @@ func _on_consolidation_step_required(data: Dictionary) -> void:
 	print("[FightController] Consolidation step: player %d, %d eligible unit(s)" % [
 		consolidating_player, data.get("eligible_units", {}).size()])
 
+	# All fighting is resolved once the global Consolidate step opens, so tear
+	# down any board-covering fight dialogs left over from the last activation
+	# (staged FightSequenceDialog on its "Close" summary, orphaned
+	# AttackAssignmentDialog). They otherwise stack on top of the unit picker and
+	# hide the battlefield the player consolidates across.
+	_dismiss_blocking_fight_dialogs()
+
 	# Skip dialog for AI players — they submit CONSOLIDATE/END_CONSOLIDATION
 	# from get_available_actions directly
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
@@ -2163,6 +2177,35 @@ func _on_end_consolidation(player: int) -> void:
 		"player": player
 	}
 	emit_signal("fight_action_requested", action)
+
+func _dismiss_blocking_fight_dialogs() -> void:
+	"""Free the centered, board-covering fight-resolution dialogs so the
+	Consolidate step (an interactive drag on the battlefield) isn't buried under
+	them. The staged FightSequenceDialog stays open on its "Close" summary after
+	the final activation, and a stray AttackAssignmentDialog can linger too — both
+	sit centered over the board. This is only ever called once all fighting is
+	resolved (the Consolidate step / consolidate dialogs), so nothing is
+	interrupted; the combat log they displayed remains available in the right
+	panel's COMBAT LOG."""
+	# Staged melee resolution dialog — clear the tracked ref and, defensively,
+	# any node still parked under the stable "FightSequenceDialog" name (the ref
+	# can go stale if the dialog was closed/reopened).
+	if active_fight_sequence_dialog != null and is_instance_valid(active_fight_sequence_dialog):
+		active_fight_sequence_dialog.queue_free()
+	active_fight_sequence_dialog = null
+	var seq_dialog = get_tree().root.get_node_or_null("FightSequenceDialog")
+	if seq_dialog != null and is_instance_valid(seq_dialog):
+		# Release the stable name immediately (queue_free is deferred) so it can't
+		# collide with a future dialog claiming the same node name this frame.
+		seq_dialog.name = "StaleFightSequenceDialog"
+		seq_dialog.queue_free()
+
+	# Any orphaned attack-assignment picker from the final activation.
+	var attack_dialog = get_tree().root.get_node_or_null("AttackAssignmentDialog")
+	if attack_dialog != null and is_instance_valid(attack_dialog):
+		attack_dialog.name = "StaleAttackAssignmentDialog"
+		attack_dialog.queue_free()
+		print("[FightController] Dismissed leftover AttackAssignmentDialog for Consolidate step")
 
 func _on_subphase_transition(from_subphase: String, to_subphase: String) -> void:
 	"""Show notification when transitioning between subphases"""
