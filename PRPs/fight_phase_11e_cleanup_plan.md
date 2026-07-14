@@ -199,24 +199,32 @@ The project's own note: *"This carve-out disappears when the 10e code paths are 
   source of prior "knife-edge rejection" bugs (v0.42.8) — implement carefully with the 2" threshold and
   thorough windowed validation, or document as a deliberate relaxation.
 
-### CONFIRMED — Melee wound allocation is NOT on the 11e path (resolves the delta_audit §7↔§11 contradiction)
-Verified by reading the code (not the docs):
-- **Shooting (correct):** `ShootingController._on_saves_required` selects `AllocationGroupOverlay` (11e) vs
-  `WoundAllocationOverlay` (10e) by edition — `ShootingController.gd:2722-2724`, var comment `:54`.
-- **Fight (gap):** `FightController._on_melee_saves_required` creates `WoundAllocationOverlay`
-  UNCONDITIONALLY — `FightController.gd:3031`, no edition branch. `resolve_allocation_batch_11e` is used
-  NOWHERE in the fight path (grep-confirmed).
-- The DEVASTATING WOUNDS *wound-side* choice (24.10) IS 11e-correct — it lives in the shared
-  wound-resolution function (`RulesEngine.gd:2477-2480`, handles both melee Headwoppa `:2461` and ranged
-  PURITY `:2468`). So the gap is specifically the SAVE/ALLOCATION overlay, not wound generation.
-- **Impact (precise):** melee saves at e11 use the 10e allocation overlay instead of the 11e
-  allocation-group path shooting uses. Whether specific outcomes differ depends on what
-  `AllocationGroupOverlay` enforces that `WoundAllocationOverlay` does not (allocation grouping / MW
-  handling) — needs a side-by-side before claiming wrong *results*.
-- **Fix (recommended, medium, regression-prone):** mirror ShootingController — at e11 use
-  `AllocationGroupOverlay` and route `APPLY_MELEE_SAVES` through `resolve_allocation_batch_11e`. Requires
-  the melee wound data to be group-shaped and `_process_apply_melee_saves` to consume the 11e summary.
-  Touches the working melee resolution flow — do as a focused, windowed-validated change.
+### VERIFIED — the DEFAULT 11e melee path IS 11e-correct (corrects an earlier premature "gap" claim; resolves the delta_audit §7↔§11 contradiction)
+Traced the actual code, and an initial read-only conclusion ("melee saves are 10e") was WRONG — a good
+illustration of the project's validate-don't-assume rule. The truth:
+- **Default path (auto-allocate-wounds ON — the shipped default):** at e11, melee routes through
+  `FightPhase._process_roll_dice_auto` → `RulesEngine.resolve_melee_attacks` → `_resolve_melee_assignment`
+  → `_resolve_melee_assignment_saves`, whose `if GameConstants.edition >= 11` branch uses the
+  **11e allocation groups + [DEVASTATING WOUNDS] one-model-per-crit cap (24.10) + 06.02 mortal-wound
+  priority**, explicitly SKIPPING the 10e spillover below it (`RulesEngine.gd:_resolve_melee_assignment_saves`,
+  the e11 branch; gated by `FightPhase.gd:1554-1567`). The delta_audit §11 "fixed 2026-06-23" note is
+  CORRECT; the stale §7 🔴 row is what misled the survey.
+- **DEVASTATING WOUNDS wound-side choice (24.10)** is likewise 11e-correct in the shared wound function
+  (`RulesEngine.gd:2477-2480`).
+- **Residual (minor, non-default):** the *interactive* wound-allocation overlay only appears at e11 when
+  auto-allocate-wounds is explicitly OFF; in that case `FightController._on_melee_saves_required` still uses
+  the 10e `WoundAllocationOverlay` (`FightController.gd:3031`) rather than shooting's 11e
+  `AllocationGroupOverlay`.
+- **Why this residual is NOT a trivial overlay swap (attempted and reverted this session):**
+  `AllocationGroupOverlay._on_confirm_pressed` resolves via `resolve_allocation_batch_11e` and **applies the
+  damage to GameState itself** (`AllocationGroupOverlay.gd:312-313`), whereas `WoundAllocationOverlay`
+  returns save-results for the phase to apply via `APPLY_MELEE_SAVES`. Swapping the overlay alone would make
+  `_process_apply_melee_saves` double-apply / corrupt damage. A correct fix must rewrite
+  `_process_apply_melee_saves` to mirror how `ShootingPhase._process_apply_saves` consumes the self-applying
+  11e overlay — a real follow-up, deferred rather than shipped under-validated.
+- **Net:** no fix needed on the main melee path (already 11e). The DEV WOUNDS / CLEAVE / PSYCHIC melee
+  keyword gaps from the delta_audit should be re-verified the same way (trace the e11 branch) before
+  assuming they are open — several were likely closed and mis-tracked, exactly like A1.
 
 ### 10e deletion — scenario impact scoped (the prerequisite for deleting the fight 10e paths)
 Only **8** fight scenarios run at the edition-10 baseline (19 are already e11). Deleting the 10e fight
