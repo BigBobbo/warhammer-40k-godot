@@ -1,0 +1,29 @@
+{
+  "id": "ai_shooting_reactive_stratagem_offer",
+  "covers": [
+    "phases.ShootingPhase._maybe_open_reactive_window_for_ai_shot",
+    "phases.ShootingPhase._resume_after_reactive_decision",
+    "autoloads.AIPlayer._get_pending_reactive_window_player",
+    "ui.ai_shooting.defender_reactive_stratagem_offer"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "description": "When the AI shoots a HUMAN unit, the human is offered their defensive reactive stratagems (Go to Ground / Smokescreen) BEFORE the shots resolve. Sets P2 active in the Shooting phase and dispatches the AI's atomic SHOOT action (via process_action, the same dispatcher a real AI shot hits) at a P1 INFANTRY unit (Custodian Guard). Asserts: (a) the shot pauses and a reactive-stratagem window opens (reactive_stratagem_defender = P1, awaiting_reactive_stratagem), (b) the AI-loop guard reports the window belongs to the human so the active AI idles, (c) the StratagemDialog is shown to the human, and (d) using Go to Ground succeeds, deducts CP, and clears the window (resuming the AI's shot). P1 starts with 4 CP in the fixture.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "GameState.set_active_player(2)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(8)" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().process_action({\"type\": \"SHOOT\", \"actor_unit_id\": \"\", \"payload\": {\"assignments\": [{\"target_unit_id\": \"U_CUSTODIAN_GUARD_B\"}]}}).get(\"reactive_stratagem_opportunity\", false)", "equals": true },
+    { "act": "execute_script", "script": "int(PhaseManager.get_current_phase_instance().reactive_stratagem_defender)", "equals": 1 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().awaiting_reactive_stratagem", "equals": true },
+    { "act": "execute_script", "script": "int(AIPlayer._get_pending_reactive_window_player())", "equals": 1 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "GameState.get_tree().root.get_node_or_null(\"StratagemDialog\") != null", "equals": true },
+    { "act": "screenshot", "label": "01_go_to_ground_offered_vs_ai_shot" },
+    { "act": "execute_script", "script": "GameState.set_meta(\"cp_before\", StratagemManager.get_player_cp(1))" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().execute_action({\"type\": \"USE_REACTIVE_STRATAGEM\", \"stratagem_id\": \"go_to_ground\", \"target_unit_id\": \"U_CUSTODIAN_GUARD_B\"}).get(\"success\", false)", "equals": true },
+    { "act": "execute_script", "script": "int(PhaseManager.get_current_phase_instance().reactive_stratagem_defender)", "equals": 0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().awaiting_reactive_stratagem", "equals": false },
+    { "act": "execute_script", "script": "int(GameState.get_meta(\"cp_before\")) - StratagemManager.get_player_cp(1)", "equals": 1 }
+  ]
+}

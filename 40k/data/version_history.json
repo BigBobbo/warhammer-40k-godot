@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.41.6",
+			"date": "2026-07-14",
+			"summary": "When the AI shoots one of your units, you now get to respond with a defensive reactive stratagem before the shots land. A 'Your units are being targeted!' dialog appears offering your eligible stratagems (e.g. Go to Ground for a 6+ invulnerable save + Benefit of Cover, or Smokescreen) — spend the CP to use one, or decline. The AI pauses for your decision and then resolves its shots. Previously the AI auto-resolved its shooting with no chance for you to react.",
+			"changes": [
+				"The AI now pauses when it targets your unit in its Shooting phase and offers you your defensive reactive stratagems (Go to Ground / Smokescreen) — the same dialog you get when defending in multiplayer.",
+				"Use a stratagem (spending CP) to improve your saves/cover before the AI's shots resolve, or decline to let them fire. The AI waits for your choice.",
+				"Only stratagems that are actually usable are offered (correct unit keywords, phase and CP), so you won't see options you can't take. Fire Overwatch (which happens in the Movement/Charge phase) is still announced by the reactive-action banner."
+			]
+		},
+		{
 			"version": "0.41.5",
 			"date": "2026-07-13",
 			"summary": "When the AI reacts during YOUR turn — Fire Overwatch, Counter-Offensive, Heroic Intervention, a defensive stratagem or Rapid Ingress — a prominent red banner now slides down from the top of the screen to announce it (e.g. 'AI FIRES OVERWATCH — Allarus Custodians at your Deffkoptas'). These out-of-turn actions were previously only a line in the game log that was easy to miss. The banner is non-blocking, so any decision dialog the reaction raises (Counter-Offensive / Heroic Intervention already prompt you) stays fully usable.",

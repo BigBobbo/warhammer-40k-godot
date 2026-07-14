@@ -421,6 +421,12 @@ func _get_pending_reactive_window_player() -> int:
 	# Fire Overwatch window during the Charge phase
 	if "awaiting_fire_overwatch" in phase and phase.awaiting_fire_overwatch:
 		return int(phase.fire_overwatch_player)
+	# ShootingPhase: the active AI shot a HUMAN unit and paused to offer that human
+	# a defensive reactive stratagem (Go to Ground / Smokescreen). The window belongs
+	# to the human defender, so the AI must idle until their dialog resolves it —
+	# without this the active AI would answer (force-decline) the human's own window.
+	if "reactive_stratagem_defender" in phase and int(phase.reactive_stratagem_defender) > 0:
+		return int(phase.reactive_stratagem_defender)
 	return 0
 
 func get_difficulty(player: int) -> int:

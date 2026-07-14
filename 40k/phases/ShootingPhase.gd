@@ -51,6 +51,13 @@ var pending_save_data: Array = []  # Save data awaiting resolution
 var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing post-save hazardous check
 var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-shot weapons as fired
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
+# When the AI shoots a HUMAN unit we pause BEFORE resolving to offer the human
+# their reactive stratagems (Go to Ground / Smokescreen). _pending_ai_shoot_action
+# holds the AI's original SHOOT action so it can be resumed once the human decides;
+# reactive_stratagem_defender is the human player the window belongs to (read by
+# AIPlayer so the active AI idles instead of answering its own defender window).
+var _pending_ai_shoot_action: Dictionary = {}
+var reactive_stratagem_defender: int = 0
 var sentinel_storm_pending_unit: String = ""  # P1-10: Unit awaiting Sentinel Storm decision
 var throat_slittas_pending_unit: String = ""  # P1-12: Unit awaiting Throat Slittas decision
 var distraction_grot_pending_unit: String = ""  # P2-25: Defending unit awaiting Distraction Grot decision
@@ -93,6 +100,8 @@ func _on_phase_enter() -> void:
 	pending_hazardous_weapons.clear()
 	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
+	_pending_ai_shoot_action = {}
+	reactive_stratagem_defender = 0
 	sentinel_storm_pending_unit = ""
 	throat_slittas_pending_unit = ""
 	distraction_grot_pending_unit = ""
@@ -493,6 +502,13 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_end_shooting(action)
 		"SHOOT":  # Full shooting action
 			DebugLogger.info("ShootingPhase: Matched SHOOT")
+			# Before the AI's shots resolve, offer a HUMAN defender their reactive
+			# stratagems (Go to Ground / Smokescreen). If a window opens this returns
+			# a pause result and the AI idles until the human decides; the stored
+			# action is then re-dispatched to _process_shoot on resume.
+			var _reactive_pause = _maybe_open_reactive_window_for_ai_shot(action)
+			if not _reactive_pause.is_empty():
+				return _reactive_pause
 			return _process_shoot(action)
 		"APPLY_SAVES":  # Interactive save resolution
 			DebugLogger.info("ShootingPhase: Matched APPLY_SAVES")
@@ -4020,20 +4036,28 @@ func _auto_inject_extra_attacks_weapons_shooting() -> void:
 
 	log_phase_message("T3-3: Extra Attacks weapons auto-included for %s" % active_shooter_id)
 
-func _check_reactive_stratagems() -> Dictionary:
+func _check_reactive_stratagems(target_unit_ids_override: Array = []) -> Dictionary:
 	"""
 	Check if the defending player has reactive stratagems available for the current targets.
 	Returns { has_opportunities: bool, defending_player: int, available_stratagems: Array, target_unit_ids: Array }
+	Pass target_unit_ids_override for the AI atomic-shoot path, where the targets
+	come from the SHOOT action and confirmed_assignments is not populated yet.
 	"""
 	var active_player = get_current_player()
 	var defending_player = 2 if active_player == 1 else 1
 
-	# Collect unique target unit IDs from confirmed assignments
+	# Collect unique target unit IDs — from an explicit override (AI atomic shoot)
+	# or, for the human staged flow, from confirmed_assignments.
 	var target_unit_ids = []
-	for assignment in confirmed_assignments:
-		var target_id = assignment.get("target_unit_id", "")
-		if target_id != "" and target_id not in target_unit_ids:
-			target_unit_ids.append(target_id)
+	if not target_unit_ids_override.is_empty():
+		for target_id in target_unit_ids_override:
+			if target_id != "" and target_id not in target_unit_ids:
+				target_unit_ids.append(target_id)
+	else:
+		for assignment in confirmed_assignments:
+			var target_id = assignment.get("target_unit_id", "")
+			if target_id != "" and target_id not in target_unit_ids:
+				target_unit_ids.append(target_id)
 
 	if target_unit_ids.is_empty():
 		return {"has_opportunities": false}
@@ -4055,6 +4079,58 @@ func _check_reactive_stratagems() -> Dictionary:
 		"available_stratagems": available,
 		"target_unit_ids": target_unit_ids
 	}
+
+func _maybe_open_reactive_window_for_ai_shot(action: Dictionary) -> Dictionary:
+	"""When the AI shoots a HUMAN unit, pause BEFORE resolving so the human can use
+	a defensive reactive stratagem (Go to Ground / Smokescreen). Returns a pause
+	result if a window opened, or {} to proceed straight to resolution.
+
+	Only fires for AI-attacker -> human-defender. The human's own staged shooting
+	(CONFIRM_TARGETS) and AI-vs-AI spectator games are untouched (no-op), so those
+	paths keep their existing behaviour."""
+	# A window is already open (re-entrancy guard) — proceed normally.
+	if awaiting_reactive_stratagem:
+		return {}
+
+	# Targets come from the SHOOT action's assignments (confirmed_assignments is not
+	# populated until inside _process_shoot).
+	var target_unit_ids: Array = []
+	for assignment in action.get("payload", {}).get("assignments", []):
+		var tid = assignment.get("target_unit_id", "")
+		if tid != "" and tid not in target_unit_ids:
+			target_unit_ids.append(tid)
+	if target_unit_ids.is_empty():
+		return {}
+
+	var active_player = get_current_player()
+	var defending_player = 2 if active_player == 1 else 1
+
+	# Only offer the window to a HUMAN defender. If the defender is an AI (e.g.
+	# AI-vs-AI spectator), keep the fast atomic path — there is no human to prompt.
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.has_method("is_ai_player") and ai_player.is_ai_player(defending_player):
+		return {}
+
+	var reactive_check = _check_reactive_stratagems(target_unit_ids)
+	if not reactive_check.get("has_opportunities", false):
+		return {}
+
+	# Open the window: stash the AI's shot and pause for the human's decision.
+	_pending_ai_shoot_action = action.duplicate(true)
+	reactive_stratagem_defender = defending_player
+	awaiting_reactive_stratagem = true
+	resolution_state = {"phase": "awaiting_reactive_stratagem_ai_shot"}
+	log_phase_message("AI is shooting — you may use a reactive stratagem...")
+	emit_signal("reactive_stratagem_opportunity",
+		reactive_check.defending_player,
+		reactive_check.available_stratagems,
+		reactive_check.target_unit_ids)
+	return create_result(true, [], "Awaiting defender reactive stratagem decision (AI shot)", {
+		"reactive_stratagem_opportunity": true,
+		"defending_player": reactive_check.defending_player,
+		"available_stratagems": reactive_check.available_stratagems,
+		"target_unit_ids": reactive_check.target_unit_ids
+	})
 
 func _validate_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	"""Validate using a reactive stratagem during opponent's shooting."""
@@ -4105,8 +4181,9 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	awaiting_reactive_stratagem = false
 	log_phase_message("Player %d used %s on %s" % [defending_player, StratagemManager.get_stratagem(stratagem_id).name, target_unit_id])
 
-	# Continue shooting resolution
-	var continue_result = _continue_after_reactive_stratagems()
+	# Continue shooting resolution (resumes the AI's atomic shot if that was what
+	# we paused; otherwise the human staged resolution).
+	var continue_result = _resume_after_reactive_decision()
 
 	# Merge diffs
 	var all_diffs = result.get("diffs", [])
@@ -4134,7 +4211,20 @@ func _process_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
 	awaiting_reactive_stratagem = false
 	log_phase_message("Defender declined reactive stratagems")
 
-	# Continue shooting resolution
+	# Continue shooting resolution (resumes the AI's atomic shot if that was what
+	# we paused; otherwise the human staged resolution).
+	return _resume_after_reactive_decision()
+
+func _resume_after_reactive_decision() -> Dictionary:
+	"""Resume shooting resolution after the defender's reactive-stratagem decision.
+	If the paused shot was an AI atomic shot (_pending_ai_shoot_action set), re-run
+	it now — Go to Ground / Smokescreen flags are already applied to the state so
+	the auto-rolled saves benefit. Otherwise fall back to the human staged flow."""
+	if not _pending_ai_shoot_action.is_empty():
+		var shoot_action = _pending_ai_shoot_action
+		_pending_ai_shoot_action = {}
+		reactive_stratagem_defender = 0
+		return _process_shoot(shoot_action)
 	return _continue_after_reactive_stratagems()
 
 # ============================================================================
