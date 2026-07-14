@@ -801,10 +801,16 @@ func _validate_pile_in(action: Dictionary) -> Dictionary:
 				log_phase_message("[T4-5] Model %s rejected: already in base contact, moved %.2f\"" % [model_id, move_distance])
 				continue
 
-		# Check 3" movement limit (with floating-point tolerance)
+		# Check 3" movement limit (with floating-point tolerance). A pivoted model
+		# spends part of its budget on the pivot cost (Pariah Nexus).
 		var distance = Measurement.distance_inches(old_pos, new_pos)
-		if distance > 3.0 + MOVEMENT_CAP_EPSILON:
-			errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [model_id, distance])
+		var pile_model = _resolve_fight_model(unit_id, model_id)
+		var eff_cap = _fight_effective_move_cap(unit, pile_model, _fight_rotations_from_action(action), model_id)
+		if distance > eff_cap + MOVEMENT_CAP_EPSILON:
+			if eff_cap < 3.0:
+				errors.append("Model %s pile in exceeds %.0f\" limit after pivot cost (%.1f\")" % [model_id, eff_cap, distance])
+			else:
+				errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [model_id, distance])
 
 		# Check movement is toward closest enemy
 		if not _is_moving_toward_closest_enemy(unit_id, model_id, old_pos, new_pos):
@@ -1429,6 +1435,15 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.models.%s.position" % [unit_id, model_id],
 			"value": {"x": new_pos.x, "y": new_pos.y}
+		})
+
+	# Apply pivots (new facings) for any non-circular bases that rotated
+	var rotations = _fight_rotations_from_action(action)
+	for model_id in rotations:
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%s.rotation" % [unit_id, model_id],
+			"value": float(rotations[model_id])
 		})
 
 	emit_signal("pile_in_preview", unit_id, movements)
@@ -2812,6 +2827,15 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 			"value": {"x": new_pos.x, "y": new_pos.y}
 		})
 
+	# Apply pivots (new facings) for any non-circular bases that rotated
+	var consolidate_rotations = _fight_rotations_from_action(action)
+	for model_id in consolidate_rotations:
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%s.rotation" % [unit_id, model_id],
+			"value": float(consolidate_rotations[model_id])
+		})
+
 	# Mark unit as having fought
 	changes.append({
 		"op": "set",
@@ -2917,6 +2941,14 @@ func _process_consolidate_step_11e(action: Dictionary) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.models.%s.position" % [unit_id, model_id],
 			"value": {"x": new_pos.x, "y": new_pos.y}
+		})
+	# Apply pivots (new facings) for any non-circular bases that rotated
+	var consolidate_rotations = _fight_rotations_from_action(action)
+	for model_id in consolidate_rotations:
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%s.rotation" % [unit_id, model_id],
+			"value": float(consolidate_rotations[model_id])
 		})
 	units_that_consolidated_11e[unit_id] = true
 
@@ -5964,6 +5996,47 @@ func _fight_movements_from_action(action: Dictionary) -> Dictionary:
 		movements["0"] = Vector2(position.get("x", 0), position.get("y", 0))
 	return movements
 
+func _fight_rotations_from_action(action: Dictionary) -> Dictionary:
+	# Normalise the rotation payload: a {model_key: float} dict of new facings
+	# (radians) for models that were pivoted during a pile-in / consolidate.
+	return action.get("rotations", {}).duplicate()
+
+func _fight_pivot_cost_for_model(unit: Dictionary, model: Dictionary) -> float:
+	# Cost in inches a pivot deducts from a model's 3" pile-in / consolidate move.
+	# Mirrors MovementPhase.get_pivot_value_for_unit but resolved per model so a
+	# mixed-base unit is handled correctly. All non-round bases cost 2" (Pariah
+	# Nexus); a round base >32mm with a flying stem costs 2" on a VEHICLE.
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	if "AIRCRAFT" in keywords:
+		return 0.0
+	var base_type = model.get("base_type", "circular")
+	if base_type != "circular":
+		return 2.0
+	var base_mm = int(model.get("base_mm", 32))
+	if base_mm > 32 and model.get("flying_stem", false) and "VEHICLE" in keywords:
+		return 2.0
+	return 0.0
+
+func _fight_effective_move_cap(unit: Dictionary, model: Dictionary, rotations: Dictionary, key) -> float:
+	# The positional distance a model may move: 3" minus the pivot cost if the
+	# action pivots it (new facing differs from its current stored facing).
+	var cap := 3.0
+	var new_rot = _fight_rotation_for_key(rotations, key)
+	if new_rot != null:
+		var old_rot = float(model.get("rotation", 0.0))
+		if abs(float(new_rot) - old_rot) > 0.001:
+			cap -= _fight_pivot_cost_for_model(unit, model)
+	return max(0.0, cap)
+
+func _fight_rotation_for_key(rotations: Dictionary, key):
+	# Rotations may be keyed by array index ("0") or model id ("m1"), matching
+	# the movement payload. Return the new facing or null if this model unrotated.
+	if rotations.has(key):
+		return rotations[key]
+	if rotations.has(str(key)):
+		return rotations[str(key)]
+	return null
+
 func _resolve_fight_model(unit_id: String, key) -> Dictionary:
 	# A movement key may be an array index ("0") or a model id ("m1").
 	var models = get_unit(unit_id).get("models", [])
@@ -5983,9 +6056,11 @@ func _fight_model_index_for_key(models: Array, key) -> int:
 			return i
 	return -1
 
-func _simulate_fight_board_with_movements(unit_id: String, movements: Dictionary) -> Dictionary:
-	# Deep copy of live state with the proposed model positions applied —
-	# used to evaluate a template's AFTER conditions before committing.
+func _simulate_fight_board_with_movements(unit_id: String, movements: Dictionary, rotations: Dictionary = {}) -> Dictionary:
+	# Deep copy of live state with the proposed model positions (and pivot
+	# facings) applied — used to evaluate a template's AFTER conditions before
+	# committing. Rotation matters for non-circular bases whose engagement reach
+	# depends on their orientation.
 	var sim = GameState.state.duplicate(true)
 	var models = sim.get("units", {}).get(unit_id, {}).get("models", [])
 	for key in movements:
@@ -5993,6 +6068,11 @@ func _simulate_fight_board_with_movements(unit_id: String, movements: Dictionary
 		for i in models.size():
 			if str(i) == str(key) or str(models[i].get("id", "")) == str(key):
 				models[i]["position"] = {"x": np.x, "y": np.y}
+				break
+	for key in rotations:
+		for i in models.size():
+			if str(i) == str(key) or str(models[i].get("id", "")) == str(key):
+				models[i]["rotation"] = float(rotations[key])
 				break
 	return sim
 
@@ -6030,6 +6110,7 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 	var ctx = tmpl.before_moving(unit_id, GameState.state, null, {})
 	if ctx.has("error"):
 		return {"valid": false, "errors": [ctx.error]}
+	var rotations = _fight_rotations_from_action(action)
 	var errors: Array = []
 	for key in movements:
 		var old_pos = _get_model_position(unit_id, key)
@@ -6038,11 +6119,16 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 			errors.append("Model %s position not found" % str(key))
 			continue
 		var dist = Measurement.distance_inches(old_pos, new_pos)
-		if dist > 3.0 + MOVEMENT_CAP_EPSILON:
-			errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [str(key), dist])
+		# A pivoted model spends part of its 3" on the pivot cost (Pariah Nexus).
+		var move_model = _resolve_fight_model(unit_id, key)
+		var cap = _fight_effective_move_cap(unit, move_model, rotations, key)
+		if dist > cap + MOVEMENT_CAP_EPSILON:
+			if cap < 3.0:
+				errors.append("Model %s pile in exceeds %.0f\" limit after pivot cost (%.1f\")" % [str(key), cap, dist])
+			else:
+				errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [str(key), dist])
 		if dist > 0.01:
-			var model = _resolve_fight_model(unit_id, key)
-			var ok = tmpl.model_move_allowed(unit_id, model, {"x": new_pos.x, "y": new_pos.y}, GameState.state, ctx)
+			var ok = tmpl.model_move_allowed(unit_id, move_model, {"x": new_pos.x, "y": new_pos.y}, GameState.state, ctx)
 			if not ok.allowed:
 				errors.append("Model %s: %s" % [str(key), ok.reason])
 	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
@@ -6052,7 +6138,7 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 	if not coherency_check.get("valid", false):
 		errors.append_array(coherency_check.get("errors", []))
 	# 12.03 AFTER — engaged + started-engaged pairs maintained.
-	var sim = _simulate_fight_board_with_movements(unit_id, movements)
+	var sim = _simulate_fight_board_with_movements(unit_id, movements, rotations)
 	var after = tmpl.after_moving_conditions(unit_id, sim, ctx)
 	if not after.ok:
 		errors.append_array(after.violations)
@@ -6095,6 +6181,7 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 	var ctx = tmpl.before_moving(unit_id, GameState.state, null, {"mode": mode})
 	if ctx.has("error"):
 		return {"valid": false, "errors": [ctx.error]}
+	var rotations = _fight_rotations_from_action(action)
 	var errors: Array = []
 	for key in movements:
 		var old_pos = _get_model_position(unit_id, key)
@@ -6103,17 +6190,22 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 			errors.append("Model %s position not found" % str(key))
 			continue
 		var dist = Measurement.distance_inches(old_pos, new_pos)
-		if dist > 3.0 + MOVEMENT_CAP_EPSILON:
-			errors.append("Model %s consolidation exceeds 3\" limit (%.1f\")" % [str(key), dist])
+		# A pivoted model spends part of its 3" on the pivot cost (Pariah Nexus).
+		var move_model = _resolve_fight_model(unit_id, key)
+		var cap = _fight_effective_move_cap(unit, move_model, rotations, key)
+		if dist > cap + MOVEMENT_CAP_EPSILON:
+			if cap < 3.0:
+				errors.append("Model %s consolidation exceeds %.0f\" limit after pivot cost (%.1f\")" % [str(key), cap, dist])
+			else:
+				errors.append("Model %s consolidation exceeds 3\" limit (%.1f\")" % [str(key), dist])
 		if dist > 0.01:
-			var model = _resolve_fight_model(unit_id, key)
-			var ok = tmpl.model_move_allowed(unit_id, model, {"x": new_pos.x, "y": new_pos.y}, GameState.state, ctx)
+			var ok = tmpl.model_move_allowed(unit_id, move_model, {"x": new_pos.x, "y": new_pos.y}, GameState.state, ctx)
 			if not ok.allowed:
 				errors.append("Model %s: %s" % [str(key), ok.reason])
 	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
 	if not overlap_check.valid:
 		errors.append_array(overlap_check.errors)
-	var sim = _simulate_fight_board_with_movements(unit_id, movements)
+	var sim = _simulate_fight_board_with_movements(unit_id, movements, rotations)
 	var after = tmpl.after_moving_conditions(unit_id, sim, ctx)
 	if not after.ok:
 		errors.append_array(after.violations)
