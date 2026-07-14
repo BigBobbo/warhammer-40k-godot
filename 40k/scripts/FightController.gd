@@ -259,67 +259,21 @@ func _setup_right_panel() -> void:
 
 	_add_fight_gold_separator(fight_panel)
 
-	# Attack assignments tree
-	var attack_label = Label.new()
-	attack_label.text = "MELEE ATTACKS"
-	attack_label.add_theme_font_size_override("font_size", 13)
-	attack_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	if FactionPalettes:
-		attack_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	fight_panel.add_child(attack_label)
-	
-	attack_tree = Tree.new()
-	attack_tree.custom_minimum_size = Vector2(230, 120)
-	attack_tree.columns = 2
-	attack_tree.set_column_title(0, "Weapon")
-	attack_tree.set_column_title(1, "Target")
-	attack_tree.hide_root = true
-	attack_tree.item_selected.connect(_on_attack_tree_item_selected)
-	attack_tree.button_clicked.connect(_on_attack_tree_button_clicked)
-	fight_panel.add_child(attack_tree)
-	
-	_add_fight_gold_separator(fight_panel)
-
-	# Target basket
-	var basket_label = Label.new()
-	basket_label.text = "CURRENT TARGETS"
-	basket_label.add_theme_font_size_override("font_size", 13)
-	basket_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	if FactionPalettes:
-		basket_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	fight_panel.add_child(basket_label)
-
-	target_basket = ItemList.new()
-	target_basket.custom_minimum_size = Vector2(230, 80)
-	_WhiteDwarfTheme.apply_to_item_list(target_basket)
-	fight_panel.add_child(target_basket)
-	
-	# Action buttons
-	var button_container = HBoxContainer.new()
-	
-	clear_button = Button.new()
-	clear_button.text = "Clear All"
-	clear_button.pressed.connect(_on_clear_pressed)
-	_WhiteDwarfTheme.apply_secondary_button(clear_button)
-	button_container.add_child(clear_button)
-
-	confirm_button = Button.new()
-	confirm_button.text = "Fight!"
-	confirm_button.pressed.connect(_on_confirm_pressed)
-	_WhiteDwarfTheme.apply_primary_button(confirm_button)
-	button_container.add_child(confirm_button)
-
-	# T-093: Auto-Fight button — assigns all weapons to first engaged enemy and confirms
-	var auto_fight_button = Button.new()
-	auto_fight_button.text = "Auto-Fight"
-	auto_fight_button.tooltip_text = "Auto-assign all weapons to the first engaged enemy and confirm"
-	auto_fight_button.pressed.connect(_on_auto_fight_pressed)
-	_WhiteDwarfTheme.apply_primary_button(auto_fight_button)
-	button_container.add_child(auto_fight_button)
-
-	fight_panel.add_child(button_container)
-	
-	_add_fight_gold_separator(fight_panel)
+	# NOTE: The legacy right-panel manual attack-assignment controls — the
+	# MELEE ATTACKS weapon tree, the CURRENT TARGETS basket, and the
+	# Clear All / Fight! / Auto-Fight buttons — were intentionally removed.
+	#
+	# In 11th edition ALL attack allocation is driven by the pop-up
+	# AttackAssignmentDialog (opened via the phase's attack_assignment_required
+	# signal), which owns its own weapon + target lists and confirms attacks.
+	# The right-panel versions were a dead parallel path: selecting a weapon in
+	# the tree never dispatched SELECT_MELEE_WEAPON, so the controller's
+	# `eligible_targets` was never populated — which meant clicking an enemy did
+	# nothing and Auto-Fight bailed out immediately. Showing those affordances
+	# only invited a broken interaction and confused players (two ways to fight,
+	# one of them non-functional). The dialog flow is now the single source of
+	# truth. `attack_tree`, `target_basket`, `confirm_button` and `clear_button`
+	# are deliberately left null; every reference to them is null-guarded.
 
 	# T-093: Phase wounds tally
 	_phase_wounds_label = Label.new()
@@ -764,12 +718,9 @@ func _get_model_position(model: Dictionary) -> Vector2:
 	return Vector2.ZERO
 
 func _update_ui_state() -> void:
-	if confirm_button:
-		# Enable fight button if we have attack assignments
-		confirm_button.disabled = target_basket.get_item_count() == 0
-	if clear_button:
-		clear_button.disabled = target_basket.get_item_count() == 0
-	
+	# The Fight! / Clear All buttons and the CURRENT TARGETS basket were removed
+	# (attack allocation is handled by the AttackAssignmentDialog pop-up), so the
+	# only right-panel controls left to update are the movement buttons.
 	# Update movement buttons based on phase state
 	if pile_in_button:
 		pile_in_button.disabled = current_fighter_id == "" or not _can_pile_in()
