@@ -1,0 +1,41 @@
+{
+  "id": "charge_units_filtered_by_target_in_range",
+  "covers": ["charge.ux.units_that_can_charge_filtered_by_target_in_range", "scripts.ChargeController.filter_units_with_charge_targets"],
+  "fixture": "audit_372_charge_modifier",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "The charge phase 'UNITS THAT CAN CHARGE' list now only shows units that have at least one enemy within 12\" (a target a charge could actually reach). On this fixture the phase reports 5 charge-eligible Ork units: Battlewagon (~8.9\"), Boyz E (~7.8\") and Boyz F (~6.9\") are within 12\" of an enemy, while Boyz K (~15\") and Strike Force (~19\") are eligible to charge per the rules but have NO enemy within 12\". This scenario proves the two out-of-range units are excluded from the selector (get_displayed_charge_unit_ids returns the 3 in-range units, not all 5) even though they remain in the phase's raw get_eligible_charge_units() list.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "is_instance_valid(main.charge_controller)", "equals": true },
+
+    { "act": "execute_script", "script": "RulesEngine.eligible_to_charge(\"U_BOYZ_K\", GameState.create_snapshot())", "equals": true },
+    { "act": "execute_script", "script": "RulesEngine.eligible_to_charge(\"U_STRIKE_FORCE_A\", GameState.create_snapshot())", "equals": true },
+
+    { "act": "execute_script", "script": "RulesEngine.charge_targets_within_12(\"U_BOYZ_K\", GameState.create_snapshot()).is_empty()", "equals": true },
+    { "act": "execute_script", "script": "RulesEngine.charge_targets_within_12(\"U_STRIKE_FORCE_A\", GameState.create_snapshot()).is_empty()", "equals": true },
+    { "act": "execute_script", "script": "RulesEngine.charge_targets_within_12(\"U_BATTLEWAGON_G\", GameState.create_snapshot()).is_empty()", "equals": false },
+    { "act": "execute_script", "script": "RulesEngine.charge_targets_within_12(\"U_BOYZ_F\", GameState.create_snapshot()).is_empty()", "equals": false },
+
+    { "act": "execute_script", "script": "main.charge_controller.current_phase.get_eligible_charge_units().has(\"U_BOYZ_K\")", "equals": true },
+    { "act": "execute_script", "script": "main.charge_controller.current_phase.get_eligible_charge_units().has(\"U_STRIKE_FORCE_A\")", "equals": true },
+    { "act": "execute_script", "script": "main.charge_controller.current_phase.get_eligible_charge_units().size()", "equals": 5 },
+
+    { "act": "execute_script", "script": "main.charge_controller._refresh_ui()" },
+
+    { "act": "execute_script", "script": "main.charge_controller.get_displayed_charge_unit_ids().has(\"U_BATTLEWAGON_G\")", "equals": true },
+    { "act": "execute_script", "script": "main.charge_controller.get_displayed_charge_unit_ids().has(\"U_BOYZ_E\")", "equals": true },
+    { "act": "execute_script", "script": "main.charge_controller.get_displayed_charge_unit_ids().has(\"U_BOYZ_F\")", "equals": true },
+
+    { "act": "execute_script", "script": "main.charge_controller.get_displayed_charge_unit_ids().has(\"U_BOYZ_K\")", "equals": false },
+    { "act": "execute_script", "script": "main.charge_controller.get_displayed_charge_unit_ids().has(\"U_STRIKE_FORCE_A\")", "equals": false },
+    { "act": "execute_script", "script": "main.charge_controller.get_displayed_charge_unit_ids().size()", "equals": 3 },
+
+    { "act": "screenshot", "label": "01_units_that_can_charge_filtered" }
+  ]
+}
