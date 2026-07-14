@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.43.1",
+			"date": "2026-07-14",
+			"summary": "Fixed a Fight-phase bug where the game asked YOU to choose targets for the computer's attacks. When the AI's units fought (e.g. you playing Orks vs the AI's Custodes), the 'who do you want to allocate these attacks to?' target-selection dialog popped up for you instead of the AI just picking its own targets and fighting. Cause: the Fight controller only refreshed the 'whose fighter is this?' owner when a human picked a fighter from a dialog, so once one of your units had fought, that owner stayed pointed at you; when the AI's unit fought next, the controller thought the human owned it and showed you the AI's attack-allocation dialog. The controller now updates the owner every time any unit is selected to fight, so the AI silently resolves its own attacks and the dialog only ever appears for your own units.",
+			"changes": [
+				"Fixed: the Fight phase no longer shows you the attack-target dialog for the computer's units. The AI now picks targets and fights with its own units automatically, and you are only asked to allocate attacks for units you control.",
+				"Same fix also stops the AI's Pile In and Consolidate prompts from being shown to you \u2014 the controller now tracks the active fighter's real owner and hands each dialog to the correct player as control alternates back and forth during the Fight phase."
+			]
+		},
+		{
 			"version": "0.43.0",
 			"date": "2026-07-14",
 			"summary": "Added a new pickable army: the Orks 'Battlewagons' list (2000 pts, Rollin' Deff / Speedwaaagh! themed). It shows up in the Player 1/Player 2 army dropdowns like any other list and is ready to deploy and play. The list is a grot-and-gitz horde built around three Battlewagons (each with Targetin' Gizmos) and a trio of Big Meks, backed by Meks, Burna Boyz, Deffkoptas, Gretchin, Lootas, Stormboyz, Tankbustas and Warbikers. New top-down unit art was drawn for every model type that didn't already have a sprite, so the whole army reads at a glance on the board.",

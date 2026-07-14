@@ -1010,10 +1010,23 @@ func _on_attack_tree_button_clicked(item: TreeItem, column: int, id: int, mouse_
 
 func _on_fighter_selected(unit_id: String) -> void:
 	current_fighter_id = unit_id
-	
+
+	# Keep current_fighter_owner in sync with whichever unit is now fighting.
+	# This signal fires for EVERY fighter selection — including AI-selected
+	# fighters, which never pass through _on_fighter_selected_from_dialog (the
+	# only other place that refreshed current_fighter_owner). Without this, the
+	# owner stays stale from the previous (often human) activation, so the AI's
+	# own attack-assignment / pile-in / consolidate prompts fail the
+	# is_ai_player(current_fighter_owner) gate and get shown to the human player.
+	# (Symptom: human Orks fight, then the AI's Custodes fight and the "who do you
+	# want to allocate the Custodes' attacks to" dialog pops up for the human.)
+	var unit = GameState.get_unit(unit_id)
+	if not unit.is_empty():
+		current_fighter_owner = int(unit.get("owner", current_fighter_owner))
+
 	# Debug logging
-	print("Selected fighter: ", unit_id)
-	
+	print("Selected fighter: ", unit_id, " (owner player %d)" % current_fighter_owner)
+
 	_refresh_attack_tree()
 	_show_engagement_indicators()
 	_update_ui_state()
