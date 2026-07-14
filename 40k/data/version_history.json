@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.43.6",
+			"date": "2026-07-14",
+			"summary": "The charge phase's 'UNITS THAT CAN CHARGE' list now only shows units that actually have an enemy within 12\" — i.e. a target that a charge could reach. Previously the list showed every unit that was allowed to charge, even ones with no enemy anywhere near them, so you'd select a unit expecting to charge and find an empty 'ELIGIBLE TARGETS' box. The list is now filtered so every unit shown has at least one reachable target, which is far less confusing.",
+			"changes": [
+				"Charge phase: 'UNITS THAT CAN CHARGE' now lists only units with at least one enemy within 12\" (a target a charge could reach). Units eligible to charge but with no enemy in range are hidden.",
+				"The 'ELIGIBLE TARGETS' list a selected unit shows is now guaranteed non-empty — selecting any listed unit always presents at least one target.",
+				"The 'X eligible' charge counter in the right panel now counts only these in-range units, so it matches the list you see."
+			]
+		},
+		{
 			"version": "0.43.5",
 			"date": "2026-07-14",
 			"summary": "Charge moves can now be made in multiple steps, exactly like Movement-phase moves. Previously, once you dragged a charging model and let go, that model was 'done' — you couldn't pick it up again, so there was no way to route it around a wall, terrain, or your own models and still use the rest of your charge distance. Now each charging model can be dragged as many times as you like; every drag adds to the total distance used and the model can keep moving until it reaches engagement range or spends its charge roll. Only 'Confirm Charge Moves' finalises the charge.",
