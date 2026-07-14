@@ -1250,34 +1250,47 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 
 	log_text += ":\n"
 
-	# Color-code individual dice results
+	# Flush the header, then render the dice as inline d6 face icons (rounded
+	# square + pips) via the shared DiceFaceIcons textures — the same faces used
+	# by the shooting resolution log, the FightSequenceDialog and the animated
+	# dice roller — instead of a [n, n, n] number list, so dice look consistent
+	# across the whole game.
+	dice_log_display.append_text(log_text)
+	dice_log_display.append_text("  Rolls: ")
 	if not rolls_raw.is_empty():
-		var target_num = int(threshold.replace("+", "")) if threshold != "" else 4
-		var colored_rolls = []
-		for roll in rolls_raw:
-			if roll >= target_num:
-				colored_rolls.append("[color=green]%d[/color]" % roll)
-			else:
-				colored_rolls.append("[color=gray]%d[/color]" % roll)
-
-		log_text += "  Rolls: [%s]" % ", ".join(colored_rolls)
+		var target_num = int(threshold.replace("+", "")) if threshold != "" else 0
+		_append_dice_icons(dice_log_display, rolls_raw, target_num, context)
 	else:
-		log_text += "  Rolls: %s" % str(rolls_raw)
+		dice_log_display.append_text("[color=gray]—[/color]")
 
 	# Add success count
-	log_text += " → [b][color=green]%d successes[/color][/b]" % successes
+	var suffix = " → [b][color=green]%d successes[/color][/b]" % successes
 
 	# Save roll: show failed saves (which cause wounds)
 	if context == "save_roll":
 		var failed = dice_data.get("failed", 0)
 		if failed > 0:
-			log_text += ", [color=red]%d failed (wounds)[/color]" % failed
+			suffix += ", [color=red]%d failed (wounds)[/color]" % failed
 		else:
-			log_text += " [color=green](all saved!)[/color]"
+			suffix += " [color=green](all saved!)[/color]"
 
-	log_text += "\n"
+	suffix += "\n"
 
-	dice_log_display.append_text(log_text)
+	dice_log_display.append_text(suffix)
+
+func _append_dice_icons(target_label: RichTextLabel, rolls: Array, threshold_num: int, context: String) -> void:
+	# Render `rolls` as inline d6 face icons using the shared DiceFaceIcons
+	# textures. Colour follows the standard d6 semantics: crit (gold) on a 6 for
+	# hit/wound rolls, fumble (red) on a 1, pass/fail vs threshold, else neutral.
+	if not target_label or rolls.is_empty():
+		return
+	var crit_threshold = 6 if context in ["to_hit", "hit_roll_melee", "to_wound", "wound_roll_melee"] else 7
+	for i in range(rolls.size()):
+		var v = int(rolls[i])
+		var bg = DiceFaceIcons.color_for(v, threshold_num, threshold_num > 0, crit_threshold)
+		target_label.add_image(DiceFaceIcons.get_face(v, bg), 18, 18, Color.WHITE, INLINE_ALIGNMENT_CENTER)
+		if i < rolls.size() - 1:
+			target_label.append_text(" ")
 
 func _on_fight_sequence_updated(sequence: Array, index: int) -> void:
 	fight_sequence = sequence
