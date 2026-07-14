@@ -140,17 +140,27 @@ func test_consolidate_mode_detection_engagement():
 
 func test_consolidate_mode_detection_objective():
 	print("\n--- test_consolidate_mode_detection_objective ---")
+	# 12.08 Objective consolidation applies only when the unit is within range of
+	# an objective (3" + marker radius) AND no enemy is within 3". Objective at
+	# (500, 640): 140px = 3.5" from the friendly's model centre -> ~2.9" edge,
+	# in range. Enemy 10" away.
 	var snapshot = _create_test_snapshot()
-	# Place friendly unit 10" from enemy — beyond 4" engagement-check range
-	# 10" = 400px
-	_add_unit(snapshot, "friendly_1", 2, Vector2(200, 500), "Assault Marines", 2, 6, 1,
+	snapshot.board.objectives = [{"id": "obj_near", "position": Vector2(500, 640), "zone": "no_mans_land"}]
+	_add_unit(snapshot, "friendly_1", 2, Vector2(500, 500), "Assault Marines", 2, 6, 1,
 		["INFANTRY"], [_make_melee_weapon()])
-	_add_unit(snapshot, "enemy_1", 1, Vector2(600, 500), "Enemy Unit", 2, 6, 1)
+	_add_unit(snapshot, "enemy_1", 1, Vector2(900, 500), "Enemy Unit", 2, 6, 1)
 
 	var unit = snapshot.units["friendly_1"]
 	var mode = AIDecisionMaker._determine_ai_consolidate_mode(snapshot, unit, 2)
 	_assert(mode == "OBJECTIVE",
-		"Mode should be OBJECTIVE when enemy is beyond 4\" but objectives exist")
+		"Mode should be OBJECTIVE when an objective is within 3\" and no enemy is in range")
+
+	# But an objective merely EXISTING far away does NOT permit a move toward it
+	# (the reported bug): pushed to 20"+ away, the unit has no legal move -> NONE.
+	snapshot.board.objectives = [{"id": "obj_far", "position": Vector2(880, 1200), "zone": "no_mans_land"}]
+	var mode_far = AIDecisionMaker._determine_ai_consolidate_mode(snapshot, unit, 2)
+	_assert(mode_far == "NONE",
+		"Mode should be NONE when the only objective is out of consolidation range (12.08)")
 
 
 func test_consolidate_mode_detection_none():
@@ -230,12 +240,15 @@ func test_consolidate_base_contact_holds_position():
 
 func test_consolidate_objective_mode_moves_toward_objective():
 	print("\n--- test_consolidate_objective_mode_moves_toward_objective ---")
+	# Objective in range (3.7" from the model centre -> ~3.1" edge, still within
+	# the 3.79" gate) and no enemy nearby, so Objective consolidation applies and
+	# the model advances toward the marker.
 	var snapshot = _create_test_snapshot()
-	# Place friendly unit far from enemies (beyond 4") but objective at (880, 1200)
-	# 10" = 400px from enemy
-	_add_unit(snapshot, "friendly_1", 2, Vector2(200, 500), "Assault Marines", 2, 6, 1,
+	var obj_pos = Vector2(500, 648)  # 148px = 3.7" from friendly centre
+	snapshot.board.objectives = [{"id": "obj_near", "position": obj_pos, "zone": "no_mans_land"}]
+	_add_unit(snapshot, "friendly_1", 2, Vector2(500, 500), "Assault Marines", 2, 6, 1,
 		["INFANTRY"], [_make_melee_weapon()])
-	_add_unit(snapshot, "enemy_1", 1, Vector2(600, 500), "Enemy Unit", 2, 6, 1)
+	_add_unit(snapshot, "enemy_1", 1, Vector2(1000, 500), "Enemy Unit", 2, 6, 1)
 
 	var result = AIDecisionMaker._compute_consolidate_action(snapshot, "friendly_1", 2)
 
@@ -244,12 +257,11 @@ func test_consolidate_objective_mode_moves_toward_objective():
 
 	var movements = result.get("movements", {})
 	_assert(movements.size() > 0,
-		"Should produce movements toward objective when enemy is out of reach")
+		"Should produce movements toward objective when it is in range and no enemy is near")
 
 	if movements.has("0"):
 		var new_pos = movements["0"]
-		var old_pos = Vector2(200, 500)
-		var obj_pos = Vector2(880, 1200)  # objective position from snapshot
+		var old_pos = Vector2(500, 500)
 		_assert(new_pos.distance_to(obj_pos) < old_pos.distance_to(obj_pos),
 			"Model should end closer to objective after consolidation (objective mode)")
 
@@ -261,11 +273,15 @@ func test_consolidate_objective_mode_moves_toward_objective():
 
 func test_consolidate_multiple_models_toward_objective():
 	print("\n--- test_consolidate_multiple_models_toward_objective ---")
+	# 3 models clustered within objective range (no enemy near) -> all advance
+	# toward the marker. Models sit at x=200,240,280 y=500; objective at
+	# (240, 610) is ~2.75" from the row -> in range for the whole unit.
 	var snapshot = _create_test_snapshot()
-	# Place 3 models far from enemies, should all move toward objective
+	var obj_pos = Vector2(240, 610)
+	snapshot.board.objectives = [{"id": "obj_near", "position": obj_pos, "zone": "no_mans_land"}]
 	_add_unit(snapshot, "friendly_1", 2, Vector2(200, 500), "Assault Marines", 2, 6, 3,
 		["INFANTRY"], [_make_melee_weapon()], 4, 3, 1, 32, 40.0)
-	_add_unit(snapshot, "enemy_1", 1, Vector2(800, 500), "Enemy Unit", 2, 6, 1)
+	_add_unit(snapshot, "enemy_1", 1, Vector2(1000, 500), "Enemy Unit", 2, 6, 1)
 
 	var result = AIDecisionMaker._compute_consolidate_action(snapshot, "friendly_1", 2)
 	var movements = result.get("movements", {})
@@ -274,7 +290,6 @@ func test_consolidate_multiple_models_toward_objective():
 		"Multiple models should produce at least some consolidation movements toward objective")
 
 	# All movements should bring models closer to the objective
-	var obj_pos = Vector2(880, 1200)
 	for model_idx_str in movements:
 		var new_pos = movements[model_idx_str]
 		var model_idx = int(model_idx_str)
@@ -289,12 +304,14 @@ func test_consolidate_multiple_models_toward_objective():
 
 func test_consolidate_respects_3_inch_limit():
 	print("\n--- test_consolidate_respects_3_inch_limit ---")
+	# Objective 4" from the model centre (edge ~3.37", within the 3.79" gate) so
+	# Objective consolidation applies, but the marker is >3" away so the move is
+	# clamped to the 3" maximum. Enemy far so it does not force engagement.
 	var snapshot = _create_test_snapshot()
-	# Place unit 5" from enemy — within 4" check but movement is clamped to 3"
-	# 5" = 200px
+	snapshot.board.objectives = [{"id": "obj_near", "position": Vector2(300, 660), "zone": "no_mans_land"}]
 	_add_unit(snapshot, "friendly_1", 2, Vector2(300, 500), "Assault Marines", 2, 6, 1,
 		["INFANTRY"], [_make_melee_weapon()])
-	_add_unit(snapshot, "enemy_1", 1, Vector2(500, 500), "Enemy Unit", 2, 6, 1)
+	_add_unit(snapshot, "enemy_1", 1, Vector2(1100, 500), "Enemy Unit", 2, 6, 1)
 
 	var result = AIDecisionMaker._compute_consolidate_action(snapshot, "friendly_1", 2)
 	var movements = result.get("movements", {})
@@ -306,7 +323,7 @@ func test_consolidate_respects_3_inch_limit():
 		_assert(move_dist_inches <= 3.05,
 			"Consolidation should not exceed 3\" (moved %.2f\")" % move_dist_inches)
 		_assert_approx(move_dist_inches, 3.0, 0.1,
-			"Should move close to the maximum 3\" when enemy is beyond 3\"")
+			"Should move close to the maximum 3\" when the objective is beyond 3\"")
 	else:
 		_assert(movements.size() > 0, "Should produce a movement for the model")
 
