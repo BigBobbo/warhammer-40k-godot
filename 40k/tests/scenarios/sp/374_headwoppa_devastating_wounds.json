@@ -3,6 +3,7 @@
   "covers": ["fight.enhancement.headwoppa_killchoppa", "autoloads.RulesEngine.effect_devastating_wounds"],
   "fixture": "audit_374_headwoppa",
   "rng_seed": 42,
+  "edition": 11,
   "transition_to_phase": 10,
   "description": "Headwoppa's Killchoppa (#374): Warboss B has flags.effect_devastating_wounds=true and charged_this_turn=true. In fight phase, Warboss B attacks Custodian Guard B — critical wound rolls (6s) bypass saves entirely. Verify the flag is present and melee resolves.",
   "steps": [
@@ -12,6 +13,11 @@
     { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.effect_devastating_wounds", "equals": true },
     { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.charged_this_turn", "equals": true },
     { "act": "screenshot", "label": "01_headwoppa_flag_set" },
+
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 2 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
 
     { "act": "dispatch_action", "action": {
       "type": "SELECT_FIGHTER",

@@ -3,6 +3,7 @@
   "covers": ["infra.scenario_runner"],
   "fixture": "co_pretrigger",
   "rng_seed": 42,
+  "edition": 11,
   "transition_to_phase": 10,
   "description": "Day 2 proof-of-concept: load fixture, assert known state, screenshot. No UI driving — exercises the runner machinery only. Day 3 will port the actual CO scenario with UI clicks.",
   "steps": [

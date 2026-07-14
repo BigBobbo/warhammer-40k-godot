@@ -3,6 +3,7 @@
   "covers": ["fight.self_targeting_fix"],
   "fixture": "test_self_targeting",
   "rng_seed": 42,
+  "edition": 11,
   "transition_to_phase": 10,
   "description": "Observational scenario for the AI self-targeting fix. P1 Shield-Captain and P2 Boyz are in engagement range. Loads the fixture, transitions to Fight, lets the AI execute its fight-phase decisions, and captures two screenshots: one as the phase opens and one after the AI's decisions land. The visual goldens prove no self-targeting occurred (no friendly attacks rendered). The phase assertion fires immediately after transition_to_phase so AI hasn't yet had a chance to race it forward.",
   "steps": [

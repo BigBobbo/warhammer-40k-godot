@@ -1,0 +1,61 @@
+{
+  "id": "fight_reject_reason_11e",
+  "covers": [
+    "phases.BasePhase.validation_error_message",
+    "phases.FightPhase.11e_sequencer",
+    "ui.FightController.no_per_unit_movement_buttons"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Phase-0 cleanup: (1) a rejected fight action now carries its real reason in result.error instead of being dropped so the UI shows the generic 'Unknown error'. Selecting a fighter while the global Pile In step (12.02) is still active is refused, and result.error is the human-readable 12.04/12.02 reason. (2) The per-unit 10e 'MOVEMENT ACTIONS: Pile In / Consolidate' buttons were removed from the fight right panel (pile-in/consolidate are global 11e steps) — the screenshot shows the right panel with no such buttons.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pile_in_step_11e",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fight_right_panel_no_movement_buttons"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_FIGHTER",
+        "unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "expect_action_result",
+      "path": "error",
+      "equals": "The Pile In step (12.02) must finish before units are selected to fight"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "errors",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_tree().root.find_child('FightMovementButtons', true, false) == null",
+      "equals": true
+    }
+  ]
+}

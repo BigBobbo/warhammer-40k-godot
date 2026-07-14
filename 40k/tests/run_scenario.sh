@@ -12,7 +12,7 @@ set -e
 SCENARIO_RES_PATH="${1:-}"
 if [ -z "$SCENARIO_RES_PATH" ]; then
     echo "Usage: $0 <scenario_path_relative_to_40k>"
-    echo "  e.g. $0 tests/scenarios/sp/co_offer_after_charge.json"
+    echo "  e.g. $0 tests/scenarios/sp/iss050_fight_11e.json"
     exit 2
 fi
 
