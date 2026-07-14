@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.43.0",
+			"date": "2026-07-14",
+			"summary": "Added a new pickable army: the Orks 'Battlewagons' list (2000 pts, Rollin' Deff / Speedwaaagh! themed). It shows up in the Player 1/Player 2 army dropdowns like any other list and is ready to deploy and play. The list is a grot-and-gitz horde built around three Battlewagons (each with Targetin' Gizmos) and a trio of Big Meks, backed by Meks, Burna Boyz, Deffkoptas, Gretchin, Lootas, Stormboyz, Tankbustas and Warbikers. New top-down unit art was drawn for every model type that didn't already have a sprite, so the whole army reads at a glance on the board.",
+			"changes": [
+				"New army list 'Battlewagons' (Orks, 2000 pts) selectable in the main-menu army dropdowns: 3 Big Meks, 3 Meks (one with the Dakkamek enhancement), 3 Battlewagons (each with the Targetin' Gizmos upgrade), 2 Burna Boyz, 2 Deffkoptas, 3 Gretchin, 3 Lootas, Stormboyz, 2 Tankbustas (one carrying a Pulsa Rokkit) and 2 Warbikers.",
+				"New top-down sprites drawn in the same Vassal-style as the existing art: Big Mek (power klaw + kustom mega-blasta), Battlewagon (deff rolla, turret, wreckin' ball and tracks on a proper rectangular vehicle base), Burna Boyz (flamer gout), Lootas (oversized three-barrel deffgun) and Tankbustas (rokkit launcha with a bomb squig).",
+				"Reused the existing Mek, Gretchin, Stormboyz, Warbikers and Deffkoptas sprites for those units in the new list."
+			]
+		},
+		{
 			"version": "0.42.9",
 			"date": "2026-07-14",
 			"summary": "Fixed the Charge phase 'Snap to Contact' button appearing to do nothing. The button (along with 'Undo Last Model') only ever appeared when you were actively moving a charging unit, but once you confirmed that charge — or between charges, or while a Command Re-roll prompt was still open — it was left on screen looking clickable even though there was nothing to move. Clicking it in those states silently did nothing. The Confirm / Snap to Contact / Undo Last Model buttons now hide together the moment a charge is finished, so 'Snap to Contact' is only shown when it will actually move models.",
