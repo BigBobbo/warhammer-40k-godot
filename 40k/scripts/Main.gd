@@ -9406,7 +9406,10 @@ func _on_phase_action_pressed() -> void:
 			# T5-UX7: Check for unfought units and show confirmation dialog
 			var fight_phase_instance = PhaseManager.get_current_phase_instance()
 			if fight_phase_instance and fight_phase_instance.has_method("get_unfought_eligible_units"):
-				var unfought = fight_phase_instance.get_unfought_eligible_units()
+				# Only warn about the active player's OWN unfought units — ending
+				# your fights no longer forfeits the opponent's (12.04), so the
+				# opponent's units must not be listed as "won't fight".
+				var unfought = fight_phase_instance.get_unfought_eligible_units(active_player)
 				if unfought.size() > 0:
 					print("Main: T5-UX7: %d unfought units remain, showing confirmation dialog" % unfought.size())
 					_show_end_fight_confirmation_dialog(unfought, active_player)

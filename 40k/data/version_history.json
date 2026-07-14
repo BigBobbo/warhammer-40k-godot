@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.42.7",
+			"date": "2026-07-14",
+			"summary": "Fixed 'End Fight Phase' ending the fight for your opponent too. When you clicked End Fight Phase, the game forfeited every remaining combat — including your opponent's units that were still owed a fight — and jumped straight to consolidation. Now, ending the Fight phase only stops YOUR own units from fighting; your opponent still gets to fight all of their remaining eligible units (core rule 12.04: when one player stops selecting, the other fights all their remaining units). The confirmation warning also lists only your own unfought units now, not your opponent's.",
+			"changes": [
+				"Fixed: clicking 'End Fight Phase' no longer forfeits your opponent's fights. Only your own remaining units stop fighting — the opponent's eligible units are handed the Fight step and their selection dialog re-opens so they can fight.",
+				"The 'End Fight Phase?' warning now lists only the units YOU would forfeit (your own), instead of also listing the opponent's units as 'won't fight' — which was misleading, since they still get to fight.",
+				"Once your opponent has also finished fighting (or has nothing eligible), ending the Fight phase proceeds to the Consolidate step as before."
+			]
+		},
+		{
 			"version": "0.42.6",
 			"date": "2026-07-14",
 			"summary": "Fixed the red enemy 'engagement range' circles from the Movement phase lingering on the board after you advanced to the Shooting phase. Those red rings are only there to show where your models can't move during your Movement phase; they now clear away the moment the phase ends, so the Shooting phase board is no longer cluttered by them.",
