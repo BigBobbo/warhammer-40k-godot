@@ -125,17 +125,17 @@ func test_pile_in_model_cannot_reach_b2b_is_valid():
 # ==========================================
 
 func test_model_within_tolerance_counts_as_b2b():
-	"""Model ending within BASE_CONTACT_TOLERANCE (0.25\") should count as b2b"""
+	"""Model ending within BASE_CONTACT_TOLERANCE (0.1\") should count as b2b"""
 	# Enemy at (200, 200), attacker starts at (330, 200) — ~2" edge-to-edge
-	# Model ends at (258.4, 200) — ~0.2" edge-to-edge (within 0.25" tolerance)
+	# Model ends at (252.8, 200) — ~0.06" edge-to-edge (within 0.1" tolerance)
 	var units = {
 		"attacker": _make_unit(1, [_make_model(330, 200)]),
 		"enemy": _make_unit(2, [_make_model(200, 200)])
 	}
 	_setup_fight_phase(units)
 
-	# 0.2" edge gap = 8px, center distance = 50.4 + 8 = 58.4
-	var movements = {"0": Vector2(258.4, 200)}
+	# 0.06" edge gap = 2.4px, center distance = 50.4 + 2.4 = 52.8
+	var movements = {"0": Vector2(252.8, 200)}
 
 	var result = fight_phase._validate_base_to_base_if_possible("attacker", movements, 3.0)
 

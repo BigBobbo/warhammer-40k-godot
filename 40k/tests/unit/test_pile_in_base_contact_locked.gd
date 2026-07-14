@@ -8,7 +8,7 @@ extends "res://addons/gut/test.gd"
 # Position math for 32mm circular bases:
 #   base_radius_px ≈ 25.2 px  (32mm / 25.4 * 40 / 2)
 #   Two models touching (b2b): center distance ≈ 50.4 px (edge-to-edge ≈ 0")
-#   BASE_CONTACT_TOLERANCE = 0.25" ≈ 10px edge gap → center distance ≈ 60.4 px
+#   BASE_CONTACT_TOLERANCE = 0.1" ≈ 4px edge gap → center distance ≈ 54.4 px
 #   1" edge gap: center distance ≈ 90.4 px
 
 var fight_phase = null
@@ -83,18 +83,18 @@ func test_model_in_base_contact_detected():
 	assert_true(result, "Model touching enemy should be detected as in base contact")
 
 func test_model_within_tolerance_detected():
-	"""Model within BASE_CONTACT_TOLERANCE (0.25\") should be detected as in base contact"""
+	"""Model within BASE_CONTACT_TOLERANCE (0.1\") should be detected as in base contact"""
 	if _skip_if_no_autoloads(): return
-	# Edge-to-edge ~0.2": center distance ≈ 58.4 px (50.4 + 8)
+	# Edge-to-edge ~0.06": center distance ≈ 52.8 px (50.4 + 2.4)
 	var units = {
-		"attacker": _make_unit(1, [_make_model(258.4, 200)]),
+		"attacker": _make_unit(1, [_make_model(252.8, 200)]),
 		"enemy": _make_unit(2, [_make_model(200, 200)])
 	}
 	_setup_fight_phase(units)
 
 	var result = fight_phase._is_model_in_base_contact_with_enemy("attacker", "0")
 
-	assert_true(result, "Model within 0.25\" tolerance should count as base contact")
+	assert_true(result, "Model within 0.1\" tolerance should count as base contact")
 
 func test_model_not_in_base_contact():
 	"""Model more than 0.25\" from enemy should NOT be in base contact"""

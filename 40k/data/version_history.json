@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.44.3",
+			"date": "2026-07-14",
+			"summary": "Tightened the base-to-base contact tolerance during Pile In / Consolidate — the game was treating models up to a quarter-inch apart as already touching, locking them from moving even with a clearly visible gap on the board.",
+			"changes": [
+				"The 'model is already in base contact and cannot move' lock (the B2B icon during Pile In) now only triggers within 0.1\" of true base contact, down from 0.25\" — matches what the tabletop actually looks like instead of locking models with a visible gap.",
+				"Applied consistently everywhere base contact is judged: the Pile In/Consolidate move lock, the melee fight-eligibility base-contact chain, and the AI's own pile-in/consolidate movement logic."
+			]
+		},
+		{
 			"version": "0.44.2",
 			"date": "2026-07-14",
 			"summary": "Fixed Charge-phase model rotation not showing up on the actual unit token — only the green drag ghost was turning.",

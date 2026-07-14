@@ -14528,7 +14528,7 @@ static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, un
 	var enemy_obstacles = obstacle_split.enemy
 
 	var pile_in_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
-	var base_contact_threshold_px = 0.25 * PIXELS_PER_INCH  # Match FightPhase tolerance (0.25")
+	var base_contact_threshold_px = 0.1 * PIXELS_PER_INCH  # Match FightPhase tolerance (0.1")
 
 	# Track placed positions to avoid intra-unit collisions
 	var placed_positions = []
@@ -14936,7 +14936,7 @@ static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit
 	var enemy_obstacles = obstacle_split.enemy
 
 	var consolidate_range_px = 3.0 * PIXELS_PER_INCH
-	var base_contact_threshold_px = 0.25 * PIXELS_PER_INCH
+	var base_contact_threshold_px = 0.1 * PIXELS_PER_INCH  # Match FightPhase tolerance (0.1")
 
 	# Track placed positions
 	var placed_positions = []
