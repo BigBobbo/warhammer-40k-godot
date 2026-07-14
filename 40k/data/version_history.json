@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.43.4",
+			"version": "0.43.5",
 			"date": "2026-07-14",
 			"summary": "Charge moves can now be made in multiple steps, exactly like Movement-phase moves. Previously, once you dragged a charging model and let go, that model was 'done' — you couldn't pick it up again, so there was no way to route it around a wall, terrain, or your own models and still use the rest of your charge distance. Now each charging model can be dragged as many times as you like; every drag adds to the total distance used and the model can keep moving until it reaches engagement range or spends its charge roll. Only 'Confirm Charge Moves' finalises the charge.",
 			"changes": [
@@ -10,6 +10,16 @@
 				"A charging model that has already been placed can be picked up and moved again before you confirm; the total path is capped at the charge roll, and an over-budget drag is rejected (the model snaps back) just like in the Movement phase.",
 				"The 'ends closer to a target' charge rule is now measured against where the model STARTED its charge, not the start of the current hop, so an intermediate sideways step around cover no longer gets wrongly rejected.",
 				"Confirming a multi-step charge sends the real multi-point path to the rules engine, so a route you carefully steered around terrain is validated as-drawn (it won't be second-guessed by a straight line cutting back through the terrain you avoided)."
+			]
+		},
+		{
+			"version": "0.43.4",
+			"date": "2026-07-14",
+			"summary": "Fixed the charge-phase 'Undo Last Model' button doing nothing when clicked. After you dragged a model during a charge, clicking 'Undo Last Model' left the model exactly where you dropped it — the click never reached the button. The charge board handler was swallowing every left-click before the button could react, and only the 'Confirm Charge Moves' button had been excluded from that. 'Undo Last Model' now works: the model snaps back to where it started that charge and re-joins the list of models still to move.",
+			"changes": [
+				"Fixed: the charge-phase 'Undo Last Model' button now responds to a real mouse click. Previously the click was intercepted by the board's model-drag handler and discarded, so nothing happened.",
+				"Undoing a model now also resets the 'Used / Left' charge-distance readout, instead of leaving it showing the reverted model's old distance.",
+				"Same underlying fix also protects the 'Snap to Contact' button from having a real click swallowed — only 'Confirm Charge Moves' had been guarded before."
 			]
 		},
 		{
