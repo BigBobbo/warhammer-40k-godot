@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.44.2",
+			"date": "2026-07-14",
+			"summary": "Fixed Charge-phase model rotation not showing up on the actual unit token — only the green drag ghost was turning.",
+			"changes": [
+				"When you rotated a model (Q/E, or right-click-drag) while dragging it into a charge, the preview ghost turned correctly but the real token on the board stayed facing its original direction, both mid-drag and after dropping it.",
+				"The token-visual updater was reaching into the wrong child node to apply the rotation, so the repaint never happened; it now updates the actual on-screen token directly, matching the ghost."
+			]
+		},
+		{
 			"version": "0.44.1",
 			"date": "2026-07-14",
 			"summary": "Fight-phase cleanup: rejected fight actions now tell you WHY, and two dead leftover buttons were removed. Previously, when a fight action was refused (for example, clicking a unit to fight before the Pile In step had finished), the game showed a red 'Fight action failed: Unknown error' banner that hid the real reason. It now shows the actual rule, e.g. 'The Pile In step (12.02) must finish before units are selected to fight'. The old per-unit 'Pile In' and 'Consolidate' buttons in the fight side panel — a leftover from the 10th-edition rules where those were part of each unit's activation — have been removed; in the current rules pile-in and consolidation are handled by their own dedicated steps, and those two buttons were permanently greyed out and did nothing.",
