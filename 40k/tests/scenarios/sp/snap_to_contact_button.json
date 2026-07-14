@@ -1,12 +1,12 @@
 {
   "id": "snap_to_contact_button",
-  "covers": ["charge.ux.snap_to_contact_button", "charge.base_contact.bulk_snap"],
+  "covers": ["charge.ux.snap_to_contact_button", "charge.base_contact.bulk_snap", "charge.ux.snap_button_lifecycle"],
   "fixture": "test_charge_congestion",
   "edition": 11,
   "rng_seed": 42,
   "transition_to_phase": 9,
   "disable_ai": true,
-  "description": "The charge-phase 'Snap to Contact' button, driven as a player: select a 3-model Boyz unit (~2.9\" edge from a lone Shield-Captain), declare, roll (seeded 12), then CLICK the real SnapToContactButton. Before the fix the handler died on its first line with 'Invalid call to function get in base Node (ChargePhase). Expected 1 arguments.' — a two-argument Object.get() — so the click did nothing and models never closed to base contact. After the fix every model must end in true base-to-base contact (edge distance 0\") with the target, including the models whose straight-line lane is blocked by an already-snapped squadmate (the angular-sweep fallback slides them around the target's base). The Confirm click then applies the charge through the real APPLY_CHARGE_MOVE pipeline, proving the snapped positions pass the phase's base-contact enforcement.",
+  "description": "The charge-phase 'Snap to Contact' button, driven as a player: select a 3-model Boyz unit (~2.9\" edge from a lone Shield-Captain), declare, roll (seeded 12), then CLICK the real SnapToContactButton. Before the fix the handler died on its first line with 'Invalid call to function get in base Node (ChargePhase). Expected 1 arguments.' — a two-argument Object.get() — so the click did nothing and models never closed to base contact. After the fix every model must end in true base-to-base contact (edge distance 0\") with the target, including the models whose straight-line lane is blocked by an already-snapped squadmate (the angular-sweep fallback slides them around the target's base). The Confirm click then applies the charge through the real APPLY_CHARGE_MOVE pipeline, proving the snapped positions pass the phase's base-contact enforcement. Finally, once the charge is confirmed the whole confirm row (Confirm / Snap to Contact / Undo Last Model) must hide again: previously only Confirm was hidden, so the Snap button lingered visible + enabled with nothing to move and silently did nothing when clicked — the reported 'Snap to Contact button doesn't do anything' bug.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
@@ -79,6 +79,12 @@
     { "act": "execute_script",
       "script": "\"U_CHARGER_0\" in PhaseManager.get_current_phase_instance().get_completed_charges()",
       "equals": true },
-    { "act": "screenshot", "label": "04_charge_confirmed" }
+    { "act": "screenshot", "label": "04_charge_confirmed" },
+
+    { "act": "execute_script", "script": "main.charge_controller.models_to_move.is_empty()", "equals": true },
+    { "act": "execute_script", "script": "main.charge_controller.awaiting_movement", "equals": false },
+    { "act": "execute_script", "script": "main.charge_controller.confirm_button.visible", "equals": false },
+    { "act": "execute_script", "script": "main.charge_controller.auto_path_charge_button.visible", "equals": false },
+    { "act": "execute_script", "script": "main.charge_controller.undo_charge_model_button.visible", "equals": false }
   ]
 }

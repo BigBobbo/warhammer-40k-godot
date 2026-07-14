@@ -259,67 +259,21 @@ func _setup_right_panel() -> void:
 
 	_add_fight_gold_separator(fight_panel)
 
-	# Attack assignments tree
-	var attack_label = Label.new()
-	attack_label.text = "MELEE ATTACKS"
-	attack_label.add_theme_font_size_override("font_size", 13)
-	attack_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	if FactionPalettes:
-		attack_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	fight_panel.add_child(attack_label)
-	
-	attack_tree = Tree.new()
-	attack_tree.custom_minimum_size = Vector2(230, 120)
-	attack_tree.columns = 2
-	attack_tree.set_column_title(0, "Weapon")
-	attack_tree.set_column_title(1, "Target")
-	attack_tree.hide_root = true
-	attack_tree.item_selected.connect(_on_attack_tree_item_selected)
-	attack_tree.button_clicked.connect(_on_attack_tree_button_clicked)
-	fight_panel.add_child(attack_tree)
-	
-	_add_fight_gold_separator(fight_panel)
-
-	# Target basket
-	var basket_label = Label.new()
-	basket_label.text = "CURRENT TARGETS"
-	basket_label.add_theme_font_size_override("font_size", 13)
-	basket_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	if FactionPalettes:
-		basket_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	fight_panel.add_child(basket_label)
-
-	target_basket = ItemList.new()
-	target_basket.custom_minimum_size = Vector2(230, 80)
-	_WhiteDwarfTheme.apply_to_item_list(target_basket)
-	fight_panel.add_child(target_basket)
-	
-	# Action buttons
-	var button_container = HBoxContainer.new()
-	
-	clear_button = Button.new()
-	clear_button.text = "Clear All"
-	clear_button.pressed.connect(_on_clear_pressed)
-	_WhiteDwarfTheme.apply_secondary_button(clear_button)
-	button_container.add_child(clear_button)
-
-	confirm_button = Button.new()
-	confirm_button.text = "Fight!"
-	confirm_button.pressed.connect(_on_confirm_pressed)
-	_WhiteDwarfTheme.apply_primary_button(confirm_button)
-	button_container.add_child(confirm_button)
-
-	# T-093: Auto-Fight button — assigns all weapons to first engaged enemy and confirms
-	var auto_fight_button = Button.new()
-	auto_fight_button.text = "Auto-Fight"
-	auto_fight_button.tooltip_text = "Auto-assign all weapons to the first engaged enemy and confirm"
-	auto_fight_button.pressed.connect(_on_auto_fight_pressed)
-	_WhiteDwarfTheme.apply_primary_button(auto_fight_button)
-	button_container.add_child(auto_fight_button)
-
-	fight_panel.add_child(button_container)
-	
-	_add_fight_gold_separator(fight_panel)
+	# NOTE: The legacy right-panel manual attack-assignment controls — the
+	# MELEE ATTACKS weapon tree, the CURRENT TARGETS basket, and the
+	# Clear All / Fight! / Auto-Fight buttons — were intentionally removed.
+	#
+	# In 11th edition ALL attack allocation is driven by the pop-up
+	# AttackAssignmentDialog (opened via the phase's attack_assignment_required
+	# signal), which owns its own weapon + target lists and confirms attacks.
+	# The right-panel versions were a dead parallel path: selecting a weapon in
+	# the tree never dispatched SELECT_MELEE_WEAPON, so the controller's
+	# `eligible_targets` was never populated — which meant clicking an enemy did
+	# nothing and Auto-Fight bailed out immediately. Showing those affordances
+	# only invited a broken interaction and confused players (two ways to fight,
+	# one of them non-functional). The dialog flow is now the single source of
+	# truth. `attack_tree`, `target_basket`, `confirm_button` and `clear_button`
+	# are deliberately left null; every reference to them is null-guarded.
 
 	# T-093: Phase wounds tally
 	_phase_wounds_label = Label.new()
@@ -764,12 +718,9 @@ func _get_model_position(model: Dictionary) -> Vector2:
 	return Vector2.ZERO
 
 func _update_ui_state() -> void:
-	if confirm_button:
-		# Enable fight button if we have attack assignments
-		confirm_button.disabled = target_basket.get_item_count() == 0
-	if clear_button:
-		clear_button.disabled = target_basket.get_item_count() == 0
-	
+	# The Fight! / Clear All buttons and the CURRENT TARGETS basket were removed
+	# (attack allocation is handled by the AttackAssignmentDialog pop-up), so the
+	# only right-panel controls left to update are the movement buttons.
 	# Update movement buttons based on phase state
 	if pile_in_button:
 		pile_in_button.disabled = current_fighter_id == "" or not _can_pile_in()
@@ -1010,10 +961,23 @@ func _on_attack_tree_button_clicked(item: TreeItem, column: int, id: int, mouse_
 
 func _on_fighter_selected(unit_id: String) -> void:
 	current_fighter_id = unit_id
-	
+
+	# Keep current_fighter_owner in sync with whichever unit is now fighting.
+	# This signal fires for EVERY fighter selection — including AI-selected
+	# fighters, which never pass through _on_fighter_selected_from_dialog (the
+	# only other place that refreshed current_fighter_owner). Without this, the
+	# owner stays stale from the previous (often human) activation, so the AI's
+	# own attack-assignment / pile-in / consolidate prompts fail the
+	# is_ai_player(current_fighter_owner) gate and get shown to the human player.
+	# (Symptom: human Orks fight, then the AI's Custodes fight and the "who do you
+	# want to allocate the Custodes' attacks to" dialog pops up for the human.)
+	var unit = GameState.get_unit(unit_id)
+	if not unit.is_empty():
+		current_fighter_owner = int(unit.get("owner", current_fighter_owner))
+
 	# Debug logging
-	print("Selected fighter: ", unit_id)
-	
+	print("Selected fighter: ", unit_id, " (owner player %d)" % current_fighter_owner)
+
 	_refresh_attack_tree()
 	_show_engagement_indicators()
 	_update_ui_state()
@@ -1250,34 +1214,47 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 
 	log_text += ":\n"
 
-	# Color-code individual dice results
+	# Flush the header, then render the dice as inline d6 face icons (rounded
+	# square + pips) via the shared DiceFaceIcons textures — the same faces used
+	# by the shooting resolution log, the FightSequenceDialog and the animated
+	# dice roller — instead of a [n, n, n] number list, so dice look consistent
+	# across the whole game.
+	dice_log_display.append_text(log_text)
+	dice_log_display.append_text("  Rolls: ")
 	if not rolls_raw.is_empty():
-		var target_num = int(threshold.replace("+", "")) if threshold != "" else 4
-		var colored_rolls = []
-		for roll in rolls_raw:
-			if roll >= target_num:
-				colored_rolls.append("[color=green]%d[/color]" % roll)
-			else:
-				colored_rolls.append("[color=gray]%d[/color]" % roll)
-
-		log_text += "  Rolls: [%s]" % ", ".join(colored_rolls)
+		var target_num = int(threshold.replace("+", "")) if threshold != "" else 0
+		_append_dice_icons(dice_log_display, rolls_raw, target_num, context)
 	else:
-		log_text += "  Rolls: %s" % str(rolls_raw)
+		dice_log_display.append_text("[color=gray]—[/color]")
 
 	# Add success count
-	log_text += " → [b][color=green]%d successes[/color][/b]" % successes
+	var suffix = " → [b][color=green]%d successes[/color][/b]" % successes
 
 	# Save roll: show failed saves (which cause wounds)
 	if context == "save_roll":
 		var failed = dice_data.get("failed", 0)
 		if failed > 0:
-			log_text += ", [color=red]%d failed (wounds)[/color]" % failed
+			suffix += ", [color=red]%d failed (wounds)[/color]" % failed
 		else:
-			log_text += " [color=green](all saved!)[/color]"
+			suffix += " [color=green](all saved!)[/color]"
 
-	log_text += "\n"
+	suffix += "\n"
 
-	dice_log_display.append_text(log_text)
+	dice_log_display.append_text(suffix)
+
+func _append_dice_icons(target_label: RichTextLabel, rolls: Array, threshold_num: int, context: String) -> void:
+	# Render `rolls` as inline d6 face icons using the shared DiceFaceIcons
+	# textures. Colour follows the standard d6 semantics: crit (gold) on a 6 for
+	# hit/wound rolls, fumble (red) on a 1, pass/fail vs threshold, else neutral.
+	if not target_label or rolls.is_empty():
+		return
+	var crit_threshold = 6 if context in ["to_hit", "hit_roll_melee", "to_wound", "wound_roll_melee"] else 7
+	for i in range(rolls.size()):
+		var v = int(rolls[i])
+		var bg = DiceFaceIcons.color_for(v, threshold_num, threshold_num > 0, crit_threshold)
+		target_label.add_image(DiceFaceIcons.get_face(v, bg), 18, 18, Color.WHITE, INLINE_ALIGNMENT_CENTER)
+		if i < rolls.size() - 1:
+			target_label.append_text(" ")
 
 func _on_fight_sequence_updated(sequence: Array, index: int) -> void:
 	fight_sequence = sequence

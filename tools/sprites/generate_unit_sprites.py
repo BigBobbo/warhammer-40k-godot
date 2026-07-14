@@ -920,6 +920,321 @@ def draw_stompa():
     return lay
 
 
+def draw_big_mek():
+    """Big Mek on a 50mm base: a hulking mega-armoured tinkerer — heavy metal
+    shoulders with red trim, a massive kustom mega-blasta (boxy gun with a
+    glowing dish, up-right) and a huge power klaw (three-fingered metal claw,
+    up-left). Bigger and metal-heavy vs the leather-aproned Mek so the two read
+    apart at token scale."""
+    lay = Layer()
+    lay.shadow([70, 120, 442, 446])
+
+    # backpack exhaust stacks + a stubby aerial poking above the shoulders
+    for sx in (188, 324):
+        lay.capsule((sx, 168), (sx, 236), 40, METAL_DARK, ORK_OUTLINE, 6)
+        lay.dot(sx, 162, 14, ORK_BLACK)
+    lay.capsule((256, 150), (256, 214), 10, METAL, ORK_OUTLINE, 5)
+    lay.dot(256, 146, 9, ORK_YELLOW)
+
+    # torso: heavy mega-armour block with a red plate
+    lay.capsule((256, 300), (256, 384), 150, METAL, ORK_OUTLINE, 8)
+    lay.soft_capsule((256, 330), (256, 384), 96, METAL_DARK, alpha=110, blur=10)
+    lay.polygon(rect_pts(256, 336, 96, 84), ORK_RED, ORK_OUTLINE, 6)
+    lay.dot(256, 336, 16, ORK_YELLOW, ORK_OUTLINE, 5)  # glyph plate
+
+    # shoulders: one wide metal mass, riveted, with red trim caps
+    sp1, sp2, sw = (168, 268), (344, 268), 176
+
+    def clip(d, q1=S(sp1), q2=S(sp2), w=S(sw)):
+        d.line([tuple(q1), tuple(q2)], fill=255, width=int(w))
+        for p in (q1, q2):
+            d.ellipse([p[0] - w / 2, p[1] - w / 2, p[0] + w / 2, p[1] + w / 2], fill=255)
+
+    lay.capsule(sp1, sp2, sw, METAL, ORK_OUTLINE, 8)
+    lay.soft_capsule((162, 224), (350, 224), 60, METAL_LIGHT, alpha=120, blur=12, clip_painter=clip)
+    lay.soft_capsule((164, 320), (348, 320), 54, METAL_DARK, alpha=115, blur=12, clip_painter=clip)
+    for ang in (150, 180, 210):
+        a = math.radians(ang)
+        lay.dot(168 + math.cos(a) * 70, 268 + math.sin(a) * 70, 8, ORK_BLACK)
+        lay.dot(344 - math.cos(a) * 70, 268 + math.sin(a) * 70, 8, ORK_BLACK)
+    lay.arc([96, 196, 240, 340], 100, 260, ORK_RED, 11)   # red trim
+    lay.arc([272, 196, 416, 340], 280, 80, ORK_RED, 11)
+
+    # LEFT arm: huge power klaw — armoured forearm + three-fingered claw up-left
+    lay.capsule((196, 300), (120, 214), 46, METAL_DARK, ORK_OUTLINE, 7)
+    # claw palm block
+    lay.polygon(rect_pts(96, 176, 88, 74, -32), METAL, ORK_OUTLINE, 7)
+    # three fingers splayed up-left
+    for fx, fy in [(52, 96), (86, 74), (128, 78)]:
+        lay.polygon([(96, 176), (fx, fy), (fx + 20, fy + 18)], METAL, ORK_OUTLINE, 5)
+    # opposing thumb below
+    lay.polygon([(112, 196), (150, 236), (128, 202)], METAL, ORK_OUTLINE, 5)
+    lay.line((70, 150), (110, 168), 6, METAL_LIGHT)
+
+    # RIGHT arm: kustom mega-blasta — boxy gun body + coil dish + glowing muzzle
+    lay.capsule((316, 300), (372, 250), 44, METAL_DARK, ORK_OUTLINE, 7)
+    lay.polygon(rect_pts(402, 252, 70, 120, 14), METAL, ORK_OUTLINE, 7)   # gun body
+    lay.dot(402, 300, 26, METAL_DARK, ORK_OUTLINE, 5)                     # power dish
+    lay.dot(402, 300, 13, ORK_YELLOW)
+    # stubby barrel to a glowing muzzle (up)
+    lay.capsule((418, 214), (430, 150), 30, METAL_DARK, ORK_OUTLINE, 6)
+    lay.dot(432, 142, 16, ORK_YELLOW, ORK_OUTLINE, 5)
+    lay.dot(432, 142, 7, ORK_RED_LIGHT)
+    # coils on the gun body
+    for cy in (230, 258, 286):
+        lay.dot(378, cy, 8, ORK_YELLOW)
+
+    # head: green dome with a riveted cap brim + iron gob + red goggle lens
+    lay.shaded_ellipse(256, 236, 120, 112, SKIN, SKIN_LIGHT, SKIN_DARK, ORK_OUTLINE, 7)
+    lay.capsule((206, 208), (306, 208), 26, METAL_DARK, ORK_OUTLINE, 6)   # goggle band
+    lay.dot(232, 208, 15, ORK_RED_LIGHT, ORK_OUTLINE, 5)
+    lay.dot(280, 208, 15, ORK_YELLOW, ORK_OUTLINE, 5)                     # kustom mek-eye
+    lay.capsule((224, 268), (288, 268), 18, METAL, ORK_OUTLINE, 5)        # iron gob
+    for tx in (232, 250, 268, 286):
+        lay.polygon([(tx - 6, 276), (tx + 6, 276), (tx, 262)], TEEF, None)
+
+    return lay
+
+
+def draw_battlewagon():
+    """Battlewagon from above on a big rectangular hull (nose north): a spiked
+    deff rolla across the front, riveted red armour plates over the crew bay,
+    track runs down each flank, a big central gun turret (zzap gun / kannon),
+    corner big shootas, a wreckin' ball on a chain off the right, and twin
+    exhaust stacks at the rear."""
+    lay = Layer(285, BASE_SIZE)
+    cx = 142
+    lay.shadow([26, 40, 259, 484], alpha=80, blur=12)
+
+    # --- track runs down both flanks (dark, riveted) ---
+    for tx in (44, 240):
+        lay.polygon(rect_pts(tx, 268, 56, 430), TIRE, ORK_OUTLINE, 8)
+        for ty in range(90, 452, 34):
+            lay.line((tx - 26, ty), (tx + 26, ty), 5, TIRE_LIGHT)
+
+    # --- main hull: long riveted red box between the tracks ---
+    lay.polygon(rect_pts(cx, 276, 156, 420), ORK_RED, ORK_OUTLINE, 9)
+    lay.soft_capsule((cx, 150), (cx, 380), 96, ORK_RED_LIGHT, alpha=95, blur=14)
+    # armour plate seams across the bay
+    for py in (168, 232, 320, 392):
+        lay.line((cx - 74, py), (cx + 74, py), 6, ORK_RED_DARK)
+    for ry, rx0 in [(150, cx - 66), (150, cx + 66), (452, cx - 66), (452, cx + 66)]:
+        lay.dot(rx0, ry, 8, ORK_BLACK)
+    # hazard chevron band near the front lip
+    for i in range(-3, 4):
+        x0 = cx + i * 40
+        lay.polygon([(x0 - 14, 214), (x0 + 6, 176), (x0 + 26, 176), (x0 + 6, 214)],
+                    ORK_YELLOW if i % 2 == 0 else ORK_BLACK, None)
+
+    # --- deff rolla: spiked roller drum across the nose ---
+    lay.polygon(rect_pts(cx, 96, 210, 76), METAL, ORK_OUTLINE, 9)
+    lay.soft_capsule((cx - 88, 82), (cx + 88, 82), 22, METAL_LIGHT, alpha=130, blur=8)
+    for i in range(-4, 5):
+        sx = cx + i * 24
+        lay.polygon([(sx - 12, 58), (sx + 12, 58), (sx, 20)], METAL, ORK_OUTLINE, 5)  # spikes up
+        lay.polygon([(sx - 10, 134), (sx + 10, 134), (sx, 168)], METAL_DARK, ORK_OUTLINE, 4)
+    lay.line((cx - 100, 96), (cx + 100, 96), 6, ORK_OUTLINE)
+
+    # --- corner big shootas (four barrels poking out) ---
+    for s in (-1, 1):
+        lay.capsule((cx + s * 78, 200), (cx + s * 104, 150), 16, METAL_DARK, ORK_OUTLINE, 5)
+        lay.dot(cx + s * 106, 146, 7, ORK_BLACK)
+        lay.capsule((cx + s * 78, 372), (cx + s * 108, 372), 16, METAL_DARK, ORK_OUTLINE, 5)
+        lay.dot(cx + s * 112, 372, 7, ORK_BLACK)
+
+    # --- central turret: armoured ring + a big forward gun (zzap gun/kannon) ---
+    lay.dot(cx, 300, 68, METAL, ORK_OUTLINE, 8)
+    lay.dot(cx, 300, 40, METAL_DARK)
+    lay.capsule((cx, 276), (cx, 150), 34, METAL_DARK, ORK_OUTLINE, 7)   # long barrel forward
+    lay.capsule((cx, 264), (cx, 168), 12, METAL_LIGHT, None)
+    lay.dot(cx, 146, 15, ORK_BLACK, ORK_OUTLINE, 5)
+    lay.dot(cx, 300, 12, ORK_YELLOW)
+
+    # --- wreckin' ball on a chain off the right flank ---
+    for i in range(4):
+        lay.dot(272 + i * 8, 250 + i * 16, 7, METAL, ORK_OUTLINE, 3)
+    lay.dot(300, 322, 30, METAL_DARK, ORK_OUTLINE, 6)
+    for ang in range(0, 360, 60):
+        a = math.radians(ang)
+        lay.polygon([(300 + math.cos(a) * 26, 322 + math.sin(a) * 26),
+                     (300 + math.cos(a) * 44, 322 + math.sin(a) * 44),
+                     (300 + math.cos(a + 0.4) * 26, 322 + math.sin(a + 0.4) * 26)],
+                    METAL_DARK, ORK_OUTLINE, 3)
+
+    # --- rear: twin exhaust stacks + a red glyph banner ---
+    for s in (-1, 1):
+        lay.capsule((cx + s * 46, 452), (cx + s * 46, 500), 26, METAL, ORK_OUTLINE, 6)
+        lay.dot(cx + s * 46, 502, 10, ORK_BLACK)
+    lay.polygon([(cx - 30, 470), (cx + 30, 470), (cx + 22, 508), (cx - 22, 508)],
+                ORK_YELLOW, ORK_OUTLINE, 5)
+    lay.dot(cx, 488, 9, ORK_BLACK)
+
+    return lay
+
+
+def draw_burna_boyz():
+    """Burna Boy: an ork levelling a burna — fuel canister on the pack, a nozzle
+    thrust forward and a big triangular gout of flame (red core -> yellow tips)
+    licking north. The flame is the read at 39px."""
+    lay = Layer()
+    lay.shadow([104, 140, 408, 430])
+
+    # big flame gout up-front (drawn first, behind the arms)
+    lay.polygon([(150, 214), (196, 96), (232, 40), (256, 118), (280, 40),
+                 (316, 96), (362, 214)], ORK_YELLOW, ORK_OUTLINE, 6)
+    lay.polygon([(186, 214), (224, 120), (256, 70), (288, 120), (326, 214)],
+                ORK_RED_LIGHT, None)
+    lay.polygon([(216, 214), (256, 132), (296, 214)], ORK_RED, None)
+
+    # body: ork shoulders + leather apron torso
+    lay.capsule((256, 302), (256, 372), 128, LEATHER, ORK_OUTLINE, 7)
+    lay.capsule((178, 288), (334, 288), 132, SKIN, ORK_OUTLINE, 7)
+    lay.soft_capsule((178, 256), (334, 256), 44, SKIN_LIGHT, alpha=120, blur=10)
+
+    # burna fuel canister slung on the back-left
+    lay.capsule((196, 300), (196, 372), 44, ORK_RED_DARK, ORK_OUTLINE, 6)
+    lay.dot(196, 300, 22, METAL_DARK, ORK_OUTLINE, 5)
+
+    # arms bringing the burna up to bear (both hands forward on the nozzle)
+    nozzle = (256, 214)
+    lay.capsule((196, 292), _along((196, 292), nozzle, 0.9), 30, SKIN, ORK_OUTLINE, 6)
+    lay.capsule((330, 300), _along((330, 300), nozzle, 0.9), 30, SKIN, ORK_OUTLINE, 6)
+    # nozzle body: boxy metal with a fat muzzle
+    lay.polygon(rect_pts(256, 250, 58, 96), METAL_DARK, ORK_OUTLINE, 6)
+    lay.capsule((256, 232), (256, 206), 40, METAL, ORK_OUTLINE, 6)
+    lay.dot(256, 200, 20, ORK_BLACK)
+    # fuel hose looping from canister to nozzle
+    lay.arc([196, 240, 300, 320], 180, 340, LEATHER, 8)
+
+    # head with a burna-boy mask (goggles + breather) between the shoulders
+    lay.shaded_ellipse(256, 292, 108, 102, SKIN, SKIN_LIGHT, SKIN_DARK, ORK_OUTLINE, 7)
+    lay.capsule((222, 276), (290, 276), 22, METAL_DARK, ORK_OUTLINE, 5)  # goggles
+    lay.dot(238, 276, 11, ORK_YELLOW, ORK_OUTLINE, 4)
+    lay.dot(274, 276, 11, ORK_YELLOW, ORK_OUTLINE, 4)
+    lay.dot(256, 320, 14, METAL, ORK_OUTLINE, 5)                         # breather snout
+
+    return lay
+
+
+def draw_lootas():
+    """Loota: an ork hefting an oversized deffgun — a long, boxy three-barrel
+    auto-kannon braced across the body with a fat ammo drum. The huge gun is the
+    read; the ork is mostly shoulders and head behind it."""
+    lay = Layer()
+    lay.shadow([96, 140, 420, 430])
+
+    # ork body: shoulders + leather torso
+    lay.capsule((256, 306), (256, 374), 128, LEATHER, ORK_OUTLINE, 7)
+    lay.capsule((176, 292), (336, 292), 132, SKIN, ORK_OUTLINE, 7)
+    lay.soft_capsule((176, 260), (336, 260), 44, SKIN_LIGHT, alpha=120, blur=10)
+
+    # the DEFFGUN: long boxy body slung diagonally, breech low-left, barrels up-right
+    breech = (150, 402)
+    muzzle = (398, 120)
+    u = ((muzzle[0] - breech[0]), (muzzle[1] - breech[1]))
+    ul = math.hypot(*u)
+    u = (u[0] / ul, u[1] / ul)
+    n = (-u[1], u[0])
+    # main receiver box
+    lay.capsule(_along(breech, muzzle, 0.16), _along(breech, muzzle, 0.72), 62,
+                METAL_DARK, ORK_OUTLINE, 7)
+    lay.capsule(_along(breech, muzzle, 0.2), _along(breech, muzzle, 0.66), 26,
+                METAL, alpha=255)
+    # breech block + shoulder stock
+    lay.polygon(rect_pts(breech[0] + u[0] * 20, breech[1] + u[1] * 20, 84, 70,
+                         math.degrees(math.atan2(u[1], u[0]))), METAL, ORK_OUTLINE, 6)
+    # three barrels fanning out of the muzzle end
+    for off in (-26, 0, 26):
+        b0 = _along(breech, muzzle, 0.66)
+        bs = (b0[0] + n[0] * off, b0[1] + n[1] * off)
+        be = (muzzle[0] + n[0] * off, muzzle[1] + n[1] * off)
+        lay.capsule(bs, be, 18, METAL_DARK, ORK_OUTLINE, 5)
+        lay.dot(be[0], be[1], 7, ORK_BLACK)
+    # fat ammo drum hanging under the receiver
+    drum_c = _offset_perp(breech, muzzle, _along(breech, muzzle, 0.44), 60)
+    lay.dot(drum_c[0], drum_c[1], 44, ORK_RED_DARK, ORK_OUTLINE, 6)
+    lay.dot(drum_c[0], drum_c[1], 20, METAL_DARK)
+    lay.dot(drum_c[0], drum_c[1], 8, ORK_YELLOW)
+
+    # hands gripping the gun
+    for t in (0.3, 0.58):
+        h = _along(breech, muzzle, t)
+        lay.dot(h[0], h[1], 22, SKIN, ORK_OUTLINE, 5)
+
+    # head peeking over the receiver (iron gob + squinting eye)
+    lay.shaded_ellipse(300, 300, 104, 98, SKIN, SKIN_LIGHT, SKIN_DARK, ORK_OUTLINE, 7)
+    lay.capsule((276, 336), (330, 330), 16, METAL_DARK, None)  # iron gob
+    lay.dot(292, 284, 9, ORK_RED_LIGHT)
+
+    return lay
+
+
+def draw_tankbustas():
+    """Tankbusta: an ork shouldering a big rokkit launcha — a fat tube braced
+    across the body with a red-warhead rokkit jutting from the muzzle (up) and a
+    back-blast puffing from the rear. A little bomb squig scurries alongside."""
+    lay = Layer()
+    lay.shadow([100, 140, 412, 430])
+
+    # back-blast smoke puff low-left (behind the tube)
+    lay.dot(150, 392, 34, METAL_LIGHT, ORK_OUTLINE, 4)
+    lay.dot(120, 420, 24, METAL, None)
+    lay.dot(180, 424, 20, METAL_LIGHT, None)
+
+    # ork body: shoulders + leather torso
+    lay.capsule((256, 306), (256, 374), 126, LEATHER, ORK_OUTLINE, 7)
+    lay.capsule((178, 292), (334, 292), 130, SKIN, ORK_OUTLINE, 7)
+    lay.soft_capsule((178, 260), (334, 260), 44, SKIN_LIGHT, alpha=120, blur=10)
+
+    # rokkit launcha: fat tube slung low-left -> up-right
+    breech = (168, 398)
+    muzzle = (372, 128)
+    u = (muzzle[0] - breech[0], muzzle[1] - breech[1])
+    ul = math.hypot(*u)
+    u = (u[0] / ul, u[1] / ul)
+    n = (-u[1], u[0])
+    lay.capsule(_along(breech, muzzle, 0.06), _along(breech, muzzle, 0.9), 50,
+                METAL_DARK, ORK_OUTLINE, 7)
+    lay.capsule(_along(breech, muzzle, 0.12), _along(breech, muzzle, 0.84), 22,
+                METAL, alpha=255)
+    # pistol grip + rear vent ring
+    lay.dot(breech[0], breech[1], 24, METAL_DARK, ORK_OUTLINE, 5)
+    lay.dot(breech[0], breech[1], 12, ORK_BLACK)
+    # a red-warhead rokkit poking out the muzzle
+    tip = _along(breech, muzzle, 1.08)
+    body0 = _along(breech, muzzle, 0.86)
+    lay.capsule(body0, _along(breech, muzzle, 0.98), 30, ORK_RED, ORK_OUTLINE, 6)
+    lay.polygon([( _along(breech, muzzle, 0.98)[0] + n[0] * 16, _along(breech, muzzle, 0.98)[1] + n[1] * 16),
+                 (tip[0], tip[1]),
+                 ( _along(breech, muzzle, 0.98)[0] - n[0] * 16, _along(breech, muzzle, 0.98)[1] - n[1] * 16)],
+                ORK_RED_LIGHT, ORK_OUTLINE, 5)
+    # little fins on the rokkit
+    for s in (-1, 1):
+        f0 = (body0[0] + n[0] * 18 * s, body0[1] + n[1] * 18 * s)
+        f1 = (body0[0] + n[0] * 34 * s - u[0] * 20, body0[1] + n[1] * 34 * s - u[1] * 20)
+        lay.polygon([f0, f1, (body0[0] - u[0] * 20, body0[1] - u[1] * 20)], ORK_RED_DARK, ORK_OUTLINE, 4)
+
+    # hands on the tube
+    for t in (0.34, 0.6):
+        h = _along(breech, muzzle, t)
+        lay.dot(h[0], h[1], 21, SKIN, ORK_OUTLINE, 5)
+
+    # head over the tube with a rangefinder monocle
+    lay.shaded_ellipse(300, 302, 104, 98, SKIN, SKIN_LIGHT, SKIN_DARK, ORK_OUTLINE, 7)
+    lay.dot(286, 286, 15, METAL_DARK, ORK_OUTLINE, 5)   # monocle
+    lay.dot(286, 286, 7, ORK_RED_LIGHT)
+    lay.capsule((280, 336), (332, 330), 14, METAL, None)  # iron gob
+
+    # bomb squig scurrying at the lower-right (round body, snout, stick-legs)
+    lay.shaded_ellipse(392, 402, 92, 78, SKIN, SKIN_LIGHT, SKIN_DARK, ORK_OUTLINE, 6)
+    lay.polygon([(430, 384), (474, 372), (442, 410)], SKIN, ORK_OUTLINE, 5)  # snout
+    lay.dot(468, 380, 7, ORK_BLACK)
+    lay.capsule((360, 320), (360, 300), 28, ORK_RED, ORK_OUTLINE, 5)         # strapped rokkit
+    lay.dot(430, 398, 8, ORK_RED_LIGHT)                                      # beady eye
+
+    return lay
+
+
 SPRITES = {
     # filename (SpriteResolver key) -> draw function
     "custodian_guard": draw_custodian_guard,
@@ -934,6 +1249,11 @@ SPRITES = {
     "deffkilla_wartrike": draw_deffkilla_wartrike,
     "wazdakka_gutsmek": draw_wazdakka_gutsmek,
     "stompa": draw_stompa,
+    "big_mek": draw_big_mek,
+    "battlewagon": draw_battlewagon,
+    "burna_boyz": draw_burna_boyz,
+    "lootas": draw_lootas,
+    "tankbustas": draw_tankbustas,
 }
 
 # base footprint (w_mm, h_mm) per sprite, for the game-scale contact sheet
@@ -950,6 +1270,11 @@ BASES = {
     "deffkilla_wartrike": (95, 150),
     "wazdakka_gutsmek": (32, 32),
     "stompa": (180, 180),
+    "big_mek": (50, 50),
+    "battlewagon": (100, 180),   # rectangular hull (length_x, width_y)
+    "burna_boyz": (32, 32),
+    "lootas": (32, 32),
+    "tankbustas": (32, 32),
 }
 
 PX_PER_MM = 40.0 / 25.4  # in-game scale: 40 px/inch

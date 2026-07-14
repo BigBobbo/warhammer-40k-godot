@@ -1,0 +1,63 @@
+{
+  "id": "end_fight_scope_opponent_still_fights_11e",
+  "covers": [
+    "phases.FightPhase._process_end_fight",
+    "phases.FightPhase.get_unfought_eligible_units",
+    "phases.FightPhase._resume_fight_step_after_end_11e",
+    "phases.FightPhase._forfeit_player_fights_11e",
+    "scripts.Main._show_end_fight_confirmation_dialog",
+    "dialogs.EndFightConfirmationDialog"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression for the reported bug: the active (P2, Orks) player clicks 'End Fight Phase' at the start of the Fight step and the enemy (P1, Custodes) units — still owed a Remaining-Combats fight — were wrongly forfeited too, cutting them out of the phase. Per 12.04, when one player stops selecting, the OTHER player still fights all their remaining eligible units. This scenario drives the REAL player path with clicks: pass the Pile In step, then click the End Fight Phase button. It asserts (1) the confirmation dialog lists ONLY the active player's own unit (the Warboss) — not the opponent's (get_unfought_eligible_units now filters to the ending player); (2) after confirming, the phase does NOT jump to the Consolidate step; (3) the active player's Warboss forfeits while both Custodes units stay eligible; and (4) the Fight step is handed over to Player 1, whose fight-selection dialog re-opens offering their units. Setup-only privileges: CP zeroed to suppress stratagem prompts; model wounds inflated so no unit dies (deterministic aliveness).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 2 },
+    { "act": "click_node", "node": "/root/PileInStepDialog/Content/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 1 },
+    { "act": "click_node", "node": "/root/PileInStepDialog/Content/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
+
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().current_selecting_player", "equals": 2 },
+    { "act": "screenshot", "label": "01_fight_step_p2_ork_active" },
+
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/EndFightConfirmationDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"EndFightConfirmationDialog\").unfought_units.size()", "equals": 1 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"EndFightConfirmationDialog\").unfought_units[0][\"unit_id\"]", "equals": "U_WARBOSS_B" },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"EndFightConfirmationDialog\").unfought_units[0][\"player\"]", "equals": 2 },
+    { "act": "screenshot", "label": "02_confirm_dialog_lists_only_ork_unit" },
+
+    { "act": "click_node", "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.fought.has(\"U_WARBOSS_B\")", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.eligible_to_fight(\"U_CUSTODIAN_GUARD_B\", GameState.state)", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.eligible_to_fight(\"U_TELEMON_HEAVY_DREADNOUGHT_I\", GameState.state)", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().current_selecting_player", "equals": 1 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.peek_selection(GameState.state)[\"player\"]", "equals": 1 },
+
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "03_opponent_p1_custodes_still_get_to_fight" }
+  ]
+}
