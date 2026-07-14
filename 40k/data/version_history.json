@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.42.5",
+			"date": "2026-07-14",
+			"summary": "Fixed the charge-phase 'Undo Last Model' button doing nothing when clicked. After you dragged a model during a charge, clicking 'Undo Last Model' left the model exactly where you dropped it — the click never reached the button. The charge board handler was swallowing every left-click before the button could react, and only the 'Confirm Charge Moves' button had been excluded from that. 'Undo Last Model' now works: the model snaps back to where it started that charge and re-joins the list of models still to move.",
+			"changes": [
+				"Fixed: the charge-phase 'Undo Last Model' button now responds to a real mouse click. Previously the click was intercepted by the board's model-drag handler and discarded, so nothing happened.",
+				"Undoing a model now also resets the 'Used / Left' charge-distance readout, instead of leaving it showing the reverted model's old distance.",
+				"Same underlying fix also protects the 'Snap to Contact' button from having a real click swallowed — only 'Confirm Charge Moves' had been guarded before."
+			]
+		},
+		{
 			"version": "0.42.4",
 			"date": "2026-07-13",
 			"summary": "Fixed the confusing 'consolidate failed — skipping movement' messages in the Fight phase. When a unit had no legal Consolidation move — most commonly right after it wiped out the only enemy it was fighting, with no other enemy or objective within 3\" — the AI would still try to shuffle it toward the nearest objective (even one 10\"+ away), the rules would correctly reject the move, and the log filled with alarming 'consolidate failed' / 'validation failed' lines. The unit still couldn't legally move (that part was correct 10th-edition behaviour: Consolidation must end closer to an enemy within 3\" or an objective within 3\"), but the game now recognises that up front and the unit simply holds position — no scary 'failed' spam.",

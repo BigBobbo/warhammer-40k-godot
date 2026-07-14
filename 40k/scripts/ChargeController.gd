@@ -148,13 +148,21 @@ func _input(event: InputEvent) -> void:
 		var mouse_event = event as InputEventMouseButton
 		
 		if mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			# Check if the click is within the confirm button area
-			if is_instance_valid(confirm_button) and confirm_button.visible:
-				var button_rect = confirm_button.get_global_rect()
-				if button_rect.has_point(mouse_event.global_position):
-					print("DEBUG: Click is within confirm button area, not handling")
-					return  # Let the button handle this click
-			
+			# Let the charge-panel action buttons (Confirm / Undo Last Model /
+			# Snap to Contact) receive their own clicks. The
+			# get_viewport().set_input_as_handled() below marks this press handled
+			# BEFORE Godot's GUI pass runs, so any charge-panel button sitting
+			# under the cursor would never fire its `pressed` signal and the click
+			# would silently do nothing. Originally only confirm_button was
+			# whitelisted here — that is why "Undo Last Model" appeared dead when a
+			# player clicked it (and why "Snap to Contact" only worked via the
+			# test's emit_pressed shortcut, not a real mouse click).
+			for panel_button in [confirm_button, undo_charge_model_button, auto_path_charge_button]:
+				if is_instance_valid(panel_button) and panel_button.visible:
+					if panel_button.get_global_rect().has_point(mouse_event.global_position):
+						print("DEBUG: Click is within a charge-panel button, not handling")
+						return  # Let the button handle this click
+
 			print("DEBUG: ChargeController _input - Left mouse button, pressed: ", mouse_event.pressed)
 			if mouse_event.pressed:
 				_handle_mouse_down(mouse_event.global_position)
@@ -1239,6 +1247,7 @@ func _add_confirm_button() -> void:
 
 	# T-092: per-model undo button next to confirm
 	undo_charge_model_button = Button.new()
+	undo_charge_model_button.name = "UndoLastModelButton"
 	undo_charge_model_button.text = "Undo Last Model"
 	undo_charge_model_button.disabled = true
 	_WhiteDwarfTheme.apply_to_button(undo_charge_model_button)
@@ -1280,6 +1289,17 @@ func _on_undo_last_charge_model() -> void:
 			charge_info_label.text = "All models moved! Click 'Confirm Charge Moves' to complete"
 		else:
 			charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
+	# The per-model Used/Left readout described the model we just reverted, so
+	# reset it — otherwise it keeps showing a distance for a model now back at
+	# its origin, which reads as "undo did nothing".
+	if is_instance_valid(charge_used_label):
+		charge_used_label.text = "Used: 0.0\""
+		charge_used_label.modulate = Color.WHITE
+	if is_instance_valid(charge_left_label):
+		charge_left_label.text = "Left: %.1f\"" % charge_distance
+		charge_left_label.modulate = Color.WHITE
+	if is_instance_valid(charge_terrain_label):
+		charge_terrain_label.visible = false
 	# Disable confirm if nothing has been moved
 	if confirm_button and is_instance_valid(confirm_button):
 		confirm_button.disabled = moved_models.is_empty()
