@@ -29,8 +29,6 @@ func _init():
 
 
 func eligible(unit_id: String, board: Dictionary) -> Dictionary:
-	if GameConstants.edition < 11:
-		return {"eligible": false, "reasons": ["11e fight-phase template"]}
 	var unit = board.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return {"eligible": false, "reasons": ["unit not found"]}

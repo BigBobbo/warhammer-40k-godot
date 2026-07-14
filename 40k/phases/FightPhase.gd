@@ -305,18 +305,16 @@ func _initialize_fight_sequence() -> void:
 	# matrix includes charge-survivors that are no longer engaged
 	# (overrun fights, 12.06). The 10e tier lists above remain for UI
 	# display; ordering decisions defer to the sequencer.
-	sequencer_11e = null
-	if GameConstants.edition >= 11:
-		sequencer_11e = FightSequencer.new()
-		sequencer_11e.begin(GameState.state, GameState.get_active_player())
-		var sel_11e = sequencer_11e.next_selection(GameState.state)
-		if not sel_11e.done:
-			current_selecting_player = sel_11e.player
-		log_phase_message("[11e] FightSequencer: %s step, Player %d picks from %s" % [
-			sel_11e.step, sel_11e.player, str(sel_11e.candidates)])
-		# 12.08: consolidation eligibility ("was eligible to fight this
-		# phase") is cumulative — stamp the units eligible from the start.
-		_stamp_fight_eligibility_11e()
+	sequencer_11e = FightSequencer.new()
+	sequencer_11e.begin(GameState.state, GameState.get_active_player())
+	var sel_11e = sequencer_11e.next_selection(GameState.state)
+	if not sel_11e.done:
+		current_selecting_player = sel_11e.player
+	log_phase_message("[11e] FightSequencer: %s step, Player %d picks from %s" % [
+		sel_11e.step, sel_11e.player, str(sel_11e.candidates)])
+	# 12.08: consolidation eligibility ("was eligible to fight this
+	# phase") is cumulative — stamp the units eligible from the start.
+	_stamp_fight_eligibility_11e()
 
 	log_phase_message("=== FIGHT PHASE INITIALIZATION ===")
 	log_phase_message("Active Player: %d" % GameState.get_active_player())
@@ -345,12 +343,8 @@ func _initialize_fight_sequence() -> void:
 
 	# 11e 12.02: the fight phase OPENS with the global Pile In step — both
 	# players pile in their eligible units (active player first) before any
-	# unit is selected to fight. At 10e, fight selection starts immediately.
-	if GameConstants.edition >= 11:
-		_begin_pile_in_step_11e()
-	else:
-		# Emit fight selection required signal to show dialog
-		_emit_fight_selection_required()
+	# unit is selected to fight.
+	_begin_pile_in_step_11e()
 
 func _check_for_combats() -> void:
 	if fight_sequence.size() == 0:
@@ -614,7 +608,7 @@ func process_action(action: Dictionary) -> Dictionary:
 		"ROLL_DICE":
 			return _process_roll_dice(action)
 		"CONSOLIDATE":
-			return _process_consolidate(action)
+			return _process_consolidate_step_11e(action)
 		"SKIP_UNIT":
 			return _process_skip_unit(action)
 		"HEROIC_INTERVENTION":
@@ -681,57 +675,20 @@ func _validate_select_fighter(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": errors}
 
 	# 11e 12.02: no unit is selected to fight until the Pile In step is over
-	if GameConstants.edition >= 11 and pile_in_step_11e == PileInStep11e.ACTIVE:
+	if pile_in_step_11e == PileInStep11e.ACTIVE:
 		return {"valid": false, "errors": ["The Pile In step (12.02) must finish before units are selected to fight"]}
 
-	# ISS-050 step 2: at 11e the sequencer (12.04) is authoritative —
-	# including charge-survivors that are unengaged (pg-39 overrun case),
-	# which the 10e engagement check below would wrongly refuse.
-	if GameConstants.edition >= 11 and sequencer_11e != null:
-		var sel_11e = sequencer_11e.next_selection(GameState.state)
-		if sel_11e.done:
-			return {"valid": false, "errors": ["Fight step is over (no eligible units, 12.04)"]}
-		if int(unit.owner) != int(sel_11e.player):
-			return {"valid": false, "errors": ["Not your selection (Player %d picks, 12.04 %s step)" % [sel_11e.player, sel_11e.step]]}
-		if not unit_id in sel_11e.candidates:
-			return {"valid": false, "errors": ["Unit not eligible to fight in the %s step (12.04)" % sel_11e.step]}
-		return {"valid": true}
-
-	if unit.owner != current_selecting_player:
-		var error_msg = "Not your turn to select (Player %d's turn, you are Player %d)" % [current_selecting_player, unit.owner]
-		errors.append(error_msg)
-		log_phase_message("VALIDATION FAILED: Player %d tried to select unit owned by Player %d during Player %d's selection" % [
-			unit.owner, unit.owner, current_selecting_player
-		])
-		return {"valid": false, "errors": errors}
-
-	# Check unit is eligible in current subphase
-	var player_key = str(current_selecting_player)
-	var source_list: Dictionary
-	match current_subphase:
-		Subphase.FIGHTS_FIRST:
-			source_list = fights_first_sequence
-		Subphase.REMAINING_COMBATS:
-			source_list = normal_sequence
-		Subphase.FIGHTS_LAST:
-			source_list = fights_last_sequence
-		_:
-			source_list = normal_sequence
-
-	if unit_id not in source_list.get(player_key, []):
-		errors.append("Unit not eligible in this subphase")
-		return {"valid": false, "errors": errors}
-
-	# Check unit hasn't already fought
-	if unit_id in units_that_fought:
-		errors.append("Unit has already fought")
-		return {"valid": false, "errors": errors}
-
-	# Check unit is in engagement range
-	if not _is_unit_in_combat(unit):
-		errors.append("Unit not in engagement range")
-		return {"valid": false, "errors": errors}
-
+	# 12.04: the FightSequencer is the selection authority — including
+	# charge-survivors that are unengaged (pg-39 overrun case).
+	if sequencer_11e == null:
+		return {"valid": false, "errors": ["Fight sequencer not initialized"]}
+	var sel_11e = sequencer_11e.next_selection(GameState.state)
+	if sel_11e.done:
+		return {"valid": false, "errors": ["Fight step is over (no eligible units, 12.04)"]}
+	if int(unit.owner) != int(sel_11e.player):
+		return {"valid": false, "errors": ["Not your selection (Player %d picks, 12.04 %s step)" % [sel_11e.player, sel_11e.step]]}
+	if not unit_id in sel_11e.candidates:
+		return {"valid": false, "errors": ["Unit not eligible to fight in the %s step (12.04)" % sel_11e.step]}
 	return {"valid": true}
 
 func _validate_select_melee_weapon(action: Dictionary) -> Dictionary:
@@ -754,96 +711,10 @@ func _validate_select_melee_weapon(action: Dictionary) -> Dictionary:
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_pile_in(action: Dictionary) -> Dictionary:
-	# ISS-066 (11e 12.02-12.03): the PileInMove template is authoritative
-	# at edition >= 11 (eligibility incl. charge-survivor/overrun, pile-in
-	# target selection, base-contact lock, and the started-engaged-pairs
-	# AFTER rule). 10e keeps the legacy path below.
-	if GameConstants.edition >= 11:
-		return _validate_pile_in_11e(action)
-	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
-	var movements = action.get("movements", {})
-	var errors = []
-
-	# Handle single position movement (from FightController)
-	if movements.is_empty() and action.has("position"):
-		var position = action.get("position")
-		movements["0"] = Vector2(position.get("x", 0), position.get("y", 0))
-
-	# Check unit is active fighter
-	if unit_id != active_fighter_id:
-		errors.append("Not the active fighter")
-		return {"valid": false, "errors": errors}
-
-	# T4-4: Aircraft cannot Pile In
-	var unit = get_unit(unit_id)
-	if _unit_has_keyword(unit, "AIRCRAFT"):
-		log_phase_message("[T4-4] AIRCRAFT unit %s cannot Pile In — skipping movement" % unit_id)
-		if not movements.is_empty():
-			errors.append("AIRCRAFT units cannot Pile In")
-			return {"valid": false, "errors": errors}
-		# Empty movements = skip, which is valid for Aircraft
-		return {"valid": true, "errors": []}
-	
-	# Validate each model movement
-	for model_id in movements:
-		var old_pos = _get_model_position(unit_id, model_id)
-		var new_pos = movements[model_id]
-
-		if old_pos == Vector2.ZERO:
-			errors.append("Model %s position not found" % model_id)
-			continue
-
-		# T4-5: Reject movement for models already in base contact with an enemy
-		if _is_model_in_base_contact_with_enemy(unit_id, model_id):
-			var move_distance = Measurement.distance_inches(old_pos, new_pos)
-			if move_distance > 0.01:  # Model actually moved
-				errors.append("Model %s is already in base contact — cannot move during pile-in" % model_id)
-				log_phase_message("[T4-5] Model %s rejected: already in base contact, moved %.2f\"" % [model_id, move_distance])
-				continue
-
-		# Check 3" movement limit (with floating-point tolerance). A pivoted model
-		# spends part of its budget on the pivot cost (Pariah Nexus).
-		var distance = Measurement.distance_inches(old_pos, new_pos)
-		var pile_model = _resolve_fight_model(unit_id, model_id)
-		var eff_cap = _fight_effective_move_cap(unit, pile_model, _fight_rotations_from_action(action), model_id)
-		if distance > eff_cap + MOVEMENT_CAP_EPSILON:
-			if eff_cap < 3.0:
-				errors.append("Model %s pile in exceeds %.0f\" limit after pivot cost (%.1f\")" % [model_id, eff_cap, distance])
-			else:
-				errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [model_id, distance])
-
-		# Check movement is toward closest enemy
-		if not _is_moving_toward_closest_enemy(unit_id, model_id, old_pos, new_pos):
-			errors.append("Model %s must pile in toward closest enemy" % model_id)
-
-	# Check for model overlaps
-	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
-	if not overlap_check.valid:
-		errors.append_array(overlap_check.errors)
-
-	# Check unit coherency maintained
-	var coherency_check = _validate_unit_coherency(unit_id, movements)
-	if not coherency_check.get("valid", false):
-		errors.append_array(coherency_check.get("errors", []))
-
-	# T1-5: After pile-in, at least one model must be within Engagement Range (1") of an enemy.
-	# Rule: "A Pile-in Move is a 3" move that, if made, must result in the unit being in
-	# Unit Coherency and within Engagement Range of one or more enemy units."
-	unit = get_unit(unit_id)
-	if not unit.is_empty() and not movements.is_empty():
-		if not _can_unit_maintain_engagement_after_movement(unit, movements):
-			errors.append("Unit must end within Engagement Range of at least one enemy after pile-in")
-			log_phase_message("[Pile-In] REJECTED: Unit %s would not be in Engagement Range after pile-in" % unit_id)
-
-	# T1-6: Base-to-base contact enforcement
-	# Rule: "Each model must end closer to the closest enemy model, and in base-to-base
-	# contact with it if possible." If a model CAN reach b2b within 3", it MUST.
-	if not unit.is_empty() and not movements.is_empty():
-		var b2b_check = _validate_base_to_base_if_possible(unit_id, movements, 3.0)
-		if not b2b_check.valid:
-			errors.append_array(b2b_check.errors)
-
-	return {"valid": errors.is_empty(), "errors": errors}
+	# 11e 12.02-12.03: the PileInMove template is authoritative — eligibility
+	# incl. charge-survivor/overrun, pile-in target selection, base-contact
+	# lock, and the started-engaged-pairs AFTER rule.
+	return _validate_pile_in_11e(action)
 
 func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
@@ -936,87 +807,10 @@ func _validate_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_consolidate(action: Dictionary) -> Dictionary:
-	# ISS-066 (11e 12.07-12.08): the ConsolidationMove template is
-	# authoritative at edition >= 11 (mandatory mode selection
-	# ongoing/engaging/objective + per-mode movement + AFTER conditions).
-	if GameConstants.edition >= 11:
-		return _validate_consolidate_11e(action)
-	# Consolidate has different rules than pile-in:
-	# 1. Try to end in engagement range (closer to enemy, base contact if possible)
-	# 2. If can't maintain engagement, move toward closest objective
-	# 3. If neither is possible, no consolidation allowed
-	var unit_id = action.get("unit_id", "")
-	var movements = action.get("movements", {})
-	var errors = []
-
-	# Check unit is active fighter and has fought
-	if unit_id != active_fighter_id:
-		errors.append("Not the active fighter")
-		return {"valid": false, "errors": errors}
-
-	# Unit must have resolved attacks (pending_attacks should be empty)
-	if not pending_attacks.is_empty():
-		errors.append("Must resolve attacks before consolidating")
-		return {"valid": false, "errors": errors}
-
-	# T4-4: Aircraft cannot Consolidate
-	var unit_for_kw = get_unit(unit_id)
-	if _unit_has_keyword(unit_for_kw, "AIRCRAFT"):
-		log_phase_message("[T4-4] AIRCRAFT unit %s cannot Consolidate — skipping movement" % unit_id)
-		if not movements.is_empty():
-			errors.append("AIRCRAFT units cannot Consolidate")
-			return {"valid": false, "errors": errors}
-		# Empty movements = skip, which is valid for Aircraft
-		return {"valid": true, "errors": []}
-
-	# FGT-1 / P2-78: Per FAQ, consolidation for a unit is NOT optional — the step
-	# must always occur. However, each individual model's Consolidation move IS
-	# optional. Empty movements means the unit consolidates but no models move,
-	# which is valid per the FAQ ruling.
-	if movements.is_empty():
-		log_phase_message("[FGT-1] Unit %s consolidation step completed (no individual models moved — permitted per FAQ)" % unit_id)
-		return {"valid": true, "errors": []}
-
-	# Determine which consolidate mode is available
-	var unit = get_unit(unit_id)
-	var consolidate_mode = _determine_consolidate_mode(unit, movements)
-
-	log_phase_message("[Consolidate] Mode for %s: %s" % [unit_id, consolidate_mode])
-
-	if consolidate_mode == "ENGAGEMENT":
-		# Validate engagement range consolidate
-		return _validate_consolidate_engagement_range(unit_id, movements)
-	elif consolidate_mode == "OBJECTIVE":
-		# Validate objective-based consolidate
-		return _validate_consolidate_objective(unit_id, movements)
-	else:
-		# No valid consolidation possible
-		if not movements.is_empty():
-			errors.append("No valid consolidation possible (cannot maintain engagement or reach objectives)")
-		return {"valid": errors.is_empty(), "errors": errors}
-
-func _determine_consolidate_mode(unit: Dictionary, movements: Dictionary) -> String:
-	"""Determine which consolidate mode applies:
-	- ENGAGEMENT: Can end in engagement range with at least one enemy (within 4" total distance)
-	- OBJECTIVE: Cannot reach engagement, but can reach objective
-	- NONE: Neither is possible"""
-
-	# Check if it's POSSIBLE for unit to end in engagement range
-	# "if possible" means: can ANY model get within 1" of an enemy within consolidation distance?
-	var unit_id_for_consol = unit.get("id", "")
-	var consol_dist = _get_consolidation_distance(unit_id_for_consol)
-	var can_reach_engagement = _can_unit_reach_engagement_range(unit, consol_dist)
-
-	if can_reach_engagement:
-		return "ENGAGEMENT"
-
-	# If cannot reach engagement, try objective mode
-	var can_reach_objective = _can_unit_reach_objective_after_movement(unit, movements)
-
-	if can_reach_objective:
-		return "OBJECTIVE"
-
-	return "NONE"
+	# 11e 12.07-12.08: the ConsolidationMove template is authoritative —
+	# mandatory mode selection ongoing/engaging/objective + per-mode
+	# movement + AFTER conditions.
+	return _validate_consolidate_11e(action)
 
 func _can_unit_reach_engagement_range(unit: Dictionary, consol_dist: float = 3.0) -> bool:
 	"""Check if it's POSSIBLE for unit to reach engagement range within consolidation distance.
@@ -1055,316 +849,27 @@ func _can_unit_reach_engagement_range(unit: Dictionary, consol_dist: float = 3.0
 
 	return false
 
-func _can_unit_maintain_engagement_after_movement(unit: Dictionary, movements: Dictionary) -> bool:
-	"""Check if the unit will be in engagement range with at least one enemy after movements"""
-	var unit_id = unit.get("id", "")
-	var models = unit.get("models", [])
-	var all_units = game_state_snapshot.get("units", {})
-	var unit_owner = unit.get("owner", 0)
-
-	# Build model dicts with updated positions after movement
-	var final_models = []
-	for i in models.size():
-		var model = models[i]
-		if not model.get("alive", true):
-			continue
-
-		var model_id = str(i)
-		if model_id in movements:
-			var moved_model = model.duplicate()
-			moved_model["position"] = movements[model_id]
-			final_models.append(moved_model)
-		else:
-			final_models.append(model)
-
-	# Check if any of our models will be in engagement range
-	for our_model in final_models:
-		for other_unit_id in all_units:
-			var other_unit = all_units[other_unit_id]
-			if other_unit.get("owner", 0) == unit_owner:
-				continue
-
-			var enemy_models = other_unit.get("models", [])
-			for enemy_model in enemy_models:
-				if not enemy_model.get("alive", true):
-					continue
-
-				# T3-9: Check engagement range using barricade-aware distance
-				var our_pos = our_model.get("position", Vector2.ZERO)
-				if our_pos is Dictionary:
-					our_pos = Vector2(our_pos.get("x", 0), our_pos.get("y", 0))
-				var enemy_pos = enemy_model.get("position", Vector2.ZERO)
-				if enemy_pos is Dictionary:
-					enemy_pos = Vector2(enemy_pos.get("x", 0), enemy_pos.get("y", 0))
-				var effective_er = _get_effective_engagement_range(our_pos, enemy_pos)
-				if Measurement.is_in_engagement_range_shape_aware(our_model, enemy_model, effective_er):
-					return true
-
-	return false
-
-func _can_unit_reach_objective_after_movement(unit: Dictionary, movements: Dictionary) -> bool:
-	"""Check if unit can reach an objective after movement.
-	At least one model must end within range of an objective (3" range as per rules)."""
-	var objectives = GameState.state.board.get("objectives", [])
-	if objectives.is_empty():
-		return false
-
-	var models = unit.get("models", [])
-
-	# Build final positions after movement
-	var final_positions = []
-	for i in models.size():
-		var model = models[i]
-		if not model.get("alive", true):
-			continue
-
-		var model_id = str(i)
-		if model_id in movements:
-			final_positions.append(movements[model_id])
-		else:
-			var pos_data = model.get("position", {})
-			final_positions.append(Vector2(pos_data.get("x", 0), pos_data.get("y", 0)))
-
-	# Check if any model's BASE EDGE will be within 3" of objective BASE EDGE
-	# This is edge-to-edge distance using proper base shape calculations
-	# Objectives have 40mm radius = ~0.787"
-	const OBJECTIVE_RADIUS_MM = 40.0
-
-	for i in models.size():
-		var model = models[i]
-		if not model.get("alive", true):
-			continue
-
-		var model_id = str(i)
-		var model_pos: Vector2
-		if model_id in movements:
-			model_pos = movements[model_id]
-		else:
-			var pos_data = model.get("position", {})
-			model_pos = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
-
-		# Create model with position for shape-aware distance calculation
-		var model_with_pos = model.duplicate()
-		model_with_pos["position"] = model_pos
-
-		for objective in objectives:
-			var obj_pos = objective.get("position", Vector2.ZERO)
-			if obj_pos == Vector2.ZERO:
-				continue
-
-			# Calculate shape-aware edge-to-edge distance from model to objective
-			var edge_distance = _model_to_objective_distance_inches(model_with_pos, obj_pos, OBJECTIVE_RADIUS_MM)
-
-			# Check if edge-to-edge distance is within 3"
-			if edge_distance <= 3.0:
-				return true
-
-	return false
-
-func _model_to_objective_distance_inches(model: Dictionary, objective_pos: Vector2, objective_radius_mm: float) -> float:
-	"""Calculate edge-to-edge distance from model base to objective marker.
-	Handles circular, oval, and rectangular bases correctly."""
-	var model_pos = model.get("position", Vector2.ZERO)
-	if model_pos is Dictionary:
-		model_pos = Vector2(model_pos.get("x", 0), model_pos.get("y", 0))
-
-	var rotation = model.get("rotation", 0.0)
-
-	# Create model's base shape
-	var model_shape = Measurement.create_base_shape(model)
-
-	# Get closest point on model's base edge to objective center
-	var closest_point_on_model = model_shape.get_closest_edge_point(objective_pos, model_pos, rotation)
-
-	# Distance from model edge to objective center
-	var distance_to_center_px = closest_point_on_model.distance_to(objective_pos)
-
-	# Convert to inches and subtract objective radius
-	var distance_to_center_inches = Measurement.px_to_inches(distance_to_center_px)
-	var objective_radius_inches = objective_radius_mm / 25.4
-
-	# Edge-to-edge distance
-	return distance_to_center_inches - objective_radius_inches
-
-func _validate_consolidate_engagement_range(unit_id: String, movements: Dictionary) -> Dictionary:
-	"""Validate consolidate when ending in engagement range"""
-	var errors = []
-	var unit = get_unit(unit_id)
-	var models = unit.get("models", [])
-	var max_consol_dist = _get_consolidation_distance(unit_id)
-
-	# Each model must:
-	# 1. Move max consolidation distance (3" normally, 6" with Drive-by Krumpin')
-	# 2. End closer to closest enemy
-	# 3. End in base contact if possible
-	# 4. Maintain unit coherency
-	# 5. Not overlap other models
-
-	for model_id in movements:
-		var old_pos = _get_model_position(unit_id, model_id)
-		var new_pos = movements[model_id]
-
-		if old_pos == Vector2.ZERO:
-			errors.append("Model %s position not found" % model_id)
-			continue
-
-		# T4-5: Reject movement for models already in base contact with an enemy
-		if _is_model_in_base_contact_with_enemy(unit_id, model_id):
-			var move_distance = Measurement.distance_inches(old_pos, new_pos)
-			if move_distance > 0.01:  # Model actually moved
-				errors.append("Model %s is already in base contact — cannot move during consolidation" % model_id)
-				log_phase_message("[T4-5] Model %s rejected: already in base contact, moved %.2f\" during consolidation" % [model_id, move_distance])
-				continue
-
-		# Check consolidation movement limit (with floating-point tolerance)
-		var distance = Measurement.distance_inches(old_pos, new_pos)
-		if distance > max_consol_dist + MOVEMENT_CAP_EPSILON:
-			errors.append("Model %s consolidate exceeds %.0f\" limit (%.1f\")" % [model_id, max_consol_dist, distance])
-
-		# Check movement is toward closest enemy
-		if not _is_moving_toward_closest_enemy(unit_id, model_id, old_pos, new_pos):
-			errors.append("Model %s must consolidate toward closest enemy" % model_id)
-
-	# Check for model overlaps
-	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
-	if not overlap_check.valid:
-		errors.append_array(overlap_check.errors)
-
-	# Check unit coherency maintained
-	var coherency_check = _validate_unit_coherency(unit_id, movements)
-	if not coherency_check.get("valid", false):
-		errors.append_array(coherency_check.get("errors", []))
-
-	# Check unit ends in engagement range
-	if not _can_unit_maintain_engagement_after_movement(unit, movements):
-		errors.append("Unit must end within Engagement Range of at least one enemy")
-
-	# T1-6: Base-to-base contact enforcement for consolidation in engagement mode
-	# Same rule as pile-in: models must end in b2b with closest enemy if possible.
-	var b2b_check = _validate_base_to_base_if_possible(unit_id, movements, max_consol_dist)
-	if not b2b_check.valid:
-		errors.append_array(b2b_check.errors)
-
-	return {"valid": errors.is_empty(), "errors": errors}
-
-func _validate_consolidate_objective(unit_id: String, movements: Dictionary) -> Dictionary:
-	"""Validate consolidate when moving toward objective (fallback mode)"""
-	var errors = []
-	var unit = get_unit(unit_id)
-	var models = unit.get("models", [])
-	var objectives = GameState.state.board.get("objectives", [])
-	var max_consol_dist = _get_consolidation_distance(unit_id)
-
-	if objectives.is_empty():
-		errors.append("No objectives available for consolidate")
-		return {"valid": false, "errors": errors}
-
-	# Each model must:
-	# 1. Move max consolidation distance (3" normally, 6" with Drive-by Krumpin')
-	# 2. Move toward closest objective marker
-	# 3. Unit must end within range of objective (at least one model)
-	# 4. Maintain unit coherency
-	# 5. Not overlap other models
-
-	for model_id in movements:
-		var old_pos = _get_model_position(unit_id, model_id)
-		var new_pos = movements[model_id]
-
-		if old_pos == Vector2.ZERO:
-			errors.append("Model %s position not found" % model_id)
-			continue
-
-		# Check consolidation movement limit (with floating-point tolerance)
-		var distance = Measurement.distance_inches(old_pos, new_pos)
-		if distance > max_consol_dist + MOVEMENT_CAP_EPSILON:
-			errors.append("Model %s consolidate exceeds %.0f\" limit (%.1f\")" % [model_id, max_consol_dist, distance])
-
-		# Check movement is toward closest objective
-		if not _is_moving_toward_closest_objective(old_pos, new_pos, objectives):
-			errors.append("Model %s must consolidate toward closest objective" % model_id)
-
-	# Check for model overlaps
-	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
-	if not overlap_check.valid:
-		errors.append_array(overlap_check.errors)
-
-	# Check unit coherency maintained
-	var coherency_check = _validate_unit_coherency(unit_id, movements)
-	if not coherency_check.get("valid", false):
-		errors.append_array(coherency_check.get("errors", []))
-
-	# Check unit ends within range of objective
-	if not _can_unit_reach_objective_after_movement(unit, movements):
-		errors.append("At least one model must end within 3\" of an objective marker")
-
-	return {"valid": errors.is_empty(), "errors": errors}
-
-func _is_moving_toward_closest_objective(old_pos: Vector2, new_pos: Vector2, objectives: Array) -> bool:
-	"""Check if model is moving toward the closest objective marker"""
-	var closest_obj_pos = _find_closest_objective_position(old_pos, objectives)
-	if closest_obj_pos == Vector2.ZERO:
-		return true  # No objectives found, allow movement
-
-	# Check if new position is closer to objective than old position
-	var old_distance = old_pos.distance_to(closest_obj_pos)
-	var new_distance = new_pos.distance_to(closest_obj_pos)
-	return new_distance <= old_distance
-
-func _find_closest_objective_position(from_pos: Vector2, objectives: Array) -> Vector2:
-	"""Find the closest objective marker position"""
-	var closest_pos = Vector2.ZERO
-	var closest_distance = INF
-
-	for objective in objectives:
-		var obj_pos = objective.get("position", Vector2.ZERO)
-		if obj_pos == Vector2.ZERO:
-			continue
-
-		var distance = from_pos.distance_to(obj_pos)
-		if distance < closest_distance:
-			closest_distance = distance
-			closest_pos = obj_pos
-
-	return closest_pos
-
 func _validate_skip_unit(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var errors = []
 
-	# FGT-1 / P2-78 (10e FAQ): Cannot skip a unit that is mid-fight and needs
-	# to consolidate — consolidation is mandatory at the unit level. 11e has
-	# no per-fighter consolidation (12.07 global step, optional per unit),
-	# so the block does not apply there.
-	if GameConstants.edition < 11 and active_fighter_id == unit_id and pending_attacks.is_empty() and confirmed_attacks.is_empty():
-		errors.append("Unit must complete mandatory consolidation before being skipped (FAQ: consolidation is not optional)")
-		return {"valid": false, "errors": errors}
-
 	# 11e: the sequencer governs order — SKIP_UNIT is valid for the active
 	# fighter (aborting its activation) or any unit still owed a fight.
-	if GameConstants.edition >= 11 and sequencer_11e != null:
-		if unit_id == active_fighter_id or sequencer_11e.eligible_to_fight(unit_id, GameState.state):
-			return {"valid": true, "errors": []}
-		errors.append("Unit %s has no fight to skip" % unit_id)
-		return {"valid": false, "errors": errors}
-
-	# Check it's this unit's turn
-	if current_fight_index >= fight_sequence.size():
-		errors.append("All units have fought")
-		return {"valid": false, "errors": errors}
-
-	if fight_sequence[current_fight_index] != unit_id:
-		errors.append("Not this unit's turn to fight")
-
-	return {"valid": errors.is_empty(), "errors": errors}
+	if sequencer_11e == null:
+		return {"valid": false, "errors": ["Fight sequencer not initialized"]}
+	if unit_id == active_fighter_id or sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+		return {"valid": true, "errors": []}
+	errors.append("Unit %s has no fight to skip" % unit_id)
+	return {"valid": false, "errors": errors}
 
 # Action processing methods
 func _process_select_fighter(action: Dictionary) -> Dictionary:
 	active_fighter_id = action.unit_id
 
-	# ISS-050 step 2 (11e): commit the selection in the sequencer and
-	# surface the available fight types (NORMAL 12.05 / OVERRUN 12.06).
+	# 12.04: commit the selection in the sequencer and surface the
+	# available fight types (NORMAL 12.05 / OVERRUN 12.06).
 	var fight_types_11e: Array = []
-	if GameConstants.edition >= 11 and sequencer_11e != null:
+	if sequencer_11e != null:
 		var ft = sequencer_11e.select_to_fight(active_fighter_id, GameState.state)
 		fight_types_11e = ft.fight_types
 		log_phase_message("[11e] %s selected to fight — types: %s" % [active_fighter_id, str(fight_types_11e)])
@@ -1453,7 +958,7 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 	# 11e 12.02: a move in the global Pile In step — apply now (idempotent
 	# re-apply, same pattern as the Consolidate step) so newly-engaged
 	# enemies become fight-eligible, then continue the step.
-	if GameConstants.edition >= 11 and pile_in_step_11e == PileInStep11e.ACTIVE:
+	if pile_in_step_11e == PileInStep11e.ACTIVE:
 		if not changes.is_empty():
 			PhaseManager.apply_state_changes(changes)
 		_stamp_fight_eligibility_11e()
@@ -1461,7 +966,7 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 
 	# 11e 12.06: the Overrun fight's additional pile-in — the grant is
 	# used up; apply the move so attack targets reflect the new engagement.
-	if GameConstants.edition >= 11 and unit_id == overrun_pile_in_unit_11e:
+	if unit_id == overrun_pile_in_unit_11e:
 		overrun_pile_in_unit_11e = ""
 		if not changes.is_empty():
 			PhaseManager.apply_state_changes(changes)
@@ -1560,16 +1065,14 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 	# P0-58: Determine if defender is a human player for interactive wound allocation
 	var defender_is_human = _is_defender_human_player()
 
-	# A1 (11e): the auto-resolve path now uses the 11e allocation groups +
+	# A1 (11e): the auto-resolve path uses the 11e allocation groups +
 	# [DEVASTATING WOUNDS] cap (24.10) + 06.02 mortal-wound priority. When the
 	# auto-allocate-wounds setting is ON (its default), the computer picks
 	# casualties anyway, so route human defenders through auto-resolve so melee
-	# gets the correct 11e resolution. The legacy interactive overlay (still 10e)
-	# only applies at e11 when auto-allocate is explicitly OFF. 10e unchanged.
-	var _auto_alloc_11e := false
-	if GameConstants.edition >= 11:
-		var _ss = get_node_or_null("/root/SettingsService")
-		_auto_alloc_11e = _ss == null or _ss.get_auto_allocate_wounds()
+	# gets the correct 11e resolution. The legacy interactive overlay only
+	# applies when auto-allocate is explicitly OFF.
+	var _ss = get_node_or_null("/root/SettingsService")
+	var _auto_alloc_11e: bool = _ss == null or _ss.get_auto_allocate_wounds()
 
 	# STAGED FIGHT: in non-networked play a HUMAN attacker resolves weapon by
 	# weapon with pauses after the hit roll and the wound roll (Command Re-roll
@@ -1647,15 +1150,7 @@ func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
 			final_result["dice"] = result["dice"]
 		# 11e: no per-fighter consolidation — the activation ends when the
 		# attacks are resolved (consolidation is the global 12.07 step).
-		if GameConstants.edition >= 11:
-			return _finish_fight_activation_11e(final_result)
-
-		var consol_dist = _get_consolidation_distance(active_fighter_id)
-		emit_signal("consolidate_required", active_fighter_id, consol_dist)
-		final_result["trigger_consolidate"] = true
-		final_result["consolidate_unit_id"] = active_fighter_id
-		final_result["consolidate_distance"] = consol_dist
-		return final_result
+		return _finish_fight_activation_11e(final_result)
 
 	# Wounds caused — store state and emit saves_required for WoundAllocationOverlay
 	pending_melee_save_data = save_data_list
@@ -1750,19 +1245,7 @@ func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 
 	# 11e: no per-fighter consolidation — the activation ends when the
 	# attacks are resolved (consolidation is the global 12.07 step).
-	if GameConstants.edition >= 11:
-		return _finish_fight_activation_11e(final_result)
-
-	# After attacks, request consolidate
-	var consol_dist = _get_consolidation_distance(active_fighter_id)
-	emit_signal("consolidate_required", active_fighter_id, consol_dist)
-
-	# Add metadata for NetworkManager to re-emit signal on client
-	final_result["trigger_consolidate"] = true
-	final_result["consolidate_unit_id"] = active_fighter_id
-	final_result["consolidate_distance"] = consol_dist
-
-	return final_result
+	return _finish_fight_activation_11e(final_result)
 
 # =============================================================================
 # STAGED FIGHT RESOLUTION (mirrors ShootingPhase's sequential_staged mode)
@@ -2100,15 +1583,7 @@ func _staged_fight_finish(changes: Array) -> Dictionary:
 
 	# 11e: no per-fighter consolidation — the activation ends when the
 	# attacks are resolved (consolidation is the global 12.07 step).
-	if GameConstants.edition >= 11:
-		return _finish_fight_activation_11e(final_result)
-
-	var consol_dist = _get_consolidation_distance(active_fighter_id)
-	emit_signal("consolidate_required", active_fighter_id, consol_dist)
-	final_result["trigger_consolidate"] = true
-	final_result["consolidate_unit_id"] = active_fighter_id
-	final_result["consolidate_distance"] = consol_dist
-	return final_result
+	return _finish_fight_activation_11e(final_result)
 
 func _process_use_fight_reroll(action: Dictionary) -> Dictionary:
 	var payload = action.get("payload", {})
@@ -2505,17 +1980,7 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 
 	# 11e: no per-fighter consolidation — the activation ends when the
 	# attacks are resolved (consolidation is the global 12.07 step).
-	if GameConstants.edition >= 11:
-		return _finish_fight_activation_11e(final_result)
-
-	# After attacks, request consolidate
-	var consol_dist = _get_consolidation_distance(active_fighter_id)
-	emit_signal("consolidate_required", active_fighter_id, consol_dist)
-	final_result["trigger_consolidate"] = true
-	final_result["consolidate_unit_id"] = active_fighter_id
-	final_result["consolidate_distance"] = consol_dist
-
-	return final_result
+	return _finish_fight_activation_11e(final_result)
 
 # T3-3: Auto-inject Extra Attacks weapons that aren't already in confirmed_attacks
 # Extra Attacks weapons must be used IN ADDITION to the selected weapon, not instead of it.
@@ -2800,126 +2265,6 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	log_phase_message("[11e] Fight step complete — waiting for END_FIGHT to enter the Consolidate step (12.07)")
 	return final_result
 
-func _process_consolidate(action: Dictionary) -> Dictionary:
-	# 11e 12.07-12.08: consolidation is a move in the global end-of-phase
-	# Consolidate step, not the tail of a unit's activation.
-	if GameConstants.edition >= 11:
-		return _process_consolidate_step_11e(action)
-
-	var changes = []
-	var unit_id = action.get("unit_id", "")
-	var movements = action.get("movements", {})
-
-	# FGT-1 / P2-78: Consolidation is mandatory at unit level per FAQ.
-	# "Consolidation for a unit is not optional. However, for each model,
-	# whether or not that model makes a Consolidation move is optional."
-	if movements.is_empty():
-		log_phase_message("[FGT-1] %s completes mandatory consolidation step — no models elected to move" % unit_id)
-	else:
-		log_phase_message("[Consolidate] %s — %d model(s) moved" % [unit_id, movements.size()])
-
-	# Apply movements
-	for model_id in movements:
-		var new_pos = movements[model_id]
-		changes.append({
-			"op": "set",
-			"path": "units.%s.models.%s.position" % [unit_id, model_id],
-			"value": {"x": new_pos.x, "y": new_pos.y}
-		})
-
-	# Apply pivots (new facings) for any non-circular bases that rotated
-	var consolidate_rotations = _fight_rotations_from_action(action)
-	for model_id in consolidate_rotations:
-		changes.append({
-			"op": "set",
-			"path": "units.%s.models.%s.rotation" % [unit_id, model_id],
-			"value": float(consolidate_rotations[model_id])
-		})
-
-	# Mark unit as having fought
-	changes.append({
-		"op": "set",
-		"path": "units.%s.flags.has_fought" % unit_id,
-		"value": true
-	})
-	units_that_fought.append(unit_id)
-	active_fighter_id = ""
-	confirmed_attacks.clear()
-
-	# Clear Martial Ka'tah stance — "active until the unit finishes attacking"
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if faction_mgr:
-		faction_mgr.clear_katah_stance(unit_id)
-		# Also clear from snapshot
-		if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
-			var snap_flags = game_state_snapshot.units[unit_id].get("flags", {})
-			snap_flags.erase("effect_sustained_hits")
-			snap_flags.erase("effect_lethal_hits")
-			snap_flags.erase("katah_stance")
-			snap_flags.erase("katah_sustained_hits_value")
-
-	# Legacy support - update old index
-	current_fight_index += 1
-
-	# T2-6: After consolidation, scan for newly eligible units.
-	# Per 10e rules: "After an enemy unit has finished its Consolidation move,
-	# if previously ineligible units are now eligible to Fight — these units can
-	# then be selected to fight."
-	# We must check using post-consolidation positions since the game_state_snapshot
-	# hasn't been updated yet (diffs are applied after process_action returns).
-	var newly_eligible = _scan_newly_eligible_units_after_consolidation(unit_id, movements)
-
-	# Determine which player just fought and which is the opponent
-	var fought_unit = get_unit(unit_id)
-	var fought_unit_owner = int(fought_unit.get("owner", 0))
-	var opponent_player = 2 if fought_unit_owner == 1 else 1
-
-	# Check if Counter-Offensive is available for the opponent
-	var co_check = StratagemManager.is_counter_offensive_available(opponent_player)
-	var co_eligible = []
-	if co_check.available:
-		co_eligible = StratagemManager.get_counter_offensive_eligible_units(
-			opponent_player, units_that_fought, game_state_snapshot
-		)
-
-	if not co_eligible.is_empty():
-		# Counter-Offensive is available! Pause and offer it to the opponent
-		awaiting_counter_offensive = true
-		counter_offensive_player = opponent_player
-		log_phase_message("COUNTER-OFFENSIVE available for Player %d (%d eligible units)" % [opponent_player, co_eligible.size()])
-
-		emit_signal("counter_offensive_opportunity", opponent_player, co_eligible)
-
-		var result = create_result(true, changes)
-		result["trigger_counter_offensive"] = true
-		result["counter_offensive_player"] = opponent_player
-		result["counter_offensive_eligible_units"] = co_eligible
-		if not newly_eligible.is_empty():
-			result["newly_eligible_units"] = newly_eligible
-		return result
-
-	# No Counter-Offensive available — proceed with normal fight selection
-	# Switch to next player
-	_switch_selecting_player()
-
-	# IMPORTANT: For multiplayer sync, we need to capture the dialog data BEFORE emitting
-	# the signal so we can send it to clients
-	var dialog_data = _build_fight_selection_dialog_data()
-
-	# Request next fight selection on host (only if there are units to select)
-	if not dialog_data.is_empty():
-		emit_signal("fight_selection_required", dialog_data)
-
-	# Add flag and data to result for NetworkManager to trigger on clients
-	var result = create_result(true, changes)
-	if not dialog_data.is_empty():
-		result["trigger_fight_selection"] = true
-		result["fight_selection_data"] = dialog_data
-	if not newly_eligible.is_empty():
-		result["newly_eligible_units"] = newly_eligible
-
-	return result
-
 # 11e 12.07-12.08: one consolidation move during the global Consolidate
 # step. Applies the movement, marks the unit's single move used, and —
 # for an Engaging Consolidation that tagged unfought enemy units — hands
@@ -3000,7 +2345,7 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 
 	# 11e: keep the sequencer's candidate list consistent — a skipped unit
 	# forfeits its fight and must not be re-offered forever.
-	if GameConstants.edition >= 11 and sequencer_11e != null:
+	if sequencer_11e != null:
 		sequencer_11e.mark_fought(action.unit_id)
 		# A skipped activation also forfeits any 12.06 overrun grant
 		if overrun_pile_in_unit_11e == action.unit_id:
@@ -3031,7 +2376,7 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 		emit_signal("fight_selection_required", dialog_data)
 		result["trigger_fight_selection"] = true
 		result["fight_selection_data"] = dialog_data
-	elif GameConstants.edition >= 11 and consolidation_step_11e == ConsolidationStep11e.ACTIVE:
+	elif consolidation_step_11e == ConsolidationStep11e.ACTIVE:
 		return _advance_consolidation_step_11e(result)
 	return result
 
@@ -3179,65 +2524,34 @@ func get_pending_fight_selection_data() -> Dictionary:
 	return data
 
 func _get_eligible_units_for_selection() -> Dictionary:
-	"""Get units eligible for selection by current player in current subphase"""
+	"""Get units eligible for selection by the current player (12.04 — the
+	FightSequencer is the eligibility authority)."""
 	var eligible = {}
-
-	# 11e: the FightSequencer is the eligibility authority — the 10e tier
-	# lists drift from it (units added mid-phase, mark_fought bookkeeping)
-	# and would offer/withhold the wrong candidates.
-	if GameConstants.edition >= 11 and sequencer_11e != null:
-		var only_ff = sequencer_11e.step == "fights_first"
-		for unit_id in sequencer_11e.eligible_units(GameState.state, current_selecting_player, only_ff):
-			var unit = get_unit(unit_id)
-			if not unit.is_empty():
-				eligible[unit_id] = {
-					"name": unit.get("meta", {}).get("name", unit_id),
-					"weapons": RulesEngine.get_unit_melee_weapons(unit_id, game_state_snapshot),
-					"targets": _get_eligible_melee_targets(unit_id)
-				}
+	if sequencer_11e == null:
 		return eligible
-
-	var player_key = str(current_selecting_player)
-	var source_list: Dictionary
-	match current_subphase:
-		Subphase.FIGHTS_FIRST:
-			source_list = fights_first_sequence
-		Subphase.REMAINING_COMBATS:
-			source_list = normal_sequence
-		Subphase.FIGHTS_LAST:
-			source_list = fights_last_sequence
-		_:
-			return eligible
-
-	for unit_id in source_list.get(player_key, []):
-		if unit_id not in units_that_fought:
-			var unit = get_unit(unit_id)
-			if not unit.is_empty():
-				eligible[unit_id] = {
-					"name": unit.get("meta", {}).get("name", unit_id),
-					"weapons": RulesEngine.get_unit_melee_weapons(unit_id, game_state_snapshot),
-					"targets": _get_eligible_melee_targets(unit_id)
-				}
-
+	var only_ff = sequencer_11e.step == "fights_first"
+	for unit_id in sequencer_11e.eligible_units(GameState.state, current_selecting_player, only_ff):
+		var unit = get_unit(unit_id)
+		if not unit.is_empty():
+			eligible[unit_id] = {
+				"name": unit.get("meta", {}).get("name", unit_id),
+				"weapons": RulesEngine.get_unit_melee_weapons(unit_id, game_state_snapshot),
+				"targets": _get_eligible_melee_targets(unit_id)
+			}
 	return eligible
 
 func _switch_selecting_player() -> void:
-	# ISS-050 step 2 (11e 12.04): the sequencer decides who picks next
-	# (it skips a player with nothing eligible, returns to Fights First
-	# after a remaining-step fight, and ends the step when nobody can).
-	if GameConstants.edition >= 11 and sequencer_11e != null:
-		sequencer_11e.after_fight_resolved(GameState.state)
-		var sel_11e = sequencer_11e.next_selection(GameState.state)
-		if not sel_11e.done:
-			current_selecting_player = sel_11e.player
-			current_subphase = Subphase.FIGHTS_FIRST if sel_11e.step == "fights_first" else Subphase.REMAINING_COMBATS
-			log_phase_message("[11e] Next: Player %d picks in the %s step (%s)" % [sel_11e.player, sel_11e.step, str(sel_11e.candidates)])
+	# 12.04: the sequencer decides who picks next (it skips a player with
+	# nothing eligible, returns to Fights First after a remaining-step
+	# fight, and ends the step when nobody can).
+	if sequencer_11e == null:
 		return
-
-	"""Switch to the other player for unit selection"""
-	var old_player = current_selecting_player
-	current_selecting_player = 2 if current_selecting_player == 1 else 1
-	log_phase_message("Selection SWITCHED: Player %d → Player %d" % [old_player, current_selecting_player])
+	sequencer_11e.after_fight_resolved(GameState.state)
+	var sel_11e = sequencer_11e.next_selection(GameState.state)
+	if not sel_11e.done:
+		current_selecting_player = sel_11e.player
+		current_subphase = Subphase.FIGHTS_FIRST if sel_11e.step == "fights_first" else Subphase.REMAINING_COMBATS
+		log_phase_message("[11e] Next: Player %d picks in the %s step (%s)" % [sel_11e.player, sel_11e.step, str(sel_11e.candidates)])
 
 func _transition_subphase() -> Dictionary:
 	"""Transition from Fights First → Remaining Combats → Fights Last → Complete.
@@ -3348,31 +2662,6 @@ func _get_model_position(unit_id: String, model_id: String) -> Vector2:
 			return Vector2(pos.get("x", 0), pos.get("y", 0))
 	
 	return Vector2.ZERO
-
-func _is_moving_toward_closest_enemy(unit_id: String, model_id: String, old_pos: Vector2, new_pos: Vector2) -> bool:
-	# Get the model data for shape-aware distance
-	var unit = get_unit(unit_id)
-	var model_data = {}
-	var models = unit.get("models", [])
-	for i in models.size():
-		var m = models[i]
-		if str(i) == model_id or m.get("id", "") == model_id:
-			model_data = m
-			break
-
-	# Find closest enemy model using edge-to-edge distance
-	var closest_enemy = _find_closest_enemy_model(unit_id, model_data, old_pos)
-	if closest_enemy.is_empty():
-		return true  # No enemies found, allow movement
-
-	# Check if new position is closer to enemy than old position (edge-to-edge)
-	var model_at_old = model_data.duplicate()
-	model_at_old["position"] = old_pos
-	var model_at_new = model_data.duplicate()
-	model_at_new["position"] = new_pos
-	var old_distance = Measurement.model_to_model_distance_px(model_at_old, closest_enemy)
-	var new_distance = Measurement.model_to_model_distance_px(model_at_new, closest_enemy)
-	return new_distance <= old_distance
 
 func _find_closest_enemy_model(unit_id: String, model_data: Dictionary, from_pos: Vector2) -> Dictionary:
 	"""Find the closest enemy model using shape-aware edge-to-edge distance.
@@ -3486,70 +2775,6 @@ func _is_model_in_base_contact_with_enemy(unit_id: String, model_id: String) -> 
 				return true
 
 	return false
-
-func _validate_base_to_base_if_possible(unit_id: String, movements: Dictionary, max_move_inches: float) -> Dictionary:
-	"""T1-6: Enforce base-to-base contact in pile-in/consolidation.
-	Rule: Each model must end in base-to-base contact with the closest enemy model
-	IF it is possible to reach b2b within the movement limit (3").
-	For each moved model:
-	  1. Find the closest enemy model (from original position, edge-to-edge)
-	  2. If the edge-to-edge distance to that enemy is <= max_move_inches, b2b IS reachable
-	  3. If reachable, check if the model's final position IS in b2b (within tolerance)
-	  4. If reachable but NOT achieved, flag an error."""
-	var errors = []
-	var unit = get_unit(unit_id)
-	var models = unit.get("models", [])
-	var all_units = game_state_snapshot.get("units", {})
-	var unit_owner = unit.get("owner", 0)
-
-	for model_id in movements:
-		# Resolve by id/index, not int(model_id) — int("m2") == 2 mis-indexes
-		# the 1-based model ids the FightController submits.
-		var model_index = _fight_model_index_for_key(models, model_id)
-		if model_index < 0:
-			continue
-
-		var model = models[model_index]
-		if not model.get("alive", true):
-			continue
-
-		var old_pos = _get_model_position(unit_id, model_id)
-		var new_pos = movements[model_id]
-		if old_pos == Vector2.ZERO:
-			continue
-
-		# Skip models that didn't actually move (no enforcement needed)
-		if old_pos.distance_to(new_pos) < 0.5:  # Sub-pixel tolerance
-			continue
-
-		# Create model dict at original position for distance calculation
-		var model_at_old = model.duplicate()
-		model_at_old["position"] = old_pos
-
-		# Find the closest enemy model using shape-aware edge-to-edge distance
-		var closest_enemy = _find_closest_enemy_model(unit_id, model, old_pos)
-		if closest_enemy.is_empty():
-			continue  # No enemies found, skip
-
-		# Check if b2b is reachable: edge-to-edge distance from original position <= max_move_inches
-		# Use small tolerance (0.05") to account for floating-point imprecision in px↔inch conversion
-		var distance_to_closest = Measurement.model_to_model_distance_inches(model_at_old, closest_enemy)
-		var reachability_tolerance: float = 0.05
-
-		if distance_to_closest <= max_move_inches + reachability_tolerance:
-			# B2B IS reachable — check if model actually achieved it
-			var model_at_new = model.duplicate()
-			model_at_new["position"] = new_pos
-			var final_distance = Measurement.model_to_model_distance_inches(model_at_new, closest_enemy)
-
-			if final_distance > BASE_CONTACT_TOLERANCE_INCHES:
-				var enemy_name = "enemy model"
-				errors.append("Model %s can reach base-to-base contact with %s (%.2f\" away) but did not (%.2f\" gap) — must make base contact when possible" % [model_id, enemy_name, distance_to_closest, final_distance])
-				log_phase_message("[B2B Enforcement] Model %s could reach b2b (%.2f\" to closest enemy) but ended %.2f\" away" % [model_id, distance_to_closest, final_distance])
-		else:
-			log_phase_message("[B2B Enforcement] Model %s cannot reach b2b (%.2f\" to closest enemy, max move %.1f\") — no enforcement needed" % [model_id, distance_to_closest, max_move_inches])
-
-	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dictionary:
 	# Delegates to the edition-aware AttackSequence.check_unit_coherency() single source
@@ -3742,7 +2967,7 @@ func get_pending_pile_in_step_data() -> Dictionary:
 # activation, and when a consolidation tags new units into the fight.
 # Same direct-GameState idiom as _set_engagement_flags (T5-V13).
 func _stamp_fight_eligibility_11e() -> void:
-	if GameConstants.edition < 11 or sequencer_11e == null:
+	if sequencer_11e == null:
 		return
 	var stamped = 0
 	for unit_id in GameState.state.get("units", {}):
@@ -3942,7 +3167,7 @@ func get_available_actions() -> Array:
 	# 11e 12.02: during the global Pile In step, the piling-in player's
 	# options are exactly: pile in one of their remaining eligible units,
 	# or end their half.
-	if GameConstants.edition >= 11 and pile_in_step_11e == PileInStep11e.ACTIVE:
+	if pile_in_step_11e == PileInStep11e.ACTIVE:
 		for pi_uid in _pile_in_eligible_units_11e(piling_in_player_11e):
 			actions.append({
 				"type": "PILE_IN",
@@ -3961,7 +3186,7 @@ func get_available_actions() -> Array:
 	# player's options are exactly: consolidate one of their remaining
 	# eligible units, or end their half. (While an Engaging Consolidation
 	# has forced fights pending, fall through to the normal fight actions.)
-	if GameConstants.edition >= 11 and consolidation_step_11e == ConsolidationStep11e.ACTIVE \
+	if consolidation_step_11e == ConsolidationStep11e.ACTIVE \
 			and not _forced_fights_pending_11e():
 		for cons_uid in _consolidation_eligible_units_11e(consolidating_player_11e):
 			actions.append({
@@ -3978,16 +3203,9 @@ func get_available_actions() -> Array:
 		return actions
 
 	# If no active fighter, need to select one.
-	# 11e (12.04): the sequencer is the selection AUTHORITY — offer exactly ITS
-	# candidates, tagged with the picking player. The legacy fight_sequence
-	# queue assumes fights happen in its precomputed order: current_fight_index
-	# advances by one per fight no matter WHICH unit fought, so as soon as a
-	# player legally picks any candidate other than the queue head, the queue
-	# desyncs and this getter used to offer a unit _validate_select_fighter
-	# then rejects ("Not your selection"). The AI submitted that stale offer,
-	# hit the failure fallback, and END_FIGHT forfeited every remaining fight
-	# (2026-07-12 report: an engaged Stompa never got to fight).
-	if GameConstants.edition >= 11 and sequencer_11e != null:
+	# 12.04: the FightSequencer is the selection AUTHORITY — offer exactly ITS
+	# candidates, tagged with the picking player.
+	if sequencer_11e != null:
 		if active_fighter_id == "":
 			var sel_11e = sequencer_11e.peek_selection(GameState.state)
 			if not sel_11e.done:
@@ -4002,39 +3220,14 @@ func get_available_actions() -> Array:
 					sel_11e.candidates.size(), sel_11e.player, sel_11e.step])
 		else:
 			log_phase_message("NOT adding SELECT_FIGHTER: active_fighter_id='%s'" % active_fighter_id)
-	# 10e: legacy queue-driven offer. Skip units that are no longer in
-	# engagement range (enemies may have been destroyed during earlier fights).
-	elif active_fighter_id == "" and current_fight_index < fight_sequence.size():
-		while current_fight_index < fight_sequence.size():
-			var candidate_unit_id = fight_sequence[current_fight_index]
-			var candidate_unit = game_state_snapshot.get("units", {}).get(candidate_unit_id, {})
-			if not candidate_unit.is_empty() and _is_unit_in_combat(candidate_unit):
-				break
-			log_phase_message("Skipping %s from fight sequence — no longer in engagement range" % candidate_unit_id)
-			units_that_fought.append(candidate_unit_id)  # Mark as fought so it's not re-offered
-			current_fight_index += 1
-		if current_fight_index < fight_sequence.size():
-			var next_unit = fight_sequence[current_fight_index]
-			log_phase_message("Adding SELECT_FIGHTER action for: %s" % next_unit)
-			actions.append({
-				"type": "SELECT_FIGHTER",
-				"unit_id": next_unit,
-				"description": "Select %s to fight" % next_unit
-			})
-	else:
-		log_phase_message("NOT adding SELECT_FIGHTER: active_fighter_id='%s', index=%d, size=%d" % [active_fighter_id, current_fight_index, fight_sequence.size()])
 
 	# If active fighter is selected, show simple control actions
 	if active_fighter_id != "":
 		if pending_attacks.is_empty():
-			# 10e: per-activation pile-in (once per unit). 11e: only the
-			# Overrun fight's additional pile-in (12.06) is offered here —
-			# the routine pile-in happened in the global 12.02 step.
-			var offer_pile_in: bool
-			if GameConstants.edition >= 11:
-				offer_pile_in = overrun_pile_in_unit_11e == active_fighter_id
-			else:
-				offer_pile_in = not units_that_piled_in.get(active_fighter_id, false)
+			# 11e: only the Overrun fight's additional pile-in (12.06) is
+			# offered here — the routine pile-in happened in the global
+			# 12.02 step.
+			var offer_pile_in: bool = overrun_pile_in_unit_11e == active_fighter_id
 			if offer_pile_in:
 				actions.append({
 					"type": "PILE_IN",
@@ -4063,38 +3256,16 @@ func get_available_actions() -> Array:
 			"description": "Roll dice"
 		})
 	
-	# If attacks resolved, can consolidate (10e per-fighter flow only —
-	# at 11e consolidation lives in the global 12.07 step above)
-	if GameConstants.edition < 11 and active_fighter_id != "" and pending_attacks.is_empty() and confirmed_attacks.is_empty():
-		actions.append({
-			"type": "CONSOLIDATE",
-			"unit_id": active_fighter_id,
-			"description": "Consolidate %s" % active_fighter_id
-		})
-
 	# Add END_FIGHT action when appropriate
 	# The END_FIGHT button should ALWAYS be available to the active player
 	# This allows them to end the fight phase even if there are eligible units
 	var can_end_fight = false
 
-	# 11e: the sequencer is the authority on "everyone has fought" — the
-	# 10e tier lists can disagree (T2-6 additions, overrun eligibility).
-	if GameConstants.edition >= 11 and sequencer_11e != null:
+	# 12.04: the FightSequencer is the authority on "everyone has fought".
+	if sequencer_11e != null:
 		if active_fighter_id == "" and not sequencer_11e.has_eligible(GameState.state):
 			can_end_fight = true
 			log_phase_message("Adding END_FIGHT action - fight step complete (11e sequencer)")
-	# Can always end if no units are in combat
-	elif fight_sequence.is_empty():
-		can_end_fight = true
-		log_phase_message("Adding END_FIGHT action - no units in combat")
-	# Can end if all eligible units have fought
-	elif _all_eligible_units_have_fought():
-		can_end_fight = true
-		log_phase_message("Adding END_FIGHT action - all eligible units have fought")
-	# Also allow ending if using legacy system and all units processed
-	elif current_fight_index >= fight_sequence.size():
-		can_end_fight = true
-		log_phase_message("Adding END_FIGHT action - all units processed (legacy)")
 
 	if can_end_fight and not awaiting_sweeping_advance and not awaiting_acrobatic_escape:
 		actions.append({
@@ -4666,39 +3837,29 @@ func _resolve_dread_foe_then_pile_in(unit_id: String) -> Dictionary:
 #   start of the Fight step) gets ONE additional pile-in move here; a
 #   normal fight (12.05) goes straight to attack assignment.
 func _proceed_to_fight_moves(unit_id: String) -> Dictionary:
-	if GameConstants.edition >= 11:
-		var overrun_available := false
-		if sequencer_11e != null:
-			var engaged_now = RulesEngine.is_unit_engaged(unit_id, GameState.state)
-			overrun_available = (not engaged_now) or not sequencer_11e.engaged_at_step_start.get(unit_id, false)
-		if overrun_available:
-			overrun_pile_in_unit_11e = unit_id
-			# The template's 12.03 eligibility reads this flag (a unit that
-			# neither is engaged nor charged may still make the overrun
-			# move). Same direct-flag idiom as _set_engagement_flags.
-			var gs_unit = GameState.get_unit(unit_id)
-			if not gs_unit.is_empty():
-				if not gs_unit.has("flags"):
-					gs_unit["flags"] = {}
-				gs_unit["flags"]["selected_for_overrun_fight"] = true
-			log_phase_message("[11e 12.06] %s makes an OVERRUN fight — one additional pile-in move" % unit_id)
-			emit_signal("pile_in_required", unit_id, 3.0)
-			var overrun_result = create_result(true, [])
-			overrun_result["trigger_pile_in"] = true
-			overrun_result["pile_in_unit_id"] = unit_id
-			overrun_result["pile_in_distance"] = 3.0
-			return overrun_result
-		# Normal fight (12.05): straight to attack assignment.
-		return _request_attack_assignment(unit_id, create_result(true, []))
-
-	log_phase_message("Emitting pile_in_required for %s" % unit_id)
-	emit_signal("pile_in_required", unit_id, 3.0)
-
-	var result = create_result(true, [])
-	result["trigger_pile_in"] = true
-	result["pile_in_unit_id"] = unit_id
-	result["pile_in_distance"] = 3.0
-	return result
+	var overrun_available := false
+	if sequencer_11e != null:
+		var engaged_now = RulesEngine.is_unit_engaged(unit_id, GameState.state)
+		overrun_available = (not engaged_now) or not sequencer_11e.engaged_at_step_start.get(unit_id, false)
+	if overrun_available:
+		overrun_pile_in_unit_11e = unit_id
+		# The template's 12.03 eligibility reads this flag (a unit that
+		# neither is engaged nor charged may still make the overrun
+		# move). Same direct-flag idiom as _set_engagement_flags.
+		var gs_unit = GameState.get_unit(unit_id)
+		if not gs_unit.is_empty():
+			if not gs_unit.has("flags"):
+				gs_unit["flags"] = {}
+			gs_unit["flags"]["selected_for_overrun_fight"] = true
+		log_phase_message("[11e 12.06] %s makes an OVERRUN fight — one additional pile-in move" % unit_id)
+		emit_signal("pile_in_required", unit_id, 3.0)
+		var overrun_result = create_result(true, [])
+		overrun_result["trigger_pile_in"] = true
+		overrun_result["pile_in_unit_id"] = unit_id
+		overrun_result["pile_in_distance"] = 3.0
+		return overrun_result
+	# Normal fight (12.05): straight to attack assignment.
+	return _request_attack_assignment(unit_id, create_result(true, []))
 
 func _get_dread_foe_targets(unit_id: String) -> Array:
 	"""P1-17: Get enemy units within Engagement Range of a unit for Dread Foe targeting.
@@ -4863,7 +4024,7 @@ func _process_use_counter_offensive(action: Dictionary) -> Dictionary:
 
 	# 11e: register the out-of-sequence selection with the sequencer, or it
 	# would keep offering this unit as an unfought candidate forever.
-	if GameConstants.edition >= 11 and sequencer_11e != null:
+	if sequencer_11e != null:
 		sequencer_11e.mark_fought(unit_id)
 
 	log_phase_message("Player %d selects %s to fight (via COUNTER-OFFENSIVE)" % [player, unit_name])
@@ -4915,7 +4076,7 @@ func _process_decline_counter_offensive(action: Dictionary) -> Dictionary:
 
 	# Nobody left to fight — if a 12.08 forced fight triggered this
 	# Counter-Offensive window, resume the Consolidate step (11e).
-	if GameConstants.edition >= 11 and consolidation_step_11e == ConsolidationStep11e.ACTIVE:
+	if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
 		return _advance_consolidation_step_11e(result)
 	return result
 
@@ -4927,8 +4088,6 @@ func _validate_end_fight(action: Dictionary) -> Dictionary:
 # Pile In step (any units they didn't move forfeit their pile-in; it is
 # optional per unit).
 func _validate_end_pile_in(action: Dictionary) -> Dictionary:
-	if GameConstants.edition < 11:
-		return {"valid": false, "errors": ["END_PILE_IN is an 11e action (12.02)"]}
 	if pile_in_step_11e != PileInStep11e.ACTIVE:
 		return {"valid": false, "errors": ["The Pile In step is not in progress (12.02)"]}
 	var player = int(action.get("player", piling_in_player_11e))
@@ -4945,8 +4104,6 @@ func _process_end_pile_in(action: Dictionary) -> Dictionary:
 # global Consolidate step (any units they didn't move forfeit their
 # consolidation; it is optional per unit at 11e).
 func _validate_end_consolidation(action: Dictionary) -> Dictionary:
-	if GameConstants.edition < 11:
-		return {"valid": false, "errors": ["END_CONSOLIDATION is an 11e action (12.07)"]}
 	if consolidation_step_11e != ConsolidationStep11e.ACTIVE:
 		return {"valid": false, "errors": ["The Consolidate step is not in progress (12.07)"]}
 	if _forced_fights_pending_11e():
@@ -4969,39 +4126,38 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 	# the step; while it is active, END_FIGHT doubles as "end my
 	# consolidation half" (keeps turn-timer and escape-hatch semantics:
 	# repeated END_FIGHT still walks the phase to completion).
-	if GameConstants.edition >= 11:
-		# 12.02: END_FIGHT during the Pile In step ends the current half
-		# (same walk-forward semantics as the Consolidate step below).
-		if pile_in_step_11e == PileInStep11e.ACTIVE:
-			pile_in_done_players_11e[piling_in_player_11e] = true
-			log_phase_message("[11e 12.02] Player %d ends their pile-in half via END_FIGHT" % piling_in_player_11e)
-			return _advance_pile_in_step_11e(create_result(true, []))
-		if consolidation_step_11e == ConsolidationStep11e.NOT_STARTED:
-			# Fight-phase scope fix: "End Fight Phase" ends only the ENDING
-			# player's own fights. Per 12.04, when one player stops selecting,
-			# the OTHER player still fights all of their remaining eligible
-			# units — so if the opponent is owed a fight, hand the Fight step
-			# over to them instead of forfeiting everyone and jumping to the
-			# Consolidate step (the previous behaviour, which wrongly cut the
-			# opponent's units out of the phase).
-			var ending_player := int(action.get("player", GameState.get_active_player()))
-			var opponent := 2 if ending_player == 1 else 1
-			if sequencer_11e != null \
-					and _player_has_eligible_fights_11e(ending_player) \
-					and _player_has_eligible_fights_11e(opponent):
-				_forfeit_player_fights_11e(ending_player)
-				log_phase_message("[11e 12.04] Player %d ended their fights — Player %d still fights their remaining units" % [ending_player, opponent])
-				return _resume_fight_step_after_end_11e(create_result(true, []))
-			return _begin_consolidation_step_11e()
-		if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
-			if sequencer_11e != null:
-				for uid in GameState.state.get("units", {}):
-					if sequencer_11e.eligible_to_fight(uid, GameState.state):
-						log_phase_message("[11e 12.08] %s forfeits its forced fight (END_FIGHT during Consolidate step)" % uid)
-						sequencer_11e.mark_fought(uid)
-			consolidation_done_players_11e[consolidating_player_11e] = true
-			log_phase_message("[11e 12.07] Player %d ends their consolidation half via END_FIGHT" % consolidating_player_11e)
-			return _advance_consolidation_step_11e(create_result(true, []))
+	# 12.02: END_FIGHT during the Pile In step ends the current half
+	# (same walk-forward semantics as the Consolidate step below).
+	if pile_in_step_11e == PileInStep11e.ACTIVE:
+		pile_in_done_players_11e[piling_in_player_11e] = true
+		log_phase_message("[11e 12.02] Player %d ends their pile-in half via END_FIGHT" % piling_in_player_11e)
+		return _advance_pile_in_step_11e(create_result(true, []))
+	if consolidation_step_11e == ConsolidationStep11e.NOT_STARTED:
+		# Fight-phase scope fix: "End Fight Phase" ends only the ENDING
+		# player's own fights. Per 12.04, when one player stops selecting,
+		# the OTHER player still fights all of their remaining eligible
+		# units — so if the opponent is owed a fight, hand the Fight step
+		# over to them instead of forfeiting everyone and jumping to the
+		# Consolidate step (the previous behaviour, which wrongly cut the
+		# opponent's units out of the phase).
+		var ending_player := int(action.get("player", GameState.get_active_player()))
+		var opponent := 2 if ending_player == 1 else 1
+		if sequencer_11e != null \
+				and _player_has_eligible_fights_11e(ending_player) \
+				and _player_has_eligible_fights_11e(opponent):
+			_forfeit_player_fights_11e(ending_player)
+			log_phase_message("[11e 12.04] Player %d ended their fights — Player %d still fights their remaining units" % [ending_player, opponent])
+			return _resume_fight_step_after_end_11e(create_result(true, []))
+		return _begin_consolidation_step_11e()
+	if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
+		if sequencer_11e != null:
+			for uid in GameState.state.get("units", {}):
+				if sequencer_11e.eligible_to_fight(uid, GameState.state):
+					log_phase_message("[11e 12.08] %s forfeits its forced fight (END_FIGHT during Consolidate step)" % uid)
+					sequencer_11e.mark_fought(uid)
+		consolidation_done_players_11e[consolidating_player_11e] = true
+		log_phase_message("[11e 12.07] Player %d ends their consolidation half via END_FIGHT" % consolidating_player_11e)
+		return _advance_consolidation_step_11e(create_result(true, []))
 
 	return _run_end_of_fight_triggers(create_result(true, []))
 
@@ -5566,40 +4722,20 @@ func get_unfought_eligible_units(only_player: int = -1) -> Array:
 	"won't fight" would be misleading."""
 	var unfought = []
 
-	# 11e: the sequencer is authoritative — the 10e tier lists can disagree
-	# (T2-6 additions, unengaged charge-survivors owed an overrun fight).
-	if GameConstants.edition >= 11 and sequencer_11e != null:
-		for unit_id in GameState.state.get("units", {}):
-			if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
-				var unit = GameState.state.units[unit_id]
-				if only_player >= 1 and int(unit.get("owner", 0)) != only_player:
-					continue
-				unfought.append({
-					"unit_id": unit_id,
-					"unit_name": unit.get("meta", {}).get("name", unit_id),
-					"player": int(unit.get("owner", 0)),
-					"subphase": "Fights First" if sequencer_11e.is_fights_first(unit) else "Remaining Combats"
-				})
+	# 12.04: the FightSequencer is authoritative for who is still owed a fight.
+	if sequencer_11e == null:
 		return unfought
-
-	var all_units = game_state_snapshot.get("units", {})
-
-	for player_key in ["1", "2"]:
-		if only_player >= 1 and int(player_key) != only_player:
-			continue
-		for unit_id in fights_first_sequence.get(player_key, []):
-			if unit_id not in units_that_fought:
-				var unit_name = all_units.get(unit_id, {}).get("meta", {}).get("name", unit_id)
-				unfought.append({"unit_id": unit_id, "unit_name": unit_name, "player": int(player_key), "subphase": "Fights First"})
-		for unit_id in normal_sequence.get(player_key, []):
-			if unit_id not in units_that_fought:
-				var unit_name = all_units.get(unit_id, {}).get("meta", {}).get("name", unit_id)
-				unfought.append({"unit_id": unit_id, "unit_name": unit_name, "player": int(player_key), "subphase": "Remaining Combats"})
-		for unit_id in fights_last_sequence.get(player_key, []):
-			if unit_id not in units_that_fought:
-				var unit_name = all_units.get(unit_id, {}).get("meta", {}).get("name", unit_id)
-				unfought.append({"unit_id": unit_id, "unit_name": unit_name, "player": int(player_key), "subphase": "Fights Last"})
-
+	for unit_id in GameState.state.get("units", {}):
+		if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+			var unit = GameState.state.units[unit_id]
+			if only_player >= 1 and int(unit.get("owner", 0)) != only_player:
+				continue
+			unfought.append({
+				"unit_id": unit_id,
+				"unit_name": unit.get("meta", {}).get("name", unit_id),
+				"player": int(unit.get("owner", 0)),
+				"subphase": "Fights First" if sequencer_11e.is_fights_first(unit) else "Remaining Combats"
+			})
 	return unfought
 
 # State access methods
