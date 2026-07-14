@@ -629,18 +629,53 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 			uni = (u as String).unicode_at(0)
 		elif typeof(u) == TYPE_INT or typeof(u) == TYPE_FLOAT:
 			uni = int(u)
+	# Optional modifiers: set the flags on the key event (so matches_action sees
+	# them) AND inject a real modifier keydown/keyup around it (so held-key polls
+	# like Input.is_key_pressed(KEY_SHIFT) — used by the camera-pan guard and
+	# is_action_pressed — also observe the modifier as held).
+	var want_shift: bool = bool(step.get("shift", false))
+	var want_ctrl: bool = bool(step.get("ctrl", false))
+	var want_alt: bool = bool(step.get("alt", false))
+	var want_meta: bool = bool(step.get("meta", false))
+	var mod_keys: Array = []
+	if want_shift: mod_keys.append(KEY_SHIFT)
+	if want_ctrl: mod_keys.append(KEY_CTRL)
+	if want_alt: mod_keys.append(KEY_ALT)
+	if want_meta: mod_keys.append(KEY_META)
+	for mk in mod_keys:
+		var md := InputEventKey.new()
+		md.keycode = mk
+		md.pressed = true
+		Input.parse_input_event(md)
+	if not mod_keys.is_empty():
+		await get_tree().process_frame
 	var press := InputEventKey.new()
 	press.keycode = kc
 	press.unicode = uni
 	press.pressed = true
+	press.shift_pressed = want_shift
+	press.ctrl_pressed = want_ctrl
+	press.alt_pressed = want_alt
+	press.meta_pressed = want_meta
 	Input.parse_input_event(press)
 	await get_tree().process_frame
 	var release := InputEventKey.new()
 	release.keycode = kc
 	release.unicode = uni
 	release.pressed = false
+	release.shift_pressed = want_shift
+	release.ctrl_pressed = want_ctrl
+	release.alt_pressed = want_alt
+	release.meta_pressed = want_meta
 	Input.parse_input_event(release)
 	await get_tree().process_frame
+	for mk in mod_keys:
+		var mu := InputEventKey.new()
+		mu.keycode = mk
+		mu.pressed = false
+		Input.parse_input_event(mu)
+	if not mod_keys.is_empty():
+		await get_tree().process_frame
 	return {"pass": true}
 
 

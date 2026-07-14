@@ -7,6 +7,26 @@ signal binding_changed(action_id: String)
 
 const SAVE_PATH = "user://keybindings.cfg"
 
+# Bumped whenever the DEFAULT keys change in a way that needs to reach players
+# who already have a saved keybindings.cfg (save_bindings writes every action, so
+# an old file pins the old defaults for keys the player never touched).
+# v2 (2026-07-14): deconflicted V/G/A/S/W/R/F — see V2_DECONFLICT_OLD_DEFAULTS.
+const BINDINGS_SCHEMA_VERSION = 2
+const META_SECTION = "_meta"
+
+# For the v1->v2 migration: an action here whose SAVED binding still equals its
+# OLD (pre-fix) default is upgraded to its NEW default on load. A player who
+# deliberately rebound one of these to something else keeps their choice.
+const V2_DECONFLICT_OLD_DEFAULTS = {
+	"toggle_vp_timeline": KEY_V,
+	"toggle_grid_overlay": KEY_G,
+	"toggle_aura_rings": KEY_A,
+	"toggle_stratagem_panel": KEY_S,
+	"weapon_range_panel": KEY_W,
+	"toggle_replay_panel": KEY_R,
+	"focus_p2_zone": KEY_F,
+}
+
 # Binding definition: { display_name, category, key, modifiers (shift/ctrl/alt), default_key, default_modifiers }
 # key uses Godot KEY_* constants, modifiers is a dict { shift: bool, ctrl: bool, alt: bool }
 var bindings: Dictionary = {}
@@ -38,7 +58,9 @@ func _register_defaults() -> void:
 	_register("zoom_in", "Zoom In", CATEGORY_CAMERA, KEY_EQUAL)
 	_register("zoom_out", "Zoom Out", CATEGORY_CAMERA, KEY_MINUS)
 	_register("rotate_board", "Rotate Board View", CATEGORY_CAMERA, KEY_V)
-	_register("focus_p2_zone", "Focus P2 Zone", CATEGORY_CAMERA, KEY_F)
+	# Shift+E (not F): F is fit_view_board and plain E is model-rotate/end-shooting;
+	# focus-enemy-zone moves to Shift+E so it stops fighting fit_view_board on F.
+	_register("focus_p2_zone", "Focus Enemy Zone", CATEGORY_CAMERA, KEY_E, {"shift": true})
 	_register("fit_view_board", "Fit View to Board", CATEGORY_CAMERA, KEY_F)
 	_register("fit_view_selection", "Fit View to Selection", CATEGORY_CAMERA, KEY_F, {"shift": true})
 
@@ -61,13 +83,16 @@ func _register_defaults() -> void:
 	_register("load_slot_4", "Load Slot 4", CATEGORY_GAMEPLAY, KEY_4, {"shift": true})
 	_register("load_slot_5", "Load Slot 5", CATEGORY_GAMEPLAY, KEY_5, {"shift": true})
 	_register("toggle_unit_labels", "Toggle Unit Labels", CATEGORY_GAMEPLAY, KEY_N)
-	_register("toggle_aura_rings", "Toggle Aura Rings", CATEGORY_GAMEPLAY, KEY_A)
-	_register("toggle_grid_overlay", "Toggle Tactical Grid", CATEGORY_GAMEPLAY, KEY_G)
+	# Shift+A / Shift+G (not plain A / G): plain A pans the camera left and plain G
+	# toggles terrain. These overlays share the letter with a more-fundamental
+	# binding, so they move to the Shift+ variant to stop shadowing it.
+	_register("toggle_aura_rings", "Toggle Aura Rings", CATEGORY_GAMEPLAY, KEY_A, {"shift": true})
+	_register("toggle_grid_overlay", "Toggle Tactical Grid", CATEGORY_GAMEPLAY, KEY_G, {"shift": true})
 	_register("ruler_tool", "Ruler Tool (Shift = private)", CATEGORY_GAMEPLAY, KEY_R)
 	_register("threat_overlay", "Threat Overlay (hold)", CATEGORY_GAMEPLAY, KEY_TAB)
-	# Default X, NOT G: toggle_grid_overlay already owns G and Main._input
-	# consumes it before the probe could ever fire — the same shadowing that
-	# killed this tool's earlier V and G bindings.
+	# Default X, NOT G: plain G is toggle_terrain and Main._input consumes it
+	# before the probe could ever fire — the same shadowing that once killed
+	# this tool's earlier V and G bindings. X keeps it clear of that.
 	_register("los_check", "Check Line of Sight (hold)", CATEGORY_GAMEPLAY, KEY_X)
 	_register("los_debug", "Sight-Line Overlay (hold)", CATEGORY_GAMEPLAY, KEY_L)
 
@@ -88,17 +113,25 @@ func _register_defaults() -> void:
 
 	# ── Panels & Overlays ──
 	_register("toggle_army_panel", "Toggle Army Panel", CATEGORY_PANELS, KEY_U)
-	_register("toggle_stratagem_panel", "Toggle Stratagems Panel", CATEGORY_PANELS, KEY_S)
+	# Shift+S (not plain S): plain S pans the camera down. Shift+S keeps the
+	# stratagems panel on its mnemonic letter without shadowing the pan key.
+	_register("toggle_stratagem_panel", "Toggle Stratagems Panel", CATEGORY_PANELS, KEY_S, {"shift": true})
 	_register("toggle_missions_panel", "Toggle Missions Panel", CATEGORY_PANELS, KEY_M)
-	_register("toggle_replay_panel", "Toggle AI Replay Panel", CATEGORY_PANELS, KEY_R)
+	# Shift+P (not plain R): plain R is the ruler tool and Shift+R is the ruler's
+	# private-line variant, so the AI replay panel moves off R entirely.
+	_register("toggle_replay_panel", "Toggle AI Replay Panel", CATEGORY_PANELS, KEY_P, {"shift": true})
 	# Default C, not T: T is the measuring tape. Chat is networked-only, so it
 	# yields the more-used key to the tape (which the player expects on T).
 	_register("toggle_chat_panel", "Toggle Chat Panel", CATEGORY_PANELS, KEY_C)
-	_register("weapon_range_panel", "Toggle Weapon Range Panel", CATEGORY_PANELS, KEY_W)
+	# Shift+W (not plain W): plain W pans the camera up. Shift+W keeps the weapon
+	# range panel on its mnemonic letter without shadowing the pan key.
+	_register("weapon_range_panel", "Toggle Weapon Range Panel", CATEGORY_PANELS, KEY_W, {"shift": true})
 	_register("datasheet_modal", "Open Unit Datasheet", CATEGORY_PANELS, KEY_I)
 	_register("toggle_roster_strip", "Toggle Roster Strip", CATEGORY_PANELS, KEY_B)
 	_register("toggle_mathhammer", "Toggle Mathhammer", CATEGORY_PANELS, KEY_H)
-	_register("toggle_vp_timeline", "Toggle VP Timeline", CATEGORY_PANELS, KEY_V)
+	# Shift+V (not plain V): plain V rotates the board view. The VP timeline moves
+	# to Shift+V so it stops shadowing rotate_board (the original reported bug).
+	_register("toggle_vp_timeline", "Toggle VP Timeline", CATEGORY_PANELS, KEY_V, {"shift": true})
 	_register("toggle_visual_style", "Cycle Unit Visual Style", CATEGORY_PANELS, KEY_8)
 	_register("shortcut_overlay", "Deployment Shortcut Overlay", CATEGORY_PANELS, KEY_SLASH, {"shift": true})
 	_register("hotkey_help", "Toggle Hotkey Help", CATEGORY_PANELS, KEY_SLASH, {"shift": true})
@@ -338,6 +371,7 @@ func save_bindings() -> void:
 		cfg.set_value(action_id, "ctrl", b.ctrl)
 		cfg.set_value(action_id, "alt", b.alt)
 		cfg.set_value(action_id, "meta", b.get("meta", false))
+	cfg.set_value(META_SECTION, "schema_version", BINDINGS_SCHEMA_VERSION)
 	var err = cfg.save(SAVE_PATH)
 	if err != OK:
 		print("[KeybindingManager] Failed to save keybindings: %s" % error_string(err))
@@ -350,15 +384,32 @@ func load_bindings() -> void:
 	if err != OK:
 		print("[KeybindingManager] No saved keybindings found, using defaults")
 		return
+	var stored_version: int = int(cfg.get_value(META_SECTION, "schema_version", 1))
+	var migrated: int = 0
 	for action_id in bindings:
 		if cfg.has_section(action_id):
-			bindings[action_id].key = cfg.get_value(action_id, "key", bindings[action_id].default_key)
+			var saved_key = cfg.get_value(action_id, "key", bindings[action_id].default_key)
+			var saved_shift = cfg.get_value(action_id, "shift", bindings[action_id].default_shift)
+			var saved_ctrl = cfg.get_value(action_id, "ctrl", bindings[action_id].default_ctrl)
+			var saved_alt = cfg.get_value(action_id, "alt", bindings[action_id].default_alt)
+			# v1->v2: if this deconflicted action still holds its OLD default
+			# (plain letter, no modifiers), keep the NEW registered default that
+			# _register_defaults already set — i.e. skip loading the stale value.
+			if stored_version < BINDINGS_SCHEMA_VERSION and V2_DECONFLICT_OLD_DEFAULTS.has(action_id) \
+					and saved_key == V2_DECONFLICT_OLD_DEFAULTS[action_id] \
+					and not saved_shift and not saved_ctrl and not saved_alt:
+				migrated += 1
+				continue
+			bindings[action_id].key = saved_key
 			bindings[action_id].alt_key = cfg.get_value(action_id, "alt_key", bindings[action_id].default_alt_key)
-			bindings[action_id].shift = cfg.get_value(action_id, "shift", bindings[action_id].default_shift)
-			bindings[action_id].ctrl = cfg.get_value(action_id, "ctrl", bindings[action_id].default_ctrl)
-			bindings[action_id].alt = cfg.get_value(action_id, "alt", bindings[action_id].default_alt)
+			bindings[action_id].shift = saved_shift
+			bindings[action_id].ctrl = saved_ctrl
+			bindings[action_id].alt = saved_alt
 			bindings[action_id].meta = cfg.get_value(action_id, "meta", bindings[action_id].get("default_meta", false))
-	print("[KeybindingManager] Loaded keybindings from %s" % SAVE_PATH)
+	print("[KeybindingManager] Loaded keybindings from %s (schema v%d)" % [SAVE_PATH, stored_version])
+	if stored_version < BINDINGS_SCHEMA_VERSION:
+		print("[KeybindingManager] Migrated %d deconflicted binding(s) to schema v%d" % [migrated, BINDINGS_SCHEMA_VERSION])
+		save_bindings()
 
 # ============================================================================
 # Helpers

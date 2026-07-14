@@ -381,7 +381,8 @@ func _ready() -> void:
 		else:
 			print("Main: ERROR - No phase instance after transition!")
 
-	# Camera controls: WASD/arrows to pan, +/- to zoom, F to focus on Player 2 zone, V to rotate board
+	# Camera controls: WASD/arrows to pan, +/- to zoom, F to fit view to board,
+	# Shift+E to focus the enemy zone, V to rotate board (all rebindable via KeybindingManager)
 
 	board_view.queue_redraw()
 	setup_deployment_zones()
@@ -5666,6 +5667,13 @@ func world_to_screen_position(world_pos: Vector2) -> Vector2:
 	# scenario runner's click_board_at to warp the cursor to a board position.
 	return $BoardRoot.transform * world_pos
 
+## True if any of Shift/Ctrl/Alt/Meta is currently held. Used to keep the held
+## WASD camera-pan poll from firing on modified combos (Shift+W/A/S, Shift+D,
+## Ctrl+A, …), which are real, distinct shortcuts — not pan requests.
+func _modifier_held() -> bool:
+	return Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_CTRL) \
+		or Input.is_key_pressed(KEY_ALT) or Input.is_key_pressed(KEY_META)
+
 func _process(delta: float) -> void:
 	# MA-41: Skip camera/view keyboard controls when a text input has focus
 	var _text_focused = _is_text_input_focused()
@@ -5674,15 +5682,22 @@ func _process(delta: float) -> void:
 	var pan_speed = 800.0 * delta / view_zoom
 	var view_changed = false
 
-	# Build pan vector in screen space, then rotate to match board orientation
+	# Build pan vector in screen space, then rotate to match board orientation.
+	# Only pan on UNMODIFIED W/A/S/D: the held-key poll (is_action_pressed →
+	# Input.is_key_pressed) ignores modifiers, so without this guard Shift+W /
+	# Shift+A / Shift+S (weapon-range / aura / stratagem panels), Shift+D (dev
+	# tools) and Ctrl+A (select all) would ALSO pan the camera while doing their
+	# real job. Requiring no modifier keeps plain WASD panning and frees the
+	# Shift+ variants for those toggles.
+	var _pan_allowed = not _text_focused and not _modifier_held()
 	var pan_dir = Vector2.ZERO
-	if not _text_focused and KeybindingManager.is_action_pressed("camera_pan_up"):
+	if _pan_allowed and KeybindingManager.is_action_pressed("camera_pan_up"):
 		pan_dir.y -= 1.0
-	if not _text_focused and KeybindingManager.is_action_pressed("camera_pan_down"):
+	if _pan_allowed and KeybindingManager.is_action_pressed("camera_pan_down"):
 		pan_dir.y += 1.0
-	if not _text_focused and KeybindingManager.is_action_pressed("camera_pan_left"):
+	if _pan_allowed and KeybindingManager.is_action_pressed("camera_pan_left"):
 		pan_dir.x -= 1.0
-	if not _text_focused and KeybindingManager.is_action_pressed("camera_pan_right"):
+	if _pan_allowed and KeybindingManager.is_action_pressed("camera_pan_right"):
 		pan_dir.x += 1.0
 	if pan_dir != Vector2.ZERO:
 		# Counter-rotate the pan direction so WASD always maps to screen directions
@@ -9235,7 +9250,7 @@ func _get_phase_tooltip_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.FORMATIONS:
 			return "Declare leader attachments and reserves before deployment."
 		GameStateData.Phase.DEPLOYMENT:
-			return "Place your units within your deployment zone. Press G for grid."
+			return "Place your units within your deployment zone. Press %s for grid." % KeybindingManager.get_primary_key_display("toggle_grid_overlay")
 		GameStateData.Phase.REDEPLOYMENT:
 			return "Optional redeployment moves before turn 1."
 		GameStateData.Phase.SCOUT, GameStateData.Phase.SCOUT_MOVES:
@@ -9245,7 +9260,7 @@ func _get_phase_tooltip_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.FIRST_TURN_ROLLOFF:
 			return "Roll off to determine who takes the first turn."
 		GameStateData.Phase.COMMAND:
-			return "Generate CP, score Command Points, choose Battle Mastery, take command stratagems. Press S for stratagems."
+			return "Generate CP, score Command Points, choose Battle Mastery, take command stratagems. Press %s for stratagems." % KeybindingManager.get_primary_key_display("toggle_stratagem_panel")
 		GameStateData.Phase.MOVEMENT:
 			return "Move each unit up to its Movement value. Use Advance for D6 extra inches but no shooting/charging."
 		GameStateData.Phase.SHOOTING:
@@ -11854,7 +11869,7 @@ func _toggle_weapon_range_comparison_panel() -> void:
 			hb.add_child(own_l)
 			list.add_child(hb)
 	var hint := Label.new()
-	hint.text = "Press W to close"
+	hint.text = "Press %s to close" % KeybindingManager.get_primary_key_display("weapon_range_panel")
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.modulate = Color(1, 1, 1, 0.6)
@@ -11913,7 +11928,7 @@ func _toggle_vp_timeline_panel() -> void:
 	_vp_timeline_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_vp_timeline_list)
 	var hint := Label.new()
-	hint.text = "Press V to close"
+	hint.text = "Press %s to close" % KeybindingManager.get_primary_key_display("toggle_vp_timeline")
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.modulate = Color(1, 1, 1, 0.6)
