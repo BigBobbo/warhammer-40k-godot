@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.43.10",
+			"date": "2026-07-14",
+			"summary": "AI actions no longer pop up in a separate floating window — they're now shown only in the Game Log. Previously, when the computer took its turn (or reacted during yours), a small 'AI Actions' ticker appeared in the bottom-right corner duplicating what the AI was thinking and doing, then faded away. That information was useful but easy to miss and cluttered the board. All of it — the AI's reasoning, the actions it takes, and (in AI-vs-AI spectator games) the per-phase summaries — now flows into the left-hand Game Log panel like every other event, so there's a single place to follow the whole battle and nothing pops up over the battlefield.",
+			"changes": [
+				"Removed the separate bottom-right 'AI Actions' pop-up overlay. The AI's reasoning and actions already appear in the Game Log, so this window was redundant and could briefly cover the board.",
+				"AI-vs-AI spectator per-phase summaries (e.g. 'Units moved: 3, Units advanced: 1') are now written into the Game Log as an entry instead of only showing in the old pop-up.",
+				"No information is lost — everything the pop-up showed is in the Game Log panel, which you can filter (AI, Move, Shoot, etc.) and scroll back through at any time."
+			]
+		},
+		{
 			"version": "0.43.9",
 			"date": "2026-07-14",
 			"summary": "Single-weapon shooting now steps through the dice roll-by-roll, just like a unit firing several weapon types already did. When you select a unit, pick a target and confirm, the game now opens a pop-up that rolls to hit and PAUSES so you can read the result (and spend Command Re-roll on a die), then rolls to wound and PAUSES again, before handing off to the defender's saving throws. Previously a single-weapon shot rolled its hits and wounds together in one go and jumped straight to saves, so there was no window to react between the hit and wound rolls. A 'Fast Roll' button in the pop-up resolves the rest at once whenever you don't want to step through.",

@@ -137,9 +137,6 @@ const AIUnitHighlightScript = preload("res://scripts/AIUnitHighlight.gd")
 var _ai_highlight_nodes: Array = []  # Active highlight Node2D instances
 var _ai_highlighted_unit_id: String = ""  # Currently highlighted unit
 
-# T7-54: AI action log overlay
-var _ai_action_log_overlay: AIActionLogOverlay = null
-
 # T7-56: AI turn replay panel
 var _ai_turn_replay_panel: AITurnReplayPanel = null
 
@@ -512,9 +509,6 @@ func _ready() -> void:
 	# T7-20: Setup AI thinking indicator
 	_setup_ai_thinking_indicator()
 
-	# T7-54: Setup AI action log overlay
-	_setup_ai_action_log_overlay()
-
 	# T7-56: Setup AI turn replay panel
 	_setup_ai_turn_replay_panel()
 
@@ -602,17 +596,8 @@ func _initialize_ai_player() -> void:
 			ai_player.ai_turn_ended.connect(_ai_turn_summary_panel.show_summary)
 			print("Main: Connected AIPlayer.ai_turn_ended to turn summary panel (T7-19)")
 
-	# T7-54: Connect AI signals to the action log overlay
-	if _ai_action_log_overlay:
-		if not ai_player.ai_turn_started.is_connected(_ai_action_log_overlay.on_ai_turn_started):
-			ai_player.ai_turn_started.connect(_ai_action_log_overlay.on_ai_turn_started)
-		if not ai_player.ai_turn_ended.is_connected(_ai_action_log_overlay.on_ai_turn_ended):
-			ai_player.ai_turn_ended.connect(_ai_action_log_overlay.on_ai_turn_ended)
-		if not ai_player.ai_action_taken.is_connected(_ai_action_log_overlay.add_action_entry):
-			ai_player.ai_action_taken.connect(_ai_action_log_overlay.add_action_entry)
-		if ai_player.has_signal("ai_thinking_step") and not ai_player.ai_thinking_step.is_connected(_ai_action_log_overlay.add_thinking_entry):
-			ai_player.ai_thinking_step.connect(_ai_action_log_overlay.add_thinking_entry)
-		print("Main: Connected AIPlayer signals to AI action log overlay (T7-54)")
+	# AI actions, thinking, and phase headers are surfaced directly in the Game Log
+	# panel (via GameEventLog) — there is no separate pop-up overlay anymore.
 
 	# T7-36: Apply AI speed setting from game config
 	var ai_speed = int(game_config.get("ai_speed", 1))  # Default: Normal (index 1)
@@ -638,9 +623,6 @@ func _initialize_ai_player() -> void:
 	# T7-55: Setup spectator mode if both players are AI
 	if _is_spectator_mode:
 		print("Main: T7-55 Spectator mode detected (AI vs AI)")
-		# Tell the action log overlay to use spectator timing
-		if _ai_action_log_overlay:
-			_ai_action_log_overlay.set_spectator_mode(true)
 		# Connect spectator-specific signals
 		if not ai_player.spectator_speed_changed.is_connected(_on_spectator_speed_changed):
 			ai_player.spectator_speed_changed.connect(_on_spectator_speed_changed)
@@ -704,16 +686,7 @@ func _reinitialize_ai_after_load() -> void:
 		if not ai_player.ai_turn_ended.is_connected(_ai_turn_summary_panel.show_summary):
 			ai_player.ai_turn_ended.connect(_ai_turn_summary_panel.show_summary)
 
-	# T7-54: Reconnect AI signals to action log overlay
-	if _ai_action_log_overlay:
-		if not ai_player.ai_turn_started.is_connected(_ai_action_log_overlay.on_ai_turn_started):
-			ai_player.ai_turn_started.connect(_ai_action_log_overlay.on_ai_turn_started)
-		if not ai_player.ai_turn_ended.is_connected(_ai_action_log_overlay.on_ai_turn_ended):
-			ai_player.ai_turn_ended.connect(_ai_action_log_overlay.on_ai_turn_ended)
-		if not ai_player.ai_action_taken.is_connected(_ai_action_log_overlay.add_action_entry):
-			ai_player.ai_action_taken.connect(_ai_action_log_overlay.add_action_entry)
-		if ai_player.has_signal("ai_thinking_step") and not ai_player.ai_thinking_step.is_connected(_ai_action_log_overlay.add_thinking_entry):
-			ai_player.ai_thinking_step.connect(_ai_action_log_overlay.add_thinking_entry)
+	# AI actions/thinking are surfaced directly in the Game Log panel (no overlay).
 
 	# T7-36: Reconnect speed signals
 	if not ai_player.ai_speed_changed.is_connected(_on_ai_speed_changed):
@@ -728,8 +701,6 @@ func _reinitialize_ai_after_load() -> void:
 		if _ai_speed_panel:
 			_ai_speed_panel.visible = true
 	if _is_spectator_mode:
-		if _ai_action_log_overlay:
-			_ai_action_log_overlay.set_spectator_mode(true)
 		if not ai_player.spectator_speed_changed.is_connected(_on_spectator_speed_changed):
 			ai_player.spectator_speed_changed.connect(_on_spectator_speed_changed)
 		if not ai_player.spectator_phase_summary.is_connected(_on_spectator_phase_summary):
@@ -1601,15 +1572,6 @@ func _update_ai_thinking_dots(delta: float) -> void:
 		ai_thinking_label.text = "AI is thinking" + dots
 
 # =============================================================================
-# T7-54: AI Action Log Overlay
-# =============================================================================
-
-func _setup_ai_action_log_overlay() -> void:
-	_ai_action_log_overlay = AIActionLogOverlay.new()
-	add_child(_ai_action_log_overlay)
-	print("Main: AI action log overlay created (T7-54)")
-
-# =============================================================================
 # T7-56: AI Turn Replay Panel
 # =============================================================================
 
@@ -1684,11 +1646,51 @@ func _update_spectator_speed_label(speed: float) -> void:
 		_spectator_speed_label.text = "Spectator: %s  [< >]" % speed_text
 
 func _on_spectator_phase_summary(player: int, phase: int, summary: Dictionary) -> void:
-	"""T7-55: Display a phase summary in the action log overlay."""
-	if not _ai_action_log_overlay:
-		return
+	"""T7-55: Record an AI-vs-AI phase summary in the Game Log panel.
+
+	Previously this fed the standalone AI action log overlay; that pop-up has been
+	removed in favour of surfacing everything in the Game Log, so the per-phase
+	action tally is now written to GameEventLog as an info entry."""
 	var phase_name = _get_phase_label_text(phase).replace(" Phase", "")
-	_ai_action_log_overlay.add_phase_summary(player, phase_name, summary)
+	var stat_lines := _format_phase_summary_stats(summary)
+	if stat_lines.is_empty():
+		return
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log and game_event_log.has_method("add_info_entry"):
+		game_event_log.add_info_entry("P%d %s summary — %s" % [player, phase_name, ", ".join(stat_lines)])
+
+func _format_phase_summary_stats(summary: Dictionary) -> Array:
+	"""Format an AI phase-summary dictionary into readable 'Label: N' stat strings
+	(only positive counts), in a sensible display order. Mirrors the formatting the
+	old AIActionLogOverlay used so the Game Log keeps the same information."""
+	if summary.is_empty():
+		return []
+	var stat_labels := {
+		"units_deployed": "Units deployed",
+		"units_moved": "Units moved",
+		"units_advanced": "Units advanced",
+		"units_fell_back": "Units fell back",
+		"units_stationary": "Units stationary",
+		"units_shot": "Units fired",
+		"charges_declared": "Charges declared",
+		"units_fought": "Units fought",
+		"stratagems_used": "Stratagems used",
+		"units_skipped": "Units skipped",
+		"reinforcements": "Reinforcements arrived"
+	}
+	var display_order := [
+		"units_deployed", "units_moved", "units_advanced", "units_fell_back",
+		"units_stationary", "reinforcements", "units_shot", "charges_declared",
+		"units_fought", "stratagems_used", "units_skipped"
+	]
+	var lines := []
+	for key in display_order:
+		if summary.has(key) and summary[key] > 0:
+			lines.append("%s: %d" % [stat_labels.get(key, key), summary[key]])
+	for key in summary:
+		if key not in display_order and summary[key] > 0:
+			lines.append("%s: %d" % [key, summary[key]])
+	return lines
 
 # =============================================================================
 # T7-36: AI Speed Controls HUD
@@ -9056,15 +9058,9 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 		else:
 			_player_turn_border.set_active_player(border_player)
 
-	# T7-54: Add phase header to AI action log overlay when AI is active
-	if _ai_action_log_overlay:
-		var ai_player = get_node_or_null("/root/AIPlayer")
-		var active_player_for_log = GameState.get_active_player()
-		if ai_player and ai_player.is_ai_player(active_player_for_log):
-			var phase_label = _get_phase_label_text(new_phase).replace(" Phase", "")
-			# battle_round, not "round" — the wrong key froze the header at Rd 1
-			var round_num = GameState.get_battle_round()
-			_ai_action_log_overlay.add_phase_header(phase_label, round_num, active_player_for_log)
+	# Phase headers for AI turns are already written to the Game Log panel by
+	# GameEventLog._on_phase_changed (for every player), so no separate overlay
+	# header is emitted here anymore.
 
 	# T5-UX10: Auto-zoom to active player's deployment zone when entering deployment phase
 	if current_phase == GameStateData.Phase.DEPLOYMENT:

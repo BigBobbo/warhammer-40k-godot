@@ -1,0 +1,33 @@
+{
+  "id": "ai_actions_in_game_log",
+  "covers": [
+    "ui.gamelog.ai_actions_no_popup",
+    "scripts.Main._on_spectator_phase_summary"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "description": "AI actions must appear in the Game Log panel, NOT as a separate pop-up window/notification. The standalone AIActionLogOverlay (bottom-right ticker) has been removed; everything it showed (AI reasoning, AI actions, phase headers) is surfaced in the left-hand Game Log via GameEventLog. This scenario asserts (1) no AIActionLogOverlay node exists under Main, (2) the Game Log panel still exists, (3) an AI thinking entry and an AI action entry logged via GameEventLog render as cards in the Game Log panel, and (4) an AI-vs-AI phase summary is now routed into the Game Log as an info entry rather than a pop-up.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel" },
+    { "act": "execute_script", "script": "main.get_node_or_null(\"AIActionLogOverlay\") == null", "equals": true },
+
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
+
+    { "act": "execute_script", "script": "GameEventLog.add_ai_thinking_entry(2, \"Warriors: grab objective 2 (uncontested, +5 VP swing)\")" },
+    { "act": "execute_script", "script": "GameEventLog.add_ai_entry(2, \"Warriors move toward objective 2\")" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script", "script": "GameEventLog.count_ai_thinking_entries()", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_ai_card_count()", "expect_min": 1 },
+
+    { "act": "execute_script", "script": "GameEventLog.count_entries_of_type(\"p2_action\")", "expect_min": 1 },
+
+    { "act": "execute_script", "script": "main._on_spectator_phase_summary(2, GameState.get_current_phase(), {\"units_moved\": 3, \"units_advanced\": 1})" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "GameEventLog.count_entries_of_type(\"info\")", "expect_min": 1 },
+
+    { "act": "screenshot", "label": "01_ai_actions_in_game_log", "region": [0, 105, 400, 720] }
+  ]
+}
