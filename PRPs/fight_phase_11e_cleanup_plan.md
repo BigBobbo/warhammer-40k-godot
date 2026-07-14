@@ -175,6 +175,65 @@ The project's own note: *"This carve-out disappears when the 10e code paths are 
 
 ---
 
+---
+
+## Verified findings & progress (2026-07-14 session)
+
+### DONE — Phase 0 (committed cce8efa, pushed, windowed-validated)
+- Fixed "Fight action failed: Unknown error": `BasePhase.execute_action` now populates a joined
+  `error` string alongside `errors`. Also fixes Shooting/Charge rejections.
+- Removed the dead per-unit "MOVEMENT ACTIONS: Pile In / Consolidate" panel and its legacy
+  board-click path from `FightController`.
+- Proof: `fight_reject_reason_11e.json` (9/9) — `result.error` is the real 12.02 reason, no
+  `FightMovementButtons` node exists; `iss050_fight_11e.json` (21/21) — 11e fight flow unaffected.
+
+### CORRECTED — Phase 1 re-assessment (two flagged "gaps" are NOT gaps)
+- **Objective-mode "within range if possible"** is already correct: `ConsolidationMove.model_move_allowed`
+  allows in-range-or-closer (`ConsolidationMove.gd:94-107`); the AFTER-move hard "must be in range"
+  (`:131-141`) is exactly what 12.08 Objective requires.
+- **Objective geometry** `OBJECTIVE_RANGE_INCHES = 3.787` (3" + 20 mm radius) is the CORRECT value for a
+  40 mm marker; the legacy path's 40 mm-radius version is the wrong one (and is being deleted).
+- The genuine Phase-1 item is the per-model **"engaged if possible"** rule (12.03 / 12.08 Ongoing). NOTE:
+  the 10e helper `_validate_base_to_base_if_possible` enforces *base-to-base*, but 11e only requires
+  *engagement range* (2"), so a direct port is too strict. This per-model "if possible" logic is also the
+  source of prior "knife-edge rejection" bugs (v0.42.8) — implement carefully with the 2" threshold and
+  thorough windowed validation, or document as a deliberate relaxation.
+
+### CONFIRMED — Melee wound allocation is NOT on the 11e path (resolves the delta_audit §7↔§11 contradiction)
+Verified by reading the code (not the docs):
+- **Shooting (correct):** `ShootingController._on_saves_required` selects `AllocationGroupOverlay` (11e) vs
+  `WoundAllocationOverlay` (10e) by edition — `ShootingController.gd:2722-2724`, var comment `:54`.
+- **Fight (gap):** `FightController._on_melee_saves_required` creates `WoundAllocationOverlay`
+  UNCONDITIONALLY — `FightController.gd:3031`, no edition branch. `resolve_allocation_batch_11e` is used
+  NOWHERE in the fight path (grep-confirmed).
+- The DEVASTATING WOUNDS *wound-side* choice (24.10) IS 11e-correct — it lives in the shared
+  wound-resolution function (`RulesEngine.gd:2477-2480`, handles both melee Headwoppa `:2461` and ranged
+  PURITY `:2468`). So the gap is specifically the SAVE/ALLOCATION overlay, not wound generation.
+- **Impact (precise):** melee saves at e11 use the 10e allocation overlay instead of the 11e
+  allocation-group path shooting uses. Whether specific outcomes differ depends on what
+  `AllocationGroupOverlay` enforces that `WoundAllocationOverlay` does not (allocation grouping / MW
+  handling) — needs a side-by-side before claiming wrong *results*.
+- **Fix (recommended, medium, regression-prone):** mirror ShootingController — at e11 use
+  `AllocationGroupOverlay` and route `APPLY_MELEE_SAVES` through `resolve_allocation_batch_11e`. Requires
+  the melee wound data to be group-shaped and `_process_apply_melee_saves` to consume the 11e summary.
+  Touches the working melee resolution flow — do as a focused, windowed-validated change.
+
+### 10e deletion — scenario impact scoped (the prerequisite for deleting the fight 10e paths)
+Only **8** fight scenarios run at the edition-10 baseline (19 are already e11). Deleting the 10e fight
+code requires first migrating/retiring these:
+- **Easy migrate** (add `"edition": 11`, no flow change): `custodes_lions_stratagems`,
+  `fullauto_fight_stratagems`, `runner_smoke`, `fight_self_targeting`, `386_deadly_demise_vehicle`.
+- **Hard** (drives the 10e per-unit `PILE_IN`→`CONSOLIDATE` flow): `co_offer_after_charge` — rewrite for
+  the 11e global steps.
+- **Retire/rewrite** (10e-only concept): `fights_last_select_fighter` — tests the FIGHTS_LAST subphase,
+  which does not exist in 11e.
+Plus: the player-facing `FightPhaseStateBanner` reads `current_subphase` / `fights_last_units`, and
+helpers at `FightPhase.gd:3566, 4129, 4267` read `fights_last_sequence` on the 11e path — so deletion
+requires rewiring the banner + get_current_fight_state off the `FightSequencer` first. GUT tests that
+assert 10e fight behavior must also be migrated.
+
+---
+
 ## Validation gate (per CLAUDE.md)
 Every phase with a UI surface needs a **windowed scenario** driving the real player path against the running
 game (MCP bridge: `simulate_click` real buttons, `verify_delivery` PASS, screenshot of the effect). Headless
