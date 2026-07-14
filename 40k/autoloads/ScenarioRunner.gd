@@ -1150,6 +1150,23 @@ func unit_token_sprite_width(unit_id: String) -> int:
 			return tex.get_width() if tex != null else 0
 	return -1
 
+func token_model_rotation(unit_id: String, model_id: String) -> float:
+	# Live rotation (radians) baked into a model's ON-SCREEN token, read
+	# directly from its model_data — NOT GameState. Regression guard for the
+	# charge-phase rotate bug: ChargeController's token-visual updaters reached
+	# into child.get_child(0) assuming a wrapper node, but token_layer children
+	# ARE the TokenVisual (get_child(0) was its "Label" child), so rotation
+	# updates silently no-oped on the real token while the ghost still rotated.
+	var tl := SceneRefs.token_layer()
+	if tl == null:
+		return -999.0
+	for c in tl.get_children():
+		if c.has_meta("unit_id") and str(c.get_meta("unit_id")) == unit_id \
+				and c.has_meta("model_id") and str(c.get_meta("model_id")) == model_id:
+			if "model_data" in c and c.model_data is Dictionary:
+				return float(c.model_data.get("rotation", -999.0))
+	return -999.0
+
 func max_tokens_per_model() -> int:
 	var scene := get_tree().current_scene
 	if scene == null:

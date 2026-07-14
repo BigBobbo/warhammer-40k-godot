@@ -1732,30 +1732,32 @@ func _move_token_visual(unit_id: String, model_id: String, new_pos: Vector2, rot
 					should_update_rotation = true
 					print("DEBUG: Using passed rotation: ", rad_to_deg(new_rotation), " degrees")
 
-				# Apply rotation update if needed
-				if should_update_rotation and child.get_child_count() > 0:
-					var token_visual = child.get_child(0)
-					if token_visual and token_visual.has_method("set_model_data"):
-						# IMPORTANT: Use dragging_model if available (has correct rotation)
-						var model_data = null
-						if dragging_model and dragging_model.get("id", "") == model_id:
-							# Use dragging_model which has all the current data
-							model_data = dragging_model.duplicate()
-						else:
-							# Fall back to GameState but update rotation
-							var unit = GameState.get_unit(unit_id)
-							for model in unit.get("models", []):
-								if model.get("id", "") == model_id:
-									model_data = model.duplicate()
-									model_data["rotation"] = new_rotation
-									break
+				# Apply rotation update if needed. `child` IS the TokenVisual (meta
+				# is set directly on it by Main._create_token_visual, not on a
+				# wrapper) — child.get_child(0) is its "Label" child node (added in
+				# TokenVisual._ready()), not a nested TokenVisual, so reaching into
+				# it silently no-oped every rotation update here.
+				if should_update_rotation and child.has_method("set_model_data"):
+					# IMPORTANT: Use dragging_model if available (has correct rotation)
+					var model_data = null
+					if dragging_model and dragging_model.get("id", "") == model_id:
+						# Use dragging_model which has all the current data
+						model_data = dragging_model.duplicate()
+					else:
+						# Fall back to GameState but update rotation
+						var unit = GameState.get_unit(unit_id)
+						for model in unit.get("models", []):
+							if model.get("id", "") == model_id:
+								model_data = model.duplicate()
+								model_data["rotation"] = new_rotation
+								break
 
-						if model_data:
-							token_visual.set_model_data(model_data)
-							token_visual.queue_redraw()
-							print("DEBUG: Updated token rotation to ", rad_to_deg(new_rotation), " degrees")
-						else:
-							print("WARNING: No model data found for rotation update")
+					if model_data:
+						child.set_model_data(model_data)
+						child.queue_redraw()
+						print("DEBUG: Updated token rotation to ", rad_to_deg(new_rotation), " degrees")
+					else:
+						print("WARNING: No model data found for rotation update")
 
 				# Double-check final state
 				print("DEBUG: Token moved to position: ", child.position)
@@ -3088,9 +3090,12 @@ func _update_token_rotation(unit_id: String, model_id: String, new_rotation: flo
 		var token_model_id = child.get_meta("model_id")
 
 		if token_unit_id == unit_id and token_model_id == model_id:
-			# Found the token! Update its model data
-			var token_visual = child.get_child(0)  # TokenVisual is first child
-			if token_visual and token_visual.has_method("set_model_data"):
+			# Found the token! `child` IS the TokenVisual (meta is set directly on
+			# it by Main._create_token_visual, not on a wrapper) — child.get_child(0)
+			# is its "Label" child node (added in TokenVisual._ready()), not a
+			# nested TokenVisual, so reaching into it silently no-oped every
+			# rotation update here.
+			if child.has_method("set_model_data"):
 				# IMPORTANT: Use dragging_model if available (it has the updated rotation)
 				# Otherwise fall back to GameState (but update rotation)
 				var model_data = null
@@ -3107,7 +3112,7 @@ func _update_token_rotation(unit_id: String, model_id: String, new_rotation: flo
 							break
 
 				if model_data:
-					token_visual.set_model_data(model_data)
+					child.set_model_data(model_data)
 					print("DEBUG: Updated token visual rotation for ", model_id, " to ", rad_to_deg(new_rotation), " degrees")
 					return
 

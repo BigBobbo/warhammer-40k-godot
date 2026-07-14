@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.44.1",
+			"date": "2026-07-14",
+			"summary": "Fixed Charge-phase model rotation not showing up on the actual unit token — only the green drag ghost was turning.",
+			"changes": [
+				"When you rotated a model (Q/E, or right-click-drag) while dragging it into a charge, the preview ghost turned correctly but the real token on the board stayed facing its original direction, both mid-drag and after dropping it.",
+				"The token-visual updater was reaching into the wrong child node to apply the rotation, so the repaint never happened; it now updates the actual on-screen token directly, matching the ghost."
+			]
+		},
+		{
 			"version": "0.44.0",
 			"date": "2026-07-14",
 			"summary": "Models on non-circular bases (bikes, and vehicles like the Caladius Grav-tank or a rectangular Battlewagon) can now be pivoted about their centre while piling in — exactly the way you already rotate them in the Movement phase. Right-click-drag a model during pile-in to turn it, or use the Q/E rotate keys, so an oval or rectangular base can be oriented to reach the enemy. As in the Movement phase, the 2\" pivot cost is counted against the model's 3\" pile-in move, so a model that turns can only shuffle 1\" of ground; round infantry bases don't need to pivot and are unaffected.",
