@@ -4,6 +4,8 @@
     "ui.fight.staged_hit_wound_pause",
     "ui.fight.command_reroll",
     "ui.fight.continue_buttons",
+    "ui.fight.log_dice_icons",
+    "ui.fight.reroll_dice_icons",
     "dialogs.FightSequenceDialog"
   ],
   "fixture": "co_pretrigger",
@@ -56,6 +58,21 @@
     {
       "act": "execute_script",
       "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"Rolling to Hit\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\")._log_dice_icon_count > 0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").reroll_row.get_child(0).icon != null",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").reroll_row.get_child(0).text == \"\"",
       "equals": true
     },
     { "act": "screenshot", "label": "02_hits_pause_with_reroll_row" },
