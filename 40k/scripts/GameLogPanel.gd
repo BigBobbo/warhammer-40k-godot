@@ -977,6 +977,14 @@ func _create_simple_card(text: String, entry_type: String, animate: bool) -> voi
 				block_context = gel.get_last_entry_context()
 			card = _make_ai_thinking_block_card(text, block_context)
 			final_category = EntryCategory.AI_THINKING
+		"ai_turn_summary":
+			# Post-AI-turn digest (replaces the old AITurnSummaryPanel popup).
+			# Same collapsible layout as thinking blocks, but with a prominent
+			# gold header and "details" wording. The per-phase breakdown is shown
+			# expanded by default (this is a once-per-turn digest the player wants
+			# to see); the toggle still lets them collapse it.
+			card = _make_ai_thinking_block_card(text, {}, "details", "[b][color=#D4964A]%s[/color][/b]", true)
+			final_category = EntryCategory.AI_THINKING
 		_:
 			card = _make_simple_entry_card(text, entry_type, category)
 			final_category = category
@@ -987,7 +995,7 @@ func _create_simple_card(text: String, entry_type: String, animate: bool) -> voi
 	_register_card(card, final_category)
 
 	# Track AI cards for filtering
-	if entry_type == "ai_thinking" or entry_type == "ai_thinking_block":
+	if entry_type == "ai_thinking" or entry_type == "ai_thinking_block" or entry_type == "ai_turn_summary":
 		_ai_cards.append(card)
 
 	if animate and card.visible:
@@ -1165,13 +1173,16 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 
 	return card
 
-func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}) -> PanelContainer:
+func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}, toggle_noun: String = "considerations", header_format: String = "[i][color=#8899AA]%s[/color][/i]", start_expanded: bool = false) -> PanelContainer:
 	"""Collapsible card for one AI decision's verbose reasoning.
 	First line of `text` is the headline; remaining lines are the considered
-	options / rejections, hidden behind a 'considerations' toggle so heavy
-	verbosity stays scannable. When `link_context` carries board positions,
-	the card becomes interactive: hover previews the considered options as
-	arrows on the board (chosen green, rejected red); click pins them."""
+	options / rejections, behind a 'considerations' toggle so heavy verbosity
+	stays scannable. When `link_context` carries board positions, the card
+	becomes interactive: hover previews the considered options as arrows on the
+	board (chosen green, rejected red); click pins them.
+	`toggle_noun` / `header_format` let callers (e.g. the AI turn-summary card)
+	reuse this layout with digest-appropriate wording and a prominent header.
+	`start_expanded` shows the details immediately (the toggle still collapses them)."""
 	var lines = text.split("\n")
 	var header_text = lines[0] if lines.size() > 0 else text
 	var detail_lines: Array = []
@@ -1220,7 +1231,7 @@ func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}) -
 	header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_label.add_theme_font_size_override("normal_font_size", 11)
 	header_label.add_theme_font_size_override("bold_font_size", 12)
-	header_label.append_text("[i][color=#8899AA]%s[/color][/i]" % header_text)
+	header_label.append_text(header_format % header_text)
 	# Let the card itself receive hover/click for the board-link interaction
 	header_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header_hbox.add_child(header_label)
@@ -1229,7 +1240,7 @@ func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}) -
 		return card
 
 	var toggle_btn = Button.new()
-	toggle_btn.text = "  %d considerations…" % detail_lines.size()
+	toggle_btn.text = ("  hide %s" % toggle_noun) if start_expanded else ("  %d %s…" % [detail_lines.size(), toggle_noun])
 	toggle_btn.add_theme_font_size_override("font_size", 9)
 	toggle_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	toggle_btn.flat = true
@@ -1243,7 +1254,7 @@ func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}) -
 	details.scroll_active = false
 	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	details.add_theme_font_size_override("normal_font_size", 10)
-	details.visible = false
+	details.visible = start_expanded
 	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for line in detail_lines:
 		var l = str(line)
@@ -1258,7 +1269,7 @@ func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}) -
 	var detail_count = detail_lines.size()
 	toggle_btn.pressed.connect(func():
 		details.visible = !details.visible
-		toggle_btn.text = ("  hide considerations" if details.visible else "  %d considerations…" % detail_count)
+		toggle_btn.text = ("  hide %s" % toggle_noun if details.visible else "  %d %s…" % [detail_count, toggle_noun])
 	)
 
 	return card
@@ -1421,7 +1432,7 @@ func _categorize_entry_type(entry_type: String) -> int:
 			return EntryCategory.PHASE
 		"p1_action", "p2_action":
 			return EntryCategory.MOVEMENT
-		"ai_thinking", "ai_thinking_block":
+		"ai_thinking", "ai_thinking_block", "ai_turn_summary":
 			return EntryCategory.AI_THINKING
 		"overwatch":
 			return EntryCategory.OVERWATCH
