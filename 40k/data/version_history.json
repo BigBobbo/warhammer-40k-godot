@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.42.9",
+			"date": "2026-07-14",
+			"summary": "Fixed the Charge phase 'Snap to Contact' button appearing to do nothing. The button (along with 'Undo Last Model') only ever appeared when you were actively moving a charging unit, but once you confirmed that charge — or between charges, or while a Command Re-roll prompt was still open — it was left on screen looking clickable even though there was nothing to move. Clicking it in those states silently did nothing. The Confirm / Snap to Contact / Undo Last Model buttons now hide together the moment a charge is finished, so 'Snap to Contact' is only shown when it will actually move models.",
+			"changes": [
+				"Fixed: the 'Snap to Contact' button no longer lingers on screen after a charge is confirmed (and between charges, and while a Command Re-roll dialog is open). Previously it stayed visible and enabled with nothing to move, so clicking it did nothing.",
+				"The 'Snap to Contact' and 'Undo Last Model' buttons now show only while you are actively positioning a charging unit, and 'Snap to Contact' is greyed out once every model is already in engagement range (use 'Confirm Charge Moves' at that point).",
+				"If 'Snap to Contact' is ever triggered with nothing to place, it now tells you why instead of doing nothing silently."
+			]
+		},
+		{
 			"version": "0.42.8",
 			"date": "2026-07-14",
 			"summary": "Fixed a Fight-phase bug that falsely blocked Pile In and Consolidate moves. When you tried to pile in a unit whose models are numbered from 1 (Warbikers, and most multi-model units), the game could wrongly claim a model 'would overlap' with one of its own squadmates — comparing the model against its own old position instead of its neighbours — and refuse the move even though the models were nowhere near each other. It could also skip the last model in the unit entirely when checking for overlaps. Pile In and Consolidate now check each model against the right neighbours, so legitimate moves are accepted and only genuine base overlaps are rejected.",

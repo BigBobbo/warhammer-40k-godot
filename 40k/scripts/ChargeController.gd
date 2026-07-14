@@ -697,7 +697,27 @@ func _update_button_states() -> void:
 		roll_button.disabled = not can_roll
 	if is_instance_valid(skip_button):
 		skip_button.disabled = not can_skip
-	
+
+	# T-092 fix: the confirm-row buttons (Snap to Contact + Undo Last Model)
+	# must only be interactable while an active charge move is in progress.
+	# Previously only confirm_button's visibility was toggled (in
+	# _enable_charge_movement / _on_confirm_charge_moves); the Snap and Undo
+	# buttons were never hidden or disabled after creation, so they lingered
+	# visible + ENABLED after a charge was confirmed, between charges, and
+	# while a Command Re-roll decision was still pending. Clicking Snap in any
+	# of those states does nothing — _on_auto_path_charge early-returns on the
+	# empty models_to_move — which reads to the player as "the Snap to Contact
+	# button doesn't do anything". Gate both on awaiting_movement here so they
+	# track the charge-move state everywhere _update_button_states runs (unit
+	# select, reset, next-charge refresh, roll made, decline reroll, ...).
+	if is_instance_valid(auto_path_charge_button):
+		auto_path_charge_button.visible = awaiting_movement
+		# Only snap-able while there are still models left to place.
+		auto_path_charge_button.disabled = models_to_move.is_empty()
+	if is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.visible = awaiting_movement
+		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+
 	# Update charge status
 	_update_charge_status()
 
@@ -1136,6 +1156,17 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 		print("DEBUG: Confirm button size: ", confirm_button.size)
 	else:
 		print("WARNING: Confirm button not created!")
+
+	# T-092 fix: reveal the Snap to Contact + Undo Last Model buttons alongside
+	# confirm now that a charge move is active. _update_button_states() (called
+	# right after the roll resolves) keeps them in sync from here on, but show
+	# them explicitly so they appear even on any path that skips that refresh.
+	if is_instance_valid(auto_path_charge_button):
+		auto_path_charge_button.visible = true
+		auto_path_charge_button.disabled = models_to_move.is_empty()
+	if is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.visible = true
+		undo_charge_model_button.disabled = _moved_model_order.is_empty()
 
 func _clear_movement_visuals() -> void:
 	# Clear ghost visual
@@ -1993,6 +2024,14 @@ func _on_confirm_charge_moves() -> void:
 	_clear_movement_visuals()
 	if is_instance_valid(confirm_button):
 		confirm_button.visible = false
+	# T-092 fix: hide the Snap to Contact + Undo buttons together with confirm
+	# so they don't linger visible + clickable (and silently no-op) once this
+	# charge is done. _update_ui_for_next_charge() → _update_button_states()
+	# also enforces this, but hide here so there's no one-frame flash.
+	if is_instance_valid(auto_path_charge_button):
+		auto_path_charge_button.visible = false
+	if is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.visible = false
 
 	# Update UI for next charge selection
 	_update_ui_for_next_charge()
@@ -3566,7 +3605,14 @@ func _clear_charge_trajectory_preview() -> void:
 # + own_base_radius + 0.5") from the nearest target model along the
 # straight-line approach.
 func _on_auto_path_charge() -> void:
-	if active_unit_id == "" or models_to_move.is_empty():
+	# T-092 fix: the button is now hidden/disabled unless a charge move is
+	# active (see _update_button_states), but guard defensively — if it is ever
+	# triggered with nothing to place, tell the player instead of silently
+	# doing nothing (the original "Snap to Contact does nothing" symptom).
+	if active_unit_id == "" or not awaiting_movement or models_to_move.is_empty():
+		print("[T-092 auto-path] Snap to Contact ignored — no active charge move (active_unit=%s, awaiting_movement=%s, models_to_move=%d)" % [active_unit_id, str(awaiting_movement), models_to_move.size()])
+		if is_instance_valid(charge_info_label) and awaiting_movement and models_to_move.is_empty():
+			charge_info_label.text = "All models already in engagement range — click 'Confirm Charge Moves'"
 		return
 	var unit = GameState.get_unit(active_unit_id)
 	if unit.is_empty():
