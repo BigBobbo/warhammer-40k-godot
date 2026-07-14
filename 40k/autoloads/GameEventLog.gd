@@ -397,6 +397,20 @@ func add_ai_thinking_block(player: int, header: String, lines: Array, context: D
 	DebugLogger.info("GameEventLog: %s" % text, {})
 	emit_signal("entry_added", text, "ai_thinking_block")
 
+func add_ai_turn_summary(player: int, header: String, lines: Array) -> void:
+	"""Post-AI-turn digest rendered as a single collapsible card in the game log.
+	Replaces the old AITurnSummaryPanel pop-up (which overlapped existing menus);
+	the summary now lives ONLY here. `header` is the first line (shown as the card
+	headline); `lines` are the per-phase breakdown, hidden behind the card's
+	'details' toggle so the once-per-turn card stays scannable."""
+	var text = header
+	for line in lines:
+		text += "\n" + str(line)
+	entries.append({"text": text, "type": "ai_turn_summary", "history_index": _current_history_marker()})
+	print("[GameEventLog] %s" % text)
+	DebugLogger.info("GameEventLog: %s" % text, {})
+	emit_signal("entry_added", text, "ai_turn_summary")
+
 func get_last_entry_history_index() -> int:
 	"""History-browser marker of the most recent entry (-1 if none). GameLogPanel
 	reads this synchronously from its entry_added handler to make the new card
