@@ -214,7 +214,23 @@ func _exit_tree() -> void:
 		ruler_visual.queue_free()  
 	if ghost_visual and is_instance_valid(ghost_visual):
 		ghost_visual.queue_free()
-	
+
+	# T-094: Free the movement-only overlay containers that live under BoardRoot.
+	# These were previously leaked on phase exit, so any rings still present when
+	# the Movement phase ended survived into the Shooting phase. The enemy
+	# engagement-range overlay (the red "don't move here" circles) was the most
+	# visible offender and cluttered the board once movement was over. Free all
+	# three so no movement-only overlay outlives the phase.
+	if move_range_visual and is_instance_valid(move_range_visual):
+		move_range_visual.queue_free()
+		move_range_visual = null
+	if er_overlay_visual and is_instance_valid(er_overlay_visual):
+		er_overlay_visual.queue_free()
+		er_overlay_visual = null
+	if coherency_dots_visual and is_instance_valid(coherency_dots_visual):
+		coherency_dots_visual.queue_free()
+		coherency_dots_visual = null
+
 	# Clean up individual model path visuals
 	for model_id in model_path_visuals:
 		var line = model_path_visuals[model_id]
