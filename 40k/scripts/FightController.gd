@@ -19,8 +19,6 @@ var current_phase = null  # Can be FightPhase or null
 var eligible_targets: Dictionary = {}  # target_unit_id -> target_data
 var fight_sequence: Array = []  # Units in fight order
 var current_fight_index: int = -1
-var pending_pile_in_unit: String = ""
-var pending_consolidate_unit: String = ""
 
 # Pile-in/Consolidate/Sweeping Advance interactive mode
 var pile_in_active: bool = false
@@ -83,8 +81,6 @@ var active_fight_sequence_dialog = null
 var unit_selector: ItemList
 var attack_tree: Tree
 var target_basket: ItemList
-var pile_in_button: Button
-var consolidate_button: Button
 var confirm_button: Button
 var clear_button: Button
 var dice_log_display: RichTextLabel
@@ -345,36 +341,12 @@ func _setup_right_panel() -> void:
 	fight_sequence_status.text = "No active fights"
 	fight_sequence_status.name = "SequenceLabel"
 	fight_panel.add_child(fight_sequence_status)
-	
-	# Action buttons container
-	var action_section_label = Label.new()
-	action_section_label.text = "MOVEMENT ACTIONS"
-	action_section_label.add_theme_font_size_override("font_size", 13)
-	action_section_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	if FactionPalettes:
-		action_section_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	fight_panel.add_child(action_section_label)
-	
-	var action_button_container = HBoxContainer.new()
-	action_button_container.name = "FightMovementButtons"
-	
-	# Pile In button (moved from top bar)
-	pile_in_button = Button.new()
-	pile_in_button.text = "Pile In"
-	pile_in_button.pressed.connect(_on_pile_in_pressed)
-	pile_in_button.disabled = true
-	_WhiteDwarfTheme.apply_to_button(pile_in_button)
-	action_button_container.add_child(pile_in_button)
-
-	# Consolidate button (moved from top bar)
-	consolidate_button = Button.new()
-	consolidate_button.text = "Consolidate"
-	consolidate_button.pressed.connect(_on_consolidate_pressed)
-	consolidate_button.disabled = true
-	_WhiteDwarfTheme.apply_to_button(consolidate_button)
-	action_button_container.add_child(consolidate_button)
-	
-	fight_panel.add_child(action_button_container)
+	# NOTE: The per-unit "MOVEMENT ACTIONS: Pile In / Consolidate" buttons were
+	# removed here. In 11e (12.02 / 12.07) pile-in and consolidate are GLOBAL
+	# phase steps driven by PileInStepDialog / ConsolidationStepDialog, not
+	# per-activation buttons. The old buttons were permanently disabled dead code
+	# (they queried can_unit_pile_in/can_unit_consolidate on the phase, which do
+	# not exist there) and dispatched a 10e payload the 11e validators reject.
 
 func _add_fight_gold_separator(parent: VBoxContainer) -> void:
 	var spacer_top = Control.new()
@@ -733,14 +705,12 @@ func _get_model_position(model: Dictionary) -> Vector2:
 	return Vector2.ZERO
 
 func _update_ui_state() -> void:
-	# The Fight! / Clear All buttons and the CURRENT TARGETS basket were removed
-	# (attack allocation is handled by the AttackAssignmentDialog pop-up), so the
-	# only right-panel controls left to update are the movement buttons.
-	# Update movement buttons based on phase state
-	if pile_in_button:
-		pile_in_button.disabled = current_fighter_id == "" or not _can_pile_in()
-	if consolidate_button:
-		consolidate_button.disabled = current_fighter_id == "" or not _can_consolidate()
+	# The Fight! / Clear All buttons, the CURRENT TARGETS basket, and the per-unit
+	# MOVEMENT ACTIONS (Pile In / Consolidate) buttons have all been removed —
+	# attack allocation is handled by the AttackAssignmentDialog pop-up, and
+	# pile-in/consolidate are global 11e phase steps (PileInStepDialog /
+	# ConsolidationStepDialog). There are no right-panel controls left to update.
+	pass
 
 func _refresh_available_actions() -> void:
 	"""Refresh available actions and update right panel controls"""
@@ -888,18 +858,6 @@ func _on_assign_attacks_ui_pressed(unit_id: String) -> void:
 	print("DEBUG: ASSIGN_ATTACKS_UI button pressed for unit: %s" % unit_id)
 	# The weapon selection is handled through the weapon tree UI
 	# Target selection would be handled through clicking on enemy units
-
-func _can_pile_in() -> bool:
-	# Can pile in if we have a selected fighter and they haven't piled in yet
-	if current_phase and current_phase.has_method("can_unit_pile_in"):
-		return current_phase.can_unit_pile_in(current_fighter_id)
-	return false
-
-func _can_consolidate() -> bool:
-	# Can consolidate if we have a selected fighter and they've finished fighting
-	if current_phase and current_phase.has_method("can_unit_consolidate"):
-		return current_phase.can_unit_consolidate(current_fighter_id)
-	return false
 
 # Signal handlers
 
@@ -1276,20 +1234,6 @@ func _on_fight_sequence_updated(sequence: Array, index: int) -> void:
 	current_fight_index = index
 	_refresh_fight_sequence()
 
-func _on_pile_in_pressed() -> void:
-	if current_fighter_id != "":
-		pending_pile_in_unit = current_fighter_id
-		if dice_log_display:
-			dice_log_display.append_text("[color=cyan]Click to move %s up to 3\" toward closest enemy[/color]\n" % 
-				current_phase.get_unit(current_fighter_id).get("meta", {}).get("name", current_fighter_id))
-
-func _on_consolidate_pressed() -> void:
-	if current_fighter_id != "":
-		pending_consolidate_unit = current_fighter_id
-		if dice_log_display:
-			dice_log_display.append_text("[color=cyan]Click to move %s up to 3\" toward closest enemy[/color]\n" % 
-				current_phase.get_unit(current_fighter_id).get("meta", {}).get("name", current_fighter_id))
-
 func _on_clear_pressed() -> void:
 	emit_signal("fight_action_requested", {
 		"type": "CLEAR_ALL_ASSIGNMENTS"
@@ -1363,14 +1307,6 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()  # Prevent dialog from blocking
 		return
 
-	# Handle pile in or consolidate movement (legacy)
-	if (pending_pile_in_unit != "" or pending_consolidate_unit != "") and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var board_root = SceneRefs.board_root()
-		if board_root:
-			var mouse_pos = board_root.get_local_mouse_position()
-			_handle_movement_click(mouse_pos)
-		return
-
 	# Only handle target selection input if we have an active fighter and eligible targets
 	if current_fighter_id == "" or eligible_targets.is_empty():
 		return
@@ -1382,32 +1318,6 @@ func _input(event: InputEvent) -> void:
 			var mouse_pos = board_root.get_local_mouse_position()
 			print("DEBUG: Mouse click at board position: ", mouse_pos)
 			_handle_board_click(mouse_pos)
-
-func _handle_movement_click(position: Vector2) -> void:
-	var unit_id = ""
-	var movement_type = ""
-	
-	if pending_pile_in_unit != "":
-		unit_id = pending_pile_in_unit
-		movement_type = "PILE_IN"
-		pending_pile_in_unit = ""
-	elif pending_consolidate_unit != "":
-		unit_id = pending_consolidate_unit
-		movement_type = "CONSOLIDATE"  
-		pending_consolidate_unit = ""
-	else:
-		return
-	
-	# Send movement action to phase
-	emit_signal("fight_action_requested", {
-		"type": movement_type,
-		"actor_unit_id": unit_id,
-		"position": {"x": position.x, "y": position.y}
-	})
-	
-	if dice_log_display:
-		var unit_name = current_phase.get_unit(unit_id).get("meta", {}).get("name", unit_id)
-		dice_log_display.append_text("[color=green]✓ %s movement for %s[/color]\n" % [movement_type.capitalize(), unit_name])
 
 func _handle_board_click(position: Vector2) -> void:
 	# First check if we have a weapon selected

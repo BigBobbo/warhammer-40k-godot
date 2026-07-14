@@ -7,6 +7,7 @@
   ],
   "fixture": "fullauto_pretrigger",
   "rng_seed": 42,
+  "edition": 11,
   "transition_to_phase": 10,
   "disable_ai": true,
   "description": "War Horde fight-phase package: UNBRIDLED CARNAGE (crit on 5+ melee) and 'ARD AS NAILS (defender-side -1 to wound) both activate via USE_STRATAGEM with the curated 11e effects, set their engine flags, and deduct CP (3 -> 1).",
