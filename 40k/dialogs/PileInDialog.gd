@@ -14,6 +14,7 @@ var max_distance: float = 3.0
 var phase_reference = null
 var controller_reference = null  # FightController reference
 var model_movements: Dictionary = {}
+var model_rotations: Dictionary = {}  # model_id -> rotation (radians) for pivoting bikes/vehicles
 
 # UI elements
 var status_label: Label = null
@@ -124,6 +125,11 @@ func update_movements(movements: Dictionary) -> void:
 	model_movements = movements
 	_update_status()
 
+func update_rotations(rotations: Dictionary) -> void:
+	"""Called by FightController when the user pivots a model (non-circular base)"""
+	model_rotations = rotations
+	_update_status()
+
 func _update_status() -> void:
 	"""Update status label based on current movements"""
 	if not status_label:
@@ -153,7 +159,8 @@ func _validate_movements() -> Dictionary:
 	# Create action to validate
 	var action = {
 		"unit_id": unit_id,
-		"movements": model_movements
+		"movements": model_movements,
+		"rotations": model_rotations
 	}
 
 	# Use FightPhase validation

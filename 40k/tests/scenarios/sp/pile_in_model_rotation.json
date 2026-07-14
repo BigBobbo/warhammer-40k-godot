@@ -1,0 +1,45 @@
+{
+  "id": "pile_in_model_rotation",
+  "covers": [
+    "fight.pile_in.model_rotation",
+    "scripts.FightController.pile_in_rotation",
+    "phases.FightPhase.pile_in_pivot_cost"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Models on non-circular bases can be pivoted about their centre during a pile-in, exactly as in the movement phase. Drives the real FightController rotation path on the oval-based Caladius Grav-tank: enters pile-in mode, runs the right-click-drag rotation entry points, and asserts (a) the pivot is allowed only for non-circular bases (oval Caladius yes, round-base Boyz no), (b) the new facing lands in the token's model_data AND the get_pile_in_rotations() submission payload, (c) the 2\" pivot cost is deducted from the 3\" pile-in move so the effective positional cap becomes 1\", and (d) the FightPhase validator rejects a 2\" move+pivot that exceeds the reduced cap. Regression for the feature that lets bikes/vehicles turn to face when piling in.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().pile_in_step_11e", "equals": 1 },
+
+    { "act": "execute_script", "script": "main.fight_controller._enable_pile_in_mode(\"U_CALADIUS_GRAV-TANK_E\", null)" },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_active", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller._find_pile_in_model(\"m1\").get(\"base_type\")", "equals": "oval" },
+    { "act": "execute_script", "script": "main.fight_controller._model_can_pivot(main.fight_controller._find_pile_in_model(\"m1\"))", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller._pivot_cost_inches(main.fight_controller._find_pile_in_model(\"m1\"))", "equals": 2.0 },
+
+    { "act": "execute_script", "script": "main.fight_controller._model_can_pivot(GameState.get_unit(\"U_BOYZ_K\").models[0])", "equals": false },
+
+    { "act": "screenshot", "label": "01_pile_in_oval_before_pivot" },
+
+    { "act": "execute_script", "script": "main.fight_controller._start_model_rotation_pile_in(main.fight_controller.current_model_positions[\"m1\"] + Vector2(130, 0))" },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_rotating_model", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller._update_model_rotation_pile_in(main.fight_controller.current_model_positions[\"m1\"] + Vector2(30, 140))" },
+    { "act": "execute_script", "script": "main.fight_controller._end_model_rotation_pile_in()" },
+
+    { "act": "execute_script", "script": "main.fight_controller.get_pile_in_rotations().has(\"m1\")", "equals": true },
+    { "act": "execute_script", "script": "abs(main.fight_controller.current_model_rotations[\"m1\"] - (-0.5236)) > 0.5", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller._is_model_pivoted(\"m1\")", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller._effective_pile_in_cap_inches(\"m1\")", "expect_min": 0.99 },
+    { "act": "execute_script", "script": "main.fight_controller._effective_pile_in_cap_inches(\"m1\")", "expect_max": 1.01 },
+
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "screenshot", "label": "02_pile_in_oval_after_pivot" },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().validate_action({\"type\":\"PILE_IN\",\"unit_id\":\"U_CALADIUS_GRAV-TANK_E\",\"movements\":{\"m1\": main.fight_controller.original_model_positions[\"m1\"] + Vector2(Measurement.inches_to_px(2.0), 0)},\"rotations\":{\"m1\": main.fight_controller.current_model_rotations[\"m1\"]}}).get(\"valid\")", "equals": false }
+  ]
+}

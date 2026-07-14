@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.44.0",
+			"date": "2026-07-14",
+			"summary": "Models on non-circular bases (bikes, and vehicles like the Caladius Grav-tank or a rectangular Battlewagon) can now be pivoted about their centre while piling in — exactly the way you already rotate them in the Movement phase. Right-click-drag a model during pile-in to turn it, or use the Q/E rotate keys, so an oval or rectangular base can be oriented to reach the enemy. As in the Movement phase, the 2\" pivot cost is counted against the model's 3\" pile-in move, so a model that turns can only shuffle 1\" of ground; round infantry bases don't need to pivot and are unaffected.",
+			"changes": [
+				"Pile in: right-click-drag (or press Q / E) to rotate a model on a non-circular base about its centre, matching the Movement-phase rotation controls — useful for pointing a bike or tank so its long base reaches into combat.",
+				"The pivot costs 2\" out of the 3\" pile-in move (Pariah Nexus rule), so a model that turns can still move up to 1\"; the move is rejected if a turn-plus-shuffle would exceed that reduced allowance.",
+				"Only bases that actually need to pivot can be turned — any non-round base, or a round base over 32mm on a flying stem for a Vehicle; standard round infantry bases are left as-is.",
+				"The new facing is saved with the model and applied when the pile-in is confirmed, so a bike/tank keeps the way you turned it. Rotation also works the same way in the end-of-phase Consolidate step."
+			]
+		},
+		{
 			"version": "0.43.10",
 			"date": "2026-07-14",
 			"summary": "AI actions no longer pop up in a separate floating window — they're now shown only in the Game Log. Previously, when the computer took its turn (or reacted during yours), a small 'AI Actions' ticker appeared in the bottom-right corner duplicating what the AI was thinking and doing, then faded away. That information was useful but easy to miss and cluttered the board. All of it — the AI's reasoning, the actions it takes, and (in AI-vs-AI spectator games) the per-phase summaries — now flows into the left-hand Game Log panel like every other event, so there's a single place to follow the whole battle and nothing pops up over the battlefield.",

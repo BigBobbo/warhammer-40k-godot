@@ -37,6 +37,21 @@ var drag_offset: Vector2 = Vector2.ZERO
 var drag_start_pos: Vector2 = Vector2.ZERO
 var locked_base_contact_models: Dictionary = {}  # T4-5: model_id -> true for models already in base contact
 
+# Model rotation during pile-in / consolidate. Mirrors the MovementController
+# pivot rules: only models on a non-circular base (or a round base >32mm with a
+# flying stem on a VEHICLE) may be pivoted about their centre, and the pivot
+# cost (2") counts against the model's 3" pile-in/consolidate move. Right-click
+# drag rotates (as in the movement phase); the rotate_left/rotate_right
+# keybinds nudge the last-touched model in 15° steps.
+var original_model_rotations: Dictionary = {}  # model_id -> float (radians)
+var current_model_rotations: Dictionary = {}   # model_id -> float (radians)
+var pile_in_rotating_model: bool = false
+var rotation_model_id: String = ""
+var rotation_start_angle: float = 0.0
+var rotation_model_start: float = 0.0
+var pile_in_last_touched_model: String = ""  # last model clicked/rotated (for keyboard pivots)
+const PILE_IN_MAX_INCHES: float = 3.0
+
 # UI References (board_view / hud_bottom / hud_right live in PhaseControllerBase)
 var movement_visual: Line2D
 var range_visual: Node2D
@@ -1806,7 +1821,9 @@ func _on_pile_in_confirmed(movements: Dictionary, unit_id: String) -> void:
 
 	# Convert model IDs from "m1" format to array indices "0" format for FightPhase
 	var converted_movements = {}
-	if not movements.is_empty() and current_phase:
+	var converted_rotations = {}
+	var rotations = get_pile_in_rotations()
+	if current_phase and (not movements.is_empty() or not rotations.is_empty()):
 		var unit = current_phase.get_unit(unit_id)
 		if unit:
 			var models = unit.get("models", [])
@@ -1817,8 +1834,13 @@ func _on_pile_in_confirmed(movements: Dictionary, unit_id: String) -> void:
 						converted_movements[str(i)] = movements[model_id]
 						print("[FightController] Converted ", model_id, " to index ", i)
 						break
+			for model_id in rotations:
+				for i in range(models.size()):
+					if models[i].get("id", "") == model_id:
+						converted_rotations[str(i)] = rotations[model_id]
+						break
 
-	print("[FightController] Converted movements: ", converted_movements)
+	print("[FightController] Converted movements: ", converted_movements, " rotations: ", converted_rotations)
 
 	# current_fighter_owner can be stale (-1) on re-request paths — the
 	# unit's owner is always the right submitting player for PILE_IN
@@ -1830,6 +1852,7 @@ func _on_pile_in_confirmed(movements: Dictionary, unit_id: String) -> void:
 		"type": "PILE_IN",
 		"unit_id": unit_id,
 		"movements": converted_movements,
+		"rotations": converted_rotations,
 		"player": pile_in_player
 	}
 	emit_signal("fight_action_requested", action)
@@ -2012,7 +2035,9 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
 
 	# Convert model IDs from "m1" format to array indices "0" format for FightPhase
 	var converted_movements = {}
-	if not movements.is_empty() and current_phase:
+	var converted_rotations = {}
+	var rotations = get_pile_in_rotations()
+	if current_phase and (not movements.is_empty() or not rotations.is_empty()):
 		var unit = current_phase.get_unit(unit_id)
 		if unit:
 			var models = unit.get("models", [])
@@ -2023,8 +2048,13 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
 						converted_movements[str(i)] = movements[model_id]
 						print("[FightController] Converted ", model_id, " to index ", i)
 						break
+			for model_id in rotations:
+				for i in range(models.size()):
+					if models[i].get("id", "") == model_id:
+						converted_rotations[str(i)] = rotations[model_id]
+						break
 
-	print("[FightController] Converted movements: ", converted_movements)
+	print("[FightController] Converted movements: ", converted_movements, " rotations: ", converted_rotations)
 
 	# current_fighter_owner can be stale (-1) on re-request paths — the
 	# unit's owner is always the right submitting player for CONSOLIDATE
@@ -2036,6 +2066,7 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
 		"type": "CONSOLIDATE",
 		"unit_id": unit_id,
 		"movements": converted_movements,
+		"rotations": converted_rotations,
 		"player": action_player
 	}
 	emit_signal("fight_action_requested", action)
@@ -2253,7 +2284,10 @@ func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
 
 	original_model_positions.clear()
 	current_model_positions.clear()
+	original_model_rotations.clear()
+	current_model_rotations.clear()
 	locked_base_contact_models.clear()
+	pile_in_last_touched_model = ""
 
 	var models = unit.get("models", [])
 	for i in range(models.size()):
@@ -2266,6 +2300,10 @@ func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
 		var model_id = model.get("id", "m%d" % (i+1))
 		original_model_positions[model_id] = pos
 		current_model_positions[model_id] = pos
+		# Seed rotation state so pivots measure against the model's starting facing
+		var rot = float(model.get("rotation", 0.0))
+		original_model_rotations[model_id] = rot
+		current_model_rotations[model_id] = rot
 		print("[FightController] Stored position for model ", model_id, " at ", pos)
 
 	# T4-5: Detect models already in base contact with an enemy and lock them
@@ -2330,9 +2368,14 @@ func _disable_pile_in_mode() -> void:
 	pile_in_dialog_ref = null
 	original_model_positions.clear()
 	current_model_positions.clear()
+	original_model_rotations.clear()
+	current_model_rotations.clear()
 	locked_base_contact_models.clear()
 	dragging_model = null
 	drag_model_id = ""
+	pile_in_rotating_model = false
+	rotation_model_id = ""
+	pile_in_last_touched_model = ""
 
 	# Clean up visual indicators
 	_clear_pile_in_visuals()
@@ -2602,21 +2645,23 @@ func get_pile_in_movements() -> Dictionary:
 	return movements
 
 func reset_pile_in_movements() -> void:
-	"""Reset all model positions to original"""
+	"""Reset all model positions AND facings to original"""
 	print("[FightController] reset_pile_in_movements called - STACK TRACE:")
 	print_stack()
 
 	for model_id in original_model_positions:
 		current_model_positions[model_id] = original_model_positions[model_id]
+	for model_id in original_model_rotations:
+		current_model_rotations[model_id] = original_model_rotations[model_id]
 
-	# Move visual models back to original positions
+	# Move visual models back to original positions and facings
 	_apply_model_positions_to_scene()
 	_update_pile_in_visuals()
 
 	print("[FightController] Pile-in movements reset")
 
 func _apply_model_positions_to_scene() -> void:
-	"""Apply current_model_positions to the actual model tokens in the scene"""
+	"""Apply current_model_positions (and rotations) to the actual tokens in the scene"""
 	if pile_in_unit_id == "":
 		return
 
@@ -2625,13 +2670,16 @@ func _apply_model_positions_to_scene() -> void:
 	if not token_layer:
 		return
 
-	# Update each model token's position
+	# Update each model token's position and facing
 	for model_id in current_model_positions:
 		# Find the token with matching metadata
 		for token in token_layer.get_children():
 			if token.has_meta("unit_id") and token.has_meta("model_id"):
 				if token.get_meta("unit_id") == pile_in_unit_id and token.get_meta("model_id") == model_id:
 					token.position = current_model_positions[model_id]
+					if current_model_rotations.has(model_id) and "model_data" in token and token.model_data is Dictionary:
+						token.model_data["rotation"] = current_model_rotations[model_id]
+						token.queue_redraw()
 					break
 
 # T-093: Compute snap-to-base-contact target for the dragging model. Returns
@@ -2707,10 +2755,27 @@ func _handle_pile_in_input(event: InputEvent) -> void:
 			# End dragging
 			print("[FightController] Mouse up")
 			_end_model_drag_pile_in()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		# Right-click for pivoting (mirrors the movement phase rotation UX)
+		var mouse_pos = board_root.get_local_mouse_position()
+		if event.pressed:
+			_start_model_rotation_pile_in(mouse_pos)
+		elif pile_in_rotating_model:
+			_end_model_rotation_pile_in()
+	elif event is InputEventMouseMotion and pile_in_rotating_model:
+		# Update rotation
+		var mouse_pos = board_root.get_local_mouse_position()
+		_update_model_rotation_pile_in(mouse_pos)
 	elif event is InputEventMouseMotion and dragging_model:
 		# Update drag
 		var mouse_pos = board_root.get_local_mouse_position()
 		_update_model_drag_pile_in(mouse_pos)
+	elif event is InputEventKey and event.pressed:
+		# Keyboard pivot of the last-touched model (15° per press)
+		if KeybindingManager.matches_action(event, "rotate_left"):
+			_rotate_pile_in_model_by_angle(-PI / 12.0)
+		elif KeybindingManager.matches_action(event, "rotate_right"):
+			_rotate_pile_in_model_by_angle(PI / 12.0)
 
 func _start_model_drag_pile_in(mouse_pos: Vector2) -> void:
 	"""Start dragging a model during pile-in"""
@@ -2757,6 +2822,7 @@ func _start_model_drag_pile_in(mouse_pos: Vector2) -> void:
 						drag_model_id = model_id
 						drag_start_pos = model_pos
 						drag_offset = model_pos - mouse_pos
+						pile_in_last_touched_model = model_id
 
 						print("[FightController] Started dragging model token ", model_id)
 						return
@@ -2897,18 +2963,22 @@ func _end_model_drag_pile_in() -> void:
 
 		# If not reverted, check distance limits
 		if not reverted:
-			# Check if movement exceeds 3" (with floating-point tolerance)
-			if distance > 3.0 + 0.02:
-				# Snap back to maximum 3" distance in the same direction
+			# A pivoted model spends part of its 3" budget on the pivot cost, so
+			# the positional move is capped at (3" − pivot cost). See
+			# _effective_pile_in_cap_inches().
+			var effective_cap = _effective_pile_in_cap_inches(drag_model_id)
+			# Check if movement exceeds the effective cap (with float tolerance)
+			if distance > effective_cap + 0.02:
+				# Snap back to the maximum allowed distance in the same direction
 				var direction = (final_pos - original_pos).normalized()
-				var max_distance_px = Measurement.inches_to_px(3.0)
+				var max_distance_px = Measurement.inches_to_px(effective_cap)
 				var clamped_pos = original_pos + direction * max_distance_px
 				current_model_positions[drag_model_id] = clamped_pos
 
 				if dragging_model:
 					dragging_model.position = clamped_pos
 
-				print("[FightController] Clamped movement to 3\" limit")
+				print("[FightController] Clamped movement to %.1f\" limit (pivot-aware)" % effective_cap)
 
 	# P3-101: Send final corrected position to remote player after revert/clamp
 	# Without this, the remote player's last drag preview shows the pre-revert position
@@ -2934,6 +3004,209 @@ func _end_model_drag_pile_in() -> void:
 	# Update dialog
 	if pile_in_dialog_ref and pile_in_dialog_ref.has_method("update_movements"):
 		pile_in_dialog_ref.update_movements(get_pile_in_movements())
+
+# ============================================================================
+# PILE-IN / CONSOLIDATE MODEL ROTATION (pivoting)
+# ============================================================================
+# Models on non-circular bases (e.g. bikes on oval bases) may be pivoted about
+# their centre during a pile-in / consolidate move, exactly as they can in the
+# movement phase. The pivot cost (2") is deducted from the model's 3" move — see
+# _effective_pile_in_cap_inches().
+
+func _model_can_pivot(model: Dictionary) -> bool:
+	"""Mirror of MovementController's rotation gate: only non-circular bases (or a
+	round base >32mm with a flying stem on a VEHICLE) can be pivoted."""
+	if model.is_empty():
+		return false
+	var base_type = model.get("base_type", "circular")
+	if base_type != "circular":
+		return true
+	# Round base >32mm with a flying stem — VEHICLE only (mirrors pivot value rules)
+	var base_mm = int(model.get("base_mm", 32))
+	var has_flying_stem = model.get("flying_stem", false)
+	if base_mm > 32 and has_flying_stem:
+		var unit = current_phase.get_unit(pile_in_unit_id) if current_phase else {}
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		if "VEHICLE" in keywords:
+			return true
+	return false
+
+func _pivot_cost_inches(model: Dictionary) -> float:
+	"""Cost in inches a pivot deducts from the 3" move. All non-round bases (and
+	eligible round >32mm flying-stem VEHICLE bases) cost 2" per Pariah Nexus."""
+	return 2.0 if _model_can_pivot(model) else 0.0
+
+func _find_pile_in_model(model_id: String) -> Dictionary:
+	"""Look up a model dict in the piling-in unit by id."""
+	if not current_phase or pile_in_unit_id == "":
+		return {}
+	var unit = current_phase.get_unit(pile_in_unit_id)
+	for m in unit.get("models", []):
+		if m.get("id", "") == model_id:
+			return m
+	return {}
+
+func _is_model_pivoted(model_id: String) -> bool:
+	"""True if the model's rotation has changed from its start-of-move facing."""
+	if not current_model_rotations.has(model_id):
+		return false
+	var start = original_model_rotations.get(model_id, 0.0)
+	return abs(current_model_rotations[model_id] - start) > 0.001
+
+func _effective_pile_in_cap_inches(model_id: String) -> float:
+	"""The positional distance a model may still move: 3" minus the pivot cost if
+	it has been pivoted this move."""
+	if _is_model_pivoted(model_id):
+		var model = _find_pile_in_model(model_id)
+		return max(0.0, PILE_IN_MAX_INCHES - _pivot_cost_inches(model))
+	return PILE_IN_MAX_INCHES
+
+func _model_id_at_pos(mouse_pos: Vector2) -> String:
+	"""Return the id of the (unlocked) model nearest the cursor within its base
+	(plus a small grab margin), or "" if none. The hit radius scales with the
+	model's base so large oval/rectangular vehicles are grabbable."""
+	var best_id := ""
+	var best_dist := INF
+	for model_id in current_model_positions:
+		if model_id in locked_base_contact_models:
+			continue
+		var d = mouse_pos.distance_to(current_model_positions[model_id])
+		var model = _find_pile_in_model(model_id)
+		var hit_radius = max(50.0, Measurement.base_radius_px(int(model.get("base_mm", 32))) + 20.0)
+		if d <= hit_radius and d < best_dist:
+			best_dist = d
+			best_id = model_id
+	return best_id
+
+func _start_model_rotation_pile_in(mouse_pos: Vector2) -> void:
+	"""Begin pivoting the model under the cursor (right-click)."""
+	if pile_in_unit_id == "":
+		return
+	var model_id = _model_id_at_pos(mouse_pos)
+	if model_id == "":
+		return
+	var model = _find_pile_in_model(model_id)
+	if not _model_can_pivot(model):
+		print("[FightController] Model %s has a circular base — no pivot needed" % model_id)
+		return
+
+	pile_in_rotating_model = true
+	rotation_model_id = model_id
+	pile_in_last_touched_model = model_id
+	var model_pos = current_model_positions.get(model_id, Vector2.ZERO)
+	rotation_start_angle = (mouse_pos - model_pos).angle()
+	rotation_model_start = current_model_rotations.get(model_id, 0.0)
+	print("[FightController] Started pivoting model %s (base_type=%s)" % [model_id, model.get("base_type", "circular")])
+
+func _update_model_rotation_pile_in(mouse_pos: Vector2) -> void:
+	"""Track the cursor while pivoting — rotate about the model's centre."""
+	if not pile_in_rotating_model or rotation_model_id == "":
+		return
+	var model_pos = current_model_positions.get(rotation_model_id, Vector2.ZERO)
+	var current_angle = (mouse_pos - model_pos).angle()
+	var new_rotation = rotation_model_start + (current_angle - rotation_start_angle)
+	_apply_pile_in_rotation(rotation_model_id, new_rotation)
+
+func _end_model_rotation_pile_in() -> void:
+	"""Finish a pivot: settle budget/overlap and refresh the dialog."""
+	if not pile_in_rotating_model:
+		return
+	var model_id = rotation_model_id
+	pile_in_rotating_model = false
+	rotation_model_id = ""
+
+	# Pivoting consumes budget, so an already-moved model may now exceed its
+	# (3" − pivot cost) allowance. Pull the position back along the move line so
+	# the state stays legal, exactly as the movement phase reduces the move cap.
+	_enforce_effective_cap_after_pivot(model_id)
+
+	# An oval base can swing into a neighbour without its centre moving; if the
+	# pivot causes an overlap, revert the rotation.
+	if _check_model_overlaps(model_id, current_model_positions.get(model_id, Vector2.ZERO)):
+		print("[FightController] Pivot causes overlap — reverting rotation for %s" % model_id)
+		_apply_pile_in_rotation(model_id, original_model_rotations.get(model_id, 0.0))
+
+	print("[FightController] Ended pivot for %s — rotation %.2f rad" % [model_id, current_model_rotations.get(model_id, 0.0)])
+	_update_pile_in_visuals()
+	if pile_in_dialog_ref and pile_in_dialog_ref.has_method("update_movements"):
+		pile_in_dialog_ref.update_movements(get_pile_in_movements())
+	if pile_in_dialog_ref and pile_in_dialog_ref.has_method("update_rotations"):
+		pile_in_dialog_ref.update_rotations(get_pile_in_rotations())
+
+func _rotate_pile_in_model_by_angle(angle: float) -> void:
+	"""Keyboard pivot: nudge the last-touched model by `angle` radians."""
+	if pile_in_unit_id == "":
+		return
+	var model_id = pile_in_last_touched_model
+	if model_id == "" or model_id in locked_base_contact_models:
+		return
+	var model = _find_pile_in_model(model_id)
+	if not _model_can_pivot(model):
+		return
+	var new_rotation = current_model_rotations.get(model_id, 0.0) + angle
+	_apply_pile_in_rotation(model_id, new_rotation)
+	_enforce_effective_cap_after_pivot(model_id)
+	if _check_model_overlaps(model_id, current_model_positions.get(model_id, Vector2.ZERO)):
+		_apply_pile_in_rotation(model_id, current_model_rotations.get(model_id, 0.0) - angle)
+	_update_pile_in_visuals()
+	if pile_in_dialog_ref and pile_in_dialog_ref.has_method("update_movements"):
+		pile_in_dialog_ref.update_movements(get_pile_in_movements())
+	if pile_in_dialog_ref and pile_in_dialog_ref.has_method("update_rotations"):
+		pile_in_dialog_ref.update_rotations(get_pile_in_rotations())
+
+func _enforce_effective_cap_after_pivot(model_id: String) -> void:
+	"""After a pivot reduces the budget, clamp the model's position so its move
+	distance still fits within (3" − pivot cost)."""
+	var original_pos = original_model_positions.get(model_id, Vector2.ZERO)
+	var current_pos = current_model_positions.get(model_id, original_pos)
+	var distance = Measurement.distance_inches(original_pos, current_pos)
+	var cap = _effective_pile_in_cap_inches(model_id)
+	if distance > cap + 0.02:
+		var direction = (current_pos - original_pos).normalized()
+		var clamped = original_pos + direction * Measurement.inches_to_px(cap)
+		current_model_positions[model_id] = clamped
+		_apply_single_model_position_to_scene(model_id, clamped)
+		print("[FightController] Pivot cost clamped %s move to %.1f\"" % [model_id, cap])
+
+func _apply_pile_in_rotation(model_id: String, new_rotation: float) -> void:
+	"""Store the new facing and redraw the model's token immediately. Mirrors
+	MovementController._update_model_token_visual so the token re-renders the
+	rotated base exactly as it does in the movement phase."""
+	current_model_rotations[model_id] = new_rotation
+
+	var token_layer = SceneRefs.token_layer()
+	if not token_layer:
+		return
+	for token in token_layer.get_children():
+		if token.has_meta("unit_id") and token.has_meta("model_id"):
+			if token.get_meta("unit_id") == pile_in_unit_id and token.get_meta("model_id") == model_id:
+				if "model_data" in token and token.model_data is Dictionary:
+					token.model_data["rotation"] = new_rotation
+					# Rebuild base_shape + redraw the same way the movement phase does
+					if token.has_method("set_model_data"):
+						token.set_model_data(token.model_data)
+				token.queue_redraw()
+				break
+
+func _apply_single_model_position_to_scene(model_id: String, pos: Vector2) -> void:
+	"""Move one model's token to `pos` (used when the pivot clamp adjusts it)."""
+	var token_layer = SceneRefs.token_layer()
+	if not token_layer:
+		return
+	for token in token_layer.get_children():
+		if token.has_meta("unit_id") and token.has_meta("model_id"):
+			if token.get_meta("unit_id") == pile_in_unit_id and token.get_meta("model_id") == model_id:
+				token.position = pos
+				break
+
+func get_pile_in_rotations() -> Dictionary:
+	"""Return {model_id: rotation} for every model whose facing changed."""
+	var rotations = {}
+	for model_id in current_model_rotations:
+		var start = original_model_rotations.get(model_id, 0.0)
+		if abs(current_model_rotations[model_id] - start) > 0.001:
+			rotations[model_id] = current_model_rotations[model_id]
+	return rotations
 
 func _enable_consolidate_mode(unit_id: String, dialog: Node) -> void:
 	"""Enable interactive consolidate mode (uses same system as pile-in)"""
@@ -2980,9 +3253,13 @@ func _check_model_overlaps(moving_model_id: String, new_pos: Vector2) -> bool:
 	if not moving_model:
 		return false
 
-	# Create a temporary model dict with the new position for overlap checking
+	# Create a temporary model dict with the new position (and live pivot facing)
+	# for overlap checking. Rotation matters for non-circular bases: an oval base
+	# can swing into a neighbour even when its centre stays put.
 	var check_model = moving_model.duplicate()
 	check_model["position"] = new_pos
+	if current_model_rotations.has(moving_model_id):
+		check_model["rotation"] = current_model_rotations[moving_model_id]
 
 	# Check against all other models in all units
 	var all_units = current_phase.game_state_snapshot.get("units", {})
@@ -3011,6 +3288,8 @@ func _check_model_overlaps(moving_model_id: String, new_pos: Vector2) -> bool:
 				var other_id = other_model.get("id", "")
 				if other_id in current_model_positions:
 					other_model_check["position"] = current_model_positions[other_id]
+				if other_id in current_model_rotations:
+					other_model_check["rotation"] = current_model_rotations[other_id]
 
 			# Check for overlap using Measurement system
 			if Measurement.models_overlap(check_model, other_model_check):
