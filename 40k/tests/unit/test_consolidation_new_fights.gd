@@ -7,9 +7,10 @@ extends "res://addons/gut/test.gd"
 # once the consolidation positions land.
 #
 # 11e note: the 10e per-tier fight_sequence / normal_sequence lists were
-# removed. "Already in the fight" is now pre-move engagement (a unit already in
-# engagement range is picked up by the normal fight flow, not forced), so this
-# suite asserts on the function's RETURN value, not on tier-list mutations.
+# removed. "Already in the fight" is now the cumulative was_eligible_to_fight
+# stamp (set via the FightSequencer); a unit that was already eligible is picked
+# up by the normal fight flow, not forced. Tests stamp the already-eligible
+# units (stamped_ids) and assert on the function's RETURN value.
 #
 # Position math for 32mm circular bases:
 #   base_radius_px ≈ 25.2 px  (32mm / 25.4 * 40 / 2)
@@ -66,10 +67,19 @@ func _make_unit(owner: int, models: Array, name: String = "", charged: bool = fa
 		"flags": flags
 	}
 
-func _setup_fight_phase(units: Dictionary) -> void:
-	"""Inject the test board into GameState.state (game_state_snapshot reads it)."""
+func _setup_fight_phase(units: Dictionary, stamped_ids: Array = []) -> void:
+	"""Inject the test board into GameState.state (game_state_snapshot reads it).
+	stamped_ids are units already eligible to fight this phase (the real flow
+	stamps was_eligible_to_fight via the FightSequencer); a consolidation only
+	forces enemies that were NOT already eligible."""
 	GameState.state = {"units": units, "board": {"objectives": [], "terrain_features": []}, "meta": {"active_player": 1}}
 	fight_phase.units_that_fought = []
+	for uid in stamped_ids:
+		var u = GameState.state["units"].get(uid, {})
+		if not u.is_empty():
+			if not u.has("flags"):
+				u["flags"] = {}
+			u["flags"]["was_eligible_to_fight"] = true
 
 # ==========================================
 # Consolidate into a new enemy → that enemy is forced to fight (12.08)
@@ -84,7 +94,7 @@ func test_consolidation_into_new_enemy_is_returned():
 		"unit_b": _make_unit(2, [_make_model(250.4, 200)], "Unit B (P2)"),
 		"unit_c": _make_unit(2, [_make_model(370, 200)], "Unit C (P2)"),
 	}
-	_setup_fight_phase(units)
+	_setup_fight_phase(units, ["unit_b"])
 
 	# unit_a consolidates 3" toward unit_c → moves to (320,200), reaching ER.
 	var movements = {"0": Vector2(320, 200)}
@@ -100,7 +110,7 @@ func test_consolidation_no_new_enemies_returns_nothing():
 		"unit_b": _make_unit(2, [_make_model(250.4, 200)], "Unit B (P2)"),
 		"unit_c": _make_unit(2, [_make_model(600, 200)], "Unit C (P2)"),  # Far away
 	}
-	_setup_fight_phase(units)
+	_setup_fight_phase(units, ["unit_b"])
 
 	var movements = {"0": Vector2(210, 200)}  # barely moves, stays near unit_b
 	var newly_eligible = fight_phase._scan_newly_eligible_units_after_consolidation("unit_a", movements)
@@ -113,7 +123,7 @@ func test_already_engaged_unit_not_forced():
 		"unit_a": _make_unit(1, [_make_model(200, 200)], "Unit A (P1)"),
 		"unit_b": _make_unit(2, [_make_model(250.4, 200)], "Unit B (P2)"),
 	}
-	_setup_fight_phase(units)
+	_setup_fight_phase(units, ["unit_b"])
 
 	var movements = {"0": Vector2(210, 200)}
 	var newly_eligible = fight_phase._scan_newly_eligible_units_after_consolidation("unit_a", movements)
@@ -155,7 +165,7 @@ func test_multiple_new_enemies_forced():
 		"unit_c": _make_unit(2, [_make_model(370, 200)], "Unit C (P2)"),
 		"unit_d": _make_unit(2, [_make_model(370, 250)], "Unit D (P2)"),
 	}
-	_setup_fight_phase(units)
+	_setup_fight_phase(units, ["unit_b"])
 
 	# Move to (320,225) — within ER of both unit_c and unit_d.
 	var movements = {"0": Vector2(320, 225)}
@@ -172,7 +182,7 @@ func test_friendly_units_not_forced():
 		"unit_b": _make_unit(2, [_make_model(250.4, 200)], "Unit B (P2)"),
 		"unit_e": _make_unit(1, [_make_model(370, 200)], "Unit E (P1)"),  # Same team as unit_a
 	}
-	_setup_fight_phase(units)
+	_setup_fight_phase(units, ["unit_b", "unit_e"])
 
 	var movements = {"0": Vector2(320, 200)}
 	var newly_eligible = fight_phase._scan_newly_eligible_units_after_consolidation("unit_a", movements)

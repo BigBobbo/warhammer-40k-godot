@@ -3322,23 +3322,17 @@ func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: Strin
 	var newly_eligible = []
 	var all_units = game_state_snapshot.get("units", {})
 
-	# Units already in the fight before this move — the consolidating unit plus
-	# any unit already in engagement range with an enemy at its pre-move
-	# position. An Engaging Consolidation only forces NEW foes: units this move
-	# newly drags into engagement range (12.08 AFTER MOVING). Already-engaged
-	# units are picked up by the normal fight flow, not forced.
+	# Units already in the fight this phase carry the cumulative 12.08
+	# eligibility stamp (was_eligible_to_fight, set via the FightSequencer when a
+	# unit becomes eligible). An Engaging Consolidation only forces NEW foes —
+	# units this move drags into engagement range that were NOT already eligible
+	# (12.08 AFTER MOVING). The consolidating unit is likewise never a new foe.
+	# Using the stamp (not a live engagement re-check) keeps this consistent with
+	# the sequencer's own engagement definition.
 	var already_in_sequence = {consolidating_unit_id: true}
 	for uid in all_units:
-		var scan_u = all_units[uid]
-		var scan_owner = scan_u.get("owner", 0)
-		for other_id in all_units:
-			if other_id == uid:
-				continue
-			if all_units[other_id].get("owner", 0) == scan_owner:
-				continue
-			if _units_in_engagement_range(scan_u, all_units[other_id]):
-				already_in_sequence[uid] = true
-				break
+		if all_units[uid].get("flags", {}).get("was_eligible_to_fight", false):
+			already_in_sequence[uid] = true
 
 	# Build a temporary copy of the consolidating unit with updated positions
 	var consolidating_unit = all_units.get(consolidating_unit_id, {})

@@ -199,7 +199,8 @@ func _run_tests():
 	_check("phase completed after both halves", _phase_completed_count == 1)
 	_check("Consolidate step was DONE at completion", _step_at_completion == fp.ConsolidationStep11e.DONE)
 
-	print("\n-- 10e sensitivity: legacy per-fighter consolidate flow unchanged --")
+	print("\n-- edition-independence: edition 10 now runs the 11e Consolidate step --")
+	# The 10e per-fighter consolidate flow was removed — the phase is 11e-only.
 	GameConstants.edition = 10
 	gs.state = prev_state.duplicate(true)
 	_board()
@@ -208,12 +209,14 @@ func _run_tests():
 	fp10.active_fighter_id = "U_A"
 	fp10.pending_attacks.clear()
 	var v10 = fp10._validate_consolidate({"unit_id": "U_A", "movements": {}})
-	_check("e10: active fighter's empty consolidate is accepted mid-activation (legacy flow)",
-		v10.valid, str(v10))
+	_check("e10 runs 11e: mid-activation consolidate rejected (12.07 global step)",
+		not v10.valid, str(v10))
+	# During the global Pile In step, only pile-in actions are offered.
 	var offered10 = []
 	for a in fp10.get_available_actions():
 		offered10.append(a.get("type", ""))
-	_check("e10: per-fighter CONSOLIDATE still offered for the active fighter", "CONSOLIDATE" in offered10, str(offered10))
+	_check("e10 runs 11e: no per-fighter CONSOLIDATE offered mid-activation",
+		not ("CONSOLIDATE" in offered10), str(offered10))
 
 	gs.state = prev_state
 	GameConstants.edition = prev_edition
