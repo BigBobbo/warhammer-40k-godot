@@ -95,7 +95,13 @@ func execute_action(action: Dictionary) -> Dictionary:
 	var validation = validate_action(action)
 	if not validation.valid:
 		DebugLogger.info(str("[BasePhase] Action validation failed: ", validation.errors))
-		return {"success": false, "errors": validation.errors}
+		# Populate BOTH `errors` (the array, for callers that read the list) and a joined
+		# `error` string. The UI handlers in Main.gd read result.error and otherwise fall
+		# back to a generic "Unknown error", silently dropping the real rejection reason
+		# (e.g. "Cannot select fighter — the Pile In step must finish first").
+		var raw_errors = validation.get("errors", [])
+		var error_text: String = ", ".join(raw_errors) if (raw_errors is Array and not raw_errors.is_empty()) else "Action not allowed"
+		return {"success": false, "error": error_text, "errors": raw_errors}
 
 	var result = process_action(action)
 	if result.success:

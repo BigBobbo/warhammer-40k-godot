@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.43.6",
+			"date": "2026-07-14",
+			"summary": "Fight-phase cleanup: rejected fight actions now tell you WHY, and two dead leftover buttons were removed. Previously, when a fight action was refused (for example, clicking a unit to fight before the Pile In step had finished), the game showed a red 'Fight action failed: Unknown error' banner that hid the real reason. It now shows the actual rule, e.g. 'The Pile In step (12.02) must finish before units are selected to fight'. The old per-unit 'Pile In' and 'Consolidate' buttons in the fight side panel — a leftover from the 10th-edition rules where those were part of each unit's activation — have been removed; in the current rules pile-in and consolidation are handled by their own dedicated steps, and those two buttons were permanently greyed out and did nothing.",
+			"changes": [
+				"Rejected fight actions now show the real reason instead of a generic 'Unknown error'. The same fix also restores the real message for rejected Shooting and Charge actions.",
+				"Removed the non-functional per-unit 'Pile In' / 'Consolidate' buttons from the Fight controls panel — pile-in and consolidation are driven by their own dedicated on-screen steps, so those buttons were dead controls that could never be clicked."
+			]
+		},
+		{
 			"version": "0.43.5",
 			"date": "2026-07-14",
 			"summary": "Charge moves can now be made in multiple steps, exactly like Movement-phase moves. Previously, once you dragged a charging model and let go, that model was 'done' — you couldn't pick it up again, so there was no way to route it around a wall, terrain, or your own models and still use the rest of your charge distance. Now each charging model can be dragged as many times as you like; every drag adds to the total distance used and the model can keep moving until it reaches engagement range or spends its charge roll. Only 'Confirm Charge Moves' finalises the charge.",
