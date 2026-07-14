@@ -242,6 +242,51 @@ assert 10e fight behavior must also be migrated.
 
 ---
 
+### Slice 1 DONE (committed 8feb5a4) — edition-10 fight scenarios migrated/retired
+6 migrated to edition 11 (validated windowed, 6/6): runner_smoke, custodes_lions_stratagems,
+fullauto_fight_stratagems, fight_self_targeting (edition flag only); 374_headwoppa,
+386_deadly_demise (edition + END_PILE_IN passes before SELECT_FIGHTER). 2 retired: fights_last_select_fighter
+(10e-only FIGHTS_LAST subphase), co_offer_after_charge (10e per-unit CO flow; CO covered headless).
+Coverage tiles + thresholds + stale goldens cleaned up.
+
+### Slice 2/3 — the FightPhase.gd 11e-only conversion (NEXT, fully scoped, NOT yet started)
+This is the core deletion and it is an ALL-OR-NOTHING conversion (a hybrid 11e-pile-in / 10e-selection
+fight phase is incoherent). KEY INSIGHT: collapsing every `if GameConstants.edition >= 11: <11e> else <10e>`
+gate to just `<11e>` is a **no-op at edition 11** (players + all migrated/11e tests already take the 11e
+branch) — behaviour only changes at edition 10. So the validation surface is small; the risk is purely the
+~42 hand-edits on a 6,120-line file.
+
+Steps:
+1. Retire `40k/tests/test_co_pretrigger.gd` — it pins edition 10 to test the *10e* CO-on-CONSOLIDATE timing
+   (its own comment: 11e "anchors to attack resolution instead"). CO is covered by test_core_stratagems_11e.gd.
+2. Collapse the ~42 `edition >= 11 / < 11` gates in `FightPhase.gd` to 11e-only. The pile-in/consolidate
+   validators are clean collapses (e.g. `_validate_pile_in` 756-840 → just `return _validate_pile_in_11e(action)`).
+   Delete the 10e-only functions: legacy body of `_validate_pile_in`, `_process_consolidate` (2794-2897),
+   `_validate_consolidate` two-mode body (938-1013), `_determine_consolidate_mode`,
+   `_can_unit_reach_engagement_range`, `_validate_consolidate_engagement_range`,
+   `_validate_consolidate_objective`, `_get_consolidation_distance`, `_model_to_objective_distance_inches`,
+   and the now-dead helpers they call (`_is_moving_toward_closest_enemy`, `_validate_base_to_base_if_possible`,
+   `_can_unit_maintain_engagement_after_movement`) — after confirming no 11e/other-phase callers.
+3. Remove the `if GameConstants.edition < 11` early-returns in `PileInMove.eligible` (29-30) and
+   `ConsolidationMove.eligible` (32-33) so the templates are edition-independent.
+4. Slice 3: remove the 10e apparatus — `Subphase` enum, `FightPriority.FIGHTS_LAST`, tier lists
+   (`fights_first_sequence`/`normal_sequence`/`fights_last_sequence`), `_build_alternating_sequence`,
+   `_transition_subphase`, legacy `fight_sequence`/`current_fight_index` queue. Re-home the 11e-path reads at
+   `FightPhase.gd:3566, 4129, 4267` and the `current_fight_index` bump in `_finish_fight_activation_11e`.
+   Rewrite `FightPhaseStateBanner` + `get_current_fight_state` to derive Fights-First/Remaining from the
+   FightSequencer instead of `current_subphase`/`fights_last_units`. Dedupe the two FightController
+   sequence populators (`_refresh_fight_sequence` vs `_refresh_fighter_list`).
+5. Update source-shape pin `40k/tests/test_audit_already_done_pin.gd` `_test_t040_fights_last` (it greps
+   FightPhase.gd for `fights_last_sequence`).
+6. VALIDATE: the 8 migrated scenarios + the 11e fight scenarios (no change expected at e11) + the two e2e
+   tests `test_e2e_workflow.gd` / `test_full_gameplay_sequence.gd` (they reach FIGHT at edition 10 and do a
+   no-combatant END_FIGHT — now running the 11e path) + a headless sanity run. The 7 "incidental" fight
+   tests do not drive the 10e per-unit flow and should be unaffected.
+
+Deferred (documented, not a fight-sequence remnant): the interactive melee wound-allocation overlay at
+e11-with-auto-allocate-OFF still uses WoundAllocationOverlay; routing it through AllocationGroupOverlay
+requires adapting `_process_apply_melee_saves` to the self-applying 11e overlay (see the melee section above).
+
 ## Validation gate (per CLAUDE.md)
 Every phase with a UI surface needs a **windowed scenario** driving the real player path against the running
 game (MCP bridge: `simulate_click` real buttons, `verify_delivery` PASS, screenshot of the effect). Headless
