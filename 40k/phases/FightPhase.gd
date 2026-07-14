@@ -4924,6 +4924,21 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 			log_phase_message("[11e 12.02] Player %d ends their pile-in half via END_FIGHT" % piling_in_player_11e)
 			return _advance_pile_in_step_11e(create_result(true, []))
 		if consolidation_step_11e == ConsolidationStep11e.NOT_STARTED:
+			# Fight-phase scope fix: "End Fight Phase" ends only the ENDING
+			# player's own fights. Per 12.04, when one player stops selecting,
+			# the OTHER player still fights all of their remaining eligible
+			# units — so if the opponent is owed a fight, hand the Fight step
+			# over to them instead of forfeiting everyone and jumping to the
+			# Consolidate step (the previous behaviour, which wrongly cut the
+			# opponent's units out of the phase).
+			var ending_player := int(action.get("player", GameState.get_active_player()))
+			var opponent := 2 if ending_player == 1 else 1
+			if sequencer_11e != null \
+					and _player_has_eligible_fights_11e(ending_player) \
+					and _player_has_eligible_fights_11e(opponent):
+				_forfeit_player_fights_11e(ending_player)
+				log_phase_message("[11e 12.04] Player %d ended their fights — Player %d still fights their remaining units" % [ending_player, opponent])
+				return _resume_fight_step_after_end_11e(create_result(true, []))
 			return _begin_consolidation_step_11e()
 		if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
 			if sequencer_11e != null:
@@ -4936,6 +4951,50 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 			return _advance_consolidation_step_11e(create_result(true, []))
 
 	return _run_end_of_fight_triggers(create_result(true, []))
+
+# True while `player` still owns at least one unit the sequencer would offer
+# a fight to. Used by END_FIGHT to decide whether the opponent still gets to
+# fight (12.04) before the phase moves on to the Consolidate step.
+func _player_has_eligible_fights_11e(player: int) -> bool:
+	if sequencer_11e == null:
+		return false
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+			return true
+	return false
+
+# Mark every remaining eligible fight owned by `player` as fought — they
+# forfeit those fights because the player chose to end their fighting. Only
+# this player's units are touched; the opponent's stay eligible so they still
+# get to fight (12.04).
+func _forfeit_player_fights_11e(player: int) -> void:
+	if sequencer_11e == null:
+		return
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+			log_phase_message("[11e 12.04] %s forfeits its fight (Player %d ended their fights)" % [unit_id, player])
+			sequencer_11e.mark_fought(unit_id)
+
+# After the ending player forfeits their own fights, hand the Fight step over
+# to the opponent (12.04) and emit the next fight-selection request. Mirrors
+# _finish_fight_activation_11e's hand-off so the AI / controller / network
+# sync all pick it up the same way. If the sequencer unexpectedly reports no
+# one left, fall through to the Consolidate step instead of stalling.
+func _resume_fight_step_after_end_11e(result: Dictionary) -> Dictionary:
+	_switch_selecting_player()
+	var dialog_data = _build_fight_selection_dialog_data()
+	if dialog_data.is_empty():
+		return _begin_consolidation_step_11e()
+	emit_signal("fight_selection_required", dialog_data)
+	result["trigger_fight_selection"] = true
+	result["fight_selection_data"] = dialog_data
+	return result
 
 # End-of-fight-phase triggers (12.09): Sweeping Advance, then Acrobatic
 # Escape, then phase completion. At edition >= 11 this runs only after the
@@ -5443,9 +5502,15 @@ func _is_unit_within_distance_of_enemies(unit: Dictionary, distance_inches: floa
 
 	return false
 
-func get_unfought_eligible_units() -> Array:
+func get_unfought_eligible_units(only_player: int = -1) -> Array:
 	"""Return array of {unit_id, unit_name, player, subphase} for units that haven't fought yet.
-	Used by the end-fight-phase confirmation dialog (T5-UX7)."""
+	Used by the end-fight-phase confirmation dialog (T5-UX7).
+
+	When only_player >= 1, restrict the result to that player's units. The
+	end-fight confirmation passes the ending (active) player so the warning
+	lists only the units THAT player would forfeit — the opponent's units are
+	not forfeited by ending your own fights (12.04), so listing them as
+	"won't fight" would be misleading."""
 	var unfought = []
 
 	# 11e: the sequencer is authoritative — the 10e tier lists can disagree
@@ -5454,6 +5519,8 @@ func get_unfought_eligible_units() -> Array:
 		for unit_id in GameState.state.get("units", {}):
 			if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
 				var unit = GameState.state.units[unit_id]
+				if only_player >= 1 and int(unit.get("owner", 0)) != only_player:
+					continue
 				unfought.append({
 					"unit_id": unit_id,
 					"unit_name": unit.get("meta", {}).get("name", unit_id),
@@ -5465,6 +5532,8 @@ func get_unfought_eligible_units() -> Array:
 	var all_units = game_state_snapshot.get("units", {})
 
 	for player_key in ["1", "2"]:
+		if only_player >= 1 and int(player_key) != only_player:
+			continue
 		for unit_id in fights_first_sequence.get(player_key, []):
 			if unit_id not in units_that_fought:
 				var unit_name = all_units.get(unit_id, {}).get("meta", {}).get("name", unit_id)
