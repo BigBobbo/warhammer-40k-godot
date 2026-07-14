@@ -6,6 +6,20 @@ The project we are working on is located at /Users/robertocallaghan/Documents/cl
 
 Do not remove debugging logs unless specifically asked to do so.
 
+## End-of-task TLDR (include in EVERY message back to the user after completing work)
+
+When you finish a piece of work, end your reply with a succinct TLDR
+covering:
+
+- **Ask**: one line on what was requested.
+- **Issue**: what was wrong / the root cause (if applicable).
+- **Change**: what you actually did.
+- **Flags**: anything else worth calling out — risks, follow-ups,
+  things not validated, assumptions made.
+
+Keep it tight — a few bullets, not paragraphs. This applies to
+implementation work, not to short Q&A replies.
+
 ## Version / changelog (update on EVERY player-facing change)
 
 The main menu shows the current version + a "What's New" summary so it is easy
