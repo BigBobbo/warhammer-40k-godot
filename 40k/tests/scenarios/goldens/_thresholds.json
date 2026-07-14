@@ -14,11 +14,9 @@
   "per_step": {
   },
   "skip_diff": [
-    "horde_movement",
-    "co_offer_after_charge"
+    "horde_movement"
   ],
   "$skip_diff_rationale": {
-    "horde_movement": "20 Boyz models move toward a target with congestion blocking. Empirically run-to-run drift is hd=32 max-tile even with rng_seed=42 — the per-model tween destinations depend on continuous physics interactions that don't quantize to identical pixels. The scenario validates engine state (models reach the target despite congestion), not visual fidelity.",
-    "co_offer_after_charge": "Four dispatch_actions fire in rapid succession (SELECT_FIGHTER, DECLINE_EPIC_CHALLENGE, PILE_IN, CONSOLIDATE) with no inter-action settle frames. The per-step screenshot after each step captures the engine mid-tween (camera pan, token reposition, dialog opening). Run-to-run drift is hd~20 on different steps each run, so neither blessing nor threshold-bumping gives a stable signal. The scenario validates the counter-offensive trigger fires correctly, asserted via expect_action_result and expect_phase_property — visual diff adds no signal."
+    "horde_movement": "20 Boyz models move toward a target with congestion blocking. Empirically run-to-run drift is hd=32 max-tile even with rng_seed=42 — the per-model tween destinations depend on continuous physics interactions that don't quantize to identical pixels. The scenario validates engine state (models reach the target despite congestion), not visual fidelity."
   }
 }

@@ -363,21 +363,10 @@
     },
     {
       "id": "fight.fights_first_pulse",
-      "description": "Fights-first sequence updated when COUNTER-OFFENSIVE used; phase.active_fighter_id, current_selecting_player",
-      "scenarios": [
-        "co_offer_after_charge"
-      ],
+      "description": "11e Counter-Offensive updates the fight sequence (active_fighter_id, current_selecting_player). CO stratagem mechanics are covered headless by test_core_stratagems_11e.gd; a windowed 11e CO scenario (fight resolves -> CO offered -> USE) is a follow-up after the 10e co_offer_after_charge scenario was retired in the 10e->11e fight cleanup.",
+      "scenarios": [],
       "last_verified_commit": "62824ef",
-      "status": "covered"
-    },
-    {
-      "id": "fight.fights_last_validation",
-      "description": "FIGHT phase: when a unit has fights_last=true, the subphase rules require all non-fights-last units to fight first. Validated by 'fights_last_select_fighter.",
-      "scenarios": [
-        "fights_last_select_fighter"
-      ],
-      "last_verified_commit": "1f48cc6",
-      "status": "covered"
+      "status": "uncovered"
     },
     {
       "id": "fight.self_targeting_fix",
@@ -390,21 +379,10 @@
     },
     {
       "id": "fight.stratagem.counter_offensive",
-      "description": "COUNTER-OFFENSIVE post-charge trigger surface, USE_COUNTER_OFFENSIVE effect, CP -2",
-      "scenarios": [
-        "co_offer_after_charge"
-      ],
+      "description": "COUNTER-OFFENSIVE stratagem: USE_COUNTER_OFFENSIVE effect, CP -2. Mechanics covered headless by test_core_stratagems_11e.gd; a windowed 11e CO scenario is a follow-up after the 10e co_offer_after_charge scenario was retired in the 10e->11e fight cleanup.",
+      "scenarios": [],
       "last_verified_commit": "62824ef",
-      "status": "covered"
-    },
-    {
-      "id": "fight.subphase_transition",
-      "description": "FIGHT phase: subphases (fights-first \u2192 normal \u2192 fights-last) transition correctly when no eligible fighters remain in the current subphase. Validated by 'fights_last_select_fighter.",
-      "scenarios": [
-        "fights_last_select_fighter"
-      ],
-      "last_verified_commit": "1f48cc6",
-      "status": "covered"
+      "status": "uncovered"
     },
     {
       "id": "infra.scenario_runner",

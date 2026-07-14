@@ -8,6 +8,7 @@
   ],
   "fixture": "custodes_lions_pretrigger",
   "rng_seed": 42,
+  "edition": 11,
   "transition_to_phase": 10,
   "disable_ai": true,
   "description": "Lions of the Emperor fight-phase package: PEERLESS WARRIOR (melee [PRECISION] via curated effects_json) and DEFIANT TO THE LAST (swing-back-on-death custom handler) both activate via USE_STRATAGEM against the Lions fixture, set their engine flags, and deduct CP (3 -> 1).",
