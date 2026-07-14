@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.43.3",
+			"date": "2026-07-14",
+			"summary": "Fixed the Consolidate step being blocked by leftover menus. After the last fight of the phase, the 'Fight — Melee Resolution' summary (and, in some flows, an 'Assign Attacks' window) stayed open in the middle of the screen if you hadn't clicked Close on it. When the Consolidate step then began, those windows sat stacked on top of the battlefield, so when you picked a unit to consolidate you couldn't see it to drag it. The game now automatically clears those leftover fight windows the moment the Consolidate step opens, so the unit picker and the bottom-docked Consolidate menu appear over a clear board.",
+			"changes": [
+				"Consolidate step: any leftover 'Fight — Melee Resolution' or 'Assign Attacks' window from the last fight is now dismissed automatically when the Consolidate step begins — you no longer have to hunt for a Close button before you can consolidate.",
+				"When you pick a unit to consolidate, the board is now fully visible so you can see and drag that unit's models (the Consolidate menu stays docked at the bottom of the screen as before).",
+				"The combat results those windows showed are still available at any time in the right-hand COMBAT LOG panel."
+			]
+		},
+		{
 			"version": "0.43.2",
 			"date": "2026-07-14",
 			"summary": "Fixed the confusing Fight phase controls. The right-hand panel used to show a 'MELEE ATTACKS' weapon list with a 'CURRENT TARGETS' box and 'Clear All' / 'Fight!' / 'Auto-Fight' buttons — but that whole set was a dead, leftover way of fighting: selecting a weapon there and clicking an enemy did nothing, and 'Auto-Fight' did nothing either. Meanwhile the real, working Fight flow is the pop-up dialog in the middle of the screen that asks you to pick a fighter and then assign attacks. Having both on screen made it look like the game was broken when you tried the panel. The dead panel controls have been removed, so there is now a single, working way to fight: the pop-up dialogs.",
