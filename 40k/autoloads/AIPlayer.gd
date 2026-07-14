@@ -454,10 +454,9 @@ func _fight_step_over() -> bool:
 	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
 		return true
 	var phase = _phase_manager_ref.current_phase_instance
+	# The FightSequencer (12.04) is the authority on "everyone has fought".
 	if "sequencer_11e" in phase and phase.sequencer_11e != null:
 		return not phase.sequencer_11e.has_eligible(GameState.state)
-	if phase.has_method("_all_eligible_units_have_fought"):
-		return phase._all_eligible_units_have_fought()
 	return true
 
 func _get_pending_reactive_window_player() -> int:

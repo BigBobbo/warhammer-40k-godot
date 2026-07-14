@@ -447,7 +447,7 @@ func set_phase(phase: BasePhase) -> void:
 				print("DEBUG: Retrieved pending pile-in step data after signal connection")
 				_on_pile_in_step_required(pending_pile_in)
 		
-		_refresh_fight_sequence()
+		_refresh_fighter_list()
 		
 		# Restore state if loading from save
 		_restore_state_after_load()
@@ -485,53 +485,7 @@ func _restore_state_after_load() -> void:
 				current_phase.get_unit(current_fighter_id).get("meta", {}).get("name", current_fighter_id))
 	
 	# Update fight sequence display
-	_refresh_fight_sequence()
-
-func _refresh_fight_sequence() -> void:
-	if not unit_selector or not current_phase:
-		return
-	
-	unit_selector.clear()
-	
-	# Get fight sequence from phase
-	if current_phase.has_method("get_fight_sequence"):
-		fight_sequence = current_phase.get_fight_sequence()
-		current_fight_index = current_phase.get_current_fight_index()
-	
-	# Display fight sequence with status indicators
-	for i in range(fight_sequence.size()):
-		var unit_id = fight_sequence[i]
-		var unit = current_phase.get_unit(unit_id)
-		# display_name keeps duplicate squads (e.g. "... Alpha"/"... Beta") distinct.
-		var _uname_meta = unit.get("meta", {})
-		var unit_name = _uname_meta.get("display_name", _uname_meta.get("name", unit_id))
-		
-		# Add status indicators
-		if i < current_fight_index:
-			unit_name += " [FOUGHT]"
-		elif i == current_fight_index:
-			unit_name += " [ACTIVE]"
-		elif current_fighter_id == unit_id:
-			unit_name += " [SELECTED]"
-		
-		unit_selector.add_item(unit_name)
-		unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
-	
-	# Update sequence label in right panel (moved from bottom HUD)
-	var sequence_label = hud_right.get_node_or_null("VBoxContainer/FightScrollContainer/FightPanel/SequenceLabel")
-	
-	# Refresh available actions to populate fight controls
-	_refresh_available_actions()
-	if sequence_label:
-		if fight_sequence.is_empty():
-			sequence_label.text = "No active fights"
-		else:
-			var active_unit = "None"
-			if current_fight_index >= 0 and current_fight_index < fight_sequence.size():
-				var unit_id = fight_sequence[current_fight_index]
-				var unit = current_phase.get_unit(unit_id)
-				active_unit = unit.get("meta", {}).get("name", unit_id)
-			sequence_label.text = "Fighting: %s (%d/%d)" % [active_unit, current_fight_index + 1, fight_sequence.size()]
+	_refresh_fighter_list()
 
 func _refresh_attack_tree() -> void:
 	if not attack_tree or current_fighter_id == "":
@@ -965,7 +919,7 @@ func _on_fight_resolved(fighter_id: String, results: Dictionary) -> void:
 	_clear_visuals()
 	current_fighter_id = ""
 	eligible_targets.clear()
-	_refresh_fight_sequence()
+	_refresh_fighter_list()
 	_update_ui_state()
 
 # T5-V12: Damage application visualization — floating numbers + flash effects
@@ -1229,10 +1183,8 @@ func _append_dice_icons(target_label: RichTextLabel, rolls: Array, threshold_num
 		if i < rolls.size() - 1:
 			target_label.append_text(" ")
 
-func _on_fight_sequence_updated(sequence: Array, index: int) -> void:
-	fight_sequence = sequence
-	current_fight_index = index
-	_refresh_fight_sequence()
+func _on_fight_sequence_updated(_sequence: Array = []) -> void:
+	_refresh_fighter_list()
 
 func _on_clear_pressed() -> void:
 	emit_signal("fight_action_requested", {
