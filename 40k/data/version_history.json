@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.44.5",
+			"date": "2026-07-15",
+			"summary": "Clearer Fight-phase button during Pile In: the top-right action button now reads 'Finish Pile Ins' (and 'Finish Consolidations') while you're in those steps, instead of the misleading 'End Fight Phase'. Clicking it during Pile In no longer pops the wrong 'these units haven't fought' warning — those units still fight, so there was nothing to warn about. The warning now only appears when you actually end the Fight step.",
+			"changes": [
+				"The top-right phase button is now labelled for the current Fight-phase step: '[Enter] Finish Pile Ins' during the Pile In step, '[Enter] Finish Consolidations' during the Consolidate step, and '[Enter] End Fight Phase' during the fight itself.",
+				"Finishing your Pile In (or Consolidation) moves via that button no longer shows the 'N unit(s) have not yet fought — are you sure?' confirmation. That pop-up was left over from an old code path and was misleading: ending a Pile In forfeits no fights, so your units still get to fight.",
+				"The 'unfought units' confirmation still appears when you genuinely end the Fight step early, where it correctly warns you about forfeiting fights."
+			]
+		},
+		{
 			"version": "0.44.4",
 			"date": "2026-07-14",
 			"summary": "Internal Fight-phase cleanup: the game now runs a single, current-edition Fight-phase code path — the old 10th-edition pile-in/consolidate/fight-ordering leftovers were removed so the two rule sets can no longer shadow each other. This is invisible in normal play. The one small on-screen consequence: a unit forced to 'fight last' by an ability now appears in the ordinary 'Remaining Combats' group of the fight-selection list rather than a separate 'Fights Last' group — matching the current rules, which resolve it as a normal remaining combat and have no distinct Fights Last step. Board colouring of engaged units (including the fights-last tint) is unchanged.",
