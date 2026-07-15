@@ -378,6 +378,18 @@ func _model_in_objective_range(model: Dictionary, objective: Dictionary, host_ar
 	var control_radius = Measurement.inches_to_px(3.78740157)
 	return Measurement.model_edge_to_point_distance_px(model, obj_pos) <= control_radius
 
+## Public, terrain-aware "is this model within range of this objective?" — the
+## SAME predicate objective control uses, so other callers (Consolidation, etc.)
+## can never disagree with who controls the marker. Resolves the hosting
+## area(s) itself (14.01): a terrain-hosted objective is in range when the base
+## overlaps a hosting area; open ground uses the classic 3" + 20mm-marker-radius
+## from the centre.
+func model_in_objective_range(model: Dictionary, objective: Dictionary) -> bool:
+	var host_areas: Array = []
+	if GameConstants.edition >= 11:
+		host_areas = _objective_host_areas(objective)
+	return _model_in_objective_range(model, objective, host_areas)
+
 ## True when the objective is actively contested — both players have models in
 ## range with equal, nonzero OC — as opposed to merely uncontrolled (nobody in
 ## range). UI labels read this to avoid claiming "CONTESTED" over an empty or

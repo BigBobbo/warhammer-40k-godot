@@ -1,0 +1,59 @@
+{
+  "id": "consolidate_onto_terrain_objective_11e",
+  "covers": [
+    "movetypes.ConsolidationMove.select_mode",
+    "movetypes.ConsolidationMove._objectives_within",
+    "movetypes.ConsolidationMove._model_in_objective_range",
+    "autoloads.MissionManager.model_in_objective_range",
+    "phases.FightPhase._build_consolidation_step_data_11e",
+    "phases.FightPhase._validate_consolidate_11e",
+    "dialogs.ConsolidationStepDialog",
+    "dialogs.ConsolidateDialog"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression for the 'consolidate onto a terrain objective' bug. A unit standing ON a large central terrain objective (14.01) controls it — MissionManager counts a model as in range once its base overlaps the hosting area — but ConsolidationMove used to measure only model-edge -> marker CENTRE vs 3\"+20mm. On a ~11\" wide central ruin a unit's bases sit >3.78\" from the marker point, so the Consolidate step told the player 'no consolidation mode applies — the unit cannot move' even though the unit was on the objective. Both now share MissionManager.model_in_objective_range. This scenario converts obj_center into its terrain-hosted form (loads the take_and_hold_mirror layout the game already ships for this matchup and rebuilds the board objectives with source_pieces), stands the isolated Shield-Captain in a clear patch of that central area — 4.9\" from the marker centre, no enemies near — passes the global Pile In step with real END_PILE_IN actions, enters the real Consolidate step, hands the active player's (P2) half over with a real END_CONSOLIDATION, then on P1's half asserts: (1) the ConsolidationStepDialog the player sees lists the Shield-Captain with the '[Objective ...]' hint — proof select_mode returned 'objective' for a model 4.9\" from the marker, which only a terrain-aware measurement yields (open ground reads '[No move possible from here]'); (2) opening the real ConsolidateDialog and validating a real toward-objective move is accepted — the gate that raised the red 'no consolidation mode applies' error before the fix. Setup uses only single-expression execute_script calls against production methods; the pile-in and consolidate steps, the picker, and the move dialog are the real player UI driven through the real action pipeline.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "script": "TerrainManager.load_terrain_layout(\"take_and_hold_mirror_1\")" },
+    { "act": "execute_script", "script": "MissionManager._setup_objectives_for_deployment(\"\")" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].merge({\"position\": {\"x\": 960.0, \"y\": 1380.0}, \"alive\": true}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].flags.merge({\"was_eligible_to_fight\": true}, true)" },
+
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN" } },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN" } },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._begin_consolidation_step_11e()" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "consolidating_player_11e", "equals": 2 },
+    { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog", "timeout_s": 5.0 },
+
+    { "act": "dispatch_action", "action": { "type": "END_CONSOLIDATION" } },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_phase_property", "property": "consolidating_player_11e", "equals": 1 },
+
+    { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_SHIELD_CAPTAIN_A", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "\"Objective\" in main.get_tree().root.get_node(\"ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_SHIELD_CAPTAIN_A\").text", "equals": true },
+    { "act": "execute_script", "script": "\"No move possible\" in main.get_tree().root.get_node(\"ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_SHIELD_CAPTAIN_A\").text", "equals": false },
+    { "act": "screenshot", "label": "01_consolidation_step_offers_objective_mode" },
+
+    { "act": "click_node", "node": "/root/ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_SHIELD_CAPTAIN_A", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_node_visible", "node": "/root/ConsolidateDialog", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "02_consolidate_dialog_open_on_objective" },
+
+    { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance()._validate_consolidate({\"unit_id\": \"U_SHIELD_CAPTAIN_A\", \"position\": {\"x\": 952.0, \"y\": 1372.0}}).errors)", "equals": "[]" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._validate_consolidate({\"unit_id\": \"U_SHIELD_CAPTAIN_A\", \"position\": {\"x\": 952.0, \"y\": 1372.0}}).valid", "equals": true }
+  ]
+}

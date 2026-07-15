@@ -93,13 +93,14 @@ func model_move_allowed(unit_id: String, model: Dictionary, new_pos: Dictionary,
 		var obj = _objective_by_id(board, str(context.get("objective", "")))
 		if obj.is_empty():
 			return {"allowed": false, "reason": "no objective selected"}
-		var meas = Engine.get_main_loop().root.get_node("/root/Measurement")
-		var before_d = _model_to_objective_px(model, obj)
 		var moved = model.duplicate(true)
 		moved["position"] = new_pos
-		var after_d = _model_to_objective_px(moved, obj)
-		if after_d <= meas.inches_to_px(OBJECTIVE_RANGE_INCHES):
+		# In range (terrain-aware) after the move — the goal is satisfied.
+		if _model_in_objective_range(moved, obj):
 			return {"allowed": true, "reason": ""}
+		# Not in range yet: allow it only if it ends closer to the marker.
+		var before_d = _model_to_objective_px(model, obj)
+		var after_d = _model_to_objective_px(moved, obj)
 		if after_d < before_d:
 			return {"allowed": true, "reason": "closer (not yet in range)"}
 		return {"allowed": false, "reason": "must end within range of the objective if possible, or closer to it (12.08)"}
@@ -128,11 +129,10 @@ func after_moving_conditions(unit_id: String, board: Dictionary, context: Dictio
 					violations.append("unit must be engaged with all selected units (12.08): not engaged with %s" % t)
 		"objective":
 			var obj = _objective_by_id(board, str(context.get("objective", "")))
-			var meas = Engine.get_main_loop().root.get_node("/root/Measurement")
 			var in_range := false
 			for m in unit.get("models", []):
 				if m.get("alive", true) and m.get("position") != null \
-						and _model_to_objective_px(m, obj) <= meas.inches_to_px(OBJECTIVE_RANGE_INCHES):
+						and _model_in_objective_range(m, obj):
 					in_range = true
 					break
 			if not in_range:
@@ -154,18 +154,32 @@ func forced_fights_after_engaging(unit_id: String, board: Dictionary, fought: Di
 # ── helpers ──────────────────────────────────────────────────────────
 
 func _objectives_within(unit_id: String, board: Dictionary, range_inches: float) -> Array:
-	var meas = Engine.get_main_loop().root.get_node("/root/Measurement")
 	var unit = board.get("units", {}).get(unit_id, {})
 	var out: Array = []
 	for obj in board.get("board", {}).get("objectives", []):
-		var best := INF
 		for m in unit.get("models", []):
 			if not m.get("alive", true) or m.get("position") == null:
 				continue
-			best = min(best, _model_to_objective_px(m, obj))
-		if best <= meas.inches_to_px(range_inches):
-			out.append(str(obj.get("id", "")))
+			if _model_in_objective_range(m, obj, range_inches):
+				out.append(str(obj.get("id", "")))
+				break
 	return out
+
+
+## Terrain-aware "is this model within range of the objective?" — defers to
+## MissionManager so consolidation objective-mode agrees with who controls the
+## marker. 14.01: a large terrain objective is in range while the base overlaps
+## the hosting area, NOT only within the marker radius from the centre point —
+## a unit standing on the central ruin was wrongly told "no consolidation mode
+## applies" because the marker centre sat >3.78" from its bases. Falls back to
+## the open-ground 3"+20mm centre check when MissionManager is unavailable.
+func _model_in_objective_range(model: Dictionary, obj: Dictionary, fallback_range_inches: float = OBJECTIVE_RANGE_INCHES) -> bool:
+	var root = Engine.get_main_loop().root
+	var mm = root.get_node_or_null("/root/MissionManager")
+	if mm != null and mm.has_method("model_in_objective_range"):
+		return mm.model_in_objective_range(model, obj)
+	var meas = root.get_node("/root/Measurement")
+	return _model_to_objective_px(model, obj) <= meas.inches_to_px(fallback_range_inches)
 
 
 func _objective_by_id(board: Dictionary, obj_id: String) -> Dictionary:
