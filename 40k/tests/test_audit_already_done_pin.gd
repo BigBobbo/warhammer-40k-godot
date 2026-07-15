@@ -220,12 +220,13 @@ func _test_t021_lone_operative() -> void:
 		"LONE OPERATIVE" in src.to_upper() and "12" in src)
 
 func _test_t038_pile_in_engagement_required() -> void:
-	print("\n-- T-038: pile-in must end with unit in engagement range (T1-5) --")
+	print("\n-- T-038: pile-in must end with unit in engagement range (11e template) --")
 	var src = _read("res://phases/FightPhase.gd")
-	_check("Pile-in validation enforces engagement range",
-		"_can_unit_maintain_engagement_after_movement" in src
-		or "must end within Engagement Range" in src
-		or "Engagement Range of at least one enemy after pile-in" in src)
+	_check("Pile-in delegates to the 11e validator",
+		"_validate_pile_in_11e" in src)
+	var tmpl = _read("res://scripts/rules/movetypes/PileInMove.gd")
+	_check("PileInMove enforces engagement range after moving",
+		"after_moving_conditions" in tmpl and "check_units_in_engagement_range" in tmpl)
 
 func _test_t052_indirect_fire() -> void:
 	print("\n-- T-052: INDIRECT FIRE keyword (T2-4) --")
@@ -254,14 +255,20 @@ func _test_t070_aura_system() -> void:
 		"find_enemy_units_within_aura" in src)
 
 func _test_t040_fights_last() -> void:
-	print("\n-- T-040: FIGHTS_LAST subphase exists and is processed --")
+	print("\n-- T-040: 11e has no Fights Last selection tier (12.04); the board")
+	print("   indicator scale still tints fights-last units --")
 	var src = _read("res://phases/FightPhase.gd")
-	_check("Subphase enum has FIGHTS_LAST",
-		"FIGHTS_LAST = 2" in src or "FIGHTS_LAST," in src)
-	_check("FightPriority.FIGHTS_LAST handled",
-		"FightPriority.FIGHTS_LAST" in src)
-	_check("fights_last_sequence dict declared",
-		"fights_last_sequence" in src)
+	# 12.04 has only Fights First + untiered Remaining — the FightSequencer is
+	# the selection authority. The 10e Subphase enum + fights_last_sequence tier
+	# list were removed in the 11e cleanup.
+	_check("Subphase enum removed (11e-only selection)",
+		not ("enum Subphase" in src))
+	_check("fights_last_sequence tier list removed",
+		not ("fights_last_sequence" in src))
+	# The board indicator scale (TokenVisual) keeps the fights-last tint via
+	# _get_fight_priority.
+	_check("FightPriority scale retained for board colouring",
+		"FIGHTS_LAST" in src and "func _get_fight_priority" in src)
 
 func _test_t041_fights_first_last_cancel() -> void:
 	print("\n-- T-041: Fights First + Fights Last cancel into Remaining Combats --")
@@ -327,8 +334,8 @@ func _test_t039_consolidate_fight_sequence() -> void:
 	var src = _read("res://phases/FightPhase.gd")
 	_check("_initialize_fight_sequence defined",
 		"func _initialize_fight_sequence" in src)
-	_check("_process_consolidate defined",
-		"func _process_consolidate" in src)
+	_check("_process_consolidate_step_11e defined",
+		"func _process_consolidate_step_11e" in src)
 
 func _test_t046_out_of_phase() -> void:
 	print("\n-- T-046: out-of-phase action gating in StratagemManager --")

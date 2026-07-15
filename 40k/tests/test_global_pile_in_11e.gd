@@ -163,18 +163,18 @@ func _run_tests():
 		normal_offers.append(a.get("type", ""))
 	_check("no PILE_IN offered during a normal fight's activation", not ("PILE_IN" in normal_offers), str(normal_offers))
 
-	print("\n-- 10e sensitivity: no step; per-activation pile-in intact --")
+	print("\n-- edition-independence: edition 10 now runs the 11e Pile In step --")
+	# The 10e fight path was removed — the phase is 11e-only regardless of edition.
 	GameConstants.edition = 10
 	gs.state = prev_state.duplicate(true)
 	_board()
 	pm.transition_to_phase(10)
 	var fp10 = pm.get_current_phase_instance()
-	_check("e10: no Pile In step on entry", fp10.pile_in_step_11e == fp10.PileInStep11e.NOT_STARTED)
-	# 10e selection order: the DEFENDING player picks first.
+	_check("e10 runs 11e: global Pile In step ACTIVE on entry", fp10.pile_in_step_11e == fp10.PileInStep11e.ACTIVE)
+	# The Pile In step (12.02) must finish before any unit is selected to fight.
 	var r10 = fp10.execute_action({"type": "SELECT_FIGHTER", "unit_id": "U_B"})
-	_check("e10: SELECT_FIGHTER works immediately", r10.get("success", false), str(r10))
-	_check("e10: selection still triggers the per-activation pile-in",
-		r10.get("trigger_pile_in", false), str(r10))
+	_check("e10 runs 11e: SELECT_FIGHTER refused until Pile In step is over",
+		not r10.get("success", false), str(r10))
 
 	gs.state = prev_state
 	GameConstants.edition = prev_edition

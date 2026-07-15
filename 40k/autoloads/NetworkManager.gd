@@ -1433,15 +1433,9 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				dialog_data.get("current_subphase", "UNKNOWN"),
 				dialog_data.get("selecting_player", -1)
 			])
-			# Update client's local subphase state to match host
-			if "current_subphase" in dialog_data and "current_subphase" in phase:
-				var subphase_name = dialog_data["current_subphase"]
-				# Convert string to enum value
-				if subphase_name == "FIGHTS_FIRST":
-					phase.current_subphase = phase.Subphase.FIGHTS_FIRST
-				elif subphase_name == "REMAINING_COMBATS":
-					phase.current_subphase = phase.Subphase.REMAINING_COMBATS
-				print("NetworkManager: Updated client current_subphase to: %s" % subphase_name)
+				# 11e: the fight-step subphase is derived from the client's own
+				# FightSequencer / the host dialog data at render time — there is no
+				# local subphase enum to sync any more.
 
 			# Update client's selecting player to match host
 			if "selecting_player" in dialog_data and "current_selecting_player" in phase:

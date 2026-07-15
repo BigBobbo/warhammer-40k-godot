@@ -39,7 +39,6 @@ cp -n tests/saves/*.w40ksave saves/ 2>/dev/null || true
 cp -n tests/saves/*.meta saves/ 2>/dev/null || true
 
 TESTS=(
-    "tests/test_co_pretrigger.gd"
     "tests/test_hi_pretrigger.gd"
     "tests/test_ai_reactive_window_guard.gd"
     "tests/test_ri_pretrigger.gd"

@@ -69,8 +69,11 @@ func _run_tests():
 	_check("pile_in + consolidation registered as move types", pile != null and cons != null)
 
 	print("-- pile-in (12.03) --")
+	# The move templates are edition-independent now (the 10e early-return was
+	# removed) — an engaged unit is eligible regardless of edition.
 	GameConstants.edition = 10
-	_check("11e-only", not pile.eligible("RED_MONSTER", _pg41_board()).eligible)
+	_check("edition-independent: engaged unit eligible at edition 10 too",
+		pile.eligible("RED_MONSTER", _pg41_board()).eligible)
 	GameConstants.edition = 11
 	var b = _pg41_board()
 	_check("engaged unit eligible", pile.eligible("RED_MONSTER", b).eligible)

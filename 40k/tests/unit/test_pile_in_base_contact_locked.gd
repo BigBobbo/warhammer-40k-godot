@@ -238,32 +238,9 @@ func test_pile_in_b2b_model_with_zero_movement_is_ok():
 # Consolidation validation: same rule applies
 # ==========================================
 
-func test_consolidate_rejects_movement_of_b2b_model():
-	"""A model in base contact should also be blocked during consolidation"""
-	if _skip_if_no_autoloads(): return
-	# Model 0 is in b2b with enemy
-	var units = {
-		"attacker": _make_unit(1, [
-			_make_model(250.4, 200),   # model 0: touching enemy
-			_make_model(290.4, 200)    # model 1: 1" from enemy (in ER)
-		]),
-		"enemy": _make_unit(2, [_make_model(200, 200)])
-	}
-	_setup_fight_phase(units)
-	fight_phase.pending_attacks = []  # Must be empty for consolidation
-
-	# Try to move model 0 (in base contact) during consolidation
-	var action = {
-		"unit_id": "attacker",
-		"movements": {"0": Vector2(260, 200)}  # moved slightly
-	}
-
-	var result = fight_phase._validate_consolidate_engagement_range("attacker", action.movements)
-
-	assert_false(result.valid, "Moving b2b model during consolidation should be invalid")
-	var has_b2b_error = false
-	for err in result.errors:
-		if "already in base contact" in err:
-			has_b2b_error = true
-			break
-	assert_true(has_b2b_error, "Error should mention 'already in base contact': %s" % str(result.errors))
+# NOTE (11e cleanup): the 10e per-unit consolidate validator
+# `_validate_consolidate_engagement_range` was removed. Consolidation base-
+# contact-lock is now enforced by ConsolidationMove.model_move_allowed and is
+# exercised through the global 12.07 Consolidate step; the pile-in base-contact
+# tests above cover the same underlying detection (`_is_model_in_base_contact_
+# with_enemy`) via the 11e `_validate_pile_in` path.
