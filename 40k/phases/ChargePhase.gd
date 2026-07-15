@@ -1487,6 +1487,39 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 # characters — we ride the character models along by the bodyguard's movement
 # delta and grant them the same charge flags. Without this the character is
 # left behind, splitting the unit apart (it looks like the attachment broke).
+func _build_charge_occupancy(bodyguard_id: String, per_model_paths: Dictionary) -> Dictionary:
+	# Map "unit_id:model_id" -> a copy of the model at its FINAL position for this
+	# charge. Bodyguard models take their per_model_paths endpoint; every other
+	# model (friendly and enemy) stays at its live GameState position.
+	var occ := {}
+	var units = game_state_snapshot.get("units", {})
+	for uid in units:
+		var models = units[uid].get("models", [])
+		for i in range(models.size()):
+			var m = models[i]
+			if not m.get("alive", true):
+				continue
+			var mid = m.get("id", "m%d" % (i + 1))
+			var pos_val = m.get("position")
+			if uid == bodyguard_id and per_model_paths.has(mid):
+				var path = per_model_paths[mid]
+				if path is Array and path.size() > 0:
+					pos_val = {"x": path[-1][0], "y": path[-1][1]}
+			if pos_val == null:
+				continue
+			var mcopy = m.duplicate(true)
+			mcopy["position"] = pos_val
+			occ["%s:%s" % [uid, mid]] = mcopy
+	return occ
+
+func _occupancy_values_excluding(occupancy: Dictionary, exclude_key: String) -> Array:
+	var out := []
+	for k in occupancy:
+		if k == exclude_key:
+			continue
+		out.append(occupancy[k])
+	return out
+
 func _charge_attached_character_changes(bodyguard_id: String, per_model_paths: Dictionary, grant_fights_first: bool = true) -> Array:
 	var changes = []
 	var bodyguard = get_unit(bodyguard_id)
@@ -1501,6 +1534,13 @@ func _charge_attached_character_changes(bodyguard_id: String, per_model_paths: D
 		DebugLogger.info(str("ChargePhase: could not determine charge delta for attached characters of %s" % bodyguard_id))
 		return changes
 
+	# Occupancy of every alive model at its FINAL charge position (bodyguard models
+	# use their per_model_paths endpoint). Keyed by "unit:model_id" so a
+	# rigidly-translated character can be nudged off any model it would land on
+	# and later attached characters avoid each other. See fix for the "attached
+	# character overlaps its bodyguard after Charge" bug.
+	var occupancy := _build_charge_occupancy(bodyguard_id, per_model_paths)
+
 	for char_id in attached_chars:
 		var char_unit = get_unit(str(char_id))
 		if char_unit.is_empty():
@@ -1513,10 +1553,24 @@ func _charge_attached_character_changes(bodyguard_id: String, per_model_paths: D
 			if model.get("position") == null:
 				continue
 			var model_pos = _get_model_position(model)
+			var ideal_pos = Vector2(model_pos.x + move_delta.x, model_pos.y + move_delta.y)
+
+			var model_id = model.get("id", "m%d" % (i + 1))
+			var model_key = "%s:%s" % [str(char_id), model_id]
+			var others := _occupancy_values_excluding(occupancy, model_key)
+			var new_pos = Measurement.find_nearest_non_overlapping_position(model, ideal_pos, others)
+			if new_pos != ideal_pos:
+				DebugLogger.info(str("ChargePhase: attached character %s.%s nudged off overlap: ideal %s -> %s" % [str(char_id), model_id, str(ideal_pos), str(new_pos)]))
+
+			# Record this character's resolved position so later attached models avoid it too.
+			var placed = model.duplicate(true)
+			placed["position"] = new_pos
+			occupancy[model_key] = placed
+
 			changes.append({
 				"op": "set",
 				"path": "units.%s.models.%d.position" % [str(char_id), i],
-				"value": {"x": model_pos.x + move_delta.x, "y": model_pos.y + move_delta.y}
+				"value": {"x": new_pos.x, "y": new_pos.y}
 			})
 		# The whole Attached unit charged — the character gets the same flags.
 		# Heroic Intervention grants charged_this_turn but NOT fights_first.

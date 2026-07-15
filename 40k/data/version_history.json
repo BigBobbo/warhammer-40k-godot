@@ -2,13 +2,23 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.45.1",
+			"version": "0.45.2",
 			"date": "2026-07-15",
 			"summary": "Fixed the AI opponent skipping its Pile In moves in the Fight phase. In 11th edition Pile In is a shared step — you pile in all your eligible units, then your opponent piles in all of theirs, and only then does the fighting begin. On your turn the AI's engaged units were never getting their pile-in: the game correctly handed the Pile In step to the AI, but an internal 'whose turn is it?' check wrongly decided it was still your turn, so the AI sat idle and the step could stall on the AI's half. The AI now plays its half of the Pile In (and Consolidate) step correctly.",
 			"changes": [
 				"During your turn's Fight phase, after you finish your Pile In moves the AI opponent now actually piles in its engaged units toward your models before the fighting starts, as the 11th-edition rules require.",
 				"Root cause: the AI's 'does a human currently owe this fight-phase decision?' guard fell through to the fight-selection order — which starts with the active player (you) — during the AI's OWN Pile In / Consolidate half, so the AI was told to wait and never moved. It now correctly recognises when the AI owns that half.",
 				"No change to your own pile-ins, or to how fights are resolved after everyone has piled in."
+			]
+		},
+		{
+			"version": "0.45.1",
+			"date": "2026-07-15",
+			"summary": "Fixed attached characters (e.g. a Blade Champion leading Custodian Guard) ending up stacked on top of one of their own bodyguard models after the unit made an Advance/Normal move or a Charge. The leader rode along by a fixed offset with no collision check, so re-arranging the squad could drop it directly onto another model; it is now nudged to the nearest clear spot so bases never overlap.",
+			"changes": [
+				"When a led unit moves or charges and you re-position its bodyguard models, the attached character no longer lands on top of a bodyguard model — it is automatically shifted to the closest non-overlapping position next to where it would have gone.",
+				"Applies to Normal moves, Advances, Fall Backs and Charges. The character still moves with its unit and stays in coherency; only the final overlap is corrected.",
+				"Multiple attached characters riding the same unit are also kept from stacking on each other."
 			]
 		},
 		{
