@@ -6,7 +6,8 @@ extends SceneTree
 # branch. This drives the REAL FightPhase._validate_pile_in /
 # _validate_consolidate at edition 11 and asserts the template rules
 # apply (eligibility, closer-to-pile-in-target, mode selection, AFTER
-# conditions), with a 10e sensitivity check.
+# conditions), and confirms the template is authoritative at edition 10 too
+# (the legacy 10e pile-in/consolidate path was removed in the 11e cleanup).
 #
 # Usage: godot --headless --path . -s tests/test_iss066_fight_phase_wiring.gd
 
@@ -102,7 +103,11 @@ func _run_tests():
 	var c_empty = fp._validate_consolidate({"unit_id": "U_A", "movements": {}})
 	_check("empty consolidation (per-model optional) is allowed", c_empty.valid, str(c_empty))
 
-	print("\n-- 10e sensitivity: the legacy path is used (no template eligibility veto) --")
+	print("\n-- edition-independence: the 11e template is authoritative at edition 10 too --")
+	# 11e cleanup: the legacy 10e pile-in path was removed. _validate_pile_in
+	# now runs the PileInMove template at EVERY edition, so the eligibility
+	# veto that rejected U_C above applies identically at edition 10 — there is
+	# no longer a separate legacy route to fall through to.
 	GameConstants.edition = 10
 	gs.state = prev_state.duplicate(true)
 	_board()
@@ -110,11 +115,10 @@ func _run_tests():
 	var fp10 = pm.get_current_phase_instance()
 	fp10.active_fighter_id = "U_C"
 	var v10 = fp10._validate_pile_in({"unit_id": "U_C", "movements": {}})
-	# At 10e the template eligibility veto does NOT apply: an empty-movement
-	# pile-in for the active fighter is accepted by the legacy path. This
-	# proves edition 11 took a different (template) route above.
-	_check("e10: legacy path accepts the empty pile-in (no template eligibility veto)",
-		v10.valid, str(v10))
+	# U_C is not engaged, did not charge, and is not making an overrun fight,
+	# so the template vetoes it at edition 10 exactly as at edition 11.
+	_check("e10: 11e pile-in template veto applies (legacy 10e path removed)",
+		not v10.valid and str(v10.errors).contains("not engaged"), str(v10))
 
 	gs.state = prev_state
 	GameConstants.edition = prev_edition
