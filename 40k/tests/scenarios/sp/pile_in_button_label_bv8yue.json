@@ -1,0 +1,56 @@
+{
+  "id": "pile_in_button_label_bv8yue",
+  "covers": [
+    "phases.FightPhase.get_fight_step_11e",
+    "scripts.Main._get_fight_phase_button_text",
+    "scripts.Main._get_fight_phase_button_tooltip",
+    "scripts.Main._on_phase_action_pressed",
+    "scripts.Main._on_fight_subphase_transition",
+    "dialogs.EndFightConfirmationDialog"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Reported bug: during the global Pile In step (12.02) the top-right phase-action button read 'End Fight Phase' and, when clicked, popped the misleading 'units haven't fought' warning (nothing is forfeited during Pile In — the units still fight). This drives the REAL player path with clicks. At fight-phase open (Pile In step, P2 Orks active) the button now reads '[Enter] Finish Pile Ins'. Clicking the TOP-RIGHT button (the reported path) advances the Pile In step to P1's half WITHOUT any EndFightConfirmationDialog and leaves the label unchanged. After both halves the Fight step (12.04) begins and the button reverts to '[Enter] End Fight Phase' via the subphase transition; clicking it there DOES pop the confirmation, proving the warning still fires where it belongs. CP zeroed to suppress stratagem prompts; the Warboss wounds are inflated so nothing dies.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 2 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_fight_step_11e()", "equals": "PILE_IN" },
+    { "act": "expect_node_property", "node": "/root/Main/PhaseActionButton", "property": "text", "equals": "[Enter] Finish Pile Ins" },
+    { "act": "screenshot", "label": "01_pile_in_step_button_reads_finish_pile_ins" },
+
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script", "script": "main.get_tree().root.has_node(\"EndFightConfirmationDialog\")", "equals": false },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 1 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_fight_step_11e()", "equals": "PILE_IN" },
+    { "act": "expect_node_property", "node": "/root/Main/PhaseActionButton", "property": "text", "equals": "[Enter] Finish Pile Ins" },
+    { "act": "screenshot", "label": "02_pile_in_advanced_to_p1_no_warning" },
+
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/PileInStepDialog/Content/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_fight_step_11e()", "equals": "FIGHT" },
+    { "act": "expect_node_property", "node": "/root/Main/PhaseActionButton", "property": "text", "equals": "[Enter] End Fight Phase" },
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "03_fight_step_button_reverts_to_end_fight_phase" },
+
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_node_visible", "node": "/root/EndFightConfirmationDialog", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "04_fight_step_warning_still_fires" }
+  ]
+}
