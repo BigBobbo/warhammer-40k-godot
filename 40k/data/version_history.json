@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.45.0",
+			"date": "2026-07-15",
+			"summary": "Charge phase now shows each model's actual charge-move reach while you drag. After you roll the 2D6 charge distance, the single 12\" range circle is replaced with a per-model reach ring (radius = the distance you rolled) centred on every charging model, so you can see exactly how far each model is allowed to move instead of a 12\" circle that no longer applies.",
+			"changes": [
+				"After the charge roll, the board draws one green reach ring per charging model, each sized to the distance you actually rolled, labelled e.g. '8\" charge move (each model)'.",
+				"The orange 12\" charge-threat circle is now only shown before the roll (while picking targets); once you're dragging models it is cleared so it no longer sits there implying you can move 12\".",
+				"Rings are anchored on each model's starting position and stay put as a fixed reference while you drag; the right-panel Used/Left readout still tracks the live remaining distance."
+			]
+		},
+		{
 			"version": "0.44.6",
 			"date": "2026-07-15",
 			"summary": "Fixed the Consolidate step refusing to move a unit that was on or near a large terrain objective — it now correctly offers the 'move onto the objective' consolidation instead of telling you 'no consolidation mode applies — the unit cannot move'.",

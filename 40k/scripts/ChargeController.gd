@@ -964,8 +964,12 @@ func _update_visuals() -> void:
 
 	var unit_center = _get_unit_center_position(unit)
 
-	# T-092: Show 12" charge-range overlay around active charging unit
-	_show_charge_range_circle(unit_center)
+	# T-092: Show the pre-roll 12" charge-range overlay around the active charging
+	# unit. Once the roll is made and models are being dragged (awaiting_movement),
+	# the per-model reach rings from _show_per_model_charge_ranges() apply instead,
+	# so don't redraw the unit-wide 12" ring over them.
+	if not awaiting_movement:
+		_show_charge_range_circle(unit_center)
 
 	# Draw lines to selected targets
 	for target_id in selected_targets:
@@ -1196,6 +1200,11 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 			print("DEBUG: Added model ", model_id, " to models_to_move")
 	
 	print("Models to move: ", models_to_move)
+
+	# Swap the pre-roll unit-wide 12" threat ring for one per-model reach ring
+	# (radius = the rolled distance) so the player can see how far each model can
+	# actually be dragged, not a 12" circle that no longer applies post-roll.
+	_show_per_model_charge_ranges(unit_id, float(max_distance))
 
 	# Show engagement range circles around charge target models
 	_show_target_engagement_visuals(unit_id)
@@ -2326,6 +2335,7 @@ func _update_ui_for_next_charge() -> void:
 		target_list.clear()
 	_clear_highlights()
 	_clear_charge_trajectory_preview()  # P3-127
+	_clear_charge_range_circle()  # clear 12" ring / per-model reach rings
 	if is_instance_valid(charge_line_visual):
 		charge_line_visual.clear_points()
 
@@ -2604,9 +2614,10 @@ func _reset_unit_selection() -> void:
 	if is_instance_valid(target_list):
 		target_list.clear()
 	_clear_highlights()
+	_clear_charge_range_circle()  # clear 12" ring / per-model reach rings
 	if is_instance_valid(charge_line_visual):
 		charge_line_visual.clear_points()
-	
+
 	# Hide charge distance display
 	_hide_charge_distance_display()
 	_update_button_states()
@@ -3629,12 +3640,15 @@ const CHARGE_RANGE_OVERLAY_INCHES: float = 12.0
 const CHARGE_RANGE_OVERLAY_COLOR: Color = Color(1.0, 0.6, 0.1, 0.55)
 const CHARGE_RANGE_OVERLAY_WIDTH: float = 12.0  # Width in board-space px (board scale ~0.3)
 
-func _show_charge_range_circle(center: Vector2) -> void:
-	if not is_instance_valid(range_visual):
-		return
-	_clear_charge_range_circle()
-	var radius_px := Measurement.inches_to_px(CHARGE_RANGE_OVERLAY_INCHES)
-	# Dashed circle - alternating visible/invisible arcs
+# Per-model charge-move reach overlay (shown AFTER the 2D6 roll, while dragging).
+# Green to read as "you can move here" vs the orange pre-roll 12" threat ring.
+const CHARGE_MODEL_RANGE_COLOR: Color = Color(0.3, 0.9, 0.45, 0.55)
+const CHARGE_MODEL_RANGE_LABEL_COLOR: Color = Color(0.45, 1.0, 0.55, 0.95)
+const CHARGE_MODEL_RANGE_WIDTH: float = 8.0  # Width in board-space px (thinner than the 12" ring)
+
+func _draw_charge_dashed_circle(center: Vector2, radius_px: float, color: Color, width: float) -> void:
+	# Draw a dashed circle (alternating visible/invisible arcs) into range_visual.
+	# Shared by the pre-roll 12" threat ring and the post-roll per-model reach rings.
 	var total_arcs: int = 10
 	var arc_length: float = TAU / float(total_arcs)
 	var dash_fraction: float = 0.7
@@ -3643,8 +3657,8 @@ func _show_charge_range_circle(center: Vector2) -> void:
 		var arc_dash_end: float = arc_start + arc_length * dash_fraction
 		var dash := Line2D.new()
 		dash.name = "ChargeRangeCircle"
-		dash.width = CHARGE_RANGE_OVERLAY_WIDTH
-		dash.default_color = CHARGE_RANGE_OVERLAY_COLOR
+		dash.width = width
+		dash.default_color = color
 		dash.begin_cap_mode = Line2D.LINE_CAP_ROUND
 		dash.end_cap_mode = Line2D.LINE_CAP_ROUND
 		var pts: int = 8
@@ -3652,6 +3666,13 @@ func _show_charge_range_circle(center: Vector2) -> void:
 			var theta: float = arc_start + (arc_dash_end - arc_start) * float(i) / float(pts)
 			dash.add_point(center + Vector2(cos(theta), sin(theta)) * radius_px)
 		range_visual.add_child(dash)
+
+func _show_charge_range_circle(center: Vector2) -> void:
+	if not is_instance_valid(range_visual):
+		return
+	_clear_charge_range_circle()
+	var radius_px := Measurement.inches_to_px(CHARGE_RANGE_OVERLAY_INCHES)
+	_draw_charge_dashed_circle(center, radius_px, CHARGE_RANGE_OVERLAY_COLOR, CHARGE_RANGE_OVERLAY_WIDTH)
 	# Distance label
 	var range_label := Label.new()
 	range_label.name = "ChargeRangeCircle"
@@ -3661,6 +3682,55 @@ func _show_charge_range_circle(center: Vector2) -> void:
 	range_label.position = center + Vector2(-60, -(radius_px + 40))
 	range_label.z_index = 55
 	range_visual.add_child(range_label)
+
+func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void:
+	# After the charge roll, EACH model may move up to the rolled distance from its
+	# OWN origin (the per-model cap enforced in _validate_charge_position). Replace
+	# the single unit-wide 12" pre-roll threat ring — which no longer reflects how
+	# far a model can actually go — with one reach ring per model centred on that
+	# model's pre-charge origin, so the player can see the real drag range of each
+	# individual model. Anchored on the origin (not the live position) so the ring
+	# stays put as a fixed reference while the model is dragged; the panel's
+	# Used/Left readout tracks the live remaining budget.
+	if not is_instance_valid(range_visual):
+		return
+	_clear_charge_range_circle()
+	if max_distance <= 0.0:
+		return
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+	var radius_px := Measurement.inches_to_px(max_distance)
+	var centers: Array = []
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var model_id = model.get("id", "")
+		# Anchor on the cached pre-charge origin (set in _enable_charge_movement);
+		# fall back to the live position for any model without a cached origin.
+		var center: Vector2 = _model_origin_positions.get(model_id, _get_model_position(model))
+		if center == Vector2.ZERO:
+			continue
+		centers.append(center)
+		_draw_charge_dashed_circle(center, radius_px, CHARGE_MODEL_RANGE_COLOR, CHARGE_MODEL_RANGE_WIDTH)
+
+	# One summary label above the group — every model shares the same rolled reach,
+	# so a per-model number would just be the same value repeated N times.
+	if not centers.is_empty():
+		var group_center := Vector2.ZERO
+		var top_y: float = INF
+		for c in centers:
+			group_center += c
+			top_y = minf(top_y, c.y)
+		group_center /= centers.size()
+		var range_label := Label.new()
+		range_label.name = "ChargeRangeCircle"
+		range_label.text = "%d\" charge move (each model)" % int(round(max_distance))
+		range_label.add_theme_font_size_override("font_size", 32)
+		range_label.add_theme_color_override("font_color", CHARGE_MODEL_RANGE_LABEL_COLOR)
+		range_label.position = Vector2(group_center.x - 150, top_y - (radius_px + 40))
+		range_label.z_index = 55
+		range_visual.add_child(range_label)
 
 func _clear_charge_range_circle() -> void:
 	if not is_instance_valid(range_visual):
