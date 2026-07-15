@@ -1,0 +1,99 @@
+{
+  "id": "charge_per_model_range_rings",
+  "covers": [
+    "scripts.ChargeController._show_per_model_charge_ranges",
+    "charge.per_model_reach_rings"
+  ],
+  "fixture": "test_charge_congestion",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Feature: after the 2D6 charge roll, while the player drags models, the board must show how far EACH model can actually move (a reach ring per model, radius = the rolled distance centred on each model's origin) instead of the single unit-wide 12\" pre-roll threat ring. U_CHARGER_0 is a 3-model Boyz unit; it and the Shield-Captain target are repositioned onto verified open ground (clear of the fixture's ruins) at charger x=950 y={540,600,660}, target (800,600). Player path: select the unit (real _on_unit_selected UI path -> single 12\" ring, 11 nodes in range_visual centred on the unit centre y=600), then DECLARE_CHARGE + CHARGE_ROLL + click the real 'Keep Roll' button to decline the Command Re-roll -> the real charge_roll_made signal enables movement and swaps the overlay. Asserts: range_visual now holds 31 nodes (3 rings x 10 dash arcs + 1 summary label); each ring's arc_idx-0 first point (= centre + (radius,0)) sits on a DISTINCT model origin (y=540 / 600 / 660, not the unit centre) proving one ring per model; and each ring radius equals charge_distance * PX_PER_INCH proving the rings show the rolled reach, not a fixed 12\".",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_TARGET_SC\"].models[0].merge({\"position\": {\"x\": 800.0, \"y\": 600.0}, \"rotation\": 0.0}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_CHARGER_0\"].models[0].merge({\"position\": {\"x\": 950.0, \"y\": 540.0}, \"rotation\": 0.0}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_CHARGER_0\"].models[1].merge({\"position\": {\"x\": 950.0, \"y\": 600.0}, \"rotation\": 0.0}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_CHARGER_0\"].models[2].merge({\"position\": {\"x\": 950.0, \"y\": 660.0}, \"rotation\": 0.0}, true)" },
+    { "act": "execute_script", "script": "main.update_unit_visuals(\"U_TARGET_SC\")" },
+    { "act": "execute_script", "script": "main.update_unit_visuals(\"U_CHARGER_0\")" },
+    { "act": "execute_script", "script": "main.charge_controller._refresh_ui()" },
+    { "act": "wait_for_tweens" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script",
+      "script": "main.charge_controller._on_unit_selected(main.charge_controller.get_displayed_charge_unit_ids().find(\"U_CHARGER_0\"))" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_CHARGER_0" },
+    { "act": "execute_script",
+      "script": "main.charge_controller.range_visual.get_child_count()",
+      "equals": 11 },
+    { "act": "execute_script",
+      "script": "main.charge_controller.range_visual.get_child(0).points[0].y",
+      "equals": 600.0 },
+    { "act": "execute_script",
+      "script": "abs(main.charge_controller.range_visual.get_child(0).points[0].x - 950.0 - 12.0 * Measurement.PX_PER_INCH)",
+      "expect_max": 1.0 },
+    { "act": "screenshot", "label": "01_preroll_single_12in_ring_unit_centre" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_CHARGE",
+      "actor_unit_id": "U_CHARGER_0",
+      "payload": { "target_unit_ids": ["U_TARGET_SC"] }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "CHARGE_ROLL",
+      "actor_unit_id": "U_CHARGER_0",
+      "payload": { "rng_seed": 7 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.find_children(\"KeepRollButton\", \"\", true, false)[0].emit_signal(\"pressed\")" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script",
+      "script": "main.charge_controller.awaiting_movement",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.charge_controller.charge_distance",
+      "expect_min": 2 },
+
+    { "act": "execute_script",
+      "script": "main.charge_controller.range_visual.get_child_count()",
+      "equals": 31 },
+
+    { "act": "execute_script",
+      "script": "main.charge_controller.range_visual.get_child(0).points[0].y",
+      "equals": 540.0 },
+    { "act": "execute_script",
+      "script": "main.charge_controller.range_visual.get_child(10).points[0].y",
+      "equals": 600.0 },
+    { "act": "execute_script",
+      "script": "main.charge_controller.range_visual.get_child(20).points[0].y",
+      "equals": 660.0 },
+
+    { "act": "execute_script",
+      "script": "abs(main.charge_controller.range_visual.get_child(0).points[0].x - 950.0 - main.charge_controller.charge_distance * Measurement.PX_PER_INCH)",
+      "expect_max": 1.0 },
+    { "act": "execute_script",
+      "script": "abs(main.charge_controller.range_visual.get_child(10).points[0].x - 950.0 - main.charge_controller.charge_distance * Measurement.PX_PER_INCH)",
+      "expect_max": 1.0 },
+    { "act": "execute_script",
+      "script": "abs(main.charge_controller.range_visual.get_child(20).points[0].x - 950.0 - main.charge_controller.charge_distance * Measurement.PX_PER_INCH)",
+      "expect_max": 1.0 },
+
+    { "act": "screenshot", "label": "02_postroll_per_model_reach_rings" }
+  ]
+}
