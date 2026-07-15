@@ -409,21 +409,28 @@ func _human_fight_turn_pending() -> int:
 	# shown) when they have eligible units; a player with none is auto-passed by
 	# _advance_pile_in_step_11e. So an ACTIVE step pointing at a human means the
 	# human owes a pile-in decision the AI must not make for them.
+	# This is a GLOBAL step that runs BEFORE the Fight step, so we must SHORT-
+	# CIRCUIT here and never fall through to the 12.04 sequencer branch below:
+	# during the AI's OWN pile-in half the sequencer's peek reports the first
+	# fighter's owner (usually the active human), which used to make this return
+	# the human and idle the AI — the reported "AI opponent never piles in / the
+	# fight phase proceeds without the AI having piled in" bug. The only owner of
+	# this step is whoever's half it is: the human (block the AI) or nobody-human
+	# (return 0 so the AI plays its own half).
 	if "pile_in_step_11e" in fp and "piling_in_player_11e" in fp:
 		if int(fp.pile_in_step_11e) == int(fp.PileInStep11e.ACTIVE):
 			var pp = int(fp.piling_in_player_11e)
-			if pp > 0 and not is_ai_player(pp):
-				return pp
+			return pp if (pp > 0 and not is_ai_player(pp)) else 0
 
-	# 12.07 Consolidate step — same shape (skip while a 12.08 forced fight has
-	# temporarily taken the step over; that forced fight is owned by whoever
-	# holds the fighter and is handled by the fight-step branch below).
+	# 12.07 Consolidate step — same GLOBAL-step short-circuit as Pile In above
+	# (skip it only while a 12.08 forced fight has temporarily taken the step
+	# over; that forced fight is owned by whoever holds the fighter and is
+	# handled by the fight-step branch below).
 	if "consolidation_step_11e" in fp and "consolidating_player_11e" in fp:
 		if int(fp.consolidation_step_11e) == int(fp.ConsolidationStep11e.ACTIVE) \
 				and not fp._forced_fights_pending_11e():
 			var cp = int(fp.consolidating_player_11e)
-			if cp > 0 and not is_ai_player(cp):
-				return cp
+			return cp if (cp > 0 and not is_ai_player(cp)) else 0
 
 	# 12.04 Fight step (11e sequencer only; 10e keeps its existing behavior).
 	# A human's fighter mid-activation, or a human whose turn it is to select
