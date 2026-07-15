@@ -351,6 +351,27 @@ func model_overlaps_polygon(model: Dictionary, polygon: PackedVector2Array) -> b
 			return true
 	return false
 
+## True when any part of the model's base is within [param margin_px] of
+## [param polygon] — an overlap counts as within (distance 0). The overlap test
+## is shape-aware; the margin test uses the base's circular radius (close enough
+## for range buffers — most bases are circular, and the few non-round ones only
+## differ by a few mm at the extremes).
+func model_within_px_of_polygon(model: Dictionary, polygon: PackedVector2Array, margin_px: float) -> bool:
+	if polygon.size() < 3:
+		return false
+	if model_overlaps_polygon(model, polygon):
+		return true
+	var pos = model.get("position", Vector2.ZERO)
+	if pos is Dictionary:
+		pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos == null:
+		pos = Vector2.ZERO
+	var radius_px = base_radius_px(int(model.get("base_mm", 32)))
+	var best := INF
+	for i in range(polygon.size()):
+		best = min(best, point_to_line_distance(pos, polygon[i], polygon[(i + 1) % polygon.size()]))
+	return (best - radius_px) <= margin_px
+
 var _last_zone_debug_center: Vector2 = Vector2.INF
 
 ## Returns [code]true[/code] if the model base described by [param model_data]

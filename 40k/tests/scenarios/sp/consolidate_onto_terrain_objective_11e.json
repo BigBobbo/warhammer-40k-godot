@@ -1,0 +1,63 @@
+{
+  "id": "consolidate_onto_terrain_objective_11e",
+  "covers": [
+    "movetypes.ConsolidationMove.select_mode",
+    "movetypes.ConsolidationMove._objectives_within",
+    "movetypes.ConsolidationMove._model_in_objective_range",
+    "autoloads.MissionManager.model_in_objective_range",
+    "phases.FightPhase._build_consolidation_step_data_11e",
+    "phases.FightPhase._validate_consolidate_11e",
+    "dialogs.ConsolidationStepDialog",
+    "dialogs.ConsolidateDialog"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression for the 'consolidate onto a terrain objective' bug and its eligibility refinement. A unit near a large central terrain objective (14.01) used to be told 'no consolidation mode applies — the unit cannot move' because ConsolidationMove measured only model-edge -> marker CENTRE vs 3\"+20mm, and on a ~11\" wide ruin a unit's bases sit several inches from the marker point. Objective-mode eligibility is 12.08 BEFORE: 'within 3\" of one or more objectives' — measured, for a terrain objective, to the hosting AREA, not the marker centre and not (as an over-strict first fix did) requiring the base to already be ON the area. The move's end condition stays 'within range of the selected objective' (a base on the area). This scenario converts obj_center into its terrain-hosted form (loads the take_and_hold_mirror layout the game already ships for this matchup and rebuilds the board objectives with source_pieces), then stands the isolated Shield-Captain ~0.7\" OUTSIDE the central ruin — within 3\" of the area but not yet on it (so it does NOT control the objective) and ~6.5\" from the marker centre. It asserts up front (live MissionManager) that the model is within 3\" of the objective yet not in range of it, then passes the global Pile In step (real END_PILE_IN), enters the real Consolidate step, hands the active player's (P2) half over (real END_CONSOLIDATION), and on P1's half asserts: (1) the ConsolidationStepDialog the player sees lists the Shield-Captain with the '[Objective ...]' hint — proof select_mode returns 'objective' for a unit within 3\" of the AREA but 6.5\" from the marker, which only the terrain-aware eligibility test yields (open-ground / on-area-only reads '[No move possible from here]'); (2) opening the real ConsolidateDialog and validating a real move ONTO the ruin is accepted. Setup uses only single-expression execute_script calls against production methods; the pile-in and consolidate steps, the picker, and the move dialog are the real player UI driven through the real action pipeline.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "script": "TerrainManager.load_terrain_layout(\"take_and_hold_mirror_1\")" },
+    { "act": "execute_script", "script": "MissionManager._setup_objectives_for_deployment(\"\")" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].merge({\"position\": {\"x\": 880.0, \"y\": 1460.0}, \"alive\": true}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].flags.merge({\"was_eligible_to_fight\": true}, true)" },
+
+    { "act": "execute_script", "script": "str(GameState.state.board.objectives[4].id)", "equals": "obj_center" },
+    { "act": "execute_script", "script": "MissionManager.model_in_objective_range(GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0], GameState.state.board.objectives[4])", "equals": false },
+    { "act": "execute_script", "script": "MissionManager.model_within_inches_of_objective(GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0], GameState.state.board.objectives[4], 3.0)", "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN" } },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN" } },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._begin_consolidation_step_11e()" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "consolidating_player_11e", "equals": 2 },
+    { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog", "timeout_s": 5.0 },
+
+    { "act": "dispatch_action", "action": { "type": "END_CONSOLIDATION" } },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_phase_property", "property": "consolidating_player_11e", "equals": 1 },
+
+    { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_SHIELD_CAPTAIN_A", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "\"Objective\" in main.get_tree().root.get_node(\"ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_SHIELD_CAPTAIN_A\").text", "equals": true },
+    { "act": "execute_script", "script": "\"No move possible\" in main.get_tree().root.get_node(\"ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_SHIELD_CAPTAIN_A\").text", "equals": false },
+    { "act": "screenshot", "label": "01_consolidation_step_offers_objective_mode" },
+
+    { "act": "click_node", "node": "/root/ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_SHIELD_CAPTAIN_A", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_node_visible", "node": "/root/ConsolidateDialog", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "02_consolidate_dialog_open_on_objective" },
+
+    { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance()._validate_consolidate({\"unit_id\": \"U_SHIELD_CAPTAIN_A\", \"position\": {\"x\": 960.0, \"y\": 1380.0}}).errors)", "equals": "[]" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._validate_consolidate({\"unit_id\": \"U_SHIELD_CAPTAIN_A\", \"position\": {\"x\": 960.0, \"y\": 1380.0}}).valid", "equals": true }
+  ]
+}
