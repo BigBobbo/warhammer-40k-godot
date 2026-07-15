@@ -2,12 +2,30 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.44.2",
+			"version": "0.44.4",
 			"date": "2026-07-14",
 			"summary": "Internal Fight-phase cleanup: the game now runs a single, current-edition Fight-phase code path — the old 10th-edition pile-in/consolidate/fight-ordering leftovers were removed so the two rule sets can no longer shadow each other. This is invisible in normal play. The one small on-screen consequence: a unit forced to 'fight last' by an ability now appears in the ordinary 'Remaining Combats' group of the fight-selection list rather than a separate 'Fights Last' group — matching the current rules, which resolve it as a normal remaining combat and have no distinct Fights Last step. Board colouring of engaged units (including the fights-last tint) is unchanged.",
 			"changes": [
 				"The Fight phase is now driven entirely by the current-edition fight sequencer; the parallel 10th-edition fight-ordering state (Subphase / tier lists / legacy fight queue) was removed. No change to how fights play out.",
 				"A 'fights last' unit is now listed under 'Remaining Combats' in the fight-selection dialog instead of a separate 'Fights Last' section, matching the current rules (there is no separate Fights Last step)."
+			]
+		},
+		{
+			"version": "0.44.3",
+			"date": "2026-07-14",
+			"summary": "Tightened the base-to-base contact tolerance during Pile In / Consolidate — the game was treating models up to a quarter-inch apart as already touching, locking them from moving even with a clearly visible gap on the board.",
+			"changes": [
+				"The 'model is already in base contact and cannot move' lock (the B2B icon during Pile In) now only triggers within 0.1\" of true base contact, down from 0.25\" — matches what the tabletop actually looks like instead of locking models with a visible gap.",
+				"Applied consistently everywhere base contact is judged: the Pile In/Consolidate move lock, the melee fight-eligibility base-contact chain, and the AI's own pile-in/consolidate movement logic."
+			]
+		},
+		{
+			"version": "0.44.2",
+			"date": "2026-07-14",
+			"summary": "Fixed Charge-phase model rotation not showing up on the actual unit token — only the green drag ghost was turning.",
+			"changes": [
+				"When you rotated a model (Q/E, or right-click-drag) while dragging it into a charge, the preview ghost turned correctly but the real token on the board stayed facing its original direction, both mid-drag and after dropping it.",
+				"The token-visual updater was reaching into the wrong child node to apply the rotation, so the repaint never happened; it now updates the actual on-screen token directly, matching the ghost."
 			]
 		},
 		{

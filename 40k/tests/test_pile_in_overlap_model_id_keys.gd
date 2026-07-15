@@ -65,12 +65,12 @@ func _run_tests():
 		"U_TESTENEMY": {"id": "U_TESTENEMY", "owner": 2, "status": 2, "flags": {},
 			"meta": {"name": "Test Enemy", "keywords": ["INFANTRY"]},
 			"models": [
-				# ~0.1" BELOW m2's oval edge (long axis) -> within the 0.25" b2b
+				# ~0.03" BELOW m2's oval edge (long axis) -> within the 0.1" b2b
 				# tolerance for m2, well clear of m1/m3 to the sides, and out of the
 				# way of the pile-in moves below (which all head UP / sideways).
 				{"id": "e1", "alive": true, "wounds": 2, "current_wounds": 2,
 					"base_mm": 32, "base_type": "circular",
-					"position": {"x": 500 + sp, "y": 500 + bike_half_y + enemy_r + Meas.inches_to_px(0.1)}},
+					"position": {"x": 500 + sp, "y": 500 + bike_half_y + enemy_r + Meas.inches_to_px(0.03)}},
 			]},
 	}
 	var fp = load("res://phases/FightPhase.gd").new()

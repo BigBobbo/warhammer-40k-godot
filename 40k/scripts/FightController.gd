@@ -2187,7 +2187,7 @@ func _detect_locked_base_contact_models(unit: Dictionary) -> void:
 	var models = unit.get("models", [])
 	var all_units = current_phase.game_state_snapshot.get("units", {})
 	var unit_owner = unit.get("owner", 0)
-	const B2B_TOLERANCE: float = 0.25  # Match BASE_CONTACT_TOLERANCE_INCHES
+	const B2B_TOLERANCE: float = 0.1  # Match BASE_CONTACT_TOLERANCE_INCHES (was 0.25 — too generous)
 
 	for i in range(models.size()):
 		var model = models[i]

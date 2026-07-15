@@ -10152,7 +10152,7 @@ static func _are_units_in_engagement_range_rules(unit1: Dictionary, unit2: Dicti
 # 2. In base-to-base contact with a friendly model that is itself in
 #    base-to-base contact with an enemy model.
 # Returns an array of model indices (int) that are eligible to fight.
-const BASE_CONTACT_TOLERANCE_INCHES: float = 0.25  # Generous tolerance for digital positioning
+const BASE_CONTACT_TOLERANCE_INCHES: float = 0.1  # Tolerance for digital positioning (was 0.25 — too generous, see #base-contact-buffer-sizing)
 
 static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: Dictionary) -> Array:
 	var eligible_indices = []

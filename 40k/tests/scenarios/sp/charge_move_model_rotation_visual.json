@@ -1,0 +1,72 @@
+{
+  "id": "charge_move_model_rotation_visual",
+  "covers": [
+    "scripts.ChargeController.model_rotation_visual",
+    "charge.movement.rotation_token_sync"
+  ],
+  "fixture": "test_custodian_charge_ovals",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Regression for the reported bug: 'the ghost is rotating but the unit on screen stays at the original rotation' during a Charge-phase model drag. ChargeController's token-visual updaters (_update_token_rotation, _move_token_visual) reached into `child.get_child(0)` assuming token_layer children are wrapper nodes with a nested TokenVisual — but Main._create_token_visual adds the TokenVisual directly (meta set on itself), so get_child(0) was really its 'Label' child (added in TokenVisual._ready()), which has no set_model_data method, so the whole rotation-sync block silently no-oped. Two checks: (A) direct calls to both fixed functions (with dragging_model cleared, forcing the GameState-fallback+duplicate() branch so the assertion isn't masked by the model dict being reference-shared with GameState) prove the on-screen token's model_data.rotation now actually updates. (B) a real interactive drag + Q/E-equivalent rotate (_rotate_dragging_model, the actual player input handler) with the ghost hidden, pixel-diffing the token's own screenshot before/after, proves the token now visibly repaints instead of staying frozen (the default 'letter' visual style only auto-redraws on a hover/selection pulse, so a missed queue_redraw() really does leave the base looking un-rotated to a player).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+
+    { "act": "execute_script", "script": "GameState.set_active_player(1)" },
+    { "act": "execute_script", "script": "main.update_unit_visuals(\"U_DEFFKOPTAS_A\")" },
+    { "act": "wait_for_tweens" },
+    { "act": "wait_frames", "frames": 8 },
+
+    { "act": "execute_script", "script": "token_model_rotation(\"U_DEFFKOPTAS_A\", \"m1\")",
+      "expect_min": 0.25, "expect_max": 0.35 },
+    { "act": "screenshot", "label": "01_setup_original_rotation" },
+
+    { "act": "execute_script", "script": "main.charge_controller.set(\"active_unit_id\", \"U_DEFFKOPTAS_A\")" },
+
+    { "act": "execute_script", "script": "main.charge_controller.set(\"dragging_model\", null)" },
+    { "act": "execute_script",
+      "script": "main.charge_controller._update_token_rotation(\"U_DEFFKOPTAS_A\", \"m1\", 2.5)" },
+    { "act": "execute_script", "script": "token_model_rotation(\"U_DEFFKOPTAS_A\", \"m1\")",
+      "expect_min": 2.4, "expect_max": 2.6 },
+
+    { "act": "execute_script",
+      "script": "main.charge_controller._move_token_visual(\"U_DEFFKOPTAS_A\", \"m1\", Vector2(872, 741), 1.1)" },
+    { "act": "execute_script", "script": "token_model_rotation(\"U_DEFFKOPTAS_A\", \"m1\")",
+      "expect_min": 1.0, "expect_max": 1.2 },
+    { "act": "screenshot", "label": "02_direct_calls_rotation_applied" },
+
+    { "act": "execute_script", "script": "GameState.state.units[\"U_DEFFKOPTAS_A\"].models[0].merge({\"rotation\": 0.3}, true)" },
+    { "act": "execute_script", "script": "main.update_unit_visuals(\"U_DEFFKOPTAS_A\")" },
+    { "act": "wait_for_tweens" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "token_model_rotation(\"U_DEFFKOPTAS_A\", \"m1\")",
+      "expect_min": 0.25, "expect_max": 0.35 },
+
+    { "act": "execute_script",
+      "script": "main.charge_controller.set(\"dragging_model\", GameState.get_unit(\"U_DEFFKOPTAS_A\").models[0])" },
+    { "act": "execute_script", "script": "main.charge_controller.set(\"active_unit_id\", \"U_DEFFKOPTAS_A\")" },
+    { "act": "execute_script", "script": "main.charge_controller.set(\"charge_distance\", 12)" },
+    { "act": "execute_script",
+      "script": "main.charge_controller._start_model_drag(main.charge_controller.dragging_model, Vector2(872, 741))" },
+    { "act": "execute_script", "script": "main.charge_controller.ghost_visual != null", "equals": true },
+    { "act": "execute_script",
+      "script": "main.charge_controller._update_model_drag(Vector2(920, 780))" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "main.charge_controller.ghost_visual.set(\"visible\", false)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "screenshot", "label": "03_mid_drag_before_rotate_ghost_hidden" },
+
+    { "act": "execute_script", "script": "main.charge_controller._rotate_dragging_model(PI / 2.0)" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "screenshot", "label": "04_mid_drag_after_rotate_ghost_hidden" },
+
+    { "act": "pixel_diff", "before": "03_mid_drag_before_rotate_ghost_hidden",
+      "after": "04_mid_drag_after_rotate_ghost_hidden",
+      "expect_min_pct": 0.01 },
+
+    { "act": "execute_script", "script": "main.charge_controller.dragging_model.get(\"rotation\")",
+      "expect_min": 1.5, "expect_max": 1.65 }
+  ]
+}
