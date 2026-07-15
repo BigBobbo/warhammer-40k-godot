@@ -188,6 +188,53 @@ func models_overlap(model1: Dictionary, model2: Dictionary) -> bool:
 	# Use the shape's overlaps_with method for proper collision detection
 	return shape1.overlaps_with(shape2, pos1, rotation1, pos2, rotation2)
 
+func model_overlaps_any(model: Dictionary, others: Array) -> bool:
+	# True if `model` (at its own position) overlaps any model in `others`.
+	# `others` is an Array of model dictionaries each carrying a resolved
+	# "position" (Vector2 or {x,y}).
+	for other in others:
+		if other == null or not (other is Dictionary):
+			continue
+		if models_overlap(model, other):
+			return true
+	return false
+
+func find_nearest_non_overlapping_position(model: Dictionary, ideal_pos: Vector2, occupied_models: Array, max_rings: int = 48) -> Vector2:
+	# Return `ideal_pos` if a base of `model` placed there clears every model in
+	# `occupied_models`; otherwise spiral outward and return the nearest position
+	# that does. Shape-aware (uses models_overlap, so circular/oval/rect bases all
+	# resolve correctly). Used to keep rigidly-translated attached-character models
+	# (leaders riding a bodyguard's Normal/Advance/Charge move) from stacking on
+	# top of the models they moved with. Returns `ideal_pos` unchanged if no clear
+	# spot is found within the search, so callers never throw a model far away.
+	var test = model.duplicate(true)
+	test["position"] = ideal_pos
+	if not model_overlaps_any(test, occupied_models):
+		return ideal_pos
+
+	# Advance the search radius in fine steps (~a quarter base) so we settle into
+	# the nearest snug gap rather than jumping a whole base past it. This runs once
+	# per attached-character model on move confirmation, never per-frame.
+	var my_radius := base_radius_px(model.get("base_mm", 32))
+	var step := maxf(my_radius * 0.25, mm_to_px(4.0))
+	for ring in range(1, max_rings + 1):
+		var radius := step * ring
+		var points := maxi(12, ring * 8)
+		var best_pos = null
+		var best_dist := INF
+		for p in range(points):
+			var angle := (TAU * p) / points
+			var cand := ideal_pos + Vector2(cos(angle), sin(angle)) * radius
+			test["position"] = cand
+			if not model_overlaps_any(test, occupied_models):
+				var d := ideal_pos.distance_squared_to(cand)
+				if d < best_dist:
+					best_dist = d
+					best_pos = cand
+		if best_pos != null:
+			return best_pos
+	return ideal_pos
+
 # New function to check if a model overlaps with a wall
 func model_overlaps_wall(model: Dictionary, wall: Dictionary) -> bool:
 	var pos = model.get("position", Vector2.ZERO)

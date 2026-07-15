@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.45.1",
+			"date": "2026-07-15",
+			"summary": "Fixed attached characters (e.g. a Blade Champion leading Custodian Guard) ending up stacked on top of one of their own bodyguard models after the unit made an Advance/Normal move or a Charge. The leader rode along by a fixed offset with no collision check, so re-arranging the squad could drop it directly onto another model; it is now nudged to the nearest clear spot so bases never overlap.",
+			"changes": [
+				"When a led unit moves or charges and you re-position its bodyguard models, the attached character no longer lands on top of a bodyguard model — it is automatically shifted to the closest non-overlapping position next to where it would have gone.",
+				"Applies to Normal moves, Advances, Fall Backs and Charges. The character still moves with its unit and stays in coherency; only the final overlap is corrected.",
+				"Multiple attached characters riding the same unit are also kept from stacking on each other."
+			]
+		},
+		{
 			"version": "0.45.0",
 			"date": "2026-07-15",
 			"summary": "Charge phase now shows each model's actual charge-move reach while you drag. After you roll the 2D6 charge distance, the single 12\" range circle is replaced with a per-model reach ring (radius = the distance you rolled) centred on every charging model, so you can see exactly how far each model is allowed to move instead of a 12\" circle that no longer applies.",

@@ -1,0 +1,50 @@
+{
+  "id": "attached_char_charge_no_overlap",
+  "covers": [
+    "phases.ChargePhase.attached_character_no_overlap",
+    "charge.leader_rides_without_stacking"
+  ],
+  "fixture": "attached_char_charge_overlap",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Regression for the 'attached character overlaps its bodyguard after a Charge' bug. Custodian Guard B (3x 40mm) leads Blade Champion A (attached, in the middle of the squad). The squad charges an Ork Boyz model; the player's per-model charge paths bring model m3 into base contact with the enemy at exactly where the champion's rigid ride-along delta (taken from m1) would land it. Before the fix the champion was translated straight onto m3; the fix nudges it to the nearest clear spot. Asserts the champion overlaps ZERO bodyguard models AND does not overlap the enemy after APPLY_CHARGE_MOVE, that it still rode along, and screenshots the resulting formation.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 9 },
+    { "act": "expect_token_visible", "unit_id": "U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
+    { "act": "expect_token_visible", "unit_id": "U_BLADE_CHAMPION_A", "timeout_s": 3.0 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.attachment_data.attached_characters.0", "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "screenshot", "label": "01_before_charge" },
+
+    { "act": "dispatch_action", "action": { "type": "DECLARE_CHARGE", "actor_unit_id": "U_CUSTODIAN_GUARD_B", "payload": { "target_unit_ids": ["U_ENEMY_BOYZ_X"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CHARGE_ROLL", "actor_unit_id": "U_CUSTODIAN_GUARD_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "APPLY_CHARGE_MOVE", "actor_unit_id": "U_CUSTODIAN_GUARD_B", "payload": { "per_model_paths": {
+      "m1": [[520, 800], [520, 650]],
+      "m2": [[680, 800], [680, 650]],
+      "m3": [[600, 720], [600, 650]]
+    } } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_for_tweens", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "02_after_charge_move" },
+
+    { "act": "execute_script",
+      "script": "int(Measurement.models_overlap(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0], GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").models[0])) + int(Measurement.models_overlap(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0], GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").models[1])) + int(Measurement.models_overlap(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0], GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").models[2]))",
+      "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "int(Measurement.models_overlap(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0], GameState.get_unit(\"U_ENEMY_BOYZ_X\").models[0]))",
+      "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "Vector2(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0].position.x, GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0].position.y).distance_to(Vector2(600, 800))",
+      "expect_min": 20.0 },
+
+    { "act": "execute_script",
+      "script": "self.min_edge_distance_between_units(\"U_BLADE_CHAMPION_A\", \"U_CUSTODIAN_GUARD_B\")",
+      "expect_max": 2.0 }
+  ]
+}

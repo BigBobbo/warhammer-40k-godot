@@ -1,0 +1,49 @@
+{
+  "id": "attached_char_advance_no_overlap",
+  "covers": [
+    "phases.MovementPhase.attached_character_no_overlap",
+    "movement.advance.leader_rides_without_stacking"
+  ],
+  "fixture": "attached_char_advance_overlap",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Regression for the 'attached character overlaps its bodyguard after an Advance' bug. Custodian Guard B (3x 40mm) leads Blade Champion A (40mm, attached, sitting in the middle of the squad). The unit Advances and the player re-arranges the three bodyguard models into a tight row where model m3 ends exactly where the champion's rigid ride-along delta (taken from m1) would land it. Before the fix the champion was translated straight onto m3 (bases fully stacked); the fix nudges the champion to the nearest clear spot. Asserts the champion overlaps ZERO bodyguard models after CONFIRM_UNIT_MOVE, that it still rode along (moved off its start), and screenshots the board so the non-overlapping formation is visible.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_token_visible", "unit_id": "U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
+    { "act": "expect_token_visible", "unit_id": "U_BLADE_CHAMPION_A", "timeout_s": 3.0 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.attachment_data.attached_characters.0", "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "screenshot", "label": "01_before_advance" },
+
+    { "act": "dispatch_action", "action": { "type": "BEGIN_ADVANCE", "actor_unit_id": "U_CUSTODIAN_GUARD_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.2 },
+
+    { "act": "dispatch_action", "action": { "type": "STAGE_MODEL_MOVE", "actor_unit_id": "U_CUSTODIAN_GUARD_B", "payload": { "model_id": "m1", "dest": [520, 600], "rotation": 0.0 } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "STAGE_MODEL_MOVE", "actor_unit_id": "U_CUSTODIAN_GUARD_B", "payload": { "model_id": "m2", "dest": [680, 600], "rotation": 0.0 } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "STAGE_MODEL_MOVE", "actor_unit_id": "U_CUSTODIAN_GUARD_B", "payload": { "model_id": "m3", "dest": [600, 600], "rotation": 0.0 } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_bodyguard_staged" },
+
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_CUSTODIAN_GUARD_B", "payload": {} } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_for_tweens", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "03_after_advance_confirm" },
+
+    { "act": "execute_script",
+      "script": "int(Measurement.models_overlap(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0], GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").models[0])) + int(Measurement.models_overlap(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0], GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").models[1])) + int(Measurement.models_overlap(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0], GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").models[2]))",
+      "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "Vector2(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0].position.x, GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0].position.y).distance_to(Vector2(600, 800))",
+      "expect_min": 20.0 },
+
+    { "act": "execute_script",
+      "script": "self.min_edge_distance_between_units(\"U_BLADE_CHAMPION_A\", \"U_CUSTODIAN_GUARD_B\")",
+      "expect_max": 2.0 }
+  ]
+}
