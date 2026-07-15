@@ -4725,7 +4725,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	# Skip character models that were already explicitly moved via staged moves
 	var attached_chars = _confirm_unit.get("attachment_data", {}).get("attached_characters", [])
 	if attached_chars.size() > 0:
-		changes.append_array(_move_attached_characters(unit_id, attached_chars, explicitly_moved_model_keys))
+		changes.append_array(_move_attached_characters(unit_id, attached_chars, explicitly_moved_model_keys, changes))
 
 	# Ensure all attached characters are marked as moved even if _move_attached_characters
 	# returned early (e.g. no bodyguard delta found because only character models were staged)
@@ -8329,10 +8329,52 @@ func _process_embark_unit(action: Dictionary) -> Dictionary:
 
 	return create_result(true, changes)
 
-func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, explicitly_moved_models: Dictionary = {}) -> Array:
+func _build_final_occupancy(pending_changes: Array) -> Dictionary:
+	# Map "unit_id:model_id" -> a copy of the model carrying its FINAL position for
+	# this move. Live GameState position is overridden by any pending position
+	# set-op (bodyguard drops + explicitly-staged character moves not yet applied).
+	var pending_pos := {}
+	for ch in pending_changes:
+		if not (ch is Dictionary):
+			continue
+		if ch.get("op") != "set":
+			continue
+		var p_path := str(ch.get("path", ""))
+		if p_path.ends_with(".position"):
+			pending_pos[p_path] = ch.get("value")
+	var occ := {}
+	var units = game_state_snapshot.get("units", {})
+	for uid in units:
+		var models = units[uid].get("models", [])
+		for i in range(models.size()):
+			var m = models[i]
+			if not m.get("alive", true):
+				continue
+			var mid = m.get("id", "m%d" % (i + 1))
+			var m_path := "units.%s.models.%d.position" % [uid, i]
+			var pos_val = pending_pos.get(m_path, m.get("position"))
+			if pos_val == null:
+				continue
+			var mcopy = m.duplicate(true)
+			mcopy["position"] = pos_val
+			occ["%s:%s" % [uid, mid]] = mcopy
+	return occ
+
+func _occupancy_values_excluding(occupancy: Dictionary, exclude_key: String) -> Array:
+	var out := []
+	for k in occupancy:
+		if k == exclude_key:
+			continue
+		out.append(occupancy[k])
+	return out
+
+func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, explicitly_moved_models: Dictionary = {}, pending_changes: Array = []) -> Array:
 	"""Move attached character models to maintain formation with bodyguard.
 	Calculates delta from the bodyguard's first model move and applies to character models.
-	Models in explicitly_moved_models were already positioned via staged moves and are skipped."""
+	Models in explicitly_moved_models were already positioned via staged moves and are skipped.
+	pending_changes holds the position set-ops built earlier this confirm (bodyguard
+	final positions + explicitly-staged character positions) so the rigidly-translated
+	character models can be nudged off any model they would land on."""
 	var changes = []
 	var bodyguard = get_unit(bodyguard_id)
 	if bodyguard.is_empty():
@@ -8367,6 +8409,13 @@ func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, e
 
 	DebugLogger.info(str("[MovementPhase] Moving attached characters with delta: %s" % str(move_delta)))
 
+	# Occupancy of every alive model at its FINAL position for this move (pending
+	# changes override live state). Keyed by "unit:model_id" so we can exclude the
+	# model being placed and fold each resolved character position back in, keeping
+	# multiple attached characters from stacking on each other. See fix for the
+	# "attached character overlaps its bodyguard after Advance/Charge" bug.
+	var occupancy := _build_final_occupancy(pending_changes)
+
 	for char_id in attached_char_ids:
 		var char_unit = get_unit(char_id)
 		if char_unit.is_empty():
@@ -8390,7 +8439,19 @@ func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, e
 
 			var pos_x = model_pos.get("x", 0) if model_pos is Dictionary else model_pos.x
 			var pos_y = model_pos.get("y", 0) if model_pos is Dictionary else model_pos.y
-			var new_pos = Vector2(pos_x + move_delta.x, pos_y + move_delta.y)
+			var ideal_pos = Vector2(pos_x + move_delta.x, pos_y + move_delta.y)
+
+			# Nudge off any model the rigid delta would land the character on (its
+			# own stale spot is excluded so it never blocks itself).
+			var others := _occupancy_values_excluding(occupancy, model_key)
+			var new_pos = Measurement.find_nearest_non_overlapping_position(model, ideal_pos, others)
+			if new_pos != ideal_pos:
+				DebugLogger.info(str("[MovementPhase] Attached character %s.%s nudged off overlap: ideal %s -> %s" % [char_id, model_id, str(ideal_pos), str(new_pos)]))
+
+			# Record this character's resolved position so later attached models avoid it too.
+			var placed = model.duplicate(true)
+			placed["position"] = new_pos
+			occupancy[model_key] = placed
 
 			changes.append({
 				"op": "set",
