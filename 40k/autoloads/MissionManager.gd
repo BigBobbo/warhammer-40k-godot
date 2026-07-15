@@ -390,6 +390,33 @@ func model_in_objective_range(model: Dictionary, objective: Dictionary) -> bool:
 		host_areas = _objective_host_areas(objective)
 	return _model_in_objective_range(model, objective, host_areas)
 
+## Terrain-aware "is this model within [param inches] of the objective?" — the
+## WIDER proximity test (as opposed to model_in_objective_range, which is
+## "within RANGE of / controls the objective"). Consolidation uses this to
+## decide Objective-mode eligibility (12.08 BEFORE: "within 3\" of one or more
+## objectives"), which is distinct from the move's end condition ("within range
+## of the selected objective"). Terrain-hosted objective: within [param inches]
+## of the hosting area. Open ground: within [param inches] of the 40mm marker
+## (i.e. inches + 20mm from the centre). For open ground with inches == 3 this
+## equals the control radius, so the two tests coincide there — they only differ
+## on a terrain objective, whose area is larger than a marker disc.
+func model_within_inches_of_objective(model: Dictionary, objective: Dictionary, inches: float) -> bool:
+	var host_areas: Array = []
+	if GameConstants.edition >= 11:
+		host_areas = _objective_host_areas(objective)
+	var margin_px = Measurement.inches_to_px(inches)
+	if not host_areas.is_empty():
+		for host_area in host_areas:
+			if Measurement.model_within_px_of_polygon(model, host_area.get("polygon", PackedVector2Array()), margin_px):
+				return true
+		return false
+	var obj_pos = objective.get("position", Vector2.ZERO)
+	if obj_pos is Dictionary:
+		obj_pos = Vector2(obj_pos.x, obj_pos.y)
+	# "within `inches` of the marker" = within inches of the 40mm disc's edge.
+	var marker_radius_px = Measurement.inches_to_px(0.78740157)
+	return Measurement.model_edge_to_point_distance_px(model, obj_pos) <= margin_px + marker_radius_px
+
 ## True when the objective is actively contested — both players have models in
 ## range with equal, nonzero OC — as opposed to merely uncontrolled (nobody in
 ## range). UI labels read this to avoid claiming "CONTESTED" over an empty or

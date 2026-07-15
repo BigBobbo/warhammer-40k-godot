@@ -4,10 +4,10 @@
 		{
 			"version": "0.44.5",
 			"date": "2026-07-15",
-			"summary": "Fixed the Consolidate step refusing to move a unit that was standing ON a large terrain objective — it now correctly offers the 'move onto the objective' consolidation instead of telling you 'no consolidation mode applies — the unit cannot move'.",
+			"summary": "Fixed the Consolidate step refusing to move a unit that was on or near a large terrain objective — it now correctly offers the 'move onto the objective' consolidation instead of telling you 'no consolidation mode applies — the unit cannot move'.",
 			"changes": [
-				"Consolidation now judges 'within range of an objective' the same way objective control does: a unit standing on a terrain-hosted objective (e.g. the central ruin) is in range while its bases overlap the objective's area, not only when it is within 3\" of the marker's centre point. Previously a unit spread across a big central objective could be several inches from the exact marker point and was wrongly told it had no consolidation move available.",
-				"Open-ground objectives are unchanged (still 3\" from the marker), so this only unlocks the objective consolidation that should always have been offered on terrain objectives."
+				"Objective consolidation is now offered whenever your unit is within 3\" of an objective (per the rule), measured — for a terrain objective such as the central ruin — to the objective's AREA rather than to the marker's centre point. Previously a unit on or beside a big central objective could be several inches from the exact marker point and was wrongly told it had no consolidation move available.",
+				"The consolidation move itself still has to end within range of the objective (a base on the terrain area, or within 3\" of a normal marker); only the check for whether the option is offered was widened. Open-ground objectives are unchanged (still 3\" from the marker)."
 			]
 		},
 		{

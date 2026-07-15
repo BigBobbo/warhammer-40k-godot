@@ -20,8 +20,15 @@ extends PileInMove
 ##   objective — within range of the selected objective.
 
 const ENGAGING_RANGE_INCHES := 3.0
-# Objective range: 3" + 20mm marker radius (matches MissionManager).
+# Objective range: 3" + 20mm marker radius (matches MissionManager). This is
+# "within RANGE of / controls the objective" — the move's END condition.
 const OBJECTIVE_RANGE_INCHES := 3.78740157
+# Objective-mode ELIGIBILITY is "within 3" of one or more objectives" (12.08
+# BEFORE) — a WIDER test than OBJECTIVE_RANGE_INCHES. For open ground the two
+# coincide (both "within 3" of the 40mm marker"); they differ on a terrain
+# objective, where eligibility is "within 3" of the AREA" while the end
+# condition stays "a base ON the area".
+const OBJECTIVE_WITHIN_INCHES := 3.0
 
 func _init():
 	id = "consolidation"
@@ -48,7 +55,7 @@ func select_mode(unit_id: String, board: Dictionary, _context: Dictionary = {}) 
 		return {"mode": "ongoing", "mandatory": true, "available": ["ongoing"]}
 	if not _enemies_within(unit_id, board, ENGAGING_RANGE_INCHES).is_empty():
 		return {"mode": "engaging", "mandatory": true, "available": ["engaging"]}
-	if not _objectives_within(unit_id, board, OBJECTIVE_RANGE_INCHES).is_empty():
+	if not _objectives_within(unit_id, board, OBJECTIVE_WITHIN_INCHES).is_empty():
 		return {"mode": "objective", "mandatory": true, "available": ["objective"]}
 	return {"mode": "", "mandatory": false, "available": []}
 
@@ -69,7 +76,7 @@ func before_moving(unit_id: String, board: Dictionary, _rng, context: Dictionary
 			out["targets"] = targets if not targets.is_empty() else candidates
 			out["candidates"] = candidates
 		"objective":
-			var objs = _objectives_within(unit_id, board, OBJECTIVE_RANGE_INCHES)
+			var objs = _objectives_within(unit_id, board, OBJECTIVE_WITHIN_INCHES)
 			var chosen_obj = str(context.get("chosen_objective", ""))
 			out["objective"] = chosen_obj if chosen_obj in objs else (objs[0] if not objs.is_empty() else "")
 		_:
@@ -153,26 +160,43 @@ func forced_fights_after_engaging(unit_id: String, board: Dictionary, fought: Di
 
 # ── helpers ──────────────────────────────────────────────────────────
 
-func _objectives_within(unit_id: String, board: Dictionary, range_inches: float) -> Array:
+## Objectives this unit is ELIGIBLE to consolidate onto — 12.08 BEFORE: "within
+## 3" of one or more objectives". `margin_inches` is that 3" proximity, NOT the
+## control radius: on a terrain objective a unit within 3" of the AREA qualifies
+## (it can then move onto it), even though it does not yet control it.
+func _objectives_within(unit_id: String, board: Dictionary, margin_inches: float) -> Array:
 	var unit = board.get("units", {}).get(unit_id, {})
 	var out: Array = []
 	for obj in board.get("board", {}).get("objectives", []):
 		for m in unit.get("models", []):
 			if not m.get("alive", true) or m.get("position") == null:
 				continue
-			if _model_in_objective_range(m, obj, range_inches):
+			if _model_within_inches_of_objective(m, obj, margin_inches):
 				out.append(str(obj.get("id", "")))
 				break
 	return out
 
 
-## Terrain-aware "is this model within range of the objective?" — defers to
-## MissionManager so consolidation objective-mode agrees with who controls the
-## marker. 14.01: a large terrain objective is in range while the base overlaps
-## the hosting area, NOT only within the marker radius from the centre point —
-## a unit standing on the central ruin was wrongly told "no consolidation mode
-## applies" because the marker centre sat >3.78" from its bases. Falls back to
-## the open-ground 3"+20mm centre check when MissionManager is unavailable.
+## Terrain-aware "is this model within `margin_inches` of the objective?" —
+## the Objective-mode ELIGIBILITY test (12.08 BEFORE). Defers to MissionManager
+## so terrain objectives measure to the hosting AREA (a unit standing on, or
+## within 3" of, the central ruin qualifies — the marker centre can sit several
+## inches from its bases). Falls back to the open-ground 3"+20mm centre check
+## when MissionManager is unavailable (headless without the autoload tree).
+func _model_within_inches_of_objective(model: Dictionary, obj: Dictionary, margin_inches: float) -> bool:
+	var root = Engine.get_main_loop().root
+	var mm = root.get_node_or_null("/root/MissionManager")
+	if mm != null and mm.has_method("model_within_inches_of_objective"):
+		return mm.model_within_inches_of_objective(model, obj, margin_inches)
+	var meas = root.get_node("/root/Measurement")
+	return _model_to_objective_px(model, obj) <= meas.inches_to_px(margin_inches + 0.78740157)
+
+
+## Terrain-aware "does this model END within RANGE of / control the objective?"
+## — the move's END condition (12.08 WHILE/AFTER: "within range of the selected
+## objective"). Stricter than eligibility: on a terrain objective the base must
+## overlap the AREA, not merely sit within 3" of it. Defers to MissionManager;
+## falls back to the open-ground 3"+20mm centre check when it is unavailable.
 func _model_in_objective_range(model: Dictionary, obj: Dictionary, fallback_range_inches: float = OBJECTIVE_RANGE_INCHES) -> bool:
 	var root = Engine.get_main_loop().root
 	var mm = root.get_node_or_null("/root/MissionManager")

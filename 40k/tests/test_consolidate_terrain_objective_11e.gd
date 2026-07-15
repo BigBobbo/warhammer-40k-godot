@@ -67,12 +67,33 @@ func _run() -> void:
 	var d_centre = corner_in.distance_to(Vector2(22, 30))
 	_check("case1: model is >3.79\" from marker centre", d_centre > ConsolidationMove.OBJECTIVE_RANGE_INCHES,
 		"dist=%.2f" % d_centre)
-	var objs1 = tmpl._objectives_within("U_TEST", gs.state, ConsolidationMove.OBJECTIVE_RANGE_INCHES)
+	var objs1 = tmpl._objectives_within("U_TEST", gs.state, ConsolidationMove.OBJECTIVE_WITHIN_INCHES)
 	var mode1 = str(tmpl.select_mode("U_TEST", gs.state).get("mode", ""))
 	_check("case1: MissionManager agrees model controls obj_center", _obj_in_range(mm, gs, "obj_center"))
 	_check("case1: obj_center within consolidate range (terrain-aware)", objs1.has("obj_center"),
 		"objs=%s" % str(objs1))
 	_check("case1: objective mode applies (was '' before fix)", mode1 == "objective", "mode='%s'" % mode1)
+
+	# ── Case 1b: WITHIN 3" of the terrain area but NOT on it ────────────────
+	# (22,37.5): ~2.5" below the area's y=35 edge — the unit does not control
+	# the objective yet, but 12.08 BEFORE offers Objective mode ("within 3" of
+	# the objective") so it can consolidate ONTO the ruin.
+	_setup_board(gs, meas, objectives, Vector2(22.0, 37.5))
+	var ctrl_1b = _obj_in_range(mm, gs, "obj_center")
+	var mode1b = str(tmpl.select_mode("U_TEST", gs.state).get("mode", ""))
+	_check("case1b: model does NOT yet control obj_center (not on the area)", not ctrl_1b)
+	_check("case1b: objective mode still applies (within 3\" of the area)", mode1b == "objective",
+		"mode='%s'" % mode1b)
+
+	# ── Case 1c: MORE than 3" from every objective area → no mode ───────────
+	# (10,38) sits ~5"+ from the nearest objective area (obj_center's ruin and
+	# obj_home_2's ruin), with no enemies near → Objective mode must NOT be
+	# offered. (Picked clear of ALL five terrain objectives — a spot only just
+	# past obj_center would still be within 3" of obj_home_2's area.)
+	_setup_board(gs, meas, objectives, Vector2(10.0, 38.0))
+	var mode1c = str(tmpl.select_mode("U_TEST", gs.state).get("mode", ""))
+	_check("case1c: >3\" from every objective area → no consolidation mode", mode1c == "",
+		"mode='%s'" % mode1c)
 
 	# ── Case 2: open-ground objective, model within the marker radius ───────
 	# Plain objective (no source_pieces) at (10,10); model edge within 3.78".
