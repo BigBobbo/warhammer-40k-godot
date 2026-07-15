@@ -4570,6 +4570,22 @@ func _is_unit_within_distance_of_enemies(unit: Dictionary, distance_inches: floa
 
 	return false
 
+func get_fight_step_11e() -> String:
+	"""Which of the three 11e Fight-phase steps is currently active:
+	  "PILE_IN"     — the global Pile In step (12.02) the phase opens with,
+	  "CONSOLIDATE" — the global Consolidate step (12.07) at the end,
+	  "FIGHT"       — the alternating Fight step (12.04), the default.
+	The Main HUD reads this to label the phase-action button and to decide
+	whether ending the current step forfeits any fights: only ending the
+	Fight step does. During the Pile In / Consolidate steps the button just
+	finishes that step (no unit is skipped), so the "units haven't fought"
+	warning must not fire there."""
+	if pile_in_step_11e == PileInStep11e.ACTIVE:
+		return "PILE_IN"
+	if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
+		return "CONSOLIDATE"
+	return "FIGHT"
+
 func get_unfought_eligible_units(only_player: int = -1) -> Array:
 	"""Return array of {unit_id, unit_name, player, subphase} for units that haven't fought yet.
 	Used by the end-fight-phase confirmation dialog (T5-UX7).

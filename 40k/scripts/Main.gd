@@ -4994,6 +4994,13 @@ func setup_fight_controller() -> void:
 		if is_fight_phase:
 			fight_controller.set_phase(phase_instance)
 			print("Connected FightController to FightPhase")
+			# Re-label the phase-action button when the Fight phase's internal
+			# step changes (Pile In → Fight → Consolidate). These transitions
+			# happen WITHIN the phase — no phase_changed fires — so update the
+			# button text/tooltip here instead of only in update_ui_for_phase.
+			if phase_instance.has_signal("subphase_transition") \
+					and not phase_instance.subphase_transition.is_connected(_on_fight_subphase_transition):
+				phase_instance.subphase_transition.connect(_on_fight_subphase_transition)
 		else:
 			print("WARNING: Phase instance is not a FightPhase, skipping signal connections")
 	else:
@@ -9270,10 +9277,24 @@ func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.MOVEMENT: return "[Enter] End Movement Phase"
 		GameStateData.Phase.SHOOTING: return "[Enter] End Shooting Phase"
 		GameStateData.Phase.CHARGE: return "[Enter] End Charge Phase"
-		GameStateData.Phase.FIGHT: return "[Enter] End Fight Phase"
+		GameStateData.Phase.FIGHT: return _get_fight_phase_button_text()
 		GameStateData.Phase.SCORING: return "[Enter] End Turn"
 		GameStateData.Phase.MORALE: return "[Enter] End Morale Phase"
 		_: return "[Enter] End Phase"
+
+func _get_fight_phase_button_text() -> String:
+	# The Fight phase runs three internal steps (11e): the global Pile In step
+	# (12.02) the phase opens with, the alternating Fight step (12.04), and the
+	# global Consolidate step (12.07). The action button ends whichever step is
+	# ACTIVE — but only ending the Fight step ends the phase. Labelling it
+	# "End Fight Phase" during the Pile In / Consolidate steps was misleading
+	# (pressing it there just finishes that step), so label it per step.
+	var fp = PhaseManager.get_current_phase_instance()
+	if fp and fp.has_method("get_fight_step_11e"):
+		match fp.get_fight_step_11e():
+			"PILE_IN": return "[Enter] Finish Pile Ins"
+			"CONSOLIDATE": return "[Enter] Finish Consolidations"
+	return "[Enter] End Fight Phase"
 
 func _get_phase_button_tooltip(phase: GameStateData.Phase) -> String:
 	match phase:
@@ -9283,9 +9304,19 @@ func _get_phase_button_tooltip(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.MOVEMENT: return "End Movement phase and begin Shooting (Shortcut: Enter)"
 		GameStateData.Phase.SHOOTING: return "End Shooting phase and begin Charge (Shortcut: Enter)"
 		GameStateData.Phase.CHARGE: return "End Charge phase and begin Fight (Shortcut: Enter)"
-		GameStateData.Phase.FIGHT: return "End Fight phase and proceed to scoring"
+		GameStateData.Phase.FIGHT: return _get_fight_phase_button_tooltip()
 		GameStateData.Phase.SCORING: return "End your turn and pass to your opponent"
 		_: return "Advance to the next phase"
+
+func _get_fight_phase_button_tooltip() -> String:
+	# Mirrors _get_fight_phase_button_text: describe the CURRENT Fight-phase
+	# step, since only the Fight step actually ends the phase.
+	var fp = PhaseManager.get_current_phase_instance()
+	if fp and fp.has_method("get_fight_step_11e"):
+		match fp.get_fight_step_11e():
+			"PILE_IN": return "Finish your Pile In moves and begin fighting (Shortcut: Enter)"
+			"CONSOLIDATE": return "Finish your Consolidation moves and end the Fight phase (Shortcut: Enter)"
+	return "End Fight phase and proceed to scoring"
 
 func _clear_phase_ui_artifacts() -> void:
 	# Remove any dynamically added phase-specific buttons from HUD_Bottom
@@ -9399,9 +9430,20 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.CHARGE:
 			action = {"type": "END_CHARGE", "player": active_player}
 		GameStateData.Phase.FIGHT:
-			# T5-UX7: Check for unfought units and show confirmation dialog
+			# T5-UX7: Check for unfought units and show confirmation dialog.
+			# The Fight phase runs three internal steps (11e). END_FIGHT ends
+			# whichever step is active, but the "units haven't fought" warning
+			# only makes sense when ending the actual Fight step (12.04). During
+			# the global Pile In (12.02) and Consolidate (12.07) steps the button
+			# just finishes that step and NO fights are forfeited — showing the
+			# warning there (which listed every not-yet-fought unit) was the
+			# misleading pop-up players hit right after piling in. Only warn in
+			# the Fight step.
 			var fight_phase_instance = PhaseManager.get_current_phase_instance()
-			if fight_phase_instance and fight_phase_instance.has_method("get_unfought_eligible_units"):
+			var fight_step := "FIGHT"
+			if fight_phase_instance and fight_phase_instance.has_method("get_fight_step_11e"):
+				fight_step = fight_phase_instance.get_fight_step_11e()
+			if fight_step == "FIGHT" and fight_phase_instance and fight_phase_instance.has_method("get_unfought_eligible_units"):
 				# Only warn about the active player's OWN unfought units — ending
 				# your fights no longer forfeits the opponent's (12.04), so the
 				# opponent's units must not be listed as "won't fight".
@@ -10254,6 +10296,18 @@ func _on_fight_ui_update_requested() -> void:
 	# Update UI when FightController requests it
 	if current_phase == GameStateData.Phase.FIGHT:
 		update_ui()
+
+func _on_fight_subphase_transition(_from_subphase: String, _to_subphase: String) -> void:
+	# The Fight-phase action button is labelled per internal step (Pile In /
+	# Fight / Consolidate). Those steps change within the phase, so re-derive the
+	# button text + tooltip from the live step whenever a transition fires.
+	if current_phase != GameStateData.Phase.FIGHT:
+		return
+	if not phase_action_button or not is_instance_valid(phase_action_button):
+		return
+	phase_action_button.text = _get_phase_button_text(current_phase)
+	phase_action_button.tooltip_text = _get_phase_button_tooltip(current_phase)
+	print("Main: Fight subphase %s → %s — button relabelled to '%s'" % [_from_subphase, _to_subphase, phase_action_button.text])
 
 func _on_scoring_action_requested(action: Dictionary) -> void:
 	print("Main: Received scoring action request: ", action.get("type", ""))
