@@ -1,4 +1,4 @@
-The warhammer core rules that this game is replicating can be found here: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/
+The warhammer core rules that this game is replicating can be found here: https://wahapedia.ru/wh40k11ed/the-rules/core-rules/ (11th edition — the current edition, released June 2026)
 
 The Godot documentation can be found here: https://docs.godotengine.org/en/4.4/
 
