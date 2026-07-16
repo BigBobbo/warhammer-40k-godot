@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.48.0",
+			"date": "2026-07-16",
+			"summary": "Board zoom now follows your mouse. Zooming with + / - keeps the point under the cursor fixed instead of drifting toward the top-left corner, and you can now zoom with the mouse scroll wheel too — scroll up to zoom in, down to zoom out, both centred on the cursor. Scrolling over a side panel still scrolls that panel, and during deployment the wheel keeps rotating the model you are placing. The wheel-zoom is listed under a new Mouse section in Settings > Controls.",
+			"changes": [
+				"+ / - zoom (and controller trigger zoom) now keeps the spot under the cursor fixed instead of drifting toward the top-left corner of the screen; controller zoom anchors on the centre of the screen since a gamepad has no cursor.",
+				"Mouse scroll wheel now zooms the board: up = in, down = out, anchored on the cursor.",
+				"Scrolling while the cursor is over a UI panel (game log, unit list) scrolls that panel rather than zooming the board.",
+				"During deployment the wheel still rotates the model being placed — zoom only kicks in outside placement.",
+				"Added a Mouse section to Settings > Controls listing 'Zoom In / Out — Mouse Wheel', and noted the wheel on the in-game shortcut overlay (press ?).",
+				"Zoom amount, speed and limits are unchanged — only the point the view zooms around has changed."
+			]
+		},
+		{
 			"version": "0.47.5",
 			"date": "2026-07-16",
 			"summary": "Deep Strike reserves now follow the core rule that EVERY model in a unit must have Deep Strike. On the Declare Battle Formations screen a bodyguard with attached leaders is only offered Deep Strike when the bodyguard AND every attached leader has it. Previously the screen used OR logic — if the squad or any attached character had Deep Strike the whole unit was offered it — so attaching a Deep Strike character (such as a Blade Champion) to a unit that lacks Deep Strike wrongly let the combined unit Deep Strike. Whole-unit grants such as the Ork Tellyporta enhancement, which give Deep Strike to every model in the bearer's unit, still make the entire unit eligible.",

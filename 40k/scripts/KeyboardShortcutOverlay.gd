@@ -106,7 +106,7 @@ func _build_ui() -> void:
 	_add_shortcut("%s (toggle)" % _mt, "Measuring tape — click start then end")
 	_add_shortcut(_cm, "Clear measurements")
 	_add_shortcut("W/A/S/D", "Pan camera")
-	_add_shortcut("%s  /  %s" % [_zu, _zd], "Zoom in/out")
+	_add_shortcut("%s  /  %s  /  Wheel" % [_zu, _zd], "Zoom in/out (wheel centres on cursor)")
 	_add_shortcut(_rb, "Rotate board view")
 	_add_shortcut(_mh, "Toggle Mathhammer")
 	_add_shortcut(_as, "AI suggestion (vs AI — shows its reasoning)")
