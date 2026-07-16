@@ -2759,6 +2759,69 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "autoloads/TerrainManager.gd:_line_blocked_11e",
+      "description": "11e per-line 13.10/13.11 block test: 'area'-class pieces obscure (light/dense) unless their area GROUP is in the exclusion set; 'feature'-class dense pieces are Solid at ground level; legacy bare pieces are both. Regression net for the Custodian-vs-Gretchin 'unit on a terrain strip claimed no LoS' report.",
+      "scenarios": [
+        "los_terrain_area_11e_near"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads/TerrainManager.gd:visibility_exclusions_for",
+      "description": "Per observer/target pair, the terrain-area groups either model is within (ANY part of base, 01.04) \u2014 the 13.10 'excluding areas one or both models are within' set \u2014 plus the feature ids a model OCCUPIES (base centre inside) so a structure never Solid-blocks its own occupant's sight lines.",
+      "scenarios": [
+        "los_terrain_area_11e_near"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads/EnhancedLineOfSight.gd:_check_single_line_of_sight_11e",
+      "description": "EnhancedLineOfSight's edition-11 per-line judgement: 13.10 obscuring areas with the within-group exclusion + 13.11 dense feature Solid at ground level + explicit wall segments, replacing the 10e ruins/height rules while keeping base-to-base sampling (06.01).",
+      "scenarios": [
+        "los_terrain_area_11e_near"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "RulesEngine.get_eligible_targets",
+      "description": "Shooting eligibility: a unit with models standing ON a terrain area is targetable from outside it when within the shooter's detection range (13.09/13.10 gates applied via the enhanced LoS path). Driven end-to-end through the shooting UI.",
+      "scenarios": [
+        "los_terrain_area_11e_near"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads/TerrainManager.gd:is_model_hidden",
+      "description": "13.09 HIDDEN qualification: INFANTRY/BEASTS/SWARM within a terrain-area GROUP that contains a dense feature (any part of base), unit hasn't shot this or last turn. Group-aware so a model on one linked boundary half counts the whole area's dense pieces.",
+      "scenarios": [
+        "los_terrain_area_11e_far"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads/TerrainManager.gd:hidden_model_visible_to",
+      "description": "13.09 visibility gate: a hidden model is only visible to observers within its detection range (15\" default, Gone-to-Ground/datasheet modified). Gone-to-Ground no longer penalises for dense pieces of the target's own area.",
+      "scenarios": [
+        "los_terrain_area_11e_far"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "RulesEngine.get_target_ineligibility_reason",
+      "description": "Player-facing shooting-refusal reason honours the 11e gates: names the Hidden rule with detection range + closest-model distance, or 'terrain blocks every sight line', instead of a bare 'No line of sight'.",
+      "scenarios": [
+        "los_terrain_area_11e_far"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

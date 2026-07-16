@@ -3210,9 +3210,9 @@ static func _character_group_visible_to_attackers(group: Dictionary, target_unit
 			if not t_pos:
 				continue
 			if tm != null:
+				# 13.09 hidden gate; 13.10/13.11 sight lines are judged by the
+				# base LoS check (EnhancedLineOfSight 11e branch) below.
 				if not tm.hidden_model_visible_to(t_model, target_unit, actor_model):
-					continue
-				if not tm.model_visible_11e(actor_model, t_model):
 					continue
 			if _check_line_of_sight(a_pos, t_pos, board, actor_model, t_model):
 				return true
@@ -5329,6 +5329,7 @@ static func _has_los_to_target_unit(actor_unit_id: String, target_unit_id: Strin
 		return false
 	var actor_models = actor_unit.get("models", [])
 	var target_models = target_unit.get("models", [])
+	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
 	for actor_model in actor_models:
 		if not actor_model.get("alive", true):
 			continue
@@ -5340,6 +5341,10 @@ static func _has_los_to_target_unit(actor_unit_id: String, target_unit_id: Strin
 				continue
 			var target_pos = _get_model_position(target_model)
 			if not target_pos:
+				continue
+			# 13.09: a hidden model is not visible beyond its detection range —
+			# "visible to any model in the firing unit" must honour that too.
+			if tm_hidden != null and not tm_hidden.hidden_model_visible_to(target_model, target_unit, actor_model):
 				continue
 			if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
 				return true
@@ -5387,15 +5392,16 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 				if is_indirect:
 					print("RulesEngine: [INDIRECT FIRE] Weapon '%s' targeting without LoS" % weapon_profile.get("name", weapon_id))
 					return {"visible": true, "reason": ""}
-				# ISS-052: 11e visibility gates — HIDDEN detection range
-				# (13.09) and the obscuring/Solid line semantics
-				# (13.10/13.11) — before the base LoS check.
+				# ISS-052: 11e HIDDEN gate (13.09) — a hidden model is only
+				# visible to observers within its detection range. The
+				# obscuring/Solid line semantics (13.10/13.11) are handled by
+				# the base LoS check below (EnhancedLineOfSight runs the 11e
+				# per-line rules with full base-to-base sampling at edition 11,
+				# including the terrain-area grouping + "within" exclusions).
 				if GameConstants.edition >= 11:
 					var tm_11e = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
 					if tm_11e != null:
 						if not tm_11e.hidden_model_visible_to(target_model, target_unit, actor_model):
-							continue
-						if not tm_11e.model_visible_11e(actor_model, target_model):
 							continue
 				# Check LoS with enhanced base-aware visibility
 				if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
@@ -5857,6 +5863,13 @@ static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_i
 	var any_weapon_passed_er_filter = false
 	var any_in_range = false
 	var any_in_los = false
+	# 11e HIDDEN (13.09): track pairs that have clear sight lines but are
+	# gated by detection range, so the player gets the real reason instead of
+	# a generic "no line of sight".
+	var any_hidden_blocked = false
+	var hidden_min_dist = INF
+	var hidden_det_range = GameConstants.hidden_detection_range_inches()
+	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
 
 	for model_id in unit_weapons:
 		var actor_model = _get_model_by_id(actor_unit, model_id)
@@ -5897,7 +5910,16 @@ static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_i
 							var a_pos = _get_model_position(actor_m)
 							var t_pos = _get_model_position(target_m)
 							if _check_line_of_sight(a_pos, t_pos, board, actor_m, target_m):
-								any_in_los = true
+								# Sight lines are clear — mirror the 13.09
+								# hidden gate applied by _check_target_visibility.
+								if tm_hidden != null and not tm_hidden.hidden_model_visible_to(target_m, target_unit, actor_m):
+									any_hidden_blocked = true
+									var d_in = Measurement.px_to_inches(distance)
+									if d_in < hidden_min_dist:
+										hidden_min_dist = d_in
+										hidden_det_range = tm_hidden.detection_range_inches_for(target_m, target_unit, actor_m)
+								else:
+									any_in_los = true
 
 	if not has_any_weapon:
 		return "%s has no usable weapons" % actor_unit.get("meta", {}).get("display_name", actor_unit_id)
@@ -5911,7 +5933,9 @@ static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_i
 	if not any_in_range:
 		return "%s is out of range" % target_name
 	if not any_in_los:
-		return "No line of sight to %s" % target_name
+		if any_hidden_blocked:
+			return "%s is Hidden (dense terrain, hasn't shot recently) — visible only within %d\" detection range; your closest model is %.1f\" away" % [target_name, int(round(hidden_det_range)), hidden_min_dist]
+		return "No line of sight to %s — terrain blocks every sight line" % target_name
 
 	return ""
 

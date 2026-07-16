@@ -1,0 +1,73 @@
+{
+  "id": "los_terrain_area_11e_far",
+  "covers": [
+    "autoloads/TerrainManager.gd:is_model_hidden",
+    "autoloads/TerrainManager.gd:hidden_model_visible_to",
+    "RulesEngine.get_target_ineligibility_reason"
+  ],
+  "fixture": "los_terrain_area_11e_far",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "LOS-TERRAIN (13.09 HIDDEN, player-facing reason): same centre-strip geometry as the near scenario but the Custodian Guard stand ~18\" away. The Boyz models on the dense strip are hidden (INFANTRY within a dense-containing terrain area, no recent shooting) and the shooters are beyond the 15\" detection range, while the rest of the unit is fully obscured behind the strip (13.10) - so the unit is NOT targetable, and the UI must say WHY (the Hidden rule + distances), not a bare 'No line of sight'. Clicking the ineligible enemy surfaces the reason as a toast + dice-log line.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot()).has(\"U_BOYZ_K\")",
+      "equals": false,
+      "comment": "beyond 15\" detection the hidden on-strip models are not visible; the rest of the unit is obscured (13.10)"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.get_target_ineligibility_reason(\"U_CUSTODIAN_GUARD_B\", \"U_BOYZ_K\", GameState.create_snapshot()).contains(\"Hidden\")",
+      "equals": true,
+      "comment": "the player-facing reason names the Hidden rule instead of a bare 'no line of sight'"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CUSTODIAN_GUARD_B"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false,
+      "comment": "P3-96: with every enemy hidden/obscured/out of range the unit cannot even be selected to shoot - the exact situation from the user report"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\") != null",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._report_no_eligible_targets(\"U_CUSTODIAN_GUARD_B\", true)",
+      "comment": "drive the same feedback the UI shows when the player clicks the unit: per-enemy reasons in the dice log + a warning toast"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "ToastManager.active_toasts.size()",
+      "expect_min": 1,
+      "comment": "the explanatory toast is on screen"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_far_hidden_reason_toast"
+    }
+  ],
+  "edition": 11
+}

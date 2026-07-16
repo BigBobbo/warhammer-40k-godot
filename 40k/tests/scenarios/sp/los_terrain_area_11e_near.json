@@ -1,0 +1,106 @@
+{
+  "id": "los_terrain_area_11e_near",
+  "covers": [
+    "autoloads/TerrainManager.gd:_line_blocked_11e",
+    "autoloads/TerrainManager.gd:visibility_exclusions_for",
+    "autoloads/EnhancedLineOfSight.gd:_check_single_line_of_sight_11e",
+    "RulesEngine.get_eligible_targets"
+  ],
+  "fixture": "los_terrain_area_11e_near",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "LOS-TERRAIN (user report): a unit standing ON a terrain area must be shootable from outside it. Boyz K have 4 models on the SW trapezoid half of mirror_1's centre strip (link_group 'Center') and 6 models fully behind it; Custodian Guard B stand ~11\" NW in the open. Per 11e 13.10 the strip is excluded for the on-strip models (they are within the area, ANY part of base, and both trapezoid halves are ONE terrain area), and per 13.09 they are hidden but INSIDE the 15\" detection range - so the unit IS a legal target. Before the fix each trapezoid half blocked sight to models standing on the other half and the game claimed 'No line of sight'.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.current_layout",
+      "equals": "take_and_hold_mirror_1",
+      "comment": "fixture's board.terrain_layout reloaded the converted GW layout"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CUSTODIAN_GUARD_B"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot()).has(\"U_BOYZ_K\")",
+      "equals": true,
+      "comment": "THE fix: the unit with models on the terrain strip is targetable"
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.is_model_hidden(GameState.create_snapshot().units[\"U_BOYZ_K\"].models[0], GameState.create_snapshot().units[\"U_BOYZ_K\"])",
+      "equals": true,
+      "comment": "the on-strip models ARE hidden (13.09) - targetable only because the Custodians are within 15\" detection"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_near_shooter_selected"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_BOYZ_K"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_near_clicked_target_on_strip"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+        "payload": {
+          "weapon_id": "guardian_spear_ranged",
+          "target_unit_id": "U_BOYZ_K",
+          "model_ids": [
+            "m1",
+            "m2",
+            "m3",
+            "m4"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true,
+      "comment": "assigning the on-strip unit as a target succeeds (was: No line of sight)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "03_near_target_assigned"
+    }
+  ],
+  "edition": 11
+}
