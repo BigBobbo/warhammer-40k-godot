@@ -1,0 +1,38 @@
+{
+	"id": "deployed_unit_hover_rightclick",
+	"covers": [
+		"deployment.confirmed_tokens_flat_meta",
+		"ui.token_hover_tooltip.own_deployed_unit",
+		"ui.right_click_context.own_deployed_unit"
+	],
+	"fixture": "New Game",
+	"transition_to_phase": 1,
+	"disable_ai": true,
+	"description": "Regression guard for the dead hover/right-click on player-deployed models: units placed via the DeploymentController were left as nested wrapper Node2Ds (meta on an inner child), invisible to the board hover tooltip and the right-click color/label context menu, while AI-deployed and save-loaded units (flat tokens) worked. Drives the real player path: begin_deploy -> try_place_at -> real click on Confirm -> assert the confirmed unit's token is FLAT (unit_id meta on a direct token_layer child), then hover it with a real mouse-motion event and assert the tooltip appears with the unit's name, and assert the right-click unit lookup resolves the model position to the unit.",
+	"steps": [
+		{ "act": "wait_seconds", "seconds": 1.0 },
+		{ "act": "expect_state", "path": "meta.phase", "equals": 1 },
+		{ "act": "expect_state", "path": "units.U_BLADE_CHAMPION_A.status", "equals": 0 },
+		{ "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_BLADE_CHAMPION_A')" },
+		{ "act": "wait_frames", "frames": 4 },
+		{ "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(880, 240))" },
+		{ "act": "wait_frames", "frames": 4 },
+		{ "act": "screenshot", "label": "01_model_placed_pre_confirm" },
+		{ "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton" },
+		{ "act": "wait_frames", "frames": 30 },
+		{ "act": "expect_state", "path": "units.U_BLADE_CHAMPION_A.status", "equals": 2 },
+		{ "act": "execute_script",
+		  "script": "main.token_layer.find_child('Token_U_BLADE_CHAMPION_A_0', false, false) == null",
+		  "equals": true },
+		{ "act": "hover_unit", "unit_id": "U_BLADE_CHAMPION_A" },
+		{ "act": "wait_frames", "frames": 3 },
+		{ "act": "execute_script", "script": "main._token_hover_tooltip.visible", "equals": true },
+		{ "act": "execute_script", "script": "main._token_hover_unit_id", "equals": "U_BLADE_CHAMPION_A" },
+		{ "act": "execute_script", "script": "main._token_hover_label.get_parsed_text().contains('Blade Champion')", "equals": true },
+		{ "act": "screenshot", "label": "02_hover_tooltip_on_own_deployed_model" },
+		{ "act": "execute_script", "script": "main._find_unit_at_world_pos(Vector2(880, 240))", "equals": "U_BLADE_CHAMPION_A" },
+		{ "act": "hover_board_at", "x": 400.0, "y": 1200.0 },
+		{ "act": "wait_frames", "frames": 3 },
+		{ "act": "execute_script", "script": "main._token_hover_tooltip.visible", "equals": false }
+	]
+}

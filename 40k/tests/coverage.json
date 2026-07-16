@@ -181,6 +181,24 @@
       "status": "covered"
     },
     {
+      "id": "charge.terrain.difficult_ground_infantry_exempt",
+      "description": "CHARGE phase: TerrainManager.calculate_charge_terrain_penalty applies NO difficult_ground penalty to units that can move through the piece (e.g. INFANTRY through ruins), matching calculate_movement_terrain_penalty. Non-traversing units (VEHICLE/MONSTER) still pay the flat 2\" per piece; callers omitting unit_keywords keep the legacy everyone-pays behaviour. Validated by 'charge_infantry_difficult_ground'.",
+      "scenarios": [
+        "charge_infantry_difficult_ground"
+      ],
+      "last_verified_commit": "ea07ea2",
+      "status": "covered"
+    },
+    {
+      "id": "charge.bug.difficult_ground_slows_infantry",
+      "description": "Regression guard (user report 2026-07-16): INFANTRY charging while inside/through the difficult_ground area ruins of the converted 11e layouts was charged a flat 2\" per overlapping piece on top of the drag distance ('Effective: 16.1\" (10.1\" - 6.0\" terrain)'), inflating Used/Left and rejecting valid drops. The windowed scenario drives the real drag_board + Confirm Charge Moves path and fails on pre-fix code. Validated by 'charge_infantry_difficult_ground'.",
+      "scenarios": [
+        "charge_infantry_difficult_ground"
+      ],
+      "last_verified_commit": "ea07ea2",
+      "status": "covered"
+    },
+    {
       "id": "charge.terrain.cannot_end_on_wall",
       "description": "Regression guard: ChargePhase._validate_charge_movement_constraints rejects any charge whose final per-model position overlaps a terrain wall (FAIL_WALL via _validate_no_wall_overlaps). Charging models may pass through walls during the move but may not end on one. Closes the server-side client/server divergence (drag UI gated it, but server-authoritative APPLY_CHARGE_MOVE / heroic-intervention did not). Validated by 'charge_cannot_end_on_wall.",
       "scenarios": [
@@ -2726,7 +2744,7 @@
     },
     {
       "id": "ui.GameLogPanel.long_entry_truncation",
-      "description": "A long simple GameLogPanel entry (>200 chars, e.g. a verbose AI move rationale like 'Prosecutors moves toward obj_center …') renders as a truncated preview carrying a VISIBLE 'show more' toggle instead of silently trailing off. Validated by 'game_log_long_entry_expandable' (collapsed: last_card_is_expandable == true, last_card_is_expanded == false, small visible char count + screenshot).",
+      "description": "A long simple GameLogPanel entry (>200 chars, e.g. a verbose AI move rationale like 'Prosecutors moves toward obj_center \u2026') renders as a truncated preview carrying a VISIBLE 'show more' toggle instead of silently trailing off. Validated by 'game_log_long_entry_expandable' (collapsed: last_card_is_expandable == true, last_card_is_expanded == false, small visible char count + screenshot).",
       "scenarios": [
         "game_log_long_entry_expandable"
       ],

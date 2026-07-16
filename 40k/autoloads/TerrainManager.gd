@@ -483,11 +483,15 @@ func is_terrain_obscuring(terrain_piece: Dictionary) -> bool:
 ## Terrain taller than 2" requires counting vertical distance (climb up + down).
 ## T3-16: Applies difficult_ground trait penalty (flat 2" per piece crossed).
 ## FLY units measure diagonally instead of climbing; FLY units ignore difficult ground.
+## Units that can move through the piece (e.g. INFANTRY through ruins, 11e 13.06
+## dense-terrain traversal) pay neither the climb nor the difficult_ground
+## penalty — a charge move is a move, so this mirrors
+## calculate_movement_terrain_penalty. Callers that omit unit_keywords keep the
+## legacy "everyone pays" behaviour.
 ##
 ## Returns the extra distance in inches that must be added to the path distance.
 func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool, unit_keywords: Array = []) -> float:
 	var total_penalty: float = 0.0
-	var is_infantry = "INFANTRY" in unit_keywords
 
 	for terrain in terrain_features:
 		var polygon = terrain.get("polygon", PackedVector2Array())
@@ -498,10 +502,7 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 		if not crosses_edge and not starts_inside and not ends_inside:
 			continue
 
-		var can_move_through = terrain.get("can_move_through", {})
-		var unit_can_traverse = false
-		if is_infantry and can_move_through.get("INFANTRY", false):
-			unit_can_traverse = true
+		var unit_can_traverse = can_unit_move_through_terrain(unit_keywords, terrain)
 
 		# A segment wholly inside one footprint crosses no wall — ground-floor
 		# movement within the same ruin pays no climb (matches movement phase).
@@ -510,7 +511,7 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 		# Units that can move through terrain at ground level (e.g. Infantry through ruins)
 		# don't pay height climbing penalties — same as movement phase rules.
 		if unit_can_traverse:
-			print("[TerrainManager] Charge: %s traversable by INFANTRY — no height penalty (ground floor)" % terrain.get("id", "unknown"))
+			print("[TerrainManager] Charge: %s traversable by unit — no height penalty (ground floor)" % terrain.get("id", "unknown"))
 		elif wholly_inside:
 			print("[TerrainManager] Charge segment wholly inside %s: no height penalty (ground floor)" % terrain.get("id", "unknown"))
 		else:
@@ -541,12 +542,17 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 			else:
 				print("[TerrainManager] Charge path interacts with %s: no height penalty (height <= 2\")" % terrain.get("id", "unknown"))
 
-		# T3-16: Difficult ground trait penalty — flat 2" per terrain piece crossed
-		# FLY units ignore difficult ground
+		# T3-16: Difficult ground trait penalty — flat 2" per terrain piece crossed.
+		# FLY units ignore difficult ground. Units that can move through the piece
+		# (e.g. INFANTRY through ruins) traverse freely and pay nothing — same
+		# exemption as calculate_movement_terrain_penalty; a charge move is a move.
 		if not has_fly and has_terrain_trait(terrain, "difficult_ground"):
-			total_penalty += DIFFICULT_GROUND_PENALTY_INCHES
-			print("[TerrainManager] Difficult ground penalty for %s: +%.1f\"" % [
-				terrain.get("id", "unknown"), DIFFICULT_GROUND_PENALTY_INCHES])
+			if unit_can_traverse:
+				print("[TerrainManager] Charge: %s traversable by unit — no difficult ground penalty" % terrain.get("id", "unknown"))
+			else:
+				total_penalty += DIFFICULT_GROUND_PENALTY_INCHES
+				print("[TerrainManager] Difficult ground penalty for %s: +%.1f\"" % [
+					terrain.get("id", "unknown"), DIFFICULT_GROUND_PENALTY_INCHES])
 
 	return total_penalty
 
