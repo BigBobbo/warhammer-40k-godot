@@ -193,6 +193,24 @@ Each step is a dict with an `act` field plus act-specific keys.
 
 ### State asserts
 
+- `execute_script`: evaluate GDScript and (optionally) compare the result via
+  `equals` / `not_equals` / `exists` / `expect_min` / `expect_max`. Two modes:
+  - **Expression mode** (default): a single expression. Bound identifiers:
+    every child of `/root` by node name (autoloads AND root-level dialogs,
+    e.g. `WeaponOrderDialog`), engine singletons, `main` (the live battle
+    scene), `tree` (the SceneTree) and `node` (`/root`).
+  - **Statement mode** (`"multiline": true` — explicit, never auto-detected):
+    the snippet is compiled into a throwaway GDScript so `var` / `if` / `for`
+    / `return` work. It runs as `_run(node, tree)` — `node` is `/root` (or
+    the node at the optional `node` step key), `tree` is the SceneTree;
+    autoloads are reachable by global name, but root-level dialogs must be
+    fetched via `tree.root.get_node_or_null(...)`. `return <value>` feeds the
+    expectation.
+  ```json
+  { "act": "execute_script", "script": "WeaponOrderDialog.weapon_list_container.get_child_count()", "equals": 1 }
+  { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"WeaponOrderDialog\")\nreturn d.is_resolving", "multiline": true, "equals": true }
+  ```
+
 - `expect_state`: assert against `GameState.state` via dot-separated path.
   ```json
   { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.fights_first", "equals": true }

@@ -990,30 +990,66 @@ func _do_execute_script(step: Dictionary) -> Dictionary:
 	if code == "":
 		return {"pass": false, "error": "execute_script needs `script`"}
 
-	# Build input name/value pairs:
-	#   - every autoload child of /root (referenced by node name)
-	#   - common engine singletons (Engine, OS, Time, Input, RenderingServer)
-	#   - `main` -> the live battle scene root, if loaded
-	var input_names: Array = []
-	var input_values: Array = []
-	var root := get_tree().root
-	for child in root.get_children():
-		input_names.append(child.name)
-		input_values.append(child)
-	# ResourceLoader/ClassDB let a scenario instantiate a script-backed node
-	# (e.g. a dialog) for windowed validation: ResourceLoader.load(path).new().
-	input_names.append_array(["Engine", "OS", "Time", "Input", "RenderingServer", "ProjectSettings", "ResourceLoader", "ClassDB", "main"])
-	input_values.append_array([Engine, OS, Time, Input, RenderingServer, ProjectSettings, ResourceLoader, ClassDB, get_tree().current_scene])
+	var actual
+	# Statement mode is EXPLICIT-only (`"multiline": true`) — unlike the MCP
+	# bridge we must not auto-detect on "\n", because existing scenario scripts
+	# legitimately embed newlines inside string literals and rely on the
+	# Expression path (e.g. resolution_log_dice_icons.json).
+	var multiline: bool = bool(step.get("multiline", false))
+	if multiline:
+		# Multi-line / statement mode — parity with the MCP bridge's
+		# execute_script (testing_handlers.gd): the snippet is compiled into a
+		# throwaway GDScript so full statements work (`var`, `if`, `for`,
+		# `return`). The snippet receives `node` (the node at the optional `node`
+		# step key, default /root) and `tree` (the SceneTree); autoloads are
+		# reachable by their global names. `return <value>` feeds the
+		# equals/not_equals/exists expectation below.
+		var target: Node = get_tree().root
+		if step.has("node"):
+			target = get_node_or_null(str(step["node"]))
+			if target == null:
+				return {"pass": false, "error": "no node at %s" % str(step["node"])}
+		var indented := ""
+		for line in code.split("\n"):
+			indented += "\t" + line + "\n"
+		if indented.strip_edges() == "":
+			indented = "\treturn null\n"
+		var src := "extends RefCounted\nfunc _run(node, tree):\n" + indented
+		var gds := GDScript.new()
+		gds.source_code = src
+		if gds.reload() != OK:
+			return {"pass": false, "error": "multiline compile failed — call node methods on `node`/`tree`, not bare"}
+		var inst = gds.new()
+		if inst == null or not inst.has_method("_run"):
+			return {"pass": false, "error": "failed to instantiate compiled snippet"}
+		actual = inst.call("_run", target, get_tree())
+	else:
+		# Single-line Expression mode. Build input name/value pairs:
+		#   - every child of /root (autoloads AND root-level dialogs, by node name)
+		#   - common engine singletons (Engine, OS, Time, Input, RenderingServer)
+		#   - `main` -> the live battle scene root, if loaded
+		var input_names: Array = []
+		var input_values: Array = []
+		var root := get_tree().root
+		for child in root.get_children():
+			input_names.append(child.name)
+			input_values.append(child)
+		# ResourceLoader/ClassDB let a scenario instantiate a script-backed node
+		# (e.g. a dialog) for windowed validation: ResourceLoader.load(path).new().
+		# `tree`/`node` match the multiline-mode bindings (SceneTree / root) so the
+		# same `tree.root...` idiom works in both modes.
+		input_names.append_array(["Engine", "OS", "Time", "Input", "RenderingServer", "ProjectSettings", "ResourceLoader", "ClassDB", "main", "tree", "node"])
+		input_values.append_array([Engine, OS, Time, Input, RenderingServer, ProjectSettings, ResourceLoader, ClassDB, get_tree().current_scene, get_tree(), root])
 
-	var expr := Expression.new()
-	var parse_err := expr.parse(code, input_names)
-	if parse_err != OK:
-		return {"pass": false, "error": "parse failed: %s" % expr.get_error_text()}
-	# Pass self as base instance so `self.foo` works and any singletons not in
-	# input_names fall through to the runner's context.
-	var actual = expr.execute(input_values, self, true)
-	if expr.has_execute_failed():
-		return {"pass": false, "error": "execute failed: %s" % expr.get_error_text()}
+		var expr := Expression.new()
+		var parse_err := expr.parse(code, input_names)
+		if parse_err != OK:
+			return {"pass": false, "error": "parse failed: %s" % expr.get_error_text()}
+		# Pass self as base instance so `self.foo` works and any singletons not in
+		# input_names fall through to the runner's context.
+		actual = expr.execute(input_values, self, true)
+		if expr.has_execute_failed():
+			return {"pass": false, "error": "execute failed: %s" % expr.get_error_text()}
 
 	# Tolerate "no expectation" — caller may just want to drive a side effect.
 	if not (step.has("equals") or step.has("not_equals") or step.has("exists")
