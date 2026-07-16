@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.47.3",
+			"date": "2026-07-16",
+			"summary": "Fixed deployment breaking after loading a saved game. If you saved during (or just before) the Deployment phase and loaded that save, every attempt to deploy a unit was rejected with 'Unit is not available for deployment' — the AI opponent would dump its army into Strategic Reserves until the 50% points cap and then skip its remaining units entirely, leaving it with nothing on the board (reported with the Battlewagons Ork list vs the Competitive AI). Loading a save no longer breaks deployment for either player.",
+			"changes": [
+				"Fixed every deployment being rejected as 'Unit is not available for deployment' after loading a save made around the Deployment phase. Saved games store numbers in a format that loads back as decimals, and the deployment legality check compared those decimals too strictly, so no unit ever qualified as deployable.",
+				"Because each failed deployment fell back to Strategic Reserves, the AI would silently bank its army into reserves until the 50% reserves points limit was hit and then skip the rest of its units — the AI now deploys normally after a load.",
+				"Loaded games now restore unit status and ownership (plus turn/phase bookkeeping) as proper whole numbers, protecting other rules checks from the same decimals-after-load problem."
+			]
+		},
+		{
 			"version": "0.47.2",
 			"date": "2026-07-16",
 			"summary": "Fixed terrain wrongly slowing Infantry during charges. Units that can move through ruins (Infantry) were being charged a flat 2\" per 'difficult ground' terrain piece on top of the actual distance when charging — the panel showed things like 'Effective: 16.1\" (10.1\" - 6.0\" terrain)', tiny drags read as many extra inches, and charges that should easily succeed were rejected as out of range. The official 11th-edition terrain layouts mark all their large ruin areas as difficult ground, so this hit almost every charge fought in or through ruins. The Movement phase already let Infantry pass freely; the Charge phase now matches it.",
