@@ -145,6 +145,14 @@ static func default_order(groups: Array) -> Array:
 ##                   per inflicting attack instead of the flat `damage`
 ##                   (lets the engine roll variable D, melta, FNP, …);
 ##                   a return of 0 means the damage was fully prevented.
+##   preferred_targets: Array[int] — the DEFENDER's chosen casualty order
+##                   (model indices). Within the current group, when no
+##                   wounded model forces the pick (05.04 step 1), the
+##                   first alive preferred model in the group is allocated
+##                   to instead of the lowest-index default. Models are
+##                   otherwise interchangeable inside a group (same
+##                   W/Sv/InSv), so this only changes WHICH base dies,
+##                   never how much damage is inflicted.
 static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save_rolls: Array, ap: int, damage: int, opts: Dictionary = {}) -> Dictionary:
 	var by_id: Dictionary = {}
 	for g in groups:
@@ -162,6 +170,7 @@ static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save
 	var save_modifier: int = clampi(int(opts.get("save_modifier", 0)), -1, 1)
 	var effect_invuln: int = int(opts.get("effect_invuln", 0))
 	var damage_provider: Callable = opts.get("damage_provider", Callable())
+	var preferred_targets: Array = opts.get("preferred_targets", [])
 
 	var sorted_rolls = save_rolls.duplicate()
 	sorted_rolls.sort()  # lowest first (05.04)
@@ -195,6 +204,14 @@ static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save
 			if remaining.get(i, 0) > 0 and remaining[i] < w:
 				target_i = i
 				break
+		if target_i == -1 and not preferred_targets.is_empty():
+			# Defender's chosen casualty order (only when no wounded model
+			# forces the pick).
+			for p in preferred_targets:
+				var pi = int(p)
+				if pi in group.model_indices and remaining.get(pi, 0) > 0:
+					target_i = pi
+					break
 		if target_i == -1:
 			for i in group.model_indices:
 				if remaining.get(i, 0) > 0:
@@ -253,8 +270,11 @@ static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save
 ##   2. any non-CHARACTER model, else
 ##   3. a wounded CHARACTER model, else
 ##   4. any CHARACTER model.
+## `preferred` (optional): the defender's casualty-order model indices —
+## within a priority class the first alive preferred model wins over the
+## lowest-index default (models in a class are interchangeable for 06.02).
 ## Returns the model index, or -1 when the unit is destroyed.
-static func select_mortal_wound_target(unit: Dictionary, remaining: Dictionary) -> int:
+static func select_mortal_wound_target(unit: Dictionary, remaining: Dictionary, preferred: Array = []) -> int:
 	var models: Array = unit.get("models", [])
 	var unit_stats = unit.get("meta", {}).get("stats", {})
 	var unit_keywords: Array = unit.get("meta", {}).get("keywords", [])
@@ -276,9 +296,28 @@ static func select_mortal_wound_target(unit: Dictionary, remaining: Dictionary) 
 			candidates.wc = i
 		elif is_char and candidates.c == -1:
 			candidates.c = i
+	# Defender preference upgrades the pick WITHIN the winning class: find
+	# the class that would win, then take the first alive preferred model
+	# of that class instead of the scan default.
 	for key in ["wnc", "nc", "wc", "c"]:
-		if candidates[key] != -1:
+		if candidates[key] == -1:
+			continue
+		if preferred.is_empty():
 			return candidates[key]
+		for p in preferred:
+			var pi = int(p)
+			if remaining.get(pi, 0) <= 0 or pi < 0 or pi >= models.size():
+				continue
+			var pm = models[pi]
+			var pw = int(pm.get("wounds", unit_stats.get("wounds", 1)))
+			var p_wounded: bool = remaining[pi] < pw
+			var p_char: bool = pm.get("is_character", false) \
+				or "CHARACTER" in pm.get("keywords", []) \
+				or ("CHARACTER" in unit_keywords and models.size() == 1)
+			var p_key = ("wc" if p_wounded else "c") if p_char else ("wnc" if p_wounded else "nc")
+			if p_key == key:
+				return pi
+		return candidates[key]
 	return -1
 
 
@@ -286,7 +325,7 @@ static func select_mortal_wound_target(unit: Dictionary, remaining: Dictionary) 
 ## damage), re-selecting the target model per wound, until they are all
 ## inflicted or the unit is destroyed. Non-mutating; returns
 ## {applied, lost, models_destroyed, remaining, events}.
-static func apply_mortal_wounds_11e(unit: Dictionary, count: int) -> Dictionary:
+static func apply_mortal_wounds_11e(unit: Dictionary, count: int, preferred: Array = []) -> Dictionary:
 	var models: Array = unit.get("models", [])
 	var unit_stats = unit.get("meta", {}).get("stats", {})
 	var remaining: Dictionary = {}
@@ -296,7 +335,7 @@ static func apply_mortal_wounds_11e(unit: Dictionary, count: int) -> Dictionary:
 			remaining[i] = int(models[i].get("current_wounds", w))
 	var out := {"applied": 0, "lost": 0, "models_destroyed": [], "remaining": remaining, "events": []}
 	for _n in range(count):
-		var target = select_mortal_wound_target(unit, remaining)
+		var target = select_mortal_wound_target(unit, remaining, preferred)
 		if target == -1:
 			out.lost = count - out.applied
 			break
@@ -314,7 +353,7 @@ static func apply_mortal_wounds_11e(unit: Dictionary, count: int) -> Dictionary:
 ## wounds beyond what destroys the selected model are LOST. Worked example
 ## (pg 80): D3=3 dev wounds vs W2 Intercessors -> 2 MW destroy one model,
 ## the third is lost. Non-mutating; same return shape as above.
-static func apply_devastating_wounds_11e(unit: Dictionary, crit_count: int, damage_per_crit: int) -> Dictionary:
+static func apply_devastating_wounds_11e(unit: Dictionary, crit_count: int, damage_per_crit: int, preferred: Array = []) -> Dictionary:
 	var models: Array = unit.get("models", [])
 	var unit_stats = unit.get("meta", {}).get("stats", {})
 	var remaining: Dictionary = {}
@@ -324,7 +363,7 @@ static func apply_devastating_wounds_11e(unit: Dictionary, crit_count: int, dama
 			remaining[i] = int(models[i].get("current_wounds", w))
 	var out := {"applied": 0, "lost": 0, "models_destroyed": [], "remaining": remaining, "events": []}
 	for _c in range(crit_count):
-		var target = select_mortal_wound_target(unit, remaining)
+		var target = select_mortal_wound_target(unit, remaining, preferred)
 		if target == -1:
 			out.lost += damage_per_crit
 			continue
