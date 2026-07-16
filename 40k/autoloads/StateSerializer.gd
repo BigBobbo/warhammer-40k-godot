@@ -480,17 +480,45 @@ func _prepare_for_serialization(state: Dictionary) -> Dictionary:
 
 func _prepare_from_serialization(data: Dictionary) -> Dictionary:
 	var state = data.duplicate(true)
-	
+
 	# Remove serialization metadata
 	if state.has("_serialization"):
 		state.erase("_serialization")
-	
+
 	# Convert integers back to enums
 	state = _convert_int_to_enums(state)
-	
+
 	# Convert back from JSON-compatible types
 	state = _restore_complex_types(state)
-	
+
+	# Coerce known integer fields back to int (JSON parses every number as float)
+	state = _normalize_int_fields(state)
+
+	return state
+
+# JSON has no integer type, so JSON.parse returns every number as a float.
+# Whole-number floats then break STRICT-typed comparisons downstream:
+# GDScript's `in` / Array.has() does NOT coerce int<->float, so after a load
+# `0.0 in [UnitStatus.UNDEPLOYED, UnitStatus.DEPLOYING]` is false — every
+# deployment action was rejected as "Unit is not available for deployment"
+# and the AI dumped its army into Strategic Reserves until the 50% cap,
+# then skipped the rest (battlewagons report, 2026-07-16).
+func _normalize_int_fields(state: Dictionary) -> Dictionary:
+	var units = state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if not unit is Dictionary:
+			continue
+		for field in ["status", "owner"]:
+			if unit.get(field) is float:
+				unit[field] = int(unit[field])
+	var meta = state.get("meta", {})
+	if meta is Dictionary:
+		for field in ["active_player", "phase", "turn_number", "battle_round",
+				"attacker", "defender", "roll_off_winner", "first_player",
+				"roll_off_player1_roll", "roll_off_player2_roll"]:
+			if meta.get(field) is float:
+				meta[field] = int(meta[field])
 	return state
 
 func _convert_enums_to_int(data) -> Variant:
