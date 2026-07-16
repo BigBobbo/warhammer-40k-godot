@@ -191,6 +191,7 @@ var _deploy_hover_tooltip_label: RichTextLabel = null
 var _token_hover_tooltip: PanelContainer = null
 var _token_hover_label: RichTextLabel = null
 var _token_hover_unit_id: String = ""
+var _token_hover_model_id: String = ""
 
 var _aura_rings_layer: Node2D = null
 var _aura_rings_visible: bool = false
@@ -6763,15 +6764,20 @@ func _check_token_hover(mouse_pos: Vector2) -> void:
 			best_token = child
 	if best_token:
 		var uid = best_token.get_meta("unit_id")
-		if uid != _token_hover_unit_id:
+		var mid = best_token.get_meta("model_id") if best_token.has_meta("model_id") else ""
+		# Re-render when either the unit OR the specific model under the cursor
+		# changes, so per-model profile info (Boss Nob vs Boy, etc.) updates as
+		# the cursor moves between models of the same squad.
+		if uid != _token_hover_unit_id or mid != _token_hover_model_id:
 			_token_hover_unit_id = uid
-			_show_token_hover(uid, mouse_pos)
+			_token_hover_model_id = mid
+			_show_token_hover(uid, mouse_pos, mid)
 		else:
 			_position_token_hover(mouse_pos)
 	elif _token_hover_unit_id != "":
 		_hide_token_hover()
 
-func _show_token_hover(unit_id: String, screen_pos: Vector2) -> void:
+func _show_token_hover(unit_id: String, screen_pos: Vector2, model_id: String = "") -> void:
 	if not _token_hover_tooltip:
 		_setup_token_hover_tooltip()
 	var units = GameState.state.get("units", {})
@@ -6821,10 +6827,72 @@ func _show_token_hover(unit_id: String, screen_pos: Vector2) -> void:
 	text += "[color=#AAAAAA]Models: %d/%d  Wounds: %d/%d[/color]" % [alive, total_models, total_w_current, total_w_max]
 	if kw_short != "":
 		text += "\n[color=#888888][i]%s[/i][/color]" % kw_short
+	# Per-model profile block: when a squad has heterogeneous models (Boss Nob,
+	# Runtherd, Spanner, ...) show the SPECIFIC hovered model's role + its own
+	# weapons, so the loadout difference is visible on hover as well as in the art.
+	text += _build_model_profile_hover_text(unit, model_id)
 	_token_hover_label.text = ""
 	_token_hover_label.append_text(text)
 	_token_hover_tooltip.visible = true
 	_position_token_hover(screen_pos)
+
+func _build_model_profile_hover_text(unit: Dictionary, model_id: String) -> String:
+	# Returns a BBCode block describing the hovered model's profile + weapons, or
+	# "" when the unit has no per-model profiles (legacy squads — nothing to add).
+	if model_id == "":
+		return ""
+	var meta = unit.get("meta", {})
+	var profiles = meta.get("model_profiles", {})
+	if profiles.is_empty():
+		return ""
+	var model = {}
+	for m in unit.get("models", []):
+		if m.get("id", "") == model_id:
+			model = m
+			break
+	if model.is_empty():
+		return ""
+	var model_type = model.get("model_type", "")
+	if model_type == "" or not profiles.has(model_type):
+		return ""
+	var profile = profiles[model_type]
+	var label = profile.get("label", model_type)
+	# Weapon name -> full profile lookup from the unit weapon list.
+	var weapon_index := {}
+	for w in meta.get("weapons", []):
+		weapon_index[w.get("name", "")] = w
+	var profile_weapons = profile.get("weapons", [])
+	var ranged_lines: Array = []
+	var melee_lines: Array = []
+	for wname in profile_weapons:
+		var w = weapon_index.get(wname, {})
+		if w.is_empty():
+			melee_lines.append("• %s" % wname)
+			continue
+		if w.get("type", "") == "Ranged":
+			ranged_lines.append("• %s [color=#888888]%s\"  A%s BS%s S%s AP%s D%s[/color]" % [
+				w.get("name", wname), w.get("range", "-"), w.get("attacks", "-"),
+				w.get("ballistic_skill", "-"), w.get("strength", "-"), w.get("ap", "0"), w.get("damage", "-")])
+		else:
+			melee_lines.append("• %s [color=#888888]A%s WS%s S%s AP%s D%s[/color]" % [
+				w.get("name", wname), w.get("attacks", "-"), w.get("weapon_skill", "-"),
+				w.get("strength", "-"), w.get("ap", "0"), w.get("damage", "-")])
+	# Header separates the per-model block from the unit summary above.
+	var mid_str = model.get("id", model_id)
+	var block = "\n[color=#D49761]──────────[/color]\n"
+	block += "[b][color=#E8C86A]%s[/color][/b] [color=#888888](%s)[/color]" % [label, mid_str]
+	# Model-specific stat overrides (BS/WS/Sv/W/OC differing from the squad).
+	var overrides = profile.get("stats_override", {})
+	if not overrides.is_empty():
+		var ov_parts: Array = []
+		for k in overrides:
+			ov_parts.append("%s %s" % [str(k).capitalize(), str(overrides[k])])
+		block += "\n[color=#9BD49B]%s[/color]" % ", ".join(ov_parts)
+	for l in ranged_lines:
+		block += "\n" + l
+	for l in melee_lines:
+		block += "\n" + l
+	return block
 
 func _position_token_hover(screen_pos: Vector2) -> void:
 	if not _token_hover_tooltip:
@@ -6844,6 +6912,7 @@ func _position_token_hover(screen_pos: Vector2) -> void:
 
 func _hide_token_hover() -> void:
 	_token_hover_unit_id = ""
+	_token_hover_model_id = ""
 	if _token_hover_tooltip:
 		_token_hover_tooltip.visible = false
 

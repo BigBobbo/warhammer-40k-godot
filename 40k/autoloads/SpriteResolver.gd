@@ -86,17 +86,24 @@ func _scan_sprites() -> void:
 	dir.list_dir_end()
 
 
-func resolve_sprite(unit_name: String, faction_name: String, unit_type: String) -> Texture2D:
+func resolve_sprite(unit_name: String, faction_name: String, unit_type: String, model_variant: String = "") -> Texture2D:
 	# Resolution priority chain (user:// override beats bundled at each level):
-	# 1. Exact unit name
-	# 2. Faction + type
-	# 3. Generic type
+	# 1. Unit name + per-model variant  (e.g. stormboyz_boss_nob) — lets a single
+	#    model in a squad show distinct top-down art when it has its own profile
+	#    (Boss Nob, Runtherd, Spanner, ...). See MA-20 / model_profiles.
+	# 2. Exact unit name  (the shared squad sprite — the fallback for rank-and-file
+	#    models whose variant has no dedicated art)
+	# 3. Faction + type
+	# 4. Generic type
 
 	var clean_unit = _clean_name(unit_name)
 	var clean_faction = _clean_name(faction_name)
 	var clean_type = _clean_name(unit_type)
+	var clean_variant = _clean_name(model_variant)
 
 	var keys: Array = []
+	if clean_unit != "" and clean_variant != "":
+		keys.append(clean_unit + "_" + clean_variant)
 	if clean_unit != "":
 		keys.append(clean_unit)
 	if clean_faction != "" and clean_type != "":
