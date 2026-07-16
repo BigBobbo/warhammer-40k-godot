@@ -2,13 +2,107 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.46.2",
+			"version": "0.49.1",
 			"date": "2026-07-16",
 			"summary": "The Declare Battle Formations screen now tells identically-named units apart. Before, if your army had several units with the same name (e.g. six Custodian Guard squads, three Blade Champions), the leader-attachment dropdowns, warlord picker, transport/reserves lists and summary all just read 'Custodian Guard (5 models)' over and over, so you couldn't tell which squad you were attaching a leader to. Every unit now shows its distinguishing suffix — 'Custodian Guard Alpha', 'Custodian Guard Beta', etc. — matching the labels used everywhere else in the game.",
 			"changes": [
 				"Leader-attachment dropdowns now list bodyguard units by their full display name (e.g. 'Custodian Guard Alpha (5 models)') instead of the shared base name, so duplicate squads are distinguishable.",
 				"The character labels beside each dropdown, the Warlord picker, the transport-embarkation and strategic-reserves checkboxes, and the on-screen summary all use the same distinguishing names.",
 				"Units with a unique name are unaffected — they still show their normal name."
+			]
+		},
+		{
+			"version": "0.49.0",
+			"date": "2026-07-16",
+			"summary": "Line of sight now follows the 11th-edition terrain rules correctly: units standing ON a terrain piece can be seen and shot (their own terrain area no longer blocks the sight-line check), and when a unit truly can't be targeted the game explains WHY \u2014 including the Hidden rule (infantry lurking in dense terrain is only visible within 15\") instead of a blanket 'No line of sight'.",
+			"changes": [
+				"Fixed: units standing on a terrain area (e.g. the slanted centre strips) were wrongly untargetable \u2014 the halves of a linked terrain area and its parented wall/gantry features now count as ONE area for the Obscuring rule (13.10), so a model within it is never blocked by its own area.",
+				"Fixed: 'within a terrain area' now uses any part of the model's base (the rules' Within convention), not just the base centre \u2014 models straddling an area edge are seen (and Hidden) correctly.",
+				"Fixed: a model standing in/on a structure (catwalk, ruin footprint) is no longer blocked by the piece it occupies.",
+				"Fixed: Gone to Ground no longer subtracts 3\" of detection range for terrain the target itself is standing in.",
+				"Solid walls (13.11) still block ground-level sight lines \u2014 being on terrain exposes you, but a wall between you stays opaque.",
+				"The shooting panel now explains ineligible targets precisely: 'X is Hidden (dense terrain, hasn't shot recently) \u2014 visible only within 15\" detection range; your closest model is N\" away' or 'terrain blocks every sight line'.",
+				"The no-eligible-targets toast points at the Dice Log breakdown and mentions the Hidden rule."
+			]
+		},
+		{
+			"version": "0.48.0",
+			"date": "2026-07-16",
+			"summary": "Board zoom now follows your mouse. Zooming with + / - keeps the point under the cursor fixed instead of drifting toward the top-left corner, and you can now zoom with the mouse scroll wheel too — scroll up to zoom in, down to zoom out, both centred on the cursor. Scrolling over a side panel still scrolls that panel, and during deployment the wheel keeps rotating the model you are placing. The wheel-zoom is listed under a new Mouse section in Settings > Controls.",
+			"changes": [
+				"+ / - zoom (and controller trigger zoom) now keeps the spot under the cursor fixed instead of drifting toward the top-left corner of the screen; controller zoom anchors on the centre of the screen since a gamepad has no cursor.",
+				"Mouse scroll wheel now zooms the board: up = in, down = out, anchored on the cursor.",
+				"Scrolling while the cursor is over a UI panel (game log, unit list) scrolls that panel rather than zooming the board.",
+				"During deployment the wheel still rotates the model being placed — zoom only kicks in outside placement.",
+				"Added a Mouse section to Settings > Controls listing 'Zoom In / Out — Mouse Wheel', and noted the wheel on the in-game shortcut overlay (press ?).",
+				"Zoom amount, speed and limits are unchanged — only the point the view zooms around has changed."
+			]
+		},
+		{
+			"version": "0.47.5",
+			"date": "2026-07-16",
+			"summary": "Deep Strike reserves now follow the core rule that EVERY model in a unit must have Deep Strike. On the Declare Battle Formations screen a bodyguard with attached leaders is only offered Deep Strike when the bodyguard AND every attached leader has it. Previously the screen used OR logic — if the squad or any attached character had Deep Strike the whole unit was offered it — so attaching a Deep Strike character (such as a Blade Champion) to a unit that lacks Deep Strike wrongly let the combined unit Deep Strike. Whole-unit grants such as the Ork Tellyporta enhancement, which give Deep Strike to every model in the bearer's unit, still make the entire unit eligible.",
+			"changes": [
+				"The formations screen now only offers Deep Strike for a unit when every model in it — the bodyguard and every attached leader — has the Deep Strike ability, matching the core rule.",
+				"Attaching a Deep Strike character to a unit that does not have Deep Strike no longer lets the combined unit Deep Strike; it is offered plain Strategic Reserves instead.",
+				"Whole-unit Deep Strike grants (e.g. the Ork Tellyporta enhancement) still make the entire combined unit eligible for Deep Strike, as before.",
+				"This also removes an inconsistency: the declaration screen now agrees with how the reserve is actually resolved later in the game."
+			]
+		},
+		{
+			"version": "0.47.4",
+			"date": "2026-07-16",
+			"summary": "On-foot Adeptus Custodes units can now Deep Strike as they should. In the 11th edition data almost the entire Custodes range (Custodian Guard, Allarus Custodians, Shield-Captains, Trajann Valoris, and more) has the Deep Strike ability, but the army lists only carried it on the Blade Champion. That meant plain Custodian Guard squads were stuck with plain Strategic Reserves, and a squad only 'gained' Deep Strike when a Blade Champion was attached to it. The Deep Strike ability has been restored to the units that are supposed to have it, so every eligible squad now offers Deep Strike in the Declare Battle Formations screen. Jetbikes, vehicles, dreadnoughts and the Sisters of Silence (Prosecutors/Witchseekers) correctly still do not Deep Strike.",
+			"changes": [
+				"Custodian Guard, Allarus Custodians, Shield-Captains and Trajann Valoris now have their Deep Strike ability in the Adeptus Custodes army lists, matching the 11th edition datasheets.",
+				"In the Declare Battle Formations screen these units now offer 'Deep Strike' reserves on their own, instead of only 'Strategic Reserves'.",
+				"Fixes the inconsistency where a Custodian Guard squad showed 'Deep Strike' only while a Blade Champion was attached, and 'Strategic Reserves' otherwise — every eligible squad is treated the same now.",
+				"Mounted units (Shield-Captain on Dawneagle Jetbike, Vertus Praetors), vehicles/dreadnoughts, and the Anathema Psykana Sisters of Silence remain non–Deep Strike, as per the rules."
+			]
+		},
+		{
+			"version": "0.47.3",
+			"date": "2026-07-16",
+			"summary": "Fixed deployment breaking after loading a saved game. If you saved during (or just before) the Deployment phase and loaded that save, every attempt to deploy a unit was rejected with 'Unit is not available for deployment' — the AI opponent would dump its army into Strategic Reserves until the 50% points cap and then skip its remaining units entirely, leaving it with nothing on the board (reported with the Battlewagons Ork list vs the Competitive AI). Loading a save no longer breaks deployment for either player.",
+			"changes": [
+				"Fixed every deployment being rejected as 'Unit is not available for deployment' after loading a save made around the Deployment phase. Saved games store numbers in a format that loads back as decimals, and the deployment legality check compared those decimals too strictly, so no unit ever qualified as deployable.",
+				"Because each failed deployment fell back to Strategic Reserves, the AI would silently bank its army into reserves until the 50% reserves points limit was hit and then skip the rest of its units — the AI now deploys normally after a load.",
+				"Loaded games now restore unit status and ownership (plus turn/phase bookkeeping) as proper whole numbers, protecting other rules checks from the same decimals-after-load problem."
+			]
+		},
+		{
+			"version": "0.47.2",
+			"date": "2026-07-16",
+			"summary": "Fixed terrain wrongly slowing Infantry during charges. Units that can move through ruins (Infantry) were being charged a flat 2\" per 'difficult ground' terrain piece on top of the actual distance when charging — the panel showed things like 'Effective: 16.1\" (10.1\" - 6.0\" terrain)', tiny drags read as many extra inches, and charges that should easily succeed were rejected as out of range. The official 11th-edition terrain layouts mark all their large ruin areas as difficult ground, so this hit almost every charge fought in or through ruins. The Movement phase already let Infantry pass freely; the Charge phase now matches it.",
+			"changes": [
+				"Infantry charging through or within ruins/difficult-ground areas no longer pay any added distance — the charge tracker now shows only the real inches you dragged, and the 'terrain' penalty line no longer appears for them.",
+				"Fixes charges failing with 'Invalid position! Must be within X\"' (or failing outright at the roll) when the charger stood inside one of the big area ruins that the official 11e layouts tag as difficult ground — each overlapping piece was silently adding 2\".",
+				"Units that genuinely cannot traverse the terrain (Vehicles, Monsters over ruins) are unchanged and still pay climb and difficult-ground penalties; Fly units are unchanged too.",
+				"Charge and Movement phases now use the same rule: terrain a unit can move through never slows that unit."
+			]
+		},
+		{
+			"version": "0.47.1",
+			"date": "2026-07-16",
+			"summary": "Fixed hovering and right-clicking your own models doing nothing after you deployed them. Units you placed during deployment (and reinforcements arriving from reserves) were left on the board as internal 'placement preview' containers, invisible to the hover tooltip, the right-click Change Color / Change Label / Unit Stats menu, and some movement visual updates — while AI-deployed and save-loaded units worked fine, which is why only your own models seemed dead. Confirmed units are now converted to the same standard token form as every other model on the board.",
+			"changes": [
+				"Hovering a model you deployed yourself now shows the info tooltip again (unit summary, and the per-model profile block where applicable).",
+				"Right-clicking your own models now opens the context menu again, so you can change unit colors and labels after deploying.",
+				"Also applies to units arriving from Strategic Reserves / deep strike mid-game — their tokens now behave identically to every other token.",
+				"Loading a save was never affected; this only concerned units placed by hand in the current session."
+			]
+		},
+		{
+			"version": "0.47.0",
+			"date": "2026-07-16",
+			"summary": "The defender is now in control when their models are attacked. When your units are targeted you get the reactive stratagem window (no more 5-second auto-decline, and it now works online and against the AI), YOU click to roll your own saves, you can spend 1 CP on a Command Re-roll of one failed save die, and when models die YOU click which bases are removed from the board. This applies in the shooting and fight phases, in local play, online multiplayer, and when the AI is attacking you.",
+			"changes": [
+				"Saves are always rolled by the owner of the target unit: the allocation window now waits for your 'Roll Saves' click instead of instantly auto-resolving single-group squads, and melee saves are interactive by default too (the old auto behaviour is now an opt-in setting).",
+				"You choose your casualties: after saves are rolled you click exactly which bases are removed (wounded models are locked in per the rules, and an 'Auto-pick For Me' button keeps fast play available). Which base you keep matters for objective control.",
+				"Command Re-roll on saves: if you have 1 CP you can re-roll one failed save die before damage is applied — in both shooting and melee.",
+				"Reactive stratagems fixed online: the attacker's machine no longer silently declines on your behalf — the decision window appears on the defender's screen and the attacker waits. The 5-second auto-decline countdown is gone; the window stays open until you choose.",
+				"The AI now pauses its attacks for you: when the AI targets your units you get the reactive stratagem window, then roll your own saves and pick your own casualties, exactly as against a human attacker.",
+				"The 'Computer allocates wounds (auto-remove models)' setting now defaults OFF (existing installs are migrated once); turn it back on in Settings if you prefer the old hands-off behaviour in local games."
 			]
 		},
 		{

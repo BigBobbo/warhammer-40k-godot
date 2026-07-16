@@ -181,6 +181,24 @@
       "status": "covered"
     },
     {
+      "id": "charge.terrain.difficult_ground_infantry_exempt",
+      "description": "CHARGE phase: TerrainManager.calculate_charge_terrain_penalty applies NO difficult_ground penalty to units that can move through the piece (e.g. INFANTRY through ruins), matching calculate_movement_terrain_penalty. Non-traversing units (VEHICLE/MONSTER) still pay the flat 2\" per piece; callers omitting unit_keywords keep the legacy everyone-pays behaviour. Validated by 'charge_infantry_difficult_ground'.",
+      "scenarios": [
+        "charge_infantry_difficult_ground"
+      ],
+      "last_verified_commit": "ea07ea2",
+      "status": "covered"
+    },
+    {
+      "id": "charge.bug.difficult_ground_slows_infantry",
+      "description": "Regression guard (user report 2026-07-16): INFANTRY charging while inside/through the difficult_ground area ruins of the converted 11e layouts was charged a flat 2\" per overlapping piece on top of the drag distance ('Effective: 16.1\" (10.1\" - 6.0\" terrain)'), inflating Used/Left and rejecting valid drops. The windowed scenario drives the real drag_board + Confirm Charge Moves path and fails on pre-fix code. Validated by 'charge_infantry_difficult_ground'.",
+      "scenarios": [
+        "charge_infantry_difficult_ground"
+      ],
+      "last_verified_commit": "ea07ea2",
+      "status": "covered"
+    },
+    {
       "id": "charge.terrain.cannot_end_on_wall",
       "description": "Regression guard: ChargePhase._validate_charge_movement_constraints rejects any charge whose final per-model position overlaps a terrain wall (FAIL_WALL via _validate_no_wall_overlaps). Charging models may pass through walls during the move but may not end on one. Closes the server-side client/server divergence (drag UI gated it, but server-authoritative APPLY_CHARGE_MOVE / heroic-intervention did not). Validated by 'charge_cannot_end_on_wall.",
       "scenarios": [
@@ -2726,7 +2744,7 @@
     },
     {
       "id": "ui.GameLogPanel.long_entry_truncation",
-      "description": "A long simple GameLogPanel entry (>200 chars, e.g. a verbose AI move rationale like 'Prosecutors moves toward obj_center …') renders as a truncated preview carrying a VISIBLE 'show more' toggle instead of silently trailing off. Validated by 'game_log_long_entry_expandable' (collapsed: last_card_is_expandable == true, last_card_is_expanded == false, small visible char count + screenshot).",
+      "description": "A long simple GameLogPanel entry (>200 chars, e.g. a verbose AI move rationale like 'Prosecutors moves toward obj_center \u2026') renders as a truncated preview carrying a VISIBLE 'show more' toggle instead of silently trailing off. Validated by 'game_log_long_entry_expandable' (collapsed: last_card_is_expandable == true, last_card_is_expanded == false, small visible char count + screenshot).",
       "scenarios": [
         "game_log_long_entry_expandable"
       ],
@@ -2738,6 +2756,69 @@
       "description": "Expanding a truncated GameLogPanel entry via its 'show more' toggle swaps in the full text (button flips to 'show less') and is reversible. Validated by 'game_log_long_entry_expandable' (expand_last_card -> last_card_is_expanded == true, visible char count jumps from ~201 to the full ~302 + screenshot).",
       "scenarios": [
         "game_log_long_entry_expandable"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads/TerrainManager.gd:_line_blocked_11e",
+      "description": "11e per-line 13.10/13.11 block test: 'area'-class pieces obscure (light/dense) unless their area GROUP is in the exclusion set; 'feature'-class dense pieces are Solid at ground level; legacy bare pieces are both. Regression net for the Custodian-vs-Gretchin 'unit on a terrain strip claimed no LoS' report.",
+      "scenarios": [
+        "los_terrain_area_11e_near"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads/TerrainManager.gd:visibility_exclusions_for",
+      "description": "Per observer/target pair, the terrain-area groups either model is within (ANY part of base, 01.04) \u2014 the 13.10 'excluding areas one or both models are within' set \u2014 plus the feature ids a model OCCUPIES (base centre inside) so a structure never Solid-blocks its own occupant's sight lines.",
+      "scenarios": [
+        "los_terrain_area_11e_near"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads/EnhancedLineOfSight.gd:_check_single_line_of_sight_11e",
+      "description": "EnhancedLineOfSight's edition-11 per-line judgement: 13.10 obscuring areas with the within-group exclusion + 13.11 dense feature Solid at ground level + explicit wall segments, replacing the 10e ruins/height rules while keeping base-to-base sampling (06.01).",
+      "scenarios": [
+        "los_terrain_area_11e_near"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "RulesEngine.get_eligible_targets",
+      "description": "Shooting eligibility: a unit with models standing ON a terrain area is targetable from outside it when within the shooter's detection range (13.09/13.10 gates applied via the enhanced LoS path). Driven end-to-end through the shooting UI.",
+      "scenarios": [
+        "los_terrain_area_11e_near"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads/TerrainManager.gd:is_model_hidden",
+      "description": "13.09 HIDDEN qualification: INFANTRY/BEASTS/SWARM within a terrain-area GROUP that contains a dense feature (any part of base), unit hasn't shot this or last turn. Group-aware so a model on one linked boundary half counts the whole area's dense pieces.",
+      "scenarios": [
+        "los_terrain_area_11e_far"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads/TerrainManager.gd:hidden_model_visible_to",
+      "description": "13.09 visibility gate: a hidden model is only visible to observers within its detection range (15\" default, Gone-to-Ground/datasheet modified). Gone-to-Ground no longer penalises for dense pieces of the target's own area.",
+      "scenarios": [
+        "los_terrain_area_11e_far"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "RulesEngine.get_target_ineligibility_reason",
+      "description": "Player-facing shooting-refusal reason honours the 11e gates: names the Hidden rule with detection range + closest-model distance, or 'terrain blocks every sight line', instead of a bare 'No line of sight'.",
+      "scenarios": [
+        "los_terrain_area_11e_far"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

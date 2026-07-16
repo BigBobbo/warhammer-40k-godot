@@ -1,0 +1,90 @@
+{
+	"created_at": 1784211914.79026,
+	"game_state": {
+		"active_player": 1,
+		"game_id": "aa1d5cd4-6b55-5383-8c2b-48b0dac30bf39183",
+		"is_multiplayer": false,
+		"phase": 1,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": 3,
+		"player2_type": "AI",
+		"turn": 1
+	},
+	"preview": {
+		"battle_round": 1,
+		"players": {
+			"1": {
+				"alive_models": 42,
+				"alive_units": 11,
+				"cp": 0,
+				"detachment": "Lions of the Emperor",
+				"faction": "Adeptus Custodes",
+				"points": 2000.0,
+				"primary_vp": 0,
+				"secondary_vp": 0,
+				"total_models": 42,
+				"total_units": 11,
+				"unit_names": [
+					"Blade Champion",
+					"Custodian Guard",
+					"Blade Champion",
+					"Custodian Guard",
+					"Blade Champion",
+					"Custodian Guard",
+					"Custodian Guard",
+					"Custodian Guard",
+					"Custodian Guard",
+					"Allarus Custodians",
+					"Prosecutors"
+				],
+				"vp": 0
+			},
+			"2": {
+				"alive_models": 111,
+				"alive_units": 24,
+				"cp": 0,
+				"detachment": "Rollin' Deff",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0,
+				"secondary_vp": 0,
+				"total_models": 111,
+				"total_units": 24,
+				"unit_names": [
+					"Big Mek",
+					"Big Mek",
+					"Big Mek",
+					"Mek",
+					"Mek",
+					"Mek",
+					"Battlewagon",
+					"Battlewagon",
+					"Battlewagon",
+					"Burna Boyz",
+					"Burna Boyz",
+					"Deffkoptas",
+					"Deffkoptas",
+					"Gretchin",
+					"Gretchin",
+					"Gretchin",
+					"Lootas",
+					"Lootas",
+					"Lootas",
+					"Stormboyz",
+					"Tankbustas",
+					"Tankbustas",
+					"Warbikers",
+					"Warbikers"
+				],
+				"vp": 0
+			}
+		}
+	},
+	"save_info": {
+		"description": "",
+		"save_type": "manual",
+		"tags": []
+	},
+	"version": "1.3.0"
+}

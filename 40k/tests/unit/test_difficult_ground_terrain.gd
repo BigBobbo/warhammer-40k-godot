@@ -317,6 +317,56 @@ func test_infantry_leaving_ruin_no_sticky_penalty():
 	assert_eq(penalty, 0.0, "INFANTRY leaving a ruin must not retain a difficult ground penalty")
 
 # ==========================================
+# Charge parity: units that move through the piece pay no difficult ground
+# (user report: INFANTRY charging through/within difficult_ground area ruins
+# was slowed by a flat 2" per piece even though the movement phase exempted it)
+# ==========================================
+
+func test_infantry_charge_through_ruin_no_difficult_ground_penalty():
+	# A charge move is a move — INFANTRY traverse ruins freely, paying neither
+	# the climb penalty (tall piece) nor the difficult_ground flat penalty.
+	_add_difficult_ground_ruin("ruin_1", Vector2(200, 0), Vector2(80, 80))
+
+	var from_pos = Vector2(0, 0)
+	var to_pos = Vector2(400, 0)
+
+	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false, ["INFANTRY"])
+	assert_eq(penalty, 0.0, "INFANTRY charging through a ruin should pay NO difficult ground penalty")
+
+func test_infantry_charge_within_ruin_no_difficult_ground_penalty():
+	# The user-reported case: the charger STARTS inside a difficult_ground area
+	# ruin (11e layouts tag their big area pieces this way) and drags a short
+	# hop — the preview/validation must not add a flat penalty per piece.
+	_add_difficult_ground_ruin("ruin_1", Vector2(0, 0), Vector2(160, 160))
+
+	var inside_pos = Vector2(0, 0)
+	var short_hop = Vector2(60, 0)  # 1.5" at 40px/inch, wholly inside
+
+	var penalty = terrain_manager.calculate_charge_terrain_penalty(inside_pos, short_hop, false, ["INFANTRY"])
+	assert_eq(penalty, 0.0, "INFANTRY hopping within a difficult_ground ruin must pay 0\" on a charge")
+
+func test_vehicle_charge_through_ruin_still_pays_difficult_ground():
+	# A unit that CANNOT move through the piece (e.g. VEHICLE) is still slowed
+	# on the charge. Low height so only the difficult_ground component applies.
+	_add_difficult_ground_ruin("ruin_1", Vector2(200, 0), Vector2(80, 80), "low")
+
+	var from_pos = Vector2(0, 0)
+	var to_pos = Vector2(400, 0)
+
+	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false, ["VEHICLE"])
+	assert_eq(penalty, 2.0, "VEHICLE that cannot move through the ruin still pays 2\" on a charge")
+
+func test_charge_no_keywords_preserves_legacy_penalty():
+	# Backward compatibility: charge callers omitting keywords keep "everyone pays".
+	_add_difficult_ground_ruin("ruin_1", Vector2(200, 0), Vector2(80, 80), "low")
+
+	var from_pos = Vector2(0, 0)
+	var to_pos = Vector2(400, 0)
+
+	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false)
+	assert_eq(penalty, 2.0, "No keywords → legacy charge behaviour (2\" penalty) preserved")
+
+# ==========================================
 # DIFFICULT_GROUND_PENALTY_INCHES constant
 # ==========================================
 

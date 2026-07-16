@@ -483,11 +483,15 @@ func is_terrain_obscuring(terrain_piece: Dictionary) -> bool:
 ## Terrain taller than 2" requires counting vertical distance (climb up + down).
 ## T3-16: Applies difficult_ground trait penalty (flat 2" per piece crossed).
 ## FLY units measure diagonally instead of climbing; FLY units ignore difficult ground.
+## Units that can move through the piece (e.g. INFANTRY through ruins, 11e 13.06
+## dense-terrain traversal) pay neither the climb nor the difficult_ground
+## penalty — a charge move is a move, so this mirrors
+## calculate_movement_terrain_penalty. Callers that omit unit_keywords keep the
+## legacy "everyone pays" behaviour.
 ##
 ## Returns the extra distance in inches that must be added to the path distance.
 func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool, unit_keywords: Array = []) -> float:
 	var total_penalty: float = 0.0
-	var is_infantry = "INFANTRY" in unit_keywords
 
 	for terrain in terrain_features:
 		var polygon = terrain.get("polygon", PackedVector2Array())
@@ -498,10 +502,7 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 		if not crosses_edge and not starts_inside and not ends_inside:
 			continue
 
-		var can_move_through = terrain.get("can_move_through", {})
-		var unit_can_traverse = false
-		if is_infantry and can_move_through.get("INFANTRY", false):
-			unit_can_traverse = true
+		var unit_can_traverse = can_unit_move_through_terrain(unit_keywords, terrain)
 
 		# A segment wholly inside one footprint crosses no wall — ground-floor
 		# movement within the same ruin pays no climb (matches movement phase).
@@ -510,7 +511,7 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 		# Units that can move through terrain at ground level (e.g. Infantry through ruins)
 		# don't pay height climbing penalties — same as movement phase rules.
 		if unit_can_traverse:
-			print("[TerrainManager] Charge: %s traversable by INFANTRY — no height penalty (ground floor)" % terrain.get("id", "unknown"))
+			print("[TerrainManager] Charge: %s traversable by unit — no height penalty (ground floor)" % terrain.get("id", "unknown"))
 		elif wholly_inside:
 			print("[TerrainManager] Charge segment wholly inside %s: no height penalty (ground floor)" % terrain.get("id", "unknown"))
 		else:
@@ -541,12 +542,17 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 			else:
 				print("[TerrainManager] Charge path interacts with %s: no height penalty (height <= 2\")" % terrain.get("id", "unknown"))
 
-		# T3-16: Difficult ground trait penalty — flat 2" per terrain piece crossed
-		# FLY units ignore difficult ground
+		# T3-16: Difficult ground trait penalty — flat 2" per terrain piece crossed.
+		# FLY units ignore difficult ground. Units that can move through the piece
+		# (e.g. INFANTRY through ruins) traverse freely and pay nothing — same
+		# exemption as calculate_movement_terrain_penalty; a charge move is a move.
 		if not has_fly and has_terrain_trait(terrain, "difficult_ground"):
-			total_penalty += DIFFICULT_GROUND_PENALTY_INCHES
-			print("[TerrainManager] Difficult ground penalty for %s: +%.1f\"" % [
-				terrain.get("id", "unknown"), DIFFICULT_GROUND_PENALTY_INCHES])
+			if unit_can_traverse:
+				print("[TerrainManager] Charge: %s traversable by unit — no difficult ground penalty" % terrain.get("id", "unknown"))
+			else:
+				total_penalty += DIFFICULT_GROUND_PENALTY_INCHES
+				print("[TerrainManager] Difficult ground penalty for %s: +%.1f\"" % [
+					terrain.get("id", "unknown"), DIFFICULT_GROUND_PENALTY_INCHES])
 
 	return total_penalty
 
@@ -801,25 +807,130 @@ func features_crossing(from_pos: Vector2, to_pos: Vector2) -> Array:
 			crossed.append(piece)
 	return crossed
 
-## True if every line between the two points crosses at least one
-## obscuring (light or dense) feature that NEITHER point is within —
-## the center-line approximation of 13.10 used until ISS-052's full
-## visibility module lands.
-func is_obscured_between(p1: Vector2, p2: Vector2) -> bool:
-	var inside_ids := {}
-	var a1 = area_at(p1)
-	var a2 = area_at(p2)
-	if not a1.is_empty():
-		inside_ids[a1.get("id")] = true
-	if not a2.is_empty():
-		inside_ids[a2.get("id")] = true
-	for piece in features_crossing(p1, p2):
-		if inside_ids.has(piece.get("id")):
-			continue
-		var cat = category_of(piece)
-		if cat == CATEGORY_LIGHT or cat == CATEGORY_DENSE:
+## ════════════════════════════════════════════════════════════════════
+## Terrain-AREA grouping (13.01). A GW terrain area may be authored as
+## several runtime pieces: an "area" boundary piece plus "feature" pieces
+## (walls, gantries…) linked via parent_area_id, and paired boundary
+## halves linked via link_group (e.g. the slanted centre strips are two
+## trapezoid pieces sharing link_group "Center"). For the OBSCURING rule
+## (13.10) and HIDDEN (13.09) those pieces are ONE terrain area — a model
+## standing on one half must not be blocked/hidden-checked against the
+## other half as if it were a different area.
+## Group key resolution: link_group wins, else follow parent_area_id to
+## the parent's group, else the piece is its own area (a feature placed
+## directly on the battlefield defines its own area per 13.01).
+static func build_area_group_map(features: Array) -> Dictionary:
+	var by_id := {}
+	for p in features:
+		by_id[str(p.get("id", ""))] = p
+	var map := {}
+	for p in features:
+		map[str(p.get("id", ""))] = _resolve_group_key(p, by_id, 0)
+	return map
+
+static func _resolve_group_key(piece: Dictionary, by_id: Dictionary, depth: int) -> String:
+	var lg = str(piece.get("link_group", ""))
+	if lg != "":
+		return "lg:" + lg
+	var parent_id = str(piece.get("parent_area_id", ""))
+	if parent_id != "" and depth < 4 and by_id.has(parent_id):
+		return _resolve_group_key(by_id[parent_id], by_id, depth + 1)
+	if parent_id != "":
+		return "id:" + parent_id
+	return "id:" + str(piece.get("id", ""))
+
+## "Within" a terrain area uses the 01.04 closest-part convention: ANY
+## part of the model's base inside the polygon counts (contrast "wholly
+## within"). Base approximated by its base_mm circle, matching the
+## _sight_points approximation used for all base shapes.
+static func _to_packed_polygon(poly) -> PackedVector2Array:
+	if poly is PackedVector2Array:
+		return poly
+	var packed := PackedVector2Array()
+	if poly is Array:
+		for vertex in poly:
+			if vertex is Dictionary:
+				packed.append(Vector2(vertex.get("x", 0), vertex.get("y", 0)))
+			elif vertex is Vector2:
+				packed.append(vertex)
+	return packed
+
+static func _circle_overlaps_polygon(center: Vector2, radius: float, poly: PackedVector2Array) -> bool:
+	if poly.size() < 3:
+		return false
+	if Geometry2D.is_point_in_polygon(center, poly):
+		return true
+	for i in range(poly.size()):
+		var a = poly[i]
+		var b = poly[(i + 1) % poly.size()]
+		if a.distance_to(center) <= radius:
+			return true
+		if Geometry2D.segment_intersects_circle(a, b, center, radius) >= 0.0:
 			return true
 	return false
+
+## All terrain pieces the model's base overlaps (is "within", any part).
+static func pieces_model_within_of(model: Dictionary, features: Array) -> Array:
+	var pos = model.get("position", null)
+	if pos == null:
+		return []
+	var c := Vector2(float(pos.x) if pos is Dictionary else pos.x, float(pos.y) if pos is Dictionary else pos.y)
+	var radius_px = Measurement.base_radius_px(int(model.get("base_mm", 32)))
+	var out: Array = []
+	for piece in features:
+		var poly = _to_packed_polygon(piece.get("polygon", PackedVector2Array()))
+		if _circle_overlaps_polygon(c, radius_px, poly):
+			out.append(piece)
+	return out
+
+func pieces_model_within(model: Dictionary) -> Array:
+	return pieces_model_within_of(model, terrain_features)
+
+## Exclusion sets for one observer/target pair:
+##   groups — area-group keys either model is within (ANY part of base —
+##     the 01.04 convention behind 13.10's "excluding obscuring terrain
+##     areas that one or both of those models are within");
+##   feature_ids — pieces a model OCCUPIES (base CENTER inside), so the
+##     structure a model stands in/on never Solid-blocks its own sight
+##     lines. Mere base-edge overlap does not exempt a solid wall —
+##     leaning against a wall is not standing in a doorway.
+static func visibility_exclusions_for(model_a: Dictionary, model_b: Dictionary, features: Array, group_map: Dictionary) -> Dictionary:
+	var groups := {}
+	var feature_ids := {}
+	for m in [model_a, model_b]:
+		var pos = m.get("position", null)
+		if pos == null:
+			continue
+		var c := Vector2(float(pos.x) if pos is Dictionary else pos.x, float(pos.y) if pos is Dictionary else pos.y)
+		var radius_px = Measurement.base_radius_px(int(m.get("base_mm", 32)))
+		for piece in features:
+			var poly = _to_packed_polygon(piece.get("polygon", PackedVector2Array()))
+			if poly.size() < 3:
+				continue
+			var center_in = Geometry2D.is_point_in_polygon(c, poly)
+			if center_in or _circle_overlaps_polygon(c, radius_px, poly):
+				var pid = str(piece.get("id", ""))
+				groups[group_map.get(pid, "id:" + pid)] = true
+				if center_in:
+					feature_ids[pid] = true
+	return {"groups": groups, "feature_ids": feature_ids}
+
+## True if every line between the two points crosses at least one
+## obscuring (light or dense) terrain AREA that neither point is within —
+## the center-line approximation of 13.10 (point-based; model-based
+## callers use model_visible_11e which adds base overlap + Solid).
+func is_obscured_between(p1: Vector2, p2: Vector2) -> bool:
+	var group_map = build_area_group_map(terrain_features)
+	var exclude_groups := {}
+	var exclude_feats := {}
+	for pt in [p1, p2]:
+		for piece in terrain_features:
+			var poly = _to_packed_polygon(piece.get("polygon", PackedVector2Array()))
+			if poly.size() >= 3 and Geometry2D.is_point_in_polygon(pt, poly):
+				var pid = str(piece.get("id", ""))
+				exclude_feats[pid] = true
+				exclude_groups[group_map.get(pid, "id:" + pid)] = true
+	return _line_blocked_11e(p1, p2, exclude_groups, exclude_feats, true, group_map)
 
 
 ## ISS-052 (step 1) — 13.09 HIDDEN. A model is hidden while:
@@ -856,14 +967,21 @@ func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 		var last_shot_idx := int(unit.get("flags", {}).get("last_shot_idx", -100))
 		if cur_idx - last_shot_idx < 2:
 			return false
-	var pos = model.get("position", null)
-	if pos == null:
+	# 13.09: "within a terrain area that contains one or more dense terrain
+	# features". Within = any part of the base (01.04); the area is the whole
+	# piece GROUP (boundary halves + parented features), and it qualifies if
+	# ANY piece of that group is dense-category.
+	var within = pieces_model_within(model)
+	if within.is_empty():
 		return false
-	var p := Vector2(float(pos.x) if pos is Dictionary else pos.x, float(pos.y) if pos is Dictionary else pos.y)
-	var area = area_at(p)
-	if area.is_empty():
-		return false
-	return category_of(area) == CATEGORY_DENSE
+	var group_map = build_area_group_map(terrain_features)
+	var groups := {}
+	for piece in within:
+		groups[group_map.get(str(piece.get("id", "")), "")] = true
+	for piece in terrain_features:
+		if groups.has(group_map.get(str(piece.get("id", "")), "?")) and category_of(piece) == CATEGORY_DENSE:
+			return true
+	return false
 
 ## Visibility gate for hidden models: visible only when the observer is
 ## within the detection range (13.09), as refined per observer by
@@ -910,25 +1028,19 @@ func detection_range_base_inches(unit: Dictionary) -> float:
 
 ## Gone to Ground predicate: at least one observer→target sight line
 ## (center + 8 base-perimeter points, 13.10/13.11 semantics with both
-## models' own areas excluded) is blocked by a DENSE-category piece.
+## models' own areas/pieces excluded) is blocked by a DENSE-category piece.
 func _obscured_by_dense_11e(observer: Dictionary, target: Dictionary) -> bool:
 	var o = _model_vec(observer)
 	var t = _model_vec(target)
 	if o == Vector2.INF or t == Vector2.INF:
 		return false
-	var exclude := {}
-	var ao = area_at(o)
-	var at_ = area_at(t)
-	if not ao.is_empty():
-		exclude[ao.get("id")] = true
-	if not at_.is_empty():
-		exclude[at_.get("id")] = true
+	var group_map = build_area_group_map(terrain_features)
+	var ex = visibility_exclusions_for(observer, target, terrain_features, group_map)
+	var ground = float(observer.get("elevation_inches", 0.0)) < 3.0 \
+			and float(target.get("elevation_inches", 0.0)) < 3.0
 	for p in _sight_points(target):
-		for piece in features_crossing(o, p):
-			if exclude.has(piece.get("id")):
-				continue
-			if category_of(piece) == CATEGORY_DENSE:
-				return true
+		if _line_blocked_11e(o, p, ex.groups, ex.feature_ids, ground, group_map, true):
+			return true
 	return false
 
 
@@ -960,15 +1072,33 @@ func _sight_points(model: Dictionary) -> Array:
 		out.append(c + Vector2(cos(ang), sin(ang)) * radius_px)
 	return out
 
-func _line_blocked_11e(a: Vector2, b: Vector2, exclude_ids: Dictionary, ground_level: bool) -> bool:
+## Per-line 13.10/13.11 block test.
+##   ▪ "area"-class pieces are authored terrain-area boundaries: light/dense
+##     areas obscure (13.10) unless their GROUP is excluded because one of
+##     the two models is within that area (any part of base). Boundaries are
+##     not physical structures, so they never Solid-block.
+##   ▪ "feature"-class pieces are the physical structures (walls, gantries,
+##     sealed containers): DENSE features have the Solid rule (13.11) — at
+##     ground level a sight line crossing them is blocked no matter whose
+##     area they belong to, except the piece(s) a model itself occupies
+##     (center inside — you can see out of the structure you stand in/on).
+##   ▪ Legacy pieces with no piece_class are BOTH: their footprint is its own
+##     terrain area (13.01) and, when dense, a Solid structure (13.11).
+##   ▪ dense_only restricts all branches to DENSE pieces (Gone to Ground).
+func _line_blocked_11e(a: Vector2, b: Vector2, exclude_groups: Dictionary, exclude_feature_ids: Dictionary, ground_level: bool, group_map: Dictionary, dense_only: bool = false) -> bool:
 	for piece in features_crossing(a, b):
 		var cat = category_of(piece)
-		if exclude_ids.has(piece.get("id")):
-			continue
-		if cat == CATEGORY_LIGHT or cat == CATEGORY_DENSE:
-			return true  # obscuring area crossed (13.10)
-		if ground_level and cat == CATEGORY_DENSE:
-			return true  # Solid at ground level (13.11)
+		var pid = str(piece.get("id", ""))
+		var pclass = str(piece.get("piece_class", ""))
+		# 13.10 Obscuring — terrain areas (authored boundaries + legacy pieces).
+		if pclass != "feature":
+			var obscures = (cat == CATEGORY_DENSE) if dense_only else (cat == CATEGORY_LIGHT or cat == CATEGORY_DENSE)
+			if obscures and not exclude_groups.has(group_map.get(pid, "id:" + pid)):
+				return true
+		# 13.11 Solid — dense physical structures (features + legacy pieces).
+		if pclass != "area":
+			if cat == CATEGORY_DENSE and ground_level and not exclude_feature_ids.has(pid):
+				return true
 	return false
 
 func _visibility_lines_11e(observer: Dictionary, target: Dictionary) -> Dictionary:
@@ -976,19 +1106,14 @@ func _visibility_lines_11e(observer: Dictionary, target: Dictionary) -> Dictiona
 	var t = _model_vec(target)
 	if o == Vector2.INF or t == Vector2.INF:
 		return {"clear": 0, "total": 0}
-	var exclude := {}
-	var ao = area_at(o)
-	var at_ = area_at(t)
-	if not ao.is_empty():
-		exclude[ao.get("id")] = true
-	if not at_.is_empty():
-		exclude[at_.get("id")] = true
+	var group_map = build_area_group_map(terrain_features)
+	var ex = visibility_exclusions_for(observer, target, terrain_features, group_map)
 	var ground = float(observer.get("elevation_inches", 0.0)) < 3.0 \
 			and float(target.get("elevation_inches", 0.0)) < 3.0
 	var clear := 0
 	var pts = _sight_points(target)
 	for p in pts:
-		if not _line_blocked_11e(o, p, exclude, ground):
+		if not _line_blocked_11e(o, p, ex.groups, ex.feature_ids, ground, group_map):
 			clear += 1
 	return {"clear": clear, "total": pts.size()}
 

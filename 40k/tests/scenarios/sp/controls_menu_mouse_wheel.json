@@ -1,0 +1,23 @@
+{
+  "id": "controls_menu_mouse_wheel",
+  "covers": ["camera.zoom.mouse_wheel", "ui.settings.controls_tab"],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "The Settings > Controls tab documents mouse-wheel zoom. Open settings, switch to the Controls tab, scroll to the bottom Mouse section, and screenshot the 'Zoom In / Out — Mouse Wheel' row so the menu affordance is proven to render.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "main._open_settings_menu()" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "execute_script", "script": "is_instance_valid(main._settings_menu)", "equals": true },
+
+    { "act": "execute_script", "script": "main._settings_menu._on_tab_pressed(3)" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "execute_script", "script": "main._settings_menu._tab_containers[3].visible", "equals": true },
+
+    { "act": "execute_script", "script": "main._settings_menu._tab_containers[3].set_deferred(\"scroll_vertical\", 99999)" },
+    { "act": "wait_frames", "frames": 8 },
+
+    { "act": "screenshot", "label": "01_controls_tab_mouse_section" }
+  ]
+}

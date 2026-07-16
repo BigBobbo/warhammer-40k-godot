@@ -1,0 +1,38 @@
+{
+  "id": "scroll_wheel_zoom",
+  "covers": ["camera.zoom.mouse_wheel", "camera.zoom.cursor_focus"],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Mouse wheel zooms the board in/out, anchored on the cursor (same as the +/- keys). After fitting the board and hovering its centre, scrolling up must zoom in while keeping the SAME world point under the cursor (drift ~0 board px); scrolling back down the same number of notches must return to the original zoom. Exercises the real InputEventMouseButton wheel path through _unhandled_input.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "main.fit_view_to_board()" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "hover_board_at", "x": 880, "y": 1200 },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script", "script": "main.set_meta(\"cursor_screen\", main.get_viewport().get_mouse_position())" },
+    { "act": "execute_script", "script": "main.set_meta(\"world_before\", main.screen_to_world_position(main.get_meta(\"cursor_screen\")))" },
+    { "act": "execute_script", "script": "main.set_meta(\"zoom_before\", main.view_zoom)" },
+
+    { "act": "execute_script", "script": "(main.get_meta(\"world_before\") - Vector2(880, 1200)).length()", "expect_max": 5.0 },
+
+    { "act": "screenshot", "label": "01_before_wheel_cursor_at_board_center" },
+
+    { "act": "simulate_wheel", "direction": "up", "count": 6 },
+
+    { "act": "execute_script", "script": "main.view_zoom - main.get_meta(\"zoom_before\")", "expect_min": 0.02 },
+    { "act": "execute_script", "script": "(main.screen_to_world_position(main.get_meta(\"cursor_screen\")) - main.get_meta(\"world_before\")).length()", "expect_max": 1.0 },
+
+    { "act": "screenshot", "label": "02_after_wheel_up_same_point_under_cursor" },
+
+    { "act": "simulate_wheel", "direction": "down", "count": 6 },
+
+    { "act": "execute_script", "script": "abs(main.view_zoom - main.get_meta(\"zoom_before\"))", "expect_max": 0.02 },
+    { "act": "execute_script", "script": "(main.screen_to_world_position(main.get_meta(\"cursor_screen\")) - main.get_meta(\"world_before\")).length()", "expect_max": 1.0 },
+
+    { "act": "screenshot", "label": "03_after_wheel_down_back_to_start" }
+  ]
+}

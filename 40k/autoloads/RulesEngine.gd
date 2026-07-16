@@ -2930,11 +2930,25 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 	# conditional +1 Damage vs MONSTER/VEHICLE can resolve per target.
 	var bs_actor_unit: Dictionary = opts.get("actor_unit", {})
 	var damage_roll_log: Array = out.damage_roll_log
+	# Defender-side interactive options (AllocationGroupOverlay two-step flow):
+	# forced_save_rolls replays an already-rolled batch (e.g. after a save
+	# Command Re-roll substituted one die); preferred_targets is the
+	# defender's chosen casualty order within groups.
+	var forced_save_rolls: Array = opts.get("forced_save_rolls", [])
+	var preferred_targets: Array = opts.get("preferred_targets", [])
+	out["models_destroyed"] = []
 
 	print("RulesEngine: [11e ALLOCATION] %d save(s) + %d devastating crit(s) vs %d group(s), order=%s" % [wounds_to_save, dev_wound_crits, groups.size(), str(order)])
 
 	if wounds_to_save > 0:
-		var save_rolls = rng.roll_d6(wounds_to_save)
+		var save_rolls: Array
+		if forced_save_rolls.size() == wounds_to_save:
+			save_rolls = forced_save_rolls.duplicate()
+			print("RulesEngine: [11e ALLOCATION] using %d forced save roll(s): %s" % [save_rolls.size(), str(save_rolls)])
+		else:
+			if not forced_save_rolls.is_empty():
+				push_warning("RulesEngine: forced_save_rolls size %d != wounds_to_save %d — rolling fresh" % [forced_save_rolls.size(), wounds_to_save])
+			save_rolls = rng.roll_d6(wounds_to_save)
 		# Per inflicting attack: roll the D characteristic and apply the
 		# defender-side damage modifiers (melta/half/minus/FNP), mirroring
 		# the 10e loop so those abilities keep working under the 11e flow.
@@ -2973,6 +2987,7 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			"save_modifier": save_modifier,
 			"effect_invuln": effect_invuln,
 			"damage_provider": damage_provider,
+			"preferred_targets": preferred_targets,
 		})
 		var fails := 0
 		for ev in alloc.events:
@@ -2991,6 +3006,7 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 		_materialize_allocation_11e(result, target_unit, target_unit_id, alloc.remaining, alloc.models_destroyed)
 		out.casualties += alloc.models_destroyed.size()
 		out.damage_applied += alloc.damage_total
+		out.models_destroyed.append_array(alloc.models_destroyed)
 
 	# [DEVASTATING WOUNDS] (24.10): each critical wound inflicts D mortal
 	# wounds against AT MOST one model, applied after the normal damage
@@ -3026,11 +3042,12 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 				dmg = fnp_result.wounds_remaining
 			if dmg <= 0:
 				continue
-			var dw = Allocation.apply_devastating_wounds_11e(target_unit, 1, dmg)
+			var dw = Allocation.apply_devastating_wounds_11e(target_unit, 1, dmg, preferred_targets)
 			dw_events.append_array(dw.events)
 			_materialize_allocation_11e(result, target_unit, target_unit_id, dw.remaining, dw.models_destroyed)
 			out.casualties += dw.models_destroyed.size()
 			out.damage_applied += dw.applied
+			out.models_destroyed.append_array(dw.models_destroyed)
 		result.dice.append({
 			"context": "devastating_wounds_11e",
 			"crits": dev_wound_crits,
@@ -3193,9 +3210,9 @@ static func _character_group_visible_to_attackers(group: Dictionary, target_unit
 			if not t_pos:
 				continue
 			if tm != null:
+				# 13.09 hidden gate; 13.10/13.11 sight lines are judged by the
+				# base LoS check (EnhancedLineOfSight 11e branch) below.
 				if not tm.hidden_model_visible_to(t_model, target_unit, actor_model):
-					continue
-				if not tm.model_visible_11e(actor_model, t_model):
 					continue
 			if _check_line_of_sight(a_pos, t_pos, board, actor_model, t_model):
 				return true
@@ -3270,10 +3287,19 @@ static func _materialize_allocation_11e(result: Dictionary, target_unit: Diction
 # defender's chosen group order, and the live board; rolls the save batch
 # + per-crit devastating wounds on a SCRATCH copy of the target unit and
 # returns {diffs, dice, casualties, damage_applied, saves_passed,
-# saves_failed, save_rolls, order_used, groups}. The caller applies the
-# diffs (overlay → GameState; phase → snapshot) — both are idempotent
-# `set` ops.
-static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, board: Dictionary, rng: RNGService = null) -> Dictionary:
+# saves_failed, save_rolls, order_used, groups, sources,
+# models_destroyed}. `sources[i]` maps virtual model index i back to
+# {unit_id, model_index}; `models_destroyed` holds virtual indices. The
+# caller applies the diffs (overlay → GameState; phase → snapshot) — both
+# are idempotent `set` ops.
+#
+# `opts` (all optional — the overlay's interactive two-step flow):
+#   forced_save_rolls: Array — replay these save dice instead of rolling
+#                      (used to re-run the batch after a save Command
+#                      Re-roll, or with the defender's casualty picks)
+#   preferred_targets: Array — virtual model indices in the defender's
+#                      chosen casualty order (see Allocation.apply_save_rolls)
+static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, board: Dictionary, rng: RNGService = null, opts: Dictionary = {}) -> Dictionary:
 	if rng == null:
 		rng = make_rng()
 	var target_unit_id = str(save_data.get("target_unit_id", ""))
@@ -3282,7 +3308,7 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 		"is_allocation_11e": true, "target_unit_id": target_unit_id,
 		"diffs": [], "dice": [], "casualties": 0, "damage_applied": 0,
 		"saves_passed": 0, "saves_failed": 0, "save_rolls": [],
-		"order_used": [], "groups": [],
+		"order_used": [], "groups": [], "sources": [], "models_destroyed": [],
 	}
 	if live_unit.is_empty():
 		return out
@@ -3295,6 +3321,7 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 	var sources: Array = virtual.sources
 	var groups = Allocation.build_groups(scratch_unit)
 	out.groups = groups
+	out.sources = sources
 
 	var wounds_to_save = int(save_data.get("wounds_to_save", 0))
 	var dev_crits = int(save_data.get("devastating_wounds", 0)) if save_data.get("has_devastating_wounds", false) else 0
@@ -3325,6 +3352,8 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 			"melta_wounds": melta_wounds,
 			"half_damage": get_unit_half_damage(live_unit),
 			"fnp_value": fnp_value,
+			"forced_save_rolls": opts.get("forced_save_rolls", []),
+			"preferred_targets": opts.get("preferred_targets", []),
 		})
 	# Remap virtual-unit diff paths back to the source units (attached
 	# characters keep their own unit ids).
@@ -3339,6 +3368,7 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 	out.dice = result.dice
 	out.casualties = applied.casualties
 	out.damage_applied = applied.damage_applied
+	out.models_destroyed = applied.get("models_destroyed", [])
 	for d in result.dice:
 		if d.get("context", "") == "save":
 			out.save_rolls = d.get("rolls_raw", [])
@@ -5299,6 +5329,7 @@ static func _has_los_to_target_unit(actor_unit_id: String, target_unit_id: Strin
 		return false
 	var actor_models = actor_unit.get("models", [])
 	var target_models = target_unit.get("models", [])
+	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
 	for actor_model in actor_models:
 		if not actor_model.get("alive", true):
 			continue
@@ -5310,6 +5341,10 @@ static func _has_los_to_target_unit(actor_unit_id: String, target_unit_id: Strin
 				continue
 			var target_pos = _get_model_position(target_model)
 			if not target_pos:
+				continue
+			# 13.09: a hidden model is not visible beyond its detection range —
+			# "visible to any model in the firing unit" must honour that too.
+			if tm_hidden != null and not tm_hidden.hidden_model_visible_to(target_model, target_unit, actor_model):
 				continue
 			if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
 				return true
@@ -5357,15 +5392,16 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 				if is_indirect:
 					print("RulesEngine: [INDIRECT FIRE] Weapon '%s' targeting without LoS" % weapon_profile.get("name", weapon_id))
 					return {"visible": true, "reason": ""}
-				# ISS-052: 11e visibility gates — HIDDEN detection range
-				# (13.09) and the obscuring/Solid line semantics
-				# (13.10/13.11) — before the base LoS check.
+				# ISS-052: 11e HIDDEN gate (13.09) — a hidden model is only
+				# visible to observers within its detection range. The
+				# obscuring/Solid line semantics (13.10/13.11) are handled by
+				# the base LoS check below (EnhancedLineOfSight runs the 11e
+				# per-line rules with full base-to-base sampling at edition 11,
+				# including the terrain-area grouping + "within" exclusions).
 				if GameConstants.edition >= 11:
 					var tm_11e = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
 					if tm_11e != null:
 						if not tm_11e.hidden_model_visible_to(target_model, target_unit, actor_model):
-							continue
-						if not tm_11e.model_visible_11e(actor_model, target_model):
 							continue
 				# Check LoS with enhanced base-aware visibility
 				if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
@@ -5827,6 +5863,13 @@ static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_i
 	var any_weapon_passed_er_filter = false
 	var any_in_range = false
 	var any_in_los = false
+	# 11e HIDDEN (13.09): track pairs that have clear sight lines but are
+	# gated by detection range, so the player gets the real reason instead of
+	# a generic "no line of sight".
+	var any_hidden_blocked = false
+	var hidden_min_dist = INF
+	var hidden_det_range = GameConstants.hidden_detection_range_inches()
+	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
 
 	for model_id in unit_weapons:
 		var actor_model = _get_model_by_id(actor_unit, model_id)
@@ -5867,7 +5910,16 @@ static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_i
 							var a_pos = _get_model_position(actor_m)
 							var t_pos = _get_model_position(target_m)
 							if _check_line_of_sight(a_pos, t_pos, board, actor_m, target_m):
-								any_in_los = true
+								# Sight lines are clear — mirror the 13.09
+								# hidden gate applied by _check_target_visibility.
+								if tm_hidden != null and not tm_hidden.hidden_model_visible_to(target_m, target_unit, actor_m):
+									any_hidden_blocked = true
+									var d_in = Measurement.px_to_inches(distance)
+									if d_in < hidden_min_dist:
+										hidden_min_dist = d_in
+										hidden_det_range = tm_hidden.detection_range_inches_for(target_m, target_unit, actor_m)
+								else:
+									any_in_los = true
 
 	if not has_any_weapon:
 		return "%s has no usable weapons" % actor_unit.get("meta", {}).get("display_name", actor_unit_id)
@@ -5881,7 +5933,9 @@ static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_i
 	if not any_in_range:
 		return "%s is out of range" % target_name
 	if not any_in_los:
-		return "No line of sight to %s" % target_name
+		if any_hidden_blocked:
+			return "%s is Hidden (dense terrain, hasn't shot recently) — visible only within %d\" detection range; your closest model is %.1f\" away" % [target_name, int(round(hidden_det_range)), hidden_min_dist]
+		return "No line of sight to %s — terrain blocks every sight line" % target_name
 
 	return ""
 

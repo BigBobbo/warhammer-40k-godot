@@ -3077,11 +3077,16 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 		should_show_dialog = true
 
 	if not should_show_dialog:
-		# Not the local defending player - auto-decline
-		print("ShootingController: Not the defending player locally, auto-declining")
-		emit_signal("shoot_action_requested", {
-			"type": "DECLINE_REACTIVE_STRATAGEM"
-		})
+		# DEFENDER CONTROL: this machine is the ATTACKER — the decision
+		# belongs to the remote defender. Show the blocking "waiting for
+		# opponent" overlay and let NetworkManager clear it when their
+		# USE/DECLINE_REACTIVE_STRATAGEM result arrives. (This used to
+		# auto-decline on the defender's behalf, silently robbing them of
+		# the window.)
+		print("ShootingController: Not the defending player locally — waiting for remote defender's decision")
+		var waiting_main = SceneRefs.main()
+		if waiting_main and waiting_main.has_method("show_reactive_stratagem_waiting"):
+			waiting_main.show_reactive_stratagem_waiting("Reactive Stratagem")
 		return
 
 	# Show StratagemDialog (stable name so windowed scenarios can find it)
@@ -3100,10 +3105,14 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	dialog.setup(defending_player, available_stratagems, target_unit_ids)
 	dialog.popup_centered()
 
-	# MA-42: Show blocking overlay to active player
-	var main_node = SceneRefs.main()
-	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
-		main_node.show_reactive_stratagem_waiting("Reactive Stratagem")
+	# MA-42: hot-seat only — block the shared board behind the defender's
+	# dialog so the attacker can't act mid-window. In networked play the
+	# defender's own machine shows just the dialog (the ATTACKER's machine
+	# shows the waiting overlay via the branch above).
+	if not NetworkManager.is_networked():
+		var main_node = SceneRefs.main()
+		if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
+			main_node.show_reactive_stratagem_waiting("Reactive Stratagem")
 
 	print("ShootingController: StratagemDialog shown for player %d" % defending_player)
 
@@ -4691,7 +4700,7 @@ func _report_no_eligible_targets(unit_id: String, force: bool = false) -> void:
 			dice_log_display.append_text("[color=#CC8888]   • %s[/color]\n" % str(reasons[i]))
 		if reasons.size() > max_lines:
 			dice_log_display.append_text("[color=#CC8888]   • …and %d more[/color]\n" % (reasons.size() - max_lines))
-	ToastManager.show_warning("%s has no eligible targets (range / line of sight)" % unit_name)
+	ToastManager.show_warning("%s has no eligible targets (range / line of sight / Hidden) — see Dice Log" % unit_name)
 
 func _select_target_for_current_weapon(target_id: String) -> void:
 	# Get currently selected weapon from tree

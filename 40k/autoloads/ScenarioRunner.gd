@@ -307,6 +307,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_unit(step), true)
 		"click_node":
 			rec.merge(await _do_click_node(step), true)
+		"click_if_visible":
+			rec.merge(await _do_click_if_visible(step), true)
 		"click_board_at":
 			rec.merge(await _do_click_board_at(step), true)
 		"drag_board":
@@ -317,6 +319,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_hover_board_at(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
+		"simulate_wheel":
+			rec.merge(await _do_simulate_wheel(step), true)
 		"simulate_joy_button":
 			rec.merge(await _do_simulate_joy_button(step), true)
 		"simulate_joy_axis":
@@ -454,6 +458,24 @@ func _do_click_node(step: Dictionary) -> Dictionary:
 	await _send_click(screen_pos)
 	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
 
+
+# Click a node only when it exists AND is visible in the tree — a no-op pass
+# otherwise. For flow steps that appear conditionally (e.g. the defender's
+# save Command Re-roll offer only exists when a save failed and CP remains,
+# the casualty PickPanel only when there is a real choice) so dice-dependent
+# scenarios stay deterministic.
+func _do_click_if_visible(step: Dictionary) -> Dictionary:
+	var node_path: String = str(step.get("node", ""))
+	if node_path == "":
+		return {"pass": false, "error": "click_if_visible needs node"}
+	var node: Node = get_node_or_null(node_path)
+	if node == null:
+		return {"pass": true, "via": "skipped_not_present"}
+	if node is CanvasItem and not (node as CanvasItem).is_visible_in_tree():
+		return {"pass": true, "via": "skipped_not_visible"}
+	var result := await _do_click_node(step)
+	result["via"] = str(result.get("via", "clicked"))
+	return result
 
 func _do_click_board_at(step: Dictionary) -> Dictionary:
 	# Click an arbitrary BOARD/WORLD position (board px, the coordinate system
@@ -642,6 +664,34 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	Input.parse_input_event(release)
 	await get_tree().process_frame
 	return {"pass": true}
+
+
+func _do_simulate_wheel(step: Dictionary) -> Dictionary:
+	# Inject mouse-wheel scroll notches (InputEventMouseButton WHEEL_UP/DOWN) at
+	# the current cursor position through the OS-event pipeline, so board zoom and
+	# any other _unhandled_input wheel consumers react as with a real wheel.
+	# `direction`: "up" (default) or "down"; `count`: notches (default 1). Warp
+	# the cursor first with hover_board_at to control the zoom anchor.
+	var direction: String = str(step.get("direction", "up"))
+	var count: int = int(step.get("count", 1))
+	var button: int = MOUSE_BUTTON_WHEEL_UP if direction == "up" else MOUSE_BUTTON_WHEEL_DOWN
+	var pos: Vector2 = get_viewport().get_mouse_position()
+	for i in range(count):
+		var press := InputEventMouseButton.new()
+		press.button_index = button as MouseButton
+		press.pressed = true
+		press.position = pos
+		press.global_position = pos
+		Input.parse_input_event(press)
+		await get_tree().process_frame
+		var release := InputEventMouseButton.new()
+		release.button_index = button as MouseButton
+		release.pressed = false
+		release.position = pos
+		release.global_position = pos
+		Input.parse_input_event(release)
+		await get_tree().process_frame
+	return {"pass": true, "direction": direction, "count": count, "anchor": [pos.x, pos.y]}
 
 
 func _do_simulate_joy_button(step: Dictionary) -> Dictionary:

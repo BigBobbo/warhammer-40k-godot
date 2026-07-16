@@ -358,8 +358,10 @@ func _build_reserves_section() -> void:
 		if unit.has("transport_data"):
 			continue
 
-		# Determine reserve type — if a unit OR any of its attached characters has deep strike, it's DS
-		var combined_has_ds = has_deep_strike
+		# Determine reserve type — a bodyguard and every attached leader must all have Deep Strike (a whole-unit grant like Tellyporta covers the entire unit)
+		var bodyguard_native_ds = GameState.unit_has_ability(unit_id, "Deep Strike")
+		var whole_unit_grant = has_deep_strike and not bodyguard_native_ds
+		var all_models_have_ds = has_deep_strike
 		var combined_points = unit_points
 		var attached_chars_text = ""
 
@@ -374,13 +376,23 @@ func _build_reserves_section() -> void:
 			var char_name = GameState.get_unit_display_name(char_id)
 			var char_points = char_unit.get("meta", {}).get("points", 0)
 			combined_points += char_points
-			if GameState.unit_has_deep_strike(char_id):
-				combined_has_ds = true
+			var char_has_ds = GameState.unit_has_deep_strike(char_id)
+			var char_native_ds = GameState.unit_has_ability(char_id, "Deep Strike")
+			if char_has_ds and not char_native_ds:
+				# A leader carrying a whole-unit Deep Strike grant (Tellyporta)
+				# extends Deep Strike to every model in the combined unit.
+				whole_unit_grant = true
+			if not char_has_ds:
+				# This leader has no Deep Strike at all, so not every model does.
+				all_models_have_ds = false
 			if attached_chars_text == "":
 				attached_chars_text = " + %s (%d pts)" % [char_name, char_points]
 			else:
 				attached_chars_text += " + %s (%d pts)" % [char_name, char_points]
 
+		# Eligible for Deep Strike if a whole-unit grant covers everyone, or
+		# every model in the combined unit has the ability in its own right.
+		var combined_has_ds = whole_unit_grant or all_models_have_ds
 		var reserve_type_label = "Deep Strike" if combined_has_ds else "Strategic Reserves"
 
 		var checkbox = CheckBox.new()

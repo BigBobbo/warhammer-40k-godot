@@ -283,6 +283,11 @@ func _build_controls_tab(parent: VBoxContainer) -> void:
 		for action_id in actions:
 			_add_keybinding_row(parent, action_id)
 
+	# Mouse controls — informational (the wheel isn't a rebindable key, so it
+	# has no capture button; listed here so players know it exists).
+	_add_section_header(parent, "Mouse")
+	_add_mouse_info_row(parent, "Zoom In / Out", "Mouse Wheel")
+
 	# Reset All Defaults button
 	var spacer = Control.new()
 	spacer.custom_minimum_size = Vector2(0, 10)
@@ -334,6 +339,24 @@ func _add_keybinding_row(parent: VBoxContainer, action_id: String) -> void:
 	reset_btn.visible = KeybindingManager.is_modified(action_id)
 	row.add_child(reset_btn)
 	_keybinding_reset_buttons[action_id] = reset_btn
+
+func _add_mouse_info_row(parent: VBoxContainer, action_text: String, key_text: String) -> void:
+	# Read-only row mirroring the keybinding-row layout (action name on the left,
+	# the control on the right) for mouse actions that can't be rebound.
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	parent.add_child(row)
+
+	var name_label = Label.new()
+	name_label.text = action_text
+	name_label.custom_minimum_size = Vector2(180, 0)
+	name_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	row.add_child(name_label)
+
+	var key_label = Label.new()
+	key_label.text = key_text
+	key_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	row.add_child(key_label)
 
 func _on_keybinding_button_pressed(action_id: String) -> void:
 	# If already capturing for another button, cancel that first

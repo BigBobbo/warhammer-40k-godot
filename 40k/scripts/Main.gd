@@ -117,7 +117,10 @@ var _reactive_stratagem_pending: bool = false
 # input (game-freeze-heroic-intervention). This timer guarantees the overlay
 # self-dismisses shortly after every reactive window's own auto-decline elapses.
 var _reactive_stratagem_safety_timer: Timer = null
-const REACTIVE_STRATAGEM_SAFETY_SECONDS: float = 10.0
+# DEFENDER CONTROL: generous — the defender may genuinely be reading their
+# stratagems. This timer only force-hides a STUCK overlay (it never declines
+# the window); the real decision always comes from the defender's dialog.
+const REACTIVE_STRATAGEM_SAFETY_SECONDS: float = 120.0
 
 # T5-V3: Phase transition animation banner
 var phase_transition_banner: PhaseTransitionBanner = null
@@ -1197,7 +1200,7 @@ func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> vo
 		return
 	_reactive_stratagem_pending = true
 	_reactive_stratagem_overlay_label.text = "Waiting for opponent's %s decision..." % stratagem_name
-	_reactive_stratagem_overlay_timer_label.text = "Auto-declining in 5 seconds..."
+	_reactive_stratagem_overlay_timer_label.text = "Your opponent is deciding — the game continues when they respond."
 	_reactive_stratagem_overlay.visible = true
 
 	# (Re)arm the safety-net auto-dismiss so a lost hide-callback can never leave
@@ -5676,6 +5679,35 @@ func world_to_screen_position(world_pos: Vector2) -> Vector2:
 	# scenario runner's click_board_at to warp the cursor to a board position.
 	return $BoardRoot.transform * world_pos
 
+# Multiplicative zoom applied per mouse-wheel notch. Scroll up zooms in by this
+# factor, scroll down by its reciprocal (so up-then-down returns to the same
+# zoom).
+const WHEEL_ZOOM_FACTOR := 1.15
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Mouse-wheel zoom, anchored on the cursor (same math as the +/- keys via
+	# _zoom_about). Handled here in _unhandled_input rather than _input so that
+	# scrolling over a UI panel (game log, unit list, dialogs) scrolls that
+	# control instead of zooming the board — those Controls consume the wheel in
+	# _gui_input before it ever reaches _unhandled_input.
+	if not (event is InputEventMouseButton and event.pressed):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.button_index != MOUSE_BUTTON_WHEEL_UP and mb.button_index != MOUSE_BUTTON_WHEEL_DOWN:
+		return
+	# During deployment placement the wheel rotates the model being placed
+	# (DeploymentController._unhandled_input); don't also zoom the board. That
+	# controller only touches the wheel while is_placing(), so outside placement
+	# this guard is inert and the wheel zooms normally.
+	if deployment_controller and deployment_controller.has_method("is_placing") and deployment_controller.is_placing():
+		return
+	var factor: float = WHEEL_ZOOM_FACTOR if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / WHEEL_ZOOM_FACTOR
+	if _zoom_about(view_zoom * factor, get_viewport().get_mouse_position()):
+		update_view_transform()
+	# We acted on the scroll — stop it here so nothing else treats the same
+	# notch as a second gesture.
+	get_viewport().set_input_as_handled()
+
 func _process(delta: float) -> void:
 	# MA-41: Skip camera/view keyboard controls when a text input has focus
 	var _text_focused = _is_text_input_focused()
@@ -5699,15 +5731,15 @@ func _process(delta: float) -> void:
 		view_offset += pan_dir.rotated(-view_rotation) * pan_speed
 		view_changed = true
 
-	# Zoom controls
+	# Zoom controls — anchored on the mouse cursor so the world point under the
+	# cursor stays put while zooming (instead of the view drifting toward the
+	# viewport's top-left corner).
 	if not _text_focused and KeybindingManager.is_action_pressed("zoom_in"):
-		view_zoom *= 1.03
-		view_zoom = clamp(view_zoom, 0.1, 3.0)
-		view_changed = true
+		if _zoom_about(view_zoom * 1.03, get_viewport().get_mouse_position()):
+			view_changed = true
 	if not _text_focused and KeybindingManager.is_action_pressed("zoom_out"):
-		view_zoom *= 0.97
-		view_zoom = clamp(view_zoom, 0.1, 3.0)
-		view_changed = true
+		if _zoom_about(view_zoom * 0.97, get_viewport().get_mouse_position()):
+			view_changed = true
 
 	# Pad camera (M0 controller foundations): right stick pans, triggers zoom.
 	# The pad_* actions are registered at runtime by InputDeviceManager.
@@ -5719,10 +5751,11 @@ func _process(delta: float) -> void:
 		var pad_zoom = Input.get_action_strength("pad_zoom_in") - Input.get_action_strength("pad_zoom_out")
 		if pad_zoom != 0.0:
 			# Same per-frame multiplicative step as the keyboard zoom above,
-			# scaled by trigger pressure.
-			view_zoom *= 1.0 + 0.03 * pad_zoom
-			view_zoom = clamp(view_zoom, 0.1, 3.0)
-			view_changed = true
+			# scaled by trigger pressure. A controller has no cursor, so anchor
+			# the zoom on the viewport centre.
+			var _vp_center = get_viewport().get_visible_rect().size / 2.0
+			if _zoom_about(view_zoom * (1.0 + 0.03 * pad_zoom), _vp_center):
+				view_changed = true
 
 	# Focus commands
 	if not _text_focused and KeybindingManager.is_action_pressed("focus_p2_zone"):
@@ -5970,6 +6003,25 @@ func update_view_transform() -> void:
 	t = t.scaled(Vector2(view_zoom, view_zoom))
 	t.origin += -view_offset * view_zoom
 	$BoardRoot.transform = t
+
+# Change view_zoom to `new_zoom` while keeping the world point currently under
+# `screen_anchor` (a viewport-space position, e.g. the mouse cursor) pinned in
+# place. Returns true if the zoom actually changed.
+#
+# update_view_transform() maps world->screen as
+#     screen = view_zoom * rot_about_center(world) - view_offset * view_zoom
+# so view_offset is the world point that lands at screen (0,0) — which is why a
+# naive `view_zoom *= k` appears to zoom toward the viewport's top-left corner.
+# Solving for the view_offset that keeps a fixed screen_anchor point stationary,
+# the board-centre and rotation terms cancel out and reduce to:
+#     view_offset += screen_anchor * (1/z_old - 1/z_new)
+func _zoom_about(new_zoom: float, screen_anchor: Vector2) -> bool:
+	new_zoom = clamp(new_zoom, 0.1, 3.0)
+	if is_equal_approx(new_zoom, view_zoom):
+		return false
+	view_offset += screen_anchor * (1.0 / view_zoom - 1.0 / new_zoom)
+	view_zoom = new_zoom
+	return true
 
 func focus_on_player2_zone() -> void:
 	var zone2 = BoardState.get_deployment_zone_for_player(2)
@@ -6729,6 +6781,23 @@ func _setup_token_hover_tooltip() -> void:
 	_token_hover_tooltip.add_child(_token_hover_label)
 	add_child(_token_hover_tooltip)
 
+func _resolve_token_meta_node(token: Node) -> Node2D:
+	# Board tokens come in two shapes: FLAT (TokenVisual directly in
+	# token_layer, meta on itself — created by Main / _on_ai_unit_deployed /
+	# _recreate_unit_visuals) and NESTED (wrapper Node2D with the
+	# meta-carrying TokenVisual as first child — created by
+	# DeploymentController during placement; confirmed units are promoted to
+	# flat by _finalize_tokens, but previews and any legacy leftovers remain
+	# nested). Returns the node carrying unit_id meta, or null.
+	if not token is Node2D:
+		return null
+	if token.has_meta("unit_id"):
+		return token
+	for child in token.get_children():
+		if child is Node2D and child.has_meta("unit_id"):
+			return child
+	return null
+
 func _check_token_hover(mouse_pos: Vector2) -> void:
 	if not token_layer or not is_instance_valid(token_layer):
 		return
@@ -6748,20 +6817,27 @@ func _check_token_hover(mouse_pos: Vector2) -> void:
 	var best_token: Node2D = null
 	var best_dist: float = INF
 	for child in token_layer.get_children():
-		if not child.visible or not child.has_meta("unit_id"):
+		if not child.visible:
 			continue
-		if "is_preview" in child and child.is_preview:
+		# Meta may sit on the token itself (flat tokens from Main) or on the
+		# first child (nested deployment wrappers, TokenVisual inside a Node2D
+		# — see DeploymentController._create_token_visual). Resolve both so
+		# hover keeps working whichever shape is on the board.
+		var meta_node: Node2D = _resolve_token_meta_node(child)
+		if meta_node == null:
+			continue
+		if "is_preview" in meta_node and meta_node.is_preview:
 			continue
 		var dist = child.position.distance_to(board_pos)
 		# Hit radius follows the model's actual base so vehicles/monsters are
 		# hoverable across their whole base; 25px floor covers small infantry.
 		var hit_radius: float = 25.0
-		if "base_shape" in child and child.base_shape != null:
-			var bounds: Rect2 = child.base_shape.get_bounds()
+		if "base_shape" in meta_node and meta_node.base_shape != null:
+			var bounds: Rect2 = meta_node.base_shape.get_bounds()
 			hit_radius = max(hit_radius, max(bounds.size.x, bounds.size.y) / 2.0 + 4.0)
 		if dist <= hit_radius and dist < best_dist:
 			best_dist = dist
-			best_token = child
+			best_token = meta_node
 	if best_token:
 		var uid = best_token.get_meta("unit_id")
 		var mid = best_token.get_meta("model_id") if best_token.has_meta("model_id") else ""
@@ -12569,22 +12645,27 @@ func _find_unit_at_world_pos(world_pos: Vector2) -> String:
 	var closest_dist: float = INF
 
 	for token_node in token_layer.get_children():
-		if not token_node is Node2D:
+		# Meta may sit on the token itself (flat) or its first child (nested
+		# deployment wrapper) — resolve both, same as the hover tooltip.
+		var meta_node = _resolve_token_meta_node(token_node)
+		if meta_node == null:
 			continue
-		if not token_node.has_meta("unit_id"):
+		# Skip placement previews so a right-click over a not-yet-confirmed
+		# model still reaches the deployment controller (cancel/rotate).
+		if "is_preview" in meta_node and meta_node.is_preview:
 			continue
 		var token_pos = token_node.position
 		var dist = token_pos.distance_to(world_pos)
 		var hit = false
 		# Use base_shape.contains_point for accurate hit detection
-		if token_node.get("base_shape") and token_node.base_shape.has_method("contains_point"):
-			hit = token_node.base_shape.contains_point(world_pos, token_pos, token_node.rotation)
+		if meta_node.get("base_shape") and meta_node.base_shape.has_method("contains_point"):
+			hit = meta_node.base_shape.contains_point(world_pos, token_pos, meta_node.rotation)
 		else:
 			# Fallback: distance check with generous radius (50px covers most base sizes)
 			hit = dist <= 50.0
 		if hit and dist < closest_dist:
 			closest_dist = dist
-			closest_uid = token_node.get_meta("unit_id")
+			closest_uid = meta_node.get_meta("unit_id")
 
 	return closest_uid
 
