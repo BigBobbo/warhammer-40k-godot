@@ -5699,15 +5699,15 @@ func _process(delta: float) -> void:
 		view_offset += pan_dir.rotated(-view_rotation) * pan_speed
 		view_changed = true
 
-	# Zoom controls
+	# Zoom controls — anchored on the mouse cursor so the world point under the
+	# cursor stays put while zooming (instead of the view drifting toward the
+	# viewport's top-left corner).
 	if not _text_focused and KeybindingManager.is_action_pressed("zoom_in"):
-		view_zoom *= 1.03
-		view_zoom = clamp(view_zoom, 0.1, 3.0)
-		view_changed = true
+		if _zoom_about(view_zoom * 1.03, get_viewport().get_mouse_position()):
+			view_changed = true
 	if not _text_focused and KeybindingManager.is_action_pressed("zoom_out"):
-		view_zoom *= 0.97
-		view_zoom = clamp(view_zoom, 0.1, 3.0)
-		view_changed = true
+		if _zoom_about(view_zoom * 0.97, get_viewport().get_mouse_position()):
+			view_changed = true
 
 	# Pad camera (M0 controller foundations): right stick pans, triggers zoom.
 	# The pad_* actions are registered at runtime by InputDeviceManager.
@@ -5719,10 +5719,11 @@ func _process(delta: float) -> void:
 		var pad_zoom = Input.get_action_strength("pad_zoom_in") - Input.get_action_strength("pad_zoom_out")
 		if pad_zoom != 0.0:
 			# Same per-frame multiplicative step as the keyboard zoom above,
-			# scaled by trigger pressure.
-			view_zoom *= 1.0 + 0.03 * pad_zoom
-			view_zoom = clamp(view_zoom, 0.1, 3.0)
-			view_changed = true
+			# scaled by trigger pressure. A controller has no cursor, so anchor
+			# the zoom on the viewport centre.
+			var _vp_center = get_viewport().get_visible_rect().size / 2.0
+			if _zoom_about(view_zoom * (1.0 + 0.03 * pad_zoom), _vp_center):
+				view_changed = true
 
 	# Focus commands
 	if not _text_focused and KeybindingManager.is_action_pressed("focus_p2_zone"):
@@ -5970,6 +5971,25 @@ func update_view_transform() -> void:
 	t = t.scaled(Vector2(view_zoom, view_zoom))
 	t.origin += -view_offset * view_zoom
 	$BoardRoot.transform = t
+
+# Change view_zoom to `new_zoom` while keeping the world point currently under
+# `screen_anchor` (a viewport-space position, e.g. the mouse cursor) pinned in
+# place. Returns true if the zoom actually changed.
+#
+# update_view_transform() maps world->screen as
+#     screen = view_zoom * rot_about_center(world) - view_offset * view_zoom
+# so view_offset is the world point that lands at screen (0,0) — which is why a
+# naive `view_zoom *= k` appears to zoom toward the viewport's top-left corner.
+# Solving for the view_offset that keeps a fixed screen_anchor point stationary,
+# the board-centre and rotation terms cancel out and reduce to:
+#     view_offset += screen_anchor * (1/z_old - 1/z_new)
+func _zoom_about(new_zoom: float, screen_anchor: Vector2) -> bool:
+	new_zoom = clamp(new_zoom, 0.1, 3.0)
+	if is_equal_approx(new_zoom, view_zoom):
+		return false
+	view_offset += screen_anchor * (1.0 / view_zoom - 1.0 / new_zoom)
+	view_zoom = new_zoom
+	return true
 
 func focus_on_player2_zone() -> void:
 	var zone2 = BoardState.get_deployment_zone_for_player(2)
