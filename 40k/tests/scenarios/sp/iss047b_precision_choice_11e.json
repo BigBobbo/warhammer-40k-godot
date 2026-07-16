@@ -9,46 +9,141 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "Audit #13 (24.28 [PRECISION]): promotion of a CHARACTER allocation group is gated on the character being VISIBLE to an attacking model, and the ATTACKER chooses via the AllocationGroupOverlay's PrecisionPicker. Uses the fixture's own attached unit (Warboss in Mega Armour leads Boyz F). From the Custodian Guard's original position the fixture's ruins hide the Warboss: zero eligible groups. After moving the Guard to clear line of sight, the group is eligible; the overlay opens with the picker defaulting to the promotion, and confirming kills the Warboss FIRST.",
+  "description": "Audit #13 (24.28 [PRECISION]): promotion of a CHARACTER allocation group is gated on the character being VISIBLE to an attacking model, and the ATTACKER chooses via the AllocationGroupOverlay's PrecisionPicker. Uses the fixture's own attached unit (Warboss in Mega Armour leads Boyz F). From the Custodian Guard's original position the fixture's ruins hide the Warboss: zero eligible groups. After moving the Guard to clear line of sight, the group is eligible; the overlay opens with the picker defaulting to the promotion, and confirming kills the Warboss FIRST. DEFENDER CONTROL (0.47.0): the post-confirm re-roll offer / casualty PickPanel are walked with click_if_visible (dice-dependent here).",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
-    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
-    { "act": "expect_state", "path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.attached_to", "equals": "U_BOYZ_F" },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.attached_to",
+      "equals": "U_BOYZ_F"
+    },
+    {
+      "act": "execute_script",
       "script": "RulesEngine.precision_eligible_groups_11e(RulesEngine.prepare_save_resolution(10, \"U_BOYZ_F\", \"U_CUSTODIAN_GUARD_B\", {\"name\": \"Precision Test Rifle\", \"ap\": -3, \"damage\": 3, \"damage_raw\": \"3\", \"keywords\": [], \"special_rules\": \"precision\"}, GameState.state, {}, {}, {\"has_precision\": true, \"precision_wounds\": 10, \"critical_hits\": 10}), GameState.state).size()",
-      "equals": 0 },
-    { "act": "screenshot", "label": "01_character_hidden_by_ruins_no_promotion" },
-
-    { "act": "execute_script", "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")[\"models\"][0].merge({\"position\": {\"x\": 1426.0, \"y\": 1800.0}}, true)" },
-    { "act": "execute_script", "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")[\"models\"][1].merge({\"position\": {\"x\": 1426.0, \"y\": 1800.0}}, true)" },
-    { "act": "execute_script", "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")[\"models\"][2].merge({\"position\": {\"x\": 1426.0, \"y\": 1800.0}}, true)" },
-    { "act": "execute_script",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_character_hidden_by_ruins_no_promotion"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")[\"models\"][0].merge({\"position\": {\"x\": 1426.0, \"y\": 1800.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")[\"models\"][1].merge({\"position\": {\"x\": 1426.0, \"y\": 1800.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")[\"models\"][2].merge({\"position\": {\"x\": 1426.0, \"y\": 1800.0}}, true)"
+    },
+    {
+      "act": "execute_script",
       "script": "RulesEngine.precision_eligible_groups_11e(RulesEngine.prepare_save_resolution(10, \"U_BOYZ_F\", \"U_CUSTODIAN_GUARD_B\", {\"name\": \"Precision Test Rifle\", \"ap\": -3, \"damage\": 3, \"damage_raw\": \"3\", \"keywords\": [], \"special_rules\": \"precision\"}, GameState.state, {}, {}, {\"has_precision\": true, \"precision_wounds\": 10, \"critical_hits\": 10}), GameState.state).size()",
-      "equals": 1 },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"ShootingController\")._on_saves_required([RulesEngine.prepare_save_resolution(10, \"U_BOYZ_F\", \"U_CUSTODIAN_GUARD_B\", {\"name\": \"Precision Test Rifle\", \"ap\": -3, \"damage\": 3, \"damage_raw\": \"3\", \"keywords\": [], \"special_rules\": \"precision\"}, GameState.state, {}, {}, {\"has_precision\": true, \"precision_wounds\": 10, \"critical_hits\": 10})])" },
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel", "timeout_s": 2.0 },
-    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/PrecisionPicker", "timeout_s": 2.0 },
-    { "act": "execute_script",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._on_saves_required([RulesEngine.prepare_save_resolution(10, \"U_BOYZ_F\", \"U_CUSTODIAN_GUARD_B\", {\"name\": \"Precision Test Rifle\", \"ap\": -3, \"damage\": 3, \"damage_raw\": \"3\", \"keywords\": [], \"special_rules\": \"precision\"}, GameState.state, {}, {}, {\"has_precision\": true, \"precision_wounds\": 10, \"critical_hits\": 10})])"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/PrecisionPicker",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/PrecisionPicker\").selected",
-      "equals": 1 },
-    { "act": "screenshot", "label": "02_precision_picker_offered" },
-
-    { "act": "click_node", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton", "emit_pressed": true },
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel" },
-    { "act": "screenshot", "label": "03_precision_batch_resolved" },
-
-    { "act": "execute_script",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_precision_picker_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/RerollPanel/KeepRollsButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_precision_batch_resolved"
+    },
+    {
+      "act": "execute_script",
       "script": "GameState.get_unit(\"U_WARBOSS_IN_MEGA_ARMOUR_D\").models[0].alive",
-      "equals": false },
-    { "act": "click_node", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton", "emit_pressed": true },
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "execute_script", "script": "GameState.set_edition(10)", "equals": 10 },
-    { "act": "screenshot", "label": "04_warboss_sniped_first" }
+      "equals": false
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(10)",
+      "equals": 10
+    },
+    {
+      "act": "screenshot",
+      "label": "04_warboss_sniped_first"
+    }
   ]
 }
