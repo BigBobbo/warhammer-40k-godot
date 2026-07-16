@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.49.2",
+			"date": "2026-07-16",
+			"summary": "Fixed the confusing empty 'FIRING ORDER' box in the shooting roll dialog. When a unit fires a single weapon type, the step-by-step roll dialog now shows the weapon being fired under a 'WEAPON' header; with multiple weapon types, the ordering list disappears completely once the sequence starts instead of leaving an empty box behind.",
+			"changes": [
+				"Single-weapon shooting: the roll dialog now shows the firing weapon (name, model count and stats) under a 'WEAPON' header instead of an empty 'FIRING ORDER' area.",
+				"Multi-weapon shooting: once 'Start Sequence' is pressed, the whole firing-order section is hidden during resolution (previously an empty 'FIRING ORDER' header and box remained on screen).",
+				"The dice log now says 'Single weapon - rolling step by step...' when only one weapon type fires, instead of the misleading 'Multiple weapon types detected - choose firing order...'."
+			]
+		},
+		{
 			"version": "0.49.1",
 			"date": "2026-07-16",
 			"summary": "The Declare Battle Formations screen now tells identically-named units apart. Before, if your army had several units with the same name (e.g. six Custodian Guard squads, three Blade Champions), the leader-attachment dropdowns, warlord picker, transport/reserves lists and summary all just read 'Custodian Guard (5 models)' over and over, so you couldn't tell which squad you were attaching a leader to. Every unit now shows its distinguishing suffix — 'Custodian Guard Alpha', 'Custodian Guard Beta', etc. — matching the labels used everywhere else in the game.",
