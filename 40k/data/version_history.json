@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.46.2",
+			"version": "0.47.1",
 			"date": "2026-07-16",
 			"summary": "Fixed terrain wrongly slowing Infantry during charges. Units that can move through ruins (Infantry) were being charged a flat 2\" per 'difficult ground' terrain piece on top of the actual distance when charging — the panel showed things like 'Effective: 16.1\" (10.1\" - 6.0\" terrain)', tiny drags read as many extra inches, and charges that should easily succeed were rejected as out of range. The official 11th-edition terrain layouts mark all their large ruin areas as difficult ground, so this hit almost every charge fought in or through ruins. The Movement phase already let Infantry pass freely; the Charge phase now matches it.",
 			"changes": [
@@ -10,6 +10,19 @@
 				"Fixes charges failing with 'Invalid position! Must be within X\"' (or failing outright at the roll) when the charger stood inside one of the big area ruins that the official 11e layouts tag as difficult ground — each overlapping piece was silently adding 2\".",
 				"Units that genuinely cannot traverse the terrain (Vehicles, Monsters over ruins) are unchanged and still pay climb and difficult-ground penalties; Fly units are unchanged too.",
 				"Charge and Movement phases now use the same rule: terrain a unit can move through never slows that unit."
+			]
+		},
+		{
+			"version": "0.47.0",
+			"date": "2026-07-16",
+			"summary": "The defender is now in control when their models are attacked. When your units are targeted you get the reactive stratagem window (no more 5-second auto-decline, and it now works online and against the AI), YOU click to roll your own saves, you can spend 1 CP on a Command Re-roll of one failed save die, and when models die YOU click which bases are removed from the board. This applies in the shooting and fight phases, in local play, online multiplayer, and when the AI is attacking you.",
+			"changes": [
+				"Saves are always rolled by the owner of the target unit: the allocation window now waits for your 'Roll Saves' click instead of instantly auto-resolving single-group squads, and melee saves are interactive by default too (the old auto behaviour is now an opt-in setting).",
+				"You choose your casualties: after saves are rolled you click exactly which bases are removed (wounded models are locked in per the rules, and an 'Auto-pick For Me' button keeps fast play available). Which base you keep matters for objective control.",
+				"Command Re-roll on saves: if you have 1 CP you can re-roll one failed save die before damage is applied — in both shooting and melee.",
+				"Reactive stratagems fixed online: the attacker's machine no longer silently declines on your behalf — the decision window appears on the defender's screen and the attacker waits. The 5-second auto-decline countdown is gone; the window stays open until you choose.",
+				"The AI now pauses its attacks for you: when the AI targets your units you get the reactive stratagem window, then roll your own saves and pick your own casualties, exactly as against a human attacker.",
+				"The 'Computer allocates wounds (auto-remove models)' setting now defaults OFF (existing installs are migrated once); turn it back on in Settings if you prefer the old hands-off behaviour in local games."
 			]
 		},
 		{

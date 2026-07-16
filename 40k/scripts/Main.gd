@@ -117,7 +117,10 @@ var _reactive_stratagem_pending: bool = false
 # input (game-freeze-heroic-intervention). This timer guarantees the overlay
 # self-dismisses shortly after every reactive window's own auto-decline elapses.
 var _reactive_stratagem_safety_timer: Timer = null
-const REACTIVE_STRATAGEM_SAFETY_SECONDS: float = 10.0
+# DEFENDER CONTROL: generous — the defender may genuinely be reading their
+# stratagems. This timer only force-hides a STUCK overlay (it never declines
+# the window); the real decision always comes from the defender's dialog.
+const REACTIVE_STRATAGEM_SAFETY_SECONDS: float = 120.0
 
 # T5-V3: Phase transition animation banner
 var phase_transition_banner: PhaseTransitionBanner = null
@@ -1197,7 +1200,7 @@ func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> vo
 		return
 	_reactive_stratagem_pending = true
 	_reactive_stratagem_overlay_label.text = "Waiting for opponent's %s decision..." % stratagem_name
-	_reactive_stratagem_overlay_timer_label.text = "Auto-declining in 5 seconds..."
+	_reactive_stratagem_overlay_timer_label.text = "Your opponent is deciding — the game continues when they respond."
 	_reactive_stratagem_overlay.visible = true
 
 	# (Re)arm the safety-net auto-dismiss so a lost hide-callback can never leave
