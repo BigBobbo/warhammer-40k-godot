@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.46.0",
+			"date": "2026-07-16",
+			"summary": "Models being deployed now face the enemy by default and show their sprite while you place them. Previously every model's artwork pointed 'up' the board regardless of which side you were on, and during deployment you only saw a plain base with no indication of facing. Now the deployment ghost renders the model's top-down sprite, oriented toward the opponent's board edge, and it turns live as you rotate the model — so what you see while placing matches how the model will sit on the table.",
+			"changes": [
+				"Deployed models now start facing the opponent's board edge instead of always pointing up the board; the facing is worked out from your deployment zone toward the enemy's, so it is correct for every deployment map.",
+				"While deploying, the placement preview now shows the model's actual sprite (or a facing arrow for units without dedicated art) so you can see which way it is pointing before you drop it.",
+				"Rotating a model during deployment (Q/E or the mouse wheel) now visibly turns its sprite — especially useful for circular bases, where the base alone gave no clue which way it faced.",
+				"You can still rotate freely to any angle; rotating simply overrides the default enemy-facing orientation."
+			]
+		},
+		{
 			"version": "0.45.2",
 			"date": "2026-07-15",
 			"summary": "Fixed the AI opponent skipping its Pile In moves in the Fight phase. In 11th edition Pile In is a shared step — you pile in all your eligible units, then your opponent piles in all of theirs, and only then does the fighting begin. On your turn the AI's engaged units were never getting their pile-in: the game correctly handed the Pile In step to the AI, but an internal 'whose turn is it?' check wrongly decided it was still your turn, so the AI sat idle and the step could stall on the AI's half. The AI now plays its half of the Pile In (and Consolidate) step correctly.",
