@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.46.2",
+			"date": "2026-07-16",
+			"summary": "Fixed terrain wrongly slowing Infantry during charges. Units that can move through ruins (Infantry) were being charged a flat 2\" per 'difficult ground' terrain piece on top of the actual distance when charging — the panel showed things like 'Effective: 16.1\" (10.1\" - 6.0\" terrain)', tiny drags read as many extra inches, and charges that should easily succeed were rejected as out of range. The official 11th-edition terrain layouts mark all their large ruin areas as difficult ground, so this hit almost every charge fought in or through ruins. The Movement phase already let Infantry pass freely; the Charge phase now matches it.",
+			"changes": [
+				"Infantry charging through or within ruins/difficult-ground areas no longer pay any added distance — the charge tracker now shows only the real inches you dragged, and the 'terrain' penalty line no longer appears for them.",
+				"Fixes charges failing with 'Invalid position! Must be within X\"' (or failing outright at the roll) when the charger stood inside one of the big area ruins that the official 11e layouts tag as difficult ground — each overlapping piece was silently adding 2\".",
+				"Units that genuinely cannot traverse the terrain (Vehicles, Monsters over ruins) are unchanged and still pay climb and difficult-ground penalties; Fly units are unchanged too.",
+				"Charge and Movement phases now use the same rule: terrain a unit can move through never slows that unit."
+			]
+		},
+		{
 			"version": "0.46.1",
 			"date": "2026-07-16",
 			"summary": "Models being deployed now face the enemy by default and show their sprite while you place them. Previously every model's artwork pointed 'up' the board regardless of which side you were on, and during deployment you only saw a plain base with no indication of facing. Now the deployment ghost renders the model's top-down sprite, oriented toward the opponent's board edge, and it turns live as you rotate the model — so what you see while placing matches how the model will sit on the table.",
