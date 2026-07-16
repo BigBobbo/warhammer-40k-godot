@@ -1,0 +1,75 @@
+{
+	"id": "load_save_deploy_status_int_11e",
+	"covers": [
+		"serialization.int_normalization_on_load",
+		"deployment.deploy_unit_after_load"
+	],
+	"fixture": "bw_load_deploy_pretrigger",
+	"disable_ai": true,
+	"description": "Regression for the battlewagons deployment bug (2026-07-16): loading a save made during the Deployment phase turned every unit's status into a float (JSON has no int type), and the DEPLOY_UNIT validation's `status in [UNDEPLOYED, DEPLOYING]` check does not coerce int<->float, so every deployment after a load was rejected as 'Unit is not available for deployment' (the AI then banked its army into Strategic Reserves until the 50% cap and skipped the rest of its units, ending deployment with nothing on the board). The fixture is a real save captured at the start of deployment in the reported setup (P1 human Custodes Lions vs P2 Competitive-AI Battlewagons). Loads it through the real SaveLoadManager path, asserts statuses were normalized back to int, and proves a DEPLOY_UNIT for the active player succeeds after the load.",
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 0.5
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.phase",
+			"equals": 1
+		},
+		{
+			"act": "execute_script",
+			"script": "typeof(GameState.state[\"units\"][\"U_BLADE_CHAMPION_A\"][\"status\"])",
+			"equals": 2
+		},
+		{
+			"act": "execute_script",
+			"script": "typeof(GameState.state[\"units\"][\"U_MEK_C\"][\"status\"])",
+			"equals": 2
+		},
+		{
+			"act": "execute_script",
+			"script": "typeof(GameState.state[\"units\"][\"U_BATTLEWAGON_A\"][\"owner\"])",
+			"equals": 2
+		},
+		{
+			"act": "execute_script",
+			"script": "typeof(GameState.state[\"meta\"][\"active_player\"])",
+			"equals": 2
+		},
+		{
+			"act": "screenshot",
+			"label": "01_loaded_mid_deployment_save"
+		},
+		{
+			"act": "dispatch_action",
+			"action": {
+				"type": "DEPLOY_UNIT",
+				"unit_id": "U_BLADE_CHAMPION_A",
+				"model_positions": [
+					{
+						"x": 240,
+						"y": 120
+					}
+				],
+				"model_rotations": [
+					0
+				]
+			}
+		},
+		{
+			"act": "expect_action_result",
+			"path": "success",
+			"equals": true
+		},
+		{
+			"act": "expect_state",
+			"path": "units.U_BLADE_CHAMPION_A.status",
+			"equals": 2
+		},
+		{
+			"act": "screenshot",
+			"label": "02_deploy_succeeds_after_load"
+		}
+	]
+}
