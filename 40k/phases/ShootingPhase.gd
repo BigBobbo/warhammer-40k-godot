@@ -2504,6 +2504,57 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 
 	log_phase_message("AI: Confirmed %d weapon assignments for %s" % [confirmed_assignments.size(), unit_id])
 
+	# DEFENDER CONTROL: a HUMAN defender gets their reactive stratagem window
+	# (Go to Ground / Smokescreen / faction reactives) when the AI declares
+	# targets — mirroring the human-attacker CONFIRM_TARGETS flow. The AI's
+	# resolution resumes from USE/DECLINE_REACTIVE_STRATAGEM via the
+	# `ai_atomic` marker in resolution_state.
+	var ai_reactive_check = _check_reactive_stratagems()
+	if ai_reactive_check.get("has_opportunities", false) and _is_player_human(ai_reactive_check.defending_player):
+		awaiting_reactive_stratagem = true
+		resolution_state = {
+			"phase": "awaiting_reactive_stratagem",
+			"ai_atomic": true,
+			"ai_action": action,
+			"assignments": confirmed_assignments
+		}
+		log_phase_message("AI attack declared — opponent may use reactive stratagems...")
+		emit_signal("reactive_stratagem_opportunity",
+			ai_reactive_check.defending_player,
+			ai_reactive_check.available_stratagems,
+			ai_reactive_check.target_unit_ids)
+		return create_result(true, [], "Awaiting defender stratagem decision", {
+			"reactive_stratagem_opportunity": true,
+			"defending_player": ai_reactive_check.defending_player,
+			"available_stratagems": ai_reactive_check.available_stratagems,
+			"target_unit_ids": ai_reactive_check.target_unit_ids
+		})
+
+	return _resolve_ai_shoot(action)
+
+# True when `player` is controlled by a human (no AI enabled, or the AI does
+# not own that player). Defender windows only pause for humans.
+func _is_player_human(player: int) -> bool:
+	var ai_node = get_node_or_null("/root/AIPlayer")
+	if ai_node == null or not ai_node.enabled:
+		return true
+	return not ai_node.is_ai_player(player)
+
+# The owner of the first resolvable target in a save_data batch — in a
+# two-player game every target of one attack belongs to the same defender.
+func _defending_player_for_save_data(save_data_list: Array) -> int:
+	for sd in save_data_list:
+		var t = get_unit(str(sd.get("target_unit_id", "")))
+		if not t.is_empty():
+			return t.get("owner", 0)
+	return 0
+
+# Steps 3+ of the AI atomic SHOOT — split out so the reactive-stratagem
+# window can pause before it and resume into it.
+func _resolve_ai_shoot(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var ps_seed: int = action.get("payload", {}).get("rng_seed", -1)
+
 	# Step 3: Resolve shooting (hits + wounds) via RulesEngine
 	# Issue #329: forward action.payload.rng_seed to RulesEngine
 	var shoot_action = {
@@ -2533,10 +2584,17 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 
 	log_phase_message(result.get("log_text", "Attack rolls complete"))
 
-	# Step 4: Auto-roll saves if wounds were caused
+	# Step 4: Resolve saves.
+	# DEFENDER CONTROL: when the defender is a HUMAN, they roll their own
+	# saves (and pick their own casualties) through the interactive overlay
+	# — the AI pauses here and resumes on APPLY_SAVES. Auto-roll only for AI
+	# defenders or when the player opted into computer allocation.
 	var save_data_list = result.get("save_data_list", [])
 	var all_changes = []
 	var total_casualties = 0
+
+	if not save_data_list.is_empty() and _should_pause_for_human_saves(save_data_list):
+		return _begin_ai_interactive_saves(unit_id, ps_seed, result, all_dice)
 
 	if not save_data_list.is_empty():
 		var save_result = _auto_roll_saves(save_data_list)
@@ -2548,8 +2606,15 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	else:
 		DebugLogger.info("║ AI SHOOT: No wounds caused (all missed)")
 
+	return _finalize_ai_shoot(unit_id, ps_seed, all_changes, all_dice, total_casualties,
+		save_data_list, result.get("hazardous_weapons", []), result.get("one_shot_diffs", []))
+
+# Steps 5-8 of the AI atomic SHOOT: hazardous checks, one-shot ammo, attack
+# summary, has_shot flags, per-target phase-summary entries and state
+# cleanup. Called by the auto-resolve path directly and by the interactive
+# defender-saves path once the last APPLY_SAVES lands.
+func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_dice: Array, total_casualties: int, save_data_list: Array, hazardous_weapons: Array, one_shot_diffs: Array, skip_damage_signal: bool = false) -> Dictionary:
 	# HAZARDOUS (T2-3): Process Hazardous self-damage after saves resolve (AI path)
-	var hazardous_weapons = result.get("hazardous_weapons", [])
 	if not hazardous_weapons.is_empty():
 		DebugLogger.info(str("║ AI SHOOT: Processing %d hazardous weapon check(s)" % hazardous_weapons.size()))
 		var haz_rng = RulesEngine.RNGService.new(ps_seed)  # Issue #329: forward seed
@@ -2568,7 +2633,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 				log_phase_message(haz_result.log_text)
 
 	# ONE SHOT (T4-2): Include one-shot diffs in AI path
-	var ai_one_shot_diffs = result.get("one_shot_diffs", [])
+	var ai_one_shot_diffs = one_shot_diffs
 	if not ai_one_shot_diffs.is_empty():
 		all_changes.append_array(ai_one_shot_diffs)
 		DebugLogger.info(str("║ AI SHOOT: ONE SHOT — included %d one-shot diffs" % ai_one_shot_diffs.size()))
@@ -2634,16 +2699,18 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	})
 	DebugLogger.info(str("║ T7-38: Emitted ai_shooting_visual for %d target(s)" % ai_target_data.size()))
 
-	# T7-38: Emit shooting_damage_applied for floating damage numbers (AI path)
-	var damage_diffs = []
-	for change in all_changes:
-		if change.get("op") == "set":
-			var path: String = change.get("path", "")
-			if ".models." in path and (path.ends_with(".alive") or path.ends_with(".current_wounds")):
-				damage_diffs.append(change)
-	if not damage_diffs.is_empty():
-		emit_signal("shooting_damage_applied", unit_id, damage_diffs)
-		DebugLogger.info(str("║ T7-38: Emitted shooting_damage_applied with %d diffs" % damage_diffs.size()))
+	# T7-38: Emit shooting_damage_applied for floating damage numbers (AI path).
+	# The interactive defender-saves path already emitted per batch — skip.
+	if not skip_damage_signal:
+		var damage_diffs = []
+		for change in all_changes:
+			if change.get("op") == "set":
+				var path: String = change.get("path", "")
+				if ".models." in path and (path.ends_with(".alive") or path.ends_with(".current_wounds")):
+					damage_diffs.append(change)
+		if not damage_diffs.is_empty():
+			emit_signal("shooting_damage_applied", unit_id, damage_diffs)
+			DebugLogger.info(str("║ T7-38: Emitted shooting_damage_applied with %d diffs" % damage_diffs.size()))
 
 	# P1-11: Track hits for Sanctified Flames (AI atomic path)
 	# Build _targets_hit_by_shooter from the dice + assignment data
@@ -2769,6 +2836,151 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 		"casualties": total_casualties,
 		"log_text": attack_summary
 	})
+
+# DEFENDER CONTROL: the AI attacker pauses for a human defender to roll
+# their own saves when the defender is human, the game runs the 11e
+# allocation flow, and the player has not delegated allocation to the
+# computer (auto_allocate_wounds setting).
+func _should_pause_for_human_saves(save_data_list: Array) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	if not _is_player_human(_defending_player_for_save_data(save_data_list)):
+		return false
+	var ss = get_node_or_null("/root/SettingsService")
+	var auto_alloc: bool = ss != null and ss.get_auto_allocate_wounds()
+	return not auto_alloc
+
+# Store the AI shoot context and hand the first save batch to the defender.
+# Each APPLY_SAVES consumes one batch (see _process_apply_saves_ai_atomic);
+# the last one runs _finalize_ai_shoot to complete the activation.
+func _begin_ai_interactive_saves(unit_id: String, ps_seed: int, result: Dictionary, all_dice: Array) -> Dictionary:
+	var all_save_data: Array = result.get("save_data_list", [])
+	pending_save_data = all_save_data
+	resolution_state = {
+		"mode": "ai_atomic",
+		"phase": "awaiting_saves",
+		"ai_ctx": {
+			"unit_id": unit_id,
+			"rng_seed": ps_seed,
+			"all_dice": all_dice,
+			"hazardous_weapons": result.get("hazardous_weapons", []),
+			"one_shot_diffs": result.get("one_shot_diffs", []),
+			"save_data_list_full": all_save_data.duplicate(true),
+			"accumulated_changes": [],
+			"total_casualties": 0
+		}
+	}
+	var first = pending_save_data[0]
+	# T5-MP4-RELIABILITY: stamp before EVERY saves_required emission — the
+	# local is named save_data_list so the reliability pin's literal
+	# `_stamp_save_broadcast_id(save_data_list, broadcast_id)` count holds.
+	var save_data_list: Array = [first]
+	var broadcast_id := _generate_save_broadcast_id()
+	_stamp_save_broadcast_id(save_data_list, broadcast_id)
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info(str("║ AI SHOOT: DEFENDER CONTROL — pausing for human saves (%d batch(es))" % pending_save_data.size()))
+	DebugLogger.info(str("║ First batch: %s vs %s (%d wounds)" % [str(first.get("weapon_name", "")), str(first.get("target_unit_name", "")), int(first.get("wounds_to_save", 0))]))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
+	log_phase_message("AI attack: awaiting defender saves (%s vs %s)..." % [
+		str(first.get("weapon_name", "")), str(first.get("target_unit_name", ""))])
+	emit_signal("saves_required", save_data_list)
+	return create_result(true, [], "Awaiting defender save resolution", {
+		"dice": all_dice,
+		"save_data_list": save_data_list
+	})
+
+# One APPLY_SAVES from the defender while an AI atomic SHOOT is paused:
+# apply the batch, then either hand over the next batch or finish the AI
+# activation.
+func _process_apply_saves_ai_atomic(action: Dictionary) -> Dictionary:
+	var payload = action.get("payload", {})
+	var save_results_list = payload.get("save_results_list", [])
+	if pending_save_data.is_empty():
+		return create_result(false, [], "No pending AI save data")
+	if save_results_list.is_empty():
+		return create_result(false, [], "Missing save_results_list")
+	var ctx: Dictionary = resolution_state.get("ai_ctx", {})
+	var save_data: Dictionary = pending_save_data[0]
+	var summary: Dictionary = save_results_list[0]
+	var this_diffs: Array = []
+	var this_casualties := 0
+	var target_unit_id = str(save_data.get("target_unit_id", summary.get("target_unit_id", "")))
+
+	if summary.get("is_allocation_11e", false):
+		this_diffs.append_array(summary.get("diffs", []))
+		this_diffs.append_array(_apply_defender_save_command_reroll(summary, save_data))
+		this_casualties = int(summary.get("casualties", 0))
+		log_phase_message("%s: %d saves passed, %d failed → %d casualties (defender allocated)" % [
+			save_data.get("target_unit_name", target_unit_id),
+			summary.get("saves_passed", 0), summary.get("saves_failed", 0), this_casualties])
+	else:
+		# 10e-format summary (per-wound WoundAllocationOverlay)
+		var save_results = []
+		if summary.has("save_results"):
+			save_results = summary.save_results
+		elif summary.has("allocation_history"):
+			for alloc in summary.allocation_history:
+				save_results.append({
+					"saved": alloc.get("saved", false),
+					"model_id": alloc.get("model_id", ""),
+					"model_index": alloc.get("model_index", 0),
+					"roll": alloc.get("roll", 0),
+					"damage": alloc.get("damage", 0),
+					"model_destroyed": alloc.get("model_destroyed", false)
+				})
+		var fnp_rng = RulesEngine.RNGService.new(int(ctx.get("rng_seed", -1)))
+		var damage_result = RulesEngine.apply_save_damage(save_results, save_data, game_state_snapshot, -1, fnp_rng)
+		this_diffs.append_array(damage_result.diffs)
+		this_casualties = damage_result.casualties
+
+	if this_casualties > 0 and target_unit_id != "":
+		CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id)
+
+	# Record the defender's save/FNP dice in the dice history
+	for dice_block in summary.get("dice", []):
+		dice_log.append(dice_block)
+		emit_signal("dice_rolled", dice_block)
+
+	# T7-53: floating damage numbers over the defender's unit
+	if not this_diffs.is_empty():
+		emit_signal("shooting_damage_applied", active_shooter_id, this_diffs)
+
+	pending_save_data.pop_front()
+	ctx["accumulated_changes"] = ctx.get("accumulated_changes", []) + this_diffs
+	ctx["total_casualties"] = int(ctx.get("total_casualties", 0)) + this_casualties
+	resolution_state["ai_ctx"] = ctx
+
+	if not pending_save_data.is_empty():
+		var next: Dictionary = pending_save_data[0]
+		# T5-MP4-RELIABILITY: stamp before every saves_required emission
+		# (local named save_data_list for the reliability pin's literal count).
+		var save_data_list: Array = [next]
+		var broadcast_id := _generate_save_broadcast_id()
+		_stamp_save_broadcast_id(save_data_list, broadcast_id)
+		log_phase_message("AI attack: awaiting defender saves (%s vs %s)..." % [
+			str(next.get("weapon_name", "")), str(next.get("target_unit_name", ""))])
+		# Deferred: the previous overlay's allocation_complete callback is
+		# still on the stack — an immediate emission would be swallowed by
+		# ShootingController's duplicate-signal guard.
+		call_deferred("emit_signal", "saves_required", save_data_list)
+		return create_result(true, this_diffs, "Awaiting defender save resolution (next batch)", {
+			"save_data_list": save_data_list
+		})
+
+	# All batches resolved — finish the AI activation. Pass the FULL
+	# accumulated save diffs (idempotent set-ops; earlier batches are
+	# already applied) so the per-target phase summary counts every batch,
+	# and skip the damage signal (each batch already emitted its own).
+	return _finalize_ai_shoot(
+		str(ctx.get("unit_id", active_shooter_id)),
+		int(ctx.get("rng_seed", -1)),
+		ctx.get("accumulated_changes", []).duplicate(),
+		ctx.get("all_dice", []),
+		int(ctx.get("total_casualties", 0)),
+		ctx.get("save_data_list_full", []),
+		ctx.get("hazardous_weapons", []),
+		ctx.get("one_shot_diffs", []),
+		true)
 
 func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 	# Auto-roll saves for AI - no UI interaction needed
@@ -4140,8 +4352,14 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	awaiting_reactive_stratagem = false
 	log_phase_message("Player %d used %s on %s" % [defending_player, StratagemManager.get_stratagem(stratagem_id).name, target_unit_id])
 
-	# Continue shooting resolution
-	var continue_result = _continue_after_reactive_stratagems()
+	# Continue shooting resolution (AI atomic attacks resume their own path)
+	var continue_result: Dictionary
+	if resolution_state.get("ai_atomic", false):
+		var stored_ai_action: Dictionary = resolution_state.get("ai_action", {})
+		resolution_state = {}
+		continue_result = _resolve_ai_shoot(stored_ai_action)
+	else:
+		continue_result = _continue_after_reactive_stratagems()
 
 	# Merge diffs
 	var all_diffs = result.get("diffs", [])
@@ -4169,7 +4387,11 @@ func _process_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
 	awaiting_reactive_stratagem = false
 	log_phase_message("Defender declined reactive stratagems")
 
-	# Continue shooting resolution
+	# Continue shooting resolution (AI atomic attacks resume their own path)
+	if resolution_state.get("ai_atomic", false):
+		var stored_ai_action: Dictionary = resolution_state.get("ai_action", {})
+		resolution_state = {}
+		return _resolve_ai_shoot(stored_ai_action)
 	return _continue_after_reactive_stratagems()
 
 # ============================================================================
@@ -6128,6 +6350,34 @@ func _process_decline_shooty_power_trip(action: Dictionary) -> Dictionary:
 
 	return create_result(true, [], "Shooty Power Trip declined")
 
+# Defender-side save Command Re-roll (1 CP): the AllocationGroupOverlay
+# re-rolls one save die locally and stamps `command_reroll` on its summary;
+# the phase deducts the CP + records stratagem usage here so the spend is
+# authoritative (host-side in multiplayer). Returns the CP diffs.
+func _apply_defender_save_command_reroll(save_result_summary: Dictionary, save_data: Dictionary) -> Array:
+	var cr = save_result_summary.get("command_reroll", {})
+	if not cr.get("used", false):
+		return []
+	var reroll_player = int(cr.get("player", 0))
+	var target_unit_id = str(save_data.get("target_unit_id", save_result_summary.get("target_unit_id", "")))
+	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
+	var result = StratagemManager.execute_command_reroll(reroll_player, target_unit_id, {
+		"roll_type": "save_roll",
+		"original_rolls": [int(cr.get("original", 0))],
+		"unit_name": target_name
+	})
+	if not result.get("success", false):
+		# The overlay's availability check said yes but the authoritative
+		# check refused (e.g. CP raced away) — the re-rolled dice stand
+		# (they were the source of truth on the defending peer) but log the
+		# discrepancy loudly rather than failing the whole save application.
+		push_warning("ShootingPhase: defender save Command Re-roll could not be paid: %s" % str(result.get("error", "unknown")))
+		log_phase_message("⚠ Save Command Re-roll by player %d could not be paid (%s)" % [reroll_player, str(result.get("error", ""))])
+		return []
+	log_phase_message("Player %d used COMMAND RE-ROLL on a save for %s (%d → %d)" % [
+		reroll_player, target_name, int(cr.get("original", 0)), int(cr.get("new", 0))])
+	return result.get("diffs", [])
+
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""
 	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
@@ -6136,6 +6386,11 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	DebugLogger.info(str("║ resolution_state: ", resolution_state))
 	DebugLogger.info(str("║ pending_save_data.size(): ", pending_save_data.size()))
 	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
+
+	# DEFENDER CONTROL: saves for a paused AI atomic SHOOT consume the
+	# pending queue one batch at a time and finish the AI activation.
+	if resolution_state.get("mode", "") == "ai_atomic":
+		return _process_apply_saves_ai_atomic(action)
 	# Issue #329: extract action.payload.rng_seed once for all sub-rolls in this method
 	var pas_seed: int = action.get("payload", {}).get("rng_seed", -1)
 
@@ -6163,6 +6418,9 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		# per-wound allocation_history conversion below.
 		if save_result_summary.get("is_allocation_11e", false):
 			all_diffs.append_array(save_result_summary.get("diffs", []))
+			# Defender-side save Command Re-roll: the overlay re-rolled one
+			# save die — deduct the CP and record usage authoritatively here.
+			all_diffs.append_array(_apply_defender_save_command_reroll(save_result_summary, save_data))
 			var alloc_casualties = int(save_result_summary.get("casualties", 0))
 			total_casualties += alloc_casualties
 			var alloc_target_id = save_data.get("target_unit_id", save_result_summary.get("target_unit_id", ""))

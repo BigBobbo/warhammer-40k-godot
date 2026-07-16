@@ -307,6 +307,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_unit(step), true)
 		"click_node":
 			rec.merge(await _do_click_node(step), true)
+		"click_if_visible":
+			rec.merge(await _do_click_if_visible(step), true)
 		"click_board_at":
 			rec.merge(await _do_click_board_at(step), true)
 		"drag_board":
@@ -456,6 +458,24 @@ func _do_click_node(step: Dictionary) -> Dictionary:
 	await _send_click(screen_pos)
 	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
 
+
+# Click a node only when it exists AND is visible in the tree — a no-op pass
+# otherwise. For flow steps that appear conditionally (e.g. the defender's
+# save Command Re-roll offer only exists when a save failed and CP remains,
+# the casualty PickPanel only when there is a real choice) so dice-dependent
+# scenarios stay deterministic.
+func _do_click_if_visible(step: Dictionary) -> Dictionary:
+	var node_path: String = str(step.get("node", ""))
+	if node_path == "":
+		return {"pass": false, "error": "click_if_visible needs node"}
+	var node: Node = get_node_or_null(node_path)
+	if node == null:
+		return {"pass": true, "via": "skipped_not_present"}
+	if node is CanvasItem and not (node as CanvasItem).is_visible_in_tree():
+		return {"pass": true, "via": "skipped_not_visible"}
+	var result := await _do_click_node(step)
+	result["via"] = str(result.get("via", "clicked"))
+	return result
 
 func _do_click_board_at(step: Dictionary) -> Dictionary:
 	# Click an arbitrary BOARD/WORLD position (board px, the coordinate system

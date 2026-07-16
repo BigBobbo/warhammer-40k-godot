@@ -2,13 +2,31 @@ extends Control
 class_name AllocationGroupOverlay
 
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+# Runtime-loaded (NOT preload): WoundAllocationBoardHighlights references the
+# Measurement autoload at compile time, and this overlay must keep compiling
+# standalone in bare headless harness runs (no autoloads).
+const _BOARD_HIGHLIGHTS_PATH := "res://scripts/WoundAllocationBoardHighlights.gd"
 
 ## ISS-045 — the 11e defender allocation UI (core rules 05.03-05.04).
 ## Replaces WoundAllocationOverlay's per-wound click loop at edition ≥ 11:
 ## the defender divides the target into allocation groups ONCE per attack
 ## batch, orders them under the 05.03 constraints (validated live), then
-## the save batch is rolled and damage applied lowest→highest
-## automatically via RulesEngine.resolve_allocation_batch_11e.
+## rolls the save batch and applies damage lowest→highest via
+## RulesEngine.resolve_allocation_batch_11e.
+##
+## DEFENDER CONTROL (2026-07): the flow is now fully defender-driven —
+##  1. ORDER  — the defender orders the groups and CLICKS "Roll Saves"
+##              (no more instant auto-resolve for single-group units).
+##  2. REROLL — if the defender can pay Command Re-roll (1 CP, once per
+##              phase) and at least one save failed, they may re-roll ONE
+##              save die before damage is applied.
+##  3. PICK   — when casualties occur and the group has more models than
+##              casualties, the defender clicks the bases to remove on the
+##              board (wounded models are locked in per 05.04).
+##  4. RESULTS — summary + Done.
+## The legacy instant resolve is kept as `auto_mode` for AI defenders and
+## for players who enable the "Computer allocates wounds" setting
+## (single-player/hotseat only — a networked defender always gets control).
 ##
 ## Contract mirrors WoundAllocationOverlay: instantiate, add to tree,
 ## `setup(save_data, defender_player)`, listen for
@@ -23,11 +41,27 @@ var save_data: Dictionary = {}
 var defender_player: int = 0
 var groups: Array = []
 var order: Array = []  # group ids in the defender's chosen order
-var rng_service = null  # RulesEngine.RNGService (lazy-typed: autoload ids are not compile-time resolvable in bare `godot -s` runs)
 var batch_result: Dictionary = {}
 var resolved: bool = false
+var auto_mode: bool = false
 
-# Lazy autoload lookups (same reason as above).
+# Two-step dice state: rolls are drawn once, then every engine run replays
+# them via forced_save_rolls so the re-roll and casualty-pick re-runs are
+# deterministic (same damage/FNP stream — see resolve_allocation_batch_11e).
+var _current_rolls: Array = []
+var _batch_seed: int = -1
+var _command_reroll: Dictionary = {}  # {used, player, die_index, original, new}
+
+# Casualty pick state (virtual model indices from batch_result.groups/sources)
+var _pick_required: Dictionary = {}   # group_id -> casualties in that group
+var _pick_locked: Dictionary = {}     # group_id -> [virtual idx] (wounded, forced)
+var _pick_selected: Dictionary = {}   # group_id -> [virtual idx] (defender picks)
+var _pick_candidates: Array = []      # all clickable virtual indices
+var _picking: bool = false
+var board_highlighter = null
+
+# Lazy autoload lookups (autoload ids are not compile-time resolvable in
+# bare `godot -s` runs).
 func _rules() -> Node:
 	return get_node("/root/RulesEngine")
 
@@ -36,7 +70,12 @@ func _game_state() -> Node:
 	return get_node("/root/GameState")
 
 
+func _measurement() -> Node:
+	return get_node_or_null("/root/Measurement")
+
+
 var dim: ColorRect = null
+var center: CenterContainer = null
 var panel: PanelContainer = null
 var group_list: VBoxContainer = null
 var error_label: Label = null
@@ -44,6 +83,18 @@ var confirm_button: Button = null
 var result_panel: VBoxContainer = null
 var result_label: RichTextLabel = null
 var done_button: Button = null
+
+# REROLL step nodes
+var reroll_panel: VBoxContainer = null
+var dice_chips: HFlowContainer = null
+var keep_rolls_button: Button = null
+
+# PICK step nodes (own top-anchored panel so the board stays visible)
+var pick_panel: PanelContainer = null
+var pick_label: Label = null
+var pick_counter: Label = null
+var confirm_removal_button: Button = null
+var auto_pick_button: Button = null
 
 
 # 24.28 [PRECISION] (audit #13): the ATTACKER's promotion pick — an
@@ -54,20 +105,40 @@ var _precision_eligible: Array = []
 func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 	save_data = p_save_data
 	defender_player = p_defender_player
-	rng_service = _rules().make_rng()
 	var target_unit_id = str(save_data.get("target_unit_id", ""))
 	var virtual_unit = _rules()._build_attached_allocation_unit_11e(target_unit_id, _game_state().state).unit
 	groups = Allocation.build_groups(virtual_unit)
 	order = Allocation.default_order(groups)
+	auto_mode = _compute_auto_mode()
 	_build_ui()
 	_rebuild_group_list()
-	print("AllocationGroupOverlay: setup — %d group(s), %d wound(s) to save vs %s" % [
-		groups.size(), int(save_data.get("wounds_to_save", 0)), target_unit_id])
-	# 05.03: with a single group there is no order decision — resolve
-	# immediately (the results panel still requires the Done click).
-	if groups.size() <= 1:
-		print("AllocationGroupOverlay: single allocation group — order is forced, auto-resolving")
+	print("AllocationGroupOverlay: setup — %d group(s), %d wound(s) to save vs %s (auto_mode=%s)" % [
+		groups.size(), int(save_data.get("wounds_to_save", 0)), target_unit_id, str(auto_mode)])
+	if auto_mode:
+		# Legacy fast path: the computer orders, rolls and allocates in one
+		# step (AI defender, or the auto-allocate setting in local play).
+		print("AllocationGroupOverlay: auto_mode — resolving without defender interaction")
 		_on_confirm_pressed()
+	elif groups.size() <= 1:
+		# 05.03: with a single group there is no order decision — but the
+		# DEFENDER still rolls their own saves (no instant auto-resolve).
+		confirm_button.text = "Roll Saves"
+
+
+# Auto (no-interaction) mode applies when the defender cannot interact:
+# an AI defender in local play, or the player opted into computer
+# allocation. A networked human defender ALWAYS gets the interactive flow.
+func _compute_auto_mode() -> bool:
+	var root = Engine.get_main_loop().root
+	var nm = root.get_node_or_null("NetworkManager")
+	var networked: bool = nm != null and nm.has_method("is_networked") and nm.is_networked()
+	var ai = root.get_node_or_null("AIPlayer")
+	if not networked and ai != null and ai.has_method("is_ai_player") and ai.is_ai_player(defender_player):
+		return true
+	if networked:
+		return false
+	var ss = root.get_node_or_null("SettingsService")
+	return ss != null and ss.has_method("get_auto_allocate_wounds") and ss.get_auto_allocate_wounds()
 
 
 func _build_ui() -> void:
@@ -91,7 +162,7 @@ func _build_ui() -> void:
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 
-	var center = CenterContainer.new()
+	center = CenterContainer.new()
 	center.name = "Center"
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
@@ -196,6 +267,40 @@ func _build_ui() -> void:
 	_WhiteDwarfTheme.apply_primary_button(confirm_button)
 	vbox.add_child(confirm_button)
 
+	# ── REROLL step (hidden until the saves are rolled) ────────────────
+	reroll_panel = VBoxContainer.new()
+	reroll_panel.name = "RerollPanel"
+	reroll_panel.add_theme_constant_override("separation", 8)
+	reroll_panel.visible = false
+	vbox.add_child(reroll_panel)
+
+	var reroll_title = Label.new()
+	reroll_title.name = "RerollTitle"
+	reroll_title.text = "SAVE ROLLS"
+	reroll_title.add_theme_font_size_override("font_size", 13)
+	reroll_title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	reroll_panel.add_child(reroll_title)
+
+	dice_chips = HFlowContainer.new()
+	dice_chips.name = "DiceChips"
+	reroll_panel.add_child(dice_chips)
+
+	var reroll_hint = Label.new()
+	reroll_hint.name = "RerollHint"
+	reroll_hint.text = "COMMAND RE-ROLL (1 CP): click a failed save die to re-roll it, or keep the rolls."
+	reroll_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	reroll_hint.add_theme_font_size_override("font_size", 13)
+	reroll_hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+	reroll_panel.add_child(reroll_hint)
+
+	keep_rolls_button = Button.new()
+	keep_rolls_button.name = "KeepRollsButton"
+	keep_rolls_button.text = "Keep Rolls"
+	keep_rolls_button.custom_minimum_size = Vector2(0, 42)
+	keep_rolls_button.pressed.connect(_on_keep_rolls_pressed)
+	_WhiteDwarfTheme.apply_primary_button(keep_rolls_button)
+	reroll_panel.add_child(keep_rolls_button)
+
 	result_panel = VBoxContainer.new()
 	result_panel.name = "ResultPanel"
 	result_panel.add_theme_constant_override("separation", 8)
@@ -217,6 +322,69 @@ func _build_ui() -> void:
 	done_button.pressed.connect(_on_done_pressed)
 	_WhiteDwarfTheme.apply_primary_button(done_button)
 	result_panel.add_child(done_button)
+
+	# ── PICK step: its own top-anchored compact panel so the board is
+	# visible and clickable while the defender chooses casualties. ──────
+	pick_panel = PanelContainer.new()
+	pick_panel.name = "PickPanel"
+	pick_panel.visible = false
+	pick_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var pick_style = _WhiteDwarfTheme.create_panel_style()
+	pick_style.bg_color = Color(0.1, 0.09, 0.07, 0.97)
+	pick_style.set_content_margin_all(12)
+	pick_panel.add_theme_stylebox_override("panel", pick_style)
+	pick_panel.anchor_left = 0.5
+	pick_panel.anchor_right = 0.5
+	pick_panel.anchor_top = 0.0
+	pick_panel.anchor_bottom = 0.0
+	pick_panel.offset_left = -320
+	pick_panel.offset_right = 320
+	pick_panel.offset_top = 12
+	add_child(pick_panel)
+
+	var pick_vbox = VBoxContainer.new()
+	pick_vbox.name = "PickVBox"
+	pick_vbox.add_theme_constant_override("separation", 6)
+	pick_panel.add_child(pick_vbox)
+
+	pick_label = Label.new()
+	pick_label.name = "PickLabel"
+	pick_label.text = "Remove casualties"
+	pick_label.add_theme_font_size_override("font_size", 16)
+	pick_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	pick_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pick_vbox.add_child(pick_label)
+
+	pick_counter = Label.new()
+	pick_counter.name = "PickCounter"
+	pick_counter.text = ""
+	pick_counter.add_theme_font_size_override("font_size", 13)
+	pick_counter.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
+	pick_counter.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pick_vbox.add_child(pick_counter)
+
+	var pick_buttons = HBoxContainer.new()
+	pick_buttons.name = "PickButtons"
+	pick_buttons.add_theme_constant_override("separation", 8)
+	pick_vbox.add_child(pick_buttons)
+
+	confirm_removal_button = Button.new()
+	confirm_removal_button.name = "ConfirmRemovalButton"
+	confirm_removal_button.text = "Confirm Removal"
+	confirm_removal_button.custom_minimum_size = Vector2(200, 38)
+	confirm_removal_button.disabled = true
+	confirm_removal_button.pressed.connect(_on_confirm_removal_pressed)
+	_WhiteDwarfTheme.apply_primary_button(confirm_removal_button)
+	pick_buttons.add_child(confirm_removal_button)
+
+	auto_pick_button = Button.new()
+	auto_pick_button.name = "AutoPickButton"
+	auto_pick_button.text = "Auto-pick For Me"
+	auto_pick_button.custom_minimum_size = Vector2(160, 38)
+	auto_pick_button.pressed.connect(_on_auto_pick_pressed)
+	pick_buttons.add_child(auto_pick_button)
+
+	set_process_input(false)
 
 
 func _group_by_id(gid: String) -> Dictionary:
@@ -291,6 +459,22 @@ func _validate_order() -> void:
 	print("AllocationGroupOverlay: order %s valid=%s" % [str(order), str(check.valid)])
 
 
+func _fresh_seed() -> int:
+	# Derives from RulesEngine.make_rng so test_mode_seed / network seeds
+	# keep the whole flow deterministic in harness runs.
+	return absi(_rules().make_rng().rng.randi())
+
+
+func _run_batch(preferred_targets: Array) -> Dictionary:
+	# Every run replays the SAME save dice (forced) with the SAME damage
+	# seed, so re-runs (casualty pick) only change WHICH bases die.
+	var rng = _rules().RNGService.new(_batch_seed)
+	return _rules().resolve_allocation_batch_11e(save_data, order, _game_state().state, rng, {
+		"forced_save_rolls": _current_rolls,
+		"preferred_targets": preferred_targets,
+	})
+
+
 func _on_confirm_pressed() -> void:
 	if resolved:
 		return
@@ -309,7 +493,384 @@ func _on_confirm_pressed() -> void:
 		else:
 			save_data["precision_group_choice"] = ""
 			save_data["has_precision"] = false  # attacker declined the promotion
-	batch_result = _rules().resolve_allocation_batch_11e(save_data, order, _game_state().state, rng_service)
+
+	# Roll the save dice ONCE, then resolve with them forced (deterministic
+	# re-runs for the re-roll / casualty-pick steps).
+	var wounds_to_save = int(save_data.get("wounds_to_save", 0))
+	_current_rolls = _rules().RNGService.new(_fresh_seed()).roll_d6(wounds_to_save) if wounds_to_save > 0 else []
+	_batch_seed = _fresh_seed()
+	batch_result = _run_batch([])
+	print("AllocationGroupOverlay: rolled saves %s → %d failed, %d casualties" % [
+		str(_current_rolls), batch_result.get("saves_failed", 0), batch_result.get("casualties", 0)])
+
+	if auto_mode:
+		_finalize_batch()
+		return
+
+	# Offer the save Command Re-roll when the defender can pay and at least
+	# one save die failed.
+	if batch_result.get("saves_failed", 0) > 0 and _save_reroll_available():
+		_show_reroll_step()
+	else:
+		_enter_pick_or_finalize()
+
+
+func _save_reroll_available() -> bool:
+	var sm = Engine.get_main_loop().root.get_node_or_null("StratagemManager")
+	if sm == null or not sm.has_method("is_command_reroll_available"):
+		return false
+	var check = sm.is_command_reroll_available(defender_player)
+	if not check.get("available", false):
+		print("AllocationGroupOverlay: Command Re-roll unavailable for player %d — %s" % [
+			defender_player, str(check.get("reason", ""))])
+	return check.get("available", false)
+
+
+# The raw-roll indices whose dice FAILED (result damage/prevented). Events
+# report sorted values, so map each failed value back to an unconsumed raw
+# index (identical values are interchangeable dice).
+func _failed_roll_indices() -> Array:
+	var failed_values: Array = []
+	for d in batch_result.get("dice", []):
+		if d.get("context", "") == "save":
+			for ev in d.get("allocation_11e", {}).get("events", []):
+				var res = str(ev.get("result", ""))
+				if res == "damage" or res == "prevented":
+					failed_values.append(int(ev.get("roll", 0)))
+	var consumed: Array = []
+	for v in failed_values:
+		for i in range(_current_rolls.size()):
+			if int(_current_rolls[i]) == v and i not in consumed:
+				consumed.append(i)
+				break
+	return consumed
+
+
+func _show_reroll_step() -> void:
+	group_list.visible = false
+	confirm_button.visible = false
+	error_label.visible = false
+	if precision_picker != null:
+		precision_picker.disabled = true
+	var failed = _failed_roll_indices()
+	for child in dice_chips.get_children():
+		child.queue_free()
+	for i in range(_current_rolls.size()):
+		var chip = Button.new()
+		chip.name = "Die%d" % i
+		chip.text = str(_current_rolls[i])
+		chip.custom_minimum_size = Vector2(44, 44)
+		chip.add_theme_font_size_override("font_size", 18)
+		if i in failed:
+			chip.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+			chip.tooltip_text = "Failed save — click to re-roll (1 CP)"
+			chip.pressed.connect(_on_reroll_die_pressed.bind(i))
+		else:
+			chip.disabled = true
+			chip.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+			chip.tooltip_text = "Passed save"
+		dice_chips.add_child(chip)
+	reroll_panel.visible = true
+	print("AllocationGroupOverlay: Command Re-roll offered — failed dice at raw indices %s" % str(failed))
+
+
+func _on_reroll_die_pressed(die_index: int) -> void:
+	if _command_reroll.get("used", false):
+		return
+	var original = int(_current_rolls[die_index])
+	var new_roll = int(_rules().RNGService.new(_fresh_seed()).roll_d6(1)[0])
+	_current_rolls[die_index] = new_roll
+	# New damage seed: per the rules the damage/FNP dice are rolled AFTER
+	# the re-roll decision, so a fresh stream is correct here.
+	_batch_seed = _fresh_seed()
+	_command_reroll = {
+		"used": true,
+		"player": defender_player,
+		"die_index": die_index,
+		"original": original,
+		"new": new_roll,
+	}
+	batch_result = _run_batch([])
+	print("AllocationGroupOverlay: COMMAND RE-ROLL — die %d: %d → %d (now %d failed, %d casualties)" % [
+		die_index, original, new_roll, batch_result.get("saves_failed", 0), batch_result.get("casualties", 0)])
+	reroll_panel.visible = false
+	_enter_pick_or_finalize()
+
+
+func _on_keep_rolls_pressed() -> void:
+	reroll_panel.visible = false
+	_enter_pick_or_finalize()
+
+
+# ── PICK step ─────────────────────────────────────────────────────────
+
+# Per group: how many casualties landed there, and is there a real choice
+# (more alive models in the group than casualties)?
+func _compute_pick_requirements() -> void:
+	_pick_required.clear()
+	_pick_locked.clear()
+	_pick_selected.clear()
+	_pick_candidates.clear()
+	var destroyed: Array = batch_result.get("models_destroyed", [])
+	var batch_groups: Array = batch_result.get("groups", groups)
+	for g in batch_groups:
+		var dead_in_group: Array = []
+		for vi in destroyed:
+			if int(vi) in g.model_indices:
+				dead_in_group.append(int(vi))
+		if dead_in_group.is_empty():
+			continue
+		if dead_in_group.size() >= g.model_indices.size():
+			continue  # whole group dies — nothing to choose
+		_pick_required[g.id] = dead_in_group.size()
+		_pick_locked[g.id] = []
+		_pick_selected[g.id] = []
+		# 05.04: a pre-wounded model must take the first allocation — it is
+		# locked into the casualty set (it cannot be spared).
+		if g.get("has_wounded", false):
+			var wounded_vi = _find_wounded_virtual_index(g)
+			if wounded_vi != -1:
+				_pick_locked[g.id].append(wounded_vi)
+		# Only offer clickable candidates when the locked picks leave a real
+		# choice; a required count fully covered by the wounded model needs
+		# no input.
+		if dead_in_group.size() - _pick_locked[g.id].size() > 0:
+			for vi in g.model_indices:
+				if int(vi) not in _pick_locked[g.id]:
+					_pick_candidates.append(int(vi))
+
+
+func _find_wounded_virtual_index(g: Dictionary) -> int:
+	var sources: Array = batch_result.get("sources", [])
+	for vi in g.model_indices:
+		var src = _virtual_source(int(vi), sources)
+		if src.is_empty():
+			continue
+		var m = _live_model(src)
+		if m.is_empty():
+			continue
+		var w = int(m.get("wounds", 1))
+		if int(m.get("current_wounds", w)) < w:
+			return int(vi)
+	return -1
+
+
+func _virtual_source(vi: int, sources: Array) -> Dictionary:
+	if vi >= 0 and vi < sources.size():
+		return sources[vi]
+	return {}
+
+
+func _live_model(src: Dictionary) -> Dictionary:
+	var unit = _game_state().state.get("units", {}).get(str(src.get("unit_id", "")), {})
+	var models = unit.get("models", [])
+	var mi = int(src.get("model_index", -1))
+	if mi >= 0 and mi < models.size():
+		return models[mi]
+	return {}
+
+
+func _enter_pick_or_finalize() -> void:
+	_compute_pick_requirements()
+	if _pick_required.is_empty() or _pick_candidates.is_empty():
+		# No choice to make (no casualties, whole groups wiped, or the
+		# wounded-model lock already covers every required removal).
+		_finalize_batch()
+		return
+	_picking = true
+	center.visible = false
+	dim.visible = false
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pick_panel.visible = true
+	var total_required := 0
+	for gid in _pick_required:
+		total_required += int(_pick_required[gid])
+	var unit_name = str(save_data.get("target_unit_name", save_data.get("target_unit_id", "")))
+	pick_label.text = "Remove %d model(s) from %s — click the bases to remove" % [total_required, unit_name]
+	_setup_pick_highlights()
+	_update_pick_counter()
+	set_process_input(true)
+	print("AllocationGroupOverlay: PICK step — %d casualty pick(s) required across %d group(s)" % [
+		total_required, _pick_required.size()])
+
+
+func _setup_pick_highlights() -> void:
+	var refs = Engine.get_main_loop().root.get_node_or_null("SceneRefs")
+	var board_view = refs.board_view() if refs != null else null
+	if board_view == null:
+		print("AllocationGroupOverlay: WARNING — no board_view, casualty picking falls back to Auto-pick only")
+		return
+	var highlights_script = load(_BOARD_HIGHLIGHTS_PATH)
+	if highlights_script == null:
+		print("AllocationGroupOverlay: WARNING — board highlight script unavailable")
+		return
+	board_highlighter = highlights_script.new()
+	board_highlighter.name = "AllocationPickHighlights"
+	board_highlighter.z_index = 900
+	board_view.add_child(board_highlighter)
+	_refresh_pick_highlights()
+
+
+func _refresh_pick_highlights() -> void:
+	if board_highlighter == null or not is_instance_valid(board_highlighter):
+		return
+	board_highlighter.clear_all()
+	var ht = board_highlighter.HighlightType
+	var sources: Array = batch_result.get("sources", [])
+	for gid in _pick_required:
+		for vi in _pick_locked[gid]:
+			var pos = _virtual_model_position(int(vi), sources)
+			if pos != Vector2.ZERO:
+				board_highlighter.create_highlight(pos, _virtual_model_base_mm(int(vi), sources),
+					ht.PRIORITY, "vi_%d" % int(vi))
+	for vi in _pick_candidates:
+		var gid = _group_id_for_virtual(vi)
+		if gid == "":
+			continue
+		var pos = _virtual_model_position(vi, sources)
+		if pos == Vector2.ZERO:
+			continue
+		var selected: bool = vi in _pick_selected.get(gid, [])
+		board_highlighter.create_highlight(pos, _virtual_model_base_mm(vi, sources),
+			ht.SELECTED if selected else ht.SELECTABLE,
+			"vi_%d" % vi)
+
+
+func _group_id_for_virtual(vi: int) -> String:
+	for g in batch_result.get("groups", groups):
+		if vi in g.model_indices and _pick_required.has(g.id):
+			return str(g.id)
+	return ""
+
+
+func _virtual_model_position(vi: int, sources: Array) -> Vector2:
+	var m = _live_model(_virtual_source(vi, sources))
+	if m.is_empty():
+		return Vector2.ZERO
+	var pos = m.get("position")
+	if pos is Dictionary:
+		return Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos is Vector2:
+		return pos
+	return Vector2.ZERO
+
+
+func _virtual_model_base_mm(vi: int, sources: Array) -> float:
+	var m = _live_model(_virtual_source(vi, sources))
+	return float(m.get("base_mm", 32)) if not m.is_empty() else 32.0
+
+
+func _input(event: InputEvent) -> void:
+	if not _picking:
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# Ignore clicks on the pick panel itself.
+		if pick_panel.get_global_rect().has_point(event.position):
+			return
+		var refs = Engine.get_main_loop().root.get_node_or_null("SceneRefs")
+		var board_view = refs.board_view() if refs != null else null
+		if board_view == null:
+			return
+		var click_pos: Vector2 = board_view.get_local_mouse_position()
+		var vi = _find_candidate_at(click_pos)
+		if vi != -1:
+			_toggle_pick(vi)
+			accept_event()
+
+
+func _find_candidate_at(click_pos: Vector2) -> int:
+	var sources: Array = batch_result.get("sources", [])
+	var meas = _measurement()
+	var closest_vi := -1
+	var closest_dist := INF
+	for vi in _pick_candidates:
+		var pos = _virtual_model_position(vi, sources)
+		if pos == Vector2.ZERO:
+			continue
+		var base_mm = _virtual_model_base_mm(vi, sources)
+		var radius_px: float = meas.base_radius_px(base_mm) if meas != null else base_mm
+		var click_radius = radius_px + 30.0
+		var dist = pos.distance_to(click_pos)
+		if dist <= click_radius and dist < closest_dist:
+			closest_dist = dist
+			closest_vi = vi
+	return closest_vi
+
+
+func _toggle_pick(vi: int) -> void:
+	var gid = _group_id_for_virtual(vi)
+	if gid == "":
+		return
+	var selected: Array = _pick_selected[gid]
+	if vi in selected:
+		selected.erase(vi)
+	else:
+		var quota = int(_pick_required[gid]) - _pick_locked[gid].size()
+		if selected.size() >= quota:
+			# Replace the oldest pick so re-picking feels natural.
+			if quota <= 0:
+				return
+			selected.pop_front()
+		selected.append(vi)
+	print("AllocationGroupOverlay: pick toggle vi=%d — group %s now %s" % [vi, gid, str(selected)])
+	_refresh_pick_highlights()
+	_update_pick_counter()
+
+
+func _update_pick_counter() -> void:
+	var parts: Array = []
+	var complete := true
+	for gid in _pick_required:
+		var have = _pick_locked[gid].size() + _pick_selected[gid].size()
+		var need = int(_pick_required[gid])
+		if have < need:
+			complete = false
+		var locked_txt = " (%d wounded locked in)" % _pick_locked[gid].size() if _pick_locked[gid].size() > 0 else ""
+		parts.append("Selected %d / %d%s" % [have, need, locked_txt])
+	pick_counter.text = "  •  ".join(parts)
+	confirm_removal_button.disabled = not complete
+
+
+func _on_confirm_removal_pressed() -> void:
+	var preferred: Array = []
+	for gid in _pick_required:
+		preferred.append_array(_pick_locked[gid])
+		preferred.append_array(_pick_selected[gid])
+	var expected_casualties = int(batch_result.get("casualties", 0))
+	var final_batch = _run_batch(preferred)
+	if int(final_batch.get("casualties", 0)) != expected_casualties:
+		# Model-level FNP differences inside a group can shift the outcome;
+		# the re-run is authoritative — log loudly and continue.
+		print("AllocationGroupOverlay: WARNING — casualty count changed on pick re-run (%d → %d)" % [
+			expected_casualties, int(final_batch.get("casualties", 0))])
+	batch_result = final_batch
+	print("AllocationGroupOverlay: casualties re-allocated to defender's picks %s" % str(preferred))
+	_end_pick_mode()
+	_finalize_batch()
+
+
+func _on_auto_pick_pressed() -> void:
+	print("AllocationGroupOverlay: defender chose Auto-pick — keeping engine allocation")
+	_end_pick_mode()
+	_finalize_batch()
+
+
+func _end_pick_mode() -> void:
+	_picking = false
+	set_process_input(false)
+	pick_panel.visible = false
+	dim.visible = true
+	center.visible = true
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	if board_highlighter != null and is_instance_valid(board_highlighter):
+		board_highlighter.clear_all()
+		board_highlighter.queue_free()
+		board_highlighter = null
+
+
+# ── Finalize: apply the batch to GameState and show results ────────────
+
+func _finalize_batch() -> void:
 	_apply_diffs_to_gamestate(batch_result.get("diffs", []))
 	var target_unit_id = str(save_data.get("target_unit_id", ""))
 	if batch_result.get("casualties", 0) > 0:
@@ -350,10 +911,14 @@ func _show_results() -> void:
 	group_list.visible = false
 	confirm_button.visible = false
 	error_label.visible = false
+	reroll_panel.visible = false
 	var lines: Array = []
 	var rolls: Array = batch_result.get("save_rolls", []).duplicate()
 	rolls.sort()
 	lines.append("Save rolls (lowest first): %s" % str(rolls))
+	if _command_reroll.get("used", false):
+		lines.append("Command Re-roll: %d re-rolled into %d (1 CP)" % [
+			int(_command_reroll.get("original", 0)), int(_command_reroll.get("new", 0))])
 	lines.append("%d saved, %d failed — %d damage, %d model(s) destroyed" % [
 		batch_result.get("saves_passed", 0), batch_result.get("saves_failed", 0),
 		batch_result.get("damage_applied", 0), batch_result.get("casualties", 0)])
@@ -370,5 +935,15 @@ func _on_done_pressed() -> void:
 	summary["total_damage"] = summary.get("damage_applied", 0)
 	summary["models_destroyed"] = summary.get("casualties", 0)
 	summary["allocation_order"] = order
+	if _command_reroll.get("used", false):
+		summary["command_reroll"] = _command_reroll.duplicate(true)
 	emit_signal("allocation_complete", summary)
 	queue_free()
+
+
+func _exit_tree() -> void:
+	# Never leave board highlights behind if the overlay is freed mid-pick
+	# (phase transition, disconnect, scenario teardown).
+	if board_highlighter != null and is_instance_valid(board_highlighter):
+		board_highlighter.queue_free()
+		board_highlighter = null
