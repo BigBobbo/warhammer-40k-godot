@@ -1235,6 +1235,201 @@ def draw_tankbustas():
     return lay
 
 
+# ============================================================================
+# ORK SQUAD-LEADER VARIANTS (per-model_type art; see MA-20 / model_profiles)
+# Each squad's distinct leader gets "<unit>_<model_type>.png" so the one Boss
+# Nob / Runtherd on the board reads apart from its rank-and-file at a glance.
+# ============================================================================
+
+def _power_klaw(lay, wrist, tip, scale=1.0):
+    """Chunky ork power klaw: a boxy metal housing over the forearm plus three
+    splayed, tapering prongs reaching toward `tip`. The unmistakable boss weapon
+    — big, metallic, three-fingered — so a leader reads apart at 39-50px."""
+    dx, dy = tip[0] - wrist[0], tip[1] - wrist[1]
+    L = math.hypot(dx, dy) or 1.0
+    u = (dx / L, dy / L)        # forward (wrist -> claw)
+    n = (-u[1], u[0])          # perpendicular
+    hw = 34 * scale            # housing half-width
+    hl = 66 * scale            # housing length
+    hc = (wrist[0] + u[0] * hl * 0.35, wrist[1] + u[1] * hl * 0.35)
+    lay.polygon([
+        (hc[0] - n[0] * hw - u[0] * hl * 0.5, hc[1] - n[1] * hw - u[1] * hl * 0.5),
+        (hc[0] + n[0] * hw - u[0] * hl * 0.5, hc[1] + n[1] * hw - u[1] * hl * 0.5),
+        (hc[0] + n[0] * hw + u[0] * hl * 0.5, hc[1] + n[1] * hw + u[1] * hl * 0.5),
+        (hc[0] - n[0] * hw + u[0] * hl * 0.5, hc[1] - n[1] * hw + u[1] * hl * 0.5),
+    ], METAL, ORK_OUTLINE, 6)
+    lay.dot(hc[0], hc[1], 11 * scale, ORK_YELLOW, ORK_OUTLINE, 4)   # piston boss
+    knuckle = (wrist[0] + u[0] * hl, wrist[1] + u[1] * hl)
+    for spread in (-0.5, 0.0, 0.5):
+        pd = (u[0] + n[0] * spread, u[1] + n[1] * spread)
+        pl = math.hypot(*pd) or 1.0
+        pd = (pd[0] / pl, pd[1] / pl)
+        mid = (knuckle[0] + pd[0] * 40 * scale, knuckle[1] + pd[1] * 40 * scale)
+        ptip = (knuckle[0] + pd[0] * 74 * scale, knuckle[1] + pd[1] * 74 * scale)
+        lay.capsule(knuckle, mid, 20 * scale, METAL_DARK, ORK_OUTLINE, 5)
+        lay.capsule(mid, ptip, 12 * scale, METAL, ORK_OUTLINE, 5)
+        lay.dot(ptip[0], ptip[1], 8 * scale, METAL_LIGHT, ORK_OUTLINE, 3)
+    lay.dot(knuckle[0], knuckle[1], 16 * scale, METAL_DARK, ORK_OUTLINE, 5)
+
+
+def draw_stormboyz_boss_nob():
+    """Stormboyz Boss Nob: a Stormboy scaled up — same red rokkit pack + flame
+    trail, but broader shoulders, an iron boss-'elmet with a red stripe, and a
+    big power klaw thrust out to the left instead of a choppa."""
+    lay = Layer()
+    lay.shadow([88, 122, 428, 448])
+
+    # exhaust flames at the back (south)
+    lay.polygon([(202, 392), (230, 452), (256, 512), (282, 452), (310, 392)],
+                ORK_YELLOW, ORK_OUTLINE, 6)
+    lay.polygon([(228, 394), (256, 474), (284, 394)], ORK_RED_LIGHT, None)
+
+    # rokkit pack: fat red cylinder along the spine with fins
+    lay.polygon([(190, 346), (150, 424), (212, 402)], ORK_RED_DARK, ORK_OUTLINE, 6)
+    lay.polygon([(322, 346), (362, 424), (300, 402)], ORK_RED_DARK, ORK_OUTLINE, 6)
+    lay.capsule((256, 252), (256, 400), 128, ORK_RED, ORK_OUTLINE, 7)
+    lay.soft_capsule((232, 252), (232, 392), 30, ORK_RED_LIGHT, alpha=140, blur=8)
+    lay.capsule((256, 392), (256, 400), 86, METAL_DARK, ORK_OUTLINE, 6)  # nozzle ring
+    lay.capsule((210, 320), (302, 320), 9, ORK_RED_DARK, None)
+    for rx in (216, 256, 296):
+        lay.dot(rx, 320, 7, ORK_BLACK)
+
+    # broad nob shoulders + head, bigger than a rank stormboy
+    lay.capsule((162, 246), (350, 246), 150, SKIN, ORK_OUTLINE, 7)
+    lay.soft_capsule((162, 208), (350, 208), 50, SKIN_LIGHT, alpha=120, blur=10)
+
+    # RIGHT arm gripping the pack strap
+    lay.capsule((356, 258), (398, 322), 38, SKIN, ORK_OUTLINE, 6)
+    lay.dot(402, 330, 20, SKIN, ORK_OUTLINE, 5)
+
+    # LEFT arm ending in a big power klaw thrust down-left
+    lay.capsule((168, 260), (152, 314), 40, SKIN, ORK_OUTLINE, 6)
+    _power_klaw(lay, (150, 316), (92, 300), scale=1.05)
+
+    # head: bigger green dome with a riveted iron boss-'elmet + red stripe
+    lay.shaded_ellipse(256, 200, 132, 124, SKIN, SKIN_LIGHT, SKIN_DARK, ORK_OUTLINE, 7)
+    lay.polygon([(202, 168), (256, 132), (310, 168), (300, 200), (212, 200)],
+                METAL_DARK, ORK_OUTLINE, 6)     # iron 'elmet brow
+    lay.capsule((256, 140), (256, 196), 16, ORK_RED, None)          # boss stripe
+    lay.dot(232, 194, 8, ORK_RED_LIGHT)                             # eye glow
+    lay.dot(280, 194, 8, ORK_RED_LIGHT)
+    for tx in (238, 256, 274):                                     # iron gob teef
+        lay.dot(tx, 224, 5, TEEF)
+
+    return lay
+
+
+def draw_warbikers_boss_nob():
+    """Warbikers Boss Nob on the 42x75mm oval: the warbike, but the rider is a
+    broad-shouldered nob whose left fist is a raised power klaw out to the side,
+    with a red boss-glyph plate on the fairing."""
+    lay = Layer(287, BASE_SIZE)
+    cx = 143.5
+    lay.shadow([36, 40, 251, 484], alpha=65)
+
+    # rear wheel + front wheel
+    lay.capsule((cx, 380), (cx, 458), 88, TIRE, ORK_OUTLINE, 7)
+    lay.capsule((cx, 384), (cx, 450), 44, TIRE_LIGHT, None)
+    lay.capsule((cx, 46), (cx, 128), 54, TIRE, ORK_OUTLINE, 7)
+    lay.capsule((cx, 52), (cx, 120), 22, TIRE_LIGHT, None)
+
+    # exhaust pipes flaring out the back
+    lay.capsule((cx - 30, 350), (cx - 66, 470), 24, METAL, ORK_OUTLINE, 6)
+    lay.capsule((cx + 30, 350), (cx + 66, 470), 24, METAL, ORK_OUTLINE, 6)
+    lay.dot(cx - 68, 474, 9, ORK_BLACK)
+    lay.dot(cx + 68, 474, 9, ORK_BLACK)
+
+    # red tank/fairing wedge with a boss-glyph plate
+    lay.polygon([(cx - 58, 170), (cx + 58, 170), (cx + 74, 300), (cx + 52, 396),
+                 (cx - 52, 396), (cx - 74, 300)], ORK_RED, ORK_OUTLINE, 7)
+    lay.soft_capsule((cx - 30, 200), (cx + 30, 200), 40, ORK_RED_LIGHT, alpha=130, blur=9)
+    lay.polygon([(cx - 20, 210), (cx + 20, 210), (cx + 30, 290), (cx - 30, 290)],
+                METAL_DARK, ORK_OUTLINE, 5)  # engine block
+    # yellow boss glyph plate on the nose
+    lay.polygon([(cx - 26, 150), (cx + 26, 150), (cx + 20, 196), (cx - 20, 196)],
+                ORK_YELLOW, ORK_OUTLINE, 5)
+    lay.polygon([(cx - 10, 160), (cx, 150), (cx + 10, 160), (cx, 188)], ORK_BLACK, None)  # glyph
+
+    # twin dakkaguns flanking the front wheel
+    lay.capsule((cx - 44, 176), (cx - 44, 92), 22, METAL_DARK, ORK_OUTLINE, 6)
+    lay.capsule((cx + 44, 176), (cx + 44, 92), 22, METAL_DARK, ORK_OUTLINE, 6)
+    lay.dot(cx - 44, 86, 8, ORK_BLACK)
+    lay.dot(cx + 44, 86, 8, ORK_BLACK)
+    lay.capsule((cx - 62, 190), (cx + 62, 190), 14, METAL, ORK_OUTLINE, 5)  # handlebars
+
+    # rider: broad green nob over the saddle
+    lay.capsule((cx - 56, 306), (cx + 56, 306), 84, SKIN, ORK_OUTLINE, 6)
+    lay.soft_capsule((cx - 50, 284), (cx + 50, 284), 30, SKIN_LIGHT, alpha=115, blur=8)
+    lay.capsule((cx + 44, 300), (cx + 70, 220), 26, SKIN, ORK_OUTLINE, 5)   # right arm to bars
+    # LEFT fist raised as a power klaw up-and-left (kept inside the oval canvas)
+    lay.capsule((cx - 44, 300), (cx - 40, 256), 30, SKIN, ORK_OUTLINE, 5)
+    _power_klaw(lay, (cx - 38, 252), (cx - 64, 206), scale=0.8)
+    lay.shaded_ellipse(cx, 300, 68, 66, SKIN, SKIN_LIGHT, SKIN_DARK, ORK_OUTLINE, 6)
+    lay.polygon([(cx - 30, 280), (cx + 30, 280), (cx + 22, 312), (cx - 22, 312)],
+                METAL_DARK, ORK_OUTLINE, 5)      # iron boss-'elmet
+    lay.capsule((cx, 284), (cx, 312), 10, ORK_RED, None)             # boss stripe
+
+    return lay
+
+
+def draw_gretchin_runtherd():
+    """Gretchin Runtherd: a bigger, meaner grot herder — leather coat, peaked
+    slaver's cap, a long grabba-stikk with a metal claw thrust up-right and a
+    grot-prod rod in the other hand. Clearly the boss of the mob."""
+    lay = Layer(BASE_SIZE, BASE_SIZE)
+    lay.shadow([104, 128, 420, 440], alpha=62)
+
+    # grabba-stikk: long pole low-left to a metal grabba claw up-right (drawn
+    # behind the body so the head/arms overlap it).
+    stikk0 = (150, 452)
+    stikk1 = (392, 150)
+    lay.capsule(stikk0, stikk1, 16, LEATHER, ORK_OUTLINE, 6)
+    lay.line(_along(stikk0, stikk1, 0.1), _along(stikk0, stikk1, 0.6), 4, LEATHER_LIGHT)
+    # grabba claw: two hooked prongs at the tip
+    u = ((stikk1[0] - stikk0[0]), (stikk1[1] - stikk0[1]))
+    ul = math.hypot(*u) or 1.0
+    u = (u[0] / ul, u[1] / ul)
+    n = (-u[1], u[0])
+    tip = (stikk1[0] + u[0] * 8, stikk1[1] + u[1] * 8)
+    for s in (1, -1):
+        base = (tip[0] + n[0] * s * 6, tip[1] + n[1] * s * 6)
+        elbow = (tip[0] + u[0] * 34 + n[0] * s * 30, tip[1] + u[1] * 34 + n[1] * s * 30)
+        claw = (tip[0] + u[0] * 30 + n[0] * s * 6, tip[1] + u[1] * 30 + n[1] * s * 6)
+        lay.capsule(base, elbow, 13, METAL, ORK_OUTLINE, 5)
+        lay.capsule(elbow, claw, 10, METAL_DARK, ORK_OUTLINE, 4)
+
+    # scrawny-but-bigger body in a ragged leather coat
+    lay.capsule((256, 300), (256, 388), 128, LEATHER, ORK_OUTLINE, 7)
+    lay.capsule((188, 288), (324, 288), 128, LEATHER, ORK_OUTLINE, 7)
+    lay.soft_capsule((188, 260), (324, 260), 46, LEATHER_LIGHT, alpha=115, blur=9)
+    lay.capsule((256, 306), (256, 380), 10, LEATHER_LIGHT, None)  # coat seam
+
+    # right arm gripping the grabba-stikk
+    grip = _along(stikk0, stikk1, 0.30)
+    lay.capsule((322, 292), grip, 30, SKIN, ORK_OUTLINE, 6)
+    lay.dot(grip[0], grip[1], 19, SKIN, ORK_OUTLINE, 5)
+    # left arm holding a grot-prod (short forked electro-rod) out to the west
+    lay.capsule((190, 292), (118, 268), 28, SKIN, ORK_OUTLINE, 6)
+    lay.dot(112, 264, 17, SKIN, ORK_OUTLINE, 5)
+    lay.capsule((110, 262), (44, 226), 14, METAL_DARK, ORK_OUTLINE, 5)
+    lay.polygon([(48, 240), (18, 214), (44, 236), (14, 236), (44, 212)], ORK_YELLOW, ORK_OUTLINE, 4)
+
+    # BIG runtherd head with a peaked slaver's cap + huge ears
+    lay.polygon([(184, 214), (78, 168), (176, 262)], SKIN, ORK_OUTLINE, 7)   # ears
+    lay.polygon([(328, 214), (434, 168), (336, 262)], SKIN, ORK_OUTLINE, 7)
+    lay.polygon([(168, 220), (110, 190), (166, 250)], SKIN_DARK, None)
+    lay.polygon([(344, 220), (402, 190), (346, 250)], SKIN_DARK, None)
+    lay.shaded_ellipse(256, 222, 168, 156, SKIN, SKIN_LIGHT, SKIN_DARK, ORK_OUTLINE, 7)
+    lay.polygon([(226, 188), (256, 128), (286, 188)], SKIN, ORK_OUTLINE, 6)  # snout
+    # peaked leather cap on top of the head
+    lay.polygon([(196, 176), (316, 176), (300, 128), (212, 128)], LEATHER, ORK_OUTLINE, 6)
+    lay.capsule((196, 176), (316, 176), 10, LEATHER_LIGHT, None)  # cap brim
+    lay.dot(236, 214, 8, ORK_RED_LIGHT)   # mean red eyes
+    lay.dot(276, 214, 8, ORK_RED_LIGHT)
+
+    return lay
+
+
 SPRITES = {
     # filename (SpriteResolver key) -> draw function
     "custodian_guard": draw_custodian_guard,
@@ -1242,9 +1437,12 @@ SPRITES = {
     "blade_champion": draw_blade_champion,
     "prosecutors": draw_prosecutors,
     "gretchin": draw_gretchin,
+    "gretchin_runtherd": draw_gretchin_runtherd,
     "stormboyz": draw_stormboyz,
+    "stormboyz_boss_nob": draw_stormboyz_boss_nob,
     "mek": draw_mek,
     "warbikers": draw_warbikers,
+    "warbikers_boss_nob": draw_warbikers_boss_nob,
     "deffkoptas": draw_deffkoptas,
     "deffkilla_wartrike": draw_deffkilla_wartrike,
     "wazdakka_gutsmek": draw_wazdakka_gutsmek,
@@ -1263,9 +1461,12 @@ BASES = {
     "blade_champion": (40, 40),
     "prosecutors": (32, 32),
     "gretchin": (25, 25),
+    "gretchin_runtherd": (25, 25),
     "stormboyz": (32, 32),
+    "stormboyz_boss_nob": (32, 32),
     "mek": (32, 32),
     "warbikers": (42, 75),
+    "warbikers_boss_nob": (42, 75),
     "deffkoptas": (42, 75),
     "deffkilla_wartrike": (95, 150),
     "wazdakka_gutsmek": (32, 32),

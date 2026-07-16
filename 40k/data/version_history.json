@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.46.0",
+			"version": "0.46.1",
 			"date": "2026-07-16",
 			"summary": "Models being deployed now face the enemy by default and show their sprite while you place them. Previously every model's artwork pointed 'up' the board regardless of which side you were on, and during deployment you only saw a plain base with no indication of facing. Now the deployment ghost renders the model's top-down sprite, oriented toward the opponent's board edge, and it turns live as you rotate the model — so what you see while placing matches how the model will sit on the table.",
 			"changes": [
@@ -10,6 +10,18 @@
 				"While deploying, the placement preview now shows the model's actual sprite (or a facing arrow for units without dedicated art) so you can see which way it is pointing before you drop it.",
 				"Rotating a model during deployment (Q/E or the mouse wheel) now visibly turns its sprite — especially useful for circular bases, where the base alone gave no clue which way it faced.",
 				"You can still rotate freely to any angle; rotating simply overrides the default enemy-facing orientation."
+			]
+		},
+		{
+			"version": "0.46.0",
+			"date": "2026-07-16",
+			"summary": "Squad leaders and special models now look different from their rank-and-file. When a unit contains models with different loadouts — a Boss Nob leading Stormboyz or Warbikers, a Runtherd bossing a Gretchin mob — that model now shows its own top-down sprite on the board (a power klaw for the Nobs, a grabba-stikk and slaver's cap for the Runtherd) and, when you hover over it, a datasheet-style block listing that specific model's role and weapons. Applied to the Recon Stompa (Speedwaaagh!) Orks list. Custodes squads were checked: their Sister Superiors carry the same weapons as the squad in the current data, so they intentionally share the squad sprite.",
+			"changes": [
+				"Different models in the same unit can now show different sprites. The one Boss Nob in a Stormboyz or Warbikers squad, and the Runtherd in a Gretchin mob, are drawn with distinct top-down art so you can tell the leader apart at a glance.",
+				"Hovering a model now shows that model's own profile: its role name (e.g. 'Boss Nob') and the weapons it actually carries, in addition to the unit summary. Rank-and-file and leader loadouts are listed separately.",
+				"Deployed leader/special models also keep the existing coloured ring + short letter on their base, so mixed squads are readable even before you hover.",
+				"New Boss Nob (foot), Boss Nob on Warbike, and Runtherd sprites were added; ordinary squad members are unchanged and keep the shared squad sprite.",
+				"Units with a single uniform loadout are completely unchanged — this only affects squads that genuinely contain different model profiles."
 			]
 		},
 		{
