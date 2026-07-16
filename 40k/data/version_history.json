@@ -2,13 +2,26 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.46.2",
+			"version": "0.47.1",
 			"date": "2026-07-16",
 			"summary": "Fixed deployment breaking after loading a saved game. If you saved during (or just before) the Deployment phase and loaded that save, every attempt to deploy a unit was rejected with 'Unit is not available for deployment' — the AI opponent would dump its army into Strategic Reserves until the 50% points cap and then skip its remaining units entirely, leaving it with nothing on the board (reported with the Battlewagons Ork list vs the Competitive AI). Loading a save no longer breaks deployment for either player.",
 			"changes": [
 				"Fixed every deployment being rejected as 'Unit is not available for deployment' after loading a save made around the Deployment phase. Saved games store numbers in a format that loads back as decimals, and the deployment legality check compared those decimals too strictly, so no unit ever qualified as deployable.",
 				"Because each failed deployment fell back to Strategic Reserves, the AI would silently bank its army into reserves until the 50% reserves points limit was hit and then skip the rest of its units — the AI now deploys normally after a load.",
 				"Loaded games now restore unit status and ownership (plus turn/phase bookkeeping) as proper whole numbers, protecting other rules checks from the same decimals-after-load problem."
+			]
+		},
+		{
+			"version": "0.47.0",
+			"date": "2026-07-16",
+			"summary": "The defender is now in control when their models are attacked. When your units are targeted you get the reactive stratagem window (no more 5-second auto-decline, and it now works online and against the AI), YOU click to roll your own saves, you can spend 1 CP on a Command Re-roll of one failed save die, and when models die YOU click which bases are removed from the board. This applies in the shooting and fight phases, in local play, online multiplayer, and when the AI is attacking you.",
+			"changes": [
+				"Saves are always rolled by the owner of the target unit: the allocation window now waits for your 'Roll Saves' click instead of instantly auto-resolving single-group squads, and melee saves are interactive by default too (the old auto behaviour is now an opt-in setting).",
+				"You choose your casualties: after saves are rolled you click exactly which bases are removed (wounded models are locked in per the rules, and an 'Auto-pick For Me' button keeps fast play available). Which base you keep matters for objective control.",
+				"Command Re-roll on saves: if you have 1 CP you can re-roll one failed save die before damage is applied — in both shooting and melee.",
+				"Reactive stratagems fixed online: the attacker's machine no longer silently declines on your behalf — the decision window appears on the defender's screen and the attacker waits. The 5-second auto-decline countdown is gone; the window stays open until you choose.",
+				"The AI now pauses its attacks for you: when the AI targets your units you get the reactive stratagem window, then roll your own saves and pick your own casualties, exactly as against a human attacker.",
+				"The 'Computer allocates wounds (auto-remove models)' setting now defaults OFF (existing installs are migrated once); turn it back on in Settings if you prefer the old hands-off behaviour in local games."
 			]
 		},
 		{

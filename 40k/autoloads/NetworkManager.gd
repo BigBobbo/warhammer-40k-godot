@@ -1285,9 +1285,11 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				phase.emit_signal("shooting_resolved", unit_id, "", {"casualties": 0})
 
 	# Handle shooting phase weapon_order_required signal
-	# This happens when CONFIRM_TARGETS detects multiple weapon types
+	# This happens when CONFIRM_TARGETS detects multiple weapon types — or
+	# when the defender's reactive-stratagem decision resumes that flow
+	# (USE/DECLINE_REACTIVE_STRATAGEM results carry the same keys).
 	print("NetworkManager:   Checking for weapon_order_required...")
-	if action_type == "CONFIRM_TARGETS":
+	if action_type == "CONFIRM_TARGETS" or action_type == "USE_REACTIVE_STRATAGEM" or action_type == "DECLINE_REACTIVE_STRATAGEM":
 		var weapon_order_required = result.get("weapon_order_required", false)
 		print("NetworkManager:   weapon_order_required = ", weapon_order_required)
 
@@ -1315,7 +1317,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	# This happens when APPLY_SAVES completes OR when RESOLVE_WEAPON_SEQUENCE has no wounds (miss) OR when CONTINUE_SEQUENCE needs next weapon
 	# OR when CONFIRM_TARGETS resolves a single weapon that misses (no saves needed)
 	print("NetworkManager:   Checking for sequential_pause...")
-	if action_type == "APPLY_SAVES" or action_type == "RESOLVE_WEAPON_SEQUENCE" or action_type == "CONTINUE_SEQUENCE" or action_type == "CONFIRM_TARGETS":
+	if action_type == "APPLY_SAVES" or action_type == "RESOLVE_WEAPON_SEQUENCE" or action_type == "CONTINUE_SEQUENCE" or action_type == "CONFIRM_TARGETS" or action_type == "USE_REACTIVE_STRATAGEM" or action_type == "DECLINE_REACTIVE_STRATAGEM":
 		var sequential_pause = result.get("sequential_pause", false)
 		print("NetworkManager:   sequential_pause = ", sequential_pause)
 
@@ -1372,8 +1374,9 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	print("NetworkManager:   action_type == ROLL_DICE (fight): ", action_type == "ROLL_DICE")
 	print("NetworkManager:   action_type == CONFIRM_AND_RESOLVE_ATTACKS (fight): ", action_type == "CONFIRM_AND_RESOLVE_ATTACKS")
 
-	# Check for both shooting and fight phase action types
-	var is_shooting_action = action_type in ["CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "APPLY_SAVES"]
+	# Check for both shooting and fight phase action types (the reactive
+	# stratagem decisions can resume straight into save resolution)
+	var is_shooting_action = action_type in ["CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "APPLY_SAVES", "USE_REACTIVE_STRATAGEM", "DECLINE_REACTIVE_STRATAGEM"]
 	var is_fight_action = action_type in ["ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS", "APPLY_MELEE_SAVES"]
 
 	if is_shooting_action or is_fight_action:
@@ -1423,6 +1426,34 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					print("NetworkManager: ℹ️ Client (attacker) skipping saves_required re-emission - local=%d is not defender=%d" % [local_player, defender_player])
 			else:
 				print("NetworkManager:   ⚠️ No target_unit_id, skipping saves_required check")
+
+	# DEFENDER CONTROL: reactive stratagem window (Go to Ground / Smokescreen /
+	# faction reactives). The host's phase emitted the signal locally; the
+	# DEFENDING client must re-emit it so its StratagemDialog opens, and the
+	# client phase's awaiting flag must mirror the host's.
+	if result.get("reactive_stratagem_opportunity", false):
+		var rso_defender = int(result.get("defending_player", 0))
+		var rso_stratagems = result.get("available_stratagems", [])
+		var rso_targets = result.get("target_unit_ids", [])
+		if "awaiting_reactive_stratagem" in phase:
+			phase.awaiting_reactive_stratagem = true
+		if phase.has_signal("reactive_stratagem_opportunity"):
+			print("NetworkManager: ✅ Client re-emitting reactive_stratagem_opportunity (defender=%d, %d stratagem(s))" % [rso_defender, rso_stratagems.size()])
+			phase.emit_signal("reactive_stratagem_opportunity", rso_defender, rso_stratagems, rso_targets)
+
+	# The defender's reactive decision arrived — clear the waiting overlay
+	# shown on the attacker's machine and the client-side awaiting flag.
+	if action_type == "USE_REACTIVE_STRATAGEM" or action_type == "DECLINE_REACTIVE_STRATAGEM":
+		if "awaiting_reactive_stratagem" in phase:
+			phase.awaiting_reactive_stratagem = false
+		var rso_main = SceneRefs.main()
+		if rso_main and rso_main.has_method("hide_reactive_stratagem_waiting"):
+			rso_main.hide_reactive_stratagem_waiting()
+		if action_type == "USE_REACTIVE_STRATAGEM":
+			var strat_info = result.get("stratagem_used", {})
+			var toast_mgr = get_node_or_null("/root/ToastManager")
+			if toast_mgr and not strat_info.is_empty():
+				toast_mgr.show_toast("Opponent used %s!" % str(strat_info.get("stratagem_name", "a stratagem")), Color.ORANGE, 4.0)
 
 	# Handle fight selection dialog trigger (for multiplayer sync after CONSOLIDATE)
 	if result.get("trigger_fight_selection", false):
@@ -2250,7 +2281,12 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"USE_FIRE_OVERWATCH",
 		"DECLINE_FIRE_OVERWATCH",
 		"USE_COMMAND_REROLL",
-		"DECLINE_COMMAND_REROLL"
+		"DECLINE_COMMAND_REROLL",
+		# Shooting-phase defender window (Go to Ground / Smokescreen /
+		# faction reactives): the DEFENDER decides during the attacker's
+		# turn, so turn validation must be skipped (authority still checked).
+		"USE_REACTIVE_STRATAGEM",
+		"DECLINE_REACTIVE_STRATAGEM"
 	]
 	var is_exempt = action_type in exempt_actions
 
