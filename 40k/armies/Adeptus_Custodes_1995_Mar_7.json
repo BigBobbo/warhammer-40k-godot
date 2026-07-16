@@ -465,6 +465,11 @@
       "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
      },
      {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
       "name": "Captain-General",
       "type": "Datasheet",
       "description": "After being attached to a unit, ignore modifiers the unit's All rolls."
@@ -605,6 +610,11 @@
       "name": "Martial Ka'tah",
       "type": "Faction",
       "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
      },
      {
       "name": "Praesidium Shield",
@@ -772,6 +782,11 @@
       "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
      },
      {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
       "name": "Praesidium Shield",
       "type": "Datasheet",
       "description": "Add 1 to this model's Wounds characteristic."
@@ -937,6 +952,11 @@
       "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
      },
      {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
       "name": "Praesidium Shield",
       "type": "Datasheet",
       "description": "Add 1 to this model's Wounds characteristic."
@@ -1100,6 +1120,11 @@
       "name": "Martial Ka'tah",
       "type": "Faction",
       "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
      },
      {
       "name": "Praesidium Shield",
@@ -1270,6 +1295,11 @@
       "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
      },
      {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
       "name": "Praesidium Shield",
       "type": "Datasheet",
       "description": "Add 1 to this model's Wounds characteristic."
@@ -1436,6 +1466,11 @@
       "name": "Martial Ka'tah",
       "type": "Faction",
       "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
      },
      {
       "name": "From Golden Light",
