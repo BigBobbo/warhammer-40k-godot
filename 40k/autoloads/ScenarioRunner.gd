@@ -317,6 +317,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_hover_unit(step), true)
 		"hover_board_at":
 			rec.merge(await _do_hover_board_at(step), true)
+		"hover_node":
+			rec.merge(await _do_hover_node(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
 		"simulate_wheel":
@@ -612,6 +614,31 @@ func _do_hover_board_at(step: Dictionary) -> Dictionary:
 		screen_pos = viewport.get_canvas_transform() * world_pos
 	await _send_hover(screen_pos)
 	return {"pass": true, "world": [world_pos.x, world_pos.y], "screen": [screen_pos.x, screen_pos.y]}
+
+
+func _do_hover_node(step: Dictionary) -> Dictionary:
+	# Hover the centre of a named node (Control or Node2D) with a real cursor
+	# warp + buttonless motion event — the pointer analogue of click_node. Use
+	# before simulate_wheel to aim the wheel at a UI panel (e.g. asserting that
+	# wheel-over-menu does NOT zoom the board).
+	var node_path: String = str(step.get("node", ""))
+	if node_path == "":
+		return {"pass": false, "error": "hover_node needs node"}
+	var node: Node = get_node_or_null(node_path)
+	if node == null:
+		return {"pass": false, "error": "no node at path %s" % node_path}
+	var screen_pos: Vector2
+	if node is Control:
+		var rect: Rect2 = (node as Control).get_global_rect()
+		screen_pos = rect.position + rect.size * 0.5
+	elif node is Node2D:
+		screen_pos = _node2d_to_screen(node as Node2D)
+	else:
+		return {"pass": false, "error": "node is neither Control nor Node2D"}
+	if screen_pos == Vector2.INF:
+		return {"pass": false, "error": "could not compute hover position"}
+	await _send_hover(screen_pos)
+	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
 
 
 func _send_hover(screen_pos: Vector2) -> void:
