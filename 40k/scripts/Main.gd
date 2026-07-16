@@ -6729,6 +6729,23 @@ func _setup_token_hover_tooltip() -> void:
 	_token_hover_tooltip.add_child(_token_hover_label)
 	add_child(_token_hover_tooltip)
 
+func _resolve_token_meta_node(token: Node) -> Node2D:
+	# Board tokens come in two shapes: FLAT (TokenVisual directly in
+	# token_layer, meta on itself — created by Main / _on_ai_unit_deployed /
+	# _recreate_unit_visuals) and NESTED (wrapper Node2D with the
+	# meta-carrying TokenVisual as first child — created by
+	# DeploymentController during placement; confirmed units are promoted to
+	# flat by _finalize_tokens, but previews and any legacy leftovers remain
+	# nested). Returns the node carrying unit_id meta, or null.
+	if not token is Node2D:
+		return null
+	if token.has_meta("unit_id"):
+		return token
+	for child in token.get_children():
+		if child is Node2D and child.has_meta("unit_id"):
+			return child
+	return null
+
 func _check_token_hover(mouse_pos: Vector2) -> void:
 	if not token_layer or not is_instance_valid(token_layer):
 		return
@@ -6748,20 +6765,27 @@ func _check_token_hover(mouse_pos: Vector2) -> void:
 	var best_token: Node2D = null
 	var best_dist: float = INF
 	for child in token_layer.get_children():
-		if not child.visible or not child.has_meta("unit_id"):
+		if not child.visible:
 			continue
-		if "is_preview" in child and child.is_preview:
+		# Meta may sit on the token itself (flat tokens from Main) or on the
+		# first child (nested deployment wrappers, TokenVisual inside a Node2D
+		# — see DeploymentController._create_token_visual). Resolve both so
+		# hover keeps working whichever shape is on the board.
+		var meta_node: Node2D = _resolve_token_meta_node(child)
+		if meta_node == null:
+			continue
+		if "is_preview" in meta_node and meta_node.is_preview:
 			continue
 		var dist = child.position.distance_to(board_pos)
 		# Hit radius follows the model's actual base so vehicles/monsters are
 		# hoverable across their whole base; 25px floor covers small infantry.
 		var hit_radius: float = 25.0
-		if "base_shape" in child and child.base_shape != null:
-			var bounds: Rect2 = child.base_shape.get_bounds()
+		if "base_shape" in meta_node and meta_node.base_shape != null:
+			var bounds: Rect2 = meta_node.base_shape.get_bounds()
 			hit_radius = max(hit_radius, max(bounds.size.x, bounds.size.y) / 2.0 + 4.0)
 		if dist <= hit_radius and dist < best_dist:
 			best_dist = dist
-			best_token = child
+			best_token = meta_node
 	if best_token:
 		var uid = best_token.get_meta("unit_id")
 		var mid = best_token.get_meta("model_id") if best_token.has_meta("model_id") else ""
@@ -12569,22 +12593,27 @@ func _find_unit_at_world_pos(world_pos: Vector2) -> String:
 	var closest_dist: float = INF
 
 	for token_node in token_layer.get_children():
-		if not token_node is Node2D:
+		# Meta may sit on the token itself (flat) or its first child (nested
+		# deployment wrapper) — resolve both, same as the hover tooltip.
+		var meta_node = _resolve_token_meta_node(token_node)
+		if meta_node == null:
 			continue
-		if not token_node.has_meta("unit_id"):
+		# Skip placement previews so a right-click over a not-yet-confirmed
+		# model still reaches the deployment controller (cancel/rotate).
+		if "is_preview" in meta_node and meta_node.is_preview:
 			continue
 		var token_pos = token_node.position
 		var dist = token_pos.distance_to(world_pos)
 		var hit = false
 		# Use base_shape.contains_point for accurate hit detection
-		if token_node.get("base_shape") and token_node.base_shape.has_method("contains_point"):
-			hit = token_node.base_shape.contains_point(world_pos, token_pos, token_node.rotation)
+		if meta_node.get("base_shape") and meta_node.base_shape.has_method("contains_point"):
+			hit = meta_node.base_shape.contains_point(world_pos, token_pos, meta_node.rotation)
 		else:
 			# Fallback: distance check with generous radius (50px covers most base sizes)
 			hit = dist <= 50.0
 		if hit and dist < closest_dist:
 			closest_dist = dist
-			closest_uid = token_node.get_meta("unit_id")
+			closest_uid = meta_node.get_meta("unit_id")
 
 	return closest_uid
 

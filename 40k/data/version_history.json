@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.46.2",
+			"date": "2026-07-16",
+			"summary": "Fixed hovering and right-clicking your own models doing nothing after you deployed them. Units you placed during deployment (and reinforcements arriving from reserves) were left on the board as internal 'placement preview' containers, invisible to the hover tooltip, the right-click Change Color / Change Label / Unit Stats menu, and some movement visual updates — while AI-deployed and save-loaded units worked fine, which is why only your own models seemed dead. Confirmed units are now converted to the same standard token form as every other model on the board.",
+			"changes": [
+				"Hovering a model you deployed yourself now shows the info tooltip again (unit summary, and the per-model profile block where applicable).",
+				"Right-clicking your own models now opens the context menu again, so you can change unit colors and labels after deploying.",
+				"Also applies to units arriving from Strategic Reserves / deep strike mid-game — their tokens now behave identically to every other token.",
+				"Loading a save was never affected; this only concerned units placed by hand in the current session."
+			]
+		},
+		{
 			"version": "0.46.1",
 			"date": "2026-07-16",
 			"summary": "Models being deployed now face the enemy by default and show their sprite while you place them. Previously every model's artwork pointed 'up' the board regardless of which side you were on, and during deployment you only saw a plain base with no indication of facing. Now the deployment ghost renders the model's top-down sprite, oriented toward the opponent's board edge, and it turns live as you rotate the model — so what you see while placing matches how the model will sit on the table.",
