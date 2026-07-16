@@ -7,6 +7,15 @@ var model_data: Dictionary = {}
 var base_rotation: float = 0.0
 var base_shape: BaseShape = null
 
+# Sprite overlay so the player can see which way the model is facing while
+# deploying (mirrors TokenVisual's letter-mode Layer 3). Resolved lazily in
+# _draw() because unit_id meta is set after set_model_data() at creation.
+var _sprite_resolved: bool = false
+var _sprite_texture: Texture2D = null
+var _tank_resolved: bool = false
+var _tank_body_tex: Texture2D = null
+var _tank_barrel_tex: Texture2D = null
+
 # MA-17: Model type label shown during placement
 var model_type_label: String = ""
 
@@ -83,9 +92,17 @@ func _draw() -> void:
 			if poly_points.size() > 0:
 				closed.append(poly_points[0])
 			draw_polyline(closed, rim_color, 2.0)
+		# Show the model's sprite (or a facing arrow) so the player can see the
+		# deployment facing and how it changes as they rotate.
+		if not _draw_ghost_model_art(pulse_factor):
+			_draw_facing_arrow(pulse_factor, border_color)
 	else:
-		# Original rendering - no silhouette overlays on ghosts for clarity
+		# Original rendering path (classic / style_a / style_b)
 		base_shape.draw(self, Vector2.ZERO, base_rotation, fill_color, border_color, 2.0)
+		# Show the model's sprite (or a facing arrow) so the player can see the
+		# deployment facing and how it changes as they rotate.
+		if not _draw_ghost_model_art(pulse_factor):
+			_draw_facing_arrow(pulse_factor, border_color)
 
 	# Draw connecting lines to unit models (if available)
 	if coherency_lines_data.size() > 0:
@@ -240,6 +257,13 @@ func set_model_data(data: Dictionary) -> void:
 	print("[GhostVisual] data keys: ", data.keys())
 	model_data = data
 	base_shape = Measurement.create_base_shape(data)
+	# Re-resolve the facing sprite for the new model (combined deploys and the
+	# "next model" step reuse the same ghost with different model data).
+	_sprite_resolved = false
+	_sprite_texture = null
+	_tank_resolved = false
+	_tank_body_tex = null
+	_tank_barrel_tex = null
 	print("[GhostVisual] base_shape created: ", base_shape != null)
 	if base_shape:
 		print("[GhostVisual] base_shape type: ", base_shape.get_type())
@@ -325,8 +349,12 @@ func _draw_ghost_letter_mode(pulse_factor: float) -> void:
 			var to = poly_points[(i + 1) % poly_points.size()]
 			draw_line(from, to, border_shade, 2.0)
 
-	# Draw letter label if we have unit_id
-	_draw_ghost_letter_label(radius, pulse_factor)
+	# Layer 3: top-down unit art / tank sprite (rotates with base_rotation so the
+	# facing is visible during deployment). Units without dedicated art keep the
+	# Vassal-style letter counter plus a small facing arrow.
+	if not _draw_ghost_model_art(pulse_factor):
+		_draw_ghost_letter_label(radius, pulse_factor)
+		_draw_facing_arrow(pulse_factor, border_shade)
 
 
 func _get_ghost_unit_color() -> Color:
@@ -392,3 +420,143 @@ func _draw_ghost_letter_label(radius: float, pulse_factor: float) -> void:
 	var text_pos = Vector2(-text_size.x / 2.0, text_size.y / 4.0)
 
 	draw_string(font, text_pos, label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)
+
+
+# --- Facing sprite overlay (mirrors TokenVisual's letter-mode Layer 3) ---
+
+func _get_ghost_unit_type() -> String:
+	if not has_meta("unit_id"):
+		return "INFANTRY"
+	var unit = GameState.get_unit(get_meta("unit_id"))
+	if unit.is_empty():
+		return "INFANTRY"
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	for keyword in keywords:
+		var kw = str(keyword).to_upper()
+		if kw == "VEHICLE":
+			return "VEHICLE"
+		elif kw == "MONSTER":
+			return "MONSTER"
+	return "INFANTRY"
+
+func _get_ghost_faction_name() -> String:
+	if not has_meta("unit_id"):
+		return ""
+	var unit = GameState.get_unit(get_meta("unit_id"))
+	if unit.is_empty():
+		return ""
+	var owner = unit.get("owner", owner_player)
+	var faction = GameState.get_faction_name(owner)
+	# If faction is unknown, try to infer from unit keywords
+	if faction == "Unknown" or faction.begins_with("Player"):
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		for keyword in keywords:
+			var kw = str(keyword).to_lower()
+			if kw.find("ork") >= 0:
+				return "Orks"
+			elif kw.find("space marine") >= 0 or kw.find("astartes") >= 0:
+				return "Space Marines"
+			elif kw.find("custode") >= 0:
+				return "Adeptus Custodes"
+	return faction
+
+func _resolve_ghost_sprite() -> void:
+	_sprite_resolved = true
+	if not has_meta("unit_id") or SpriteResolver == null:
+		return
+	var unit = GameState.get_unit(get_meta("unit_id"))
+	if unit.is_empty():
+		return
+	var unit_name = unit.get("meta", {}).get("name", "")
+	_sprite_texture = SpriteResolver.resolve_sprite(unit_name, _get_ghost_faction_name(), _get_ghost_unit_type())
+
+func _get_ghost_sprite_texture() -> Texture2D:
+	if not _sprite_resolved:
+		_resolve_ghost_sprite()
+	return _sprite_texture
+
+func _resolve_ghost_tank_sprites() -> void:
+	_tank_resolved = true
+	if not has_meta("unit_id"):
+		return
+	if _get_ghost_unit_type() != "VEHICLE":
+		return
+	var unit = GameState.get_unit(get_meta("unit_id"))
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var titanic := false
+	for k in keywords:
+		if str(k).to_upper() == "TITANIC":
+			titanic = true
+			break
+	var faction = _get_ghost_faction_name()
+	_tank_body_tex = TokenTankSprites.body_texture(faction, owner_player, titanic)
+	# The oversized titanic hull reads better without the standard turret.
+	_tank_barrel_tex = null if titanic else TokenTankSprites.barrel_texture(faction, owner_player)
+
+func _get_tank_body_texture() -> Texture2D:
+	if not _tank_resolved:
+		_resolve_ghost_tank_sprites()
+	return _tank_body_tex
+
+# Draws the model's top-down art (or generic vehicle tank sprite) rotated by
+# base_rotation so the deployment facing is visible. Returns true if it drew
+# any sprite, false if the unit has no dedicated art (caller falls back to the
+# letter counter / facing arrow).
+func _draw_ghost_model_art(pulse_factor: float) -> bool:
+	if not has_meta("unit_id"):
+		return false
+	var tex := _get_ghost_sprite_texture()
+	if tex != null:
+		_draw_ghost_sprite_texture(tex, pulse_factor)
+		return true
+	if _get_tank_body_texture() != null:
+		_draw_ghost_tank_sprite(pulse_factor)
+		return true
+	return false
+
+func _draw_ghost_sprite_texture(tex: Texture2D, pulse_factor: float) -> void:
+	# Top-down art mapped 1:1 over the base, rotated to the model's facing.
+	var bounds = base_shape.get_bounds()
+	var fit = min(bounds.size.x / tex.get_width(), bounds.size.y / tex.get_height())
+	var tint = Color(1, 1, 1, 0.85 * pulse_factor)
+	draw_set_transform(Vector2.ZERO, base_rotation, Vector2(fit, fit))
+	var tex_size = Vector2(tex.get_width(), tex.get_height())
+	draw_texture_rect(tex, Rect2(-tex_size / 2.0, tex_size), false, tint)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func _draw_ghost_tank_sprite(pulse_factor: float) -> void:
+	var bounds = base_shape.get_bounds()
+	var body = _tank_body_tex
+	var fit = min(bounds.size.x * 0.95 / body.get_width(), bounds.size.y * 0.95 / body.get_height())
+	var tint = Color(1, 1, 1, 0.85 * pulse_factor)
+	draw_set_transform(Vector2.ZERO, base_rotation, Vector2(fit, fit))
+	var body_size = Vector2(body.get_width(), body.get_height())
+	draw_texture_rect(body, Rect2(-body_size / 2.0, body_size), false, tint)
+	if _tank_barrel_tex != null:
+		var barrel = _tank_barrel_tex
+		var barrel_size = Vector2(barrel.get_width(), barrel.get_height())
+		# The Kenney barrel texture points muzzle-down; flip it 180° so the gun
+		# faces the hull front (up at rotation 0), matching TokenVisual.
+		draw_set_transform(Vector2.ZERO, base_rotation + PI, Vector2(fit, fit))
+		draw_texture_rect(barrel, Rect2(Vector2(-barrel_size.x / 2.0, -barrel_size.y * 0.28), barrel_size), false, tint)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+# Small chevron at the front of the base pointing in the facing direction, so
+# units without dedicated sprite art (and circular bases in particular) still
+# show which way they face and visibly turn when the player rotates them.
+func _draw_facing_arrow(pulse_factor: float, arrow_color: Color) -> void:
+	var bounds = base_shape.get_bounds()
+	var radius = min(bounds.size.x, bounds.size.y) / 2.0
+	if radius <= 0.0:
+		return
+	# At rotation 0 the sprite faces "up" (-Y); the facing vector for base_rotation
+	# is therefore (sin, -cos), matching the sprite draw_set_transform rotation.
+	var front = Vector2(sin(base_rotation), -cos(base_rotation))
+	var perp = Vector2(-front.y, front.x)
+	var tip = front * radius
+	var back = front * (radius * 0.55)
+	var half = radius * 0.28
+	var left = back + perp * half
+	var right = back - perp * half
+	var col = Color(arrow_color.r, arrow_color.g, arrow_color.b, 0.9 * pulse_factor)
+	draw_colored_polygon(PackedVector2Array([tip, left, right]), col)

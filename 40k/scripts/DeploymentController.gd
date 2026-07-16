@@ -1296,6 +1296,11 @@ func _create_ghost() -> void:
 		# MA-17: Set model type label on ghost
 		ghost_sprite.set_model_type_label(_get_model_type_label(model_data, unit_data))
 
+	# Default facing: orient the model toward the opponent's board edge so its
+	# sprite faces the enemy instead of just pointing "up". The player can still
+	# rotate freely, which overwrites this default.
+	ghost_sprite.set_base_rotation(BoardState.get_default_facing_for_player(ghost_sprite.owner_player))
+
 	if ghost_layer:
 		ghost_layer.add_child(ghost_sprite)
 		print("[DeploymentController] Ghost added to ghost_layer. Ghost visible: ", ghost_sprite.visible)
@@ -1412,7 +1417,11 @@ func _update_ghost_for_next_model() -> void:
 		var cm = combined_models[model_idx]
 		var model_data = cm["model_data"]
 		ghost_sprite.set_model_data(model_data)
-		ghost_sprite.set_base_rotation(0.0)
+		# Keep the ghost's unit_id in sync so the facing sprite resolves for the
+		# model actually being placed (bodyguard vs attached character).
+		ghost_sprite.set_meta("unit_id", cm["unit_id"])
+		# Reset facing to the default (toward the opponent) for the new model.
+		ghost_sprite.set_base_rotation(BoardState.get_default_facing_for_player(ghost_sprite.owner_player))
 		ghost_sprite.queue_redraw()
 		return
 
@@ -1421,8 +1430,8 @@ func _update_ghost_for_next_model() -> void:
 		var model_data = unit_data["models"][model_idx]
 		# Update model data for the next model
 		ghost_sprite.set_model_data(model_data)
-		# Reset rotation for new model
-		ghost_sprite.set_base_rotation(0.0)
+		# Reset facing to the default (toward the opponent) for the new model.
+		ghost_sprite.set_base_rotation(BoardState.get_default_facing_for_player(ghost_sprite.owner_player))
 		ghost_sprite.queue_redraw()
 
 func _spawn_preview_token(unit_id: String, model_index: int, pos: Vector2, rotation: float = 0.0) -> void:
