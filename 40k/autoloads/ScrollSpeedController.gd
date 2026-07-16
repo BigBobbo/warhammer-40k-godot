@@ -38,8 +38,19 @@ var menu_scroll_speed: float = 0.4
 func _ready() -> void:
 	# Make sure _input() is delivered to this autoload.
 	set_process_input(true)
+	# Pull the persisted value from SettingsService (registered earlier, so it is
+	# already loaded) and follow live changes from the Settings › Controls slider.
+	if SettingsService:
+		menu_scroll_speed = SettingsService.menu_scroll_speed
+		if not SettingsService.menu_scroll_speed_changed.is_connected(_on_menu_scroll_speed_changed):
+			SettingsService.menu_scroll_speed_changed.connect(_on_menu_scroll_speed_changed)
 	if DebugLogger:
 		DebugLogger.info("[ScrollSpeedController] Menu scroll limiter active — %.0f%% of default speed" % (menu_scroll_speed * 100.0))
+
+func _on_menu_scroll_speed_changed(new_speed: float) -> void:
+	menu_scroll_speed = new_speed
+	if DebugLogger:
+		DebugLogger.info("[ScrollSpeedController] Menu scroll speed updated — %.0f%% of default speed" % (menu_scroll_speed * 100.0))
 
 func _input(event: InputEvent) -> void:
 	if not enabled:
