@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.46.0",
+			"date": "2026-07-16",
+			"summary": "Squad leaders and special models now look different from their rank-and-file. When a unit contains models with different loadouts — a Boss Nob leading Stormboyz or Warbikers, a Runtherd bossing a Gretchin mob — that model now shows its own top-down sprite on the board (a power klaw for the Nobs, a grabba-stikk and slaver's cap for the Runtherd) and, when you hover over it, a datasheet-style block listing that specific model's role and weapons. Applied to the Recon Stompa (Speedwaaagh!) Orks list. Custodes squads were checked: their Sister Superiors carry the same weapons as the squad in the current data, so they intentionally share the squad sprite.",
+			"changes": [
+				"Different models in the same unit can now show different sprites. The one Boss Nob in a Stormboyz or Warbikers squad, and the Runtherd in a Gretchin mob, are drawn with distinct top-down art so you can tell the leader apart at a glance.",
+				"Hovering a model now shows that model's own profile: its role name (e.g. 'Boss Nob') and the weapons it actually carries, in addition to the unit summary. Rank-and-file and leader loadouts are listed separately.",
+				"Deployed leader/special models also keep the existing coloured ring + short letter on their base, so mixed squads are readable even before you hover.",
+				"New Boss Nob (foot), Boss Nob on Warbike, and Runtherd sprites were added; ordinary squad members are unchanged and keep the shared squad sprite.",
+				"Units with a single uniform loadout are completely unchanged — this only affects squads that genuinely contain different model profiles."
+			]
+		},
+		{
 			"version": "0.45.2",
 			"date": "2026-07-15",
 			"summary": "Fixed the AI opponent skipping its Pile In moves in the Fight phase. In 11th edition Pile In is a shared step — you pile in all your eligible units, then your opponent piles in all of theirs, and only then does the fighting begin. On your turn the AI's engaged units were never getting their pile-in: the game correctly handed the Pile In step to the AI, but an internal 'whose turn is it?' check wrongly decided it was still your turn, so the AI sat idle and the step could stall on the AI's half. The AI now plays its half of the Pile In (and Consolidate) step correctly.",

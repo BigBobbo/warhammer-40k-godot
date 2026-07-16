@@ -1416,7 +1416,31 @@ func _resolve_sprite() -> void:
 	var faction = _get_faction_name()
 	var unit_type = _get_unit_type()
 
-	_sprite_texture = SpriteResolver.resolve_sprite(unit_name, faction, unit_type)
+	# MA-20: per-model art. When this model has a distinct profile (Boss Nob,
+	# Runtherd, Spanner, ...) resolve <unit>_<model_type> art first, falling back
+	# to the shared squad sprite for rank-and-file models (see SpriteResolver).
+	var model_variant := _get_model_sprite_variant()
+
+	_sprite_texture = SpriteResolver.resolve_sprite(unit_name, faction, unit_type, model_variant)
+
+
+# MA-20: sprite discriminator for this model. Returns the model_type so that
+# SpriteResolver can look up "<unit>_<model_type>.png" (e.g. stormboyz_boss_nob).
+# Returns "" when the unit has no model_profiles or this model has no model_type
+# (legacy units → shared squad sprite, unchanged behaviour).
+func _get_model_sprite_variant() -> String:
+	var model_type = model_data.get("model_type", "")
+	if model_type == "" or model_type == null:
+		return ""
+	if not has_meta("unit_id"):
+		return ""
+	var unit = GameState.get_unit(get_meta("unit_id"))
+	if unit.is_empty():
+		return ""
+	var profiles = unit.get("meta", {}).get("model_profiles", {})
+	if not profiles.has(model_type):
+		return ""
+	return str(model_type)
 
 
 func _get_unit_sprite_texture() -> Texture2D:
