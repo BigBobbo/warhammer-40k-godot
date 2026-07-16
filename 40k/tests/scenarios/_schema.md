@@ -148,6 +148,14 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "hover_board_at", "x": 880.0, "y": 1200.0 }
   ```
 
+- `hover_node`: warp the cursor to the centre of a Control (resolved by
+  NodePath) and dispatch a real buttonless `InputEventMouseMotion`. The player
+  path for hover-driven menu/panel UI — e.g. positioning the cursor over a
+  ScrollContainer before a `simulate_wheel`.
+  ```json
+  { "act": "hover_node", "node": "/root/MainMenu/ScrollContainer" }
+  ```
+
 - `simulate_key`: dispatch a keypress.
   ```json
   { "act": "simulate_key", "keycode": "KEY_ESCAPE" }

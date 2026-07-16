@@ -2,6 +2,25 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.49.4",
+			"date": "2026-07-16",
+			"summary": "The menu scroll speed is now adjustable. Settings › Controls has a new 'Menu Scroll Speed' slider (10%–100% of the default), so you can dial mouse-wheel / trackpad scrolling to whatever feels right. Your choice is saved between sessions.",
+			"changes": [
+				"Added a 'Menu Scroll Speed' slider under Settings › Controls › Mouse (default 40%).",
+				"The setting applies live to all menus/panels and persists across restarts.",
+				"Board zoom and number spinners remain unaffected."
+			]
+		},
+		{
+			"version": "0.49.3",
+			"date": "2026-07-16",
+			"summary": "Scrolling through menus and panels with the mouse wheel or trackpad is now slower and easier to control. Previously the wheel/two-finger scroll flew past what you were looking at; menu scrolling now moves at 40% of the old speed everywhere in the game.",
+			"changes": [
+				"Reduced mouse-wheel and trackpad scroll speed across all menus, lists and panels (main menu, army/unit panels, dialogs, the game log, etc.).",
+				"Board zoom (wheel over the battlefield) and number spinners are unchanged — only content scrolling was slowed."
+			]
+		},
+		{
 			"version": "0.49.2",
 			"date": "2026-07-16",
 			"summary": "Fixed the confusing empty 'FIRING ORDER' box in the shooting roll dialog. When a unit fires a single weapon type, the step-by-step roll dialog now shows the weapon being fired under a 'WEAPON' header; with multiple weapon types, the ordering list disappears completely once the sequence starts instead of leaving an empty box behind.",
