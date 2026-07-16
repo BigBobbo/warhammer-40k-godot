@@ -1604,11 +1604,32 @@ func _clear_previews() -> void:
 	_clear_coherency_circles()
 
 func _finalize_tokens() -> void:
+	# Placement previews are wrapper Node2Ds ("Token_<unit>_<idx>") holding the
+	# meta-carrying TokenVisual as a child, so pre-confirm code (undo /
+	# repositioning) can address them by name. Everything OUTSIDE this
+	# controller — board hover tooltip, right-click context menu, movement /
+	# charge / scout visual sync — walks token_layer's DIRECT children and
+	# expects unit_id/model_id meta on the token itself (the flat shape
+	# Main._create_token_visual and _on_ai_unit_deployed produce). Leaving the
+	# wrappers behind on confirm made every player-deployed unit invisible to
+	# those systems while AI-deployed / save-loaded units worked (reported as:
+	# hover tooltip and right-click color menu dead on own models only).
+	# On confirm, promote each inner TokenVisual to a flat token_layer child at
+	# the wrapper's position and drop the wrapper.
 	for token in placed_tokens:
-		if is_instance_valid(token):
-			for child in token.get_children():
-				if child.has_method("set_preview"):
-					child.set_preview(false)
+		if not is_instance_valid(token):
+			continue
+		var promoted := false
+		for child in token.get_children():
+			if child.has_method("set_preview"):
+				child.set_preview(false)
+			if not promoted and child.has_meta("unit_id") and token_layer and is_instance_valid(token_layer):
+				var world_pos: Vector2 = token.position
+				token.remove_child(child)
+				token_layer.add_child(child)
+				child.position = world_pos
+				promoted = true
+		token.queue_free()
 	placed_tokens.clear()
 	_clear_coherency_circles()
 

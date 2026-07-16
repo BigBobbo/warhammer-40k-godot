@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.47.1",
+			"date": "2026-07-16",
+			"summary": "Fixed hovering and right-clicking your own models doing nothing after you deployed them. Units you placed during deployment (and reinforcements arriving from reserves) were left on the board as internal 'placement preview' containers, invisible to the hover tooltip, the right-click Change Color / Change Label / Unit Stats menu, and some movement visual updates — while AI-deployed and save-loaded units worked fine, which is why only your own models seemed dead. Confirmed units are now converted to the same standard token form as every other model on the board.",
+			"changes": [
+				"Hovering a model you deployed yourself now shows the info tooltip again (unit summary, and the per-model profile block where applicable).",
+				"Right-clicking your own models now opens the context menu again, so you can change unit colors and labels after deploying.",
+				"Also applies to units arriving from Strategic Reserves / deep strike mid-game — their tokens now behave identically to every other token.",
+				"Loading a save was never affected; this only concerned units placed by hand in the current session."
+			]
+		},
+		{
 			"version": "0.47.0",
 			"date": "2026-07-16",
 			"summary": "The defender is now in control when their models are attacked. When your units are targeted you get the reactive stratagem window (no more 5-second auto-decline, and it now works online and against the AI), YOU click to roll your own saves, you can spend 1 CP on a Command Re-roll of one failed save die, and when models die YOU click which bases are removed from the board. This applies in the shooting and fight phases, in local play, online multiplayer, and when the AI is attacking you.",
