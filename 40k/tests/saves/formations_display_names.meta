@@ -1,0 +1,81 @@
+{
+	"created_at": 1784208892.85787,
+	"game_state": {
+		"active_player": 1,
+		"game_id": "a2370c8d-c0b1-68be-a5e7--28308124683f1908",
+		"is_multiplayer": false,
+		"phase": 0,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 1
+	},
+	"preview": {
+		"battle_round": 1,
+		"players": {
+			"1": {
+				"alive_models": 42,
+				"alive_units": 11,
+				"cp": 0,
+				"detachment": "Lions of the Emperor",
+				"faction": "Adeptus Custodes",
+				"points": 2000.0,
+				"primary_vp": 0,
+				"secondary_vp": 0,
+				"total_models": 42,
+				"total_units": 11,
+				"unit_names": [
+					"Blade Champion",
+					"Custodian Guard",
+					"Blade Champion",
+					"Custodian Guard",
+					"Blade Champion",
+					"Custodian Guard",
+					"Custodian Guard",
+					"Custodian Guard",
+					"Custodian Guard",
+					"Allarus Custodians",
+					"Prosecutors"
+				],
+				"vp": 0
+			},
+			"2": {
+				"alive_models": 86,
+				"alive_units": 15,
+				"cp": 0,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0,
+				"secondary_vp": 0,
+				"total_models": 86,
+				"total_units": 15,
+				"unit_names": [
+					"Warboss",
+					"Warboss",
+					"Warboss in Mega Armour",
+					"Boyz",
+					"Boyz",
+					"Battlewagon",
+					"Kommandos",
+					"Painboss",
+					"Weirdboy",
+					"Boyz",
+					"Lootas",
+					"Meganobz",
+					"Wazbom Blastajet",
+					"Ghazghkull Thraka",
+					"Bannernob"
+				],
+				"vp": 0
+			}
+		}
+	},
+	"save_info": {
+		"description": "",
+		"save_type": "manual",
+		"tags": []
+	},
+	"version": "1.3.0"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "formations_display_names",
+  "covers": ["scripts.FormationsDeclarationDialog.display_names", "phases.FormationsPhase.leader_attachment_ui"],
+  "fixture": "formations_display_names",
+  "disable_ai": true,
+  "description": "FormationsDeclarationDialog must differentiate identically-named squads by their Greek-letter display_name. The custodes_lions army (Player 1) has 6 'Custodian Guard' squads and 3 'Blade Champion' characters. Before the fix every leader-attachment dropdown row, the warlord picker and the reserves list just read the shared base name ('Custodian Guard (5 models)') so the player could not tell which squad they were attaching a leader to. This scenario loads that army into the real Formations dialog and asserts the OptionButton items now carry the distinguishing suffix.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 0 },
+
+    { "act": "execute_script", "script": "main.formations_dialog != null", "equals": true },
+    { "act": "execute_script", "script": "main.formations_dialog.visible", "equals": true },
+    { "act": "screenshot", "label": "01_formations_dialog_open" },
+
+    { "act": "execute_script", "script": "main.formations_dialog.find_children(\"*\", \"OptionButton\", true, false).size()", "equals": 4 },
+
+    { "act": "execute_script", "script": "main.formations_dialog.find_children(\"*\", \"OptionButton\", true, false)[0].get_item_text(1)", "equals": "Custodian Guard Alpha (5 models)" },
+    { "act": "execute_script", "script": "main.formations_dialog.find_children(\"*\", \"OptionButton\", true, false)[0].get_item_text(2)", "equals": "Custodian Guard Beta (5 models)" },
+    { "act": "execute_script", "script": "main.formations_dialog.find_children(\"*\", \"OptionButton\", true, false)[0].get_item_text(6)", "equals": "Custodian Guard Zeta (5 models)" },
+
+    { "act": "execute_script", "script": "main.formations_dialog.find_children(\"*\", \"OptionButton\", true, false)[3].get_item_text(1)", "equals": "Blade Champion Alpha" },
+    { "act": "execute_script", "script": "main.formations_dialog.find_children(\"*\", \"OptionButton\", true, false)[3].get_item_text(3)", "equals": "Blade Champion Gamma" },
+
+    { "act": "screenshot", "label": "02_display_names_verified" }
+  ]
+}
