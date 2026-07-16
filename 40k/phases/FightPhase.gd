@@ -991,14 +991,17 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 	# P0-58: Determine if defender is a human player for interactive wound allocation
 	var defender_is_human = _is_defender_human_player()
 
-	# A1 (11e): the auto-resolve path uses the 11e allocation groups +
-	# [DEVASTATING WOUNDS] cap (24.10) + 06.02 mortal-wound priority. When the
-	# auto-allocate-wounds setting is ON (its default), the computer picks
-	# casualties anyway, so route human defenders through auto-resolve so melee
-	# gets the correct 11e resolution. The legacy interactive overlay only
-	# applies when auto-allocate is explicitly OFF.
+	# DEFENDER CONTROL: a human defender rolls their own melee saves through
+	# the interactive overlay by default. The auto-allocate-wounds setting
+	# (now default OFF) lets a LOCAL player delegate allocation to the
+	# computer; in networked play the remote defender always gets control —
+	# the attacker's machine settings must never take the defender's dice.
+	# (null SettingsService only happens in stripped headless harnesses —
+	# treat it as auto so engine-level tests keep one-shot resolution.)
 	var _ss = get_node_or_null("/root/SettingsService")
 	var _auto_alloc_11e: bool = _ss == null or _ss.get_auto_allocate_wounds()
+	if NetworkManager.is_networked():
+		_auto_alloc_11e = false
 
 	# STAGED FIGHT: in non-networked play a HUMAN attacker resolves weapon by
 	# weapon with pauses after the hit roll and the wound roll (Command Re-roll
@@ -1674,6 +1677,29 @@ func _validate_apply_melee_saves(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Not awaiting melee saves"]}
 	return {"valid": true}
 
+# Defender-side save Command Re-roll (1 CP): the AllocationGroupOverlay
+# re-rolls one save die locally and stamps `command_reroll` on its summary;
+# the phase deducts the CP + records stratagem usage authoritatively here.
+func _apply_defender_save_command_reroll(save_result_summary: Dictionary, save_data: Dictionary) -> Array:
+	var cr = save_result_summary.get("command_reroll", {})
+	if not cr.get("used", false):
+		return []
+	var reroll_player = int(cr.get("player", 0))
+	var target_unit_id = str(save_data.get("target_unit_id", save_result_summary.get("target_unit_id", "")))
+	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
+	var result = StratagemManager.execute_command_reroll(reroll_player, target_unit_id, {
+		"roll_type": "save_roll",
+		"original_rolls": [int(cr.get("original", 0))],
+		"unit_name": target_name
+	})
+	if not result.get("success", false):
+		push_warning("FightPhase: defender save Command Re-roll could not be paid: %s" % str(result.get("error", "unknown")))
+		log_phase_message("⚠ Save Command Re-roll by player %d could not be paid (%s)" % [reroll_player, str(result.get("error", ""))])
+		return []
+	log_phase_message("Player %d used COMMAND RE-ROLL on a save for %s (%d → %d)" % [
+		reroll_player, target_name, int(cr.get("original", 0)), int(cr.get("new", 0))])
+	return result.get("diffs", [])
+
 # P0-58: Process APPLY_MELEE_SAVES — apply damage from interactive wound allocation
 func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 	"""Process save results from WoundAllocationOverlay and apply melee damage."""
@@ -1708,6 +1734,27 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 		DebugLogger.info(str("║ Target: %s" % target_name))
 		DebugLogger.info(str("║ save_result_summary keys: ", save_result_summary.keys()))
 		DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
+
+		# ISS-045 (11e): the AllocationGroupOverlay resolved the whole batch
+		# (05.03-05.04) on the defending peer — apply its idempotent set-diffs
+		# directly instead of the 10e per-wound conversion below.
+		if save_result_summary.get("is_allocation_11e", false):
+			all_diffs.append_array(save_result_summary.get("diffs", []))
+			all_diffs.append_array(_apply_defender_save_command_reroll(save_result_summary, save_data))
+			var alloc_casualties = int(save_result_summary.get("casualties", 0))
+			total_casualties += alloc_casualties
+			if alloc_casualties > 0 and str(target_unit_id) != "":
+				CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id)
+			for dice_block in save_result_summary.get("dice", []):
+				save_dice_blocks.append(dice_block)
+				dice_log.append(dice_block)
+				emit_signal("dice_rolled", dice_block)
+			log_phase_message("Melee saves for %s: %d saved, %d failed → %d casualties (11e allocation)" % [
+				target_name,
+				save_result_summary.get("saves_passed", 0),
+				save_result_summary.get("saves_failed", 0),
+				alloc_casualties])
+			continue
 
 		# Convert allocation_history to save_results format if needed
 		var save_results = []

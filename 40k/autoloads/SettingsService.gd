@@ -61,12 +61,13 @@ var show_terrain_scatter: bool = true
 # Gameplay settings
 # When true, the computer automatically chooses which wounded/destroyed models
 # are removed during wound allocation instead of prompting the local player.
-# Per 10e rules the *defending* player makes this choice; until a proper
-# defender-driven flow exists, this lets the player delegate the choice to the
-# computer so the attacker isn't forced to pick the opponent's casualties.
-# Defaults ON: per 10e the *defending* player picks casualties, so by default
-# we let the computer pick rather than forcing the attacker to choose them.
-var auto_allocate_wounds: bool = true
+# Per the core rules the *defending* player rolls saves and picks casualties —
+# the defender-driven flow (AllocationGroupOverlay: roll saves, optional save
+# Command Re-roll, click the bases to remove) is now the DEFAULT. This setting
+# lets a player delegate all of that to the computer for faster play.
+# Defaults OFF since the defender-control update (see
+# AUTO_ALLOCATE_MIGRATION_KEY below, which retires older saved `true` values).
+var auto_allocate_wounds: bool = false
 
 # Rules edition: 10 (10th edition) or 11 (11th edition core rules, now the
 # default for players). Applied to GameConstants.edition at startup and whenever
@@ -101,6 +102,10 @@ signal terrain_scatter_changed(enabled: bool)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
+
+# Defender-control update: marker key proving the config was saved after the
+# auto_allocate_wounds default flipped to false (see _load_settings migration).
+const AUTO_ALLOCATE_MIGRATION_KEY: String = "auto_allocate_wounds_defender_control"
 
 func get_save_measurements() -> bool:
 	return save_measurements
@@ -409,6 +414,7 @@ func _save_settings() -> void:
 
 	# Gameplay
 	config.set_value("gameplay", "auto_allocate_wounds", auto_allocate_wounds)
+	config.set_value("gameplay", AUTO_ALLOCATE_MIGRATION_KEY, true)
 
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
@@ -450,8 +456,15 @@ func _load_settings() -> void:
 	autosave_on_phase_transition = config.get_value("save_load", "autosave_on_phase_transition", false)
 
 	# Gameplay
-	auto_allocate_wounds = config.get_value("gameplay", "auto_allocate_wounds", true)
-	# Default 11e for configs that predate the edition setting / fresh installs.
-	# A config that explicitly saved 10 is respected (the player chose 10th).
+	# Defender-control migration: configs written BEFORE the interactive
+	# defender flow existed all carry the old `true` default the player never
+	# chose. Retire that stored value once so everyone lands on the new
+	# defender-rolls-their-own-saves default; a value saved AFTER the
+	# migration marker exists is an explicit player choice and is respected.
+	if config.get_value("gameplay", AUTO_ALLOCATE_MIGRATION_KEY, false):
+		auto_allocate_wounds = config.get_value("gameplay", "auto_allocate_wounds", false)
+	else:
+		auto_allocate_wounds = false
+		print("[SettingsService] auto_allocate_wounds migrated to the defender-control default (false)")
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)

@@ -13674,6 +13674,15 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 
 	# P0-58: If melee saves need to be applied (should not normally happen for AI, but handle gracefully)
 	if action_types.has("APPLY_MELEE_SAVES"):
+		# DEFENDER CONTROL: an empty submission would consume the window and
+		# skip all damage. Only unstick it when the DEFENDER is an AI (desync
+		# fallback); a human defender's window belongs to their overlay —
+		# idle instead (AIPlayer's defender-window guard normally prevents
+		# even reaching here).
+		var _ai_node = Engine.get_main_loop().root.get_node_or_null("AIPlayer")
+		var _melee_opponent = 2 if player == 1 else 1
+		if _ai_node != null and _ai_node.has_method("is_ai_player") and not _ai_node.is_ai_player(_melee_opponent):
+			return {}
 		return {"type": "APPLY_MELEE_SAVES", "payload": {"save_results_list": []}, "_ai_description": "Applying melee saves (AI fallback)"}
 
 	# Step 1: If we can roll dice (confirmed attacks ready), roll them
