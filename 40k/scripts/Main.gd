@@ -5676,6 +5676,35 @@ func world_to_screen_position(world_pos: Vector2) -> Vector2:
 	# scenario runner's click_board_at to warp the cursor to a board position.
 	return $BoardRoot.transform * world_pos
 
+# Multiplicative zoom applied per mouse-wheel notch. Scroll up zooms in by this
+# factor, scroll down by its reciprocal (so up-then-down returns to the same
+# zoom).
+const WHEEL_ZOOM_FACTOR := 1.15
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Mouse-wheel zoom, anchored on the cursor (same math as the +/- keys via
+	# _zoom_about). Handled here in _unhandled_input rather than _input so that
+	# scrolling over a UI panel (game log, unit list, dialogs) scrolls that
+	# control instead of zooming the board — those Controls consume the wheel in
+	# _gui_input before it ever reaches _unhandled_input.
+	if not (event is InputEventMouseButton and event.pressed):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.button_index != MOUSE_BUTTON_WHEEL_UP and mb.button_index != MOUSE_BUTTON_WHEEL_DOWN:
+		return
+	# During deployment placement the wheel rotates the model being placed
+	# (DeploymentController._unhandled_input); don't also zoom the board. That
+	# controller only touches the wheel while is_placing(), so outside placement
+	# this guard is inert and the wheel zooms normally.
+	if deployment_controller and deployment_controller.has_method("is_placing") and deployment_controller.is_placing():
+		return
+	var factor: float = WHEEL_ZOOM_FACTOR if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / WHEEL_ZOOM_FACTOR
+	if _zoom_about(view_zoom * factor, get_viewport().get_mouse_position()):
+		update_view_transform()
+	# We acted on the scroll — stop it here so nothing else treats the same
+	# notch as a second gesture.
+	get_viewport().set_input_as_handled()
+
 func _process(delta: float) -> void:
 	# MA-41: Skip camera/view keyboard controls when a text input has focus
 	var _text_focused = _is_text_input_focused()

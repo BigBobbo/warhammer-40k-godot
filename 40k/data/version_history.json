@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.46.3",
+			"date": "2026-07-16",
+			"summary": "You can now zoom the board with the mouse scroll wheel. Scroll up to zoom in, down to zoom out — and like the + / - keys, the zoom stays centred on the point under your cursor, so you can point at a unit or objective and scroll straight in on it. Scrolling over a side panel (game log, unit list) still scrolls that panel instead of zooming, and during deployment the wheel keeps rotating the model you are placing. The Settings > Controls tab now lists the wheel-zoom under a new Mouse section.",
+			"changes": [
+				"Mouse scroll wheel now zooms the board: up = in, down = out, anchored on the cursor (same as the + / - keys).",
+				"Scrolling while the cursor is over a UI panel scrolls that panel rather than zooming the board.",
+				"During deployment the wheel still rotates the model being placed — zoom only kicks in outside placement.",
+				"Added a Mouse section to Settings > Controls listing 'Zoom In / Out — Mouse Wheel', and noted the wheel on the in-game shortcut overlay (press ?)."
+			]
+		},
+		{
 			"version": "0.46.2",
 			"date": "2026-07-16",
 			"summary": "Zooming in and out with + / - now stays centred on the mouse cursor. Previously the view was anchored to the top-left corner of the screen, so zooming in pulled everything toward that corner and whatever you were looking at drifted away. Now the board point under your cursor stays put as you zoom, so you can point at a unit or objective and zoom straight in on it.",

@@ -317,6 +317,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_hover_board_at(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
+		"simulate_wheel":
+			rec.merge(await _do_simulate_wheel(step), true)
 		"simulate_joy_button":
 			rec.merge(await _do_simulate_joy_button(step), true)
 		"simulate_joy_axis":
@@ -642,6 +644,34 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	Input.parse_input_event(release)
 	await get_tree().process_frame
 	return {"pass": true}
+
+
+func _do_simulate_wheel(step: Dictionary) -> Dictionary:
+	# Inject mouse-wheel scroll notches (InputEventMouseButton WHEEL_UP/DOWN) at
+	# the current cursor position through the OS-event pipeline, so board zoom and
+	# any other _unhandled_input wheel consumers react as with a real wheel.
+	# `direction`: "up" (default) or "down"; `count`: notches (default 1). Warp
+	# the cursor first with hover_board_at to control the zoom anchor.
+	var direction: String = str(step.get("direction", "up"))
+	var count: int = int(step.get("count", 1))
+	var button: int = MOUSE_BUTTON_WHEEL_UP if direction == "up" else MOUSE_BUTTON_WHEEL_DOWN
+	var pos: Vector2 = get_viewport().get_mouse_position()
+	for i in range(count):
+		var press := InputEventMouseButton.new()
+		press.button_index = button as MouseButton
+		press.pressed = true
+		press.position = pos
+		press.global_position = pos
+		Input.parse_input_event(press)
+		await get_tree().process_frame
+		var release := InputEventMouseButton.new()
+		release.button_index = button as MouseButton
+		release.pressed = false
+		release.position = pos
+		release.global_position = pos
+		Input.parse_input_event(release)
+		await get_tree().process_frame
+	return {"pass": true, "direction": direction, "count": count, "anchor": [pos.x, pos.y]}
 
 
 func _do_simulate_joy_button(step: Dictionary) -> Dictionary:
