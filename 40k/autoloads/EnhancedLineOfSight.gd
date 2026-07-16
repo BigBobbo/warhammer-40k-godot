@@ -41,19 +41,39 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 		target_shape, target_pos, target_rotation
 	)
 
-	# TER-2: Pre-compute which ruins the shooter is wholly within
+	# TER-2 (10e only): Pre-compute which ruins the shooter is wholly within
 	# Per 10e rules: "Models wholly within Ruins can see out normally"
 	# "Wholly within" means ALL sample points (entire base) must be inside the ruin
-	var shooter_wholly_within_ruins = _get_ruins_model_wholly_within(
-		sample_points.shooter, shooter_pos, shooter_model, board
-	)
+	var shooter_wholly_within_ruins = []
+	# 11e visibility context (06.01 + 13.10/13.11): terrain-area groups and the
+	# per-pair exclusions ("areas one or both models are within", any part of
+	# base), computed ONCE per pair. When non-empty, the per-line check uses
+	# 11e semantics instead of the 10e ruins/height rules.
+	var e11 := {}
+	if GameConstants.edition >= 11:
+		var terrain_features_11e = board.get("terrain_features", [])
+		if terrain_features_11e.is_empty() and TerrainManager:
+			terrain_features_11e = TerrainManager.terrain_features
+		var group_map = TerrainManager.build_area_group_map(terrain_features_11e)
+		var ex = TerrainManager.visibility_exclusions_for(shooter_model, target_model, terrain_features_11e, group_map)
+		e11 = {
+			"group_map": group_map,
+			"exclude_groups": ex.groups,
+			"exclude_feature_ids": ex.feature_ids,
+			"ground_level": float(shooter_model.get("elevation_inches", 0.0)) < 3.0 \
+					and float(target_model.get("elevation_inches", 0.0)) < 3.0,
+		}
+	else:
+		shooter_wholly_within_ruins = _get_ruins_model_wholly_within(
+			sample_points.shooter, shooter_pos, shooter_model, board
+		)
 
 	var attempted_lines = []
 
 	# Phase 1: Center-to-center (fast path for 85% of cases)
 	# T3-19: Pass model data for height-based terrain blocking
 	# TER-2: Pass wholly-within ruins info for Ruins visibility rules
-	var center_check = _check_single_line_of_sight(shooter_pos, target_pos, board, shooter_model, target_model, shooter_wholly_within_ruins)
+	var center_check = _check_single_line_of_sight(shooter_pos, target_pos, board, shooter_model, target_model, shooter_wholly_within_ruins, e11)
 	attempted_lines.append({"from": shooter_pos, "to": target_pos, "blocked": not center_check.has_los})
 
 	if center_check.has_los:
@@ -69,7 +89,7 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 	for shooter_point in sample_points.shooter:
 		for target_point in sample_points.target:
 			# T3-19: Pass model data for height-based terrain blocking
-			var los_check = _check_single_line_of_sight(shooter_point, target_point, board, shooter_model, target_model, shooter_wholly_within_ruins)
+			var los_check = _check_single_line_of_sight(shooter_point, target_point, board, shooter_model, target_model, shooter_wholly_within_ruins, e11)
 			attempted_lines.append({"from": shooter_point, "to": target_point, "blocked": not los_check.has_los})
 
 			if los_check.has_los:
@@ -83,7 +103,7 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 
 	# No clear sight lines found
 	# T3-19: Pass model data for height-based terrain blocking
-	var blocking_terrain = _get_blocking_terrain(sample_points, board, shooter_model, target_model)
+	var blocking_terrain = _get_blocking_terrain(sample_points, board, shooter_model, target_model, e11)
 	return {
 		"has_los": false,
 		"sight_line": [],
@@ -301,10 +321,16 @@ static func _determine_sample_density(distance_inches: float, base_size_mm: int)
 # T3-19: Added shooter_model/target_model for height-based terrain blocking
 # TER-2: Ruins-specific visibility rules per 10e Core Rules
 # shooter_wholly_within_ruins: array of ruin terrain IDs the shooter model can see out of
-static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}, shooter_wholly_within_ruins: Array = []) -> Dictionary:
+# e11: 11e visibility context (see check_enhanced_visibility) — when non-empty
+# the line is judged by 11e semantics (13.10 obscuring areas with the
+# "within" exclusion + 13.11 Solid dense features) instead of the 10e rules.
+static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}, shooter_wholly_within_ruins: Array = [], e11: Dictionary = {}) -> Dictionary:
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty() and TerrainManager:
 		terrain_features = TerrainManager.terrain_features
+
+	if not e11.is_empty():
+		return _check_single_line_of_sight_11e(from, to, terrain_features, e11)
 
 	var blocking_terrain = []
 
@@ -402,13 +428,78 @@ static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dicti
 		"blocking_terrain": blocking_terrain
 	}
 
+# 11e (06.01 + 13.10/13.11) judgement for a single sight line, 2D approximation:
+#   ▪ "area"-class pieces (authored terrain-area boundaries): light/dense
+#     areas obscure the line (13.10) unless their group is excluded because
+#     the shooter or target is within that area (any part of base, 01.04).
+#     Boundaries are not physical structures — they never Solid-block.
+#   ▪ "feature"-class pieces (walls, gantries, sealed structures): DENSE
+#     features have the Solid rule (13.11) — they block ground-level lines
+#     regardless of area exclusions, except pieces a model itself occupies
+#     (center inside).
+#   ▪ Legacy pieces with no piece_class are BOTH their own area (13.01) and,
+#     when dense, a Solid structure (13.11).
+#   ▪ Explicit wall segments (walls arrays) still block as physical walls.
+static func _check_single_line_of_sight_11e(from: Vector2, to: Vector2, terrain_features: Array, e11: Dictionary) -> Dictionary:
+	var group_map: Dictionary = e11.get("group_map", {})
+	var exclude_groups: Dictionary = e11.get("exclude_groups", {})
+	var exclude_feats: Dictionary = e11.get("exclude_feature_ids", {})
+	var ground_level: bool = e11.get("ground_level", true)
+	var blocking_terrain = []
+
+	for terrain_piece in terrain_features:
+		var polygon = terrain_piece.get("polygon", PackedVector2Array())
+		if not _segment_intersects_polygon(from, to, polygon):
+			continue
+		var pid = str(terrain_piece.get("id", ""))
+		var cat = TerrainManager.category_of(terrain_piece)
+		var pclass = str(terrain_piece.get("piece_class", ""))
+		# 13.10 Obscuring — terrain areas (authored boundaries + legacy pieces).
+		if pclass != "feature":
+			if (cat == TerrainManager.CATEGORY_LIGHT or cat == TerrainManager.CATEGORY_DENSE) \
+					and not exclude_groups.has(group_map.get(pid, "id:" + pid)):
+				blocking_terrain.append(pid)
+				continue
+		# 13.11 Solid — dense physical structures (features + legacy pieces).
+		if pclass != "area":
+			if cat == TerrainManager.CATEGORY_DENSE and ground_level and not exclude_feats.has(pid):
+				blocking_terrain.append(pid)
+
+	# Physical wall segments (11e layouts author walls as feature pieces, so
+	# these arrays are normally empty — kept for custom/legacy terrain).
+	if blocking_terrain.is_empty():
+		for terrain_piece in terrain_features:
+			for wall in terrain_piece.get("walls", []):
+				if wall.get("blocks_los", true) and _segment_intersects_wall(from, to, wall):
+					blocking_terrain.append(str(terrain_piece.get("id", "unknown")) + "_wall")
+					break
+			if not blocking_terrain.is_empty():
+				break
+
+	return {
+		"has_los": blocking_terrain.is_empty(),
+		"blocking_terrain": blocking_terrain
+	}
+
 # Get all terrain pieces that block any line in the sample set
 # T3-19: Added shooter_model/target_model for height-based terrain blocking
 # TER-2: Ruins-specific visibility rules
-static func _get_blocking_terrain(sample_points: Dictionary, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> Array:
+# e11: when non-empty, judge blockability by 11e semantics instead.
+static func _get_blocking_terrain(sample_points: Dictionary, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}, e11: Dictionary = {}) -> Array:
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty() and TerrainManager:
 		terrain_features = TerrainManager.terrain_features
+
+	# 11e: union of the pieces that block any sampled sight line under
+	# 13.10/13.11 semantics.
+	if not e11.is_empty():
+		var blockers := {}
+		for shooter_point in sample_points.shooter:
+			for target_point in sample_points.target:
+				var res = _check_single_line_of_sight_11e(shooter_point, target_point, terrain_features, e11)
+				for pid in res.blocking_terrain:
+					blockers[pid] = true
+		return blockers.keys()
 
 	var blocking_terrain = []
 

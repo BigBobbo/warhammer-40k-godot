@@ -4700,7 +4700,7 @@ func _report_no_eligible_targets(unit_id: String, force: bool = false) -> void:
 			dice_log_display.append_text("[color=#CC8888]   • %s[/color]\n" % str(reasons[i]))
 		if reasons.size() > max_lines:
 			dice_log_display.append_text("[color=#CC8888]   • …and %d more[/color]\n" % (reasons.size() - max_lines))
-	ToastManager.show_warning("%s has no eligible targets (range / line of sight)" % unit_name)
+	ToastManager.show_warning("%s has no eligible targets (range / line of sight / Hidden) — see Dice Log" % unit_name)
 
 func _select_target_for_current_weapon(target_id: String) -> void:
 	# Get currently selected weapon from tree
