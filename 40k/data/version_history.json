@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.46.2",
+			"date": "2026-07-16",
+			"summary": "Fixed deployment breaking after loading a saved game. If you saved during (or just before) the Deployment phase and loaded that save, every attempt to deploy a unit was rejected with 'Unit is not available for deployment' — the AI opponent would dump its army into Strategic Reserves until the 50% points cap and then skip its remaining units entirely, leaving it with nothing on the board (reported with the Battlewagons Ork list vs the Competitive AI). Loading a save no longer breaks deployment for either player.",
+			"changes": [
+				"Fixed every deployment being rejected as 'Unit is not available for deployment' after loading a save made around the Deployment phase. Saved games store numbers in a format that loads back as decimals, and the deployment legality check compared those decimals too strictly, so no unit ever qualified as deployable.",
+				"Because each failed deployment fell back to Strategic Reserves, the AI would silently bank its army into reserves until the 50% reserves points limit was hit and then skip the rest of its units — the AI now deploys normally after a load.",
+				"Loaded games now restore unit status and ownership (plus turn/phase bookkeeping) as proper whole numbers, protecting other rules checks from the same decimals-after-load problem."
+			]
+		},
+		{
 			"version": "0.46.1",
 			"date": "2026-07-16",
 			"summary": "Models being deployed now face the enemy by default and show their sprite while you place them. Previously every model's artwork pointed 'up' the board regardless of which side you were on, and during deployment you only saw a plain base with no indication of facing. Now the deployment ghost renders the model's top-down sprite, oriented toward the opponent's board edge, and it turns live as you rotate the model — so what you see while placing matches how the model will sit on the table.",
