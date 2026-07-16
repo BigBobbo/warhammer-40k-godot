@@ -104,6 +104,11 @@
       "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
      },
      {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
       "name": "Leader",
       "type": "Core",
       "description": "The unit gains the Leader ability."
@@ -375,6 +380,11 @@
       "name": "Martial Ka'tah",
       "type": "Faction",
       "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
      },
      {
       "name": "Praesidium Shield",

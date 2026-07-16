@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.46.2",
+			"date": "2026-07-16",
+			"summary": "On-foot Adeptus Custodes units can now Deep Strike as they should. In the 11th edition data almost the entire Custodes range (Custodian Guard, Allarus Custodians, Shield-Captains, Trajann Valoris, and more) has the Deep Strike ability, but the army lists only carried it on the Blade Champion. That meant plain Custodian Guard squads were stuck with plain Strategic Reserves, and a squad only 'gained' Deep Strike when a Blade Champion was attached to it. The Deep Strike ability has been restored to the units that are supposed to have it, so every eligible squad now offers Deep Strike in the Declare Battle Formations screen. Jetbikes, vehicles, dreadnoughts and the Sisters of Silence (Prosecutors/Witchseekers) correctly still do not Deep Strike.",
+			"changes": [
+				"Custodian Guard, Allarus Custodians, Shield-Captains and Trajann Valoris now have their Deep Strike ability in the Adeptus Custodes army lists, matching the 11th edition datasheets.",
+				"In the Declare Battle Formations screen these units now offer 'Deep Strike' reserves on their own, instead of only 'Strategic Reserves'.",
+				"Fixes the inconsistency where a Custodian Guard squad showed 'Deep Strike' only while a Blade Champion was attached, and 'Strategic Reserves' otherwise — every eligible squad is treated the same now.",
+				"Mounted units (Shield-Captain on Dawneagle Jetbike, Vertus Praetors), vehicles/dreadnoughts, and the Anathema Psykana Sisters of Silence remain non–Deep Strike, as per the rules."
+			]
+		},
+		{
 			"version": "0.46.1",
 			"date": "2026-07-16",
 			"summary": "Models being deployed now face the enemy by default and show their sprite while you place them. Previously every model's artwork pointed 'up' the board regardless of which side you were on, and during deployment you only saw a plain base with no indication of facing. Now the deployment ghost renders the model's top-down sprite, oriented toward the opponent's board edge, and it turns live as you rotate the model — so what you see while placing matches how the model will sit on the table.",
