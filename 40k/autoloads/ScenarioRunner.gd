@@ -317,6 +317,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_hover_unit(step), true)
 		"hover_board_at":
 			rec.merge(await _do_hover_board_at(step), true)
+		"hover_node":
+			rec.merge(await _do_hover_node(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
 		"simulate_wheel":
@@ -612,6 +614,25 @@ func _do_hover_board_at(step: Dictionary) -> Dictionary:
 		screen_pos = viewport.get_canvas_transform() * world_pos
 	await _send_hover(screen_pos)
 	return {"pass": true, "world": [world_pos.x, world_pos.y], "screen": [screen_pos.x, screen_pos.y]}
+
+
+func _do_hover_node(step: Dictionary) -> Dictionary:
+	# Move the mouse over the centre of a Control (resolved by NodePath) with a
+	# real buttonless InputEventMouseMotion — the player path for hover-driven
+	# UI on menus/panels (e.g. positioning the cursor over a ScrollContainer
+	# before a simulate_wheel). Mirrors hover_unit but for Control nodes.
+	var node_path: String = str(step.get("node", ""))
+	if node_path == "":
+		return {"pass": false, "error": "hover_node needs `node`"}
+	var node = get_node_or_null(node_path)
+	if node == null:
+		return {"pass": false, "error": "node not found: %s" % node_path}
+	if not (node is Control):
+		return {"pass": false, "error": "hover_node target is not a Control: %s" % node_path}
+	var rect: Rect2 = (node as Control).get_global_rect()
+	var screen_pos: Vector2 = rect.get_center()
+	await _send_hover(screen_pos)
+	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
 
 
 func _send_hover(screen_pos: Vector2) -> void:
