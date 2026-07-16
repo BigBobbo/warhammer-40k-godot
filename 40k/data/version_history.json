@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.46.2",
+			"date": "2026-07-16",
+			"summary": "The Declare Battle Formations screen now tells identically-named units apart. Before, if your army had several units with the same name (e.g. six Custodian Guard squads, three Blade Champions), the leader-attachment dropdowns, warlord picker, transport/reserves lists and summary all just read 'Custodian Guard (5 models)' over and over, so you couldn't tell which squad you were attaching a leader to. Every unit now shows its distinguishing suffix — 'Custodian Guard Alpha', 'Custodian Guard Beta', etc. — matching the labels used everywhere else in the game.",
+			"changes": [
+				"Leader-attachment dropdowns now list bodyguard units by their full display name (e.g. 'Custodian Guard Alpha (5 models)') instead of the shared base name, so duplicate squads are distinguishable.",
+				"The character labels beside each dropdown, the Warlord picker, the transport-embarkation and strategic-reserves checkboxes, and the on-screen summary all use the same distinguishing names.",
+				"Units with a unique name are unaffected — they still show their normal name."
+			]
+		},
+		{
 			"version": "0.46.1",
 			"date": "2026-07-16",
 			"summary": "Models being deployed now face the enemy by default and show their sprite while you place them. Previously every model's artwork pointed 'up' the board regardless of which side you were on, and during deployment you only saw a plain base with no indication of facing. Now the deployment ghost renders the model's top-down sprite, oriented toward the opponent's board edge, and it turns live as you rotate the model — so what you see while placing matches how the model will sit on the table.",

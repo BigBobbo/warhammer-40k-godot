@@ -151,8 +151,9 @@ func _build_leader_section() -> void:
 	content_vbox.add_child(desc_label)
 
 	for char_id in characters:
-		var char_unit = GameState.get_unit(char_id)
-		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		# Use display_name so duplicate squads (e.g. "Blade Champion Alpha" vs
+		# "Blade Champion Beta") are distinguishable in the attachment UI.
+		var char_name = GameState.get_unit_display_name(char_id)
 		var eligible = GameState.get_eligible_bodyguards_for_character(char_id)
 
 		if eligible.is_empty():
@@ -175,7 +176,9 @@ func _build_leader_section() -> void:
 		var idx = 1
 		for bg_id in eligible:
 			var bg_unit = GameState.get_unit(bg_id)
-			var bg_name = bg_unit.get("meta", {}).get("name", bg_id)
+			# display_name carries the Greek-letter suffix for duplicate squads so
+			# the player can tell identically-named bodyguard units apart.
+			var bg_name = GameState.get_unit_display_name(bg_id)
 			var model_count = bg_unit.get("models", []).size()
 			option_button.add_item("%s (%d models)" % [bg_name, model_count], idx)
 			option_button.set_item_metadata(idx, bg_id)
@@ -229,8 +232,7 @@ func _build_warlord_section() -> void:
 
 	var idx = 1
 	for char_id in characters:
-		var char_unit = GameState.get_unit(char_id)
-		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		var char_name = GameState.get_unit_display_name(char_id)
 		option_button.add_item(char_name, idx)
 		option_button.set_item_metadata(idx, char_id)
 		idx += 1
@@ -271,7 +273,7 @@ func _build_transport_section() -> void:
 
 	for transport_id in transports:
 		var transport = GameState.get_unit(transport_id)
-		var transport_name = transport.get("meta", {}).get("name", transport_id)
+		var transport_name = GameState.get_unit_display_name(transport_id)
 		var capacity = transport.get("transport_data", {}).get("capacity", 0)
 		var capacity_keywords = transport.get("transport_data", {}).get("capacity_keywords", [])
 
@@ -293,7 +295,7 @@ func _build_transport_section() -> void:
 
 		for unit_id in eligible_units:
 			var unit = GameState.get_unit(unit_id)
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			var unit_name = GameState.get_unit_display_name(unit_id)
 			var model_count = 0
 			for model in unit.get("models", []):
 				if model.get("alive", true):
@@ -343,7 +345,7 @@ func _build_reserves_section() -> void:
 	var units = GameState.get_units_for_player(declaring_player)
 	for unit_id in units:
 		var unit = units[unit_id]
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit_name = GameState.get_unit_display_name(unit_id)
 		var unit_points = unit.get("meta", {}).get("points", 0)
 		var has_deep_strike = GameState.unit_has_deep_strike(unit_id)
 
@@ -369,7 +371,7 @@ func _build_reserves_section() -> void:
 
 		for char_id in attached_chars_on_this:
 			var char_unit = GameState.get_unit(char_id)
-			var char_name = char_unit.get("meta", {}).get("name", char_id)
+			var char_name = GameState.get_unit_display_name(char_id)
 			var char_points = char_unit.get("meta", {}).get("points", 0)
 			combined_points += char_points
 			if GameState.unit_has_deep_strike(char_id):
@@ -655,8 +657,8 @@ func _update_summary() -> void:
 		text += "[color=#%s]Leaders:[/color] " % WhiteDwarfTheme.gold_hex()
 		var parts = []
 		for char_id in leader_attachments:
-			var char_name = GameState.get_unit(char_id).get("meta", {}).get("name", char_id)
-			var bg_name = GameState.get_unit(leader_attachments[char_id]).get("meta", {}).get("name", leader_attachments[char_id])
+			var char_name = GameState.get_unit_display_name(char_id)
+			var bg_name = GameState.get_unit_display_name(leader_attachments[char_id])
 			parts.append("%s → %s" % [char_name, bg_name])
 		text += ", ".join(parts) + "\n"
 
@@ -668,7 +670,7 @@ func _update_summary() -> void:
 		text += "[color=#%s]Transports:[/color] " % WhiteDwarfTheme.gold_hex()
 		var parts = []
 		for transport_id in transport_embarkations:
-			var transport_name = GameState.get_unit(transport_id).get("meta", {}).get("name", transport_id)
+			var transport_name = GameState.get_unit_display_name(transport_id)
 			parts.append("%d unit(s) in %s" % [transport_embarkations[transport_id].size(), transport_name])
 		text += ", ".join(parts) + "\n"
 
@@ -678,14 +680,14 @@ func _update_summary() -> void:
 		var parts = []
 		var total_pts = 0
 		for entry in reserves:
-			var unit_name = GameState.get_unit(entry["unit_id"]).get("meta", {}).get("name", entry["unit_id"])
+			var unit_name = GameState.get_unit_display_name(entry["unit_id"])
 			var type_label = "DS" if entry["reserve_type"] == "deep_strike" else "SR"
 			var entry_text = "%s [%s]" % [unit_name, type_label]
 			total_pts += GameState.get_unit(entry["unit_id"]).get("meta", {}).get("points", 0)
 			# Show attached characters
 			for char_id in entry.get("attached_character_ids", []):
 				var char_unit = GameState.get_unit(char_id)
-				var char_name = char_unit.get("meta", {}).get("name", char_id)
+				var char_name = GameState.get_unit_display_name(char_id)
 				var char_pts = char_unit.get("meta", {}).get("points", 0)
 				entry_text += " + %s" % char_name
 				total_pts += char_pts
