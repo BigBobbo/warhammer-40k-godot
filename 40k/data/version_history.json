@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.46.3",
+			"version": "0.47.2",
 			"date": "2026-07-16",
 			"summary": "Deep Strike reserves now follow the core rule that EVERY model in a unit must have Deep Strike. On the Declare Battle Formations screen a bodyguard with attached leaders is only offered Deep Strike when the bodyguard AND every attached leader has it. Previously the screen used OR logic — if the squad or any attached character had Deep Strike the whole unit was offered it — so attaching a Deep Strike character (such as a Blade Champion) to a unit that lacks Deep Strike wrongly let the combined unit Deep Strike. Whole-unit grants such as the Ork Tellyporta enhancement, which give Deep Strike to every model in the bearer's unit, still make the entire unit eligible.",
 			"changes": [
@@ -13,7 +13,7 @@
 			]
 		},
 		{
-			"version": "0.46.2",
+			"version": "0.47.1",
 			"date": "2026-07-16",
 			"summary": "On-foot Adeptus Custodes units can now Deep Strike as they should. In the 11th edition data almost the entire Custodes range (Custodian Guard, Allarus Custodians, Shield-Captains, Trajann Valoris, and more) has the Deep Strike ability, but the army lists only carried it on the Blade Champion. That meant plain Custodian Guard squads were stuck with plain Strategic Reserves, and a squad only 'gained' Deep Strike when a Blade Champion was attached to it. The Deep Strike ability has been restored to the units that are supposed to have it, so every eligible squad now offers Deep Strike in the Declare Battle Formations screen. Jetbikes, vehicles, dreadnoughts and the Sisters of Silence (Prosecutors/Witchseekers) correctly still do not Deep Strike.",
 			"changes": [
@@ -21,6 +21,19 @@
 				"In the Declare Battle Formations screen these units now offer 'Deep Strike' reserves on their own, instead of only 'Strategic Reserves'.",
 				"Fixes the inconsistency where a Custodian Guard squad showed 'Deep Strike' only while a Blade Champion was attached, and 'Strategic Reserves' otherwise — every eligible squad is treated the same now.",
 				"Mounted units (Shield-Captain on Dawneagle Jetbike, Vertus Praetors), vehicles/dreadnoughts, and the Anathema Psykana Sisters of Silence remain non–Deep Strike, as per the rules."
+			]
+		},
+		{
+			"version": "0.47.0",
+			"date": "2026-07-16",
+			"summary": "The defender is now in control when their models are attacked. When your units are targeted you get the reactive stratagem window (no more 5-second auto-decline, and it now works online and against the AI), YOU click to roll your own saves, you can spend 1 CP on a Command Re-roll of one failed save die, and when models die YOU click which bases are removed from the board. This applies in the shooting and fight phases, in local play, online multiplayer, and when the AI is attacking you.",
+			"changes": [
+				"Saves are always rolled by the owner of the target unit: the allocation window now waits for your 'Roll Saves' click instead of instantly auto-resolving single-group squads, and melee saves are interactive by default too (the old auto behaviour is now an opt-in setting).",
+				"You choose your casualties: after saves are rolled you click exactly which bases are removed (wounded models are locked in per the rules, and an 'Auto-pick For Me' button keeps fast play available). Which base you keep matters for objective control.",
+				"Command Re-roll on saves: if you have 1 CP you can re-roll one failed save die before damage is applied — in both shooting and melee.",
+				"Reactive stratagems fixed online: the attacker's machine no longer silently declines on your behalf — the decision window appears on the defender's screen and the attacker waits. The 5-second auto-decline countdown is gone; the window stays open until you choose.",
+				"The AI now pauses its attacks for you: when the AI targets your units you get the reactive stratagem window, then roll your own saves and pick your own casualties, exactly as against a human attacker.",
+				"The 'Computer allocates wounds (auto-remove models)' setting now defaults OFF (existing installs are migrated once); turn it back on in Settings if you prefer the old hands-off behaviour in local games."
 			]
 		},
 		{

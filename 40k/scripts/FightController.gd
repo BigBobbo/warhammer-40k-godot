@@ -71,7 +71,8 @@ var current_fighter_id: String = ""
 var current_fighter_owner: int = -1
 
 # P0-58: Track active melee wound allocation overlay
-var active_melee_allocation_overlay: WoundAllocationOverlay = null
+# WoundAllocationOverlay (10e per-wound) or AllocationGroupOverlay (11e batch)
+var active_melee_allocation_overlay = null
 var processing_melee_saves_signal: bool = false
 
 # STAGED FIGHT: the sequence dialog showing hit/wound pauses + Command Re-roll
@@ -3252,16 +3253,23 @@ func _on_melee_saves_required(save_data_list: Array) -> void:
 	set_process_input(false)
 	set_process_unhandled_input(false)
 
-	# Create WoundAllocationOverlay
+	# Create the wound allocation overlay — the 11e allocation-group flow
+	# (defender rolls saves, optional save Command Re-roll, casualty picks)
+	# at edition >= 11, the legacy per-wound overlay otherwise. Mirrors
+	# ShootingController._on_saves_required.
 	print("╔═══════════════════════════════════════════════════════════════")
 	print("║ P0-58: CREATING MELEE WOUND ALLOCATION OVERLAY")
 	print("║ Target: ", target)
 	print("║ Weapon: ", weapon)
 	print("║ Wounds: ", wounds)
 
-	var overlay = WoundAllocationOverlay.new()
+	var overlay = null
+	if GameConstants.edition >= 11:
+		overlay = AllocationGroupOverlay.new()
+	else:
+		overlay = WoundAllocationOverlay.new()
 	active_melee_allocation_overlay = overlay
-	print("║ Overlay instance created: ", overlay.get_instance_id())
+	print("║ Overlay instance created: ", overlay.get_instance_id(), " (", overlay.get_class(), " 11e=", GameConstants.edition >= 11, ")")
 
 	# Connect to allocation_complete signal to submit APPLY_MELEE_SAVES
 	overlay.allocation_complete.connect(func(summary):

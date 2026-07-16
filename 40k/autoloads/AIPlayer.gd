@@ -496,6 +496,39 @@ func _get_pending_reactive_window_player() -> int:
 		return int(phase.fire_overwatch_player)
 	return 0
 
+func _human_defender_window_pending() -> int:
+	"""DEFENDER CONTROL: owner of a pending shooting/fight defender window
+	(reactive stratagem opportunity or interactive save allocation) when that
+	owner is a HUMAN — 0 otherwise. The AI attacker must idle on these: the
+	human's dialogs (StratagemDialog / AllocationGroupOverlay) resolve them,
+	phase_action_taken resumes the loop, and the watchdog is the backstop.
+	Never returns AI owners — AI defenders answer reactive windows via the
+	phase-signal handlers, and AI saves never pause the phase."""
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
+		return 0
+	var phase = _phase_manager_ref.current_phase_instance
+	var window_owner := 0
+	if "awaiting_reactive_stratagem" in phase and phase.awaiting_reactive_stratagem:
+		var active = GameState.get_active_player()
+		window_owner = 2 if active == 1 else 1
+	elif "pending_save_data" in phase and not phase.pending_save_data.is_empty():
+		window_owner = _save_data_defender(phase.pending_save_data)
+	elif "awaiting_melee_saves" in phase and phase.awaiting_melee_saves \
+			and "pending_melee_save_data" in phase and not phase.pending_melee_save_data.is_empty():
+		window_owner = _save_data_defender(phase.pending_melee_save_data)
+	if window_owner > 0 and not is_ai_player(window_owner):
+		return window_owner
+	return 0
+
+func _save_data_defender(save_data_list: Array) -> int:
+	for sd in save_data_list:
+		var t = GameState.get_unit(str(sd.get("target_unit_id", "")))
+		if not t.is_empty():
+			return int(t.get("owner", 0))
+	return 0
+
 func get_difficulty(player: int) -> int:
 	"""T7-40: Get the difficulty level for a given player."""
 	return ai_difficulty.get(player, AIDifficultyConfigData.Difficulty.NORMAL)
@@ -1639,6 +1672,16 @@ func _evaluate_and_act() -> void:
 	var human_fight_player = _human_fight_turn_pending()
 	if human_fight_player > 0:
 		DebugLogger.info("AIPlayer._evaluate_and_act - fight-phase turn belongs to human, AI waits", {"human_fight_player": human_fight_player, "active_player": active_player})
+		_end_ai_thinking()
+		return
+
+	# DEFENDER CONTROL: while a HUMAN defender owes a reactive-stratagem
+	# decision or is rolling saves / allocating casualties for the AI's
+	# attack, the AI idles — their dialog resolves the window and
+	# phase_action_taken resumes the loop (watchdog as backstop).
+	var defender_window_player = _human_defender_window_pending()
+	if defender_window_player > 0:
+		DebugLogger.info("AIPlayer._evaluate_and_act - defender window belongs to human, AI waits", {"defender_window_player": defender_window_player, "active_player": active_player})
 		_end_ai_thinking()
 		return
 
