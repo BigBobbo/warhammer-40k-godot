@@ -2,6 +2,11 @@ extends Control
 class_name AllocationGroupOverlay
 
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+# Shared d6 face textures (rounded square + pips) — the same dice visuals the
+# game log and the other dice UIs use, so save rolls render as icons, not raw
+# numbers. Safe to preload: DiceFaceIcons is a RefCounted with static methods and
+# references no autoloads, so this overlay still compiles standalone headless.
+const _DiceFaceIcons = preload("res://scripts/DiceFaceIcons.gd")
 # Runtime-loaded (NOT preload): WoundAllocationBoardHighlights references the
 # Measurement autoload at compile time, and this overlay must keep compiling
 # standalone in bare headless harness runs (no autoloads).
@@ -51,6 +56,9 @@ var auto_mode: bool = false
 var _current_rolls: Array = []
 var _batch_seed: int = -1
 var _command_reroll: Dictionary = {}  # {used, player, die_index, original, new}
+# Count of d6 face icons mounted into the results label — lets windowed
+# scenarios assert the save rolls rendered as dice icons (not raw numbers).
+var _result_dice_icon_count: int = 0
 
 # Casualty pick state (virtual model indices from batch_result.groups/sources)
 var _pick_required: Dictionary = {}   # group_id -> casualties in that group
@@ -309,7 +317,8 @@ func _build_ui() -> void:
 
 	result_label = RichTextLabel.new()
 	result_label.name = "ResultLabel"
-	result_label.bbcode_enabled = false
+	# bbcode + inline images: the save rolls render as d6 face icons via add_image.
+	result_label.bbcode_enabled = true
 	result_label.fit_content = true
 	result_label.custom_minimum_size = Vector2(520, 0)
 	result_label.add_theme_color_override("default_color", _WhiteDwarfTheme.WH_PARCHMENT)
@@ -556,19 +565,23 @@ func _show_reroll_step() -> void:
 	for child in dice_chips.get_children():
 		child.queue_free()
 	for i in range(_current_rolls.size()):
+		var v = int(_current_rolls[i])
 		var chip = Button.new()
 		chip.name = "Die%d" % i
-		chip.text = str(_current_rolls[i])
+		# Show each save as its d6 face icon (pips) rather than a number, matching
+		# the combat log and the rest of the game's dice visuals. Failed saves are
+		# tinted red (and clickable to re-roll); passed saves green.
+		var failed_die: bool = i in failed
+		var bg: Color = _DiceFaceIcons.COLOR_FUMBLE if failed_die else _DiceFaceIcons.COLOR_SUCCESS
+		chip.icon = _DiceFaceIcons.get_face(v, bg)
+		chip.expand_icon = true
 		chip.custom_minimum_size = Vector2(44, 44)
-		chip.add_theme_font_size_override("font_size", 18)
-		if i in failed:
-			chip.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
-			chip.tooltip_text = "Failed save — click to re-roll (1 CP)"
+		if failed_die:
+			chip.tooltip_text = "Failed save (rolled %d) — click to re-roll (1 CP)" % v
 			chip.pressed.connect(_on_reroll_die_pressed.bind(i))
 		else:
 			chip.disabled = true
-			chip.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
-			chip.tooltip_text = "Passed save"
+			chip.tooltip_text = "Passed save (rolled %d)" % v
 		dice_chips.add_child(chip)
 	reroll_panel.visible = true
 	print("AllocationGroupOverlay: Command Re-roll offered — failed dice at raw indices %s" % str(failed))
@@ -912,22 +925,51 @@ func _show_results() -> void:
 	confirm_button.visible = false
 	error_label.visible = false
 	reroll_panel.visible = false
-	var lines: Array = []
 	var rolls: Array = batch_result.get("save_rolls", []).duplicate()
 	rolls.sort()
-	lines.append("Save rolls (lowest first): %s" % str(rolls))
+	# Render the save rolls as inline d6 face icons (pips) instead of raw numbers,
+	# matching the dice visuals used across the rest of the game.
+	_result_dice_icon_count = 0
+	result_label.clear()
+	result_label.append_text("Save rolls (lowest first): ")
+	_append_save_dice_icons(rolls)
+	result_label.append_text("\n")
 	if _command_reroll.get("used", false):
-		lines.append("Command Re-roll: %d re-rolled into %d (1 CP)" % [
-			int(_command_reroll.get("original", 0)), int(_command_reroll.get("new", 0))])
-	lines.append("%d saved, %d failed — %d damage, %d model(s) destroyed" % [
+		result_label.append_text("Command Re-roll: ")
+		_append_save_dice_icons([int(_command_reroll.get("original", 0))])
+		result_label.append_text(" re-rolled into ")
+		_append_save_dice_icons([int(_command_reroll.get("new", 0))])
+		result_label.append_text(" (1 CP)\n")
+	result_label.append_text("%d saved, %d failed — %d damage, %d model(s) destroyed" % [
 		batch_result.get("saves_passed", 0), batch_result.get("saves_failed", 0),
 		batch_result.get("damage_applied", 0), batch_result.get("casualties", 0)])
 	for d in batch_result.get("dice", []):
 		if d.get("context", "") == "devastating_wounds_11e":
-			lines.append("Devastating wounds: %d crit(s) applied as mortal wounds (max one model each)" % d.get("crits", 0))
-	result_label.text = "\n".join(lines)
+			result_label.append_text("\nDevastating wounds: %d crit(s) applied as mortal wounds (max one model each)" % d.get("crits", 0))
 	result_panel.visible = true
-	print("AllocationGroupOverlay: resolved — %s" % "; ".join(lines))
+	# Keep a plain-text debug line (icons don't survive to the log).
+	print("AllocationGroupOverlay: resolved — save_rolls(lowest first)=%s, %d saved, %d failed, %d damage, %d destroyed%s" % [
+		str(rolls), batch_result.get("saves_passed", 0), batch_result.get("saves_failed", 0),
+		batch_result.get("damage_applied", 0), batch_result.get("casualties", 0),
+		(" | Command Re-roll %d→%d" % [int(_command_reroll.get("original", 0)), int(_command_reroll.get("new", 0))]) if _command_reroll.get("used", false) else ""])
+
+
+# Append `rolls` to the results RichTextLabel as inline d6 face icons (rounded
+# square + pips) — the shared DiceFaceIcons textures used across the game log and
+# the other dice UIs. Neutral coloring with a crit threshold of 7 (a 6 on a save
+# is not a crit); natural 1s render red. Bumps _result_dice_icon_count so
+# windowed scenarios can assert the icons mounted.
+func _append_save_dice_icons(rolls: Array) -> void:
+	if rolls.is_empty():
+		result_label.append_text("—")
+		return
+	for i in range(rolls.size()):
+		var v = int(rolls[i])
+		var bg = _DiceFaceIcons.color_for(v, 0, false, 7)
+		result_label.add_image(_DiceFaceIcons.get_face(v, bg), 18, 18, Color.WHITE, INLINE_ALIGNMENT_CENTER)
+		if i < rolls.size() - 1:
+			result_label.append_text(" ")
+	_result_dice_icon_count += rolls.size()
 
 
 func _on_done_pressed() -> void:

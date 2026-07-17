@@ -5,7 +5,7 @@
     "shooting.benefit_of_cover.hit_threshold_label",
     "shooting.wound_reroll_annotation",
     "autoloads.RulesEngine._hit_threshold_display",
-    "scripts.WeaponOrderDialog._format_roll_line",
+    "scripts.WeaponOrderDialog._append_roll_line",
     "scripts.ShootingResolutionDock.staged_pauses"
   ],
   "fixture": "custodes_lions_pretrigger",

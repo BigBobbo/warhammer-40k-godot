@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.53.1",
+			"date": "2026-07-17",
+			"summary": "Dice now show as die-face icons (pips) instead of raw numbers in the last places that still printed numbers: the wound-allocation 'Save rolls' summary and its Command Re-roll chips, the shooting resolution dock's re-roll chips, and the Grenade / Tank Shock / Command Re-roll result popups. Dice look the same everywhere now.",
+			"changes": [
+				"Wound allocation results: 'Save rolls (lowest first)' and the Command Re-roll line render each roll as a d6 face icon (pips) instead of a '[1, 1, 2, ...]' number list.",
+				"Wound allocation Command Re-roll: the clickable save dice show as face icons — failed saves tinted red, passed saves green.",
+				"Shooting resolution dock: the Command Re-roll dice chips show face icons instead of numbers.",
+				"Grenade and Tank Shock result popups: the mortal-wound dice show as face icons (green for a success, red for a miss).",
+				"Command Re-roll stratagem popup: the original rolls show as face icons.",
+				"Multiplayer weapon-order dialog: hit/wound rolls and its re-roll chips now render as face icons, matching the melee dialog and the rest of the game."
+			]
+		},
+		{
 			"version": "0.53.0",
 			"date": "2026-07-17",
 			"summary": "Multi-target shooting overhaul, part 1: declaring targets is now one click for the common case. Clicking an enemy with no weapon selected sends EVERYTHING at it; clicking with a weapon selected commits all of that weapon's eligible bearers instantly (no popup). Splitting fire is the exception you opt into: click a second target and the game offers to move some shots across. Engaged vehicles can also declare targets they are not engaged with again (10.06), and the game no longer shows error banners for assignments it auto-attempted itself.",

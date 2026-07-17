@@ -87,30 +87,19 @@ func _build_ui() -> void:
 	dice_container.add_theme_constant_override("separation", 8)
 
 	for i in range(original_rolls.size()):
-		var die_panel = PanelContainer.new()
-		var die_style = StyleBoxFlat.new()
-		var die_val = original_rolls[i]
-		if die_val == 6:
-			die_style.bg_color = Color(0.7, 0.55, 0.0, 0.9)
-		elif die_val == 1:
-			die_style.bg_color = Color(0.6, 0.1, 0.1, 0.9)
-		else:
-			die_style.bg_color = Color(0.2, 0.2, 0.25, 0.9)
-		die_style.set_corner_radius_all(4)
-		die_style.set_border_width_all(1)
-		die_style.border_color = Color(0.5, 0.5, 0.5, 0.6)
-		die_style.content_margin_left = 10
-		die_style.content_margin_right = 10
-		die_style.content_margin_top = 6
-		die_style.content_margin_bottom = 6
-		die_panel.add_theme_stylebox_override("panel", die_style)
-		var die_label = Label.new()
-		die_label.text = str(die_val)
-		die_label.add_theme_font_size_override("font_size", 20)
-		die_label.add_theme_color_override("font_color", Color.WHITE)
-		die_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		die_panel.add_child(die_label)
-		dice_container.add_child(die_panel)
+		var die_val = int(original_rolls[i])
+		# Show each die as its d6 face icon (pips) rather than a number, matching
+		# the combat log and the rest of the game's dice visuals. This is a generic
+		# reroll dialog (charge / advance / hit / wound / save / damage), so colour
+		# by value: crit (gold), fumble (red), else neutral.
+		var die := TextureRect.new()
+		die.name = "Die%d" % i
+		var bg := DiceFaceIcons.color_for(die_val, 0, false, 6)
+		die.texture = DiceFaceIcons.get_face(die_val, bg)
+		die.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		die.custom_minimum_size = Vector2(40, 40)
+		die.tooltip_text = "Rolled %d" % die_val
+		dice_container.add_child(die)
 
 	var total_label = Label.new()
 	total_label.text = "= %d" % roll_total
