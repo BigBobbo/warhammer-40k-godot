@@ -22,6 +22,8 @@ var is_resolving: bool = false  # Track if sequence is currently resolving
 # UI Nodes
 var vbox: VBoxContainer
 var instruction_label: Label
+var order_list_label: Label           # "FIRING ORDER" header (hidden during resolution)
+var order_scroll: ScrollContainer     # scroll area around the order list (hidden during resolution)
 var weapon_list_container: VBoxContainer
 var weapon_items: Array = []  # Array of weapon item panels for reordering
 var button_hbox: HBoxContainer
@@ -70,19 +72,19 @@ func _ready() -> void:
 	_add_weapon_order_gold_separator(vbox)
 
 	# Weapon list section
-	var list_label = Label.new()
-	list_label.text = "FIRING ORDER"
-	list_label.add_theme_font_size_override("font_size", 13)
-	list_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-	vbox.add_child(list_label)
+	order_list_label = Label.new()
+	order_list_label.text = "FIRING ORDER"
+	order_list_label.add_theme_font_size_override("font_size", 13)
+	order_list_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	vbox.add_child(order_list_label)
 
-	var scroll_container = ScrollContainer.new()
-	scroll_container.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 220)
-	vbox.add_child(scroll_container)
+	order_scroll = ScrollContainer.new()
+	order_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 220)
+	vbox.add_child(order_scroll)
 
 	weapon_list_container = VBoxContainer.new()
 	weapon_list_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll_container.add_child(weapon_list_container)
+	order_scroll.add_child(weapon_list_container)
 
 	_add_weapon_order_gold_separator(vbox)
 
@@ -312,20 +314,12 @@ func _auto_start_single_weapon() -> void:
 		return  # guard against a double-trigger
 	_single_weapon_staged = true
 
-	# Name the weapon + target so the header reads naturally (ordering is hidden).
+	# Name the weapon + target(s) so the header reads naturally (ordering is hidden).
 	var wid = weapon_order[0]
 	var data = weapon_data.get(wid, {})
 	var wname = data.get("name", wid)
-	var tname = ""
 	var assigns = data.get("assignments", [])
-	if not assigns.is_empty():
-		var tid = assigns[0].get("target_unit_id", "")
-		if current_phase and current_phase.has_method("get_unit"):
-			var tunit = current_phase.get_unit(tid)
-			if tunit and not tunit.is_empty():
-				tname = tunit.get("meta", {}).get("name", tid)
-		if tname == "":
-			tname = tid
+	var tname = _describe_assignment_targets(assigns) if not assigns.is_empty() else ""
 
 	title = "Shooting — %s" % wname
 
@@ -337,7 +331,12 @@ func _auto_start_single_weapon() -> void:
 	_on_start_sequence_pressed()
 
 	# Restore a single-weapon-friendly instruction (start overwrote it).
-	if tname != "":
+	# A split (one weapon type, several targets) names every slice and says the
+	# targets resolve one after another — before this it silently claimed the
+	# whole weapon was "firing at <first target>".
+	if assigns.size() > 1:
+		instruction_label.text = "Split fire: %s at %s.\nEach target resolves in turn — Roll to Hit, then continue to the wound roll. You can Command Re-roll a die at each step." % [wname, tname]
+	elif tname != "":
 		instruction_label.text = "Firing %s at %s.\nRoll to Hit, then continue to the wound roll. You can Command Re-roll a die at each step." % [wname, tname]
 	else:
 		instruction_label.text = "Firing %s.\nRoll to Hit, then continue to the wound roll. You can Command Re-roll a die at each step." % wname
@@ -345,6 +344,26 @@ func _auto_start_single_weapon() -> void:
 func _compare_weapon_damage(a: String, b: String) -> bool:
 	"""Compare weapon damage for sorting (used by sort_custom)"""
 	return weapon_data[a].total_damage > weapon_data[b].total_damage
+
+func _target_display_name(target_unit_id: String) -> String:
+	if current_phase and current_phase.has_method("get_unit"):
+		var tunit = current_phase.get_unit(target_unit_id)
+		if tunit and not tunit.is_empty():
+			var meta = tunit.get("meta", {})
+			return meta.get("display_name", meta.get("name", target_unit_id))
+	return target_unit_id
+
+# "Ork Boyz" for a single slice, "2× Ork Boyz | 1× Nobz" when the weapon is
+# split across targets (model counts shown only when there is a split).
+func _describe_assignment_targets(assignments: Array) -> String:
+	var bits: Array = []
+	for a in assignments:
+		var tname = _target_display_name(a.get("target_unit_id", ""))
+		if assignments.size() > 1:
+			bits.append("%d× %s" % [(a.get("model_ids", []) as Array).size(), tname])
+		else:
+			bits.append(tname)
+	return " | ".join(bits) if not bits.is_empty() else "?"
 
 func _rebuild_weapon_list() -> void:
 	"""Rebuild the weapon list UI from current weapon_order"""
@@ -382,6 +401,14 @@ func _rebuild_weapon_list() -> void:
 		name_label.text = "%s (x%d)" % [data.name, data.count]
 		name_label.add_theme_font_size_override("font_size", 14)
 		info_vbox.add_child(name_label)
+
+		# WHO THIS WEAPON IS SHOOTING AT — the key fact when ordering a
+		# multi-target volley. A split weapon lists every slice ("2× Ork Boyz | 1× Nobz").
+		var target_label = Label.new()
+		target_label.text = "→ " + _describe_assignment_targets(data.assignments)
+		target_label.add_theme_font_size_override("font_size", 11)
+		target_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.45))
+		info_vbox.add_child(target_label)
 
 		var stats_label = Label.new()
 		stats_label.text = "Dmg: %d | Atks: %d | Total Potential: %d" % [
@@ -480,7 +507,14 @@ func _on_start_sequence_pressed() -> void:
 	# Disable ordering buttons
 	fast_roll_button.disabled = true
 	start_sequence_button.disabled = true
-	weapon_list_container.visible = false  # Hide weapon list during resolution
+	# Hide the whole ordering section during resolution (the ScrollContainer
+	# keeps a 220px minimum even when its content is hidden — hiding only the
+	# inner VBox left a large dead gray area in the middle of the dialog).
+	weapon_list_container.visible = false
+	if order_scroll:
+		order_scroll.visible = false
+	if order_list_label:
+		order_list_label.visible = false
 
 	# Update instruction label
 	instruction_label.text = "Resolving weapons sequentially...\nWatch the Resolution Log below for dice rolls and results."

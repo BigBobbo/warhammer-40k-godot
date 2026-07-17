@@ -9,7 +9,9 @@
 				"Fixed: after the enemy resolved saves against your first weapon, the remaining weapons aimed at OTHER targets were dropped — the 'weapon 2 of 2' roll never happened. All declared targets now resolve in order.",
 				"Fixed: the 'Continue to Next Weapon' step was rejected with a 'Not in sequential mode' error in single-player, which dead-ended the shooting sequence and rebuilt the weapon panel mid-resolution.",
 				"Fixed: 'Fast Roll All' rolled every weapon up front but only ever applied the first weapon's wounds — then rolled the remaining weapons AGAIN (discarding their first results). Fast Roll now resolves weapon by weapon with no pauses: same dice fairness as step-by-step, just faster.",
-				"The attack summary between weapons correctly lists the remaining weapons and their targets."
+				"The attack summary between weapons correctly lists the remaining weapons and their targets.",
+				"The firing-order dialog now shows WHO each weapon is shooting at (green '→ target' line per weapon, with model counts when a weapon is split), and split fire announces every target instead of claiming the whole weapon fires at the first one.",
+				"Removed the large dead gray area in the roll dialog during resolution (the hidden firing-order list kept reserving its space)."
 			]
 		},
 		{
