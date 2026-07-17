@@ -2,6 +2,20 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.51.0",
+			"date": "2026-07-17",
+			"summary": "Charge target selection is now predictable: clicking a target in the ELIGIBLE TARGETS list selects exactly that one target (no more accidentally declaring a charge against two units), and deliberately charging several units is now a real, clearly-signposted feature — a highlighted callout under the target list spells out that you hold Ctrl+Click to charge more than one unit, the Declare button shows how many units you are about to charge, and the list locks once the charge is declared.",
+			"changes": [
+				"Fixed: clicking a second charge target used to silently KEEP the first one too — the game declared a charge against both units while only the last one stayed highlighted. A plain click now selects exactly the clicked target.",
+				"Multi-unit charges are now explicit and impossible to miss: a gold-bordered callout under the ELIGIBLE TARGETS list tells you to hold Ctrl+Click (Cmd on Mac) to charge more than one unit, and its wording updates as you go — once you pick a first target it actively prompts 'hold Ctrl+Click another target' to charge both.",
+				"The Declare Charge button shows the target count when charging more than one unit (e.g. 'Declare Charge (2 targets)'), and the step guidance calls out that ALL selected targets must be reached.",
+				"Clicking empty space in the target list clears the selection.",
+				"Deselecting targets actually works now (it previously did nothing under the hood).",
+				"Once a charge is declared its target rows lock until the charge is resolved, so stray clicks can't desync the display from the declared charge.",
+				"Fixed: a declared charge's target list could be silently emptied by later UI resets (selecting another unit before rolling) — the declaration is now stored as its own copy."
+			]
+		},
+		{
 			"version": "0.50.2",
 			"date": "2026-07-17",
 			"summary": "Mouse-wheel zoom now only acts when the cursor is over the game board. Scrolling while hovering a menu or panel (unit list, game log, HUD bar, dialogs) no longer zooms the board underneath — the wheel belongs to the menu you're pointing at.",

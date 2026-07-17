@@ -499,8 +499,11 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 	# Store charge declaration. declared_targets preserves the original
 	# declaration so the 11e roll-resolution can re-filter it against the
 	# FINAL roll total (after re-rolls / +N bonuses), not the first raw 2D6.
+	# Both arrays are duplicated: in single-player the payload array can be the
+	# caller's live selection array, and aliasing it here would let later UI
+	# resets mutate the pending charge underneath us.
 	pending_charges[unit_id] = {
-		"targets": target_ids,
+		"targets": target_ids.duplicate(),
 		"declared_targets": target_ids.duplicate(),
 		"declared_at": Time.get_unix_time_from_system()
 	}
