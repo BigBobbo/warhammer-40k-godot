@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.51.1",
+			"date": "2026-07-17",
+			"summary": "Fight phase: the 'Select Unit to Fight' picker no longer tells you your opponent 'has no eligible units' when their engaged units are simply waiting for the Remaining Combats step. During the Fights First step it now explains that the opponent has no FIGHTS FIRST units and will select once your Fights First units have fought.",
+			"changes": [
+				"Fixed: during the Fights First step the picker said 'Player X has no eligible units. Select all remaining units in turn.' even when the opponent's engaged units (e.g. Lootas / Burna Boyz charged by Custodians) were owed a Remaining Combats fight. It now reads 'Player X has no Fights First units. Select your Fights First units in turn — Player X will then select in Remaining Combats.', and the blanket 'no eligible units' message only appears when the opponent truly has nothing left to fight."
+			]
+		},
+		{
 			"version": "0.51.0",
 			"date": "2026-07-17",
 			"summary": "Charge target selection is now predictable: clicking a target in the ELIGIBLE TARGETS list selects exactly that one target (no more accidentally declaring a charge against two units), and deliberately charging several units is now a real, clearly-signposted feature — a highlighted callout under the target list spells out that you hold Ctrl+Click to charge more than one unit, the Declare button shows how many units you are about to charge, and the list locks once the charge is declared.",
