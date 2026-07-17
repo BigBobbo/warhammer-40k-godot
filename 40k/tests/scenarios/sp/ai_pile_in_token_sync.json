@@ -1,0 +1,25 @@
+{
+  "id": "ai_pile_in_token_sync",
+  "covers": [
+    "phases.FightPhase.pile_in_ai_visual_sync",
+    "main.on_ai_action_taken.deferred_token_sync"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression: an AI PILE_IN logged '(N models moved)' but the tokens never moved on the board. AIPlayer._execute_next_action emits ai_action_taken (-> Main._on_ai_action_taken) BEFORE routing the action, so a synchronous update_unit_visuals() synced tokens to the PRE-move state (a no-op) and nothing re-synced after the phase applied the move (the FightPhase.pile_in_preview signal has no listeners). This scenario drives the REAL Main._on_ai_action_taken for a PILE_IN in that exact order, then applies the model move the phase would apply, and asserts the on-screen token catches up to the new GameState position. Fix: defer the token sync to end-of-frame so it reads post-move state.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "expect_token_visible", "unit_id": "U_BLADE_CHAMPION_A" },
+    { "act": "execute_script", "script": "token_desync_from_state_px(\"U_BLADE_CHAMPION_A\", \"m1\")", "expect_max": 2.0 },
+    { "act": "screenshot", "label": "01_before_pile_in_token_in_sync" },
+    { "act": "execute_script", "script": "repro_ai_pile_in_move(\"U_BLADE_CHAMPION_A\", 520.43, 1093.95)", "equals": true },
+    { "act": "wait_for_tweens", "timeout_s": 5.0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "screenshot", "label": "02_after_pile_in_token_followed_state" },
+    { "act": "execute_script", "script": "token_desync_from_state_px(\"U_BLADE_CHAMPION_A\", \"m1\")", "expect_max": 2.0 }
+  ]
+}

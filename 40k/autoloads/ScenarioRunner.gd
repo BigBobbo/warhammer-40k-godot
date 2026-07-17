@@ -1217,6 +1217,63 @@ func token_model_rotation(unit_id: String, model_id: String) -> float:
 				return float(c.model_data.get("rotation", -999.0))
 	return -999.0
 
+# --- AI fight-move visual-sync regression helpers -------------------------
+# Reproduce the exact ordering AIPlayer._execute_next_action uses for a fight
+# PILE_IN / CONSOLIDATE: it emits ai_action_taken (→ Main._on_ai_action_taken)
+# BEFORE routing the action that writes the move. This drives the REAL Main
+# handler for `unit_id`, then applies the model-0 position change the phase
+# would apply in route_action — same frame, same order as the live AI path.
+# The bug: a synchronous update_unit_visuals() in the handler syncs the token to
+# the PRE-move state (a no-op), and nothing re-syncs after the phase writes the
+# move, so the token is stranded while the log/state say it moved. The fix
+# defers the token sync so it reads the post-move state. Returns true if the
+# handler + move were driven. Callable from execute_script.
+func repro_ai_pile_in_move(unit_id: String, nx: float, ny: float) -> bool:
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("_on_ai_action_taken"):
+		return false
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty() or unit.get("models", []).is_empty():
+		return false
+	var owner := int(unit.get("owner", 1))
+	# (1) AI emits ai_action_taken BEFORE the action is routed:
+	scene._on_ai_action_taken(owner, {"type": "PILE_IN", "unit_id": unit_id}, "repro pile-in")
+	# (2) the FightPhase then writes the move in route_action / apply_state_changes:
+	GameState.apply_state_changes([{
+		"op": "set",
+		"path": "units.%s.models.0.position" % unit_id,
+		"value": {"x": nx, "y": ny}
+	}])
+	return true
+
+# Distance in px between a unit's model ON-SCREEN token and that model's current
+# GameState position. ~0 == the visual is in sync with state; a large value ==
+# the token was left stranded at a stale position. Callable from execute_script,
+# e.g. token_desync_from_state_px("U_BLADE_CHAMPION_A", "m1") with expect_max 2.0.
+func token_desync_from_state_px(unit_id: String, model_id: String) -> float:
+	var tl := SceneRefs.token_layer()
+	if tl == null:
+		var scene := get_tree().current_scene
+		tl = scene.get_node_or_null("BoardRoot/TokenLayer") if scene else null
+	if tl == null:
+		return -1.0
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return -1.0
+	var sp = null
+	for m in unit.get("models", []):
+		if str(m.get("id", "")) == model_id:
+			sp = m.get("position")
+			break
+	if sp == null:
+		return -1.0
+	var spos: Vector2 = Vector2(sp.x, sp.y) if sp is Dictionary else sp
+	for c in tl.get_children():
+		if c.has_meta("unit_id") and str(c.get_meta("unit_id")) == unit_id \
+				and c.has_meta("model_id") and str(c.get_meta("model_id")) == model_id:
+			return c.position.distance_to(spos)
+	return -1.0
+
 func max_tokens_per_model() -> int:
 	var scene := get_tree().current_scene
 	if scene == null:

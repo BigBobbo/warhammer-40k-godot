@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.49.2",
+			"date": "2026-07-17",
+			"summary": "Fixed AI fight-phase pile-in and consolidation: the game log would say an AI unit 'piles in toward enemy (N models moved)' but the tokens never actually moved on the board. The models had moved in the underlying game state — only the on-screen tokens were left behind — so combats resolved from the correct positions while the board looked wrong until the next full refresh. The tokens now follow the state immediately.",
+			"changes": [
+				"Fixed: AI pile-in / consolidation moves were logged and applied to game state but the board tokens stayed at their old positions (they only snapped into place later, on a phase change or other refresh).",
+				"Root cause: the AI announces an action to the UI just before it is actually executed, so the token-sync was reading the pre-move positions and doing nothing; the sync now runs after the move is applied.",
+				"Human pile-ins were never affected — only AI-controlled units."
+			]
+		},
+		{
 			"version": "0.49.1",
 			"date": "2026-07-16",
 			"summary": "The Declare Battle Formations screen now tells identically-named units apart. Before, if your army had several units with the same name (e.g. six Custodian Guard squads, three Blade Champions), the leader-attachment dropdowns, warlord picker, transport/reserves lists and summary all just read 'Custodian Guard (5 models)' over and over, so you couldn't tell which squad you were attaching a leader to. Every unit now shows its distinguishing suffix — 'Custodian Guard Alpha', 'Custodian Guard Beta', etc. — matching the labels used everywhere else in the game.",
