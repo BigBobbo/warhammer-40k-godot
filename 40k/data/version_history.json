@@ -2,13 +2,21 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.53.2",
+			"version": "0.53.3",
 			"date": "2026-07-17",
 			"summary": "Fixed the free charge re-roll from abilities like the Blade Champion's Swift Onslaught looking unusable: the dialog offering it was branded as the 1 CP Command Re-roll stratagem, so with 0 CP it read as unaffordable. It now clearly says the re-roll is FREE, and closing the dialog with ✕ or ESC no longer leaves the charge stuck waiting for an answer.",
 			"changes": [
 				"Fixed: the Swift Onslaught (and Plummeting Descent, etc.) free charge re-roll dialog showed 'COMMAND RE-ROLL', 'Re-roll (1 CP)' and 'You have 0 CP' — players with no CP thought they could not use their free re-roll. The dialog now shows the ability name, 'Re-roll (Free)' and 'FREE — costs no CP'.",
 				"Fixed: closing any re-roll dialog with the ✕ button or ESC left the game waiting forever for a re-roll decision, blocking the rest of the Charge phase. Dismissing the dialog now counts as 'Keep Roll'.",
 				"The dice log now names the ability that was used for the free re-roll instead of always saying 'SWIFT ONSLAUGHT used!'."
+			]
+		},
+		{
+			"version": "0.53.2",
+			"date": "2026-07-17",
+			"summary": "Fixed a Movement-phase unit-list label that showed an attached leader twice. A squad with an attached CHARACTER (e.g. a Blade Champion leading a Custodian Guard squad) was listed as 'Custodian Guard Alpha + Blade Champion + Blade Champion' — the leader's name was printed twice. It now reads 'Custodian Guard Alpha + Blade Champion' once. This was purely a display bug; only one leader was ever attached.",
+			"changes": [
+				"Fixed: in the Movement phase 'Units (Move / Disembark)' list, a bodyguard squad's attached leader appeared twice in the row label (e.g. '+ Blade Champion + Blade Champion'). The movement controller was appending the attached-character names to the row twice; it now appends them once."
 			]
 		},
 		{
