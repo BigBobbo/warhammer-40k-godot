@@ -1293,6 +1293,20 @@ func _continue_after_reactive_stratagems() -> Dictionary:
 	return initial_result
 
 func _process_resolve_shooting(action: Dictionary) -> Dictionary:
+	# Stamp the shooting unit onto the action dict so downstream consumers can
+	# name it. Several dispatch paths build a bare {"type": "RESOLVE_SHOOTING"}
+	# with no actor id — notably AIDecisionMaker (both difficulty tiers) — which
+	# made GameEventLog fall back to "Unknown shooting resolved". execute_action()
+	# emits THIS SAME dict via action_taken (Godot dicts are by-reference), so
+	# stamping here fixes the log/replay for every caller (AI, UI, network, tests)
+	# rather than relying on each one to remember the field. active_shooter_id is
+	# the phase's authoritative shooter for this resolution (it drives the
+	# animation, combat header and verbose log below). Don't clobber a caller-
+	# supplied id, and skip the throwaway {} passed by the internal auto-resolve
+	# calls (which never reach action_taken).
+	if active_shooter_id != "" and str(action.get("actor_unit_id", "")) == "" and str(action.get("unit_id", "")) == "":
+		action["actor_unit_id"] = active_shooter_id
+
 	# Trigger attack animation on the shooting unit
 	_trigger_unit_animation(active_shooter_id, "attack")
 

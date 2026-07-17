@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.54.2",
+			"date": "2026-07-17",
+			"summary": "Fixed the game log showing 'Unknown shooting resolved' instead of the firing unit's name when the AI (or any path that didn't attach a unit id) resolved a shooting attack. The shooting unit is now always named in the log.",
+			"changes": [
+				"Fixed: 'P2: Unknown shooting resolved' log lines — the resolving unit's name is now stamped onto the shooting action at the single point every dispatch path flows through, so AI, player, network and test-driven shooting all name the shooter."
+			]
+		},
+		{
 			"version": "0.54.1",
 			"date": "2026-07-17",
 			"summary": "Fight phase now enforces the core rule that a model fights with ONE melee weapon. Models with multiple melee weapons or profiles (Blade Champion's Vaultswords, a Warboss's Big choppa vs Power klaw) must choose which one to swing — they no longer attack with everything they carry. [EXTRA ATTACKS] weapons are still used in addition.",
@@ -55,10 +63,10 @@
 		{
 			"version": "0.53.1",
 			"date": "2026-07-17",
-			"summary": "Fixed Ctrl+Click not selecting a second charge target. The Eligible Targets list told you to hold Ctrl+Click to charge more than one unit, but on many setups holding Ctrl and clicking did nothing (or just moved the selection) \u2014 so you could never actually declare a multi-unit charge. Ctrl+Click now reliably adds/removes extra targets.",
+			"summary": "Fixed Ctrl+Click not selecting a second charge target. The Eligible Targets list told you to hold Ctrl+Click to charge more than one unit, but on many setups holding Ctrl and clicking did nothing (or just moved the selection) — so you could never actually declare a multi-unit charge. Ctrl+Click now reliably adds/removes extra targets.",
 			"changes": [
 				"Fixed: holding Ctrl (or Cmd) and clicking a second unit in the Eligible Targets list now toggles it in/out of the charge, so you can declare a charge against several units as the hint describes.",
-				"The charge target list no longer relies on the click carrying the Ctrl modifier (which some systems don't attach to mouse clicks) \u2014 it now also reads the live keyboard state, so Ctrl+Click works consistently across platforms.",
+				"The charge target list no longer relies on the click carrying the Ctrl modifier (which some systems don't attach to mouse clicks) — it now also reads the live keyboard state, so Ctrl+Click works consistently across platforms.",
 				"Plain click still selects exactly one target, clicking empty space still clears the selection, and the target rows still lock once the charge is declared."
 			]
 		},

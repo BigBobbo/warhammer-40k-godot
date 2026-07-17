@@ -1,0 +1,30 @@
+{
+  "id": "shooting_resolved_names_unit",
+  "covers": ["shooting.log.resolve_names_unit"],
+  "fixture": "shooting_phase",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Regression for the 'Unknown shooting resolved' game-log bug. A discrete RESOLVE_SHOOTING action dispatched WITHOUT an actor id (exactly what AIDecisionMaker builds, and what produced 'P2: Unknown shooting resolved') must still name the firing unit in the game log. Drives Battlewagon Alpha assigning its Lobba at the Blade Champion via the real SELECT/ASSIGN flow, then resolves via a bare RESOLVE_SHOOTING (the AI path — the human resolution dock is deactivated first, and CONFIRM->DECLINE->RESOLVE run synchronously so the dock's deferred auto-start cannot race it). Asserts the GameEventLog 'shooting resolved' entry names 'Battlewagon Alpha' and that NO 'shooting resolved' entry says 'Unknown'.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_phase", "equals": 8 },
+    { "act": "screenshot", "label": "01_shooting_phase" },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_BATTLEWAGON_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "actor_unit_id": "U_BATTLEWAGON_A", "payload": { "weapon_id": "lobba_ranged", "target_unit_id": "U_BLADE_CHAMPION_A", "model_ids": ["m1"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var main = tree.root.get_node_or_null(\"Main\")\nvar phase = PhaseManager.current_phase_instance\nvar c = phase.execute_action({\"type\": \"CONFIRM_TARGETS\"})\nif not c.get(\"success\", false):\n\treturn \"CONFIRM_FAILED:\" + str(c.get(\"error\", \"\"))\nif phase.awaiting_reactive_stratagem:\n\tphase.execute_action({\"type\": \"DECLINE_REACTIVE_STRATAGEM\"})\nif main and main.shooting_controller and main.shooting_controller.has_method(\"_deactivate_resolution_dock\"):\n\tmain.shooting_controller._deactivate_resolution_dock()\nvar r = phase.execute_action({\"type\": \"RESOLVE_SHOOTING\"})\nreturn \"RESOLVE_SUCCESS=\" + str(r.get(\"success\", false))", "equals": "RESOLVE_SUCCESS=true" },
+
+    { "act": "execute_script", "multiline": true, "script": "var hit = \"\"\nfor e in GameEventLog.entries:\n\tvar t = str(e.get(\"text\", \"\"))\n\tif \"shooting resolved\" in t:\n\t\thit = t\nreturn hit", "not_equals": "" },
+
+    { "act": "execute_script", "multiline": true, "script": "var found = false\nfor e in GameEventLog.entries:\n\tvar t = str(e.get(\"text\", \"\"))\n\tif \"shooting resolved\" in t and \"Battlewagon Alpha\" in t:\n\t\tfound = true\nreturn found", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var bad = false\nfor e in GameEventLog.entries:\n\tvar t = str(e.get(\"text\", \"\"))\n\tif \"shooting resolved\" in t and \"Unknown\" in t:\n\t\tbad = true\nreturn bad", "equals": false },
+
+    { "act": "screenshot", "label": "02_resolved" }
+  ]
+}
