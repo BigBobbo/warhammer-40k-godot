@@ -904,7 +904,27 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 # Ask the active fighter's player to assign melee attacks (signal for the
 # local UI + trigger metadata for the NetworkManager client re-emit).
 func _request_attack_assignment(unit_id: String, result: Dictionary) -> Dictionary:
+	# Movement diffs still pending in the result (the legacy per-activation
+	# pile-in path returns them without applying) must land before
+	# engagement is measured — execute_action's re-apply is idempotent
+	# (set ops), same pattern as _finish_fight_activation_11e.
+	var pending_changes = result.get("changes", [])
+	if pending_changes is Array and not pending_changes.is_empty():
+		PhaseManager.apply_state_changes(pending_changes)
 	var targets = _get_eligible_melee_targets(unit_id)
+	if targets.is_empty():
+		# No enemy within Engagement Range — e.g. an OVERRUN fight (12.06)
+		# whose pile-in could not reach, or the last engaged enemy died
+		# mid-activation (Dread Foe / Deadly Demise). Making Attacks needs a
+		# target in ER, so the fight ends with no attacks. Opening the
+		# assignment dialog here soft-locked the game: nothing to assign,
+		# no way to skip the activation.
+		var _naa_unit = get_unit(unit_id)
+		var _naa_name = _naa_unit.get("meta", {}).get("name", unit_id)
+		var _naa_owner = int(_naa_unit.get("owner", get_current_player()))
+		log_phase_message("[11e] %s has no enemies within Engagement Range after its fight moves — no attacks possible, activation ends" % unit_id)
+		GameEventLog.add_combat_result("P%d: %s — no enemies in engagement range, fight ends without attacks" % [_naa_owner, _naa_name])
+		return _finish_fight_activation_11e(result)
 	emit_signal("attack_assignment_required", unit_id, targets)
 	result["trigger_attack_assignment"] = true
 	result["attack_unit_id"] = unit_id

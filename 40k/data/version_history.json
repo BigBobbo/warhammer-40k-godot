@@ -2,13 +2,44 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.49.5",
+			"version": "0.49.8",
 			"date": "2026-07-17",
 			"summary": "The Fight phase 'Select Unit to Fight' picker no longer lists Fights First units twice. Units that fight first (chargers and Fights First ability carriers) appeared under BOTH the FIGHTS_FIRST section and REMAINING_COMBATS, reading as if they fought twice — now every unit is listed in exactly one section. The picker also shows proper unit names throughout.",
 			"changes": [
 				"Fixed: Fights First units (charged units and ability carriers) were duplicated into the REMAINING_COMBATS list of the fight picker; each unit now appears only under the step it will actually fight in.",
 				"The fight picker now uses distinguishing display names ('Warboss Alpha', 'Blade Champion Beta') so same-named units are tellable apart, matching the rest of the game.",
 				"Fixed: the opposing player's units in the fight picker rendered as raw internal ids (e.g. 'U_CUSTODIAN_GUARD_B') instead of their names."
+			]
+		},
+		{
+			"version": "0.49.7",
+			"date": "2026-07-17",
+			"summary": "Fixed a Fight-phase soft-lock: a unit that charged but couldn't reach anyone (e.g. a Blade Champion whose pile-in falls short) used to open the 'Assign Attacks' dialog with zero eligible targets and no way to skip, freezing the game. Its fight now simply ends — the game logs it and moves on to the next unit.",
+			"changes": [
+				"A unit selected to fight with no enemies within Engagement Range after its pile-in (11e Overrun fight, 12.06) now ends its activation automatically instead of opening an empty attack-assignment dialog — the fight sequence continues normally.",
+				"The Game Log explains what happened: 'no enemies in engagement range, fight ends without attacks'.",
+				"Safety net: if the Assign Attacks dialog ever opens with no targets, it now disables the attack buttons, explains why, and offers an 'End Fight (No Targets)' button that skips the unit — no more being trapped in the dialog."
+			]
+		},
+		{
+			"version": "0.49.6",
+			"date": "2026-07-16",
+			"summary": "Deployment placement ghosts now show the model's top-down sprite, not just the pulsing base outline. The single-model placement ghost already did this, but when you placed a squad using the Spread or Tight formation, or nudged an already-placed model, the preview ghosts only drew the empty base outline. Every deployment ghost that has bundled/custom art (Custodian Guard, Stormboyz, tanks, etc.) now renders that art inside the translucent base so you can see exactly what — and which way — you're placing.",
+			"changes": [
+				"Fixed: Spread/Tight formation deployment ghosts now show each model's facing sprite instead of just the base outline.",
+				"Fixed: the reposition ghost (when moving an already-placed model during deployment) now shows the model's sprite too.",
+				"Units without dedicated art are unchanged — they keep the letter counter + facing arrow."
+			]
+		},
+		{
+			"version": "0.49.5",
+			"date": "2026-07-16",
+			"summary": "The orange 12\" charge-range indicator now shows the unit's TRUE charge threat area. It used to be a single circle drawn from the unit's midpoint, but a charge only needs a target within 12\" of ANY model — so for spread-out units the circle disagreed with the eligible-target list (targets listed as in range could sit visibly outside the circle). The indicator is now one dashed outline hugging the whole unit: the union of every model's 12\" reach, measured from each base edge.",
+			"changes": [
+				"Charge phase: selecting a unit now draws the 12\" threat boundary around EVERY model in the unit (one merged dashed outline), not a circle from the unit's centre.",
+				"The boundary is measured from each model's base edge (edge-to-edge, matching how charge eligibility is actually checked), so a target is chargeable exactly when its base touches the orange area — the drawing and the Eligible Targets list now always agree.",
+				"Works with mixed base types (circular, oval and rectangular bases all project their real 12\" reach).",
+				"The green per-model reach rings shown after the 2D6 roll are unchanged."
 			]
 		},
 		{

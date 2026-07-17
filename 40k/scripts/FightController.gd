@@ -1750,9 +1750,25 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 	print("[FightController] Setting up dialog...")
 	dialog.setup(unit_id, targets, current_phase)
 	dialog.attacks_confirmed.connect(_on_attacks_confirmed)
+	dialog.skip_fight_requested.connect(_on_attack_dialog_skip_requested)
 	get_tree().root.add_child(dialog)
 	print("[FightController] Showing attack assignment dialog...")
 	dialog.popup_centered()
+
+func _on_attack_dialog_skip_requested(unit_id: String) -> void:
+	"""Escape hatch from an AttackAssignmentDialog with no eligible targets:
+	end the unit's activation via SKIP_UNIT so the fight sequence advances
+	instead of dead-ending (the phase normally auto-ends such activations
+	before the dialog is requested — this covers any path that still got here)."""
+	print("[FightController] Attack dialog skip requested for %s (no eligible targets)" % unit_id)
+	var skip_player = current_fighter_owner
+	if skip_player < 0 and current_phase:
+		skip_player = int(current_phase.get_unit(unit_id).get("owner", GameState.get_active_player()))
+	emit_signal("fight_action_requested", {
+		"type": "SKIP_UNIT",
+		"unit_id": unit_id,
+		"player": skip_player
+	})
 
 func _on_attacks_confirmed(assignments: Array) -> void:
 	"""Submit attack assignments and trigger resolution via a single batched action.

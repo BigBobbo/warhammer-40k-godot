@@ -76,6 +76,12 @@ var charge_arrow_visuals: Array = []  # Array of ChargeArrowVisual instances
 # P3-127: Charge trajectory preview - shows expected charge paths during target selection
 var charge_trajectory_preview: ChargeTrajectoryPreview = null
 
+# Pre-roll charge threat envelope (union of every alive model's 12" reach) in
+# world-space px. Kept as members (not locals) so windowed scenarios can assert
+# the drawn geometry directly instead of walking the dash nodes in range_visual.
+var charge_threat_outlines: Array = []  # Array of PackedVector2Array, one per boundary loop
+var charge_threat_bounds: Rect2 = Rect2()  # bounding box over all loops (also anchors the label)
+
 # UI Elements
 var unit_selector: ItemList
 var target_list: ItemList
@@ -967,9 +973,9 @@ func _update_visuals() -> void:
 	# T-092: Show the pre-roll 12" charge-range overlay around the active charging
 	# unit. Once the roll is made and models are being dragged (awaiting_movement),
 	# the per-model reach rings from _show_per_model_charge_ranges() apply instead,
-	# so don't redraw the unit-wide 12" ring over them.
+	# so don't redraw the threat envelope over them.
 	if not awaiting_movement:
-		_show_charge_range_circle(unit_center)
+		_show_charge_range_overlay(unit)
 
 	# Draw lines to selected targets
 	for target_id in selected_targets:
@@ -1201,9 +1207,9 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 	
 	print("Models to move: ", models_to_move)
 
-	# Swap the pre-roll unit-wide 12" threat ring for one per-model reach ring
+	# Swap the pre-roll 12" threat envelope for one per-model reach ring
 	# (radius = the rolled distance) so the player can see how far each model can
-	# actually be dragged, not a 12" circle that no longer applies post-roll.
+	# actually be dragged, not a 12" boundary that no longer applies post-roll.
 	_show_per_model_charge_ranges(unit_id, float(max_distance))
 
 	# Show engagement range circles around charge target models
@@ -3648,7 +3654,8 @@ const CHARGE_MODEL_RANGE_WIDTH: float = 8.0  # Width in board-space px (thinner 
 
 func _draw_charge_dashed_circle(center: Vector2, radius_px: float, color: Color, width: float) -> void:
 	# Draw a dashed circle (alternating visible/invisible arcs) into range_visual.
-	# Shared by the pre-roll 12" threat ring and the post-roll per-model reach rings.
+	# Used by the post-roll per-model reach rings; the pre-roll threat envelope
+	# dashes arbitrary loops via _draw_charge_dashed_loop instead.
 	var total_arcs: int = 10
 	var arc_length: float = TAU / float(total_arcs)
 	var dash_fraction: float = 0.7
@@ -3667,26 +3674,192 @@ func _draw_charge_dashed_circle(center: Vector2, radius_px: float, color: Color,
 			dash.add_point(center + Vector2(cos(theta), sin(theta)) * radius_px)
 		range_visual.add_child(dash)
 
-func _show_charge_range_circle(center: Vector2) -> void:
+func _show_charge_range_overlay(unit: Dictionary) -> void:
+	# 11.02: a unit may declare a charge when a target is within 12" of the UNIT
+	# — i.e. of ANY of its models, measured edge-to-edge (shape-aware, exactly
+	# like ChargePhase._is_target_within_charge_range). A single 12" ring centred
+	# on the unit's centroid both understates the reach of models far from the
+	# centroid and ignores base sizes, so it disagreed with the eligible-target
+	# list. Draw instead the union envelope of every alive model's base outline
+	# inflated by 12": the dashed boundary marks exactly where an enemy base
+	# edge can sit and still be a legal charge declaration target.
 	if not is_instance_valid(range_visual):
 		return
 	_clear_charge_range_circle()
-	var radius_px := Measurement.inches_to_px(CHARGE_RANGE_OVERLAY_INCHES)
-	_draw_charge_dashed_circle(center, radius_px, CHARGE_RANGE_OVERLAY_COLOR, CHARGE_RANGE_OVERLAY_WIDTH)
-	# Distance label
+	var range_px := Measurement.inches_to_px(CHARGE_RANGE_OVERLAY_INCHES)
+	var threat_polys: Array = []
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		if _get_model_position(model) == Vector2.ZERO:
+			continue  # embarked / not-yet-deployed models carry no board position
+		var poly := _charge_threat_polygon_for_model(model, range_px)
+		if poly.size() >= 3:
+			threat_polys.append(poly)
+	if threat_polys.is_empty():
+		return
+
+	charge_threat_outlines = _union_outline_polygons(threat_polys)
+	var bounds := Rect2(charge_threat_outlines[0][0], Vector2.ZERO)
+	for outline in charge_threat_outlines:
+		for point in outline:
+			bounds = bounds.expand(point)
+	charge_threat_bounds = bounds
+
+	for outline in charge_threat_outlines:
+		_draw_charge_dashed_loop(outline, CHARGE_RANGE_OVERLAY_COLOR, CHARGE_RANGE_OVERLAY_WIDTH)
+
+	# Distance label, anchored above the top of the envelope
 	var range_label := Label.new()
 	range_label.name = "ChargeRangeCircle"
 	range_label.text = "12\" charge"
 	range_label.add_theme_font_size_override("font_size", 36)
 	range_label.add_theme_color_override("font_color", CHARGE_RANGE_OVERLAY_COLOR)
-	range_label.position = center + Vector2(-60, -(radius_px + 40))
+	range_label.position = Vector2(bounds.get_center().x - 60, bounds.position.y - 40)
 	range_label.z_index = 55
 	range_visual.add_child(range_label)
+
+func _charge_threat_polygon_for_model(model: Dictionary, range_px: float) -> PackedVector2Array:
+	# "Every point within range_px of the model's base edge" — the Minkowski sum
+	# of the base outline with a disc. A circular base stays a circle (radius +
+	# range); rectangular/oval bases inflate their outline polygon with round
+	# joins via Geometry2D.offset_polygon (probe-verified: positive delta grows
+	# outward regardless of input winding).
+	var pos := _get_model_position(model)
+	var shape = Measurement.create_base_shape(model)
+	if shape == null:
+		return PackedVector2Array()
+	if shape.get_type() == "circular":
+		var radius: float = shape.radius + range_px
+		var circle := PackedVector2Array()
+		var segments: int = 48
+		for i in range(segments):
+			var theta := TAU * float(i) / float(segments)
+			circle.append(pos + Vector2(cos(theta), sin(theta)) * radius)
+		return circle
+
+	var rot: float = model.get("rotation", 0.0)
+	var base_pts := PackedVector2Array()
+	if shape.get_type() == "oval":
+		# OvalBase.length/width store the SEMI-axes (halved in _init)
+		var samples: int = 32
+		for i in range(samples):
+			var theta := TAU * float(i) / float(samples)
+			base_pts.append(shape.to_world_space(Vector2(shape.length * cos(theta), shape.width * sin(theta)), pos, rot))
+	else:
+		# rectangular (and any future shape): bounding-box corners
+		var bb: Rect2 = shape.get_bounds()
+		for corner in [bb.position, Vector2(bb.end.x, bb.position.y), bb.end, Vector2(bb.position.x, bb.end.y)]:
+			base_pts.append(shape.to_world_space(corner, pos, rot))
+
+	var inflated: Array = Geometry2D.offset_polygon(base_pts, range_px, Geometry2D.JOIN_ROUND)
+	# Convex input inflates to exactly one polygon; pick the largest defensively.
+	var best := PackedVector2Array()
+	var best_area: float = -1.0
+	for p in inflated:
+		var area := _polygon_area_abs(p)
+		if area > best_area:
+			best_area = area
+			best = p
+	return best
+
+func _polygon_area_abs(poly: PackedVector2Array) -> float:
+	var doubled: float = 0.0
+	for i in range(poly.size()):
+		var a := poly[i]
+		var b := poly[(i + 1) % poly.size()]
+		doubled += a.x * b.y - b.x * a.y
+	return absf(doubled) * 0.5
+
+func _union_outline_polygons(polys: Array) -> Array:
+	# Merge overlapping polygons into their union's outer boundary loops.
+	# Greedy island merge: try to absorb each polygon into an existing island; a
+	# successful merge restarts the scan since the grown island may now touch an
+	# island it previously missed. merge_polygons returns enclosed holes as
+	# clockwise outlines — with 12" reach discs on models held in 2" coherency a
+	# hole is geometrically impossible, so hole outlines are dropped rather than
+	# drawn (drawing one would mark interior area as a charge boundary).
+	var islands: Array = []
+	for poly in polys:
+		var current: PackedVector2Array = poly
+		var i: int = 0
+		while i < islands.size():
+			var res := Geometry2D.merge_polygons(current, islands[i])
+			var outers: Array = []
+			for r in res:
+				if not Geometry2D.is_polygon_clockwise(r):
+					outers.append(r)
+			if outers.size() == 1:
+				# Overlap (or containment): absorbed into one boundary
+				current = outers[0]
+				islands.remove_at(i)
+				i = 0
+			else:
+				# Disjoint: merge_polygons returned both inputs unchanged
+				i += 1
+		islands.append(current)
+	return islands
+
+func _draw_charge_dashed_loop(loop: PackedVector2Array, color: Color, width: float) -> void:
+	# Dash a closed polyline with the same look as _draw_charge_dashed_circle
+	# (70% on / 30% off), scaling the dash count to the loop's perimeter so the
+	# envelope matches the old fixed-radius ring's density (10 dashes on a bare
+	# 12" circle ≈ one dash cycle per ~300 px).
+	var n := loop.size()
+	if n < 3:
+		return
+	var seg_lens: Array = []
+	var perimeter: float = 0.0
+	for i in range(n):
+		var seg_len := loop[i].distance_to(loop[(i + 1) % n])
+		seg_lens.append(seg_len)
+		perimeter += seg_len
+	if perimeter <= 0.0:
+		return
+	var total_dashes: int = clampi(int(round(perimeter / 300.0)), 8, 64)
+	var cycle := perimeter / float(total_dashes)
+	var dash_fraction: float = 0.7
+	for d in range(total_dashes):
+		var pts := _loop_sub_path(loop, seg_lens, d * cycle, (float(d) + dash_fraction) * cycle)
+		if pts.size() < 2:
+			continue
+		var dash := Line2D.new()
+		dash.name = "ChargeRangeCircle"
+		dash.width = width
+		dash.default_color = color
+		dash.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		dash.end_cap_mode = Line2D.LINE_CAP_ROUND
+		dash.points = pts
+		range_visual.add_child(dash)
+
+func _loop_sub_path(loop: PackedVector2Array, seg_lens: Array, s0: float, s1: float) -> PackedVector2Array:
+	# Points along the closed loop between arc-lengths s0 and s1 (s1 <= perimeter):
+	# interpolated entry point, every interior vertex, interpolated exit point.
+	var out := PackedVector2Array()
+	var n := loop.size()
+	var acc: float = 0.0
+	for i in range(n):
+		var seg_len: float = seg_lens[i]
+		var seg_start := acc
+		acc += seg_len
+		if seg_len <= 0.0 or acc < s0:
+			continue
+		if seg_start > s1:
+			break
+		var a := loop[i]
+		var b := loop[(i + 1) % n]
+		if out.is_empty():
+			out.append(a.lerp(b, clampf((s0 - seg_start) / seg_len, 0.0, 1.0)))
+		if acc >= s1:
+			out.append(a.lerp(b, clampf((s1 - seg_start) / seg_len, 0.0, 1.0)))
+			break
+		out.append(b)
+	return out
 
 func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void:
 	# After the charge roll, EACH model may move up to the rolled distance from its
 	# OWN origin (the per-model cap enforced in _validate_charge_position). Replace
-	# the single unit-wide 12" pre-roll threat ring — which no longer reflects how
+	# the pre-roll 12" threat envelope — which no longer reflects how
 	# far a model can actually go — with one reach ring per model centred on that
 	# model's pre-charge origin, so the player can see the real drag range of each
 	# individual model. Anchored on the origin (not the live position) so the ring
@@ -3733,12 +3906,14 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 		range_visual.add_child(range_label)
 
 func _clear_charge_range_circle() -> void:
+	charge_threat_outlines = []
+	charge_threat_bounds = Rect2()
 	if not is_instance_valid(range_visual):
 		return
 	# range_visual (ChargeRangeVisual) is a dedicated container used ONLY for the
 	# 12" overlay, so free every child. We deliberately do NOT filter by
-	# name == "ChargeRangeCircle": _show_charge_range_circle() adds ~11 children
-	# (10 dash arcs + the label) all named "ChargeRangeCircle", and Godot
+	# name == "ChargeRangeCircle": _show_charge_range_overlay() adds many children
+	# (dash segments + the label) all named "ChargeRangeCircle", and Godot
 	# auto-renames colliding siblings ("ChargeRangeCircle2", "ChargeRangeCircle3",
 	# …). An exact-name match therefore only removed ONE node per clear, so the
 	# rest leaked and accumulated on every unit re-selection — leaving stale
