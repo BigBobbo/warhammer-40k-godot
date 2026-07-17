@@ -641,20 +641,27 @@ func _do_hover_board_at(step: Dictionary) -> Dictionary:
 
 
 func _do_hover_node(step: Dictionary) -> Dictionary:
-	# Move the mouse over the centre of a Control (resolved by NodePath) with a
-	# real buttonless InputEventMouseMotion — the player path for hover-driven
-	# UI on menus/panels (e.g. positioning the cursor over a ScrollContainer
-	# before a simulate_wheel). Mirrors hover_unit but for Control nodes.
+	# Hover the centre of a named node (Control or Node2D) with a real cursor
+	# warp + buttonless motion event — the pointer analogue of click_node. Use
+	# before simulate_wheel to aim the wheel at a UI panel (e.g. asserting that
+	# wheel-over-menu does NOT zoom the board), or over a ScrollContainer for
+	# hover-driven menu scrolling. Mirrors hover_unit but for arbitrary nodes.
 	var node_path: String = str(step.get("node", ""))
 	if node_path == "":
-		return {"pass": false, "error": "hover_node needs `node`"}
-	var node = get_node_or_null(node_path)
+		return {"pass": false, "error": "hover_node needs node"}
+	var node: Node = get_node_or_null(node_path)
 	if node == null:
-		return {"pass": false, "error": "node not found: %s" % node_path}
-	if not (node is Control):
-		return {"pass": false, "error": "hover_node target is not a Control: %s" % node_path}
-	var rect: Rect2 = (node as Control).get_global_rect()
-	var screen_pos: Vector2 = rect.get_center()
+		return {"pass": false, "error": "no node at path %s" % node_path}
+	var screen_pos: Vector2
+	if node is Control:
+		var rect: Rect2 = (node as Control).get_global_rect()
+		screen_pos = rect.position + rect.size * 0.5
+	elif node is Node2D:
+		screen_pos = _node2d_to_screen(node as Node2D)
+	else:
+		return {"pass": false, "error": "node is neither Control nor Node2D"}
+	if screen_pos == Vector2.INF:
+		return {"pass": false, "error": "could not compute hover position"}
 	await _send_hover(screen_pos)
 	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
 

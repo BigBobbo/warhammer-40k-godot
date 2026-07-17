@@ -1,0 +1,48 @@
+{
+  "id": "wheel_zoom_ui_scoped",
+  "covers": ["camera.zoom.mouse_wheel", "main.wheel_zoom_ui_guard", "scenariorunner.hover_node"],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Mouse-wheel zoom is scoped to the board. Scrolling while the cursor hovers ANY UI element (bottom HUD button, game-log scroll, right side panel) must NOT change view_zoom — Godot only marks wheel events handled when a scrollable actually scrolls, so un-consumed notches used to fall through to _unhandled_input and zoom the board under the menus. Scrolling over the bare board must still zoom. Guards the gui_get_hovered_control() check in Main._unhandled_input.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "main.fit_view_to_board()" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.set_meta(\"zoom_fit\", main.view_zoom)" },
+
+    { "act": "hover_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_hovered_control() != null", "equals": true },
+    { "act": "screenshot", "label": "01_cursor_on_hud_button" },
+    { "act": "simulate_wheel", "direction": "up", "count": 3 },
+    { "act": "execute_script", "script": "abs(main.view_zoom - main.get_meta(\"zoom_fit\"))", "expect_max": 0.0001 },
+    { "act": "screenshot", "label": "02_no_zoom_after_wheel_on_hud_button" },
+
+    { "act": "hover_node", "node": "/root/Main/GameLogPanel/VBox/LogScroll" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_hovered_control() != null", "equals": true },
+    { "act": "simulate_wheel", "direction": "up", "count": 3 },
+    { "act": "execute_script", "script": "abs(main.view_zoom - main.get_meta(\"zoom_fit\"))", "expect_max": 0.0001 },
+    { "act": "screenshot", "label": "03_no_zoom_after_wheel_on_game_log" },
+
+    { "act": "hover_node", "node": "/root/Main/HUD_Right" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_hovered_control() != null", "equals": true },
+    { "act": "simulate_wheel", "direction": "up", "count": 3 },
+    { "act": "simulate_wheel", "direction": "down", "count": 2 },
+    { "act": "execute_script", "script": "abs(main.view_zoom - main.get_meta(\"zoom_fit\"))", "expect_max": 0.0001 },
+    { "act": "screenshot", "label": "04_no_zoom_after_wheel_on_right_panel" },
+
+    { "act": "hover_board_at", "x": 880, "y": 1200 },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_hovered_control() == null", "equals": true },
+    { "act": "simulate_wheel", "direction": "up", "count": 4 },
+    { "act": "execute_script", "script": "main.view_zoom - main.get_meta(\"zoom_fit\")", "expect_min": 0.02 },
+    { "act": "screenshot", "label": "05_board_wheel_still_zooms_in" },
+
+    { "act": "simulate_wheel", "direction": "down", "count": 4 },
+    { "act": "execute_script", "script": "abs(main.view_zoom - main.get_meta(\"zoom_fit\"))", "expect_max": 0.02 },
+    { "act": "screenshot", "label": "06_board_wheel_zoom_back_out" }
+  ]
+}
