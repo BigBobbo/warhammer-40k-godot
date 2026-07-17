@@ -4,12 +4,12 @@
 		{
 			"version": "0.55.0",
 			"date": "2026-07-17",
-			"summary": "Armour saves now always tell you WHO is attacking — and let you watch the battlefield while you decide. The Allocate Attacks window names the attacking unit ('Shot by Battlewagon Alpha'), docks on the right panel instead of covering the middle of the board, and the battlefield itself outlines the attacker (red, with an arrow) and your unit under fire (gold).",
+			"summary": "Armour saves now always tell you WHO is attacking — and let you watch the battlefield while you decide. The Allocate Attacks window names the attacking unit ('Shot by Battlewagon Alpha'), sits as a slim command bar along the bottom of the screen instead of covering the board or any menus, and the battlefield itself outlines the attacker (red, with an arrow) and your unit under fire (gold).",
 			"changes": [
-				"Allocate Attacks (armour saves): a new red 'Shot by <unit>' line under the title names the attacking unit — previously only the weapon was shown. Melee saves say 'Struck in melee by <unit>'.",
-				"The save window moved from a centered pop-up (with a darkened screen) to the right-hand panel, so the whole battlefield stays visible while you order groups, roll saves, and use re-rolls.",
-				"While the save window is open the board shows the attack: red pulsing outlines + a dashed arrow from the attacking unit, gold outlines around every model in the unit being hit (attached characters included).",
-				"The casualty-pick banner also names the attacker and now sits on the right panel instead of the top of the board.",
+				"Allocate Attacks (armour saves): a new red 'Shot by <unit>' line names the attacking unit — previously only the weapon was shown. Melee saves say 'Struck in melee by <unit>'.",
+				"The save window moved from a centered pop-up (with a darkened screen) to a wide, low command bar along the bottom of the screen — attack info on the left, allocation order / save dice / results on the right. The board, the game log and the right-hand shooting controls all stay visible.",
+				"While the save bar is open the board shows the attack: red pulsing outlines + a dashed arrow from the attacking unit, gold outlines around every model in the unit being hit (attached characters included).",
+				"The casualty-pick banner also names the attacker and sits in the same bottom slot while you click bases to remove.",
 				"Melee resolution dialog header now names the defender(s) too: 'Warboss — melee attacks vs Custodian Guard'.",
 				"The reactive-stratagem window names the shooting unit: 'Your units are being targeted by <unit>!'"
 			]

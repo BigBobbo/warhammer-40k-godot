@@ -142,8 +142,8 @@ func _run_tests():
 	overlay.setup(_save_data(6), 2)
 	_check("two group cards rendered", overlay.group_list.get_child_count() == 2)
 	# 2026-07 board-visible redesign: the attacker is always named, the
-	# full-screen dim never shows, and the panel docks in the right column.
-	var attacker_info = overlay.panel.get_node("VBox/AttackerInfo")
+	# full-screen dim never shows, and the panel is a bottom command bar.
+	var attacker_info = overlay.panel.get_node("Row/ContextCol/AttackerInfo")
 	_check("AttackerInfo names the shooting unit",
 		attacker_info != null and attacker_info.text == "Shot by U_SHOOTER", attacker_info.text)
 	_check("full-screen dim hidden (board stays visible)", not overlay.dim.visible)
@@ -181,7 +181,7 @@ func _run_tests():
 	var melee_overlay = AllocationGroupOverlay.new()
 	root.add_child(melee_overlay)
 	melee_overlay.setup(melee_data, 2)
-	var melee_info = melee_overlay.panel.get_node("VBox/AttackerInfo")
+	var melee_info = melee_overlay.panel.get_node("Row/ContextCol/AttackerInfo")
 	_check("melee AttackerInfo wording",
 		melee_info != null and melee_info.text == "Struck in melee by U_SHOOTER", melee_info.text)
 	melee_overlay.queue_free()

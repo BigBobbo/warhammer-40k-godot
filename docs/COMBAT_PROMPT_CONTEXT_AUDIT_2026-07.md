@@ -11,8 +11,10 @@ play must make clear **who is attacking**, **who is being attacked**, and must
 B1/B2 — chips-on-board + docked resolution surfaces):
 
 1. An attack interaction names BOTH units, always — never only the weapon.
-2. Decision surfaces dock at a screen edge (right HUD column preferred, same
-   slot the attacker's resolution dock uses); the battlefield stays visible.
+2. Decision surfaces dock at a screen edge; the battlefield stays visible.
+   (Owner direction 2026-07-17: prefer a BOTTOM command bar over covering the
+   right-HUD controls — the right column stays readable for weapon stats and
+   the dice log.)
 3. The battlefield itself should show the interaction — outline attacker and
    target on the board and link them, so the answer to "who is shooting me?"
    is visible spatially, not only as text.
@@ -28,12 +30,16 @@ B1/B2 — chips-on-board + docked resolution surfaces):
   which `prepare_save_resolution` / `prepare_melee_save_resolution` always
   carry). The casualty-pick banner also names the attacker ("hit by ‹unit›").
 - **Board stays visible**: the decision panel (order → re-roll → results)
-  moved from screen-center to the right HUD column (the `Center` container is
-  re-anchored; scenario node paths unchanged). The full-screen dim is gone
-  (node kept hidden for compatibility; the full-rect root still swallows
-  stray clicks so the modality is preserved). The casualty-pick panel moved
-  to the same right-column slot — previously top-center, where it could cover
-  the enemy half of the board.
+  became a horizontal two-column command bar along the BOTTOM of the screen
+  (context on the left: title / "Shot by X" / weapon stats; the decision on
+  the right: order rows, dice chips, results + the primary button), sitting
+  above the phase breadcrumb and covering neither the board center nor the
+  right-HUD controls. The full-screen dim is gone (node kept hidden for
+  compatibility; the full-rect root still swallows stray clicks so the
+  modality is preserved). The casualty-pick banner sits in the same bottom
+  slot — previously top-center, where it could cover the enemy half of the
+  board. Panel internals are `Center/Panel/Row/{ContextCol,DecisionCol}/...`
+  (scenario paths updated accordingly).
 - **Board context visual**: new `AttackContextVisual` (Node2D, board space)
   drawn while the overlay is up — pulsing red outline around every attacker
   model, gold outline around every defending model (attached characters
@@ -61,7 +67,7 @@ center?
 
 | Surface | Names units? | Board? | Verdict |
 |---|---|---|---|
-| AllocationGroupOverlay | ✅ both + board outlines | ✅ right-dock, no dim | fixed (this branch) |
+| AllocationGroupOverlay | ✅ both + board outlines | ✅ bottom command bar, no dim | fixed (this branch) |
 | FightSequenceDialog | ✅ both (this branch) | ❌ center AcceptDialog | **follow-up F1** |
 | StratagemDialog (reactive) | ✅ attacker (this branch) + target list | ❌ center | acceptable (short-lived decision), F1 candidate |
 | FireOverwatchDialog | ✅ "Enemy unit: X" + your eligible units | ❌ center + countdown | acceptable; F1 candidate |
