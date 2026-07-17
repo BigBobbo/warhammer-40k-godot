@@ -160,6 +160,14 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "hover_board_at", "x": 880.0, "y": 1200.0 }
   ```
 
+- `hover_node`: warp the cursor to the centre of a Control (resolved by
+  NodePath) and dispatch a real buttonless `InputEventMouseMotion`. The player
+  path for hover-driven menu/panel UI — e.g. positioning the cursor over a
+  ScrollContainer before a `simulate_wheel`.
+  ```json
+  { "act": "hover_node", "node": "/root/MainMenu/ScrollContainer" }
+  ```
+
 - `simulate_key`: dispatch a keypress.
   ```json
   { "act": "simulate_key", "keycode": "KEY_ESCAPE" }
@@ -204,6 +212,24 @@ Each step is a dict with an `act` field plus act-specific keys.
   ```
 
 ### State asserts
+
+- `execute_script`: evaluate GDScript and (optionally) compare the result via
+  `equals` / `not_equals` / `exists` / `expect_min` / `expect_max`. Two modes:
+  - **Expression mode** (default): a single expression. Bound identifiers:
+    every child of `/root` by node name (autoloads AND root-level dialogs,
+    e.g. `WeaponOrderDialog`), engine singletons, `main` (the live battle
+    scene), `tree` (the SceneTree) and `node` (`/root`).
+  - **Statement mode** (`"multiline": true` — explicit, never auto-detected):
+    the snippet is compiled into a throwaway GDScript so `var` / `if` / `for`
+    / `return` work. It runs as `_run(node, tree)` — `node` is `/root` (or
+    the node at the optional `node` step key), `tree` is the SceneTree;
+    autoloads are reachable by global name, but root-level dialogs must be
+    fetched via `tree.root.get_node_or_null(...)`. `return <value>` feeds the
+    expectation.
+  ```json
+  { "act": "execute_script", "script": "WeaponOrderDialog.weapon_list_container.get_child_count()", "equals": 1 }
+  { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"WeaponOrderDialog\")\nreturn d.is_resolving", "multiline": true, "equals": true }
+  ```
 
 - `expect_state`: assert against `GameState.state` via dot-separated path.
   ```json

@@ -3,12 +3,13 @@
   "covers": [
     "ui.shooting.staged_hit_wound_pause",
     "ui.shooting.command_reroll",
-    "ui.shooting.continue_buttons"
+    "ui.shooting.continue_buttons",
+    "ui.shooting.order_section_hidden_during_resolution"
   ],
   "fixture": "shooting_phase",
   "rng_seed": 7,
   "transition_to_phase": 8,
-  "description": "Drives the non-networked STAGED shooting sequence through the real WeaponOrderDialog: Start Sequence -> hit roll pause ('Roll to Wound' + per-die Command Re-roll) -> wound roll pause ('Continue to Saving Throws' + wound re-roll) -> wound-allocation overlay. Verifies the verbose log and that the bare 'Close' button is gone.",
+  "description": "Drives the non-networked STAGED shooting sequence through the real WeaponOrderDialog: Start Sequence -> hit roll pause ('Roll to Wound' + per-die Command Re-roll) -> wound roll pause ('Continue to Saving Throws' + wound re-roll) -> wound-allocation overlay. Verifies the verbose log and that the bare 'Close' button is gone. Also asserts the ordering UI is coherent: at the ordering stage the 'FIRING ORDER' header shows a 2-row list; once the sequence starts the ENTIRE ordering section (header + scroll + list) is hidden, not just the inner list (regression: an empty 'FIRING ORDER' box was left behind during resolution).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -29,6 +30,16 @@
       "equals": true
     },
     {
+      "act": "execute_script",
+      "script": "WeaponOrderDialog.firing_order_label.text",
+      "equals": "FIRING ORDER"
+    },
+    {
+      "act": "execute_script",
+      "script": "WeaponOrderDialog.weapon_list_container.get_child_count()",
+      "equals": 2
+    },
+    {
       "act": "screenshot",
       "label": "01_weapon_order_dialog"
     },
@@ -46,6 +57,11 @@
       "script": "var d=tree.root.get_node_or_null(\"WeaponOrderDialog\")\nreturn d.staged_continue_button.visible and d.staged_continue_button.text.begins_with(\"Roll to Wound\")",
       "multiline": true,
       "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "WeaponOrderDialog.firing_order_label.is_visible_in_tree() or WeaponOrderDialog.weapon_scroll.is_visible_in_tree() or WeaponOrderDialog.weapon_list_container.is_visible_in_tree()",
+      "equals": false
     },
     {
       "act": "execute_script",
