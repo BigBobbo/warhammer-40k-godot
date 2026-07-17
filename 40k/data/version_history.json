@@ -2,6 +2,20 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.50.0",
+			"date": "2026-07-16",
+			"summary": "Charge target selection is now predictable: clicking a target in the ELIGIBLE TARGETS list selects exactly that one target (no more accidentally declaring a charge against two units), and deliberately charging several units is now a real, visible feature — Ctrl+Click adds or removes extra targets, the Declare button shows how many units you are about to charge, and the list locks once the charge is declared.",
+			"changes": [
+				"Fixed: clicking a second charge target used to silently KEEP the first one too — the game declared a charge against both units while only the last one stayed highlighted. A plain click now selects exactly the clicked target.",
+				"Multi-unit charges are now explicit: Ctrl+Click (Cmd on Mac) toggles extra targets in and out, and a hint under the target list explains this.",
+				"The Declare Charge button shows the target count when charging more than one unit (e.g. 'Declare Charge (2 targets)'), and the step guidance calls out that ALL selected targets must be reached.",
+				"Clicking empty space in the target list clears the selection.",
+				"Deselecting targets actually works now (it previously did nothing under the hood).",
+				"Once a charge is declared its target rows lock until the charge is resolved, so stray clicks can't desync the display from the declared charge.",
+				"Fixed: a declared charge's target list could be silently emptied by later UI resets (selecting another unit before rolling) — the declaration is now stored as its own copy."
+			]
+		},
+		{
 			"version": "0.49.1",
 			"date": "2026-07-16",
 			"summary": "The Declare Battle Formations screen now tells identically-named units apart. Before, if your army had several units with the same name (e.g. six Custodian Guard squads, three Blade Champions), the leader-attachment dropdowns, warlord picker, transport/reserves lists and summary all just read 'Custodian Guard (5 models)' over and over, so you couldn't tell which squad you were attaching a leader to. Every unit now shows its distinguishing suffix — 'Custodian Guard Alpha', 'Custodian Guard Beta', etc. — matching the labels used everywhere else in the game.",

@@ -2822,6 +2822,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "charge.ux.target_declaration_multi_select",
+      "description": "CHARGE phase target declaration selection model: the ELIGIBLE TARGETS ItemList's own selection state is the single source of truth for selected_targets (multi_selected/empty_clicked signals; the old item_selected hookup never fired in SELECT_MULTI mode and its gui_input hack accumulated every clicked row, silently declaring multi-charges). Plain click selects exactly one target, Ctrl+Click toggles targets for a deliberate multi-charge, empty-click clears, the Declare button shows the target count, and rows lock once the charge is declared. Validated by 'charge_target_declaration'.",
+      "scenarios": [
+        "charge_target_declaration"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.declare.multi_target_payload",
+      "description": "DECLARE_CHARGE with multiple target_unit_ids stores ALL declared targets in pending_charges, and the stored arrays are duplicates \u2014 mutating the controller's live selected_targets after declaring (sentinel append) must not alter the pending charge. Validated by 'charge_target_declaration'.",
+      "scenarios": [
+        "charge_target_declaration"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

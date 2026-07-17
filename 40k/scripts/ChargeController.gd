@@ -79,6 +79,7 @@ var charge_trajectory_preview: ChargeTrajectoryPreview = null
 # UI Elements
 var unit_selector: ItemList
 var target_list: ItemList
+var target_hint_label: Label  # Teaches click-vs-Ctrl+Click target selection under the target list
 var charge_requirement_label: RichTextLabel  # Option 2: pre-roll "needs 2D6 >= N to reach ALL targets" hint
 var charge_info_label: Label
 var charge_distance_label: Label
@@ -353,6 +354,7 @@ func _setup_right_panel() -> void:
 	charge_panel.add_child(unit_label)
 	
 	unit_selector = ItemList.new()
+	unit_selector.name = "ChargeUnitSelector"
 	unit_selector.custom_minimum_size = Vector2(200, 150)
 	unit_selector.item_selected.connect(_on_unit_selected)
 	_WhiteDwarfTheme.apply_to_item_list(unit_selector)
@@ -370,14 +372,30 @@ func _setup_right_panel() -> void:
 	charge_panel.add_child(target_label)
 	
 	target_list = ItemList.new()
+	target_list.name = "ChargeTargetList"
 	target_list.custom_minimum_size = Vector2(200, 100)
 	target_list.select_mode = ItemList.SELECT_MULTI
-	target_list.item_selected.connect(_on_target_selected)
-	target_list.mouse_filter = Control.MOUSE_FILTER_PASS
-	target_list.gui_input.connect(_on_target_list_input)
+	# The list's own selection state is the single source of truth for
+	# selected_targets. A SELECT_MULTI ItemList emits multi_selected — never
+	# item_selected (that is single-select only), which is why the old
+	# item_selected hookup "wasn't working" and grew a gui_input hack. That hack
+	# appended every clicked row to selected_targets without ever removing the
+	# previous one, so clicking target B after target A silently declared a
+	# charge against BOTH while only B stayed highlighted.
+	target_list.multi_selected.connect(_on_target_multi_selected)
+	target_list.empty_clicked.connect(_on_target_list_empty_clicked)
 	_WhiteDwarfTheme.apply_to_item_list(target_list)
-	print("DEBUG: Created target_list with signal connected to _on_target_selected")
 	charge_panel.add_child(target_list)
+
+	# Interaction hint: plain click picks ONE target; Ctrl+Click builds a
+	# multi-charge. Kept visible so the multi-target affordance is discoverable.
+	target_hint_label = Label.new()
+	target_hint_label.name = "ChargeTargetHintLabel"
+	target_hint_label.text = "Click: choose target  ·  Ctrl+Click: add/remove extra targets"
+	target_hint_label.add_theme_font_size_override("font_size", 10)
+	target_hint_label.add_theme_color_override("font_color", Color(0.72, 0.72, 0.72))
+	target_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	charge_panel.add_child(target_hint_label)
 
 	# Option 2: declaration-time reachability hint. Updates as targets are
 	# (de)selected to show the roll needed to reach EVERY selected target — so an
@@ -435,8 +453,10 @@ func _setup_right_panel() -> void:
 	
 	# First row: Main action buttons
 	var main_buttons = HBoxContainer.new()
-	
+	main_buttons.name = "MainButtons"
+
 	declare_button = Button.new()
+	declare_button.name = "DeclareChargeButton"
 	declare_button.text = "Declare Charge"
 	declare_button.disabled = true
 	declare_button.pressed.connect(_on_declare_charge_pressed)
@@ -444,6 +464,7 @@ func _setup_right_panel() -> void:
 	main_buttons.add_child(declare_button)
 
 	roll_button = Button.new()
+	roll_button.name = "RollChargeButton"
 	roll_button.text = "Roll 2D6"
 	roll_button.disabled = true
 	roll_button.pressed.connect(_on_roll_charge_pressed)
@@ -747,6 +768,12 @@ func _update_button_states() -> void:
 	
 	if is_instance_valid(declare_button):
 		declare_button.disabled = not can_declare
+		# Surface the multi-target count ON the commit button so accidentally
+		# declaring a charge against several units is impossible to miss.
+		if selected_targets.size() > 1:
+			declare_button.text = "Declare Charge (%d targets)" % selected_targets.size()
+		else:
+			declare_button.text = "Declare Charge"
 	if is_instance_valid(roll_button):
 		roll_button.disabled = not can_roll
 	if is_instance_valid(skip_button):
@@ -788,9 +815,12 @@ func _update_button_states() -> void:
 		elif awaiting_roll:
 			charge_info_label.text = "Click 'Roll 2D6' for charge distance"
 		elif has_selected_unit and not has_selected_targets:
-			charge_info_label.text = "Step 2: Click target(s) from the list below to select them"
+			charge_info_label.text = "Step 2: Click a target below (Ctrl+Click adds more for a multi-charge)"
 		elif has_selected_unit and has_selected_targets:
-			charge_info_label.text = "Step 3: Click 'Declare Charge' to proceed"
+			if selected_targets.size() > 1:
+				charge_info_label.text = "Step 3: Click 'Declare Charge' to charge ALL %d selected targets" % selected_targets.size()
+			else:
+				charge_info_label.text = "Step 3: Click 'Declare Charge' to proceed"
 		else:
 			charge_info_label.text = "Step 1: Select a unit from the list below to begin charge"
 
@@ -844,51 +874,43 @@ func _refresh_target_list() -> void:
 	
 	print("DEBUG: Target list now has ", target_list.get_item_count(), " items")
 
-func _on_target_list_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var mouse_event = event as InputEventMouseButton
-		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			print("DEBUG: Mouse left click detected on target_list at position: ", mouse_event.position)
-			
-			# Manual item selection since the signal isn't working
-			var item_at_pos = target_list.get_item_at_position(mouse_event.position)
-			print("DEBUG: Item at position: ", item_at_pos)
-			
-			if item_at_pos >= 0:
-				print("DEBUG: Manually selecting item ", item_at_pos)
-				target_list.select(item_at_pos)
-				# Manually call the selection handler
-				_on_target_selected(item_at_pos)
+func _on_target_multi_selected(_index: int, _selected: bool) -> void:
+	# Godot emits this for every selection change of a SELECT_MULTI ItemList:
+	# plain click (selects only that row), Ctrl+Click (toggles the row),
+	# Shift+Click (range select) and the deferred re-single-select on mouse
+	# release. Rebuilding from the list keeps selected_targets in lockstep with
+	# what the player sees highlighted — the old code let them drift apart.
+	if awaiting_roll or awaiting_movement:
+		return  # declaration already committed — rows are locked
+	_sync_selected_targets_from_list()
+
+func _on_target_list_empty_clicked(_at_position: Vector2, mouse_button_index: int) -> void:
+	# Clicking empty space below the rows clears the whole selection.
+	if mouse_button_index != MOUSE_BUTTON_LEFT:
+		return
+	if awaiting_roll or awaiting_movement:
+		return
+	target_list.deselect_all()
+	_sync_selected_targets_from_list()
 
 func _on_target_selected(index: int) -> void:
-	print("DEBUG: _on_target_selected called with index:", index)
-	if index >= 0 and index < target_list.get_item_count():
-		var target_id = target_list.get_item_metadata(index)
-		print("DEBUG: Target ID from metadata:", target_id)
-		
-		# Check if item is actually selected (for multi-select handling)
-		var is_selected = target_list.is_selected(index)
-		print("DEBUG: Item is_selected status:", is_selected)
-		
-		if is_selected:
-			if target_id not in selected_targets:
-				selected_targets.append(target_id)
-				print("✅ Selected target: ", target_id, " (", selected_targets.size(), " total targets)")
-			else:
-				print("DEBUG: Target already in selected_targets list")
-		else:
-			# Item was deselected
-			if target_id in selected_targets:
-				selected_targets.erase(target_id)
-				print("❌ Deselected target: ", target_id, " (", selected_targets.size(), " remaining targets)")
-			else:
-				print("DEBUG: Target was not in selected_targets list")
-		
-		print("DEBUG: selected_targets array after update:", selected_targets)
-		_update_button_states()
-		_update_visuals()
-	else:
-		print("DEBUG: Invalid index - index:", index, " item_count:", target_list.get_item_count())
+	# Back-compat entry point: scenario tests and tooling call
+	# target_list.select(i) followed by _on_target_selected(i). The list's
+	# selection state is the source of truth, so just resync from it.
+	if index < 0 or index >= target_list.get_item_count():
+		print("DEBUG: _on_target_selected invalid index:", index, " item_count:", target_list.get_item_count())
+		return
+	_sync_selected_targets_from_list()
+
+func _sync_selected_targets_from_list() -> void:
+	selected_targets.clear()
+	for idx in target_list.get_selected_items():
+		var target_id = target_list.get_item_metadata(idx)
+		if target_id != null and str(target_id) != "":
+			selected_targets.append(str(target_id))
+	print("ChargeController: selected_targets now ", selected_targets)
+	_update_button_states()
+	_update_visuals()
 
 func _update_charge_requirement_hint() -> void:
 	"""Option 2: show the roll needed to reach EVERY selected target before the
@@ -2270,17 +2292,31 @@ func _on_declare_charge_pressed() -> void:
 		"type": "DECLARE_CHARGE",
 		"actor_unit_id": active_unit_id,
 		"payload": {
-			"target_unit_ids": selected_targets
+			# duplicate(): the phase stores this array in pending_charges. Passing
+			# the live selected_targets reference would let every later clear()
+			# (unit re-select, next-charge reset) silently wipe the declared
+			# targets out of the pending charge.
+			"target_unit_ids": selected_targets.duplicate()
 		}
 	}
-	
+
 	print("Requesting charge declaration: ", action)
 	charge_action_requested.emit(action)
 
 	# Update state
 	awaiting_roll = true
+	# The declaration is committed — lock the rows so idle clicks can't desync
+	# the highlighted targets from the declared charge. Rows come back enabled
+	# with the next _refresh_target_list (unit re-select / next charge).
+	_set_target_list_locked(true)
 	_clear_charge_trajectory_preview()  # P3-127: Clear trajectory once charge is declared
 	_update_button_states()
+
+func _set_target_list_locked(locked: bool) -> void:
+	if not is_instance_valid(target_list):
+		return
+	for i in range(target_list.get_item_count()):
+		target_list.set_item_disabled(i, locked)
 
 func _on_roll_charge_pressed() -> void:
 	if active_unit_id == "":

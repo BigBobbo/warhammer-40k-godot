@@ -307,6 +307,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_unit(step), true)
 		"click_node":
 			rec.merge(await _do_click_node(step), true)
+		"click_item_list":
+			rec.merge(await _do_click_item_list(step), true)
 		"click_if_visible":
 			rec.merge(await _do_click_if_visible(step), true)
 		"click_board_at":
@@ -457,6 +459,49 @@ func _do_click_node(step: Dictionary) -> Dictionary:
 		return {"pass": false, "error": "could not compute click position"}
 	await _send_click(screen_pos)
 	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
+
+
+# Real-mouse-click one row of an ItemList: warps the cursor to the item's rect
+# centre and injects press+release, exercising the list's OWN input handling
+# (selection replace / Ctrl toggle / defer-single-select) exactly as a player
+# would — unlike select(i) + handler calls, which bypass it.
+#   { "act": "click_item_list", "node": "/root/...TargetList", "index": 1 }
+#   { "act": "click_item_list", "node": "...", "index": 0, "ctrl": true }
+#   { "act": "click_item_list", "node": "...", "empty": true }   # click free space below the rows
+func _do_click_item_list(step: Dictionary) -> Dictionary:
+	var node_path: String = str(step.get("node", ""))
+	if node_path == "":
+		return {"pass": false, "error": "click_item_list needs node"}
+	var node: Node = get_node_or_null(node_path)
+	if node == null:
+		return {"pass": false, "error": "no node at path %s" % node_path}
+	if not (node is ItemList):
+		return {"pass": false, "error": "node is not an ItemList: %s" % node_path}
+	var list := node as ItemList
+	var ctrl: bool = bool(step.get("ctrl", false))
+	var local_pos: Vector2
+
+	if step.get("empty", false):
+		# Aim at the middle of the free strip between the last row and the
+		# bottom edge of the control.
+		var content_bottom: float = 0.0
+		if list.get_item_count() > 0:
+			var last_rect: Rect2 = list.get_item_rect(list.get_item_count() - 1)
+			content_bottom = last_rect.end.y
+		var free_height: float = list.size.y - content_bottom
+		if free_height < 8.0:
+			return {"pass": false, "error": "no empty strip below items (free %.1fpx)" % free_height}
+		local_pos = Vector2(list.size.x * 0.5, content_bottom + free_height * 0.5)
+	else:
+		var index: int = int(step.get("index", -1))
+		if index < 0 or index >= list.get_item_count():
+			return {"pass": false, "error": "item index %d out of range (count %d)" % [index, list.get_item_count()]}
+		# get_item_rect is in the list's local space with scroll applied.
+		local_pos = list.get_item_rect(index).get_center()
+
+	var screen_pos: Vector2 = list.get_global_transform() * local_pos
+	await _send_click(screen_pos, ctrl)
+	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y], "ctrl": ctrl}
 
 
 # Click a node only when it exists AND is visible in the tree — a no-op pass
@@ -1317,7 +1362,7 @@ func option_button_text_for_metadata(node_path: String, metadata: String) -> Str
 			return ob.get_item_text(i)
 	return ""
 
-func _send_click(screen_pos: Vector2) -> void:
+func _send_click(screen_pos: Vector2, ctrl: bool = false) -> void:
 	# Warp the live cursor to the target BEFORE injecting the event. GUI Controls
 	# route by event position, but board/world handlers (e.g. DeploymentController
 	# placement, token hit-testing) read get_viewport().get_mouse_position() — the
@@ -1325,6 +1370,9 @@ func _send_click(screen_pos: Vector2) -> void:
 	# and no-ops. Round to a whole pixel: the OS cursor is integer, and
 	# warp_mouse truncates, which at high zoom-out shifts the click by a board
 	# unit per fractional pixel.
+	#
+	# ctrl=true holds Ctrl (and Meta, so is_command_or_control_pressed() matches
+	# on macOS too) through the press+release — the multi-select toggle idiom.
 	screen_pos = screen_pos.round()
 	Input.warp_mouse(screen_pos)
 	await get_tree().process_frame
@@ -1334,6 +1382,8 @@ func _send_click(screen_pos: Vector2) -> void:
 	press.global_position = screen_pos
 	press.pressed = true
 	press.button_mask = MOUSE_BUTTON_MASK_LEFT
+	press.ctrl_pressed = ctrl
+	press.meta_pressed = ctrl
 	Input.parse_input_event(press)
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -1343,6 +1393,8 @@ func _send_click(screen_pos: Vector2) -> void:
 	release.global_position = screen_pos
 	release.pressed = false
 	release.button_mask = 0
+	release.ctrl_pressed = ctrl
+	release.meta_pressed = ctrl
 	Input.parse_input_event(release)
 	await get_tree().process_frame
 	await get_tree().process_frame
