@@ -1,0 +1,42 @@
+{
+ "id": "duplicate_leader_movement_list",
+ "covers": [
+  "movementcontroller.unit_list_attached_leader_rendered_once"
+ ],
+ "fixture": "custodian_guard_dupes",
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "description": "Regression for the double-printed leader bug (branch claude/duplicate-blade-champion): the Movement-phase unit-list row for a bodyguard squad with an attached CHARACTER showed the leader TWICE, e.g. 'Custodian Guard Alpha + Blade Champion + Blade Champion', because _refresh_unit_list() appended the attached-character names into BOTH `unit_name` (block 1) and `attach_info` (block 2) and then concatenated both. Setup: attach a 'Blade Champion' CHARACTER to Custodian Guard Alpha (U_BOYZ_E) via the real CharacterAttachmentManager, refresh the live movement unit list, and assert the squad's row (a) still names the squad and its leader, and (b) names 'Blade Champion' exactly ONCE.",
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 7
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var bg = GameState.get_unit(\"U_BOYZ_E\")\nvar bg_kw = bg.get(\"meta\", {}).get(\"keywords\", [])\nvar champ = {\n\t\"id\": \"U_BLADE_CHAMP_TEST\",\n\t\"squad_id\": \"U_BLADE_CHAMP_TEST\",\n\t\"owner\": bg.get(\"owner\", 1),\n\t\"status\": bg.get(\"status\", 0),\n\t\"meta\": {\"name\": \"Blade Champion\", \"keywords\": [\"CHARACTER\"], \"leader_data\": {\"can_lead\": bg_kw.duplicate()}, \"stats\": {\"move\": 6, \"wounds\": 6}, \"points\": 120},\n\t\"models\": [{\"id\": \"m1\", \"alive\": true, \"base_mm\": 40, \"position\": null, \"wounds\": 6, \"current_wounds\": 6}],\n\t\"attached_to\": null,\n\t\"attachment_data\": {\"attached_characters\": []},\n\t\"flags\": {}\n}\nGameState.state.units[\"U_BLADE_CHAMP_TEST\"] = champ\nCharacterAttachmentManager.attach_character(\"U_BLADE_CHAMP_TEST\", \"U_BOYZ_E\")\nreturn GameState.get_unit(\"U_BOYZ_E\").get(\"attachment_data\", {}).get(\"attached_characters\", []).size()",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var mc = tree.current_scene.get_node_or_null(\"MovementController\")\nif mc == null:\n\treturn false\nmc._refresh_unit_list()\nvar ul = mc.unit_list\nfor i in range(ul.get_item_count()):\n\tif str(ul.get_item_metadata(i)) == \"U_BOYZ_E\":\n\t\tvar t = ul.get_item_text(i)\n\t\treturn t.contains(\"Custodian Guard Alpha\") and t.contains(\"Blade Champion\")\nreturn false",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var mc = tree.current_scene.get_node_or_null(\"MovementController\")\nif mc == null:\n\treturn \"NO_MOVEMENT_CONTROLLER\"\nmc._refresh_unit_list()\nvar ul = mc.unit_list\nif ul == null:\n\treturn \"NO_UNIT_LIST\"\nfor i in range(ul.get_item_count()):\n\tif str(ul.get_item_metadata(i)) == \"U_BOYZ_E\":\n\t\treturn ul.get_item_text(i).count(\"Blade Champion\")\nreturn -1",
+   "equals": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "01_movement_list_single_leader"
+  }
+ ]
+}

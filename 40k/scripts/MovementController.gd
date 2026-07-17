@@ -925,16 +925,10 @@ func _refresh_unit_list() -> void:
 			var unit_name = _uname_meta.get("display_name", _uname_meta.get("name", unit_id))
 			var action_type = action.get("type", "")
 
-			# Show attached character name alongside bodyguard unit
-			var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
-			if attached_chars.size() > 0:
-				var char_names = []
-				for char_id in attached_chars:
-					var char_unit = current_phase.get_unit(char_id)
-					if not char_unit.is_empty():
-						char_names.append(char_unit.get("meta", {}).get("name", char_id))
-				if char_names.size() > 0:
-					unit_name += " + " + ", ".join(char_names)
+			# NOTE: attached character names are appended below via `attach_info`
+			# (just before add_item). Do NOT also append them to unit_name here —
+			# doing both double-printed the leader, e.g.
+			# "Custodian Guard Alpha + Blade Champion + Blade Champion".
 
 			var status = _get_unit_movement_status(unit_id)
 			var status_text = ""

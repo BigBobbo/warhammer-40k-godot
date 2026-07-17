@@ -2932,6 +2932,15 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "movementcontroller.unit_list_attached_leader_rendered_once",
+      "description": "In the Movement phase 'Units (Move / Disembark)' list, a bodyguard squad with an attached CHARACTER (e.g. a Blade Champion leading a Custodian Guard squad) names its leader exactly once in the row label. Regression for a bug where MovementController._refresh_unit_list() appended the attached-character names to the row twice (rendering 'Custodian Guard Alpha + Blade Champion + Blade Champion').",
+      "scenarios": [
+        "duplicate_leader_movement_list"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

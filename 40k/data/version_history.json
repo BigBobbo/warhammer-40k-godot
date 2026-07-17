@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.53.2",
+			"date": "2026-07-17",
+			"summary": "Fixed a Movement-phase unit-list label that showed an attached leader twice. A squad with an attached CHARACTER (e.g. a Blade Champion leading a Custodian Guard squad) was listed as 'Custodian Guard Alpha + Blade Champion + Blade Champion' — the leader's name was printed twice. It now reads 'Custodian Guard Alpha + Blade Champion' once. This was purely a display bug; only one leader was ever attached.",
+			"changes": [
+				"Fixed: in the Movement phase 'Units (Move / Disembark)' list, a bodyguard squad's attached leader appeared twice in the row label (e.g. '+ Blade Champion + Blade Champion'). The movement controller was appending the attached-character names to the row twice; it now appends them once."
+			]
+		},
+		{
 			"version": "0.53.1",
 			"date": "2026-07-17",
 			"summary": "Fixed Ctrl+Click not selecting a second charge target. The Eligible Targets list told you to hold Ctrl+Click to charge more than one unit, but on many setups holding Ctrl and clicking did nothing (or just moved the selection) \u2014 so you could never actually declare a multi-unit charge. Ctrl+Click now reliably adds/removes extra targets.",
