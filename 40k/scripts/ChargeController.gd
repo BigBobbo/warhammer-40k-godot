@@ -4118,7 +4118,9 @@ func _on_auto_path_charge() -> void:
 				tp = Vector2(tpos.get("x", 0), tpos.get("y", 0))
 			else:
 				tp = tpos
-			target_positions.append({"pos": tp, "radius": t_radius})
+			# Carry the target model dict too so fallback placement can measure
+			# shape-aware edge distances, not just circle math.
+			target_positions.append({"pos": tp, "radius": t_radius, "model": tmodel})
 	if target_positions.is_empty():
 		print("[T-092 auto-path] No target positions available")
 		return
@@ -4130,8 +4132,17 @@ func _on_auto_path_charge() -> void:
 	# targets nearest-first and sweep angles around the approach direction so a
 	# straight-line spot blocked by an already-placed squadmate falls back to
 	# the next position around the target's base instead of giving up.
+	# Models for which NO contact spot is reachable at all (charge roll too
+	# short) are then moved AS CLOSE AS POSSIBLE to the nearest target instead
+	# of being silently left in place — see _find_closest_charge_position.
 	var to_move_copy = models_to_move.duplicate()
 	var unplaced: Array = []
+	var contact_placed: int = 0
+	var closest_placed: int = 0
+	# Built once: alive models of enemy units NOT declared as charge targets.
+	# A charge move may not END within engagement range of any of them (the
+	# phase rejects the confirm), so both placement stages must avoid them.
+	var non_target_enemies: Array = _collect_non_target_enemy_models(charge_targets)
 	for model_id in to_move_copy:
 		var model: Dictionary = {}
 		for m in unit.get("models", []):
@@ -4158,17 +4169,9 @@ func _on_auto_path_charge() -> void:
 					var candidate: Vector2 = tp_data["pos"] - dir_vec.rotated(deg_to_rad(angle_deg)) * place_distance_from_target
 					if not _validate_charge_position(model, candidate):
 						continue
-					# Stage the move (mirroring _end_model_drag behavior)
-					moved_models[model_id] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
-					# Multi-step: record the single-hop path (origin -> placement) so the
-					# accumulated distance and confirmed polyline match dragged models.
-					_model_charge_paths[model_id] = [origin, candidate]
-					if model_id in _moved_model_order:
-						_moved_model_order.erase(model_id)
-					_moved_model_order.append(model_id)
-					_update_model_position_in_gamestate(active_unit_id, model_id, candidate)
-					_move_token_visual(active_unit_id, model_id, candidate, model.get("rotation", 0.0))
-					models_to_move.erase(model_id)
+					if _position_within_enemy_er(model, candidate, non_target_enemies):
+						continue
+					_stage_auto_path_placement(model_id, model, origin, candidate)
 					print("[T-092 auto-path] Placed %s at %s (gap=%.2f\", angle=%+.0f deg, target dist=%.1f\")" % [model_id, str(candidate), gap_inches, angle_deg, Measurement.px_to_inches(candidate.distance_to(tp_data["pos"]))])
 					placed = true
 					break
@@ -4176,6 +4179,20 @@ func _on_auto_path_charge() -> void:
 					break
 			if placed:
 				break
+		if placed:
+			contact_placed += 1
+			continue
+		# No contact/near-contact spot reachable (roll too short, or every ring
+		# spot blocked). Best-effort: close the gap as far as the remaining
+		# charge distance legally allows — 11e only requires the model to end
+		# closer + in coherency, so an out-of-engagement approach is legal.
+		var fallback: Dictionary = _find_closest_charge_position(model, origin, targets_sorted, non_target_enemies)
+		if fallback.get("found", false):
+			var fb_pos: Vector2 = fallback["position"]
+			_stage_auto_path_placement(model_id, model, origin, fb_pos)
+			print("[T-092 auto-path] No contact spot for %s — moved as close as possible to %s (gap now %.2f\")" % [model_id, str(fb_pos), fallback.get("gap", -1.0)])
+			closest_placed += 1
+			placed = true
 		if not placed:
 			unplaced.append(model_id)
 			print("[T-092 auto-path] No valid placement found for %s" % model_id)
@@ -4187,11 +4204,149 @@ func _on_auto_path_charge() -> void:
 	# Refresh info
 	if is_instance_valid(charge_info_label):
 		if models_to_move.is_empty():
-			charge_info_label.text = "All models auto-pathed! Click 'Confirm Charge Moves' to complete"
+			if closest_placed > 0 and contact_placed > 0:
+				charge_info_label.text = "Snapped %d model(s) to contact; %d couldn't reach — moved as close as possible. Confirm or adjust" % [contact_placed, closest_placed]
+			elif closest_placed > 0:
+				charge_info_label.text = "No model could reach base contact — all moved as close as possible. Confirm or adjust"
+			else:
+				charge_info_label.text = "All models auto-pathed! Click 'Confirm Charge Moves' to complete"
 		elif not unplaced.is_empty():
-			charge_info_label.text = "Snap to Contact: no legal spot within %d\" for %d model(s) — drag them manually" % [charge_distance, unplaced.size()]
+			charge_info_label.text = "Snap to Contact: %d model(s) have no legal move within %d\" — drag them manually" % [unplaced.size(), charge_distance]
 		else:
 			charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
+
+
+# Stage a suggested charge position exactly like a completed drag would
+# (moved_models, hop path, undo order, GameState write, token visual) and
+# remove the model from the still-to-move list.
+func _stage_auto_path_placement(model_id: String, model: Dictionary, origin: Vector2, candidate: Vector2) -> void:
+	moved_models[model_id] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
+	# Multi-step: record the single-hop path (origin -> placement) so the
+	# accumulated distance and confirmed polyline match dragged models.
+	_model_charge_paths[model_id] = [origin, candidate]
+	if model_id in _moved_model_order:
+		_moved_model_order.erase(model_id)
+	_moved_model_order.append(model_id)
+	_update_model_position_in_gamestate(active_unit_id, model_id, candidate)
+	_move_token_visual(active_unit_id, model_id, candidate, model.get("rotation", 0.0))
+	models_to_move.erase(model_id)
+
+# All alive models of enemy units that are NOT among the declared charge
+# targets. Ending a charge move within engagement range of any of these is
+# illegal (ChargePhase rejects the whole confirm), so auto-path placement
+# must filter candidate spots against them.
+func _collect_non_target_enemy_models(charge_targets: Array) -> Array:
+	var out: Array = []
+	var unit = GameState.get_unit(active_unit_id)
+	var my_owner = unit.get("owner", 0)
+	var units = GameState.state.get("units", {})
+	for enemy_id in units:
+		if enemy_id in charge_targets:
+			continue
+		var enemy = units[enemy_id]
+		if enemy.get("owner", 0) == my_owner:
+			continue
+		for em in enemy.get("models", []):
+			if em.get("alive", true):
+				out.append(em)
+	return out
+
+func _position_within_enemy_er(model: Dictionary, pos: Vector2, enemy_models: Array) -> bool:
+	if enemy_models.is_empty():
+		return false
+	var test_model = model.duplicate()
+	test_model["position"] = pos
+	for em in enemy_models:
+		if Measurement.is_in_engagement_range_shape_aware(test_model, em, GameConstants.engagement_range_inches()):
+			return true
+	return false
+
+# Fallback for "Snap to Contact" when no base-contact spot is reachable within
+# the charge roll: find a position that brings the model AS CLOSE AS POSSIBLE
+# to a declared target while staying legal (within remaining charge distance
+# incl. terrain penalty, no overlap, on the board, ends closer to a target,
+# not inside a non-target unit's engagement range).
+#
+# Pass A pushes the model straight at each target model, aiming just inside
+# the 1" engagement band (0.95" gap) when the budget reaches it and spending
+# the whole remaining budget otherwise; the valid candidate ending nearest a
+# target wins. Straight-line-first deliberately mirrors the candidate that
+# RulesEngine.validate_base_to_base_possible_rules (11.04 WHILE MOVING)
+# constructs, so any model that check would oblige to close into the 1" band
+# is handed exactly that placement and the confirm cannot bounce on it.
+# Pass B only runs when every straight lane is blocked (squadmate, wall,
+# terrain budget): it sweeps small approach-angle offsets and shorter travels
+# and takes the first legal candidate.
+func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_sorted: Array, non_target_enemies: Array) -> Dictionary:
+	var model_id = model.get("id", "")
+	var remaining: float = max(0.0, float(charge_distance) - _get_model_charge_accumulated(model_id))
+	if remaining <= 0.05:
+		return {"found": false}
+
+	# Pass A: straight push toward each target model.
+	var best_pos: Vector2 = Vector2.ZERO
+	var best_gap: float = INF
+	for tp_data in targets_sorted:
+		var edge0: float = _edge_gap_to_target(model, origin, tp_data)
+		var travel: float = min(edge0 - 0.95, remaining)
+		if travel <= 0.05:
+			continue
+		var dir_vec: Vector2 = tp_data["pos"] - origin
+		if dir_vec.length() < 1.0:
+			continue
+		dir_vec = dir_vec.normalized()
+		var candidate: Vector2 = origin + dir_vec * Measurement.inches_to_px(travel)
+		if not _validate_charge_position(model, candidate):
+			continue
+		if _position_within_enemy_er(model, candidate, non_target_enemies):
+			continue
+		var gap_after: float = _edge_gap_to_target(model, candidate, tp_data)
+		if gap_after >= edge0 - 0.05:
+			continue  # not meaningfully closer to this target
+		if gap_after < best_gap:
+			best_gap = gap_after
+			best_pos = candidate
+	if best_gap < INF:
+		return {"found": true, "position": best_pos, "gap": best_gap}
+
+	# Pass B: straight lanes all blocked — angle/travel sweep, first legal wins
+	# (targets nearest-first, longest travel first).
+	var max_targets: int = min(targets_sorted.size(), 6)
+	for frac in [0.85, 0.7, 0.55, 0.4, 0.25]:
+		for i in range(max_targets):
+			var tp_data = targets_sorted[i]
+			var dir_vec: Vector2 = tp_data["pos"] - origin
+			if dir_vec.length() < 1.0:
+				continue
+			dir_vec = dir_vec.normalized()
+			var edge0: float = _edge_gap_to_target(model, origin, tp_data)
+			# Never aim past the target's base: cap travel just short of contact.
+			var travel: float = min(remaining * frac, max(edge0 - 0.1, 0.0))
+			if travel <= 0.05:
+				continue
+			for angle_deg in [0.0, 12.0, -12.0, 25.0, -25.0, 38.0, -38.0]:
+				var candidate: Vector2 = origin + dir_vec.rotated(deg_to_rad(angle_deg)) * Measurement.inches_to_px(travel)
+				var gap_after: float = _edge_gap_to_target(model, candidate, tp_data)
+				if gap_after >= edge0 - 0.05:
+					continue
+				if not _validate_charge_position(model, candidate):
+					continue
+				if _position_within_enemy_er(model, candidate, non_target_enemies):
+					continue
+				return {"found": true, "position": candidate, "gap": gap_after}
+	return {"found": false}
+
+# Shape-aware edge-to-edge gap (inches) between `model` placed at `at_pos` and
+# the target model captured in a target_positions entry. Falls back to circle
+# math if the entry carries no model dict.
+func _edge_gap_to_target(model: Dictionary, at_pos: Vector2, tp_data: Dictionary) -> float:
+	var tmodel = tp_data.get("model", {})
+	if tmodel is Dictionary and not tmodel.is_empty():
+		var test_model = model.duplicate()
+		test_model["position"] = at_pos
+		return Measurement.model_to_model_distance_inches(test_model, tmodel)
+	var own_r: float = Measurement.base_radius_px(model.get("base_mm", 32))
+	return Measurement.px_to_inches(at_pos.distance_to(tp_data["pos"]) - tp_data["radius"] - own_r)
 
 
 # T-092: When ANY player (local, remote human, AI) declares a charge,
