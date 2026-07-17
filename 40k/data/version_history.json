@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.52.3",
+			"date": "2026-07-17",
+			"summary": "Fixed AI fight-phase pile-in and consolidation: the game log would say an AI unit 'piles in toward enemy (N models moved)' but the tokens never actually moved on the board. The models had moved in the underlying game state — only the on-screen tokens were left behind — so combats resolved from the correct positions while the board looked wrong until the next full refresh. The tokens now follow the state immediately.",
+			"changes": [
+				"Fixed: AI pile-in / consolidation moves were logged and applied to game state but the board tokens stayed at their old positions (they only snapped into place later, on a phase change or other refresh).",
+				"Root cause: the AI announces an action to the UI just before it is actually executed, so the token-sync was reading the pre-move positions and doing nothing; the sync now runs after the move is applied.",
+				"Human pile-ins were never affected — only AI-controlled units."
+			]
+		},
+		{
 			"version": "0.52.2",
 			"date": "2026-07-17",
 			"summary": "Characters attached to a squad can no longer be shot out of it. The AI (and any scripted attack) could previously target an attached leader \u2014 e.g. a Blade Champion leading a Custodian Guard squad \u2014 as if it were a separate unit, so the defender's Allocate Attacks dialog showed only the character and the wounds could not be put on the squad first. Attached leaders are now only reachable by shooting their unit: wounds are allocated to the squad's models first and the leader is reached last (or via PRECISION), per the 11th-edition attached-unit rules (19.02).",

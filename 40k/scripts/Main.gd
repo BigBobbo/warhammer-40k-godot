@@ -773,7 +773,16 @@ func _on_ai_action_taken(_player: int, action: Dictionary, _description: String)
 			# (token positions still hold the OLD positions; GameState already has the NEW)
 			if action_type == "CONFIRM_UNIT_MOVE":
 				_show_ai_movement_paths(unit_id, _player)
-			update_unit_visuals(unit_id)
+			# Fight-phase PILE_IN / CONSOLIDATE (and any move dispatched via
+			# AIPlayer._execute_next_action) emit ai_action_taken BEFORE the action is
+			# routed, so GameState still holds the PRE-move positions right now. A
+			# synchronous update_unit_visuals() would sync tokens to the old state — a
+			# no-op — and nothing re-syncs after the phase applies the move (the
+			# FightPhase.pile_in_preview signal has no listeners). Defer the token sync
+			# to the end of the frame so it reads the post-move state the phase writes
+			# in route_action; without this the AI's Lootas pile-in logged "(N models
+			# moved)" while the tokens never moved on the board.
+			call_deferred("update_unit_visuals", unit_id)
 
 	# Phase-ending actions: sync ALL token positions to catch any missed updates
 	if action_type in ["END_MOVEMENT", "END_CHARGE", "END_FIGHT", "END_SHOOTING"]:
