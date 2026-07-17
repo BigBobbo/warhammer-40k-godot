@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.49.5",
+			"date": "2026-07-16",
+			"summary": "The orange 12\" charge-range indicator now shows the unit's TRUE charge threat area. It used to be a single circle drawn from the unit's midpoint, but a charge only needs a target within 12\" of ANY model — so for spread-out units the circle disagreed with the eligible-target list (targets listed as in range could sit visibly outside the circle). The indicator is now one dashed outline hugging the whole unit: the union of every model's 12\" reach, measured from each base edge.",
+			"changes": [
+				"Charge phase: selecting a unit now draws the 12\" threat boundary around EVERY model in the unit (one merged dashed outline), not a circle from the unit's centre.",
+				"The boundary is measured from each model's base edge (edge-to-edge, matching how charge eligibility is actually checked), so a target is chargeable exactly when its base touches the orange area — the drawing and the Eligible Targets list now always agree.",
+				"Works with mixed base types (circular, oval and rectangular bases all project their real 12\" reach).",
+				"The green per-model reach rings shown after the 2D6 roll are unchanged."
+			]
+		},
+		{
 			"version": "0.49.4",
 			"date": "2026-07-16",
 			"summary": "The menu scroll speed is now adjustable. Settings › Controls has a new 'Menu Scroll Speed' slider (10%–100% of the default), so you can dial mouse-wheel / trackpad scrolling to whatever feels right. Your choice is saved between sessions.",

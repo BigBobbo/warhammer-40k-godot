@@ -5,7 +5,7 @@
   "disable_ai": true,
   "rng_seed": 42,
   "transition_to_phase": 9,
-  "description": "Regression test for the 12-inch charge-range bubble not being cleared when the player selects a different charging unit. _show_charge_range_circle() adds ~11 child nodes (10 dash arcs + 1 label) to the dedicated ChargeRangeVisual container, all named 'ChargeRangeCircle'. Godot auto-renames colliding siblings, so the old exact-name filter in _clear_charge_range_circle() only removed one node per clear and the rest leaked, stacking a fresh bubble on top of every previous selection. After the fix the container is fully cleared each redraw, so its child count must stay at exactly 11 (one bubble) no matter how many times the selection changes. Before the fix the count grew 11 -> 21 -> 32 -> 42.",
+  "description": "Regression test for the 12-inch charge-range overlay not being cleared when the player selects a different charging unit. _show_charge_range_overlay() adds many child nodes (dash segments along the per-model threat envelope + 1 label) to the dedicated ChargeRangeVisual container, all named 'ChargeRangeCircle'. Godot auto-renames colliding siblings, so an exact-name filter in _clear_charge_range_circle() only removed one node per clear and the rest leaked, stacking a fresh bubble on top of every previous selection. After the fix the container is fully cleared on each redraw. Because the envelope's dash count is derived from its perimeter (not a fixed 10 arcs), the expected count per unit is stashed via set_meta on first selection and the reselection count must EQUAL it — a leak would roughly double it. Counts for different units are also bounded (5..80) to prove a real overlay was drawn each time without over-fitting exact dash totals.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.0 },
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
@@ -14,21 +14,25 @@
 
     { "act": "execute_script", "script": "main.get_node(\"ChargeController\")._on_unit_selected(0)" },
     { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count()", "equals": 11 },
+    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count()", "expect_min": 5 },
+    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count()", "expect_max": 80 },
+    { "act": "execute_script", "script": "main.set_meta(\"bubble_count_unit0\", main.get_node(\"ChargeController\").range_visual.get_child_count())" },
     { "act": "screenshot", "label": "01_first_unit_selected_one_bubble" },
 
     { "act": "execute_script", "script": "main.get_node(\"ChargeController\")._on_unit_selected(1)" },
     { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count()", "equals": 11 },
+    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count()", "expect_min": 5 },
+    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count()", "expect_max": 80 },
     { "act": "screenshot", "label": "02_second_unit_selected_still_one_bubble" },
 
     { "act": "execute_script", "script": "main.get_node(\"ChargeController\")._on_unit_selected(2)" },
     { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count()", "equals": 11 },
+    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count()", "expect_min": 5 },
+    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count()", "expect_max": 80 },
 
     { "act": "execute_script", "script": "main.get_node(\"ChargeController\")._on_unit_selected(0)" },
     { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count()", "equals": 11 },
+    { "act": "execute_script", "script": "main.get_node(\"ChargeController\").range_visual.get_child_count() == main.get_meta(\"bubble_count_unit0\")", "equals": true },
     { "act": "screenshot", "label": "03_reselected_first_unit_still_one_bubble" }
   ]
 }
