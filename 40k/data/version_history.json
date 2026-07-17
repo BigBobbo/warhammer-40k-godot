@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.54.1",
+			"date": "2026-07-17",
+			"summary": "Fight phase now enforces the core rule that a model fights with ONE melee weapon. Models with multiple melee weapons or profiles (Blade Champion's Vaultswords, a Warboss's Big choppa vs Power klaw) must choose which one to swing — they no longer attack with everything they carry. [EXTRA ATTACKS] weapons are still used in addition.",
+			"changes": [
+				"Assign Attacks dialog: picking a weapon is now an exclusive choice — adding a different weapon replaces your previous pick instead of stacking a second set of attacks.",
+				"The 'All to Target' button is now 'Weapon to Target': it assigns your selected weapon (not every weapon) to the selected target in one click.",
+				"The attacks cap readout shows the best single weapon instead of summing every weapon the unit carries.",
+				"Rules engine: assigning a second regular melee weapon to the same models in one activation is rejected with a clear message; [EXTRA ATTACKS] weapons (e.g. a Warboss's Attack squig) remain auto-included on top of your chosen weapon.",
+				"AI melee attacks already picked a single best weapon and are unchanged."
+			]
+		},
+		{
 			"version": "0.54.0",
 			"date": "2026-07-17",
 			"summary": "Pile In and Consolidate steps no longer cover the battlefield with a pop-up. Picking which unit piles in or consolidates now happens on the right-hand panel, the same place you pick units in every other phase — so you can see the whole board (and your engagements) while you decide.",
