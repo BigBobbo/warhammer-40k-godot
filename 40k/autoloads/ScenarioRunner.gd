@@ -317,6 +317,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_hover_unit(step), true)
 		"hover_board_at":
 			rec.merge(await _do_hover_board_at(step), true)
+		"hover_node":
+			rec.merge(await _do_hover_node(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
 		"simulate_wheel":
@@ -636,6 +638,25 @@ func _do_hover_board_at(step: Dictionary) -> Dictionary:
 		screen_pos = viewport.get_canvas_transform() * world_pos
 	await _send_hover(screen_pos)
 	return {"pass": true, "world": [world_pos.x, world_pos.y], "screen": [screen_pos.x, screen_pos.y]}
+
+
+func _do_hover_node(step: Dictionary) -> Dictionary:
+	# Move the mouse over the centre of a Control (resolved by NodePath) with a
+	# real buttonless InputEventMouseMotion — the player path for hover-driven
+	# UI on menus/panels (e.g. positioning the cursor over a ScrollContainer
+	# before a simulate_wheel). Mirrors hover_unit but for Control nodes.
+	var node_path: String = str(step.get("node", ""))
+	if node_path == "":
+		return {"pass": false, "error": "hover_node needs `node`"}
+	var node = get_node_or_null(node_path)
+	if node == null:
+		return {"pass": false, "error": "node not found: %s" % node_path}
+	if not (node is Control):
+		return {"pass": false, "error": "hover_node target is not a Control: %s" % node_path}
+	var rect: Rect2 = (node as Control).get_global_rect()
+	var screen_pos: Vector2 = rect.get_center()
+	await _send_hover(screen_pos)
+	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
 
 
 func _send_hover(screen_pos: Vector2) -> void:
@@ -1014,30 +1035,66 @@ func _do_execute_script(step: Dictionary) -> Dictionary:
 	if code == "":
 		return {"pass": false, "error": "execute_script needs `script`"}
 
-	# Build input name/value pairs:
-	#   - every autoload child of /root (referenced by node name)
-	#   - common engine singletons (Engine, OS, Time, Input, RenderingServer)
-	#   - `main` -> the live battle scene root, if loaded
-	var input_names: Array = []
-	var input_values: Array = []
-	var root := get_tree().root
-	for child in root.get_children():
-		input_names.append(child.name)
-		input_values.append(child)
-	# ResourceLoader/ClassDB let a scenario instantiate a script-backed node
-	# (e.g. a dialog) for windowed validation: ResourceLoader.load(path).new().
-	input_names.append_array(["Engine", "OS", "Time", "Input", "RenderingServer", "ProjectSettings", "ResourceLoader", "ClassDB", "main"])
-	input_values.append_array([Engine, OS, Time, Input, RenderingServer, ProjectSettings, ResourceLoader, ClassDB, get_tree().current_scene])
+	var actual
+	# Statement mode is EXPLICIT-only (`"multiline": true`) — unlike the MCP
+	# bridge we must not auto-detect on "\n", because existing scenario scripts
+	# legitimately embed newlines inside string literals and rely on the
+	# Expression path (e.g. resolution_log_dice_icons.json).
+	var multiline: bool = bool(step.get("multiline", false))
+	if multiline:
+		# Multi-line / statement mode — parity with the MCP bridge's
+		# execute_script (testing_handlers.gd): the snippet is compiled into a
+		# throwaway GDScript so full statements work (`var`, `if`, `for`,
+		# `return`). The snippet receives `node` (the node at the optional `node`
+		# step key, default /root) and `tree` (the SceneTree); autoloads are
+		# reachable by their global names. `return <value>` feeds the
+		# equals/not_equals/exists expectation below.
+		var target: Node = get_tree().root
+		if step.has("node"):
+			target = get_node_or_null(str(step["node"]))
+			if target == null:
+				return {"pass": false, "error": "no node at %s" % str(step["node"])}
+		var indented := ""
+		for line in code.split("\n"):
+			indented += "\t" + line + "\n"
+		if indented.strip_edges() == "":
+			indented = "\treturn null\n"
+		var src := "extends RefCounted\nfunc _run(node, tree):\n" + indented
+		var gds := GDScript.new()
+		gds.source_code = src
+		if gds.reload() != OK:
+			return {"pass": false, "error": "multiline compile failed — call node methods on `node`/`tree`, not bare"}
+		var inst = gds.new()
+		if inst == null or not inst.has_method("_run"):
+			return {"pass": false, "error": "failed to instantiate compiled snippet"}
+		actual = inst.call("_run", target, get_tree())
+	else:
+		# Single-line Expression mode. Build input name/value pairs:
+		#   - every child of /root (autoloads AND root-level dialogs, by node name)
+		#   - common engine singletons (Engine, OS, Time, Input, RenderingServer)
+		#   - `main` -> the live battle scene root, if loaded
+		var input_names: Array = []
+		var input_values: Array = []
+		var root := get_tree().root
+		for child in root.get_children():
+			input_names.append(child.name)
+			input_values.append(child)
+		# ResourceLoader/ClassDB let a scenario instantiate a script-backed node
+		# (e.g. a dialog) for windowed validation: ResourceLoader.load(path).new().
+		# `tree`/`node` match the multiline-mode bindings (SceneTree / root) so the
+		# same `tree.root...` idiom works in both modes.
+		input_names.append_array(["Engine", "OS", "Time", "Input", "RenderingServer", "ProjectSettings", "ResourceLoader", "ClassDB", "main", "tree", "node"])
+		input_values.append_array([Engine, OS, Time, Input, RenderingServer, ProjectSettings, ResourceLoader, ClassDB, get_tree().current_scene, get_tree(), root])
 
-	var expr := Expression.new()
-	var parse_err := expr.parse(code, input_names)
-	if parse_err != OK:
-		return {"pass": false, "error": "parse failed: %s" % expr.get_error_text()}
-	# Pass self as base instance so `self.foo` works and any singletons not in
-	# input_names fall through to the runner's context.
-	var actual = expr.execute(input_values, self, true)
-	if expr.has_execute_failed():
-		return {"pass": false, "error": "execute failed: %s" % expr.get_error_text()}
+		var expr := Expression.new()
+		var parse_err := expr.parse(code, input_names)
+		if parse_err != OK:
+			return {"pass": false, "error": "parse failed: %s" % expr.get_error_text()}
+		# Pass self as base instance so `self.foo` works and any singletons not in
+		# input_names fall through to the runner's context.
+		actual = expr.execute(input_values, self, true)
+		if expr.has_execute_failed():
+			return {"pass": false, "error": "execute failed: %s" % expr.get_error_text()}
 
 	# Tolerate "no expectation" — caller may just want to drive a side effect.
 	if not (step.has("equals") or step.has("not_equals") or step.has("exists")
