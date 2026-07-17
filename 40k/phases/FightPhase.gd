@@ -2416,10 +2416,23 @@ func _fights_first_units_11e() -> Dictionary:
 	return d
 
 func _remaining_units_11e() -> Dictionary:
+	# Units that will fight in the REMAINING COMBATS step: eligible units
+	# WITHOUT Fights First. eligible_units(only_fights_first=false) includes
+	# Fights First units too; re-listing those here duplicated them in the
+	# FightSelectionDialog's REMAINING_COMBATS section and pushed the
+	# opponent's actual remaining-combats units below the scroll fold — so a
+	# player whose opponent charged saw "Player X has no eligible units" and
+	# concluded their engaged units never get to fight.
 	var d = {"1": [], "2": []}
-	if sequencer_11e != null:
-		d["1"] = sequencer_11e.eligible_units(GameState.state, 1, false)
-		d["2"] = sequencer_11e.eligible_units(GameState.state, 2, false)
+	if sequencer_11e == null:
+		return d
+	var units = GameState.state.get("units", {})
+	for player in [1, 2]:
+		var non_ff: Array = []
+		for unit_id in sequencer_11e.eligible_units(GameState.state, player, false):
+			if not sequencer_11e.is_fights_first(units.get(unit_id, {})):
+				non_ff.append(unit_id)
+		d[str(player)] = non_ff
 	return d
 
 func _combatants_11e() -> Array:

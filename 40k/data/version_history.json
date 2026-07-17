@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.49.2",
+			"date": "2026-07-17",
+			"summary": "Fight phase: the unit-selection dialog no longer claims your opponent 'has no eligible units' when their engaged units are simply waiting for the Remaining Combats step. It now says they have no FIGHTS FIRST units and will select in Remaining Combats — and their units are actually visible in the list instead of being pushed below the scroll fold.",
+			"changes": [
+				"Fixed: during the Fights First step the dialog said 'Player X has no eligible units. Select all remaining units in turn.' even though the opponent's engaged units (e.g. Lootas / Burna Boyz charged by Custodians) were owed a Remaining Combats fight. The blanket message now only appears when the opponent truly has nothing left to fight with.",
+				"Fixed: units with Fights First were listed TWICE — once under FIGHTS_FIRST and again under REMAINING_COMBATS — which pushed the opponent's actual remaining-combats units below the dialog's scroll area. Each unit now appears in exactly one section.",
+				"Fixed: the opponent's units in the selection dialog showed raw ids (e.g. 'U_BOYZ_K') instead of their names; all rows now use full display names ('Boyz Alpha', 'Warboss Alpha', ...)."
+			]
+		},
+		{
 			"version": "0.49.1",
 			"date": "2026-07-16",
 			"summary": "The Declare Battle Formations screen now tells identically-named units apart. Before, if your army had several units with the same name (e.g. six Custodian Guard squads, three Blade Champions), the leader-attachment dropdowns, warlord picker, transport/reserves lists and summary all just read 'Custodian Guard (5 models)' over and over, so you couldn't tell which squad you were attaching a leader to. Every unit now shows its distinguishing suffix — 'Custodian Guard Alpha', 'Custodian Guard Beta', etc. — matching the labels used everywhere else in the game.",

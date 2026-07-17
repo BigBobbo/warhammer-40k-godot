@@ -66,23 +66,26 @@ func _build_ui() -> void:
 
 	# Instructions with alternation explanation
 	var instructions = Label.new()
+	instructions.name = "Instructions"
 	var other_player = 2 if dialog_data.selecting_player == 1 else 1
 
-	# Check if other player has units remaining
+	# Check if other player has units remaining in the CURRENT subphase
 	var other_player_key = str(other_player)
 	var current_source = dialog_data.fights_first_units
 	if dialog_data.current_subphase == "REMAINING_COMBATS":
 		current_source = dialog_data.remaining_units
 	elif dialog_data.current_subphase == "FIGHTS_LAST" and dialog_data.has("fights_last_units"):
 		current_source = dialog_data.fights_last_units
-	var other_player_has_units = false
-	for unit_id in current_source.get(other_player_key, []):
-		if unit_id not in dialog_data.units_that_fought:
-			other_player_has_units = true
-			break
+	var other_player_has_units = _has_unfought_units(current_source, other_player_key)
 
 	if other_player_has_units:
 		instructions.text = "Select a unit to activate. After this unit fights, Player %d will select." % other_player
+	elif dialog_data.current_subphase == "FIGHTS_FIRST" and _has_unfought_units(dialog_data.get("remaining_units", {}), other_player_key):
+		# The opponent HAS engaged units — just none with Fights First, so
+		# they select later, in the Remaining Combats step. The old blanket
+		# "Player X has no eligible units" here read as "their engaged units
+		# never get to fight" and was reported as an engagement bug.
+		instructions.text = "Player %d has no Fights First units. Select your Fights First units in turn — Player %d will then select in Remaining Combats." % [other_player, other_player]
 	else:
 		instructions.text = "Player %d has no eligible units. Select all remaining units in turn." % other_player
 
@@ -97,6 +100,12 @@ func _build_ui() -> void:
 	# picker with no unit selected and stalled the fight sequence.
 	get_ok_button().visible = false
 	confirmed.connect(_on_confirmed)
+
+func _has_unfought_units(units_by_player: Dictionary, player_key: String) -> bool:
+	for unit_id in units_by_player.get(player_key, []):
+		if unit_id not in dialog_data.units_that_fought:
+			return true
+	return false
 
 func _add_subphase_units(container: VBoxContainer, subphase_name: String, units_by_player: Dictionary) -> void:
 	var subphase_header = Label.new()
@@ -128,8 +137,16 @@ func _add_subphase_units(container: VBoxContainer, subphase_name: String, units_
 
 			var unit_button = Button.new()
 			unit_button.name = "Fight_%s" % unit_id
-			var unit_data = dialog_data.eligible_units.get(unit_id, {})
-			var unit_name = unit_data.get("name", unit_id)
+			# Resolve the display name from game state: eligible_units only
+			# holds the CURRENT picker's candidates, so the opponent's units
+			# (listed for context, e.g. under REMAINING_COMBATS) rendered as
+			# raw unit ids. display_name keeps duplicate squads distinct.
+			var unit_name = dialog_data.eligible_units.get(unit_id, {}).get("name", unit_id)
+			if phase_reference != null and phase_reference.has_method("get_unit"):
+				var unit = phase_reference.get_unit(unit_id)
+				if not unit.is_empty():
+					var unit_meta = unit.get("meta", {})
+					unit_name = unit_meta.get("display_name", unit_meta.get("name", unit_name))
 
 			unit_button.text = "    %s%s" % [
 				unit_name,
