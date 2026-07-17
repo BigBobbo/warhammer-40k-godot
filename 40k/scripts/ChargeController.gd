@@ -24,6 +24,7 @@ var awaiting_roll: bool = false
 var awaiting_movement: bool = false
 var last_processed_charge_roll: Dictionary = {}  # Tracks last processed roll to prevent duplicates
 var _pending_complete_unit_id: String = ""  # Unit awaiting COMPLETE_UNIT_CHARGE after charge_resolved
+var pending_ability_reroll_name: String = ""  # Ability granting the current free charge reroll (e.g. "Swift Onslaught") — used in dice-log copy
 var _last_apply_rejection: Dictionary = {}  # Set by Main via on_charge_move_rejected when APPLY_CHARGE_MOVE fails validation
 
 # Charge movement tracking
@@ -3828,13 +3829,17 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		print("ChargeController: Player %d is AI — skipping ability reroll dialog" % player)
 		return
 
-	# Reuse CommandRerollDialog with modified display (ability name instead of CP cost)
+	# Reuse CommandRerollDialog in free-ability mode: the ability name becomes
+	# the header and the button reads "Re-roll (Free)" — before this the dialog
+	# kept its stratagem branding ("Re-roll (1 CP)" / "You have 0 CP"), so a
+	# 0-CP player reasonably concluded the free re-roll was unusable.
 	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load CommandRerollDialog.gd for ability reroll")
 		_on_ability_reroll_declined(unit_id, player)
 		return
 
+	pending_ability_reroll_name = ability_name
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
 	dialog.setup(
@@ -3842,7 +3847,8 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		player,
 		"charge_roll",
 		roll_context.get("original_rolls", []),
-		"%s — %s" % [ability_name, roll_context.get("context_text", "Re-roll charge dice for free")]
+		roll_context.get("context_text", "Re-roll the charge dice for free"),
+		ability_name
 	)
 	# Override the dialog title to show ability name instead of "Command Re-roll"
 	dialog.title = "%s — Free Charge Re-roll" % ability_name
@@ -3855,8 +3861,9 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 func _on_ability_reroll_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use ability reroll."""
 	print("ChargeController: Ability reroll USED for %s" % unit_id)
+	var used_name = pending_ability_reroll_name if pending_ability_reroll_name != "" else "Ability"
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=cyan]SWIFT ONSLAUGHT used! Re-rolling charge...[/color]\n")
+		dice_log_display.append_text("[color=cyan]%s used! Re-rolling charge (free)...[/color]\n" % used_name.to_upper())
 	emit_signal("charge_action_requested", {
 		"type": "USE_ABILITY_REROLL",
 		"actor_unit_id": unit_id,

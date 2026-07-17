@@ -748,14 +748,20 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 			uni = (u as String).unicode_at(0)
 		elif typeof(u) == TYPE_INT or typeof(u) == TYPE_FLOAT:
 			uni = int(u)
+	# Set BOTH keycode and physical_keycode (as _do_drag_board does for SHIFT):
+	# the built-in ui_* actions (ui_cancel = dialog close-on-escape, ui_accept,
+	# focus navigation) are bound to PHYSICAL keys, so an event carrying only
+	# `keycode` never matches them and e.g. ESC silently fails to close dialogs.
 	var press := InputEventKey.new()
 	press.keycode = kc
+	press.physical_keycode = kc
 	press.unicode = uni
 	press.pressed = true
 	Input.parse_input_event(press)
 	await get_tree().process_frame
 	var release := InputEventKey.new()
 	release.keycode = kc
+	release.physical_keycode = kc
 	release.unicode = uni
 	release.pressed = false
 	Input.parse_input_event(release)
