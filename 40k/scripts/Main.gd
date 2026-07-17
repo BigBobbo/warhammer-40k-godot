@@ -784,6 +784,25 @@ func _on_ai_action_taken(_player: int, action: Dictionary, _description: String)
 			# moved)" while the tokens never moved on the board.
 			call_deferred("update_unit_visuals", unit_id)
 
+	# Charge moves change model positions too, but the AI applies them directly
+	# via NetworkIntegration.route_action — NOT through the ChargeController — so
+	# the human charge path's refresh (_on_charge_action_requested ->
+	# update_after_charge_action -> _recreate_unit_visuals) never runs for AI
+	# charges. The result was the reported bug: a successful AI charge updated
+	# GameState but the tokens only appeared to move at END_CHARGE (via the
+	# _sync_all_token_positions call below), i.e. AFTER the AI had finished ALL of
+	# its charges. Sync now so the charging unit (and any attached CHARACTER
+	# riding along, plus target models killed by a charge-move mortal wound such
+	# as Spiked Ram / Piston-driven Brutality) visibly moves into engagement
+	# range BEFORE the AI declares its next charge. Deferred for the same reason
+	# as the movement block above: ai_action_taken fires BEFORE route_action
+	# applies the move, so GameState still holds the pre-move positions right now
+	# — a synchronous sync would be a no-op. _sync_all_token_positions() (rather
+	# than update_unit_visuals) tweens EVERY token to its state position, so the
+	# rider character and any freshly-dead target models are handled in one pass.
+	if action_type in ["APPLY_CHARGE_MOVE", "APPLY_HEROIC_INTERVENTION_MOVE"]:
+		call_deferred("_sync_all_token_positions")
+
 	# Phase-ending actions: sync ALL token positions to catch any missed updates
 	if action_type in ["END_MOVEMENT", "END_CHARGE", "END_FIGHT", "END_SHOOTING"]:
 		_sync_all_token_positions()
