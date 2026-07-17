@@ -117,16 +117,19 @@ func _build_ui() -> void:
 		container.add_child(separator)
 
 	# Weapon selector (regular weapons only)
+	# 11e core rules (Fight — Select Melee Weapon): each model makes its attacks
+	# with ONE selected melee weapon — the choice below is exclusive.
 	var weapon_label = Label.new()
-	weapon_label.text = "Select Weapon:"
+	weapon_label.text = "Select ONE Weapon (a model only fights with one melee weapon):"
 	container.add_child(weapon_label)
 
 	weapon_list = ItemList.new()
 	weapon_list.name = "WeaponList"
 	weapon_list.custom_minimum_size = Vector2(480, 100)
 
-	# T-093: Compute max-cap (total potential attacks across the unit's regular melee weapons)
-	var unit_max_attacks_total: float = 0.0
+	# T-093: Compute max-cap. One-weapon rule: only ONE regular melee weapon
+	# swings per activation, so the cap is the best single weapon — not the sum.
+	var unit_max_attacks_best: float = 0.0
 	for i in range(regular_melee_weapons.size()):
 		var weapon = regular_melee_weapons[i]
 		var weapon_name = weapon.get("name", "Unknown")
@@ -135,7 +138,7 @@ func _build_ui() -> void:
 
 		var avg_attacks: float = _average_dice_notation(str(weapon.get("attacks", "1")))
 		var weapon_max_attacks: float = avg_attacks * float(max(1, eligible_indices.size()))
-		unit_max_attacks_total += weapon_max_attacks
+		unit_max_attacks_best = maxf(unit_max_attacks_best, weapon_max_attacks)
 
 		weapon_list.add_item("%s (A:%s S:%s AP:%s D:%s, max ≈%s)" % [
 			weapon_name,
@@ -149,10 +152,14 @@ func _build_ui() -> void:
 		weapon_list.set_item_metadata(weapon_list.item_count - 1, weapon_id)
 		print("[AttackAssignmentDialog] Weapon '%s' → ID '%s' (max attacks ≈%.1f)" % [weapon_name, weapon_id, weapon_max_attacks])
 
-	# T-093: max-cap label
+	# Pre-select the first weapon so a default choice is always visible
+	if weapon_list.item_count > 0:
+		weapon_list.select(0)
+
+	# T-093: max-cap label (best single weapon — one melee weapon per model)
 	var max_cap_label = Label.new()
-	max_cap_label.text = "Max total attacks (cap): ≈%s across %d eligible models" % [
-		"%.1f" % unit_max_attacks_total if unit_max_attacks_total != floor(unit_max_attacks_total) else "%d" % int(unit_max_attacks_total),
+	max_cap_label.text = "Max total attacks (cap): ≈%s across %d eligible models with the strongest single weapon" % [
+		"%.1f" % unit_max_attacks_best if unit_max_attacks_best != floor(unit_max_attacks_best) else "%d" % int(unit_max_attacks_best),
 		eligible_indices.size()
 	]
 	max_cap_label.add_theme_font_size_override("font_size", 12)
@@ -188,11 +195,13 @@ func _build_ui() -> void:
 	assign_button.pressed.connect(_on_assign_pressed)
 	button_container.add_child(assign_button)
 
-	# T5-UX5: "All to Target" button — assigns all unassigned weapons to the selected target
+	# T5-UX5 (reworked for the 11e one-weapon rule): one-click shortcut that
+	# assigns the selected weapon to the selected target. Node name is kept as
+	# AllToTargetButton — windowed scenarios click it by path.
 	all_to_target_button = Button.new()
 	all_to_target_button.name = "AllToTargetButton"
-	all_to_target_button.text = "All to Target"
-	all_to_target_button.tooltip_text = "Assign all unassigned weapons to the selected target"
+	all_to_target_button.text = "Weapon to Target"
+	all_to_target_button.tooltip_text = "Assign the selected melee weapon to the selected target (each model fights with one melee weapon)"
 	all_to_target_button.pressed.connect(_on_all_to_target_pressed)
 	button_container.add_child(all_to_target_button)
 
@@ -267,6 +276,18 @@ func _on_assign_pressed() -> void:
 	var weapon_id = weapon_list.get_item_metadata(weapon_idx[0])
 	var target_id = target_list.get_item_metadata(target_idx[0])
 
+	_set_single_weapon_assignment(weapon_id, target_id)
+
+# 11e one-weapon rule: dialog assignments always cover the whole unit, so
+# there is only ever ONE regular melee weapon assignment — setting a new one
+# replaces the previous choice instead of stacking a second weapon.
+func _set_single_weapon_assignment(weapon_id: String, target_id: String) -> void:
+	if not assignments.is_empty():
+		var previous = assignments[0]
+		print("[AttackAssignmentDialog] One-weapon rule: replacing assignment %s → %s with %s → %s" % [
+			previous.get("weapon", "?"), previous.get("target", "?"), weapon_id, target_id])
+	assignments.clear()
+
 	print("[AttackAssignmentDialog] Assignment: ", weapon_id, " → ", target_id)
 
 	assignments.append({
@@ -278,9 +299,12 @@ func _on_assign_pressed() -> void:
 	print("[AttackAssignmentDialog] Total assignments: ", assignments.size())
 	_update_assignments_display()
 
-# T5-UX5: Assign all unassigned weapons to the selected target
+# T5-UX5 (reworked for the 11e one-weapon rule): assign the selected weapon —
+# defaulting to the first — to the selected target in a single click.
+# Previously this assigned ALL unassigned weapons, which let one model fight
+# with every weapon it carries; that is illegal (Fight — Select Melee Weapon).
 func _on_all_to_target_pressed() -> void:
-	print("[AttackAssignmentDialog] T5-UX5: 'All to Target' button pressed")
+	print("[AttackAssignmentDialog] T5-UX5: 'Weapon to Target' button pressed")
 
 	if not weapon_list or not target_list:
 		push_error("Weapon or target list not initialized")
@@ -292,30 +316,17 @@ func _on_all_to_target_pressed() -> void:
 		print("[AttackAssignmentDialog] T5-UX5: No target selected")
 		return
 
+	if weapon_list.item_count == 0:
+		push_warning("No melee weapons available")
+		return
+
+	var weapon_idx = weapon_list.get_selected_items()
+	var weapon_item: int = weapon_idx[0] if not weapon_idx.is_empty() else 0
+	var weapon_id = weapon_list.get_item_metadata(weapon_item)
 	var target_id = target_list.get_item_metadata(target_idx[0])
-	var assigned_weapon_ids = _get_assigned_weapon_ids()
-	var newly_assigned = 0
 
-	for i in range(weapon_list.item_count):
-		var weapon_id = weapon_list.get_item_metadata(i)
-		if weapon_id and weapon_id not in assigned_weapon_ids:
-			assignments.append({
-				"attacker": unit_id,
-				"weapon": weapon_id,
-				"target": target_id
-			})
-			newly_assigned += 1
-			print("[AttackAssignmentDialog] T5-UX5: Assigned weapon '%s' → '%s'" % [weapon_id, target_id])
-
-	print("[AttackAssignmentDialog] T5-UX5: Assigned %d weapons to target '%s'. Total assignments: %d" % [newly_assigned, target_id, assignments.size()])
-	_update_assignments_display()
-
-# T5-UX5: Get set of weapon IDs that are already assigned
-func _get_assigned_weapon_ids() -> Dictionary:
-	var assigned = {}
-	for assignment in assignments:
-		assigned[assignment.get("weapon", "")] = true
-	return assigned
+	print("[AttackAssignmentDialog] T5-UX5: Assigning weapon '%s' → '%s' (one weapon per model)" % [weapon_id, target_id])
+	_set_single_weapon_assignment(weapon_id, target_id)
 
 func _update_assignments_display() -> void:
 	if not assignments_display:

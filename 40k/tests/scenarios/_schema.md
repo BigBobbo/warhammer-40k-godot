@@ -115,12 +115,18 @@ Each step is a dict with an `act` field plus act-specific keys.
 - `click_item_list`: real-mouse-click one row of an `ItemList` (by item
   `index`), warping the cursor to the row's rect centre — so the list's own
   input handling (selection replace, Ctrl+Click toggle, deferred single-select)
-  runs exactly as for a player. `ctrl: true` holds Ctrl through the click
-  (multi-select toggle). `empty: true` clicks the free strip below the last
-  row instead (e.g. to assert empty-click-clears-selection).
+  runs exactly as for a player. `ctrl: true` stamps `ctrl_pressed` on the mouse
+  event (what an OS does when Ctrl is held — but some platforms/WMs don't).
+  `ctrl_via_key: true` instead presses a real Ctrl **key** down (updating the
+  global key state) and clicks WITHOUT stamping the mouse event, then releases
+  Ctrl — the faithful reproduction of a player holding Ctrl on a platform that
+  doesn't attach the modifier to the click; use it to prove modifier handling
+  reads the live key state, not just the event field. `empty: true` clicks the
+  free strip below the last row instead (e.g. to assert empty-click-clears).
   ```json
   { "act": "click_item_list", "node": "/root/Main/.../ChargeTargetList", "index": 1 }
   { "act": "click_item_list", "node": "/root/Main/.../ChargeTargetList", "index": 0, "ctrl": true }
+  { "act": "click_item_list", "node": "/root/Main/.../ChargeTargetList", "index": 0, "ctrl_via_key": true }
   { "act": "click_item_list", "node": "/root/Main/.../ChargeTargetList", "empty": true }
   ```
 

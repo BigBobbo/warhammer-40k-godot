@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.53.1",
+			"version": "0.54.2",
 			"date": "2026-07-17",
 			"summary": "Dice now show as die-face icons (pips) instead of raw numbers in the last places that still printed numbers: the wound-allocation 'Save rolls' summary and its Command Re-roll chips, the shooting resolution dock's re-roll chips, and the Grenade / Tank Shock / Command Re-roll result popups. Dice look the same everywhere now.",
 			"changes": [
@@ -12,6 +12,67 @@
 				"Grenade and Tank Shock result popups: the mortal-wound dice show as face icons (green for a success, red for a miss).",
 				"Command Re-roll stratagem popup: the original rolls show as face icons.",
 				"Multiplayer weapon-order dialog: hit/wound rolls and its re-roll chips now render as face icons, matching the melee dialog and the rest of the game."
+			]
+		},
+		{
+			"version": "0.54.1",
+			"date": "2026-07-17",
+			"summary": "Fight phase now enforces the core rule that a model fights with ONE melee weapon. Models with multiple melee weapons or profiles (Blade Champion's Vaultswords, a Warboss's Big choppa vs Power klaw) must choose which one to swing — they no longer attack with everything they carry. [EXTRA ATTACKS] weapons are still used in addition.",
+			"changes": [
+				"Assign Attacks dialog: picking a weapon is now an exclusive choice — adding a different weapon replaces your previous pick instead of stacking a second set of attacks.",
+				"The 'All to Target' button is now 'Weapon to Target': it assigns your selected weapon (not every weapon) to the selected target in one click.",
+				"The attacks cap readout shows the best single weapon instead of summing every weapon the unit carries.",
+				"Rules engine: assigning a second regular melee weapon to the same models in one activation is rejected with a clear message; [EXTRA ATTACKS] weapons (e.g. a Warboss's Attack squig) remain auto-included on top of your chosen weapon.",
+				"AI melee attacks already picked a single best weapon and are unchanged."
+			]
+		},
+		{
+			"version": "0.54.0",
+			"date": "2026-07-17",
+			"summary": "Pile In and Consolidate steps no longer cover the battlefield with a pop-up. Picking which unit piles in or consolidates now happens on the right-hand panel, the same place you pick units in every other phase — so you can see the whole board (and your engagements) while you decide.",
+			"changes": [
+				"Fight phase: the Pile In step's unit picker moved from a centered pop-up dialog to a PILE IN STEP section at the top of the right panel — one button per eligible unit (with an [Engaged]/[Charged] tag; hover for the full rule hint) plus End Pile In.",
+				"Fight phase: the Consolidate step's unit picker moved to the right panel the same way, with [Ongoing]/[Engaging]/[Objective]/[No move] tags per unit and End Consolidation.",
+				"While a pile-in/consolidate move is being made on the battlefield the panel greys out; it re-activates when the move is confirmed, skipped, or the move dialog is closed (closing without confirming no longer dead-ends the step — the unit can be picked again).",
+				"In multiplayer, the waiting player now sees whose Pile In / Consolidate half is running in the right panel instead of nothing."
+			]
+		},
+		{
+			"version": "0.53.4",
+			"date": "2026-07-17",
+			"summary": "Re-roll dialogs (charge re-rolls, Command Re-roll, ability re-rolls like Swift Onslaught) now make 'Keep Roll' the highlighted default on the LEFT and 'Re-roll' the plainer button on the RIGHT. Previously the CP-spending re-roll was the prominent left-hand button, which invited an accidental click that wasted a Command Point — especially right after a successful charge, where re-rolling almost never makes sense.",
+			"changes": [
+				"Swapped the buttons in the re-roll pop-up: 'Keep Roll' is now the highlighted button on the left; 'Re-roll' is the secondary button on the right.",
+				"'Keep Roll' now also holds keyboard focus, so pressing Enter/confirm keeps your roll instead of spending a Command Point.",
+				"Applies to every re-roll prompt that uses this dialog (charge rolls, Command Re-roll, and free ability re-rolls such as Swift Onslaught)."
+			]
+		},
+		{
+			"version": "0.53.3",
+			"date": "2026-07-17",
+			"summary": "Fixed the free charge re-roll from abilities like the Blade Champion's Swift Onslaught looking unusable: the dialog offering it was branded as the 1 CP Command Re-roll stratagem, so with 0 CP it read as unaffordable. It now clearly says the re-roll is FREE, and closing the dialog with ✕ or ESC no longer leaves the charge stuck waiting for an answer.",
+			"changes": [
+				"Fixed: the Swift Onslaught (and Plummeting Descent, etc.) free charge re-roll dialog showed 'COMMAND RE-ROLL', 'Re-roll (1 CP)' and 'You have 0 CP' — players with no CP thought they could not use their free re-roll. The dialog now shows the ability name, 'Re-roll (Free)' and 'FREE — costs no CP'.",
+				"Fixed: closing any re-roll dialog with the ✕ button or ESC left the game waiting forever for a re-roll decision, blocking the rest of the Charge phase. Dismissing the dialog now counts as 'Keep Roll'.",
+				"The dice log now names the ability that was used for the free re-roll instead of always saying 'SWIFT ONSLAUGHT used!'."
+			]
+		},
+		{
+			"version": "0.53.2",
+			"date": "2026-07-17",
+			"summary": "Fixed a Movement-phase unit-list label that showed an attached leader twice. A squad with an attached CHARACTER (e.g. a Blade Champion leading a Custodian Guard squad) was listed as 'Custodian Guard Alpha + Blade Champion + Blade Champion' — the leader's name was printed twice. It now reads 'Custodian Guard Alpha + Blade Champion' once. This was purely a display bug; only one leader was ever attached.",
+			"changes": [
+				"Fixed: in the Movement phase 'Units (Move / Disembark)' list, a bodyguard squad's attached leader appeared twice in the row label (e.g. '+ Blade Champion + Blade Champion'). The movement controller was appending the attached-character names to the row twice; it now appends them once."
+			]
+		},
+		{
+			"version": "0.53.1",
+			"date": "2026-07-17",
+			"summary": "Fixed Ctrl+Click not selecting a second charge target. The Eligible Targets list told you to hold Ctrl+Click to charge more than one unit, but on many setups holding Ctrl and clicking did nothing (or just moved the selection) \u2014 so you could never actually declare a multi-unit charge. Ctrl+Click now reliably adds/removes extra targets.",
+			"changes": [
+				"Fixed: holding Ctrl (or Cmd) and clicking a second unit in the Eligible Targets list now toggles it in/out of the charge, so you can declare a charge against several units as the hint describes.",
+				"The charge target list no longer relies on the click carrying the Ctrl modifier (which some systems don't attach to mouse clicks) \u2014 it now also reads the live keyboard state, so Ctrl+Click works consistently across platforms.",
+				"Plain click still selects exactly one target, clicking empty space still clears the selection, and the target rows still lock once the charge is declared."
 			]
 		},
 		{

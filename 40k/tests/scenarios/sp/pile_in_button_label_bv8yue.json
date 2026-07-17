@@ -21,7 +21,7 @@
     { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
     { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
 
-    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
     { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 1 },
     { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 2 },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_fight_step_11e()", "equals": "PILE_IN" },
@@ -38,8 +38,8 @@
     { "act": "expect_node_property", "node": "/root/Main/PhaseActionButton", "property": "text", "equals": "[Enter] Finish Pile Ins" },
     { "act": "screenshot", "label": "02_pile_in_advanced_to_p1_no_warning" },
 
-    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
-    { "act": "click_node", "node": "/root/PileInStepDialog/Content/EndPileInButton", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.6 },
 
     { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },

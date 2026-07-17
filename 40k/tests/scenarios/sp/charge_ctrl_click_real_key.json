@@ -1,0 +1,40 @@
+{
+  "id": "charge_ctrl_click_real_key",
+  "covers": ["charge.ux.ctrl_click_via_held_key"],
+  "fixture": "test_charge_two_targets",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Reproduce the reported bug: Ctrl+Click a second charge target does nothing when Ctrl is held as a real KEY (global Input state) but the platform does not stamp ctrl_pressed onto the mouse event. Godot's built-in ItemList SELECT_MULTI toggle reads only event.ctrl_pressed, so the held key alone did not toggle. After the fix the ChargeController owns the click via gui_input and checks Input.is_key_pressed(KEY_CTRL), so a real held Ctrl toggles a second target in.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+
+    { "act": "execute_script",
+      "script": "main.charge_controller.unit_selector.select(0)" },
+    { "act": "execute_script",
+      "script": "main.charge_controller._on_unit_selected(0)" },
+    { "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id", "equals": "U_CHARGER_0" },
+    { "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_count()", "equals": 2 },
+
+    { "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeTargetList",
+      "index": 0 },
+    { "act": "execute_script",
+      "script": "main.charge_controller.selected_targets.size()", "equals": 1 },
+
+    { "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeTargetList",
+      "index": 1, "ctrl_via_key": true },
+    { "act": "execute_script",
+      "script": "main.charge_controller.selected_targets.size()", "equals": 2 },
+    { "act": "execute_script",
+      "script": "\"U_TARGET_SC\" in main.charge_controller.selected_targets", "equals": true },
+    { "act": "execute_script",
+      "script": "\"U_TARGET_SC2\" in main.charge_controller.selected_targets", "equals": true },
+    { "act": "screenshot", "label": "01_ctrl_via_key_two_targets" }
+  ]
+}

@@ -78,6 +78,24 @@ var processing_melee_saves_signal: bool = false
 # STAGED FIGHT: the sequence dialog showing hit/wound pauses + Command Re-roll
 var active_fight_sequence_dialog = null
 
+# 11e global-step sections in the right panel (12.02 Pile In / 12.07
+# Consolidate). These replace the old PileInStepDialog / ConsolidationStepDialog
+# pop-ups, which covered the battlefield the player was about to move models
+# across — unit-to-activate selection lives on the right-hand panel like every
+# other phase. Node names are stable for windowed scenarios:
+#   FightPanel/PileInStepPanel/UnitList/PileIn_<unit_id>
+#   FightPanel/PileInStepPanel/EndPileInButton
+#   FightPanel/ConsolidationStepPanel/UnitList/Consolidate_<unit_id>
+#   FightPanel/ConsolidationStepPanel/EndConsolidationButton
+var pile_in_step_panel: VBoxContainer = null
+var consolidation_step_panel: VBoxContainer = null
+var _pile_in_step_player: int = 0
+var _consolidation_step_player: int = 0
+
+const PILE_IN_STEP_INSTRUCTIONS := "Pick a unit to make its pile-in move (up to 3\", each model closer to its pile-in target). Piling in is optional — units you don't pick simply stay put."
+const CONSOLIDATE_STEP_INSTRUCTIONS := "All fighting is resolved. Pick a unit to make its consolidation move (up to 3\"). Consolidating is optional — units you don't pick simply stay put."
+const STEP_MOVE_IN_PROGRESS_INSTRUCTIONS := "Drag the unit's models on the battlefield, then Confirm Move (or Skip) in the dialog below."
+
 # UI Elements
 var unit_selector: ItemList
 var attack_tree: Tree
@@ -254,6 +272,15 @@ func _setup_right_panel() -> void:
 
 	_add_fight_gold_separator(fight_panel)
 
+	# 11e global step sections (Pile In 12.02 / Consolidate 12.07) — hidden
+	# until their step is active. Picking which unit to activate happens HERE,
+	# on the right panel like every other phase, not in a board-covering
+	# pop-up (the old PileInStepDialog / ConsolidationStepDialog).
+	pile_in_step_panel = _build_step_panel("PileInStepPanel", "EndPileInButton", _on_end_pile_in_button_pressed)
+	fight_panel.add_child(pile_in_step_panel)
+	consolidation_step_panel = _build_step_panel("ConsolidationStepPanel", "EndConsolidationButton", _on_end_consolidation_button_pressed)
+	fight_panel.add_child(consolidation_step_panel)
+
 	# Fight sequence display
 	var sequence_label = Label.new()
 	sequence_label.text = "FIGHT SEQUENCE"
@@ -344,10 +371,11 @@ func _setup_right_panel() -> void:
 	fight_panel.add_child(fight_sequence_status)
 	# NOTE: The per-unit "MOVEMENT ACTIONS: Pile In / Consolidate" buttons were
 	# removed here. In 11e (12.02 / 12.07) pile-in and consolidate are GLOBAL
-	# phase steps driven by PileInStepDialog / ConsolidationStepDialog, not
-	# per-activation buttons. The old buttons were permanently disabled dead code
-	# (they queried can_unit_pile_in/can_unit_consolidate on the phase, which do
-	# not exist there) and dispatched a 10e payload the 11e validators reject.
+	# phase steps driven by the PileInStepPanel / ConsolidationStepPanel
+	# sections above, not per-activation buttons. The old buttons were
+	# permanently disabled dead code (they queried can_unit_pile_in/
+	# can_unit_consolidate on the phase, which do not exist there) and
+	# dispatched a 10e payload the 11e validators reject.
 
 func _add_fight_gold_separator(parent: VBoxContainer) -> void:
 	var spacer_top = Control.new()
@@ -360,6 +388,91 @@ func _add_fight_gold_separator(parent: VBoxContainer) -> void:
 	var spacer_bot = Control.new()
 	spacer_bot.custom_minimum_size = Vector2(0, 2)
 	parent.add_child(spacer_bot)
+
+func _build_step_panel(panel_name: String, end_button_name: String, end_handler: Callable) -> VBoxContainer:
+	"""Build one (hidden) right-panel section for a global fight-phase step
+	(Pile In / Consolidate). The skeleton is permanent — only the UnitList
+	buttons are rebuilt per step emission — so the End button is never freed
+	from inside its own pressed signal."""
+	var panel = VBoxContainer.new()
+	panel.name = panel_name
+	panel.visible = false
+
+	var step_title = Label.new()
+	step_title.name = "StepTitle"
+	step_title.add_theme_font_size_override("font_size", 13)
+	step_title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		step_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	panel.add_child(step_title)
+
+	var instructions = Label.new()
+	instructions.name = "StepInstructions"
+	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Bound the width so the autowrap label reports a sane minimum height
+	instructions.custom_minimum_size = Vector2(230, 0)
+	instructions.add_theme_font_size_override("font_size", 12)
+	panel.add_child(instructions)
+
+	var unit_list = VBoxContainer.new()
+	unit_list.name = "UnitList"
+	panel.add_child(unit_list)
+
+	var end_button = Button.new()
+	end_button.name = end_button_name
+	end_button.pressed.connect(end_handler)
+	panel.add_child(end_button)
+
+	_add_fight_gold_separator(panel)
+	return panel
+
+func _clear_step_unit_list(unit_list: Node) -> void:
+	"""Drop the per-unit step buttons. remove_child releases the stable
+	PileIn_/Consolidate_ node names immediately (queue_free alone is deferred,
+	and a same-frame repopulation would get its buttons auto-renamed)."""
+	if unit_list == null or not is_instance_valid(unit_list):
+		return
+	for child in unit_list.get_children():
+		unit_list.remove_child(child)
+		child.queue_free()
+
+func _hide_step_panels() -> void:
+	if pile_in_step_panel and is_instance_valid(pile_in_step_panel):
+		pile_in_step_panel.visible = false
+	if consolidation_step_panel and is_instance_valid(consolidation_step_panel):
+		consolidation_step_panel.visible = false
+
+func _show_step_panel_waiting(panel: VBoxContainer, title_text: String, waiting_text: String) -> void:
+	"""Multiplayer: the non-acting client sees whose half is running instead
+	of an interactive unit list (the old pop-up flow showed nothing at all)."""
+	if panel == null or not is_instance_valid(panel):
+		return
+	_hide_step_panels()
+	panel.get_node("StepTitle").text = title_text
+	panel.get_node("StepInstructions").text = waiting_text
+	_clear_step_unit_list(panel.get_node("UnitList"))
+	for btn_name in ["EndPileInButton", "EndConsolidationButton"]:
+		var b = panel.get_node_or_null(btn_name)
+		if b:
+			b.visible = false
+	panel.visible = true
+
+func _set_step_panel_busy(panel: VBoxContainer, busy: bool) -> void:
+	"""Grey the step section out while the chosen unit's interactive move is
+	in progress on the battlefield (prevents double-activation / ending the
+	half mid-move). Re-enabled when the move dialog closes or the phase
+	re-emits the step data."""
+	if panel == null or not is_instance_valid(panel):
+		return
+	var unit_list = panel.get_node_or_null("UnitList")
+	if unit_list:
+		for child in unit_list.get_children():
+			if child is Button:
+				child.disabled = busy
+	for btn_name in ["EndPileInButton", "EndConsolidationButton"]:
+		var b = panel.get_node_or_null(btn_name)
+		if b:
+			b.disabled = busy
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
@@ -441,7 +554,8 @@ func set_phase(phase: BasePhase) -> void:
 				print("DEBUG: T3-13 - No pending fight selection data (phase may not have entered yet)")
 
 		# 11e 12.02: the Pile In step starts during phase entry, before this
-		# controller connects — pull the missed step dialog (T3-13 pattern)
+		# controller connects — pull the missed step data (T3-13 pattern)
+		# and populate the right-panel step section from it
 		if phase.has_method("get_pending_pile_in_step_data"):
 			var pending_pile_in = phase.get_pending_pile_in_step_data()
 			if not pending_pile_in.is_empty():
@@ -663,8 +777,9 @@ func _update_ui_state() -> void:
 	# The Fight! / Clear All buttons, the CURRENT TARGETS basket, and the per-unit
 	# MOVEMENT ACTIONS (Pile In / Consolidate) buttons have all been removed —
 	# attack allocation is handled by the AttackAssignmentDialog pop-up, and
-	# pile-in/consolidate are global 11e phase steps (PileInStepDialog /
-	# ConsolidationStepDialog). There are no right-panel controls left to update.
+	# pile-in/consolidate are global 11e phase steps driven by the right-panel
+	# PileInStepPanel / ConsolidationStepPanel sections, which the step_required
+	# signal handlers populate directly.
 	pass
 
 func _refresh_available_actions() -> void:
@@ -1382,6 +1497,11 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 func _on_fight_selection_required(data: Dictionary) -> void:
 	"""Show fight selection dialog when phase requests it"""
 	print("DEBUG: FightController._on_fight_selection_required called")
+	# The Fight step's selection is starting (or a 12.08 forced fight is
+	# interrupting the Consolidate step) — the global-step unit sections don't
+	# apply while a fighter is being selected. They re-show when the phase
+	# re-emits their step data.
+	_hide_step_panels()
 	print("DEBUG: Dialog data: subphase=%s, player=%d, eligible=%d" % [
 		data.get("current_subphase", "?"),
 		data.get("selecting_player", 0),
@@ -1952,43 +2072,66 @@ func _on_consolidate_skipped(unit_id: String) -> void:
 # ============================================================================
 
 func _on_pile_in_step_required(data: Dictionary) -> void:
-	"""Show the Pile In-step unit picker for the piling-in player. The fight
-	phase opens here at 11e: each player in turn piles in the eligible units
-	they choose (optional per unit) or ends their half."""
+	"""Populate the right-panel Pile In-step section for the piling-in player.
+	The fight phase opens here at 11e: each player in turn piles in the
+	eligible units they choose (optional per unit) or ends their half. Unit
+	selection lives on the right panel like every other phase — the old
+	board-covering PileInStepDialog pop-up is gone."""
 	var piling_in_player = data.get("piling_in_player", 0)
 	print("[FightController] Pile In step: player %d, %d eligible unit(s)" % [
 		piling_in_player, data.get("eligible_units", {}).size()])
 
-	# Skip dialog for AI players — they submit PILE_IN/END_PILE_IN from
-	# get_available_actions directly
+	# AI players submit PILE_IN/END_PILE_IN from get_available_actions
+	# directly — no step panel for them
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(piling_in_player):
-		print("[FightController] Skipping pile-in step dialog for AI player %d" % piling_in_player)
+		print("[FightController] AI player %d piling in — step panel hidden" % piling_in_player)
+		_hide_step_panels()
 		return
 
-	# Multiplayer: only the piling-in player's client gets the picker
+	# Multiplayer: only the piling-in player's client gets the unit list
 	if NetworkManager.is_networked() and NetworkManager.get_local_player() != piling_in_player:
-		print("[FightController] Not local player's pile-in half — no dialog")
+		print("[FightController] Not local player's pile-in half — showing waiting note")
+		_show_step_panel_waiting(pile_in_step_panel,
+			"PILE IN STEP — PLAYER %d" % piling_in_player,
+			"Waiting for Player %d to finish their pile-in moves..." % piling_in_player)
 		return
 
-	# Close any stale picker (re-emitted after each pile-in). Release the
-	# stable node name NOW — queue_free is deferred, and the replacement
-	# dialog is added this frame under the same name.
-	for child in get_tree().root.get_children():
-		if child is AcceptDialog and child.get_script() == load("res://dialogs/PileInStepDialog.gd"):
-			child.name = "StalePileInStepDialog"
-			child.queue_free()
+	_populate_pile_in_step_panel(data)
 
-	var dialog_script = load("res://dialogs/PileInStepDialog.gd")
-	if not dialog_script:
-		push_error("Failed to load PileInStepDialog.gd")
+func _populate_pile_in_step_panel(data: Dictionary) -> void:
+	if pile_in_step_panel == null or not is_instance_valid(pile_in_step_panel):
+		print("[FightController] WARNING: pile_in_step_panel missing — right panel not built yet")
 		return
+	var player = data.get("piling_in_player", 0)
+	_pile_in_step_player = player
+	if consolidation_step_panel and is_instance_valid(consolidation_step_panel):
+		consolidation_step_panel.visible = false
 
-	var dialog = dialog_script.create(data, current_phase)
-	dialog.pile_in_unit_chosen.connect(_on_pile_in_step_unit_chosen)
-	dialog.end_pile_in.connect(_on_end_pile_in)
-	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	pile_in_step_panel.get_node("StepTitle").text = "PILE IN STEP — PLAYER %d" % player
+	pile_in_step_panel.get_node("StepInstructions").text = PILE_IN_STEP_INSTRUCTIONS
+
+	var unit_list = pile_in_step_panel.get_node("UnitList")
+	_clear_step_unit_list(unit_list)
+	var eligible: Dictionary = data.get("eligible_units", {})
+	for unit_id in eligible:
+		var info = eligible[unit_id]
+		var engaged: bool = info.get("engaged", false)
+		var unit_button = Button.new()
+		unit_button.name = "PileIn_%s" % unit_id
+		unit_button.text = "%s  %s" % [info.get("name", unit_id), "[Engaged]" if engaged else "[Charged]"]
+		unit_button.tooltip_text = "Engaged — every engaged enemy is a pile-in target" if engaged \
+			else "Charged this turn — pick enemy units within 5\" as targets"
+		unit_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		unit_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		unit_button.pressed.connect(_on_pile_in_step_unit_chosen.bind(unit_id))
+		unit_list.add_child(unit_button)
+
+	var end_button = pile_in_step_panel.get_node("EndPileInButton")
+	end_button.text = "End Pile In (Player %d)" % player
+	end_button.visible = true
+	end_button.disabled = false
+	pile_in_step_panel.visible = true
 
 func _on_pile_in_step_unit_chosen(unit_id: String) -> void:
 	"""Open the PileInDialog + interactive movement for the chosen unit"""
@@ -1996,7 +2139,16 @@ func _on_pile_in_step_unit_chosen(unit_id: String) -> void:
 	# The pile-in confirm path reads these for action.player / AI checks
 	current_fighter_id = unit_id
 	current_fighter_owner = int(unit.get("owner", GameState.get_active_player()))
+	# Grey the section out while the move is made on the battlefield; the
+	# phase re-emits pile_in_step_required (repopulating the section) once
+	# the move is confirmed or skipped.
+	_set_step_panel_busy(pile_in_step_panel, true)
+	if pile_in_step_panel and is_instance_valid(pile_in_step_panel):
+		pile_in_step_panel.get_node("StepInstructions").text = STEP_MOVE_IN_PROGRESS_INSTRUCTIONS
 	_on_pile_in_required(unit_id, 3.0)
+
+func _on_end_pile_in_button_pressed() -> void:
+	_on_end_pile_in(_pile_in_step_player)
 
 func _on_end_pile_in(player: int) -> void:
 	"""Current player passes — their pile-in half is over"""
@@ -2012,9 +2164,11 @@ func _on_end_pile_in(player: int) -> void:
 # ============================================================================
 
 func _on_consolidation_step_required(data: Dictionary) -> void:
-	"""Show the Consolidate-step unit picker for the consolidating player.
-	After all fighting, each player in turn consolidates the eligible units
-	they choose (optional per unit at 11e) or ends their half."""
+	"""Populate the right-panel Consolidate-step section for the consolidating
+	player. After all fighting, each player in turn consolidates the eligible
+	units they choose (optional per unit at 11e) or ends their half. Unit
+	selection lives on the right panel like every other phase — the old
+	board-covering ConsolidationStepDialog pop-up is gone."""
 	var consolidating_player = data.get("consolidating_player", 0)
 	print("[FightController] Consolidation step: player %d, %d eligible unit(s)" % [
 		consolidating_player, data.get("eligible_units", {}).size()])
@@ -2022,40 +2176,75 @@ func _on_consolidation_step_required(data: Dictionary) -> void:
 	# All fighting is resolved once the global Consolidate step opens, so tear
 	# down any board-covering fight dialogs left over from the last activation
 	# (staged FightSequenceDialog on its "Close" summary, orphaned
-	# AttackAssignmentDialog). They otherwise stack on top of the unit picker and
-	# hide the battlefield the player consolidates across.
+	# AttackAssignmentDialog). They otherwise hide the battlefield the player
+	# consolidates across.
 	_dismiss_blocking_fight_dialogs()
 
-	# Skip dialog for AI players — they submit CONSOLIDATE/END_CONSOLIDATION
-	# from get_available_actions directly
+	# AI players submit CONSOLIDATE/END_CONSOLIDATION from
+	# get_available_actions directly — no step panel for them
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(consolidating_player):
-		print("[FightController] Skipping consolidation step dialog for AI player %d" % consolidating_player)
+		print("[FightController] AI player %d consolidating — step panel hidden" % consolidating_player)
+		_hide_step_panels()
 		return
 
-	# Multiplayer: only the consolidating player's client gets the picker
+	# Multiplayer: only the consolidating player's client gets the unit list
 	if NetworkManager.is_networked() and NetworkManager.get_local_player() != consolidating_player:
-		print("[FightController] Not local player's consolidation half — no dialog")
+		print("[FightController] Not local player's consolidation half — showing waiting note")
+		_show_step_panel_waiting(consolidation_step_panel,
+			"CONSOLIDATE STEP — PLAYER %d" % consolidating_player,
+			"Waiting for Player %d to finish their consolidation moves..." % consolidating_player)
 		return
 
-	# Close any stale picker (e.g. re-emitted after each consolidation).
-	# Release the stable node name NOW — queue_free is deferred, and the
-	# replacement dialog is added this frame under the same name.
-	for child in get_tree().root.get_children():
-		if child is AcceptDialog and child.get_script() == load("res://dialogs/ConsolidationStepDialog.gd"):
-			child.name = "StaleConsolidationStepDialog"
-			child.queue_free()
+	_populate_consolidation_step_panel(data)
 
-	var dialog_script = load("res://dialogs/ConsolidationStepDialog.gd")
-	if not dialog_script:
-		push_error("Failed to load ConsolidationStepDialog.gd")
+func _populate_consolidation_step_panel(data: Dictionary) -> void:
+	if consolidation_step_panel == null or not is_instance_valid(consolidation_step_panel):
+		print("[FightController] WARNING: consolidation_step_panel missing — right panel not built yet")
 		return
+	var player = data.get("consolidating_player", 0)
+	_consolidation_step_player = player
+	if pile_in_step_panel and is_instance_valid(pile_in_step_panel):
+		pile_in_step_panel.visible = false
 
-	var dialog = dialog_script.create(data, current_phase)
-	dialog.consolidate_unit_chosen.connect(_on_consolidation_unit_chosen)
-	dialog.end_consolidation.connect(_on_end_consolidation)
-	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	consolidation_step_panel.get_node("StepTitle").text = "CONSOLIDATE STEP — PLAYER %d" % player
+	consolidation_step_panel.get_node("StepInstructions").text = CONSOLIDATE_STEP_INSTRUCTIONS
+
+	var unit_list = consolidation_step_panel.get_node("UnitList")
+	_clear_step_unit_list(unit_list)
+	var eligible: Dictionary = data.get("eligible_units", {})
+	for unit_id in eligible:
+		var info = eligible[unit_id]
+		var mode = str(info.get("mode", ""))
+		var mode_tag := ""
+		var mode_tooltip := ""
+		match mode:
+			"ongoing":
+				mode_tag = "[Ongoing]"
+				mode_tooltip = "Ongoing — engaged: move closer to the enemy"
+			"engaging":
+				mode_tag = "[Engaging]"
+				mode_tooltip = "Engaging — enemy within 3\": may move into engagement"
+			"objective":
+				mode_tag = "[Objective]"
+				mode_tooltip = "Objective within 3\": may move onto it"
+			_:
+				mode_tag = "[No move]"
+				mode_tooltip = "No move possible from here"
+		var unit_button = Button.new()
+		unit_button.name = "Consolidate_%s" % unit_id
+		unit_button.text = "%s  %s" % [info.get("name", unit_id), mode_tag]
+		unit_button.tooltip_text = mode_tooltip
+		unit_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		unit_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		unit_button.pressed.connect(_on_consolidation_unit_chosen.bind(unit_id))
+		unit_list.add_child(unit_button)
+
+	var end_button = consolidation_step_panel.get_node("EndConsolidationButton")
+	end_button.text = "End Consolidation (Player %d)" % player
+	end_button.visible = true
+	end_button.disabled = false
+	consolidation_step_panel.visible = true
 
 func _on_consolidation_unit_chosen(unit_id: String) -> void:
 	"""Open the ConsolidateDialog + interactive movement for the chosen unit"""
@@ -2063,10 +2252,19 @@ func _on_consolidation_unit_chosen(unit_id: String) -> void:
 	# The consolidate confirm path reads these for action.player / AI checks
 	current_fighter_id = unit_id
 	current_fighter_owner = int(unit.get("owner", GameState.get_active_player()))
+	# Grey the section out while the move is made on the battlefield; the
+	# phase re-emits consolidation_step_required (repopulating the section)
+	# once the move is confirmed or skipped.
+	_set_step_panel_busy(consolidation_step_panel, true)
+	if consolidation_step_panel and is_instance_valid(consolidation_step_panel):
+		consolidation_step_panel.get_node("StepInstructions").text = STEP_MOVE_IN_PROGRESS_INSTRUCTIONS
 	var dist = 3.0
 	if current_phase and current_phase.has_method("_get_consolidation_distance"):
 		dist = current_phase._get_consolidation_distance(unit_id)
 	_on_consolidate_required(unit_id, dist)
+
+func _on_end_consolidation_button_pressed() -> void:
+	_on_end_consolidation(_consolidation_step_player)
 
 func _on_end_consolidation(player: int) -> void:
 	"""Current player passes — their consolidation half is over"""
@@ -2108,6 +2306,10 @@ func _dismiss_blocking_fight_dialogs() -> void:
 
 func _on_subphase_transition(from_subphase: String, to_subphase: String) -> void:
 	"""Show notification when transitioning between subphases"""
+	# A step boundary always retires the current global-step section; the
+	# PILE_IN / CONSOLIDATE targets repopulate via their step_required
+	# emissions, which follow the transition signal.
+	_hide_step_panels()
 	if dice_log_display:
 		dice_log_display.append_text("\n[color=yellow]=== %s Complete ===[/color]\n" % from_subphase)
 		dice_log_display.append_text("[color=yellow]Starting %s...[/color]\n\n" % to_subphase)
@@ -2295,6 +2497,19 @@ func _disable_pile_in_mode() -> void:
 
 	# Clean up visual indicators
 	_clear_pile_in_visuals()
+
+	# Re-enable the global-step sections (covers the move dialog being closed
+	# without confirming — the unit hasn't spent its step move, so it can be
+	# picked again). On the confirm path the phase has already repopulated the
+	# section by the time the dialog frees, so this is a harmless no-op.
+	_set_step_panel_busy(pile_in_step_panel, false)
+	_set_step_panel_busy(consolidation_step_panel, false)
+	if pile_in_step_panel and is_instance_valid(pile_in_step_panel) and pile_in_step_panel.visible \
+			and pile_in_step_panel.get_node("StepInstructions").text == STEP_MOVE_IN_PROGRESS_INSTRUCTIONS:
+		pile_in_step_panel.get_node("StepInstructions").text = PILE_IN_STEP_INSTRUCTIONS
+	if consolidation_step_panel and is_instance_valid(consolidation_step_panel) and consolidation_step_panel.visible \
+			and consolidation_step_panel.get_node("StepInstructions").text == STEP_MOVE_IN_PROGRESS_INSTRUCTIONS:
+		consolidation_step_panel.get_node("StepInstructions").text = CONSOLIDATE_STEP_INSTRUCTIONS
 
 	print("[FightController] Pile-in mode disabled")
 

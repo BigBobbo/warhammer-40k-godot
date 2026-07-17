@@ -9,6 +9,11 @@ extends AcceptDialog
 # RESTRICTION: Once per phase.
 #
 # Shows the original roll and lets the player choose to re-roll or keep it.
+#
+# FREE-ABILITY MODE: pass a non-empty p_free_ability_name to setup() (e.g.
+# "Swift Onslaught") and the dialog rebrands as that ability's FREE re-roll —
+# no stratagem header, no CP cost on the button, and an explicit "costs no CP"
+# line. The signals are unchanged, so callers wire used/declined the same way.
 
 signal command_reroll_used(unit_id: String, player: int)
 signal command_reroll_declined(unit_id: String, player: int)
@@ -20,8 +25,10 @@ var roll_type: String = ""
 var original_rolls: Array = []
 var roll_total: int = 0
 var roll_context_text: String = ""
+var free_ability_name: String = ""
+var _choice_made: bool = false
 
-func setup(p_unit_id: String, p_player: int, p_roll_type: String, p_original_rolls: Array, p_context_text: String = "") -> void:
+func setup(p_unit_id: String, p_player: int, p_roll_type: String, p_original_rolls: Array, p_context_text: String = "", p_free_ability_name: String = "") -> void:
 	# Stable node name so windowed scenarios can address the dialog and its
 	# buttons regardless of which controller spawned it.
 	name = "CommandRerollDialog"
@@ -31,6 +38,7 @@ func setup(p_unit_id: String, p_player: int, p_roll_type: String, p_original_rol
 	roll_type = p_roll_type
 	original_rolls = p_original_rolls
 	roll_context_text = p_context_text
+	free_ability_name = p_free_ability_name
 
 	roll_total = 0
 	for r in original_rolls:
@@ -40,11 +48,21 @@ func setup(p_unit_id: String, p_player: int, p_roll_type: String, p_original_rol
 	var _crd_meta = unit.get("meta", {})
 	unit_name = _crd_meta.get("display_name", _crd_meta.get("name", unit_id))
 
-	title = "Command Re-roll Available - Player %d" % player
+	if free_ability_name != "":
+		title = "%s — Free Re-roll - Player %d" % [free_ability_name, player]
+	else:
+		title = "Command Re-roll Available - Player %d" % player
 	min_size = DialogConstants.SMALL
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
+
+	# The pending reroll decision pauses the phase, so the dialog must always
+	# resolve to used/declined. Closing it any other way (✕ button, ESC) counts
+	# as keeping the roll — otherwise the phase waits forever on a decision the
+	# player can no longer give.
+	canceled.connect(_on_dialog_dismissed)
+	close_requested.connect(_on_dialog_dismissed)
 
 	_build_ui()
 
@@ -56,7 +74,8 @@ func _build_ui() -> void:
 
 	# Header
 	var header = Label.new()
-	header.text = "COMMAND RE-ROLL"
+	header.name = "HeaderLabel"
+	header.text = ("%s — FREE RE-ROLL" % free_ability_name.to_upper()) if free_ability_name != "" else "COMMAND RE-ROLL"
 	header.add_theme_font_size_override("font_size", 22)
 	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -64,7 +83,8 @@ func _build_ui() -> void:
 
 	# Subheader
 	var subheader = Label.new()
-	subheader.text = "Core — Battle Tactic Stratagem (1 CP)"
+	subheader.name = "SubheaderLabel"
+	subheader.text = "Unit Ability — Free Re-roll" if free_ability_name != "" else "Core — Battle Tactic Stratagem (1 CP)"
 	subheader.add_theme_font_size_override("font_size", 12)
 	subheader.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -118,12 +138,17 @@ func _build_ui() -> void:
 		context_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_container.add_child(context_label)
 
-	# CP availability
-	var current_cp = StratagemManager.get_player_cp(player)
+	# CP availability — or, for a free ability reroll, make it unmissable that
+	# no CP is needed (a 0-CP player must still be able to use it).
 	var cp_label = Label.new()
-	cp_label.text = "You have %d CP" % current_cp
+	cp_label.name = "CpLabel"
+	if free_ability_name != "":
+		cp_label.text = "FREE — costs no CP"
+		cp_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+	else:
+		cp_label.text = "You have %d CP" % StratagemManager.get_player_cp(player)
+		cp_label.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
 	cp_label.add_theme_font_size_override("font_size", 11)
-	cp_label.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
 	cp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(cp_label)
 
@@ -135,25 +160,35 @@ func _build_ui() -> void:
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	button_container.add_theme_constant_override("separation", 16)
 
-	var use_button = Button.new()
-	use_button.name = "UseRerollButton"
-	use_button.text = "Re-roll (1 CP)"
-	use_button.custom_minimum_size = Vector2(160, 42)
-	use_button.pressed.connect(_on_use_pressed)
-	WhiteDwarfTheme.apply_primary_button(use_button)
-	button_container.add_child(use_button)
-
+	# "Keep Roll" is the safe, non-destructive choice, so it is the highlighted
+	# default on the LEFT. This prevents a player from instinctively clicking the
+	# prominent left-hand button and accidentally spending a CP (or burning a good
+	# roll on a free re-roll that might come back worse) — especially after a
+	# successful charge, where re-rolling almost never makes sense.
 	var decline_button = Button.new()
 	decline_button.name = "KeepRollButton"
 	decline_button.text = "Keep Roll"
-	decline_button.custom_minimum_size = Vector2(130, 42)
+	decline_button.custom_minimum_size = Vector2(160, 42)
 	decline_button.pressed.connect(_on_decline_pressed)
-	WhiteDwarfTheme.apply_secondary_button(decline_button)
+	WhiteDwarfTheme.apply_primary_button(decline_button)
 	button_container.add_child(decline_button)
+
+	var use_button = Button.new()
+	use_button.name = "UseRerollButton"
+	use_button.text = "Re-roll (Free)" if free_ability_name != "" else "Re-roll (1 CP)"
+	use_button.custom_minimum_size = Vector2(130, 42)
+	use_button.pressed.connect(_on_use_pressed)
+	WhiteDwarfTheme.apply_secondary_button(use_button)
+	button_container.add_child(use_button)
 
 	main_container.add_child(button_container)
 
 	add_child(main_container)
+
+	# Focus the safe default so a keyboard/controller confirm (Enter/Space) keeps
+	# the roll rather than spending a CP. Deferred because the buttons are not in
+	# the scene tree until the dialog is added and popped up by the caller.
+	decline_button.grab_focus.call_deferred()
 
 func _get_roll_type_display() -> String:
 	match roll_type:
@@ -175,13 +210,30 @@ func _get_roll_type_display() -> String:
 			return roll_type
 
 func _on_use_pressed() -> void:
-	print("CommandRerollDialog: Player %d uses COMMAND RE-ROLL on %s (%s)" % [player, unit_name, roll_type])
+	if _choice_made:
+		return
+	_choice_made = true
+	print("CommandRerollDialog: Player %d uses %s on %s (%s)" % [player, "FREE RE-ROLL (%s)" % free_ability_name if free_ability_name != "" else "COMMAND RE-ROLL", unit_name, roll_type])
 	emit_signal("command_reroll_used", unit_id, player)
 	hide()
 	queue_free()
 
 func _on_decline_pressed() -> void:
+	if _choice_made:
+		return
+	_choice_made = true
 	print("CommandRerollDialog: Player %d keeps original roll for %s (%s)" % [player, unit_name, roll_type])
 	emit_signal("command_reroll_declined", unit_id, player)
 	hide()
+	queue_free()
+
+func _on_dialog_dismissed() -> void:
+	# ✕ button or ESC — treat as "Keep Roll" so the paused phase gets its
+	# decision instead of waiting forever (the buttons guard on _choice_made,
+	# so a dismiss after a real click is a no-op).
+	if _choice_made:
+		return
+	_choice_made = true
+	print("CommandRerollDialog: Player %d dismissed the dialog — keeping original roll for %s (%s)" % [player, unit_name, roll_type])
+	emit_signal("command_reroll_declined", unit_id, player)
 	queue_free()

@@ -1,0 +1,74 @@
+{
+  "id": "charge_reroll_keep_default_button",
+  "covers": [
+    "dialogs.CommandRerollDialog.keep_roll_is_highlighted_default",
+    "charge.reroll.keep_roll_default_button_order"
+  ],
+  "fixture": "audit_372_charge_modifier",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Charge-success button-order fix: when a charge roll opens the Command Re-roll dialog, the safe, non-destructive 'Keep Roll' choice must be the HIGHLIGHTED DEFAULT button on the LEFT, and the CP-spending 'Re-roll (1 CP)' the secondary button on the RIGHT — the reverse of the old layout, which invited a player to instinctively click the prominent left-hand button and waste a CP after a successful charge. Player path (mirrors charge_multi_step_movement's dialog trigger): U_WARBOSS_B (owner 2) declares a charge on the Blade Champion and CHARGE_ROLLs (seed 23 -> 12), which pauses and emits command_reroll_opportunity so ChargeController spawns the real CommandRerollDialog. Asserts against the LIVE dialog: (1) ButtonRow child 0 is 'KeepRollButton' and child 1 is 'UseRerollButton' (Keep Roll now on the left); (2) KeepRollButton carries the primary/highlighted style (font_size 16) and UseRerollButton the secondary style (font_size 13) — proving the highlight moved to Keep Roll; (3) KeepRollButton holds keyboard focus so an Enter/confirm keeps the roll rather than spending a CP. Finally the real 'Keep Roll' button is clicked and the dialog frees itself, confirming the safe default path still declines the re-roll.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"position\": {\"x\": 300.0, \"y\": 1880.0}, \"rotation\": 0.0}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"position\": {\"x\": 300.0, \"y\": 2160.0}, \"rotation\": 0.0}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].merge({\"flags\": {}}, true)" },
+    { "act": "execute_script", "script": "main.update_unit_visuals(\"U_WARBOSS_B\")" },
+    { "act": "execute_script", "script": "main.update_unit_visuals(\"U_BLADE_CHAMPION_A\")" },
+    { "act": "wait_for_tweens" },
+    { "act": "wait_frames", "frames": 8 },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_CHARGE",
+      "actor_unit_id": "U_WARBOSS_B",
+      "payload": { "target_unit_ids": ["U_BLADE_CHAMPION_A"] }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "CHARGE_ROLL",
+      "actor_unit_id": "U_WARBOSS_B",
+      "payload": { "rng_seed": 23 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/CommandRerollDialog", "timeout_s": 3.0 },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "screenshot", "label": "01_reroll_dialog_keep_roll_left_and_highlighted" },
+
+    { "act": "execute_script",
+      "script": "str(get_tree().root.get_node(\"CommandRerollDialog/Content/ButtonRow\").get_child(0).name)",
+      "equals": "KeepRollButton" },
+    { "act": "execute_script",
+      "script": "str(get_tree().root.get_node(\"CommandRerollDialog/Content/ButtonRow\").get_child(1).name)",
+      "equals": "UseRerollButton" },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"CommandRerollDialog/Content/ButtonRow/KeepRollButton\").get_theme_font_size(\"font_size\")",
+      "equals": 16 },
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"CommandRerollDialog/Content/ButtonRow/UseRerollButton\").get_theme_font_size(\"font_size\")",
+      "equals": 13 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"CommandRerollDialog/Content/ButtonRow/KeepRollButton\").has_focus()",
+      "equals": true },
+
+    { "act": "click_node",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton",
+      "emit_pressed": true },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node_or_null(\"CommandRerollDialog\") == null",
+      "equals": true },
+    { "act": "screenshot", "label": "02_kept_roll_dialog_dismissed" }
+  ]
+}

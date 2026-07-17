@@ -65,12 +65,12 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/PileInStepDialog",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
       "timeout_s": 5.0
     },
     {
       "act": "click_node",
-      "node": "/root/PileInStepDialog/Content/EndPileInButton",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
       "emit_pressed": true
     },
     {
@@ -79,7 +79,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/PileInStepDialog/Content/EndPileInButton",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
       "emit_pressed": true
     },
     {
