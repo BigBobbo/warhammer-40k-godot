@@ -4943,6 +4943,17 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 			if target_unit.get("owner", 0) == actor_unit.get("owner", 0):
 				errors.append("Cannot target friendly units")
 
+			# ATTACHED CHARACTER (19.02): while a CHARACTER is attached to a
+			# bodyguard the combined Attached unit is ONE unit — the character
+			# can never be selected as a separate ranged-attack target.
+			# get_eligible_targets already hides these from the UI; this is the
+			# authoritative engine gate for callers that bypass it (the AI
+			# focus-fire plan used to shoot attached leaders directly and the
+			# defender then had no bodyguard models to allocate wounds to).
+			if target_unit.get("attached_to", null) != null:
+				var attached_name = target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id))
+				errors.append("Cannot target '%s' — attached character; shoot the bodyguard unit instead" % attached_name)
+
 			# 10e TARGETING RESTRICTION: Cannot target enemies in engagement with friendly units
 			# Exception: MONSTER and VEHICLE targets can always be targeted (Big Guns Never Tire)
 			if not is_monster_or_vehicle(target_unit):
@@ -14360,6 +14371,11 @@ static func get_grenade_eligible_targets(actor_unit_id: String, board: Dictionar
 
 		# Skip friendly units
 		if target_unit.get("owner", 0) == actor_owner:
+			continue
+
+		# Skip attached characters — the Attached unit is one unit (19.02);
+		# GRENADE must target the bodyguard unit, same as any ranged attack.
+		if target_unit.get("attached_to", null) != null:
 			continue
 
 		# Skip destroyed units
