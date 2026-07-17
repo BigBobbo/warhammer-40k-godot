@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.53.4",
+			"date": "2026-07-17",
+			"summary": "Re-roll dialogs (charge re-rolls, Command Re-roll, ability re-rolls like Swift Onslaught) now make 'Keep Roll' the highlighted default on the LEFT and 'Re-roll' the plainer button on the RIGHT. Previously the CP-spending re-roll was the prominent left-hand button, which invited an accidental click that wasted a Command Point — especially right after a successful charge, where re-rolling almost never makes sense.",
+			"changes": [
+				"Swapped the buttons in the re-roll pop-up: 'Keep Roll' is now the highlighted button on the left; 'Re-roll' is the secondary button on the right.",
+				"'Keep Roll' now also holds keyboard focus, so pressing Enter/confirm keeps your roll instead of spending a Command Point.",
+				"Applies to every re-roll prompt that uses this dialog (charge rolls, Command Re-roll, and free ability re-rolls such as Swift Onslaught)."
+			]
+		},
+		{
 			"version": "0.53.3",
 			"date": "2026-07-17",
 			"summary": "Fixed the free charge re-roll from abilities like the Blade Champion's Swift Onslaught looking unusable: the dialog offering it was branded as the 1 CP Command Re-roll stratagem, so with 0 CP it read as unaffordable. It now clearly says the re-roll is FREE, and closing the dialog with ✕ or ESC no longer leaves the charge stuck waiting for an answer.",
