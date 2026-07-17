@@ -4,10 +4,11 @@
 		{
 			"version": "0.49.2",
 			"date": "2026-07-17",
-			"summary": "Fixed the split-fire bug where shooting at two different targets only rolled dice for the first one. When your first weapon caused wounds and the enemy made saves, the game silently forgot every remaining weapon assignment and offered 'Complete Shooting' — the second target was never attacked. The full sequence now continues weapon by weapon until every declared target has been resolved.",
+			"summary": "Fixed the split-fire bug where shooting at two different targets only rolled dice for the first one, and fixed Fast Roll re-rolling weapons it had already rolled. Multi-target shooting now reliably resolves every declared weapon and target, in both step-by-step and Fast Roll modes.",
 			"changes": [
 				"Fixed: after the enemy resolved saves against your first weapon, the remaining weapons aimed at OTHER targets were dropped — the 'weapon 2 of 2' roll never happened. All declared targets now resolve in order.",
 				"Fixed: the 'Continue to Next Weapon' step was rejected with a 'Not in sequential mode' error in single-player, which dead-ended the shooting sequence and rebuilt the weapon panel mid-resolution.",
+				"Fixed: 'Fast Roll All' rolled every weapon up front but only ever applied the first weapon's wounds — then rolled the remaining weapons AGAIN (discarding their first results). Fast Roll now resolves weapon by weapon with no pauses: same dice fairness as step-by-step, just faster.",
 				"The attack summary between weapons correctly lists the remaining weapons and their targets."
 			]
 		},

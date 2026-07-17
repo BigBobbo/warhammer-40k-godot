@@ -3229,7 +3229,33 @@ func _process_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 	DebugLogger.info(str("ShootingPhase: confirmed_assignments after = ", confirmed_assignments))
 
 	if fast_roll:
-		# Fast roll all weapons at once (existing behavior)
+		# SINGLE-PLAYER FAST ROLL: resolve weapon-by-weapon through the SAME
+		# sequential-staged machinery with every pause auto-skipped, instead of
+		# one combined RulesEngine call. The old combined path rolled ALL
+		# weapons up front but the save flow only ever applied the FIRST
+		# (weapon, target) batch — then offered "Continue to Next Weapon",
+		# RE-ROLLING the remaining weapons and silently discarding any wounds
+		# they had already caused. Weapon-by-weapon keeps per-target saves,
+		# per-weapon phase-log records and destroyed-target skipping correct.
+		# Networked play keeps the combined path (its save broadcast/ack sync
+		# depends on the single batched save_data_list).
+		if not NetworkManager.is_networked():
+			log_phase_message("Fast rolling all weapons (sequential, no pauses)")
+			resolution_state = {
+				"mode": "sequential_staged",
+				"auto_continue": true,
+				"weapon_order": weapon_order,
+				"current_index": 0,
+				"completed_weapons": [],
+				"awaiting_saves": false,
+				"stage": ""
+			}
+			var fast_seq_result = _resolve_next_weapon()
+			DebugLogger.info(str("ShootingPhase: SP fast roll (auto-continue) result = ", fast_seq_result.get("success", false)))
+			DebugLogger.info("========================================")
+			return fast_seq_result
+
+		# Fast roll all weapons at once (networked behavior)
 		log_phase_message("Fast rolling all weapons")
 		resolution_state = {
 			"mode": "fast",
@@ -3640,6 +3666,20 @@ func _finish_weapon_resolution(current_assignment: Dictionary, weapon_id: String
 				"log_text": log_text
 			})
 
+		# FAST ROLL (auto-continue): a weapon that caused no wounds also flows
+		# straight into the next weapon — no between-weapon pause.
+		if resolution_state.get("auto_continue", false) and not remaining_weapons.is_empty():
+			DebugLogger.info("ShootingPhase: FAST ROLL auto-continue (no wounds) — deferring CONTINUE_SEQUENCE")
+			var fast_miss_changes = []
+			if not pending_one_shot_diffs.is_empty():
+				fast_miss_changes.append_array(pending_one_shot_diffs)
+				pending_one_shot_diffs.clear()
+			call_deferred("_auto_continue_next_weapon")
+			return create_result(true, fast_miss_changes, "Weapon %d complete (no wounds) — fast-rolling next weapon" % (current_index + 1), {
+				"dice": dice_data,
+				"log_text": log_text
+			})
+
 		# Get last weapon result for dialog display
 		var last_weapon_result = _get_last_weapon_result()
 
@@ -3818,6 +3858,12 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 	resolution_state.staged_dice = dice_data
 	resolution_state.staged_wound_context = {}
 	resolution_state.staged_save_data_list = []
+
+	# FAST ROLL (auto-continue): the attacker chose "Fast Roll All", so skip the
+	# hit pause and roll straight through wounds to the saving throws.
+	# pause=false in _staged_continue_to_wounds also skips the wound pause.
+	if resolution_state.get("auto_continue", false):
+		return _staged_continue_to_wounds(false)
 
 	var hc = hres.get("hit_context", {})
 	var can_reroll = _shooting_reroll_available() and not hc.get("is_torrent", false) and not (hc.get("hit_rolls", []) as Array).is_empty()
@@ -6900,6 +6946,19 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 					"log_text": save_log_text
 				})
 
+			# FAST ROLL (auto-continue): no between-weapon pause — after this
+			# batch's diffs are applied by BasePhase, continue the sequence as
+			# if the attacker pressed "Continue to Next Weapon". Deferred so the
+			# casualties from THIS weapon land in GameState before the next
+			# weapon rolls (blast/rapid-fire model counts, destroyed-target skip).
+			if resolution_state.get("auto_continue", false) and not remaining_weapons.is_empty():
+				DebugLogger.info("ShootingPhase: FAST ROLL auto-continue — deferring CONTINUE_SEQUENCE")
+				call_deferred("_auto_continue_next_weapon")
+				return create_result(true, all_diffs, "Weapon %d complete — fast-rolling next weapon" % (current_index + 1), {
+					"dice": save_dice_blocks,
+					"log_text": save_log_text
+				})
+
 			# Get last weapon result for dialog display
 			var last_weapon_result = _get_last_weapon_result()
 
@@ -7059,6 +7118,23 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	return result
+
+# FAST ROLL: drive the next weapon through the normal action pipeline so
+# validation, diff application and signals flow exactly like a manual
+# "Continue to Next Weapon" press. Deferred from _process_apply_saves /
+# _finish_weapon_resolution so the current batch's diffs land in GameState
+# before the next weapon rolls.
+func _auto_continue_next_weapon() -> void:
+	if resolution_state.get("mode", "") != "sequential_staged":
+		return
+	if not resolution_state.get("auto_continue", false):
+		return
+	var idx = int(resolution_state.get("current_index", 0))
+	var order = resolution_state.get("weapon_order", [])
+	if idx >= order.size():
+		return
+	DebugLogger.info("ShootingPhase: FAST ROLL auto-continue — executing CONTINUE_SEQUENCE (weapon %d of %d)" % [idx + 1, order.size()])
+	execute_action({"type": "CONTINUE_SEQUENCE"})
 
 func _process_continue_sequence(action: Dictionary) -> Dictionary:
 	"""Process continuation to next weapon in sequential mode"""
