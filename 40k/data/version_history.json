@@ -10,7 +10,9 @@
 				"First assignment for a weapon commits all its eligible bearers immediately — the 'Send N of M' popup no longer appears for the common case.",
 				"Split fire by clicking a second target with the weapon selected: a 'Move how many?' picker retargets a slice of the committed bearers (no more dead-end 'No bearers can fire').",
 				"Fixed: an engaged MONSTER/VEHICLE could assign targets outside its engagement (legal per 10.06) and then have Confirm reject the whole plan with 'can only target engaged units'. Confirm now applies the same 11e shooting-type rules as assignment.",
-				"Fixed: auto-assign and quick-assign no longer dispatch assignments the rules engine would reject (which surfaced as red 'Shooting action rejected' banners the player never caused) — illegal weapons are quietly skipped and listed."
+				"Fixed: auto-assign and quick-assign no longer dispatch assignments the rules engine would reject (which surfaced as red 'Shooting action rejected' banners the player never caused) — illegal weapons are quietly skipped and listed.",
+				"Target chips: every declared target gets a letter badge (A, B, C…) with its own color, shown on the battlefield next to the unit and reused in the weapon rows ('1→[B] Blade Champion') and the CURRENT TARGETS list — one visual identity for 'which weapon goes where'.",
+				"During resolution the chip of the target currently being shot grows and the others dim, so the battlefield itself shows whose turn it is to take fire."
 			]
 		},
 		{

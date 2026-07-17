@@ -137,6 +137,22 @@ const LOS_LINE_WIDTH = 2.0
 const SHOOTING_LINE_COLOR = Color(1.0, 0.5, 0.0, 0.8)  # Orange for shooting lines
 const SHOOTING_LINE_WIDTH = 3.0
 
+# B1 (audit 2026-07): TARGET CHIPS — every declared target gets a stable
+# letter + color, rendered as a badge on the battlefield and reused in the
+# weapon rows, the CURRENT TARGETS basket and the resolution progress, so
+# "which weapon goes where" always has one visual identity everywhere.
+const TARGET_CHIP_COLORS: Array = [
+	Color(1.0, 0.78, 0.2),   # A — gold
+	Color(0.35, 0.8, 1.0),   # B — sky blue
+	Color(1.0, 0.45, 0.85),  # C — magenta
+	Color(0.55, 1.0, 0.55),  # D — green
+	Color(1.0, 0.55, 0.3),   # E — orange
+	Color(0.75, 0.7, 1.0),   # F — lavender
+]
+var target_chips_container: Node2D = null
+var _target_chip_letters: Dictionary = {}   # target_unit_id -> "A"/"B"/...
+var _active_chip_target_id: String = ""     # target being resolved right now
+
 # T36: pending-target add/clear/commit. Click-only adds to pending_targets
 # without firing. ENTER (or commit_targets()) marks targets_committed = true
 # and would trigger the real resolution downstream. Idempotent on duplicate
@@ -365,6 +381,11 @@ func _create_shooting_visuals() -> void:
 	shooting_lines_container = Node2D.new()
 	shooting_lines_container.name = "ShootingLinesContainer"
 	board_root.add_child(shooting_lines_container)
+
+	# B1: container for the per-target letter chips (A/B/C badges)
+	target_chips_container = Node2D.new()
+	target_chips_container.name = "ShootingTargetChips"
+	board_root.add_child(target_chips_container)
 
 	# T7-53: Create damage feedback visual for floating damage numbers
 	var board_view_ref = SceneRefs.board_view()
@@ -1443,9 +1464,124 @@ func _show_range_label(position: Vector2, text: String) -> void:
 	label.add_theme_constant_override("shadow_offset_y", 1)
 	range_visual.add_child(label)
 
+# ==========================================
+# B1 (audit 2026-07): TARGET CHIPS
+# ==========================================
+
+func _chip_letter(target_id: String) -> String:
+	return _target_chip_letters.get(target_id, "")
+
+func _chip_color(target_id: String) -> Color:
+	var letter = _chip_letter(target_id)
+	if letter == "":
+		return Color(0.5, 0.85, 0.5)
+	var idx = letter.unicode_at(0) - 65  # 'A'
+	return TARGET_CHIP_COLORS[idx % TARGET_CHIP_COLORS.size()]
+
+# "[A] " prefix for UI rows; empty when the target has no chip yet.
+func _chip_prefix(target_id: String) -> String:
+	var letter = _chip_letter(target_id)
+	return "[%s] " % letter if letter != "" else ""
+
+# Rebuild the letter map + board badges from the phase's authoritative
+# assignment state (pending during declaration, confirmed/weapon_order during
+# resolution). Letters are assigned in first-seen order and stay stable for
+# the whole activation.
+func _refresh_target_chips() -> void:
+	if target_chips_container == null or not is_instance_valid(target_chips_container):
+		return
+
+	# Collect targets in declaration order from whatever state exists right now
+	var ordered_targets: Array = []
+	if current_phase:
+		var sources: Array = []
+		if "pending_assignments" in current_phase:
+			sources.append(current_phase.pending_assignments)
+		if "confirmed_assignments" in current_phase:
+			sources.append(current_phase.confirmed_assignments)
+		if "resolution_state" in current_phase:
+			sources.append(current_phase.resolution_state.get("weapon_order", []))
+		for source in sources:
+			for a in source:
+				var tid = a.get("target_unit_id", "")
+				if tid != "" and tid not in ordered_targets:
+					ordered_targets.append(tid)
+
+	# Assign letters to newly-seen targets (existing letters never change)
+	for tid in ordered_targets:
+		if not _target_chip_letters.has(tid):
+			_target_chip_letters[tid] = char(65 + (_target_chip_letters.size() % 26))
+
+	# Rebuild badges
+	for child in target_chips_container.get_children():
+		child.queue_free()
+	for tid in ordered_targets:
+		var target_unit = GameState.get_unit(tid)
+		if target_unit.is_empty():
+			continue
+		var anchor := Vector2.ZERO
+		for m in target_unit.get("models", []):
+			if m.get("alive", true):
+				anchor = _get_model_position(m)
+				if anchor != Vector2.ZERO:
+					break
+		if anchor == Vector2.ZERO:
+			continue
+		var chip := PanelContainer.new()
+		chip.name = "TargetChip_%s" % tid
+		var style := StyleBoxFlat.new()
+		style.bg_color = _chip_color(tid)
+		style.set_corner_radius_all(5)
+		style.content_margin_left = 7
+		style.content_margin_right = 7
+		style.content_margin_top = 2
+		style.content_margin_bottom = 2
+		chip.add_theme_stylebox_override("panel", style)
+		var lbl := Label.new()
+		lbl.text = _chip_letter(tid)
+		lbl.add_theme_font_size_override("font_size", 16)
+		lbl.add_theme_color_override("font_color", Color(0.08, 0.08, 0.08))
+		chip.add_child(lbl)
+		chip.position = anchor + Vector2(20, -74)
+		chip.z_index = 6
+		chip.set_meta("target_id", tid)
+		target_chips_container.add_child(chip)
+	_apply_active_chip_emphasis()
+
+# During resolution, brighten the chip of the target currently being resolved
+# and dim the others — the battlefield itself shows "weapon 2 of 3 → B".
+func _set_active_target_chip(target_id: String) -> void:
+	_active_chip_target_id = target_id
+	_apply_active_chip_emphasis()
+
+func _apply_active_chip_emphasis() -> void:
+	if target_chips_container == null or not is_instance_valid(target_chips_container):
+		return
+	for chip in target_chips_container.get_children():
+		var tid = str(chip.get_meta("target_id", ""))
+		if _active_chip_target_id == "":
+			chip.modulate = Color(1, 1, 1, 1)
+			chip.scale = Vector2.ONE
+		elif tid == _active_chip_target_id:
+			chip.modulate = Color(1, 1, 1, 1)
+			chip.scale = Vector2(1.3, 1.3)
+		else:
+			chip.modulate = Color(1, 1, 1, 0.4)
+			chip.scale = Vector2.ONE
+
+func _clear_target_chips() -> void:
+	_target_chip_letters.clear()
+	_active_chip_target_id = ""
+	if target_chips_container and is_instance_valid(target_chips_container):
+		for child in target_chips_container.get_children():
+			child.queue_free()
+
 func _clear_visuals() -> void:
 	"""Clear all shooting visual elements from the board"""
 	print("ShootingController: Clearing all visuals")
+
+	# B1: clear target chips
+	_clear_target_chips()
 
 	# Clear LoS line
 	if los_visual and is_instance_valid(los_visual):
@@ -1931,6 +2067,7 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	_manual_assignment_made = false
 	if shooter_changed:
 		_auto_assign_logged = false
+		_clear_target_chips()  # B1: fresh unit, fresh chip letters
 
 	# NEW: Hide auto-target button when selecting new shooter
 	if auto_target_button_container:
@@ -2022,6 +2159,10 @@ func _on_shooting_begun(unit_id: String) -> void:
 			var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 			# Local player gets tracer animation; remote gets static line (already has remote lines from assignment)
 			_create_shooting_line_visual(positions.from, positions.to, weapon_name, is_local_active)
+
+	# B1: keep the target chips alive through resolution (pending_assignments is
+	# cleared by CONFIRM_TARGETS; confirmed_assignments carries the targets now).
+	_refresh_target_chips()
 
 	# Show feedback in dice log on remote player
 	if not is_local_active and dice_log_display:
@@ -2275,6 +2416,10 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	# P3-117: Record roll in centralized dice history
 	if DiceHistoryPanel:
 		DiceHistoryPanel.record_roll(dice_data, "Shooting")
+
+	# B1: emphasize the chip of the target currently being resolved
+	if dice_data.get("context", "") == "weapon_progress":
+		_set_active_target_chip(str(dice_data.get("target_unit_id", "")))
 
 	if not dice_log_display:
 		return
@@ -4158,18 +4303,47 @@ func _update_ui_state() -> void:
 	if quick_assign_container and _count_unassigned_weapons() == 0 and not weapon_assignments.is_empty():
 		quick_assign_container.visible = false
 
-	# Update target basket
+	# B1: chips first so basket/tree rows can show the letters
+	_refresh_target_chips()
+
+	# B1: re-render every weapon row from phase state now that chip letters
+	# exist — rows written earlier in the same frame (commit paths, quick
+	# assign) may predate a newly-declared target's letter.
+	if weapon_tree and weapon_tree.get_root():
+		var chip_row = weapon_tree.get_root().get_first_child()
+		while chip_row:
+			var chip_row_wid = chip_row.get_metadata(0)
+			# Leave "[Disabled - …]" rows alone — they carry the reason text.
+			if chip_row_wid and not str(chip_row.get_text(1)).begins_with("[Disabled"):
+				_refresh_weapon_row_split_text(str(chip_row_wid))
+			chip_row = chip_row.get_next()
+
+	# Update target basket — one row per pending (weapon, target) slice, colored
+	# by the target's chip. Falls back to the legacy weapon_assignments map when
+	# no phase is attached.
 	if target_basket:
 		target_basket.clear()
 		print("║ Updating target basket:")
-		for weapon_id in weapon_assignments:
-			var target_id = weapon_assignments[weapon_id]
-			var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
-			var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
+		var basket_rows: Array = []
+		if current_phase and "pending_assignments" in current_phase and not current_phase.pending_assignments.is_empty():
+			for a in current_phase.pending_assignments:
+				basket_rows.append({
+					"weapon_id": a.get("weapon_id", ""),
+					"target_id": a.get("target_unit_id", ""),
+					"count": (a.get("model_ids", []) as Array).size()
+				})
+		else:
+			for weapon_id in weapon_assignments:
+				basket_rows.append({"weapon_id": weapon_id, "target_id": weapon_assignments[weapon_id], "count": 0})
+		for row in basket_rows:
+			var weapon_profile = RulesEngine.get_weapon_profile(row.weapon_id)
+			var target_name = eligible_targets.get(row.target_id, {}).get("unit_name", row.target_id)
 			var wp_ap = weapon_profile.get("ap", 0)
 			var ap_str = "AP%s" % str(wp_ap) if wp_ap != 0 else "AP0"
-			var display_text = "%s (%s) → %s" % [weapon_profile.get("name", weapon_id), ap_str, target_name]
-			target_basket.add_item(display_text)
+			var count_str = "%d× " % row.count if row.count > 0 else ""
+			var display_text = "%s%s (%s) → %s%s" % [count_str, weapon_profile.get("name", row.weapon_id), ap_str, _chip_prefix(row.target_id), target_name]
+			var idx = target_basket.add_item(display_text)
+			target_basket.set_item_custom_fg_color(idx, _chip_color(row.target_id))
 			print("║   Added to basket: ", display_text)
 
 	# DEBUG: Also log what's in the weapon tree
@@ -5168,12 +5342,18 @@ func _refresh_weapon_row_split_text(weapon_id: String) -> void:
 				child.set_custom_color(1, Color(0.6, 0.6, 0.6, 0.7))
 				child.clear_custom_bg_color(1)
 			else:
+				# B1: rows carry the target's chip letter; single-target rows
+				# are tinted with the chip color so weapon → target identity
+				# matches the board badge and the basket.
 				var parts: Array = []
 				for alloc in allocations:
 					var tname = eligible_targets.get(alloc.target_unit_id, {}).get("unit_name", alloc.target_unit_id)
-					parts.append("%d→%s" % [alloc.count, tname])
+					parts.append("%d→%s%s" % [alloc.count, _chip_prefix(alloc.target_unit_id), tname])
 				child.set_text(1, ", ".join(parts))
-				child.set_custom_color(1, Color(0.5, 0.85, 0.5))
+				var row_color := Color(0.5, 0.85, 0.5)
+				if allocations.size() == 1:
+					row_color = _chip_color(allocations[0].target_unit_id)
+				child.set_custom_color(1, row_color)
 				child.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
 			return
 		child = child.get_next()

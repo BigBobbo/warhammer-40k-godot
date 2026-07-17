@@ -3449,6 +3449,7 @@ func _resolve_next_weapon() -> Dictionary:
 	var weapon_progress_block = {
 		"context": "weapon_progress",
 		"message": "Resolving weapon %d of %d" % [current_index + 1, weapon_order.size()],
+		"target_unit_id": current_assignment.get("target_unit_id", ""),  # B1: board chip emphasis
 		"current_index": current_index,
 		"total_weapons": weapon_order.size()
 	}
@@ -3844,6 +3845,7 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 		"message": "Weapon %d of %d — %s → %s" % [current_index + 1, weapon_order.size(), weapon_name, target_name],
 		"weapon_name": weapon_name,
 		"target_name": target_name,
+		"target_unit_id": current_assignment.get("target_unit_id", ""),  # B1: board chip emphasis
 		"current_index": current_index,
 		"total_weapons": weapon_order.size(),
 		"stage": "hits"
