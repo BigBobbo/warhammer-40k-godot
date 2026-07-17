@@ -141,6 +141,12 @@ func _run_tests():
 	overlay.allocation_complete.connect(func(s): summary_received = s)
 	overlay.setup(_save_data(6), 2)
 	_check("two group cards rendered", overlay.group_list.get_child_count() == 2)
+	# 2026-07 board-visible redesign: the attacker is always named, the
+	# full-screen dim never shows, and the panel docks in the right column.
+	var attacker_info = overlay.panel.get_node("VBox/AttackerInfo")
+	_check("AttackerInfo names the shooting unit",
+		attacker_info != null and attacker_info.text == "Shot by U_SHOOTER", attacker_info.text)
+	_check("full-screen dim hidden (board stays visible)", not overlay.dim.visible)
 	_check("default order valid: Confirm enabled", not overlay.confirm_button.disabled)
 	overlay._on_move(1, -1)  # try to put the CHARACTER group first
 	_check("CHARACTER moved before non-CHARACTER: Confirm DISABLED + error shown",
@@ -168,6 +174,17 @@ func _run_tests():
 		summary_received.get("is_allocation_11e", false)
 		and not summary_received.get("diffs", []).is_empty()
 		and summary_received.has("saves_failed"), str(summary_received.keys()))
+
+	# Melee wording branch: the same overlay says "Struck in melee by <unit>".
+	var melee_data = _save_data(1)
+	melee_data["is_melee"] = true
+	var melee_overlay = AllocationGroupOverlay.new()
+	root.add_child(melee_overlay)
+	melee_overlay.setup(melee_data, 2)
+	var melee_info = melee_overlay.panel.get_node("VBox/AttackerInfo")
+	_check("melee AttackerInfo wording",
+		melee_info != null and melee_info.text == "Struck in melee by U_SHOOTER", melee_info.text)
+	melee_overlay.queue_free()
 
 	rules.RNGService.test_mode_seed = -1
 	GameConstants.edition = 10

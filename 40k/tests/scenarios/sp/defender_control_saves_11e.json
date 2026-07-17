@@ -9,7 +9,7 @@
   "fixture": "audit_386_deadly_demise",
   "rng_seed": 42,
   "transition_to_phase": 8,
-  "description": "DEFENDER CONTROL: the defending player rolls their own saves, may Command Re-roll one failed save die (1 CP), and clicks the exact bases to remove. Drives a 3-wound AP-10 attack into a 10+ Boyz squad (single allocation group, Sv5+ cannot save at AP-10 so every die fails deterministically): the overlay must WAIT for the defender's Roll Saves click (no instant auto-resolve), offer the save re-roll (player 2 has 3 CP), then require picking 3 bases on the board. Clicking m3/m4/m5 must kill exactly those models — the engine default (m1/m2/m3) must NOT be used — and the re-roll must cost 1 CP.",
+  "description": "DEFENDER CONTROL: the defending player rolls their own saves, may Command Re-roll one failed save die (1 CP), and clicks the exact bases to remove. Drives a 3-wound AP-10 attack into a 10+ Boyz squad (single allocation group, Sv5+ cannot save at AP-10 so every die fails deterministically): the overlay must WAIT for the defender's Roll Saves click (no instant auto-resolve), offer the save re-roll (player 2 has 3 CP), then require picking 3 bases on the board. Clicking m3/m4/m5 must kill exactly those models — the engine default (m1/m2/m3) must NOT be used — and the re-roll must cost 1 CP. BOARD-VISIBLE REDESIGN (2026-07): the panel must dock in the right HUD column (not center screen), name the ATTACKING unit ('Shot by <attacker>'), keep the full-screen dim hidden, and put an AttackContextVisual (attacker/target outlines + arrow) on the board while the overlay is up — removed again when the overlay closes.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 8 },
@@ -23,6 +23,11 @@
     { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel", "timeout_s": 3.0 },
     { "act": "expect_node_property", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton", "property": "text", "equals": "Roll Saves" },
     { "act": "expect_node_property", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel", "property": "visible", "equals": false },
+    { "act": "execute_script", "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/AttackerInfo\").text == \"Shot by \" + GameState.get_unit_display_name(\"U_CUSTODIAN_GUARD_B\")", "equals": true },
+    { "act": "execute_script", "script": "main.get_node(\"AllocationGroupOverlay/Dim\").visible", "equals": false },
+    { "act": "execute_script", "script": "main.get_node(\"AllocationGroupOverlay/Center\").get_global_rect().position.x > tree.root.size.x * 0.6", "equals": true },
+    { "act": "execute_script", "script": "SceneRefs.board_view().get_node_or_null(\"AttackContextVisual\") != null", "equals": true },
+    { "act": "execute_script", "script": "SceneRefs.board_view().get_node(\"AttackContextVisual\").attacker_marks.size() > 0 and SceneRefs.board_view().get_node(\"AttackContextVisual\").target_marks.size() == 20", "equals": true },
     { "act": "screenshot", "label": "01_defender_must_click_roll_saves" },
     { "act": "click_node", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton", "emit_pressed": true },
     { "act": "wait_frames", "frames": 3 },
@@ -54,6 +59,7 @@
     { "act": "click_node", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "execute_script", "script": "main.get_node_or_null(\"AllocationGroupOverlay\") == null", "equals": true },
+    { "act": "execute_script", "script": "SceneRefs.board_view().get_node_or_null(\"AttackContextVisual\") == null", "equals": true },
     { "act": "execute_script", "script": "GameState.set_edition(10)", "equals": 10 },
     { "act": "screenshot", "label": "06_final_board_defender_chosen_casualties" }
   ]

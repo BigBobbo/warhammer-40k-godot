@@ -6,6 +6,12 @@ const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 # Measurement autoload at compile time, and this overlay must keep compiling
 # standalone in bare headless harness runs (no autoloads).
 const _BOARD_HIGHLIGHTS_PATH := "res://scripts/WoundAllocationBoardHighlights.gd"
+const _ATTACK_CONTEXT_PATH := "res://scripts/AttackContextVisual.gd"
+
+# The overlay's decision panel lives in the right HUD column (HUD_Right is
+# 400 px wide, right-anchored — see Main.tscn) so the battlefield stays
+# visible while the defender resolves saves.
+const _RIGHT_COLUMN_WIDTH := 400.0
 
 ## ISS-045 — the 11e defender allocation UI (core rules 05.03-05.04).
 ## Replaces WoundAllocationOverlay's per-wound click loop at edition ≥ 11:
@@ -59,6 +65,11 @@ var _pick_selected: Dictionary = {}   # group_id -> [virtual idx] (defender pick
 var _pick_candidates: Array = []      # all clickable virtual indices
 var _picking: bool = false
 var board_highlighter = null
+# Board-space "attacker → target" context (rings + arrow) shown while the
+# defender decides; target marks come from the combined allocation unit so
+# attached characters are outlined too.
+var attack_context_visual = null
+var _virtual_target_unit: Dictionary = {}
 
 # Lazy autoload lookups (autoload ids are not compile-time resolvable in
 # bare `godot -s` runs).
@@ -106,8 +117,8 @@ func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 	save_data = p_save_data
 	defender_player = p_defender_player
 	var target_unit_id = str(save_data.get("target_unit_id", ""))
-	var virtual_unit = _rules()._build_attached_allocation_unit_11e(target_unit_id, _game_state().state).unit
-	groups = Allocation.build_groups(virtual_unit)
+	_virtual_target_unit = _rules()._build_attached_allocation_unit_11e(target_unit_id, _game_state().state).unit
+	groups = Allocation.build_groups(_virtual_target_unit)
 	order = Allocation.default_order(groups)
 	auto_mode = _compute_auto_mode()
 	_build_ui()
@@ -119,10 +130,15 @@ func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 		# step (AI defender, or the auto-allocate setting in local play).
 		print("AllocationGroupOverlay: auto_mode — resolving without defender interaction")
 		_on_confirm_pressed()
-	elif groups.size() <= 1:
+		return
+	if groups.size() <= 1:
 		# 05.03: with a single group there is no order decision — but the
 		# DEFENDER still rolls their own saves (no instant auto-resolve).
 		confirm_button.text = "Roll Saves"
+	# Board context for the human defender: outline the attacking unit (red)
+	# and the combined target unit (gold) and link them with an attack arrow,
+	# so WHO is attacking WHOM stays visible on the battlefield itself.
+	_setup_attack_context_visual()
 
 
 # Auto (no-interaction) mode applies when the defender cannot interact:
@@ -141,6 +157,77 @@ func _compute_auto_mode() -> bool:
 	return ss != null and ss.has_method("get_auto_allocate_wounds") and ss.get_auto_allocate_wounds()
 
 
+# ── Attacker context (who is attacking whom) ──────────────────────────
+
+func _attacker_display_name() -> String:
+	var attacker_id = str(save_data.get("shooter_unit_id", ""))
+	if attacker_id == "":
+		return ""
+	var gs = _game_state()
+	if gs != null and gs.has_method("get_unit_display_name"):
+		var display = str(gs.get_unit_display_name(attacker_id))
+		if display != "":
+			return display
+	return attacker_id
+
+
+func _attacker_context_text() -> String:
+	var attacker_name = _attacker_display_name()
+	if attacker_name == "":
+		attacker_name = "Unknown attacker"
+	if save_data.get("is_melee", false):
+		return "Struck in melee by %s" % attacker_name
+	return "Shot by %s" % attacker_name
+
+
+# Alive-model board marks ([{pos, radius_px}]) for the units involved. The
+# target uses the combined allocation unit so attached characters are
+# outlined with their bodyguard.
+func _marks_from_models(models: Array) -> Array:
+	var marks: Array = []
+	var meas = _measurement()
+	for m in models:
+		if not m.get("alive", true):
+			continue
+		var pos = m.get("position")
+		var v := Vector2.ZERO
+		if pos is Dictionary:
+			v = Vector2(pos.get("x", 0), pos.get("y", 0))
+		elif pos is Vector2:
+			v = pos
+		else:
+			continue
+		var base_mm = float(m.get("base_mm", 32))
+		var radius_px: float = meas.base_radius_px(base_mm) if meas != null else base_mm
+		marks.append({"pos": v, "radius_px": radius_px})
+	return marks
+
+
+func _setup_attack_context_visual() -> void:
+	var refs = Engine.get_main_loop().root.get_node_or_null("SceneRefs")
+	var board_view = refs.board_view() if refs != null else null
+	if board_view == null:
+		print("AllocationGroupOverlay: no board_view — skipping attack context visual (headless)")
+		return
+	var context_script = load(_ATTACK_CONTEXT_PATH)
+	if context_script == null:
+		print("AllocationGroupOverlay: WARNING — attack context script unavailable")
+		return
+	var attacker_unit = _game_state().state.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {})
+	var attacker_marks = _marks_from_models(attacker_unit.get("models", []))
+	var target_marks = _marks_from_models(_virtual_target_unit.get("models", []))
+	if attacker_marks.is_empty() and target_marks.is_empty():
+		print("AllocationGroupOverlay: no attacker/target marks — skipping attack context visual")
+		return
+	attack_context_visual = context_script.new()
+	attack_context_visual.name = "AttackContextVisual"
+	attack_context_visual.z_index = 850  # under the casualty-pick highlights (900)
+	board_view.add_child(attack_context_visual)
+	attack_context_visual.setup(attacker_marks, target_marks, bool(save_data.get("is_melee", false)))
+	print("AllocationGroupOverlay: attack context visual up — %d attacker / %d target model(s)" % [
+		attacker_marks.size(), target_marks.size()])
+
+
 func _build_ui() -> void:
 	name = "AllocationGroupOverlay"
 	# Parent is Main (a CanvasLayer): anchors AND offsets must be applied
@@ -156,20 +243,37 @@ func _build_ui() -> void:
 	# wound-allocation window reads as the same UI as the weapon-order window.
 	_WhiteDwarfTheme.apply_to_control_theme(self)
 
+	# BOARD-VISIBLE REDESIGN (2026-07): no full-screen dim any more — the
+	# defender must be able to SEE the battlefield (and the attacker/target
+	# context drawn on it) while deciding. The Dim node is kept (hidden) so
+	# the existing pick-step visibility toggles stay no-ops rather than
+	# null-refs, and the full-rect root still swallows stray clicks.
 	dim = ColorRect.new()
 	dim.name = "Dim"
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.visible = false
 	add_child(dim)
 
+	# The decision panel docks over the right HUD column (same slot the
+	# attacker's resolution dock uses) instead of covering the board center.
+	# Node stays named "Center" so scenario paths Center/Panel/... survive.
 	center = CenterContainer.new()
 	center.name = "Center"
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.anchor_left = 1.0
+	center.anchor_right = 1.0
+	center.anchor_top = 0.0
+	center.anchor_bottom = 1.0
+	center.offset_left = -_RIGHT_COLUMN_WIDTH
+	center.offset_right = 0
+	center.offset_top = 0
+	center.offset_bottom = 0
+	center.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	add_child(center)
 
 	panel = PanelContainer.new()
 	panel.name = "Panel"
-	panel.custom_minimum_size = Vector2(560, 0)
+	panel.custom_minimum_size = Vector2(_RIGHT_COLUMN_WIDTH - 16, 0)
 	# Gothic gold-bordered parchment-dark panel + inner padding. Content margins
 	# live on the stylebox (not a wrapper node) so the scenario node paths
 	# Panel/VBox/... stay intact.
@@ -187,12 +291,23 @@ func _build_ui() -> void:
 	var title = Label.new()
 	title.name = "Title"
 	title.text = "Allocate Attacks — %s" % str(save_data.get("target_unit_name", save_data.get("target_unit_id", "")))
-	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_font_size_override("font_size", 18)
 	title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(title)
 
 	_WhiteDwarfTheme.add_gold_separator(vbox)
+
+	# WHO is attacking — the one fact the old dialog never showed. Red like
+	# the attacker's board outline so text and battlefield read as one.
+	var attacker_line = Label.new()
+	attacker_line.name = "AttackerInfo"
+	attacker_line.text = _attacker_context_text()
+	attacker_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	attacker_line.add_theme_font_size_override("font_size", 15)
+	attacker_line.add_theme_color_override("font_color", Color(1.0, 0.42, 0.35))
+	vbox.add_child(attacker_line)
 
 	var info = Label.new()
 	info.name = "Info"
@@ -206,6 +321,7 @@ func _build_ui() -> void:
 		str(save_data.get("damage_raw", save_data.get("damage", 1)))]
 	info.add_theme_font_size_override("font_size", 14)
 	info.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(info)
 
 	var hint = Label.new()
@@ -311,7 +427,7 @@ func _build_ui() -> void:
 	result_label.name = "ResultLabel"
 	result_label.bbcode_enabled = false
 	result_label.fit_content = true
-	result_label.custom_minimum_size = Vector2(520, 0)
+	result_label.custom_minimum_size = Vector2(_RIGHT_COLUMN_WIDTH - 48, 0)
 	result_label.add_theme_color_override("default_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	result_panel.add_child(result_label)
 
@@ -323,8 +439,9 @@ func _build_ui() -> void:
 	_WhiteDwarfTheme.apply_primary_button(done_button)
 	result_panel.add_child(done_button)
 
-	# ── PICK step: its own top-anchored compact panel so the board is
-	# visible and clickable while the defender chooses casualties. ──────
+	# ── PICK step: compact panel in the same right-column slot as the
+	# order panel, so the whole board is visible and clickable while the
+	# defender chooses casualties. ──────────────────────────────────────
 	pick_panel = PanelContainer.new()
 	pick_panel.name = "PickPanel"
 	pick_panel.visible = false
@@ -333,13 +450,14 @@ func _build_ui() -> void:
 	pick_style.bg_color = Color(0.1, 0.09, 0.07, 0.97)
 	pick_style.set_content_margin_all(12)
 	pick_panel.add_theme_stylebox_override("panel", pick_style)
-	pick_panel.anchor_left = 0.5
-	pick_panel.anchor_right = 0.5
+	pick_panel.anchor_left = 1.0
+	pick_panel.anchor_right = 1.0
 	pick_panel.anchor_top = 0.0
 	pick_panel.anchor_bottom = 0.0
-	pick_panel.offset_left = -320
-	pick_panel.offset_right = 320
+	pick_panel.offset_left = -(_RIGHT_COLUMN_WIDTH - 8)
+	pick_panel.offset_right = -8
 	pick_panel.offset_top = 12
+	pick_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	add_child(pick_panel)
 
 	var pick_vbox = VBoxContainer.new()
@@ -371,7 +489,7 @@ func _build_ui() -> void:
 	confirm_removal_button = Button.new()
 	confirm_removal_button.name = "ConfirmRemovalButton"
 	confirm_removal_button.text = "Confirm Removal"
-	confirm_removal_button.custom_minimum_size = Vector2(200, 38)
+	confirm_removal_button.custom_minimum_size = Vector2(180, 38)
 	confirm_removal_button.disabled = true
 	confirm_removal_button.pressed.connect(_on_confirm_removal_pressed)
 	_WhiteDwarfTheme.apply_primary_button(confirm_removal_button)
@@ -380,7 +498,7 @@ func _build_ui() -> void:
 	auto_pick_button = Button.new()
 	auto_pick_button.name = "AutoPickButton"
 	auto_pick_button.text = "Auto-pick For Me"
-	auto_pick_button.custom_minimum_size = Vector2(160, 38)
+	auto_pick_button.custom_minimum_size = Vector2(140, 38)
 	auto_pick_button.pressed.connect(_on_auto_pick_pressed)
 	pick_buttons.add_child(auto_pick_button)
 
@@ -686,7 +804,9 @@ func _enter_pick_or_finalize() -> void:
 	for gid in _pick_required:
 		total_required += int(_pick_required[gid])
 	var unit_name = str(save_data.get("target_unit_name", save_data.get("target_unit_id", "")))
-	pick_label.text = "Remove %d model(s) from %s — click the bases to remove" % [total_required, unit_name]
+	var attacker_name = _attacker_display_name()
+	var attacker_txt = " (hit by %s)" % attacker_name if attacker_name != "" else ""
+	pick_label.text = "Remove %d model(s) from %s%s — click the bases to remove" % [total_required, unit_name, attacker_txt]
 	_setup_pick_highlights()
 	_update_pick_counter()
 	set_process_input(true)
@@ -947,3 +1067,6 @@ func _exit_tree() -> void:
 	if board_highlighter != null and is_instance_valid(board_highlighter):
 		board_highlighter.queue_free()
 		board_highlighter = null
+	if attack_context_visual != null and is_instance_valid(attack_context_visual):
+		attack_context_visual.queue_free()
+		attack_context_visual = null

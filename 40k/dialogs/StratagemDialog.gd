@@ -35,17 +35,41 @@ func setup(player: int, stratagems: Array, targets: Array) -> void:
 
 	_build_ui()
 
+
+# Best-effort name of the unit whose declared targets opened this reactive
+# window. The phase instance replays the attacker's CONFIRM_TARGETS on every
+# peer, so active_shooter_id is set on the defender's machine too. Returns ""
+# (caller keeps the generic header) when the phase doesn't expose it.
+func _attacking_unit_name() -> String:
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm == null or not pm.has_method("get_current_phase_instance"):
+		return ""
+	var phase = pm.get_current_phase_instance()
+	if phase == null or not ("active_shooter_id" in phase):
+		return ""
+	var shooter_id = str(phase.active_shooter_id)
+	if shooter_id == "":
+		return ""
+	return GameState.get_unit_display_name(shooter_id)
+
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
 	main_container.name = "Content"
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
-	# Header
+	# Header — name the attacking unit when the live shooting phase exposes
+	# it ("being targeted" alone never says by WHOM).
 	var header = Label.new()
-	header.text = "Your units are being targeted!"
+	header.name = "Header"
+	var attacker_name = _attacking_unit_name()
+	if attacker_name != "":
+		header.text = "Your units are being targeted by %s!" % attacker_name
+	else:
+		header.text = "Your units are being targeted!"
 	header.add_theme_font_size_override("font_size", 18)
 	header.add_theme_color_override("font_color", Color.YELLOW)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	main_container.add_child(header)
 
 	var cp_label = Label.new()
