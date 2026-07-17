@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.52.2",
+			"date": "2026-07-17",
+			"summary": "Characters attached to a squad can no longer be shot out of it. The AI (and any scripted attack) could previously target an attached leader \u2014 e.g. a Blade Champion leading a Custodian Guard squad \u2014 as if it were a separate unit, so the defender's Allocate Attacks dialog showed only the character and the wounds could not be put on the squad first. Attached leaders are now only reachable by shooting their unit: wounds are allocated to the squad's models first and the leader is reached last (or via PRECISION), per the 11th-edition attached-unit rules (19.02).",
+			"changes": [
+				"Fixed: the AI no longer shoots attached characters directly \u2014 its target planning now folds attached leaders into their unit, so it shoots the squad instead.",
+				"Fixed: the rules engine now rejects any ranged attack that tries to target an attached character ('Cannot target \u2026 \u2014 attached character; shoot the bodyguard unit instead'), matching what the targeting UI already enforced for human players.",
+				"Fixed: the GRENADE stratagem can no longer pick an attached character as its target either.",
+				"When the squad leading a character is shot, the Allocate Attacks dialog shows the combined unit as before: squad models first, CHARACTER group last.",
+				"Standalone (unattached) characters are still targetable exactly as before."
+			]
+		},
+		{
 			"version": "0.52.1",
 			"date": "2026-07-17",
 			"summary": "Attached characters can now be dragged during a Charge move. Before, clicking the leader of a charging squad (e.g. the Blade Champion attached to Custodian Guard) did nothing — only the squad's own models responded — and the leader was auto-placed for you after confirming. Model picking during the charge is also much more accurate.",

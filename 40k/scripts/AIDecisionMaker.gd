@@ -10708,7 +10708,9 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				"_ai_description": "Skipped %s — no ranged weapons" % unit_name
 			}
 
-		var enemies = _get_enemy_units(snapshot, player)
+		# Shootable enemies only — attached characters are targeted through
+		# their bodyguard unit, never directly (19.02).
+		var enemies = _get_shootable_enemy_units(snapshot, player)
 		if enemies.is_empty():
 			_focus_fire_plan_built = false
 			_focus_fire_plan.clear()
@@ -10856,7 +10858,10 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 	4. Iteratively assign weapons to targets by highest marginal expected value,
 	   considering kill thresholds, opportunity cost, and overkill penalties
 	"""
-	var enemies = _get_enemy_units(snapshot, player)
+	# Shootable enemies only — attached characters are folded into their
+	# bodyguard unit for targeting purposes (19.02) and must not receive
+	# weapon assignments of their own.
+	var enemies = _get_shootable_enemy_units(snapshot, player)
 	if enemies.is_empty():
 		return {}
 
@@ -17081,6 +17086,24 @@ static func _get_enemy_units(snapshot: Dictionary, player: int) -> Dictionary:
 			if has_alive:
 				result[unit_id] = unit
 	return result
+
+# Shooting-target variant of _get_enemy_units: additionally excludes CHARACTER
+# units that are attached to a bodyguard (19.02 — the Attached unit is ONE
+# unit, so the leader is never a separate ranged-attack target; it is reached
+# through its bodyguard via the allocation rules / PRECISION). Without this
+# filter the focus-fire plan happily assigned weapons to attached leaders
+# (they even get MACRO_LEADER_BUFF_BONUS) and RulesEngine.validate_shoot now
+# rejects such SHOOT actions, wasting the unit's entire activation.
+# _get_enemy_units itself stays unfiltered — movement/charge/fight scoring
+# still needs to see where attached leaders are.
+static func _get_shootable_enemy_units(snapshot: Dictionary, player: int) -> Dictionary:
+	var all_enemies = _get_enemy_units(snapshot, player)
+	var shootable = {}
+	for unit_id in all_enemies:
+		if all_enemies[unit_id].get("attached_to", null) != null:
+			continue
+		shootable[unit_id] = all_enemies[unit_id]
+	return shootable
 
 static func _get_deployment_zone_bounds(snapshot: Dictionary, player: int) -> Dictionary:
 	var zones = snapshot.get("board", {}).get("deployment_zones", [])

@@ -2887,6 +2887,42 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "rules.11e.attached_units.no_direct_targeting",
+      "description": "11e 19.02: a CHARACTER attached to a bodyguard is part of ONE Attached unit and can never be selected as a separate ranged-attack target. RulesEngine.validate_shoot rejects the assignment, the AI shooting enumeration excludes it, and shooting the bodyguard folds the attached unit into a single allocation dialog (squad group first, CHARACTER group last).",
+      "scenarios": [
+        "attached_char_untargetable_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.RulesEngine.validate_shoot.attached_gate",
+      "description": "RulesEngine.validate_shoot is the authoritative gate that rejects a SHOOT assignment whose target has attached_to set ('Cannot target X \u2014 attached character; shoot the bodyguard unit instead'), catching callers (the AI focus-fire plan) that bypass get_eligible_targets. Unattached characters and the bodyguard itself stay valid targets.",
+      "scenarios": [
+        "attached_char_untargetable_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.AIDecisionMaker.shootable_enemies",
+      "description": "AIDecisionMaker._get_shootable_enemy_units excludes attached characters from _build_focus_fire_plan and the _decide_shooting fallback enumeration so the AI shoots the bodyguard squad instead of wasting an activation on a now-rejected shot at the leader. _get_enemy_units stays unfiltered for movement/charge/fight scoring.",
+      "scenarios": [
+        "attached_char_untargetable_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.AllocationGroupOverlay.combined_attached_unit",
+      "description": "When the squad leading a character is shot, the 11e AllocationGroupOverlay shows the combined Attached unit as ONE dialog titled with the bodyguard's display name: the squad's models as the first allocation group and the CHARACTER as the last group (reached only after the bodyguard, or via PRECISION).",
+      "scenarios": [
+        "attached_char_untargetable_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
