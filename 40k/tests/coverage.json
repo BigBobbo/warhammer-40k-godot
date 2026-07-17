@@ -9,6 +9,33 @@
   ],
   "tiles": [
     {
+      "id": "scripts.ChargeController.attached_character_drag",
+      "description": "During a Charge move the attached CHARACTER of a charging unit (e.g. a Blade Champion leading Custodian Guard) is draggable like its squadmates. ChargeController keys all movement bookkeeping by a charge key (bare model id for the bodyguard, '<char_unit>:<model>' for character models) and hit-tests in board space against each model's real base radius, nearest-wins.",
+      "scenarios": [
+        "attached_char_charge_drag_leader"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ChargePhase.composite_path_keys",
+      "description": "APPLY_CHARGE_MOVE (and the Heroic Intervention variant) accepts composite '<char_unit>:<model>' per_model_paths keys for manually dragged attached-character models, resolved via _resolve_charge_path_ref (only units actually attached to the charger are accepted). All charge validators and both apply loops handle them; auto-ride skips manually placed characters.",
+      "scenarios": [
+        "attached_char_charge_drag_leader"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.leader_manually_draggable",
+      "description": "Player can drag the attached leader into position during a charge instead of relying on the automatic post-confirm ride-along; the leader lands at the dragged spot with charged_this_turn/fights_first, and an unmoved leader still follows the squad automatically.",
+      "scenarios": [
+        "attached_char_charge_drag_leader"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "tokens.auto_color_same_name",
       "description": "Duplicate squads sharing a meta.name (e.g. two Boyz squads) get DISTINCT auto-assigned token colors. GameState.auto_assign_unit_color picks the first faction-palette color unused army-wide, falling back to same-name-unused when the palette is exhausted. Regression guard for the hex-roundtrip compare bug where Color.is_equal_approx never matched the stored 8-bit hex, so every unit came out palette[0].",
       "scenarios": [

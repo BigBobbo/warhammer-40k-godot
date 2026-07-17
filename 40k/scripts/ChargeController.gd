@@ -27,12 +27,22 @@ var _pending_complete_unit_id: String = ""  # Unit awaiting COMPLETE_UNIT_CHARGE
 var _last_apply_rejection: Dictionary = {}  # Set by Main via on_charge_move_rejected when APPLY_CHARGE_MOVE fails validation
 
 # Charge movement tracking
+#
+# KEYING: an Attached unit charges as ONE unit, so its attached CHARACTER models
+# (e.g. a Blade Champion leading Custodian Guard) are draggable alongside the
+# bodyguard's own models. Model ids collide between the two units (both use
+# "m1", "m2", …), so every dictionary/array below is keyed by a *charge key*:
+#   - bodyguard model:            "m3"                  (bare model id)
+#   - attached character model:   "<char_unit_id>:m1"   (composite)
+# The same keys are sent to ChargePhase inside per_model_paths — the phase
+# resolves them via _resolve_charge_path_ref. Use _charge_model_key /
+# _charge_key_parts to convert between (unit_id, model_id) and keys.
 var models_to_move: Array = []  # Models that still need to move
-var moved_models: Dictionary = {}  # model_id -> new_position
+var moved_models: Dictionary = {}  # charge key -> new_position
 # T-092: per-model undo state for charge pile-in
 var _moved_model_order: Array = []  # Order in which models were moved (for last-undone)
-var _model_origin_positions: Dictionary = {}  # model_id -> Vector2 pre-charge position
-var _model_origin_rotations: Dictionary = {}  # model_id -> float pre-charge rotation
+var _model_origin_positions: Dictionary = {}  # charge key -> Vector2 pre-charge position
+var _model_origin_rotations: Dictionary = {}  # charge key -> float pre-charge rotation
 # Multi-step charge movement (mirrors the Movement phase): a charging model may be
 # dragged in several hops around terrain/obstacles, each hop adding to the total
 # distance until the charge roll is spent or the move is confirmed. This holds the
@@ -40,7 +50,7 @@ var _model_origin_rotations: Dictionary = {}  # model_id -> float pre-charge rot
 # capped against the charge roll and (b) the real multi-segment polyline is sent to
 # ChargePhase for terrain-aware validation instead of a straight line that could cut
 # back through terrain the player carefully routed around.
-var _model_charge_paths: Dictionary = {}  # model_id -> Array[Vector2] waypoints incl. origin
+var _model_charge_paths: Dictionary = {}  # charge key -> Array[Vector2] waypoints incl. origin
 var undo_charge_model_button: Button = null
 var auto_path_charge_button: Button = null  # T-092: auto-suggests valid charge positions
 # T-092: Snap-to-contact fallback sweep — approach-direction offsets (degrees)
@@ -52,8 +62,12 @@ const SNAP_ANGLE_SWEEP_DEG: Array = [
 	165.0, -165.0, 180.0,
 ]
 var dragging_model = null  # Currently dragging model
+# Unit the dragging model belongs to: the charging unit itself, or one of its
+# attached character units. Kept OUTSIDE dragging_model — that dict is a live
+# GameState reference and must not grow controller-only keys.
+var dragging_model_source_unit_id: String = ""
 var ghost_visual: Node2D = null  # Ghost visual for dragging
-var movement_lines: Dictionary = {}  # model_id -> Line2D for movement path
+var movement_lines: Dictionary = {}  # charge key -> Line2D for movement path
 
 # Multi-select state (mirrors the Movement phase UX): Shift+drag on empty board
 # rubber-bands a box over the charging unit's models, Ctrl+click toggles single
@@ -262,7 +276,11 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 
 	var model = hit.model
 	var model_id = hit.model_id
-	print("DEBUG: Clicked on model ", model_id)
+	# Source unit of the picked model: the charging unit, or one of its attached
+	# character units (a Blade Champion attached to Custodian Guard). Kept so the
+	# whole drag/confirm path writes to the right unit and uses the right charge key.
+	dragging_model_source_unit_id = hit.get("unit_id", active_unit_id)
+	print("DEBUG: Clicked on model ", _charge_model_key(dragging_model_source_unit_id, model_id))
 
 	# Log the complete model data from GameState
 	print("DEBUG: Model data from GameState:")
@@ -297,21 +315,37 @@ func _find_draggable_charge_model_at(global_pos: Vector2) -> Dictionary:
 	var board_pos: Vector2 = board_root.to_local(global_pos) if board_root else global_pos
 	var grab_margin_px := 4.0  # small forgiveness ring around the base edge
 
+	# The charge group: the charging unit itself plus its attached character
+	# units (a Blade Champion attached to Custodian Guard drags with the squad).
+	var group_unit_ids: Array = [active_unit_id]
+	group_unit_ids.append_array(_get_attached_character_ids())
+
+	# Scan every pickable token and keep the NEAREST hit, so tightly packed
+	# formations resolve to the model actually under the cursor.
+	var best_child = null
+	var best_unit_id := ""
+	var best_model_id := ""
+	var best_distance := INF
 	for child in token_layer.get_children():
 		if not child.has_meta("unit_id") or not child.has_meta("model_id"):
 			continue
 
-		var unit_id = child.get_meta("unit_id")
-		var model_id = child.get_meta("model_id")
+		var unit_id = str(child.get_meta("unit_id"))
+		var model_id = str(child.get_meta("model_id"))
 
-		# Check if this is our charging unit and a model we can move. Multi-step:
+		# Check if this is a model of the charge group we can move. Multi-step:
 		# a model that has already been placed (in moved_models) can be picked up
 		# again to continue its move around terrain until the charge distance is
 		# spent or the move is confirmed — not just models still at their origin.
-		if unit_id != active_unit_id or (model_id not in models_to_move and model_id not in moved_models):
+		if unit_id not in group_unit_ids:
+			continue
+		var charge_key = _charge_model_key(unit_id, model_id)
+		if charge_key not in models_to_move and charge_key not in moved_models:
 			continue
 
-		# Board-local token position (TokenLayer sits at the BoardRoot origin)
+		# Board-local token position (TokenLayer sits at the BoardRoot origin).
+		# Nearest-wins so tightly packed formations resolve to the model actually
+		# under the cursor (a fixed screen-px radius mis-picked when zoomed).
 		var token_board_pos: Vector2 = child.position
 		var base_radius := 25.2
 		if child.has_method("get_base_radius"):
@@ -320,14 +354,22 @@ func _find_draggable_charge_model_at(global_pos: Vector2) -> Dictionary:
 			base_radius = Measurement.base_radius_px(child.get_meta("base_mm"))
 
 		var distance = token_board_pos.distance_to(board_pos)
-		print("DEBUG: Token ", model_id, " at board ", token_board_pos, " distance from click: ", distance, " (radius ", base_radius, ")")
+		print("DEBUG: Token ", charge_key, " at board ", token_board_pos, " distance from click: ", distance, " (radius ", base_radius, ")")
 
-		if distance <= base_radius + grab_margin_px:
-			# Get the model data from GameState
-			var unit = GameState.get_unit(active_unit_id)
-			for model in unit.get("models", []):
-				if model.get("id", "") == model_id:
-					return {"model_id": model_id, "token_global_pos": child.global_position, "model": model}
+		if distance <= base_radius + grab_margin_px and distance < best_distance:
+			best_child = child
+			best_unit_id = unit_id
+			best_model_id = model_id
+			best_distance = distance
+
+	if best_child != null:
+		# Get the model data from GameState (from the model's OWN unit — an
+		# attached character model lives in the character's unit entry, not the
+		# bodyguard's)
+		var unit = GameState.get_unit(best_unit_id)
+		for model in unit.get("models", []):
+			if model.get("id", "") == best_model_id:
+				return {"model_id": best_model_id, "unit_id": best_unit_id, "token_global_pos": best_child.global_position, "model": model}
 
 	return {}
 
@@ -666,10 +708,7 @@ func _end_group_drag(local_pos: Vector2) -> void:
 	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
 		undo_charge_model_button.disabled = _moved_model_order.is_empty()
 	if is_instance_valid(charge_info_label):
-		if models_to_move.is_empty():
-			charge_info_label.text = "All models moved! Click 'Confirm Charge Moves' to complete"
-		else:
-			charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
+		charge_info_label.text = _remaining_models_message()
 
 	# Keep the selection (rings at the new positions) so the player can keep
 	# nudging the same group in further hops until the charge roll is spent.
@@ -700,7 +739,9 @@ func _validate_group_charge_move(drag_vector: Vector2) -> Dictionary:
 		var hop_inches = Measurement.px_to_inches(old_pos.distance_to(new_pos)) \
 			+ _calculate_terrain_penalty_for_path(old_pos, new_pos)
 		max_total = max(max_total, _get_model_charge_accumulated(model_id) + hop_inches)
-		if all_valid and not _validate_charge_position(model, new_pos, group_new_positions):
+		# Group multi-select drags the charging unit's own models, so the charge
+		# key is the bare model_id; pass the group overrides as the 4th arg.
+		if all_valid and not _validate_charge_position(model, new_pos, model_id, group_new_positions):
 			all_valid = false
 			reason = "Model %s: must stay within %d\" and end closer to a target" % [model_id, charge_distance]
 	return {"valid": all_valid, "reason": reason, "max_total_inches": max_total}
@@ -1690,7 +1731,29 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 				_model_origin_rotations[model_id] = model.get("rotation", 0.0)
 				_model_charge_paths[model_id] = [p]  # multi-step: path starts at the origin
 			print("DEBUG: Added model ", model_id, " to models_to_move")
-	
+
+	# Attached CHARACTER models charge with the squad — make them draggable too
+	# (keyed "<char_unit_id>:<model_id>" to dodge model-id collisions). Any left
+	# unmoved at confirm still auto-ride the bodyguard's delta in ChargePhase.
+	for char_id in _get_attached_character_ids(unit_id):
+		var char_unit = GameState.get_unit(char_id)
+		for model in char_unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var key = _charge_model_key(char_id, model.get("id", ""))
+			models_to_move.append(key)
+			var pos = model.get("position")
+			if pos != null:
+				var p: Vector2
+				if pos is Dictionary:
+					p = Vector2(pos.get("x", 0), pos.get("y", 0))
+				else:
+					p = pos
+				_model_origin_positions[key] = p
+				_model_origin_rotations[key] = model.get("rotation", 0.0)
+				_model_charge_paths[key] = [p]
+			print("DEBUG: Added attached character model ", key, " to models_to_move")
+
 	print("Models to move: ", models_to_move)
 
 	# Swap the pre-roll 12" threat envelope for one per-model reach ring
@@ -1863,28 +1926,26 @@ func _add_confirm_button() -> void:
 func _on_undo_last_charge_model() -> void:
 	if _moved_model_order.is_empty():
 		return
-	var model_id: String = _moved_model_order.pop_back()
-	moved_models.erase(model_id)
-	if model_id not in models_to_move:
-		models_to_move.append(model_id)
+	var charge_key: String = _moved_model_order.pop_back()
+	var key_parts = _charge_key_parts(charge_key)
+	moved_models.erase(charge_key)
+	if charge_key not in models_to_move:
+		models_to_move.append(charge_key)
 	# Restore GameState position + rotation
-	var origin_pos: Vector2 = _model_origin_positions.get(model_id, Vector2.ZERO)
-	var origin_rot: float = _model_origin_rotations.get(model_id, 0.0)
+	var origin_pos: Vector2 = _model_origin_positions.get(charge_key, Vector2.ZERO)
+	var origin_rot: float = _model_origin_rotations.get(charge_key, 0.0)
 	# Multi-step: undo removes ALL of this model's hops — discard its recorded path
 	# so it re-drags fresh from the origin with the full charge distance available.
 	if origin_pos != Vector2.ZERO:
-		_model_charge_paths[model_id] = [origin_pos]
+		_model_charge_paths[charge_key] = [origin_pos]
 	else:
-		_model_charge_paths[model_id] = []
+		_model_charge_paths[charge_key] = []
 	if origin_pos != Vector2.ZERO and active_unit_id != "":
-		_update_model_position_in_gamestate(active_unit_id, model_id, origin_pos)
-		_move_token_visual(active_unit_id, model_id, origin_pos, origin_rot)
+		_update_model_position_in_gamestate(key_parts.unit_id, key_parts.model_id, origin_pos)
+		_move_token_visual(key_parts.unit_id, key_parts.model_id, origin_pos, origin_rot)
 	# Update charge info label
 	if is_instance_valid(charge_info_label):
-		if models_to_move.is_empty():
-			charge_info_label.text = "All models moved! Click 'Confirm Charge Moves' to complete"
-		else:
-			charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
+		charge_info_label.text = _remaining_models_message()
 	# The per-model Used/Left readout described the model we just reverted, so
 	# reset it — otherwise it keeps showing a distance for a model now back at
 	# its origin, which reads as "undo did nothing".
@@ -1905,7 +1966,7 @@ func _on_undo_last_charge_model() -> void:
 	# Keep multi-select rings in sync — the undone model is back at its origin
 	if selected_models.size() > 0:
 		_update_charge_selection_visuals()
-	print("[T-092] Undid charge model %s, restored to %s" % [model_id, str(origin_pos)])
+	print("[T-092] Undid charge model %s, restored to %s" % [charge_key, str(origin_pos)])
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
@@ -1916,6 +1977,45 @@ func _get_model_position(model: Dictionary) -> Vector2:
 	elif pos is Vector2:
 		return pos
 	return Vector2.ZERO
+
+# ── Attached-character charge keys ──────────────────────────────────
+# The charging unit's attached CHARACTER models are dragged with the squad, but
+# their model ids collide with the bodyguard's ("m1" vs "m1"). All movement
+# bookkeeping is therefore keyed by a charge key: bare model id for the
+# charging unit's own models, "<char_unit_id>:<model_id>" for character models.
+
+func _get_attached_character_ids(of_unit_id: String = "") -> Array:
+	var uid = of_unit_id if of_unit_id != "" else active_unit_id
+	if uid == "":
+		return []
+	var unit = GameState.get_unit(uid)
+	if unit.is_empty():
+		return []
+	var out: Array = []
+	for cid in unit.get("attachment_data", {}).get("attached_characters", []):
+		out.append(str(cid))
+	return out
+
+func _charge_model_key(unit_id: String, model_id: String) -> String:
+	if unit_id == "" or unit_id == active_unit_id:
+		return model_id
+	return "%s:%s" % [unit_id, model_id]
+
+func _charge_key_parts(key: String) -> Dictionary:
+	# Returns {"unit_id": ..., "model_id": ...} for a charge key.
+	var idx = key.find(":")
+	if idx == -1:
+		return {"unit_id": active_unit_id, "model_id": key}
+	return {"unit_id": key.substr(0, idx), "model_id": key.substr(idx + 1)}
+
+func _get_charge_group_model(key: String) -> Dictionary:
+	# Model dict (live GameState reference) for a charge key.
+	var parts = _charge_key_parts(key)
+	var unit = GameState.get_unit(parts.unit_id)
+	for model in unit.get("models", []):
+		if model.get("id", "") == parts.model_id:
+			return model
+	return {}
 
 func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 	# Find model under the cursor
@@ -1947,7 +2047,10 @@ func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 
 func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 	var model_id = model.get("id", "")
-	print("Starting drag for model ", model_id)
+	if dragging_model_source_unit_id == "":
+		dragging_model_source_unit_id = active_unit_id
+	var charge_key = _charge_model_key(dragging_model_source_unit_id, model_id)
+	print("Starting drag for model ", charge_key)
 
 	# Reset snap state for new drag
 	snap_active = false
@@ -1977,7 +2080,7 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 
 		# Use GhostVisual for consistent ghost rendering across all controllers
 		var ghost_token = preload("res://scripts/GhostVisual.gd").new()
-		var unit = GameState.get_unit(active_unit_id)
+		var unit = GameState.get_unit(dragging_model_source_unit_id)
 		ghost_token.owner_player = unit.get("owner", 1)
 		# Set the complete model data for shape handling
 		ghost_token.set_model_data(model)
@@ -1998,7 +2101,7 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 		line.add_point(original_pos)
 		line.add_point(world_pos)
 		board_root.add_child(line)
-		movement_lines[model_id] = line
+		movement_lines[charge_key] = line
 
 		# P3-99: Create direction validation visual
 		if not charge_direction_visual or not is_instance_valid(charge_direction_visual):
@@ -2013,6 +2116,7 @@ func _update_model_drag(world_pos: Vector2) -> void:
 		return
 
 	var model_id = dragging_model.get("id", "")
+	var charge_key = _charge_model_key(dragging_model_source_unit_id, model_id)
 	var effective_pos = world_pos  # Position that may be adjusted by snap
 
 	# Base-to-base snap: check if cursor is close enough to snap to a target
@@ -2041,13 +2145,13 @@ func _update_model_drag(world_pos: Vector2) -> void:
 		ghost_visual.position = effective_pos
 
 	# Update movement line
-	if model_id in movement_lines:
-		var line = movement_lines[model_id]
+	if charge_key in movement_lines:
+		var line = movement_lines[charge_key]
 		if line.get_point_count() > 1:
 			line.set_point_position(1, effective_pos)
 
 	# Check if position is valid (within charge distance and rules)
-	var is_valid = _validate_charge_position(dragging_model, effective_pos)
+	var is_valid = _validate_charge_position(dragging_model, effective_pos, charge_key)
 
 	# Update ghost visual color based on validity and snap state
 	if ghost_visual:
@@ -2066,7 +2170,7 @@ func _update_model_drag(world_pos: Vector2) -> void:
 		var distance_moved_px = original_pos.distance_to(effective_pos)
 		var distance_moved_inches = Measurement.px_to_inches(distance_moved_px)
 		var terrain_penalty = _calculate_terrain_penalty_for_path(original_pos, effective_pos)
-		var prior_distance = _get_model_charge_accumulated(model_id)
+		var prior_distance = _get_model_charge_accumulated(charge_key)
 		var effective_distance = prior_distance + distance_moved_inches + terrain_penalty
 
 		# P3-98: Update distance display with preview (show effective distance including terrain breakdown)
@@ -2085,12 +2189,14 @@ func _end_model_drag(world_pos: Vector2) -> void:
 		return
 
 	var model_id = dragging_model.get("id", "")
+	var source_unit_id = dragging_model_source_unit_id if dragging_model_source_unit_id != "" else active_unit_id
+	var charge_key = _charge_model_key(source_unit_id, model_id)
 
 	# Use snapped position if snap is active
 	var final_pos = world_pos
 	if snap_active:
 		final_pos = snap_position
-		print("DEBUG: Using snapped position for model ", model_id, " at ", final_pos)
+		print("DEBUG: Using snapped position for model ", charge_key, " at ", final_pos)
 
 	# Reset snap state
 	snap_active = false
@@ -2098,9 +2204,9 @@ func _end_model_drag(world_pos: Vector2) -> void:
 	snap_target_model_id = ""
 
 	# Validate final position
-	if _validate_charge_position(dragging_model, final_pos):
-		print("Model ", model_id, " moved to valid position")
-		
+	if _validate_charge_position(dragging_model, final_pos, charge_key):
+		print("Model ", charge_key, " moved to valid position")
+
 		# Calculate and store distance moved. start_pos is the model's position at
 		# the START of this hop (GameState is not updated until below), which is the
 		# origin on the first hop and the previous drop on later hops.
@@ -2109,26 +2215,26 @@ func _end_model_drag(world_pos: Vector2) -> void:
 			# Multi-step: append this hop's endpoint to the model's recorded path so
 			# the accumulated distance and the real polyline survive to the confirm.
 			# The path's last point is this hop's start (origin on the first hop).
-			var hop_path: Array = _model_charge_paths.get(model_id, [])
+			var hop_path: Array = _model_charge_paths.get(charge_key, [])
 			if hop_path.is_empty():
 				hop_path = [start_pos]
 			hop_path.append(final_pos)
-			_model_charge_paths[model_id] = hop_path
+			_model_charge_paths[charge_key] = hop_path
 
 			# Show the TOTAL distance spent across all hops (not just this one) so the
 			# player can see how much of the charge roll remains for further steps.
-			var accumulated_inches = _get_model_charge_accumulated(model_id)
+			var accumulated_inches = _get_model_charge_accumulated(charge_key)
 			_update_charge_distance_display(model_id, accumulated_inches, 0.0)
 
 		# Store the new position AND rotation
-		moved_models[model_id] = {
+		moved_models[charge_key] = {
 			"position": final_pos,
 			"rotation": dragging_model.get("rotation", 0.0)
 		}
 		# T-092: track ordering for per-model undo
-		if model_id in _moved_model_order:
-			_moved_model_order.erase(model_id)
-		_moved_model_order.append(model_id)
+		if charge_key in _moved_model_order:
+			_moved_model_order.erase(charge_key)
+		_moved_model_order.append(charge_key)
 		# Enable undo button now that at least one model has moved
 		if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
 			undo_charge_model_button.disabled = false
@@ -2136,16 +2242,16 @@ func _end_model_drag(world_pos: Vector2) -> void:
 		# IMPORTANT: Update GameState FIRST with position and rotation
 		# This ensures GameState has the correct data before we update visuals
 		print("DEBUG: Updating GameState position and rotation FIRST")
-		_update_model_position_in_gamestate(active_unit_id, model_id, final_pos)
+		_update_model_position_in_gamestate(source_unit_id, model_id, final_pos)
 
 		# NOW update the visual token (after GameState has been updated)
 		print("DEBUG: Moving token visual after GameState update")
 		var model_rotation = dragging_model.get("rotation", 0.0)
-		_move_token_visual(active_unit_id, model_id, final_pos, model_rotation)
-		
+		_move_token_visual(source_unit_id, model_id, final_pos, model_rotation)
+
 		# Remove from models to move
-		models_to_move.erase(model_id)
-		
+		models_to_move.erase(charge_key)
+
 		# Update button state
 		if moved_models.size() > 0 and is_instance_valid(confirm_button):
 			confirm_button.disabled = false
@@ -2155,48 +2261,46 @@ func _end_model_drag(world_pos: Vector2) -> void:
 			print("DEBUG: Confirm button visible: ", confirm_button.visible)
 		else:
 			print("DEBUG: Confirm button not enabled - moved_models.size() = ", moved_models.size(), " confirm_button valid = ", is_instance_valid(confirm_button))
-		
+
 		# Update info
 		if is_instance_valid(charge_info_label):
-			if models_to_move.is_empty():
-				charge_info_label.text = "All models moved! Click 'Confirm Charge Moves' to complete"
-			else:
-				charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
+			charge_info_label.text = _remaining_models_message()
 	else:
-		print("Model ", model_id, " position invalid - reverting")
+		print("Model ", charge_key, " position invalid - reverting")
 		if is_instance_valid(charge_info_label):
 			charge_info_label.text = "Invalid position! Must be within %d\" and reach engagement range" % charge_distance
-		
+
 		# Revert token to original position and rotation if drag was invalid
 		var original_pos = dragging_model.get("original_position")
 		if original_pos:
 			# Get original rotation from GameState
 			var original_rotation = 0.0
-			var unit = GameState.get_unit(active_unit_id)
+			var unit = GameState.get_unit(source_unit_id)
 			for model in unit.get("models", []):
 				if model.get("id", "") == model_id:
 					original_rotation = model.get("rotation", 0.0)
 					break
-			_move_token_visual(active_unit_id, model_id, original_pos, original_rotation)
-			print("DEBUG: Reverted token ", model_id, " to original position ", original_pos, " and rotation ", rad_to_deg(original_rotation), " degrees")
-	
+			_move_token_visual(source_unit_id, model_id, original_pos, original_rotation)
+			print("DEBUG: Reverted token ", charge_key, " to original position ", original_pos, " and rotation ", rad_to_deg(original_rotation), " degrees")
+
 	# Clean up ghost visual and movement line
 	if ghost_visual:
 		ghost_visual.queue_free()
 		ghost_visual = null
 
 	# Clean up movement line
-	if model_id in movement_lines:
-		var line = movement_lines[model_id]
+	if charge_key in movement_lines:
+		var line = movement_lines[charge_key]
 		if is_instance_valid(line):
 			line.queue_free()
-		movement_lines.erase(model_id)
+		movement_lines.erase(charge_key)
 
 	# P3-99: Deactivate direction visual (hide but keep for next drag)
 	if charge_direction_visual and is_instance_valid(charge_direction_visual):
 		charge_direction_visual.deactivate()
 
 	dragging_model = null
+	dragging_model_source_unit_id = ""
 
 func _move_token_visual(unit_id: String, model_id: String, new_pos: Vector2, rotation: float = 0.0) -> void:
 	# Find and move the actual token visual on screen
@@ -2328,6 +2432,10 @@ func _calculate_snap_to_base_contact(model: Dictionary, cursor_pos: Vector2) -> 
 	var model_shape = Measurement.create_base_shape(model)
 	var model_rotation = model.get("rotation", 0.0)
 	var model_id = model.get("id", "")
+	# Only ever called with dragging_model, so the drag's source unit gives the
+	# charge key (self-skip + wall keywords must use the model's OWN unit).
+	var snap_source_unit = dragging_model_source_unit_id if dragging_model_source_unit_id != "" else active_unit_id
+	var snap_charge_key = _charge_model_key(snap_source_unit, model_id)
 
 	var best_snap = {"snap": false}
 	var best_distance = INF
@@ -2386,7 +2494,7 @@ func _calculate_snap_to_base_contact(model: Dictionary, cursor_pos: Vector2) -> 
 						continue  # Can't reach this snap point within charge distance
 
 				# Check if snap position would overlap with friendly models
-				var would_overlap = _check_position_would_overlap(model, snap_pos)
+				var would_overlap = _check_position_would_overlap(model, snap_pos, snap_charge_key)
 				if would_overlap:
 					continue  # Can't snap here, would overlap
 
@@ -2454,8 +2562,8 @@ func _refine_snap_position(model: Dictionary, target_model: Dictionary, initial_
 # previous hop this charge (straight-line + per-segment terrain penalty), matching
 # how ChargePhase measures the confirmed polyline path. Returns 0 for a model that
 # is still at its origin (path has only the origin point).
-func _get_model_charge_accumulated(model_id: String) -> float:
-	var path = _model_charge_paths.get(model_id, [])
+func _get_model_charge_accumulated(charge_key: String) -> float:
+	var path = _model_charge_paths.get(charge_key, [])
 	if path.size() < 2:
 		return 0.0
 	var total := 0.0
@@ -2464,10 +2572,29 @@ func _get_model_charge_accumulated(model_id: String) -> float:
 		total += _calculate_terrain_penalty_for_path(path[i - 1], path[i])
 	return total
 
-func _validate_charge_position(model: Dictionary, new_pos: Vector2, group_overrides: Dictionary = {}) -> bool:
+# Label text for the charge-move panel. Attached character models left unmoved
+# are not blocking — they auto-ride the squad's move on confirm — so call that
+# out instead of implying the player MUST drag them.
+func _remaining_models_message() -> String:
+	if models_to_move.is_empty():
+		return "All models moved! Click 'Confirm Charge Moves' to complete"
+	var char_keys_remaining := 0
+	for key in models_to_move:
+		if _charge_key_parts(key).unit_id != active_unit_id:
+			char_keys_remaining += 1
+	if char_keys_remaining == models_to_move.size():
+		return "Squad moved! Drag the leader too, or confirm — unmoved leaders follow automatically"
+	return "Move remaining %d models into engagement range" % models_to_move.size()
+
+func _validate_charge_position(model: Dictionary, new_pos: Vector2, charge_key: String = "", group_overrides: Dictionary = {}) -> bool:
 	# group_overrides (model_id -> Vector2): prospective positions of squadmates
 	# moving in the same group drag — they occupy those spots, not their current ones.
 	var model_id = model.get("id", "")
+	# Movement bookkeeping is keyed by charge key ("<unit>:<model>" for attached
+	# character models). Callers that predate keys pass nothing — fall back to
+	# the bare model id, which is the key for the charging unit's own models.
+	if charge_key == "":
+		charge_key = model_id
 
 	# Check 1: Movement distance (including terrain penalty - T2-8).
 	# old_pos is the model's CURRENT position — its origin on the first hop, or the
@@ -2485,7 +2612,7 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2, group_overri
 	# Multi-step: this hop is capped by whatever charge distance remains after the
 	# hops already committed — the whole path must fit inside the charge roll, just
 	# like accumulated movement in the Movement phase.
-	var prior_distance = _get_model_charge_accumulated(model_id)
+	var prior_distance = _get_model_charge_accumulated(charge_key)
 	var total_distance = prior_distance + effective_distance
 
 	if total_distance > charge_distance + MOVEMENT_CAP_EPSILON:
@@ -2498,7 +2625,7 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2, group_overri
 		return false
 
 	# Check 2: Model overlap detection
-	if _check_position_would_overlap(model, new_pos, group_overrides):
+	if _check_position_would_overlap(model, new_pos, charge_key, group_overrides):
 		print("Position would overlap with another model")
 		return false
 
@@ -2516,7 +2643,7 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2, group_overri
 	# model still ends up closer than where it began. Final enforcement is in
 	# ChargePhase against path[0] -> path[-1]. On the first hop origin == old_pos,
 	# so single-step behaviour is unchanged.
-	var charge_origin = _model_origin_positions.get(model_id, old_pos)
+	var charge_origin = _model_origin_positions.get(charge_key, old_pos)
 	var model_at_old = model.duplicate()
 	model_at_old["position"] = charge_origin
 	var model_at_new = model.duplicate()
@@ -2555,24 +2682,28 @@ func _on_confirm_charge_moves() -> void:
 	print("DEBUG: _on_confirm_charge_moves called!")
 	print("Confirming charge moves for ", active_unit_id)
 
-	# Build the per-model paths and rotations for the charge action
+	# Build the per-model paths and rotations for the charge action.
+	# Keys pass through as-is: bare model ids for the charging unit's models,
+	# "<char_unit_id>:<model_id>" for attached character models the player
+	# dragged (ChargePhase resolves both via _resolve_charge_path_ref).
 	var per_model_paths = {}
 	var per_model_rotations = {}
 	print("DEBUG: Building per_model_paths from moved_models: ", moved_models.keys())
-	for model_id in moved_models:
-		var move_data = moved_models[model_id]
+	for charge_key in moved_models:
+		var key_parts = _charge_key_parts(charge_key)
+		var move_data = moved_models[charge_key]
 		var new_pos = move_data["position"] if move_data is Dictionary else move_data
 		var new_rotation = move_data["rotation"] if move_data is Dictionary and move_data.has("rotation") else 0.0
-		print("DEBUG: Processing moved model ", model_id, " to position ", new_pos, " with rotation ", rad_to_deg(new_rotation), " degrees")
+		print("DEBUG: Processing moved model ", charge_key, " to position ", new_pos, " with rotation ", rad_to_deg(new_rotation), " degrees")
 		# Path start must be the PRE-DRAG origin (T-092 cache). The drag
 		# already wrote the drop position into GameState (_end_model_drag), so
 		# reading the live model here yields start == end — a degenerate path
 		# the phase validator rightly rejects ("must end closer to a target").
-		var old_pos = _model_origin_positions.get(model_id, null)
+		var old_pos = _model_origin_positions.get(charge_key, null)
 		if old_pos == null:
-			var unit = GameState.get_unit(active_unit_id)
+			var unit = GameState.get_unit(key_parts.unit_id)
 			for model in unit.get("models", []):
-				if model.get("id", "") == model_id:
+				if model.get("id", "") == key_parts.model_id:
 					old_pos = _get_model_position(model)
 					break
 
@@ -2581,7 +2712,7 @@ func _on_confirm_charge_moves() -> void:
 		# terrain sweep and total-distance measure only make sense on the actual
 		# route. A straight origin->final line could cut back through terrain the
 		# player routed around and be wrongly rejected (or wrongly accepted).
-		var hop_path: Array = _model_charge_paths.get(model_id, [])
+		var hop_path: Array = _model_charge_paths.get(charge_key, [])
 		if hop_path.size() >= 2 and old_pos and new_pos:
 			var pts: Array = []
 			for p in hop_path:
@@ -2589,25 +2720,26 @@ func _on_confirm_charge_moves() -> void:
 			# Pin the endpoints to the authoritative origin/drop positions.
 			pts[0] = [old_pos.x, old_pos.y]
 			pts[pts.size() - 1] = [new_pos.x, new_pos.y]
-			per_model_paths[model_id] = pts
-			per_model_rotations[model_id] = new_rotation
-			print("DEBUG: Created multi-step path for ", model_id, " (%d points): " % pts.size(), per_model_paths[model_id], " with rotation: ", rad_to_deg(new_rotation))
+			per_model_paths[charge_key] = pts
+			per_model_rotations[charge_key] = new_rotation
+			print("DEBUG: Created multi-step path for ", charge_key, " (%d points): " % pts.size(), per_model_paths[charge_key], " with rotation: ", rad_to_deg(new_rotation))
 		elif old_pos and new_pos:
-			per_model_paths[model_id] = [[old_pos.x, old_pos.y], [new_pos.x, new_pos.y]]
-			per_model_rotations[model_id] = new_rotation
-			print("DEBUG: Created path for ", model_id, ": ", per_model_paths[model_id], " with rotation: ", rad_to_deg(new_rotation))
+			per_model_paths[charge_key] = [[old_pos.x, old_pos.y], [new_pos.x, new_pos.y]]
+			per_model_rotations[charge_key] = new_rotation
+			print("DEBUG: Created path for ", charge_key, ": ", per_model_paths[charge_key], " with rotation: ", rad_to_deg(new_rotation))
 		else:
-			print("DEBUG: Failed to create path for ", model_id, " - old_pos: ", old_pos, " new_pos: ", new_pos)
+			print("DEBUG: Failed to create path for ", charge_key, " - old_pos: ", old_pos, " new_pos: ", new_pos)
 
 	# The APPLY action is the authoritative state mutation: restore the
 	# pre-drag origins so the phase validates against the real start state
 	# and its result diffs perform the actual move. Token visuals stay at
 	# the drop position (no flicker); a validation failure snaps them back
 	# via charge_resolved.
-	for model_id in per_model_paths:
-		var origin = _model_origin_positions.get(model_id, null)
+	for charge_key in per_model_paths:
+		var origin = _model_origin_positions.get(charge_key, null)
 		if origin != null:
-			_update_model_position_in_gamestate(active_unit_id, model_id, origin)
+			var key_parts = _charge_key_parts(charge_key)
+			_update_model_position_in_gamestate(key_parts.unit_id, key_parts.model_id, origin)
 
 	# A Heroic Intervention counter-charge has its own apply action — its
 	# charge data lives in heroic_intervention_pending_charge, so
@@ -2719,17 +2851,19 @@ func _infer_11e_targets_from_moves(per_model_paths: Dictionary) -> Array:
 	if unit.is_empty():
 		return []
 
-	# Final-position model dicts for the shape-aware ER test
+	# Final-position model dicts for the shape-aware ER test. Keys may name
+	# attached character models ("<char_unit>:<model>") — resolve from the
+	# model's own unit so its base shape is right.
 	var final_models: Array = []
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for charge_key in per_model_paths:
+		var path = per_model_paths[charge_key]
 		if path is Array and path.size() > 0:
-			for model in unit.get("models", []):
-				if model.get("id", "") == model_id:
-					var at_final = model.duplicate()
-					at_final["position"] = Vector2(path[-1][0], path[-1][1])
-					final_models.append(at_final)
-					break
+			var model = _get_charge_group_model(charge_key)
+			if model.is_empty():
+				continue
+			var at_final = model.duplicate()
+			at_final["position"] = Vector2(path[-1][0], path[-1][1])
+			final_models.append(at_final)
 	if final_models.is_empty():
 		return []
 
@@ -3488,15 +3622,19 @@ func _update_charge_distance_display_with_preview(distance_moved: float, valid: 
 			charge_terrain_label.visible = false
 
 # Rotation functions for charge movement
-func _check_position_would_overlap(model: Dictionary, new_pos: Vector2, group_overrides: Dictionary = {}) -> bool:
+func _check_position_would_overlap(model: Dictionary, new_pos: Vector2, charge_key: String = "", group_overrides: Dictionary = {}) -> bool:
 	# Check if placing the model at the given position would overlap.
 	# group_overrides (model_id -> Vector2): prospective positions of squadmates
 	# moving in the same group drag (see _validate_group_charge_move).
 	if not current_phase:
 		return false
 
-	var unit_id = active_unit_id
 	var model_id = model.get("id", "")
+	if charge_key == "":
+		charge_key = model_id
+	# Which unit the model being placed belongs to — the charging unit, or an
+	# attached character unit ("<unit>:<model>" key).
+	var self_unit_id = _charge_key_parts(charge_key).unit_id
 
 	# Build a test model with the new position
 	var test_model = model.duplicate()
@@ -3520,26 +3658,29 @@ func _check_position_would_overlap(model: Dictionary, new_pos: Vector2, group_ov
 			var check_model_id = check_model.get("id", "")
 
 			# Skip self
-			if check_unit_id == unit_id and check_model_id == model_id:
+			if check_unit_id == self_unit_id and check_model_id == model_id:
 				continue
 
 			# Skip dead models
 			if not check_model.get("alive", true):
 				continue
 
-			# Get the current position of the other model
-			# For other charging models in same unit, check their moved positions
+			# Get the current position of the other model.
+			# Models of the charge group that already staged a move (bodyguard
+			# AND attached characters) are checked at their staged positions.
 			var other_position = _get_model_position(check_model)
-			if check_unit_id == unit_id and moved_models.has(check_model_id):
-				var moved_data = moved_models[check_model_id]
+			var other_key = _charge_model_key(check_unit_id, check_model_id)
+			if moved_models.has(other_key):
+				var moved_data = moved_models[other_key]
 				if moved_data is Dictionary and moved_data.has("position"):
 					other_position = moved_data["position"]
 				elif moved_data is Vector2:
 					other_position = moved_data
 
 			# Squadmates moving in the same group drag occupy their prospective
-			# positions, not the spots they are vacating
-			if check_unit_id == unit_id and group_overrides.has(check_model_id):
+			# positions, not the spots they are vacating. Group drag operates on
+			# the charging unit's own models (keyed by bare model_id).
+			if check_unit_id == active_unit_id and group_overrides.has(check_model_id):
 				other_position = group_overrides[check_model_id]
 
 			if other_position == null:
@@ -3553,11 +3694,11 @@ func _check_position_would_overlap(model: Dictionary, new_pos: Vector2, group_ov
 			if Measurement.models_overlap(test_model, other_model_check):
 				return true
 
-	# Also check wall collision, honoring the charging unit's traversal keywords
-	# (e.g. INFANTRY can pass through ruin walls in 10e).
+	# Also check wall collision, honoring the model's own unit's traversal
+	# keywords (e.g. INFANTRY can pass through ruin walls in 10e).
 	var charger_keywords: Array = []
-	if active_unit_id != "":
-		charger_keywords = GameState.get_unit(active_unit_id).get("meta", {}).get("keywords", [])
+	if self_unit_id != "":
+		charger_keywords = GameState.get_unit(self_unit_id).get("meta", {}).get("keywords", [])
 	if Measurement.model_overlaps_any_wall(test_model, charger_keywords):
 		return true
 
@@ -3608,8 +3749,9 @@ func _rotate_dragging_model(angle: float) -> void:
 	# IMPORTANT: Also update the actual token visual immediately during rotation
 	# This ensures the rotation is visible right away, not just when drag ends
 	var model_id = dragging_model.get("id", "")
-	if model_id != "" and active_unit_id != "":
-		_update_token_rotation(active_unit_id, model_id, new_rotation)
+	var rot_unit_id = dragging_model_source_unit_id if dragging_model_source_unit_id != "" else active_unit_id
+	if model_id != "" and rot_unit_id != "":
+		_update_token_rotation(rot_unit_id, model_id, new_rotation)
 
 	print("DEBUG: Rotated charge model by ", rad_to_deg(angle), " degrees. New rotation: ", rad_to_deg(new_rotation))
 
@@ -4397,17 +4539,27 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 		return
 	var radius_px := Measurement.inches_to_px(max_distance)
 	var centers: Array = []
-	for model in unit.get("models", []):
-		if not model.get("alive", true):
-			continue
-		var model_id = model.get("id", "")
-		# Anchor on the cached pre-charge origin (set in _enable_charge_movement);
-		# fall back to the live position for any model without a cached origin.
-		var center: Vector2 = _model_origin_positions.get(model_id, _get_model_position(model))
-		if center == Vector2.ZERO:
-			continue
-		centers.append(center)
-		_draw_charge_dashed_circle(center, radius_px, CHARGE_MODEL_RANGE_COLOR, CHARGE_MODEL_RANGE_WIDTH)
+	# Charging unit's own models, plus its attached CHARACTER models — they are
+	# draggable too (keyed "<char_unit>:<model>"), so show their reach as well.
+	var ring_units: Array = [[unit_id, unit]]
+	for char_id in _get_attached_character_ids(unit_id):
+		var char_unit = GameState.get_unit(char_id)
+		if not char_unit.is_empty():
+			ring_units.append([char_id, char_unit])
+	for entry in ring_units:
+		var ring_unit_id: String = entry[0]
+		var ring_unit: Dictionary = entry[1]
+		for model in ring_unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var key = _charge_model_key(ring_unit_id, model.get("id", ""))
+			# Anchor on the cached pre-charge origin (set in _enable_charge_movement);
+			# fall back to the live position for any model without a cached origin.
+			var center: Vector2 = _model_origin_positions.get(key, _get_model_position(model))
+			if center == Vector2.ZERO:
+				continue
+			centers.append(center)
+			_draw_charge_dashed_circle(center, radius_px, CHARGE_MODEL_RANGE_COLOR, CHARGE_MODEL_RANGE_WIDTH)
 
 	# One summary label above the group — every model shares the same rolled reach,
 	# so a per-model number would just be the same value repeated N times.
@@ -4582,12 +4734,10 @@ func _on_auto_path_charge() -> void:
 	# A charge move may not END within engagement range of any of them (the
 	# phase rejects the confirm), so both placement stages must avoid them.
 	var non_target_enemies: Array = _collect_non_target_enemy_models(charge_targets)
-	for model_id in to_move_copy:
-		var model: Dictionary = {}
-		for m in unit.get("models", []):
-			if m.get("id", "") == model_id:
-				model = m
-				break
+	for charge_key in to_move_copy:
+		# Keys may name attached character models ("<char_unit>:<model>") — the
+		# leader snaps into contact right alongside its squad.
+		var model: Dictionary = _get_charge_group_model(charge_key)
 		if model.is_empty():
 			continue
 		var origin: Vector2 = _get_model_position(model)
@@ -4606,12 +4756,12 @@ func _on_auto_path_charge() -> void:
 				var place_distance_from_target: float = tp_data["radius"] + own_radius + gap_px
 				for angle_deg in SNAP_ANGLE_SWEEP_DEG:
 					var candidate: Vector2 = tp_data["pos"] - dir_vec.rotated(deg_to_rad(angle_deg)) * place_distance_from_target
-					if not _validate_charge_position(model, candidate):
+					if not _validate_charge_position(model, candidate, charge_key):
 						continue
 					if _position_within_enemy_er(model, candidate, non_target_enemies):
 						continue
-					_stage_auto_path_placement(model_id, model, origin, candidate)
-					print("[T-092 auto-path] Placed %s at %s (gap=%.2f\", angle=%+.0f deg, target dist=%.1f\")" % [model_id, str(candidate), gap_inches, angle_deg, Measurement.px_to_inches(candidate.distance_to(tp_data["pos"]))])
+					_stage_auto_path_placement(charge_key, model, origin, candidate)
+					print("[T-092 auto-path] Placed %s at %s (gap=%.2f\", angle=%+.0f deg, target dist=%.1f\")" % [charge_key, str(candidate), gap_inches, angle_deg, Measurement.px_to_inches(candidate.distance_to(tp_data["pos"]))])
 					placed = true
 					break
 				if placed:
@@ -4625,16 +4775,16 @@ func _on_auto_path_charge() -> void:
 		# spot blocked). Best-effort: close the gap as far as the remaining
 		# charge distance legally allows — 11e only requires the model to end
 		# closer + in coherency, so an out-of-engagement approach is legal.
-		var fallback: Dictionary = _find_closest_charge_position(model, origin, targets_sorted, non_target_enemies)
+		var fallback: Dictionary = _find_closest_charge_position(model, origin, targets_sorted, non_target_enemies, charge_key)
 		if fallback.get("found", false):
 			var fb_pos: Vector2 = fallback["position"]
-			_stage_auto_path_placement(model_id, model, origin, fb_pos)
-			print("[T-092 auto-path] No contact spot for %s — moved as close as possible to %s (gap now %.2f\")" % [model_id, str(fb_pos), fallback.get("gap", -1.0)])
+			_stage_auto_path_placement(charge_key, model, origin, fb_pos)
+			print("[T-092 auto-path] No contact spot for %s — moved as close as possible to %s (gap now %.2f\")" % [charge_key, str(fb_pos), fallback.get("gap", -1.0)])
 			closest_placed += 1
 			placed = true
 		if not placed:
-			unplaced.append(model_id)
-			print("[T-092 auto-path] No valid placement found for %s" % model_id)
+			unplaced.append(charge_key)
+			print("[T-092 auto-path] No valid placement found for %s" % charge_key)
 	# Refresh button states
 	if confirm_button and is_instance_valid(confirm_button):
 		confirm_button.disabled = moved_models.is_empty()
@@ -4652,23 +4802,25 @@ func _on_auto_path_charge() -> void:
 		elif not unplaced.is_empty():
 			charge_info_label.text = "Snap to Contact: %d model(s) have no legal move within %d\" — drag them manually" % [unplaced.size(), charge_distance]
 		else:
-			charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
+			charge_info_label.text = _remaining_models_message()
 
 
 # Stage a suggested charge position exactly like a completed drag would
 # (moved_models, hop path, undo order, GameState write, token visual) and
-# remove the model from the still-to-move list.
-func _stage_auto_path_placement(model_id: String, model: Dictionary, origin: Vector2, candidate: Vector2) -> void:
-	moved_models[model_id] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
+# remove the model from the still-to-move list. Keyed by charge key so an
+# attached character's placement is written to the character's own unit.
+func _stage_auto_path_placement(charge_key: String, model: Dictionary, origin: Vector2, candidate: Vector2) -> void:
+	var key_parts = _charge_key_parts(charge_key)
+	moved_models[charge_key] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
 	# Multi-step: record the single-hop path (origin -> placement) so the
 	# accumulated distance and confirmed polyline match dragged models.
-	_model_charge_paths[model_id] = [origin, candidate]
-	if model_id in _moved_model_order:
-		_moved_model_order.erase(model_id)
-	_moved_model_order.append(model_id)
-	_update_model_position_in_gamestate(active_unit_id, model_id, candidate)
-	_move_token_visual(active_unit_id, model_id, candidate, model.get("rotation", 0.0))
-	models_to_move.erase(model_id)
+	_model_charge_paths[charge_key] = [origin, candidate]
+	if charge_key in _moved_model_order:
+		_moved_model_order.erase(charge_key)
+	_moved_model_order.append(charge_key)
+	_update_model_position_in_gamestate(key_parts.unit_id, key_parts.model_id, candidate)
+	_move_token_visual(key_parts.unit_id, key_parts.model_id, candidate, model.get("rotation", 0.0))
+	models_to_move.erase(charge_key)
 
 # All alive models of enemy units that are NOT among the declared charge
 # targets. Ending a charge move within engagement range of any of these is
@@ -4716,9 +4868,12 @@ func _position_within_enemy_er(model: Dictionary, pos: Vector2, enemy_models: Ar
 # Pass B only runs when every straight lane is blocked (squadmate, wall,
 # terrain budget): it sweeps small approach-angle offsets and shorter travels
 # and takes the first legal candidate.
-func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_sorted: Array, non_target_enemies: Array) -> Dictionary:
-	var model_id = model.get("id", "")
-	var remaining: float = max(0.0, float(charge_distance) - _get_model_charge_accumulated(model_id))
+func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_sorted: Array, non_target_enemies: Array, charge_key: String = "") -> Dictionary:
+	# charge_key keys the accumulated-distance lookup; falls back to the bare
+	# model id (the key for the charging unit's own models).
+	if charge_key == "":
+		charge_key = model.get("id", "")
+	var remaining: float = max(0.0, float(charge_distance) - _get_model_charge_accumulated(charge_key))
 	if remaining <= 0.05:
 		return {"found": false}
 
