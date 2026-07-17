@@ -19,6 +19,7 @@
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
     { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
     { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)" },
     { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
     { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
     { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[1].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
@@ -26,11 +27,11 @@
     { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[3].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
     { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
 
-    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
-    { "act": "click_node", "node": "/root/PileInStepDialog/Content/EndPileInButton", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
-    { "act": "click_node", "node": "/root/PileInStepDialog/Content/EndPileInButton", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
 
     { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 5.0 },

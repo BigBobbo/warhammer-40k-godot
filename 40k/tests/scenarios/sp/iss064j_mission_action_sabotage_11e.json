@@ -217,12 +217,12 @@
   },
   {
    "act": "expect_node_visible",
-   "node": "/root/PileInStepDialog",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
    "timeout_s": 5.0
   },
   {
    "act": "click_node",
-   "node": "/root/PileInStepDialog/Content/EndPileInButton",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
    "emit_pressed": true
   },
   {
@@ -231,12 +231,12 @@
   },
   {
    "act": "execute_script",
-   "script": "main.get_tree().root.get_node_or_null(\"PileInStepDialog\") != null and main.get_tree().root.get_node(\"PileInStepDialog\").visible",
+   "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel\").visible",
    "label": "second_half_maybe"
   },
   {
    "act": "execute_script",
-   "script": "main.get_tree().root.get_node_or_null(\"PileInStepDialog\") == null or main.get_tree().root.get_node(\"PileInStepDialog\").get_node(\"Content/EndPileInButton\").emit_signal(\"pressed\")"
+   "script": "not main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel\").visible or main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton\").emit_signal(\"pressed\")"
   },
   {
    "act": "wait_seconds",
@@ -263,12 +263,12 @@
   },
   {
    "act": "expect_node_visible",
-   "node": "/root/ConsolidationStepDialog",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel",
    "timeout_s": 5.0
   },
   {
    "act": "click_node",
-   "node": "/root/ConsolidationStepDialog/Content/EndConsolidationButton",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
    "emit_pressed": true
   },
   {
@@ -277,7 +277,7 @@
   },
   {
    "act": "execute_script",
-   "script": "main.get_tree().root.get_node_or_null(\"ConsolidationStepDialog\") == null or main.get_tree().root.get_node(\"ConsolidationStepDialog\").get_node(\"Content/EndConsolidationButton\").emit_signal(\"pressed\")"
+   "script": "not main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel\").visible or main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton\").emit_signal(\"pressed\")"
   },
   {
    "act": "wait_seconds",
