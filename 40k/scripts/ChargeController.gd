@@ -24,6 +24,7 @@ var awaiting_roll: bool = false
 var awaiting_movement: bool = false
 var last_processed_charge_roll: Dictionary = {}  # Tracks last processed roll to prevent duplicates
 var _pending_complete_unit_id: String = ""  # Unit awaiting COMPLETE_UNIT_CHARGE after charge_resolved
+var pending_ability_reroll_name: String = ""  # Ability granting the current free charge reroll (e.g. "Swift Onslaught") — used in dice-log copy
 var _last_apply_rejection: Dictionary = {}  # Set by Main via on_charge_move_rejected when APPLY_CHARGE_MOVE fails validation
 
 # Charge movement tracking
@@ -846,6 +847,17 @@ func _setup_right_panel() -> void:
 	# appended every clicked row to selected_targets without ever removing the
 	# previous one, so clicking target B after target A silently declared a
 	# charge against BOTH while only B stayed highlighted.
+	#
+	# We OWN left-clicks via gui_input rather than leaning on the built-in
+	# SELECT_MULTI toggle: Godot's built-in reads only the mouse event's
+	# ctrl_pressed field, so on platforms/WMs that do not stamp the Ctrl
+	# modifier onto the mouse button event, holding Ctrl and clicking did
+	# nothing (the reported "Ctrl+Click doesn't select a second target" bug).
+	# Our handler detects Ctrl from BOTH the event AND the live key state
+	# (Input.is_key_pressed) so a held Ctrl toggles regardless of platform.
+	# multi_selected stays connected so KEYBOARD selection (arrows + space)
+	# still syncs; empty_clicked handles right-clicks on empty space.
+	target_list.gui_input.connect(_on_target_list_gui_input)
 	target_list.multi_selected.connect(_on_target_multi_selected)
 	target_list.empty_clicked.connect(_on_target_list_empty_clicked)
 	_WhiteDwarfTheme.apply_to_item_list(target_list)
@@ -1358,12 +1370,57 @@ func _refresh_target_list() -> void:
 	
 	print("DEBUG: Target list now has ", target_list.get_item_count(), " items")
 
+func _on_target_list_gui_input(event: InputEvent) -> void:
+	# Own the LEFT-click selection so multi-target charge works on every platform.
+	# Godot's built-in ItemList SELECT_MULTI toggle only fires when the mouse
+	# event itself carries ctrl_pressed; some platforms/WMs never stamp that onto
+	# the button event, so a player holding Ctrl and clicking got a plain single
+	# select and could never build a multi-charge. Here we read Ctrl from BOTH the
+	# event AND the live keyboard state, so a held Ctrl always toggles.
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	# Rows are locked once the charge is declared — let nothing change then.
+	if awaiting_roll or awaiting_movement:
+		return
+	# Act on press; consume press+release so the built-in selection never also
+	# runs (which would fight our own select/deselect below).
+	get_viewport().set_input_as_handled()
+	target_list.accept_event()
+	if not mb.pressed:
+		return
+	target_list.grab_focus()  # normal list behaviour: click focuses it for keyboard nav
+
+	var idx: int = target_list.get_item_at_position(mb.position, true)
+	if idx < 0:
+		# Clicked empty space inside the list — clear the selection.
+		target_list.deselect_all()
+		_sync_selected_targets_from_list()
+		return
+
+	# Ctrl / Cmd (or Shift) held → toggle this row in/out for a multi-charge;
+	# no modifier → select only this row. Detect the modifier from the event
+	# and, as a platform-robust fallback, from the live key state.
+	var additive: bool = mb.ctrl_pressed or mb.meta_pressed or mb.shift_pressed \
+		or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META) \
+		or Input.is_key_pressed(KEY_SHIFT)
+
+	if additive:
+		if target_list.is_selected(idx):
+			target_list.deselect(idx)
+		else:
+			target_list.select(idx, false)  # false = keep existing selection
+	else:
+		target_list.select(idx, true)  # true = single-select (clears others)
+	_sync_selected_targets_from_list()
+
 func _on_target_multi_selected(_index: int, _selected: bool) -> void:
-	# Godot emits this for every selection change of a SELECT_MULTI ItemList:
-	# plain click (selects only that row), Ctrl+Click (toggles the row),
-	# Shift+Click (range select) and the deferred re-single-select on mouse
-	# release. Rebuilding from the list keeps selected_targets in lockstep with
-	# what the player sees highlighted — the old code let them drift apart.
+	# Keyboard selection (arrow keys + Space/Enter on the focused ItemList) still
+	# routes through the built-in and emits this — keep it synced. Mouse clicks
+	# are handled in _on_target_list_gui_input, which accept_event()s so the
+	# built-in never emits this for a click (no double-handling).
 	if awaiting_roll or awaiting_movement:
 		return  # declaration already committed — rows are locked
 	_sync_selected_targets_from_list()
@@ -3828,13 +3885,17 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		print("ChargeController: Player %d is AI — skipping ability reroll dialog" % player)
 		return
 
-	# Reuse CommandRerollDialog with modified display (ability name instead of CP cost)
+	# Reuse CommandRerollDialog in free-ability mode: the ability name becomes
+	# the header and the button reads "Re-roll (Free)" — before this the dialog
+	# kept its stratagem branding ("Re-roll (1 CP)" / "You have 0 CP"), so a
+	# 0-CP player reasonably concluded the free re-roll was unusable.
 	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load CommandRerollDialog.gd for ability reroll")
 		_on_ability_reroll_declined(unit_id, player)
 		return
 
+	pending_ability_reroll_name = ability_name
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
 	dialog.setup(
@@ -3842,7 +3903,8 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		player,
 		"charge_roll",
 		roll_context.get("original_rolls", []),
-		"%s — %s" % [ability_name, roll_context.get("context_text", "Re-roll charge dice for free")]
+		roll_context.get("context_text", "Re-roll the charge dice for free"),
+		ability_name
 	)
 	# Override the dialog title to show ability name instead of "Command Re-roll"
 	dialog.title = "%s — Free Charge Re-roll" % ability_name
@@ -3855,8 +3917,9 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 func _on_ability_reroll_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use ability reroll."""
 	print("ChargeController: Ability reroll USED for %s" % unit_id)
+	var used_name = pending_ability_reroll_name if pending_ability_reroll_name != "" else "Ability"
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=cyan]SWIFT ONSLAUGHT used! Re-rolling charge...[/color]\n")
+		dice_log_display.append_text("[color=cyan]%s used! Re-rolling charge (free)...[/color]\n" % used_name.to_upper())
 	emit_signal("charge_action_requested", {
 		"type": "USE_ABILITY_REROLL",
 		"actor_unit_id": unit_id,

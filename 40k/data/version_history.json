@@ -14,6 +14,44 @@
 			]
 		},
 		{
+			"version": "0.53.4",
+			"date": "2026-07-17",
+			"summary": "Re-roll dialogs (charge re-rolls, Command Re-roll, ability re-rolls like Swift Onslaught) now make 'Keep Roll' the highlighted default on the LEFT and 'Re-roll' the plainer button on the RIGHT. Previously the CP-spending re-roll was the prominent left-hand button, which invited an accidental click that wasted a Command Point — especially right after a successful charge, where re-rolling almost never makes sense.",
+			"changes": [
+				"Swapped the buttons in the re-roll pop-up: 'Keep Roll' is now the highlighted button on the left; 'Re-roll' is the secondary button on the right.",
+				"'Keep Roll' now also holds keyboard focus, so pressing Enter/confirm keeps your roll instead of spending a Command Point.",
+				"Applies to every re-roll prompt that uses this dialog (charge rolls, Command Re-roll, and free ability re-rolls such as Swift Onslaught)."
+			]
+		},
+		{
+			"version": "0.53.3",
+			"date": "2026-07-17",
+			"summary": "Fixed the free charge re-roll from abilities like the Blade Champion's Swift Onslaught looking unusable: the dialog offering it was branded as the 1 CP Command Re-roll stratagem, so with 0 CP it read as unaffordable. It now clearly says the re-roll is FREE, and closing the dialog with ✕ or ESC no longer leaves the charge stuck waiting for an answer.",
+			"changes": [
+				"Fixed: the Swift Onslaught (and Plummeting Descent, etc.) free charge re-roll dialog showed 'COMMAND RE-ROLL', 'Re-roll (1 CP)' and 'You have 0 CP' — players with no CP thought they could not use their free re-roll. The dialog now shows the ability name, 'Re-roll (Free)' and 'FREE — costs no CP'.",
+				"Fixed: closing any re-roll dialog with the ✕ button or ESC left the game waiting forever for a re-roll decision, blocking the rest of the Charge phase. Dismissing the dialog now counts as 'Keep Roll'.",
+				"The dice log now names the ability that was used for the free re-roll instead of always saying 'SWIFT ONSLAUGHT used!'."
+			]
+		},
+		{
+			"version": "0.53.2",
+			"date": "2026-07-17",
+			"summary": "Fixed a Movement-phase unit-list label that showed an attached leader twice. A squad with an attached CHARACTER (e.g. a Blade Champion leading a Custodian Guard squad) was listed as 'Custodian Guard Alpha + Blade Champion + Blade Champion' — the leader's name was printed twice. It now reads 'Custodian Guard Alpha + Blade Champion' once. This was purely a display bug; only one leader was ever attached.",
+			"changes": [
+				"Fixed: in the Movement phase 'Units (Move / Disembark)' list, a bodyguard squad's attached leader appeared twice in the row label (e.g. '+ Blade Champion + Blade Champion'). The movement controller was appending the attached-character names to the row twice; it now appends them once."
+			]
+		},
+		{
+			"version": "0.53.1",
+			"date": "2026-07-17",
+			"summary": "Fixed Ctrl+Click not selecting a second charge target. The Eligible Targets list told you to hold Ctrl+Click to charge more than one unit, but on many setups holding Ctrl and clicking did nothing (or just moved the selection) \u2014 so you could never actually declare a multi-unit charge. Ctrl+Click now reliably adds/removes extra targets.",
+			"changes": [
+				"Fixed: holding Ctrl (or Cmd) and clicking a second unit in the Eligible Targets list now toggles it in/out of the charge, so you can declare a charge against several units as the hint describes.",
+				"The charge target list no longer relies on the click carrying the Ctrl modifier (which some systems don't attach to mouse clicks) \u2014 it now also reads the live keyboard state, so Ctrl+Click works consistently across platforms.",
+				"Plain click still selects exactly one target, clicking empty space still clears the selection, and the target rows still lock once the charge is declared."
+			]
+		},
+		{
 			"version": "0.53.0",
 			"date": "2026-07-17",
 			"summary": "Multi-target shooting overhaul, part 1: declaring targets is now one click for the common case. Clicking an enemy with no weapon selected sends EVERYTHING at it; clicking with a weapon selected commits all of that weapon's eligible bearers instantly (no popup). Splitting fire is the exception you opt into: click a second target and the game offers to move some shots across. Engaged vehicles can also declare targets they are not engaged with again (10.06), and the game no longer shows error banners for assignments it auto-attempted itself.",

@@ -1,0 +1,53 @@
+{
+  "id": "swift_onslaught_reroll_dismiss",
+  "covers": [
+    "charge.ability_reroll.dismiss_keeps_roll",
+    "dialogs.CommandRerollDialog.dismiss_is_decline"
+  ],
+  "fixture": "attached_char_charge_overlap",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Closing the free re-roll dialog must not wedge the Charge phase (user report 2026-07-17): before the fix, dismissing the dialog with ESC/✕ emitted neither used nor declined, so ChargePhase stayed awaiting_ability_reroll forever and the player 'did not see a way to use' the re-roll. Now a dismiss counts as Keep Roll: the phase resolves the charge with the original 2D6 (no Command Re-roll follow-up at 0 CP) and normal charge actions become available again. Runs at edition 11 like the reported game; enemy nudged out of the 2\" ER so the charge is declarable.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 9 },
+    { "act": "expect_cp", "player": 1, "equals": 0 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.effect_reroll_charge", "equals": true },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_ENEMY_BOYZ_X\"].models[0].merge({\"position\": {\"x\": 600.0, \"y\": 480.0}}, true)" },
+    { "act": "execute_script", "script": "main.update_unit_visuals(\"U_ENEMY_BOYZ_X\")" },
+    { "act": "wait_frames", "frames": 5 },
+
+    { "act": "dispatch_action", "action": { "type": "DECLARE_CHARGE", "actor_unit_id": "U_CUSTODIAN_GUARD_B", "payload": { "target_unit_ids": ["U_ENEMY_BOYZ_X"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CHARGE_ROLL", "actor_unit_id": "U_CUSTODIAN_GUARD_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_action_result", "path": "awaiting_ability_reroll", "equals": true },
+    { "act": "expect_node_visible", "node": "/root/CommandRerollDialog", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "01_free_reroll_dialog_open" },
+
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "return tree.root.get_node_or_null(\"CommandRerollDialog\") == null",
+      "multiline": true,
+      "equals": true },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().awaiting_ability_reroll",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().ability_reroll_used",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "\"USE_ABILITY_REROLL\" in str(PhaseManager.get_current_phase_instance().get_available_actions())",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_charge(\"U_CUSTODIAN_GUARD_B\")",
+      "equals": true },
+    { "act": "screenshot", "label": "02_dismissed_charge_resolved_not_stuck" }
+  ]
+}
