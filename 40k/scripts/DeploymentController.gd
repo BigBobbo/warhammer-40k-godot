@@ -2212,10 +2212,16 @@ func _create_formation_ghosts(count: int) -> void:
 		ghost.name = "FormationGhost_%d" % i
 		ghost.owner_player = unit_data["owner"]
 		ghost.set_model_data(model_data)
-		# MA-17: Set model type label on formation ghosts
-		var fm_unit_data = unit_data
+		# Stamp which unit this formation slot belongs to (combined deploys mix
+		# units) so GhostVisual can resolve the model's facing sprite. Without the
+		# unit_id meta, _draw_ghost_model_art() bails and only the base outline +
+		# letter/arrow render — the single-placement ghost sets this too.
+		var fm_unit_id = unit_id
 		if is_combined_deployment and model_index < combined_models.size():
-			fm_unit_data = GameState.get_unit(combined_models[model_index]["unit_id"])
+			fm_unit_id = combined_models[model_index]["unit_id"]
+		ghost.set_meta("unit_id", fm_unit_id)
+		# MA-17: Set model type label on formation ghosts
+		var fm_unit_data = GameState.get_unit(fm_unit_id)
 		ghost.set_model_type_label(_get_model_type_label(model_data, fm_unit_data))
 		ghost.modulate.a = 0.6  # Slightly transparent for formation ghosts
 		ghost_layer.add_child(ghost)
@@ -2350,6 +2356,9 @@ func _start_model_repositioning(deployed_model: Dictionary) -> void:
 	reposition_ghost.name = "RepositionGhost"
 	reposition_ghost.owner_player = GameState.get_active_player()
 	reposition_ghost.set_model_data(model_data)
+	# Stamp the unit so the ghost resolves the facing sprite (matches the
+	# single-placement ghost); without unit_id meta only the outline draws.
+	reposition_ghost.set_meta("unit_id", unit_id)
 	# MA-17: Set model type label on reposition ghost
 	var repo_unit_data = GameState.get_unit(unit_id)
 	reposition_ghost.set_model_type_label(_get_model_type_label(model_data, repo_unit_data))
