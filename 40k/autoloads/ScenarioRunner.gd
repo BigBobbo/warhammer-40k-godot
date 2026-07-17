@@ -502,6 +502,34 @@ func _do_click_item_list(step: Dictionary) -> Dictionary:
 		local_pos = list.get_item_rect(index).get_center()
 
 	var screen_pos: Vector2 = list.get_global_transform() * local_pos
+
+	# `ctrl_via_key`: faithfully reproduce a player holding the physical Ctrl key
+	# while clicking. It presses a real InputEventKey Ctrl DOWN (updating the
+	# global Input.is_key_pressed(KEY_CTRL) state), clicks WITHOUT stamping the
+	# modifier onto the mouse event, then releases Ctrl. This is the real-world
+	# path on platforms/window-managers that do not stamp ctrl_pressed onto the
+	# mouse button event — where relying on event.ctrl_pressed (as Godot's
+	# built-in ItemList SELECT_MULTI toggle does) silently fails to toggle.
+	# `ctrl` (the old mode) instead stamps ctrl_pressed directly on the mouse
+	# event, which a real OS also does but some do not.
+	var ctrl_via_key: bool = bool(step.get("ctrl_via_key", false))
+	if ctrl_via_key:
+		var kdown := InputEventKey.new()
+		kdown.keycode = KEY_CTRL
+		kdown.physical_keycode = KEY_CTRL
+		kdown.pressed = true
+		Input.parse_input_event(kdown)
+		await get_tree().process_frame
+		await _send_click(screen_pos, false)
+		var kup := InputEventKey.new()
+		kup.keycode = KEY_CTRL
+		kup.physical_keycode = KEY_CTRL
+		kup.pressed = false
+		Input.parse_input_event(kup)
+		await get_tree().process_frame
+		return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y],
+				"ctrl_via_key": true, "ctrl_key_seen": Input.is_key_pressed(KEY_CTRL)}
+
 	await _send_click(screen_pos, ctrl)
 	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y], "ctrl": ctrl}
 
@@ -748,14 +776,20 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 			uni = (u as String).unicode_at(0)
 		elif typeof(u) == TYPE_INT or typeof(u) == TYPE_FLOAT:
 			uni = int(u)
+	# Set BOTH keycode and physical_keycode (as _do_drag_board does for SHIFT):
+	# the built-in ui_* actions (ui_cancel = dialog close-on-escape, ui_accept,
+	# focus navigation) are bound to PHYSICAL keys, so an event carrying only
+	# `keycode` never matches them and e.g. ESC silently fails to close dialogs.
 	var press := InputEventKey.new()
 	press.keycode = kc
+	press.physical_keycode = kc
 	press.unicode = uni
 	press.pressed = true
 	Input.parse_input_event(press)
 	await get_tree().process_frame
 	var release := InputEventKey.new()
 	release.keycode = kc
+	release.physical_keycode = kc
 	release.unicode = uni
 	release.pressed = false
 	Input.parse_input_event(release)

@@ -2923,6 +2923,42 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "charge.ux.ctrl_click_via_held_key",
+      "description": "CHARGE phase: Ctrl+Click adds a second target to a multi-charge even when the platform does not stamp ctrl_pressed onto the mouse button event. ChargeController owns target-list left-clicks via gui_input and detects Ctrl from BOTH the event and Input.is_key_pressed(KEY_CTRL), so a held Ctrl key toggles regardless of platform. Reproduced (pre-fix: held Ctrl key + unstamped click did not toggle, selection stayed at 1) and fixed via 'charge_ctrl_click_real_key' using the click_item_list ctrl_via_key mode.",
+      "scenarios": [
+        "charge_ctrl_click_real_key"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movementcontroller.unit_list_attached_leader_rendered_once",
+      "description": "In the Movement phase 'Units (Move / Disembark)' list, a bodyguard squad with an attached CHARACTER (e.g. a Blade Champion leading a Custodian Guard squad) names its leader exactly once in the row label. Regression for a bug where MovementController._refresh_unit_list() appended the attached-character names to the row twice (rendering 'Custodian Guard Alpha + Blade Champion + Blade Champion').",
+      "scenarios": [
+        "duplicate_leader_movement_list"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.reroll.keep_roll_default_button_order",
+      "description": "CHARGE phase Command/ability re-roll dialog: after a charge roll opens CommandRerollDialog, 'Keep Roll' is the highlighted primary button on the LEFT (ButtonRow child 0) and 'Re-roll (1 CP)' is the secondary button on the RIGHT (child 1) — the reverse of the old order — so a reflexive click on the prominent left-hand button no longer wastes a Command Point after a successful charge.",
+      "scenarios": [
+        "charge_reroll_keep_default_button"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.CommandRerollDialog.keep_roll_is_highlighted_default",
+      "description": "CommandRerollDialog._build_ui() builds the safe 'Keep Roll' decline button as the primary/highlighted control (font_size 16) and grabs keyboard focus on it, while the CP-spending 'Re-roll' button uses the secondary style (font_size 13). Shared by charge rolls, Command Re-roll and free ability re-rolls (e.g. Swift Onslaught), so the safe choice is the highlighted default everywhere the dialog appears.",
+      "scenarios": [
+        "charge_reroll_keep_default_button"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
