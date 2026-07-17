@@ -3,13 +3,14 @@
   "covers": [
     "shooting.split_fire_move_picker",
     "scripts.ShootingController._commit_move_assignment",
-    "shooting.split_fire_picker_ui"
+    "shooting.split_fire_picker_ui",
+    "shooting.quick_assign_expected_damage"
   ],
   "fixture": "shooting_phase",
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "B4 declaration ergonomics: retargeting committed bearers. With every eligible bearer of a weapon already committed (first click concentrates all fire), clicking a DIFFERENT eligible enemy with that weapon selected opens the MOVE picker instead of dead-ending with 'No bearers can fire'. Battlewagon Alpha's big shoota is committed to the Witchseekers; clicking the (relocated) Blade Champion offers 'Move how many?'; confirming retargets the bearer \u2014 the pending assignment now points at the Blade Champion and the Witchseekers slice is gone. The async picker-confirm path must also refresh the CURRENT TARGETS basket (_post_assign_ui_update).",
+  "description": "B4 declaration ergonomics: retargeting committed bearers. With every eligible bearer of a weapon already committed (first click concentrates all fire), clicking a DIFFERENT eligible enemy with that weapon selected opens the MOVE picker instead of dead-ending with 'No bearers can fire'. Battlewagon Alpha's big shoota is committed to the Witchseekers; clicking the (relocated) Blade Champion offers 'Move how many?'; confirming retargets the bearer — the pending assignment now points at the Blade Champion and the Witchseekers slice is gone. The async picker-confirm path must also refresh the CURRENT TARGETS basket (_post_assign_ui_update).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -56,6 +57,11 @@
     {
       "act": "wait_seconds",
       "seconds": 0.2
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").quick_assign_container.get_child(1).text.contains(\"dmg\")",
+      "equals": true
     },
     {
       "act": "execute_script",
@@ -157,7 +163,7 @@
     {
       "act": "execute_script",
       "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().get_text(1)",
-      "equals": "1\u2192[B] Blade Champion"
+      "equals": "1→[B] Blade Champion"
     }
   ]
 }

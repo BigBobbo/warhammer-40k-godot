@@ -3,7 +3,8 @@
   "covers": [
     "phases.ShootingPhase.apply_saves_sequential_staged",
     "shooting.split_fire_resolution_both_targets",
-    "scripts.ShootingResolutionDock.next_weapon_after_saves"
+    "scripts.ShootingResolutionDock.next_weapon_after_saves",
+    "scripts.ShootingResolutionDock.row_forecast"
   ],
   "fixture": "shooting_phase",
   "rng_seed": 42,
@@ -133,6 +134,11 @@
     {
       "act": "execute_script",
       "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.queue_box.get_child(0).get_node(\"RowText\").text.contains(\"dmg\")",
       "equals": true
     },
     {

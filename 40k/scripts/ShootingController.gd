@@ -5698,10 +5698,19 @@ func _refresh_quick_assign_buttons() -> void:
 		stat_suffix += " (%d)" % alive
 		var range_inches = _get_closest_range_inches(active_shooter_id, target_id)
 		var range_str = "%.0f\"" % range_inches if range_inches >= 0 else "?"
+
+		# B5 (audit 2026-07): expected total damage if every weapon in range
+		# fires at this target — the concentrated-fire decision is informed
+		# before a single click.
+		var expected_total := 0.0
+		for wid in eligible_targets[target_id].get("weapons_in_range", []):
+			var fc = _calc_weapon_expected_damage(str(wid), target_id)
+			expected_total += float(fc.get("expected_damage", 0.0))
+
 		var btn = Button.new()
-		btn.text = "All → %s  [%s %s]" % [target_name, range_str, stat_suffix]
+		btn.text = "All → %s  [%s %s]  ~%.1f dmg" % [target_name, range_str, stat_suffix, expected_total]
 		btn.custom_minimum_size = Vector2(230, 28)
-		btn.tooltip_text = "Assign all usable weapons to %s (%.1f\" away, %d models, T%d, Sv%d+)" % [target_name, max(range_inches, 0.0), alive, t_val, sv_val]
+		btn.tooltip_text = "Assign all usable weapons to %s (%.1f\" away, %d models, T%d, Sv%d+).\nExpected total damage after saves: ~%.1f" % [target_name, max(range_inches, 0.0), alive, t_val, sv_val, expected_total]
 		_WhiteDwarfTheme.apply_secondary_button(btn)
 		btn.add_theme_font_size_override("font_size", 12)
 		btn.pressed.connect(_on_quick_assign_all_to_target.bind(target_id))
@@ -6217,9 +6226,11 @@ func _update_damage_preview(weapon_id: String) -> void:
 	# P3-114: Update aggregate preview whenever a single weapon preview updates
 	_update_aggregate_damage_preview()
 
-func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dictionary:
+func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_count_override: int = -1) -> Dictionary:
 	"""P3-114: Calculate expected damage for a single weapon vs target, accounting for all modifiers.
-	Returns a dictionary with all computed values, or empty dict on failure."""
+	Returns a dictionary with all computed values, or empty dict on failure.
+	B5 (audit 2026-07): model_count_override > 0 forecasts a specific bearer
+	slice (split-fire assignment) instead of every bearer in the unit."""
 	# Get weapon profile
 	var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
 	if weapon_profile.is_empty():
@@ -6243,12 +6254,15 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dicti
 	var weapon_name = weapon_profile.get("name", weapon_id)
 	var active_tags: Array = []  # Track active modifiers for display
 
-	# Get number of models with this weapon
+	# Get number of models with this weapon (or the forecasted slice size)
 	var model_count = 0
-	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
-	for model_id in unit_weapons:
-		if weapon_id in unit_weapons[model_id]:
-			model_count += 1
+	if model_count_override > 0:
+		model_count = model_count_override
+	else:
+		var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+		for model_id in unit_weapons:
+			if weapon_id in unit_weapons[model_id]:
+				model_count += 1
 
 	# === ATTACKS ===
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))

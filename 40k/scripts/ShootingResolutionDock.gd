@@ -181,6 +181,35 @@ func _row_color(a: Dictionary) -> Color:
 		return controller._chip_color(a.get("target_unit_id", ""))
 	return Color(0.8, 0.8, 0.8)
 
+# B5: expected-value forecast for one assignment slice (reuses the
+# controller's P3-114 math with a bearer-count override).
+func _forecast(a: Dictionary) -> Dictionary:
+	if controller == null or not controller.has_method("_calc_weapon_expected_damage"):
+		return {}
+	var slice_count = (a.get("model_ids", []) as Array).size()
+	if slice_count <= 0:
+		return {}
+	return controller._calc_weapon_expected_damage(a.get("weapon_id", ""), a.get("target_unit_id", ""), slice_count)
+
+# B5: full staged chain in the tooltip — never show a preview that silently
+# omits the save stage.
+func _forecast_tooltip(fc: Dictionary) -> String:
+	var tags: Array = fc.get("active_tags", [])
+	var tag_line = ("\nModifiers: " + ", ".join(tags)) if not tags.is_empty() else ""
+	return "Expected vs %s (T%d, best save %s):\n%.1f attacks → %.1f hits (%s) → %.1f wounds (%s) → %.1f unsaved → ~%.1f damage%s" % [
+		str(fc.get("target_name", "?")),
+		int(fc.get("toughness", 0)),
+		str(fc.get("best_save", "?")),
+		float(fc.get("total_attacks", 0.0)),
+		float(fc.get("expected_hits", 0.0)),
+		str(fc.get("hit_display", "?")),
+		float(fc.get("expected_wounds", 0.0)),
+		str(fc.get("wound_display", "?")),
+		float(fc.get("expected_unsaved", 0.0)),
+		float(fc.get("expected_damage", 0.0)),
+		tag_line
+	]
+
 func _rebuild_queue() -> void:
 	for child in queue_box.get_children():
 		queue_box.remove_child(child)
@@ -208,7 +237,18 @@ func _rebuild_queue() -> void:
 
 		var text := Label.new()
 		text.name = "RowText"
-		text.text = _assignment_label(a) + (("  " + note) if note != "" else "")
+		var row_text := _assignment_label(a) + (("  " + note) if note != "" else "")
+		# B5 (audit 2026-07): pending rows carry the expected damage for THIS
+		# slice against THIS target (full modifier chain in the tooltip) — the
+		# split-fire decision is informed, not bookkeeping. Done rows show
+		# their real result note instead.
+		if not a.get("_done", false):
+			var fc := _forecast(a)
+			if not fc.is_empty():
+				row_text += "  ~%.1f dmg" % float(fc.get("expected_damage", 0.0))
+				text.tooltip_text = _forecast_tooltip(fc)
+				text.mouse_filter = Control.MOUSE_FILTER_STOP
+		text.text = row_text
 		text.add_theme_font_size_override("font_size", 12)
 		text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
