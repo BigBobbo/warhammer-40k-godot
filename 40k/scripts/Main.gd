@@ -767,22 +767,31 @@ func _on_ai_action_taken(_player: int, action: Dictionary, _description: String)
 			print("[Main] T7-58: Triggered AI charge arrows for %s -> %s" % [charger_id, str(target_ids)])
 
 	# Movement-related actions that change model positions
-	if action_type in ["CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY", "CHARGE", "PILE_IN", "CONSOLIDATE"]:
+	if action_type in ["CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY", "CHARGE"]:
 		if unit_id != "":
 			# T-091: Capture pre-move token positions and spawn AI path visual
 			# (token positions still hold the OLD positions; GameState already has the NEW)
 			if action_type == "CONFIRM_UNIT_MOVE":
 				_show_ai_movement_paths(unit_id, _player)
-			# Fight-phase PILE_IN / CONSOLIDATE (and any move dispatched via
-			# AIPlayer._execute_next_action) emit ai_action_taken BEFORE the action is
+			# AIPlayer._execute_next_action emits ai_action_taken BEFORE the action is
 			# routed, so GameState still holds the PRE-move positions right now. A
 			# synchronous update_unit_visuals() would sync tokens to the old state — a
-			# no-op — and nothing re-syncs after the phase applies the move (the
-			# FightPhase.pile_in_preview signal has no listeners). Defer the token sync
-			# to the end of the frame so it reads the post-move state the phase writes
-			# in route_action; without this the AI's Lootas pile-in logged "(N models
-			# moved)" while the tokens never moved on the board.
+			# no-op. Defer the token sync to the end of the frame so it reads the
+			# post-move state the phase writes in route_action.
 			call_deferred("update_unit_visuals", unit_id)
+
+	# Fight-phase PILE_IN / CONSOLIDATE move the chosen unit AND its attached
+	# characters' models in ONE action (19.03 group move), but the action dict
+	# carries only the BODYGUARD's unit_id. update_unit_visuals(unit_id) walked
+	# that one unit's tokens, so an attached leader's token stayed stranded at
+	# its pre-move position while GameState (and the combat) used the new one —
+	# e.g. a Blade Champion attached to Custodian Guard never visibly piled in
+	# when the AI's half of the Pile In step (12.02) ran first. Sync ALL tokens
+	# in one pass instead (same approach as the AI charge-move fix): it tweens
+	# every token to its state position, covering the leader with the
+	# bodyguard. Deferred for the same pre-move-state reason as above.
+	if action_type in ["PILE_IN", "CONSOLIDATE"]:
+		call_deferred("_sync_all_token_positions")
 
 	# Charge moves change model positions too, but the AI applies them directly
 	# via NetworkIntegration.route_action — NOT through the ChargeController — so

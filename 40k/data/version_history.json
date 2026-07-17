@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.54.7",
+			"date": "2026-07-17",
+			"summary": "Fixed attached leaders not moving on the board when the opponent's AI piles in first. At the start of the Fight phase the player whose turn it is piles in first (11e 12.02) — when that was the AI and it piled in a unit with an attached character (e.g. a Blade Champion leading Custodian Guard), the bodyguard's models moved on the board but the leader's token stayed put, even though the leader had really moved in the game state. The whole group now visibly moves together the moment the AI piles in or consolidates.",
+			"changes": [
+				"Fixed: when the AI piles in or consolidates an attached unit (leader + bodyguard), the leader's token now moves on the board at the same moment as the bodyguard's models (previously it was left stranded at its old position until a later board refresh).",
+				"The combat itself always used the correct positions — this was purely a display issue, but it made it look like the opponent never piled in before your own Pile In step began."
+			]
+		},
+		{
 			"version": "0.54.6",
 			"date": "2026-07-17",
 			"summary": "Fight phase: picking which unit fights next no longer pops up over the middle of the board. The 'Select Unit to Fight' picker now lives in the right-hand panel — same place you pick units in every other phase and in the Pile In / Consolidate steps — so you can see the whole battlefield while choosing.",

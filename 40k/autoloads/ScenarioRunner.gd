@@ -1472,6 +1472,50 @@ func repro_ai_charge_move(unit_id: String, nx: float, ny: float) -> bool:
 	}])
 	return true
 
+# Attached-unit (19.03) analogue of repro_ai_pile_in_move. A fight-phase
+# PILE_IN / CONSOLIDATE moves the chosen unit AND its attached characters'
+# models in ONE action, but the action dict carries only the BODYGUARD's
+# unit_id (the AI merges the leader's moves via
+# _merge_attached_char_fight_movements). The bug: _on_ai_action_taken synced
+# visuals with update_unit_visuals(unit_id), which only walks that one unit's
+# tokens — the leader's token stayed stranded at its pre-move position (its
+# desync equalled its full state displacement) while GameState and the combat
+# used the new one. This helper links char_id to unit_id as an attached
+# character, drives the REAL Main handler in the exact AI order, then applies
+# the model-0 move of BOTH units the phase would apply in route_action. The
+# fix defers _sync_all_token_positions() so every token in the group catches
+# up. Returns true if the handler + moves were driven. Callable from
+# execute_script.
+func repro_ai_pile_in_group_move(unit_id: String, char_id: String, nx: float, ny: float, cnx: float, cny: float) -> bool:
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("_on_ai_action_taken"):
+		return false
+	var unit = GameState.get_unit(unit_id)
+	var chr_unit = GameState.get_unit(char_id)
+	if unit.is_empty() or unit.get("models", []).is_empty() \
+			or chr_unit.is_empty() or chr_unit.get("models", []).is_empty():
+		return false
+	# 19.03 linkage, both directions — matching how formations write it.
+	GameState.state.units[unit_id]["attachment_data"] = {"attached_characters": [char_id]}
+	GameState.state.units[char_id]["attached_to"] = unit_id
+	var owner := int(unit.get("owner", 1))
+	# (1) AI emits ai_action_taken BEFORE the action is routed:
+	scene._on_ai_action_taken(owner, {"type": "PILE_IN", "unit_id": unit_id}, "repro group pile-in")
+	# (2) the FightPhase then writes the WHOLE GROUP's move in route_action:
+	GameState.apply_state_changes([
+		{
+			"op": "set",
+			"path": "units.%s.models.0.position" % unit_id,
+			"value": {"x": nx, "y": ny}
+		},
+		{
+			"op": "set",
+			"path": "units.%s.models.0.position" % char_id,
+			"value": {"x": cnx, "y": cny}
+		}
+	])
+	return true
+
 # Distance in px between a unit's model ON-SCREEN token and that model's current
 # GameState position. ~0 == the visual is in sync with state; a large value ==
 # the token was left stranded at a stale position. Callable from execute_script,
