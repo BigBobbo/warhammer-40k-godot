@@ -582,6 +582,19 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 	from_screen = from_screen.round()
 	to_screen = to_screen.round()
 
+	# Optional `"shift": true` — hold SHIFT for the whole drag (the player path
+	# for drag-box multi-selection). A real KEY_SHIFT press is parsed first so
+	# controllers polling Input.is_key_pressed(KEY_SHIFT) see it held, and every
+	# injected mouse event carries the modifier flag too.
+	var hold_shift: bool = bool(step.get("shift", false))
+	if hold_shift:
+		var shift_press := InputEventKey.new()
+		shift_press.keycode = KEY_SHIFT
+		shift_press.physical_keycode = KEY_SHIFT
+		shift_press.pressed = true
+		Input.parse_input_event(shift_press)
+		await get_tree().process_frame
+
 	Input.warp_mouse(from_screen)
 	await get_tree().process_frame
 	var press := InputEventMouseButton.new()
@@ -590,6 +603,7 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 	press.global_position = from_screen
 	press.pressed = true
 	press.button_mask = MOUSE_BUTTON_MASK_LEFT
+	press.shift_pressed = hold_shift
 	Input.parse_input_event(press)
 	await get_tree().process_frame
 
@@ -604,6 +618,7 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 		motion.global_position = p
 		motion.relative = p - prev
 		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+		motion.shift_pressed = hold_shift
 		Input.parse_input_event(motion)
 		prev = p
 		await get_tree().process_frame
@@ -614,10 +629,19 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 	release.global_position = to_screen
 	release.pressed = false
 	release.button_mask = 0
+	release.shift_pressed = hold_shift
 	Input.parse_input_event(release)
 	await get_tree().process_frame
+
+	if hold_shift:
+		var shift_release := InputEventKey.new()
+		shift_release.keycode = KEY_SHIFT
+		shift_release.physical_keycode = KEY_SHIFT
+		shift_release.pressed = false
+		Input.parse_input_event(shift_release)
+
 	await get_tree().process_frame
-	return {"pass": true,
+	return {"pass": true, "shift": hold_shift,
 		"from_world": [from_world.x, from_world.y], "to_world": [to_world.x, to_world.y],
 		"from_screen": [from_screen.x, from_screen.y], "to_screen": [to_screen.x, to_screen.y]}
 

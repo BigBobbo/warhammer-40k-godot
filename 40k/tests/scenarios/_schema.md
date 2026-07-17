@@ -141,9 +141,13 @@ Each step is a dict with an `act` field plus act-specific keys.
   `InputEventMouseMotion` steps (default 8, override with `steps`), LMB
   release at `to`. This is the player path for drag-to-move flows (fight-phase
   pile-in/consolidate model movement); no controller state is poked.
-  Coordinates are board px, projected like `click_board_at`.
+  Coordinates are board px, projected like `click_board_at`. Optional
+  `"shift": true` holds SHIFT for the whole drag (a real KEY_SHIFT press is
+  parsed first, so `Input.is_key_pressed(KEY_SHIFT)` sees it) — the player
+  path for drag-box multi-selection (movement/charge phases).
   ```json
   { "act": "drag_board", "from_x": 200, "from_y": 100, "to_x": 255, "to_y": 170 }
+  { "act": "drag_board", "from_x": 1030, "from_y": 720, "to_x": 910, "to_y": 880, "shift": true }
   ```
 
 - `hover_unit`: locate the token for `unit_id` (like `click_unit`), warp the
