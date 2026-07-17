@@ -2,6 +2,12 @@ extends AcceptDialog
 class_name AttackAssignmentDialog
 
 signal attacks_confirmed(assignments: Array)
+# Escape hatch: emitted when the dialog opened with NO eligible targets and
+# the player ends the fight instead (the controller submits SKIP_UNIT).
+# FightPhase normally auto-ends a no-target activation before this dialog is
+# requested, so this only fires on unforeseen paths — but without it the
+# dialog is un-completable (nothing to assign) and the game self-locks.
+signal skip_fight_requested(unit_id: String)
 
 var unit_id: String = ""
 var eligible_targets: Dictionary = {}
@@ -202,6 +208,27 @@ func _build_ui() -> void:
 	# _on_confirmed) and, unlike "Fight!", auto-hid the dialog even when the
 	# confirm was rejected for having no assignments.
 	get_ok_button().visible = false
+
+	# No eligible targets: nothing can ever be assigned, so the three buttons
+	# above are dead ends — offer the one legal move (ending the fight)
+	# instead of soft-locking the player in an un-completable dialog.
+	if eligible_targets.is_empty():
+		assign_button.disabled = true
+		all_to_target_button.disabled = true
+		confirm_attacks_button.disabled = true
+
+		var no_targets_label = Label.new()
+		no_targets_label.name = "NoTargetsLabel"
+		no_targets_label.text = "No enemy units within Engagement Range — this unit cannot make melee attacks."
+		no_targets_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		container.add_child(no_targets_label)
+
+		var skip_button = Button.new()
+		skip_button.name = "SkipFightButton"
+		skip_button.text = "End Fight (No Targets)"
+		skip_button.tooltip_text = "End this unit's activation — it has no one to attack"
+		skip_button.pressed.connect(_on_skip_fight_pressed)
+		button_container.add_child(skip_button)
 
 	container.add_child(button_container)
 
@@ -418,6 +445,12 @@ func _wound_probability(s: int, t: int) -> float:
 	if s * 2 <= t:
 		return 1.0 / 6.0
 	return 2.0 / 6.0
+
+func _on_skip_fight_pressed() -> void:
+	print("[AttackAssignmentDialog] Skip fight pressed (no eligible targets) for unit: ", unit_id)
+	hide()
+	emit_signal("skip_fight_requested", unit_id)
+	queue_free()
 
 func _on_confirmed() -> void:
 	print("[AttackAssignmentDialog] Confirmed button pressed")
