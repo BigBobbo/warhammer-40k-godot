@@ -41,6 +41,11 @@ var audio_muted: bool = false
 var ui_scale: float = 1.0        # 0.5 to 2.0
 var animation_speed: float = 1.0 # 0.25 to 3.0
 
+# Menu / panel scroll speed — fraction of Godot's default mouse-wheel / trackpad
+# scroll distance applied to ScrollContainers and other scroll surfaces. 1.0 ==
+# stock engine speed; lower == slower. Consumed by ScrollSpeedController.
+var menu_scroll_speed: float = 0.4  # 0.1 to 1.0
+
 # P3-111: Colorblind mode — "none", "protanopia", "deuteranopia", "tritanopia"
 var colorblind_mode: String = "none"
 
@@ -89,6 +94,7 @@ var ruins_style: String = "concrete"
 # P3-111: Signals for real-time setting changes
 signal ui_scale_changed(new_scale: float)
 signal animation_speed_changed(new_speed: float)
+signal menu_scroll_speed_changed(new_speed: float)
 signal colorblind_mode_changed(new_mode: String)
 signal audio_settings_changed()
 signal unit_labels_visibility_changed(visible: bool)
@@ -287,6 +293,15 @@ func set_animation_speed(value: float) -> void:
 	_save_settings()
 	print("[SettingsService] Animation speed set to %.2f" % animation_speed)
 
+func set_menu_scroll_speed(value: float) -> void:
+	menu_scroll_speed = clampf(value, 0.1, 1.0)
+	# Apply live to the limiter if it's up (it also listens on the signal below).
+	if ScrollSpeedController:
+		ScrollSpeedController.menu_scroll_speed = menu_scroll_speed
+	menu_scroll_speed_changed.emit(menu_scroll_speed)
+	_save_settings()
+	print("[SettingsService] menu_scroll_speed set to %.2f" % menu_scroll_speed)
+
 func set_colorblind_mode(mode: String) -> void:
 	if mode not in ["none", "protanopia", "deuteranopia", "tritanopia"]:
 		print("[SettingsService] Invalid colorblind mode: %s" % mode)
@@ -416,6 +431,9 @@ func _save_settings() -> void:
 	config.set_value("gameplay", "auto_allocate_wounds", auto_allocate_wounds)
 	config.set_value("gameplay", AUTO_ALLOCATE_MIGRATION_KEY, true)
 
+	# Controls
+	config.set_value("controls", "menu_scroll_speed", menu_scroll_speed)
+
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
 		print("[SettingsService] Failed to save settings: error %d" % err)
@@ -466,5 +484,8 @@ func _load_settings() -> void:
 	else:
 		auto_allocate_wounds = false
 		print("[SettingsService] auto_allocate_wounds migrated to the defender-control default (false)")
+
+	# Controls
+	menu_scroll_speed = clampf(config.get_value("controls", "menu_scroll_speed", 0.4), 0.1, 1.0)
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)

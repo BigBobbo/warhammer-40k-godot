@@ -26,6 +26,8 @@ var _ui_scale_slider: HSlider
 var _ui_scale_label: Label
 var _animation_speed_slider: HSlider
 var _animation_speed_label: Label
+var _menu_scroll_speed_slider: HSlider
+var _menu_scroll_speed_label: Label
 var _colorblind_dropdown: OptionButton
 var _board_style_dropdown: OptionButton
 var _ruins_style_dropdown: OptionButton
@@ -288,6 +290,18 @@ func _build_controls_tab(parent: VBoxContainer) -> void:
 	_add_section_header(parent, "Mouse")
 	_add_mouse_info_row(parent, "Zoom In / Out", "Mouse Wheel")
 
+	# Menu scroll speed — how fast the wheel / trackpad scrolls menus and panels
+	# (a fraction of Godot's default). Lower = slower.
+	_menu_scroll_speed_slider = _add_slider_row(parent, "Menu Scroll Speed:", 0.1, 1.0, 0.05, "_on_menu_scroll_speed_changed")
+	_menu_scroll_speed_label = _get_last_value_label()
+	var scroll_help = Label.new()
+	scroll_help.text = "Speed of mouse-wheel / trackpad scrolling in menus, lists and panels (100% = default). Does not affect board zoom."
+	scroll_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	scroll_help.custom_minimum_size = Vector2(620, 0)
+	scroll_help.add_theme_font_size_override("font_size", 12)
+	scroll_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	parent.add_child(scroll_help)
+
 	# Reset All Defaults button
 	var spacer = Control.new()
 	spacer.custom_minimum_size = Vector2(0, 10)
@@ -527,6 +541,11 @@ func _load_current_settings() -> void:
 	if _auto_allocate_checkbox:
 		_auto_allocate_checkbox.button_pressed = SettingsService.auto_allocate_wounds
 
+	# Controls
+	if _menu_scroll_speed_slider:
+		_menu_scroll_speed_slider.value = SettingsService.menu_scroll_speed
+		_update_scroll_speed_label(_menu_scroll_speed_label, SettingsService.menu_scroll_speed)
+
 func _connect_signals() -> void:
 	# Update in-game-only button visibility
 	_return_to_menu_button.visible = show_return_to_menu
@@ -549,6 +568,9 @@ func _update_scale_label(label: Label, value: float) -> void:
 
 func _update_speed_label(label: Label, value: float) -> void:
 	label.text = "%.2fx" % value
+
+func _update_scroll_speed_label(label: Label, value: float) -> void:
+	label.text = "%d%%" % int(round(value * 100.0))
 
 # ============================================================================
 # Audio Callbacks
@@ -600,6 +622,10 @@ func _on_ui_scale_changed(value: float) -> void:
 func _on_animation_speed_changed(value: float) -> void:
 	SettingsService.set_animation_speed(value)
 	_update_speed_label(_animation_speed_label, value)
+
+func _on_menu_scroll_speed_changed(value: float) -> void:
+	SettingsService.set_menu_scroll_speed(value)
+	_update_scroll_speed_label(_menu_scroll_speed_label, value)
 
 func _on_colorblind_changed(index: int) -> void:
 	var modes = ["none", "protanopia", "deuteranopia", "tritanopia"]

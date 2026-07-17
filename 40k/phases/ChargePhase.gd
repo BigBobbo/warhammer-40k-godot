@@ -499,8 +499,11 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 	# Store charge declaration. declared_targets preserves the original
 	# declaration so the 11e roll-resolution can re-filter it against the
 	# FINAL roll total (after re-rolls / +N bonuses), not the first raw 2D6.
+	# Both arrays are duplicated: in single-player the payload array can be the
+	# caller's live selection array, and aliasing it here would let later UI
+	# resets mutate the pending charge underneath us.
 	pending_charges[unit_id] = {
-		"targets": target_ids,
+		"targets": target_ids.duplicate(),
 		"declared_targets": target_ids.duplicate(),
 		"declared_at": Time.get_unix_time_from_system()
 	}
@@ -1288,34 +1291,41 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	# Apply successful charge movement
 	var changes = []
 
-	# Update model positions
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	# Update model positions. Keys may name attached character models
+	# ("<char_unit>:<model>") the player dragged with the squad — those
+	# position changes are written into the character's own unit entry.
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 
 		if not (path is Array and path.size() > 0):
-			DebugLogger.info(str("WARNING: Invalid path for model ", model_id, " - skipping"))
+			DebugLogger.info(str("WARNING: Invalid path for model ", path_key, " - skipping"))
+			continue
+
+		var ref = _resolve_charge_path_ref(unit_id, path_key)
+		if ref.is_empty():
+			DebugLogger.info(str("ERROR: Could not resolve charge path key ", path_key, " - skipping"))
 			continue
 
 		var final_pos = path[-1]  # Last position in path
-		var model_index = _get_model_index(unit_id, model_id)
+		var model_index = _get_model_index(ref.unit_id, ref.model_id)
 
 		if model_index < 0:
-			DebugLogger.info(str("ERROR: Invalid model_index for ", model_id, " - model not found in unit"))
+			DebugLogger.info(str("ERROR: Invalid model_index for ", path_key, " - model not found in unit"))
 			continue
 
 		var change = {
 			"op": "set",
-			"path": "units.%s.models.%d.position" % [unit_id, model_index],
+			"path": "units.%s.models.%d.position" % [ref.unit_id, model_index],
 			"value": {"x": final_pos[0], "y": final_pos[1]}
 		}
 		changes.append(change)
 
 		# Also apply rotation if provided
-		if per_model_rotations.has(model_id):
-			var rotation = per_model_rotations[model_id]
+		if per_model_rotations.has(path_key):
+			var rotation = per_model_rotations[path_key]
 			var rotation_change = {
 				"op": "set",
-				"path": "units.%s.models.%d.rotation" % [unit_id, model_index],
+				"path": "units.%s.models.%d.rotation" % [ref.unit_id, model_index],
 				"value": rotation
 			}
 			changes.append(rotation_change)
@@ -1489,8 +1499,10 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 # left behind, splitting the unit apart (it looks like the attachment broke).
 func _build_charge_occupancy(bodyguard_id: String, per_model_paths: Dictionary) -> Dictionary:
 	# Map "unit_id:model_id" -> a copy of the model at its FINAL position for this
-	# charge. Bodyguard models take their per_model_paths endpoint; every other
-	# model (friendly and enemy) stays at its live GameState position.
+	# charge. Models of the charging group with a recorded path (bodyguard models
+	# under bare ids, manually dragged attached characters under
+	# "<char_unit>:<model>" keys) take their endpoint; every other model
+	# (friendly and enemy) stays at its live GameState position.
 	var occ := {}
 	var units = game_state_snapshot.get("units", {})
 	for uid in units:
@@ -1501,8 +1513,9 @@ func _build_charge_occupancy(bodyguard_id: String, per_model_paths: Dictionary) 
 				continue
 			var mid = m.get("id", "m%d" % (i + 1))
 			var pos_val = m.get("position")
-			if uid == bodyguard_id and per_model_paths.has(mid):
-				var path = per_model_paths[mid]
+			var path_key = _charge_path_key_for(bodyguard_id, uid, mid)
+			if per_model_paths.has(path_key):
+				var path = per_model_paths[path_key]
 				if path is Array and path.size() > 0:
 					pos_val = {"x": path[-1][0], "y": path[-1][1]}
 			if pos_val == null:
@@ -1529,16 +1542,22 @@ func _charge_attached_character_changes(bodyguard_id: String, per_model_paths: D
 	if attached_chars.is_empty():
 		return changes
 
+	# Character models the player dragged HIMSELF arrive in per_model_paths
+	# (keyed "<char_unit>:<model>") and were already applied by the main apply
+	# loop — they must not be auto-ridden on top of that. A null delta (no
+	# bodyguard model moved — e.g. the charge was satisfied by dragging only
+	# the leader) skips the auto-ride but still grants the charge flags below.
 	var move_delta = _charge_bodyguard_delta(bodyguard_id, per_model_paths)
 	if move_delta == null:
-		DebugLogger.info(str("ChargePhase: could not determine charge delta for attached characters of %s" % bodyguard_id))
-		return changes
+		DebugLogger.info(str("ChargePhase: no bodyguard charge delta for %s — attached characters keep their (possibly manually placed) positions" % bodyguard_id))
 
-	# Occupancy of every alive model at its FINAL charge position (bodyguard models
-	# use their per_model_paths endpoint). Keyed by "unit:model_id" so a
-	# rigidly-translated character can be nudged off any model it would land on
-	# and later attached characters avoid each other. See fix for the "attached
-	# character overlaps its bodyguard after Charge" bug.
+	# Occupancy of every alive model at its FINAL charge position (charging
+	# group models use their per_model_paths endpoint). Keyed by
+	# "unit:model_id" so a rigidly-translated character can be nudged off any
+	# model it would land on and later attached characters avoid each other.
+	# See fix for the "attached character overlaps its bodyguard after Charge"
+	# bug. Manually dragged characters enter at their DRAGGED endpoint, so
+	# auto-ridden ones nudge around them too.
 	var occupancy := _build_charge_occupancy(bodyguard_id, per_model_paths)
 
 	for char_id in attached_chars:
@@ -1546,16 +1565,23 @@ func _charge_attached_character_changes(bodyguard_id: String, per_model_paths: D
 		if char_unit.is_empty():
 			continue
 		var char_models = char_unit.get("models", [])
+		var rode_any := false
 		for i in range(char_models.size()):
 			var model = char_models[i]
 			if not model.get("alive", true):
 				continue
 			if model.get("position") == null:
 				continue
+			var model_id = model.get("id", "m%d" % (i + 1))
+			# Manually dragged with the squad — already moved by the apply loop.
+			if per_model_paths.has("%s:%s" % [str(char_id), model_id]):
+				DebugLogger.info(str("ChargePhase: attached character %s.%s was dragged manually — skipping auto-ride" % [str(char_id), model_id]))
+				continue
+			if move_delta == null:
+				continue
 			var model_pos = _get_model_position(model)
 			var ideal_pos = Vector2(model_pos.x + move_delta.x, model_pos.y + move_delta.y)
 
-			var model_id = model.get("id", "m%d" % (i + 1))
 			var model_key = "%s:%s" % [str(char_id), model_id]
 			var others := _occupancy_values_excluding(occupancy, model_key)
 			var new_pos = Measurement.find_nearest_non_overlapping_position(model, ideal_pos, others)
@@ -1572,7 +1598,9 @@ func _charge_attached_character_changes(bodyguard_id: String, per_model_paths: D
 				"path": "units.%s.models.%d.position" % [str(char_id), i],
 				"value": {"x": new_pos.x, "y": new_pos.y}
 			})
-		# The whole Attached unit charged — the character gets the same flags.
+			rode_any = true
+		# The whole Attached unit charged — the character gets the same flags
+		# whether it rode automatically or was dragged by hand.
 		# Heroic Intervention grants charged_this_turn but NOT fights_first.
 		changes.append({
 			"op": "set",
@@ -1586,7 +1614,8 @@ func _charge_attached_character_changes(bodyguard_id: String, per_model_paths: D
 				"value": true
 			})
 		var char_name = char_unit.get("meta", {}).get("name", str(char_id))
-		DebugLogger.info(str("ChargePhase: attached character %s rode the charge of %s (delta %s)" % [char_name, bodyguard_id, str(move_delta)]))
+		if rode_any:
+			DebugLogger.info(str("ChargePhase: attached character %s rode the charge of %s (delta %s)" % [char_name, bodyguard_id, str(move_delta)]))
 	return changes
 
 # Movement delta of a charging bodyguard: (end - start) of its first moved
@@ -1926,9 +1955,22 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 	var has_fly = "FLY" in unit_keywords
 
+	# 0. Every path key must resolve to a model of the charging unit or one of
+	# its attached characters ("<char_unit>:<model>" keys). Rejecting here —
+	# instead of skipping unknown keys inside each check — means a bad key can
+	# never slide through validation and then be silently dropped by the apply
+	# loop (the controller would think that model's move succeeded).
+	for path_key in per_model_paths:
+		if _resolve_charge_path_ref(unit_id, path_key).is_empty():
+			var err = "Charge path key %s does not resolve to a model of %s or its attached characters" % [path_key, unit_id]
+			errors.append(err)
+			categorized_errors.append({"category": "UNKNOWN", "detail": err})
+	if not errors.is_empty():
+		return {"valid": false, "errors": errors, "categorized_errors": categorized_errors}
+
 	# 1. Validate path distances (including terrain vertical distance penalties)
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 		if path is Array and path.size() >= 2:
 			var path_distance = Measurement.distance_polyline_inches(path)
 
@@ -1940,15 +1982,15 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 
 			if terrain_penalty > 0.0:
 				DebugLogger.info(str("ChargePhase: Model %s terrain penalty: %.1f\" (FLY=%s), effective distance: %.1f\"" % [
-					model_id, terrain_penalty, str(has_fly), effective_distance]))
+					path_key, terrain_penalty, str(has_fly), effective_distance]))
 
 			if effective_distance > rolled_distance + MOVEMENT_CAP_EPSILON:
 				var err = ""
 				if terrain_penalty > 0.0:
 					err = "Model %s path (%.1f\") + terrain penalty (%.1f\") = %.1f\" exceeds charge distance %d\"" % [
-						model_id, path_distance, terrain_penalty, effective_distance, rolled_distance]
+						path_key, path_distance, terrain_penalty, effective_distance, rolled_distance]
 				else:
-					err = "Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, rolled_distance]
+					err = "Model %s path exceeds charge distance: %.1f\" > %d\"" % [path_key, path_distance, rolled_distance]
 				errors.append(err)
 				categorized_errors.append({"category": FAIL_DISTANCE, "detail": err})
 
@@ -2043,16 +2085,17 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 
 		var unit_in_er_of_target = false
 
-		for model_id in per_model_paths:
-			var path = per_model_paths[model_id]
+		for path_key in per_model_paths:
+			var path = per_model_paths[path_key]
 			if path is Array and path.size() > 0:
 				var final_pos = Vector2(path[-1][0], path[-1][1])
-				var model = _get_model_in_unit(unit_id, model_id)
+				var ref = _resolve_charge_path_ref(unit_id, path_key)
+				var model = ref.get("model", {})
 
 				if model.is_empty():
-					print("ChargePhase ER_DEBUG: model_id=%s NOT FOUND in unit %s — using empty dict" % [model_id, unit_id])
+					print("ChargePhase ER_DEBUG: path key=%s NOT RESOLVED for unit %s — using empty dict" % [path_key, unit_id])
 				else:
-					print("ChargePhase ER_DEBUG: model_id=%s found, base_mm=%s base_type=%s pos=%s" % [model_id, model.get("base_mm", "?"), model.get("base_type", "?"), str(final_pos)])
+					print("ChargePhase ER_DEBUG: path key=%s found, base_mm=%s base_type=%s pos=%s" % [path_key, model.get("base_mm", "?"), model.get("base_type", "?"), str(final_pos)])
 
 				# Create a temporary model dict with the final position for shape-aware checks
 				var model_at_final_pos = model.duplicate()
@@ -2072,7 +2115,7 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 					var dist_px = Measurement.model_to_model_distance_px(model_at_final_pos, target_model)
 					var er_px = Measurement.inches_to_px(effective_er)
 					print("ChargePhase ER_DEBUG: model %s→target_model %s: dist_px=%.1f er_px=%.1f (%.2f\") center_dist=%.1f target_base=%s target_type=%s" % [
-						model_id, target_model.get("id", "?"), dist_px, er_px, dist_px / 40.0,
+						path_key, target_model.get("id", "?"), dist_px, er_px, dist_px / 40.0,
 						final_pos.distance_to(target_pos), target_model.get("base_mm", "?"), target_model.get("base_type", "?")])
 					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, target_model, effective_er):
 						unit_in_er_of_target = true
@@ -2099,11 +2142,11 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 			continue  # Issue #320: Reserves units have no board position — they'd read as (0,0)
 
 		# Check if any charging model ends in ER of this non-target
-		for model_id in per_model_paths:
-			var path = per_model_paths[model_id]
+		for path_key in per_model_paths:
+			var path = per_model_paths[path_key]
 			if path is Array and path.size() > 0:
 				var final_pos = Vector2(path[-1][0], path[-1][1])
-				var model = _get_model_in_unit(unit_id, model_id)
+				var model = _resolve_charge_path_ref(unit_id, path_key).get("model", {})
 
 				# Create a temporary model dict with the final position for shape-aware checks
 				var model_at_final_pos = model.duplicate()
@@ -2129,33 +2172,51 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
 	var errors = []
 
-	# Build model dicts with final positions for shape-aware distance checks
+	# Build model dicts with final positions for shape-aware distance checks.
+	# Path keys may name attached character models ("<char_unit>:<model>").
 	var final_models = []
-	var moved_ids := {}
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	var moved_keys := {}
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 		if path is Array and path.size() > 0:
-			moved_ids[model_id] = true
-			var model = _get_model_in_unit(unit_id, model_id)
-			var model_at_final = model.duplicate()
+			var ref = _resolve_charge_path_ref(unit_id, path_key)
+			if ref.is_empty():
+				continue
+			moved_keys[path_key] = true
+			var model_at_final = ref.model.duplicate()
 			model_at_final["position"] = Vector2(path[-1][0], path[-1][1])
 			final_models.append(model_at_final)
 
 	# Coherency is a whole-unit condition: include the UNMOVED alive models at
 	# their current positions. Checking only the moved subset let a single
-	# dragged model legally break away from the rest of its unit.
-	var unit = get_unit(unit_id)
-	for model in unit.get("models", []):
-		if not model.get("alive", true):
-			continue
-		if model.get("position") == null:
-			continue
-		var mid = model.get("id", "")
-		if moved_ids.has(mid):
-			continue
-		var model_at_current = model.duplicate()
-		model_at_current["position"] = _get_model_position(model)
-		final_models.append(model_at_current)
+	# dragged model legally break away from the rest of its unit. An Attached
+	# unit is ONE unit (11e 04.01), so its attached character models count too
+	# — a manually dragged character may not end split away from its squad.
+	# Characters left unmoved will be auto-ridden along by the squad's delta
+	# right after this validation (_charge_attached_character_changes), so they
+	# are judged at their PROJECTED position (current + delta) — judging them
+	# where they stand now would wrongly fail every charge that moves the squad
+	# away and leaves the leader to follow automatically.
+	var ride_delta = _charge_bodyguard_delta(unit_id, per_model_paths)
+	var group_unit_ids: Array = [unit_id]
+	for cid in get_unit(unit_id).get("attachment_data", {}).get("attached_characters", []):
+		group_unit_ids.append(str(cid))
+	for group_uid in group_unit_ids:
+		var group_unit = get_unit(group_uid)
+		for model in group_unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			if model.get("position") == null:
+				continue
+			var key = _charge_path_key_for(unit_id, group_uid, model.get("id", ""))
+			if moved_keys.has(key):
+				continue
+			var model_at_current = model.duplicate()
+			var pos = _get_model_position(model)
+			if group_uid != unit_id and ride_delta != null:
+				pos = Vector2(pos.x + ride_delta.x, pos.y + ride_delta.y)
+			model_at_current["position"] = pos
+			final_models.append(model_at_current)
 
 	if final_models.size() < 2:
 		return {"valid": true, "errors": []}  # Single model or no movement
@@ -2183,8 +2244,8 @@ func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, tar
 	var errors = []
 	var all_units = game_state_snapshot.get("units", {})
 
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 		if not (path is Array and path.size() >= 2):
 			continue
 
@@ -2195,7 +2256,7 @@ func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, tar
 		if start_pos.distance_to(final_pos) < 0.5:
 			continue
 
-		var model = _get_model_in_unit(unit_id, model_id)
+		var model = _resolve_charge_path_ref(unit_id, path_key).get("model", {})
 		if model.is_empty():
 			continue
 
@@ -2232,10 +2293,8 @@ func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, tar
 				break
 
 		if not ends_closer_to_any_target:
-			var unit = get_unit(unit_id)
-			var model_name = model_id
-			errors.append("Model %s did not end closer to any declared charge target" % model_name)
-			DebugLogger.info(str("ChargePhase: Must-end-closer violation - model %s is not closer to any target after move" % model_id))
+			errors.append("Model %s did not end closer to any declared charge target" % path_key)
+			DebugLogger.info(str("ChargePhase: Must-end-closer violation - model %s is not closer to any target after move" % path_key))
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
@@ -2245,12 +2304,12 @@ func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dic
 	var errors = []
 	var all_units = game_state_snapshot.get("units", {})
 
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 		if not (path is Array and path.size() > 0):
 			continue
 
-		var model = _get_model_in_unit(unit_id, model_id)
+		var model = _resolve_charge_path_ref(unit_id, path_key).get("model", {})
 		if model.is_empty():
 			continue
 
@@ -2287,7 +2346,7 @@ func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dic
 				break
 
 		if not ends_closer_to_any_target:
-			var err = "Model %s must end its charge move closer to at least one charge target" % model_id
+			var err = "Model %s must end its charge move closer to at least one charge target" % path_key
 			errors.append(err)
 			DebugLogger.info(str("ChargePhase: Direction constraint - %s" % err))
 
@@ -2371,6 +2430,45 @@ func _get_model_index(unit_id: String, model_id: String) -> int:
 		if models[i].get("id", "") == model_id:
 			return i
 	return -1
+
+# ── Composite per_model_paths keys ───────────────────────────────────
+# An Attached unit charges as one unit, so the drag UI also positions its
+# attached CHARACTER models. Their model ids collide with the bodyguard's
+# ("m1" vs "m1"), so their paths arrive keyed "<char_unit_id>:<model_id>";
+# the charging unit's own models keep bare model-id keys. This resolves a
+# path key to {unit_id, model_id, model} — empty Dictionary when the key
+# doesn't resolve, INCLUDING a prefixed unit that is not actually one of the
+# charging unit's attached characters (a rogue action must not be able to
+# reposition arbitrary units through a charge move).
+func _resolve_charge_path_ref(unit_id: String, path_key: String) -> Dictionary:
+	var sep = path_key.find(":")
+	if sep == -1:
+		var model = _get_model_in_unit(unit_id, path_key)
+		if model.is_empty():
+			return {}
+		return {"unit_id": unit_id, "model_id": path_key, "model": model}
+	var src_unit_id = path_key.substr(0, sep)
+	var model_id = path_key.substr(sep + 1)
+	var attached = get_unit(unit_id).get("attachment_data", {}).get("attached_characters", [])
+	var is_attached = false
+	for cid in attached:
+		if str(cid) == src_unit_id:
+			is_attached = true
+			break
+	if not is_attached:
+		return {}
+	var model = _get_model_in_unit(src_unit_id, model_id)
+	if model.is_empty():
+		return {}
+	return {"unit_id": src_unit_id, "model_id": model_id, "model": model}
+
+# Charge-key for a model of the charging group as it appears in
+# per_model_paths: bare id for the charging unit's own models, composite for
+# an attached character's.
+func _charge_path_key_for(charging_unit_id: String, owner_unit_id: String, model_id: String) -> String:
+	if owner_unit_id == charging_unit_id:
+		return model_id
+	return "%s:%s" % [owner_unit_id, model_id]
 
 func get_available_actions() -> Array:
 	var actions = []
@@ -2566,23 +2664,20 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 	var errors = []
 	var all_units = game_state_snapshot.get("units", {})
 
-	# Get all models from the charging unit
-	var unit = all_units.get(unit_id, {})
-	var models = unit.get("models", [])
-
-	# Check each model's final position
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	# Check each model's final position (path keys may name attached character
+	# models — "<char_unit>:<model>")
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 		if not (path is Array and path.size() > 0):
 			continue
 
 		var final_pos = Vector2(path[-1][0], path[-1][1])
-		var model = _get_model_in_unit(unit_id, model_id)
-		if model.is_empty():
+		var ref = _resolve_charge_path_ref(unit_id, path_key)
+		if ref.is_empty():
 			continue
 
 		# Build model dict with final position
-		var check_model = model.duplicate()
+		var check_model = ref.model.duplicate()
 		check_model["position"] = final_pos
 
 		# Check against all other models (both friendly and enemy)
@@ -2595,18 +2690,20 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 				var other_model_id = other_model.get("id", "m%d" % (i+1))
 
 				# Skip self
-				if check_unit_id == unit_id and other_model_id == model_id:
+				if check_unit_id == ref.unit_id and other_model_id == ref.model_id:
 					continue
 
 				# Skip dead models
 				if not other_model.get("alive", true):
 					continue
 
-				# Get the current position of the other model
-				# For other charging models in same unit, use their final positions
+				# Get the current position of the other model. Any other model
+				# of the charging GROUP (bodyguard or attached character) that
+				# also has a path is checked at its final position.
 				var other_position = _get_model_position(other_model)
-				if check_unit_id == unit_id and per_model_paths.has(other_model_id):
-					var other_path = per_model_paths[other_model_id]
+				var other_key = _charge_path_key_for(unit_id, check_unit_id, other_model_id)
+				if per_model_paths.has(other_key):
+					var other_path = per_model_paths[other_key]
 					if other_path is Array and other_path.size() > 0:
 						other_position = Vector2(other_path[-1][0], other_path[-1][1])
 
@@ -2619,31 +2716,33 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 
 				# Check for overlap
 				if Measurement.models_overlap(check_model, other_model_check):
-					errors.append("Model %s would overlap with %s/%s" % [model_id, check_unit_id, other_model_id])
+					errors.append("Model %s would overlap with %s/%s" % [path_key, check_unit_id, other_model_id])
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_no_wall_overlaps(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
 	var errors = []
-	# Keywords make the 11e solid-feature half of the endpoint check
-	# keyword-aware (infantry may end among walls; vehicles/monsters may not).
-	var unit_keywords = get_unit(unit_id).get("meta", {}).get("keywords", [])
 
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 		if not (path is Array and path.size() > 0):
 			continue
 
 		var final_pos = Vector2(path[-1][0], path[-1][1])
-		var model = _get_model_in_unit(unit_id, model_id)
-		if model.is_empty():
+		var ref = _resolve_charge_path_ref(unit_id, path_key)
+		if ref.is_empty():
 			continue
 
-		var check_model = model.duplicate(true)
+		var check_model = ref.model.duplicate(true)
 		check_model["position"] = final_pos
 
-		if Measurement.model_overlaps_any_wall(check_model, unit_keywords):
-			errors.append("Model %s would end its charge overlapping a wall" % model_id)
+		# Keywords make the 11e solid-feature half of the endpoint check
+		# keyword-aware (infantry may end among walls; vehicles/monsters may
+		# not) — taken from the model's OWN unit so an attached character is
+		# judged by its own datasheet keywords.
+		var model_keywords = get_unit(ref.unit_id).get("meta", {}).get("keywords", [])
+		if Measurement.model_overlaps_any_wall(check_model, model_keywords):
+			errors.append("Model %s would end its charge overlapping a wall" % path_key)
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
@@ -2657,19 +2756,22 @@ func _validate_no_solid_terrain_on_paths(unit_id: String, per_model_paths: Dicti
 	if tm == null or not tm.has_method("can_move_through_11e"):
 		return {"valid": true, "errors": []}
 
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 		if not (path is Array and path.size() >= 2):
 			continue
-		var model = _get_model_in_unit(unit_id, model_id)
-		if model.is_empty():
+		var ref = _resolve_charge_path_ref(unit_id, path_key)
+		if ref.is_empty():
 			continue
+		# An attached character sweeps with its own datasheet keywords
+		var model_keywords = unit_keywords if ref.unit_id == unit_id \
+			else get_unit(ref.unit_id).get("meta", {}).get("keywords", [])
 		for i in range(path.size() - 1):
 			var seg_from = Vector2(path[i][0], path[i][1])
 			var seg_to = Vector2(path[i + 1][0], path[i + 1][1])
-			var trav = tm.can_move_through_11e(unit_keywords, seg_from, seg_to, [], model)
+			var trav = tm.can_move_through_11e(model_keywords, seg_from, seg_to, [], ref.model)
 			if not trav.allowed:
-				errors.append("Model %s charge path is blocked by solid terrain (13.06): %s" % [model_id, str(trav.blockers)])
+				errors.append("Model %s charge path is blocked by solid terrain (13.06): %s" % [path_key, str(trav.blockers)])
 				break
 
 	return {"valid": errors.is_empty(), "errors": errors}
@@ -3490,30 +3592,35 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 		_complete_phase_after_heroic_intervention_if_pending()
 		return create_result(true, [])
 
-	# Apply successful HI charge movement
+	# Apply successful HI charge movement (path keys may name attached
+	# character models — see _resolve_charge_path_ref)
 	var changes = []
 
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 		if not (path is Array and path.size() > 0):
 			continue
 
+		var ref = _resolve_charge_path_ref(unit_id, path_key)
+		if ref.is_empty():
+			continue
+
 		var final_pos = path[-1]
-		var model_index = _get_model_index(unit_id, model_id)
+		var model_index = _get_model_index(ref.unit_id, ref.model_id)
 		if model_index < 0:
 			continue
 
 		changes.append({
 			"op": "set",
-			"path": "units.%s.models.%d.position" % [unit_id, model_index],
+			"path": "units.%s.models.%d.position" % [ref.unit_id, model_index],
 			"value": {"x": final_pos[0], "y": final_pos[1]}
 		})
 
-		if per_model_rotations.has(model_id):
+		if per_model_rotations.has(path_key):
 			changes.append({
 				"op": "set",
-				"path": "units.%s.models.%d.rotation" % [unit_id, model_index],
-				"value": per_model_rotations[model_id]
+				"path": "units.%s.models.%d.rotation" % [ref.unit_id, model_index],
+				"value": per_model_rotations[path_key]
 			})
 
 	# Mark unit as charged BUT NOT fights_first (key difference for Heroic Intervention)

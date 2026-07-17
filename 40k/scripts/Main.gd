@@ -5695,14 +5695,22 @@ const WHEEL_ZOOM_FACTOR := 1.15
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Mouse-wheel zoom, anchored on the cursor (same math as the +/- keys via
-	# _zoom_about). Handled here in _unhandled_input rather than _input so that
-	# scrolling over a UI panel (game log, unit list, dialogs) scrolls that
-	# control instead of zooming the board — those Controls consume the wheel in
-	# _gui_input before it ever reaches _unhandled_input.
+	# _zoom_about). Handled in _unhandled_input so scrollable Controls get the
+	# wheel first — but that alone is NOT enough to keep the wheel off the
+	# menus: Godot only marks a wheel event handled when a Control actually
+	# acts on it (a ScrollContainer at the end of its range, a button, a panel
+	# background all let the notch fall through to _unhandled_input), which
+	# made scrolling a menu also zoom the board underneath it.
 	if not (event is InputEventMouseButton and event.pressed):
 		return
 	var mb := event as InputEventMouseButton
 	if mb.button_index != MOUSE_BUTTON_WHEEL_UP and mb.button_index != MOUSE_BUTTON_WHEEL_DOWN:
+		return
+	# Zoom only when the cursor is over the bare board. gui_get_hovered_control
+	# is null over the board (BoardRoot is a Node2D, not a Control); any visible
+	# Control under the cursor — side panels, HUD bar, game log, dialogs —
+	# means the wheel belongs to that UI, so leave the camera alone.
+	if get_viewport().gui_get_hovered_control() != null:
 		return
 	# During deployment placement the wheel rotates the model being placed
 	# (DeploymentController._unhandled_input); don't also zoom the board. That
@@ -10552,8 +10560,9 @@ func update_after_fight_action() -> void:
 	refresh_unit_list()
 	update_ui()
 	
-	# Update fight controller state
-	if fight_controller:
+	# Update fight controller state (_refresh_fight_sequence was removed from
+	# FightController — guard so every fight action doesn't SCRIPT ERROR)
+	if fight_controller and fight_controller.has_method("_refresh_fight_sequence"):
 		fight_controller._refresh_fight_sequence()
 
 func update_after_shooting_action() -> void:

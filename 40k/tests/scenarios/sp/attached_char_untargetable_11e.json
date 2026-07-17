@@ -1,0 +1,48 @@
+{
+  "id": "attached_char_untargetable_11e",
+  "covers": [
+    "rules.11e.attached_units.no_direct_targeting",
+    "autoloads.RulesEngine.validate_shoot.attached_gate",
+    "scripts.AIDecisionMaker.shootable_enemies",
+    "scripts.AllocationGroupOverlay.combined_attached_unit"
+  ],
+  "fixture": "custodes_lions_pretrigger",
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Attached characters must never be a separate shooting target (11e 19.02). Regression for the 'AI shoots the Blade Champion directly' bug: the AI focus-fire plan enumerated attached leaders as targets and RulesEngine.validate_shoot accepted the SHOOT, so the defender's Allocate Attacks dialog opened for the Blade Champion alone and the wounds could not be put on the Custodian Guard squad first. This scenario attaches Blade Champion Beta to Custodian Guard Beta with the real CharacterAttachmentManager, gives an Ork Battlewagon clear LoS, then asserts through the LIVE shooting phase: (1) a SHOOT dispatched at the attached champion is rejected and no allocation overlay opens, (2) the AI's shootable-enemy enumeration and focus-fire plan exclude the champion, (3) targeting the bodyguard folds the attached unit into ONE allocation dialog — Custodian Guard group plus CHARACTER group, titled with the bodyguard's name.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+
+    { "act": "execute_script", "script": "CharacterAttachmentManager.attach_character(\"U_BLADE_CHAMPION_B\", \"U_CUSTODIAN_GUARD_B\")" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BLADE_CHAMPION_B\").get(\"attached_to\")", "equals": "U_CUSTODIAN_GUARD_B" },
+
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BATTLEWAGON_G\").models[0].merge({\"position\": {\"x\": 820.0, \"y\": 700.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BLADE_CHAMPION_B\").models[0].merge({\"position\": {\"x\": 900.0, \"y\": 300.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.set_active_player(2)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(8)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script", "script": "RulesEngine.get_eligible_targets(\"U_BATTLEWAGON_G\", GameState.create_snapshot()).has(\"U_BLADE_CHAMPION_B\")", "equals": false },
+    { "act": "execute_script", "script": "RulesEngine.get_eligible_targets(\"U_BATTLEWAGON_G\", GameState.create_snapshot()).has(\"U_CUSTODIAN_GUARD_B\")", "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "SHOOT", "actor_unit_id": "U_BATTLEWAGON_G", "payload": { "assignments": [ { "weapon_id": "big_shoota_ranged", "target_unit_id": "U_BLADE_CHAMPION_B", "model_ids": ["m1"] } ] } } },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "execute_script", "script": "str(_last_action_result.get(\"errors\", [])).contains(\"attached character\")", "equals": true },
+    { "act": "execute_script", "script": "main.get_node_or_null(\"AllocationGroupOverlay\") == null", "equals": true },
+    { "act": "screenshot", "label": "01_attached_champion_shot_rejected" },
+
+    { "act": "execute_script", "script": "ResourceLoader.load(\"res://scripts/AIDecisionMaker.gd\")._get_shootable_enemy_units(GameState.create_snapshot(), 2).has(\"U_BLADE_CHAMPION_B\")", "equals": false },
+    { "act": "execute_script", "script": "str(ResourceLoader.load(\"res://scripts/AIDecisionMaker.gd\")._build_focus_fire_plan(GameState.create_snapshot(), [\"U_BATTLEWAGON_G\"], 2)).contains(\"U_BLADE_CHAMPION_B\")", "equals": false },
+
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\")._on_saves_required([RulesEngine.prepare_save_resolution(2, \"U_CUSTODIAN_GUARD_B\", \"U_BATTLEWAGON_G\", {\"name\": \"Big shoota\", \"ap\": 0, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"\"}, GameState.state)])" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/GroupList\").get_child_count()", "equals": 2 },
+    { "act": "execute_script", "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/Title\").text.contains(\"Custodian Guard Beta\")", "equals": true },
+    { "act": "screenshot", "label": "02_bodyguard_shot_folds_combined_unit" }
+  ]
+}

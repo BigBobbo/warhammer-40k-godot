@@ -200,6 +200,9 @@ func _populate_dice_details() -> void:
 		var successes = dice_block.get("successes", 0)
 		var threshold = dice_block.get("threshold", "")
 		var rerolls = dice_block.get("rerolls", [])
+		if (rerolls as Array).is_empty() and context == "to_wound":
+			# Wound re-rolls (Stand Vigil / twin-linked etc.) ride a separate key.
+			rerolls = dice_block.get("wound_rerolls", [])
 
 		# Skip bookkeeping blocks with no actual dice (e.g. "resolution_start"),
 		# which used to render as an empty "(need ):" line.
