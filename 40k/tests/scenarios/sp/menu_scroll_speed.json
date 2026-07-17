@@ -1,0 +1,34 @@
+{
+  "id": "menu_scroll_speed",
+  "covers": ["ui.menu.scroll_speed"],
+  "description": "ScrollSpeedController slows mouse-wheel / trackpad scrolling in menus to 40% of Godot's default without affecting SpinBox steps, sliders or board zoom. Verifies (a) the per-control scaling decision synchronously via debug_scaled_factor, and (b) that a real wheel notch through the full input pipeline scrolls a live ScrollContainer by the REDUCED amount (<= 60% of stock page/8, i.e. the 40% factor is applied).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "screenshot", "label": "01_main_menu" },
+
+    { "act": "execute_script", "script": "ScrollSpeedController.enabled", "equals": true },
+    { "act": "execute_script", "script": "ScrollSpeedController.menu_scroll_speed", "equals": 0.4 },
+
+    { "act": "execute_script", "script": "ScrollSpeedController.debug_scaled_factor(main.get_node(\"ScrollContainer\"), 1.0)", "equals": 0.4 },
+    { "act": "execute_script", "script": "ScrollSpeedController.debug_scaled_factor(ClassDB.instantiate(\"ItemList\"), 1.0)", "equals": 0.4 },
+    { "act": "execute_script", "script": "ScrollSpeedController.debug_scaled_factor(main.get_node(\"Background\"), 1.0)", "equals": 1.0 },
+    { "act": "execute_script", "script": "ScrollSpeedController.debug_scaled_factor(ClassDB.instantiate(\"SpinBox\"), 1.0)", "equals": 1.0 },
+    { "act": "execute_script", "script": "ScrollSpeedController.debug_scaled_factor(ClassDB.instantiate(\"HSlider\"), 1.0)", "equals": 1.0 },
+
+    { "act": "execute_script", "script": "main.get_node(\"ScrollContainer\").set(\"offset_bottom\", -900.0)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.get_node(\"ScrollContainer\").set(\"scroll_vertical\", 0)" },
+    { "act": "wait_frames", "frames": 1 },
+
+    { "act": "execute_script", "script": "main.get_node(\"ScrollContainer\").get_v_scroll_bar().max_value > main.get_node(\"ScrollContainer\").get_v_scroll_bar().get_page()", "equals": true },
+
+    { "act": "hover_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/TitleLabel" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "simulate_wheel", "direction": "down", "count": 1 },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "screenshot", "label": "02_after_one_notch" },
+
+    { "act": "execute_script", "script": "main.get_node(\"ScrollContainer\").scroll_vertical > 0", "equals": true },
+    { "act": "execute_script", "script": "main.get_node(\"ScrollContainer\").scroll_vertical <= main.get_node(\"ScrollContainer\").get_v_scroll_bar().get_page() / 8.0 * 0.6", "equals": true }
+  ]
+}
