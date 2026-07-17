@@ -3886,6 +3886,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: BLASTAJET ATTACK RUN (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
+		# AGAINST ALL ODDS: +1 to Hit when no friendly units within 6" (Lions of the Emperor, auto-resolve)
+		if FactionAbilityManager.check_against_all_odds(actor_unit, board):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: AGAINST ALL ODDS (auto-resolve) — +1 to hit for %s (no friendlies within 6\")" % actor_unit_id)
+
 		# ── ISS-016/053 (11e): hit-side modifier stack — cover/STEALTH worsen
 		# BS (13.08/24.33), plunging fire improves it (22.05), [HEAVY] is +1
 		# to the hit roll (24.16). The ±1 dice-roll cap lives in ModifierStack.
@@ -4253,6 +4258,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	elif ar_pyromaniaks_scope == "ones":
 		ar_wound_modifiers |= WoundModifier.REROLL_ONES
 		print("RulesEngine: PYROMANIAKS (auto-resolve) — re-roll wound rolls of 1 for %s (Torrent weapon, target within 6\")" % actor_unit_id)
+
+	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (Lions of the Emperor, auto-resolve)
+	if FactionAbilityManager.check_against_all_odds(actor_unit, board):
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: AGAINST ALL ODDS (auto-resolve) — +1 to wound for %s (no friendlies within 6\")" % actor_unit_id)
 
 	var ar_wound_modifier_net = 0
 	if ar_wound_modifiers & WoundModifier.PLUS_ONE:

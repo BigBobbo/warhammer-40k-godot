@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.54.7",
+			"date": "2026-07-17",
+			"summary": "Against All Odds (Lions of the Emperor) fixes: the +1 to hit / +1 to wound now applies on the quick-resolve and Fire Overwatch shooting path too, a unit led by an attached Character is no longer wrongly denied the buff by its own leader, and friendly units hidden in Transports or Reserves no longer block it.",
+			"changes": [
+				"Against All Odds now also applies on the auto-resolve shooting path (Fire Overwatch and quick resolution) — previously only the step-by-step shooting flow got the +1 to hit and +1 to wound.",
+				"A Character attached to a unit counts as part of that unit: leader and bodyguard no longer block each other's Against All Odds buff, and the 6\" isolation check measures from the leader's models too.",
+				"Friendly units embarked in a Transport or waiting in Reserves no longer block Against All Odds via their stale battlefield positions.",
+				"The 6\" isolation check now reads each model's real base size instead of assuming 32mm bases."
+			]
+		},
+		{
 			"version": "0.54.6",
 			"date": "2026-07-17",
 			"summary": "Fight phase: picking which unit fights next no longer pops up over the middle of the board. The 'Select Unit to Fight' picker now lives in the right-hand panel — same place you pick units in every other phase and in the Pile In / Consolidate steps — so you can see the whole battlefield while choosing.",

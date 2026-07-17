@@ -1,0 +1,42 @@
+{
+  "id": "aao_lions_isolated_plus_one",
+  "covers": [
+    "autoloads.FactionAbilityManager.check_against_all_odds",
+    "shooting.against_all_odds.plus_one_hit_and_wound",
+    "detachment.lions_of_the_emperor.against_all_odds"
+  ],
+  "fixture": "custodes_lions_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Against All Odds (Lions of the Emperor detachment rule): each time a model in a non-VEHICLE ADEPTUS CUSTODES unit makes an attack, if there are no other friendly units within 6\" of that unit, add 1 to the Hit roll and add 1 to the Wound roll. Teleports Prosecutors to an isolated mid-board spot (nearest friendly ~19\"+) with Boyz K in Boltgun range, asserts check_against_all_odds is TRUE for the isolated unit and FALSE for a Custodian Guard control unit standing next to friends, then drives the real staged shooting flow (SELECT_SHOOTER → ASSIGN_TARGET → CONFIRM_TARGETS → staged hit/wound rolls) and asserts the player-visible dice log renders the '+1 to hit' and 'Wound modifier: +1' annotations from the rule.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "var u = GameState.state[\"units\"][\"U_PROSECUTORS_A\"]\nvar xs = [300.0, 336.0, 372.0, 408.0]\nfor i in range(4):\n\tu[\"models\"][i][\"position\"] = {\"x\": xs[i], \"y\": 1200.0}\nvar b = GameState.state[\"units\"][\"U_BOYZ_K\"]\nfor i in range(b[\"models\"].size()):\n\tb[\"models\"][i][\"position\"] = {\"x\": 300.0 + float(i) * 36.0, \"y\": 1680.0}\nreturn true", "equals": true },
+    { "act": "execute_script", "script": "main._recreate_unit_visuals()" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().enter_phase(GameState.create_snapshot())" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "script": "var snap = PhaseManager.get_current_phase_instance().game_state_snapshot\nreturn FactionAbilityManager.check_against_all_odds(snap[\"units\"][\"U_PROSECUTORS_A\"], snap)", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var snap = PhaseManager.get_current_phase_instance().game_state_snapshot\nreturn FactionAbilityManager.check_against_all_odds(snap[\"units\"][\"U_CUSTODIAN_GUARD_A\"], snap)", "equals": false },
+    { "act": "screenshot", "label": "01_prosecutors_isolated_midboard" },
+    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_PROSECUTORS_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "payload": { "weapon_id": "boltgun_ranged", "target_unit_id": "U_BOYZ_K", "model_ids": ["m1", "m2", "m3", "m4"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_REACTIVE_STRATAGEM" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()", "equals": true },
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\").dice_log_display.get_parsed_text().contains(\"+1 to hit\")", "equals": true },
+    { "act": "screenshot", "label": "02_hit_stage_plus_one_annotation" },
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")" },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\").dice_log_display.get_parsed_text().contains(\"Wound modifier: +1\")", "equals": true },
+    { "act": "screenshot", "label": "03_wound_stage_plus_one_modifier" }
+  ]
+}
