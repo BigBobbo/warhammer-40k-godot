@@ -251,6 +251,10 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# (must run before wargear bonuses / ability dispatch)
 			_canonicalize_ability_names(unit_id, unit)
 
+			# Backfill Deep Strike on Custodes datasheets the vendored 40kdc
+			# dataset dropped it from (Custodian Guard, Allarus, Shield-Captain…)
+			_backfill_custodes_deep_strike(unit_id, unit)
+
 			# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 			_apply_wargear_stat_bonuses(unit_id, unit)
 
@@ -660,6 +664,10 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 		# Canonicalize renamed 11e ability names to the engine's spellings
 		_canonicalize_ability_names(unit_id, unit)
 
+		# Backfill Deep Strike on Custodes datasheets the vendored 40kdc
+		# dataset dropped it from (Custodian Guard, Allarus, Shield-Captain…)
+		_backfill_custodes_deep_strike(unit_id, unit)
+
 		# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 		_apply_wargear_stat_bonuses(unit_id, unit)
 
@@ -806,6 +814,75 @@ func _canonicalize_ability_names(unit_id: String, unit: Dictionary) -> void:
 				print("ArmyListManager: %s ability '%s' canonicalized to '%s'" % [
 					unit_id, ability.get("name", ""), canon])
 				ability["name"] = canon
+
+# ============================================================================
+# 11e CORE-ABILITY BACKFILL — Adeptus Custodes Deep Strike
+# ============================================================================
+# The vendored 40kdc 11e dataset (the source the Army Builder emits army lists
+# from — see 40k/data/40kdc/ATTRIBUTION.md, "do not hand-edit") is missing the
+# Deep Strike core ability on almost the entire on-foot Adeptus Custodes range;
+# it only tagged the Blade Champion. On the real 11e datasheets these units all
+# carry Deep Strike (wahapedia core ability 000008343). Without this, the
+# Declare Battle Formations screen offers a plain Custodian Guard squad only
+# "Strategic Reserves" when it should also offer "Deep Strike".
+#
+# Correct it at army-load time (mirroring how the bundled lists were patched) so
+# EVERY army — bundled or custom-built in the Army Builder — is right, including
+# lists the player saved before this fix.
+#
+# The set below is the 12 Adeptus Custodes datasheets that carry Deep Strike per
+# the repo's wahapedia datasheet-ability data. Mounted units (Shield-Captain on
+# Dawneagle Jetbike, Vertus/Agamatus Praetors), vehicles, dreadnoughts and the
+# Anathema Psykana / Sisters of Silence (Prosecutors, Witchseekers, Vigilators,
+# Aleya, Knight-Centura) correctly do NOT have Deep Strike and are excluded.
+const CUSTODES_DEEP_STRIKE_DATASHEETS: Array = [
+	"allarus custodians",
+	"aquilon custodians",
+	"blade champion",
+	"custodian guard",
+	"custodian guard with adrasite and pyrithite spears",
+	"custodian wardens",
+	"sagittarum custodians",
+	"shield-captain",
+	"shield-captain in allarus terminator armour",
+	"trajann valoris",
+	"valerian",
+	"venatari custodians",
+]
+
+func _backfill_custodes_deep_strike(unit_id: String, unit: Dictionary) -> void:
+	"""Grant the Deep Strike core ability to Adeptus Custodes datasheets that
+	have it in 11e but are missing it in the vendored 40kdc dataset. Idempotent:
+	a no-op if the unit already carries a Deep Strike ability."""
+	if not unit.has("meta"):
+		return
+	var meta = unit.meta
+	# Gate on the faction keyword so a same-named unit in another faction is
+	# never affected.
+	var is_custodes = false
+	for kw in meta.get("keywords", []):
+		if str(kw).to_upper() == "ADEPTUS CUSTODES":
+			is_custodes = true
+			break
+	if not is_custodes:
+		return
+	var name_l = str(meta.get("name", "")).to_lower().strip_edges()
+	if not (name_l in CUSTODES_DEEP_STRIKE_DATASHEETS):
+		return
+	if not meta.has("abilities") or not (meta.abilities is Array):
+		meta["abilities"] = []
+	# Idempotency: skip if a Deep Strike ability is already present (e.g. the
+	# bundled lists that were hand-patched, or a future fixed dataset).
+	for ab in meta.abilities:
+		var ab_name = ab.get("name", "") if ab is Dictionary else str(ab)
+		if str(ab_name) == "Deep Strike":
+			return
+	meta.abilities.append({
+		"name": "Deep Strike",
+		"type": "Core",
+		"description": "The unit has the Deep Strike ability."
+	})
+	print("ArmyListManager: Backfilled Deep Strike on %s (%s) — missing from vendored 40kdc 11e dataset" % [meta.get("name", unit_id), unit_id])
 
 func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 	"""Check unit abilities for wargear stat bonuses and apply them to stats/models."""
