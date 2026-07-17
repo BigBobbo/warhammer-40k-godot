@@ -5068,6 +5068,20 @@ func _flush_pending_auto_assigns() -> void:
 			continue  # Shooter changed since the refresh that queued this
 		_auto_assign_target(str(e[0]), str(e[1]))
 
+# F4 (audit 2026-07): automatic/bulk assignment paths must never dispatch an
+# ASSIGN_TARGET the phase will reject — the rejection surfaces as a red error
+# toast the player did not cause (pistol exclusivity, 11e shooting-type weapon
+# restrictions, ...). Validate quietly through the SAME phase validator first.
+func _assign_payload_is_valid(payload: Dictionary) -> bool:
+	if current_phase == null or not current_phase.has_method("validate_action"):
+		return true
+	var v = current_phase.validate_action({
+		"type": "ASSIGN_TARGET",
+		"actor_unit_id": active_shooter_id,
+		"payload": payload
+	})
+	return v.get("valid", false)
+
 func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 	"""Auto-assign a target to a weapon (used when only one eligible target exists)"""
 	if _in_resync:
@@ -5076,12 +5090,6 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 		# stack-overflow loop. Render only; the player (or AI action) assigns.
 		print("ShootingController: suppressing auto-assign of %s -> %s during resync" % [weapon_id, target_id])
 		return
-	# Mark as assigned
-	weapon_assignments[weapon_id] = target_id
-
-	# T5-UX4: Track assignment in history for undo
-	assignment_history.erase(weapon_id)
-	assignment_history.push_back(weapon_id)
 
 	# Get model IDs for this weapon
 	var model_ids = []
@@ -5095,6 +5103,19 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 		"target_unit_id": target_id,
 		"model_ids": model_ids
 	}
+
+	# F4: skip quietly if the engine would reject this (previously the tree was
+	# marked assigned and the dispatch failed with a red error banner).
+	if not _assign_payload_is_valid(payload):
+		print("ShootingController: F4 auto-assign skipped (engine would reject): %s -> %s" % [weapon_id, target_id])
+		return
+
+	# Mark as assigned
+	weapon_assignments[weapon_id] = target_id
+
+	# T5-UX4: Track assignment in history for undo
+	assignment_history.erase(weapon_id)
+	assignment_history.push_back(weapon_id)
 
 	# Emit assignment action
 	emit_signal("shoot_action_requested", {
@@ -5184,6 +5205,20 @@ func _on_apply_to_all_pressed() -> void:
 				if weapon_id in unit_weapons[model_id]:
 					model_ids.append(model_id)
 
+			# Build payload for network sync
+			var payload = {
+				"weapon_id": weapon_id,
+				"target_unit_id": last_assigned_target_id,
+				"model_ids": model_ids
+			}
+
+			# F4: skip weapons the engine would reject instead of dispatching
+			# a doomed action (red error toast) and lying in the tree column.
+			if not _assign_payload_is_valid(payload):
+				print("ShootingController: F4 apply-to-all skipped (engine would reject): %s" % weapon_id)
+				child = child.get_next()
+				continue
+
 			# Assign target
 			weapon_assignments[weapon_id] = last_assigned_target_id
 
@@ -5195,13 +5230,6 @@ func _on_apply_to_all_pressed() -> void:
 			child.set_text(1, "→ " + target_name)
 			child.set_custom_color(1, Color(0.5, 0.85, 0.5))
 			child.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
-
-			# Build payload for network sync
-			var payload = {
-				"weapon_id": weapon_id,
-				"target_unit_id": last_assigned_target_id,
-				"model_ids": model_ids
-			}
 
 			# Emit assignment action
 			emit_signal("shoot_action_requested", {
@@ -5322,6 +5350,15 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 				if weapon_id in unit_weapons[model_id]:
 					model_ids.append(model_id)
 
+			# F4: engine validation catches everything the local pistol check
+			# doesn't (11e shooting-type weapon/target restrictions, range/LoS).
+			if not _assign_payload_is_valid({"weapon_id": weapon_id, "target_unit_id": target_id, "model_ids": model_ids}):
+				var wp_skip = RulesEngine.get_weapon_profile(weapon_id)
+				skipped_pistol_names.append(wp_skip.get("name", weapon_id))
+				print("ShootingController: F4 quick-assign skipped (engine would reject): %s" % weapon_id)
+				child = child.get_next()
+				continue
+
 			# Assign target
 			weapon_assignments[weapon_id] = target_id
 			_manual_assignment_made = true  # quick-assign is an explicit player action
@@ -5370,7 +5407,7 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 		dice_log_display.append_text("[color=green]✓ Quick-assigned %d weapon(s) to %s[/color]\n" %
 			[assigned_count, target_name])
 		if not skipped_pistol_names.is_empty():
-			dice_log_display.append_text("[color=yellow]⚠ Skipped %s — cannot mix Pistol and non-Pistol weapons[/color]\n" %
+			dice_log_display.append_text("[color=yellow]⚠ Skipped %s — not usable for this shot (Pistol rules / weapon restrictions)[/color]\n" %
 				", ".join(skipped_pistol_names))
 
 	print("[ShootingController] P3-113: Quick-assigned %d weapons to %s (%s), skipped %d (pistol conflict)" % [assigned_count, target_name, target_id, skipped_pistol_names.size()])

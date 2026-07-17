@@ -721,8 +721,29 @@ func _validate_confirm_targets(action: Dictionary) -> Dictionary:
 	if pending_assignments.is_empty():
 		return {"valid": false, "errors": ["No targets assigned"]}
 
-	# Enforce engagement range restrictions (Pistol-only, engaged targets only)
 	var shooter_unit = get_unit(active_shooter_id)
+
+	# F3 (audit 2026-07): at 11e the selected shooting type is authoritative for
+	# BOTH weapon and target legality — run the SAME gate that ASSIGN_TARGET
+	# uses, so any plan that assembled also confirms. The old hard-coded check
+	# below additionally denied engaged MONSTER/VEHICLE units their 10.06 right
+	# to shoot units they are NOT engaged with (it required every target to be
+	# in engagement range regardless of keywords), so an engaged vehicle could
+	# assign two legal targets and then have CONFIRM_TARGETS reject the plan.
+	if GameConstants.edition >= 11 and active_shooting_type != "":
+		var st_11e = ShootingTypes.get_type(active_shooting_type)
+		for assignment in pending_assignments:
+			var wid_11e = assignment.get("weapon_id", "")
+			var wprofile = RulesEngine.get_weapon_profile(wid_11e, game_state_snapshot)
+			var w_ok = st_11e.weapon_allowed(wprofile, shooter_unit, GameState.state)
+			if not w_ok.allowed:
+				return {"valid": false, "errors": [w_ok.reason]}
+			var t_ok = st_11e.target_allowed(active_shooter_id, assignment.get("target_unit_id", ""), wprofile, GameState.state)
+			if not t_ok.allowed:
+				return {"valid": false, "errors": [t_ok.reason]}
+		return {"valid": true, "errors": []}
+
+	# 10e legacy: engagement range restrictions (Pistol-only, engaged targets only)
 	if shooter_unit.get("flags", {}).get("in_engagement", false):
 		var is_monster_vehicle = RulesEngine.is_monster_or_vehicle(shooter_unit)
 		for assignment in pending_assignments:
