@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.53.1",
+			"date": "2026-07-17",
+			"summary": "Fixed Ctrl+Click not selecting a second charge target. The Eligible Targets list told you to hold Ctrl+Click to charge more than one unit, but on many setups holding Ctrl and clicking did nothing (or just moved the selection) \u2014 so you could never actually declare a multi-unit charge. Ctrl+Click now reliably adds/removes extra targets.",
+			"changes": [
+				"Fixed: holding Ctrl (or Cmd) and clicking a second unit in the Eligible Targets list now toggles it in/out of the charge, so you can declare a charge against several units as the hint describes.",
+				"The charge target list no longer relies on the click carrying the Ctrl modifier (which some systems don't attach to mouse clicks) \u2014 it now also reads the live keyboard state, so Ctrl+Click works consistently across platforms.",
+				"Plain click still selects exactly one target, clicking empty space still clears the selection, and the target rows still lock once the charge is declared."
+			]
+		},
+		{
 			"version": "0.53.0",
 			"date": "2026-07-17",
 			"summary": "Multi-target shooting overhaul, part 1: declaring targets is now one click for the common case. Clicking an enemy with no weapon selected sends EVERYTHING at it; clicking with a weapon selected commits all of that weapon's eligible bearers instantly (no popup). Splitting fire is the exception you opt into: click a second target and the game offers to move some shots across. Engaged vehicles can also declare targets they are not engaged with again (10.06), and the game no longer shows error banners for assignments it auto-attempted itself.",

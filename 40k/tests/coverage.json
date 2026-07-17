@@ -2923,6 +2923,15 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "charge.ux.ctrl_click_via_held_key",
+      "description": "CHARGE phase: Ctrl+Click adds a second target to a multi-charge even when the platform does not stamp ctrl_pressed onto the mouse button event. ChargeController owns target-list left-clicks via gui_input and detects Ctrl from BOTH the event and Input.is_key_pressed(KEY_CTRL), so a held Ctrl key toggles regardless of platform. Reproduced (pre-fix: held Ctrl key + unstamped click did not toggle, selection stayed at 1) and fixed via 'charge_ctrl_click_real_key' using the click_item_list ctrl_via_key mode.",
+      "scenarios": [
+        "charge_ctrl_click_real_key"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
