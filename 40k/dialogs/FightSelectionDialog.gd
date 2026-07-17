@@ -128,8 +128,15 @@ func _add_subphase_units(container: VBoxContainer, subphase_name: String, units_
 
 			var unit_button = Button.new()
 			unit_button.name = "Fight_%s" % unit_id
-			var unit_data = dialog_data.eligible_units.get(unit_id, {})
-			var unit_name = unit_data.get("name", unit_id)
+			# Resolve through GameState's display-name helper (Alpha/Beta
+			# suffixes) so same-named squads are tellable apart, matching the
+			# labels used everywhere else. eligible_units only carries the
+			# SELECTING player's units, so its name lookup left every other
+			# unit rendering as a raw unit id. setup() runs before this dialog
+			# enters the tree — resolve the autoload via the main loop.
+			var gs = Engine.get_main_loop().root.get_node_or_null("GameState")
+			var unit_name = gs.get_unit_display_name(unit_id) if gs != null \
+				else dialog_data.eligible_units.get(unit_id, {}).get("name", unit_id)
 
 			unit_button.text = "    %s%s" % [
 				unit_name,

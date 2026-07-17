@@ -16,6 +16,16 @@
 			]
 		},
 		{
+			"version": "0.50.1",
+			"date": "2026-07-17",
+			"summary": "The Fight phase 'Select Unit to Fight' picker no longer lists Fights First units twice. Units that fight first (chargers and Fights First ability carriers) appeared under BOTH the FIGHTS_FIRST section and REMAINING_COMBATS, reading as if they fought twice — now every unit is listed in exactly one section. The picker also shows proper unit names throughout.",
+			"changes": [
+				"Fixed: Fights First units (charged units and ability carriers) were duplicated into the REMAINING_COMBATS list of the fight picker; each unit now appears only under the step it will actually fight in.",
+				"The fight picker now uses distinguishing display names ('Warboss Alpha', 'Blade Champion Beta') so same-named units are tellable apart, matching the rest of the game.",
+				"Fixed: the opposing player's units in the fight picker rendered as raw internal ids (e.g. 'U_CUSTODIAN_GUARD_B') instead of their names."
+			]
+		},
+		{
 			"version": "0.50.0",
 			"date": "2026-07-17",
 			"summary": "Charge moves now support multi-select: Shift+drag a box (or Ctrl+click / Ctrl+A) over your charging models and drag any selected model to move the whole group at once, just like in the Movement phase.",
