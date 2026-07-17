@@ -1,38 +1,122 @@
 {
   "id": "shooting_single_weapon_staged_rolls",
-  "covers": ["shooting.staged.single_weapon_hit_pause", "shooting.WeaponOrderDialog.auto_start"],
+  "covers": [
+    "shooting.staged.single_weapon_hit_pause",
+    "scripts.ShootingResolutionDock.auto_start"
+  ],
   "fixture": "shooting_phase",
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "Single-weapon shooting now steps through the roll like multi-weapon shooting does. Confirming ONE weapon type opens the WeaponOrderDialog already auto-started into staged resolution: it rolls to hit and PAUSES (so the attacker can read the result and use Command Re-roll) before the wound roll. Previously a single weapon resolved hits+wounds in one shot with no pause. Drives Battlewagon Alpha firing only its Lobba at the Blade Champion (in range in the raw fixture) and asserts the dialog reaches the hit pause, then continues to the wound roll.",
+  "description": "Single-weapon shooting steps through the roll via the B2 resolution dock. Confirming ONE weapon type auto-starts staged resolution in the dock: it rolls to hit and PAUSES (primary button 'Roll to Wound') so the attacker can read the result and use Command Re-roll before the wound roll. Drives Battlewagon Alpha firing only its Lobba at the Blade Champion and asserts the dock reaches the hit pause, then continues to the wound roll.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_phase", "equals": 8 },
-
-    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_BATTLEWAGON_A" } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
-
-    { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "actor_unit_id": "U_BATTLEWAGON_A", "payload": { "weapon_id": "lobba_ranged", "target_unit_id": "U_BLADE_CHAMPION_A", "model_ids": ["m1"] } } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
-
-    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
-
-    { "act": "dispatch_action", "action": { "type": "DECLINE_REACTIVE_STRATAGEM" } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
-
-    { "act": "wait_seconds", "seconds": 1.2 },
-
-    { "act": "expect_node_visible", "node": "/root/WeaponOrderDialog", "timeout_s": 3.0 },
-    { "act": "expect_node_property", "node": "/root/WeaponOrderDialog", "property": "_single_weapon_staged", "equals": true },
-    { "act": "expect_node_property", "node": "/root/WeaponOrderDialog", "property": "is_resolving", "equals": true },
-    { "act": "expect_node_property", "node": "/root/WeaponOrderDialog", "property": "current_stage", "equals": "hits" },
-    { "act": "screenshot", "label": "01_single_weapon_hit_pause" },
-
-    { "act": "dispatch_action", "action": { "type": "CONTINUE_TO_WOUNDS" } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "wait_seconds", "seconds": 0.6 },
-    { "act": "screenshot", "label": "02_after_wound_roll" }
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_BATTLEWAGON_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_BATTLEWAGON_A",
+        "payload": {
+          "weapon_id": "lobba_ranged",
+          "target_unit_id": "U_BLADE_CHAMPION_A",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLINE_REACTIVE_STRATAGEM"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.state",
+      "equals": "staged_hits"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"mode\", \"?\")",
+      "equals": "sequential_staged"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.text",
+      "equals": "Roll to Wound ▶"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_single_weapon_hit_pause"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONTINUE_TO_WOUNDS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_after_wound_roll"
+    }
   ]
 }

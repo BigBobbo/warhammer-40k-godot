@@ -153,6 +153,13 @@ var target_chips_container: Node2D = null
 var _target_chip_letters: Dictionary = {}   # target_unit_id -> "A"/"B"/...
 var _active_chip_target_id: String = ""     # target being resolved right now
 
+# B2 (audit 2026-07): docked resolution panel (single-player) — replaces the
+# WeaponOrderDialog + NextWeaponDialog chain. Declaration widgets live in
+# declaration_box so the dock can swap the whole section while resolving.
+const ShootingResolutionDockScript = preload("res://scripts/ShootingResolutionDock.gd")
+var declaration_box: VBoxContainer = null
+var resolution_dock = null
+
 # T36: pending-target add/clear/commit. Click-only adds to pending_targets
 # without firing. ENTER (or commit_targets()) marks targets_committed = true
 # and would trigger the real resolution downstream. Idempotent on duplicate
@@ -458,6 +465,22 @@ func _setup_right_panel() -> void:
 
 	_add_shooting_gold_separator(shooting_panel)
 
+	# B2 (audit 2026-07): every DECLARATION widget lives in this box so the
+	# resolution dock can swap the whole section out while dice are rolling —
+	# no half-dead assignment UI on screen mid-resolution.
+	declaration_box = VBoxContainer.new()
+	declaration_box.name = "DeclarationBox"
+	declaration_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shooting_panel.add_child(declaration_box)
+
+	# B2: docked resolution panel — replaces WeaponOrderDialog + NextWeaponDialog
+	# in single-player. Hidden until targets are confirmed.
+	resolution_dock = ShootingResolutionDockScript.new()
+	resolution_dock.name = "ResolutionDock"
+	resolution_dock.visible = false
+	resolution_dock.action_requested.connect(_on_dock_action_requested)
+	shooting_panel.add_child(resolution_dock)
+
 	# Unit selector
 	var unit_label = Label.new()
 	unit_label.text = "SELECT SHOOTER"
@@ -465,13 +488,13 @@ func _setup_right_panel() -> void:
 	unit_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		unit_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	shooting_panel.add_child(unit_label)
+	declaration_box.add_child(unit_label)
 
 	unit_selector = ItemList.new()
 	unit_selector.custom_minimum_size = Vector2(230, 80)
 	unit_selector.item_selected.connect(_on_unit_selected)
 	_WhiteDwarfTheme.apply_to_item_list(unit_selector)
-	shooting_panel.add_child(unit_selector)
+	declaration_box.add_child(unit_selector)
 
 	# Shooter status info (abilities, stationary, model count)
 	shooter_status_label = RichTextLabel.new()
@@ -483,9 +506,9 @@ func _setup_right_panel() -> void:
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		shooter_status_label.add_theme_font_override("normal_font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	shooter_status_label.visible = false
-	shooting_panel.add_child(shooter_status_label)
+	declaration_box.add_child(shooter_status_label)
 
-	_add_shooting_gold_separator(shooting_panel)
+	_add_shooting_gold_separator(declaration_box)
 
 	# Weapon assignments section header
 	var weapon_label = Label.new()
@@ -494,7 +517,7 @@ func _setup_right_panel() -> void:
 	weapon_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		weapon_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	shooting_panel.add_child(weapon_label)
+	declaration_box.add_child(weapon_label)
 
 	# Create "Apply to All" button container (initially hidden)
 	auto_target_button_container = HBoxContainer.new()
@@ -517,7 +540,7 @@ func _setup_right_panel() -> void:
 	_WhiteDwarfTheme.apply_secondary_button(apply_to_all_button)
 	auto_target_button_container.add_child(apply_to_all_button)
 
-	shooting_panel.add_child(auto_target_button_container)
+	declaration_box.add_child(auto_target_button_container)
 
 	weapon_tree = Tree.new()
 	weapon_tree.custom_minimum_size = Vector2(230, 180)
@@ -547,7 +570,7 @@ func _setup_right_panel() -> void:
 	weapon_tree.add_theme_font_size_override("font_size", 14)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		weapon_tree.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
-	shooting_panel.add_child(weapon_tree)
+	declaration_box.add_child(weapon_tree)
 
 	# T5-UX1: Expected damage preview panel (shown on weapon hover/select)
 	damage_preview_panel = PanelContainer.new()
@@ -568,7 +591,7 @@ func _setup_right_panel() -> void:
 	damage_preview_label.custom_minimum_size = Vector2(218, 0)
 	damage_preview_label.add_theme_font_size_override("normal_font_size", 11)
 	damage_preview_panel.add_child(damage_preview_label)
-	shooting_panel.add_child(damage_preview_panel)
+	declaration_box.add_child(damage_preview_panel)
 
 	# P3-114: Aggregate damage preview panel (shown when multiple weapons assigned)
 	aggregate_preview_panel = PanelContainer.new()
@@ -589,7 +612,7 @@ func _setup_right_panel() -> void:
 	aggregate_preview_label.custom_minimum_size = Vector2(218, 0)
 	aggregate_preview_label.add_theme_font_size_override("normal_font_size", 11)
 	aggregate_preview_panel.add_child(aggregate_preview_label)
-	shooting_panel.add_child(aggregate_preview_panel)
+	declaration_box.add_child(aggregate_preview_panel)
 
 	# P3-113: Quick-assign all weapons to target buttons
 	quick_assign_container = VBoxContainer.new()
@@ -602,9 +625,9 @@ func _setup_right_panel() -> void:
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		quick_assign_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	quick_assign_container.add_child(quick_assign_label)
-	shooting_panel.add_child(quick_assign_container)
+	declaration_box.add_child(quick_assign_container)
 
-	_add_shooting_gold_separator(shooting_panel)
+	_add_shooting_gold_separator(declaration_box)
 
 	# GRENADE stratagem button
 	grenade_button = Button.new()
@@ -614,10 +637,10 @@ func _setup_right_panel() -> void:
 	grenade_button.pressed.connect(_on_grenade_button_pressed)
 	grenade_button.tooltip_text = "GRENADES unit: Roll 6D6, each 4+ = 1 mortal wound to enemy within 8\""
 	_WhiteDwarfTheme.apply_to_button(grenade_button)
-	shooting_panel.add_child(grenade_button)
+	declaration_box.add_child(grenade_button)
 	_update_grenade_button_visibility()
 
-	_add_shooting_gold_separator(shooting_panel)
+	_add_shooting_gold_separator(declaration_box)
 
 	# Target basket
 	var basket_label = Label.new()
@@ -626,12 +649,12 @@ func _setup_right_panel() -> void:
 	basket_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		basket_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	shooting_panel.add_child(basket_label)
+	declaration_box.add_child(basket_label)
 
 	target_basket = ItemList.new()
 	target_basket.custom_minimum_size = Vector2(230, 80)
 	_WhiteDwarfTheme.apply_to_item_list(target_basket)
-	shooting_panel.add_child(target_basket)
+	declaration_box.add_child(target_basket)
 	
 	# Action buttons
 	var button_container = HBoxContainer.new()
@@ -657,10 +680,10 @@ func _setup_right_panel() -> void:
 	_WhiteDwarfTheme.apply_primary_button(confirm_button)
 	button_container.add_child(confirm_button)
 	
-	shooting_panel.add_child(button_container)
+	declaration_box.add_child(button_container)
 
 	# T5-UX3: "Shoot All Remaining" button
-	_add_shooting_gold_separator(shooting_panel)
+	_add_shooting_gold_separator(declaration_box)
 	shoot_all_remaining_button = Button.new()
 	shoot_all_remaining_button.name = "ShootAllRemainingButton"
 	shoot_all_remaining_button.text = "Shoot All Remaining"
@@ -668,7 +691,7 @@ func _setup_right_panel() -> void:
 	shoot_all_remaining_button.pressed.connect(_on_shoot_all_remaining_pressed)
 	shoot_all_remaining_button.tooltip_text = "Auto-shoot all remaining eligible units at their nearest targets"
 	_WhiteDwarfTheme.apply_primary_button(shoot_all_remaining_button)
-	shooting_panel.add_child(shoot_all_remaining_button)
+	declaration_box.add_child(shoot_all_remaining_button)
 	_update_shoot_all_remaining_button()
 
 	# Secondary mission action button (Establish Locus, Cleanse, Deploy Teleport Homer)
@@ -679,7 +702,7 @@ func _setup_right_panel() -> void:
 	perform_action_button.pressed.connect(_on_perform_action_pressed)
 	perform_action_button.tooltip_text = "Give up shooting to perform a secondary mission action"
 	WhiteDwarfTheme.apply_to_button(perform_action_button)
-	shooting_panel.add_child(perform_action_button)
+	declaration_box.add_child(perform_action_button)
 	perform_action_button.visible = false  # Hidden until a unit qualifies
 
 	# B1 (16.01): "Start Action" — give up shooting to start a generic 11e action.
@@ -690,7 +713,7 @@ func _setup_right_panel() -> void:
 	start_action_button.pressed.connect(_on_start_action_pressed)
 	start_action_button.tooltip_text = "11e Action (16.01): give up shooting to start an action. The unit cannot charge this turn; the action completes at the end of your turn."
 	WhiteDwarfTheme.apply_to_button(start_action_button)
-	shooting_panel.add_child(start_action_button)
+	declaration_box.add_child(start_action_button)
 	start_action_button.visible = false  # Shown only for FLY/edition>=11 eligible units
 
 	# Scorched Earth burn objective button
@@ -702,11 +725,11 @@ func _setup_right_panel() -> void:
 	burn_objective_button.tooltip_text = "Give up shooting and charging to burn a controlled objective"
 	WhiteDwarfTheme.apply_to_button(burn_objective_button)
 	burn_objective_button.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
-	shooting_panel.add_child(burn_objective_button)
+	declaration_box.add_child(burn_objective_button)
 	burn_objective_button.visible = false  # Hidden until a unit qualifies
 
 	# Dice log
-	_add_shooting_gold_separator(shooting_panel)
+	_add_shooting_gold_separator(declaration_box)
 	
 	var dice_label = Label.new()
 	dice_label.text = "DICE LOG"
@@ -867,6 +890,11 @@ func resync_from_phase() -> void:
 		return
 
 	_in_resync = true
+
+	# B2: a resync means declaration state is being rebuilt — if the phase is
+	# not mid-resolution, retire the dock so the declaration widgets return.
+	if resolution_dock and resolution_dock.is_active() and current_phase.resolution_state.is_empty():
+		_deactivate_resolution_dock()
 
 	var phase_active: String = current_phase.active_shooter_id
 
@@ -2361,6 +2389,9 @@ func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictio
 		_update_grenade_button_visibility()
 		return
 
+	# B2: retire the resolution dock and restore the declaration widgets
+	_deactivate_resolution_dock()
+
 	# Update visuals after shooting
 	_clear_visuals()
 	active_shooter_id = ""
@@ -2420,6 +2451,9 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	# B1: emphasize the chip of the target currently being resolved
 	if dice_data.get("context", "") == "weapon_progress":
 		_set_active_target_chip(str(dice_data.get("target_unit_id", "")))
+		# B2: advance the dock's queue cursor
+		if resolution_dock and resolution_dock.is_active():
+			resolution_dock.on_weapon_progress(dice_data)
 
 	if not dice_log_display:
 		return
@@ -2751,6 +2785,10 @@ func _on_saves_required(save_data_list: Array) -> void:
 	var weapon = save_data.get("weapon_name", "unknown")
 	var wounds = save_data.get("wounds_to_save", 0)
 
+	# B2: reflect the saves step in the resolution dock (single-player)
+	if not NetworkManager.is_networked() and resolution_dock and resolution_dock.is_active():
+		resolution_dock.on_saves_pending(str(save_data.get("target_unit_name", target)))
+
 	print("║ Target: ", target)
 	print("║ Weapon: ", weapon)
 	print("║ Wounds: ", wounds)
@@ -3001,6 +3039,16 @@ func _on_weapon_order_required(assignments: Array) -> void:
 		print("========================================")
 		return
 
+	# B2 (audit 2026-07): single-player uses the docked resolution panel in the
+	# right HUD instead of the WeaponOrderDialog/NextWeaponDialog chain — the
+	# board stays visible, the queue shows every weapon → target, and one
+	# fixed-position button drives every step. Networked play keeps the dialogs.
+	if not NetworkManager.is_networked():
+		_activate_resolution_dock(assignments)
+		print("ShootingController: B2 resolution dock activated (%d assignments)" % assignments.size())
+		print("========================================")
+		return
+
 	# Show feedback in dice log
 	if dice_log_display:
 		dice_log_display.append_text("[b][color=cyan]Multiple weapon types detected - choose firing order...[/color][/b]\n")
@@ -3036,6 +3084,46 @@ func _on_weapon_order_required(assignments: Array) -> void:
 
 	print("ShootingController: WeaponOrderDialog shown and connected to phase signals")
 	print("========================================")
+
+# ---------------------------------------------------------------------------
+# B2 (audit 2026-07): resolution dock lifecycle
+# ---------------------------------------------------------------------------
+
+func _activate_resolution_dock(assignments: Array) -> void:
+	if resolution_dock == null:
+		push_error("ShootingController: resolution dock missing — falling back is not possible in SP")
+		return
+	if declaration_box:
+		declaration_box.visible = false
+	resolution_dock.activate(assignments, current_phase, self, active_shooter_id)
+	# Single weapon TYPE: start rolling immediately (parity with the old
+	# dialog auto-start) — the dock lands straight on the hit pause.
+	# DEFERRED: weapon_order_required is emitted BEFORE the phase stores
+	# resolution_state.phase = "awaiting_weapon_order", so a synchronous
+	# dispatch here would be validated against pre-emit state (the old dialog
+	# deferred its auto-start for the same reason).
+	var unique := {}
+	for a in assignments:
+		unique[a.get("weapon_id", "")] = true
+	if unique.size() == 1:
+		call_deferred("_dock_auto_start_single_weapon", assignments.duplicate(true))
+
+func _dock_auto_start_single_weapon(order: Array) -> void:
+	if resolution_dock == null or not resolution_dock.is_active():
+		return
+	emit_signal("shoot_action_requested", {
+		"type": "RESOLVE_WEAPON_SEQUENCE",
+		"payload": {"weapon_order": order, "fast_roll": false}
+	})
+
+func _deactivate_resolution_dock() -> void:
+	if resolution_dock and resolution_dock.is_active():
+		resolution_dock.deactivate()
+	if declaration_box:
+		declaration_box.visible = true
+
+func _on_dock_action_requested(action: Dictionary) -> void:
+	emit_signal("shoot_action_requested", action)
 
 func _connect_staged_dialog_signals(dialog) -> void:
 	# Wire the staged hit/wound pause controls (non-networked sequential mode).
@@ -3110,6 +3198,14 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and active_player_check > 0 and ai_player_node.is_ai_player(active_player_check):
 		print("ShootingController: Skipping next weapon confirmation dialog for AI player %d" % active_player_check)
+		return
+
+	# B2 (audit 2026-07): single-player routes the between-weapons pause into
+	# the resolution dock — no NextWeaponDialog.
+	if not NetworkManager.is_networked() and resolution_dock and resolution_dock.is_active():
+		resolution_dock.on_next_weapon(remaining_weapons, current_index, last_weapon_result)
+		print("ShootingController: B2 dock updated for next-weapon pause (remaining=%d)" % remaining_weapons.size())
+		print("========================================")
 		return
 
 	# Note: remaining_weapons CAN be empty - this is the final weapon case!
@@ -4440,6 +4536,13 @@ func _handle_shooting_keyboard_shortcut(event: InputEventKey) -> bool:
 	var kbm = _get_keybinding_manager()
 
 	if _shoot_action_matches(kbm, event, "shoot_confirm_targets", [KEY_SPACE, KEY_ENTER]):
+		# B2: while the resolution dock is live, Space/Enter presses its primary
+		# button — rip through the steps without ever moving the mouse.
+		if resolution_dock and resolution_dock.is_active():
+			if not resolution_dock.primary_button.disabled:
+				print("T5-UX12: Keyboard shortcut — dock primary (%s)" % resolution_dock.primary_button.text)
+				resolution_dock.primary_button.emit_signal("pressed")
+			return true
 		# Confirm targets — only when we have assignments
 		if active_shooter_id != "" and not weapon_assignments.is_empty():
 			print("T5-UX12: Keyboard shortcut — Confirm Targets (shoot_confirm_targets)")

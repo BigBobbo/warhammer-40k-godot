@@ -9,7 +9,7 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "13.09 HIDDEN 'did not shoot this turn or the previous turn' through the LIVE game (A5: the dead shot_recently key was replaced by a last_shot_idx turn-stamp written on real ranged attacks \u2014 this proves the stamp is actually written by the live shooting flow and consumed by the live hidden gate). The Witchseekers (INFANTRY) stand in an injected dense area: hidden, and not visible to a far Ork observer (detection 15\"). They then shoot (Siege Mortar at the Boyz through the real SELECT/ASSIGN/CONFIRM flow; the Boyz' reactive 'ARD AS NAILS offer is declined by clicking the real dialog). After the attack resolves, flags.last_shot_idx == battle_round*2 (round 1, P1), the unit is no longer hidden, and the far observer can now see it. The defender resolves saves through the real AllocationGroupOverlay (Confirm rolls the batch, Done applies) \u2014 the stamp lands with the completion changes. The player then confirms the final weapon results ('Complete Shooting' \u2014 the NextWeaponDialog OK button, pressed via its signal since AcceptDialog buttons are internal nodes), which dispatches COMPLETE_SHOOTING_FOR_UNIT \u2014 the completion that must write the stamp.",
+  "description": "13.09 HIDDEN 'did not shoot this turn or the previous turn' through the LIVE game (A5: the dead shot_recently key was replaced by a last_shot_idx turn-stamp written on real ranged attacks — this proves the stamp is actually written by the live shooting flow and consumed by the live hidden gate). The Witchseekers (INFANTRY) stand in an injected dense area: hidden, and not visible to a far Ork observer (detection 15\"). They then shoot (Siege Mortar at the Boyz through the real SELECT/ASSIGN/CONFIRM flow; the Boyz' reactive 'ARD AS NAILS offer is declined by clicking the real dialog). After the attack resolves, flags.last_shot_idx == battle_round*2 (round 1, P1), the unit is no longer hidden, and the far observer can now see it. The defender resolves saves through the real AllocationGroupOverlay (Confirm rolls the batch, Done applies) — the stamp lands with the completion changes. The player then confirms the final weapon results ('Complete Shooting' — the resolution dock's primary button, 'Complete Shooting'), which dispatches COMPLETE_SHOOTING_FOR_UNIT — the completion that must write the stamp.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -143,9 +143,9 @@
       "seconds": 0.8
     },
     {
-      "act": "expect_node_visible",
-      "node": "/root/NextWeaponDialog",
-      "timeout_s": 3.0
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.text",
+      "equals": "Complete Shooting"
     },
     {
       "act": "screenshot",
@@ -153,7 +153,7 @@
     },
     {
       "act": "execute_script",
-      "script": "main.get_node(\"/root/NextWeaponDialog\").get_ok_button().emit_signal(\"pressed\")"
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")"
     },
     {
       "act": "wait_seconds",

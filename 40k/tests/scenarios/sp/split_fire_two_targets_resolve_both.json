@@ -3,150 +3,344 @@
   "covers": [
     "phases.ShootingPhase.apply_saves_sequential_staged",
     "shooting.split_fire_resolution_both_targets",
-    "scripts.NextWeaponDialog.remaining_after_saves"
+    "scripts.ShootingResolutionDock.next_weapon_after_saves"
   ],
   "fixture": "shooting_phase",
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "Regression for 'when I shoot at two different targets it only rolls the first one'. Battlewagon Alpha fires big shootas at the Witchseekers and the zzap gun at the Blade Champion. After the first weapon's saves are applied, the sequence must OFFER AND RESOLVE the second assignment, not silently complete. Root cause: _process_apply_saves only treated mode 'sequential'/'fast' as sequential; single-player staged mode is 'sequential_staged', so the post-saves path fell into the single-weapon completion branch, emitted next_weapon_confirmation_required([]) with an empty remaining list and dropped every remaining assignment.",
+  "description": "Regression for 'when I shoot at two different targets it only rolls the first one', now driven through the B2 resolution dock (replaces WeaponOrderDialog/NextWeaponDialog in single-player). Battlewagon Alpha fires big shootas at the Witchseekers and the zzap gun at the Blade Champion. After the first weapon's saves are applied, the dock must OFFER the second weapon ('Next Weapon') and resolving continues until both targets are done. Root causes fixed: _process_apply_saves treated 'sequential_staged' as single-weapon and dropped remaining assignments; _validate_continue_sequence rejected staged mode.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
-    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
       "script": "GameState.set_edition(11)",
-      "equals": 11 },
-    { "act": "execute_script",
-      "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0].position.merge({\"x\": 1150.0, \"y\": 2150.0}, true)" },
-    { "act": "execute_script",
-      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot.units[\"U_BLADE_CHAMPION_A\"].models[0].position.merge({\"x\": 1150.0, \"y\": 2150.0}, true)" },
-
-    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_BATTLEWAGON_A" } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "wait_seconds", "seconds": 0.5 },
-
-    { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "actor_unit_id": "U_BATTLEWAGON_A", "payload": { "weapon_id": "big_shoota_ranged", "target_unit_id": "U_WITCHSEEKERS_C", "model_ids": ["m1"] } } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "actor_unit_id": "U_BATTLEWAGON_A", "payload": { "weapon_id": "zzap_gun_ranged", "target_unit_id": "U_BLADE_CHAMPION_A", "model_ids": ["m1"] } } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
-
-    { "act": "execute_script",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0].position.merge({\"x\": 1150.0, \"y\": 2150.0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot.units[\"U_BLADE_CHAMPION_A\"].models[0].position.merge({\"x\": 1150.0, \"y\": 2150.0}, true)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_BATTLEWAGON_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_BATTLEWAGON_A",
+        "payload": {
+          "weapon_id": "big_shoota_ranged",
+          "target_unit_id": "U_WITCHSEEKERS_C",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_BATTLEWAGON_A",
+        "payload": {
+          "weapon_id": "zzap_gun_ranged",
+          "target_unit_id": "U_BLADE_CHAMPION_A",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().pending_assignments.size()",
-      "equals": 2 },
-    { "act": "screenshot", "label": "01_two_targets_declared" },
-
-    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "wait_seconds", "seconds": 0.5 },
-
-    { "act": "dispatch_action", "action": { "type": "DECLINE_REACTIVE_STRATAGEM" } },
-    { "act": "wait_seconds", "seconds": 0.8 },
-    { "act": "screenshot", "label": "02_weapon_order_dialog" },
-
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/WeaponOrderDialog\") != null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/WeaponOrderDialog\").weapon_order.size()",
-      "equals": 2 },
-
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/WeaponOrderDialog\").weapon_order[0]" },
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/WeaponOrderDialog\")._on_move_up_pressed(1)" },
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/WeaponOrderDialog\").weapon_order[0]",
-      "equals": "big_shoota_ranged" },
-
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/WeaponOrderDialog\")._on_start_sequence_pressed()" },
-    { "act": "wait_seconds", "seconds": 0.8 },
-    { "act": "screenshot", "label": "03_first_weapon_hit_pause" },
-
-    { "act": "execute_script",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "01_two_targets_declared"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLINE_REACTIVE_STRATAGEM"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "02_weapon_order_dialog"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.assignments.size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.assignments[0].get(\"weapon_id\", \"\")",
+      "equals": "big_shoota_ranged"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "03_first_weapon_hit_pause"
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"mode\", \"?\")",
-      "equals": "sequential_staged" },
-    { "act": "execute_script",
+      "equals": "sequential_staged"
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"weapon_order\", []).size()",
-      "equals": 2 },
-    { "act": "execute_script",
-      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"stage\", \"?\")" },
-
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/WeaponOrderDialog\")._on_staged_continue_pressed()" },
-    { "act": "wait_seconds", "seconds": 0.8 },
-    { "act": "screenshot", "label": "04_first_weapon_wound_pause" },
-    { "act": "execute_script",
-      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"stage\", \"?\")" },
-    { "act": "execute_script",
-      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"staged_save_data_list\", []).size()" },
-
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/WeaponOrderDialog\")._on_staged_continue_pressed()" },
-    { "act": "wait_seconds", "seconds": 1.0 },
-    { "act": "screenshot", "label": "05_saves_overlay" },
-
-    { "act": "click_if_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton", "emit_pressed": true },
-    { "act": "wait_seconds", "seconds": 0.6 },
-    { "act": "click_if_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/RerollPanel/KeepRollsButton", "emit_pressed": true },
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "click_if_visible", "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton", "emit_pressed": true },
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "click_if_visible", "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton", "emit_pressed": true },
-    { "act": "wait_seconds", "seconds": 0.6 },
-    { "act": "screenshot", "label": "06_saves_rolled" },
-    { "act": "click_if_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton", "emit_pressed": true },
-    { "act": "wait_seconds", "seconds": 1.0 },
-    { "act": "screenshot", "label": "07_after_first_saves_applied" },
-
-    { "act": "execute_script",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"stage\", \"?\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "04_first_weapon_wound_pause"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"stage\", \"?\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"staged_save_data_list\", []).size()"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "05_saves_overlay"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/RerollPanel/KeepRollsButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "06_saves_rolled"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "07_after_first_saves_applied"
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"current_index\", -99)",
-      "equals": 1 },
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/NextWeaponDialog\") != null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/NextWeaponDialog\").get_ok_button().text",
-      "equals": "Continue to Next Weapon" },
-
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/NextWeaponDialog\").get_ok_button().emit_signal(\"pressed\")" },
-    { "act": "wait_seconds", "seconds": 1.2 },
-    { "act": "screenshot", "label": "08_second_weapon_hit_pause" },
-
-    { "act": "execute_script",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.text",
+      "equals": "Next Weapon ▶"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "screenshot",
+      "label": "08_second_weapon_hit_pause"
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"stage\", \"?\")",
-      "equals": "hits_pending" },
-
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/WeaponOrderDialog\")._on_staged_continue_pressed()" },
-    { "act": "wait_seconds", "seconds": 1.0 },
-    { "act": "screenshot", "label": "09_second_weapon_resolved" },
-
-    { "act": "execute_script",
+      "equals": "hits_pending"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "09_second_weapon_resolved"
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"current_index\", -99)",
-      "equals": 2 },
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/NextWeaponDialog\") != null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/NextWeaponDialog\").get_ok_button().text",
-      "equals": "Complete Shooting" },
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/NextWeaponDialog\").get_ok_button().emit_signal(\"pressed\")" },
-    { "act": "wait_seconds", "seconds": 1.0 },
-    { "act": "screenshot", "label": "10_unit_complete" },
-
-    { "act": "execute_script",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.text",
+      "equals": "Complete Shooting"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "10_unit_complete"
+    },
+    {
+      "act": "execute_script",
       "script": "GameState.get_unit(\"U_BATTLEWAGON_A\").get(\"flags\", {}).get(\"has_shot\", false)",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().get_phase_shooting_summary().targets_count",
-      "equals": 2 },
-    { "act": "execute_script",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().get_phase_shooting_summary().weapon_entries",
-      "equals": 2 }
+      "equals": 2
+    }
   ]
 }
