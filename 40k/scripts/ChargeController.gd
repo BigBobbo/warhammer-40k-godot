@@ -54,6 +54,21 @@ const SNAP_ANGLE_SWEEP_DEG: Array = [
 var dragging_model = null  # Currently dragging model
 var ghost_visual: Node2D = null  # Ghost visual for dragging
 var movement_lines: Dictionary = {}  # model_id -> Line2D for movement path
+
+# Multi-select state (mirrors the Movement phase UX): Shift+drag on empty board
+# rubber-bands a box over the charging unit's models, Ctrl+click toggles single
+# models, Ctrl+A selects all — then dragging any selected model moves the whole
+# group as one, with each model's move validated against the charge roll.
+var selected_models: Array = []  # entries: {model_id: String, position: Vector2}
+var drag_box_active: bool = false
+var drag_box_start: Vector2 = Vector2.ZERO  # board-local
+var drag_box_end: Vector2 = Vector2.ZERO  # board-local
+var selection_box_visual: Node2D = null  # drawn rect while shift-dragging
+var selection_indicators: Array = []  # pulsing rings on selected models
+var group_dragging: bool = false
+var group_drag_start_pos: Vector2 = Vector2.ZERO  # board-local point where the group drag began
+var group_drag_start_positions: Dictionary = {}  # model_id -> Vector2 at drag start
+var group_ghost_container: Node2D = null  # ghost previews for the group drag
 var confirm_button: Button = null  # Button to confirm charge moves
 var charge_direction_visual: Node2D = null  # P3-99: Live direction validation feedback
 
@@ -184,7 +199,7 @@ func _input(event: InputEvent) -> void:
 				_handle_mouse_release(mouse_event.global_position)
 			get_viewport().set_input_as_handled()
 	
-	elif event is InputEventMouseMotion and dragging_model:
+	elif event is InputEventMouseMotion and (dragging_model or drag_box_active or group_dragging):
 		_handle_mouse_motion(event.global_position)
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey:
@@ -200,19 +215,87 @@ func _input(event: InputEvent) -> void:
 			elif KeybindingManager.matches_action(event, "rotate_right"):
 				_rotate_dragging_model(PI/12)  # Rotate 15 degrees right
 				get_viewport().set_input_as_handled()
+		elif event.pressed and not dragging_model:
+			# Multi-selection keyboard shortcuts (mirrors the Movement phase)
+			if KeybindingManager.matches_action(event, "select_all"):
+				_select_all_charge_models()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_ESCAPE and selected_models.size() > 0:
+				_clear_charge_selection()
+				get_viewport().set_input_as_handled()
 
 func _handle_mouse_down(global_pos: Vector2) -> void:
 	print("DEBUG: Mouse down at global pos: ", global_pos)
+	var board_root = SceneRefs.board_root()
 
-	# Try a simpler approach - check token visual nodes directly
-	var token_layer = SceneRefs.token_layer()
-	if not token_layer:
-		print("DEBUG: TokenLayer not found")
+	# Shift+press on empty board space starts drag-box multi-selection of the
+	# charging unit's models (mirrors the Movement phase multi-select UX).
+	# Pressing ON a model with Shift held falls through to a normal drag.
+	if Input.is_key_pressed(KEY_SHIFT) and _find_draggable_charge_model_at(global_pos).is_empty():
+		if board_root:
+			_start_drag_box_selection(board_root.to_local(global_pos))
+		return
+
+	# Ctrl+click toggles a single charging model in/out of the multi-selection
+	if Input.is_key_pressed(KEY_CTRL):
+		_toggle_charge_model_selection(global_pos)
 		return
 
 	print("DEBUG: Models to move: ", models_to_move)
+	var hit = _find_draggable_charge_model_at(global_pos)
 
-	# Check each token in the layer
+	# Clicking one of the selected models while 2+ are selected drags the group
+	if selected_models.size() > 1 and not hit.is_empty() \
+			and _find_selected_charge_model_index(hit.get("model_id", "")) >= 0:
+		if board_root:
+			_start_group_drag(board_root.to_local(global_pos))
+		return
+
+	# Any other press clears the multi-selection and behaves as before
+	if selected_models.size() > 0:
+		_clear_charge_selection()
+
+	if hit.is_empty():
+		print("DEBUG: No model found at click position")
+		return
+
+	var model = hit.model
+	var model_id = hit.model_id
+	print("DEBUG: Clicked on model ", model_id)
+
+	# Log the complete model data from GameState
+	print("DEBUG: Model data from GameState:")
+	print("  id: ", model.get("id", "NOT SET"))
+	print("  base_mm: ", model.get("base_mm", "NOT SET"))
+	print("  base_type: ", model.get("base_type", "NOT SET"))
+	print("  base_dimensions: ", model.get("base_dimensions", "NOT SET"))
+	print("  rotation: ", model.get("rotation", "NOT SET"))
+	print("  position: ", model.get("position", "NOT SET"))
+	print("  Full model keys: ", model.keys())
+
+	dragging_model = model
+	# Convert token position to BoardRoot local coordinates
+	if board_root:
+		var local_pos = board_root.to_local(hit.token_global_pos)
+		_start_model_drag(model, local_pos)
+
+func _find_draggable_charge_model_at(global_pos: Vector2) -> Dictionary:
+	"""Hit-test the charging unit's draggable tokens at a global screen position.
+	Draggable = still to move OR already placed (multi-step pickups). Returns
+	{model_id, token_global_pos, model} or {} when nothing draggable is there.
+	The test runs in BOARD space against each model's real base radius — a
+	fixed screen-px radius balloons at zoomed-out camera scales (25.2 screen px
+	at the default fitted zoom is >2\" of board!), which both made fat-finger
+	pickups of the wrong model possible and left no 'empty board' anywhere near
+	the unit for the Shift+drag-box gesture to start on."""
+	var token_layer = SceneRefs.token_layer()
+	if not token_layer:
+		print("DEBUG: TokenLayer not found")
+		return {}
+	var board_root = SceneRefs.board_root()
+	var board_pos: Vector2 = board_root.to_local(global_pos) if board_root else global_pos
+	var grab_margin_px := 4.0  # small forgiveness ring around the base edge
+
 	for child in token_layer.get_children():
 		if not child.has_meta("unit_id") or not child.has_meta("model_id"):
 			continue
@@ -227,65 +310,399 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 		if unit_id != active_unit_id or (model_id not in models_to_move and model_id not in moved_models):
 			continue
 
-		# Check if the click is on this token
-		var token_global_pos = child.global_position
-		var token_radius = 25.2  # Standard token radius in pixels
+		# Board-local token position (TokenLayer sits at the BoardRoot origin)
+		var token_board_pos: Vector2 = child.position
+		var base_radius := 25.2
+		if child.has_method("get_base_radius"):
+			base_radius = child.get_base_radius()
+		elif child.has_meta("base_mm"):
+			base_radius = Measurement.base_radius_px(child.get_meta("base_mm"))
 
-		var distance = token_global_pos.distance_to(global_pos)
-		print("DEBUG: Token ", model_id, " at global ", token_global_pos, " distance from click: ", distance)
+		var distance = token_board_pos.distance_to(board_pos)
+		print("DEBUG: Token ", model_id, " at board ", token_board_pos, " distance from click: ", distance, " (radius ", base_radius, ")")
 
-		if distance <= token_radius:
-			print("DEBUG: Clicked on model ", model_id)
-
+		if distance <= base_radius + grab_margin_px:
 			# Get the model data from GameState
 			var unit = GameState.get_unit(active_unit_id)
-			print("DEBUG: Retrieved unit from GameState: ", unit.get("meta", {}).get("name", "unknown"))
-
 			for model in unit.get("models", []):
 				if model.get("id", "") == model_id:
-					# Log the complete model data from GameState
-					print("DEBUG: Model data from GameState:")
-					print("  id: ", model.get("id", "NOT SET"))
-					print("  base_mm: ", model.get("base_mm", "NOT SET"))
-					print("  base_type: ", model.get("base_type", "NOT SET"))
-					print("  base_dimensions: ", model.get("base_dimensions", "NOT SET"))
-					print("  rotation: ", model.get("rotation", "NOT SET"))
-					print("  position: ", model.get("position", "NOT SET"))
-					print("  Full model keys: ", model.keys())
+					return {"model_id": model_id, "token_global_pos": child.global_position, "model": model}
 
-					dragging_model = model
-					# Convert token position to BoardRoot local coordinates
-					var board_root = SceneRefs.board_root()
-					if board_root:
-						var local_pos = board_root.to_local(token_global_pos)
-						_start_model_drag(model, local_pos)
-					return
-
-	print("DEBUG: No model found at click position")
+	return {}
 
 func _handle_mouse_motion(global_pos: Vector2) -> void:
-	if not dragging_model:
-		return
-	
 	# Convert global position to BoardRoot local coordinates
 	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
-	
 	var local_pos = board_root.to_local(global_pos)
+
+	if drag_box_active:
+		_update_drag_box_selection(local_pos)
+		return
+	if group_dragging:
+		_update_group_drag(local_pos)
+		return
+	if not dragging_model:
+		return
 	_update_model_drag(local_pos)
 
 func _handle_mouse_release(global_pos: Vector2) -> void:
-	if not dragging_model:
-		return
-	
 	# Convert global position to BoardRoot local coordinates
 	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
-	
 	var local_pos = board_root.to_local(global_pos)
+
+	if drag_box_active:
+		_complete_drag_box_selection(local_pos)
+		return
+	if group_dragging:
+		_end_group_drag(local_pos)
+		return
+	if not dragging_model:
+		return
 	_end_model_drag(local_pos)
+
+# ============================================================================
+# MULTI-SELECT + GROUP DRAG (charge movement) — mirrors the Movement phase:
+# Shift+drag box / Ctrl+click / Ctrl+A select several charging models, then
+# dragging any selected model moves the whole group by the same offset. Each
+# model's hop is validated like a single drag (accumulated distance vs the
+# charge roll, overlaps, board edge, ends-closer-to-target).
+# ============================================================================
+
+func _get_gamestate_model(model_id: String) -> Dictionary:
+	"""Live model dict for the charging unit from GameState (current staged position)."""
+	var unit = GameState.get_unit(active_unit_id)
+	for model in unit.get("models", []):
+		if model.get("id", "") == model_id:
+			return model
+	return {}
+
+func _is_model_draggable_for_charge(model_id: String) -> bool:
+	return model_id in models_to_move or model_id in moved_models
+
+func _find_selected_charge_model_index(model_id: String) -> int:
+	for i in range(selected_models.size()):
+		if selected_models[i].get("model_id", "") == model_id:
+			return i
+	return -1
+
+func _toggle_charge_model_selection(global_pos: Vector2) -> void:
+	"""Ctrl+click: add/remove a charging model from the multi-selection."""
+	var hit = _find_draggable_charge_model_at(global_pos)
+	if hit.is_empty():
+		return
+	var model_id: String = hit.model_id
+	var idx = _find_selected_charge_model_index(model_id)
+	if idx >= 0:
+		selected_models.remove_at(idx)
+		print("ChargeController: Deselected model ", model_id)
+	else:
+		selected_models.append({"model_id": model_id, "position": _get_model_position(hit.model)})
+		print("ChargeController: Selected model ", model_id, " (", selected_models.size(), " selected)")
+	_update_charge_selection_visuals()
+
+func _select_all_charge_models() -> void:
+	"""Ctrl+A: select every draggable model of the charging unit."""
+	if active_unit_id == "" or not awaiting_movement:
+		return
+	_clear_charge_selection()
+	var unit = GameState.get_unit(active_unit_id)
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var model_id = model.get("id", "")
+		if not _is_model_draggable_for_charge(model_id):
+			continue
+		selected_models.append({"model_id": model_id, "position": _get_model_position(model)})
+	_update_charge_selection_visuals()
+	print("ChargeController: Selected all ", selected_models.size(), " charging models")
+
+func _clear_charge_selection() -> void:
+	selected_models.clear()
+	_clear_selection_indicators()
+
+func _clear_selection_indicators() -> void:
+	for indicator in selection_indicators:
+		if indicator and is_instance_valid(indicator):
+			indicator.queue_free()
+	selection_indicators.clear()
+
+func _update_charge_selection_visuals() -> void:
+	"""Redraw the pulsing selection rings on the currently selected models."""
+	_clear_selection_indicators()
+	var board_root = SceneRefs.board_root()
+	if not board_root:
+		return
+	for entry in selected_models:
+		var model = _get_gamestate_model(entry.get("model_id", ""))
+		if model.is_empty():
+			continue
+		var pos = _get_model_position(model)
+		entry["position"] = pos
+		var indicator = _SelectionRingIndicator.new()
+		indicator.position = pos
+		indicator.ring_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		board_root.add_child(indicator)
+		selection_indicators.append(indicator)
+
+func _start_drag_box_selection(local_pos: Vector2) -> void:
+	drag_box_active = true
+	drag_box_start = local_pos
+	drag_box_end = local_pos
+	var board_root = SceneRefs.board_root()
+	if not selection_box_visual or not is_instance_valid(selection_box_visual):
+		selection_box_visual = _SelectionBoxVisual.new()
+		selection_box_visual.name = "ChargeMultiSelectionBox"
+		if board_root:
+			board_root.add_child(selection_box_visual)
+	selection_box_visual.visible = false  # shown once the box has some size
+	print("ChargeController: Started drag-box selection at ", local_pos)
+
+func _update_drag_box_selection(local_pos: Vector2) -> void:
+	if not drag_box_active:
+		return
+	drag_box_end = local_pos
+	_update_drag_box_visual()
+
+func _update_drag_box_visual() -> void:
+	if not selection_box_visual or not is_instance_valid(selection_box_visual):
+		return
+	var min_pos = Vector2(min(drag_box_start.x, drag_box_end.x), min(drag_box_start.y, drag_box_end.y))
+	var max_pos = Vector2(max(drag_box_start.x, drag_box_end.x), max(drag_box_start.y, drag_box_end.y))
+	var box_size = max_pos - min_pos
+	if box_size.length() > 10.0:
+		selection_box_visual.position = min_pos
+		selection_box_visual.box_size = box_size
+		selection_box_visual.visible = true
+		selection_box_visual.queue_redraw()
+		# Live preview of which models the box would select
+		_update_drag_box_preview(min_pos, max_pos)
+	else:
+		selection_box_visual.visible = false
+		_clear_selection_indicators()
+
+func _update_drag_box_preview(min_pos: Vector2, max_pos: Vector2) -> void:
+	_clear_selection_indicators()
+	var board_root = SceneRefs.board_root()
+	if not board_root:
+		return
+	for model_id in _draggable_charge_model_ids_in_box(min_pos, max_pos):
+		var model = _get_gamestate_model(model_id)
+		if model.is_empty():
+			continue
+		var indicator = _SelectionRingIndicator.new()
+		indicator.position = _get_model_position(model)
+		indicator.ring_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		board_root.add_child(indicator)
+		selection_indicators.append(indicator)
+
+func _complete_drag_box_selection(local_pos: Vector2) -> void:
+	if not drag_box_active:
+		return
+	drag_box_end = local_pos
+	drag_box_active = false
+	if selection_box_visual and is_instance_valid(selection_box_visual):
+		selection_box_visual.visible = false
+
+	var min_pos = Vector2(min(drag_box_start.x, drag_box_end.x), min(drag_box_start.y, drag_box_end.y))
+	var max_pos = Vector2(max(drag_box_start.x, drag_box_end.x), max(drag_box_start.y, drag_box_end.y))
+
+	_clear_charge_selection()
+	for model_id in _draggable_charge_model_ids_in_box(min_pos, max_pos):
+		var model = _get_gamestate_model(model_id)
+		if model.is_empty():
+			continue
+		selected_models.append({"model_id": model_id, "position": _get_model_position(model)})
+	_update_charge_selection_visuals()
+
+	if is_instance_valid(charge_info_label) and selected_models.size() > 1:
+		charge_info_label.text = "%d models selected — drag any of them to move the group" % selected_models.size()
+	print("ChargeController: Drag-box selected ", selected_models.size(), " models")
+
+func _draggable_charge_model_ids_in_box(min_pos: Vector2, max_pos: Vector2) -> Array:
+	"""Model ids of the charging unit inside a board-local rect, draggable ones only.
+	Uses GameState positions — during charge staging they match the token visuals."""
+	var ids: Array = []
+	if active_unit_id == "":
+		return ids
+	var unit = GameState.get_unit(active_unit_id)
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var model_id = model.get("id", "")
+		if not _is_model_draggable_for_charge(model_id):
+			continue
+		var pos = _get_model_position(model)
+		if pos.x >= min_pos.x and pos.x <= max_pos.x and pos.y >= min_pos.y and pos.y <= max_pos.y:
+			ids.append(model_id)
+	return ids
+
+func _start_group_drag(local_pos: Vector2) -> void:
+	if selected_models.is_empty():
+		return
+	print("ChargeController: Starting group drag with ", selected_models.size(), " models")
+	group_dragging = true
+	group_drag_start_pos = local_pos
+	group_drag_start_positions.clear()
+	for entry in selected_models:
+		var model = _get_gamestate_model(entry.get("model_id", ""))
+		if model.is_empty():
+			continue
+		group_drag_start_positions[entry.model_id] = _get_model_position(model)
+	# Rings would lag behind the drag — hide them; the ghosts preview the move
+	_clear_selection_indicators()
+	_create_group_ghost_visuals()
+
+func _create_group_ghost_visuals() -> void:
+	_clear_group_ghost_visuals()
+	var board_root = SceneRefs.board_root()
+	if not board_root:
+		return
+	group_ghost_container = Node2D.new()
+	group_ghost_container.name = "ChargeGroupGhost"
+	board_root.add_child(group_ghost_container)
+	var unit = GameState.get_unit(active_unit_id)
+	for entry in selected_models:
+		var model = _get_gamestate_model(entry.get("model_id", ""))
+		if model.is_empty():
+			continue
+		var ghost_token = preload("res://scripts/GhostVisual.gd").new()
+		ghost_token.owner_player = unit.get("owner", 1)
+		ghost_token.set_model_data(model)
+		if model.has("rotation"):
+			ghost_token.set_base_rotation(model.get("rotation", 0.0))
+		ghost_token.position = group_drag_start_positions.get(entry.model_id, Vector2.ZERO)
+		ghost_token.set_meta("model_id", entry.model_id)
+		group_ghost_container.add_child(ghost_token)
+	group_ghost_container.modulate = Color(0, 1, 0, 0.7)  # Green like the single-drag ghost
+
+func _clear_group_ghost_visuals() -> void:
+	if group_ghost_container and is_instance_valid(group_ghost_container):
+		group_ghost_container.queue_free()
+	group_ghost_container = null
+
+func _update_group_drag(local_pos: Vector2) -> void:
+	if not group_dragging:
+		return
+	var drag_vector = local_pos - group_drag_start_pos
+	var validation = _validate_group_charge_move(drag_vector)
+
+	# Move the ghosts, keeping formation
+	if group_ghost_container and is_instance_valid(group_ghost_container):
+		for child in group_ghost_container.get_children():
+			var model_id = child.get_meta("model_id", "")
+			var start_pos: Vector2 = group_drag_start_positions.get(model_id, Vector2.ZERO)
+			child.position = start_pos + drag_vector
+		group_ghost_container.modulate = Color(0, 1, 0, 0.7) if validation.valid else Color(1, 0, 0, 0.7)
+
+	# Worst-case Used/Left across the group against the charge roll
+	_update_charge_distance_display_with_preview(validation.max_total_inches, validation.valid, 0.0)
+
+func _end_group_drag(local_pos: Vector2) -> void:
+	if not group_dragging:
+		return
+	group_dragging = false
+	var drag_vector = local_pos - group_drag_start_pos
+	var validation = _validate_group_charge_move(drag_vector)
+	_clear_group_ghost_visuals()
+
+	if not validation.valid:
+		print("ChargeController: Group charge move invalid - ", validation.reason)
+		if is_instance_valid(charge_info_label):
+			charge_info_label.text = "Invalid group move! %s" % validation.reason
+		# Nothing moved yet — just restore the selection rings
+		group_drag_start_positions.clear()
+		_update_charge_selection_visuals()
+		return
+
+	# Commit every model exactly like a single-model drop
+	var max_total := 0.0
+	for entry in selected_models:
+		var model_id: String = entry.get("model_id", "")
+		var model = _get_gamestate_model(model_id)
+		if model.is_empty() or not group_drag_start_positions.has(model_id):
+			continue
+		var start_pos: Vector2 = group_drag_start_positions[model_id]
+		var final_pos: Vector2 = start_pos + drag_vector
+
+		# Multi-step: append this hop's endpoint to the model's recorded path so
+		# accumulated distance and the real polyline survive to the confirm.
+		var hop_path: Array = _model_charge_paths.get(model_id, [])
+		if hop_path.is_empty():
+			hop_path = [start_pos]
+		hop_path.append(final_pos)
+		_model_charge_paths[model_id] = hop_path
+		max_total = max(max_total, _get_model_charge_accumulated(model_id))
+
+		var model_rotation: float = model.get("rotation", 0.0)
+		moved_models[model_id] = {
+			"position": final_pos,
+			"rotation": model_rotation
+		}
+		# T-092: track ordering for per-model undo
+		if model_id in _moved_model_order:
+			_moved_model_order.erase(model_id)
+		_moved_model_order.append(model_id)
+
+		# GameState first, then the token visual (same order as _end_model_drag)
+		_update_model_position_in_gamestate(active_unit_id, model_id, final_pos)
+		_move_token_visual(active_unit_id, model_id, final_pos, model_rotation)
+		models_to_move.erase(model_id)
+		entry["position"] = final_pos
+
+	group_drag_start_positions.clear()
+	print("ChargeController: Group drag committed ", selected_models.size(), " models (max used %.1f\")" % max_total)
+
+	# Worst-case accumulated distance across the group
+	_update_charge_distance_display_with_preview(max_total, true, 0.0)
+
+	# Same button/info bookkeeping as a single-model drop
+	if moved_models.size() > 0 and is_instance_valid(confirm_button):
+		confirm_button.disabled = false
+	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	if is_instance_valid(charge_info_label):
+		if models_to_move.is_empty():
+			charge_info_label.text = "All models moved! Click 'Confirm Charge Moves' to complete"
+		else:
+			charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
+
+	# Keep the selection (rings at the new positions) so the player can keep
+	# nudging the same group in further hops until the charge roll is spent.
+	_update_charge_selection_visuals()
+
+func _validate_group_charge_move(drag_vector: Vector2) -> Dictionary:
+	"""Validate every selected model at (current position + drag_vector).
+	Group-aware: squadmates in the selection are tested against their PROSPECTIVE
+	positions so a tight formation doesn't false-collide with spots its own
+	members are vacating. Returns {valid, reason, max_total_inches}."""
+	var group_new_positions: Dictionary = {}
+	for entry in selected_models:
+		var model = _get_gamestate_model(entry.get("model_id", ""))
+		if model.is_empty():
+			continue
+		group_new_positions[entry.model_id] = _get_model_position(model) + drag_vector
+
+	var all_valid := true
+	var reason := ""
+	var max_total := 0.0
+	for entry in selected_models:
+		var model_id: String = entry.get("model_id", "")
+		var model = _get_gamestate_model(model_id)
+		if model.is_empty() or not group_new_positions.has(model_id):
+			continue
+		var new_pos: Vector2 = group_new_positions[model_id]
+		var old_pos: Vector2 = _get_model_position(model)
+		var hop_inches = Measurement.px_to_inches(old_pos.distance_to(new_pos)) \
+			+ _calculate_terrain_penalty_for_path(old_pos, new_pos)
+		max_total = max(max_total, _get_model_charge_accumulated(model_id) + hop_inches)
+		if all_valid and not _validate_charge_position(model, new_pos, group_new_positions):
+			all_valid = false
+			reason = "Model %s: must stay within %d\" and end closer to a target" % [model_id, charge_distance]
+	return {"valid": all_valid, "reason": reason, "max_total_inches": max_total}
 
 func _create_charge_visuals() -> void:
 	var board_root = SceneRefs.board_root()
@@ -1259,6 +1676,16 @@ func _clear_movement_visuals() -> void:
 	# Clear target engagement range visuals
 	_clear_target_engagement_visuals()
 
+	# Clear multi-select state (rings, drag box, group ghosts)
+	_clear_charge_selection()
+	_clear_group_ghost_visuals()
+	if selection_box_visual and is_instance_valid(selection_box_visual):
+		selection_box_visual.queue_free()
+	selection_box_visual = null
+	drag_box_active = false
+	group_dragging = false
+	group_drag_start_positions.clear()
+
 func _show_target_engagement_visuals(unit_id: String) -> void:
 	# Show engagement range circles around all charge target models
 	_clear_target_engagement_visuals()
@@ -1406,6 +1833,9 @@ func _on_undo_last_charge_model() -> void:
 	# Disable undo button if no more moves to undo
 	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
 		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	# Keep multi-select rings in sync — the undone model is back at its origin
+	if selected_models.size() > 0:
+		_update_charge_selection_visuals()
 	print("[T-092] Undid charge model %s, restored to %s" % [model_id, str(origin_pos)])
 
 func _get_model_position(model: Dictionary) -> Vector2:
@@ -1965,7 +2395,9 @@ func _get_model_charge_accumulated(model_id: String) -> float:
 		total += _calculate_terrain_penalty_for_path(path[i - 1], path[i])
 	return total
 
-func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
+func _validate_charge_position(model: Dictionary, new_pos: Vector2, group_overrides: Dictionary = {}) -> bool:
+	# group_overrides (model_id -> Vector2): prospective positions of squadmates
+	# moving in the same group drag — they occupy those spots, not their current ones.
 	var model_id = model.get("id", "")
 
 	# Check 1: Movement distance (including terrain penalty - T2-8).
@@ -1997,7 +2429,7 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 		return false
 
 	# Check 2: Model overlap detection
-	if _check_position_would_overlap(model, new_pos):
+	if _check_position_would_overlap(model, new_pos, group_overrides):
 		print("Position would overlap with another model")
 		return false
 
@@ -2677,7 +3109,7 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	# Phase says charge is still pending → roll was sufficient, enable movement
 	awaiting_movement = true
 	if is_instance_valid(charge_info_label):
-		charge_info_label.text = "Success! Rolled %d\" - Drag models toward targets - they auto-snap to base contact (max %d\" each)" % [distance, distance]
+		charge_info_label.text = "Success! Rolled %d\" - Drag models toward targets (Shift+drag box selects several to move together, max %d\" each)" % [distance, distance]
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
 	# T7-58: Update arrows with success result (roll sufficient)
@@ -2790,7 +3222,7 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if success:
 		awaiting_movement = true
 		if is_instance_valid(charge_info_label):
-			charge_info_label.text = "Success! Rolled %d\" - Drag models toward targets - they auto-snap to base contact (max %d\" each)" % [total, total]
+			charge_info_label.text = "Success! Rolled %d\" - Drag models toward targets (Shift+drag box selects several to move together, max %d\" each)" % [total, total]
 		if is_instance_valid(dice_log_display):
 			dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
 
@@ -2973,8 +3405,10 @@ func _update_charge_distance_display_with_preview(distance_moved: float, valid: 
 			charge_terrain_label.visible = false
 
 # Rotation functions for charge movement
-func _check_position_would_overlap(model: Dictionary, new_pos: Vector2) -> bool:
-	# Check if placing the model at the given position would overlap
+func _check_position_would_overlap(model: Dictionary, new_pos: Vector2, group_overrides: Dictionary = {}) -> bool:
+	# Check if placing the model at the given position would overlap.
+	# group_overrides (model_id -> Vector2): prospective positions of squadmates
+	# moving in the same group drag (see _validate_group_charge_move).
 	if not current_phase:
 		return false
 
@@ -3019,6 +3453,11 @@ func _check_position_would_overlap(model: Dictionary, new_pos: Vector2) -> bool:
 					other_position = moved_data["position"]
 				elif moved_data is Vector2:
 					other_position = moved_data
+
+			# Squadmates moving in the same group drag occupy their prospective
+			# positions, not the spots they are vacating
+			if check_unit_id == unit_id and group_overrides.has(check_model_id):
+				other_position = group_overrides[check_model_id]
 
 			if other_position == null:
 				continue
@@ -4284,3 +4723,57 @@ func _on_targets_declared_remote_visual(unit_id: String, target_ids: Array) -> v
 		# Locally driven; _update_visuals handled it.
 		return
 	show_ai_charge_arrows(unit_id, target_ids)
+
+
+# ============================================================================
+# Multi-select drawing helpers (same look as the Movement phase versions)
+# ============================================================================
+
+class _SelectionBoxVisual extends Node2D:
+	"""Custom drawn selection rectangle with fill + corner markers"""
+	var box_size: Vector2 = Vector2.ZERO
+
+	func _draw() -> void:
+		if box_size.length() < 1.0:
+			return
+		var rect = Rect2(Vector2.ZERO, box_size)
+		# Semi-transparent blue fill
+		draw_rect(rect, Color(0.3, 0.6, 1.0, 0.15))
+		# Solid border
+		draw_rect(rect, Color(0.4, 0.7, 1.0, 0.8), false, 2.0)
+		# Corner markers for clarity
+		var corner_len = min(12.0, min(box_size.x, box_size.y) * 0.3)
+		var c = Color(0.5, 0.85, 1.0, 1.0)
+		var w = 3.0
+		# Top-left
+		draw_line(Vector2.ZERO, Vector2(corner_len, 0), c, w)
+		draw_line(Vector2.ZERO, Vector2(0, corner_len), c, w)
+		# Top-right
+		draw_line(Vector2(box_size.x, 0), Vector2(box_size.x - corner_len, 0), c, w)
+		draw_line(Vector2(box_size.x, 0), Vector2(box_size.x, corner_len), c, w)
+		# Bottom-left
+		draw_line(Vector2(0, box_size.y), Vector2(corner_len, box_size.y), c, w)
+		draw_line(Vector2(0, box_size.y), Vector2(0, box_size.y - corner_len), c, w)
+		# Bottom-right
+		draw_line(box_size, Vector2(box_size.x - corner_len, box_size.y), c, w)
+		draw_line(box_size, Vector2(box_size.x, box_size.y - corner_len), c, w)
+
+
+class _SelectionRingIndicator extends Node2D:
+	"""Pulsing selection ring drawn around a selected model"""
+	var ring_radius: float = 16.0
+	var _time: float = 0.0
+
+	func _process(delta: float) -> void:
+		_time += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var pulse = (sin(_time * 5.0) + 1.0) / 2.0  # 0..1 oscillation
+		var alpha = 0.5 + pulse * 0.5
+		# Outer glow ring
+		draw_arc(Vector2.ZERO, ring_radius + 5.0, 0, TAU, 48, Color(0.3, 0.7, 1.0, alpha * 0.3), 4.0)
+		# Main selection ring
+		draw_arc(Vector2.ZERO, ring_radius + 3.0, 0, TAU, 48, Color(0.4, 0.8, 1.0, alpha), 2.5)
+		# Inner fill circle
+		draw_circle(Vector2.ZERO, ring_radius, Color(0.3, 0.6, 1.0, 0.1))
