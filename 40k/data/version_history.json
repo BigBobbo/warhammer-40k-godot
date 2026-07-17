@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.50.0",
+			"date": "2026-07-17",
+			"summary": "Multi-target shooting overhaul, part 1: declaring targets is now one click for the common case. Clicking an enemy with no weapon selected sends EVERYTHING at it; clicking with a weapon selected commits all of that weapon's eligible bearers instantly (no popup). Splitting fire is the exception you opt into: click a second target and the game offers to move some shots across. Engaged vehicles can also declare targets they are not engaged with again (10.06), and the game no longer shows error banners for assignments it auto-attempted itself.",
+			"changes": [
+				"One-click targeting: click an eligible enemy with NO weapon selected to assign every usable weapon to it (a tip in the dice log explains how to split).",
+				"First assignment for a weapon commits all its eligible bearers immediately — the 'Send N of M' popup no longer appears for the common case.",
+				"Split fire by clicking a second target with the weapon selected: a 'Move how many?' picker retargets a slice of the committed bearers (no more dead-end 'No bearers can fire').",
+				"Fixed: an engaged MONSTER/VEHICLE could assign targets outside its engagement (legal per 10.06) and then have Confirm reject the whole plan with 'can only target engaged units'. Confirm now applies the same 11e shooting-type rules as assignment.",
+				"Fixed: auto-assign and quick-assign no longer dispatch assignments the rules engine would reject (which surfaced as red 'Shooting action rejected' banners the player never caused) — illegal weapons are quietly skipped and listed."
+			]
+		},
+		{
 			"version": "0.49.2",
 			"date": "2026-07-17",
 			"summary": "Fixed the split-fire bug where shooting at two different targets only rolled dice for the first one, and fixed Fast Roll re-rolling weapons it had already rolled. Multi-target shooting now reliably resolves every declared weapon and target, in both step-by-step and Fast Roll modes.",

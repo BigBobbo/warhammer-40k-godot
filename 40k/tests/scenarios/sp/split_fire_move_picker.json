@@ -1,0 +1,77 @@
+{
+  "id": "split_fire_move_picker",
+  "covers": [
+    "shooting.split_fire_move_picker",
+    "scripts.ShootingController._commit_move_assignment",
+    "shooting.split_fire_picker_ui"
+  ],
+  "fixture": "shooting_phase",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "B4 declaration ergonomics: retargeting committed bearers. With every eligible bearer of a weapon already committed (first click concentrates all fire), clicking a DIFFERENT eligible enemy with that weapon selected opens the MOVE picker instead of dead-ending with 'No bearers can fire'. Battlewagon Alpha's big shoota is committed to the Witchseekers; clicking the (relocated) Blade Champion offers 'Move how many?'; confirming retargets the bearer — the pending assignment now points at the Blade Champion and the Witchseekers slice is gone. The async picker-confirm path must also refresh the CURRENT TARGETS basket (_post_assign_ui_update).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0].position.merge({\"x\": 1150.0, \"y\": 2150.0}, true)" },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot.units[\"U_BLADE_CHAMPION_A\"].models[0].position.merge({\"x\": 1150.0, \"y\": 2150.0}, true)" },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_BATTLEWAGON_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._on_clear_pressed()" },
+    { "act": "wait_seconds", "seconds": 0.2 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().get_metadata(0)",
+      "equals": "big_shoota_ranged" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().select(0)" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.emit_signal(\"item_selected\")" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._select_target_for_current_weapon(\"U_WITCHSEEKERS_C\")" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments.size()",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments[0].target_unit_id",
+      "equals": "U_WITCHSEEKERS_C" },
+    { "act": "screenshot", "label": "01_committed_to_witchseekers" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().select(0)" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.emit_signal(\"item_selected\")" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._select_target_for_current_weapon(\"U_BLADE_CHAMPION_A\")" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").get_node_or_null(\"SplitFirePicker\") != null",
+      "equals": true },
+    { "act": "screenshot", "label": "02_move_picker_open" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFirePicker\", true, false).get_ok_button().emit_signal(\"pressed\")" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments.size()",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments[0].target_unit_id",
+      "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").target_basket.get_item_count()",
+      "equals": 1 },
+    { "act": "screenshot", "label": "03_moved_to_blade_champion" }
+  ]
+}

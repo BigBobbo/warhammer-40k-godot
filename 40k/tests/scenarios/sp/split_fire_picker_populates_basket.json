@@ -1,14 +1,14 @@
 {
   "id": "split_fire_picker_populates_basket",
   "covers": [
-    "shooting.split_fire_picker_ui",
+    "shooting.first_click_commits_all_bearers",
     "shooting.current_targets_basket",
     "scripts.ShootingController._post_assign_ui_update"
   ],
   "fixture": "audit_386_deadly_demise",
   "rng_seed": 42,
   "transition_to_phase": 8,
-  "description": "Regression for the 'CURRENT TARGETS stays empty when I assign by clicking the target' bug. Manually selecting a target opens the Split Fire picker; committing it goes through _commit_split_assignment -> _post_assign_ui_update, which previously did NOT call _update_ui_state(). The only _update_ui_state() call sat in _select_target_for_current_weapon and ran SYNCHRONOUSLY, before the async picker confirm, so the CURRENT TARGETS ItemList (and the Confirm/Clear/Undo buttons) never refreshed after the real assignment landed. Quick-assign always worked because it calls _update_ui_state() directly. Steps drive the real player path: select Custodian Guard B, clear the auto-assigned target, re-select the Guardian spear row, open the picker via _select_target_for_current_weapon (assert it appears while the basket is still empty), confirm it, then assert pending_assignments grew AND the CURRENT TARGETS basket now has exactly one row AND the Confirm button is enabled.",
+  "description": "B4 declaration ergonomics + basket refresh regression. Selecting a target for a weapon with NO bearers committed yet commits EVERY eligible bearer in one click (no SplitFirePicker dialog — concentrated fire is the default; splitting happens by clicking a second target afterwards, covered by split_fire_move_picker). The commit runs _post_assign_ui_update, which must refresh the CURRENT TARGETS basket and the Confirm/Clear/Undo buttons (the original bug: the basket stayed empty because the only _update_ui_state() call ran before the async commit landed). Steps: select Custodian Guard B, clear the auto-assigned target, re-select the Guardian spear row, click-assign the Battlewagon, then assert pending_assignments has one 3-model slice AND the basket shows exactly one row AND Confirm is enabled.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 8 },
@@ -40,26 +40,20 @@
     { "act": "wait_seconds", "seconds": 0.3 },
 
     { "act": "execute_script",
-      "script": "main.get_node(\"ShootingController\").get_node_or_null(\"SplitFirePicker\") != null",
+      "script": "main.get_node(\"ShootingController\").get_node_or_null(\"SplitFirePicker\") == null",
       "equals": true },
-    { "act": "execute_script",
-      "script": "main.get_node(\"ShootingController\").target_basket.get_item_count()",
-      "equals": 0 },
-    { "act": "screenshot", "label": "01_picker_open_basket_empty" },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"ShootingController\").get_node(\"SplitFirePicker\").emit_signal(\"confirmed\")" },
-    { "act": "wait_seconds", "seconds": 0.4 },
-
     { "act": "execute_script",
       "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments.size()",
       "equals": 1 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments[0].model_ids.size()",
+      "equals": 3 },
     { "act": "execute_script",
       "script": "main.get_node(\"ShootingController\").target_basket.get_item_count()",
       "equals": 1 },
     { "act": "execute_script",
       "script": "main.get_node(\"ShootingController\").confirm_button.disabled",
       "equals": false },
-    { "act": "screenshot", "label": "02_basket_populated_after_confirm" }
+    { "act": "screenshot", "label": "01_one_click_commits_all_bearers" }
   ]
 }

@@ -8,124 +8,256 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "Shooting phase click-to-select: clicking a friendly unit's token selects it as the shooter exactly like clicking its row in the SELECT SHOOTER list. Switching away is silent while nothing is player-staged (auto-assigned single-target defaults do not count), but once the player has explicitly assigned a weapon target (enemy board click -> split-fire picker -> OK) a UnitSwitchConfirmDialog asks first — Keep preserves the staged assignments, Switch discards them (locally AND phase-side) and selects the clicked unit.",
+  "description": "Shooting phase click-to-select: clicking a friendly unit's token selects it as the shooter exactly like clicking its row in the SELECT SHOOTER list. Switching away is silent while nothing is player-staged (auto-assigned single-target defaults do not count), but once the player has explicitly assigned a weapon target (enemy board click commits the selected weapon's eligible bearers directly \u2014 B4) a UnitSwitchConfirmDialog asks first \u2014 Keep preserves the staged assignments, Switch discards them (locally AND phase-side) and selects the clicked unit.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 1.0 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
-    { "act": "screenshot", "label": "01_shooting_loaded" },
-
-    { "act": "execute_script",
-      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][0].merge({\"position\": {\"x\": 280.0, \"y\": 330.0}}, true)" },
-    { "act": "execute_script",
-      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][1].merge({\"position\": {\"x\": 302.0, \"y\": 330.0}}, true)" },
-    { "act": "execute_script",
-      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][2].merge({\"position\": {\"x\": 324.0, \"y\": 330.0}}, true)" },
-    { "act": "execute_script",
-      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][3].merge({\"position\": {\"x\": 346.0, \"y\": 330.0}}, true)" },
-    { "act": "execute_script",
-      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][0].merge({\"position\": {\"x\": 280.0, \"y\": 330.0}}, true)" },
-    { "act": "execute_script",
-      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][1].merge({\"position\": {\"x\": 302.0, \"y\": 330.0}}, true)" },
-    { "act": "execute_script",
-      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][2].merge({\"position\": {\"x\": 324.0, \"y\": 330.0}}, true)" },
-    { "act": "execute_script",
-      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][3].merge({\"position\": {\"x\": 346.0, \"y\": 330.0}}, true)" },
-    { "act": "execute_script",
-      "script": "GameState.state[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0].merge({\"position\": {\"x\": 450.0, \"y\": 580.0}}, true)" },
-    { "act": "execute_script",
-      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0].merge({\"position\": {\"x\": 450.0, \"y\": 580.0}}, true)" },
-
-    { "act": "click_unit", "unit_id": "U_TANKBUSTAS_A" },
-    { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shooting_loaded"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][0].merge({\"position\": {\"x\": 280.0, \"y\": 330.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][1].merge({\"position\": {\"x\": 302.0, \"y\": 330.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][2].merge({\"position\": {\"x\": 324.0, \"y\": 330.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][3].merge({\"position\": {\"x\": 346.0, \"y\": 330.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][0].merge({\"position\": {\"x\": 280.0, \"y\": 330.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][1].merge({\"position\": {\"x\": 302.0, \"y\": 330.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][2].merge({\"position\": {\"x\": 324.0, \"y\": 330.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][3].merge({\"position\": {\"x\": 346.0, \"y\": 330.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0].merge({\"position\": {\"x\": 450.0, \"y\": 580.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0].merge({\"position\": {\"x\": 450.0, \"y\": 580.0}}, true)"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.active_shooter_id",
-      "equals": "U_TANKBUSTAS_A" },
-    { "act": "execute_script",
+      "equals": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.eligible_targets.size()",
-      "equals": 2 },
-    { "act": "execute_script",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.weapon_assignments.size()",
-      "equals": 0 },
-    { "act": "screenshot", "label": "02_tankbustas_selected_by_token_click" },
-
-    { "act": "click_unit", "unit_id": "U_GRETCHIN_A" },
-    { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_tankbustas_selected_by_token_click"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/UnitSwitchConfirmDialog\") == null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.active_shooter_id",
-      "equals": "U_GRETCHIN_A" },
-    { "act": "screenshot", "label": "03_silent_switch_nothing_staged" },
-
-    { "act": "click_unit", "unit_id": "U_TANKBUSTAS_A" },
-    { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script",
+      "equals": "U_GRETCHIN_A"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_silent_switch_nothing_staged"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.active_shooter_id",
-      "equals": "U_TANKBUSTAS_A" },
-
-    { "act": "execute_script",
+      "equals": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "execute_script",
       "script": "str(main.shooting_controller.weapon_tree.get_root().get_first_child().get_next().get_metadata(0))",
-      "equals": "rokkit_pistol_ranged" },
-    { "act": "execute_script",
-      "script": "main.shooting_controller.weapon_tree.get_root().get_first_child().get_next().select(0)" },
-
-    { "act": "click_board_at", "x": 313.0, "y": 330.0 },
-    { "act": "expect_node_visible", "node": "/root/Main/ShootingController/SplitFirePicker", "timeout_s": 2.0 },
-    { "act": "screenshot", "label": "04_split_fire_picker_from_enemy_click" },
-    { "act": "execute_script",
-      "script": "main.shooting_controller.get_node(\"SplitFirePicker\").get_ok_button().emit_signal(\"pressed\")" },
-    { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script",
+      "equals": "rokkit_pistol_ranged"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.weapon_tree.get_root().get_first_child().get_next().select(0)"
+    },
+    {
+      "act": "click_board_at",
+      "x": 313.0,
+      "y": 330.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.get_node_or_null(\"SplitFirePicker\") == null",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_split_fire_picker_from_enemy_click"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.active_shooter_id",
-      "equals": "U_TANKBUSTAS_A" },
-    { "act": "execute_script",
+      "equals": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.weapon_assignments.size()",
-      "equals": 1 },
-    { "act": "execute_script",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller._manual_assignment_made",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.current_phase.pending_assignments.size()",
-      "equals": 1 },
-
-    { "act": "click_unit", "unit_id": "U_GRETCHIN_A" },
-    { "act": "expect_node_visible", "node": "/root/UnitSwitchConfirmDialog", "timeout_s": 2.0 },
-    { "act": "screenshot", "label": "05_switch_dialog_over_staged_assignment" },
-
-    { "act": "click_node",
+      "equals": 1
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_A"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/UnitSwitchConfirmDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "05_switch_dialog_over_staged_assignment"
+    },
+    {
+      "act": "click_node",
       "node": "/root/UnitSwitchConfirmDialog/Content/ButtonRow/StayButton",
-      "emit_pressed": true },
-    { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.active_shooter_id",
-      "equals": "U_TANKBUSTAS_A" },
-    { "act": "execute_script",
+      "equals": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.weapon_assignments.size()",
-      "equals": 1 },
-    { "act": "execute_script",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.current_phase.pending_assignments.size()",
-      "equals": 1 },
-    { "act": "screenshot", "label": "06_kept_shooter_assignments_intact" },
-
-    { "act": "click_unit", "unit_id": "U_GRETCHIN_A" },
-    { "act": "expect_node_visible", "node": "/root/UnitSwitchConfirmDialog", "timeout_s": 2.0 },
-    { "act": "click_node",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "06_kept_shooter_assignments_intact"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_A"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/UnitSwitchConfirmDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
       "node": "/root/UnitSwitchConfirmDialog/Content/ButtonRow/SwitchButton",
-      "emit_pressed": true },
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "execute_script",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.active_shooter_id",
-      "equals": "U_GRETCHIN_A" },
-    { "act": "execute_script",
+      "equals": "U_GRETCHIN_A"
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.weapon_assignments.size()",
-      "equals": 0 },
-    { "act": "execute_script",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller.current_phase.pending_assignments.size()",
-      "equals": 0 },
-    { "act": "execute_script",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
       "script": "main.shooting_controller._manual_assignment_made",
-      "equals": false },
-    { "act": "screenshot", "label": "07_switched_assignments_discarded" }
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "07_switched_assignments_discarded"
+    }
   ]
 }

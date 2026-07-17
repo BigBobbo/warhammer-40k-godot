@@ -4577,11 +4577,11 @@ func _handle_board_click(position: Vector2) -> void:
 	if no_eligible_targets and get_viewport().gui_get_hovered_control() != null:
 		return
 
+	# B4 (audit 2026-07): with a shooter active but NO weapon row selected,
+	# clicking an eligible enemy assigns ALL usable weapons to it in one click
+	# (the majority case). Selecting a weapon row first keeps the per-weapon
+	# flow for split fire — so we no longer bail out here.
 	var selected_weapon = weapon_tree.get_selected()
-	if not selected_weapon and not no_eligible_targets:
-		if dice_log_display:
-			dice_log_display.append_text("[color=red]Please select a weapon first![/color]\n")
-		return
 	
 	# Find the closest enemy unit model to the click — across ALL enemy units,
 	# not just eligible ones. This lets us distinguish "the player clicked on
@@ -4615,8 +4615,15 @@ func _handle_board_click(position: Vector2) -> void:
 	# Use a larger click threshold to make selection easier
 	if closest_target != "" and closest_distance < 500:  # Very large threshold for testing
 		if eligible_targets.has(closest_target):
-			print("[ShootingController] Click detected - assigning target: %s (distance: %.1f)" % [closest_target, closest_distance])
-			_select_target_for_current_weapon(closest_target)
+			if selected_weapon:
+				print("[ShootingController] Click detected - assigning target: %s (distance: %.1f)" % [closest_target, closest_distance])
+				_select_target_for_current_weapon(closest_target)
+			else:
+				# B4: no weapon selected → concentrate everything on this target.
+				print("[ShootingController] B4 click with no weapon selected - quick-assigning ALL weapons to %s" % closest_target)
+				_on_quick_assign_all_to_target(closest_target)
+				if dice_log_display:
+					dice_log_display.append_text("[color=#AAAACC]Tip: select a weapon row, then click another enemy, to split fire.[/color]\n")
 		else:
 			# Player clicked on an ineligible enemy unit — explain why instead of
 			# silently switching to a different unit.
@@ -4723,12 +4730,19 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 	#   "total_bearers": N,
 	#   "already_allocated": Array[model_id],
 	#   "eligible_remaining": Array[model_id],   # eligible AND not already allocated
+	#   "movable": Array[model_id],              # eligible, but committed to a DIFFERENT target
+	#   "committed_target_by_model": { model_id: target_unit_id },
 	#   "distances_inches": { model_id: float }, # to nearest target model
 	#   "reasons": { model_id: "out_of_range"|"no_los"|"dead" }
 	# }
 	var eligible_remaining: Array = split.eligible_remaining
 
 	if eligible_remaining.is_empty():
+		# B4 (audit 2026-07): if this weapon's bearers are all committed but SOME
+		# could legally retarget here, offer to MOVE a slice instead of a dead end.
+		if not (split.movable as Array).is_empty():
+			_open_move_fire_picker(weapon_id, target_id, split)
+			return
 		var weapon_name_for_log = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		var target_name_for_log = eligible_targets.get(target_id, {}).get("unit_name", target_id)
 		if dice_log_display:
@@ -4736,11 +4750,16 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 		print("ShootingController: [SPLIT-FIRE] No eligible remaining bearers for %s → %s (reasons=%s)" % [weapon_id, target_id, str(split.reasons)])
 		return
 
-	# If exactly one eligible bearer remains, skip the picker for speed.
-	# Otherwise show the "how many to this target?" picker.
-	if eligible_remaining.size() == 1:
+	# B4 (audit 2026-07): the FIRST assignment for a weapon commits every
+	# eligible bearer in one click — no dialog. Concentrated fire is the
+	# majority case; splitting is the exception the player opts into by
+	# clicking a second target afterwards (which opens the move picker) or by
+	# assigning while some bearers are already committed elsewhere.
+	if split.already_allocated.is_empty() or eligible_remaining.size() == 1:
 		_commit_split_assignment(weapon_id, target_id, eligible_remaining, split.reasons)
 	else:
+		# Some bearers already committed elsewhere and 2+ uncommitted remain —
+		# a genuine split decision: ask how many of the remainder to send.
 		_open_split_fire_picker(weapon_id, target_id, split)
 
 	_update_ui_state()
@@ -4754,6 +4773,8 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 		"total_bearers": 0,
 		"already_allocated": [],
 		"eligible_remaining": [],
+		"movable": [],
+		"committed_target_by_model": {},
 		"distances_inches": {},
 		"reasons": {}
 	}
@@ -4776,6 +4797,7 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 
 	# Bearers already committed to other (or same) targets in pending_assignments
 	var already: Array = []
+	var committed_target: Dictionary = {}
 	if current_phase and "pending_assignments" in current_phase:
 		for a in current_phase.pending_assignments:
 			if a.get("weapon_id", "") != weapon_id:
@@ -4786,7 +4808,9 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 			for mid in a.get("model_ids", []):
 				if mid not in already:
 					already.append(mid)
+				committed_target[mid] = a.get("target_unit_id", "")
 	result.already_allocated = already
+	result.committed_target_by_model = committed_target
 
 	# Per-model eligibility for THIS target
 	var snapshot: Dictionary = current_phase.game_state_snapshot if current_phase else {}
@@ -4801,6 +4825,9 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 	# eligible AND a living bearer AND not already allocated elsewhere
 	for mid in bearers:
 		if mid in already:
+			# B4: committed to a DIFFERENT target but eligible here → movable
+			if eligible_set.has(mid) and committed_target.get(mid, "") != target_id:
+				result.movable.append(mid)
 			continue
 		if eligible_set.has(mid):
 			result.eligible_remaining.append(mid)
@@ -4883,6 +4910,100 @@ func _open_split_fire_picker(weapon_id: String, target_id: String, split: Dictio
 
 	add_child(dialog)
 	dialog.popup_centered()
+
+# B4 (audit 2026-07): MOVE picker — every eligible bearer of this weapon is
+# already committed to other targets; offer to retarget a slice at the newly
+# clicked enemy. Shares the SplitFirePicker/SplitFireSpin node names so
+# windowed scenarios address both pickers the same way.
+func _open_move_fire_picker(weapon_id: String, new_target_id: String, split: Dictionary) -> void:
+	var movable: Array = split.movable
+	var max_n: int = movable.size()
+	var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
+	var target_name = eligible_targets.get(new_target_id, {}).get("unit_name", new_target_id)
+
+	var dialog := AcceptDialog.new()
+	dialog.name = "SplitFirePicker"
+	dialog.title = "Split Fire: %s → %s" % [weapon_name, target_name]
+	dialog.dialog_hide_on_ok = true
+	dialog.get_ok_button().text = "Move"
+
+	var vbox := VBoxContainer.new()
+	dialog.add_child(vbox)
+
+	var info_label := Label.new()
+	info_label.text = "All %d eligible %s bearer(s) are currently aimed at other targets.\nMove how many to %s?" % [max_n, weapon_name, target_name]
+	vbox.add_child(info_label)
+
+	var spin_row := HBoxContainer.new()
+	vbox.add_child(spin_row)
+	var spin_label := Label.new()
+	spin_label.text = "Move:"
+	spin_row.add_child(spin_label)
+	var spin := SpinBox.new()
+	spin.name = "SplitFireSpin"
+	spin.min_value = 1
+	spin.max_value = max_n
+	spin.step = 1
+	spin.value = 1
+	# See _open_split_fire_picker: keep `value` in sync as the player types.
+	spin.update_on_text_changed = true
+	spin_row.add_child(spin)
+	var of_label := Label.new()
+	of_label.text = " of %d" % max_n
+	spin_row.add_child(of_label)
+
+	dialog.confirmed.connect(func():
+		var n := clampi(int(spin.value), 1, max_n)
+		var moved := _pick_closest_n(movable, split.distances_inches, n)
+		_commit_move_assignment(weapon_id, new_target_id, moved, split)
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func(): dialog.queue_free())
+
+	add_child(dialog)
+	dialog.popup_centered()
+
+# B4: Retarget `moved_ids` (currently committed to other targets) at
+# `new_target_id`. Composed of existing actions: clear each touched
+# (weapon, old_target) slice, re-assign the keepers, then commit the moved
+# slice through the normal assignment path (which also handles the
+# [DEVASTATING WOUNDS]/[LETHAL HITS] prompt and UI refresh).
+func _commit_move_assignment(weapon_id: String, new_target_id: String, moved_ids: Array, split: Dictionary) -> void:
+	if moved_ids.is_empty():
+		return
+	var committed: Dictionary = split.committed_target_by_model
+	var by_target: Dictionary = {}
+	for mid in committed:
+		var t = committed[mid]
+		if not by_target.has(t):
+			by_target[t] = []
+		by_target[t].append(mid)
+	var touched: Dictionary = {}
+	for mid in moved_ids:
+		touched[str(committed.get(mid, ""))] = true
+
+	for old_target in touched:
+		if old_target == "" or old_target == new_target_id:
+			continue
+		emit_signal("shoot_action_requested", {
+			"type": "CLEAR_ASSIGNMENT",
+			"payload": {"weapon_id": weapon_id, "target_unit_id": old_target}
+		})
+		var keepers: Array = []
+		for mid in by_target.get(old_target, []):
+			if mid not in moved_ids:
+				keepers.append(mid)
+		if not keepers.is_empty():
+			emit_signal("shoot_action_requested", {
+				"type": "ASSIGN_TARGET",
+				"payload": {"weapon_id": weapon_id, "target_unit_id": old_target, "model_ids": keepers}
+			})
+
+	if dice_log_display:
+		var target_name = eligible_targets.get(new_target_id, {}).get("unit_name", new_target_id)
+		dice_log_display.append_text("[color=yellow]↷ Moving %d × %s to %s[/color]\n" % [moved_ids.size(), RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id), target_name])
+
+	_commit_split_assignment(weapon_id, new_target_id, moved_ids, split.reasons)
 
 # SPLIT-FIRE: Of the given model_ids, return the n closest by the distances map.
 # Distances are edge-to-edge inches to the nearest target model.
