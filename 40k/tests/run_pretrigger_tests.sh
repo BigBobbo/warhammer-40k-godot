@@ -110,6 +110,7 @@ TESTS=(
     "tests/test_iss048_shooting_types_11e.gd"
     "tests/test_iss050_fight_phase_11e.gd"
     "tests/test_iss059_attached_units_11e.gd"
+    "tests/test_attached_char_shoot_gate_11e.gd"
     "tests/test_secondary_deck_11e.gd"
     "tests/test_secondary_interactions_11e.gd"
     "tests/test_primary_missions_11e.gd"

@@ -9,6 +9,33 @@
   ],
   "tiles": [
     {
+      "id": "scripts.ChargeController.attached_character_drag",
+      "description": "During a Charge move the attached CHARACTER of a charging unit (e.g. a Blade Champion leading Custodian Guard) is draggable like its squadmates. ChargeController keys all movement bookkeeping by a charge key (bare model id for the bodyguard, '<char_unit>:<model>' for character models) and hit-tests in board space against each model's real base radius, nearest-wins.",
+      "scenarios": [
+        "attached_char_charge_drag_leader"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ChargePhase.composite_path_keys",
+      "description": "APPLY_CHARGE_MOVE (and the Heroic Intervention variant) accepts composite '<char_unit>:<model>' per_model_paths keys for manually dragged attached-character models, resolved via _resolve_charge_path_ref (only units actually attached to the charger are accepted). All charge validators and both apply loops handle them; auto-ride skips manually placed characters.",
+      "scenarios": [
+        "attached_char_charge_drag_leader"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.leader_manually_draggable",
+      "description": "Player can drag the attached leader into position during a charge instead of relying on the automatic post-confirm ride-along; the leader lands at the dragged spot with charged_this_turn/fights_first, and an unmoved leader still follows the squad automatically.",
+      "scenarios": [
+        "attached_char_charge_drag_leader"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "tokens.auto_color_same_name",
       "description": "Duplicate squads sharing a meta.name (e.g. two Boyz squads) get DISTINCT auto-assigned token colors. GameState.auto_assign_unit_color picks the first faction-palette color unused army-wide, falling back to same-name-unused when the palette is exhausted. Regression guard for the hex-roundtrip compare bug where Color.is_equal_approx never matched the stored 8-bit hex, so every unit came out palette[0].",
       "scenarios": [
@@ -809,7 +836,8 @@
       "description": "Windowed scenario coverage for phases.FightPhase.pile_in_11e (verified by iss066_pile_in_consolidate_11e). Since 2026-07-04 pile-in is the GLOBAL step opening the fight phase (12.02) \u2014 full player path verified by global_consolidation_step_11e.",
       "scenarios": [
         "iss066_pile_in_consolidate_11e",
-        "global_consolidation_step_11e"
+        "global_consolidation_step_11e",
+        "attached_char_pile_in_step_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -2082,7 +2110,8 @@
       "id": "dialogs.PileInStepDialog",
       "description": "Pile In-step unit picker: per-unit PileIn_<id> buttons with engaged/charged hints + End Pile In button; drives the PileInDialog drag flow.",
       "scenarios": [
-        "global_consolidation_step_11e"
+        "global_consolidation_step_11e",
+        "attached_char_pile_in_step_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -2819,6 +2848,78 @@
       "description": "Player-facing shooting-refusal reason honours the 11e gates: names the Hidden rule with detection range + closest-model distance, or 'terrain blocks every sight line', instead of a bare 'No line of sight'.",
       "scenarios": [
         "los_terrain_area_11e_far"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.ux.target_declaration_multi_select",
+      "description": "CHARGE phase target declaration selection model: the ELIGIBLE TARGETS ItemList's own selection state is the single source of truth for selected_targets (multi_selected/empty_clicked signals; the old item_selected hookup never fired in SELECT_MULTI mode and its gui_input hack accumulated every clicked row, silently declaring multi-charges). Plain click selects exactly one target, Ctrl+Click toggles targets for a deliberate multi-charge, empty-click clears, the Declare button shows the target count, and rows lock once the charge is declared. A prominent, dynamic gold-bordered hint (target_hint_label) spells out Ctrl+Click and updates with the selection (0 targets: 'Ctrl+Click each one'; 1: 'hold Ctrl+Click another target'; 2+: 'N units \u2014 Ctrl+Click to add/remove'), hidden once declared. Validated by 'charge_target_declaration'.",
+      "scenarios": [
+        "charge_target_declaration"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.declare.multi_target_payload",
+      "description": "DECLARE_CHARGE with multiple target_unit_ids stores ALL declared targets in pending_charges, and the stored arrays are duplicates \u2014 mutating the controller's live selected_targets after declaring (sentinel append) must not alter the pending charge. Validated by 'charge_target_declaration'.",
+      "scenarios": [
+        "charge_target_declaration"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.attached_units_19_03",
+      "description": "11e 19.03: a CHARACTER attached to a bodyguard is ONE Attached unit in the fight phase's global Pile In (12.02) and Consolidate (12.07) steps \u2014 one picker entry named 'Bodyguard + Character', one move covering both units' models (payload keys 'char_unit:index'), union eligibility/engagement, and rejection of a direct PILE_IN/CONSOLIDATE for the attached character. Headless: tests/test_pile_in_attached_characters_11e.gd.",
+      "scenarios": [
+        "attached_char_pile_in_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.FightController.pile_in_attached_characters",
+      "description": "FightController pile-in/consolidate interactive mode seeds, drags, snaps and submits the attached characters' models alongside the bodyguard's ('unit:model' tracking keys) so the player moves the whole Attached unit in one pile-in.",
+      "scenarios": [
+        "attached_char_pile_in_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.11e.attached_units.no_direct_targeting",
+      "description": "11e 19.02: a CHARACTER attached to a bodyguard is part of ONE Attached unit and can never be selected as a separate ranged-attack target. RulesEngine.validate_shoot rejects the assignment, the AI shooting enumeration excludes it, and shooting the bodyguard folds the attached unit into a single allocation dialog (squad group first, CHARACTER group last).",
+      "scenarios": [
+        "attached_char_untargetable_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.RulesEngine.validate_shoot.attached_gate",
+      "description": "RulesEngine.validate_shoot is the authoritative gate that rejects a SHOOT assignment whose target has attached_to set ('Cannot target X \u2014 attached character; shoot the bodyguard unit instead'), catching callers (the AI focus-fire plan) that bypass get_eligible_targets. Unattached characters and the bodyguard itself stay valid targets.",
+      "scenarios": [
+        "attached_char_untargetable_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.AIDecisionMaker.shootable_enemies",
+      "description": "AIDecisionMaker._get_shootable_enemy_units excludes attached characters from _build_focus_fire_plan and the _decide_shooting fallback enumeration so the AI shoots the bodyguard squad instead of wasting an activation on a now-rejected shot at the leader. _get_enemy_units stays unfiltered for movement/charge/fight scoring.",
+      "scenarios": [
+        "attached_char_untargetable_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.AllocationGroupOverlay.combined_attached_unit",
+      "description": "When the squad leading a character is shot, the 11e AllocationGroupOverlay shows the combined Attached unit as ONE dialog titled with the bodyguard's display name: the squad's models as the first allocation group and the CHARACTER as the last group (reached only after the bodyguard, or via PRECISION).",
+      "scenarios": [
+        "attached_char_untargetable_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

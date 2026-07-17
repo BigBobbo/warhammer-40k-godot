@@ -307,6 +307,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_unit(step), true)
 		"click_node":
 			rec.merge(await _do_click_node(step), true)
+		"click_item_list":
+			rec.merge(await _do_click_item_list(step), true)
 		"click_if_visible":
 			rec.merge(await _do_click_if_visible(step), true)
 		"click_board_at":
@@ -317,6 +319,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_hover_unit(step), true)
 		"hover_board_at":
 			rec.merge(await _do_hover_board_at(step), true)
+		"hover_node":
+			rec.merge(await _do_hover_node(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
 		"simulate_wheel":
@@ -459,6 +463,49 @@ func _do_click_node(step: Dictionary) -> Dictionary:
 	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
 
 
+# Real-mouse-click one row of an ItemList: warps the cursor to the item's rect
+# centre and injects press+release, exercising the list's OWN input handling
+# (selection replace / Ctrl toggle / defer-single-select) exactly as a player
+# would — unlike select(i) + handler calls, which bypass it.
+#   { "act": "click_item_list", "node": "/root/...TargetList", "index": 1 }
+#   { "act": "click_item_list", "node": "...", "index": 0, "ctrl": true }
+#   { "act": "click_item_list", "node": "...", "empty": true }   # click free space below the rows
+func _do_click_item_list(step: Dictionary) -> Dictionary:
+	var node_path: String = str(step.get("node", ""))
+	if node_path == "":
+		return {"pass": false, "error": "click_item_list needs node"}
+	var node: Node = get_node_or_null(node_path)
+	if node == null:
+		return {"pass": false, "error": "no node at path %s" % node_path}
+	if not (node is ItemList):
+		return {"pass": false, "error": "node is not an ItemList: %s" % node_path}
+	var list := node as ItemList
+	var ctrl: bool = bool(step.get("ctrl", false))
+	var local_pos: Vector2
+
+	if step.get("empty", false):
+		# Aim at the middle of the free strip between the last row and the
+		# bottom edge of the control.
+		var content_bottom: float = 0.0
+		if list.get_item_count() > 0:
+			var last_rect: Rect2 = list.get_item_rect(list.get_item_count() - 1)
+			content_bottom = last_rect.end.y
+		var free_height: float = list.size.y - content_bottom
+		if free_height < 8.0:
+			return {"pass": false, "error": "no empty strip below items (free %.1fpx)" % free_height}
+		local_pos = Vector2(list.size.x * 0.5, content_bottom + free_height * 0.5)
+	else:
+		var index: int = int(step.get("index", -1))
+		if index < 0 or index >= list.get_item_count():
+			return {"pass": false, "error": "item index %d out of range (count %d)" % [index, list.get_item_count()]}
+		# get_item_rect is in the list's local space with scroll applied.
+		local_pos = list.get_item_rect(index).get_center()
+
+	var screen_pos: Vector2 = list.get_global_transform() * local_pos
+	await _send_click(screen_pos, ctrl)
+	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y], "ctrl": ctrl}
+
+
 # Click a node only when it exists AND is visible in the tree — a no-op pass
 # otherwise. For flow steps that appear conditionally (e.g. the defender's
 # save Command Re-roll offer only exists when a save failed and CP remains,
@@ -535,6 +582,19 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 	from_screen = from_screen.round()
 	to_screen = to_screen.round()
 
+	# Optional `"shift": true` — hold SHIFT for the whole drag (the player path
+	# for drag-box multi-selection). A real KEY_SHIFT press is parsed first so
+	# controllers polling Input.is_key_pressed(KEY_SHIFT) see it held, and every
+	# injected mouse event carries the modifier flag too.
+	var hold_shift: bool = bool(step.get("shift", false))
+	if hold_shift:
+		var shift_press := InputEventKey.new()
+		shift_press.keycode = KEY_SHIFT
+		shift_press.physical_keycode = KEY_SHIFT
+		shift_press.pressed = true
+		Input.parse_input_event(shift_press)
+		await get_tree().process_frame
+
 	Input.warp_mouse(from_screen)
 	await get_tree().process_frame
 	var press := InputEventMouseButton.new()
@@ -543,6 +603,7 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 	press.global_position = from_screen
 	press.pressed = true
 	press.button_mask = MOUSE_BUTTON_MASK_LEFT
+	press.shift_pressed = hold_shift
 	Input.parse_input_event(press)
 	await get_tree().process_frame
 
@@ -557,6 +618,7 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 		motion.global_position = p
 		motion.relative = p - prev
 		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+		motion.shift_pressed = hold_shift
 		Input.parse_input_event(motion)
 		prev = p
 		await get_tree().process_frame
@@ -567,10 +629,19 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 	release.global_position = to_screen
 	release.pressed = false
 	release.button_mask = 0
+	release.shift_pressed = hold_shift
 	Input.parse_input_event(release)
 	await get_tree().process_frame
+
+	if hold_shift:
+		var shift_release := InputEventKey.new()
+		shift_release.keycode = KEY_SHIFT
+		shift_release.physical_keycode = KEY_SHIFT
+		shift_release.pressed = false
+		Input.parse_input_event(shift_release)
+
 	await get_tree().process_frame
-	return {"pass": true,
+	return {"pass": true, "shift": hold_shift,
 		"from_world": [from_world.x, from_world.y], "to_world": [to_world.x, to_world.y],
 		"from_screen": [from_screen.x, from_screen.y], "to_screen": [to_screen.x, to_screen.y]}
 
@@ -612,6 +683,32 @@ func _do_hover_board_at(step: Dictionary) -> Dictionary:
 		screen_pos = viewport.get_canvas_transform() * world_pos
 	await _send_hover(screen_pos)
 	return {"pass": true, "world": [world_pos.x, world_pos.y], "screen": [screen_pos.x, screen_pos.y]}
+
+
+func _do_hover_node(step: Dictionary) -> Dictionary:
+	# Hover the centre of a named node (Control or Node2D) with a real cursor
+	# warp + buttonless motion event — the pointer analogue of click_node. Use
+	# before simulate_wheel to aim the wheel at a UI panel (e.g. asserting that
+	# wheel-over-menu does NOT zoom the board), or over a ScrollContainer for
+	# hover-driven menu scrolling. Mirrors hover_unit but for arbitrary nodes.
+	var node_path: String = str(step.get("node", ""))
+	if node_path == "":
+		return {"pass": false, "error": "hover_node needs node"}
+	var node: Node = get_node_or_null(node_path)
+	if node == null:
+		return {"pass": false, "error": "no node at path %s" % node_path}
+	var screen_pos: Vector2
+	if node is Control:
+		var rect: Rect2 = (node as Control).get_global_rect()
+		screen_pos = rect.position + rect.size * 0.5
+	elif node is Node2D:
+		screen_pos = _node2d_to_screen(node as Node2D)
+	else:
+		return {"pass": false, "error": "node is neither Control nor Node2D"}
+	if screen_pos == Vector2.INF:
+		return {"pass": false, "error": "could not compute hover position"}
+	await _send_hover(screen_pos)
+	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
 
 
 func _send_hover(screen_pos: Vector2) -> void:
@@ -990,30 +1087,66 @@ func _do_execute_script(step: Dictionary) -> Dictionary:
 	if code == "":
 		return {"pass": false, "error": "execute_script needs `script`"}
 
-	# Build input name/value pairs:
-	#   - every autoload child of /root (referenced by node name)
-	#   - common engine singletons (Engine, OS, Time, Input, RenderingServer)
-	#   - `main` -> the live battle scene root, if loaded
-	var input_names: Array = []
-	var input_values: Array = []
-	var root := get_tree().root
-	for child in root.get_children():
-		input_names.append(child.name)
-		input_values.append(child)
-	# ResourceLoader/ClassDB let a scenario instantiate a script-backed node
-	# (e.g. a dialog) for windowed validation: ResourceLoader.load(path).new().
-	input_names.append_array(["Engine", "OS", "Time", "Input", "RenderingServer", "ProjectSettings", "ResourceLoader", "ClassDB", "main"])
-	input_values.append_array([Engine, OS, Time, Input, RenderingServer, ProjectSettings, ResourceLoader, ClassDB, get_tree().current_scene])
+	var actual
+	# Statement mode is EXPLICIT-only (`"multiline": true`) — unlike the MCP
+	# bridge we must not auto-detect on "\n", because existing scenario scripts
+	# legitimately embed newlines inside string literals and rely on the
+	# Expression path (e.g. resolution_log_dice_icons.json).
+	var multiline: bool = bool(step.get("multiline", false))
+	if multiline:
+		# Multi-line / statement mode — parity with the MCP bridge's
+		# execute_script (testing_handlers.gd): the snippet is compiled into a
+		# throwaway GDScript so full statements work (`var`, `if`, `for`,
+		# `return`). The snippet receives `node` (the node at the optional `node`
+		# step key, default /root) and `tree` (the SceneTree); autoloads are
+		# reachable by their global names. `return <value>` feeds the
+		# equals/not_equals/exists expectation below.
+		var target: Node = get_tree().root
+		if step.has("node"):
+			target = get_node_or_null(str(step["node"]))
+			if target == null:
+				return {"pass": false, "error": "no node at %s" % str(step["node"])}
+		var indented := ""
+		for line in code.split("\n"):
+			indented += "\t" + line + "\n"
+		if indented.strip_edges() == "":
+			indented = "\treturn null\n"
+		var src := "extends RefCounted\nfunc _run(node, tree):\n" + indented
+		var gds := GDScript.new()
+		gds.source_code = src
+		if gds.reload() != OK:
+			return {"pass": false, "error": "multiline compile failed — call node methods on `node`/`tree`, not bare"}
+		var inst = gds.new()
+		if inst == null or not inst.has_method("_run"):
+			return {"pass": false, "error": "failed to instantiate compiled snippet"}
+		actual = inst.call("_run", target, get_tree())
+	else:
+		# Single-line Expression mode. Build input name/value pairs:
+		#   - every child of /root (autoloads AND root-level dialogs, by node name)
+		#   - common engine singletons (Engine, OS, Time, Input, RenderingServer)
+		#   - `main` -> the live battle scene root, if loaded
+		var input_names: Array = []
+		var input_values: Array = []
+		var root := get_tree().root
+		for child in root.get_children():
+			input_names.append(child.name)
+			input_values.append(child)
+		# ResourceLoader/ClassDB let a scenario instantiate a script-backed node
+		# (e.g. a dialog) for windowed validation: ResourceLoader.load(path).new().
+		# `tree`/`node` match the multiline-mode bindings (SceneTree / root) so the
+		# same `tree.root...` idiom works in both modes.
+		input_names.append_array(["Engine", "OS", "Time", "Input", "RenderingServer", "ProjectSettings", "ResourceLoader", "ClassDB", "main", "tree", "node"])
+		input_values.append_array([Engine, OS, Time, Input, RenderingServer, ProjectSettings, ResourceLoader, ClassDB, get_tree().current_scene, get_tree(), root])
 
-	var expr := Expression.new()
-	var parse_err := expr.parse(code, input_names)
-	if parse_err != OK:
-		return {"pass": false, "error": "parse failed: %s" % expr.get_error_text()}
-	# Pass self as base instance so `self.foo` works and any singletons not in
-	# input_names fall through to the runner's context.
-	var actual = expr.execute(input_values, self, true)
-	if expr.has_execute_failed():
-		return {"pass": false, "error": "execute failed: %s" % expr.get_error_text()}
+		var expr := Expression.new()
+		var parse_err := expr.parse(code, input_names)
+		if parse_err != OK:
+			return {"pass": false, "error": "parse failed: %s" % expr.get_error_text()}
+		# Pass self as base instance so `self.foo` works and any singletons not in
+		# input_names fall through to the runner's context.
+		actual = expr.execute(input_values, self, true)
+		if expr.has_execute_failed():
+			return {"pass": false, "error": "execute failed: %s" % expr.get_error_text()}
 
 	# Tolerate "no expectation" — caller may just want to drive a side effect.
 	if not (step.has("equals") or step.has("not_equals") or step.has("exists")
@@ -1200,6 +1333,37 @@ func unit_token_sprite_width(unit_id: String) -> int:
 			return tex.get_width() if tex != null else 0
 	return -1
 
+# Deterministically frame the battle scene's Camera2D for a screenshot step.
+# Expression (execute_script) can't run assignment statements, so scenarios call
+# this as set_test_camera(880, 240, 3.0) to centre/zoom on a board region.
+func set_test_camera(x: float, y: float, zoom: float) -> bool:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return false
+	var cam := scene.get_viewport().get_camera_2d()
+	if cam == null:
+		return false
+	cam.position = Vector2(x, y)
+	cam.zoom = Vector2(zoom, zoom)
+	return true
+
+# Number of the DeploymentController's live formation-preview ghosts (Spread /
+# Tight squad placement) that resolve a non-null facing sprite instead of the
+# letter/arrow fallback. A scenario asserts this equals the squad size to prove
+# every placement ghost renders its top-down art. Size-robust.
+func formation_ghosts_with_sprite() -> int:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return -1
+	var dc = scene.get("deployment_controller")
+	if dc == null:
+		return -1
+	var n := 0
+	for g in dc.formation_preview_ghosts:
+		if is_instance_valid(g) and g.has_meta("unit_id") and g._get_ghost_sprite_texture() != null:
+			n += 1
+	return n
+
 func token_model_rotation(unit_id: String, model_id: String) -> float:
 	# Live rotation (radians) baked into a model's ON-SCREEN token, read
 	# directly from its model_data — NOT GameState. Regression guard for the
@@ -1317,7 +1481,63 @@ func option_button_text_for_metadata(node_path: String, metadata: String) -> Str
 			return ob.get_item_text(i)
 	return ""
 
-func _send_click(screen_pos: Vector2) -> void:
+# Whether a FightSelectionDialog UnitList child is `unit_id`'s button. The
+# first button for a unit carries the stable node name "Fight_<unit_id>" — but
+# a DUPLICATE of an already-listed unit collides on that requested name and
+# Godot auto-renames the new node to "@Button@N" (the requested name is
+# dropped entirely, class name only), so a name check alone cannot see the
+# very duplication these helpers exist to catch. Also match the rendered
+# label the way a player reads it: unit_id, display_name or meta.name, with
+# any " (Fought)" suffix stripped. Caveat: label matching can conflate two
+# DIFFERENT units sharing a display name — fine for scenario fixtures where
+# only one of them is offered.
+func _fight_dialog_button_matches(child: Node, unit_id: String) -> bool:
+	if not (child is Button):
+		return false
+	if str(child.name).contains("Fight_%s" % unit_id):
+		return true
+	var label := str(child.text).strip_edges().trim_suffix("(Fought)").strip_edges()
+	if label == unit_id:
+		return true
+	var meta = GameState.state.get("units", {}).get(unit_id, {}).get("meta", {})
+	var display := str(meta.get("display_name", ""))
+	var base := str(meta.get("name", ""))
+	return (display != "" and label == display) or (base != "" and label == base)
+
+# The FightSelectionDialog sections a unit's button appears under, walking the
+# dialog's UnitList in visual order and tracking the last "=== X ===" header
+# (comma-joined when the unit shows up more than once; "" if absent).
+# Callable from `execute_script`, e.g.
+# fight_dialog_sections_of_unit("U_WARBOSS_B") with equals "FIGHTS_FIRST" —
+# the duplication bug made this return "FIGHTS_FIRST,REMAINING_COMBATS".
+func fight_dialog_sections_of_unit(unit_id: String) -> String:
+	var list := get_tree().root.get_node_or_null("FightSelectionDialog/Content/UnitScroll/UnitList")
+	if list == null:
+		return "<no dialog>"
+	var sections: Array = []
+	var current_header := ""
+	for child in list.get_children():
+		if child is Label and str(child.text).begins_with("==="):
+			current_header = str(child.text).replace("=", "").strip_edges()
+		elif _fight_dialog_button_matches(child, unit_id):
+			sections.append(current_header)
+	return ",".join(sections)
+
+# How many buttons for `unit_id` the FightSelectionDialog shows across ALL its
+# sections (-1 if the dialog is absent). A unit fights once, so this must be
+# exactly 1 for every offered unit. Callable from `execute_script`, e.g.
+# fight_dialog_button_count("U_WARBOSS_B") with equals 1.
+func fight_dialog_button_count(unit_id: String) -> int:
+	var list := get_tree().root.get_node_or_null("FightSelectionDialog/Content/UnitScroll/UnitList")
+	if list == null:
+		return -1
+	var n := 0
+	for child in list.get_children():
+		if _fight_dialog_button_matches(child, unit_id):
+			n += 1
+	return n
+
+func _send_click(screen_pos: Vector2, ctrl: bool = false) -> void:
 	# Warp the live cursor to the target BEFORE injecting the event. GUI Controls
 	# route by event position, but board/world handlers (e.g. DeploymentController
 	# placement, token hit-testing) read get_viewport().get_mouse_position() — the
@@ -1325,6 +1545,9 @@ func _send_click(screen_pos: Vector2) -> void:
 	# and no-ops. Round to a whole pixel: the OS cursor is integer, and
 	# warp_mouse truncates, which at high zoom-out shifts the click by a board
 	# unit per fractional pixel.
+	#
+	# ctrl=true holds Ctrl (and Meta, so is_command_or_control_pressed() matches
+	# on macOS too) through the press+release — the multi-select toggle idiom.
 	screen_pos = screen_pos.round()
 	Input.warp_mouse(screen_pos)
 	await get_tree().process_frame
@@ -1334,6 +1557,8 @@ func _send_click(screen_pos: Vector2) -> void:
 	press.global_position = screen_pos
 	press.pressed = true
 	press.button_mask = MOUSE_BUTTON_MASK_LEFT
+	press.ctrl_pressed = ctrl
+	press.meta_pressed = ctrl
 	Input.parse_input_event(press)
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -1343,6 +1568,8 @@ func _send_click(screen_pos: Vector2) -> void:
 	release.global_position = screen_pos
 	release.pressed = false
 	release.button_mask = 0
+	release.ctrl_pressed = ctrl
+	release.meta_pressed = ctrl
 	Input.parse_input_event(release)
 	await get_tree().process_frame
 	await get_tree().process_frame

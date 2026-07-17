@@ -1,0 +1,309 @@
+{
+  "id": "fight_ff_opponent_remaining_visible_11e",
+  "covers": [
+    "dialogs.FightSelectionDialog.instructions",
+    "dialogs.FightSelectionDialog.opponent_units_visible",
+    "phases.FightPhase._remaining_units_11e",
+    "rules.FightSequencer"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression for the reported 'player two engagement' bug: during the FIGHTS_FIRST step the selection dialog told the picking player the opponent 'has no eligible units' even though the opponent's engaged (non-Fights-First) units were owed a Remaining Combats fight \u2014 and those units were ALSO pushed below the dialog's scroll fold because the picker's Fights First units were duplicated into the REMAINING_COMBATS section. Fixture mirror: P2 (Orks, active) charged with the Warboss (fights_first), P1's Custodian Guard + Telemon are engaged without Fights First. Asserts: (1) the instructions spell out that the opponent has no FIGHTS FIRST units and will select in Remaining Combats; (2) the opponent's units are listed once, under REMAINING_COMBATS, with real display names (not raw unit ids); (3) the picker's FF unit is NOT duplicated into the remaining bucket; (4) after the Fights First unit fights, the opponent REALLY gets the selection (the user-visible worry) and the blanket 'no eligible units' message only appears when it is actually true. Setup-only privileges: CP zeroed to suppress stratagem prompts; model wounds inflated so no unit dies (deterministic aliveness); auto-allocate-wounds flipped ON via Object.set (process-local, not persisted) so the melee resolves without the defender save overlay \u2014 defender-control saves have their own scenarios.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.get_auto_allocate_wounds()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[1].merge({\"wounds\": 99, \"current_wounds\": 99}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[2].merge({\"wounds\": 99, \"current_wounds\": 99}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[3].merge({\"wounds\": 99, \"current_wounds\": 99}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInStepDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInStepDialog/Content/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInStepDialog/Content/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "pile_in_step_11e",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/FightSelectionDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().current_selecting_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._subphase_string_11e()",
+      "equals": "FIGHTS_FIRST"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/Instructions\").text.contains(\"no Fights First units\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/Instructions\").text.contains(\"Remaining Combats\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/Instructions\").text.contains(\"no eligible units\")",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B\").text.contains(\"Custodian Guard\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._remaining_units_11e()[\"2\"].has(\"U_WARBOSS_B\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._remaining_units_11e()[\"1\"].size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/UnitScroll/UnitList\").get_child_count()",
+      "equals": 11
+    },
+    {
+      "act": "screenshot",
+      "label": "01_ff_step_opponent_listed_and_message_truthful"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_WARBOSS_B",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(40)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/FightSelectionDialog",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().current_selecting_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._subphase_string_11e()",
+      "equals": "REMAINING_COMBATS"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/Instructions\").text.contains(\"no eligible units\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_opponent_now_selects_in_remaining_combats"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/KatahStanceDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(40)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/FightSelectionDialog",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().current_selecting_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_second_opponent_unit_also_fights"
+    }
+  ]
+}

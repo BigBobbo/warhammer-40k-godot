@@ -112,6 +112,18 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "click_node", "node": "/root/Main/UI/CO/AcceptButton", "emit_pressed": true }
   ```
 
+- `click_item_list`: real-mouse-click one row of an `ItemList` (by item
+  `index`), warping the cursor to the row's rect centre — so the list's own
+  input handling (selection replace, Ctrl+Click toggle, deferred single-select)
+  runs exactly as for a player. `ctrl: true` holds Ctrl through the click
+  (multi-select toggle). `empty: true` clicks the free strip below the last
+  row instead (e.g. to assert empty-click-clears-selection).
+  ```json
+  { "act": "click_item_list", "node": "/root/Main/.../ChargeTargetList", "index": 1 }
+  { "act": "click_item_list", "node": "/root/Main/.../ChargeTargetList", "index": 0, "ctrl": true }
+  { "act": "click_item_list", "node": "/root/Main/.../ChargeTargetList", "empty": true }
+  ```
+
 - `click_board_at`: click an arbitrary **board/world** position (`x`/`y` in
   board px — the coordinate system used by deployment zones and model
   positions). The world point is projected to screen via the live canvas
@@ -129,9 +141,13 @@ Each step is a dict with an `act` field plus act-specific keys.
   `InputEventMouseMotion` steps (default 8, override with `steps`), LMB
   release at `to`. This is the player path for drag-to-move flows (fight-phase
   pile-in/consolidate model movement); no controller state is poked.
-  Coordinates are board px, projected like `click_board_at`.
+  Coordinates are board px, projected like `click_board_at`. Optional
+  `"shift": true` holds SHIFT for the whole drag (a real KEY_SHIFT press is
+  parsed first, so `Input.is_key_pressed(KEY_SHIFT)` sees it) — the player
+  path for drag-box multi-selection (movement/charge phases).
   ```json
   { "act": "drag_board", "from_x": 200, "from_y": 100, "to_x": 255, "to_y": 170 }
+  { "act": "drag_board", "from_x": 1030, "from_y": 720, "to_x": 910, "to_y": 880, "shift": true }
   ```
 
 - `hover_unit`: locate the token for `unit_id` (like `click_unit`), warp the
@@ -146,6 +162,14 @@ Each step is a dict with an `act` field plus act-specific keys.
   board — e.g. to assert a tooltip hides.
   ```json
   { "act": "hover_board_at", "x": 880.0, "y": 1200.0 }
+  ```
+
+- `hover_node`: warp the cursor to the centre of a Control (resolved by
+  NodePath) and dispatch a real buttonless `InputEventMouseMotion`. The player
+  path for hover-driven menu/panel UI — e.g. positioning the cursor over a
+  ScrollContainer before a `simulate_wheel`.
+  ```json
+  { "act": "hover_node", "node": "/root/MainMenu/ScrollContainer" }
   ```
 
 - `simulate_key`: dispatch a keypress.
@@ -192,6 +216,24 @@ Each step is a dict with an `act` field plus act-specific keys.
   ```
 
 ### State asserts
+
+- `execute_script`: evaluate GDScript and (optionally) compare the result via
+  `equals` / `not_equals` / `exists` / `expect_min` / `expect_max`. Two modes:
+  - **Expression mode** (default): a single expression. Bound identifiers:
+    every child of `/root` by node name (autoloads AND root-level dialogs,
+    e.g. `WeaponOrderDialog`), engine singletons, `main` (the live battle
+    scene), `tree` (the SceneTree) and `node` (`/root`).
+  - **Statement mode** (`"multiline": true` — explicit, never auto-detected):
+    the snippet is compiled into a throwaway GDScript so `var` / `if` / `for`
+    / `return` work. It runs as `_run(node, tree)` — `node` is `/root` (or
+    the node at the optional `node` step key), `tree` is the SceneTree;
+    autoloads are reachable by global name, but root-level dialogs must be
+    fetched via `tree.root.get_node_or_null(...)`. `return <value>` feeds the
+    expectation.
+  ```json
+  { "act": "execute_script", "script": "WeaponOrderDialog.weapon_list_container.get_child_count()", "equals": 1 }
+  { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"WeaponOrderDialog\")\nreturn d.is_resolving", "multiline": true, "equals": true }
+  ```
 
 - `expect_state`: assert against `GameState.state` via dot-separated path.
   ```json
