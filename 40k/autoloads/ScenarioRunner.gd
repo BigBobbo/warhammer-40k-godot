@@ -1436,6 +1436,62 @@ func option_button_text_for_metadata(node_path: String, metadata: String) -> Str
 			return ob.get_item_text(i)
 	return ""
 
+# Whether a FightSelectionDialog UnitList child is `unit_id`'s button. The
+# first button for a unit carries the stable node name "Fight_<unit_id>" — but
+# a DUPLICATE of an already-listed unit collides on that requested name and
+# Godot auto-renames the new node to "@Button@N" (the requested name is
+# dropped entirely, class name only), so a name check alone cannot see the
+# very duplication these helpers exist to catch. Also match the rendered
+# label the way a player reads it: unit_id, display_name or meta.name, with
+# any " (Fought)" suffix stripped. Caveat: label matching can conflate two
+# DIFFERENT units sharing a display name — fine for scenario fixtures where
+# only one of them is offered.
+func _fight_dialog_button_matches(child: Node, unit_id: String) -> bool:
+	if not (child is Button):
+		return false
+	if str(child.name).contains("Fight_%s" % unit_id):
+		return true
+	var label := str(child.text).strip_edges().trim_suffix("(Fought)").strip_edges()
+	if label == unit_id:
+		return true
+	var meta = GameState.state.get("units", {}).get(unit_id, {}).get("meta", {})
+	var display := str(meta.get("display_name", ""))
+	var base := str(meta.get("name", ""))
+	return (display != "" and label == display) or (base != "" and label == base)
+
+# The FightSelectionDialog sections a unit's button appears under, walking the
+# dialog's UnitList in visual order and tracking the last "=== X ===" header
+# (comma-joined when the unit shows up more than once; "" if absent).
+# Callable from `execute_script`, e.g.
+# fight_dialog_sections_of_unit("U_WARBOSS_B") with equals "FIGHTS_FIRST" —
+# the duplication bug made this return "FIGHTS_FIRST,REMAINING_COMBATS".
+func fight_dialog_sections_of_unit(unit_id: String) -> String:
+	var list := get_tree().root.get_node_or_null("FightSelectionDialog/Content/UnitScroll/UnitList")
+	if list == null:
+		return "<no dialog>"
+	var sections: Array = []
+	var current_header := ""
+	for child in list.get_children():
+		if child is Label and str(child.text).begins_with("==="):
+			current_header = str(child.text).replace("=", "").strip_edges()
+		elif _fight_dialog_button_matches(child, unit_id):
+			sections.append(current_header)
+	return ",".join(sections)
+
+# How many buttons for `unit_id` the FightSelectionDialog shows across ALL its
+# sections (-1 if the dialog is absent). A unit fights once, so this must be
+# exactly 1 for every offered unit. Callable from `execute_script`, e.g.
+# fight_dialog_button_count("U_WARBOSS_B") with equals 1.
+func fight_dialog_button_count(unit_id: String) -> int:
+	var list := get_tree().root.get_node_or_null("FightSelectionDialog/Content/UnitScroll/UnitList")
+	if list == null:
+		return -1
+	var n := 0
+	for child in list.get_children():
+		if _fight_dialog_button_matches(child, unit_id):
+			n += 1
+	return n
+
 func _send_click(screen_pos: Vector2) -> void:
 	# Warp the live cursor to the target BEFORE injecting the event. GUI Controls
 	# route by event position, but board/world handlers (e.g. DeploymentController
