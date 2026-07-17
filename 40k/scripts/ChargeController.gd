@@ -846,6 +846,17 @@ func _setup_right_panel() -> void:
 	# appended every clicked row to selected_targets without ever removing the
 	# previous one, so clicking target B after target A silently declared a
 	# charge against BOTH while only B stayed highlighted.
+	#
+	# We OWN left-clicks via gui_input rather than leaning on the built-in
+	# SELECT_MULTI toggle: Godot's built-in reads only the mouse event's
+	# ctrl_pressed field, so on platforms/WMs that do not stamp the Ctrl
+	# modifier onto the mouse button event, holding Ctrl and clicking did
+	# nothing (the reported "Ctrl+Click doesn't select a second target" bug).
+	# Our handler detects Ctrl from BOTH the event AND the live key state
+	# (Input.is_key_pressed) so a held Ctrl toggles regardless of platform.
+	# multi_selected stays connected so KEYBOARD selection (arrows + space)
+	# still syncs; empty_clicked handles right-clicks on empty space.
+	target_list.gui_input.connect(_on_target_list_gui_input)
 	target_list.multi_selected.connect(_on_target_multi_selected)
 	target_list.empty_clicked.connect(_on_target_list_empty_clicked)
 	_WhiteDwarfTheme.apply_to_item_list(target_list)
@@ -1358,12 +1369,57 @@ func _refresh_target_list() -> void:
 	
 	print("DEBUG: Target list now has ", target_list.get_item_count(), " items")
 
+func _on_target_list_gui_input(event: InputEvent) -> void:
+	# Own the LEFT-click selection so multi-target charge works on every platform.
+	# Godot's built-in ItemList SELECT_MULTI toggle only fires when the mouse
+	# event itself carries ctrl_pressed; some platforms/WMs never stamp that onto
+	# the button event, so a player holding Ctrl and clicking got a plain single
+	# select and could never build a multi-charge. Here we read Ctrl from BOTH the
+	# event AND the live keyboard state, so a held Ctrl always toggles.
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	# Rows are locked once the charge is declared — let nothing change then.
+	if awaiting_roll or awaiting_movement:
+		return
+	# Act on press; consume press+release so the built-in selection never also
+	# runs (which would fight our own select/deselect below).
+	get_viewport().set_input_as_handled()
+	target_list.accept_event()
+	if not mb.pressed:
+		return
+	target_list.grab_focus()  # normal list behaviour: click focuses it for keyboard nav
+
+	var idx: int = target_list.get_item_at_position(mb.position, true)
+	if idx < 0:
+		# Clicked empty space inside the list — clear the selection.
+		target_list.deselect_all()
+		_sync_selected_targets_from_list()
+		return
+
+	# Ctrl / Cmd (or Shift) held → toggle this row in/out for a multi-charge;
+	# no modifier → select only this row. Detect the modifier from the event
+	# and, as a platform-robust fallback, from the live key state.
+	var additive: bool = mb.ctrl_pressed or mb.meta_pressed or mb.shift_pressed \
+		or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META) \
+		or Input.is_key_pressed(KEY_SHIFT)
+
+	if additive:
+		if target_list.is_selected(idx):
+			target_list.deselect(idx)
+		else:
+			target_list.select(idx, false)  # false = keep existing selection
+	else:
+		target_list.select(idx, true)  # true = single-select (clears others)
+	_sync_selected_targets_from_list()
+
 func _on_target_multi_selected(_index: int, _selected: bool) -> void:
-	# Godot emits this for every selection change of a SELECT_MULTI ItemList:
-	# plain click (selects only that row), Ctrl+Click (toggles the row),
-	# Shift+Click (range select) and the deferred re-single-select on mouse
-	# release. Rebuilding from the list keeps selected_targets in lockstep with
-	# what the player sees highlighted — the old code let them drift apart.
+	# Keyboard selection (arrow keys + Space/Enter on the focused ItemList) still
+	# routes through the built-in and emits this — keep it synced. Mouse clicks
+	# are handled in _on_target_list_gui_input, which accept_event()s so the
+	# built-in never emits this for a click (no double-handling).
 	if awaiting_roll or awaiting_movement:
 		return  # declaration already committed — rows are locked
 	_sync_selected_targets_from_list()
