@@ -1,7 +1,7 @@
 {
   "id": "fight_selection_no_dupe_ff_11e",
   "covers": [
-    "dialogs.FightSelectionDialog.no_duplicate_fights_first",
+    "ui.fight.selection_panel.no_duplicate_fights_first",
     "phases.FightPhase.dialog_data_partition",
     "ui.fight.selection_sections"
   ],
@@ -10,7 +10,7 @@
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "Regression: the 'Select Unit to Fight' dialog listed every Fights First unit TWICE — once under the FIGHTS_FIRST header and again under REMAINING_COMBATS — reading as if those units fought twice. Cause: FightPhase._remaining_units_11e() passed the sequencer's eligible_units(..., only_fights_first=false) straight through, and that list intentionally includes Fights First units (12.04 rules semantics), so the display sections overlapped. NOTE for the helpers: the duplicate button collided on the requested 'Fight_<id>' node name and Godot auto-renamed it to '@Button@N', so the fight_dialog_* helpers match by rendered label too. This drives the real player path: pass both Pile In halves, wait for the FightSelectionDialog, then assert the charged (Fights First) Warboss appears under exactly ONE section header (FIGHTS_FIRST) with exactly ONE button, and the engaged non-FF Custodian Guard appears only under REMAINING_COMBATS. Also guards the dialog's unit labels: buttons resolve through GameState.get_unit_display_name, so the Warboss reads 'Warboss Alpha' (Alpha/Beta disambiguation) and the non-selecting player's Custodian Guard reads its name — not the raw unit id it used to fall back to.",
+  "description": "Regression: the 'Select Unit to Fight' picker (a centered dialog at the time, now the right-panel FightSelectionPanel) listed every Fights First unit TWICE — once under the FIGHTS_FIRST header and again under REMAINING_COMBATS — reading as if those units fought twice. Cause: FightPhase._remaining_units_11e() passed the sequencer's eligible_units(..., only_fights_first=false) straight through, and that list intentionally includes Fights First units (12.04 rules semantics), so the display sections overlapped. NOTE for the helpers: the duplicate button collided on the requested 'Fight_<id>' node name and Godot auto-renamed it to '@Button@N', so the fight_dialog_* helpers match by rendered label too. This drives the real player path: pass both Pile In halves, wait for the right panel's FightSelectionPanel (the picker no longer pops up over the board), then assert the charged (Fights First) Warboss appears under exactly ONE section header (FIGHTS_FIRST) with exactly ONE button, and the engaged non-FF Custodian Guard appears only under REMAINING_COMBATS. Also guards the picker's unit labels: buttons resolve through GameState.get_unit_display_name, so the Warboss reads 'Warboss Alpha' (Alpha/Beta disambiguation) and the non-selecting player's Custodian Guard reads its name — not the raw unit id it used to fall back to.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
@@ -23,15 +23,15 @@
     { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
 
-    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 5.0 },
-    { "act": "screenshot", "label": "01_fight_selection_dialog" },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "01_fight_selection_panel" },
 
     { "act": "execute_script", "script": "fight_dialog_button_count(\"U_WARBOSS_B\")", "equals": 1 },
     { "act": "execute_script", "script": "fight_dialog_sections_of_unit(\"U_WARBOSS_B\")", "equals": "FIGHTS_FIRST" },
     { "act": "execute_script", "script": "fight_dialog_button_count(\"U_CUSTODIAN_GUARD_B\")", "equals": 1 },
     { "act": "execute_script", "script": "fight_dialog_sections_of_unit(\"U_CUSTODIAN_GUARD_B\")", "equals": "REMAINING_COMBATS" },
 
-    { "act": "expect_node_property", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_WARBOSS_B", "property": "text", "equals": "    Warboss Alpha" },
-    { "act": "expect_node_property", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B", "property": "text", "equals": "    Custodian Guard" }
+    { "act": "expect_node_property", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B", "property": "text", "equals": "Warboss Alpha" },
+    { "act": "expect_node_property", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B", "property": "text", "equals": "Custodian Guard" }
   ]
 }

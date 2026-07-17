@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.54.6",
+			"date": "2026-07-17",
+			"summary": "Fight phase: picking which unit fights next no longer pops up over the middle of the board. The 'Select Unit to Fight' picker now lives in the right-hand panel — same place you pick units in every other phase and in the Pile In / Consolidate steps — so you can see the whole battlefield while choosing.",
+			"changes": [
+				"The fight-phase unit picker (whose turn to select, current subphase, Fights First / Remaining Combats / Fights Last sections and the unit buttons) moved from a centered pop-up dialog into the right-hand FIGHT CONTROLS panel.",
+				"The battlefield stays fully visible while you choose which unit fights next.",
+				"Same information and behavior as before: colored turn banner (blue P1 / red P2), greyed-out units that already fought, and the alternation hint under the list."
+			]
+		},
+		{
 			"version": "0.54.5",
 			"date": "2026-07-17",
 			"summary": "Hovering a model now explains its status markers. The red ring + '!' (battle-shocked), the green check (fought), the crossed-swords badge (engaged), the colored bar under the base (moved/shot/charged/action) and the Marked for Death / Beacon rings are all spelled out in the hover tooltip, so you can always tell WHY a model is marked.",

@@ -1600,7 +1600,7 @@ func option_button_text_for_metadata(node_path: String, metadata: String) -> Str
 			return ob.get_item_text(i)
 	return ""
 
-# Whether a FightSelectionDialog UnitList child is `unit_id`'s button. The
+# Whether a FightSelectionPanel UnitList child is `unit_id`'s button. The
 # first button for a unit carries the stable node name "Fight_<unit_id>" — but
 # a DUPLICATE of an already-listed unit collides on that requested name and
 # Godot auto-renames the new node to "@Button@N" (the requested name is
@@ -1623,16 +1623,22 @@ func _fight_dialog_button_matches(child: Node, unit_id: String) -> bool:
 	var base := str(meta.get("name", ""))
 	return (display != "" and label == display) or (base != "" and label == base)
 
-# The FightSelectionDialog sections a unit's button appears under, walking the
-# dialog's UnitList in visual order and tracking the last "=== X ===" header
+# The right panel's fighter-selection UnitList (12.04 pick). Was the centered
+# FightSelectionDialog pop-up until it moved into the FightPanel like the other
+# unit-to-activate pickers — the fight_dialog_* helper names are kept so older
+# scenario scripts keep working.
+const FIGHT_SELECTION_UNIT_LIST := "Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList"
+
+# The fighter-selection sections a unit's button appears under, walking the
+# panel's UnitList in visual order and tracking the last "=== X ===" header
 # (comma-joined when the unit shows up more than once; "" if absent).
 # Callable from `execute_script`, e.g.
 # fight_dialog_sections_of_unit("U_WARBOSS_B") with equals "FIGHTS_FIRST" —
 # the duplication bug made this return "FIGHTS_FIRST,REMAINING_COMBATS".
 func fight_dialog_sections_of_unit(unit_id: String) -> String:
-	var list := get_tree().root.get_node_or_null("FightSelectionDialog/Content/UnitScroll/UnitList")
+	var list := get_tree().root.get_node_or_null(FIGHT_SELECTION_UNIT_LIST)
 	if list == null:
-		return "<no dialog>"
+		return "<no selection panel>"
 	var sections: Array = []
 	var current_header := ""
 	for child in list.get_children():
@@ -1642,12 +1648,12 @@ func fight_dialog_sections_of_unit(unit_id: String) -> String:
 			sections.append(current_header)
 	return ",".join(sections)
 
-# How many buttons for `unit_id` the FightSelectionDialog shows across ALL its
-# sections (-1 if the dialog is absent). A unit fights once, so this must be
+# How many buttons for `unit_id` the fighter-selection panel shows across ALL
+# its sections (-1 if the panel is absent). A unit fights once, so this must be
 # exactly 1 for every offered unit. Callable from `execute_script`, e.g.
 # fight_dialog_button_count("U_WARBOSS_B") with equals 1.
 func fight_dialog_button_count(unit_id: String) -> int:
-	var list := get_tree().root.get_node_or_null("FightSelectionDialog/Content/UnitScroll/UnitList")
+	var list := get_tree().root.get_node_or_null(FIGHT_SELECTION_UNIT_LIST)
 	if list == null:
 		return -1
 	var n := 0

@@ -10,7 +10,7 @@ extends SceneTree
 # dialogs for the AI's fighters.
 #
 # Root cause: FightController tracked current_fighter_owner only in the human
-# dialog paths (_on_fighter_selected_from_dialog, the 11e step pickers). The AI
+# picker paths (_on_fight_selection_unit_chosen, the 11e step pickers). The AI
 # selects fighters by submitting SELECT_FIGHTER directly, which reaches the
 # controller as the phase's `fighter_selected` signal -> _on_fighter_selected,
 # and that handler set current_fighter_id but never refreshed
