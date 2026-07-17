@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.52.1",
+			"date": "2026-07-17",
+			"summary": "Attached characters can now be dragged during a Charge move. Before, clicking the leader of a charging squad (e.g. the Blade Champion attached to Custodian Guard) did nothing — only the squad's own models responded — and the leader was auto-placed for you after confirming. Model picking during the charge is also much more accurate.",
+			"changes": [
+				"Fixed: the attached CHARACTER of a charging unit (e.g. a Blade Champion leading Custodian Guard) could not be dragged during the charge move — clicking it silently did nothing. The leader is now draggable exactly like its squadmates, with its own reach ring, base-contact snapping, undo and Snap to Contact support.",
+				"A leader you don't drag still follows the squad automatically on confirm, and the info panel now says so instead of implying you must move it.",
+				"Fixed: clicking a charging model picked the wrong (or no) model depending on zoom — the hit test used a fixed screen-pixel radius. It now uses each model's real base size on the board and picks the nearest model under the cursor, so tightly packed squads select correctly.",
+				"The whole attached unit (squad + leader) is now checked as one unit for charge coherency, so a leader can't be dragged somewhere that splits it from its squad."
+			]
+		},
+		{
 			"version": "0.52.0",
 			"date": "2026-07-17",
 			"summary": "Leaders now pile in and consolidate WITH their unit. A Character attached to a bodyguard squad (e.g. a Blade Champion leading Custodian Guard) no longer appears as a separate unit in the Fight phase's Pile In and Consolidate steps — the picker shows one entry ('Custodian Guard + Blade Champion') and moving it lets you drag every model of the attached unit, leader included, in the one 3\" move.",
