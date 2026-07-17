@@ -12654,6 +12654,9 @@ static func prepare_save_resolution(
 		"target_unit_id": target_unit_id,
 		"target_unit_name": target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id)),
 		"shooter_unit_id": shooter_unit_id,
+		# Resolve the FIRING unit's display name (same precedence as target_unit_name)
+		# so the allocation overlay can show the defender WHO is shooting them.
+		"shooter_unit_name": shooter_unit.get("meta", {}).get("display_name", shooter_unit.get("meta", {}).get("name", shooter_unit_id)),
 		"weapon_name": weapon_profile.get("name", "Unknown Weapon"),
 		# Issue #388: stash psychic flag so apply_save_damage can gate FNP-vs-psychic
 		"is_psychic": _profile_is_psychic(weapon_profile),
@@ -12840,6 +12843,9 @@ static func prepare_melee_save_resolution(
 		"target_unit_id": target_unit_id,
 		"target_unit_name": target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id)),
 		"shooter_unit_id": attacker_unit_id,
+		# Resolve the ATTACKING unit's display name (same precedence as target_unit_name)
+		# so the allocation overlay can show the defender WHO is attacking them.
+		"shooter_unit_name": attacker_unit.get("meta", {}).get("display_name", attacker_unit.get("meta", {}).get("name", attacker_unit_id)),
 		"weapon_name": weapon_profile.get("name", "Unknown Weapon"),
 		"ap": ap,
 		"damage": damage,

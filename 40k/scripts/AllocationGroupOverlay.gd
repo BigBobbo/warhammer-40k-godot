@@ -194,16 +194,25 @@ func _build_ui() -> void:
 
 	_WhiteDwarfTheme.add_gold_separator(vbox)
 
+	# The title names the DEFENDER; the info line names the attack. Attribute the
+	# weapon to its firing/attacking unit so the defender can see WHO is shooting
+	# them (the weapon name alone doesn't say which unit it came from).
+	var shooter_name = _shooter_display_name()
+	var weapon_label = str(save_data.get("weapon_name", "Attack"))
+	if shooter_name != "":
+		weapon_label = "%s — %s" % [shooter_name, weapon_label]
 	var info = Label.new()
 	info.name = "Info"
 	var dev_txt = ""
 	if save_data.get("has_devastating_wounds", false) and int(save_data.get("devastating_wounds", 0)) > 0:
 		dev_txt = " + %d devastating" % int(save_data.get("devastating_wounds", 0))
 	info.text = "%s: %d wound(s) to save%s   AP %d   D %s" % [
-		str(save_data.get("weapon_name", "Attack")),
+		weapon_label,
 		int(save_data.get("wounds_to_save", 0)), dev_txt,
 		int(save_data.get("ap", 0)),
 		str(save_data.get("damage_raw", save_data.get("damage", 1)))]
+	# Long unit + weapon names can exceed the panel width — wrap instead of clip.
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info.add_theme_font_size_override("font_size", 14)
 	info.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	vbox.add_child(info)
@@ -385,6 +394,24 @@ func _build_ui() -> void:
 	pick_buttons.add_child(auto_pick_button)
 
 	set_process_input(false)
+
+
+## The firing/attacking unit's display name for the info line. Prefers the name
+## stamped into save_data (prepare_save_resolution), and falls back to resolving
+## shooter_unit_id against live GameState so older/other save_data paths that only
+## carry the id still name the shooter. Returns "" when nothing is resolvable.
+func _shooter_display_name() -> String:
+	var nm = str(save_data.get("shooter_unit_name", ""))
+	if nm != "":
+		return nm
+	var sid = str(save_data.get("shooter_unit_id", ""))
+	if sid == "":
+		return ""
+	var unit = _game_state().state.get("units", {}).get(sid, {})
+	if unit.is_empty():
+		return sid
+	var meta = unit.get("meta", {})
+	return str(meta.get("display_name", meta.get("name", sid)))
 
 
 func _group_by_id(gid: String) -> Dictionary:

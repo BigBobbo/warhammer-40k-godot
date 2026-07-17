@@ -2,13 +2,14 @@
   "id": "iss045_allocation_groups",
   "covers": [
     "scripts.AllocationGroupOverlay.order_choice",
+    "scripts.AllocationGroupOverlay.shooter_attribution",
     "rules.11e.allocation_groups.character_last",
     "rules.11e.allocation_groups.batch_saves"
   ],
   "fixture": "audit_386_deadly_demise",
   "rng_seed": 42,
   "transition_to_phase": 8,
-  "description": "ISS-045 (11e 05.03-05.04): the defender-side allocation-group overlay. Sets edition 11, attaches Warboss B to Boyz F (attached unit -> per-CHARACTER group), then drives the real save-resolution entry point with a 6-wound AP-3 attack. The AllocationGroupOverlay must offer the groups, refuse an order that puts the CHARACTER before the Boyz (Confirm disabled), then batch-roll saves on confirm: Boyz at Sv5+/AP-3 cannot save, so exactly 6 Boyz die and the Warboss is untouched (CHARACTER group reached last). DEFENDER CONTROL (0.47.0): after Confirm the defender may be offered a save Command Re-roll (skipped via click_if_visible) and must resolve the casualty PickPanel (Auto-pick here; defender_control_saves_11e covers real base-picking).",
+  "description": "ISS-045 (11e 05.03-05.04): the defender-side allocation-group overlay. Sets edition 11, attaches Warboss B to Boyz F (attached unit -> per-CHARACTER group), then drives the real save-resolution entry point with a 6-wound AP-3 attack from Custodian Guard B. The AllocationGroupOverlay must offer the groups, name the FIRING unit ('Custodian Guard') alongside the weapon in the info line so the defender can see who is shooting them, refuse an order that puts the CHARACTER before the Boyz (Confirm disabled), then batch-roll saves on confirm: Boyz at Sv5+/AP-3 cannot save, so exactly 6 Boyz die and the Warboss is untouched (CHARACTER group reached last). DEFENDER CONTROL (0.47.0): after Confirm the defender may be offered a save Command Re-roll (skipped via click_if_visible) and must resolve the casualty PickPanel (Auto-pick here; defender_control_saves_11e covers real base-picking).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -59,6 +60,16 @@
       "act": "execute_script",
       "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/GroupList\").get_child_count()",
       "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "\"Custodian Guard\" in main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/Info\").text",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "\"Allocation Test Cannon\" in main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/Info\").text",
+      "equals": true
     },
     {
       "act": "screenshot",

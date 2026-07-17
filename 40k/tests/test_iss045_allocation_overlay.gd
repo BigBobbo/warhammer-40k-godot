@@ -55,7 +55,8 @@ func _attached_units() -> Dictionary:
 func _save_data(wounds: int) -> Dictionary:
 	return {
 		"target_unit_id": "U_SERAPHIM", "target_unit_name": "Seraphim",
-		"shooter_unit_id": "U_SHOOTER", "weapon_name": "Test Cannon",
+		"shooter_unit_id": "U_SHOOTER", "shooter_unit_name": "Ork Lootas",
+		"weapon_name": "Test Cannon",
 		"wounds_to_save": wounds, "total_wounds": wounds,
 		"ap": -3, "damage": 1, "damage_raw": "1", "base_save": 3,
 		"is_psychic": false, "has_devastating_wounds": false, "devastating_wounds": 0,
@@ -140,6 +141,12 @@ func _run_tests():
 	root.add_child(overlay)
 	overlay.allocation_complete.connect(func(s): summary_received = s)
 	overlay.setup(_save_data(6), 2)
+	# The info line must name the FIRING unit (not just the weapon) so the
+	# defender can tell who is shooting them.
+	var info_label = overlay.get_node_or_null("Center/Panel/VBox/Info")
+	_check("info line names the firing unit AND the weapon",
+		info_label != null and "Ork Lootas" in info_label.text and "Test Cannon" in info_label.text,
+		str(info_label.text) if info_label != null else "<no Info label>")
 	_check("two group cards rendered", overlay.group_list.get_child_count() == 2)
 	_check("default order valid: Confirm enabled", not overlay.confirm_button.disabled)
 	overlay._on_move(1, -1)  # try to put the CHARACTER group first

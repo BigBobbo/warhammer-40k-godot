@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.53.1",
+			"date": "2026-07-17",
+			"summary": "The 'Allocate Attacks' save dialog now names the unit that is shooting you, not just the weapon. Previously it said e.g. 'Kustom mega-blasta: 5 wound(s) to save' with no way to tell which enemy unit that weapon belonged to; now it reads 'Big Mek Gamma — Kustom mega-blasta: …' so you always know who is firing.",
+			"changes": [
+				"Wound-allocation dialog: the attack line now shows the firing/attacking unit's name in front of the weapon (e.g. 'Custodian Guard — Allocation Test Cannon: 6 wound(s) to save'), for both shooting and melee.",
+				"Long unit + weapon names now wrap instead of being clipped by the dialog edge."
+			]
+		},
+		{
 			"version": "0.53.0",
 			"date": "2026-07-17",
 			"summary": "Multi-target shooting overhaul, part 1: declaring targets is now one click for the common case. Clicking an enemy with no weapon selected sends EVERYTHING at it; clicking with a weapon selected commits all of that weapon's eligible bearers instantly (no popup). Splitting fire is the exception you opt into: click a second target and the game offers to move some shots across. Engaged vehicles can also declare targets they are not engaged with again (10.06), and the game no longer shows error banners for assignments it auto-attempted itself.",
