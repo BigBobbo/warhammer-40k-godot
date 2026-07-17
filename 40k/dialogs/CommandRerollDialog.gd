@@ -171,25 +171,35 @@ func _build_ui() -> void:
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	button_container.add_theme_constant_override("separation", 16)
 
-	var use_button = Button.new()
-	use_button.name = "UseRerollButton"
-	use_button.text = "Re-roll (Free)" if free_ability_name != "" else "Re-roll (1 CP)"
-	use_button.custom_minimum_size = Vector2(160, 42)
-	use_button.pressed.connect(_on_use_pressed)
-	WhiteDwarfTheme.apply_primary_button(use_button)
-	button_container.add_child(use_button)
-
+	# "Keep Roll" is the safe, non-destructive choice, so it is the highlighted
+	# default on the LEFT. This prevents a player from instinctively clicking the
+	# prominent left-hand button and accidentally spending a CP (or burning a good
+	# roll on a free re-roll that might come back worse) — especially after a
+	# successful charge, where re-rolling almost never makes sense.
 	var decline_button = Button.new()
 	decline_button.name = "KeepRollButton"
 	decline_button.text = "Keep Roll"
-	decline_button.custom_minimum_size = Vector2(130, 42)
+	decline_button.custom_minimum_size = Vector2(160, 42)
 	decline_button.pressed.connect(_on_decline_pressed)
-	WhiteDwarfTheme.apply_secondary_button(decline_button)
+	WhiteDwarfTheme.apply_primary_button(decline_button)
 	button_container.add_child(decline_button)
+
+	var use_button = Button.new()
+	use_button.name = "UseRerollButton"
+	use_button.text = "Re-roll (Free)" if free_ability_name != "" else "Re-roll (1 CP)"
+	use_button.custom_minimum_size = Vector2(130, 42)
+	use_button.pressed.connect(_on_use_pressed)
+	WhiteDwarfTheme.apply_secondary_button(use_button)
+	button_container.add_child(use_button)
 
 	main_container.add_child(button_container)
 
 	add_child(main_container)
+
+	# Focus the safe default so a keyboard/controller confirm (Enter/Space) keeps
+	# the roll rather than spending a CP. Deferred because the buttons are not in
+	# the scene tree until the dialog is added and popped up by the caller.
+	decline_button.grab_focus.call_deferred()
 
 func _get_roll_type_display() -> String:
 	match roll_type:
