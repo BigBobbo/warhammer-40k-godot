@@ -859,26 +859,41 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 		var position = action.get("position")
 		movements["0"] = Vector2(position.get("x", 0), position.get("y", 0))
 
-	# Apply movements (if any provided)
+	# Apply movements (if any provided). Keys may address the unit's own
+	# models or an attached character's ("char_unit:key") — 19.03: the whole
+	# Attached unit piles in as one unit in one move.
 	for model_id in movements:
+		var route = _fight_split_move_key(unit_id, model_id)
+		var route_index = _fight_model_index_for_key(get_unit(route.unit_id).get("models", []), route.model_key)
+		if route_index < 0:
+			log_phase_message("PILE_IN: movement key %s did not resolve to a model — skipped" % str(model_id))
+			continue
 		var new_pos = movements[model_id]
 		changes.append({
 			"op": "set",
-			"path": "units.%s.models.%s.position" % [unit_id, model_id],
+			"path": "units.%s.models.%d.position" % [route.unit_id, route_index],
 			"value": {"x": new_pos.x, "y": new_pos.y}
 		})
 
 	# Apply pivots (new facings) for any non-circular bases that rotated
 	var rotations = _fight_rotations_from_action(action)
 	for model_id in rotations:
+		var rot_route = _fight_split_move_key(unit_id, model_id)
+		var rot_index = _fight_model_index_for_key(get_unit(rot_route.unit_id).get("models", []), rot_route.model_key)
+		if rot_index < 0:
+			continue
 		changes.append({
 			"op": "set",
-			"path": "units.%s.models.%s.rotation" % [unit_id, model_id],
+			"path": "units.%s.models.%d.rotation" % [rot_route.unit_id, rot_index],
 			"value": float(rotations[model_id])
 		})
 
 	emit_signal("pile_in_preview", unit_id, movements)
 	units_that_piled_in[unit_id] = true
+	# The attached characters' one pile-in move is spent with their
+	# bodyguard's — they are the same Attached unit (19.03).
+	for char_id in _fight_attached_char_ids(unit_id):
+		units_that_piled_in[char_id] = true
 	log_phase_message("Unit %s piled in" % unit_id)
 
 	# 11e 12.02: a move in the global Pile In step — apply now (idempotent
@@ -2250,22 +2265,37 @@ func _process_consolidate_step_11e(action: Dictionary) -> Dictionary:
 	else:
 		log_phase_message("[11e 12.07] %s consolidates — %d model(s) moved" % [unit_id, movements.size()])
 
+	# Keys may address the unit's own models or an attached character's
+	# ("char_unit:key") — 19.03: the Attached unit consolidates as one unit.
 	for model_id in movements:
+		var route = _fight_split_move_key(unit_id, model_id)
+		var route_index = _fight_model_index_for_key(get_unit(route.unit_id).get("models", []), route.model_key)
+		if route_index < 0:
+			log_phase_message("CONSOLIDATE: movement key %s did not resolve to a model — skipped" % str(model_id))
+			continue
 		var new_pos = movements[model_id]
 		changes.append({
 			"op": "set",
-			"path": "units.%s.models.%s.position" % [unit_id, model_id],
+			"path": "units.%s.models.%d.position" % [route.unit_id, route_index],
 			"value": {"x": new_pos.x, "y": new_pos.y}
 		})
 	# Apply pivots (new facings) for any non-circular bases that rotated
 	var consolidate_rotations = _fight_rotations_from_action(action)
 	for model_id in consolidate_rotations:
+		var rot_route = _fight_split_move_key(unit_id, model_id)
+		var rot_index = _fight_model_index_for_key(get_unit(rot_route.unit_id).get("models", []), rot_route.model_key)
+		if rot_index < 0:
+			continue
 		changes.append({
 			"op": "set",
-			"path": "units.%s.models.%s.rotation" % [unit_id, model_id],
+			"path": "units.%s.models.%d.rotation" % [rot_route.unit_id, rot_index],
 			"value": float(consolidate_rotations[model_id])
 		})
 	units_that_consolidated_11e[unit_id] = true
+	# The attached characters' one consolidation move is spent with their
+	# bodyguard's — they are the same Attached unit (19.03).
+	for char_id in _fight_attached_char_ids(unit_id):
+		units_that_consolidated_11e[char_id] = true
 
 	# Apply the movement now (execute_action's re-apply is idempotent) so
 	# the step data / forced-fight decisions below see the real positions.
@@ -2714,24 +2744,24 @@ func _is_model_in_base_contact_with_enemy(unit_id: String, model_id: String) -> 
 func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dictionary:
 	# Delegates to the edition-aware AttackSequence.check_unit_coherency() single source
 	# of truth (11e 03.03: within 2" of a mate AND within 9" of every other model).
-	var unit = get_unit(unit_id)
-	var models = unit.get("models", [])
-
-	# Build model dicts with updated positions
+	# 19.03: coherency is judged on the ATTACHED unit — the bodyguard's and its
+	# attached characters' models together; payload keys may address either
+	# (plain for the chosen unit, "char_unit:key" for an attached character).
 	var all_models = []
-	for i in models.size():
-		var model = models[i]
-		var model_id = str(i)
-
-		if model_id in new_positions:
-			var moved_model = model.duplicate()
-			moved_model["position"] = new_positions[model_id]
-			all_models.append(moved_model)
-		else:
-			var pos_data = model.get("position", {})
-			if pos_data == null:
-				continue
-			all_models.append(model)
+	for gid in _fight_move_group_ids(unit_id):
+		var models = get_unit(gid).get("models", [])
+		for i in models.size():
+			var model = models[i]
+			var np = _fight_payload_for_model(unit_id, new_positions, gid, i, model)
+			if np != null:
+				var moved_model = model.duplicate()
+				moved_model["position"] = np
+				all_models.append(moved_model)
+			else:
+				var pos_data = model.get("position", {})
+				if pos_data == null:
+					continue
+				all_models.append(model)
 
 	if all_models.size() <= 1:
 		return {"valid": true, "errors": []}
@@ -2785,6 +2815,125 @@ func _clear_engagement_flags() -> void:
 		log_phase_message("T5-V13: Cleared is_engaged flag from %d units" % cleared)
 
 # ============================================================================
+# 11e 19.03: ATTACHED-UNIT SUPPORT FOR FIGHT-PHASE MOVES
+# ============================================================================
+# While a CHARACTER is attached to a bodyguard unit they are ONE Attached
+# unit for all rules purposes (19.03). For the global Pile In (12.02) and
+# Consolidate (12.07) steps that means ONE selectable entry and ONE move
+# covering the bodyguard's AND the attached characters' models — the Blade
+# Champion attached to Custodian Guard must not be offered as its own unit.
+# The state model keeps the pieces as separate unit dicts (character:
+# attached_to, bodyguard: attachment_data.attached_characters), so the
+# fight-move pipeline folds them together:
+#  - movement/rotation payload keys: "<idx>"/"m<id>" address the CHOSEN
+#    unit's own models; "<char_unit_id>:<idx-or-id>" addresses an attached
+#    character's model (mirrors the movement phase's "unit:model" keys).
+#  - shared geometry (pile-in targets, engaged-after, coherency, modes) is
+#    evaluated on a FOLDED board where the attached characters' models are
+#    appended to the bodyguard unit (same idea as RulesEngine's
+#    _build_attached_allocation_unit_11e for wound allocation).
+
+# Ids of the character units attached to unit_id (as Strings, existing only).
+func _fight_attached_char_ids(unit_id: String) -> Array:
+	var out: Array = []
+	for char_id in get_unit(unit_id).get("attachment_data", {}).get("attached_characters", []):
+		if not get_unit(str(char_id)).is_empty():
+			out.append(str(char_id))
+	return out
+
+# The unit ids whose models move together in one fight-phase move:
+# the chosen unit plus its attached characters.
+func _fight_move_group_ids(unit_id: String) -> Array:
+	return [unit_id] + _fight_attached_char_ids(unit_id)
+
+# True when unit_id is an attached CHARACTER (a component of some Attached
+# unit). Checks the character's own attached_to back-pointer AND every
+# bodyguard's attachment_data.attached_characters forward list — saves and
+# fixtures exist where only one side of the linkage was written, and the
+# forward list is the side the fold itself relies on.
+func _fight_is_attached_character(unit_id: String) -> bool:
+	var unit = get_unit(unit_id)
+	if unit.get("attached_to", null) != null:
+		return true
+	for other_id in game_state_snapshot.get("units", {}):
+		if other_id == unit_id:
+			continue
+		var chars = game_state_snapshot.units[other_id].get("attachment_data", {}).get("attached_characters", [])
+		if unit_id in chars:
+			return true
+	return false
+
+# Split a movement/rotation payload key: plain keys are the chosen unit's
+# own models, "unit:model" keys are an attached character's models.
+func _fight_split_move_key(base_unit_id: String, key) -> Dictionary:
+	var s := str(key)
+	var sep := s.find(":")
+	if sep < 0:
+		return {"unit_id": base_unit_id, "model_key": s}
+	return {"unit_id": s.substr(0, sep), "model_key": s.substr(sep + 1)}
+
+# The payload value (position/rotation) addressed to models[index] of
+# group-member unit_id, or null. Accepts index or model-id keys, plain
+# (chosen unit only) or "unit:key" prefixed forms.
+func _fight_payload_for_model(base_unit_id: String, payload: Dictionary, unit_id: String, index: int, model: Dictionary):
+	var keys: Array = []
+	var mid := str(model.get("id", ""))
+	if unit_id == base_unit_id:
+		keys.append(str(index))
+		if mid != "":
+			keys.append(mid)
+	keys.append("%s:%d" % [unit_id, index])
+	if mid != "":
+		keys.append("%s:%s" % [unit_id, mid])
+	for k in keys:
+		if payload.has(k):
+			return payload[k]
+	return null
+
+# Board where the attached characters' models are folded into unit_id's
+# model list (and the character units removed) so engagement / target /
+# coherency geometry sees the Attached unit as the single unit it is.
+# Move-eligibility flags are OR-merged (the whole Attached unit charged
+# when its bodyguard charged — ChargePhase already stamps both).
+func _fight_folded_board(unit_id: String, board: Dictionary) -> Dictionary:
+	var char_ids = _fight_attached_char_ids(unit_id)
+	if char_ids.is_empty():
+		return board
+	var folded = board.duplicate(true)
+	var units = folded.get("units", {})
+	var base = units.get(unit_id, {})
+	if base.is_empty():
+		return folded
+	if not base.has("models"):
+		base["models"] = []
+	if not base.has("flags"):
+		base["flags"] = {}
+	for char_id in char_ids:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+		for m in char_unit.get("models", []):
+			base.models.append(m)
+		for flag in ["charged_this_turn", "selected_for_overrun_fight", "was_eligible_to_fight", "fights_first"]:
+			if char_unit.get("flags", {}).get(flag, false):
+				base.flags[flag] = true
+		units.erase(char_id)
+	return folded
+
+# Display name for the Attached unit's single picker entry:
+# "Custodian Guard + Blade Champion" (movement panel convention).
+func _fight_attached_display_name(unit_id: String) -> String:
+	var meta = get_unit(unit_id).get("meta", {})
+	var name = meta.get("display_name", meta.get("name", unit_id))
+	var char_names: Array = []
+	for char_id in _fight_attached_char_ids(unit_id):
+		var cmeta = get_unit(char_id).get("meta", {})
+		char_names.append(cmeta.get("display_name", cmeta.get("name", char_id)))
+	if char_names.is_empty():
+		return name
+	return "%s + %s" % [name, ", ".join(char_names)]
+
+# ============================================================================
 # 11e 12.02-12.03: GLOBAL PILE IN STEP
 # ============================================================================
 
@@ -2792,6 +2941,9 @@ func _clear_engagement_flags() -> void:
 # clause — selected for an overrun fight — grants the ADDITIONAL pile-in
 # during the Fight step, not a move in this step). Plus alive, hasn't made
 # its one step move yet (12.02), and not AIRCRAFT (T4-4: cannot Pile In).
+# 19.03: an attached CHARACTER is part of its bodyguard's entry, never its
+# own; the bodyguard's eligibility is the ATTACHED unit's (any component
+# sub-unit eligible — e.g. only the Leader's model in engagement range).
 func _pile_in_eligible_units_11e(player: int) -> Array:
 	var out: Array = []
 	var tmpl: PileInMove = MoveTypes.get_type("pile_in")
@@ -2799,18 +2951,30 @@ func _pile_in_eligible_units_11e(player: int) -> Array:
 		var unit = GameState.state.units[unit_id]
 		if int(unit.get("owner", 0)) != player:
 			continue
+		if _fight_is_attached_character(unit_id):
+			continue
 		if units_that_piled_in.get(unit_id, false):
 			continue
 		if _unit_has_keyword(unit, "AIRCRAFT"):
 			continue
 		var any_alive = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				any_alive = true
+		for gid in _fight_move_group_ids(unit_id):
+			for model in get_unit(gid).get("models", []):
+				if model.get("alive", true):
+					any_alive = true
+					break
+			if any_alive:
 				break
 		if not any_alive:
 			continue
-		if tmpl == null or not tmpl.eligible(unit_id, GameState.state).eligible:
+		if tmpl == null:
+			continue
+		var group_eligible = false
+		for gid in _fight_move_group_ids(unit_id):
+			if tmpl.eligible(gid, GameState.state).eligible:
+				group_eligible = true
+				break
+		if not group_eligible:
 			continue
 		out.append(unit_id)
 	return out
@@ -2870,10 +3034,18 @@ func _advance_pile_in_step_11e(result: Dictionary) -> Dictionary:
 func _build_pile_in_step_data_11e(eligible: Array) -> Dictionary:
 	var units := {}
 	for unit_id in eligible:
-		var unit = get_unit(unit_id)
+		# 19.03: one entry for the Attached unit — "Guard + Blade Champion" —
+		# engaged if ANY of its component sub-units is (the Leader's model in
+		# engagement range engages the whole Attached unit).
+		var engaged := false
+		for gid in _fight_move_group_ids(unit_id):
+			if RulesEngine.is_unit_engaged(gid, GameState.state):
+				engaged = true
+				break
 		units[unit_id] = {
-			"name": unit.get("meta", {}).get("name", unit_id),
-			"engaged": RulesEngine.is_unit_engaged(unit_id, GameState.state)
+			"name": _fight_attached_display_name(unit_id),
+			"engaged": engaged,
+			"attached_characters": _fight_attached_char_ids(unit_id)
 		}
 	return {
 		"piling_in_player": piling_in_player_11e,
@@ -2933,16 +3105,30 @@ func _consolidation_eligible_units_11e(player: int) -> Array:
 		var unit = GameState.state.units[unit_id]
 		if int(unit.get("owner", 0)) != player:
 			continue
+		# 19.03: an attached CHARACTER consolidates as part of its bodyguard's
+		# entry — never as a separate unit.
+		if _fight_is_attached_character(unit_id):
+			continue
 		if units_that_consolidated_11e.has(unit_id):
 			continue
-		if not unit.get("flags", {}).get("was_eligible_to_fight", false):
+		# The Attached unit was eligible to fight if ANY of its component
+		# sub-units carries the cumulative 12.08 stamp.
+		var group_was_eligible = false
+		for gid in _fight_move_group_ids(unit_id):
+			if get_unit(gid).get("flags", {}).get("was_eligible_to_fight", false):
+				group_was_eligible = true
+				break
+		if not group_was_eligible:
 			continue
 		if _unit_has_keyword(unit, "AIRCRAFT"):
 			continue
 		var any_alive = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				any_alive = true
+		for gid in _fight_move_group_ids(unit_id):
+			for model in get_unit(gid).get("models", []):
+				if model.get("alive", true):
+					any_alive = true
+					break
+			if any_alive:
 				break
 		if not any_alive:
 			continue
@@ -3013,13 +3199,15 @@ func _build_consolidation_step_data_11e(eligible: Array) -> Dictionary:
 	var units := {}
 	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
 	for unit_id in eligible:
-		var unit = get_unit(unit_id)
+		# 19.03: one entry for the Attached unit; the 12.08 mode is assessed
+		# on the folded board so the characters' models count as part of it.
 		var mode = ""
 		if tmpl != null:
-			mode = str(tmpl.select_mode(unit_id, GameState.state).mode)
+			mode = str(tmpl.select_mode(unit_id, _fight_folded_board(unit_id, GameState.state)).mode)
 		units[unit_id] = {
-			"name": unit.get("meta", {}).get("name", unit_id),
-			"mode": mode
+			"name": _fight_attached_display_name(unit_id),
+			"mode": mode,
+			"attached_characters": _fight_attached_char_ids(unit_id)
 		}
 	return {
 		"consolidating_player": consolidating_player_11e,
@@ -3377,6 +3565,11 @@ func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: Strin
 	# Using the stamp (not a live engagement re-check) keeps this consistent with
 	# the sequencer's own engagement definition.
 	var already_in_sequence = {consolidating_unit_id: true}
+	# 19.03: the attached characters moved as part of this consolidation —
+	# they are the same Attached unit, never a "new foe" of their own.
+	var scan_char_ids = _fight_attached_char_ids(consolidating_unit_id)
+	for char_id in scan_char_ids:
+		already_in_sequence[char_id] = true
 	for uid in all_units:
 		if all_units[uid].get("flags", {}).get("was_eligible_to_fight", false):
 			already_in_sequence[uid] = true
@@ -3386,16 +3579,23 @@ func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: Strin
 	if consolidating_unit.is_empty():
 		return newly_eligible
 
+	# The temp view FOLDS the attached characters' models into the unit (with
+	# their own proposed positions applied) so an Engaging Consolidation led
+	# by the Leader's model still forces the fight (19.03: one Attached unit).
 	var temp_consolidating_unit = consolidating_unit.duplicate(true)
 	var temp_models = temp_consolidating_unit.get("models", [])
-	for model_id in movements:
-		# Resolve by id/index, not int(model_id) — int("m2") == 2 mis-indexes
-		# the 1-based model ids the FightController submits, so the wrong model's
-		# position was moved when scanning post-consolidation fight eligibility.
-		var idx = _fight_model_index_for_key(temp_models, model_id)
-		if idx >= 0:
-			var new_pos = movements[model_id]
-			temp_models[idx]["position"] = {"x": new_pos.x, "y": new_pos.y}
+	for i in temp_models.size():
+		var np = _fight_payload_for_model(consolidating_unit_id, movements, consolidating_unit_id, i, temp_models[i])
+		if np != null:
+			temp_models[i]["position"] = {"x": np.x, "y": np.y}
+	for char_id in scan_char_ids:
+		var char_models = all_units.get(char_id, {}).get("models", [])
+		for i in char_models.size():
+			var cm = char_models[i].duplicate(true)
+			var cnp = _fight_payload_for_model(consolidating_unit_id, movements, char_id, i, cm)
+			if cnp != null:
+				cm["position"] = {"x": cnp.x, "y": cnp.y}
+			temp_models.append(cm)
 
 	var consolidating_owner = consolidating_unit.get("owner", 0)
 
@@ -3452,6 +3652,10 @@ func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: Strin
 				# For the consolidating unit, use updated positions
 				if other_unit_id == consolidating_unit_id:
 					continue  # Already checked above with override
+				# Attached characters moved with it — their models are part of
+				# the folded temp view checked above, not stale entries here.
+				if other_unit_id in scan_char_ids:
+					continue
 
 				# T4-4: Aircraft restrictions
 				var other_is_aircraft = _unit_has_keyword(other_unit, "AIRCRAFT")
@@ -3519,15 +3723,27 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 	var errors = []
 	var all_units = game_state_snapshot.get("units", {})
 
-	# Get unit and models
-	var unit = all_units.get(unit_id, {})
-	var models = unit.get("models", [])
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	# 19.03: one fight-phase move may reposition the chosen unit's own models
+	# AND its attached characters' ("char_unit:key" payload keys). Precompute
+	# every moved model's proposed position (keyed "unit|index") so any pair —
+	# including cross-unit bodyguard/character pairs — compares proposed
+	# against proposed, not against a stale position.
+	var proposed := {}
+	for gid in _fight_move_group_ids(unit_id):
+		var gmodels = all_units.get(gid, {}).get("models", [])
+		for i in gmodels.size():
+			var np = _fight_payload_for_model(unit_id, movements, gid, i, gmodels[i])
+			if np != null:
+				proposed["%s|%d" % [gid, i]] = np
 
 	# Check each model's new position
 	for model_id in movements:
 		var new_pos = movements[model_id]
 		if new_pos is Vector2:
+			var route = _fight_split_move_key(unit_id, model_id)
+			var route_unit = all_units.get(route.unit_id, {})
+			var models = route_unit.get("models", [])
+			var unit_keywords = route_unit.get("meta", {}).get("keywords", [])
 			# Resolve the movement key ("m2" id or "1" index) to an array index.
 			# NOT int(model_id): GDScript's int("m2") == 2 (it parses the trailing
 			# digits), which is off by one for the 1-based model ids the
@@ -3536,7 +3752,7 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 			# position, producing phantom "would overlap with <unit>/N" errors
 			# during pile-in / consolidate, and skipped the last model entirely
 			# (int("m3") == size).
-			var model_index = _fight_model_index_for_key(models, model_id)
+			var model_index = _fight_model_index_for_key(models, route.model_key)
 			if model_index >= 0:
 				var model = models[model_index]
 
@@ -3553,24 +3769,17 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 						var other_model = check_models[i]
 
 						# Skip self
-						if check_unit_id == unit_id and i == model_index:
+						if check_unit_id == route.unit_id and i == model_index:
 							continue
 
 						# Skip dead models
 						if not other_model.get("alive", true):
 							continue
 
-						# Get position. If this other model is ALSO being moved in
-						# the same submission, compare against its proposed position
-						# rather than the stale one. Its movement may be keyed by
-						# index ("1") or by model id ("m2").
-						var other_position = _get_model_position(check_unit_id, str(i))
-						if check_unit_id == unit_id:
-							var other_id = str(other_model.get("id", ""))
-							if movements.has(str(i)):
-								other_position = movements[str(i)]
-							elif other_id != "" and movements.has(other_id):
-								other_position = movements[other_id]
+						# If this other model is ALSO being moved in the same
+						# submission (same unit or an attached character), compare
+						# against its proposed position rather than the stale one.
+						var other_position = proposed.get("%s|%d" % [check_unit_id, i], _get_model_position(check_unit_id, str(i)))
 
 						if other_position == null:
 							continue
@@ -4990,20 +5199,19 @@ func _simulate_fight_board_with_movements(unit_id: String, movements: Dictionary
 	# Deep copy of live state with the proposed model positions (and pivot
 	# facings) applied — used to evaluate a template's AFTER conditions before
 	# committing. Rotation matters for non-circular bases whose engagement reach
-	# depends on their orientation.
+	# depends on their orientation. Payload keys may address the unit's own
+	# models OR an attached character's ("char_unit:key") — 19.03 moves the
+	# whole Attached unit in one action.
 	var sim = GameState.state.duplicate(true)
-	var models = sim.get("units", {}).get(unit_id, {}).get("models", [])
-	for key in movements:
-		var np = movements[key]
+	for gid in _fight_move_group_ids(unit_id):
+		var models = sim.get("units", {}).get(gid, {}).get("models", [])
 		for i in models.size():
-			if str(i) == str(key) or str(models[i].get("id", "")) == str(key):
+			var np = _fight_payload_for_model(unit_id, movements, gid, i, models[i])
+			if np != null:
 				models[i]["position"] = {"x": np.x, "y": np.y}
-				break
-	for key in rotations:
-		for i in models.size():
-			if str(i) == str(key) or str(models[i].get("id", "")) == str(key):
-				models[i]["rotation"] = float(rotations[key])
-				break
+			var nr = _fight_payload_for_model(unit_id, rotations, gid, i, models[i])
+			if nr != null:
+				models[i]["rotation"] = float(nr)
 	return sim
 
 func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
@@ -5012,6 +5220,11 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return {"valid": false, "errors": ["Unit %s not found" % unit_id]}
+
+	# 19.03: an attached CHARACTER has no pile-in of its own — the Attached
+	# unit moves once, through its bodyguard's PILE_IN.
+	if _fight_is_attached_character(unit_id):
+		return {"valid": false, "errors": ["%s is an attached character — the Attached unit piles in as one unit through its bodyguard (19.03)" % unit_id]}
 
 	# 12.02: pile-in happens in the global step at the START of the fight
 	# phase — or as an Overrun fight's ADDITIONAL move (12.06), never as a
@@ -5031,27 +5244,36 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 			return {"valid": false, "errors": ["AIRCRAFT units cannot Pile In"]}
 		return {"valid": true, "errors": []}
 	var tmpl: PileInMove = MoveTypes.get_type("pile_in")
-	var el = tmpl.eligible(unit_id, GameState.state)
+	# 19.03: eligibility and shared geometry (targets, engaged-after) are the
+	# ATTACHED unit's — evaluate the template on the folded board so attached
+	# character models count as part of this unit.
+	var folded_board = _fight_folded_board(unit_id, GameState.state)
+	var el = tmpl.eligible(unit_id, folded_board)
 	if not el.eligible:
 		return {"valid": false, "errors": el.reasons}
 	# An eligible unit may decline to move (the step/extra move is optional)
 	if movements.is_empty():
 		return {"valid": true, "errors": []}
-	var ctx = tmpl.before_moving(unit_id, GameState.state, null, {})
+	var ctx = tmpl.before_moving(unit_id, folded_board, null, {})
 	if ctx.has("error"):
 		return {"valid": false, "errors": [ctx.error]}
 	var rotations = _fight_rotations_from_action(action)
 	var errors: Array = []
+	var attached_ids = _fight_attached_char_ids(unit_id)
 	for key in movements:
-		var old_pos = _get_model_position(unit_id, key)
+		var route = _fight_split_move_key(unit_id, key)
+		if route.unit_id != unit_id and not route.unit_id in attached_ids:
+			errors.append("Model key %s does not address %s or one of its attached characters" % [str(key), unit_id])
+			continue
+		var old_pos = _get_model_position(route.unit_id, route.model_key)
 		var new_pos = movements[key]
 		if old_pos == Vector2.ZERO:
 			errors.append("Model %s position not found" % str(key))
 			continue
 		var dist = Measurement.distance_inches(old_pos, new_pos)
 		# A pivoted model spends part of its 3" on the pivot cost (Pariah Nexus).
-		var move_model = _resolve_fight_model(unit_id, key)
-		var cap = _fight_effective_move_cap(unit, move_model, rotations, key)
+		var move_model = _resolve_fight_model(route.unit_id, route.model_key)
+		var cap = _fight_effective_move_cap(get_unit(route.unit_id), move_model, rotations, key)
 		if dist > cap + MOVEMENT_CAP_EPSILON:
 			if cap < 3.0:
 				errors.append("Model %s pile in exceeds %.0f\" limit after pivot cost (%.1f\")" % [str(key), cap, dist])
@@ -5067,9 +5289,10 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 	var coherency_check = _validate_unit_coherency(unit_id, movements)
 	if not coherency_check.get("valid", false):
 		errors.append_array(coherency_check.get("errors", []))
-	# 12.03 AFTER — engaged + started-engaged pairs maintained.
+	# 12.03 AFTER — engaged + started-engaged pairs maintained (on the folded
+	# post-move board, so the Attached unit is judged as one unit).
 	var sim = _simulate_fight_board_with_movements(unit_id, movements, rotations)
-	var after = tmpl.after_moving_conditions(unit_id, sim, ctx)
+	var after = tmpl.after_moving_conditions(unit_id, _fight_folded_board(unit_id, sim), ctx)
 	if not after.ok:
 		errors.append_array(after.violations)
 	return {"valid": errors.is_empty(), "errors": errors}
@@ -5086,6 +5309,10 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return {"valid": false, "errors": ["Unit %s not found" % unit_id]}
+	# 19.03: an attached CHARACTER has no consolidation of its own — the
+	# Attached unit moves once, through its bodyguard's CONSOLIDATE.
+	if _fight_is_attached_character(unit_id):
+		return {"valid": false, "errors": ["%s is an attached character — the Attached unit consolidates as one unit through its bodyguard (19.03)" % unit_id]}
 	if int(unit.get("owner", 0)) != consolidating_player_11e:
 		return {"valid": false, "errors": ["Not your half of the Consolidate step — Player %d consolidates first (12.07)" % consolidating_player_11e]}
 	if units_that_consolidated_11e.has(unit_id):
@@ -5095,11 +5322,15 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 			return {"valid": false, "errors": ["AIRCRAFT units cannot Consolidate"]}
 		return {"valid": true, "errors": []}
 	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
+	# 19.03: eligibility, mode selection and shared geometry are the ATTACHED
+	# unit's — evaluate the template on the folded board so attached character
+	# models count as part of this unit.
+	var folded_board = _fight_folded_board(unit_id, GameState.state)
 	# 12.08 ELIGIBLE IF: the unit was eligible to fight this phase.
-	var el = tmpl.eligible(unit_id, GameState.state)
+	var el = tmpl.eligible(unit_id, folded_board)
 	if not el.eligible:
 		return {"valid": false, "errors": el.reasons}
-	var sel = tmpl.select_mode(unit_id, GameState.state)
+	var sel = tmpl.select_mode(unit_id, folded_board)
 	var mode = str(sel.mode)
 	# Per-model consolidation is optional (FAQ): an empty payload completes
 	# the mandatory step without moving. Only validate geometry when models
@@ -5108,21 +5339,26 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 		return {"valid": true, "errors": []}
 	if mode == "":
 		return {"valid": false, "errors": ["no consolidation mode applies — the unit cannot move (12.08)"]}
-	var ctx = tmpl.before_moving(unit_id, GameState.state, null, {"mode": mode})
+	var ctx = tmpl.before_moving(unit_id, folded_board, null, {"mode": mode})
 	if ctx.has("error"):
 		return {"valid": false, "errors": [ctx.error]}
 	var rotations = _fight_rotations_from_action(action)
 	var errors: Array = []
+	var attached_ids = _fight_attached_char_ids(unit_id)
 	for key in movements:
-		var old_pos = _get_model_position(unit_id, key)
+		var route = _fight_split_move_key(unit_id, key)
+		if route.unit_id != unit_id and not route.unit_id in attached_ids:
+			errors.append("Model key %s does not address %s or one of its attached characters" % [str(key), unit_id])
+			continue
+		var old_pos = _get_model_position(route.unit_id, route.model_key)
 		var new_pos = movements[key]
 		if old_pos == Vector2.ZERO:
 			errors.append("Model %s position not found" % str(key))
 			continue
 		var dist = Measurement.distance_inches(old_pos, new_pos)
 		# A pivoted model spends part of its 3" on the pivot cost (Pariah Nexus).
-		var move_model = _resolve_fight_model(unit_id, key)
-		var cap = _fight_effective_move_cap(unit, move_model, rotations, key)
+		var move_model = _resolve_fight_model(route.unit_id, route.model_key)
+		var cap = _fight_effective_move_cap(get_unit(route.unit_id), move_model, rotations, key)
 		if dist > cap + MOVEMENT_CAP_EPSILON:
 			if cap < 3.0:
 				errors.append("Model %s consolidation exceeds %.0f\" limit after pivot cost (%.1f\")" % [str(key), cap, dist])
@@ -5135,8 +5371,11 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
 	if not overlap_check.valid:
 		errors.append_array(overlap_check.errors)
+	# 12.08 AFTER — evaluated on the folded post-move board so the Attached
+	# unit (bodyguard + attached characters) is judged as one unit, including
+	# its coherency check inside after_moving_conditions.
 	var sim = _simulate_fight_board_with_movements(unit_id, movements, rotations)
-	var after = tmpl.after_moving_conditions(unit_id, sim, ctx)
+	var after = tmpl.after_moving_conditions(unit_id, _fight_folded_board(unit_id, sim), ctx)
 	if not after.ok:
 		errors.append_array(after.violations)
 	return {"valid": errors.is_empty(), "errors": errors}

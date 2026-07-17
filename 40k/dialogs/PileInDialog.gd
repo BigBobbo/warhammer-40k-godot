@@ -27,9 +27,14 @@ func setup(fighter_id: String, max_dist: float, phase, controller = null) -> voi
 	phase_reference = phase
 	controller_reference = controller
 
-	var unit = phase.get_unit(unit_id)
-	var _pid_meta = unit.get("meta", {})
-	title = "Pile In: %s" % _pid_meta.get("display_name", _pid_meta.get("name", unit_id))
+	# 19.03: the attached characters pile in as part of this unit — title the
+	# move as the Attached unit ("Custodian Guard + Blade Champion").
+	if phase != null and phase.has_method("_fight_attached_display_name"):
+		title = "Pile In: %s" % phase._fight_attached_display_name(unit_id)
+	else:
+		var unit = phase.get_unit(unit_id)
+		var _pid_meta = unit.get("meta", {})
+		title = "Pile In: %s" % _pid_meta.get("display_name", _pid_meta.get("name", unit_id))
 
 	_build_ui()
 

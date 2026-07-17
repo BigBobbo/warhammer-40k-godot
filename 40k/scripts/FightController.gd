@@ -1678,30 +1678,35 @@ func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
 	# Enable pile-in mode
 	_enable_pile_in_mode(unit_id, dialog)
 
+func _convert_fight_move_payload(unit_id: String, payload: Dictionary) -> Dictionary:
+	"""Convert tracking keys ("m1" / "char_unit:m1") to the index form FightPhase
+	expects ("0" for the chosen unit's models, "char_unit:0" for an attached
+	character's — 19.03: one Attached-unit move covers both)."""
+	var converted = {}
+	if not current_phase:
+		return converted
+	for key in payload:
+		var route = _pile_in_split_key(str(key))
+		# Keys always carry the chosen unit's models unprefixed; when consolidate
+		# mode re-enters with a different pile_in_unit_id fall back to unit_id.
+		var route_unit_id = route.unit_id if route.unit_id != "" else unit_id
+		var models = current_phase.get_unit(route_unit_id).get("models", [])
+		for i in range(models.size()):
+			if models[i].get("id", "") == route.model_id:
+				var out_key = str(i) if route_unit_id == unit_id else "%s:%d" % [route_unit_id, i]
+				converted[out_key] = payload[key]
+				print("[FightController] Converted ", key, " to ", out_key)
+				break
+	return converted
+
 func _on_pile_in_confirmed(movements: Dictionary, unit_id: String) -> void:
 	"""Submit PILE_IN action with movements"""
 	print("[FightController] Pile-in confirmed with movements: ", movements)
 
 	# Convert model IDs from "m1" format to array indices "0" format for FightPhase
-	var converted_movements = {}
-	var converted_rotations = {}
-	var rotations = get_pile_in_rotations()
-	if current_phase and (not movements.is_empty() or not rotations.is_empty()):
-		var unit = current_phase.get_unit(unit_id)
-		if unit:
-			var models = unit.get("models", [])
-			for model_id in movements:
-				# Find the array index for this model_id
-				for i in range(models.size()):
-					if models[i].get("id", "") == model_id:
-						converted_movements[str(i)] = movements[model_id]
-						print("[FightController] Converted ", model_id, " to index ", i)
-						break
-			for model_id in rotations:
-				for i in range(models.size()):
-					if models[i].get("id", "") == model_id:
-						converted_rotations[str(i)] = rotations[model_id]
-						break
+	# (attached characters' models keep their "unit:index" prefix)
+	var converted_movements = _convert_fight_move_payload(unit_id, movements)
+	var converted_rotations = _convert_fight_move_payload(unit_id, get_pile_in_rotations())
 
 	print("[FightController] Converted movements: ", converted_movements, " rotations: ", converted_rotations)
 
@@ -1897,25 +1902,9 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
 	print("[FightController] Consolidate confirmed with movements: ", movements)
 
 	# Convert model IDs from "m1" format to array indices "0" format for FightPhase
-	var converted_movements = {}
-	var converted_rotations = {}
-	var rotations = get_pile_in_rotations()
-	if current_phase and (not movements.is_empty() or not rotations.is_empty()):
-		var unit = current_phase.get_unit(unit_id)
-		if unit:
-			var models = unit.get("models", [])
-			for model_id in movements:
-				# Find the array index for this model_id
-				for i in range(models.size()):
-					if models[i].get("id", "") == model_id:
-						converted_movements[str(i)] = movements[model_id]
-						print("[FightController] Converted ", model_id, " to index ", i)
-						break
-			for model_id in rotations:
-				for i in range(models.size()):
-					if models[i].get("id", "") == model_id:
-						converted_rotations[str(i)] = rotations[model_id]
-						break
+	# (attached characters' models keep their "unit:index" prefix)
+	var converted_movements = _convert_fight_move_payload(unit_id, movements)
+	var converted_rotations = _convert_fight_move_payload(unit_id, get_pile_in_rotations())
 
 	print("[FightController] Converted movements: ", converted_movements, " rotations: ", converted_rotations)
 
@@ -2133,8 +2122,38 @@ func _on_attack_assigned(attacker_id: String, target_id: String, weapon_id: Stri
 # PILE-IN/CONSOLIDATE INTERACTIVE MODE
 # ============================================================================
 
+# ============================================================================
+# ATTACHED-UNIT (19.03) KEY SPACE FOR PILE-IN / CONSOLIDATE
+# ============================================================================
+# The piling-in unit and its attached characters move as ONE Attached unit.
+# Position/rotation tracking keys: the chosen unit's own models keep their
+# raw model id ("m1"); an attached character's models are keyed
+# "<char_unit_id>:m1" (mirrors the movement phase's unit:model convention
+# and the FightPhase payload format).
+
+func _pile_in_group_unit_ids() -> Array:
+	"""The piling-in unit plus its attached character units."""
+	var out: Array = [pile_in_unit_id]
+	if current_phase and pile_in_unit_id != "":
+		var unit = current_phase.get_unit(pile_in_unit_id)
+		for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+			out.append(str(char_id))
+	return out
+
+func _pile_in_model_key(unit_id: String, model_id: String) -> String:
+	if unit_id == pile_in_unit_id:
+		return model_id
+	return "%s:%s" % [unit_id, model_id]
+
+func _pile_in_split_key(key: String) -> Dictionary:
+	"""{unit_id, model_id} for a tracking key (plain or 'unit:model')."""
+	var sep := key.find(":")
+	if sep < 0:
+		return {"unit_id": pile_in_unit_id, "model_id": key}
+	return {"unit_id": key.substr(0, sep), "model_id": key.substr(sep + 1)}
+
 func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
-	"""Enable interactive pile-in mode for the unit"""
+	"""Enable interactive pile-in mode for the unit (and its attached characters)"""
 	pile_in_active = true
 	pile_in_unit_id = unit_id
 	pile_in_dialog_ref = dialog
@@ -2152,25 +2171,36 @@ func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
 	locked_base_contact_models.clear()
 	pile_in_last_touched_model = ""
 
-	var models = unit.get("models", [])
-	for i in range(models.size()):
-		var model = models[i]
-		var pos_data = model.get("position", {})
-		if pos_data == null:
+	# 19.03: the attached characters' models pile in / consolidate as part of
+	# this unit — seed them too so the player can drag every model of the
+	# Attached unit in the one move. Sweeping Advance / Acrobatic Escape reuse
+	# this mode but their submit paths stay single-unit, so they keep the
+	# chosen unit's own models only.
+	var seed_ids = _pile_in_group_unit_ids() if not (sweeping_advance_active or acrobatic_escape_active) else [unit_id]
+	for group_unit_id in seed_ids:
+		var group_unit = current_phase.get_unit(group_unit_id)
+		if group_unit.is_empty():
 			continue
-		var pos = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
-		# Use the model's actual ID (e.g., "m1", "m2") not the array index
-		var model_id = model.get("id", "m%d" % (i+1))
-		original_model_positions[model_id] = pos
-		current_model_positions[model_id] = pos
-		# Seed rotation state so pivots measure against the model's starting facing
-		var rot = float(model.get("rotation", 0.0))
-		original_model_rotations[model_id] = rot
-		current_model_rotations[model_id] = rot
-		print("[FightController] Stored position for model ", model_id, " at ", pos)
+		var models = group_unit.get("models", [])
+		for i in range(models.size()):
+			var model = models[i]
+			var pos_data = model.get("position", {})
+			if pos_data == null:
+				continue
+			var pos = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
+			# Use the model's actual ID (e.g., "m1", "m2") not the array index
+			var model_id = model.get("id", "m%d" % (i+1))
+			var key = _pile_in_model_key(group_unit_id, model_id)
+			original_model_positions[key] = pos
+			current_model_positions[key] = pos
+			# Seed rotation state so pivots measure against the model's starting facing
+			var rot = float(model.get("rotation", 0.0))
+			original_model_rotations[key] = rot
+			current_model_rotations[key] = rot
+			print("[FightController] Stored position for model ", key, " at ", pos)
 
 	# T4-5: Detect models already in base contact with an enemy and lock them
-	_detect_locked_base_contact_models(unit)
+	_detect_locked_base_contact_models()
 
 	# Create visual indicators
 	_create_pile_in_visuals()
@@ -2179,46 +2209,53 @@ func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
 	if not locked_base_contact_models.is_empty():
 		print("[FightController] T4-5: %d model(s) locked (already in base contact)" % locked_base_contact_models.size())
 
-func _detect_locked_base_contact_models(unit: Dictionary) -> void:
+func _detect_locked_base_contact_models() -> void:
 	"""T4-5: Detect models already in base-to-base contact with an enemy.
-	Per 10e rules, models already in base contact are not moved during pile-in/consolidation."""
+	Per 10e rules, models already in base contact are not moved during pile-in/consolidation.
+	Covers the piling-in unit AND its attached characters (19.03)."""
 	if not current_phase:
 		return
 
-	var models = unit.get("models", [])
 	var all_units = current_phase.game_state_snapshot.get("units", {})
-	var unit_owner = unit.get("owner", 0)
 	const B2B_TOLERANCE: float = 0.1  # Match BASE_CONTACT_TOLERANCE_INCHES (was 0.25 — too generous)
 
-	for i in range(models.size()):
-		var model = models[i]
-		if not model.get("alive", true):
+	for group_unit_id in _pile_in_group_unit_ids():
+		var group_unit = current_phase.get_unit(group_unit_id)
+		if group_unit.is_empty():
 			continue
+		var models = group_unit.get("models", [])
+		var unit_owner = group_unit.get("owner", 0)
 
-		var model_id = model.get("id", "m%d" % (i + 1))
-		var pos_data = model.get("position", {})
-		if pos_data == null:
-			continue
+		for i in range(models.size()):
+			var model = models[i]
+			if not model.get("alive", true):
+				continue
 
-		# Check distance to all enemy models
-		for other_unit_id in all_units:
-			var other_unit = all_units[other_unit_id]
-			if other_unit.get("owner", 0) == unit_owner:
-				continue  # Skip friendly units
+			var model_id = model.get("id", "m%d" % (i + 1))
+			var key = _pile_in_model_key(group_unit_id, model_id)
+			var pos_data = model.get("position", {})
+			if pos_data == null:
+				continue
 
-			var enemy_models = other_unit.get("models", [])
-			for enemy_model in enemy_models:
-				if not enemy_model.get("alive", true):
-					continue
+			# Check distance to all enemy models
+			for other_unit_id in all_units:
+				var other_unit = all_units[other_unit_id]
+				if other_unit.get("owner", 0) == unit_owner:
+					continue  # Skip friendly units
 
-				var distance = Measurement.model_to_model_distance_inches(model, enemy_model)
-				if distance <= B2B_TOLERANCE:
-					locked_base_contact_models[model_id] = true
-					print("[FightController] T4-5: Model %s is in base contact with enemy (%.2f\") — locked" % [model_id, distance])
-					break  # No need to check more enemies for this model
+				var enemy_models = other_unit.get("models", [])
+				for enemy_model in enemy_models:
+					if not enemy_model.get("alive", true):
+						continue
 
-			if model_id in locked_base_contact_models:
-				break  # Already found base contact, skip remaining enemy units
+					var distance = Measurement.model_to_model_distance_inches(model, enemy_model)
+					if distance <= B2B_TOLERANCE:
+						locked_base_contact_models[key] = true
+						print("[FightController] T4-5: Model %s is in base contact with enemy (%.2f\") — locked" % [key, distance])
+						break  # No need to check more enemies for this model
+
+				if key in locked_base_contact_models:
+					break  # Already found base contact, skip remaining enemy units
 
 func _disable_pile_in_mode() -> void:
 	"""Disable pile-in mode and clean up"""
@@ -2533,15 +2570,17 @@ func _apply_model_positions_to_scene() -> void:
 	if not token_layer:
 		return
 
-	# Update each model token's position and facing
-	for model_id in current_model_positions:
+	# Update each model token's position and facing (keys may address the
+	# unit's own models or an attached character's — "unit:model")
+	for key in current_model_positions:
+		var route = _pile_in_split_key(key)
 		# Find the token with matching metadata
 		for token in token_layer.get_children():
 			if token.has_meta("unit_id") and token.has_meta("model_id"):
-				if token.get_meta("unit_id") == pile_in_unit_id and token.get_meta("model_id") == model_id:
-					token.position = current_model_positions[model_id]
-					if current_model_rotations.has(model_id) and "model_data" in token and token.model_data is Dictionary:
-						token.model_data["rotation"] = current_model_rotations[model_id]
+				if token.get_meta("unit_id") == route.unit_id and token.get_meta("model_id") == route.model_id:
+					token.position = current_model_positions[key]
+					if current_model_rotations.has(key) and "model_data" in token and token.model_data is Dictionary:
+						token.model_data["rotation"] = current_model_rotations[key]
 						token.queue_redraw()
 					break
 
@@ -2554,12 +2593,12 @@ func _maybe_snap_to_b2b(candidate_pos: Vector2) -> Vector2:
 	var attacker_unit = GameState.get_unit(pile_in_unit_id) if GameState else {}
 	if attacker_unit.is_empty():
 		return Vector2.ZERO
-	# Find own model's base radius
+	# Find own model's base radius (the dragged model may belong to an
+	# attached character — _find_pile_in_model resolves the key)
 	var own_radius_px: float = 25.0
-	for m in attacker_unit.get("models", []):
-		if m.get("id", "") == drag_model_id:
-			own_radius_px = Measurement.base_radius_px(m.get("base_mm", 32))
-			break
+	var drag_model = _find_pile_in_model(drag_model_id)
+	if not drag_model.is_empty():
+		own_radius_px = Measurement.base_radius_px(drag_model.get("base_mm", 32))
 	# Iterate enemy units (units of the OTHER owner) for closest model
 	var owner = int(attacker_unit.get("owner", 0))
 	var snap_zone_px: float = Measurement.inches_to_px(PILEIN_SNAP_ZONE_INCHES)
@@ -2656,21 +2695,23 @@ func _start_model_drag_pile_in(mouse_pos: Vector2) -> void:
 
 	print("[FightController] Checking ", current_model_positions.size(), " models")
 
-	# Find which model token is being clicked
+	# Find which model token is being clicked — the piling-in unit's own
+	# models or an attached character's ("unit:model" keys)
 	# Models are individual TokenVisual nodes in token_layer with metadata
-	for model_id in current_model_positions:
-		var model_pos = current_model_positions[model_id]
+	for key in current_model_positions:
+		var model_pos = current_model_positions[key]
 		var distance_to_mouse = mouse_pos.distance_to(model_pos)
 
-		print("[FightController] Model ", model_id, " at ", model_pos, " distance: ", distance_to_mouse)
+		print("[FightController] Model ", key, " at ", model_pos, " distance: ", distance_to_mouse)
 
 		# Check if click is within model's base (50px radius for easier clicking)
 		if distance_to_mouse < 50.0:
 			# T4-5: Block dragging for models already in base contact with an enemy
-			if model_id in locked_base_contact_models:
-				print("[FightController] T4-5: Model %s is locked (already in base contact) — cannot drag" % model_id)
+			if key in locked_base_contact_models:
+				print("[FightController] T4-5: Model %s is locked (already in base contact) — cannot drag" % key)
 				return
-			print("[FightController] Distance check passed! Looking for token with unit_id=", pile_in_unit_id, " model_id=", model_id)
+			var route = _pile_in_split_key(key)
+			print("[FightController] Distance check passed! Looking for token with unit_id=", route.unit_id, " model_id=", route.model_id)
 			# Find the actual token in token_layer with matching metadata
 			var tokens_checked = 0
 			for token in token_layer.get_children():
@@ -2680,14 +2721,14 @@ func _start_model_drag_pile_in(mouse_pos: Vector2) -> void:
 					var token_model_id = token.get_meta("model_id")
 					print("[FightController]   Token ", tokens_checked, ": unit_id=", token_unit_id, " model_id=", token_model_id)
 
-					if token_unit_id == pile_in_unit_id and token_model_id == model_id:
+					if token_unit_id == route.unit_id and token_model_id == route.model_id:
 						dragging_model = token
-						drag_model_id = model_id
+						drag_model_id = key
 						drag_start_pos = model_pos
 						drag_offset = model_pos - mouse_pos
-						pile_in_last_touched_model = model_id
+						pile_in_last_touched_model = key
 
-						print("[FightController] Started dragging model token ", model_id)
+						print("[FightController] Started dragging model token ", key)
 						return
 
 			print("[FightController] Checked ", tokens_checked, " tokens but none matched")
@@ -2722,13 +2763,15 @@ func _update_model_drag_pile_in(mouse_pos: Vector2) -> void:
 	# Update visual indicators
 	_update_pile_in_visuals()
 
-	# T5-MP1: Send throttled drag preview to remote player
+	# T5-MP1: Send throttled drag preview to remote player (resolve the key —
+	# the dragged model may belong to an attached character unit)
 	var now_ms = Time.get_ticks_msec()
 	if now_ms - _last_drag_preview_time >= DRAG_PREVIEW_INTERVAL_MS:
 		_last_drag_preview_time = now_ms
 		var network_manager = get_node_or_null("/root/NetworkManager")
 		if network_manager and network_manager.is_networked():
-			network_manager.send_drag_preview(pile_in_unit_id, drag_model_id, new_pos)
+			var drag_route = _pile_in_split_key(drag_model_id)
+			network_manager.send_drag_preview(drag_route.unit_id, drag_route.model_id, new_pos)
 
 	# Update dialog with current movements if possible
 	if pile_in_dialog_ref and pile_in_dialog_ref.has_method("update_movements"):
@@ -2850,7 +2893,8 @@ func _end_model_drag_pile_in() -> void:
 		var network_manager = get_node_or_null("/root/NetworkManager")
 		if network_manager and network_manager.is_networked():
 			print("[FightController] P3-101: Sending final drag position for %s: %s" % [drag_model_id, final_synced_pos])
-			network_manager.send_drag_preview(pile_in_unit_id, drag_model_id, final_synced_pos)
+			var final_route = _pile_in_split_key(drag_model_id)
+			network_manager.send_drag_preview(final_route.unit_id, final_route.model_id, final_synced_pos)
 
 	# Clear overlap visual feedback
 	if dragging_model:
@@ -2876,9 +2920,10 @@ func _end_model_drag_pile_in() -> void:
 # movement phase. The pivot cost (2") is deducted from the model's 3" move — see
 # _effective_pile_in_cap_inches().
 
-func _model_can_pivot(model: Dictionary) -> bool:
+func _model_can_pivot(model: Dictionary, model_key: String = "") -> bool:
 	"""Mirror of MovementController's rotation gate: only non-circular bases (or a
-	round base >32mm with a flying stem on a VEHICLE) can be pivoted."""
+	round base >32mm with a flying stem on a VEHICLE) can be pivoted. The optional
+	key resolves the model's OWN unit (it may be an attached character's)."""
 	if model.is_empty():
 		return false
 	var base_type = model.get("base_type", "circular")
@@ -2888,24 +2933,27 @@ func _model_can_pivot(model: Dictionary) -> bool:
 	var base_mm = int(model.get("base_mm", 32))
 	var has_flying_stem = model.get("flying_stem", false)
 	if base_mm > 32 and has_flying_stem:
-		var unit = current_phase.get_unit(pile_in_unit_id) if current_phase else {}
+		var unit_id = _pile_in_split_key(model_key).unit_id if model_key != "" else pile_in_unit_id
+		var unit = current_phase.get_unit(unit_id) if current_phase else {}
 		var keywords = unit.get("meta", {}).get("keywords", [])
 		if "VEHICLE" in keywords:
 			return true
 	return false
 
-func _pivot_cost_inches(model: Dictionary) -> float:
+func _pivot_cost_inches(model: Dictionary, model_key: String = "") -> float:
 	"""Cost in inches a pivot deducts from the 3" move. All non-round bases (and
 	eligible round >32mm flying-stem VEHICLE bases) cost 2" per Pariah Nexus."""
-	return 2.0 if _model_can_pivot(model) else 0.0
+	return 2.0 if _model_can_pivot(model, model_key) else 0.0
 
-func _find_pile_in_model(model_id: String) -> Dictionary:
-	"""Look up a model dict in the piling-in unit by id."""
+func _find_pile_in_model(model_key: String) -> Dictionary:
+	"""Look up a model dict by tracking key — the piling-in unit's own models
+	(plain id) or an attached character's ("unit:model")."""
 	if not current_phase or pile_in_unit_id == "":
 		return {}
-	var unit = current_phase.get_unit(pile_in_unit_id)
+	var route = _pile_in_split_key(model_key)
+	var unit = current_phase.get_unit(route.unit_id)
 	for m in unit.get("models", []):
-		if m.get("id", "") == model_id:
+		if m.get("id", "") == route.model_id:
 			return m
 	return {}
 
@@ -2921,7 +2969,7 @@ func _effective_pile_in_cap_inches(model_id: String) -> float:
 	it has been pivoted this move."""
 	if _is_model_pivoted(model_id):
 		var model = _find_pile_in_model(model_id)
-		return max(0.0, PILE_IN_MAX_INCHES - _pivot_cost_inches(model))
+		return max(0.0, PILE_IN_MAX_INCHES - _pivot_cost_inches(model, model_id))
 	return PILE_IN_MAX_INCHES
 
 func _model_id_at_pos(mouse_pos: Vector2) -> String:
@@ -2949,7 +2997,7 @@ func _start_model_rotation_pile_in(mouse_pos: Vector2) -> void:
 	if model_id == "":
 		return
 	var model = _find_pile_in_model(model_id)
-	if not _model_can_pivot(model):
+	if not _model_can_pivot(model, model_id):
 		print("[FightController] Model %s has a circular base — no pivot needed" % model_id)
 		return
 
@@ -3004,7 +3052,7 @@ func _rotate_pile_in_model_by_angle(angle: float) -> void:
 	if model_id == "" or model_id in locked_base_contact_models:
 		return
 	var model = _find_pile_in_model(model_id)
-	if not _model_can_pivot(model):
+	if not _model_can_pivot(model, model_id):
 		return
 	var new_rotation = current_model_rotations.get(model_id, 0.0) + angle
 	_apply_pile_in_rotation(model_id, new_rotation)
@@ -3040,9 +3088,10 @@ func _apply_pile_in_rotation(model_id: String, new_rotation: float) -> void:
 	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		return
+	var route = _pile_in_split_key(model_id)
 	for token in token_layer.get_children():
 		if token.has_meta("unit_id") and token.has_meta("model_id"):
-			if token.get_meta("unit_id") == pile_in_unit_id and token.get_meta("model_id") == model_id:
+			if token.get_meta("unit_id") == route.unit_id and token.get_meta("model_id") == route.model_id:
 				if "model_data" in token and token.model_data is Dictionary:
 					token.model_data["rotation"] = new_rotation
 					# Rebuild base_shape + redraw the same way the movement phase does
@@ -3056,9 +3105,10 @@ func _apply_single_model_position_to_scene(model_id: String, pos: Vector2) -> vo
 	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		return
+	var route = _pile_in_split_key(model_id)
 	for token in token_layer.get_children():
 		if token.has_meta("unit_id") and token.has_meta("model_id"):
-			if token.get_meta("unit_id") == pile_in_unit_id and token.get_meta("model_id") == model_id:
+			if token.get_meta("unit_id") == route.unit_id and token.get_meta("model_id") == route.model_id:
 				token.position = pos
 				break
 
@@ -3085,35 +3135,25 @@ func _on_consolidate_dialog_closed() -> void:
 func _model_off_board(moving_model_id: String, new_pos: Vector2) -> bool:
 	"""Issue #87: returns true if `moving_model_id` placed at `new_pos`
 	would extend beyond the battlefield. Wraps the shared Measurement
-	helper with the model lookup."""
+	helper with the model lookup (key may address an attached character)."""
 	if not current_phase or pile_in_unit_id == "":
 		return false
-	var unit = current_phase.get_unit(pile_in_unit_id)
-	if unit.is_empty():
+	var m = _find_pile_in_model(moving_model_id)
+	if m.is_empty():
 		return false
-	for m in unit.get("models", []):
-		if m.get("id", "") == moving_model_id:
-			return Measurement.model_outside_board(new_pos, m)
-	return false
+	return Measurement.model_outside_board(new_pos, m)
 
 func _check_model_overlaps(moving_model_id: String, new_pos: Vector2) -> bool:
-	"""Check if a model at the given position would overlap with any other models"""
+	"""Check if a model at the given position would overlap with any other models.
+	The moving key may address the piling-in unit's own models or an attached
+	character's ("unit:model") — both are part of the one Attached-unit move."""
 	if not current_phase or pile_in_unit_id == "":
 		return false
 
 	# Get the moving model's data
-	var unit = current_phase.get_unit(pile_in_unit_id)
-	if not unit:
-		return false
-
-	var models = unit.get("models", [])
-	var moving_model = null
-	for model in models:
-		if model.get("id", "") == moving_model_id:
-			moving_model = model
-			break
-
-	if not moving_model:
+	var moving_route = _pile_in_split_key(moving_model_id)
+	var moving_model = _find_pile_in_model(moving_model_id)
+	if moving_model.is_empty():
 		return false
 
 	# Create a temporary model dict with the new position (and live pivot facing)
@@ -3126,6 +3166,7 @@ func _check_model_overlaps(moving_model_id: String, new_pos: Vector2) -> bool:
 
 	# Check against all other models in all units
 	var all_units = current_phase.game_state_snapshot.get("units", {})
+	var group_ids = _pile_in_group_unit_ids()
 	for check_unit_id in all_units:
 		var check_unit = all_units[check_unit_id]
 		var check_models = check_unit.get("models", [])
@@ -3134,7 +3175,7 @@ func _check_model_overlaps(moving_model_id: String, new_pos: Vector2) -> bool:
 			var other_model = check_models[i]
 
 			# Skip self
-			if check_unit_id == pile_in_unit_id and other_model.get("id", "") == moving_model_id:
+			if check_unit_id == moving_route.unit_id and other_model.get("id", "") == moving_route.model_id:
 				continue
 
 			# Skip dead models
@@ -3147,12 +3188,12 @@ func _check_model_overlaps(moving_model_id: String, new_pos: Vector2) -> bool:
 				continue
 
 			var other_model_check = other_model.duplicate()
-			if check_unit_id == pile_in_unit_id:
-				var other_id = other_model.get("id", "")
-				if other_id in current_model_positions:
-					other_model_check["position"] = current_model_positions[other_id]
-				if other_id in current_model_rotations:
-					other_model_check["rotation"] = current_model_rotations[other_id]
+			if check_unit_id in group_ids:
+				var other_key = _pile_in_model_key(check_unit_id, other_model.get("id", ""))
+				if other_key in current_model_positions:
+					other_model_check["position"] = current_model_positions[other_key]
+				if other_key in current_model_rotations:
+					other_model_check["rotation"] = current_model_rotations[other_key]
 
 			# Check for overlap using Measurement system
 			if Measurement.models_overlap(check_model, other_model_check):

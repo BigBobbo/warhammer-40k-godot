@@ -10543,8 +10543,9 @@ func update_after_fight_action() -> void:
 	refresh_unit_list()
 	update_ui()
 	
-	# Update fight controller state
-	if fight_controller:
+	# Update fight controller state (_refresh_fight_sequence was removed from
+	# FightController — guard so every fight action doesn't SCRIPT ERROR)
+	if fight_controller and fight_controller.has_method("_refresh_fight_sequence"):
 		fight_controller._refresh_fight_sequence()
 
 func update_after_shooting_action() -> void:

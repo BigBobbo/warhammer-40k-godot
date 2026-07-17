@@ -809,7 +809,8 @@
       "description": "Windowed scenario coverage for phases.FightPhase.pile_in_11e (verified by iss066_pile_in_consolidate_11e). Since 2026-07-04 pile-in is the GLOBAL step opening the fight phase (12.02) \u2014 full player path verified by global_consolidation_step_11e.",
       "scenarios": [
         "iss066_pile_in_consolidate_11e",
-        "global_consolidation_step_11e"
+        "global_consolidation_step_11e",
+        "attached_char_pile_in_step_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -2082,7 +2083,8 @@
       "id": "dialogs.PileInStepDialog",
       "description": "Pile In-step unit picker: per-unit PileIn_<id> buttons with engaged/charged hints + End Pile In button; drives the PileInDialog drag flow.",
       "scenarios": [
-        "global_consolidation_step_11e"
+        "global_consolidation_step_11e",
+        "attached_char_pile_in_step_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -2819,6 +2821,24 @@
       "description": "Player-facing shooting-refusal reason honours the 11e gates: names the Hidden rule with detection range + closest-model distance, or 'terrain blocks every sight line', instead of a bare 'No line of sight'.",
       "scenarios": [
         "los_terrain_area_11e_far"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.attached_units_19_03",
+      "description": "11e 19.03: a CHARACTER attached to a bodyguard is ONE Attached unit in the fight phase's global Pile In (12.02) and Consolidate (12.07) steps \u2014 one picker entry named 'Bodyguard + Character', one move covering both units' models (payload keys 'char_unit:index'), union eligibility/engagement, and rejection of a direct PILE_IN/CONSOLIDATE for the attached character. Headless: tests/test_pile_in_attached_characters_11e.gd.",
+      "scenarios": [
+        "attached_char_pile_in_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.FightController.pile_in_attached_characters",
+      "description": "FightController pile-in/consolidate interactive mode seeds, drags, snaps and submits the attached characters' models alongside the bodyguard's ('unit:model' tracking keys) so the player moves the whole Attached unit in one pile-in.",
+      "scenarios": [
+        "attached_char_pile_in_step_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

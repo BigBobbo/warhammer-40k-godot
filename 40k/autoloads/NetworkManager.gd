@@ -1832,8 +1832,6 @@ func _animate_fight_movement_tokens(unit_id: String, movements: Dictionary) -> v
 		print("NetworkManager: T5-MP1: Cannot animate - unit %s not found" % unit_id)
 		return
 
-	var models = unit.get("models", [])
-
 	for model_key in movements:
 		var new_pos_data = movements[model_key]
 
@@ -1849,19 +1847,30 @@ func _animate_fight_movement_tokens(unit_id: String, movements: Dictionary) -> v
 			print("NetworkManager: T5-MP1: Skipping model %s - unrecognized position format" % model_key)
 			continue
 
+		# Keys may address the unit's own models (plain index) or an attached
+		# character's ("char_unit:index") — 19.03: one Attached-unit move.
+		var token_unit_id = unit_id
+		var raw_key = str(model_key)
+		var sep = raw_key.find(":")
+		if sep >= 0:
+			token_unit_id = raw_key.substr(0, sep)
+			raw_key = raw_key.substr(sep + 1)
+		var key_unit = unit if token_unit_id == unit_id else GameState.get_unit(token_unit_id)
+		var models = key_unit.get("models", [])
+
 		# Model key is array index (e.g., "0", "1") - map to model ID
 		var model_id = ""
-		var model_index = int(model_key) if str(model_key).is_valid_int() else -1
+		var model_index = int(raw_key) if raw_key.is_valid_int() else -1
 		if model_index >= 0 and model_index < models.size():
 			model_id = models[model_index].get("id", "m%d" % (model_index + 1))
 		else:
-			model_id = str(model_key)
+			model_id = raw_key
 
 		# Find the token in TokenLayer and animate it
 		for token in token_layer.get_children():
 			if token.has_meta("unit_id") and token.has_meta("model_id"):
-				if token.get_meta("unit_id") == unit_id and token.get_meta("model_id") == model_id:
-					print("NetworkManager: T5-MP1: Animating token %s/%s from %s to %s" % [unit_id, model_id, token.position, target_pos])
+				if token.get_meta("unit_id") == token_unit_id and token.get_meta("model_id") == model_id:
+					print("NetworkManager: T5-MP1: Animating token %s/%s from %s to %s" % [token_unit_id, model_id, token.position, target_pos])
 					# Bind to the token (node-bound) so freeing/recreating tokens
 					# can't abort a not-yet-started tween and flood the console.
 					var tween = token.create_tween()
