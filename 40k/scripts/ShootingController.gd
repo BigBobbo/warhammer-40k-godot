@@ -2856,9 +2856,16 @@ func _on_weapon_order_required(assignments: Array) -> void:
 		print("========================================")
 		return
 
-	# Show feedback in dice log
+	# Show feedback in dice log (message must match the actual weapon count —
+	# a single weapon auto-starts step-by-step rolling, there is no order to choose)
 	if dice_log_display:
-		dice_log_display.append_text("[b][color=cyan]Multiple weapon types detected - choose firing order...[/color][/b]\n")
+		var unique_weapon_ids = {}
+		for assignment in assignments:
+			unique_weapon_ids[str(assignment.get("weapon_id", ""))] = true
+		if unique_weapon_ids.size() >= 2:
+			dice_log_display.append_text("[b][color=cyan]Multiple weapon types detected - choose firing order...[/color][/b]\n")
+		else:
+			dice_log_display.append_text("[b][color=cyan]Single weapon - rolling step by step...[/color][/b]\n")
 
 	# Close any existing AcceptDialog instances
 	print("ShootingController: Checking for existing dialogs...")

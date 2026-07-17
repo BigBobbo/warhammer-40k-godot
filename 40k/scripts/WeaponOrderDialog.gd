@@ -22,6 +22,8 @@ var is_resolving: bool = false  # Track if sequence is currently resolving
 # UI Nodes
 var vbox: VBoxContainer
 var instruction_label: Label
+var firing_order_label: Label        # "FIRING ORDER" section header ("WEAPON" when single)
+var weapon_scroll: ScrollContainer   # scroll area wrapping weapon_list_container
 var weapon_list_container: VBoxContainer
 var weapon_items: Array = []  # Array of weapon item panels for reordering
 var button_hbox: HBoxContainer
@@ -70,19 +72,22 @@ func _ready() -> void:
 	_add_weapon_order_gold_separator(vbox)
 
 	# Weapon list section
-	var list_label = Label.new()
-	list_label.text = "FIRING ORDER"
-	list_label.add_theme_font_size_override("font_size", 13)
-	list_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-	vbox.add_child(list_label)
+	firing_order_label = Label.new()
+	firing_order_label.name = "FiringOrderLabel"
+	firing_order_label.text = "FIRING ORDER"
+	firing_order_label.add_theme_font_size_override("font_size", 13)
+	firing_order_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	vbox.add_child(firing_order_label)
 
-	var scroll_container = ScrollContainer.new()
-	scroll_container.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 220)
-	vbox.add_child(scroll_container)
+	weapon_scroll = ScrollContainer.new()
+	weapon_scroll.name = "WeaponScroll"
+	weapon_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 220)
+	vbox.add_child(weapon_scroll)
 
 	weapon_list_container = VBoxContainer.new()
+	weapon_list_container.name = "WeaponListContainer"
 	weapon_list_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll_container.add_child(weapon_list_container)
+	weapon_scroll.add_child(weapon_list_container)
 
 	_add_weapon_order_gold_separator(vbox)
 
@@ -354,6 +359,10 @@ func _rebuild_weapon_list() -> void:
 
 	weapon_items.clear()
 
+	# With a single weapon there is nothing to reorder — render the row without
+	# the position number and up/down arrows (it just shows what is firing).
+	var single_weapon = weapon_order.size() == 1
+
 	# Create UI item for each weapon in order
 	for i in range(weapon_order.size()):
 		var weapon_id = weapon_order[i]
@@ -367,11 +376,12 @@ func _rebuild_weapon_list() -> void:
 		panel.add_child(hbox)
 
 		# Position indicator
-		var position_label = Label.new()
-		position_label.text = str(i + 1) + "."
-		position_label.custom_minimum_size = Vector2(30, 0)
-		position_label.add_theme_font_size_override("font_size", 16)
-		hbox.add_child(position_label)
+		if not single_weapon:
+			var position_label = Label.new()
+			position_label.text = str(i + 1) + "."
+			position_label.custom_minimum_size = Vector2(30, 0)
+			position_label.add_theme_font_size_override("font_size", 16)
+			hbox.add_child(position_label)
 
 		# Weapon info
 		var info_vbox = VBoxContainer.new()
@@ -393,26 +403,27 @@ func _rebuild_weapon_list() -> void:
 		stats_label.modulate = Color(0.8, 0.8, 0.8)
 		info_vbox.add_child(stats_label)
 
-		# Up/Down buttons
-		var button_vbox = VBoxContainer.new()
-		button_vbox.custom_minimum_size = Vector2(60, 0)
-		hbox.add_child(button_vbox)
+		# Up/Down buttons (only when there is actually an order to change)
+		if not single_weapon:
+			var button_vbox = VBoxContainer.new()
+			button_vbox.custom_minimum_size = Vector2(60, 0)
+			hbox.add_child(button_vbox)
 
-		var up_button = Button.new()
-		up_button.text = "▲"
-		up_button.custom_minimum_size = Vector2(50, 25)
-		up_button.disabled = (i == 0)  # Can't move first item up
-		up_button.pressed.connect(_on_move_up_pressed.bind(i))
-		_WhiteDwarfTheme.apply_to_button(up_button)
-		button_vbox.add_child(up_button)
+			var up_button = Button.new()
+			up_button.text = "▲"
+			up_button.custom_minimum_size = Vector2(50, 25)
+			up_button.disabled = (i == 0)  # Can't move first item up
+			up_button.pressed.connect(_on_move_up_pressed.bind(i))
+			_WhiteDwarfTheme.apply_to_button(up_button)
+			button_vbox.add_child(up_button)
 
-		var down_button = Button.new()
-		down_button.text = "▼"
-		down_button.custom_minimum_size = Vector2(50, 25)
-		down_button.disabled = (i == weapon_order.size() - 1)  # Can't move last item down
-		down_button.pressed.connect(_on_move_down_pressed.bind(i))
-		_WhiteDwarfTheme.apply_to_button(down_button)
-		button_vbox.add_child(down_button)
+			var down_button = Button.new()
+			down_button.text = "▼"
+			down_button.custom_minimum_size = Vector2(50, 25)
+			down_button.disabled = (i == weapon_order.size() - 1)  # Can't move last item down
+			down_button.pressed.connect(_on_move_down_pressed.bind(i))
+			_WhiteDwarfTheme.apply_to_button(down_button)
+			button_vbox.add_child(down_button)
 
 		weapon_list_container.add_child(panel)
 		weapon_items.append({
@@ -480,7 +491,20 @@ func _on_start_sequence_pressed() -> void:
 	# Disable ordering buttons
 	fast_roll_button.disabled = true
 	start_sequence_button.disabled = true
-	weapon_list_container.visible = false  # Hide weapon list during resolution
+	if _single_weapon_staged:
+		# Single weapon: there is no order to choose, but the player should still
+		# see WHAT is firing. Keep the one-row list visible under a "WEAPON"
+		# header (an empty "FIRING ORDER" box here looked like a bug) and shrink
+		# the scroll area to fit the single row.
+		firing_order_label.text = "WEAPON"
+		weapon_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 74)
+	else:
+		# Multi-weapon: the order is locked in — hide the ENTIRE ordering section
+		# (header + scroll + list), not just the inner container, so no empty
+		# "FIRING ORDER" box is left behind during resolution.
+		firing_order_label.visible = false
+		weapon_scroll.visible = false
+		weapon_list_container.visible = false
 
 	# Update instruction label
 	instruction_label.text = "Resolving weapons sequentially...\nWatch the Resolution Log below for dice rolls and results."
