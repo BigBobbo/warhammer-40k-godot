@@ -32,7 +32,7 @@
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
 
-    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 5.0 },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().current_selecting_player", "equals": 2 },
     { "act": "screenshot", "label": "01_fight_step_p2_ork_active" },
 
@@ -55,9 +55,9 @@
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().current_selecting_player", "equals": 1 },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.peek_selection(GameState.state)[\"player\"]", "equals": 1 },
 
-    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
-    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
-    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I", "timeout_s": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 8.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I", "timeout_s": 3.0 },
     { "act": "screenshot", "label": "03_opponent_p1_custodes_still_get_to_fight" }
   ]
 }

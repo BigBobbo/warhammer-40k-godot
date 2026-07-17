@@ -92,6 +92,17 @@ var consolidation_step_panel: VBoxContainer = null
 var _pile_in_step_player: int = 0
 var _consolidation_step_player: int = 0
 
+# 12.04 fighter selection lives on the right panel too. It replaces the old
+# centered FightSelectionDialog pop-up, which covered the middle of the board
+# every time a player had to pick which unit fights next — every other
+# unit-to-activate pick in the game happens on the right-hand panel. Node names
+# are stable for windowed scenarios:
+#   FightPanel/FightSelectionPanel/TurnIndicator/TurnLabel
+#   FightPanel/FightSelectionPanel/SubphaseLabel
+#   FightPanel/FightSelectionPanel/UnitList/Fight_<unit_id>
+#   FightPanel/FightSelectionPanel/Instructions
+var fight_selection_panel: VBoxContainer = null
+
 const PILE_IN_STEP_INSTRUCTIONS := "Pick a unit to make its pile-in move (up to 3\", each model closer to its pile-in target). Piling in is optional — units you don't pick simply stay put."
 const CONSOLIDATE_STEP_INSTRUCTIONS := "All fighting is resolved. Pick a unit to make its consolidation move (up to 3\"). Consolidating is optional — units you don't pick simply stay put."
 const STEP_MOVE_IN_PROGRESS_INSTRUCTIONS := "Drag the unit's models on the battlefield, then Confirm Move (or Skip) in the dialog below."
@@ -281,6 +292,11 @@ func _setup_right_panel() -> void:
 	consolidation_step_panel = _build_step_panel("ConsolidationStepPanel", "EndConsolidationButton", _on_end_consolidation_button_pressed)
 	fight_panel.add_child(consolidation_step_panel)
 
+	# 12.04 fighter selection section — hidden until the phase asks for a pick.
+	# Replaces the centered FightSelectionDialog pop-up that covered the board.
+	fight_selection_panel = _build_fight_selection_panel()
+	fight_panel.add_child(fight_selection_panel)
+
 	# Fight sequence display
 	var sequence_label = Label.new()
 	sequence_label.text = "FIGHT SEQUENCE"
@@ -426,10 +442,56 @@ func _build_step_panel(panel_name: String, end_button_name: String, end_handler:
 	_add_fight_gold_separator(panel)
 	return panel
 
+func _build_fight_selection_panel() -> VBoxContainer:
+	"""Build the (hidden) right-panel section for the 12.04 fighter pick.
+	The skeleton is permanent — only the UnitList contents are rebuilt per
+	fight_selection_required emission. Mirrors the step panels above."""
+	var panel = VBoxContainer.new()
+	panel.name = "FightSelectionPanel"
+	panel.visible = false
+
+	# Colored whose-turn banner (blue = P1, red = P2), same cue the old
+	# pop-up led with.
+	var turn_indicator = Panel.new()
+	turn_indicator.name = "TurnIndicator"
+	turn_indicator.custom_minimum_size = Vector2(230, 34)
+	var turn_label = Label.new()
+	turn_label.name = "TurnLabel"
+	turn_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	turn_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	turn_label.add_theme_font_size_override("font_size", 14)
+	turn_label.add_theme_color_override("font_color", Color.WHITE)
+	if FactionPalettes:
+		turn_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	turn_indicator.add_child(turn_label)
+	panel.add_child(turn_indicator)
+
+	var subphase_label = Label.new()
+	subphase_label.name = "SubphaseLabel"
+	subphase_label.add_theme_font_size_override("font_size", 13)
+	panel.add_child(subphase_label)
+
+	var unit_list = VBoxContainer.new()
+	unit_list.name = "UnitList"
+	panel.add_child(unit_list)
+
+	var instructions = Label.new()
+	instructions.name = "Instructions"
+	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Bound the width so the autowrap label reports a sane minimum height
+	instructions.custom_minimum_size = Vector2(230, 0)
+	instructions.add_theme_font_size_override("font_size", 12)
+	instructions.add_theme_color_override("font_color", Color.YELLOW)
+	panel.add_child(instructions)
+
+	_add_fight_gold_separator(panel)
+	return panel
+
 func _clear_step_unit_list(unit_list: Node) -> void:
 	"""Drop the per-unit step buttons. remove_child releases the stable
-	PileIn_/Consolidate_ node names immediately (queue_free alone is deferred,
-	and a same-frame repopulation would get its buttons auto-renamed)."""
+	PileIn_/Consolidate_/Fight_ node names immediately (queue_free alone is
+	deferred, and a same-frame repopulation would get its buttons auto-renamed)."""
 	if unit_list == null or not is_instance_valid(unit_list):
 		return
 	for child in unit_list.get_children():
@@ -441,6 +503,8 @@ func _hide_step_panels() -> void:
 		pile_in_step_panel.visible = false
 	if consolidation_step_panel and is_instance_valid(consolidation_step_panel):
 		consolidation_step_panel.visible = false
+	if fight_selection_panel and is_instance_valid(fight_selection_panel):
+		fight_selection_panel.visible = false
 
 func _show_step_panel_waiting(panel: VBoxContainer, title_text: String, waiting_text: String) -> void:
 	"""Multiplayer: the non-acting client sees whose half is running instead
@@ -1007,7 +1071,7 @@ func _on_fighter_selected(unit_id: String) -> void:
 
 	# Keep current_fighter_owner in sync with whichever unit is now fighting.
 	# This signal fires for EVERY fighter selection — including AI-selected
-	# fighters, which never pass through _on_fighter_selected_from_dialog (the
+	# fighters, which never pass through _on_fight_selection_unit_chosen (the
 	# only other place that refreshed current_fighter_owner). Without this, the
 	# owner stays stale from the previous (often human) activation, so the AI's
 	# own attack-assignment / pile-in / consolidate prompts fail the
@@ -1493,16 +1557,19 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 
 	_update_ui_state()
 
-# New dialog handler functions for subphase system
+# 12.04 fighter selection — right-panel section handlers
 func _on_fight_selection_required(data: Dictionary) -> void:
-	"""Show fight selection dialog when phase requests it"""
+	"""Populate the right-panel fighter-selection section when the phase asks
+	for a pick. Replaces the old centered FightSelectionDialog pop-up, which
+	covered the middle of the board — unit-to-activate selection lives on the
+	right panel like every other phase."""
 	print("DEBUG: FightController._on_fight_selection_required called")
 	# The Fight step's selection is starting (or a 12.08 forced fight is
 	# interrupting the Consolidate step) — the global-step unit sections don't
 	# apply while a fighter is being selected. They re-show when the phase
 	# re-emits their step data.
 	_hide_step_panels()
-	print("DEBUG: Dialog data: subphase=%s, player=%d, eligible=%d" % [
+	print("DEBUG: Selection data: subphase=%s, player=%d, eligible=%d" % [
 		data.get("current_subphase", "?"),
 		data.get("selecting_player", 0),
 		data.get("eligible_units", {}).size()
@@ -1512,40 +1579,168 @@ func _on_fight_selection_required(data: Dictionary) -> void:
 	if fight_state_banner and is_instance_valid(fight_state_banner):
 		fight_state_banner.update_state(data)
 
-	# Skip dialog for AI players — they submit SELECT_FIGHTER actions directly
+	# Skip the panel for AI players — they submit SELECT_FIGHTER actions directly
 	var selecting_player = data.get("selecting_player", 0)
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(selecting_player):
-		print("DEBUG: Skipping fight selection dialog for AI player %d" % selecting_player)
+		print("DEBUG: AI player %d selecting — fighter-selection panel stays hidden" % selecting_player)
 		return
 
-	# Close any existing fight selection dialog first (for multiplayer sync)
-	# Find and close existing dialogs that might be open
-	for child in get_tree().root.get_children():
-		if child is AcceptDialog and child.get_script() == load("res://dialogs/FightSelectionDialog.gd"):
-			print("DEBUG: Closing existing fight selection dialog")
-			# Release the stable node name NOW — queue_free is deferred, and
-			# the replacement dialog is added this frame under the same name
-			child.name = "StaleFightSelectionDialog"
-			child.queue_free()
+	# Multiplayer: the section is populated on BOTH peers for visibility (like
+	# the old dialog was) — the per-button gate below disables the pick for the
+	# non-selecting peer.
+	_populate_fight_selection_panel(data)
+	print("DEBUG: Fighter-selection panel shown")
 
-	# Load the dialog script
-	var dialog_script = load("res://dialogs/FightSelectionDialog.gd")
-	if not dialog_script:
-		push_error("Failed to load FightSelectionDialog.gd")
+func _populate_fight_selection_panel(data: Dictionary) -> void:
+	if fight_selection_panel == null or not is_instance_valid(fight_selection_panel):
+		print("[FightController] WARNING: fight_selection_panel missing — right panel not built yet")
 		return
 
-	var dialog = AcceptDialog.new()
-	dialog.set_script(dialog_script)
-	dialog.name = "FightSelectionDialog"
-	dialog.setup(data, current_phase)
-	dialog.fighter_selected.connect(_on_fighter_selected_from_dialog)
-	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
-	print("DEBUG: Fight selection dialog shown")
+	var selecting_player = int(data.get("selecting_player", 0))
+	var player_color = Color.BLUE if selecting_player == 1 else Color.RED
+	var turn_indicator: Panel = fight_selection_panel.get_node("TurnIndicator")
+	turn_indicator.add_theme_stylebox_override("panel", _create_selection_turn_style(player_color))
+	turn_indicator.get_node("TurnLabel").text = "PLAYER %d'S TURN TO SELECT" % selecting_player
 
-func _on_fighter_selected_from_dialog(unit_id: String) -> void:
-	"""Submit SELECT_FIGHTER action when unit selected from dialog"""
+	fight_selection_panel.get_node("SubphaseLabel").text = "Current: %s Subphase" % data.get("current_subphase", "?")
+
+	var unit_list = fight_selection_panel.get_node("UnitList")
+	_clear_step_unit_list(unit_list)
+	# Show all units organized by subphase (same sectioning as the old dialog,
+	# which the fight_dialog_* scenario helpers walk)
+	_add_selection_subphase_units(unit_list, data, "FIGHTS_FIRST", data.get("fights_first_units", {}))
+	_add_selection_subphase_units(unit_list, data, "REMAINING_COMBATS", data.get("remaining_units", {}))
+	if data.has("fights_last_units"):
+		_add_selection_subphase_units(unit_list, data, "FIGHTS_LAST", data.fights_last_units)
+
+	fight_selection_panel.get_node("Instructions").text = _selection_instructions_text(data)
+	fight_selection_panel.visible = true
+
+func _add_selection_subphase_units(container: VBoxContainer, data: Dictionary, subphase_name: String, units_by_player: Dictionary) -> void:
+	var subphase_header = Label.new()
+	subphase_header.text = "=== %s ===" % subphase_name
+	subphase_header.add_theme_font_size_override("font_size", 13)
+
+	# Highlight if this is current subphase
+	var is_current = subphase_name == data.get("current_subphase", "")
+	if is_current:
+		subphase_header.add_theme_color_override("font_color", Color.GREEN)
+	else:
+		subphase_header.add_theme_color_override("font_color", Color.GRAY)
+
+	container.add_child(subphase_header)
+
+	var units_that_fought: Array = data.get("units_that_fought", [])
+	var eligible_units: Dictionary = data.get("eligible_units", {})
+
+	# Multiplayer: the section shows on BOTH peers for visibility, but only the
+	# selecting player may pick. Without this gate the other player saw enabled
+	# buttons whose clicks were then rejected by the host ("Player ID
+	# mismatch") — confusing dead UI.
+	var is_local_players_pick = true
+	if NetworkManager and NetworkManager.is_networked():
+		is_local_players_pick = (NetworkManager.get_local_player() == int(data.get("selecting_player", 0)))
+
+	# Add units for each player
+	for player in ["1", "2"]:
+		var player_units = units_by_player.get(player, [])
+		if player_units.is_empty():
+			continue
+
+		var player_label = Label.new()
+		player_label.text = "Player %s:" % player
+		container.add_child(player_label)
+
+		for unit_id in player_units:
+			var has_fought = unit_id in units_that_fought
+			var is_eligible = eligible_units.has(unit_id)
+
+			var unit_button = Button.new()
+			unit_button.name = "Fight_%s" % unit_id
+			# Resolve through GameState's display-name helper (Alpha/Beta
+			# suffixes) so same-named squads are tellable apart, matching the
+			# labels used everywhere else. eligible_units only carries the
+			# SELECTING player's units, so its name lookup would leave every
+			# other unit rendering as a raw unit id.
+			var unit_name = GameState.get_unit_display_name(unit_id)
+			unit_button.text = "%s%s" % [
+				unit_name,
+				" (Fought)" if has_fought else ""
+			]
+			unit_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			unit_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+
+			# Style based on state
+			if has_fought:
+				unit_button.disabled = true
+				unit_button.modulate = Color.GRAY
+			elif not is_eligible:
+				unit_button.disabled = true
+			elif not is_local_players_pick:
+				unit_button.disabled = true
+				unit_button.tooltip_text = "Player %d is selecting" % int(data.get("selecting_player", 0))
+			elif is_current:
+				unit_button.modulate = Color.LIGHT_GREEN
+
+			if is_eligible and not has_fought and is_local_players_pick:
+				unit_button.pressed.connect(_on_fight_selection_unit_chosen.bind(unit_id))
+
+			container.add_child(unit_button)
+
+	container.add_child(HSeparator.new())
+
+func _selection_instructions_text(data: Dictionary) -> String:
+	"""The alternation explanation under the unit list — same wording (and
+	truthfulness guards) as the old dialog's Instructions label."""
+	var other_player = 2 if int(data.get("selecting_player", 0)) == 1 else 1
+	var other_player_key = str(other_player)
+
+	# Check if other player has units remaining in the CURRENT subphase
+	var current_subphase = str(data.get("current_subphase", ""))
+	var current_source: Dictionary = data.get("fights_first_units", {})
+	if current_subphase == "REMAINING_COMBATS":
+		current_source = data.get("remaining_units", {})
+	elif current_subphase == "FIGHTS_LAST" and data.has("fights_last_units"):
+		current_source = data.fights_last_units
+	var other_player_has_units = _selection_has_unfought_units(data, current_source, other_player_key)
+
+	if other_player_has_units:
+		return "Select a unit to activate. After this unit fights, Player %d will select." % other_player
+	elif current_subphase == "FIGHTS_FIRST" and _selection_has_unfought_units(data, data.get("remaining_units", {}), other_player_key):
+		# The opponent HAS engaged units — just none with Fights First, so
+		# they select later, in the Remaining Combats step. The old blanket
+		# "Player X has no eligible units" here read as "their engaged units
+		# never get to fight" and was reported as an engagement bug.
+		return "Player %d has no Fights First units. Select your Fights First units in turn — Player %d will then select in Remaining Combats." % [other_player, other_player]
+	else:
+		return "Player %d has no eligible units. Select all remaining units in turn." % other_player
+
+func _selection_has_unfought_units(data: Dictionary, units_by_player: Dictionary, player_key: String) -> bool:
+	var units_that_fought: Array = data.get("units_that_fought", [])
+	for unit_id in units_by_player.get(player_key, []):
+		if unit_id not in units_that_fought:
+			return true
+	return false
+
+func _create_selection_turn_style(color: Color) -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = color
+	style.border_color = color.lightened(0.2)
+	style.border_width_left = 2
+	style.border_width_right = 2
+	style.border_width_top = 2
+	style.border_width_bottom = 2
+	return style
+
+func _on_fight_selection_unit_chosen(unit_id: String) -> void:
+	"""Submit SELECT_FIGHTER when a unit button is picked (single click)"""
+	print("DEBUG: FightController - Fighter picked from selection panel: ", unit_id)
+	# Retire the section immediately (mirrors the old dialog closing on click);
+	# the phase re-emits fight_selection_required for the next pick.
+	if fight_selection_panel and is_instance_valid(fight_selection_panel):
+		fight_selection_panel.visible = false
+
 	# Get the unit's owner as the player, not the active player
 	# In Fight Phase, the selecting player may not be the active player
 	var unit = GameState.get_unit(unit_id)

@@ -37,8 +37,8 @@
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
 
-    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 5.0 },
-    { "act": "click_node", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
@@ -48,8 +48,8 @@
     { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },
 
-    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
-    { "act": "click_node", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 8.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/KatahStanceDialog", "timeout_s": 5.0 },
     { "act": "click_node", "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
@@ -61,8 +61,8 @@
     { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },
 
-    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
-    { "act": "click_node", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 8.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/KatahStanceDialog", "timeout_s": 5.0 },
     { "act": "click_node", "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },

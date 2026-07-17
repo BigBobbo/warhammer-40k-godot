@@ -2504,8 +2504,9 @@ func _get_defending_player() -> int:
 # --- 11e display/dialog derivation ------------------------------------------
 # The 10e Subphase enum + fights_first/normal/fights_last tier lists were
 # removed; the FightSequencer (12.04) is the single source of truth. These
-# helpers reconstruct the dialog-data shape the FightSelectionDialog, the
-# FightPhaseStateBanner and the AI still consume, sourced from the sequencer.
+# helpers reconstruct the dialog-data shape the right panel's fighter-selection
+# section (FightController), the FightPhaseStateBanner and the AI still
+# consume, sourced from the sequencer.
 
 func _subphase_string_11e() -> String:
 	if sequencer_11e != null and sequencer_11e.step == "fights_first":

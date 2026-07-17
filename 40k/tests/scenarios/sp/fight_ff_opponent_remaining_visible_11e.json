@@ -1,8 +1,8 @@
 {
   "id": "fight_ff_opponent_remaining_visible_11e",
   "covers": [
-    "dialogs.FightSelectionDialog.instructions",
-    "dialogs.FightSelectionDialog.opponent_units_visible",
+    "ui.fight.selection_panel.instructions",
+    "ui.fight.selection_panel.opponent_units_visible",
     "phases.FightPhase._remaining_units_11e",
     "rules.FightSequencer"
   ],
@@ -11,7 +11,7 @@
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "Regression for the reported 'player two engagement' bug: during the FIGHTS_FIRST step the selection dialog told the picking player the opponent 'has no eligible units' even though the opponent's engaged (non-Fights-First) units were owed a Remaining Combats fight \u2014 and those units were ALSO pushed below the dialog's scroll fold because the picker's Fights First units were duplicated into the REMAINING_COMBATS section. Fixture mirror: P2 (Orks, active) charged with the Warboss (fights_first), P1's Custodian Guard + Telemon are engaged without Fights First. Asserts: (1) the instructions spell out that the opponent has no FIGHTS FIRST units and will select in Remaining Combats; (2) the opponent's units are listed once, under REMAINING_COMBATS, with real display names (not raw unit ids); (3) the picker's FF unit is NOT duplicated into the remaining bucket; (4) after the Fights First unit fights, the opponent REALLY gets the selection (the user-visible worry) and the blanket 'no eligible units' message only appears when it is actually true. Setup-only privileges: CP zeroed to suppress stratagem prompts; model wounds inflated so no unit dies (deterministic aliveness); auto-allocate-wounds flipped ON via Object.set (process-local, not persisted) so the melee resolves without the defender save overlay \u2014 defender-control saves have their own scenarios.",
+  "description": "Regression for the reported 'player two engagement' bug: during the FIGHTS_FIRST step the fighter picker (a centered dialog at the time, now the right-panel FightSelectionPanel) told the picking player the opponent 'has no eligible units' even though the opponent's engaged (non-Fights-First) units were owed a Remaining Combats fight \u2014 and those units were ALSO pushed below the picker's scroll fold because the picker's Fights First units were duplicated into the REMAINING_COMBATS section. Fixture mirror: P2 (Orks, active) charged with the Warboss (fights_first), P1's Custodian Guard + Telemon are engaged without Fights First. Asserts: (1) the instructions spell out that the opponent has no FIGHTS FIRST units and will select in Remaining Combats; (2) the opponent's units are listed once, under REMAINING_COMBATS, with real display names (not raw unit ids); (3) the picker's FF unit is NOT duplicated into the remaining bucket; (4) after the Fights First unit fights, the opponent REALLY gets the selection (the user-visible worry) and the blanket 'no eligible units' message only appears when it is actually true. Setup-only privileges: CP zeroed to suppress stratagem prompts; model wounds inflated so no unit dies (deterministic aliveness); auto-allocate-wounds flipped ON via Object.set (process-local, not persisted) so the melee resolves without the defender save overlay \u2014 defender-control saves have their own scenarios.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -93,7 +93,7 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/FightSelectionDialog",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel",
       "timeout_s": 5.0
     },
     {
@@ -108,32 +108,32 @@
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/Instructions\").text.contains(\"no Fights First units\")",
+      "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/Instructions\").text.contains(\"no Fights First units\")",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/Instructions\").text.contains(\"Remaining Combats\")",
+      "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/Instructions\").text.contains(\"Remaining Combats\")",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/Instructions\").text.contains(\"no eligible units\")",
+      "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/Instructions\").text.contains(\"no eligible units\")",
       "equals": false
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B",
       "timeout_s": 3.0
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I",
       "timeout_s": 3.0
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B\").text.contains(\"Custodian Guard\")",
+      "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B\").text.contains(\"Custodian Guard\")",
       "equals": true
     },
     {
@@ -148,7 +148,7 @@
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/UnitScroll/UnitList\").get_child_count()",
+      "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList\").get_child_count()",
       "equals": 11
     },
     {
@@ -157,7 +157,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_WARBOSS_B",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B",
       "emit_pressed": true
     },
     {
@@ -203,7 +203,7 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/FightSelectionDialog",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel",
       "timeout_s": 8.0
     },
     {
@@ -218,12 +218,12 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B",
       "timeout_s": 3.0
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSelectionDialog/Content/Instructions\").text.contains(\"no eligible units\")",
+      "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/Instructions\").text.contains(\"no eligible units\")",
       "equals": true
     },
     {
@@ -232,7 +232,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B",
       "emit_pressed": true
     },
     {
@@ -288,7 +288,7 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/FightSelectionDialog",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel",
       "timeout_s": 8.0
     },
     {
@@ -298,7 +298,7 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I",
       "timeout_s": 3.0
     },
     {
