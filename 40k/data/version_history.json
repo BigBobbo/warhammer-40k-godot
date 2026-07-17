@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.54.0",
+			"date": "2026-07-17",
+			"summary": "Fight phase now enforces the core rule that a model fights with ONE melee weapon. Models with multiple melee weapons or profiles (Blade Champion's Vaultswords, a Warboss's Big choppa vs Power klaw) must choose which one to swing — they no longer attack with everything they carry. [EXTRA ATTACKS] weapons are still used in addition.",
+			"changes": [
+				"Assign Attacks dialog: picking a weapon is now an exclusive choice — adding a different weapon replaces your previous pick instead of stacking a second set of attacks.",
+				"The 'All to Target' button is now 'Weapon to Target': it assigns your selected weapon (not every weapon) to the selected target in one click.",
+				"The attacks cap readout shows the best single weapon instead of summing every weapon the unit carries.",
+				"Rules engine: assigning a second regular melee weapon to the same models in one activation is rejected with a clear message; [EXTRA ATTACKS] weapons (e.g. a Warboss's Attack squig) remain auto-included on top of your chosen weapon.",
+				"AI melee attacks already picked a single best weapon and are unchanged."
+			]
+		},
+		{
 			"version": "0.53.0",
 			"date": "2026-07-17",
 			"summary": "Multi-target shooting overhaul, part 1: declaring targets is now one click for the common case. Clicking an enemy with no weapon selected sends EVERYTHING at it; clicking with a weapon selected commits all of that weapon's eligible bearers instantly (no popup). Splitting fire is the exception you opt into: click a second target and the game offers to move some shots across. Engaged vehicles can also declare targets they are not engaged with again (10.06), and the game no longer shows error banners for assignments it auto-attempted itself.",

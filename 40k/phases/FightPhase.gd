@@ -689,6 +689,13 @@ func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 	elif weapon.get("type", "").to_lower() != "melee":
 		errors.append("Weapon is not a melee weapon: " + weapon_id)
 
+	# 11e core rules (Fight — Select Melee Weapon): "you must select one melee
+	# weapon that model has" — each model fights with ONE melee weapon per
+	# activation; [EXTRA ATTACKS] weapons are used IN ADDITION and are exempt.
+	var conflicting_weapon = _find_one_weapon_rule_conflict(weapon_id, action.get("attacking_models", []))
+	if conflicting_weapon != "":
+		errors.append("Each model fights with only ONE melee weapon per activation — '%s' is already assigned for these models ([EXTRA ATTACKS] weapons are the exception)" % conflicting_weapon)
+
 	# Per-model fight eligibility: each model in `attacking_models` must be in engagement range,
 	# OR in base-to-base contact with a friendly model that is in base contact with an enemy
 	# (10e: only models satisfying one of those criteria can fight). RulesEngine returns the
@@ -946,11 +953,58 @@ func _request_attack_assignment(unit_id: String, result: Dictionary) -> Dictiona
 	result["attack_targets"] = targets
 	return result
 
+# 11e core rules (Fight — Select Melee Weapon): a model makes its attacks with
+# ONE selected melee weapon; [EXTRA ATTACKS] weapons are used in addition.
+# Returns the already-pending regular weapon that the new assignment collides
+# with, or "" when the assignment is legal. Two assignments collide when both
+# are regular (non-Extra-Attacks) melee weapons and their model sets overlap —
+# an empty attacking_models list means "all eligible models" and overlaps
+# everything.
+func _find_one_weapon_rule_conflict(weapon_id: String, attacking_models: Array) -> String:
+	if RulesEngine.has_extra_attacks(weapon_id, game_state_snapshot):
+		return ""
+	var new_models = _normalize_model_refs(attacking_models)
+	for pending in pending_attacks:
+		var pending_weapon = str(pending.get("weapon", ""))
+		if pending_weapon == "":
+			continue
+		if RulesEngine.has_extra_attacks(pending_weapon, game_state_snapshot):
+			continue
+		var pending_models = _normalize_model_refs(pending.get("models", []))
+		if new_models.is_empty() or pending_models.is_empty():
+			return pending_weapon
+		for m in new_models:
+			if m in pending_models:
+				return pending_weapon
+	return ""
+
+# Assignments reference models either as index strings ("0") or model-id
+# strings ("m0"/"m1"); strip the "m" prefix so overlap checks compare like
+# with like regardless of which convention the caller used.
+func _normalize_model_refs(models: Array) -> Array:
+	var out: Array = []
+	for entry in models:
+		var s = str(entry)
+		if s.begins_with("m") and s.substr(1).is_valid_int():
+			s = s.substr(1)
+		out.append(s)
+	return out
+
 func _process_assign_attacks(action: Dictionary) -> Dictionary:
 	# Mirror ShootingPhase weapon assignment pattern
 	var unit_id = action.get("unit_id", "")
 	var target_id = action.get("target_id", "")
 	var weapon_id = action.get("weapon_id", "")
+
+	# One-weapon rule safety net: BATCH_FIGHT_ACTIONS and networked paths skip
+	# per-sub-action validation, so re-check here. Drop the extra weapon and
+	# keep the batch alive (the first assigned weapon wins) instead of failing
+	# the whole atomic batch mid-flight.
+	var conflicting_weapon = _find_one_weapon_rule_conflict(weapon_id, action.get("attacking_models", []))
+	if conflicting_weapon != "":
+		log_phase_message("REJECTED assignment %s → %s: each model fights with only ONE melee weapon per activation ('%s' already assigned)" % [weapon_id, target_id, conflicting_weapon])
+		DebugLogger.warn(str("[FightPhase] One-weapon rule: dropped %s for %s — '%s' already assigned" % [weapon_id, unit_id, conflicting_weapon]))
+		return create_result(true, [])
 
 	pending_attacks.append({
 		"attacker": unit_id,
