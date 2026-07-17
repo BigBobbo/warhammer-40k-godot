@@ -807,6 +807,9 @@ func _setup_right_panel() -> void:
 	var charge_panel = VBoxContainer.new()
 	charge_panel.name = "ChargePanel"
 	charge_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Fill the scroll viewport vertically so the dice log (the only
+	# vertically-expanding child) can absorb any leftover panel height.
+	charge_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll_container.add_child(charge_panel)
 	
 	# Unit selector
@@ -921,6 +924,8 @@ func _setup_right_panel() -> void:
 	dice_log_display = RichTextLabel.new()
 	dice_log_display.custom_minimum_size = Vector2(200, 100)
 	dice_log_display.bbcode_enabled = true
+	# Expand to fill any unused right-panel height instead of leaving dead space.
+	dice_log_display.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	charge_panel.add_child(dice_log_display)
 
 	_add_charge_gold_separator(charge_panel)

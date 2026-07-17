@@ -178,9 +178,12 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "hover_node", "node": "/root/MainMenu/ScrollContainer" }
   ```
 
-- `simulate_key`: dispatch a keypress.
+- `simulate_key`: dispatch a keypress. `keycode` is resolved via
+  `OS.find_keycode_from_string`, so use the human-readable key name
+  (`"Escape"`, `"Equal"`, `"2"`), NOT the `KEY_*` enum constant name —
+  `"KEY_ESCAPE"` does not resolve and fails the step.
   ```json
-  { "act": "simulate_key", "keycode": "KEY_ESCAPE" }
+  { "act": "simulate_key", "keycode": "Escape" }
   ```
 
 - `simulate_joy_button`: dispatch a joypad button press+release through the
