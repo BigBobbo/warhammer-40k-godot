@@ -3,11 +3,11 @@
 	"releases": [
 		{
 			"version": "0.50.0",
-			"date": "2026-07-16",
-			"summary": "Charge target selection is now predictable: clicking a target in the ELIGIBLE TARGETS list selects exactly that one target (no more accidentally declaring a charge against two units), and deliberately charging several units is now a real, visible feature — Ctrl+Click adds or removes extra targets, the Declare button shows how many units you are about to charge, and the list locks once the charge is declared.",
+			"date": "2026-07-17",
+			"summary": "Charge target selection is now predictable: clicking a target in the ELIGIBLE TARGETS list selects exactly that one target (no more accidentally declaring a charge against two units), and deliberately charging several units is now a real, clearly-signposted feature — a highlighted callout under the target list spells out that you hold Ctrl+Click to charge more than one unit, the Declare button shows how many units you are about to charge, and the list locks once the charge is declared.",
 			"changes": [
 				"Fixed: clicking a second charge target used to silently KEEP the first one too — the game declared a charge against both units while only the last one stayed highlighted. A plain click now selects exactly the clicked target.",
-				"Multi-unit charges are now explicit: Ctrl+Click (Cmd on Mac) toggles extra targets in and out, and a hint under the target list explains this.",
+				"Multi-unit charges are now explicit and impossible to miss: a gold-bordered callout under the ELIGIBLE TARGETS list tells you to hold Ctrl+Click (Cmd on Mac) to charge more than one unit, and its wording updates as you go — once you pick a first target it actively prompts 'hold Ctrl+Click another target' to charge both.",
 				"The Declare Charge button shows the target count when charging more than one unit (e.g. 'Declare Charge (2 targets)'), and the step guidance calls out that ALL selected targets must be reached.",
 				"Clicking empty space in the target list clears the selection.",
 				"Deselecting targets actually works now (it previously did nothing under the hood).",

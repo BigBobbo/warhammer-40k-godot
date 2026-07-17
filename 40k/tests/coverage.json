@@ -2825,7 +2825,7 @@
     },
     {
       "id": "charge.ux.target_declaration_multi_select",
-      "description": "CHARGE phase target declaration selection model: the ELIGIBLE TARGETS ItemList's own selection state is the single source of truth for selected_targets (multi_selected/empty_clicked signals; the old item_selected hookup never fired in SELECT_MULTI mode and its gui_input hack accumulated every clicked row, silently declaring multi-charges). Plain click selects exactly one target, Ctrl+Click toggles targets for a deliberate multi-charge, empty-click clears, the Declare button shows the target count, and rows lock once the charge is declared. Validated by 'charge_target_declaration'.",
+      "description": "CHARGE phase target declaration selection model: the ELIGIBLE TARGETS ItemList's own selection state is the single source of truth for selected_targets (multi_selected/empty_clicked signals; the old item_selected hookup never fired in SELECT_MULTI mode and its gui_input hack accumulated every clicked row, silently declaring multi-charges). Plain click selects exactly one target, Ctrl+Click toggles targets for a deliberate multi-charge, empty-click clears, the Declare button shows the target count, and rows lock once the charge is declared. A prominent, dynamic gold-bordered hint (target_hint_label) spells out Ctrl+Click and updates with the selection (0 targets: 'Ctrl+Click each one'; 1: 'hold Ctrl+Click another target'; 2+: 'N units — Ctrl+Click to add/remove'), hidden once declared. Validated by 'charge_target_declaration'.",
       "scenarios": [
         "charge_target_declaration"
       ],

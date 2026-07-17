@@ -79,7 +79,7 @@ var charge_trajectory_preview: ChargeTrajectoryPreview = null
 # UI Elements
 var unit_selector: ItemList
 var target_list: ItemList
-var target_hint_label: Label  # Teaches click-vs-Ctrl+Click target selection under the target list
+var target_hint_label: RichTextLabel  # Teaches click-vs-Ctrl+Click target selection under the target list
 var charge_requirement_label: RichTextLabel  # Option 2: pre-roll "needs 2D6 >= N to reach ALL targets" hint
 var charge_info_label: Label
 var charge_distance_label: Label
@@ -388,14 +388,31 @@ func _setup_right_panel() -> void:
 	charge_panel.add_child(target_list)
 
 	# Interaction hint: plain click picks ONE target; Ctrl+Click builds a
-	# multi-charge. Kept visible so the multi-target affordance is discoverable.
-	target_hint_label = Label.new()
+	# multi-charge. Made deliberately prominent (boxed, gold-accented, bbcode
+	# emphasis on "Ctrl+Click") and DYNAMIC — once a first target is picked the
+	# copy actively prompts "hold Ctrl and click another to charge both" — so the
+	# multi-target affordance is impossible to miss. See _update_target_hint_label.
+	target_hint_label = RichTextLabel.new()
 	target_hint_label.name = "ChargeTargetHintLabel"
-	target_hint_label.text = "Click: choose target  ·  Ctrl+Click: add/remove extra targets"
-	target_hint_label.add_theme_font_size_override("font_size", 10)
-	target_hint_label.add_theme_color_override("font_color", Color(0.72, 0.72, 0.72))
-	target_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	target_hint_label.bbcode_enabled = true
+	target_hint_label.fit_content = true
+	target_hint_label.scroll_active = false
+	target_hint_label.custom_minimum_size = Vector2(200, 0)
+	target_hint_label.add_theme_font_size_override("normal_font_size", 12)
+	target_hint_label.add_theme_font_size_override("bold_font_size", 12)
+	# Boxed background so the instruction reads as a callout, not body text.
+	var hint_box := StyleBoxFlat.new()
+	hint_box.bg_color = Color(0.16, 0.12, 0.05, 0.85)
+	hint_box.border_color = _WhiteDwarfTheme.WH_GOLD
+	hint_box.set_border_width_all(1)
+	hint_box.set_corner_radius_all(3)
+	hint_box.content_margin_left = 6
+	hint_box.content_margin_right = 6
+	hint_box.content_margin_top = 4
+	hint_box.content_margin_bottom = 4
+	target_hint_label.add_theme_stylebox_override("normal", hint_box)
 	charge_panel.add_child(target_hint_label)
+	_update_target_hint_label()
 
 	# Option 2: declaration-time reachability hint. Updates as targets are
 	# (de)selected to show the roll needed to reach EVERY selected target — so an
@@ -774,6 +791,9 @@ func _update_button_states() -> void:
 			declare_button.text = "Declare Charge (%d targets)" % selected_targets.size()
 		else:
 			declare_button.text = "Declare Charge"
+
+	# Keep the prominent Click / Ctrl+Click hint in sync with the selection.
+	_update_target_hint_label()
 	if is_instance_valid(roll_button):
 		roll_button.disabled = not can_roll
 	if is_instance_valid(skip_button):
@@ -911,6 +931,33 @@ func _sync_selected_targets_from_list() -> void:
 	print("ChargeController: selected_targets now ", selected_targets)
 	_update_button_states()
 	_update_visuals()
+
+func _update_target_hint_label() -> void:
+	# Prominent, DYNAMIC teaching copy for the ELIGIBLE TARGETS list. The whole
+	# point is that a player must never accidentally charge two units, nor fail
+	# to discover that charging several at once is possible — so the hint spells
+	# out Ctrl+Click and changes to match what is currently selected.
+	if not is_instance_valid(target_hint_label):
+		return
+	# Once the charge is declared the rows are locked and the player is rolling —
+	# the selection hint no longer applies.
+	if awaiting_roll or awaiting_movement:
+		target_hint_label.visible = false
+		return
+	target_hint_label.visible = true
+
+	var gold := "#f0c850"
+	# "Ctrl / Cmd" so Mac players see their modifier too (the input path already
+	# matches meta as well as ctrl).
+	var ck := "[color=%s][b]Ctrl+Click[/b][/color]" % gold
+	var body: String
+	if selected_targets.size() >= 2:
+		body = "Charging [color=%s][b]%d units[/b][/color] at once.  %s a unit to add or remove it." % [gold, selected_targets.size(), ck]
+	elif selected_targets.size() == 1:
+		body = "1 target selected.  To charge [b]more than one[/b] unit, hold %s another target." % ck
+	else:
+		body = "[b]Click[/b] a target to charge it.  To charge [b]several units[/b] at once, %s each one." % ck
+	target_hint_label.text = body
 
 func _update_charge_requirement_hint() -> void:
 	"""Option 2: show the roll needed to reach EVERY selected target before the
