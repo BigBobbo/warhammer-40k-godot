@@ -1,0 +1,125 @@
+{
+  "id": "pause_policy_never_auto_continues",
+  "covers": [
+    "scripts.ShootingResolutionDock.pause_policy",
+    "settings.shooting_pause_policy"
+  ],
+  "fixture": "shooting_phase",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "B3 pause policy: with 'Never', the staged hit/wound pauses auto-continue — after Confirm the sequence runs straight through the rolls without the attacker pressing the primary button (defender saves and the between-weapon pause still stop). Battlewagon Alpha fires only its Lobba at the Blade Champion under policy 'never'; after confirm+decline the dock must NOT be sitting at a staged pause. Policy is reset to every_step at the end.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set_shooting_pause_policy(\"never\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.shooting_pause_policy",
+      "equals": "never"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_BATTLEWAGON_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_BATTLEWAGON_A",
+        "payload": {
+          "weapon_id": "lobba_ranged",
+          "target_unit_id": "U_BLADE_CHAMPION_A",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLINE_REACTIVE_STRATAGEM"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"stage\", \"\")",
+      "equals": ""
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.state != \"staged_hits\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.state != \"staged_wounds\"",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_never_policy_ran_through_rolls"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set_shooting_pause_policy(\"every_step\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.shooting_pause_policy",
+      "equals": "every_step"
+    }
+  ]
+}

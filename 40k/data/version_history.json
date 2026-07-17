@@ -14,7 +14,8 @@
 				"Target chips: every declared target gets a letter badge (A, B, C…) with its own color, shown on the battlefield next to the unit and reused in the weapon rows ('1→[B] Blade Champion') and the CURRENT TARGETS list — one visual identity for 'which weapon goes where'.",
 				"During resolution the chip of the target currently being shot grows and the others dim, so the battlefield itself shows whose turn it is to take fire.",
 				"NEW resolution dock: rolling dice no longer buries the battlefield under a chain of pop-up dialogs. The right panel swaps to a WEAPON RESOLUTION view — a queue showing every weapon and its target (reorder with ▲▼ before rolling), ONE big button that is always in the same place ('Roll to Hit' → 'Roll to Wound' → 'Continue to Saving Throws' → 'Next Weapon' → 'Complete Shooting'), Command Re-roll dice chips, and a Fast Roll escape. Space/Enter presses it, so you can resolve a whole volley without touching the mouse.",
-				"Completed weapons stay listed in the dock with their results ('✔ Big shoota → [A] Witchseekers (1H 1W 1 slain)'), so multi-target progress is always visible."
+				"Completed weapons stay listed in the dock with their results ('✔ Big shoota → [A] Witchseekers (1H 1W 1 slain)'), so multi-target progress is always visible.",
+				"New 'Pauses' setting in the dock: 'Every step' (default, current behavior), 'Only decisions' (pause only when a Command Re-roll could actually change something), or 'Never' (rolls run straight through; saves and the between-weapon stop remain). Persisted between sessions."
 			]
 		},
 		{

@@ -69,6 +69,14 @@ var show_terrain_scatter: bool = true
 # AUTO_ALLOCATE_MIGRATION_KEY below, which retires older saved `true` values).
 var auto_allocate_wounds: bool = false
 
+# B3 (audit 2026-07): staged shooting pause policy —
+#   "every_step" (default): pause at every hit/wound roll
+#   "decisions":  pause only when a Command Re-roll is actually usable
+#                 (CP available, not used this phase, and a failed die exists)
+#   "never":      auto-continue the hit/wound pauses (the between-weapon
+#                 pause and defender saves always remain)
+var shooting_pause_policy: String = "every_step"
+
 # Rules edition: 10 (10th edition) or 11 (11th edition core rules, now the
 # default for players). Applied to GameConstants.edition at startup and whenever
 # changed, so the whole rules engine plays the selected edition. Players can
@@ -340,6 +348,12 @@ func set_ruins_style(style: String) -> void:
 	_save_settings()
 	print("[SettingsService] Ruins style set to %s" % style)
 
+func set_shooting_pause_policy(policy: String) -> void:
+	if policy in ["every_step", "decisions", "never"]:
+		shooting_pause_policy = policy
+		_save_settings()
+		print("[SettingsService] shooting_pause_policy set to %s" % policy)
+
 func get_auto_allocate_wounds() -> bool:
 	return auto_allocate_wounds
 
@@ -414,6 +428,7 @@ func _save_settings() -> void:
 
 	# Gameplay
 	config.set_value("gameplay", "auto_allocate_wounds", auto_allocate_wounds)
+	config.set_value("gameplay", "shooting_pause_policy", shooting_pause_policy)
 	config.set_value("gameplay", AUTO_ALLOCATE_MIGRATION_KEY, true)
 
 	var err = config.save(SETTINGS_FILE_PATH)
@@ -466,5 +481,7 @@ func _load_settings() -> void:
 	else:
 		auto_allocate_wounds = false
 		print("[SettingsService] auto_allocate_wounds migrated to the defender-control default (false)")
+
+	shooting_pause_policy = str(config.get_value("gameplay", "shooting_pause_policy", "every_step"))
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)

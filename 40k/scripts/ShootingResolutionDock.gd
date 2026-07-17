@@ -35,6 +35,7 @@ var reroll_label: Label
 var reroll_row: HBoxContainer
 var primary_button: Button
 var fast_button: Button
+var pause_policy_option: OptionButton
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -92,6 +93,25 @@ func _ready() -> void:
 	fast_button.pressed.connect(_on_fast_pressed)
 	_WhiteDwarfTheme.apply_secondary_button(fast_button)
 	add_child(fast_button)
+
+	# B3 (audit 2026-07): pause policy — how often the staged sequence stops.
+	var policy_row := HBoxContainer.new()
+	policy_row.name = "DockPolicyRow"
+	var policy_label := Label.new()
+	policy_label.text = "Pauses:"
+	policy_label.add_theme_font_size_override("font_size", 11)
+	policy_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+	policy_row.add_child(policy_label)
+	pause_policy_option = OptionButton.new()
+	pause_policy_option.name = "DockPausePolicy"
+	pause_policy_option.add_item("Every step", 0)
+	pause_policy_option.add_item("Only decisions", 1)
+	pause_policy_option.add_item("Never", 2)
+	pause_policy_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pause_policy_option.item_selected.connect(_on_policy_selected)
+	policy_row.add_child(pause_policy_option)
+	add_child(policy_row)
+	_sync_policy_option()
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -240,11 +260,69 @@ func _set_state_queued() -> void:
 	_clear_reroll_chips()
 	_rebuild_queue()
 
+# B3: pause policy plumbing --------------------------------------------------
+
+func _pause_policy() -> String:
+	var ss = get_node_or_null("/root/SettingsService")
+	if ss and "shooting_pause_policy" in ss:
+		return str(ss.shooting_pause_policy)
+	return "every_step"
+
+func _sync_policy_option() -> void:
+	if pause_policy_option == null:
+		return
+	match _pause_policy():
+		"decisions":
+			pause_policy_option.select(1)
+		"never":
+			pause_policy_option.select(2)
+		_:
+			pause_policy_option.select(0)
+
+func _on_policy_selected(index: int) -> void:
+	var policy = ["every_step", "decisions", "never"][clampi(index, 0, 2)]
+	var ss = get_node_or_null("/root/SettingsService")
+	if ss and ss.has_method("set_shooting_pause_policy"):
+		ss.set_shooting_pause_policy(policy)
+
+# Should this staged pause actually stop, per the policy? "decisions" pauses
+# only when a Command Re-roll is genuinely usable (available AND at least one
+# die failed — nothing to re-roll otherwise).
+func _pause_should_stop(info: Dictionary) -> bool:
+	match _pause_policy():
+		"never":
+			return false
+		"decisions":
+			if not info.get("reroll_available", false):
+				return false
+			var rolls: Array = info.get("hit_rolls", info.get("wound_rolls", []))
+			var successes = int(info.get("hits", info.get("wounds", 0)))
+			return successes < rolls.size()
+		_:
+			return true
+
+func _auto_continue_stage(stage: String) -> void:
+	if state == "idle":
+		return
+	if stage == "hits":
+		emit_signal("action_requested", {"type": "CONTINUE_TO_WOUNDS"})
+	else:
+		emit_signal("action_requested", {"type": "CONTINUE_TO_SAVES"})
+
+# -----------------------------------------------------------------------------
+
 func _on_stage_paused(stage: String, info: Dictionary) -> void:
 	if state == "idle":
 		return
 	current_index = int(info.get("current_index", current_index))
 	_mark_done_below(current_index)
+	# B3: skip pauses the policy doesn't want. Deferred — this signal fires
+	# while the phase is still processing the action that produced the pause.
+	if not _pause_should_stop(info):
+		status_label.text = "Auto-continuing (%s)…" % ("no decision to make" if _pause_policy() == "decisions" else "pauses off")
+		_rebuild_queue()
+		call_deferred("_auto_continue_stage", stage)
+		return
 	if stage == "hits":
 		state = "staged_hits"
 		primary_button.text = "Roll to Wound ▶"
