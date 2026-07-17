@@ -3,7 +3,7 @@
   "covers": [
     "phases.FightPhase.pile_in_11e",
     "phases.FightPhase.attached_units_19_03",
-    "dialogs.PileInStepDialog",
+    "scripts.FightController.pile_in_step_panel",
     "scripts.FightController.pile_in_attached_characters"
   ],
   "fixture": "attached_pile_in_step",
@@ -15,29 +15,29 @@
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
-    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
     { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 1 },
     { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 1 },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"PileInStepDialog/Content/UnitScroll/UnitList\").get_child_count()",
+      "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList\").get_child_count()",
       "equals": 1
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node_or_null(\"PileInStepDialog/Content/UnitScroll/UnitList/PileIn_U_BLADE_CHAMPION_A\") == null",
+      "script": "main.get_tree().root.get_node_or_null(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BLADE_CHAMPION_A\") == null",
       "equals": true
     },
     {
       "act": "expect_node_property",
-      "node": "/root/PileInStepDialog/Content/UnitScroll/UnitList/PileIn_U_CUSTODIAN_GUARD_B",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_CUSTODIAN_GUARD_B",
       "property": "text",
-      "equals": "Custodian Guard + Blade Champion  [Engaged — every engaged enemy is a pile-in target]"
+      "equals": "Custodian Guard + Blade Champion  [Engaged]"
     },
     { "act": "screenshot", "label": "01_step_picker_one_attached_unit_entry" },
     {
       "act": "click_node",
-      "node": "/root/PileInStepDialog/Content/UnitScroll/UnitList/PileIn_U_CUSTODIAN_GUARD_B",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_CUSTODIAN_GUARD_B",
       "emit_pressed": true
     },
     { "act": "wait_seconds", "seconds": 0.5 },
@@ -99,10 +99,10 @@
     },
     { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 2 },
     { "act": "screenshot", "label": "03_champion_piled_in_with_bodyguard" },
-    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
     {
       "act": "click_node",
-      "node": "/root/PileInStepDialog/Content/EndPileInButton",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
       "emit_pressed": true
     },
     { "act": "wait_seconds", "seconds": 0.5 },

@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.54.0",
+			"version": "0.54.1",
 			"date": "2026-07-17",
 			"summary": "Fight phase now enforces the core rule that a model fights with ONE melee weapon. Models with multiple melee weapons or profiles (Blade Champion's Vaultswords, a Warboss's Big choppa vs Power klaw) must choose which one to swing — they no longer attack with everything they carry. [EXTRA ATTACKS] weapons are still used in addition.",
 			"changes": [
@@ -11,6 +11,17 @@
 				"The attacks cap readout shows the best single weapon instead of summing every weapon the unit carries.",
 				"Rules engine: assigning a second regular melee weapon to the same models in one activation is rejected with a clear message; [EXTRA ATTACKS] weapons (e.g. a Warboss's Attack squig) remain auto-included on top of your chosen weapon.",
 				"AI melee attacks already picked a single best weapon and are unchanged."
+			]
+		},
+		{
+			"version": "0.54.0",
+			"date": "2026-07-17",
+			"summary": "Pile In and Consolidate steps no longer cover the battlefield with a pop-up. Picking which unit piles in or consolidates now happens on the right-hand panel, the same place you pick units in every other phase — so you can see the whole board (and your engagements) while you decide.",
+			"changes": [
+				"Fight phase: the Pile In step's unit picker moved from a centered pop-up dialog to a PILE IN STEP section at the top of the right panel — one button per eligible unit (with an [Engaged]/[Charged] tag; hover for the full rule hint) plus End Pile In.",
+				"Fight phase: the Consolidate step's unit picker moved to the right panel the same way, with [Ongoing]/[Engaging]/[Objective]/[No move] tags per unit and End Consolidation.",
+				"While a pile-in/consolidate move is being made on the battlefield the panel greys out; it re-activates when the move is confirmed, skipped, or the move dialog is closed (closing without confirming no longer dead-ends the step — the unit can be picked again).",
+				"In multiplayer, the waiting player now sees whose Pile In / Consolidate half is running in the right panel instead of nothing."
 			]
 		},
 		{

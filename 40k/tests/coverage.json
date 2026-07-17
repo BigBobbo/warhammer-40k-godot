@@ -2079,8 +2079,8 @@
       "status": "covered"
     },
     {
-      "id": "dialogs.ConsolidationStepDialog",
-      "description": "Consolidate-step unit picker: per-unit Consolidate_<id> buttons with mode hints + End Consolidation button; drives the ConsolidateDialog drag flow.",
+      "id": "scripts.FightController.consolidation_step_panel",
+      "description": "Consolidate-step section in the right panel (replaces the old board-covering ConsolidationStepDialog pop-up): per-unit Consolidate_<id> buttons with mode hints + End Consolidation button under FightPanel/ConsolidationStepPanel; drives the ConsolidateDialog drag flow.",
       "scenarios": [
         "global_consolidation_step_11e"
       ],
@@ -2107,8 +2107,8 @@
       "status": "covered"
     },
     {
-      "id": "dialogs.PileInStepDialog",
-      "description": "Pile In-step unit picker: per-unit PileIn_<id> buttons with engaged/charged hints + End Pile In button; drives the PileInDialog drag flow.",
+      "id": "scripts.FightController.pile_in_step_panel",
+      "description": "Pile In-step section in the right panel (replaces the old board-covering PileInStepDialog pop-up): per-unit PileIn_<id> buttons with engaged/charged hints + End Pile In button under FightPanel/PileInStepPanel; drives the PileInDialog drag flow.",
       "scenarios": [
         "global_consolidation_step_11e",
         "attached_char_pile_in_step_11e"
