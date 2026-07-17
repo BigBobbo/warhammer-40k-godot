@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.50.2",
+			"date": "2026-07-17",
+			"summary": "Mouse-wheel zoom now only acts when the cursor is over the game board. Scrolling while hovering a menu or panel (unit list, game log, HUD bar, dialogs) no longer zooms the board underneath — the wheel belongs to the menu you're pointing at.",
+			"changes": [
+				"Fixed: scrolling a side panel, the game log, or any other menu no longer also zooms the board — wheel zoom is skipped whenever the cursor is over a UI element.",
+				"Scrolling over the open board still zooms in/out anchored on the cursor, exactly as before."
+			]
+		},
+		{
 			"version": "0.50.1",
 			"date": "2026-07-17",
 			"summary": "The Fight phase 'Select Unit to Fight' picker no longer lists Fights First units twice. Units that fight first (chargers and Fights First ability carriers) appeared under BOTH the FIGHTS_FIRST section and REMAINING_COMBATS, reading as if they fought twice — now every unit is listed in exactly one section. The picker also shows proper unit names throughout.",
