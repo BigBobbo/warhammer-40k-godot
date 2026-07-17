@@ -1,0 +1,244 @@
+{
+  "id": "fast_roll_two_targets_all_resolve",
+  "covers": [
+    "phases.ShootingPhase.fast_roll_auto_continue",
+    "shooting.fast_roll_multi_target_no_double_roll",
+    "scripts.ShootingResolutionDock.fast_roll"
+  ],
+  "fixture": "shooting_phase",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Fast Roll All with two targets must resolve every weapon exactly ONCE. The old combined fast roll rolled all weapons up front, but the save flow only applied the FIRST (weapon,target) batch and then offered 'Continue to Next Weapon' — RE-ROLLING the remaining weapons and discarding any wounds they had already caused. Single-player fast roll now routes through the sequential-staged machinery with pauses auto-skipped: Battlewagon Alpha fast-rolls big shootas at the Witchseekers (wounds -> saves overlay) and the zzap gun at the Blade Champion; after the overlay resolves, the zzap fires automatically (no dialog), and the final summary offers Complete Shooting with both weapons recorded in the phase log.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0].position.merge({\"x\": 1150.0, \"y\": 2150.0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot.units[\"U_BLADE_CHAMPION_A\"].models[0].position.merge({\"x\": 1150.0, \"y\": 2150.0}, true)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_BATTLEWAGON_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_BATTLEWAGON_A",
+        "payload": {
+          "weapon_id": "big_shoota_ranged",
+          "target_unit_id": "U_WITCHSEEKERS_C",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_BATTLEWAGON_A",
+        "payload": {
+          "weapon_id": "zzap_gun_ranged",
+          "target_unit_id": "U_BLADE_CHAMPION_A",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLINE_REACTIVE_STRATAGEM"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.fast_button.emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fast_roll_first_saves"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"mode\", \"?\")",
+      "equals": "sequential_staged"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"auto_continue\", false)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/AllocationGroupOverlay\") != null",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/RerollPanel/KeepRollsButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_after_saves_zzap_autofired"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"current_index\", -99)",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"completed_weapons\", []).size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.text",
+      "equals": "Complete Shooting"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_unit_complete"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BATTLEWAGON_A\").get(\"flags\", {}).get(\"has_shot\", false)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_phase_shooting_summary().weapon_entries",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_phase_shooting_summary().targets_count",
+      "equals": 2
+    }
+  ]
+}

@@ -2,6 +2,37 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.53.0",
+			"date": "2026-07-17",
+			"summary": "Multi-target shooting overhaul, part 1: declaring targets is now one click for the common case. Clicking an enemy with no weapon selected sends EVERYTHING at it; clicking with a weapon selected commits all of that weapon's eligible bearers instantly (no popup). Splitting fire is the exception you opt into: click a second target and the game offers to move some shots across. Engaged vehicles can also declare targets they are not engaged with again (10.06), and the game no longer shows error banners for assignments it auto-attempted itself.",
+			"changes": [
+				"One-click targeting: click an eligible enemy with NO weapon selected to assign every usable weapon to it (a tip in the dice log explains how to split).",
+				"First assignment for a weapon commits all its eligible bearers immediately — the 'Send N of M' popup no longer appears for the common case.",
+				"Split fire by clicking a second target with the weapon selected: a 'Move how many?' picker retargets a slice of the committed bearers (no more dead-end 'No bearers can fire').",
+				"Fixed: an engaged MONSTER/VEHICLE could assign targets outside its engagement (legal per 10.06) and then have Confirm reject the whole plan with 'can only target engaged units'. Confirm now applies the same 11e shooting-type rules as assignment.",
+				"Fixed: auto-assign and quick-assign no longer dispatch assignments the rules engine would reject (which surfaced as red 'Shooting action rejected' banners the player never caused) — illegal weapons are quietly skipped and listed.",
+				"Target chips: every declared target gets a letter badge (A, B, C…) with its own color, shown on the battlefield next to the unit and reused in the weapon rows ('1→[B] Blade Champion') and the CURRENT TARGETS list — one visual identity for 'which weapon goes where'.",
+				"During resolution the chip of the target currently being shot grows and the others dim, so the battlefield itself shows whose turn it is to take fire.",
+				"NEW resolution dock: rolling dice no longer buries the battlefield under a chain of pop-up dialogs. The right panel swaps to a WEAPON RESOLUTION view — a queue showing every weapon and its target (reorder with ▲▼ before rolling), ONE big button that is always in the same place ('Roll to Hit' → 'Roll to Wound' → 'Continue to Saving Throws' → 'Next Weapon' → 'Complete Shooting'), Command Re-roll dice chips, and a Fast Roll escape. Space/Enter presses it, so you can resolve a whole volley without touching the mouse.",
+				"Completed weapons stay listed in the dock with their results ('✔ Big shoota → [A] Witchseekers (1H 1W 1 slain)'), so multi-target progress is always visible.",
+				"New 'Pauses' setting in the dock: 'Every step' (default, current behavior), 'Only decisions' (pause only when a Command Re-roll could actually change something), or 'Never' (rolls run straight through; saves and the between-weapon stop remain). Persisted between sessions.",
+				"Damage forecasts everywhere you aim: each pending weapon in the resolution queue shows its expected damage for its exact bearer slice ('4× Big shoota → [A] Witchseekers ~1.5 dmg', hover for the full attacks → hits → wounds → unsaved chain), and every quick-assign button shows the expected total if the whole unit fires at that target — previews always include the enemy's saves."
+			]
+		},
+		{
+			"version": "0.52.4",
+			"date": "2026-07-17",
+			"summary": "Fixed the split-fire bug where shooting at two different targets only rolled dice for the first one, and fixed Fast Roll re-rolling weapons it had already rolled. Multi-target shooting now reliably resolves every declared weapon and target, in both step-by-step and Fast Roll modes.",
+			"changes": [
+				"Fixed: after the enemy resolved saves against your first weapon, the remaining weapons aimed at OTHER targets were dropped — the 'weapon 2 of 2' roll never happened. All declared targets now resolve in order.",
+				"Fixed: the 'Continue to Next Weapon' step was rejected with a 'Not in sequential mode' error in single-player, which dead-ended the shooting sequence and rebuilt the weapon panel mid-resolution.",
+				"Fixed: 'Fast Roll All' rolled every weapon up front but only ever applied the first weapon's wounds — then rolled the remaining weapons AGAIN (discarding their first results). Fast Roll now resolves weapon by weapon with no pauses: same dice fairness as step-by-step, just faster.",
+				"The attack summary between weapons correctly lists the remaining weapons and their targets.",
+				"The firing-order dialog now shows WHO each weapon is shooting at (green '→ target' line per weapon, with model counts when a weapon is split), and split fire announces every target instead of claiming the whole weapon fires at the first one.",
+				"Removed the large dead gray area in the roll dialog during resolution (the hidden firing-order list kept reserving its space)."
+			]
+		},
+		{
 			"version": "0.52.3",
 			"date": "2026-07-17",
 			"summary": "Fixed AI fight-phase pile-in and consolidation: the game log would say an AI unit 'piles in toward enemy (N models moved)' but the tokens never actually moved on the board. The models had moved in the underlying game state — only the on-screen tokens were left behind — so combats resolved from the correct positions while the board looked wrong until the next full refresh. The tokens now follow the state immediately.",
@@ -14,10 +45,10 @@
 		{
 			"version": "0.52.2",
 			"date": "2026-07-17",
-			"summary": "Characters attached to a squad can no longer be shot out of it. The AI (and any scripted attack) could previously target an attached leader \u2014 e.g. a Blade Champion leading a Custodian Guard squad \u2014 as if it were a separate unit, so the defender's Allocate Attacks dialog showed only the character and the wounds could not be put on the squad first. Attached leaders are now only reachable by shooting their unit: wounds are allocated to the squad's models first and the leader is reached last (or via PRECISION), per the 11th-edition attached-unit rules (19.02).",
+			"summary": "Characters attached to a squad can no longer be shot out of it. The AI (and any scripted attack) could previously target an attached leader — e.g. a Blade Champion leading a Custodian Guard squad — as if it were a separate unit, so the defender's Allocate Attacks dialog showed only the character and the wounds could not be put on the squad first. Attached leaders are now only reachable by shooting their unit: wounds are allocated to the squad's models first and the leader is reached last (or via PRECISION), per the 11th-edition attached-unit rules (19.02).",
 			"changes": [
-				"Fixed: the AI no longer shoots attached characters directly \u2014 its target planning now folds attached leaders into their unit, so it shoots the squad instead.",
-				"Fixed: the rules engine now rejects any ranged attack that tries to target an attached character ('Cannot target \u2026 \u2014 attached character; shoot the bodyguard unit instead'), matching what the targeting UI already enforced for human players.",
+				"Fixed: the AI no longer shoots attached characters directly — its target planning now folds attached leaders into their unit, so it shoots the squad instead.",
+				"Fixed: the rules engine now rejects any ranged attack that tries to target an attached character ('Cannot target … — attached character; shoot the bodyguard unit instead'), matching what the targeting UI already enforced for human players.",
 				"Fixed: the GRENADE stratagem can no longer pick an attached character as its target either.",
 				"When the squad leading a character is shot, the Allocate Attacks dialog shows the combined unit as before: squad models first, CHARACTER group last.",
 				"Standalone (unattached) characters are still targetable exactly as before."
@@ -194,14 +225,14 @@
 		{
 			"version": "0.49.0",
 			"date": "2026-07-16",
-			"summary": "Line of sight now follows the 11th-edition terrain rules correctly: units standing ON a terrain piece can be seen and shot (their own terrain area no longer blocks the sight-line check), and when a unit truly can't be targeted the game explains WHY \u2014 including the Hidden rule (infantry lurking in dense terrain is only visible within 15\") instead of a blanket 'No line of sight'.",
+			"summary": "Line of sight now follows the 11th-edition terrain rules correctly: units standing ON a terrain piece can be seen and shot (their own terrain area no longer blocks the sight-line check), and when a unit truly can't be targeted the game explains WHY — including the Hidden rule (infantry lurking in dense terrain is only visible within 15\") instead of a blanket 'No line of sight'.",
 			"changes": [
-				"Fixed: units standing on a terrain area (e.g. the slanted centre strips) were wrongly untargetable \u2014 the halves of a linked terrain area and its parented wall/gantry features now count as ONE area for the Obscuring rule (13.10), so a model within it is never blocked by its own area.",
-				"Fixed: 'within a terrain area' now uses any part of the model's base (the rules' Within convention), not just the base centre \u2014 models straddling an area edge are seen (and Hidden) correctly.",
+				"Fixed: units standing on a terrain area (e.g. the slanted centre strips) were wrongly untargetable — the halves of a linked terrain area and its parented wall/gantry features now count as ONE area for the Obscuring rule (13.10), so a model within it is never blocked by its own area.",
+				"Fixed: 'within a terrain area' now uses any part of the model's base (the rules' Within convention), not just the base centre — models straddling an area edge are seen (and Hidden) correctly.",
 				"Fixed: a model standing in/on a structure (catwalk, ruin footprint) is no longer blocked by the piece it occupies.",
 				"Fixed: Gone to Ground no longer subtracts 3\" of detection range for terrain the target itself is standing in.",
-				"Solid walls (13.11) still block ground-level sight lines \u2014 being on terrain exposes you, but a wall between you stays opaque.",
-				"The shooting panel now explains ineligible targets precisely: 'X is Hidden (dense terrain, hasn't shot recently) \u2014 visible only within 15\" detection range; your closest model is N\" away' or 'terrain blocks every sight line'.",
+				"Solid walls (13.11) still block ground-level sight lines — being on terrain exposes you, but a wall between you stays opaque.",
+				"The shooting panel now explains ineligible targets precisely: 'X is Hidden (dense terrain, hasn't shot recently) — visible only within 15\" detection range; your closest model is N\" away' or 'terrain blocks every sight line'.",
 				"The no-eligible-targets toast points at the Dice Log breakdown and mentions the Hidden rule."
 			]
 		},
@@ -502,7 +533,7 @@
 			"summary": "Fixed a Fight-phase bug where the game asked YOU to choose targets for the computer's attacks. When the AI's units fought (e.g. you playing Orks vs the AI's Custodes), the 'who do you want to allocate these attacks to?' target-selection dialog popped up for you instead of the AI just picking its own targets and fighting. Cause: the Fight controller only refreshed the 'whose fighter is this?' owner when a human picked a fighter from a dialog, so once one of your units had fought, that owner stayed pointed at you; when the AI's unit fought next, the controller thought the human owned it and showed you the AI's attack-allocation dialog. The controller now updates the owner every time any unit is selected to fight, so the AI silently resolves its own attacks and the dialog only ever appears for your own units.",
 			"changes": [
 				"Fixed: the Fight phase no longer shows you the attack-target dialog for the computer's units. The AI now picks targets and fights with its own units automatically, and you are only asked to allocate attacks for units you control.",
-				"Same fix also stops the AI's Pile In and Consolidate prompts from being shown to you \u2014 the controller now tracks the active fighter's real owner and hands each dialog to the correct player as control alternates back and forth during the Fight phase."
+				"Same fix also stops the AI's Pile In and Consolidate prompts from being shown to you — the controller now tracks the active fighter's real owner and hands each dialog to the correct player as control alternates back and forth during the Fight phase."
 			]
 		},
 		{

@@ -1,132 +1,192 @@
 {
   "id": "staged_shooting_reroll_ui",
   "covers": [
-    "ui.shooting.staged_hit_wound_pause",
-    "ui.shooting.command_reroll",
-    "ui.shooting.continue_buttons",
-    "ui.shooting.order_section_hidden_during_resolution"
+    "scripts.ShootingResolutionDock.reroll_chips",
+    "phases.ShootingPhase.use_shooting_reroll",
+    "shooting.staged.command_reroll_hit_die"
   ],
   "fixture": "shooting_phase",
-  "rng_seed": 7,
+  "rng_seed": 42,
   "transition_to_phase": 8,
-  "description": "Drives the non-networked STAGED shooting sequence through the real WeaponOrderDialog: Start Sequence -> hit roll pause ('Roll to Wound' + per-die Command Re-roll) -> wound roll pause ('Continue to Saving Throws' + wound re-roll) -> wound-allocation overlay. Verifies the verbose log and that the bare 'Close' button is gone. Also asserts the ordering UI is coherent: at the ordering stage the 'FIRING ORDER' header shows a 2-row list; once the sequence starts the ENTIRE ordering section (header + scroll + list) is hidden, not just the inner list (regression: an empty 'FIRING ORDER' box was left behind during resolution).",
+  "disable_ai": true,
+  "description": "Command Re-roll at the staged hit pause, driven through the B2 resolution dock. Battlewagon Alpha fires big shootas (weapon 1 of 2) at the Witchseekers; at the hit pause the dock shows one clickable die chip per hit roll (Command Re-roll, 1 CP). Clicking a chip dispatches USE_SHOOTING_REROLL: the CP is spent, the chips disappear (once per phase), and the pause remains until the attacker continues to the wound roll.",
   "steps": [
     {
       "act": "wait_seconds",
-      "seconds": 1.0
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
     },
     {
       "act": "execute_script",
-      "script": "var main = tree.root.get_node(\"Main\")\nvar sc = main.shooting_controller\nvar phase = sc.current_phase\nvar ap = GameState.get_active_player()\n# Find an active-player unit with 2+ distinct ranged weapon types.\nvar shooter_id = \"\"\nvar wtypes = []\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif u.get(\"owner\", 0) != ap:\n\t\tcontinue\n\tif u.get(\"models\", []).is_empty():\n\t\tcontinue\n\tvar wl = RulesEngine.get_unit_weapons(uid)\n\tvar seen = {}\n\tfor mid in wl:\n\t\tfor w in wl[mid]:\n\t\t\tseen[w] = true\n\tif seen.size() >= 2:\n\t\tshooter_id = uid\n\t\twtypes = seen.keys()\n\t\tbreak\nif shooter_id == \"\":\n\treturn \"ERR no 2-weapon shooter\"\nvar target_id = \"\"\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif u.get(\"owner\", 0) != ap and not u.get(\"models\", []).is_empty():\n\t\ttarget_id = uid\n\t\tbreak\nif target_id == \"\":\n\treturn \"ERR no target\"\nvar shooter = GameState.state.units[shooter_id]\nvar target = GameState.state.units[target_id]\nvar bx = 880.0\nvar by = 1000.0\nvar si = 0\nfor m in shooter.models:\n\tm.position = {\"x\": bx, \"y\": by + si * 34}\n\tm.alive = true\n\tm[\"status\"] = 2\n\tsi += 1\nshooter[\"status\"] = 2\nvar ti = 0\nfor m in target.models:\n\tm.position = {\"x\": bx + 80, \"y\": by + ti * 34}\n\tm.alive = true\n\tti += 1\nGameState.state[\"players\"][str(ap)][\"cp\"] = 5\nvar mids = []\nfor m in shooter.models:\n\tmids.append(m.id)\nvar m0 = mids[0]\nvar assigns = [\n\t{\"weapon_id\": wtypes[0], \"target_unit_id\": target_id, \"model_ids\": [m0]},\n\t{\"weapon_id\": wtypes[1], \"target_unit_id\": target_id, \"model_ids\": [m0]},\n]\nphase.active_shooter_id = shooter_id\nphase.confirmed_assignments = assigns.duplicate(true)\nsc.current_phase = phase\nsc.call(\"_on_weapon_order_required\", assigns)\nreturn \"OK shooter=\" + shooter_id + \" target=\" + target_id + \" cp=\" + str(GameState.state.players[str(ap)].cp)\n",
-      "multiline": true
-    },
-    {
-      "act": "wait_frames",
-      "frames": 4
+      "script": "GameState.set_edition(11)",
+      "equals": 11
     },
     {
       "act": "execute_script",
-      "script": "tree.root.get_node_or_null(\"WeaponOrderDialog\") != null",
+      "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0].position.merge({\"x\": 1150.0, \"y\": 2150.0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot.units[\"U_BLADE_CHAMPION_A\"].models[0].position.merge({\"x\": 1150.0, \"y\": 2150.0}, true)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_BATTLEWAGON_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_BATTLEWAGON_A",
+        "payload": {
+          "weapon_id": "big_shoota_ranged",
+          "target_unit_id": "U_WITCHSEEKERS_C",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_BATTLEWAGON_A",
+        "payload": {
+          "weapon_id": "zzap_gun_ranged",
+          "target_unit_id": "U_BLADE_CHAMPION_A",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLINE_REACTIVE_STRATAGEM"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "WeaponOrderDialog.firing_order_label.text",
-      "equals": "FIRING ORDER"
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
     },
     {
       "act": "execute_script",
-      "script": "WeaponOrderDialog.weapon_list_container.get_child_count()",
-      "equals": 2
+      "script": "main.get_node(\"ShootingController\").resolution_dock.state",
+      "equals": "staged_hits"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.reroll_row.get_child_count()",
+      "equals": 5
     },
     {
       "act": "screenshot",
-      "label": "01_weapon_order_dialog"
+      "label": "01_hit_pause_with_reroll_chips"
     },
     {
       "act": "execute_script",
-      "script": "tree.root.get_node_or_null(\"WeaponOrderDialog\")._on_start_sequence_pressed()",
-      "multiline": true
-    },
-    {
-      "act": "wait_frames",
-      "frames": 6
+      "script": "StratagemManager.get_player_cp(1)",
+      "equals": 4
     },
     {
       "act": "execute_script",
-      "script": "var d=tree.root.get_node_or_null(\"WeaponOrderDialog\")\nreturn d.staged_continue_button.visible and d.staged_continue_button.text.begins_with(\"Roll to Wound\")",
-      "multiline": true,
-      "equals": true
+      "script": "main.get_node(\"ShootingController\").resolution_dock.reroll_row.get_child(0).emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
     },
     {
       "act": "execute_script",
-      "script": "WeaponOrderDialog.firing_order_label.is_visible_in_tree() or WeaponOrderDialog.weapon_scroll.is_visible_in_tree() or WeaponOrderDialog.weapon_list_container.is_visible_in_tree()",
-      "equals": false
+      "script": "StratagemManager.get_player_cp(1)",
+      "equals": 3
     },
     {
       "act": "execute_script",
-      "script": "not tree.root.get_node_or_null(\"WeaponOrderDialog\").close_button.visible",
-      "equals": true
+      "script": "main.get_node(\"ShootingController\").resolution_dock.reroll_row.get_child_count()",
+      "equals": 0
     },
     {
       "act": "execute_script",
-      "script": "tree.root.get_node_or_null(\"WeaponOrderDialog\").reroll_row.visible",
-      "equals": true
-    },
-    {
-      "act": "execute_script",
-      "script": "var t=tree.root.get_node_or_null(\"WeaponOrderDialog\").dice_log_rich_text.get_parsed_text()\nreturn t.contains(\"Rolling to Hit\")",
-      "multiline": true,
-      "equals": true
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"stage\", \"?\")",
+      "equals": "hits_pending"
     },
     {
       "act": "screenshot",
-      "label": "02_hits_pause"
+      "label": "02_after_command_reroll"
     },
     {
       "act": "execute_script",
-      "script": "tree.root.get_node_or_null(\"WeaponOrderDialog\")._on_staged_continue_pressed()",
-      "multiline": true
+      "script": "main.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")"
     },
     {
-      "act": "wait_frames",
-      "frames": 6
+      "act": "wait_seconds",
+      "seconds": 0.8
     },
     {
       "act": "execute_script",
-      "script": "var d=tree.root.get_node_or_null(\"WeaponOrderDialog\")\nreturn d == null or d.staged_continue_button.text.begins_with(\"Continue to Saving Throws\")",
-      "multiline": true,
-      "equals": true
+      "script": "PhaseManager.get_current_phase_instance().resolution_state.get(\"stage\", \"?\")",
+      "equals": "wounds_pending"
     },
     {
       "act": "screenshot",
-      "label": "03_wounds_pause"
-    },
-    {
-      "act": "execute_script",
-      "script": "var d=tree.root.get_node_or_null(\"WeaponOrderDialog\")\nif d != null and d.reroll_row.visible and d.reroll_row.get_child_count() > 0:\n\td._on_reroll_die_pressed(0)\n\treturn \"wound reroll used\"\nreturn \"no wound reroll (already used or no wounds)\"",
-      "multiline": true
-    },
-    {
-      "act": "wait_frames",
-      "frames": 6
-    },
-    {
-      "act": "screenshot",
-      "label": "04_after_wound_reroll"
-    },
-    {
-      "act": "execute_script",
-      "script": "var d=tree.root.get_node_or_null(\"WeaponOrderDialog\")\nif d != null:\n\td._on_staged_continue_pressed()\n\treturn \"continued to saves\"\nreturn \"dialog already closed\"",
-      "multiline": true
-    },
-    {
-      "act": "wait_frames",
-      "frames": 10
-    },
-    {
-      "act": "screenshot",
-      "label": "05_after_continue"
+      "label": "03_wound_pause_after_reroll"
     }
   ]
 }

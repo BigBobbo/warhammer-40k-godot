@@ -1,0 +1,50 @@
+{
+  "id": "engaged_vehicle_confirm_split_11e",
+  "covers": [
+    "phases.ShootingPhase.validate_confirm_targets_11e",
+    "rules.11e.close_quarters.monster_vehicle_outside_targets",
+    "shooting.assign_confirm_validation_parity"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "edition": 11,
+  "description": "F3 audit regression: ASSIGN_TARGET and CONFIRM_TARGETS must agree. The engaged Telemon Heavy Dreadnought (VEHICLE, close-quarters shooting type) legally assigns two targets it is NOT engaged with (10.06 allows MONSTER/VEHICLE to shoot outside targets at -1) — previously both assignments were accepted and CONFIRM_TARGETS then rejected the whole plan with 'Unit is in engagement — can only target engaged units' (a 10e-era hard-coded check that ignored the M/V exemption). Confirm now runs the same shooting-type gate as assignment.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_TELEMON_HEAVY_DREADNOUGHT_I\").flags.erase(\"has_shot\")" },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].flags.erase(\"has_shot\")" },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooting_type",
+      "equals": "close_quarters" },
+
+    { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "actor_unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I", "payload": { "weapon_id": "twin_arachnus_las_blaze_ranged", "target_unit_id": "U_BATTLEWAGON_G", "model_ids": ["m1"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "actor_unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I", "payload": { "weapon_id": "telemon_storm_cannon_ranged", "target_unit_id": "U_KOMMANDOS_H", "model_ids": ["m1"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_assignments.size()",
+      "equals": 2 },
+    { "act": "screenshot", "label": "01_engaged_vehicle_two_targets" },
+
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().confirmed_assignments.size()",
+      "equals": 2 },
+    { "act": "screenshot", "label": "02_confirm_accepted" }
+  ]
+}

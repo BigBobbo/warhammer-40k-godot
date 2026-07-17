@@ -137,6 +137,29 @@ const LOS_LINE_WIDTH = 2.0
 const SHOOTING_LINE_COLOR = Color(1.0, 0.5, 0.0, 0.8)  # Orange for shooting lines
 const SHOOTING_LINE_WIDTH = 3.0
 
+# B1 (audit 2026-07): TARGET CHIPS — every declared target gets a stable
+# letter + color, rendered as a badge on the battlefield and reused in the
+# weapon rows, the CURRENT TARGETS basket and the resolution progress, so
+# "which weapon goes where" always has one visual identity everywhere.
+const TARGET_CHIP_COLORS: Array = [
+	Color(1.0, 0.78, 0.2),   # A — gold
+	Color(0.35, 0.8, 1.0),   # B — sky blue
+	Color(1.0, 0.45, 0.85),  # C — magenta
+	Color(0.55, 1.0, 0.55),  # D — green
+	Color(1.0, 0.55, 0.3),   # E — orange
+	Color(0.75, 0.7, 1.0),   # F — lavender
+]
+var target_chips_container: Node2D = null
+var _target_chip_letters: Dictionary = {}   # target_unit_id -> "A"/"B"/...
+var _active_chip_target_id: String = ""     # target being resolved right now
+
+# B2 (audit 2026-07): docked resolution panel (single-player) — replaces the
+# WeaponOrderDialog + NextWeaponDialog chain. Declaration widgets live in
+# declaration_box so the dock can swap the whole section while resolving.
+const ShootingResolutionDockScript = preload("res://scripts/ShootingResolutionDock.gd")
+var declaration_box: VBoxContainer = null
+var resolution_dock = null
+
 # T36: pending-target add/clear/commit. Click-only adds to pending_targets
 # without firing. ENTER (or commit_targets()) marks targets_committed = true
 # and would trigger the real resolution downstream. Idempotent on duplicate
@@ -366,6 +389,11 @@ func _create_shooting_visuals() -> void:
 	shooting_lines_container.name = "ShootingLinesContainer"
 	board_root.add_child(shooting_lines_container)
 
+	# B1: container for the per-target letter chips (A/B/C badges)
+	target_chips_container = Node2D.new()
+	target_chips_container.name = "ShootingTargetChips"
+	board_root.add_child(target_chips_container)
+
 	# T7-53: Create damage feedback visual for floating damage numbers
 	var board_view_ref = SceneRefs.board_view()
 	if board_view_ref and not (damage_feedback and is_instance_valid(damage_feedback)):
@@ -437,6 +465,22 @@ func _setup_right_panel() -> void:
 
 	_add_shooting_gold_separator(shooting_panel)
 
+	# B2 (audit 2026-07): every DECLARATION widget lives in this box so the
+	# resolution dock can swap the whole section out while dice are rolling —
+	# no half-dead assignment UI on screen mid-resolution.
+	declaration_box = VBoxContainer.new()
+	declaration_box.name = "DeclarationBox"
+	declaration_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shooting_panel.add_child(declaration_box)
+
+	# B2: docked resolution panel — replaces WeaponOrderDialog + NextWeaponDialog
+	# in single-player. Hidden until targets are confirmed.
+	resolution_dock = ShootingResolutionDockScript.new()
+	resolution_dock.name = "ResolutionDock"
+	resolution_dock.visible = false
+	resolution_dock.action_requested.connect(_on_dock_action_requested)
+	shooting_panel.add_child(resolution_dock)
+
 	# Unit selector
 	var unit_label = Label.new()
 	unit_label.text = "SELECT SHOOTER"
@@ -444,13 +488,13 @@ func _setup_right_panel() -> void:
 	unit_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		unit_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	shooting_panel.add_child(unit_label)
+	declaration_box.add_child(unit_label)
 
 	unit_selector = ItemList.new()
 	unit_selector.custom_minimum_size = Vector2(230, 80)
 	unit_selector.item_selected.connect(_on_unit_selected)
 	_WhiteDwarfTheme.apply_to_item_list(unit_selector)
-	shooting_panel.add_child(unit_selector)
+	declaration_box.add_child(unit_selector)
 
 	# Shooter status info (abilities, stationary, model count)
 	shooter_status_label = RichTextLabel.new()
@@ -462,9 +506,9 @@ func _setup_right_panel() -> void:
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		shooter_status_label.add_theme_font_override("normal_font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	shooter_status_label.visible = false
-	shooting_panel.add_child(shooter_status_label)
+	declaration_box.add_child(shooter_status_label)
 
-	_add_shooting_gold_separator(shooting_panel)
+	_add_shooting_gold_separator(declaration_box)
 
 	# Weapon assignments section header
 	var weapon_label = Label.new()
@@ -473,7 +517,7 @@ func _setup_right_panel() -> void:
 	weapon_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		weapon_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	shooting_panel.add_child(weapon_label)
+	declaration_box.add_child(weapon_label)
 
 	# Create "Apply to All" button container (initially hidden)
 	auto_target_button_container = HBoxContainer.new()
@@ -496,7 +540,7 @@ func _setup_right_panel() -> void:
 	_WhiteDwarfTheme.apply_secondary_button(apply_to_all_button)
 	auto_target_button_container.add_child(apply_to_all_button)
 
-	shooting_panel.add_child(auto_target_button_container)
+	declaration_box.add_child(auto_target_button_container)
 
 	weapon_tree = Tree.new()
 	weapon_tree.custom_minimum_size = Vector2(230, 180)
@@ -526,7 +570,7 @@ func _setup_right_panel() -> void:
 	weapon_tree.add_theme_font_size_override("font_size", 14)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		weapon_tree.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
-	shooting_panel.add_child(weapon_tree)
+	declaration_box.add_child(weapon_tree)
 
 	# T5-UX1: Expected damage preview panel (shown on weapon hover/select)
 	damage_preview_panel = PanelContainer.new()
@@ -547,7 +591,7 @@ func _setup_right_panel() -> void:
 	damage_preview_label.custom_minimum_size = Vector2(218, 0)
 	damage_preview_label.add_theme_font_size_override("normal_font_size", 11)
 	damage_preview_panel.add_child(damage_preview_label)
-	shooting_panel.add_child(damage_preview_panel)
+	declaration_box.add_child(damage_preview_panel)
 
 	# P3-114: Aggregate damage preview panel (shown when multiple weapons assigned)
 	aggregate_preview_panel = PanelContainer.new()
@@ -568,7 +612,7 @@ func _setup_right_panel() -> void:
 	aggregate_preview_label.custom_minimum_size = Vector2(218, 0)
 	aggregate_preview_label.add_theme_font_size_override("normal_font_size", 11)
 	aggregate_preview_panel.add_child(aggregate_preview_label)
-	shooting_panel.add_child(aggregate_preview_panel)
+	declaration_box.add_child(aggregate_preview_panel)
 
 	# P3-113: Quick-assign all weapons to target buttons
 	quick_assign_container = VBoxContainer.new()
@@ -581,9 +625,9 @@ func _setup_right_panel() -> void:
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		quick_assign_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	quick_assign_container.add_child(quick_assign_label)
-	shooting_panel.add_child(quick_assign_container)
+	declaration_box.add_child(quick_assign_container)
 
-	_add_shooting_gold_separator(shooting_panel)
+	_add_shooting_gold_separator(declaration_box)
 
 	# GRENADE stratagem button
 	grenade_button = Button.new()
@@ -593,10 +637,10 @@ func _setup_right_panel() -> void:
 	grenade_button.pressed.connect(_on_grenade_button_pressed)
 	grenade_button.tooltip_text = "GRENADES unit: Roll 6D6, each 4+ = 1 mortal wound to enemy within 8\""
 	_WhiteDwarfTheme.apply_to_button(grenade_button)
-	shooting_panel.add_child(grenade_button)
+	declaration_box.add_child(grenade_button)
 	_update_grenade_button_visibility()
 
-	_add_shooting_gold_separator(shooting_panel)
+	_add_shooting_gold_separator(declaration_box)
 
 	# Target basket
 	var basket_label = Label.new()
@@ -605,12 +649,12 @@ func _setup_right_panel() -> void:
 	basket_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		basket_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	shooting_panel.add_child(basket_label)
+	declaration_box.add_child(basket_label)
 
 	target_basket = ItemList.new()
 	target_basket.custom_minimum_size = Vector2(230, 80)
 	_WhiteDwarfTheme.apply_to_item_list(target_basket)
-	shooting_panel.add_child(target_basket)
+	declaration_box.add_child(target_basket)
 	
 	# Action buttons
 	var button_container = HBoxContainer.new()
@@ -636,10 +680,10 @@ func _setup_right_panel() -> void:
 	_WhiteDwarfTheme.apply_primary_button(confirm_button)
 	button_container.add_child(confirm_button)
 	
-	shooting_panel.add_child(button_container)
+	declaration_box.add_child(button_container)
 
 	# T5-UX3: "Shoot All Remaining" button
-	_add_shooting_gold_separator(shooting_panel)
+	_add_shooting_gold_separator(declaration_box)
 	shoot_all_remaining_button = Button.new()
 	shoot_all_remaining_button.name = "ShootAllRemainingButton"
 	shoot_all_remaining_button.text = "Shoot All Remaining"
@@ -647,7 +691,7 @@ func _setup_right_panel() -> void:
 	shoot_all_remaining_button.pressed.connect(_on_shoot_all_remaining_pressed)
 	shoot_all_remaining_button.tooltip_text = "Auto-shoot all remaining eligible units at their nearest targets"
 	_WhiteDwarfTheme.apply_primary_button(shoot_all_remaining_button)
-	shooting_panel.add_child(shoot_all_remaining_button)
+	declaration_box.add_child(shoot_all_remaining_button)
 	_update_shoot_all_remaining_button()
 
 	# Secondary mission action button (Establish Locus, Cleanse, Deploy Teleport Homer)
@@ -658,7 +702,7 @@ func _setup_right_panel() -> void:
 	perform_action_button.pressed.connect(_on_perform_action_pressed)
 	perform_action_button.tooltip_text = "Give up shooting to perform a secondary mission action"
 	WhiteDwarfTheme.apply_to_button(perform_action_button)
-	shooting_panel.add_child(perform_action_button)
+	declaration_box.add_child(perform_action_button)
 	perform_action_button.visible = false  # Hidden until a unit qualifies
 
 	# B1 (16.01): "Start Action" — give up shooting to start a generic 11e action.
@@ -669,7 +713,7 @@ func _setup_right_panel() -> void:
 	start_action_button.pressed.connect(_on_start_action_pressed)
 	start_action_button.tooltip_text = "11e Action (16.01): give up shooting to start an action. The unit cannot charge this turn; the action completes at the end of your turn."
 	WhiteDwarfTheme.apply_to_button(start_action_button)
-	shooting_panel.add_child(start_action_button)
+	declaration_box.add_child(start_action_button)
 	start_action_button.visible = false  # Shown only for FLY/edition>=11 eligible units
 
 	# Scorched Earth burn objective button
@@ -681,11 +725,11 @@ func _setup_right_panel() -> void:
 	burn_objective_button.tooltip_text = "Give up shooting and charging to burn a controlled objective"
 	WhiteDwarfTheme.apply_to_button(burn_objective_button)
 	burn_objective_button.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
-	shooting_panel.add_child(burn_objective_button)
+	declaration_box.add_child(burn_objective_button)
 	burn_objective_button.visible = false  # Hidden until a unit qualifies
 
 	# Dice log
-	_add_shooting_gold_separator(shooting_panel)
+	_add_shooting_gold_separator(declaration_box)
 	
 	var dice_label = Label.new()
 	dice_label.text = "DICE LOG"
@@ -846,6 +890,11 @@ func resync_from_phase() -> void:
 		return
 
 	_in_resync = true
+
+	# B2: a resync means declaration state is being rebuilt — if the phase is
+	# not mid-resolution, retire the dock so the declaration widgets return.
+	if resolution_dock and resolution_dock.is_active() and current_phase.resolution_state.is_empty():
+		_deactivate_resolution_dock()
 
 	var phase_active: String = current_phase.active_shooter_id
 
@@ -1443,9 +1492,124 @@ func _show_range_label(position: Vector2, text: String) -> void:
 	label.add_theme_constant_override("shadow_offset_y", 1)
 	range_visual.add_child(label)
 
+# ==========================================
+# B1 (audit 2026-07): TARGET CHIPS
+# ==========================================
+
+func _chip_letter(target_id: String) -> String:
+	return _target_chip_letters.get(target_id, "")
+
+func _chip_color(target_id: String) -> Color:
+	var letter = _chip_letter(target_id)
+	if letter == "":
+		return Color(0.5, 0.85, 0.5)
+	var idx = letter.unicode_at(0) - 65  # 'A'
+	return TARGET_CHIP_COLORS[idx % TARGET_CHIP_COLORS.size()]
+
+# "[A] " prefix for UI rows; empty when the target has no chip yet.
+func _chip_prefix(target_id: String) -> String:
+	var letter = _chip_letter(target_id)
+	return "[%s] " % letter if letter != "" else ""
+
+# Rebuild the letter map + board badges from the phase's authoritative
+# assignment state (pending during declaration, confirmed/weapon_order during
+# resolution). Letters are assigned in first-seen order and stay stable for
+# the whole activation.
+func _refresh_target_chips() -> void:
+	if target_chips_container == null or not is_instance_valid(target_chips_container):
+		return
+
+	# Collect targets in declaration order from whatever state exists right now
+	var ordered_targets: Array = []
+	if current_phase:
+		var sources: Array = []
+		if "pending_assignments" in current_phase:
+			sources.append(current_phase.pending_assignments)
+		if "confirmed_assignments" in current_phase:
+			sources.append(current_phase.confirmed_assignments)
+		if "resolution_state" in current_phase:
+			sources.append(current_phase.resolution_state.get("weapon_order", []))
+		for source in sources:
+			for a in source:
+				var tid = a.get("target_unit_id", "")
+				if tid != "" and tid not in ordered_targets:
+					ordered_targets.append(tid)
+
+	# Assign letters to newly-seen targets (existing letters never change)
+	for tid in ordered_targets:
+		if not _target_chip_letters.has(tid):
+			_target_chip_letters[tid] = char(65 + (_target_chip_letters.size() % 26))
+
+	# Rebuild badges
+	for child in target_chips_container.get_children():
+		child.queue_free()
+	for tid in ordered_targets:
+		var target_unit = GameState.get_unit(tid)
+		if target_unit.is_empty():
+			continue
+		var anchor := Vector2.ZERO
+		for m in target_unit.get("models", []):
+			if m.get("alive", true):
+				anchor = _get_model_position(m)
+				if anchor != Vector2.ZERO:
+					break
+		if anchor == Vector2.ZERO:
+			continue
+		var chip := PanelContainer.new()
+		chip.name = "TargetChip_%s" % tid
+		var style := StyleBoxFlat.new()
+		style.bg_color = _chip_color(tid)
+		style.set_corner_radius_all(5)
+		style.content_margin_left = 7
+		style.content_margin_right = 7
+		style.content_margin_top = 2
+		style.content_margin_bottom = 2
+		chip.add_theme_stylebox_override("panel", style)
+		var lbl := Label.new()
+		lbl.text = _chip_letter(tid)
+		lbl.add_theme_font_size_override("font_size", 16)
+		lbl.add_theme_color_override("font_color", Color(0.08, 0.08, 0.08))
+		chip.add_child(lbl)
+		chip.position = anchor + Vector2(20, -74)
+		chip.z_index = 6
+		chip.set_meta("target_id", tid)
+		target_chips_container.add_child(chip)
+	_apply_active_chip_emphasis()
+
+# During resolution, brighten the chip of the target currently being resolved
+# and dim the others — the battlefield itself shows "weapon 2 of 3 → B".
+func _set_active_target_chip(target_id: String) -> void:
+	_active_chip_target_id = target_id
+	_apply_active_chip_emphasis()
+
+func _apply_active_chip_emphasis() -> void:
+	if target_chips_container == null or not is_instance_valid(target_chips_container):
+		return
+	for chip in target_chips_container.get_children():
+		var tid = str(chip.get_meta("target_id", ""))
+		if _active_chip_target_id == "":
+			chip.modulate = Color(1, 1, 1, 1)
+			chip.scale = Vector2.ONE
+		elif tid == _active_chip_target_id:
+			chip.modulate = Color(1, 1, 1, 1)
+			chip.scale = Vector2(1.3, 1.3)
+		else:
+			chip.modulate = Color(1, 1, 1, 0.4)
+			chip.scale = Vector2.ONE
+
+func _clear_target_chips() -> void:
+	_target_chip_letters.clear()
+	_active_chip_target_id = ""
+	if target_chips_container and is_instance_valid(target_chips_container):
+		for child in target_chips_container.get_children():
+			child.queue_free()
+
 func _clear_visuals() -> void:
 	"""Clear all shooting visual elements from the board"""
 	print("ShootingController: Clearing all visuals")
+
+	# B1: clear target chips
+	_clear_target_chips()
 
 	# Clear LoS line
 	if los_visual and is_instance_valid(los_visual):
@@ -1931,6 +2095,7 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	_manual_assignment_made = false
 	if shooter_changed:
 		_auto_assign_logged = false
+		_clear_target_chips()  # B1: fresh unit, fresh chip letters
 
 	# NEW: Hide auto-target button when selecting new shooter
 	if auto_target_button_container:
@@ -2022,6 +2187,10 @@ func _on_shooting_begun(unit_id: String) -> void:
 			var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 			# Local player gets tracer animation; remote gets static line (already has remote lines from assignment)
 			_create_shooting_line_visual(positions.from, positions.to, weapon_name, is_local_active)
+
+	# B1: keep the target chips alive through resolution (pending_assignments is
+	# cleared by CONFIRM_TARGETS; confirmed_assignments carries the targets now).
+	_refresh_target_chips()
 
 	# Show feedback in dice log on remote player
 	if not is_local_active and dice_log_display:
@@ -2220,6 +2389,9 @@ func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictio
 		_update_grenade_button_visibility()
 		return
 
+	# B2: retire the resolution dock and restore the declaration widgets
+	_deactivate_resolution_dock()
+
 	# Update visuals after shooting
 	_clear_visuals()
 	active_shooter_id = ""
@@ -2275,6 +2447,13 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	# P3-117: Record roll in centralized dice history
 	if DiceHistoryPanel:
 		DiceHistoryPanel.record_roll(dice_data, "Shooting")
+
+	# B1: emphasize the chip of the target currently being resolved
+	if dice_data.get("context", "") == "weapon_progress":
+		_set_active_target_chip(str(dice_data.get("target_unit_id", "")))
+		# B2: advance the dock's queue cursor
+		if resolution_dock and resolution_dock.is_active():
+			resolution_dock.on_weapon_progress(dice_data)
 
 	if not dice_log_display:
 		return
@@ -2606,6 +2785,10 @@ func _on_saves_required(save_data_list: Array) -> void:
 	var weapon = save_data.get("weapon_name", "unknown")
 	var wounds = save_data.get("wounds_to_save", 0)
 
+	# B2: reflect the saves step in the resolution dock (single-player)
+	if not NetworkManager.is_networked() and resolution_dock and resolution_dock.is_active():
+		resolution_dock.on_saves_pending(str(save_data.get("target_unit_name", target)))
+
 	print("║ Target: ", target)
 	print("║ Weapon: ", weapon)
 	print("║ Wounds: ", wounds)
@@ -2856,6 +3039,16 @@ func _on_weapon_order_required(assignments: Array) -> void:
 		print("========================================")
 		return
 
+	# B2 (audit 2026-07): single-player uses the docked resolution panel in the
+	# right HUD instead of the WeaponOrderDialog/NextWeaponDialog chain — the
+	# board stays visible, the queue shows every weapon → target, and one
+	# fixed-position button drives every step. Networked play keeps the dialogs.
+	if not NetworkManager.is_networked():
+		_activate_resolution_dock(assignments)
+		print("ShootingController: B2 resolution dock activated (%d assignments)" % assignments.size())
+		print("========================================")
+		return
+
 	# Show feedback in dice log (message must match the actual weapon count —
 	# a single weapon auto-starts step-by-step rolling, there is no order to choose)
 	if dice_log_display:
@@ -2898,6 +3091,46 @@ func _on_weapon_order_required(assignments: Array) -> void:
 
 	print("ShootingController: WeaponOrderDialog shown and connected to phase signals")
 	print("========================================")
+
+# ---------------------------------------------------------------------------
+# B2 (audit 2026-07): resolution dock lifecycle
+# ---------------------------------------------------------------------------
+
+func _activate_resolution_dock(assignments: Array) -> void:
+	if resolution_dock == null:
+		push_error("ShootingController: resolution dock missing — falling back is not possible in SP")
+		return
+	if declaration_box:
+		declaration_box.visible = false
+	resolution_dock.activate(assignments, current_phase, self, active_shooter_id)
+	# Single weapon TYPE: start rolling immediately (parity with the old
+	# dialog auto-start) — the dock lands straight on the hit pause.
+	# DEFERRED: weapon_order_required is emitted BEFORE the phase stores
+	# resolution_state.phase = "awaiting_weapon_order", so a synchronous
+	# dispatch here would be validated against pre-emit state (the old dialog
+	# deferred its auto-start for the same reason).
+	var unique := {}
+	for a in assignments:
+		unique[a.get("weapon_id", "")] = true
+	if unique.size() == 1:
+		call_deferred("_dock_auto_start_single_weapon", assignments.duplicate(true))
+
+func _dock_auto_start_single_weapon(order: Array) -> void:
+	if resolution_dock == null or not resolution_dock.is_active():
+		return
+	emit_signal("shoot_action_requested", {
+		"type": "RESOLVE_WEAPON_SEQUENCE",
+		"payload": {"weapon_order": order, "fast_roll": false}
+	})
+
+func _deactivate_resolution_dock() -> void:
+	if resolution_dock and resolution_dock.is_active():
+		resolution_dock.deactivate()
+	if declaration_box:
+		declaration_box.visible = true
+
+func _on_dock_action_requested(action: Dictionary) -> void:
+	emit_signal("shoot_action_requested", action)
 
 func _connect_staged_dialog_signals(dialog) -> void:
 	# Wire the staged hit/wound pause controls (non-networked sequential mode).
@@ -2972,6 +3205,14 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and active_player_check > 0 and ai_player_node.is_ai_player(active_player_check):
 		print("ShootingController: Skipping next weapon confirmation dialog for AI player %d" % active_player_check)
+		return
+
+	# B2 (audit 2026-07): single-player routes the between-weapons pause into
+	# the resolution dock — no NextWeaponDialog.
+	if not NetworkManager.is_networked() and resolution_dock and resolution_dock.is_active():
+		resolution_dock.on_next_weapon(remaining_weapons, current_index, last_weapon_result)
+		print("ShootingController: B2 dock updated for next-weapon pause (remaining=%d)" % remaining_weapons.size())
+		print("========================================")
 		return
 
 	# Note: remaining_weapons CAN be empty - this is the final weapon case!
@@ -4165,18 +4406,47 @@ func _update_ui_state() -> void:
 	if quick_assign_container and _count_unassigned_weapons() == 0 and not weapon_assignments.is_empty():
 		quick_assign_container.visible = false
 
-	# Update target basket
+	# B1: chips first so basket/tree rows can show the letters
+	_refresh_target_chips()
+
+	# B1: re-render every weapon row from phase state now that chip letters
+	# exist — rows written earlier in the same frame (commit paths, quick
+	# assign) may predate a newly-declared target's letter.
+	if weapon_tree and weapon_tree.get_root():
+		var chip_row = weapon_tree.get_root().get_first_child()
+		while chip_row:
+			var chip_row_wid = chip_row.get_metadata(0)
+			# Leave "[Disabled - …]" rows alone — they carry the reason text.
+			if chip_row_wid and not str(chip_row.get_text(1)).begins_with("[Disabled"):
+				_refresh_weapon_row_split_text(str(chip_row_wid))
+			chip_row = chip_row.get_next()
+
+	# Update target basket — one row per pending (weapon, target) slice, colored
+	# by the target's chip. Falls back to the legacy weapon_assignments map when
+	# no phase is attached.
 	if target_basket:
 		target_basket.clear()
 		print("║ Updating target basket:")
-		for weapon_id in weapon_assignments:
-			var target_id = weapon_assignments[weapon_id]
-			var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
-			var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
+		var basket_rows: Array = []
+		if current_phase and "pending_assignments" in current_phase and not current_phase.pending_assignments.is_empty():
+			for a in current_phase.pending_assignments:
+				basket_rows.append({
+					"weapon_id": a.get("weapon_id", ""),
+					"target_id": a.get("target_unit_id", ""),
+					"count": (a.get("model_ids", []) as Array).size()
+				})
+		else:
+			for weapon_id in weapon_assignments:
+				basket_rows.append({"weapon_id": weapon_id, "target_id": weapon_assignments[weapon_id], "count": 0})
+		for row in basket_rows:
+			var weapon_profile = RulesEngine.get_weapon_profile(row.weapon_id)
+			var target_name = eligible_targets.get(row.target_id, {}).get("unit_name", row.target_id)
 			var wp_ap = weapon_profile.get("ap", 0)
 			var ap_str = "AP%s" % str(wp_ap) if wp_ap != 0 else "AP0"
-			var display_text = "%s (%s) → %s" % [weapon_profile.get("name", weapon_id), ap_str, target_name]
-			target_basket.add_item(display_text)
+			var count_str = "%d× " % row.count if row.count > 0 else ""
+			var display_text = "%s%s (%s) → %s%s" % [count_str, weapon_profile.get("name", row.weapon_id), ap_str, _chip_prefix(row.target_id), target_name]
+			var idx = target_basket.add_item(display_text)
+			target_basket.set_item_custom_fg_color(idx, _chip_color(row.target_id))
 			print("║   Added to basket: ", display_text)
 
 	# DEBUG: Also log what's in the weapon tree
@@ -4273,6 +4543,13 @@ func _handle_shooting_keyboard_shortcut(event: InputEventKey) -> bool:
 	var kbm = _get_keybinding_manager()
 
 	if _shoot_action_matches(kbm, event, "shoot_confirm_targets", [KEY_SPACE, KEY_ENTER]):
+		# B2: while the resolution dock is live, Space/Enter presses its primary
+		# button — rip through the steps without ever moving the mouse.
+		if resolution_dock and resolution_dock.is_active():
+			if not resolution_dock.primary_button.disabled:
+				print("T5-UX12: Keyboard shortcut — dock primary (%s)" % resolution_dock.primary_button.text)
+				resolution_dock.primary_button.emit_signal("pressed")
+			return true
 		# Confirm targets — only when we have assignments
 		if active_shooter_id != "" and not weapon_assignments.is_empty():
 			print("T5-UX12: Keyboard shortcut — Confirm Targets (shoot_confirm_targets)")
@@ -4584,11 +4861,11 @@ func _handle_board_click(position: Vector2) -> void:
 	if no_eligible_targets and get_viewport().gui_get_hovered_control() != null:
 		return
 
+	# B4 (audit 2026-07): with a shooter active but NO weapon row selected,
+	# clicking an eligible enemy assigns ALL usable weapons to it in one click
+	# (the majority case). Selecting a weapon row first keeps the per-weapon
+	# flow for split fire — so we no longer bail out here.
 	var selected_weapon = weapon_tree.get_selected()
-	if not selected_weapon and not no_eligible_targets:
-		if dice_log_display:
-			dice_log_display.append_text("[color=red]Please select a weapon first![/color]\n")
-		return
 	
 	# Find the closest enemy unit model to the click — across ALL enemy units,
 	# not just eligible ones. This lets us distinguish "the player clicked on
@@ -4622,8 +4899,15 @@ func _handle_board_click(position: Vector2) -> void:
 	# Use a larger click threshold to make selection easier
 	if closest_target != "" and closest_distance < 500:  # Very large threshold for testing
 		if eligible_targets.has(closest_target):
-			print("[ShootingController] Click detected - assigning target: %s (distance: %.1f)" % [closest_target, closest_distance])
-			_select_target_for_current_weapon(closest_target)
+			if selected_weapon:
+				print("[ShootingController] Click detected - assigning target: %s (distance: %.1f)" % [closest_target, closest_distance])
+				_select_target_for_current_weapon(closest_target)
+			else:
+				# B4: no weapon selected → concentrate everything on this target.
+				print("[ShootingController] B4 click with no weapon selected - quick-assigning ALL weapons to %s" % closest_target)
+				_on_quick_assign_all_to_target(closest_target)
+				if dice_log_display:
+					dice_log_display.append_text("[color=#AAAACC]Tip: select a weapon row, then click another enemy, to split fire.[/color]\n")
 		else:
 			# Player clicked on an ineligible enemy unit — explain why instead of
 			# silently switching to a different unit.
@@ -4730,12 +5014,19 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 	#   "total_bearers": N,
 	#   "already_allocated": Array[model_id],
 	#   "eligible_remaining": Array[model_id],   # eligible AND not already allocated
+	#   "movable": Array[model_id],              # eligible, but committed to a DIFFERENT target
+	#   "committed_target_by_model": { model_id: target_unit_id },
 	#   "distances_inches": { model_id: float }, # to nearest target model
 	#   "reasons": { model_id: "out_of_range"|"no_los"|"dead" }
 	# }
 	var eligible_remaining: Array = split.eligible_remaining
 
 	if eligible_remaining.is_empty():
+		# B4 (audit 2026-07): if this weapon's bearers are all committed but SOME
+		# could legally retarget here, offer to MOVE a slice instead of a dead end.
+		if not (split.movable as Array).is_empty():
+			_open_move_fire_picker(weapon_id, target_id, split)
+			return
 		var weapon_name_for_log = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		var target_name_for_log = eligible_targets.get(target_id, {}).get("unit_name", target_id)
 		if dice_log_display:
@@ -4743,11 +5034,16 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 		print("ShootingController: [SPLIT-FIRE] No eligible remaining bearers for %s → %s (reasons=%s)" % [weapon_id, target_id, str(split.reasons)])
 		return
 
-	# If exactly one eligible bearer remains, skip the picker for speed.
-	# Otherwise show the "how many to this target?" picker.
-	if eligible_remaining.size() == 1:
+	# B4 (audit 2026-07): the FIRST assignment for a weapon commits every
+	# eligible bearer in one click — no dialog. Concentrated fire is the
+	# majority case; splitting is the exception the player opts into by
+	# clicking a second target afterwards (which opens the move picker) or by
+	# assigning while some bearers are already committed elsewhere.
+	if split.already_allocated.is_empty() or eligible_remaining.size() == 1:
 		_commit_split_assignment(weapon_id, target_id, eligible_remaining, split.reasons)
 	else:
+		# Some bearers already committed elsewhere and 2+ uncommitted remain —
+		# a genuine split decision: ask how many of the remainder to send.
 		_open_split_fire_picker(weapon_id, target_id, split)
 
 	_update_ui_state()
@@ -4761,6 +5057,8 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 		"total_bearers": 0,
 		"already_allocated": [],
 		"eligible_remaining": [],
+		"movable": [],
+		"committed_target_by_model": {},
 		"distances_inches": {},
 		"reasons": {}
 	}
@@ -4783,6 +5081,7 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 
 	# Bearers already committed to other (or same) targets in pending_assignments
 	var already: Array = []
+	var committed_target: Dictionary = {}
 	if current_phase and "pending_assignments" in current_phase:
 		for a in current_phase.pending_assignments:
 			if a.get("weapon_id", "") != weapon_id:
@@ -4793,7 +5092,9 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 			for mid in a.get("model_ids", []):
 				if mid not in already:
 					already.append(mid)
+				committed_target[mid] = a.get("target_unit_id", "")
 	result.already_allocated = already
+	result.committed_target_by_model = committed_target
 
 	# Per-model eligibility for THIS target
 	var snapshot: Dictionary = current_phase.game_state_snapshot if current_phase else {}
@@ -4808,6 +5109,9 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 	# eligible AND a living bearer AND not already allocated elsewhere
 	for mid in bearers:
 		if mid in already:
+			# B4: committed to a DIFFERENT target but eligible here → movable
+			if eligible_set.has(mid) and committed_target.get(mid, "") != target_id:
+				result.movable.append(mid)
 			continue
 		if eligible_set.has(mid):
 			result.eligible_remaining.append(mid)
@@ -4890,6 +5194,100 @@ func _open_split_fire_picker(weapon_id: String, target_id: String, split: Dictio
 
 	add_child(dialog)
 	dialog.popup_centered()
+
+# B4 (audit 2026-07): MOVE picker — every eligible bearer of this weapon is
+# already committed to other targets; offer to retarget a slice at the newly
+# clicked enemy. Shares the SplitFirePicker/SplitFireSpin node names so
+# windowed scenarios address both pickers the same way.
+func _open_move_fire_picker(weapon_id: String, new_target_id: String, split: Dictionary) -> void:
+	var movable: Array = split.movable
+	var max_n: int = movable.size()
+	var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
+	var target_name = eligible_targets.get(new_target_id, {}).get("unit_name", new_target_id)
+
+	var dialog := AcceptDialog.new()
+	dialog.name = "SplitFirePicker"
+	dialog.title = "Split Fire: %s → %s" % [weapon_name, target_name]
+	dialog.dialog_hide_on_ok = true
+	dialog.get_ok_button().text = "Move"
+
+	var vbox := VBoxContainer.new()
+	dialog.add_child(vbox)
+
+	var info_label := Label.new()
+	info_label.text = "All %d eligible %s bearer(s) are currently aimed at other targets.\nMove how many to %s?" % [max_n, weapon_name, target_name]
+	vbox.add_child(info_label)
+
+	var spin_row := HBoxContainer.new()
+	vbox.add_child(spin_row)
+	var spin_label := Label.new()
+	spin_label.text = "Move:"
+	spin_row.add_child(spin_label)
+	var spin := SpinBox.new()
+	spin.name = "SplitFireSpin"
+	spin.min_value = 1
+	spin.max_value = max_n
+	spin.step = 1
+	spin.value = 1
+	# See _open_split_fire_picker: keep `value` in sync as the player types.
+	spin.update_on_text_changed = true
+	spin_row.add_child(spin)
+	var of_label := Label.new()
+	of_label.text = " of %d" % max_n
+	spin_row.add_child(of_label)
+
+	dialog.confirmed.connect(func():
+		var n := clampi(int(spin.value), 1, max_n)
+		var moved := _pick_closest_n(movable, split.distances_inches, n)
+		_commit_move_assignment(weapon_id, new_target_id, moved, split)
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func(): dialog.queue_free())
+
+	add_child(dialog)
+	dialog.popup_centered()
+
+# B4: Retarget `moved_ids` (currently committed to other targets) at
+# `new_target_id`. Composed of existing actions: clear each touched
+# (weapon, old_target) slice, re-assign the keepers, then commit the moved
+# slice through the normal assignment path (which also handles the
+# [DEVASTATING WOUNDS]/[LETHAL HITS] prompt and UI refresh).
+func _commit_move_assignment(weapon_id: String, new_target_id: String, moved_ids: Array, split: Dictionary) -> void:
+	if moved_ids.is_empty():
+		return
+	var committed: Dictionary = split.committed_target_by_model
+	var by_target: Dictionary = {}
+	for mid in committed:
+		var t = committed[mid]
+		if not by_target.has(t):
+			by_target[t] = []
+		by_target[t].append(mid)
+	var touched: Dictionary = {}
+	for mid in moved_ids:
+		touched[str(committed.get(mid, ""))] = true
+
+	for old_target in touched:
+		if old_target == "" or old_target == new_target_id:
+			continue
+		emit_signal("shoot_action_requested", {
+			"type": "CLEAR_ASSIGNMENT",
+			"payload": {"weapon_id": weapon_id, "target_unit_id": old_target}
+		})
+		var keepers: Array = []
+		for mid in by_target.get(old_target, []):
+			if mid not in moved_ids:
+				keepers.append(mid)
+		if not keepers.is_empty():
+			emit_signal("shoot_action_requested", {
+				"type": "ASSIGN_TARGET",
+				"payload": {"weapon_id": weapon_id, "target_unit_id": old_target, "model_ids": keepers}
+			})
+
+	if dice_log_display:
+		var target_name = eligible_targets.get(new_target_id, {}).get("unit_name", new_target_id)
+		dice_log_display.append_text("[color=yellow]↷ Moving %d × %s to %s[/color]\n" % [moved_ids.size(), RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id), target_name])
+
+	_commit_split_assignment(weapon_id, new_target_id, moved_ids, split.reasons)
 
 # SPLIT-FIRE: Of the given model_ids, return the n closest by the distances map.
 # Distances are edge-to-edge inches to the nearest target model.
@@ -5054,12 +5452,18 @@ func _refresh_weapon_row_split_text(weapon_id: String) -> void:
 				child.set_custom_color(1, Color(0.6, 0.6, 0.6, 0.7))
 				child.clear_custom_bg_color(1)
 			else:
+				# B1: rows carry the target's chip letter; single-target rows
+				# are tinted with the chip color so weapon → target identity
+				# matches the board badge and the basket.
 				var parts: Array = []
 				for alloc in allocations:
 					var tname = eligible_targets.get(alloc.target_unit_id, {}).get("unit_name", alloc.target_unit_id)
-					parts.append("%d→%s" % [alloc.count, tname])
+					parts.append("%d→%s%s" % [alloc.count, _chip_prefix(alloc.target_unit_id), tname])
 				child.set_text(1, ", ".join(parts))
-				child.set_custom_color(1, Color(0.5, 0.85, 0.5))
+				var row_color := Color(0.5, 0.85, 0.5)
+				if allocations.size() == 1:
+					row_color = _chip_color(allocations[0].target_unit_id)
+				child.set_custom_color(1, row_color)
 				child.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
 			return
 		child = child.get_next()
@@ -5075,6 +5479,20 @@ func _flush_pending_auto_assigns() -> void:
 			continue  # Shooter changed since the refresh that queued this
 		_auto_assign_target(str(e[0]), str(e[1]))
 
+# F4 (audit 2026-07): automatic/bulk assignment paths must never dispatch an
+# ASSIGN_TARGET the phase will reject — the rejection surfaces as a red error
+# toast the player did not cause (pistol exclusivity, 11e shooting-type weapon
+# restrictions, ...). Validate quietly through the SAME phase validator first.
+func _assign_payload_is_valid(payload: Dictionary) -> bool:
+	if current_phase == null or not current_phase.has_method("validate_action"):
+		return true
+	var v = current_phase.validate_action({
+		"type": "ASSIGN_TARGET",
+		"actor_unit_id": active_shooter_id,
+		"payload": payload
+	})
+	return v.get("valid", false)
+
 func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 	"""Auto-assign a target to a weapon (used when only one eligible target exists)"""
 	if _in_resync:
@@ -5083,12 +5501,6 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 		# stack-overflow loop. Render only; the player (or AI action) assigns.
 		print("ShootingController: suppressing auto-assign of %s -> %s during resync" % [weapon_id, target_id])
 		return
-	# Mark as assigned
-	weapon_assignments[weapon_id] = target_id
-
-	# T5-UX4: Track assignment in history for undo
-	assignment_history.erase(weapon_id)
-	assignment_history.push_back(weapon_id)
 
 	# Get model IDs for this weapon
 	var model_ids = []
@@ -5102,6 +5514,19 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 		"target_unit_id": target_id,
 		"model_ids": model_ids
 	}
+
+	# F4: skip quietly if the engine would reject this (previously the tree was
+	# marked assigned and the dispatch failed with a red error banner).
+	if not _assign_payload_is_valid(payload):
+		print("ShootingController: F4 auto-assign skipped (engine would reject): %s -> %s" % [weapon_id, target_id])
+		return
+
+	# Mark as assigned
+	weapon_assignments[weapon_id] = target_id
+
+	# T5-UX4: Track assignment in history for undo
+	assignment_history.erase(weapon_id)
+	assignment_history.push_back(weapon_id)
 
 	# Emit assignment action
 	emit_signal("shoot_action_requested", {
@@ -5191,6 +5616,20 @@ func _on_apply_to_all_pressed() -> void:
 				if weapon_id in unit_weapons[model_id]:
 					model_ids.append(model_id)
 
+			# Build payload for network sync
+			var payload = {
+				"weapon_id": weapon_id,
+				"target_unit_id": last_assigned_target_id,
+				"model_ids": model_ids
+			}
+
+			# F4: skip weapons the engine would reject instead of dispatching
+			# a doomed action (red error toast) and lying in the tree column.
+			if not _assign_payload_is_valid(payload):
+				print("ShootingController: F4 apply-to-all skipped (engine would reject): %s" % weapon_id)
+				child = child.get_next()
+				continue
+
 			# Assign target
 			weapon_assignments[weapon_id] = last_assigned_target_id
 
@@ -5202,13 +5641,6 @@ func _on_apply_to_all_pressed() -> void:
 			child.set_text(1, "→ " + target_name)
 			child.set_custom_color(1, Color(0.5, 0.85, 0.5))
 			child.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
-
-			# Build payload for network sync
-			var payload = {
-				"weapon_id": weapon_id,
-				"target_unit_id": last_assigned_target_id,
-				"model_ids": model_ids
-			}
 
 			# Emit assignment action
 			emit_signal("shoot_action_requested", {
@@ -5273,10 +5705,19 @@ func _refresh_quick_assign_buttons() -> void:
 		stat_suffix += " (%d)" % alive
 		var range_inches = _get_closest_range_inches(active_shooter_id, target_id)
 		var range_str = "%.0f\"" % range_inches if range_inches >= 0 else "?"
+
+		# B5 (audit 2026-07): expected total damage if every weapon in range
+		# fires at this target — the concentrated-fire decision is informed
+		# before a single click.
+		var expected_total := 0.0
+		for wid in eligible_targets[target_id].get("weapons_in_range", []):
+			var fc = _calc_weapon_expected_damage(str(wid), target_id)
+			expected_total += float(fc.get("expected_damage", 0.0))
+
 		var btn = Button.new()
-		btn.text = "All → %s  [%s %s]" % [target_name, range_str, stat_suffix]
+		btn.text = "All → %s  [%s %s]  ~%.1f dmg" % [target_name, range_str, stat_suffix, expected_total]
 		btn.custom_minimum_size = Vector2(230, 28)
-		btn.tooltip_text = "Assign all usable weapons to %s (%.1f\" away, %d models, T%d, Sv%d+)" % [target_name, max(range_inches, 0.0), alive, t_val, sv_val]
+		btn.tooltip_text = "Assign all usable weapons to %s (%.1f\" away, %d models, T%d, Sv%d+).\nExpected total damage after saves: ~%.1f" % [target_name, max(range_inches, 0.0), alive, t_val, sv_val, expected_total]
 		_WhiteDwarfTheme.apply_secondary_button(btn)
 		btn.add_theme_font_size_override("font_size", 12)
 		btn.pressed.connect(_on_quick_assign_all_to_target.bind(target_id))
@@ -5329,6 +5770,15 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 				if weapon_id in unit_weapons[model_id]:
 					model_ids.append(model_id)
 
+			# F4: engine validation catches everything the local pistol check
+			# doesn't (11e shooting-type weapon/target restrictions, range/LoS).
+			if not _assign_payload_is_valid({"weapon_id": weapon_id, "target_unit_id": target_id, "model_ids": model_ids}):
+				var wp_skip = RulesEngine.get_weapon_profile(weapon_id)
+				skipped_pistol_names.append(wp_skip.get("name", weapon_id))
+				print("ShootingController: F4 quick-assign skipped (engine would reject): %s" % weapon_id)
+				child = child.get_next()
+				continue
+
 			# Assign target
 			weapon_assignments[weapon_id] = target_id
 			_manual_assignment_made = true  # quick-assign is an explicit player action
@@ -5377,7 +5827,7 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 		dice_log_display.append_text("[color=green]✓ Quick-assigned %d weapon(s) to %s[/color]\n" %
 			[assigned_count, target_name])
 		if not skipped_pistol_names.is_empty():
-			dice_log_display.append_text("[color=yellow]⚠ Skipped %s — cannot mix Pistol and non-Pistol weapons[/color]\n" %
+			dice_log_display.append_text("[color=yellow]⚠ Skipped %s — not usable for this shot (Pistol rules / weapon restrictions)[/color]\n" %
 				", ".join(skipped_pistol_names))
 
 	print("[ShootingController] P3-113: Quick-assigned %d weapons to %s (%s), skipped %d (pistol conflict)" % [assigned_count, target_name, target_id, skipped_pistol_names.size()])
@@ -5783,9 +6233,11 @@ func _update_damage_preview(weapon_id: String) -> void:
 	# P3-114: Update aggregate preview whenever a single weapon preview updates
 	_update_aggregate_damage_preview()
 
-func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dictionary:
+func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_count_override: int = -1) -> Dictionary:
 	"""P3-114: Calculate expected damage for a single weapon vs target, accounting for all modifiers.
-	Returns a dictionary with all computed values, or empty dict on failure."""
+	Returns a dictionary with all computed values, or empty dict on failure.
+	B5 (audit 2026-07): model_count_override > 0 forecasts a specific bearer
+	slice (split-fire assignment) instead of every bearer in the unit."""
 	# Get weapon profile
 	var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
 	if weapon_profile.is_empty():
@@ -5809,12 +6261,15 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dicti
 	var weapon_name = weapon_profile.get("name", weapon_id)
 	var active_tags: Array = []  # Track active modifiers for display
 
-	# Get number of models with this weapon
+	# Get number of models with this weapon (or the forecasted slice size)
 	var model_count = 0
-	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
-	for model_id in unit_weapons:
-		if weapon_id in unit_weapons[model_id]:
-			model_count += 1
+	if model_count_override > 0:
+		model_count = model_count_override
+	else:
+		var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+		for model_id in unit_weapons:
+			if weapon_id in unit_weapons[model_id]:
+				model_count += 1
 
 	# === ATTACKS ===
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
