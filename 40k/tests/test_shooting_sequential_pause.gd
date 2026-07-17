@@ -182,6 +182,49 @@ func _run():
 	_check("staged: CONTINUE_TO_SAVES rejected at hits stage", not bad.get("success", true))
 	gphase.queue_free()
 
+	# --- Split-fire regression: APPLY_SAVES in sequential_staged mode must CONTINUE
+	# the sequence (advance current_index, offer remaining weapons), not fall into
+	# the single-weapon completion branch and drop the second assignment.
+	# ("Shooting at two targets only rolls the first one" bug.)
+	var sf_ok := false
+	for attempt in range(4):
+		var sf_board = _board(1, 6, 40)
+		var sf_order = [_assign(40), _assign(40)]  # two staged weapons
+		var sf_phase = _new_phase(sf_board, sf_order)
+		sf_phase.resolution_state["mode"] = "sequential_staged"
+		var s1 = sf_phase._resolve_next_weapon()
+		if s1.get("staged_pause", "") != "hits":
+			sf_phase.queue_free(); continue
+		var s2 = sf_phase.process_action({"type": "CONTINUE_TO_WOUNDS"})
+		if s2.get("staged_pause", "") != "wounds":
+			sf_phase.queue_free(); continue
+		var s3 = sf_phase.process_action({"type": "CONTINUE_TO_SAVES"})
+		if (s3.get("save_data_list", []) as Array).is_empty():
+			sf_phase.queue_free(); continue
+		sf_ok = true
+		# Defender resolves the batch (11e allocation summary shape, no casualties)
+		var apply_res = sf_phase.process_action({"type": "APPLY_SAVES", "payload": {"save_results_list": [{
+			"is_allocation_11e": true, "diffs": [], "casualties": 0,
+			"saves_passed": 1, "saves_failed": 0, "order_used": []}]}})
+		_check("split-fire: APPLY_SAVES succeeded", apply_res.get("success", false))
+		_check("split-fire: result pauses for next weapon (sequential_pause)",
+			apply_res.get("sequential_pause", false))
+		_check("split-fire: current_index advanced to 1",
+			int(sf_phase.resolution_state.get("current_index", -1)) == 1)
+		_check("split-fire: remaining_weapons carries the 2nd assignment",
+			(apply_res.get("remaining_weapons", []) as Array).size() == 1)
+		_check("split-fire: mode still sequential_staged",
+			sf_phase.resolution_state.get("mode", "") == "sequential_staged")
+		# CONTINUE_SEQUENCE must be accepted in staged mode (validator regression)
+		var cont = sf_phase.process_action({"type": "CONTINUE_SEQUENCE"})
+		_check("split-fire: CONTINUE_SEQUENCE accepted in staged mode",
+			cont.get("success", false), str(cont.get("errors", [])))
+		_check("split-fire: weapon 2 begins at a hits pause",
+			cont.get("staged_pause", "") == "hits")
+		sf_phase.queue_free()
+		break
+	_check("split-fire: reached the APPLY_SAVES continuation within 4 attempts", sf_ok)
+
 	_finish()
 
 func _finish():

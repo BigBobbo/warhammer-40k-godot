@@ -4923,7 +4923,7 @@ func get_available_actions() -> Array:
 		})
 
 	# Sequential mode: continue or complete (safety net for AI)
-	if resolution_state.get("mode", "") == "sequential":
+	if resolution_state.get("mode", "") in ["sequential", "sequential_staged", "fast"]:
 		var idx = resolution_state.get("current_index", 0)
 		var order = resolution_state.get("weapon_order", [])
 		if idx < order.size():
@@ -5182,8 +5182,12 @@ func _validate_apply_saves(action: Dictionary) -> Dictionary:
 
 func _validate_continue_sequence(action: Dictionary) -> Dictionary:
 	"""Validate continuing to next weapon in sequential mode"""
+	# All three multi-weapon modes pause between weapons and continue via
+	# CONTINUE_SEQUENCE: "sequential" (networked), "sequential_staged"
+	# (single-player hit→wound→saves staging) and "fast". Rejecting the staged
+	# mode here dead-ended split-fire after the first target's saves.
 	var mode = resolution_state.get("mode", "")
-	if mode != "sequential":
+	if mode not in ["sequential", "sequential_staged", "fast"]:
 		return {"valid": false, "errors": ["Not in sequential mode"]}
 
 	var current_index = resolution_state.get("current_index", 0)
@@ -6673,9 +6677,15 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	# VERBOSE COMBAT LOG: Emit save and result details
 	_emit_verbose_combat_log(active_shooter_id, [], save_dice_blocks, total_casualties, "shooting_saves")
 
-	# Check if we're in sequential weapon resolution mode
+	# Check if we're in sequential weapon resolution mode.
+	# CRITICAL: "sequential_staged" (the non-networked hit→wound→saves staged flow)
+	# MUST take the sequential path too. It was missing here, so in single-player
+	# the first weapon that caused wounds would fall into the single-weapon
+	# completion branch below, emit next_weapon_confirmation_required([]) and
+	# silently DROP every remaining assignment — "shooting at two targets only
+	# rolls the first one".
 	var mode = resolution_state.get("mode", "")
-	var is_sequential = (mode == "sequential" or mode == "fast")
+	var is_sequential = (mode == "sequential" or mode == "sequential_staged" or mode == "fast")
 
 	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
 	DebugLogger.info("║ MODE CHECK IN _process_apply_saves")
