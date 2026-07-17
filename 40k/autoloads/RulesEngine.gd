@@ -1019,7 +1019,7 @@ static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service:
 
 	var block = {
 		"context": "hit_roll_melee" if hit_context.get("is_melee", false) else "to_hit",
-		"threshold": str(hit_context.get("bs", 4)) + "+",
+		"threshold": str(hit_context.get("hit_threshold_display", str(hit_context.get("bs", 4)) + "+")),
 		"rolls_raw": hit_context["hit_rolls"],
 		"rolls_modified": hit_context["modified_rolls"],
 		"rerolls": hit_context.get("reroll_data", []),
@@ -1665,6 +1665,38 @@ static func _apply_diff_to_board(board: Dictionary, diff: Dictionary) -> void:
 	elif current is Dictionary:
 		current[last_key] = value
 
+# The hit-roll target a player should read: bs_per_attack carries the
+# EFFECTIVE per-attack BS after 11e characteristic modifiers (benefit of
+# cover 13.08 worsens it, plunging fire 22.05 improves it) — the batch `bs`
+# does not, so labelling with str(bs) shows "2+" while the dice were judged
+# against 3+. When per-model views disagree the majority target is shown
+# with a "mixed" note. The suffix must stay digit-free: consumers parse the
+# number back out with String.to_int(), which concatenates EVERY digit in
+# the string ("2+/3+" would read back as 23).
+static func _hit_threshold_display(base_bs: int, bs_per_attack: Array, cover_worsened_attacks: int = 0) -> String:
+	var shown := base_bs
+	var mixed := false
+	if not bs_per_attack.is_empty():
+		var counts := {}
+		for v in bs_per_attack:
+			counts[int(v)] = int(counts.get(int(v), 0)) + 1
+		shown = int(bs_per_attack[0])
+		for t in counts:
+			if counts[t] > counts.get(shown, 0) or (counts[t] == counts.get(shown, 0) and t > shown):
+				shown = t
+		mixed = counts.size() > 1
+	# An unmodified 1 always fails — a modifier-improved "1+" still reads 2+.
+	shown = maxi(shown, 2)
+	var notes: Array = []
+	if cover_worsened_attacks > 0:
+		notes.append("cover")
+	if mixed:
+		notes.append("mixed")
+	var s := "%d+" % shown
+	if not notes.is_empty():
+		s += " (%s)" % ", ".join(notes)
+	return s
+
 # Resolve assignment up to wound stage (stops before saves)
 # SUSTAINED HITS (PRP-011): This function is modified to handle Sustained Hits
 # BLAST (PRP-013): This function is modified to handle Blast keyword
@@ -1921,6 +1953,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			bs_per_attack[i] = 7
 		print("RulesEngine: [OVERWATCH] Forcing BS=7 — only unmodified 6s will hit")
 
+	var cover_worsened_attacks = 0  # 13.08 — attacks whose BS the benefit of cover worsened
+	var hit_threshold_display = str(bs) + "+"  # rebuilt from the effective per-attack BS before display
 	var hits = 0
 	var critical_hits = 0  # Unmodified rolls >= critical_hit_threshold (never for Torrent)
 	var regular_hits = 0   # Non-critical hits
@@ -2192,6 +2226,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 						if pa_cover_cache[pa_key]:
 							bs_per_attack[ms_i] += 1
 							pa_covered_count += 1
+					cover_worsened_attacks = pa_covered_count
 					if pa_covered_count > 0:
 						print("RulesEngine: [13.08 per-model] benefit of cover — %d/%d attack(s) worsened by 1 BS" % [pa_covered_count, bs_per_attack.size()])
 			var ms_hit_net = ms_hit_net_pre
@@ -2299,9 +2334,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		# (Critical hits with Lethal Hits auto-wound, but their Sustained bonus hits still roll)
 		total_hits_for_wounds = hits + sustained_bonus_hits
 
+		# The displayed target must match what each die was judged against —
+		# bs_per_attack carries the effective (cover/plunging-adjusted) BS.
+		hit_threshold_display = _hit_threshold_display(bs, bs_per_attack, cover_worsened_attacks)
 		result.dice.append({
 			"context": "to_hit",
-			"threshold": str(bs) + "+",
+			"threshold": hit_threshold_display,
 			"rolls_raw": hit_rolls,
 			"rolls_modified": modified_rolls,
 			"rerolls": reroll_data,
@@ -2366,6 +2404,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		"reroll_data": reroll_data,
 		"bs": bs,
 		"bs_per_attack": bs_per_attack,
+		"hit_threshold_display": hit_threshold_display,
 		"total_attacks": total_attacks,
 		"heavy_bonus_applied": heavy_bonus_applied,
 		"bgnt_penalty_applied": bgnt_penalty_applied,
@@ -2383,7 +2422,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		var miss_weapon_name = weapon_profile.get("name", weapon_id)
 		var miss_log = "%s → %s with %s - No hits" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), miss_weapon_name]
 		if not hit_rolls.is_empty():
-			miss_log += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+			miss_log += " [%s] vs %s" % [", ".join(hit_rolls.map(func(r): return str(r))), hit_threshold_display]
 		result.log_text = miss_log
 		result["no_hits"] = true
 		return result
@@ -2413,6 +2452,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	var reroll_data = hit_context["reroll_data"]
 	var bs = hit_context["bs"]
 	var bs_per_attack = hit_context["bs_per_attack"]
+	var hit_threshold_display = str(hit_context.get("hit_threshold_display", str(bs) + "+"))
 	var total_attacks = hit_context["total_attacks"]
 	var heavy_bonus_applied = hit_context["heavy_bonus_applied"]
 	var bgnt_penalty_applied = hit_context["bgnt_penalty_applied"]
@@ -2716,7 +2756,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		if is_torrent:
 			no_wound_log += " - Torrent: %d auto-hits" % hits
 		elif not hit_rolls.is_empty():
-			no_wound_log += " - Hit: %d/%d [%s] vs %s+" % [hits, total_attacks, ", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+			no_wound_log += " - Hit: %d/%d [%s] vs %s" % [hits, total_attacks, ", ".join(hit_rolls.map(func(r): return str(r))), hit_threshold_display]
 		else:
 			no_wound_log += " - %d hits" % hits
 		if sustained_bonus_hits > 0:
@@ -2814,7 +2854,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	else:
 		var hit_detail = "Hit: %d/%d" % [hits, total_attacks]
 		if not hit_rolls.is_empty():
-			hit_detail += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+			hit_detail += " [%s] vs %s" % [", ".join(hit_rolls.map(func(r): return str(r))), hit_threshold_display]
 		if heavy_bonus_applied:
 			hit_detail += " (Heavy +1)"
 		if bgnt_penalty_applied:
@@ -3647,6 +3687,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			bs_per_attack[i] = 7
 		print("RulesEngine: [OVERWATCH][auto-resolve] Forcing BS=7 — only unmodified 6s will hit")
 
+	var cover_worsened_attacks = 0  # 13.08 — attacks whose BS the benefit of cover worsened
+	var hit_threshold_display = str(bs) + "+"  # rebuilt from the effective per-attack BS before display
 	var hits = 0
 	var critical_hits = 0  # Unmodified 6s that hit (never for Torrent)
 	var regular_hits = 0   # Non-critical hits
@@ -3895,6 +3937,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 						if pa_cover_cache[pa_key]:
 							bs_per_attack[ms_i] += 1
 							pa_covered_count += 1
+					cover_worsened_attacks = pa_covered_count
 					if pa_covered_count > 0:
 						print("RulesEngine: [13.08 per-model] benefit of cover — %d/%d attack(s) worsened by 1 BS" % [pa_covered_count, bs_per_attack.size()])
 			var ms_hit_net = ms_hit_net_pre
@@ -4001,9 +4044,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# (Critical hits with Lethal Hits auto-wound, but their Sustained bonus hits still roll)
 		total_hits_for_wounds = hits + sustained_bonus_hits
 
+		# The displayed target must match what each die was judged against —
+		# bs_per_attack carries the effective (cover/plunging-adjusted) BS.
+		hit_threshold_display = _hit_threshold_display(bs, bs_per_attack, cover_worsened_attacks)
 		result.dice.append({
 			"context": "to_hit",
-			"threshold": str(bs) + "+",
+			"threshold": hit_threshold_display,
 			"rolls_raw": hit_rolls,
 			"rolls_modified": modified_rolls,
 			"rerolls": reroll_data,
@@ -4047,7 +4093,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var ar_miss_weapon_name = weapon_profile.get("name", weapon_id)
 		var ar_miss_log = "%s → %s with %s - No hits" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), ar_miss_weapon_name]
 		if not hit_rolls.is_empty():
-			ar_miss_log += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+			ar_miss_log += " [%s] vs %s" % [", ".join(hit_rolls.map(func(r): return str(r))), hit_threshold_display]
 		result.log_text = ar_miss_log
 		return result
 
@@ -4317,7 +4363,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if is_torrent:
 			ar_nw_log += " - Torrent: %d auto-hits" % hits
 		elif not hit_rolls.is_empty():
-			ar_nw_log += " - Hit: %d/%d [%s] vs %s+" % [hits, total_attacks, ", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+			ar_nw_log += " - Hit: %d/%d [%s] vs %s" % [hits, total_attacks, ", ".join(hit_rolls.map(func(r): return str(r))), hit_threshold_display]
 		else:
 			ar_nw_log += " - %d hits" % hits
 		if sustained_bonus_hits > 0:
@@ -4735,7 +4781,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	else:
 		var hit_detail = "Hit: %d/%d" % [hits, total_attacks]
 		if not hit_rolls.is_empty():
-			hit_detail += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+			hit_detail += " [%s] vs %s" % [", ".join(hit_rolls.map(func(r): return str(r))), hit_threshold_display]
 		if heavy_bonus_applied:
 			hit_detail += " (Heavy +1)"
 		if bgnt_penalty_applied:

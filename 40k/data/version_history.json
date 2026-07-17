@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.50.0",
+			"version": "0.52.0",
 			"date": "2026-07-17",
 			"summary": "Leaders now pile in and consolidate WITH their unit. A Character attached to a bodyguard squad (e.g. a Blade Champion leading Custodian Guard) no longer appears as a separate unit in the Fight phase's Pile In and Consolidate steps — the picker shows one entry ('Custodian Guard + Blade Champion') and moving it lets you drag every model of the attached unit, leader included, in the one 3\" move.",
 			"changes": [
@@ -12,6 +12,132 @@
 				"A bodyguard whose LEADER is the only model in engagement range now correctly counts as engaged for pile-in/consolidate eligibility.",
 				"The AI moves attached leaders together with their unit when it piles in or consolidates.",
 				"Consolidation modes (ongoing/engaging/objective) are judged on the whole attached unit, and an Engaging Consolidation led by the leader's model still forces the new fight."
+			]
+		},
+		{
+			"version": "0.51.0",
+			"date": "2026-07-17",
+			"summary": "Charge target selection is now predictable: clicking a target in the ELIGIBLE TARGETS list selects exactly that one target (no more accidentally declaring a charge against two units), and deliberately charging several units is now a real, clearly-signposted feature — a highlighted callout under the target list spells out that you hold Ctrl+Click to charge more than one unit, the Declare button shows how many units you are about to charge, and the list locks once the charge is declared.",
+			"changes": [
+				"Fixed: clicking a second charge target used to silently KEEP the first one too — the game declared a charge against both units while only the last one stayed highlighted. A plain click now selects exactly the clicked target.",
+				"Multi-unit charges are now explicit and impossible to miss: a gold-bordered callout under the ELIGIBLE TARGETS list tells you to hold Ctrl+Click (Cmd on Mac) to charge more than one unit, and its wording updates as you go — once you pick a first target it actively prompts 'hold Ctrl+Click another target' to charge both.",
+				"The Declare Charge button shows the target count when charging more than one unit (e.g. 'Declare Charge (2 targets)'), and the step guidance calls out that ALL selected targets must be reached.",
+				"Clicking empty space in the target list clears the selection.",
+				"Deselecting targets actually works now (it previously did nothing under the hood).",
+				"Once a charge is declared its target rows lock until the charge is resolved, so stray clicks can't desync the display from the declared charge.",
+				"Fixed: a declared charge's target list could be silently emptied by later UI resets (selecting another unit before rolling) — the declaration is now stored as its own copy."
+			]
+		},
+		{
+			"version": "0.50.2",
+			"date": "2026-07-17",
+			"summary": "Mouse-wheel zoom now only acts when the cursor is over the game board. Scrolling while hovering a menu or panel (unit list, game log, HUD bar, dialogs) no longer zooms the board underneath — the wheel belongs to the menu you're pointing at.",
+			"changes": [
+				"Fixed: scrolling a side panel, the game log, or any other menu no longer also zooms the board — wheel zoom is skipped whenever the cursor is over a UI element.",
+				"Scrolling over the open board still zooms in/out anchored on the cursor, exactly as before."
+			]
+		},
+		{
+			"version": "0.50.1",
+			"date": "2026-07-17",
+			"summary": "The Fight phase 'Select Unit to Fight' picker no longer lists Fights First units twice. Units that fight first (chargers and Fights First ability carriers) appeared under BOTH the FIGHTS_FIRST section and REMAINING_COMBATS, reading as if they fought twice — now every unit is listed in exactly one section. The picker also shows proper unit names throughout.",
+			"changes": [
+				"Fixed: Fights First units (charged units and ability carriers) were duplicated into the REMAINING_COMBATS list of the fight picker; each unit now appears only under the step it will actually fight in.",
+				"The fight picker now uses distinguishing display names ('Warboss Alpha', 'Blade Champion Beta') so same-named units are tellable apart, matching the rest of the game.",
+				"Fixed: the opposing player's units in the fight picker rendered as raw internal ids (e.g. 'U_CUSTODIAN_GUARD_B') instead of their names."
+			]
+		},
+		{
+			"version": "0.50.0",
+			"date": "2026-07-17",
+			"summary": "Charge moves now support multi-select: Shift+drag a box (or Ctrl+click / Ctrl+A) over your charging models and drag any selected model to move the whole group at once, just like in the Movement phase.",
+			"changes": [
+				"Charge phase: Shift+drag on empty board rubber-bands a selection box over the charging unit's models; Ctrl+click toggles single models; Ctrl+A selects all; Esc clears the selection.",
+				"Dragging any selected model moves the whole group together, with each model's move checked against the charge roll, overlaps, board edge and the 'end closer to a target' rule (all-or-nothing: an illegal group move moves nothing).",
+				"Selected models show pulsing rings and the group shows live green/red ghost previews while dragging; the selection stays active for further hops until the charge roll is spent.",
+				"Fixed charge-move model pick-up using a fixed screen-pixel hit radius: at zoomed-out camera scales every token grabbed clicks from over 2 inches away, making it easy to pick up the wrong model. Hit-testing now uses each model's real base size on the board."
+			]
+		},
+		{
+			"version": "0.49.9",
+			"date": "2026-07-17",
+			"summary": "Shooting dice readouts are now honest about cover and re-rolls: the 'need X+' hit label shows the real (cover-adjusted) target, wound re-rolls of 1 are annotated in the roll dialog instead of looking like a 1 that counted, and the Forecast panel accounts for cover and re-roll abilities like Stand Vigil.",
+			"changes": [
+				"Fixed: the hit-roll line said 'need 2+' even when the target's Benefit of Cover (11th ed 13.08) worsened the roll to 3+ — the dice were already being judged at 3+, only the label lied. It now reads e.g. 'need 3+ (cover)' in the roll dialog, game log, dice history and combat summaries.",
+				"Fixed: a wound roll of 1 that an ability re-rolled (e.g. Custodian Guard's Stand Vigil, twin-linked) looked like it had counted as a wound — the step-by-step roll dialog and the next-weapon summary now show the re-roll annotation (e.g. '(1→6)') like the main game log already did.",
+				"Fixed: the Forecast panel ignored the target's cover (over-predicting hits) and ability-granted re-rolls such as Stand Vigil (under-predicting wounds). It now models both and tags them ('Cover', 'RR 1s Wnd')."
+			]
+		},
+		{
+			"version": "0.49.8",
+			"date": "2026-07-16",
+			"summary": "'Snap to Contact' in the Charge phase now always does something useful. Before, if your charge roll was too short for any model to reach base contact, clicking the button moved nothing (it only tried spots right up against the target), which read as the button being broken. Now every charging model that can't reach base contact is moved as close to the target as its charge distance legally allows.",
+			"changes": [
+				"Snap to Contact: models that can reach base contact still snap into contact exactly as before.",
+				"Models that CAN'T reach contact now advance straight at the nearest target model, stopping just inside the 1\" engagement band when the roll reaches it, or at their full charge distance when it doesn't — instead of standing still.",
+				"If the straight lane is blocked (squadmate, wall, terrain cost), the button sweeps nearby approach angles and shorter moves to find the closest legal spot.",
+				"Auto-placed spots now also avoid ending within 1\" of an enemy unit you did NOT declare the charge against, so the Confirm step can't be rejected for an illegal engagement.",
+				"The charge panel message now says what happened, e.g. 'No model could reach base contact — all moved as close as possible. Confirm or adjust'."
+			]
+		},
+		{
+			"version": "0.49.7",
+			"date": "2026-07-17",
+			"summary": "Fixed a Fight-phase soft-lock: a unit that charged but couldn't reach anyone (e.g. a Blade Champion whose pile-in falls short) used to open the 'Assign Attacks' dialog with zero eligible targets and no way to skip, freezing the game. Its fight now simply ends — the game logs it and moves on to the next unit.",
+			"changes": [
+				"A unit selected to fight with no enemies within Engagement Range after its pile-in (11e Overrun fight, 12.06) now ends its activation automatically instead of opening an empty attack-assignment dialog — the fight sequence continues normally.",
+				"The Game Log explains what happened: 'no enemies in engagement range, fight ends without attacks'.",
+				"Safety net: if the Assign Attacks dialog ever opens with no targets, it now disables the attack buttons, explains why, and offers an 'End Fight (No Targets)' button that skips the unit — no more being trapped in the dialog."
+			]
+		},
+		{
+			"version": "0.49.6",
+			"date": "2026-07-16",
+			"summary": "Deployment placement ghosts now show the model's top-down sprite, not just the pulsing base outline. The single-model placement ghost already did this, but when you placed a squad using the Spread or Tight formation, or nudged an already-placed model, the preview ghosts only drew the empty base outline. Every deployment ghost that has bundled/custom art (Custodian Guard, Stormboyz, tanks, etc.) now renders that art inside the translucent base so you can see exactly what — and which way — you're placing.",
+			"changes": [
+				"Fixed: Spread/Tight formation deployment ghosts now show each model's facing sprite instead of just the base outline.",
+				"Fixed: the reposition ghost (when moving an already-placed model during deployment) now shows the model's sprite too.",
+				"Units without dedicated art are unchanged — they keep the letter counter + facing arrow."
+			]
+		},
+		{
+			"version": "0.49.5",
+			"date": "2026-07-16",
+			"summary": "The orange 12\" charge-range indicator now shows the unit's TRUE charge threat area. It used to be a single circle drawn from the unit's midpoint, but a charge only needs a target within 12\" of ANY model — so for spread-out units the circle disagreed with the eligible-target list (targets listed as in range could sit visibly outside the circle). The indicator is now one dashed outline hugging the whole unit: the union of every model's 12\" reach, measured from each base edge.",
+			"changes": [
+				"Charge phase: selecting a unit now draws the 12\" threat boundary around EVERY model in the unit (one merged dashed outline), not a circle from the unit's centre.",
+				"The boundary is measured from each model's base edge (edge-to-edge, matching how charge eligibility is actually checked), so a target is chargeable exactly when its base touches the orange area — the drawing and the Eligible Targets list now always agree.",
+				"Works with mixed base types (circular, oval and rectangular bases all project their real 12\" reach).",
+				"The green per-model reach rings shown after the 2D6 roll are unchanged."
+			]
+		},
+		{
+			"version": "0.49.4",
+			"date": "2026-07-16",
+			"summary": "The menu scroll speed is now adjustable. Settings › Controls has a new 'Menu Scroll Speed' slider (10%–100% of the default), so you can dial mouse-wheel / trackpad scrolling to whatever feels right. Your choice is saved between sessions.",
+			"changes": [
+				"Added a 'Menu Scroll Speed' slider under Settings › Controls › Mouse (default 40%).",
+				"The setting applies live to all menus/panels and persists across restarts.",
+				"Board zoom and number spinners remain unaffected."
+			]
+		},
+		{
+			"version": "0.49.3",
+			"date": "2026-07-16",
+			"summary": "Scrolling through menus and panels with the mouse wheel or trackpad is now slower and easier to control. Previously the wheel/two-finger scroll flew past what you were looking at; menu scrolling now moves at 40% of the old speed everywhere in the game.",
+			"changes": [
+				"Reduced mouse-wheel and trackpad scroll speed across all menus, lists and panels (main menu, army/unit panels, dialogs, the game log, etc.).",
+				"Board zoom (wheel over the battlefield) and number spinners are unchanged — only content scrolling was slowed."
+			]
+		},
+		{
+			"version": "0.49.2",
+			"date": "2026-07-16",
+			"summary": "Fixed the confusing empty 'FIRING ORDER' box in the shooting roll dialog. When a unit fires a single weapon type, the step-by-step roll dialog now shows the weapon being fired under a 'WEAPON' header; with multiple weapon types, the ordering list disappears completely once the sequence starts instead of leaving an empty box behind.",
+			"changes": [
+				"Single-weapon shooting: the roll dialog now shows the firing weapon (name, model count and stats) under a 'WEAPON' header instead of an empty 'FIRING ORDER' area.",
+				"Multi-weapon shooting: once 'Start Sequence' is pressed, the whole firing-order section is hidden during resolution (previously an empty 'FIRING ORDER' header and box remained on screen).",
+				"The dice log now says 'Single weapon - rolling step by step...' when only one weapon type fires, instead of the misleading 'Multiple weapon types detected - choose firing order...'."
 			]
 		},
 		{

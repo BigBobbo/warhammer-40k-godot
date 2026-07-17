@@ -1,0 +1,48 @@
+{
+  "id": "menu_scroll_speed_setting",
+  "covers": ["ui.menu.scroll_speed", "scripts/SettingsMenu.gd"],
+  "fixture": "audit_baseline_postdeploy",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "description": "Settings > Controls exposes a 'Menu Scroll Speed' slider bound to SettingsService.menu_scroll_speed and applied live to ScrollSpeedController, persisted across reloads. Opens the in-game settings, switches to the Controls tab, asserts the slider reflects the 40% default (range 0.1-1.0), drives it to a new value through the real value_changed callback, and verifies SettingsService, ScrollSpeedController and the on-disk config all update. Float asserts use bands (slider step-snapping drifts by ~1 ULP); the value label string is the exact display check.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "SettingsService.set_menu_scroll_speed(0.4)" },
+
+    { "act": "execute_script", "script": "main._open_settings_menu()" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "main._settings_menu != null", "equals": true },
+    { "act": "execute_script", "script": "main._settings_menu._on_tab_pressed(3)" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "main._settings_menu._menu_scroll_speed_slider != null", "equals": true },
+    { "act": "execute_script", "script": "main._settings_menu._menu_scroll_speed_slider.min_value", "equals": 0.1 },
+    { "act": "execute_script", "script": "main._settings_menu._menu_scroll_speed_slider.max_value", "equals": 1.0 },
+    { "act": "execute_script", "script": "main._settings_menu._menu_scroll_speed_slider.value", "expect_min": 0.39, "expect_max": 0.41 },
+    { "act": "execute_script", "script": "main._settings_menu._menu_scroll_speed_label.text", "equals": "40%" },
+
+    { "act": "execute_script", "script": "main._settings_menu._tab_containers[3].set(\"scroll_vertical\", 100000)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "01_controls_tab_scroll_speed_slider" },
+
+    { "act": "execute_script", "script": "main._settings_menu._menu_scroll_speed_slider.set_value(0.2)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "main._settings_menu._menu_scroll_speed_label.text", "equals": "20%" },
+    { "act": "execute_script", "script": "SettingsService.menu_scroll_speed", "expect_min": 0.19, "expect_max": 0.21 },
+    { "act": "execute_script", "script": "ScrollSpeedController.menu_scroll_speed", "expect_min": 0.19, "expect_max": 0.21 },
+    { "act": "screenshot", "label": "02_slider_at_20pct" },
+
+    { "act": "execute_script", "script": "SettingsService._load_settings()" },
+    { "act": "execute_script", "script": "SettingsService.menu_scroll_speed", "expect_min": 0.19, "expect_max": 0.21 },
+
+    { "act": "execute_script", "script": "main._settings_menu._menu_scroll_speed_slider.set_value(0.4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "SettingsService.menu_scroll_speed", "expect_min": 0.39, "expect_max": 0.41 },
+    { "act": "execute_script", "script": "ScrollSpeedController.menu_scroll_speed", "expect_min": 0.39, "expect_max": 0.41 },
+
+    { "act": "execute_script", "script": "main._settings_menu._on_close_pressed()" },
+    { "act": "wait_frames", "frames": 3 }
+  ]
+}

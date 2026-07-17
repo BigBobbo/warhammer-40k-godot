@@ -1,0 +1,61 @@
+{
+  "id": "deploy_formation_ghost_sprite",
+  "covers": [
+    "deployment.formation_ghost_sprite",
+    "deployment.reposition_ghost_sprite",
+    "tokens.ghost_facing_sprite"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Regression: the deploy ghost must show the model's top-down sprite, not just the base outline, for EVERY ghost-creation path. The single-placement ghost already stamped unit_id meta (so GhostVisual._draw_ghost_model_art resolves the sprite), but the formation ghosts (Spread/Tight squad placement) and the reposition ghost did not — so deploying a multi-model squad in a formation, or nudging a placed model, showed only the pulsing outline. This drives a 3-model Custodian Guard squad (bundled custodian_guard.png art) into SPREAD formation and asserts every formation ghost carries the unit_id meta AND resolves a non-null sprite texture, then starts a model reposition and asserts that ghost resolves its sprite too. Screenshots capture the sprites rendered inside the translucent ghosts.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.status", "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "SpriteResolver.resolve_sprite(\"Custodian Guard\", \"Adeptus Custodes\", \"INFANTRY\") != null",
+      "equals": true },
+
+    { "act": "execute_script", "script": "main.deployment_controller.begin_deploy(\"U_CUSTODIAN_GUARD_B\")" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "main.deployment_controller.unit_id", "equals": "U_CUSTODIAN_GUARD_B" },
+
+    { "act": "execute_script", "script": "main.deployment_controller.set_formation_mode(\"SPREAD\")" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "main.deployment_controller.formation_preview_ghosts.size()", "equals": 3 },
+
+    { "act": "execute_script", "script": "main.deployment_controller.formation_preview_ghosts[0].has_meta(\"unit_id\")", "equals": true },
+    { "act": "execute_script", "script": "str(main.deployment_controller.formation_preview_ghosts[0].get_meta(\"unit_id\"))", "equals": "U_CUSTODIAN_GUARD_B" },
+
+    { "act": "execute_script", "script": "formation_ghosts_with_sprite()", "equals": 3 },
+
+    { "act": "execute_script", "script": "main.deployment_controller.set_process(false)" },
+    { "act": "execute_script", "script": "main.deployment_controller._update_formation_ghost_positions(Vector2(880, 240))" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "set_test_camera(880, 240, 3.0)", "equals": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "screenshot", "label": "01_formation_ghosts_with_sprite" },
+
+    { "act": "execute_script", "script": "main.deployment_controller.set_process(true)" },
+    { "act": "execute_script", "script": "main.deployment_controller.set_formation_mode(\"SINGLE\")" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "main.deployment_controller.unit_id", "equals": "U_CUSTODIAN_GUARD_B" },
+
+    { "act": "execute_script", "script": "main.deployment_controller._start_model_repositioning({\"model_index\": 0, \"position\": Vector2(880, 240), \"model_data\": GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").models[0]})" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "main.deployment_controller.reposition_ghost != null", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.reposition_ghost.has_meta(\"unit_id\")", "equals": true },
+    { "act": "execute_script", "script": "str(main.deployment_controller.reposition_ghost.get_meta(\"unit_id\"))", "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "execute_script", "script": "main.deployment_controller.reposition_ghost._get_ghost_sprite_texture() != null", "equals": true },
+
+    { "act": "execute_script", "script": "main.deployment_controller.set_process(false)" },
+    { "act": "execute_script", "script": "set_test_camera(880, 240, 3.0)", "equals": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "screenshot", "label": "02_reposition_ghost_with_sprite" }
+  ]
+}
