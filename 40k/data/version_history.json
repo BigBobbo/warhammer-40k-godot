@@ -20,7 +20,7 @@
 			]
 		},
 		{
-			"version": "0.52.3",
+			"version": "0.52.4",
 			"date": "2026-07-17",
 			"summary": "Fixed the split-fire bug where shooting at two different targets only rolled dice for the first one, and fixed Fast Roll re-rolling weapons it had already rolled. Multi-target shooting now reliably resolves every declared weapon and target, in both step-by-step and Fast Roll modes.",
 			"changes": [
@@ -30,6 +30,16 @@
 				"The attack summary between weapons correctly lists the remaining weapons and their targets.",
 				"The firing-order dialog now shows WHO each weapon is shooting at (green '→ target' line per weapon, with model counts when a weapon is split), and split fire announces every target instead of claiming the whole weapon fires at the first one.",
 				"Removed the large dead gray area in the roll dialog during resolution (the hidden firing-order list kept reserving its space)."
+			]
+		},
+		{
+			"version": "0.52.3",
+			"date": "2026-07-17",
+			"summary": "Fixed AI fight-phase pile-in and consolidation: the game log would say an AI unit 'piles in toward enemy (N models moved)' but the tokens never actually moved on the board. The models had moved in the underlying game state — only the on-screen tokens were left behind — so combats resolved from the correct positions while the board looked wrong until the next full refresh. The tokens now follow the state immediately.",
+			"changes": [
+				"Fixed: AI pile-in / consolidation moves were logged and applied to game state but the board tokens stayed at their old positions (they only snapped into place later, on a phase change or other refresh).",
+				"Root cause: the AI announces an action to the UI just before it is actually executed, so the token-sync was reading the pre-move positions and doing nothing; the sync now runs after the move is applied.",
+				"Human pile-ins were never affected — only AI-controlled units."
 			]
 		},
 		{
