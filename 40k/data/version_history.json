@@ -2,13 +2,23 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.49.9",
+			"version": "0.50.0",
 			"date": "2026-07-17",
 			"summary": "Fight phase: the unit-selection dialog no longer claims your opponent 'has no eligible units' when their engaged units are simply waiting for the Remaining Combats step. It now says they have no FIGHTS FIRST units and will select in Remaining Combats — and their units are actually visible in the list instead of being pushed below the scroll fold.",
 			"changes": [
 				"Fixed: during the Fights First step the dialog said 'Player X has no eligible units. Select all remaining units in turn.' even though the opponent's engaged units (e.g. Lootas / Burna Boyz charged by Custodians) were owed a Remaining Combats fight. The blanket message now only appears when the opponent truly has nothing left to fight with.",
 				"Fixed: units with Fights First were listed TWICE — once under FIGHTS_FIRST and again under REMAINING_COMBATS — which pushed the opponent's actual remaining-combats units below the dialog's scroll area. Each unit now appears in exactly one section.",
 				"Fixed: the opponent's units in the selection dialog showed raw ids (e.g. 'U_BOYZ_K') instead of their names; all rows now use full display names ('Boyz Alpha', 'Warboss Alpha', ...)."
+			]
+		},
+		{
+			"version": "0.49.9",
+			"date": "2026-07-17",
+			"summary": "Shooting dice readouts are now honest about cover and re-rolls: the 'need X+' hit label shows the real (cover-adjusted) target, wound re-rolls of 1 are annotated in the roll dialog instead of looking like a 1 that counted, and the Forecast panel accounts for cover and re-roll abilities like Stand Vigil.",
+			"changes": [
+				"Fixed: the hit-roll line said 'need 2+' even when the target's Benefit of Cover (11th ed 13.08) worsened the roll to 3+ — the dice were already being judged at 3+, only the label lied. It now reads e.g. 'need 3+ (cover)' in the roll dialog, game log, dice history and combat summaries.",
+				"Fixed: a wound roll of 1 that an ability re-rolled (e.g. Custodian Guard's Stand Vigil, twin-linked) looked like it had counted as a wound — the step-by-step roll dialog and the next-weapon summary now show the re-roll annotation (e.g. '(1→6)') like the main game log already did.",
+				"Fixed: the Forecast panel ignored the target's cover (over-predicting hits) and ability-granted re-rolls such as Stand Vigil (under-predicting wounds). It now models both and tags them ('Cover', 'RR 1s Wnd')."
 			]
 		},
 		{
