@@ -5860,6 +5860,13 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dicti
 		hit_reroll_type = max(hit_reroll_type, 1)
 	if attacker_flags.get("reroll_hits", false):
 		hit_reroll_type = max(hit_reroll_type, 2)
+	# EffectPrimitives flag (scope string "ones"/"failed"/"all") — the key
+	# abilities/stratagems actually set (the booleans above are legacy).
+	var fc_hit_rr_scope: String = str(attacker_flags.get("effect_reroll_hits", ""))
+	if fc_hit_rr_scope == "ones":
+		hit_reroll_type = max(hit_reroll_type, 1)
+	elif fc_hit_rr_scope == "failed" or fc_hit_rr_scope == "all":
+		hit_reroll_type = max(hit_reroll_type, 2)
 
 	# Heavy weapon: +1 to hit if remained stationary
 	if RulesEngine.is_heavy_weapon(weapon_id):
@@ -5873,10 +5880,13 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dicti
 		hit_modifier -= 1
 		active_tags.append("Damaged")
 
-	# Target: Stealth = -1 to hit
-	if RulesEngine.has_stealth_ability(target_unit) or EffectPrimitivesData.has_effect_stealth(target_unit):
-		hit_modifier -= 1
-		active_tags.append("Stealth")
+	# Target: Stealth = -1 to hit (10e). At 11e STEALTH instead grants the
+	# benefit of cover (24.33), which the cover block below folds into the
+	# BS — skip the flat -1 there so it isn't counted twice.
+	if GameConstants.edition < 11:
+		if RulesEngine.has_stealth_ability(target_unit) or EffectPrimitivesData.has_effect_stealth(target_unit):
+			hit_modifier -= 1
+			active_tags.append("Stealth")
 
 	# Indirect Fire: -1 to hit
 	if RulesEngine.has_indirect_fire(weapon_id):
@@ -5886,12 +5896,38 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dicti
 	# Cap modifier to ±1 per 10e rules
 	hit_modifier = clampi(hit_modifier, -1, 1)
 
+	# 11e (13.08): the benefit of cover — terrain area / not-fully-visible /
+	# STEALTH / stratagem-granted — worsens the attack's BS by 1. That is a
+	# characteristic modifier, NOT part of the ±1 dice-roll cap above, so it
+	# stacks with e.g. Heavy. Mirrors the live per-attack resolution block in
+	# RulesEngine; the forecast approximates with the first alive firing
+	# model's view of the target.
+	var cover_bs_worsen := 0
+	if GameConstants.edition >= 11 and not is_torrent \
+			and not ModifierStack.attack_ignores_cover(attacker_unit, weapon_profile, {}):
+		var fc_cover: bool = target_unit.get("flags", {}).get("stratagem_cover", false)
+		if not fc_cover:
+			var fc_terrain = get_node_or_null("/root/TerrainManager")
+			if fc_terrain != null and fc_terrain.has_method("unit_has_cover_11e"):
+				var fc_attacker_model: Dictionary = {}
+				for fm in attacker_unit.get("models", []):
+					if fm is Dictionary and fm.get("alive", true):
+						fc_attacker_model = fm
+						break
+				fc_cover = fc_terrain.unit_has_cover_11e(target_unit, fc_attacker_model)
+			elif RulesEngine.has_stealth_ability(target_unit) or EffectPrimitivesData.has_effect_stealth(target_unit):
+				# No TerrainManager in this context — STEALTH still grants cover.
+				fc_cover = true
+		if fc_cover:
+			cover_bs_worsen = 1
+			active_tags.append("Cover")
+
 	# Calculate hit probability with modifier and rerolls
 	var hit_prob = 0.0
 	if is_torrent:
 		hit_prob = 1.0
 	else:
-		var effective_bs = bs - hit_modifier  # Lower BS = better (e.g. 3+ is better than 4+)
+		var effective_bs = bs + cover_bs_worsen - hit_modifier  # Lower BS = better (e.g. 3+ is better than 4+)
 		effective_bs = clampi(effective_bs, 2, 6)  # 1 always misses (natural 1), 2+ is best possible
 		hit_prob = max(0.0, (7.0 - effective_bs) / 6.0)
 
@@ -5970,6 +6006,14 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dicti
 	if attacker_flags.get("reroll_wound_ones", false):
 		wound_reroll_type = max(wound_reroll_type, 1)
 	if attacker_flags.get("reroll_wounds", false):
+		wound_reroll_type = max(wound_reroll_type, 2)
+	# EffectPrimitives flag (scope string) — what abilities actually set;
+	# e.g. Custodes Stand Vigil grants effect_reroll_wounds="ones". This is
+	# the key the live wound roll reads, so the forecast must match it.
+	var fc_wound_rr_scope: String = str(attacker_flags.get("effect_reroll_wounds", ""))
+	if fc_wound_rr_scope == "ones":
+		wound_reroll_type = max(wound_reroll_type, 1)
+	elif fc_wound_rr_scope == "failed" or fc_wound_rr_scope == "all":
 		wound_reroll_type = max(wound_reroll_type, 2)
 
 	# Lance: +1 to wound if charged this turn

@@ -1,0 +1,64 @@
+{
+  "id": "cover_hit_label_wound_reroll_11e",
+  "edition": 11,
+  "covers": [
+    "shooting.benefit_of_cover.hit_threshold_label",
+    "shooting.wound_reroll_annotation",
+    "autoloads.RulesEngine._hit_threshold_display",
+    "scripts.WeaponOrderDialog._format_roll_line"
+  ],
+  "fixture": "custodes_lions_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Cover label honesty (11e 13.08) + wound re-roll annotation, driven through the real staged roll dialog. Custodian Guard A (Guardian spear, BS2+) shoots Boyz E, moved onto open ground in range/LoS but granted the benefit of cover via the stratagem_cover flag (Go to Ground / Smokescreen) — the same per-attack path terrain cover uses. Cover must worsen every attack's BS 2+ -> 3+, and the staged dialog's hit line must read 'need 3+ (cover)' (it previously lied with 'need 2+' while the dice were already judged at 3+). Then a wound re-roll (Custodian Guard's Stand Vigil re-roll, scope 'all' as it upgrades near a controlled objective) must render its 'orig->rerolled' annotation in the dialog — the fix adds the wound_rerolls-key fallback so the annotation is no longer silently dropped. The unit carries two ranged weapons (Guardian spear + Sentinel blade), so this drives the multi-weapon ordering dialog and clicks Start Sequence; the Guardian spear (higher damage) resolves first.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_BOYZ_E\"][\"models\"][0].merge({\"position\": {\"x\": 900.0, \"y\": 500.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_BOYZ_E\"][\"flags\"].merge({\"stratagem_cover\": true}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_A\"][\"flags\"].merge({\"effect_reroll_wounds\": \"all\"}, true)" },
+    { "act": "execute_script", "script": "main._recreate_unit_visuals()" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().enter_phase(GameState.create_snapshot())" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "script": "(\"U_BOYZ_E\" in RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_A\", PhaseManager.get_current_phase_instance().game_state_snapshot))", "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_CUSTODIAN_GUARD_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script", "script": "(\"Cover\" in main.get_node(\"ShootingController\")._calc_weapon_expected_damage(\"guardian_spear___ranged_ranged\", \"U_BOYZ_E\").get(\"active_tags\", []))", "equals": true },
+    { "act": "execute_script", "script": "(\"RR Wnds\" in main.get_node(\"ShootingController\")._calc_weapon_expected_damage(\"guardian_spear___ranged_ranged\", \"U_BOYZ_E\").get(\"active_tags\", []))", "equals": true },
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\")._calc_weapon_expected_damage(\"guardian_spear___ranged_ranged\", \"U_BOYZ_E\").get(\"expected_hits\", -1.0)", "expect_max": 7.0 },
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\")._calc_weapon_expected_damage(\"guardian_spear___ranged_ranged\", \"U_BOYZ_E\").get(\"expected_hits\", -1.0)", "expect_min": 6.0 },
+
+    { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "payload": { "weapon_id": "guardian_spear___ranged_ranged", "target_unit_id": "U_BOYZ_E", "model_ids": ["m1", "m2", "m3", "m4", "m5"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "DECLINE_REACTIVE_STRATAGEM" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_node_visible", "node": "/root/WeaponOrderDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"WeaponOrderDialog\").start_sequence_button.emit_signal(\"pressed\")" },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_node_property", "node": "/root/WeaponOrderDialog", "property": "current_stage", "equals": "hits" },
+
+    { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().resolution_state[\"staged_weapon_id\"])", "equals": "guardian_spear___ranged_ranged" },
+    { "act": "execute_script", "script": "int(PhaseManager.get_current_phase_instance().resolution_state[\"staged_hit_context\"][\"bs_per_attack\"][0])", "equals": 3 },
+    { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().resolution_state[\"staged_hit_context\"][\"hit_threshold_display\"])", "equals": "3+ (cover)" },
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"WeaponOrderDialog\").dice_log_rich_text.get_parsed_text().contains(\"need 3+ (cover)\")", "equals": true },
+    { "act": "screenshot", "label": "01_hit_pause_cover_label" },
+
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"WeaponOrderDialog\").staged_continue_button.emit_signal(\"pressed\")" },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().resolution_state[\"staged_dice\"][-1].get(\"wound_rerolls\", []).size()", "expect_min": 1 },
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"WeaponOrderDialog\").dice_log_rich_text.get_parsed_text().contains(\"→\")", "equals": true },
+    { "act": "screenshot", "label": "02_wound_pause_reroll_annotation" }
+  ]
+}
