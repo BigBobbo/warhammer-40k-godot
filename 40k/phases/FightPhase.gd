@@ -2436,23 +2436,22 @@ func _fights_first_units_11e() -> Dictionary:
 	return d
 
 func _remaining_units_11e() -> Dictionary:
-	# Units that will fight in the REMAINING COMBATS step: eligible units
-	# WITHOUT Fights First. eligible_units(only_fights_first=false) includes
-	# Fights First units too; re-listing those here duplicated them in the
-	# FightSelectionDialog's REMAINING_COMBATS section and pushed the
-	# opponent's actual remaining-combats units below the scroll fold — so a
-	# player whose opponent charged saw "Player X has no eligible units" and
-	# concluded their engaged units never get to fight.
+	# Display list for the REMAINING_COMBATS section. The sequencer's
+	# eligible_units(..., only_fights_first=false) returns ALL eligible units
+	# (Fights First included — 12.04 lets them be picked in the remaining step
+	# too), but listing them here duplicated every Fights First unit into both
+	# dialog sections even though each unit only fights once. Filter with the
+	# same is_fights_first predicate _fights_first_units_11e() uses so the two
+	# sections partition cleanly.
 	var d = {"1": [], "2": []}
-	if sequencer_11e == null:
-		return d
-	var units = GameState.state.get("units", {})
-	for player in [1, 2]:
-		var non_ff: Array = []
-		for unit_id in sequencer_11e.eligible_units(GameState.state, player, false):
-			if not sequencer_11e.is_fights_first(units.get(unit_id, {})):
-				non_ff.append(unit_id)
-		d[str(player)] = non_ff
+	if sequencer_11e != null:
+		var units = GameState.state.get("units", {})
+		for player_key in ["1", "2"]:
+			var out: Array = []
+			for unit_id in sequencer_11e.eligible_units(GameState.state, int(player_key), false):
+				if not sequencer_11e.is_fights_first(units.get(unit_id, {})):
+					out.append(unit_id)
+			d[player_key] = out
 	return d
 
 func _combatants_11e() -> Array:

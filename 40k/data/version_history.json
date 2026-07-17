@@ -2,13 +2,55 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.51.1",
+			"date": "2026-07-17",
+			"summary": "Fight phase: the 'Select Unit to Fight' picker no longer tells you your opponent 'has no eligible units' when their engaged units are simply waiting for the Remaining Combats step. During the Fights First step it now explains that the opponent has no FIGHTS FIRST units and will select once your Fights First units have fought.",
+			"changes": [
+				"Fixed: during the Fights First step the picker said 'Player X has no eligible units. Select all remaining units in turn.' even when the opponent's engaged units (e.g. Lootas / Burna Boyz charged by Custodians) were owed a Remaining Combats fight. It now reads 'Player X has no Fights First units. Select your Fights First units in turn — Player X will then select in Remaining Combats.', and the blanket 'no eligible units' message only appears when the opponent truly has nothing left to fight."
+			]
+		},
+		{
+			"version": "0.51.0",
+			"date": "2026-07-17",
+			"summary": "Charge target selection is now predictable: clicking a target in the ELIGIBLE TARGETS list selects exactly that one target (no more accidentally declaring a charge against two units), and deliberately charging several units is now a real, clearly-signposted feature — a highlighted callout under the target list spells out that you hold Ctrl+Click to charge more than one unit, the Declare button shows how many units you are about to charge, and the list locks once the charge is declared.",
+			"changes": [
+				"Fixed: clicking a second charge target used to silently KEEP the first one too — the game declared a charge against both units while only the last one stayed highlighted. A plain click now selects exactly the clicked target.",
+				"Multi-unit charges are now explicit and impossible to miss: a gold-bordered callout under the ELIGIBLE TARGETS list tells you to hold Ctrl+Click (Cmd on Mac) to charge more than one unit, and its wording updates as you go — once you pick a first target it actively prompts 'hold Ctrl+Click another target' to charge both.",
+				"The Declare Charge button shows the target count when charging more than one unit (e.g. 'Declare Charge (2 targets)'), and the step guidance calls out that ALL selected targets must be reached.",
+				"Clicking empty space in the target list clears the selection.",
+				"Deselecting targets actually works now (it previously did nothing under the hood).",
+				"Once a charge is declared its target rows lock until the charge is resolved, so stray clicks can't desync the display from the declared charge.",
+				"Fixed: a declared charge's target list could be silently emptied by later UI resets (selecting another unit before rolling) — the declaration is now stored as its own copy."
+			]
+		},
+		{
+			"version": "0.50.2",
+			"date": "2026-07-17",
+			"summary": "Mouse-wheel zoom now only acts when the cursor is over the game board. Scrolling while hovering a menu or panel (unit list, game log, HUD bar, dialogs) no longer zooms the board underneath — the wheel belongs to the menu you're pointing at.",
+			"changes": [
+				"Fixed: scrolling a side panel, the game log, or any other menu no longer also zooms the board — wheel zoom is skipped whenever the cursor is over a UI element.",
+				"Scrolling over the open board still zooms in/out anchored on the cursor, exactly as before."
+			]
+		},
+		{
+			"version": "0.50.1",
+			"date": "2026-07-17",
+			"summary": "The Fight phase 'Select Unit to Fight' picker no longer lists Fights First units twice. Units that fight first (chargers and Fights First ability carriers) appeared under BOTH the FIGHTS_FIRST section and REMAINING_COMBATS, reading as if they fought twice — now every unit is listed in exactly one section. The picker also shows proper unit names throughout.",
+			"changes": [
+				"Fixed: Fights First units (charged units and ability carriers) were duplicated into the REMAINING_COMBATS list of the fight picker; each unit now appears only under the step it will actually fight in.",
+				"The fight picker now uses distinguishing display names ('Warboss Alpha', 'Blade Champion Beta') so same-named units are tellable apart, matching the rest of the game.",
+				"Fixed: the opposing player's units in the fight picker rendered as raw internal ids (e.g. 'U_CUSTODIAN_GUARD_B') instead of their names."
+			]
+		},
+		{
 			"version": "0.50.0",
 			"date": "2026-07-17",
-			"summary": "Fight phase: the unit-selection dialog no longer claims your opponent 'has no eligible units' when their engaged units are simply waiting for the Remaining Combats step. It now says they have no FIGHTS FIRST units and will select in Remaining Combats — and their units are actually visible in the list instead of being pushed below the scroll fold.",
+			"summary": "Charge moves now support multi-select: Shift+drag a box (or Ctrl+click / Ctrl+A) over your charging models and drag any selected model to move the whole group at once, just like in the Movement phase.",
 			"changes": [
-				"Fixed: during the Fights First step the dialog said 'Player X has no eligible units. Select all remaining units in turn.' even though the opponent's engaged units (e.g. Lootas / Burna Boyz charged by Custodians) were owed a Remaining Combats fight. The blanket message now only appears when the opponent truly has nothing left to fight with.",
-				"Fixed: units with Fights First were listed TWICE — once under FIGHTS_FIRST and again under REMAINING_COMBATS — which pushed the opponent's actual remaining-combats units below the dialog's scroll area. Each unit now appears in exactly one section.",
-				"Fixed: the opponent's units in the selection dialog showed raw ids (e.g. 'U_BOYZ_K') instead of their names; all rows now use full display names ('Boyz Alpha', 'Warboss Alpha', ...)."
+				"Charge phase: Shift+drag on empty board rubber-bands a selection box over the charging unit's models; Ctrl+click toggles single models; Ctrl+A selects all; Esc clears the selection.",
+				"Dragging any selected model moves the whole group together, with each model's move checked against the charge roll, overlaps, board edge and the 'end closer to a target' rule (all-or-nothing: an illegal group move moves nothing).",
+				"Selected models show pulsing rings and the group shows live green/red ghost previews while dragging; the selection stays active for further hops until the charge roll is spent.",
+				"Fixed charge-move model pick-up using a fixed screen-pixel hit radius: at zoomed-out camera scales every token grabbed clicks from over 2 inches away, making it easy to pick up the wrong model. Hit-testing now uses each model's real base size on the board."
 			]
 		},
 		{
