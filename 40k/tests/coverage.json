@@ -809,7 +809,8 @@
       "description": "Windowed scenario coverage for phases.FightPhase.pile_in_11e (verified by iss066_pile_in_consolidate_11e). Since 2026-07-04 pile-in is the GLOBAL step opening the fight phase (12.02) \u2014 full player path verified by global_consolidation_step_11e.",
       "scenarios": [
         "iss066_pile_in_consolidate_11e",
-        "global_consolidation_step_11e"
+        "global_consolidation_step_11e",
+        "attached_char_pile_in_step_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -2082,7 +2083,8 @@
       "id": "dialogs.PileInStepDialog",
       "description": "Pile In-step unit picker: per-unit PileIn_<id> buttons with engaged/charged hints + End Pile In button; drives the PileInDialog drag flow.",
       "scenarios": [
-        "global_consolidation_step_11e"
+        "global_consolidation_step_11e",
+        "attached_char_pile_in_step_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -2825,7 +2827,7 @@
     },
     {
       "id": "charge.ux.target_declaration_multi_select",
-      "description": "CHARGE phase target declaration selection model: the ELIGIBLE TARGETS ItemList's own selection state is the single source of truth for selected_targets (multi_selected/empty_clicked signals; the old item_selected hookup never fired in SELECT_MULTI mode and its gui_input hack accumulated every clicked row, silently declaring multi-charges). Plain click selects exactly one target, Ctrl+Click toggles targets for a deliberate multi-charge, empty-click clears, the Declare button shows the target count, and rows lock once the charge is declared. A prominent, dynamic gold-bordered hint (target_hint_label) spells out Ctrl+Click and updates with the selection (0 targets: 'Ctrl+Click each one'; 1: 'hold Ctrl+Click another target'; 2+: 'N units — Ctrl+Click to add/remove'), hidden once declared. Validated by 'charge_target_declaration'.",
+      "description": "CHARGE phase target declaration selection model: the ELIGIBLE TARGETS ItemList's own selection state is the single source of truth for selected_targets (multi_selected/empty_clicked signals; the old item_selected hookup never fired in SELECT_MULTI mode and its gui_input hack accumulated every clicked row, silently declaring multi-charges). Plain click selects exactly one target, Ctrl+Click toggles targets for a deliberate multi-charge, empty-click clears, the Declare button shows the target count, and rows lock once the charge is declared. A prominent, dynamic gold-bordered hint (target_hint_label) spells out Ctrl+Click and updates with the selection (0 targets: 'Ctrl+Click each one'; 1: 'hold Ctrl+Click another target'; 2+: 'N units \u2014 Ctrl+Click to add/remove'), hidden once declared. Validated by 'charge_target_declaration'.",
       "scenarios": [
         "charge_target_declaration"
       ],
@@ -2837,6 +2839,24 @@
       "description": "DECLARE_CHARGE with multiple target_unit_ids stores ALL declared targets in pending_charges, and the stored arrays are duplicates \u2014 mutating the controller's live selected_targets after declaring (sentinel append) must not alter the pending charge. Validated by 'charge_target_declaration'.",
       "scenarios": [
         "charge_target_declaration"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.attached_units_19_03",
+      "description": "11e 19.03: a CHARACTER attached to a bodyguard is ONE Attached unit in the fight phase's global Pile In (12.02) and Consolidate (12.07) steps \u2014 one picker entry named 'Bodyguard + Character', one move covering both units' models (payload keys 'char_unit:index'), union eligibility/engagement, and rejection of a direct PILE_IN/CONSOLIDATE for the attached character. Headless: tests/test_pile_in_attached_characters_11e.gd.",
+      "scenarios": [
+        "attached_char_pile_in_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.FightController.pile_in_attached_characters",
+      "description": "FightController pile-in/consolidate interactive mode seeds, drags, snaps and submits the attached characters' models alongside the bodyguard's ('unit:model' tracking keys) so the player moves the whole Attached unit in one pile-in.",
+      "scenarios": [
+        "attached_char_pile_in_step_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

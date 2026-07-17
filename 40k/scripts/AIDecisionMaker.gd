@@ -14444,9 +14444,75 @@ static func _pile_in_position_collides(pos: Vector2, base_mm: int,
 		return true
 	return false
 
+# 19.03 Attached unit: proposed-position obstacle entries for group models a
+# previous computation already decided to move, so the next sub-unit's models
+# avoid where they will STAND (not just where they were).
+static func _fight_group_proposed_obstacles(unit: Dictionary, movements: Dictionary) -> Array:
+	var out: Array = []
+	var models = unit.get("models", [])
+	for key in movements:
+		if not str(key).is_valid_int():
+			continue
+		var idx = int(str(key))
+		if idx < 0 or idx >= models.size():
+			continue
+		var m = models[idx]
+		out.append({
+			"position": movements[key],
+			"base_mm": m.get("base_mm", 32),
+			"base_type": m.get("base_type", "circular"),
+			"base_dimensions": m.get("base_dimensions", {}),
+		})
+	return out
+
+# 19.03: the attached characters pile in / consolidate as part of their
+# bodyguard's single move. Compute each character unit's model movements too
+# and merge them into the action payload keyed "<char_unit_id>:<index>"
+# (the key form FightPhase routes to the character's own models).
+static func _merge_attached_char_fight_movements(snapshot: Dictionary, unit_id: String, player: int, movements: Dictionary, mode: String) -> Dictionary:
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	var attached = unit.get("attachment_data", {}).get("attached_characters", [])
+	if attached.is_empty():
+		return movements
+	var extra_obstacles = _fight_group_proposed_obstacles(unit, movements)
+	for char_id in attached:
+		var char_unit = snapshot.get("units", {}).get(str(char_id), {})
+		if char_unit.is_empty():
+			continue
+		var char_movements = {}
+		match mode:
+			"pile_in":
+				char_movements = _compute_pile_in_movements(snapshot, str(char_id), char_unit, player, extra_obstacles)
+			"consolidate_engagement":
+				char_movements = _compute_consolidate_movements_engagement(snapshot, str(char_id), char_unit, player, extra_obstacles)
+			"consolidate_objective":
+				char_movements = _compute_consolidate_movements_objective(snapshot, str(char_id), char_unit, player, extra_obstacles)
+		for key in char_movements:
+			movements["%s:%s" % [str(char_id), str(key)]] = char_movements[key]
+		extra_obstacles.append_array(_fight_group_proposed_obstacles(char_unit, char_movements))
+		print("AIDecisionMaker: 19.03 attached %s contributes %d model move(s) to %s's move" % [str(char_id), char_movements.size(), unit_id])
+	return movements
+
+# 19.03: unit view with the attached characters' models folded in, for
+# group-level mode/eligibility decisions (e.g. "is an enemy within 3\"?").
+static func _fold_attached_unit_for_ai(snapshot: Dictionary, unit_id: String) -> Dictionary:
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	var attached = unit.get("attachment_data", {}).get("attached_characters", [])
+	if attached.is_empty():
+		return unit
+	var folded = unit.duplicate(true)
+	if not folded.has("models"):
+		folded["models"] = []
+	for char_id in attached:
+		var char_unit = snapshot.get("units", {}).get(str(char_id), {})
+		for m in char_unit.get("models", []):
+			folded.models.append(m)
+	return folded
+
 static func _compute_pile_in_action(snapshot: Dictionary, unit_id: String, player: int) -> Dictionary:
 	"""Compute pile-in movements for a unit. Each model moves up to 3" toward the
 	closest enemy model (edge-to-edge). Models already in base contact stay put.
+	The attached characters' models pile in as part of the same move (19.03).
 	Returns a PILE_IN action dict with the movements dictionary."""
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
@@ -14460,6 +14526,7 @@ static func _compute_pile_in_action(snapshot: Dictionary, unit_id: String, playe
 
 	var unit_name = _dn(unit, unit_id)
 	var movements = _compute_pile_in_movements(snapshot, unit_id, unit, player)
+	movements = _merge_attached_char_fight_movements(snapshot, unit_id, player, movements, "pile_in")
 
 	var description = ""
 	if movements.is_empty():
@@ -14477,9 +14544,11 @@ static func _compute_pile_in_action(snapshot: Dictionary, unit_id: String, playe
 		"_ai_description": description
 	}
 
-static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int) -> Dictionary:
+static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int, extra_friendly_obstacles: Array = []) -> Dictionary:
 	"""Compute per-model pile-in destinations. Returns {model_id_string: Vector2} for models
 	that should move. Models that stay put are omitted.
+	extra_friendly_obstacles: proposed positions of group models already computed this
+	move (19.03 Attached unit — bodyguard and characters share one pile-in).
 
 	Pile-in rules (10th edition):
 	- Each model may move up to 3"
@@ -14533,7 +14602,7 @@ static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, un
 	# Friendly models use 2px gap (prevent stacking), enemy models use -1px gap
 	# (allow base-to-base contact during pile-in)
 	var obstacle_split = _get_deployed_models_split(snapshot, unit_id, unit_owner)
-	var friendly_obstacles = obstacle_split.friendly
+	var friendly_obstacles = obstacle_split.friendly + extra_friendly_obstacles
 	var enemy_obstacles = obstacle_split.enemy
 
 	var pile_in_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
@@ -14771,15 +14840,19 @@ static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, p
 			"_ai_description": "%s skips consolidation (AIRCRAFT)" % unit_name
 		}
 
-	# Determine consolidation mode: engagement or objective
-	var mode = _determine_ai_consolidate_mode(snapshot, unit, player)
+	# Determine consolidation mode: engagement or objective. The 12.08 mode is
+	# assessed on the ATTACHED unit (19.03) — the validator folds the attached
+	# characters' models in, so the AI must judge range gates the same way.
+	var mode = _determine_ai_consolidate_mode(snapshot, _fold_attached_unit_for_ai(snapshot, unit_id), player)
 	var movements = {}
 
 	if mode == "ENGAGEMENT":
 		# Enhanced consolidation: prioritise wrapping enemies and tagging new units
 		movements = _compute_consolidate_movements_engagement(snapshot, unit_id, unit, player)
+		movements = _merge_attached_char_fight_movements(snapshot, unit_id, player, movements, "consolidate_engagement")
 	elif mode == "OBJECTIVE":
 		movements = _compute_consolidate_movements_objective(snapshot, unit_id, unit, player)
+		movements = _merge_attached_char_fight_movements(snapshot, unit_id, player, movements, "consolidate_objective")
 
 	var description = ""
 	if movements.is_empty():
@@ -14885,7 +14958,7 @@ static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionar
 	print("AIDecisionMaker: %s has no legal consolidation move (no enemy or objective within 3\") — holding position" % _dn(unit, unit.get("id", "")))
 	return "NONE"
 
-static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int) -> Dictionary:
+static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int, extra_friendly_obstacles: Array = []) -> Dictionary:
 	"""Compute per-model consolidation destinations in engagement mode.
 	Enhanced over basic pile-in with priorities:
 	1. Tag new enemy units — move into ER with enemy units not currently engaged
@@ -14941,7 +15014,7 @@ static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit
 
 	# Get deployed models split for collision detection
 	var obstacle_split = _get_deployed_models_split(snapshot, unit_id, unit_owner)
-	var friendly_obstacles = obstacle_split.friendly
+	var friendly_obstacles = obstacle_split.friendly + extra_friendly_obstacles
 	var enemy_obstacles = obstacle_split.enemy
 
 	var consolidate_range_px = 3.0 * PIXELS_PER_INCH
@@ -15237,7 +15310,7 @@ static func _angle_difference(a: float, b: float) -> float:
 		diff += 2.0 * PI
 	return diff
 
-static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int) -> Dictionary:
+static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int, extra_friendly_obstacles: Array = []) -> Dictionary:
 	"""Compute per-model consolidation destinations when moving toward the closest
 	objective (fallback mode when no enemy is within engagement reach).
 	Returns {model_id_string: Vector2} for models that should move."""
@@ -15252,7 +15325,7 @@ static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_
 		return movements
 
 	# Get deployed models for collision checking (excluding this unit)
-	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id) + extra_friendly_obstacles
 
 	var consolidate_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
 

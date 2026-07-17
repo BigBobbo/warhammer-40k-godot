@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.52.0",
+			"date": "2026-07-17",
+			"summary": "Leaders now pile in and consolidate WITH their unit. A Character attached to a bodyguard squad (e.g. a Blade Champion leading Custodian Guard) no longer appears as a separate unit in the Fight phase's Pile In and Consolidate steps — the picker shows one entry ('Custodian Guard + Blade Champion') and moving it lets you drag every model of the attached unit, leader included, in the one 3\" move.",
+			"changes": [
+				"Fixed: attached Characters (Blade Champions, Shield-Captains, Warbosses, etc.) were listed as separate units in the Pile In step at the start of the Fight phase and in the Consolidate step at its end — per the core rules (19.03) an attached unit moves as ONE unit.",
+				"The Pile In / Consolidate unit pickers now show a single entry per attached unit, named 'Bodyguard + Leader'.",
+				"Picking the unit lets you drag the leader's model too — same 3\" cap, closer-to-enemy, coherency and base-contact rules, applied to the whole attached unit together.",
+				"A bodyguard whose LEADER is the only model in engagement range now correctly counts as engaged for pile-in/consolidate eligibility.",
+				"The AI moves attached leaders together with their unit when it piles in or consolidates.",
+				"Consolidation modes (ongoing/engaging/objective) are judged on the whole attached unit, and an Engaging Consolidation led by the leader's model still forces the new fight."
+			]
+		},
+		{
 			"version": "0.51.1",
 			"date": "2026-07-17",
 			"summary": "Fight phase: the 'Select Unit to Fight' picker no longer tells you your opponent 'has no eligible units' when their engaged units are simply waiting for the Remaining Combats step. During the Fights First step it now explains that the opponent has no FIGHTS FIRST units and will select once your Fights First units have fought.",

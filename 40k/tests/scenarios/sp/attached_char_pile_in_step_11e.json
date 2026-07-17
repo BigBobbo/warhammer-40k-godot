@@ -1,0 +1,111 @@
+{
+  "id": "attached_char_pile_in_step_11e",
+  "covers": [
+    "phases.FightPhase.pile_in_11e",
+    "phases.FightPhase.attached_units_19_03",
+    "dialogs.PileInStepDialog",
+    "scripts.FightController.pile_in_attached_characters"
+  ],
+  "fixture": "attached_pile_in_step",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Reported bug: Blade Champions attached to Custodian Guard/Wardens appeared as SEPARATE units in the global Pile In step (12.02). 11e 19.03: an attached character and its bodyguard are ONE Attached unit. Player path: the Pile In step picker lists ONE entry named 'Custodian Guard + Blade Champion' (no separate Blade Champion row); clicking it opens the pile-in move covering BOTH units' models; the champion's model (out of engagement range on the left flank) is dragged in with a real board drag; Confirm submits one PILE_IN that moves the champion's model into engagement and spends both units' step move. P1's half then auto-passes to Player 2.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 1 },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"PileInStepDialog/Content/UnitScroll/UnitList\").get_child_count()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"PileInStepDialog/Content/UnitScroll/UnitList/PileIn_U_BLADE_CHAMPION_A\") == null",
+      "equals": true
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/PileInStepDialog/Content/UnitScroll/UnitList/PileIn_U_CUSTODIAN_GUARD_B",
+      "property": "text",
+      "equals": "Custodian Guard + Blade Champion  [Engaged — every engaged enemy is a pile-in target]"
+    },
+    { "act": "screenshot", "label": "01_step_picker_one_attached_unit_entry" },
+    {
+      "act": "click_node",
+      "node": "/root/PileInStepDialog/Content/UnitScroll/UnitList/PileIn_U_CUSTODIAN_GUARD_B",
+      "emit_pressed": true
+    },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/PileInDialog", "timeout_s": 5.0 },
+    {
+      "act": "execute_script",
+      "script": "main.fight_controller.pile_in_active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fight_controller.current_model_positions.has(\"U_BLADE_CHAMPION_A:m1\")",
+      "equals": true
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/PileInDialog",
+      "property": "title",
+      "equals": "Pile In: Custodian Guard + Blade Champion"
+    },
+    { "act": "screenshot", "label": "02_pile_in_mode_covers_champion_model" },
+    { "act": "drag_board", "from_x": 536, "from_y": 700, "to_x": 536, "to_y": 624 },
+    { "act": "wait_frames", "frames": 4 },
+    {
+      "act": "execute_script",
+      "script": "(main.fight_controller.current_model_positions[\"U_BLADE_CHAMPION_A:m1\"] - main.fight_controller.original_model_positions[\"U_BLADE_CHAMPION_A:m1\"]).length() > 10.0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fight_controller.get_pile_in_movements().has(\"U_BLADE_CHAMPION_A:m1\")",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/ConfirmButton",
+      "emit_pressed": true
+    },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_unit_engaged(\"U_BLADE_CHAMPION_A\", GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].position.y < 660.0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().units_that_piled_in.has(\"U_BLADE_CHAMPION_A\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().units_that_piled_in.has(\"U_CUSTODIAN_GUARD_B\")",
+      "equals": true
+    },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 2 },
+    { "act": "screenshot", "label": "03_champion_piled_in_with_bodyguard" },
+    { "act": "expect_node_visible", "node": "/root/PileInStepDialog", "timeout_s": 5.0 },
+    {
+      "act": "click_node",
+      "node": "/root/PileInStepDialog/Content/EndPileInButton",
+      "emit_pressed": true
+    },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 }
+  ]
+}
