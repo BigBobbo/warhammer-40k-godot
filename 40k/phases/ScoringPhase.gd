@@ -156,8 +156,20 @@ func get_available_actions() -> Array:
 
 	# 03.03 coherency removals when awaiting: one action per offender model.
 	# Mandatory — nothing else (incl. END_TURN) is offered until resolved.
+	# Only list actions for AI-owned entries: the AI turn loop consumes
+	# whatever appears here, and at the end of an AI turn the pending units
+	# belong to the HUMAN opponent — listing theirs let the AI answer the
+	# 03.03 choice and delete the human's models within a second of the
+	# CoherencyRemovalDialog opening (user report 2026-07-17). Human owners
+	# act via the dialog, which dispatches REMOVE_MODEL_FOR_COHERENCY
+	# directly; returning empty blocks the AI/harness from ending the turn
+	# while the dialog is open (same pattern as the Acrobatic Escape and
+	# card-action gates below).
 	if _awaiting_coherency_removal and not _coherency_removal_pending.is_empty():
+		var coh_ai_node = get_node_or_null("/root/AIPlayer")
 		for entry in _coherency_removal_pending:
+			if not (coh_ai_node and coh_ai_node.is_ai_player(int(entry.player))):
+				continue
 			for model_id in entry.offenders:
 				actions.append({
 					"type": "REMOVE_MODEL_FOR_COHERENCY",
@@ -507,6 +519,7 @@ func _get_incoherent_human_units() -> Array:
 	var out: Array = []
 	var gc = GameState.state.get("meta", {}).get("game_config", {})
 	var units = GameState.state.get("units", {})
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	for unit_id in units:
 		var unit = units[unit_id]
 		var alive := 0
@@ -518,6 +531,12 @@ func _get_incoherent_human_units() -> Array:
 		var owner := int(unit.get("owner", 0))
 		var ptype := str(gc.get("player%d_type" % owner, "HUMAN")).to_upper()
 		if ptype != "HUMAN":
+			continue
+		# game_config defaults to HUMAN when player types are missing (e.g.
+		# older fixtures); if AIPlayer actually controls this owner there is
+		# no human to make the 03.03 choice — leave the unit to the
+		# PhaseManager auto-pick backstop instead of pausing the turn.
+		if ai_player_node and ai_player_node.is_ai_player(owner):
 			continue
 		var coh = AttackSequence.check_unit_coherency(unit)
 		if not coh.coherent:

@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.54.4",
+			"date": "2026-07-17",
+			"summary": "Fixed the AI removing YOUR out-of-coherency models for you. When the AI's turn ended with some of your units out of coherency (e.g. after casualties), the 'Regaining Coherency' popup appeared but the AI instantly picked and removed your models before you could click. The choice of which models to remove is now yours: the popup waits for you, the AI's turn pauses until you've chosen, and only then does the turn end.",
+			"changes": [
+				"Fixed: at the end of the AI's turn, out-of-coherency removals for YOUR units are no longer auto-picked by the AI — the 'Regaining Coherency' dialog now waits for you to choose which model(s) to remove.",
+				"The AI's turn stays paused while your coherency dialog is open, then ends normally after your choice restores coherency.",
+				"The AI's own out-of-coherency units are still resolved automatically, as before."
+			]
+		},
+		{
 			"version": "0.54.3",
 			"date": "2026-07-17",
 			"summary": "Fixed AI charges not showing on the board until the end of the charge phase. When the AI made a successful charge, its models used to stay put visually while it declared its remaining charges — only snapping into engagement range once the whole phase ended. Each AI charging unit now moves into engagement range immediately, right after its charge succeeds, so you can follow the AI's charges one unit at a time.",
