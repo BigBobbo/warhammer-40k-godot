@@ -1264,6 +1264,37 @@ func unit_token_sprite_width(unit_id: String) -> int:
 			return tex.get_width() if tex != null else 0
 	return -1
 
+# Deterministically frame the battle scene's Camera2D for a screenshot step.
+# Expression (execute_script) can't run assignment statements, so scenarios call
+# this as set_test_camera(880, 240, 3.0) to centre/zoom on a board region.
+func set_test_camera(x: float, y: float, zoom: float) -> bool:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return false
+	var cam := scene.get_viewport().get_camera_2d()
+	if cam == null:
+		return false
+	cam.position = Vector2(x, y)
+	cam.zoom = Vector2(zoom, zoom)
+	return true
+
+# Number of the DeploymentController's live formation-preview ghosts (Spread /
+# Tight squad placement) that resolve a non-null facing sprite instead of the
+# letter/arrow fallback. A scenario asserts this equals the squad size to prove
+# every placement ghost renders its top-down art. Size-robust.
+func formation_ghosts_with_sprite() -> int:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return -1
+	var dc = scene.get("deployment_controller")
+	if dc == null:
+		return -1
+	var n := 0
+	for g in dc.formation_preview_ghosts:
+		if is_instance_valid(g) and g.has_meta("unit_id") and g._get_ghost_sprite_texture() != null:
+			n += 1
+	return n
+
 func token_model_rotation(unit_id: String, model_id: String) -> float:
 	# Live rotation (radians) baked into a model's ON-SCREEN token, read
 	# directly from its model_data — NOT GameState. Regression guard for the

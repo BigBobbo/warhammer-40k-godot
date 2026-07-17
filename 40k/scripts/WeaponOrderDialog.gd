@@ -579,6 +579,10 @@ func _format_roll_line(context: String, dice_data: Dictionary) -> String:
 	var total = (display_rolls as Array).size()
 	var successes = int(dice_data.get("successes", 0))
 	var rerolls = dice_data.get("rerolls", [])
+	if (rerolls as Array).is_empty() and context == "to_wound":
+		# Wound re-rolls (Stand Vigil / twin-linked etc.) ride a separate key —
+		# without this fallback the "(1→X)" annotation silently never renders.
+		rerolls = dice_data.get("wound_rerolls", [])
 
 	var label = "Rolling to Hit" if context == "to_hit" else "Rolling to Wound"
 	var noun = "hit" if context == "to_hit" else "wound"

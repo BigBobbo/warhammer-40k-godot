@@ -2,12 +2,54 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.49.6",
+			"version": "0.49.10",
 			"date": "2026-07-16",
 			"summary": "Mouse-wheel zoom now only acts when the cursor is over the game board. Scrolling while hovering a menu or panel (unit list, game log, HUD bar, dialogs) no longer zooms the board underneath — the wheel belongs to the menu you're pointing at.",
 			"changes": [
 				"Fixed: scrolling a side panel, the game log, or any other menu no longer also zooms the board — wheel zoom is skipped whenever the cursor is over a UI element.",
 				"Scrolling over the open board still zooms in/out anchored on the cursor, exactly as before."
+			]
+		},
+		{
+			"version": "0.49.9",
+			"date": "2026-07-17",
+			"summary": "Shooting dice readouts are now honest about cover and re-rolls: the 'need X+' hit label shows the real (cover-adjusted) target, wound re-rolls of 1 are annotated in the roll dialog instead of looking like a 1 that counted, and the Forecast panel accounts for cover and re-roll abilities like Stand Vigil.",
+			"changes": [
+				"Fixed: the hit-roll line said 'need 2+' even when the target's Benefit of Cover (11th ed 13.08) worsened the roll to 3+ — the dice were already being judged at 3+, only the label lied. It now reads e.g. 'need 3+ (cover)' in the roll dialog, game log, dice history and combat summaries.",
+				"Fixed: a wound roll of 1 that an ability re-rolled (e.g. Custodian Guard's Stand Vigil, twin-linked) looked like it had counted as a wound — the step-by-step roll dialog and the next-weapon summary now show the re-roll annotation (e.g. '(1→6)') like the main game log already did.",
+				"Fixed: the Forecast panel ignored the target's cover (over-predicting hits) and ability-granted re-rolls such as Stand Vigil (under-predicting wounds). It now models both and tags them ('Cover', 'RR 1s Wnd')."
+			]
+		},
+		{
+			"version": "0.49.8",
+			"date": "2026-07-16",
+			"summary": "'Snap to Contact' in the Charge phase now always does something useful. Before, if your charge roll was too short for any model to reach base contact, clicking the button moved nothing (it only tried spots right up against the target), which read as the button being broken. Now every charging model that can't reach base contact is moved as close to the target as its charge distance legally allows.",
+			"changes": [
+				"Snap to Contact: models that can reach base contact still snap into contact exactly as before.",
+				"Models that CAN'T reach contact now advance straight at the nearest target model, stopping just inside the 1\" engagement band when the roll reaches it, or at their full charge distance when it doesn't — instead of standing still.",
+				"If the straight lane is blocked (squadmate, wall, terrain cost), the button sweeps nearby approach angles and shorter moves to find the closest legal spot.",
+				"Auto-placed spots now also avoid ending within 1\" of an enemy unit you did NOT declare the charge against, so the Confirm step can't be rejected for an illegal engagement.",
+				"The charge panel message now says what happened, e.g. 'No model could reach base contact — all moved as close as possible. Confirm or adjust'."
+			]
+		},
+		{
+			"version": "0.49.7",
+			"date": "2026-07-17",
+			"summary": "Fixed a Fight-phase soft-lock: a unit that charged but couldn't reach anyone (e.g. a Blade Champion whose pile-in falls short) used to open the 'Assign Attacks' dialog with zero eligible targets and no way to skip, freezing the game. Its fight now simply ends — the game logs it and moves on to the next unit.",
+			"changes": [
+				"A unit selected to fight with no enemies within Engagement Range after its pile-in (11e Overrun fight, 12.06) now ends its activation automatically instead of opening an empty attack-assignment dialog — the fight sequence continues normally.",
+				"The Game Log explains what happened: 'no enemies in engagement range, fight ends without attacks'.",
+				"Safety net: if the Assign Attacks dialog ever opens with no targets, it now disables the attack buttons, explains why, and offers an 'End Fight (No Targets)' button that skips the unit — no more being trapped in the dialog."
+			]
+		},
+		{
+			"version": "0.49.6",
+			"date": "2026-07-16",
+			"summary": "Deployment placement ghosts now show the model's top-down sprite, not just the pulsing base outline. The single-model placement ghost already did this, but when you placed a squad using the Spread or Tight formation, or nudged an already-placed model, the preview ghosts only drew the empty base outline. Every deployment ghost that has bundled/custom art (Custodian Guard, Stormboyz, tanks, etc.) now renders that art inside the translucent base so you can see exactly what — and which way — you're placing.",
+			"changes": [
+				"Fixed: Spread/Tight formation deployment ghosts now show each model's facing sprite instead of just the base outline.",
+				"Fixed: the reposition ghost (when moving an already-placed model during deployment) now shows the model's sprite too.",
+				"Units without dedicated art are unchanged — they keep the letter counter + facing arrow."
 			]
 		},
 		{
