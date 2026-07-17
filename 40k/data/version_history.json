@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.54.3",
+			"date": "2026-07-17",
+			"summary": "Fixed AI charges not showing on the board until the end of the charge phase. When the AI made a successful charge, its models used to stay put visually while it declared its remaining charges — only snapping into engagement range once the whole phase ended. Each AI charging unit now moves into engagement range immediately, right after its charge succeeds, so you can follow the AI's charges one unit at a time.",
+			"changes": [
+				"Fixed: a successful AI charge now moves the charging unit's models on the board straight away, before the AI declares its next charge (previously they only appeared to move at the end of the charge phase).",
+				"Attached characters riding along with a charging unit, and any enemy models slain by a charge-move mortal wound (e.g. Spiked Ram, Piston-driven Brutality), now update on the board at the same moment.",
+				"Also covers the AI's Heroic Intervention counter-charge move."
+			]
+		},
+		{
 			"version": "0.54.2",
 			"date": "2026-07-17",
 			"summary": "Dice now show as die-face icons (pips) instead of raw numbers in the last places that still printed numbers: the wound-allocation 'Save rolls' summary and its Command Re-roll chips, the shooting resolution dock's re-roll chips, and the Grenade / Tank Shock / Command Re-roll result popups. Dice look the same everywhere now.",

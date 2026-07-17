@@ -1444,6 +1444,34 @@ func repro_ai_pile_in_move(unit_id: String, nx: float, ny: float) -> bool:
 	}])
 	return true
 
+# Charge-phase analogue of repro_ai_pile_in_move. Reproduces the exact ordering
+# AIPlayer._execute_next_action uses for a charge move: it emits ai_action_taken
+# (-> Main._on_ai_action_taken) with an APPLY_CHARGE_MOVE action BEFORE routing
+# the action that writes the move, then the ChargePhase writes the model move in
+# route_action. The bug: nothing in _on_ai_action_taken handled APPLY_CHARGE_MOVE,
+# so the token stayed at its pre-charge position until END_CHARGE synced the whole
+# board — i.e. the charging unit only appeared to move AFTER the AI finished ALL
+# its charges. The fix defers a token sync on APPLY_CHARGE_MOVE so the token reads
+# the post-move state. Returns true if the handler + move were driven. Callable
+# from execute_script.
+func repro_ai_charge_move(unit_id: String, nx: float, ny: float) -> bool:
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("_on_ai_action_taken"):
+		return false
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty() or unit.get("models", []).is_empty():
+		return false
+	var owner := int(unit.get("owner", 1))
+	# (1) AI emits ai_action_taken BEFORE the action is routed:
+	scene._on_ai_action_taken(owner, {"type": "APPLY_CHARGE_MOVE", "actor_unit_id": unit_id}, "repro charge move")
+	# (2) the ChargePhase then writes the charge move in route_action / apply_state_changes:
+	GameState.apply_state_changes([{
+		"op": "set",
+		"path": "units.%s.models.0.position" % unit_id,
+		"value": {"x": nx, "y": ny}
+	}])
+	return true
+
 # Distance in px between a unit's model ON-SCREEN token and that model's current
 # GameState position. ~0 == the visual is in sync with state; a large value ==
 # the token was left stranded at a stale position. Callable from execute_script,
