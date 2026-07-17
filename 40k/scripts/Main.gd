@@ -6937,6 +6937,9 @@ func _show_token_hover(unit_id: String, screen_pos: Vector2, model_id: String = 
 	var text = "[b][color=%s]%s[/color][/b]\n" % [player_color, unit_name]
 	text += "  ".join(stat_parts) + "\n"
 	text += "[color=#AAAAAA]Models: %d/%d  Wounds: %d/%d[/color]" % [alive, total_models, total_w_current, total_w_max]
+	# Status-marker explanations (battle-shock ring, fought check, engaged badge,
+	# action tick, mission rings) so hovering a marked model answers WHY it is marked.
+	text += _build_status_marker_hover_text(unit)
 	if kw_short != "":
 		text += "\n[color=#888888][i]%s[/i][/color]" % kw_short
 	# Per-model profile block: when a squad has heterogeneous models (Boss Nob,
@@ -7005,6 +7008,56 @@ func _build_model_profile_hover_text(unit: Dictionary, model_id: String) -> Stri
 	for l in melee_lines:
 		block += "\n" + l
 	return block
+
+func _build_status_marker_hover_text(unit: Dictionary) -> String:
+	# Returns a BBCode block explaining every status marker currently drawn on
+	# this unit's tokens (see TokenVisual/TokenDrawUtils), or "" when unmarked.
+	# Each entry names the on-board visual so the player can map marker -> meaning.
+	var flags = unit.get("flags", {})
+	var lines: Array = []
+	# T-096 red ring + "!" badge — battle-shock (the one players ask about most).
+	if flags.get("battle_shocked", false):
+		lines.append("[color=#FF4A3A][b]! Battle-shocked[/b][/color] [color=#888888](red ring)[/color]")
+		lines.append("[color=#CC9A93]Failed a Battle-shock test (Below Half-strength) or was shocked by an effect (e.g. emergency disembark).[/color]")
+		lines.append("[color=#CC9A93]OC 0 — cannot hold objectives; cannot use Stratagems; cannot start Actions; Desperate Escape tests fail on 1-3.[/color]")
+		lines.append("[color=#CC9A93]Tests again at the start of its next Command phase.[/color]")
+	# Fought overlay (dim + green check) supersedes the engaged badge on the token.
+	if flags.get("has_fought", false):
+		lines.append("[color=#6FBF6F][b]Fought[/b][/color] [color=#888888](green check)[/color] [color=#AAAAAA]— has fought this turn[/color]")
+	elif flags.get("is_engaged", false):
+		var prio = int(flags.get("fight_priority", 1))
+		var prio_text = ""
+		if prio == 0:
+			prio_text = " [color=#E8C86A](Fights First)[/color]"
+		elif prio == 2:
+			prio_text = " [color=#999999](Fights Last)[/color]"
+		lines.append("[color=#DDDDDD][b]Engaged[/b][/color] [color=#888888](swords badge)[/color] [color=#AAAAAA]— within Engagement Range of an enemy[/color]%s" % prio_text)
+	# Colored tick bar under the base — mirrors TokenDrawUtils.draw_status_tick colors.
+	var actions: Array = []
+	if flags.get("has_charged", false) or flags.get("charged_this_turn", false):
+		actions.append("[color=#E68019]Charged[/color]")
+	if str(flags.get("performed_action", "")) != "":
+		actions.append("[color=#B24DE6]Action: %s[/color]" % str(flags.get("performed_action", "")).capitalize())
+	if flags.get("has_shot", false):
+		actions.append("[color=#3399E6]Shot[/color]")
+	if flags.get("advanced", false):
+		actions.append("[color=#4DCC4D]Advanced[/color]")
+	elif flags.get("fell_back", false):
+		actions.append("[color=#4DCC4D]Fell Back[/color]")
+	elif flags.get("moved", false):
+		actions.append("[color=#4DCC4D]Moved[/color]")
+	if actions.size() > 0:
+		lines.append("[color=#AAAAAA]This turn:[/color] " + ", ".join(actions) + " [color=#888888](bar under base)[/color]")
+	# Secondary-mission target rings (Marked for Death crosshair, Beacon ring).
+	var mfd = str(flags.get("marked_for_death", ""))
+	if mfd != "":
+		var mfd_color = "#FF6655" if mfd == "alpha" else "#E6B333"
+		lines.append("[color=%s][b]Marked for Death (%s)[/b][/color] [color=#AAAAAA]— the marking player scores VP if this unit is destroyed[/color]" % [mfd_color, mfd.capitalize()])
+	if flags.get("beacon", false):
+		lines.append("[color=#39D6FF][b]Beacon[/b][/color] [color=#AAAAAA]— designated unit for the Beacon secondary mission[/color]")
+	if lines.is_empty():
+		return ""
+	return "\n" + "\n".join(lines)
 
 func _position_token_hover(screen_pos: Vector2) -> void:
 	if not _token_hover_tooltip:

@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.54.5",
+			"date": "2026-07-17",
+			"summary": "Hovering a model now explains its status markers. The red ring + '!' (battle-shocked), the green check (fought), the crossed-swords badge (engaged), the colored bar under the base (moved/shot/charged/action) and the Marked for Death / Beacon rings are all spelled out in the hover tooltip, so you can always tell WHY a model is marked.",
+			"changes": [
+				"Model hover tooltip: battle-shocked units now show a red 'Battle-shocked' entry explaining the red ring — how it happened (failed Battle-shock test / effect), what it does (OC 0, no Stratagems, no Actions, Desperate Escape fails on 1-3) and when it re-tests (start of its next Command phase).",
+				"Fought (green check) and Engaged (swords badge, incl. Fights First/Last) markers are explained in the same tooltip.",
+				"The colored action bar under a base is decoded as 'This turn: Moved / Shot / Charged / Fell Back / Advanced / Action', color-matched to the bar.",
+				"Marked for Death (A/G crosshair rings) and Beacon (cyan ring) secondary-mission markers are explained too."
+			]
+		},
+		{
 			"version": "0.54.4",
 			"date": "2026-07-17",
 			"summary": "Fixed the AI removing YOUR out-of-coherency models for you. When the AI's turn ended with some of your units out of coherency (e.g. after casualties), the 'Regaining Coherency' popup appeared but the AI instantly picked and removed your models before you could click. The choice of which models to remove is now yours: the popup waits for you, the AI's turn pauses until you've chosen, and only then does the turn end.",
