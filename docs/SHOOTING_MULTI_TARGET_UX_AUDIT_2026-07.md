@@ -6,9 +6,36 @@ fire): declaration → confirmation → weapon-order → staged dice → defende
 `ShootingController.gd` / `WeaponOrderDialog.gd` end-to-end, then driving the
 real windowed game via the scenario runner and reproducing the reported bug.
 
-**Status**: the three correctness bugs found are FIXED on this branch, each with
-a windowed regression scenario. The UX redesign below is a proposal for
-follow-up work.
+**Status (updated 2026-07-17)**: IMPLEMENTED on this branch. The three
+correctness bugs (§1) are fixed, and the redesign (§4) shipped after the
+owner's sign-off on the open questions: F3/F4 validation parity, B4 one-click
+declaration + move picker, B1 target chips, B2 resolution dock (right-HUD
+in-place swap; the separate weapon-order dialog is replaced by dock
+reordering in single-player), and B3 pause policy (default "Every step").
+B5 (expected-damage previews) remains future work — the existing
+FORECAST/COMBINED FORECAST panels already cover part of it.
+Full shooting scenario battery: 16/16 passing, plus new scenarios
+`split_fire_move_picker`, `engaged_vehicle_confirm_split_11e`,
+`pause_policy_never_auto_continues`, and a resurrected
+`staged_shooting_reroll_ui` (was failing on the base branch).
+
+**Follow-ups (tracked here)**:
+1. **MP-safe fast-roll / dock port** (owner-approved): networked play still
+   uses the combined single-batch fast roll and the dialog chain — port the
+   per-weapon auto-continue design once its save broadcast/ack sync is
+   adapted (`_process_resolve_weapon_sequence` network branch).
+2. **Pre-existing broken scenarios** (fail on the clean base; terrain
+   visibility fixture fallout, NOT this branch): `split_fire_per_model`,
+   `split_fire_spinbox_commit`, `iss15_hidden_shot_stamp_11e` (its dialog
+   steps are already converted to dock equivalents for when the fixture is
+   repaired). Repair needs a fixture where the Kommandos/Witchseekers are
+   not Hidden, or asserts updated to the hidden-visibility rules.
+3. **F9 weapon-instance count**: "4x Big shoota" resolves as ONE weapon with
+   3 attacks (verified live: 3 base + RF2). If multi-instance wargear should
+   multiply attacks, that is a RulesEngine/army-parse issue — needs a rules
+   decision, out of scope here.
+4. **B5 previews**: per-assignment expected unsaved wounds in the dock rows
+   and quick-assign buttons, with the modifier chain on hover.
 
 ---
 
