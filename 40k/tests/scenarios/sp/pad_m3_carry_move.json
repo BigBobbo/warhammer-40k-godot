@@ -182,7 +182,7 @@
     },
     {
       "act": "pad_cursor_glide",
-      "button_text": "Confirm Move"
+      "button_text": "End This Unit's Move"
     },
     {
       "act": "simulate_joy_button",

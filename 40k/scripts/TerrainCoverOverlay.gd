@@ -27,6 +27,21 @@ func _ready() -> void:
 		if not tm.is_connected("terrain_loaded", _on_terrain_loaded):
 			tm.connect("terrain_loaded", _on_terrain_loaded)
 
+	# The cover glyph chips (LB / +2 / +1) are OFF by default — they add a lot of
+	# on-board clutter. A player opts in via Settings > Visual > "Terrain Cover
+	# Labels", which flips SettingsService.show_terrain_cover_labels and fires the
+	# signal below so the whole overlay shows/hides live without a board reload.
+	var ss = get_node_or_null("/root/SettingsService")
+	if ss != null:
+		visible = ss.show_terrain_cover_labels
+		if ss.has_signal("terrain_cover_labels_changed"):
+			if not ss.is_connected("terrain_cover_labels_changed", _on_cover_labels_changed):
+				ss.connect("terrain_cover_labels_changed", _on_cover_labels_changed)
+
+
+func _on_cover_labels_changed(enabled: bool) -> void:
+	visible = enabled
+
 
 func _on_terrain_loaded(_features: Array) -> void:
 	_rebuild_icons()
