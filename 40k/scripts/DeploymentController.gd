@@ -15,6 +15,11 @@ var model_idx: int = -1
 var temp_positions: Array = []
 var temp_rotations: Array = []  # Store rotations for each model
 var placement_order: Array = []  # MA-16: Track order of model placement for non-sequential undo
+# Rotation carry-over: when the player rotates a model during deployment, the
+# NEXT model in the same unit starts at that same rotation instead of snapping
+# back to the default enemy-facing. Reset per unit in begin_deploy(). Stays null
+# until the first model is placed, so the first model keeps the auto-face default.
+var _last_deploy_rotation = null  # float (radians) or null
 var token_layer: Node2D
 var ghost_layer: Node2D
 var ghost_sprite: Node2D = null
@@ -202,6 +207,7 @@ func begin_deploy(_unit_id: String) -> void:
 	model_idx = 0
 	temp_positions.clear()
 	temp_rotations.clear()
+	_last_deploy_rotation = null  # Reset rotation carry-over for the new unit
 	placement_order.clear()  # MA-16: Reset placement order tracking
 	combined_models.clear()
 	is_combined_deployment = false
@@ -549,6 +555,9 @@ func try_place_at(world_pos: Vector2) -> void:
 	# Store position and rotation (rotation already captured above)
 	temp_positions[model_idx] = world_pos
 	temp_rotations[model_idx] = rotation
+	# Carry this rotation over to the next model so, e.g., rotating the first
+	# model 90° makes every following model start off at that same 90°.
+	_last_deploy_rotation = rotation
 	placement_order.append(model_idx)  # MA-16: Track placement order for non-sequential undo
 	_spawn_preview_token(spawn_unit_id, spawn_model_idx, world_pos, rotation)
 
@@ -747,6 +756,7 @@ func reset_unit() -> void:
 	_clear_previews()
 	temp_positions.fill(null)
 	temp_rotations.fill(0.0)  # Reset rotations to default
+	_last_deploy_rotation = null  # Reset rotation carry-over
 	placement_order.clear()  # MA-16: Reset placement order tracking
 	model_idx = 0
 
@@ -1253,6 +1263,15 @@ func _place_character_model_adjacent(char_id: String, bodyguard_id: String) -> v
 		GameState.state.units[char_id].models[i].position = {"x": char_pos.x, "y": char_pos.y}
 		print("[DeploymentController] Placed character model %d at %s" % [i, str(char_pos)])
 
+func _initial_deploy_rotation_for(owner_player: int) -> float:
+	# The rotation a freshly-shown ghost should start at. Once the player has
+	# placed (and possibly rotated) a model this unit, carry that rotation over to
+	# the next model; otherwise fall back to the default enemy-facing so the very
+	# first model still auto-faces the opponent.
+	if _last_deploy_rotation != null:
+		return _last_deploy_rotation
+	return BoardState.get_default_facing_for_player(owner_player)
+
 func _create_ghost() -> void:
 	print("[DeploymentController] _create_ghost() called")
 	print("[DeploymentController] ghost_layer is null: ", ghost_layer == null)
@@ -1297,9 +1316,10 @@ func _create_ghost() -> void:
 		ghost_sprite.set_model_type_label(_get_model_type_label(model_data, unit_data))
 
 	# Default facing: orient the model toward the opponent's board edge so its
-	# sprite faces the enemy instead of just pointing "up". The player can still
-	# rotate freely, which overwrites this default.
-	ghost_sprite.set_base_rotation(BoardState.get_default_facing_for_player(ghost_sprite.owner_player))
+	# sprite faces the enemy instead of just pointing "up". After the first model
+	# is placed, this inherits the player's last-applied rotation instead. The
+	# player can still rotate freely, which overwrites this default.
+	ghost_sprite.set_base_rotation(_initial_deploy_rotation_for(ghost_sprite.owner_player))
 
 	if ghost_layer:
 		ghost_layer.add_child(ghost_sprite)
@@ -1420,8 +1440,9 @@ func _update_ghost_for_next_model() -> void:
 		# Keep the ghost's unit_id in sync so the facing sprite resolves for the
 		# model actually being placed (bodyguard vs attached character).
 		ghost_sprite.set_meta("unit_id", cm["unit_id"])
-		# Reset facing to the default (toward the opponent) for the new model.
-		ghost_sprite.set_base_rotation(BoardState.get_default_facing_for_player(ghost_sprite.owner_player))
+		# Carry over the last-applied rotation (falls back to the default
+		# enemy-facing before any model in this unit has been placed).
+		ghost_sprite.set_base_rotation(_initial_deploy_rotation_for(ghost_sprite.owner_player))
 		ghost_sprite.queue_redraw()
 		return
 
@@ -1430,8 +1451,9 @@ func _update_ghost_for_next_model() -> void:
 		var model_data = unit_data["models"][model_idx]
 		# Update model data for the next model
 		ghost_sprite.set_model_data(model_data)
-		# Reset facing to the default (toward the opponent) for the new model.
-		ghost_sprite.set_base_rotation(BoardState.get_default_facing_for_player(ghost_sprite.owner_player))
+		# Carry over the last-applied rotation (falls back to the default
+		# enemy-facing before any model in this unit has been placed).
+		ghost_sprite.set_base_rotation(_initial_deploy_rotation_for(ghost_sprite.owner_player))
 		ghost_sprite.queue_redraw()
 
 func _spawn_preview_token(unit_id: String, model_index: int, pos: Vector2, rotation: float = 0.0) -> void:

@@ -3690,7 +3690,7 @@
      {
       "name": "Drive-by Dakka",
       "type": "Datasheet",
-      "description": "During the Shooting phase against A targets, subtract 1 from the unit's Armour Penetration characteristic."
+      "description": "During the Shooting phase against targets within 9\", subtract 1 from the unit's Armour Penetration characteristic."
      }
     ],
     "unit_composition": [
@@ -3823,7 +3823,7 @@
      {
       "name": "Drive-by Dakka",
       "type": "Datasheet",
-      "description": "During the Shooting phase against A targets, subtract 1 from the unit's Armour Penetration characteristic."
+      "description": "During the Shooting phase against targets within 9\", subtract 1 from the unit's Armour Penetration characteristic."
      }
     ],
     "unit_composition": [

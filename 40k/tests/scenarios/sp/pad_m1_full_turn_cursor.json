@@ -39,7 +39,7 @@
     { "act": "pad_cursor_glide", "x": 120.0, "y": 220.0 },
     { "act": "simulate_joy_button", "button_index": 0, "state": "release" },
     { "act": "wait_seconds", "seconds": 0.4 },
-    { "act": "pad_cursor_glide", "button_text": "Confirm Move" },
+    { "act": "pad_cursor_glide", "button_text": "End This Unit's Move" },
     { "act": "wait_seconds", "seconds": 0.2 },
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 0.5 },

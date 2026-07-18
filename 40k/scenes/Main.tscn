@@ -116,6 +116,12 @@ layout_mode = 2
 text = "Models: 0/0"
 autowrap_mode = 3
 
+[node name="TransportContentsLabel" type="Label" parent="HUD_Right/VBoxContainer/UnitCard"]
+visible = false
+layout_mode = 2
+text = "Carrying:"
+autowrap_mode = 3
+
 [node name="ButtonContainer" type="HBoxContainer" parent="HUD_Right/VBoxContainer/UnitCard"]
 layout_mode = 2
 
