@@ -1,0 +1,50 @@
+{
+  "id": "auto_pile_in_closest_opponents",
+  "covers": [
+    "scripts.FightController.auto_pile_in_movements",
+    "dialogs.PileInDialog.AutoButton",
+    "phases.FightPhase.pile_in_11e",
+    "scripts.AIDecisionMaker._compute_pile_in_movements"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "New feature: the Pile In dialog has an 'Auto Pile In' button that moves every model toward the closest enemy for the player (reusing the AI's pile-in solver) instead of dragging each model by hand. Setup: the Contemptor Dreadnought (the only unit eligible to pile in for P1) and one Ork Boy are placed in open space with a ~0.8\" gap between them (engaged, but not yet in base contact). Player path: open the Fight phase (global Pile In step, P1 active), click the Dreadnought's step entry to open the PileInDialog, then click 'Auto Pile In'. The Dreadnought is moved toward the Boy automatically (get_pile_in_movements() becomes non-empty). Confirm then submits ONE legal PILE_IN that moves the Dreadnought into base contact (ending closer, y increases toward the Boy) and advances the step to P2 — all with no manual dragging.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 1 },
+
+    { "act": "execute_script", "multiline": true, "script": "var st = GameState.state\nst.units[\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"].models[0].position = {\"x\": 400.0, \"y\": 400.0}\nvar k = st.units[\"U_BOYZ_K\"]\nfor i in range(k.models.size()):\n\tk.models[i].position = {\"x\": 1500.0 + (i % 5) * 40.0, \"y\": 2100.0 + (i / 5) * 40.0}\nk.models[0].position = {\"x\": 400.0, \"y\": 504.0}\nreturn \"repositioned\"" },
+    { "act": "execute_script", "script": "main._sync_all_token_positions()" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "RulesEngine.is_unit_engaged(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", GameState.state)", "equals": true },
+    { "act": "screenshot", "label": "01_dread_engaged_with_a_gap_before_pile_in" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/PileInDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_active", "equals": true },
+    { "act": "expect_node_property", "node": "/root/PileInDialog/Content/Buttons/AutoButton", "property": "text", "equals": "Auto Pile In" },
+    { "act": "screenshot", "label": "02_pile_in_dialog_open_with_auto_button" },
+
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/AutoButton", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script", "script": "main.fight_controller.get_pile_in_movements().size() > 0", "equals": true },
+    { "act": "screenshot", "label": "03_auto_pile_in_filled_the_move" },
+
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().units_that_piled_in.has(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")", "equals": true },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"].models[0].position.y > 410.0", "equals": true },
+    { "act": "execute_script", "script": "RulesEngine.is_unit_engaged(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", GameState.state)", "equals": true },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 2 },
+    { "act": "screenshot", "label": "04_auto_pile_in_committed_step_advanced" }
+  ]
+}

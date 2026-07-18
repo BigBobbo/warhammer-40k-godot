@@ -3044,6 +3044,63 @@ func reset_pile_in_movements() -> void:
 
 	print("[FightController] Pile-in movements reset")
 
+func auto_pile_in_movements() -> Dictionary:
+	"""Let the computer pile the whole unit in for the player.
+
+	Reuses the SAME solver the AI uses (AIDecisionMaker._compute_pile_in_movements)
+	so a human piling in can send every model toward the closest enemy — up to 3",
+	ending closer, avoiding overlaps, holding models already in base contact —
+	instead of dragging each one by hand. 19.03: attached characters' models pile
+	in as part of the same move. The result is loaded into the interactive preview
+	(tokens + arrows update); nothing is submitted here — the player reviews it and
+	clicks Confirm (or Reset). Returns the movements dict in this controller's
+	tracking-key form for the dialog to display."""
+	if pile_in_unit_id == "" or not current_phase:
+		return {}
+	var unit = current_phase.get_unit(pile_in_unit_id)
+	if unit.is_empty():
+		return {}
+	var owner = int(unit.get("owner", GameState.get_active_player()))
+
+	# The AI solver returns per-model destinations keyed by the model's ARRAY
+	# INDEX as a string ("0", "1", …) for pile_in_unit_id's own models, and
+	# "<char_unit_id>:<index>" for attached characters (19.03).
+	var snapshot = GameState.create_snapshot()
+	var ai_movements = AIDecisionMaker._compute_pile_in_movements(snapshot, pile_in_unit_id, unit, owner)
+	ai_movements = AIDecisionMaker._merge_attached_char_fight_movements(snapshot, pile_in_unit_id, owner, ai_movements, "pile_in")
+
+	# Convert the index keys into this controller's model-id tracking keys and
+	# load them into current_model_positions. Skip models locked in base contact
+	# (they must not move — the solver already holds them, this is belt-and-braces).
+	var applied := 0
+	for ai_key in ai_movements:
+		var route = _pile_in_split_key(str(ai_key))
+		var route_unit_id = route.unit_id
+		var idx_str = str(route.model_id)
+		if not idx_str.is_valid_int():
+			continue
+		var route_unit = current_phase.get_unit(route_unit_id)
+		var models = route_unit.get("models", [])
+		var idx = int(idx_str)
+		if idx < 0 or idx >= models.size():
+			continue
+		var model_id = models[idx].get("id", "m%d" % (idx + 1))
+		var key = _pile_in_model_key(route_unit_id, model_id)
+		if key in locked_base_contact_models:
+			continue
+		if not current_model_positions.has(key):
+			continue  # not part of the seeded pile-in group (shouldn't happen)
+		current_model_positions[key] = ai_movements[ai_key]
+		applied += 1
+
+	print("[FightController] Auto pile-in computed %d model destination(s) for %s" % [applied, pile_in_unit_id])
+
+	# Reflect the computed destinations on the board tokens + arrow/coherency visuals
+	_apply_model_positions_to_scene()
+	_update_pile_in_visuals()
+
+	return get_pile_in_movements()
+
 func _apply_model_positions_to_scene() -> void:
 	"""Apply current_model_positions (and rotations) to the actual tokens in the scene"""
 	if pile_in_unit_id == "":

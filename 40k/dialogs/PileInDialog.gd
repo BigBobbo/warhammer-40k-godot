@@ -46,7 +46,7 @@ func _build_ui() -> void:
 	# Heading — gold, to match the gold section headers used across the menus.
 	var instruction = Label.new()
 	instruction.name = "Instruction"
-	instruction.text = "Drag models on the battlefield to pile in\nUp to %.1f\" toward the closest enemy" % max_distance
+	instruction.text = "Drag models to pile in — or hit \"Auto Pile In\"\nUp to %.1f\" toward the closest enemy" % max_distance
 	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	instruction.add_theme_font_size_override("font_size", 15)
 	instruction.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
@@ -68,6 +68,17 @@ func _build_ui() -> void:
 	button_container.name = "Buttons"
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	button_container.add_theme_constant_override("separation", 10)
+
+	# Auto pile-in button — let the computer move every model toward the closest
+	# enemy (up to 3", legally) so the player doesn't have to drag each one. Fills
+	# in the move as a preview; the player still reviews it and hits Confirm.
+	var auto_button = Button.new()
+	auto_button.name = "AutoButton"
+	auto_button.text = "Auto Pile In"
+	auto_button.tooltip_text = "Move every model toward the closest enemy automatically (up to 3\"). Review the preview, then Confirm."
+	auto_button.custom_minimum_size = Vector2(0, 36)
+	auto_button.pressed.connect(_on_auto_pile_in_pressed)
+	button_container.add_child(auto_button)
 
 	# Reset button
 	reset_button = Button.new()
@@ -173,6 +184,27 @@ func _validate_movements() -> Dictionary:
 		return phase_reference._validate_pile_in(action)
 
 	return {"valid": true, "errors": []}
+
+func _on_auto_pile_in_pressed() -> void:
+	"""Have the computer pile every model in toward the closest enemy, then let
+	the player review and Confirm (or Reset). Reuses the AI pile-in solver via the
+	FightController so the move follows the same legal rules."""
+	print("[PileInDialog] Auto Pile In pressed")
+	if not controller_reference or not controller_reference.has_method("auto_pile_in_movements"):
+		print("[PileInDialog] No controller / auto_pile_in_movements — cannot auto pile in")
+		return
+
+	model_movements = controller_reference.auto_pile_in_movements()
+	print("[PileInDialog] Auto pile-in produced movements: ", model_movements)
+
+	if not status_label:
+		return
+	if model_movements.is_empty():
+		status_label.text = "Auto pile-in: no legal move (models already in base contact or no enemy in reach)"
+		status_label.add_theme_color_override("font_color", _NEUTRAL_STATUS)
+	else:
+		# _update_status() re-validates via FightPhase and shows the ✓/✗ result
+		_update_status()
 
 func _on_reset_pressed() -> void:
 	"""Reset all model positions to original"""
