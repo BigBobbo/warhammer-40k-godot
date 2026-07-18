@@ -9,13 +9,16 @@ class_name PostDisembarkMoveDialog
 # and locks the unit ("it says the unit has moved and I cannot move them").
 #
 # This dialog makes the choice explicit and unmissable: the disembarked unit can
-# still MOVE, or it can STAY where it was set up.
+# still make a normal MOVE, ADVANCE (18.04 "a normal or advance move"), or STAY
+# where it was set up.
 #
 # Node layout (stable paths for scenario/UI tests):
 #   PostDisembarkMoveDialog/Content/ButtonBar/MoveButton
+#   PostDisembarkMoveDialog/Content/ButtonBar/AdvanceButton
 #   PostDisembarkMoveDialog/Content/ButtonBar/StayButton
 
 signal move_unit_chosen(unit_id: String)
+signal advance_unit_chosen(unit_id: String)
 signal stay_here_chosen(unit_id: String)
 
 var _unit_id: String = ""
@@ -47,8 +50,9 @@ func setup(unit_id: String, unit_name: String, move_inches: int) -> void:
 
 	var body := Label.new()
 	body.name = "Body"
-	body.text = ("The transport hadn't moved, so %s can still make its move this phase (up to %d\").\n\n"
-		+ "• Move This Unit — drag its models, then press Confirm Move.\n"
+	body.text = ("The transport hadn't moved, so %s can still make a normal or advance move this phase.\n\n"
+		+ "• Move This Unit — a normal move (up to %d\"): drag its models, then press End This Unit's Move.\n"
+		+ "• Advance — roll a D6 and add it to the move (unit can't shoot or charge this turn).\n"
 		+ "• Keep Them Here — leave the unit where it disembarked (it will count as having moved).") % [unit_name, move_inches]
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", 14)
@@ -64,10 +68,18 @@ func setup(unit_id: String, unit_name: String, move_inches: int) -> void:
 	var move_button := Button.new()
 	move_button.name = "MoveButton"
 	move_button.text = "Move This Unit"
-	move_button.tooltip_text = "Keep this unit selected so you can move it, then press Confirm Move when done."
+	move_button.tooltip_text = "Make a normal move: keep this unit selected so you can drag it, then press End This Unit's Move when done."
 	WhiteDwarfTheme.apply_primary_button(move_button)
 	move_button.pressed.connect(_on_move_pressed)
 	button_bar.add_child(move_button)
+
+	var advance_button := Button.new()
+	advance_button.name = "AdvanceButton"
+	advance_button.text = "Advance (roll D6)"
+	advance_button.tooltip_text = "Roll a D6 and add it to this unit's Move for a longer move. The unit cannot shoot or charge this turn."
+	WhiteDwarfTheme.apply_primary_button(advance_button)
+	advance_button.pressed.connect(_on_advance_pressed)
+	button_bar.add_child(advance_button)
 
 	var stay_button := Button.new()
 	stay_button.name = "StayButton"
@@ -87,6 +99,14 @@ func _on_move_pressed() -> void:
 		return
 	_decided = true
 	emit_signal("move_unit_chosen", _unit_id)
+	hide()
+	queue_free()
+
+func _on_advance_pressed() -> void:
+	if _decided:
+		return
+	_decided = true
+	emit_signal("advance_unit_chosen", _unit_id)
 	hide()
 	queue_free()
 

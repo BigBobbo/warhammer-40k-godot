@@ -2778,8 +2778,9 @@ func _post_disembark_ui_update(unit_id: String) -> void:
 
 func _show_post_disembark_move_prompt(unit_id: String) -> void:
 	"""Explain, right after a tactical disembark, that the unit can still move —
-	and let the player choose Move / Stay — instead of leaving the offered move
-	silent (the source of the 'Confirm Move locked my unit' confusion)."""
+	and let the player choose Move (normal) / Advance / Stay — instead of leaving
+	the offered move silent (the source of the 'Confirm Move locked my unit'
+	confusion). 18.04 lets the unit make "a normal or advance move"."""
 	# AI never drives the placement UI, but guard defensively so an AI turn can
 	# never be blocked waiting on a human dialog.
 	var ai_player = get_node_or_null("/root/AIPlayer")
@@ -2805,6 +2806,7 @@ func _show_post_disembark_move_prompt(unit_id: String) -> void:
 	host.add_child(dialog)
 	dialog.setup(unit_id, unit_name, move_inches)
 	dialog.move_unit_chosen.connect(_on_post_disembark_move_chosen)
+	dialog.advance_unit_chosen.connect(_on_post_disembark_advance_chosen)
 	dialog.stay_here_chosen.connect(_on_post_disembark_stay_chosen)
 	DialogUtils.popup_at_bottom(dialog)
 	print("MovementController: Post-disembark move prompt shown for %s (move %d\")" % [unit_id, move_inches])
@@ -2817,10 +2819,26 @@ func _on_post_disembark_move_chosen(unit_id: String) -> void:
 	if toast_mgr and toast_mgr.has_method("show_toast"):
 		var unit = GameState.get_unit(unit_id)
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		toast_mgr.show_toast("Drag %s to move it, then press Confirm Move." % unit_name, Color.DODGER_BLUE, 5.0)
+		toast_mgr.show_toast("Drag %s to move it, then press End This Unit's Move." % unit_name, Color.DODGER_BLUE, 5.0)
 	# Ensure the unit is the active selection so drags/Confirm Move target it.
 	active_unit_id = unit_id
 	active_mode = "NORMAL"
+	_update_selected_unit_display()
+
+func _on_post_disembark_advance_chosen(unit_id: String) -> void:
+	"""Player chose to ADVANCE the just-disembarked unit (18.04: a normal OR
+	advance move). Dispatch BEGIN_ADVANCE — it rolls the D6 and overwrites the
+	unit's active move with an Advance (Move + D6, no shoot/charge this turn)."""
+	print("MovementController: Post-disembark — player ADVANCES %s" % unit_id)
+	active_unit_id = unit_id
+	active_mode = "ADVANCE"
+	# Same action the "Advance" mode + Confirm Movement Mode path dispatches;
+	# the action router embeds the multiplayer rng_seed for the roll.
+	emit_signal("move_action_requested", {
+		"type": "BEGIN_ADVANCE",
+		"actor_unit_id": unit_id,
+		"payload": {}
+	})
 	_update_selected_unit_display()
 
 func _on_post_disembark_stay_chosen(unit_id: String) -> void:

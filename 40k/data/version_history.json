@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.61.0",
+			"date": "2026-07-18",
+			"summary": "Disembarking is clearer and no longer eats your move. When a unit disembarks from a transport that hasn't moved yet, a prompt now spells out that the unit can still make a normal move OR Advance this phase, with buttons for 'Move This Unit', 'Advance (roll D6)' and 'Keep Them Here' — instead of silently dropping you into a normal move that the next click would end at 0\". Also fixes a bug where disembarking a unit that had taken casualties left some models stuck at the wrong spot.",
+			"changes": [
+				"After a disembark from a transport that has not moved, a 'Unit Disembarked' prompt explains the unit can still move this phase and offers three clear choices: 'Move This Unit' (a normal move — drag the models, then End This Unit's Move), 'Advance (roll D6)' (add a D6 to the move; the unit can't shoot or charge this turn), or 'Keep Them Here' (end its move where it stands).",
+				"You can now Advance after disembarking (11e 18.04 lets the unit make 'a normal or advance move') — previously the disembarked unit was locked to a normal move only.",
+				"Removed the trap where pressing the move-confirm button straight after disembarking locked the unit as 'moved' before you got a chance to move it.",
+				"Fixed disembark placement for units that have lost models: positions are now matched to each surviving model correctly, so every model lands where you placed it (previously some models could be left behind at their old position, breaking unit coherency and blocking the move)."
+			]
+		},
+		{
 			"version": "0.60.0",
 			"date": "2026-07-18",
 			"summary": "You can now see who is riding inside a transport at a glance: right-click a vehicle that has units embarked and the context menu now has an 'Embarked Units' section listing every passenger and its model count. Click a passenger to open its stats card.",

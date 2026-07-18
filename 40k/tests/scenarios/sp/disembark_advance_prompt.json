@@ -1,0 +1,48 @@
+{
+  "id": "disembark_advance_prompt",
+  "covers": [
+    "phases.MovementPhase.disembark_then_advance",
+    "ui.PostDisembarkMoveDialog.advance"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "18.04 lets a unit that disembarks from a STATIONARY transport make 'a normal or advance move'. This drives the live UI: disembark the Kommandos from the unmoved Battlewagon, then pick 'Advance (roll D6)' on the new PostDisembarkMoveDialog. The engine rolls the advance die (pausing for the standard Command Re-roll, which is declined), and the unit ends up in an ADVANCE move — flagged advanced, with a move cap of M + D6 (greater than its plain 6\").",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "units.U_KOMMANDOS_H.embarked_in", "equals": "U_BATTLEWAGON_G" },
+
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 4 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "script": "var dlg=null\nfor n in tree.root.get_children():\n\tif n is ConfirmationDialog and n.visible:\n\t\tdlg=n\nif dlg==null:\n\treturn false\ndlg.get_ok_button().emit_signal(\"pressed\")\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "click_board_at", "x": 790.0, "y": 2100.0 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "click_board_at", "x": 790.0, "y": 2160.0 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "click_board_at", "x": 790.0, "y": 2220.0 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "click_board_at", "x": 740.0, "y": 2130.0 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "click_board_at", "x": 740.0, "y": 2190.0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_state", "path": "units.U_KOMMANDOS_H.embarked_in", "equals": null },
+    { "act": "expect_node_visible", "node": "/root/Main/PostDisembarkMoveDialog", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_prompt_with_advance" },
+
+    { "act": "click_node", "node": "/root/Main/PostDisembarkMoveDialog/Content/ButtonBar/AdvanceButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script", "multiline": true, "script": "var dlg=null\nfor n in tree.root.get_children():\n\tif str(n.name).to_lower().contains(\"reroll\") and n.visible:\n\t\tdlg=n\nif dlg==null:\n\treturn \"no_reroll\"\nvar stack=[dlg]\nwhile stack.size()>0:\n\tvar nd=stack.pop_back()\n\tif nd is Button and str(nd.name)==\"KeepRollButton\":\n\t\tnd.emit_signal(\"pressed\")\n\t\treturn \"declined\"\n\tfor c in nd.get_children():\n\t\tstack.append(c)\nreturn \"no_button\"", "comment": "Decline the Command Re-roll offered on the advance roll (standard advance flow). Tolerant if no reroll was offered." },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_state", "path": "units.U_KOMMANDOS_H.flags.advanced", "equals": true, "comment": "The disembarked unit made an ADVANCE — advanced flag set (no shoot/charge this turn)." },
+    { "act": "execute_script", "multiline": true, "script": "var ph=tree.root.get_node(\"PhaseManager\").current_phase_instance\nreturn ph.active_moves.get(\"U_KOMMANDOS_H\",{}).get(\"mode\",\"\")", "equals": "ADVANCE" },
+    { "act": "execute_script", "multiline": true, "script": "var ph=tree.root.get_node(\"PhaseManager\").current_phase_instance\nvar cap=float(ph.active_moves.get(\"U_KOMMANDOS_H\",{}).get(\"move_cap_inches\",0.0))\nreturn cap > 6.0", "equals": true, "comment": "Advance cap = M(6\") + D6, strictly greater than the plain 6\" normal move." },
+    { "act": "screenshot", "label": "02_advanced_move_active" }
+  ]
+}

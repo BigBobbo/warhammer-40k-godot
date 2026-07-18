@@ -65,6 +65,7 @@ func _run():
 	GameConstants.edition = 11
 	await _test_part_a()
 	_test_part_b()
+	await _test_part_c()
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(0 if failed == 0 else 1)
 
@@ -97,6 +98,42 @@ func _test_part_a() -> void:
 	boyz = root.get_node("GameState").get_unit("U_BOYZ")
 	_check("after Confirm Move the unit is flagged moved (move consumed)",
 		boyz.get("flags", {}).get("moved", false))
+
+func _test_part_c() -> void:
+	print("\n-- Part C: a tactically-disembarked unit can ADVANCE (18.04: normal OR advance) --")
+	_setup_state()
+	var pm = root.get_node("PhaseManager")
+	pm.transition_to_phase(GameStateData.Phase.MOVEMENT)
+	await process_frame
+	await process_frame
+	var phase = pm.current_phase_instance
+
+	var rd = phase.execute_action({"type": "CONFIRM_DISEMBARK", "actor_unit_id": "U_BOYZ",
+		"payload": {"positions": [{"x": 800, "y": 680}], "can_setup_tactical": true}})
+	_check("CONFIRM_DISEMBARK succeeds", rd.get("success", false), str(rd.get("error", "")))
+	await process_frame
+	await process_frame
+
+	# BEGIN_ADVANCE is exactly what the dialog's "Advance" button dispatches.
+	var ra = phase.execute_action({"type": "BEGIN_ADVANCE", "actor_unit_id": "U_BOYZ",
+		"payload": {"rng_seed": 7}})
+	_check("BEGIN_ADVANCE is accepted for a just-disembarked unit", ra.get("success", false),
+		str(ra.get("error", "")))
+	# The advance roll may pause to offer a Command Re-roll — decline to resolve it.
+	if phase.get("_awaiting_reroll_decision"):
+		phase.execute_action({"type": "DECLINE_COMMAND_REROLL", "actor_unit_id": "U_BOYZ"})
+	await process_frame
+
+	var boyz = root.get_node("GameState").get_unit("U_BOYZ")
+	var move_inches = phase.get_unit_movement(boyz)
+	_check("unit is flagged advanced (no shoot/charge this turn)",
+		boyz.get("flags", {}).get("advanced", false), str(boyz.get("flags", {})))
+	_check("active move is now an ADVANCE",
+		phase.active_moves.get("U_BOYZ", {}).get("mode", "") == "ADVANCE",
+		str(phase.active_moves.get("U_BOYZ", {}).get("mode", "")))
+	_check("advance move cap = M + D6 (greater than the plain %d\" move)" % int(move_inches),
+		float(phase.active_moves.get("U_BOYZ", {}).get("move_cap_inches", 0.0)) > move_inches,
+		"cap=%s M=%s" % [str(phase.active_moves.get("U_BOYZ", {}).get("move_cap_inches", 0.0)), str(move_inches)])
 
 func _test_part_b() -> void:
 	print("\n-- Part B: DisembarkController emits SLOT-aligned positions (casualties interspersed) --")
