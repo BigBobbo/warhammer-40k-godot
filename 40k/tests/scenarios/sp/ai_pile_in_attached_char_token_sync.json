@@ -1,0 +1,27 @@
+{
+  "id": "ai_pile_in_attached_char_token_sync",
+  "covers": [
+    "scripts.Main.on_ai_action_taken.pile_in_group_token_sync",
+    "fight.ai_pile_in_attached_character_visual_sync"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression: when the AI piled in an Attached unit (19.03 — bodyguard + leader move as ONE unit in ONE action), the bodyguard's tokens moved on the board but the attached CHARACTER's token stayed stranded at its pre-move position; its desync equalled its full state displacement (live repro: Blade Champion attached to Custodian Guard, champion token 11.35px behind state — exactly the whole move — while all five guard tokens were at 0px). Root cause: the PILE_IN/CONSOLIDATE action dict carries only the bodyguard's unit_id, and Main._on_ai_action_taken synced visuals with update_unit_visuals(unit_id), which walks only that one unit's tokens. This scenario links U_BLADE_CHAMPION_A to U_CUSTODIAN_GUARD_B as its attached character, drives the REAL Main._on_ai_action_taken in the exact AI order (emit, THEN apply the group's moves), and asserts the CHARACTER token catches up to its new GameState position along with the bodyguard's. Fix: PILE_IN/CONSOLIDATE now defer _sync_all_token_positions() — the same one-pass tween sync the AI charge fix uses — instead of the single-unit update.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "expect_token_visible", "unit_id": "U_BLADE_CHAMPION_A" },
+    { "act": "expect_token_visible", "unit_id": "U_CUSTODIAN_GUARD_B" },
+    { "act": "execute_script", "script": "token_desync_from_state_px(\"U_BLADE_CHAMPION_A\", \"m1\")", "expect_max": 2.0 },
+    { "act": "screenshot", "label": "01_before_group_pile_in_tokens_in_sync" },
+    { "act": "execute_script", "script": "repro_ai_pile_in_group_move(\"U_CUSTODIAN_GUARD_B\", \"U_BLADE_CHAMPION_A\", 370.43, 990.83, 520.43, 1093.95)", "equals": true },
+    { "act": "wait_for_tweens", "timeout_s": 5.0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "screenshot", "label": "02_after_group_pile_in_char_token_followed_state" },
+    { "act": "execute_script", "script": "token_desync_from_state_px(\"U_CUSTODIAN_GUARD_B\", \"m1\")", "expect_max": 2.0 },
+    { "act": "execute_script", "script": "token_desync_from_state_px(\"U_BLADE_CHAMPION_A\", \"m1\")", "expect_max": 2.0 }
+  ]
+}
