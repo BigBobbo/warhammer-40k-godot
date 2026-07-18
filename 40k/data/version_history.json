@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.58.0",
+			"version": "0.59.0",
 			"date": "2026-07-18",
 			"summary": "The game now auto-saves at the start of every phase, so you can always pick a battle back up where you left it — even in the browser build on itch.io. Each auto-save is named after the two armies and the phase that is starting (e.g. \"Space Marines vs Orks - Movement\"), and overwrites the previous one for that phase instead of piling up. It's on by default and can be turned off under Settings > Gameplay > Auto-Save.",
 			"changes": [
@@ -11,6 +11,46 @@
 				"Works on the browser / itch.io build too — these auto-saves go to your cloud saves just like a manual save (previous phase-based auto-saves only worked on the desktop build).",
 				"In online/LAN games only the player whose turn it is writes the auto-save, so the two players don't clash or double-save.",
 				"Auto-saves show a small \"Game autosaved\" toast instead of the big \"Game saved!\" banner, so the browser build isn't interrupted every phase."
+			]
+		},
+		{
+			"version": "0.58.1",
+			"date": "2026-07-18",
+			"summary": "Fixed the Warbikers' Drive-by Dakka ability text. It previously read 'against A targets' — a garbled data string that made the rule unreadable — and now correctly states that the Armour Penetration bonus applies against targets within 9\", matching how the ability already works in-game.",
+			"changes": [
+				"Warbikers 'Drive-by Dakka' now reads: 'During the Shooting phase against targets within 9\", subtract 1 from the unit's Armour Penetration characteristic.' (previously the nonsensical 'against A targets').",
+				"Text-only correction across the bundled Ork army lists — the underlying rule (improve this unit's AP by 1 against targets within 9\" while shooting) was already implemented correctly and is unchanged."
+			]
+		},
+		{
+			"version": "0.58.0",
+			"date": "2026-07-18",
+			"summary": "Transports now clearly show what is riding inside them during deployment. The deployment list gives each embarked unit its own indented line under the transport (no more overlapping, cut-off text), and that same 'Carrying:' breakdown now stays on screen while you position the transport — so you always know which units and how many models are onboard.",
+			"changes": [
+				"Deployment unit list: a transport lists every embarked unit on its own indented row (e.g. 'Mek (1 model)', 'Gretchin (11 models)') instead of one long overlapping line.",
+				"The transport's 'Carrying:' breakdown is now also shown on the unit card while you are placing the transport on the board — previously it disappeared once you started positioning it.",
+				"Each embarked unit shows its model count, so you can see exactly how many models are onboard.",
+				"Filtering the deployment list keeps a transport and its contents together, and searching an embarked unit's name still surfaces its transport."
+			]
+		},
+		{
+			"version": "0.57.2",
+			"date": "2026-07-18",
+			"summary": "During deployment, rotating a model now carries that rotation over to the next model in the same unit. If you turn the first model 90° before placing it, every following model in that unit starts off already turned the same way — so you can lay out a whole squad facing a chosen direction without re-rotating each one.",
+			"changes": [
+				"Deployment: after you rotate a model, the ghost for the next model in the unit inherits that rotation instead of snapping back to the default enemy-facing.",
+				"The first model of each unit still auto-faces the opponent as before; the carry-over only kicks in once you have placed (and optionally rotated) a model, and resets when you start a new unit."
+			]
+		},
+		{
+			"version": "0.57.1",
+			"date": "2026-07-18",
+			"summary": "The Declare Battle Formations screen now uses nearly the full height of the screen. It happens before the battle starts — there is no board worth keeping visible yet — so instead of a cramped bar docked at the bottom, the form stretches from just below the top HUD bar to the usual bottom clearance, showing far more of your roster (leaders, warlord, transports, reserves) without scrolling.",
+			"changes": [
+				"Declare Battle Formations dialog is now centered and stretched to almost full screen height, instead of docked at the bottom of the screen.",
+				"It sits below the top HUD bar and above the bottom strip, overlapping neither.",
+				"The unit lists inside (leader attachments, transports, reserves) get all the extra room, so much less scrolling is needed with bigger armies.",
+				"In-battle pop-ups (rerolls, overwatch, saves, etc.) are unchanged — they still dock at the bottom so the battlefield stays visible."
 			]
 		},
 		{
