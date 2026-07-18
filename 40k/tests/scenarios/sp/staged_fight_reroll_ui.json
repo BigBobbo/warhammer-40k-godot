@@ -48,6 +48,11 @@
     { "act": "expect_node_visible", "node": "/root/FightSequenceDialog/Content/Buttons/StagedContinueButton", "timeout_s": 3.0 },
     {
       "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"FightSequenceDialog/Content/HeaderLabel\").text.contains(\" — melee attacks vs \")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").staged_continue_button.text.begins_with(\"Roll to Wound\")",
       "equals": true
     },

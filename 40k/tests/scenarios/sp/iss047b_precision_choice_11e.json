@@ -71,12 +71,12 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/PrecisionPicker",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/PrecisionPicker",
       "timeout_s": 2.0
     },
     {
       "act": "execute_script",
-      "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/PrecisionPicker\").selected",
+      "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/Row/DecisionCol/PrecisionPicker\").selected",
       "equals": 1
     },
     {
@@ -85,7 +85,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
       "emit_pressed": true
     },
     {
@@ -94,7 +94,7 @@
     },
     {
       "act": "click_if_visible",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/RerollPanel/KeepRollsButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
       "emit_pressed": true
     },
     {
@@ -116,7 +116,7 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel"
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel"
     },
     {
       "act": "screenshot",
@@ -129,7 +129,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
       "emit_pressed": true
     },
     {

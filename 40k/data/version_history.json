@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.55.0",
+			"version": "0.55.1",
 			"date": "2026-07-18",
 			"summary": "Online and LAN multiplayer are now brought up to 11th edition and had a large batch of sync bugs fixed. The multiplayer lobbies now use the 11th-edition Force Disposition matchup (each player picks their disposition and scores their own primary mission card) plus the official terrain-variant layouts, exactly like the single-player menu — instead of the old shared 10th-edition mission dropdown. A full host-vs-guest game was played end to end to shake these out.",
 			"changes": [
@@ -14,6 +14,19 @@
 				"Mid-game mission/secondary/stratagem state and victory points now stay in sync between host and guest, including detachment abilities like Ork 'Get Stuck In' and the Custodes Martial Ka'tah buff being applied and cleared on both sides.",
 				"Desync detection now also works in online (relay) games, and the AFK turn timer that ends a stalled game is now actually active (90s per phase, with on-screen warnings).",
 				"Fixed the client entering a new phase as the wrong player after a turn change, which caused wrong CP/secondary-draw bookkeeping."
+			]
+		},
+		{
+			"version": "0.55.0",
+			"date": "2026-07-17",
+			"summary": "Armour saves now always tell you WHO is attacking — and let you watch the battlefield while you decide. The Allocate Attacks window names the attacking unit ('Shot by Battlewagon Alpha'), sits as a slim command bar along the bottom of the screen instead of covering the board or any menus, and the battlefield itself outlines the attacker (red, with an arrow) and your unit under fire (gold).",
+			"changes": [
+				"Allocate Attacks (armour saves): a new red 'Shot by <unit>' line names the attacking unit — previously only the weapon was shown. Melee saves say 'Struck in melee by <unit>'.",
+				"The save window moved from a centered pop-up (with a darkened screen) to a wide, low command bar along the bottom of the screen — attack info on the left, allocation order / save dice / results on the right. The board, the game log and the right-hand shooting controls all stay visible.",
+				"While the save bar is open the board shows the attack: red pulsing outlines + a dashed arrow from the attacking unit, gold outlines around every model in the unit being hit (attached characters included).",
+				"The casualty-pick banner also names the attacker and sits in the same bottom slot while you click bases to remove.",
+				"Melee resolution dialog header now names the defender(s) too: 'Warboss — melee attacks vs Custodian Guard'.",
+				"The reactive-stratagem window names the shooting unit: 'Your units are being targeted by <unit>!'"
 			]
 		},
 		{

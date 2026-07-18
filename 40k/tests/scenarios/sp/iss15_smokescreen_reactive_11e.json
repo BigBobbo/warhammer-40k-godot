@@ -33,6 +33,11 @@
     { "act": "expect_action_result", "path": "success", "equals": true },
 
     { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text.contains(\"being targeted by \")",
+      "equals": true
+    },
     { "act": "screenshot", "label": "02_reactive_stratagem_dialog" },
     { "act": "click_node",
       "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_smokescreen_11e/Buttons/Use_smokescreen_11e_U_BOYZ_K",

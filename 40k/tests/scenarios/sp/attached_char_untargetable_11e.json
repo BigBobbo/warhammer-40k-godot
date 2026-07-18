@@ -41,8 +41,8 @@
     { "act": "execute_script", "script": "main.get_node(\"ShootingController\")._on_saves_required([RulesEngine.prepare_save_resolution(2, \"U_CUSTODIAN_GUARD_B\", \"U_BATTLEWAGON_G\", {\"name\": \"Big shoota\", \"ap\": 0, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"\"}, GameState.state)])" },
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel", "timeout_s": 3.0 },
-    { "act": "execute_script", "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/GroupList\").get_child_count()", "equals": 2 },
-    { "act": "execute_script", "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/Title\").text.contains(\"Custodian Guard Beta\")", "equals": true },
+    { "act": "execute_script", "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/Row/DecisionCol/GroupList\").get_child_count()", "equals": 2 },
+    { "act": "execute_script", "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/Row/ContextCol/Title\").text.contains(\"Custodian Guard Beta\")", "equals": true },
     { "act": "screenshot", "label": "02_bodyguard_shot_folds_combined_unit" }
   ]
 }
