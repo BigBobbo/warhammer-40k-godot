@@ -7824,7 +7824,7 @@ func _show_embark_prompt(unit_id: String, transport_id: String) -> void:
 	)
 
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _get_unit_center_position(unit_id: String) -> Vector2:
 	"""Get the center position of a unit (average of all alive models)"""
@@ -8084,7 +8084,7 @@ func _show_disembark_dialog(unit_id: String) -> void:
 	dialog.disembark_confirmed.connect(_on_disembark_confirmed.bind(unit_id))
 	dialog.disembark_canceled.connect(_on_disembark_canceled.bind(unit_id))
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _on_disembark_confirmed(combat_mode: bool, unit_id: String) -> void:
 	"""Handle disembark confirmation - start placement.

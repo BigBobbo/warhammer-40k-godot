@@ -3092,7 +3092,7 @@ func _on_weapon_order_required(assignments: Array) -> void:
 	dialog.setup(assignments, current_phase)
 
 	# Show dialog
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 	print("ShootingController: WeaponOrderDialog shown and connected to phase signals")
 	print("========================================")
@@ -3300,7 +3300,7 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	dialog.setup(remaining_weapons, current_index, last_weapon_result)
 
 	# Show dialog
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 	print("ShootingController: NextWeaponDialog shown with last weapon results")
 	print("========================================")
@@ -3356,7 +3356,7 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 
 	get_tree().root.add_child(dialog)
 	dialog.setup(defending_player, available_stratagems, target_unit_ids)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 	# MA-42: hot-seat only — block the shared board behind the defender's
 	# dialog so the attacker can't act mid-window. In networked play the
@@ -3439,7 +3439,7 @@ func _on_show_weapon_order_from_next_weapon_dialog(remaining_weapons: Array, fas
 	dialog.title = "Choose Next Weapon (%d remaining)" % remaining_weapons.size()
 
 	# Show dialog
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 	print("║ WeaponOrderDialog shown successfully")
 	print("║ Waiting for weapon_order_confirmed signal...")
@@ -3556,7 +3556,7 @@ func _on_sentinel_storm_available(unit_id: String, player: int) -> void:
 	dialog.setup(unit_id, player)
 	dialog.sentinel_storm_chosen.connect(_on_sentinel_storm_chosen)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _on_sentinel_storm_chosen(unit_id: String, use_ability: bool) -> void:
 	"""Handle player's Sentinel Storm decision."""
@@ -3650,7 +3650,7 @@ func _on_throat_slittas_available(unit_id: String, player: int, eligible_targets
 	)
 
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _on_unit_selected(index: int) -> void:
 	if not unit_selector or not current_phase:
@@ -3914,7 +3914,7 @@ func _on_shoot_all_remaining_pressed() -> void:
 		dialog.queue_free()
 	)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _build_auto_shoot_plan() -> Array:
 	"""Build a plan of SHOOT actions for all remaining eligible units.
@@ -4281,9 +4281,9 @@ func _show_action_choice_dialog(options: Array) -> void:
 
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	# Cap to the viewport so the action's description can't push the buttons
-	# off-screen (see DialogUtils.popup_centered_capped).
-	DialogUtils.popup_centered_capped(dialog)
+	# Bottom-anchored + capped to the viewport so the action's description
+	# can't push the buttons off-screen (see DialogUtils.popup_at_bottom).
+	DialogUtils.popup_at_bottom(dialog, DialogConstants.MEDIUM)
 
 func _update_burn_objective_button() -> void:
 	"""Show/hide the Burn Objective button for Scorched Earth mission."""
@@ -4841,7 +4841,7 @@ func _show_unit_switch_dialog(target_unit_id: String) -> void:
 		"%s's staged target assignments will be discarded." % current_name)
 	dialog.switch_confirmed.connect(_on_unit_switch_confirmed)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("ShootingController: Unit switch dialog shown (%s -> %s)" % [active_shooter_id, target_unit_id])
 
 func _on_unit_switch_confirmed(target_unit_id: String) -> void:
@@ -5198,7 +5198,7 @@ func _open_split_fire_picker(weapon_id: String, target_id: String, split: Dictio
 	dialog.canceled.connect(func(): dialog.queue_free())
 
 	add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 # B4 (audit 2026-07): MOVE picker — every eligible bearer of this weapon is
 # already committed to other targets; offer to retarget a slice at the newly
@@ -5250,7 +5250,7 @@ func _open_move_fire_picker(weapon_id: String, new_target_id: String, split: Dic
 	dialog.canceled.connect(func(): dialog.queue_free())
 
 	add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 # B4: Retarget `moved_ids` (currently committed to other targets) at
 # `new_target_id`. Composed of existing actions: clear each touched
@@ -5419,7 +5419,7 @@ func _prompt_ability_choices(assign_payload: Dictionary, has_lethal: bool, weapo
 		_dispatch_assign_with_choices(assign_payload)  # engine defaults
 		dialog.queue_free())
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _dispatch_assign_with_choices(assign_payload: Dictionary) -> void:
 	emit_signal("shoot_action_requested", {
@@ -5896,7 +5896,7 @@ func _on_grenade_button_pressed() -> void:
 
 	get_tree().root.add_child(dialog)
 	dialog.setup(current_player, eligible)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _on_grenade_confirmed(grenade_unit_id: String, target_unit_id: String) -> void:
 	"""Handle grenade target selection confirmed - send action."""
@@ -5962,7 +5962,7 @@ func _on_grenade_result(result: Dictionary) -> void:
 	result_dialog.result_acknowledged.connect(_on_grenade_result_acknowledged)
 	get_tree().root.add_child(result_dialog)
 	result_dialog.setup(grenade_result_data)
-	result_dialog.popup_centered()
+	DialogUtils.popup_at_bottom(result_dialog)
 
 func _on_grenade_result_acknowledged() -> void:
 	"""Handle grenade result dialog dismissed - refresh UI."""

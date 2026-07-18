@@ -19,8 +19,9 @@ var _mission_scroll: ScrollContainer = null
 var _mission_list: VBoxContainer = null
 
 # Factory: build a ready-to-show dialog (script attached + UI built). The caller
-# connects the signals, adds it to the tree, and calls popup_centered(). Shared
-# by Main.gd and the windowed regression scenario so both exercise one path.
+# connects the signals, adds it to the tree, and shows it (in-battle callers use
+# DialogUtils.popup_at_bottom so the board stays visible). Shared by Main.gd and
+# the windowed regression scenario so both exercise one path.
 static func create(p_active_missions: Array, p_can_gain_cp: bool) -> AcceptDialog:
 	var dialog := AcceptDialog.new()
 	dialog.set_script(load("res://dialogs/MissionDiscardDialog.gd"))
@@ -115,7 +116,7 @@ func _build_ui() -> void:
 func _ready() -> void:
 	# Re-fit the scroll to the list's real (in-tree) height, which is a few px
 	# taller than the pre-tree estimate used while building. Runs before the
-	# caller's popup_centered(), so the dialog sizes correctly the first time and
+	# caller's popup call, so the dialog sizes correctly the first time and
 	# short lists don't show a spurious scrollbar.
 	if _mission_scroll and _mission_list:
 		_mission_scroll.custom_minimum_size.y = _clamped_list_height()

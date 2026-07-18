@@ -3916,7 +3916,7 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	dialog.command_reroll_used.connect(_on_ability_reroll_used)
 	dialog.command_reroll_declined.connect(_on_ability_reroll_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("ChargeController: Ability reroll dialog shown for player %d (%s)" % [player, ability_name])
 
 func _on_ability_reroll_used(unit_id: String, player: int) -> void:
@@ -3988,7 +3988,7 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	dialog.command_reroll_used.connect(_on_command_reroll_used)
 	dialog.command_reroll_declined.connect(_on_command_reroll_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("ChargeController: Command Re-roll dialog shown for player %d" % player)
 
 func _on_command_reroll_used(unit_id: String, player: int) -> void:
@@ -4052,7 +4052,7 @@ func _on_overwatch_opportunity(charging_unit_id: String, defending_player: int, 
 	dialog.fire_overwatch_used.connect(_on_fire_overwatch_used)
 	dialog.fire_overwatch_declined.connect(_on_fire_overwatch_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 	# MA-42: Show blocking overlay to active player
 	var main_node = SceneRefs.main()
@@ -4134,7 +4134,7 @@ func _on_heroic_intervention_opportunity(player: int, eligible_units: Array, cha
 	dialog.heroic_intervention_used.connect(_on_heroic_intervention_used)
 	dialog.heroic_intervention_declined.connect(_on_heroic_intervention_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("ChargeController: Heroic Intervention dialog shown for player %d" % player)
 
 	# MA-42: Show blocking overlay to active player
@@ -4247,7 +4247,7 @@ func _on_tank_shock_opportunity(player: int, vehicle_unit_id: String, eligible_t
 	dialog.tank_shock_used.connect(_on_tank_shock_used)
 	dialog.tank_shock_declined.connect(_on_tank_shock_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("ChargeController: Tank Shock dialog shown for player %d" % player)
 
 func _on_tank_shock_used(target_unit_id: String, player: int) -> void:
@@ -4310,7 +4310,7 @@ func _on_tank_shock_result(vehicle_unit_id: String, target_unit_id: String, resu
 		"target_unit_id": target_unit_id,
 	})
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 # --- T7-58: Charge Arrow Visual Management ---
 

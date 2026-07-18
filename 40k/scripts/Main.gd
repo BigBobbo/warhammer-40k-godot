@@ -2049,7 +2049,7 @@ func _on_surrender_button_pressed() -> void:
 	confirm_dialog.confirmed.connect(_on_surrender_confirmed.bind(confirm_dialog))
 	confirm_dialog.canceled.connect(func(): confirm_dialog.queue_free())
 	add_child(confirm_dialog)
-	confirm_dialog.popup_centered()
+	DialogUtils.popup_at_bottom(confirm_dialog)
 
 func _on_surrender_confirmed(dialog: ConfirmationDialog) -> void:
 	"""T5-MP7: Player confirmed surrender - notify NetworkManager."""
@@ -2246,7 +2246,7 @@ func _show_deep_strike_placement_dialog(unit_id: String) -> void:
 	dialog.always_on_top = true
 	dialog.setup(unit_id, unit_name)
 	dialog.placement_chosen.connect(_on_deep_strike_placement_chosen)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _on_deep_strike_placement_chosen(unit_id: String, placement_type: String) -> void:
 	"""P2-80: Handle player's choice of placement type."""
@@ -5194,7 +5194,7 @@ func _show_pad_phase_confirm() -> void:
 		_pad_phase_confirm.confirmed.connect(_on_pad_phase_confirmed)
 		add_child(_pad_phase_confirm)
 	_pad_phase_confirm.dialog_text = phase_action_button.text.replace("[Enter] ", "").strip_edges() + "?"
-	_pad_phase_confirm.popup_centered()
+	DialogUtils.popup_at_bottom(_pad_phase_confirm)
 
 func _on_pad_phase_confirmed() -> void:
 	if phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
@@ -7827,7 +7827,7 @@ func _show_formations_dialog(player: int) -> void:
 	add_child(formations_dialog)
 	formations_dialog.setup(player)
 	formations_dialog.formations_confirmed.connect(_on_formations_dialog_confirmed)
-	formations_dialog.popup_centered()
+	DialogUtils.popup_at_bottom(formations_dialog)
 	print("Main: Showed formations dialog for Player %d" % player)
 
 # ========================================
@@ -7882,7 +7882,7 @@ func _show_roll_off_dialog(local_player: int) -> void:
 	roll_off_dialog.choice_made.connect(_on_roll_off_choice_made)
 	roll_off_dialog.reroll_requested.connect(_on_roll_off_roll_pressed)
 	roll_off_dialog.acknowledged.connect(_on_roll_off_acknowledged)
-	roll_off_dialog.popup_centered()
+	DialogUtils.popup_at_bottom(roll_off_dialog)
 	print("Main: Showed %s roll-off dialog for Player %d" % [_roll_off_context(), local_player])
 
 	# The roll RESULT arrives via the phase's roll_off_result signal — emitted
@@ -9628,13 +9628,13 @@ func _on_phase_action_pressed() -> void:
 			# just be rejected as already completed.
 			if int(GameState.state.get("meta", {}).get("roll_off_winner", 0)) > 0:
 				if roll_off_dialog and is_instance_valid(roll_off_dialog):
-					roll_off_dialog.popup_centered()
+					DialogUtils.popup_at_bottom(roll_off_dialog)
 				return
 			action = {"type": "ROLL_OFF_DEPLOYMENT", "player": active_player}
 		GameStateData.Phase.FIRST_TURN_ROLLOFF:
 			if int(GameState.state.get("meta", {}).get("first_turn_player", 0)) > 0:
 				if roll_off_dialog and is_instance_valid(roll_off_dialog):
-					roll_off_dialog.popup_centered()
+					DialogUtils.popup_at_bottom(roll_off_dialog)
 				return
 			action = {"type": "ROLL_OFF_FIRST_TURN", "player": active_player}
 		GameStateData.Phase.COMMAND:
@@ -10299,7 +10299,7 @@ func _show_end_fight_confirmation_dialog(unfought_units: Array, active_player: i
 	dialog.end_fight_confirmed.connect(_on_end_fight_confirmed.bind(active_player))
 	dialog.end_fight_cancelled.connect(_on_end_fight_cancelled)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("Main: T5-UX7: End fight confirmation dialog shown")
 
 func _on_end_fight_confirmed(active_player: int) -> void:
@@ -10341,7 +10341,7 @@ func _show_battle_shock_confirmation_dialog(untested_units: Array, active_player
 	dialog.end_command_confirmed.connect(_on_end_command_confirmed.bind(active_player))
 	dialog.end_command_cancelled.connect(_on_end_command_cancelled)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("Main: P3-94: Battle-shock confirmation dialog shown")
 
 func _on_end_command_confirmed(active_player: int) -> void:
@@ -10381,7 +10381,7 @@ func _show_mission_discard_dialog(active_missions: Array, active_player: int) ->
 	dialog.mission_discard_requested.connect(_on_mission_discard_from_dialog.bind(active_player))
 	dialog.end_turn_without_discard.connect(_on_end_scoring_without_discard.bind(active_player))
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("Main: Mission discard dialog shown for player %d" % active_player)
 
 func _on_mission_discard_from_dialog(mission_index: int, active_player: int) -> void:
@@ -10441,7 +10441,7 @@ func _show_deployment_summary_dialog(deployment_data: Dictionary, active_player:
 	dialog.deployment_confirmed.connect(_on_deployment_confirmed.bind(active_player))
 	dialog.deployment_cancelled.connect(_on_deployment_cancelled)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("Main: T5-UX8: Deployment summary dialog shown")
 
 func _on_deployment_confirmed(active_player: int) -> void:
@@ -10494,7 +10494,7 @@ func _show_shooting_phase_summary_dialog(end_action: Dictionary, active_player: 
 	dialog.shooting_confirmed.connect(_on_shooting_summary_confirmed.bind(end_action))
 	dialog.shooting_cancelled.connect(_on_shooting_summary_cancelled)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("Main: T5-UX9: Shooting phase summary dialog shown for player %d" % active_player)
 
 func _on_shooting_summary_confirmed(end_action: Dictionary) -> void:
@@ -12375,7 +12375,7 @@ func _toggle_stratagem_panel() -> void:
 		_stratagem_panel.stratagem_use_requested.connect(_on_stratagem_panel_use_requested)
 	var active_player = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
 	_stratagem_panel.populate(active_player, current_phase)
-	_stratagem_panel.popup_centered()
+	DialogUtils.popup_at_bottom(_stratagem_panel)
 	if stratagem_panel_button:
 		_WhiteDwarfTheme.apply_tab_button(stratagem_panel_button, true)
 
@@ -12513,7 +12513,7 @@ func _show_stratagem_choice_dialog(title_text: String, options: Array, on_pick: 
 		content.add_child(btn)
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 ## Audit #11: two-step target picker for attacker-driven stratagems.
 func _prompt_stratagem_targets(sid: String, player: int) -> void:
@@ -12559,7 +12559,7 @@ func _show_stratagem_pick_dialog(title_text: String, unit_ids: Array, on_pick: C
 		content.add_child(btn)
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 
 func _on_army_panel_closed() -> void:

@@ -231,7 +231,7 @@ func _on_unit_toggled(pressed: bool, unit_id: String, model_count: int) -> void:
 			warning_dialog.title = "Capacity Exceeded"
 			warning_dialog.dialog_text = "Adding this unit would exceed transport capacity.\nCurrent: %d/%d\nUnit size: %d models" % [current_model_count, capacity, model_count]
 			get_tree().root.add_child(warning_dialog)
-			warning_dialog.popup_centered()
+			DialogUtils.popup_at_bottom(warning_dialog)
 			warning_dialog.confirmed.connect(func(): warning_dialog.queue_free())
 			return
 

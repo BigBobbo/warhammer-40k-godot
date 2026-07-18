@@ -222,19 +222,23 @@ func _build_ui() -> void:
 	print("  - Is in tree: ", is_inside_tree())
 	print("  - Self path: ", get_path() if is_inside_tree() else "NOT IN TREE")
 
-	# Create centered panel
+	# Create bottom-anchored panel — same slot as the 11e allocation bar and
+	# every other in-battle popup, so the board stays visible above it.
 	print("WoundAllocationOverlay: _build_ui() [STEP 1] Creating PanelContainer...")
 	overlay_panel = PanelContainer.new()
 	print("WoundAllocationOverlay: _build_ui() [STEP 2] PanelContainer created: ", overlay_panel)
 
 	overlay_panel.custom_minimum_size = Vector2(450, 250)
 	overlay_panel.anchor_left = 0.5
-	overlay_panel.anchor_top = 0.2
+	overlay_panel.anchor_top = 1.0
 	overlay_panel.anchor_right = 0.5
-	overlay_panel.anchor_bottom = 0.2
+	overlay_panel.anchor_bottom = 1.0
 	overlay_panel.offset_left = -225  # Half of width
 	overlay_panel.offset_right = 225
-	overlay_panel.offset_bottom = 250
+	overlay_panel.offset_top = -(250 + DialogConstants.BOTTOM_CLEARANCE)
+	overlay_panel.offset_bottom = -DialogConstants.BOTTOM_CLEARANCE
+	# Taller content grows UP from the bottom edge, never off-screen below.
+	overlay_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	overlay_panel.z_index = 2001  # Above the overlay background
 	overlay_panel.mouse_filter = Control.MOUSE_FILTER_PASS  # FIXED: Pass clicks through panel to overlay, not to board
 	overlay_panel.visible = true

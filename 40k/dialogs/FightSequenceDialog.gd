@@ -335,7 +335,7 @@ func _add_to_dice_log(text: String, color: Color) -> void:
 func _on_stage_paused(stage: String, info: Dictionary) -> void:
 	current_stage = stage
 	if not visible:
-		popup_centered()
+		DialogUtils.popup_at_bottom(self)
 	if stage == "complete":
 		staged_continue_button.visible = false
 		reroll_label.visible = false

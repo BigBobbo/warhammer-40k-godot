@@ -192,7 +192,7 @@ func _on_weapon_toggled(pressed: bool, weapon_data: Dictionary) -> void:
 			w.title = "Firing Deck"
 			w.dialog_text = "Each embarked model may fire only ONE weapon through the firing deck (24.14)."
 			get_tree().root.add_child(w)
-			w.popup_centered()
+			DialogUtils.popup_at_bottom(w)
 			w.confirmed.connect(func(): w.queue_free())
 			return
 		# Check capacity
@@ -206,7 +206,7 @@ func _on_weapon_toggled(pressed: bool, weapon_data: Dictionary) -> void:
 			warning_dialog.title = "Firing Deck Capacity"
 			warning_dialog.dialog_text = "Maximum firing deck capacity reached.\nOnly %d models can shoot through the firing deck." % firing_deck_capacity
 			get_tree().root.add_child(warning_dialog)
-			warning_dialog.popup_centered()
+			DialogUtils.popup_at_bottom(warning_dialog)
 			warning_dialog.confirmed.connect(func(): warning_dialog.queue_free())
 			return
 
@@ -243,7 +243,7 @@ func _on_confirm_pressed() -> void:
 		warning_dialog.title = "No Selection"
 		warning_dialog.dialog_text = "Please select at least one model to shoot through the firing deck."
 		get_tree().root.add_child(warning_dialog)
-		warning_dialog.popup_centered()
+		DialogUtils.popup_at_bottom(warning_dialog)
 		warning_dialog.confirmed.connect(func(): warning_dialog.queue_free())
 		return
 
