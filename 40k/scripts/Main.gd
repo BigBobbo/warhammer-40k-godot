@@ -7815,19 +7815,28 @@ func _setup_formations_phase() -> void:
 
 func _show_formations_dialog(player: int) -> void:
 	"""Show the formations declaration dialog for a player."""
-	# Clean up any existing dialog
+	# Clean up any existing dialog. Detach it NOW (queue_free only frees at end
+	# of frame) so its stable "FormationsDialog" name is free for the next
+	# instance — hotseat opens player 2's dialog while player 1's is still
+	# queued for deletion.
 	if formations_dialog and is_instance_valid(formations_dialog):
+		if formations_dialog.get_parent():
+			formations_dialog.get_parent().remove_child(formations_dialog)
 		formations_dialog.queue_free()
 		formations_dialog = null
 
 	var dialog_script = preload("res://scripts/FormationsDeclarationDialog.gd")
 	formations_dialog = AcceptDialog.new()
 	formations_dialog.set_script(dialog_script)
+	formations_dialog.name = "FormationsDialog"
 	formations_dialog.exclusive = true
 	add_child(formations_dialog)
 	formations_dialog.setup(player)
 	formations_dialog.formations_confirmed.connect(_on_formations_dialog_confirmed)
-	DialogUtils.popup_at_bottom(formations_dialog)
+	# Pre-battle step: the board does not need to stay visible yet, so give the
+	# declaration form nearly the full screen height (below the top HUD bar)
+	# instead of cramping it into the bottom-docked gameplay-popup slot.
+	DialogUtils.popup_full_height(formations_dialog)
 	print("Main: Showed formations dialog for Player %d" % player)
 
 # ========================================

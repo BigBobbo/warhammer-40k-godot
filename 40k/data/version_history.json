@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.57.1",
+			"date": "2026-07-18",
+			"summary": "The Declare Battle Formations screen now uses nearly the full height of the screen. It happens before the battle starts — there is no board worth keeping visible yet — so instead of a cramped bar docked at the bottom, the form stretches from just below the top HUD bar to the usual bottom clearance, showing far more of your roster (leaders, warlord, transports, reserves) without scrolling.",
+			"changes": [
+				"Declare Battle Formations dialog is now centered and stretched to almost full screen height, instead of docked at the bottom of the screen.",
+				"It sits below the top HUD bar and above the bottom strip, overlapping neither.",
+				"The unit lists inside (leader attachments, transports, reserves) get all the extra room, so much less scrolling is needed with bigger armies.",
+				"In-battle pop-ups (rerolls, overwatch, saves, etc.) are unchanged — they still dock at the bottom so the battlefield stays visible."
+			]
+		},
+		{
 			"version": "0.57.0",
 			"date": "2026-07-18",
 			"summary": "The AI now plays the Lions of the Emperor detachment properly: it spaces its Custodes units 6\"+ apart to earn Against All Odds (+1 to Hit AND +1 to Wound while no friendly is within 6\"), values that buff in its shooting and charge maths, prefers solo charges over gang-ups, and makes smarter calls with From Golden Light, Gilded Champion and the Swift as the Eagle window.",
