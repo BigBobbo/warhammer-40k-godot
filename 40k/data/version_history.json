@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.58.3",
+			"date": "2026-07-18",
+			"summary": "Fixed a disembark ghost that stuck to the screen: if you picked an embarked unit to disembark and then changed your mind and selected a different unit, the transport's disembark range area and the model 'ghost' trailing your cursor used to stay on the board. They now clear the moment you switch units.",
+			"changes": [
+				"Selecting, re-selecting, or starting a move on another unit while a disembark is being placed now tears down that disembark's range ring and cursor ghost instead of leaving them on the board.",
+				"No rules impact — the leftover was purely visual; the disembark itself was already abandoned."
+			]
+		},
+		{
 			"version": "0.58.2",
 			"date": "2026-07-18",
 			"summary": "Renamed the Movement phase's red 'Confirm Move' button to 'End This Unit's Move' so it is no longer confused with the 'Confirm Movement Mode' button. Previously players could pick Advance and click the red button expecting to start moving, but it just ended the unit's move.",

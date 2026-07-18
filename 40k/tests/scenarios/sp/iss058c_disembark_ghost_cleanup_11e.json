@@ -1,0 +1,52 @@
+{
+  "id": "iss058c_disembark_ghost_cleanup_11e",
+  "covers": ["scripts.DisembarkController.cleanup_on_switch"],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Regression for the disembark ghost-UI leak: selecting an embarked unit and confirming the DisembarkDialog spawns a DisembarkController (range ring around the transport + a ghost model that follows the cursor). Switching to a DIFFERENT unit in the unit list must tear that controller down — no lingering range ring, no cursor ghost. Before the fix the controller kept living under BoardRoot after the switch, so both visuals stayed on screen.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_state", "path": "units.U_KOMMANDOS_H.embarked_in", "equals": "U_BATTLEWAGON_G" },
+
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 4 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var dlg = null\nfor c in tree.root.get_children():\n\tif c.has_signal(\"disembark_confirmed\"):\n\t\tdlg = c\n\t\tbreak\nif dlg == null: return \"NO_DIALOG\"\ndlg.get_ok_button().emit_signal(\"pressed\")\nreturn \"OK_PRESSED\"",
+      "equals": "OK_PRESSED"
+    },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var br = tree.current_scene.get_node_or_null(\"BoardRoot\")\nif br == null: return -1\nvar n = 0\nfor c in br.get_children():\n\tif c.has_method(\"start_disembark\"):\n\t\tn += 1\nreturn n",
+      "equals": 1,
+      "comment": "Precondition: exactly one DisembarkController is live after confirming the dialog."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var br = tree.current_scene.get_node_or_null(\"BoardRoot\")\nvar ctrl = null\nfor c in br.get_children():\n\tif c.has_method(\"start_disembark\"):\n\t\tctrl = c\n\t\tbreak\nif ctrl == null: return \"NO_CTRL\"\nvar ghosts = ctrl.get_node_or_null(\"GhostLayer\")\nvar ring = ctrl.get_node_or_null(\"RangeIndicator\")\nreturn \"ghosts=\" + str(ghosts.get_child_count()) + \" ring=\" + str(ring.get_child_count())",
+      "comment": "Show the live cursor-ghost + range-ring node counts while the controller is active."
+    },
+    { "act": "screenshot", "label": "01_disembark_active_ring_and_ghost" },
+
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 1 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var br = tree.current_scene.get_node_or_null(\"BoardRoot\")\nif br == null: return -1\nvar n = 0\nfor c in br.get_children():\n\tif is_instance_valid(c) and c.has_method(\"start_disembark\"):\n\t\tn += 1\nreturn n",
+      "equals": 0,
+      "comment": "THE FIX: after switching to U_BOYZ_E, no DisembarkController remains — the range ring and cursor ghost are gone with it."
+    },
+    { "act": "screenshot", "label": "02_after_switch_no_ghost" }
+  ]
+}

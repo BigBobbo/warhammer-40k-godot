@@ -550,6 +550,17 @@ func _cancel_disembark() -> void:
 	emit_signal("disembark_canceled", unit_id)
 	_cleanup()
 
+func abort() -> void:
+	# External cancellation (e.g. the player switched to another unit or began a
+	# different move) rather than an in-controller ESC/right-click. Tears down the
+	# ghost model + range ring and stops input processing WITHOUT emitting
+	# disembark_canceled: the caller has already repointed its own selection state
+	# to the new unit, and firing the cancel handler here would clobber it. No
+	# GameState was mutated by starting the disembark, so there is nothing to roll
+	# back — only the visuals need clearing.
+	print("DisembarkController: aborted externally for unit ", unit_id)
+	_cleanup()
+
 func _cleanup() -> void:
 	set_process_unhandled_input(false)
 

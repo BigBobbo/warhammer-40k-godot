@@ -20,6 +20,12 @@ var active_unit_id: String = ""
 # 11e 18.04: unit_id -> bool, set when the DisembarkDialog's Combat
 # Disembark toggle was checked; consumed when CONFIRM_DISEMBARK is built.
 var _pending_combat_disembark: Dictionary = {}
+# The live DisembarkController spawned by _on_disembark_confirmed while the player
+# is placing disembarked models. Tracked so it can be torn down when the player
+# abandons the disembark (selects/moves a different unit) — otherwise its ghost
+# model + range ring leak on screen and it keeps eating mouse input. Null when no
+# disembark placement is in progress.
+var _active_disembark_controller: Node = null
 var active_mode: String = ""  # NORMAL, ADVANCE, FALL_BACK
 var move_cap_inches: float = 0.0
 var selected_model: Dictionary = {}
@@ -989,6 +995,11 @@ func _on_unit_selected(index: int) -> void:
 	if not unit:
 		return
 
+	# Selecting any row abandons an in-progress disembark placement — tear down its
+	# ghost + range ring so they don't linger over the newly selected unit. A fresh
+	# disembark dialog is re-shown below if this row is itself an embarked unit.
+	_abort_active_disembark()
+
 	# QoL: switching to a different unit auto-confirms the previously selected
 	# unit's moved-but-unconfirmed move (same as clicking "Confirm Move"). Do this
 	# before we repoint active_unit_id so the pending unit is the one confirmed.
@@ -1658,6 +1669,11 @@ func _set_mode_radio_for_locked_mode(mode: String) -> void:
 
 func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	print("MovementController: Unit move begun - ", unit_id, " mode: ", mode)
+	# Catch-all: a move beginning for any unit means the player left the disembark
+	# placement (this fires for board/stats-panel selections that bypass
+	# _on_unit_selected). Clear its ghost + range ring. No-op once the disembark
+	# has already completed (reference cleared in _on_disembark_completed).
+	_abort_active_disembark()
 	active_unit_id = unit_id
 	active_mode = mode
 	_update_selected_unit_display()
@@ -2580,6 +2596,12 @@ func _handle_embarked_unit_selected(unit_id: String) -> void:
 	if not unit:
 		return
 
+	# Tear down any disembark already in progress (e.g. the player was placing a
+	# different unit, or re-clicked this one) before offering a new dialog. Also
+	# covers the board/stats-panel entry points that call this directly, bypassing
+	# _on_unit_selected.
+	_abort_active_disembark()
+
 	print("MovementController: Unit %s is embarked, showing disembark dialog" % unit_id)
 
 	# Create and show disembark dialog
@@ -2606,6 +2628,10 @@ func _on_disembark_confirmed(combat_mode: bool, unit_id: String) -> void:
 	controller.disembark_completed.connect(_on_disembark_completed)
 	controller.disembark_canceled.connect(_on_disembark_canceled)
 
+	# Track the live controller so switching/re-selecting units can tear it down
+	# (its ghost + range ring live under this node).
+	_active_disembark_controller = controller
+
 	# Add to scene
 	var board_root = SceneRefs.board_root()
 	if board_root:
@@ -2616,9 +2642,31 @@ func _on_disembark_confirmed(combat_mode: bool, unit_id: String) -> void:
 	# Start disembark placement
 	controller.start_disembark(unit_id)
 
+func _abort_active_disembark() -> void:
+	"""Tear down an in-progress disembark placement (ghost model + range ring) and
+	stop it processing input. Called when the player abandons the disembark by
+	selecting, re-selecting, or beginning a move on a different unit. Safe to call
+	when no disembark is active (no-op)."""
+	if _active_disembark_controller != null and is_instance_valid(_active_disembark_controller):
+		var aborting_unit_id := ""
+		if "unit_id" in _active_disembark_controller:
+			aborting_unit_id = str(_active_disembark_controller.unit_id)
+		print("MovementController: Aborting in-progress disembark for %s (player switched away)" % aborting_unit_id)
+		if _active_disembark_controller.has_method("abort"):
+			_active_disembark_controller.abort()
+		else:
+			_active_disembark_controller.queue_free()
+		if aborting_unit_id != "":
+			_pending_combat_disembark.erase(aborting_unit_id)
+	_active_disembark_controller = null
+
 func _on_disembark_completed(unit_id: String, positions: Array) -> void:
 	"""Handle successful disembark - route through action system for multiplayer sync"""
 	print("MovementController: Disembark completed for unit %s with %d positions" % [unit_id, positions.size()])
+
+	# The controller cleans itself up on completion; drop our reference so a later
+	# unit switch doesn't try to abort an already-freed node.
+	_active_disembark_controller = null
 
 	# Serialize positions for action payload (Vector2 -> dict for network transport)
 	var serialized_positions = []
@@ -2680,6 +2728,10 @@ func _post_disembark_ui_update(unit_id: String) -> void:
 func _on_disembark_canceled(unit_id: String) -> void:
 	"""Handle canceled disembark"""
 	print("MovementController: Disembark canceled for unit %s" % unit_id)
+
+	# The controller emitted this from its own ESC/right-click cleanup; drop our
+	# reference so a later unit switch doesn't try to abort an already-freed node.
+	_active_disembark_controller = null
 
 	# Clear selection
 	_clear_unit_highlight()

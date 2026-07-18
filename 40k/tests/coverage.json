@@ -1934,6 +1934,15 @@
       "status": "covered"
     },
     {
+      "id": "scripts.DisembarkController.cleanup_on_switch",
+      "description": "Abandoning an in-progress disembark by selecting/beginning a move on a different unit tears down the DisembarkController — its range ring and cursor ghost are removed (MovementController._abort_active_disembark, hooked into _on_unit_selected / _handle_embarked_unit_selected / _on_unit_move_begun; DisembarkController.abort()). Regression for the ghost-UI leak where both visuals lingered on the board after switching units.",
+      "scenarios": [
+        "iss058c_disembark_ghost_cleanup_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "phases.ScoringPhase.coherency_removal_choice_03_03",
       "description": "11e 03.03 Regaining Coherency (audit #16): END_TURN pauses while a human-owned unit is out of coherency; REMOVE_MODEL_FOR_COHERENCY applies the player's chosen removal (destroyed, no on-death triggers); END_TURN is blocked until coherent. PhaseManager auto-pick hook remains the AI/backstop. The removal actions are only listed to the AI turn loop for AI-owned units — at the end of an AI turn the human's pending removals block with an empty action list so the AI cannot answer the choice for them (iss042c).",
       "scenarios": [
