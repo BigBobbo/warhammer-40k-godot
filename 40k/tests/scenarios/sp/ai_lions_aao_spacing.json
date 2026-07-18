@@ -1,0 +1,116 @@
+{
+  "id": "ai_lions_aao_spacing",
+  "covers": [
+    "ai.movement.aao_spacing",
+    "ai.thinking.against_all_odds",
+    "detachment.lions_of_the_emperor.ai_exploits_against_all_odds",
+    "ui.GameLogPanel.ai_thinking_cards"
+  ],
+  "fixture": "custodes_lions_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "description": "AI exploits Against All Odds (Lions of the Emperor): the P1 Custodes army is teleported into a realistic mid-game spread where every eligible unit holds the 6\" bubble (14 units with +1 Hit / +1 Wound live). P1 (AI at Hard) then plays its movement phase for real. Asserts (a) the movement plan narrates the Against All Odds spacing doctrine in the left game-log panel, (b) end-state isolation is at least the measured pre-change baseline (the old AI ended this exact seeded phase with 2 isolated units; the spacing-aware AI holds 3+ via lane fans, standoff rings and per-marker commit caps \u2014 congestion in an all-out push is physical, so the floor is the regression bar, and the mechanism correctness lives in tests/unit/test_ai_against_all_odds.gd), (c) no unit loss. Screenshots capture the spread start, the AI thinking cards, and the end state.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"AI\", 2: \"HUMAN\"}, {1: 2})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.set_ai_speed_preset(2)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.clear()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var spots = {\n\t\"U_CALLIDUS_ASSASSIN_A\": [160, 480],\n\t\"U_WITCHSEEKERS_A\": [650, 480],\n\t\"U_WITCHSEEKERS_B\": [1140, 480],\n\t\"U_PROSECUTORS_A\": [1620, 480],\n\t\"U_BLADE_CHAMPION_A\": [160, 880],\n\t\"U_CUSTODIAN_GUARD_A\": [650, 880],\n\t\"U_CUSTODIAN_GUARD_B\": [1140, 880],\n\t\"U_VERTUS_PRAETORS_A\": [1620, 880],\n\t\"U_BLADE_CHAMPION_B\": [160, 1280],\n\t\"U_CUSTODIAN_GUARD_C\": [650, 1280],\n\t\"U_CUSTODIAN_GUARD_D\": [1140, 1280],\n\t\"U_TRAJANN_VALORIS_A\": [1620, 1280],\n\t\"U_SHIELD-CAPTAIN_ON_DAWNEAGLE_JETBIKE_A\": [160, 1680],\n\t\"U_CUSTODIAN_GUARD_E\": [650, 1680],\n\t\"U_ALLARUS_CUSTODIANS_A\": [1140, 1680],\n\t\"U_INQUISITOR_DRAXUS_A\": [1620, 1680]\n}\nfor uid in spots:\n\tvar u = GameState.state[\"units\"].get(uid, null)\n\tif u == null:\n\t\tcontinue\n\tvar cx = float(spots[uid][0])\n\tvar cy = float(spots[uid][1])\n\tvar alive_i = 0\n\tfor m in u[\"models\"]:\n\t\tif not m.get(\"alive\", true):\n\t\t\tcontinue\n\t\tm[\"position\"] = {\"x\": cx - 72.0 + float(alive_i) * 36.0, \"y\": cy}\n\t\talive_i += 1\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var snap = GameState.create_snapshot()\nvar n = 0\nfor uid in snap[\"units\"]:\n\tvar u = snap[\"units\"][uid]\n\tif int(u.get(\"owner\", -1)) != 1:\n\t\tcontinue\n\tif FactionAbilityManager.check_against_all_odds(u, snap):\n\t\tn += 1\nGameState.set_meta(\"aao_before\", n)\nprint(\"SCENARIO aao_before=%d\" % n)\nreturn n",
+      "expect_min": 13
+    },
+    {
+      "act": "screenshot",
+      "label": "01_spread_midgame_before"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_ai_thinking_aao_plan",
+      "region": [
+        0,
+        105,
+        400,
+        720
+      ]
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 10.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 10.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.has_ai_entry_containing_any([\"Against All Odds\"])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var snap = GameState.create_snapshot()\nvar n = 0\nvar lines = []\nfor uid in snap[\"units\"]:\n\tvar u = snap[\"units\"][uid]\n\tif int(u.get(\"owner\", -1)) != 1:\n\t\tcontinue\n\tvar iso = FactionAbilityManager.check_against_all_odds(u, snap)\n\tif iso:\n\t\tn += 1\n\tvar gap = AIDecisionMaker._aao_min_friendly_gap_inches(u, snap, 1)\n\tlines.append(\"%s gap=%.1f iso=%s\" % [uid, gap, str(iso)])\nprint(\"SCENARIO aao_after=%d before=%d\" % [n, int(GameState.get_meta(\"aao_before\", 0))])\nfor l in lines:\n\tprint(\"SCENARIO GAP \" + l)\nreturn n",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var alive = 0\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"owner\", -1)) != 1:\n\t\tcontinue\n\tfor m in u.get(\"models\", []):\n\t\tif m.get(\"alive\", true):\n\t\t\talive += 1\n\t\tbreak\nreturn alive",
+      "expect_min": 16
+    },
+    {
+      "act": "screenshot",
+      "label": "03_still_spread_after_ai_movement"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_left_log_aao_cards",
+      "region": [
+        0,
+        105,
+        400,
+        720
+      ]
+    }
+  ]
+}

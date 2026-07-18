@@ -2,6 +2,22 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.57.0",
+			"date": "2026-07-18",
+			"summary": "The AI now plays the Lions of the Emperor detachment properly: it spaces its Custodes units 6\"+ apart to earn Against All Odds (+1 to Hit AND +1 to Wound while no friendly is within 6\"), values that buff in its shooting and charge maths, prefers solo charges over gang-ups, and makes smarter calls with From Golden Light, Gilded Champion and the Swift as the Eagle window.",
+			"changes": [
+				"AI movement plans for Against All Odds: destinations that keep a unit 6\"+ from friends score higher, lanes fan sideways when a move would land inside a friendly's bubble, holders shuffle to the far side of a marker to restore the buff, and reinforcements to a securely-held objective stand off 6\"+ as a buffed overwatch ring instead of hugging the holder.",
+				"AI stops piling onto one marker as Lions: at most 2 eligible units commit to an uncontested objective (4 in a live flip fight) so the rest of the army keeps its bubbles.",
+				"AI shooting and melee expected-damage now include the +1 Hit / +1 Wound when the attacker is isolated (exact per-profile maths, capped rolls respected), so isolated units get target priority worthy of their buff.",
+				"AI charge selection evaluates Against All Odds at the LANDING spot: solo charges keep the buff and score higher; joining a combat a friendly already crowds loses it and is penalised (gang-up bonuses disabled for Lions).",
+				"AI deployment and deep-strike/reserve drops prefer spots 6\"+ clear of friendlies so units start or arrive with the buff live.",
+				"AI answers the Swift as the Eagle window deliberately (declines while the engine's reactive move is unimplemented, with a log line saying why) instead of silently stalling the shooting phase.",
+				"AI no longer burns From Golden Light blindly every game: it keeps objective holders on the board and only redeploys badly mauled or stranded units.",
+				"AI can now use Gilded Champion to refresh a Custodes CHARACTER's spent once-per-battle ability, and values Defiant to the Last in its reactive-stratagem scoring.",
+				"The AI's game-log thinking narrates all of it: the spacing doctrine in the movement plan, destination shifts, overwatch-ring standoffs and redeploy reasoning."
+			]
+		},
+		{
 			"version": "0.56.0",
 			"date": "2026-07-18",
 			"summary": "No more pop-ups covering the middle of the battlefield. Every in-battle window — coherency removal, re-rolls, overwatch, weapon order, stratagems, transports, phase confirmations and more — now docks as a bar along the bottom of the screen (the same slot as the armour-save bar), so the board, game log and side panels always stay visible while you decide.",
