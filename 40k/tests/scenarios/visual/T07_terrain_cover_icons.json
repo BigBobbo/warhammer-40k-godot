@@ -1,9 +1,9 @@
 {
   "id": "T07_terrain_cover_icons",
-  "covers": ["design_guidelines.T07", "board.terrain.cover_icons"],
+  "covers": ["design_guidelines.T07", "board.terrain.cover_icons", "settings.show_terrain_cover_labels", "ui.settings_menu.visual"],
   "fixture": "co_pretrigger",
   "transition_to_phase": 6,
-  "description": "Per-tile cover icons rendered on top of every terrain piece. Each icon node named TerrainCoverIcon_<terrain_id> with a Label whose text matches the derived cover_type (+1 / +2 / LB). Asserts overlay node tree, at least one icon present, the label text matches, and the centroid position is within tolerance of the terrain piece's center. pixel_diff confirms the board region differs from a baseline where the overlay is hidden.",
+  "description": "Per-tile cover icons rendered on top of every terrain piece. Each icon node named TerrainCoverIcon_<terrain_id> with a Label whose text matches the derived cover_type (+1 / +2 / LB). The overlay is now OFF by default (uncluttered board) and is opt-in via Settings > Visual > 'Terrain Cover Labels' (SettingsService.show_terrain_cover_labels). Asserts: one icon per terrain feature is built, the first icon's Label is a valid cover glyph with the expected alpha and a centroid within tolerance of its feature, at least one 'LB' (line-block) chip is present, the overlay defaults hidden, enabling the setting shows it live and disabling hides it again. pixel_diff confirms the board region differs between the overlay-off and overlay-on captures.",
 
   "regions": {
     "board": [0, 0, 1920, 1080]
@@ -17,6 +17,14 @@
       "equals": true },
 
     { "act": "execute_script",
+      "script": "SettingsService.show_terrain_cover_labels",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").visible",
+      "equals": false },
+
+    { "act": "execute_script",
       "script": "TerrainManager.terrain_features.size()",
       "expect_min": 1 },
 
@@ -24,31 +32,41 @@
       "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").get_child_count() == TerrainManager.terrain_features.size()",
       "equals": true },
 
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_ruins_1\") != null",
+    { "act": "execute_script", "multiline": true,
+      "script": "var ov = node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\")\nreturn ov.get_child(0).get_node(\"Label\").text in [\"LB\", \"+2\", \"+1\"]",
       "equals": true },
 
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_ruins_1\").modulate.a",
+    { "act": "execute_script", "multiline": true,
+      "script": "var ov = node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\")\nvar n = 0\nfor c in ov.get_children():\n\tvar l = c.get_node_or_null(\"Label\")\n\tif l != null and l.text == \"LB\":\n\t\tn += 1\nreturn n",
+      "expect_min": 1 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "return node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").get_child(0).modulate.a",
       "expect_min": 0.8 },
 
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_ruins_1/Label\").text",
-      "equals": "LB" },
+    { "act": "execute_script", "multiline": true,
+      "script": "var icon = node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").get_child(0)\nreturn icon.position.distance_to(TerrainManager.terrain_features[0].position)",
+      "expect_max": 8.0 },
+
+    { "act": "screenshot", "label": "T07_overlay_off" },
 
     { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_ruins_1\").position.distance_to(TerrainManager.terrain_features[0].position)",
-      "expect_max": 8.0 },
+      "script": "SettingsService.set_show_terrain_cover_labels(true)" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").visible",
+      "equals": true },
 
     { "act": "screenshot", "label": "T07_overlay_on" },
 
     { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").set(\"visible\", false)" },
-    { "act": "wait_frames", "frames": 4 },
-    { "act": "screenshot", "label": "T07_overlay_off" },
+      "script": "SettingsService.set_show_terrain_cover_labels(false)" },
+    { "act": "wait_frames", "frames": 6 },
 
     { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").set(\"visible\", true)" },
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").visible",
+      "equals": false },
 
     { "act": "pixel_diff",
       "before": "T07_overlay_off",

@@ -14,6 +14,15 @@
 			]
 		},
 		{
+			"version": "0.58.4",
+			"date": "2026-07-18",
+			"summary": "The little cover-type chips on terrain (LB / +2 / +1) are now hidden by default so the board is less cluttered. If you want them back, turn on Settings > Visual > 'Terrain Cover Labels'.",
+			"changes": [
+				"Terrain cover labels (the LB / +2 / +1 shield chips drawn on each terrain piece) are OFF by default.",
+				"Added a 'Terrain Cover Labels (LB / +2 / +1 chips on terrain)' checkbox to Settings > Visual to turn them on or off; the choice is saved and applies to the board immediately."
+			]
+		},
+		{
 			"version": "0.58.3",
 			"date": "2026-07-18",
 			"summary": "Disembark fixes: the 3\" set-up border now hugs the transport's actual hull — rotated with the vehicle, with rounded corners — and switching units mid-placement no longer leaves a ghost placement measuring distances from the wrong transport.",
