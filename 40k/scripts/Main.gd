@@ -12674,13 +12674,13 @@ func _force_redraw_all_tokens() -> void:
 
 var _unit_context_menu: PopupMenu = null
 var _context_unit_id: String = ""
+# Unit ids backing the "Embarked Units" rows of the current context menu, in the
+# same order they were added. A clicked embarked row maps back to its unit via
+# (item_id - EMBARKED_MENU_ID_BASE).
+var _context_embarked_ids: Array = []
+const EMBARKED_MENU_ID_BASE := 1000
 
 func _handle_right_click(event: InputEventMouseButton) -> void:
-	# Only in letter mode
-	var style = SettingsService.unit_visual_style if SettingsService else "classic"
-	if style != "letter":
-		return
-
 	# Convert screen position to world position (use event.position, same as other handlers)
 	var world_pos = screen_to_world_position(event.position)
 
@@ -12688,7 +12688,41 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 	if uid == "":
 		return
 
+	# Build/show the context menu. It only consumes the right-click when it
+	# actually shows something, so a right-click that offers nothing (e.g. a
+	# non-transport outside letter mode) still flows to the other handlers
+	# (MovementController rotation, DeploymentController cancel).
+	var menu_pos := Vector2i(int(event.global_position.x), int(event.global_position.y))
+	if _show_unit_context_menu(uid, menu_pos):
+		# Consume the event so other handlers (DeploymentController cancel,
+		# MovementController rotation) don't also process this right-click
+		get_viewport().set_input_as_handled()
+
+
+# Builds and pops up the right-click context menu for `uid` at `screen_pos`.
+# Returns true when a menu was actually shown. Split out of _handle_right_click
+# so windowed scenarios can drive the menu with a known unit id.
+#
+# Menu contents:
+#   * Change Color / Change Label / Unit Stats — letter visual style only
+#     (these edit the letter token's appearance).
+#   * "Embarked Units" section — whenever the unit is a transport carrying
+#     units, regardless of visual style. Lists each passenger (name + alive/
+#     total model count); clicking a row opens that unit's stats card.
+func _show_unit_context_menu(uid: String, screen_pos: Vector2i) -> bool:
+	var style = SettingsService.unit_visual_style if SettingsService else "classic"
+	var is_letter: bool = style == "letter"
+
+	# Passengers embarked in this transport (empty for non-transports / empty holds).
+	var embarked_entries := _get_embarked_menu_entries(uid)
+
+	# Nothing to offer: the color/label/stats items are letter-mode only, and
+	# there are no embarked units to list. Leave the right-click for other handlers.
+	if not is_letter and embarked_entries.is_empty():
+		return false
+
 	_context_unit_id = uid
+	_context_embarked_ids.clear()
 
 	# Remove existing context menu
 	if _unit_context_menu and is_instance_valid(_unit_context_menu):
@@ -12696,20 +12730,63 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 
 	_unit_context_menu = PopupMenu.new()
 	_unit_context_menu.name = "UnitContextMenu"
-	_unit_context_menu.add_item("Change Color", 0)
-	_unit_context_menu.add_item("Change Label", 1)
-	_unit_context_menu.add_item("Unit Stats", 2)
+
+	if is_letter:
+		_unit_context_menu.add_item("Change Color", 0)
+		_unit_context_menu.add_item("Change Label", 1)
+		_unit_context_menu.add_item("Unit Stats", 2)
+
+	# "Embarked Units" section: a labeled separator header followed by one row
+	# per embarked unit. Clicking a row opens that passenger's stats card so the
+	# player can both SEE who is aboard and inspect them.
+	if not embarked_entries.is_empty():
+		_unit_context_menu.add_separator("Embarked Units")
+		for i in range(embarked_entries.size()):
+			var entry: Dictionary = embarked_entries[i]
+			var row_text := "  %s  (%d/%d)" % [entry["name"], entry["alive"], entry["total"]]
+			_unit_context_menu.add_item(row_text, EMBARKED_MENU_ID_BASE + i)
+			_context_embarked_ids.append(entry["id"])
+
 	_unit_context_menu.id_pressed.connect(_on_unit_context_menu_pressed)
 	add_child(_unit_context_menu)
-	_unit_context_menu.position = Vector2i(int(event.global_position.x), int(event.global_position.y))
+	_unit_context_menu.position = screen_pos
 	_unit_context_menu.popup()
+	return true
 
-	# Consume the event so other handlers (DeploymentController cancel,
-	# MovementController rotation) don't also process this right-click
-	get_viewport().set_input_as_handled()
+
+# Returns display rows for the units embarked in `transport_id`, in embark order:
+#   [{ "id": String, "name": String, "alive": int, "total": int }, ... ]
+# Empty for non-transport units or transports with an empty hold.
+func _get_embarked_menu_entries(transport_id: String) -> Array:
+	var entries := []
+	if not TransportManager:
+		return entries
+	for eid in TransportManager.get_embarked_unit_ids(transport_id):
+		var eunit = GameState.get_unit(eid)
+		if eunit == null or eunit.is_empty():
+			continue
+		var total := 0
+		var alive := 0
+		for m in eunit.get("models", []):
+			total += 1
+			if m.get("alive", true):
+				alive += 1
+		entries.append({
+			"id": eid,
+			"name": GameState.get_unit_display_name(eid),
+			"alive": alive,
+			"total": total,
+		})
+	return entries
 
 
 func _on_unit_context_menu_pressed(id: int) -> void:
+	# Embarked-unit rows: open the clicked passenger's stats card.
+	if id >= EMBARKED_MENU_ID_BASE:
+		var idx := id - EMBARKED_MENU_ID_BASE
+		if idx >= 0 and idx < _context_embarked_ids.size():
+			_show_unit_stats_card_popup(_context_embarked_ids[idx])
+		return
 	match id:
 		0:  # Change Color
 			_show_unit_color_picker_popup(_context_unit_id)

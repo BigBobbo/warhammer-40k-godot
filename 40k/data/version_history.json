@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.60.0",
+			"date": "2026-07-18",
+			"summary": "You can now see who is riding inside a transport at a glance: right-click a vehicle that has units embarked and the context menu now has an 'Embarked Units' section listing every passenger and its model count. Click a passenger to open its stats card.",
+			"changes": [
+				"Right-clicking a transport that is carrying units adds an 'Embarked Units' section to the pop-up menu, with one row per embarked unit showing its name and alive/total model count (e.g. 'Kommandos (10/10)').",
+				"Clicking an embarked unit's row opens that unit's stats card so you can inspect the passengers without disembarking them.",
+				"The embarked list shows in every unit visual style (not just letter mode), so a loaded transport always right-clicks to reveal its cargo."
+			]
+		},
+		{
 			"version": "0.59.1",
 			"date": "2026-07-18",
 			"summary": "'Take to the skies' now works when ticked mid-move: FLY units (e.g. Deffkoptas) that were blocked by dense terrain with the box already ticked will now actually fly over it, the Move/Left readout updates to the -2\" cap immediately, and the dense-terrain error explains itself properly.",
