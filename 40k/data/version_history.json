@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.58.1",
+			"date": "2026-07-18",
+			"summary": "Fixed the Warbikers' Drive-by Dakka ability text. It previously read 'against A targets' — a garbled data string that made the rule unreadable — and now correctly states that the Armour Penetration bonus applies against targets within 9\", matching how the ability already works in-game.",
+			"changes": [
+				"Warbikers 'Drive-by Dakka' now reads: 'During the Shooting phase against targets within 9\", subtract 1 from the unit's Armour Penetration characteristic.' (previously the nonsensical 'against A targets').",
+				"Text-only correction across the bundled Ork army lists — the underlying rule (improve this unit's AP by 1 against targets within 9\" while shooting) was already implemented correctly and is unchanged."
+			]
+		},
+		{
 			"version": "0.58.0",
 			"date": "2026-07-18",
 			"summary": "Transports now clearly show what is riding inside them during deployment. The deployment list gives each embarked unit its own indented line under the transport (no more overlapping, cut-off text), and that same 'Carrying:' breakdown now stays on screen while you position the transport — so you always know which units and how many models are onboard.",
