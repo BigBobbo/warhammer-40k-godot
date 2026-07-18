@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.58.0",
+			"date": "2026-07-18",
+			"summary": "You can now see who is riding inside a transport at a glance: right-click a vehicle that has units embarked and the context menu now has an 'Embarked Units' section listing every passenger and its model count. Click a passenger to open its stats card.",
+			"changes": [
+				"Right-clicking a transport that is carrying units adds an 'Embarked Units' section to the pop-up menu, with one row per embarked unit showing its name and alive/total model count (e.g. 'Kommandos (10/10)').",
+				"Clicking an embarked unit's row opens that unit's stats card so you can inspect the passengers without disembarking them.",
+				"The embarked list shows in every unit visual style (not just letter mode), so a loaded transport always right-clicks to reveal its cargo."
+			]
+		},
+		{
 			"version": "0.57.0",
 			"date": "2026-07-18",
 			"summary": "The AI now plays the Lions of the Emperor detachment properly: it spaces its Custodes units 6\"+ apart to earn Against All Odds (+1 to Hit AND +1 to Wound while no friendly is within 6\"), values that buff in its shooting and charge maths, prefers solo charges over gang-ups, and makes smarter calls with From Golden Light, Gilded Champion and the Swift as the Eagle window.",
