@@ -181,20 +181,20 @@
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(40)"
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(40)"
     },
     {
       "act": "wait_frames",
       "frames": 4
     },
     {
-      "act": "expect_node_visible",
-      "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton",
-      "timeout_s": 5.0
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.state",
+      "equals": "complete"
     },
     {
       "act": "click_node",
-      "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
       "emit_pressed": true
     },
     {
@@ -266,20 +266,20 @@
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(40)"
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(40)"
     },
     {
       "act": "wait_frames",
       "frames": 4
     },
     {
-      "act": "expect_node_visible",
-      "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton",
-      "timeout_s": 5.0
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.state",
+      "equals": "complete"
     },
     {
       "act": "click_node",
-      "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
       "emit_pressed": true
     },
     {
