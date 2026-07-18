@@ -20,6 +20,12 @@ var active_unit_id: String = ""
 # 11e 18.04: unit_id -> bool, set when the DisembarkDialog's Combat
 # Disembark toggle was checked; consumed when CONFIRM_DISEMBARK is built.
 var _pending_combat_disembark: Dictionary = {}
+# The live DisembarkController placement (at most one). Selecting another unit
+# or starting a second disembark cancels the previous placement — a stale
+# controller kept processing board clicks against its OWN transport, spamming
+# "Must be within 3\" of transport" errors measured from the wrong vehicle
+# while its (unrotated) range border stayed on screen.
+var _active_disembark_controller: Node = null
 var active_mode: String = ""  # NORMAL, ADVANCE, FALL_BACK
 var move_cap_inches: float = 0.0
 var selected_model: Dictionary = {}
@@ -205,6 +211,10 @@ func _ready() -> void:
 	print("MovementController ready")
 
 func _exit_tree() -> void:
+	# A still-open disembark placement must not outlive the phase — cancel it so
+	# its input processing and range border don't leak into the next phase.
+	_cancel_active_disembark_placement()
+
 	# Clean up visuals that were added to BoardRoot
 	if path_visual and is_instance_valid(path_visual):
 		path_visual.queue_free()
@@ -988,6 +998,10 @@ func _on_unit_selected(index: int) -> void:
 	var unit = GameState.get_unit(unit_id)
 	if not unit:
 		return
+
+	# Any unit selection ends an in-progress disembark placement: the old
+	# controller must not keep validating board clicks against its transport.
+	_cancel_active_disembark_placement()
 
 	# QoL: switching to a different unit auto-confirms the previously selected
 	# unit's moved-but-unconfirmed move (same as clicking "Confirm Move"). Do this
@@ -2585,6 +2599,7 @@ func _handle_embarked_unit_selected(unit_id: String) -> void:
 	# Create and show disembark dialog
 	var dialog_script = load("res://scripts/DisembarkDialog.gd")
 	var dialog = dialog_script.new()
+	dialog.name = "DisembarkDialog"  # Stable path for tests/tooling (/root/DisembarkDialog)
 	dialog.setup(unit_id)
 	dialog.disembark_confirmed.connect(_on_disembark_confirmed.bind(unit_id))
 	dialog.disembark_canceled.connect(_on_disembark_canceled.bind(unit_id))
@@ -2595,6 +2610,11 @@ func _handle_embarked_unit_selected(unit_id: String) -> void:
 func _on_disembark_confirmed(combat_mode: bool, unit_id: String) -> void:
 	"""Handle disembark confirmation - start placement controller"""
 	print("MovementController: Starting disembark placement for unit %s (combat_mode=%s)" % [unit_id, str(combat_mode)])
+
+	# Belt-and-braces: never allow two live placement controllers. A leftover
+	# controller validates clicks against the WRONG transport (wrong-distance
+	# errors) and leaves its range border on the board.
+	_cancel_active_disembark_placement()
 
 	# Create disembark controller for model placement
 	var controller = preload("res://scripts/DisembarkController.gd").new()
@@ -2614,11 +2634,19 @@ func _on_disembark_confirmed(combat_mode: bool, unit_id: String) -> void:
 		get_tree().root.add_child(controller)
 
 	# Start disembark placement
+	_active_disembark_controller = controller
 	controller.start_disembark(unit_id)
+
+func _cancel_active_disembark_placement() -> void:
+	"""Cancel a still-open disembark placement (player switched units/phase)."""
+	if _active_disembark_controller and is_instance_valid(_active_disembark_controller):
+		_active_disembark_controller.cancel_placement()
+	_active_disembark_controller = null
 
 func _on_disembark_completed(unit_id: String, positions: Array) -> void:
 	"""Handle successful disembark - route through action system for multiplayer sync"""
 	print("MovementController: Disembark completed for unit %s with %d positions" % [unit_id, positions.size()])
+	_active_disembark_controller = null
 
 	# Serialize positions for action payload (Vector2 -> dict for network transport)
 	var serialized_positions = []
@@ -2680,6 +2708,7 @@ func _post_disembark_ui_update(unit_id: String) -> void:
 func _on_disembark_canceled(unit_id: String) -> void:
 	"""Handle canceled disembark"""
 	print("MovementController: Disembark canceled for unit %s" % unit_id)
+	_active_disembark_controller = null
 
 	# Clear selection
 	_clear_unit_highlight()
