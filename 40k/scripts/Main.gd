@@ -7041,6 +7041,14 @@ func _build_model_profile_hover_text(unit: Dictionary, model_id: String) -> Stri
 	var mid_str = model.get("id", model_id)
 	var block = "\n[color=#D49761]──────────[/color]\n"
 	block += "[b][color=#E8C86A]%s[/color][/b] [color=#888888](%s)[/color]" % [label, mid_str]
+	# The hovered model's OWN wounds, when they differ from the squad stat line
+	# above (e.g. a 2W Runtherd in a W:1 Gretchin mob) — otherwise the header's
+	# unit-level "W:1" misrepresents this model.
+	var m_w_max = int(model.get("wounds", 0))
+	var m_w_cur = int(model.get("current_wounds", m_w_max))
+	var unit_w = int(unit.get("meta", {}).get("stats", {}).get("wounds", 0))
+	if m_w_max > 0 and (m_w_max != unit_w or m_w_cur != m_w_max):
+		block += "  [color=#9BD49B]W:%d/%d[/color]" % [m_w_cur, m_w_max]
 	# Model-specific stat overrides (BS/WS/Sv/W/OC differing from the squad).
 	var overrides = profile.get("stats_override", {})
 	if not overrides.is_empty():
@@ -8793,6 +8801,13 @@ func _on_save_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Save completed: %s" % file_path)
 	# SAVE-20: Dismiss progress indicator on save completion
 	_dismiss_save_load_progress()
+	# Auto-generated saves (e.g. the phase-start autosave) report via the subtle
+	# "Game autosaved" toast (the autosave_completed signal); don't ALSO flash the
+	# prominent "Game saved!" status banner, which on the itch.io web build would
+	# otherwise fire at the start of every phase.
+	var is_autosave = metadata.get("save_info", {}).get("save_type", "") == "autosave" or metadata.get("auto_generated", false)
+	if is_autosave:
+		return
 	if OS.has_feature("web"):
 		_show_save_notification("Game saved!", Color.GREEN)
 
@@ -12216,7 +12231,14 @@ func _toggle_weapon_range_comparison_panel() -> void:
 			hb.add_child(own_l)
 			list.add_child(hb)
 	var hint := Label.new()
-	hint.text = "Press W to close"
+	# The panel is toggled by whatever key is bound to weapon_range_panel (unbound
+	# by default — assign one in Settings). Reflect the live binding instead of a
+	# hardcoded "W", which no longer opens/closes this panel.
+	var _wrp_key := KeybindingManager.get_primary_key_display("weapon_range_panel") if KeybindingManager else "W"
+	if _wrp_key == "None" or _wrp_key == "":
+		hint.text = "Bind a key in Settings › Keybindings to toggle this panel"
+	else:
+		hint.text = "Press %s to close" % _wrp_key
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.modulate = Color(1, 1, 1, 0.6)
@@ -12652,13 +12674,13 @@ func _force_redraw_all_tokens() -> void:
 
 var _unit_context_menu: PopupMenu = null
 var _context_unit_id: String = ""
+# Unit ids backing the "Embarked Units" rows of the current context menu, in the
+# same order they were added. A clicked embarked row maps back to its unit via
+# (item_id - EMBARKED_MENU_ID_BASE).
+var _context_embarked_ids: Array = []
+const EMBARKED_MENU_ID_BASE := 1000
 
 func _handle_right_click(event: InputEventMouseButton) -> void:
-	# Only in letter mode
-	var style = SettingsService.unit_visual_style if SettingsService else "classic"
-	if style != "letter":
-		return
-
 	# Convert screen position to world position (use event.position, same as other handlers)
 	var world_pos = screen_to_world_position(event.position)
 
@@ -12666,7 +12688,41 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 	if uid == "":
 		return
 
+	# Build/show the context menu. It only consumes the right-click when it
+	# actually shows something, so a right-click that offers nothing (e.g. a
+	# non-transport outside letter mode) still flows to the other handlers
+	# (MovementController rotation, DeploymentController cancel).
+	var menu_pos := Vector2i(int(event.global_position.x), int(event.global_position.y))
+	if _show_unit_context_menu(uid, menu_pos):
+		# Consume the event so other handlers (DeploymentController cancel,
+		# MovementController rotation) don't also process this right-click
+		get_viewport().set_input_as_handled()
+
+
+# Builds and pops up the right-click context menu for `uid` at `screen_pos`.
+# Returns true when a menu was actually shown. Split out of _handle_right_click
+# so windowed scenarios can drive the menu with a known unit id.
+#
+# Menu contents:
+#   * Change Color / Change Label / Unit Stats — letter visual style only
+#     (these edit the letter token's appearance).
+#   * "Embarked Units" section — whenever the unit is a transport carrying
+#     units, regardless of visual style. Lists each passenger (name + alive/
+#     total model count); clicking a row opens that unit's stats card.
+func _show_unit_context_menu(uid: String, screen_pos: Vector2i) -> bool:
+	var style = SettingsService.unit_visual_style if SettingsService else "classic"
+	var is_letter: bool = style == "letter"
+
+	# Passengers embarked in this transport (empty for non-transports / empty holds).
+	var embarked_entries := _get_embarked_menu_entries(uid)
+
+	# Nothing to offer: the color/label/stats items are letter-mode only, and
+	# there are no embarked units to list. Leave the right-click for other handlers.
+	if not is_letter and embarked_entries.is_empty():
+		return false
+
 	_context_unit_id = uid
+	_context_embarked_ids.clear()
 
 	# Remove existing context menu
 	if _unit_context_menu and is_instance_valid(_unit_context_menu):
@@ -12674,20 +12730,63 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 
 	_unit_context_menu = PopupMenu.new()
 	_unit_context_menu.name = "UnitContextMenu"
-	_unit_context_menu.add_item("Change Color", 0)
-	_unit_context_menu.add_item("Change Label", 1)
-	_unit_context_menu.add_item("Unit Stats", 2)
+
+	if is_letter:
+		_unit_context_menu.add_item("Change Color", 0)
+		_unit_context_menu.add_item("Change Label", 1)
+		_unit_context_menu.add_item("Unit Stats", 2)
+
+	# "Embarked Units" section: a labeled separator header followed by one row
+	# per embarked unit. Clicking a row opens that passenger's stats card so the
+	# player can both SEE who is aboard and inspect them.
+	if not embarked_entries.is_empty():
+		_unit_context_menu.add_separator("Embarked Units")
+		for i in range(embarked_entries.size()):
+			var entry: Dictionary = embarked_entries[i]
+			var row_text := "  %s  (%d/%d)" % [entry["name"], entry["alive"], entry["total"]]
+			_unit_context_menu.add_item(row_text, EMBARKED_MENU_ID_BASE + i)
+			_context_embarked_ids.append(entry["id"])
+
 	_unit_context_menu.id_pressed.connect(_on_unit_context_menu_pressed)
 	add_child(_unit_context_menu)
-	_unit_context_menu.position = Vector2i(int(event.global_position.x), int(event.global_position.y))
+	_unit_context_menu.position = screen_pos
 	_unit_context_menu.popup()
+	return true
 
-	# Consume the event so other handlers (DeploymentController cancel,
-	# MovementController rotation) don't also process this right-click
-	get_viewport().set_input_as_handled()
+
+# Returns display rows for the units embarked in `transport_id`, in embark order:
+#   [{ "id": String, "name": String, "alive": int, "total": int }, ... ]
+# Empty for non-transport units or transports with an empty hold.
+func _get_embarked_menu_entries(transport_id: String) -> Array:
+	var entries := []
+	if not TransportManager:
+		return entries
+	for eid in TransportManager.get_embarked_unit_ids(transport_id):
+		var eunit = GameState.get_unit(eid)
+		if eunit == null or eunit.is_empty():
+			continue
+		var total := 0
+		var alive := 0
+		for m in eunit.get("models", []):
+			total += 1
+			if m.get("alive", true):
+				alive += 1
+		entries.append({
+			"id": eid,
+			"name": GameState.get_unit_display_name(eid),
+			"alive": alive,
+			"total": total,
+		})
+	return entries
 
 
 func _on_unit_context_menu_pressed(id: int) -> void:
+	# Embarked-unit rows: open the clicked passenger's stats card.
+	if id >= EMBARKED_MENU_ID_BASE:
+		var idx := id - EMBARKED_MENU_ID_BASE
+		if idx >= 0 and idx < _context_embarked_ids.size():
+			_show_unit_stats_card_popup(_context_embarked_ids[idx])
+		return
 	match id:
 		0:  # Change Color
 			_show_unit_color_picker_popup(_context_unit_id)

@@ -635,6 +635,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_remain_stationary(action)
 		"LOCK_MOVEMENT_MODE":
 			return _validate_lock_movement_mode(action)
+		"SET_TAKE_TO_SKIES":
+			return _validate_set_take_to_skies(action)
 		"SET_ADVANCE_BONUS":
 			return _validate_set_advance_bonus(action)
 		"END_MOVEMENT":
@@ -771,6 +773,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_remain_stationary(action)
 		"LOCK_MOVEMENT_MODE":
 			return _process_lock_movement_mode(action)
+		"SET_TAKE_TO_SKIES":
+			return _process_set_take_to_skies(action)
 		"SET_ADVANCE_BONUS":
 			return _process_set_advance_bonus(action)
 		"END_MOVEMENT":
@@ -6612,8 +6616,100 @@ func _check_dense_terrain_gate(unit_id: String, move_data: Dictionary, from_pos:
 	var kw_54 = _terrain_rule_keywords(unit_id, move_data)
 	var trav = tm_54.can_move_through_11e(kw_54, from_pos, dest_vec, [], model)
 	if not trav.allowed:
-		return {"valid": false, "errors": ["Dense terrain blocks this model's path (13.06): %s" % str(trav.blockers)]}
+		# "(13.06)" alone reads like a distance in inches — spell out that it
+		# is a rules reference, and tell FLY units how to get across.
+		var blocker_names := ", ".join(PackedStringArray(trav.blockers))
+		var msg := "Dense terrain blocks this model's path (rule 13.06): %s" % blocker_names
+		if "FLY" in get_unit(unit_id).get("meta", {}).get("keywords", []):
+			msg += " — tick 'Take to the skies' to fly over it"
+		return {"valid": false, "errors": [msg]}
 	return {"valid": true, "errors": []}
+
+## ISS-061 (11e 21.03/24.17) — mid-move "take to the skies" toggle.
+## The drag flow auto-begins a NORMAL move the moment a unit is selected —
+## BEFORE the player can even see the take-to-the-skies checkbox — so the
+## BEGIN_* payload alone can never carry a tick made after selection. This
+## action lets the declaration be changed while the move is in progress:
+## it flips move_data.took_to_skies (read by the 13.06 dense gate and the
+## model-crossing checks) and re-derives the move cap (-2", 0 with HOVER).
+func _validate_set_take_to_skies(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if GameConstants.edition < 11:
+		return {"valid": false, "errors": ["Take to the skies requires edition 11"]}
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
+	if not "FLY" in unit.get("meta", {}).get("keywords", []):
+		return {"valid": false, "errors": ["%s does not have the FLY keyword" % unit.get("meta", {}).get("name", unit_id)]}
+	if not active_moves.has(unit_id):
+		return {"valid": false, "errors": ["No active move for unit"]}
+	var move_data = active_moves[unit_id]
+	if move_data.get("completed", false):
+		return {"valid": false, "errors": ["Unit has already completed its move"]}
+	if not str(move_data.get("mode", "")) in ["NORMAL", "ADVANCE", "FALL_BACK"]:
+		return {"valid": false, "errors": ["Take to the skies only applies to Normal, Advance and Fall Back moves"]}
+	var enabled: bool = bool(action.get("payload", {}).get("take_to_skies", false))
+	if enabled == bool(move_data.get("took_to_skies", false)):
+		return {"valid": true, "errors": []}  # no-op, nothing to check
+	if enabled:
+		# The cap shrinks (-2" unless HOVER): every model already moved must
+		# still fit under the reduced cap, else the player has to reset first.
+		var new_cap := _take_to_skies_recomputed_cap(unit_id, move_data, true)
+		for model_key in move_data.get("model_distances", {}):
+			var used: float = move_data.model_distances[model_key]
+			if used > new_cap + MOVEMENT_CAP_EPSILON:
+				return {"valid": false, "errors": ["Cannot take to the skies: a model has already moved %.1f\", over the reduced %.1f\" cap — Reset Unit first" % [used, new_cap]]}
+	else:
+		# Turning flying OFF mid-move: already-staged paths may only be legal
+		# while airborne (crossed walls/models), so require a clean slate.
+		if not move_data.get("staged_moves", []).is_empty() or not move_data.get("model_moves", []).is_empty():
+			return {"valid": false, "errors": ["Reset the unit's move before switching off Take to the skies"]}
+	return {"valid": true, "errors": []}
+
+func _process_set_take_to_skies(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var enabled: bool = bool(action.get("payload", {}).get("take_to_skies", false))
+	var move_data = active_moves[unit_id]
+	if enabled == bool(move_data.get("took_to_skies", false)):
+		return create_result(true, [])
+	var unit = get_unit(unit_id)
+	var new_cap := _take_to_skies_recomputed_cap(unit_id, move_data, enabled)
+	move_data["took_to_skies"] = enabled
+	move_data["move_cap_inches"] = new_cap
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	if enabled:
+		log_phase_message("[11e] %s takes to the skies (mid-move toggle): cap %.1f\" (%+.1f\"), may move through models and terrain" % [unit_name, new_cap, MoveType.take_to_skies_modifier(unit)])
+	else:
+		log_phase_message("[11e] %s will not take to the skies: cap back to %.1f\"" % [unit_name, new_cap])
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		if enabled:
+			gel.add_player_entry(int(unit.get("owner", 0)), "%s takes to the skies (21.03): -2\" move, flies over models and terrain" % unit_name)
+		else:
+			gel.add_player_entry(int(unit.get("owner", 0)), "%s stays on the ground: normal terrain rules apply" % unit_name)
+	return create_result(true, [{
+		"op": "set",
+		"path": "units.%s.flags.move_cap_inches" % unit_id,
+		"value": new_cap
+	}])
+
+## Re-derive a move's cap for the given flying declaration, mirroring how
+## the BEGIN_* processors built it: base M (flat 24" when turbo-boosting),
+## -2" (0 with HOVER) applied to M when flying, advance roll added on top.
+func _take_to_skies_recomputed_cap(unit_id: String, move_data: Dictionary, flying: bool) -> float:
+	var unit = get_unit(unit_id)
+	var m := float(get_unit_movement(unit))
+	if flying:
+		m = max(0.0, m + MoveType.take_to_skies_modifier(unit))
+	if str(move_data.get("mode", "")) == "ADVANCE":
+		# Turbo Boostas replaces M with a flat 24" (fly modifier is moot,
+		# matching _resolve_advance_roll where turbo overrides after the cap).
+		if move_data.get("turbo_boost", false):
+			m = 24.0
+		return m + float(move_data.get("advance_roll", 0))
+	return m
 
 func _path_crosses_titanic_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:
 	# OA-29: Check if path crosses any TITANIC model bases (friendly or enemy).

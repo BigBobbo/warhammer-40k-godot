@@ -122,7 +122,31 @@
       "description": "4-9 Intercessor",
       "line": 2
      }
-    ]
+    ],
+    "model_profiles": {
+     "intercessor_sergeant": {
+      "label": "Intercessor Sergeant",
+      "short_label": "S",
+      "weapons": [
+       "Bolt rifle",
+       "Bolt pistol",
+       "Power fist"
+      ],
+      "stats_override": {},
+      "transport_slots": 1
+     },
+     "intercessor": {
+      "label": "Intercessor",
+      "short_label": "I",
+      "weapons": [
+       "Bolt rifle",
+       "Bolt pistol",
+       "Close combat weapon"
+      ],
+      "stats_override": {},
+      "transport_slots": 1
+     }
+    }
    },
    "models": [
     {
@@ -132,7 +156,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "intercessor_sergeant"
     },
     {
      "id": "m2",
@@ -141,7 +166,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "intercessor"
     },
     {
      "id": "m3",
@@ -150,7 +176,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "intercessor"
     },
     {
      "id": "m4",
@@ -159,7 +186,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "intercessor"
     },
     {
      "id": "m5",
@@ -168,7 +196,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "intercessor"
     }
    ]
   },
