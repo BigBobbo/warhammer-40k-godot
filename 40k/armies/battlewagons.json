@@ -840,7 +840,7 @@
      {
       "name": "TRANSPORT",
       "type": "Core",
-      "description": "This model has a transport capacity of 22 ORKS INFANTRY models."
+      "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. Each JUMP PACK model takes up the space of 2 models."
      }
     ],
     "unit_composition": [
@@ -1034,7 +1034,7 @@
      {
       "name": "TRANSPORT",
       "type": "Core",
-      "description": "This model has a transport capacity of 22 ORKS INFANTRY models."
+      "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. Each JUMP PACK model takes up the space of 2 models."
      }
     ],
     "unit_composition": [
@@ -1228,7 +1228,7 @@
      {
       "name": "TRANSPORT",
       "type": "Core",
-      "description": "This model has a transport capacity of 22 ORKS INFANTRY models."
+      "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. Each JUMP PACK model takes up the space of 2 models."
      }
     ],
     "unit_composition": [

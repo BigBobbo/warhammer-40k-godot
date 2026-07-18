@@ -2,6 +2,22 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.55.1",
+			"date": "2026-07-18",
+			"summary": "Transport overhaul from a full cross-phase audit: Firing Deck actually works now (Battlewagons never got their Firing Deck 11 from army files, and even selected weapons never fired), embarked units can no longer be shot at or declare charges through stale positions, illegal cargo (bikes, koptas) can no longer be declared into 'ORKS INFANTRY' transports, Mega Armour / Jump Pack models now take 2 transport spaces, and several disembark edge cases were tightened.",
+			"changes": [
+				"Firing Deck fixed end-to-end: 'Firing Deck 11' is now read from army files (it always loaded as 0, so the weapon-selection dialog never appeared), and the embarked models' selected weapons are now really fired by the transport as extra guns in its shooting sequence.",
+				"Embarked units are untouchable while inside: a unit that embarked during the Movement phase kept its old board position, so the enemy could still shoot it and it still counted as on the battlefield for charges. Embarking now clears model positions, and target lists always exclude embarked units.",
+				"Transport eligibility enforced everywhere: a '22 ORKS INFANTRY models' transport now requires BOTH keywords in the Formations declaration dialog and engine (Warbikers/Deffkoptas could previously be declared and deployed inside a Battlewagon).",
+				"Mega Armour and Jump Pack models now take up the space of 2 models in Battlewagons (capacity maths in the Formations dialog, deployment embark dialog and engine all agree).",
+				"Disembarking from a transport that already moved no longer secretly offers the unit a follow-up move (11e tactical disembark now respects the cannot-move restriction).",
+				"Disembark placement now warns and lets you fix the last model when the spread would break unit coherency, instead of silently discarding all your placements; placement errors show as toasts.",
+				"Emergency disembark from a destroyed transport no longer stacks survivors from different units on the same spot (models spread over expanding rings).",
+				"The engine now rejects disembark set-ups that overlap other models even when driven by the AI or scripts (the placement UI already prevented it).",
+				"Battle formations log now names the embarked units ('Burna Boyz embarked aboard Battlewagon Alpha' instead of 'Unknown embarked')."
+			]
+		},
+		{
 			"version": "0.55.0",
 			"date": "2026-07-17",
 			"summary": "Armour saves now always tell you WHO is attacking — and let you watch the battlefield while you decide. The Allocate Attacks window names the attacking unit ('Shot by Battlewagon Alpha'), sits as a slim command bar along the bottom of the screen instead of covering the board or any menus, and the battlefield itself outlines the attacker (red, with an arrow) and your unit under fire (gold).",

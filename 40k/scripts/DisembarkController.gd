@@ -488,9 +488,51 @@ func _complete_disembark() -> void:
 				# This shouldn't happen if placement was successful
 				print("WARNING: Missing position for model ", i)
 
+	# Coherency pre-check: CONFIRM_DISEMBARK rejects incoherent set-ups, and a
+	# rejection after cleanup used to silently discard every placement (tokens
+	# vanish, unit still embarked, no way to see why). Catch it here instead —
+	# keep the placement UI alive, undo the last model, and let the player
+	# re-place it.
+	if not _placements_coherent(final_positions):
+		_show_error("Unit coherency broken — every model must be within 2\" of another model in the unit. Re-place the last model (right-click undoes).")
+		_on_right_click()  # undo last placement so the player can fix it
+		return
+
 	# Just emit the completion signal - MovementPhase will handle offering movement
 	emit_signal("disembark_completed", unit_id, final_positions)
 	_cleanup()
+
+
+# Mirror of MovementPhase coherency (2" chain) over the proposed placements.
+func _placements_coherent(final_positions: Array) -> bool:
+	if final_positions.size() <= 1:
+		return true
+	var placed_models := []
+	var pos_i := 0
+	for i in range(unit_data.models.size()):
+		if not unit_data.models[i].alive:
+			continue
+		if pos_i >= final_positions.size():
+			break
+		var m = unit_data.models[i].duplicate()
+		m["position"] = {"x": final_positions[pos_i].x, "y": final_positions[pos_i].y}
+		placed_models.append(m)
+		pos_i += 1
+	var coherency_px := Measurement.inches_to_px(2.0)
+	var spread_px := Measurement.inches_to_px(9.0)
+	for i in range(placed_models.size()):
+		var has_mate := false
+		for j in range(placed_models.size()):
+			if i == j:
+				continue
+			var d := Measurement.model_to_model_distance_px(placed_models[i], placed_models[j])
+			if d <= coherency_px:
+				has_mate = true
+			if d > spread_px:
+				return false
+		if not has_mate:
+			return false
+	return true
 
 
 func _get_placement_index(model_idx: int) -> int:
@@ -541,7 +583,9 @@ func _show_instructions() -> void:
 
 func _show_error(reason: String) -> void:
 	print("Cannot place model: ", reason)
-	# This would normally show in a toast/notification UI
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_error"):
+		toast_mgr.show_error(reason)
 
 func _get_world_position_from_screen(screen_pos: Vector2) -> Vector2:
 	"""Convert screen position to world position, accounting for camera"""
