@@ -2,6 +2,26 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.63.0",
+			"date": "2026-07-18",
+			"summary": "The \"Auto\" helper now covers the Consolidate step too. Just like Auto Pile In, the Consolidate dialog has an \"Auto Consolidate\" button that moves every model toward the closest enemy (or objective, following the mandatory consolidate mode) for you — up to 3\", legally — instead of dragging each model by hand. It fills the move in as a preview to review and Confirm, or Reset.",
+			"changes": [
+				"Consolidate dialog now has an \"Auto Consolidate\" button that moves all of a unit's models (and any attached characters) toward the closest enemy — or the closest objective when no enemy is in reach — automatically, up to 3\".",
+				"Follows the same legal consolidate rules the AI uses (correct 12.08 mode, each model ends closer, models already in base contact stay put, overlaps avoided).",
+				"Shown as a preview with the usual arrows — review it, then Confirm to commit, or Reset to drag models yourself."
+			]
+		},
+		{
+			"version": "0.62.0",
+			"date": "2026-07-18",
+			"summary": "New \"Auto Pile In\" button in the Fight phase. During the Pile In step you can now let the computer move every model toward the closest enemy for you — up to 3\", legally — instead of dragging each model by hand. It fills the move in as a preview so you can review it and then Confirm, or Reset and position them yourself.",
+			"changes": [
+				"Pile In dialog now has an \"Auto Pile In\" button that moves all of a unit's models (and any attached characters) toward the closest enemy automatically, up to 3\".",
+				"The automatic move follows the same legal pile-in rules the AI uses: each model ends closer to its nearest enemy, models already in base contact stay put, and overlaps are avoided.",
+				"The computed move is shown as a preview with the usual arrows — review it, then Confirm to commit, or Reset to clear it and drag models yourself."
+			]
+		},
+		{
 			"version": "0.61.1",
 			"date": "2026-07-18",
 			"summary": "Swept out several 10th-edition rules that were still being applied in the 11th-edition game. The headline: models on non-round bases (Battlewagons, Squiggoths, Gorkanauts and the like) no longer pay 2\" of movement to turn — pivoting is free in 11th edition. Also fixed cover wrongly boosting saves on Overwatch/auto-resolved shots and an over-strict charge distance.",
