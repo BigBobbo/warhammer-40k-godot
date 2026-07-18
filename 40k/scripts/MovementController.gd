@@ -684,7 +684,12 @@ func _create_section4_actions(parent: VBoxContainer) -> void:
 	button_container.add_child(reset_button)
 
 	var confirm_button = Button.new()
-	confirm_button.text = "Confirm Move"
+	# "End This Unit's Move" (not "Confirm Move") so it is not confused with the
+	# "Confirm Movement Mode" button above: this button FINALISES the unit's move
+	# for the phase, it does NOT lock in the chosen mode. Players were clicking it
+	# right after picking Advance and ending the move without actually advancing.
+	confirm_button.text = "End This Unit's Move"
+	confirm_button.tooltip_text = "Finish and lock in this unit's movement for the phase. Do this AFTER you have moved the models. (This is not the same as 'Confirm Movement Mode', which starts an Advance / Remain Stationary.)"
 	confirm_button.pressed.connect(_on_confirm_move_pressed)
 	_WhiteDwarfTheme.apply_primary_button(confirm_button)
 	button_container.add_child(confirm_button)

@@ -30,7 +30,7 @@
     { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves.size()", "expect_min": 1 },
     { "act": "screenshot", "label": "03_model_dragged" },
 
-    { "act": "pad_cursor_glide", "button_text": "Confirm Move" },
+    { "act": "pad_cursor_glide", "button_text": "End This Unit's Move" },
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "execute_script", "script": "abs(GameState.state.units.U_BLADE_CHAMPION_A.models[0].position.y - 220.0)", "expect_max": 15 },
