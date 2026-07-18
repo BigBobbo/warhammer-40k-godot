@@ -1,0 +1,56 @@
+{
+  "id": "take_to_skies_mid_move_11e",
+  "covers": [
+    "movement.fly.take_to_skies_mid_move_toggle",
+    "phases.MovementPhase.SET_TAKE_TO_SKIES",
+    "movementcontroller.take_to_skies_checkbox.live_toggle"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "edition": 11,
+  "description": "Deffkopta dense-terrain fix, player path: selecting a FLY unit auto-begins a NORMAL move BEFORE the 'Take to the skies (-2\" move)' checkbox can be ticked, so the tick used to do nothing — dense terrain (rule 13.06) kept blocking the path even with the box checked. Setup swaps in take_and_hold_mirror_1 and teleports the Shield-Captain on Dawneagle Jetbike (MOUNTED/FLY, M12, oval base) east of the 5\" dense wall corner-ruin-balanced-left-46. Asserts: (a) click-select then drag across the wall is refused while grounded (no staged move, model stays put); (b) a real click on the checkbox dispatches SET_TAKE_TO_SKIES — took_to_skies flips true and the cap drops to 10\"; (c) the same drag now stages; (d) Confirm Move lands the model west of the wall.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script", "script": "TerrainManager.load_terrain_layout(\"take_and_hold_mirror_1\")" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"models\"][0].merge({\"position\": {\"x\": 1220.0, \"y\": 1140.0}}, true)" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"models\"][0].merge({\"position\": {\"x\": 1220.0, \"y\": 1140.0}}, true)" },
+    { "act": "execute_script", "script": "main._recreate_unit_visuals()" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "01_jetbike_beside_5in_wall" },
+
+    { "act": "click_unit", "unit_id": "U_SHIELD_CAPTAIN_JETBIKE_A" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_SHIELD_CAPTAIN_JETBIKE_A" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"took_to_skies\"]", "equals": false },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/TakeToSkiesCheckBox" },
+    { "act": "screenshot", "label": "02_selected_checkbox_unticked" },
+
+    { "act": "drag_board", "from_x": 1220, "from_y": 1140, "to_x": 1000, "to_y": 1120 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_SHIELD_CAPTAIN_JETBIKE_A\")", "equals": false },
+    { "act": "execute_script", "script": "abs(GameState.get_unit(\"U_SHIELD_CAPTAIN_JETBIKE_A\").get(\"models\")[0].get(\"position\").get(\"x\") - 1220.0) < 0.5", "equals": true },
+    { "act": "screenshot", "label": "03_grounded_crossing_refused" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/TakeToSkiesCheckBox" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"took_to_skies\"]", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"move_cap_inches\"]", "equals": 10.0 },
+    { "act": "execute_script", "script": "main.movement_controller.move_cap_inches", "equals": 10.0 },
+    { "act": "screenshot", "label": "04_checkbox_ticked_cap_10" },
+
+    { "act": "drag_board", "from_x": 1220, "from_y": 1140, "to_x": 1000, "to_y": 1120 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_SHIELD_CAPTAIN_JETBIKE_A\")", "equals": true },
+    { "act": "screenshot", "label": "05_flying_crossing_staged" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "units.U_SHIELD_CAPTAIN_JETBIKE_A.flags.moved", "equals": true },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_SHIELD_CAPTAIN_JETBIKE_A\").get(\"models\")[0].get(\"position\").get(\"x\") < 1073.0", "equals": true },
+    { "act": "screenshot", "label": "06_landed_west_of_wall" }
+  ]
+}
