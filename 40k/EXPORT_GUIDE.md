@@ -353,3 +353,84 @@ Your current setup (macOS) can export for:
 ---
 
 **TIP**: For rapid testing, keep the Godot editor open on one computer (Host) and run the exported build on another computer (Client). This lets you quickly iterate without re-exporting after every change.
+---
+
+# Steam Deck (Linux) Build
+
+The controller support (native gamepad controls, virtual cursor, model-carry,
+contextual hint bar) was designed for a **native Linux build sideloaded onto
+the Deck**, not for the itch.io in-browser Web build. In a browser the Deck
+presents its sticks/buttons as keyboard + mouse, so Godot never sees a joypad
+and the pad-specific code does not activate. A native build added to Steam
+gets Steam Input, which presents the Deck's controls as a standard Xbox-style
+controller — that is when the controller scheme lights up.
+
+A ready-made **`Linux`** export preset is committed in
+`40k/export_presets.cfg`:
+- Platform: Linux, architecture `x86_64` (the Deck's CPU).
+- **Embed PCK = true** → a single self-contained executable file
+  (`Warhammer40K.x86_64`), which is the easiest thing to copy onto the Deck.
+- Exclude filter strips `server/*`, `tests/*`, and `*.md` from the build.
+- Export path: `exports/linux/Warhammer40K.x86_64`.
+
+## 1. Export the build (on your dev machine)
+
+First time only, install the Linux export templates:
+**Editor → Manage Export Templates → Download and Install.**
+
+Then either:
+
+- **Editor**: Project → Export… → select **Linux** → Export Project →
+  save as `exports/linux/Warhammer40K.x86_64`.
+- **CLI** (from the `40k/` folder):
+  ```bash
+  godot --headless --export-release "Linux" exports/linux/Warhammer40K.x86_64
+  chmod +x exports/linux/Warhammer40K.x86_64
+  ```
+
+This produces one executable file with everything embedded.
+
+## 2. Get it onto the Steam Deck
+
+Any of these work — pick whichever is easiest for you:
+- Copy `Warhammer40K.x86_64` onto a USB stick / SD card and plug it into the Deck.
+- Upload it to the itch.io page as a **Linux download** (uncheck "This file
+  will be played in the browser") and download it on the Deck via the itch app
+  or browser.
+- `scp` it over your network to the Deck (SSH must be enabled on the Deck).
+
+Put the file somewhere like `~/Games/Warhammer40K/` on the Deck.
+
+## 3. Make it runnable and add it to Steam
+
+1. Switch to **Desktop Mode** (hold Power → Switch to Desktop).
+2. Mark the file executable: in Dolphin (file manager), right-click the file →
+   Properties → Permissions → tick **Is executable**. (Or in Konsole:
+   `chmod +x ~/Games/Warhammer40K/Warhammer40K.x86_64`.)
+3. Open **Steam** (Desktop Mode) → **Games → Add a Non-Steam Game to My
+   Library → Browse** → select `Warhammer40K.x86_64` → **Add Selected
+   Programs**.
+4. (Optional) In the game's Properties in Steam you can rename it and set a
+   custom icon/artwork.
+
+## 4. Play it with the controller
+
+1. Return to **Gaming Mode** (the "Return to Gaming Mode" desktop shortcut).
+2. Find the game in your Library and launch it.
+3. Steam Input now presents the Deck controls as an Xbox-style pad, so the
+   native scheme is active: **left stick** drives the cursor / carries a model,
+   **A** select/confirm, **B** cancel/back, **LB/RB** cycle units (and rotate a
+   carried model), **right stick** pans the camera, **triggers** zoom,
+   **X** the phase-contextual action, **Y** datasheet/inspect, **Start**
+   confirm, **Menu** end phase. The on-screen hint bar names the current
+   buttons.
+
+### Notes / limitations
+- The Deck's **extra inputs** (back grips L4/L5/R4/R5, trackpads, gyro) are not
+  seen as native joypad input; they only work via a per-game Steam Input
+  layout. Treat them as optional extras, never required controls.
+- **Text entry** (e.g. save names, multiplayer IP) has no Steamworks floating
+  keyboard in a non-Steam sideload; use the in-game pad-navigable entry, or
+  bring up the Steam on-screen keyboard with **STEAM + X**.
+- This is a standard x86_64 Linux binary, so it also runs on any desktop Linux
+  machine, not just the Deck.
