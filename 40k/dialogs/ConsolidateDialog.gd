@@ -71,6 +71,18 @@ func _build_ui() -> void:
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	button_container.add_theme_constant_override("separation", 10)
 
+	# Auto consolidate button — let the computer move every model toward the
+	# closest enemy (or objective, per the 12.08 mode) up to 3", legally, so the
+	# player doesn't have to drag each one. Fills in a preview; the player still
+	# reviews it and hits Confirm.
+	var auto_button = Button.new()
+	auto_button.name = "AutoButton"
+	auto_button.text = "Auto Consolidate"
+	auto_button.tooltip_text = "Move every model toward the closest enemy (or objective) automatically (up to 3\"). Review the preview, then Confirm."
+	auto_button.custom_minimum_size = Vector2(0, 36)
+	auto_button.pressed.connect(_on_auto_consolidate_pressed)
+	button_container.add_child(auto_button)
+
 	# Reset button
 	reset_button = Button.new()
 	reset_button.name = "ResetButton"
@@ -177,6 +189,27 @@ func _validate_movements() -> Dictionary:
 		return phase_reference._validate_consolidate(action)
 
 	return {"valid": true, "errors": []}
+
+func _on_auto_consolidate_pressed() -> void:
+	"""Have the computer consolidate every model toward the closest enemy (or
+	objective), then let the player review and Confirm (or Reset). Reuses the AI
+	consolidate solver via the FightController so the move is always legal."""
+	print("[ConsolidateDialog] Auto Consolidate pressed")
+	if not controller_reference or not controller_reference.has_method("auto_consolidate_movements"):
+		print("[ConsolidateDialog] No controller / auto_consolidate_movements — cannot auto consolidate")
+		return
+
+	model_movements = controller_reference.auto_consolidate_movements()
+	print("[ConsolidateDialog] Auto consolidate produced movements: ", model_movements)
+
+	if not status_label:
+		return
+	if model_movements.is_empty():
+		status_label.text = "Auto consolidate: no legal move (no enemy or objective in reach, or already in base contact)"
+		status_label.add_theme_color_override("font_color", _NEUTRAL_STATUS)
+	else:
+		# _update_status() re-validates via FightPhase and shows the ✓/✗ result
+		_update_status()
 
 func _on_reset_pressed() -> void:
 	"""Reset all model positions to original"""

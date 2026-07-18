@@ -40,6 +40,15 @@ static func barricade_engagement_range_inches() -> float:
 	return 2.0
 
 
+# ── Reinforcements / Reserves ───────────────────────────────────────
+## Minimum distance a unit set up from Reserves — Deep Strike, Strategic
+## Reserves, Rapid Ingress — or via an infiltrate-style redeploy must be
+## placed from all enemy models (edge-to-edge, "more than").
+## 10e: >9". 11e (20.04 Ingress Move): >8".
+static func reinforcement_min_enemy_distance_inches() -> float:
+	return 8.0 if edition >= 11 else 9.0
+
+
 # ── Unit coherency ──────────────────────────────────────────────────
 ## Horizontal distance to count as "in coherency" with another model
 ## (both editions: 2").

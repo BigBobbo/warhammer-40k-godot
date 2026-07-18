@@ -79,7 +79,7 @@ after abilities). Command-abilities-after-battleshock ordering ✅ in `CommandPh
 | Move **through** enemy ER (end outside) | ✅ | `MovementPhase` staging allows transit, checks end-position. |
 | Set-Up outside ER; **Engaged** as a term | ✅ | Deploy/ingress validators enforce. |
 | Move templates (Max/Set-Up dist, Before/While/After) | ✅ | `movetypes/*`. |
-| **Free pivots** / straight-line+pivot | 🟡 | Pivot cost gated off at e11; not a fully modelled multi-segment pivot geometry. |
+| **Free pivots** / straight-line+pivot | ✅ | Pivoting is FREE at e11 — `get_pivot_value_for_unit` returns 0" for every base type. (Correction 2026-07-18: this row previously claimed the cost was "gated off at e11", but the 10e 2" non-round-base pivot cost was actually applied **un-gated** and hit players; now edition-gated to 0" at e11.) Multi-segment pivot geometry still not modelled. |
 | **FLY "Take to the Skies"** (−2", ignore vertical, through all) | ✅ | Movement-panel toggle validated live (12→10"). |
 | Move through gaps by base | ✅ | Pre-existing. |
 | M/V through non-M/V enemies | ✅ | Gated at e11. |
