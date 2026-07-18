@@ -1,0 +1,283 @@
+{
+ "faction": {
+  "name": "Adeptus Custodes",
+  "points": 430,
+  "detachment": "Lions of the Emperor",
+  "player_name": "",
+  "team_name": "",
+  "created_date": "2026-07-17",
+  "schema": 2,
+  "edition": 11,
+  "data_source": "repro: web-built list, Custodian Guard missing Deep Strike (40kdc gap)"
+ },
+ "units": {
+  "U_CUSTODIAN_GUARD_A": {
+   "id": "U_CUSTODIAN_GUARD_A",
+   "squad_id": "U_CUSTODIAN_GUARD_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Custodian Guard",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "BATTLELINE",
+     "CUSTODIAN GUARD",
+     "IMPERIUM",
+     "INFANTRY"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 3,
+     "leadership": 6,
+     "objective_control": 2,
+     "invuln": 4
+    },
+    "points": 215,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "5x Guardian spear"
+    ],
+    "weapons": [
+     {
+      "name": "Guardian spear \u2013 Ranged",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "2",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "2",
+      "special_rules": "assault",
+      "abilities": [
+       {
+        "id": "assault"
+       }
+      ]
+     },
+     {
+      "name": "Guardian spear \u2013 Melee",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Praesidium Shield",
+      "type": "Datasheet",
+      "description": "Add 1 to this model's Wounds characteristic."
+     },
+     {
+      "name": "Sentinel Storm",
+      "type": "Datasheet",
+      "description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability."
+     },
+     {
+      "name": "Stand Vigil",
+      "type": "Datasheet",
+      "description": "You can re-roll a Wound roll of 1."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "4-5 Custodian Guard",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_CUSTODIAN_GUARD_B": {
+   "id": "U_CUSTODIAN_GUARD_B",
+   "squad_id": "U_CUSTODIAN_GUARD_B",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Custodian Guard",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "BATTLELINE",
+     "CUSTODIAN GUARD",
+     "IMPERIUM",
+     "INFANTRY"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 3,
+     "leadership": 6,
+     "objective_control": 2,
+     "invuln": 4
+    },
+    "points": 215,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "5x Guardian spear"
+    ],
+    "weapons": [
+     {
+      "name": "Guardian spear \u2013 Ranged",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "2",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "2",
+      "special_rules": "assault",
+      "abilities": [
+       {
+        "id": "assault"
+       }
+      ]
+     },
+     {
+      "name": "Guardian spear \u2013 Melee",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Praesidium Shield",
+      "type": "Datasheet",
+      "description": "Add 1 to this model's Wounds characteristic."
+     },
+     {
+      "name": "Sentinel Storm",
+      "type": "Datasheet",
+      "description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability."
+     },
+     {
+      "name": "Stand Vigil",
+      "type": "Datasheet",
+      "description": "You can re-roll a Wound roll of 1."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "4-5 Custodian Guard",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  }
+ }
+}

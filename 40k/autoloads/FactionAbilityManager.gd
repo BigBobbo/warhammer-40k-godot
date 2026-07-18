@@ -2886,7 +2886,11 @@ static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary)
 	"""Check if Against All Odds grants +1 Hit and +1 Wound.
 	Condition: the unit's army runs the Lions of the Emperor detachment, and the
 	unit is a non-VEHICLE ADEPTUS CUSTODES unit with no other friendly units
-	within 6\"."""
+	within 6\". Leader rules: an attached CHARACTER and its bodyguard count as
+	ONE unit — they never block each other, and the 6\" bubble is measured from
+	every model in the combined unit. Friendly units that are not on the
+	battlefield (embarked in a Transport, or in Reserves — whose models keep
+	stale coordinates) never block."""
 	var owner = attacker_unit.get("owner", -1)
 	if owner < 0:
 		return false
@@ -2908,14 +2912,45 @@ static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary)
 			is_vehicle = true
 	if not is_custodes or is_vehicle:
 		return false
-	var attacker_id = attacker_unit.get("id", "")
+	var attacker_id = str(attacker_unit.get("id", ""))
 	var units = board.get("units", {})
-	var attacker_models = attacker_unit.get("models", [])
+	# Build the attacking unit's attached group (self + attached leaders, or —
+	# when the attacker IS an attached leader — its bodyguard and that
+	# bodyguard's other leaders). Group members are the SAME unit per the
+	# Leader rules, so they are excluded from the "other friendly units" scan
+	# and their models are included in the measuring set.
+	var group_ids := {attacker_id: true}
+	for char_id in attacker_unit.get("attachment_data", {}).get("attached_characters", []):
+		group_ids[str(char_id)] = true
+	var bodyguard_id = attacker_unit.get("attached_to", null)
+	if bodyguard_id != null and str(bodyguard_id) != "":
+		group_ids[str(bodyguard_id)] = true
+		var bodyguard = units.get(str(bodyguard_id), {})
+		for char_id in bodyguard.get("attachment_data", {}).get("attached_characters", []):
+			group_ids[str(char_id)] = true
+	var group_models: Array = []
+	for m in attacker_unit.get("models", []):
+		group_models.append(m)
+	for gid in group_ids:
+		if gid == attacker_id:
+			continue
+		for m in units.get(gid, {}).get("models", []):
+			group_models.append(m)
 	for other_id in units:
-		if other_id == attacker_id:
+		if group_ids.has(str(other_id)):
 			continue
 		var other_unit = units[other_id]
 		if other_unit.get("owner", -1) != owner:
+			continue
+		# Units that are not on the battlefield cannot be within 6": embarked
+		# units and units in Reserves keep their last battlefield coordinates.
+		if other_unit.get("embarked_in", null) != null:
+			continue
+		var status_v = other_unit.get("status", -1)
+		if typeof(status_v) == TYPE_STRING:
+			if str(status_v) in ["UNDEPLOYED", "IN_RESERVES"]:
+				continue
+		elif int(status_v) == GameStateData.UnitStatus.UNDEPLOYED or int(status_v) == GameStateData.UnitStatus.IN_RESERVES:
 			continue
 		var other_alive = false
 		for m in other_unit.get("models", []):
@@ -2925,7 +2960,7 @@ static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary)
 		if not other_alive:
 			continue
 		var min_dist = INF
-		for a_model in attacker_models:
+		for a_model in group_models:
 			if not a_model.get("alive", true):
 				continue
 			var a_pos = a_model.get("position", null)
@@ -2955,8 +2990,10 @@ static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary)
 					oy = float(o_pos.get("y", 0))
 				var dx = ax - ox
 				var dy = ay - oy
-				var a_base = float(a_model.get("base_size_mm", 32)) / 2.0 * 40.0 / 25.4
-				var o_base = float(o_model.get("base_size_mm", 32)) / 2.0 * 40.0 / 25.4
+				# Model dicts carry base_mm (base_size_mm in some older test
+				# fixtures) — honour both, radius in px at 40 px/inch.
+				var a_base = float(a_model.get("base_size_mm", a_model.get("base_mm", 32))) / 2.0 * 40.0 / 25.4
+				var o_base = float(o_model.get("base_size_mm", o_model.get("base_mm", 32))) / 2.0 * 40.0 / 25.4
 				var edge_dist = (sqrt(dx * dx + dy * dy) - a_base - o_base) / 40.0
 				if edge_dist < min_dist:
 					min_dist = edge_dist

@@ -1,0 +1,36 @@
+{
+ "id": "custodes_custodian_guard_deep_strike",
+ "covers": [
+  "autoloads.ArmyListManager.backfill_custodes_deep_strike",
+  "scripts.FormationsDeclarationDialog.reserves_deep_strike_label"
+ ],
+ "description": "Regression for the Custodian Guard Deep Strike bug: the vendored 40kdc 11e dataset dropped the Deep Strike core ability from the on-foot Adeptus Custodes range, so a web-built Custodes list offered a plain Custodian Guard squad only 'Strategic Reserves' on the Declare Battle Formations screen. Loads the 'custodes_web_built_repro' list (whose Custodian Guard JSON has NO Deep Strike ability) through ArmyListManager, asserts the load-time backfill grants Deep Strike (unit_has_deep_strike true), that the REAL FormationsDeclarationDialog labels the squad 'deep_strike', and that Prosecutors (Sisters of Silence) correctly stay non-Deep-Strike.",
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var a = ArmyListManager.load_army_list(\"custodes_web_built_repro\", 1)\nif a.is_empty():\n\treturn \"LOAD_FAILED\"\nGameState.state[\"units\"] = a[\"units\"]\nreturn GameState.unit_has_deep_strike(\"U_CUSTODIAN_GUARD_A\")",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var a = ArmyListManager.load_army_list(\"custodes_web_built_repro\", 1)\nGameState.state[\"units\"] = a[\"units\"]\nif not GameState.state.has(\"meta\"):\n\tGameState.state[\"meta\"] = {}\nGameState.state[\"meta\"][\"active_player\"] = 1\nvar dlg = AcceptDialog.new()\ndlg.set_script(load(\"res://scripts/FormationsDeclarationDialog.gd\"))\ntree.root.add_child(dlg)\ndlg.setup(1)\ndlg.popup_centered()\nvar rt = \"NOT_FOUND\"\nvar stack = [dlg]\nwhile not stack.is_empty():\n\tvar n = stack.pop_back()\n\tfor c in n.get_children():\n\t\tstack.append(c)\n\t\tif c is CheckBox and c.has_meta(\"unit_id\") and c.get_meta(\"unit_id\") == \"U_CUSTODIAN_GUARD_A\":\n\t\t\trt = str(c.get_meta(\"reserve_type\"))\nreturn rt",
+   "equals": "deep_strike"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var a = ArmyListManager.load_army_list(\"custodes_lions\", 1)\nGameState.state[\"units\"] = a[\"units\"]\nvar res = \"NOT_FOUND\"\nfor uid in a[\"units\"]:\n\tif GameState.get_unit(uid).get(\"meta\",{}).get(\"name\",\"\") == \"Prosecutors\":\n\t\tres = str(GameState.unit_has_deep_strike(uid))\nreturn res",
+   "equals": "false"
+  },
+  {
+   "act": "screenshot",
+   "label": "custodian_guard_deep_strike_offered"
+  }
+ ]
+}

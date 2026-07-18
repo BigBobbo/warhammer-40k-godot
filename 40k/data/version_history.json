@@ -15,6 +15,38 @@
 			]
 		},
 		{
+			"version": "0.54.10",
+			"date": "2026-07-17",
+			"summary": "Custodian Guard (and the rest of the on-foot Adeptus Custodes range) can now be placed in Deep Strike when declaring battle formations. The underlying army dataset was missing the Deep Strike ability on these datasheets, so the Formations screen only offered them 'Strategic Reserves' even though they have Deep Strike in 11th edition. This is now backfilled when any army is loaded, so existing and newly-built Custodes lists are both fixed.",
+			"changes": [
+				"Fixed: Custodian Guard, Custodian Wardens, Allarus Custodians, Shield-Captains (on foot / in Allarus armour), Trajann Valoris, Valerian, Sagittarum/Venatari/Aquilon Custodians and Custodian Guard with Adrasite and Pyrithite Spears now correctly offer 'Deep Strike' on the Declare Battle Formations screen.",
+				"Mounted Custodes (Dawneagle Jetbike, Vertus/Agamatus Praetors), vehicles, dreadnoughts and the Sisters of Silence (Prosecutors, Witchseekers, Vigilators) correctly remain Deep-Strike-ineligible and can still only use Strategic Reserves.",
+				"The fix is applied at army-load time, so Custodes lists you built and saved before this update are corrected automatically — no need to rebuild them."
+			]
+		},
+		{
+			"version": "0.54.9",
+			"date": "2026-07-17",
+			"summary": "The combat/dice log in the right-hand panel now stretches to fill all unused space below it, instead of staying a small fixed-height box with a big empty gap underneath. More of the roll history is visible at once in the Shooting, Charge and Fight phases.",
+			"changes": [
+				"Fight phase: the COMBAT LOG box grows to fill the leftover height of the FIGHT CONTROLS panel (the FIGHT STATUS section sits at the bottom).",
+				"Shooting phase: the DICE LOG box grows the same way.",
+				"Charge phase: the DICE LOG box grows the same way (the CHARGE ACTIONS section sits below it).",
+				"When the panel content is taller than the screen, everything still scrolls exactly as before."
+			]
+		},
+		{
+			"version": "0.54.8",
+			"date": "2026-07-17",
+			"summary": "Against All Odds (Lions of the Emperor) fixes: the +1 to hit / +1 to wound now applies on the quick-resolve and Fire Overwatch shooting path too, a unit led by an attached Character is no longer wrongly denied the buff by its own leader, and friendly units hidden in Transports or Reserves no longer block it.",
+			"changes": [
+				"Against All Odds now also applies on the auto-resolve shooting path (Fire Overwatch and quick resolution) — previously only the step-by-step shooting flow got the +1 to hit and +1 to wound.",
+				"A Character attached to a unit counts as part of that unit: leader and bodyguard no longer block each other's Against All Odds buff, and the 6\" isolation check measures from the leader's models too.",
+				"Friendly units embarked in a Transport or waiting in Reserves no longer block Against All Odds via their stale battlefield positions.",
+				"The 6\" isolation check now reads each model's real base size instead of assuming 32mm bases."
+			]
+		},
+		{
 			"version": "0.54.7",
 			"date": "2026-07-17",
 			"summary": "Fixed attached leaders not moving on the board when the opponent's AI piles in first. At the start of the Fight phase the player whose turn it is piles in first (11e 12.02) — when that was the AI and it piled in a unit with an attached character (e.g. a Blade Champion leading Custodian Guard), the bodyguard's models moved on the board but the leader's token stayed put, even though the leader had really moved in the game state. The whole group now visibly moves together the moment the AI piles in or consolidates.",
@@ -131,10 +163,10 @@
 		{
 			"version": "0.53.1",
 			"date": "2026-07-17",
-			"summary": "Fixed Ctrl+Click not selecting a second charge target. The Eligible Targets list told you to hold Ctrl+Click to charge more than one unit, but on many setups holding Ctrl and clicking did nothing (or just moved the selection) \u2014 so you could never actually declare a multi-unit charge. Ctrl+Click now reliably adds/removes extra targets.",
+			"summary": "Fixed Ctrl+Click not selecting a second charge target. The Eligible Targets list told you to hold Ctrl+Click to charge more than one unit, but on many setups holding Ctrl and clicking did nothing (or just moved the selection) — so you could never actually declare a multi-unit charge. Ctrl+Click now reliably adds/removes extra targets.",
 			"changes": [
 				"Fixed: holding Ctrl (or Cmd) and clicking a second unit in the Eligible Targets list now toggles it in/out of the charge, so you can declare a charge against several units as the hint describes.",
-				"The charge target list no longer relies on the click carrying the Ctrl modifier (which some systems don't attach to mouse clicks) \u2014 it now also reads the live keyboard state, so Ctrl+Click works consistently across platforms.",
+				"The charge target list no longer relies on the click carrying the Ctrl modifier (which some systems don't attach to mouse clicks) — it now also reads the live keyboard state, so Ctrl+Click works consistently across platforms.",
 				"Plain click still selects exactly one target, clicking empty space still clears the selection, and the target rows still lock once the charge is declared."
 			]
 		},
