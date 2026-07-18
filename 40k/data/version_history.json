@@ -14,6 +14,16 @@
 			]
 		},
 		{
+			"version": "0.58.5",
+			"date": "2026-07-18",
+			"summary": "Pressing W to pan the camera up no longer also opens the Weapon Range Comparison panel. That panel is now unbound by default — assign it a key in Settings › Keybindings if you want it on a hotkey.",
+			"changes": [
+				"Fixed the W-key collision: W now only pans the camera up. The Weapon Range Comparison panel used to share the W default and would toggle open every time you moved the view up.",
+				"The Weapon Range Comparison panel has no key bound by default. You can bind one yourself under Settings › Keybindings (it shows as 'None' until you do).",
+				"Existing configs that still had the old W binding for the panel are migrated to unbound automatically on load."
+			]
+		},
+		{
 			"version": "0.58.4",
 			"date": "2026-07-18",
 			"summary": "The little cover-type chips on terrain (LB / +2 / +1) are now hidden by default so the board is less cluttered. If you want them back, turn on Settings > Visual > 'Terrain Cover Labels'.",
