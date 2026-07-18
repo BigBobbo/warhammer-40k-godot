@@ -1444,6 +1444,78 @@ func repro_ai_pile_in_move(unit_id: String, nx: float, ny: float) -> bool:
 	}])
 	return true
 
+# Charge-phase analogue of repro_ai_pile_in_move. Reproduces the exact ordering
+# AIPlayer._execute_next_action uses for a charge move: it emits ai_action_taken
+# (-> Main._on_ai_action_taken) with an APPLY_CHARGE_MOVE action BEFORE routing
+# the action that writes the move, then the ChargePhase writes the model move in
+# route_action. The bug: nothing in _on_ai_action_taken handled APPLY_CHARGE_MOVE,
+# so the token stayed at its pre-charge position until END_CHARGE synced the whole
+# board — i.e. the charging unit only appeared to move AFTER the AI finished ALL
+# its charges. The fix defers a token sync on APPLY_CHARGE_MOVE so the token reads
+# the post-move state. Returns true if the handler + move were driven. Callable
+# from execute_script.
+func repro_ai_charge_move(unit_id: String, nx: float, ny: float) -> bool:
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("_on_ai_action_taken"):
+		return false
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty() or unit.get("models", []).is_empty():
+		return false
+	var owner := int(unit.get("owner", 1))
+	# (1) AI emits ai_action_taken BEFORE the action is routed:
+	scene._on_ai_action_taken(owner, {"type": "APPLY_CHARGE_MOVE", "actor_unit_id": unit_id}, "repro charge move")
+	# (2) the ChargePhase then writes the charge move in route_action / apply_state_changes:
+	GameState.apply_state_changes([{
+		"op": "set",
+		"path": "units.%s.models.0.position" % unit_id,
+		"value": {"x": nx, "y": ny}
+	}])
+	return true
+
+# Attached-unit (19.03) analogue of repro_ai_pile_in_move. A fight-phase
+# PILE_IN / CONSOLIDATE moves the chosen unit AND its attached characters'
+# models in ONE action, but the action dict carries only the BODYGUARD's
+# unit_id (the AI merges the leader's moves via
+# _merge_attached_char_fight_movements). The bug: _on_ai_action_taken synced
+# visuals with update_unit_visuals(unit_id), which only walks that one unit's
+# tokens — the leader's token stayed stranded at its pre-move position (its
+# desync equalled its full state displacement) while GameState and the combat
+# used the new one. This helper links char_id to unit_id as an attached
+# character, drives the REAL Main handler in the exact AI order, then applies
+# the model-0 move of BOTH units the phase would apply in route_action. The
+# fix defers _sync_all_token_positions() so every token in the group catches
+# up. Returns true if the handler + moves were driven. Callable from
+# execute_script.
+func repro_ai_pile_in_group_move(unit_id: String, char_id: String, nx: float, ny: float, cnx: float, cny: float) -> bool:
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("_on_ai_action_taken"):
+		return false
+	var unit = GameState.get_unit(unit_id)
+	var chr_unit = GameState.get_unit(char_id)
+	if unit.is_empty() or unit.get("models", []).is_empty() \
+			or chr_unit.is_empty() or chr_unit.get("models", []).is_empty():
+		return false
+	# 19.03 linkage, both directions — matching how formations write it.
+	GameState.state.units[unit_id]["attachment_data"] = {"attached_characters": [char_id]}
+	GameState.state.units[char_id]["attached_to"] = unit_id
+	var owner := int(unit.get("owner", 1))
+	# (1) AI emits ai_action_taken BEFORE the action is routed:
+	scene._on_ai_action_taken(owner, {"type": "PILE_IN", "unit_id": unit_id}, "repro group pile-in")
+	# (2) the FightPhase then writes the WHOLE GROUP's move in route_action:
+	GameState.apply_state_changes([
+		{
+			"op": "set",
+			"path": "units.%s.models.0.position" % unit_id,
+			"value": {"x": nx, "y": ny}
+		},
+		{
+			"op": "set",
+			"path": "units.%s.models.0.position" % char_id,
+			"value": {"x": cnx, "y": cny}
+		}
+	])
+	return true
+
 # Distance in px between a unit's model ON-SCREEN token and that model's current
 # GameState position. ~0 == the visual is in sync with state; a large value ==
 # the token was left stranded at a stale position. Callable from execute_script,
@@ -1572,7 +1644,7 @@ func option_button_text_for_metadata(node_path: String, metadata: String) -> Str
 			return ob.get_item_text(i)
 	return ""
 
-# Whether a FightSelectionDialog UnitList child is `unit_id`'s button. The
+# Whether a FightSelectionPanel UnitList child is `unit_id`'s button. The
 # first button for a unit carries the stable node name "Fight_<unit_id>" — but
 # a DUPLICATE of an already-listed unit collides on that requested name and
 # Godot auto-renames the new node to "@Button@N" (the requested name is
@@ -1595,16 +1667,22 @@ func _fight_dialog_button_matches(child: Node, unit_id: String) -> bool:
 	var base := str(meta.get("name", ""))
 	return (display != "" and label == display) or (base != "" and label == base)
 
-# The FightSelectionDialog sections a unit's button appears under, walking the
-# dialog's UnitList in visual order and tracking the last "=== X ===" header
+# The right panel's fighter-selection UnitList (12.04 pick). Was the centered
+# FightSelectionDialog pop-up until it moved into the FightPanel like the other
+# unit-to-activate pickers — the fight_dialog_* helper names are kept so older
+# scenario scripts keep working.
+const FIGHT_SELECTION_UNIT_LIST := "Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList"
+
+# The fighter-selection sections a unit's button appears under, walking the
+# panel's UnitList in visual order and tracking the last "=== X ===" header
 # (comma-joined when the unit shows up more than once; "" if absent).
 # Callable from `execute_script`, e.g.
 # fight_dialog_sections_of_unit("U_WARBOSS_B") with equals "FIGHTS_FIRST" —
 # the duplication bug made this return "FIGHTS_FIRST,REMAINING_COMBATS".
 func fight_dialog_sections_of_unit(unit_id: String) -> String:
-	var list := get_tree().root.get_node_or_null("FightSelectionDialog/Content/UnitScroll/UnitList")
+	var list := get_tree().root.get_node_or_null(FIGHT_SELECTION_UNIT_LIST)
 	if list == null:
-		return "<no dialog>"
+		return "<no selection panel>"
 	var sections: Array = []
 	var current_header := ""
 	for child in list.get_children():
@@ -1614,12 +1692,12 @@ func fight_dialog_sections_of_unit(unit_id: String) -> String:
 			sections.append(current_header)
 	return ",".join(sections)
 
-# How many buttons for `unit_id` the FightSelectionDialog shows across ALL its
-# sections (-1 if the dialog is absent). A unit fights once, so this must be
+# How many buttons for `unit_id` the fighter-selection panel shows across ALL
+# its sections (-1 if the panel is absent). A unit fights once, so this must be
 # exactly 1 for every offered unit. Callable from `execute_script`, e.g.
 # fight_dialog_button_count("U_WARBOSS_B") with equals 1.
 func fight_dialog_button_count(unit_id: String) -> int:
-	var list := get_tree().root.get_node_or_null("FightSelectionDialog/Content/UnitScroll/UnitList")
+	var list := get_tree().root.get_node_or_null(FIGHT_SELECTION_UNIT_LIST)
 	if list == null:
 		return -1
 	var n := 0

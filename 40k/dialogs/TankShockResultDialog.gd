@@ -60,17 +60,16 @@ func setup(result: Dictionary) -> void:
 	dice_row.add_theme_constant_override("separation", 10)
 
 	for roll in dice_rolls:
-		var die = Label.new()
-		die.text = "[%d]" % roll
-		die.add_theme_font_size_override("font_size", 24)
-		die.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		die.custom_minimum_size = Vector2(45, 40)
-
-		if roll >= 5:
-			die.add_theme_color_override("font_color", Color.GREEN)
-		else:
-			die.add_theme_color_override("font_color", Color.RED)
-
+		var v := int(roll)
+		# Show each die as its d6 face icon (pips) rather than a "[n]" number,
+		# matching the combat log and the rest of the game's dice visuals. 5+ is a
+		# mortal wound, so passes render green and fails red (a 6 is no crit here).
+		var die := TextureRect.new()
+		var bg := DiceFaceIcons.color_for(v, 5, true, 7)
+		die.texture = DiceFaceIcons.get_face(v, bg)
+		die.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		die.custom_minimum_size = Vector2(40, 40)
+		die.tooltip_text = "Rolled %d" % v
 		dice_row.add_child(die)
 
 	main.add_child(dice_row)

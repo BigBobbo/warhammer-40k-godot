@@ -34,8 +34,8 @@
     { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
 
-    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 5.0 },
-    { "act": "click_node", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
 
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
@@ -126,7 +126,7 @@
     { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.has_fought", "equals": true },
-    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 8.0 },
     { "act": "screenshot", "label": "06_next_fighter_selection_repops" }
   ]
 }

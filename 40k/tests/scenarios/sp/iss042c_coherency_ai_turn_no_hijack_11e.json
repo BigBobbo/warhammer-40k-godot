@@ -1,0 +1,46 @@
+{
+  "id": "iss042c_coherency_ai_turn_no_hijack_11e",
+  "covers": [
+    "phases.ScoringPhase.coherency_removal_choice_03_03",
+    "ui.CoherencyRemovalDialog",
+    "autoloads.AIPlayer.scoring_gate_ownership"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 11,
+  "disable_ai": true,
+  "description": "Guards the AI-hijacks-the-human's-03.03-removal bug (user report 2026-07-17: 'they popped up asking me to remove them, but it removed the models automatically'). At the end of the AI's (P2) turn, a HUMAN (P1) unit is out of coherency: END_TURN pauses and the CoherencyRemovalDialog opens for the human. The AI's main loop used to pick the REMOVE_MODEL_FOR_COHERENCY actions straight out of get_available_actions() and delete the human's models within a second of the dialog opening. This scenario displaces a P1 Custodian Guard model 15\" from its unit during P2's Scoring phase, enables the AI for P2 (which ends its own turn, opening the human's dialog), waits past several AI evaluation cycles, and asserts all three human models are still alive and the gate still awaits the human; then the human clicks the real dialog button, the chosen model is removed, and the turn ends. Pre-fix this fails at the '03_human_models_survive_ai_cycles' asserts.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 11 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")[\"models\"][0].merge({\"position\": {\"x\": 370.0, \"y\": 500.0}}, true)" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._get_incoherent_human_units().size()", "equals": 1 },
+    { "act": "screenshot", "label": "01_p1_guard_broken_coherency_during_p2_turn" },
+
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "AIPlayer._request_evaluation()" },
+
+    { "act": "expect_node_visible", "node": "/root/CoherencyRemovalDialog", "timeout_s": 8.0 },
+    { "act": "screenshot", "label": "02_dialog_open_during_ai_turn" },
+
+    { "act": "wait_seconds", "seconds": 3.0 },
+
+    { "act": "execute_script", "multiline": true, "script": "var alive := 0\nfor m in GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").models:\n\tif m.get(\"alive\", true):\n\t\talive += 1\nreturn alive", "equals": 3 },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")[\"models\"][0][\"alive\"]", "equals": true },
+    { "act": "expect_phase_property", "property": "_awaiting_coherency_removal", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_available_actions().size()", "equals": 0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 11 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_node_visible", "node": "/root/CoherencyRemovalDialog", "timeout_s": 1.0 },
+    { "act": "screenshot", "label": "03_human_models_survive_ai_cycles" },
+
+    { "act": "click_node", "node": "/root/CoherencyRemovalDialog/Content/Row_U_CUSTODIAN_GUARD_B/Remove_U_CUSTODIAN_GUARD_B_m1", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.5 },
+
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")[\"models\"][0][\"alive\"]", "equals": false },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "screenshot", "label": "04_player_choice_removed_turn_ended" }
+  ]
+}

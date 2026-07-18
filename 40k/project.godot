@@ -244,12 +244,6 @@ global_script_class_17={
 "language": "GDScript",
 "path": "res://phases/FightPhase.gd"
 }
-global_script_class_18={
-"base": "AcceptDialog",
-"class": "FightSelectionDialog",
-"language": "GDScript",
-"path": "res://dialogs/FightSelectionDialog.gd"
-}
 global_script_class_19={
 "base": "RefCounted",
 "class": "GameInstance",

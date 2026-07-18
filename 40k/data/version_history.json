@@ -15,6 +15,69 @@
 			]
 		},
 		{
+			"version": "0.54.7",
+			"date": "2026-07-17",
+			"summary": "Fixed attached leaders not moving on the board when the opponent's AI piles in first. At the start of the Fight phase the player whose turn it is piles in first (11e 12.02) — when that was the AI and it piled in a unit with an attached character (e.g. a Blade Champion leading Custodian Guard), the bodyguard's models moved on the board but the leader's token stayed put, even though the leader had really moved in the game state. The whole group now visibly moves together the moment the AI piles in or consolidates.",
+			"changes": [
+				"Fixed: when the AI piles in or consolidates an attached unit (leader + bodyguard), the leader's token now moves on the board at the same moment as the bodyguard's models (previously it was left stranded at its old position until a later board refresh).",
+				"The combat itself always used the correct positions — this was purely a display issue, but it made it look like the opponent never piled in before your own Pile In step began."
+			]
+		},
+		{
+			"version": "0.54.6",
+			"date": "2026-07-17",
+			"summary": "Fight phase: picking which unit fights next no longer pops up over the middle of the board. The 'Select Unit to Fight' picker now lives in the right-hand panel — same place you pick units in every other phase and in the Pile In / Consolidate steps — so you can see the whole battlefield while choosing.",
+			"changes": [
+				"The fight-phase unit picker (whose turn to select, current subphase, Fights First / Remaining Combats / Fights Last sections and the unit buttons) moved from a centered pop-up dialog into the right-hand FIGHT CONTROLS panel.",
+				"The battlefield stays fully visible while you choose which unit fights next.",
+				"Same information and behavior as before: colored turn banner (blue P1 / red P2), greyed-out units that already fought, and the alternation hint under the list."
+			]
+		},
+		{
+			"version": "0.54.5",
+			"date": "2026-07-17",
+			"summary": "Hovering a model now explains its status markers. The red ring + '!' (battle-shocked), the green check (fought), the crossed-swords badge (engaged), the colored bar under the base (moved/shot/charged/action) and the Marked for Death / Beacon rings are all spelled out in the hover tooltip, so you can always tell WHY a model is marked.",
+			"changes": [
+				"Model hover tooltip: battle-shocked units now show a red 'Battle-shocked' entry explaining the red ring — how it happened (failed Battle-shock test / effect), what it does (OC 0, no Stratagems, no Actions, Desperate Escape fails on 1-3) and when it re-tests (start of its next Command phase).",
+				"Fought (green check) and Engaged (swords badge, incl. Fights First/Last) markers are explained in the same tooltip.",
+				"The colored action bar under a base is decoded as 'This turn: Moved / Shot / Charged / Fell Back / Advanced / Action', color-matched to the bar.",
+				"Marked for Death (A/G crosshair rings) and Beacon (cyan ring) secondary-mission markers are explained too."
+			]
+		},
+		{
+			"version": "0.54.4",
+			"date": "2026-07-17",
+			"summary": "Fixed the AI removing YOUR out-of-coherency models for you. When the AI's turn ended with some of your units out of coherency (e.g. after casualties), the 'Regaining Coherency' popup appeared but the AI instantly picked and removed your models before you could click. The choice of which models to remove is now yours: the popup waits for you, the AI's turn pauses until you've chosen, and only then does the turn end.",
+			"changes": [
+				"Fixed: at the end of the AI's turn, out-of-coherency removals for YOUR units are no longer auto-picked by the AI — the 'Regaining Coherency' dialog now waits for you to choose which model(s) to remove.",
+				"The AI's turn stays paused while your coherency dialog is open, then ends normally after your choice restores coherency.",
+				"The AI's own out-of-coherency units are still resolved automatically, as before."
+			]
+		},
+		{
+			"version": "0.54.3",
+			"date": "2026-07-17",
+			"summary": "Fixed AI charges not showing on the board until the end of the charge phase. When the AI made a successful charge, its models used to stay put visually while it declared its remaining charges — only snapping into engagement range once the whole phase ended. Each AI charging unit now moves into engagement range immediately, right after its charge succeeds, so you can follow the AI's charges one unit at a time.",
+			"changes": [
+				"Fixed: a successful AI charge now moves the charging unit's models on the board straight away, before the AI declares its next charge (previously they only appeared to move at the end of the charge phase).",
+				"Attached characters riding along with a charging unit, and any enemy models slain by a charge-move mortal wound (e.g. Spiked Ram, Piston-driven Brutality), now update on the board at the same moment.",
+				"Also covers the AI's Heroic Intervention counter-charge move."
+			]
+		},
+		{
+			"version": "0.54.2",
+			"date": "2026-07-17",
+			"summary": "Dice now show as die-face icons (pips) instead of raw numbers in the last places that still printed numbers: the wound-allocation 'Save rolls' summary and its Command Re-roll chips, the shooting resolution dock's re-roll chips, and the Grenade / Tank Shock / Command Re-roll result popups. Dice look the same everywhere now.",
+			"changes": [
+				"Wound allocation results: 'Save rolls (lowest first)' and the Command Re-roll line render each roll as a d6 face icon (pips) instead of a '[1, 1, 2, ...]' number list.",
+				"Wound allocation Command Re-roll: the clickable save dice show as face icons — failed saves tinted red, passed saves green.",
+				"Shooting resolution dock: the Command Re-roll dice chips show face icons instead of numbers.",
+				"Grenade and Tank Shock result popups: the mortal-wound dice show as face icons (green for a success, red for a miss).",
+				"Command Re-roll stratagem popup: the original rolls show as face icons.",
+				"Multiplayer weapon-order dialog: hit/wound rolls and its re-roll chips now render as face icons, matching the melee dialog and the rest of the game."
+			]
+		},
+		{
 			"version": "0.54.1",
 			"date": "2026-07-17",
 			"summary": "Fight phase now enforces the core rule that a model fights with ONE melee weapon. Models with multiple melee weapons or profiles (Blade Champion's Vaultswords, a Warboss's Big choppa vs Power klaw) must choose which one to swing — they no longer attack with everything they carry. [EXTRA ATTACKS] weapons are still used in addition.",

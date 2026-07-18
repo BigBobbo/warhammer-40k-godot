@@ -1935,18 +1935,20 @@
     },
     {
       "id": "phases.ScoringPhase.coherency_removal_choice_03_03",
-      "description": "11e 03.03 Regaining Coherency (audit #16): END_TURN pauses while a human-owned unit is out of coherency; REMOVE_MODEL_FOR_COHERENCY applies the player's chosen removal (destroyed, no on-death triggers); END_TURN is blocked until coherent. PhaseManager auto-pick hook remains the AI/backstop.",
+      "description": "11e 03.03 Regaining Coherency (audit #16): END_TURN pauses while a human-owned unit is out of coherency; REMOVE_MODEL_FOR_COHERENCY applies the player's chosen removal (destroyed, no on-death triggers); END_TURN is blocked until coherent. PhaseManager auto-pick hook remains the AI/backstop. The removal actions are only listed to the AI turn loop for AI-owned units — at the end of an AI turn the human's pending removals block with an empty action list so the AI cannot answer the choice for them (iss042c).",
       "scenarios": [
-        "iss042b_coherency_removal_choice_11e"
+        "iss042b_coherency_removal_choice_11e",
+        "iss042c_coherency_ai_turn_no_hijack_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
       "id": "ui.CoherencyRemovalDialog",
-      "description": "ScoringController's CoherencyRemovalDialog lists each incoherent unit's offender models as buttons; a real button press routes the removal action and the turn auto-completes once coherent.",
+      "description": "ScoringController's CoherencyRemovalDialog lists each incoherent unit's offender models as buttons; a real button press routes the removal action and the turn auto-completes once coherent. Survives the owning human's inaction while an enabled AI ends its turn (no auto-removal).",
       "scenarios": [
-        "iss042b_coherency_removal_choice_11e"
+        "iss042b_coherency_removal_choice_11e",
+        "iss042c_coherency_ai_turn_no_hijack_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

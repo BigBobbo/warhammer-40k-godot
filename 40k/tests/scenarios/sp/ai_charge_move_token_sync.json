@@ -1,0 +1,27 @@
+{
+  "id": "ai_charge_move_token_sync",
+  "covers": [
+    "scripts.Main.on_ai_action_taken.charge_move_deferred_token_sync",
+    "charge.ai_charge_move_visual_sync"
+  ],
+  "fixture": "audit_372_charge_modifier",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Regression: when the AI made a charge it updated GameState and the game log said the charge succeeded, but the models did NOT move on the board until END_CHARGE — i.e. AFTER the AI had finished ALL of its charges (reported bug: 'Orc Unit A charges Custodes Unit B, successful, but the models don't move until the Orc player has done all of their charges'). Root cause: AI charges are routed directly through NetworkIntegration.route_action (not the ChargeController), so the human path's update_after_charge_action() -> _recreate_unit_visuals() never ran, and _on_ai_action_taken did not handle APPLY_CHARGE_MOVE (only the movement/fight action types). AIPlayer._execute_next_action also emits ai_action_taken BEFORE routing the action, so any synchronous sync would be a no-op. This scenario drives the REAL Main._on_ai_action_taken for an APPLY_CHARGE_MOVE in that exact order (Ork Warboss, owner 2, charging toward the owner-1 Custodian Guard), then applies the model move the ChargePhase would apply, and asserts the on-screen token catches up to the new GameState position instead of being stranded until end of phase. Fix: defer _sync_all_token_positions() on APPLY_CHARGE_MOVE / APPLY_HEROIC_INTERVENTION_MOVE so the charging unit visibly moves before the next charge is declared.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B" },
+    { "act": "expect_token_visible", "unit_id": "U_CUSTODIAN_GUARD_B" },
+    { "act": "execute_script", "script": "token_desync_from_state_px(\"U_WARBOSS_B\", \"m1\")", "expect_max": 2.0 },
+    { "act": "screenshot", "label": "01_before_charge_token_in_sync" },
+    { "act": "execute_script", "script": "repro_ai_charge_move(\"U_WARBOSS_B\", 470.0, 1260.0)", "equals": true },
+    { "act": "wait_for_tweens", "timeout_s": 5.0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "screenshot", "label": "02_after_charge_token_followed_state" },
+    { "act": "execute_script", "script": "token_desync_from_state_px(\"U_WARBOSS_B\", \"m1\")", "expect_max": 2.0 }
+  ]
+}

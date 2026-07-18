@@ -1,6 +1,10 @@
 extends AcceptDialog
 
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+# Shared d6 face textures so hit/wound/save rolls and Command Re-roll chips render
+# as dice icons (pips), not raw numbers — matching FightSequenceDialog (the melee
+# twin) and the rest of the game's dice visuals.
+const _DiceFaceIcons = preload("res://scripts/DiceFaceIcons.gd")
 
 # WeaponOrderDialog - Allows players to order weapons before shooting sequence
 # Phase 1 MVP: Basic ordering with up/down arrows, fast roll option
@@ -31,6 +35,9 @@ var fast_roll_button: Button
 var start_sequence_button: Button
 var close_button: Button
 var dice_log_rich_text: RichTextLabel
+# Count of d6 face icons mounted into the dice log — lets windowed scenarios
+# assert rolls rendered as dice icons (mirrors FightSequenceDialog).
+var _log_dice_icon_count: int = 0
 
 # Staged-resolution UI
 var staged_continue_button: Button   # "Roll to Wound ▶" / "Continue to Saving Throws ▶"
@@ -187,6 +194,8 @@ func _ready() -> void:
 	dice_log_rich_text.set_custom_minimum_size(Vector2(DialogConstants.LARGE.x - 40, 120))
 	dice_log_rich_text.bbcode_enabled = true
 	dice_log_rich_text.scroll_following = true
+	# Untagged text (emitted between inline dice icons) renders white.
+	dice_log_rich_text.add_theme_color_override("default_color", Color.WHITE)
 	vbox.add_child(dice_log_rich_text)
 
 	print("WeaponOrderDialog initialized")
@@ -583,21 +592,30 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		var total = dice_data.get("total_attacks", dice_data.get("successes", 0))
 		_add_to_dice_log("[b]Rolling to Hit:[/b] [color=cyan]Torrent — %d automatic hits[/color]" % total, Color.WHITE)
 	elif context == "to_hit" or context == "to_wound":
-		_add_to_dice_log(_format_roll_line(context, dice_data), Color.WHITE)
+		_append_roll_line(context, dice_data)
 	else:
-		# Fallback for any other dice block.
+		# Fallback for any other dice block — render the rolls as dice icons too.
+		if not dice_log_rich_text:
+			return
 		var rolls_raw = dice_data.get("rolls_raw", [])
 		var rolls_modified = dice_data.get("rolls_modified", [])
 		var display_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
-		var successes = dice_data.get("successes", -1)
-		var line = "[b]%s[/b] (need %s): Rolls: %s" % [context.capitalize().replace("_", " "), dice_data.get("threshold", ""), _dice_str(display_rolls)]
+		var successes = int(dice_data.get("successes", -1))
+		var thr_num = _threshold_to_int(str(dice_data.get("threshold", "")))
+		dice_log_rich_text.append_text("[b]%s[/b] (need %s): " % [context.capitalize().replace("_", " "), str(dice_data.get("threshold", ""))])
+		_append_dice_icons(display_rolls, thr_num, 6 if thr_num > 0 else 7)
 		if successes >= 0:
-			line += " → [b][color=green]%d successes[/color][/b]" % successes
-		_add_to_dice_log(line, Color.WHITE)
+			dice_log_rich_text.append_text(" → [b][color=green]%d successes[/color][/b]" % successes)
+		dice_log_rich_text.append_text("\n")
 
-func _format_roll_line(context: String, dice_data: Dictionary) -> String:
-	# Verbose, human-readable hit / wound line.
+func _append_roll_line(context: String, dice_data: Dictionary) -> void:
+	# Verbose, human-readable hit / wound line — dice render as inline d6 face
+	# icons (pips) instead of raw numbers, matching FightSequenceDialog and the
+	# rest of the game's dice visuals.
+	if not dice_log_rich_text:
+		return
 	var threshold = str(dice_data.get("threshold", ""))
+	var threshold_num = _threshold_to_int(threshold)
 	var rolls_raw = dice_data.get("rolls_raw", [])
 	var rolls_modified = dice_data.get("rolls_modified", [])
 	var display_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
@@ -611,43 +629,53 @@ func _format_roll_line(context: String, dice_data: Dictionary) -> String:
 
 	var label = "Rolling to Hit" if context == "to_hit" else "Rolling to Wound"
 	var noun = "hit" if context == "to_hit" else "wound"
-	var line = "[b]%s[/b] (need %s): %s" % [label, threshold, _dice_str(display_rolls)]
+	dice_log_rich_text.append_text("[b]%s[/b] (need %s): " % [label, threshold])
+	_append_dice_icons(display_rolls, threshold_num, 6)
 	if not (rerolls as Array).is_empty():
-		line += "  [color=orange]("
+		var reroll_parts: Array = []
 		for rr in rerolls:
-			line += "%d→%d " % [rr.get("original", 0), rr.get("rerolled_to", 0)]
-		line = line.strip_edges() + ")[/color]"
+			reroll_parts.append("%d→%d" % [rr.get("original", 0), rr.get("rerolled_to", 0)])
+		dice_log_rich_text.append_text("  [color=orange](%s)[/color]" % " ".join(reroll_parts))
 	# "→ 4 hits, 1 miss" (or wounds)
 	var fails = max(0, total - successes)
 	var success_word = noun if successes == 1 else noun + "s"
-	line += " → [b][color=green]%d %s[/color][/b]" % [successes, success_word]
+	dice_log_rich_text.append_text(" → [b][color=green]%d %s[/color][/b]" % [successes, success_word])
 	if context == "to_hit" and total > 0:
 		var miss_word = "miss" if fails == 1 else "misses"
-		line += "[color=gray], %d %s[/color]" % [fails, miss_word]
+		dice_log_rich_text.append_text("[color=gray], %d %s[/color]" % [fails, miss_word])
 	# Crit / sustained annotations
 	var crits = int(dice_data.get("critical_hits", dice_data.get("critical_wounds", 0)))
 	if crits > 0:
 		var crit_kind = "critical hit" if context == "to_hit" else "critical wound"
-		line += "  [color=#c8a24a](%d %s%s)[/color]" % [crits, crit_kind, "" if crits == 1 else "s"]
+		dice_log_rich_text.append_text("  [color=#c8a24a](%d %s%s)[/color]" % [crits, crit_kind, "" if crits == 1 else "s"])
 	var sustained = int(dice_data.get("sustained_bonus_hits", 0))
 	if context == "to_hit" and sustained > 0:
-		line += "  [color=#c8a24a](+%d Sustained)[/color]" % sustained
-	return line
+		dice_log_rich_text.append_text("  [color=#c8a24a](+%d Sustained)[/color]" % sustained)
+	dice_log_rich_text.append_text("\n")
 
-func _dice_str(rolls: Array) -> String:
-	# Render dice as spaced values, highlighting 6s (gold) and 1s (red).
+func _append_dice_icons(rolls: Array, threshold_num: int, crit_threshold: int = 6) -> void:
+	# Render `rolls` as inline d6 face icons (rounded square + pips), in roll order,
+	# using the shared DiceFaceIcons textures — the same faces the combat log and
+	# the melee dialog use. Colour: crit (gold), fumble (red), pass/fail vs
+	# threshold, else neutral.
+	if not dice_log_rich_text:
+		return
 	if rolls.is_empty():
-		return "[color=gray]—[/color]"
-	var parts = []
-	for r in rolls:
-		var v = int(r)
-		if v == 6:
-			parts.append("[color=#d4af37]6[/color]")
-		elif v == 1:
-			parts.append("[color=#a04040]1[/color]")
-		else:
-			parts.append(str(v))
-	return "[ " + " ".join(parts) + " ]"
+		dice_log_rich_text.append_text("[color=gray]—[/color]")
+		return
+	for i in range(rolls.size()):
+		var v = int(rolls[i])
+		var bg = _DiceFaceIcons.color_for(v, threshold_num, threshold_num > 0, crit_threshold)
+		dice_log_rich_text.add_image(_DiceFaceIcons.get_face(v, bg), 18, 18, Color.WHITE, INLINE_ALIGNMENT_CENTER)
+		if i < rolls.size() - 1:
+			dice_log_rich_text.append_text(" ")
+	_log_dice_icon_count += rolls.size()
+
+func _threshold_to_int(threshold_str: String) -> int:
+	var s = threshold_str.strip_edges()
+	if s.is_empty() or s == "?":
+		return 0
+	return int(s.replace("+", ""))
 
 # --- Staged sequential resolution (hit pause / wound pause) -------------------
 
@@ -684,11 +712,18 @@ func _populate_reroll_row(stage: String, rolls: Array, _threshold: String) -> vo
 	reroll_label.text = "Command Re-roll (1 CP) — click a %s die to re-roll it (once per phase):" % ("hit" if stage == "hits" else "wound")
 	reroll_label.visible = true
 	reroll_row.visible = true
+	var threshold_num := _threshold_to_int(str(_threshold))
 	for i in range(rolls.size()):
+		var v := int(rolls[i])
 		var die_btn = Button.new()
-		die_btn.text = str(int(rolls[i]))
+		die_btn.name = "Die%d" % i
+		# Show each die as its face icon (pips) rather than a number, matching the
+		# combat log and the rest of the game's dice visuals.
+		var bg := _DiceFaceIcons.color_for(v, threshold_num, threshold_num > 0, 6)
+		die_btn.icon = _DiceFaceIcons.get_face(v, bg)
+		die_btn.expand_icon = true
 		die_btn.custom_minimum_size = Vector2(38, 38)
-		die_btn.tooltip_text = "Re-roll this die with Command Re-roll (1 CP)"
+		die_btn.tooltip_text = "Re-roll this %d with Command Re-roll (1 CP)" % v
 		_WhiteDwarfTheme.apply_to_button(die_btn)
 		die_btn.pressed.connect(_on_reroll_die_pressed.bind(i))
 		reroll_row.add_child(die_btn)

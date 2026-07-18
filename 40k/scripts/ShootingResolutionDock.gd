@@ -19,6 +19,9 @@ extends VBoxContainer
 signal action_requested(action: Dictionary)
 
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+# Shared d6 face textures so Command Re-roll chips show dice icons (pips), not
+# raw numbers — consistent with the DICE LOG and every other dice surface.
+const _DiceFaceIcons = preload("res://scripts/DiceFaceIcons.gd")
 
 # idle | queued | staged_hits | staged_wounds | awaiting_saves | between | complete_ready
 var state: String = "idle"
@@ -493,11 +496,20 @@ func _populate_reroll_chips(stage: String, info: Dictionary) -> void:
 	reroll_label.text = "Command Re-roll (1 CP) — click a %s die to re-roll it:" % ("hit" if stage == "hits" else "wound")
 	reroll_label.visible = true
 	reroll_row.get_parent().visible = true
+	# Colour by threshold when the pause carries one (pass green / fail red);
+	# otherwise fall back to value-based (crit gold, 1 red, else neutral).
+	var thr_str := str(info.get("threshold", "")).strip_edges().replace("+", "")
+	var threshold_num := thr_str.to_int() if thr_str.is_valid_int() else 0
 	for i in range(rolls.size()):
+		var v := int(rolls[i])
 		var die := Button.new()
 		die.name = "DockDie%d" % i
-		die.text = str(int(rolls[i]))
-		die.custom_minimum_size = Vector2(30, 30)
+		# d6 face icon (pips) instead of a number — same textures as the DICE LOG.
+		var bg := _DiceFaceIcons.color_for(v, threshold_num, threshold_num > 0, 6)
+		die.icon = _DiceFaceIcons.get_face(v, bg)
+		die.expand_icon = true
+		die.custom_minimum_size = Vector2(34, 34)
+		die.tooltip_text = "Re-roll this %d with Command Re-roll (1 CP)" % v
 		die.pressed.connect(_on_reroll_die.bind(stage, i))
 		reroll_row.add_child(die)
 

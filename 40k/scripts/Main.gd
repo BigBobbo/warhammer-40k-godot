@@ -767,22 +767,50 @@ func _on_ai_action_taken(_player: int, action: Dictionary, _description: String)
 			print("[Main] T7-58: Triggered AI charge arrows for %s -> %s" % [charger_id, str(target_ids)])
 
 	# Movement-related actions that change model positions
-	if action_type in ["CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY", "CHARGE", "PILE_IN", "CONSOLIDATE"]:
+	if action_type in ["CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY", "CHARGE"]:
 		if unit_id != "":
 			# T-091: Capture pre-move token positions and spawn AI path visual
 			# (token positions still hold the OLD positions; GameState already has the NEW)
 			if action_type == "CONFIRM_UNIT_MOVE":
 				_show_ai_movement_paths(unit_id, _player)
-			# Fight-phase PILE_IN / CONSOLIDATE (and any move dispatched via
-			# AIPlayer._execute_next_action) emit ai_action_taken BEFORE the action is
+			# AIPlayer._execute_next_action emits ai_action_taken BEFORE the action is
 			# routed, so GameState still holds the PRE-move positions right now. A
 			# synchronous update_unit_visuals() would sync tokens to the old state — a
-			# no-op — and nothing re-syncs after the phase applies the move (the
-			# FightPhase.pile_in_preview signal has no listeners). Defer the token sync
-			# to the end of the frame so it reads the post-move state the phase writes
-			# in route_action; without this the AI's Lootas pile-in logged "(N models
-			# moved)" while the tokens never moved on the board.
+			# no-op. Defer the token sync to the end of the frame so it reads the
+			# post-move state the phase writes in route_action.
 			call_deferred("update_unit_visuals", unit_id)
+
+	# Fight-phase PILE_IN / CONSOLIDATE move the chosen unit AND its attached
+	# characters' models in ONE action (19.03 group move), but the action dict
+	# carries only the BODYGUARD's unit_id. update_unit_visuals(unit_id) walked
+	# that one unit's tokens, so an attached leader's token stayed stranded at
+	# its pre-move position while GameState (and the combat) used the new one —
+	# e.g. a Blade Champion attached to Custodian Guard never visibly piled in
+	# when the AI's half of the Pile In step (12.02) ran first. Sync ALL tokens
+	# in one pass instead (same approach as the AI charge-move fix): it tweens
+	# every token to its state position, covering the leader with the
+	# bodyguard. Deferred for the same pre-move-state reason as above.
+	if action_type in ["PILE_IN", "CONSOLIDATE"]:
+		call_deferred("_sync_all_token_positions")
+
+	# Charge moves change model positions too, but the AI applies them directly
+	# via NetworkIntegration.route_action — NOT through the ChargeController — so
+	# the human charge path's refresh (_on_charge_action_requested ->
+	# update_after_charge_action -> _recreate_unit_visuals) never runs for AI
+	# charges. The result was the reported bug: a successful AI charge updated
+	# GameState but the tokens only appeared to move at END_CHARGE (via the
+	# _sync_all_token_positions call below), i.e. AFTER the AI had finished ALL of
+	# its charges. Sync now so the charging unit (and any attached CHARACTER
+	# riding along, plus target models killed by a charge-move mortal wound such
+	# as Spiked Ram / Piston-driven Brutality) visibly moves into engagement
+	# range BEFORE the AI declares its next charge. Deferred for the same reason
+	# as the movement block above: ai_action_taken fires BEFORE route_action
+	# applies the move, so GameState still holds the pre-move positions right now
+	# — a synchronous sync would be a no-op. _sync_all_token_positions() (rather
+	# than update_unit_visuals) tweens EVERY token to its state position, so the
+	# rider character and any freshly-dead target models are handled in one pass.
+	if action_type in ["APPLY_CHARGE_MOVE", "APPLY_HEROIC_INTERVENTION_MOVE"]:
+		call_deferred("_sync_all_token_positions")
 
 	# Phase-ending actions: sync ALL token positions to catch any missed updates
 	if action_type in ["END_MOVEMENT", "END_CHARGE", "END_FIGHT", "END_SHOOTING"]:
@@ -6918,6 +6946,9 @@ func _show_token_hover(unit_id: String, screen_pos: Vector2, model_id: String = 
 	var text = "[b][color=%s]%s[/color][/b]\n" % [player_color, unit_name]
 	text += "  ".join(stat_parts) + "\n"
 	text += "[color=#AAAAAA]Models: %d/%d  Wounds: %d/%d[/color]" % [alive, total_models, total_w_current, total_w_max]
+	# Status-marker explanations (battle-shock ring, fought check, engaged badge,
+	# action tick, mission rings) so hovering a marked model answers WHY it is marked.
+	text += _build_status_marker_hover_text(unit)
 	if kw_short != "":
 		text += "\n[color=#888888][i]%s[/i][/color]" % kw_short
 	# Per-model profile block: when a squad has heterogeneous models (Boss Nob,
@@ -6986,6 +7017,56 @@ func _build_model_profile_hover_text(unit: Dictionary, model_id: String) -> Stri
 	for l in melee_lines:
 		block += "\n" + l
 	return block
+
+func _build_status_marker_hover_text(unit: Dictionary) -> String:
+	# Returns a BBCode block explaining every status marker currently drawn on
+	# this unit's tokens (see TokenVisual/TokenDrawUtils), or "" when unmarked.
+	# Each entry names the on-board visual so the player can map marker -> meaning.
+	var flags = unit.get("flags", {})
+	var lines: Array = []
+	# T-096 red ring + "!" badge — battle-shock (the one players ask about most).
+	if flags.get("battle_shocked", false):
+		lines.append("[color=#FF4A3A][b]! Battle-shocked[/b][/color] [color=#888888](red ring)[/color]")
+		lines.append("[color=#CC9A93]Failed a Battle-shock test (Below Half-strength) or was shocked by an effect (e.g. emergency disembark).[/color]")
+		lines.append("[color=#CC9A93]OC 0 — cannot hold objectives; cannot use Stratagems; cannot start Actions; Desperate Escape tests fail on 1-3.[/color]")
+		lines.append("[color=#CC9A93]Tests again at the start of its next Command phase.[/color]")
+	# Fought overlay (dim + green check) supersedes the engaged badge on the token.
+	if flags.get("has_fought", false):
+		lines.append("[color=#6FBF6F][b]Fought[/b][/color] [color=#888888](green check)[/color] [color=#AAAAAA]— has fought this turn[/color]")
+	elif flags.get("is_engaged", false):
+		var prio = int(flags.get("fight_priority", 1))
+		var prio_text = ""
+		if prio == 0:
+			prio_text = " [color=#E8C86A](Fights First)[/color]"
+		elif prio == 2:
+			prio_text = " [color=#999999](Fights Last)[/color]"
+		lines.append("[color=#DDDDDD][b]Engaged[/b][/color] [color=#888888](swords badge)[/color] [color=#AAAAAA]— within Engagement Range of an enemy[/color]%s" % prio_text)
+	# Colored tick bar under the base — mirrors TokenDrawUtils.draw_status_tick colors.
+	var actions: Array = []
+	if flags.get("has_charged", false) or flags.get("charged_this_turn", false):
+		actions.append("[color=#E68019]Charged[/color]")
+	if str(flags.get("performed_action", "")) != "":
+		actions.append("[color=#B24DE6]Action: %s[/color]" % str(flags.get("performed_action", "")).capitalize())
+	if flags.get("has_shot", false):
+		actions.append("[color=#3399E6]Shot[/color]")
+	if flags.get("advanced", false):
+		actions.append("[color=#4DCC4D]Advanced[/color]")
+	elif flags.get("fell_back", false):
+		actions.append("[color=#4DCC4D]Fell Back[/color]")
+	elif flags.get("moved", false):
+		actions.append("[color=#4DCC4D]Moved[/color]")
+	if actions.size() > 0:
+		lines.append("[color=#AAAAAA]This turn:[/color] " + ", ".join(actions) + " [color=#888888](bar under base)[/color]")
+	# Secondary-mission target rings (Marked for Death crosshair, Beacon ring).
+	var mfd = str(flags.get("marked_for_death", ""))
+	if mfd != "":
+		var mfd_color = "#FF6655" if mfd == "alpha" else "#E6B333"
+		lines.append("[color=%s][b]Marked for Death (%s)[/b][/color] [color=#AAAAAA]— the marking player scores VP if this unit is destroyed[/color]" % [mfd_color, mfd.capitalize()])
+	if flags.get("beacon", false):
+		lines.append("[color=#39D6FF][b]Beacon[/b][/color] [color=#AAAAAA]— designated unit for the Beacon secondary mission[/color]")
+	if lines.is_empty():
+		return ""
+	return "\n" + "\n".join(lines)
 
 func _position_token_hover(screen_pos: Vector2) -> void:
 	if not _token_hover_tooltip:
