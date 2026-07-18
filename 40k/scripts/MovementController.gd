@@ -101,6 +101,9 @@ var confirm_mode_button: Button
 var shw_gamble_checkbox: CheckBox = null
 # B2 (21.03): "take to the skies" toggle for FLY units at edition >= 11.
 var take_to_skies_checkbox: CheckBox = null
+# Guard so programmatic checkbox syncs (from phase move data) don't re-enter
+# _on_take_to_skies_toggled and dispatch spurious SET_TAKE_TO_SKIES actions.
+var _syncing_take_to_skies: bool = false
 # Turbo Boostas (Speedwaaagh!): "use turbo" toggle for SPEED FREEKS / TRUKK
 # units at edition >= 11 — Advance becomes a flat 24" move (no roll), ranged
 # weapons gain ASSAULT and the unit cannot charge this turn.
@@ -614,6 +617,9 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	take_to_skies_checkbox.add_theme_font_size_override("font_size", 13)
 	take_to_skies_checkbox.add_theme_color_override("font_color", Color(0.55, 0.8, 1.0))
 	take_to_skies_checkbox.add_theme_color_override("font_pressed_color", Color(0.7, 0.9, 1.0))
+	# The default drag flow auto-begins a NORMAL move at unit selection, before
+	# the player can tick this box — forward later ticks to the active move.
+	take_to_skies_checkbox.toggled.connect(_on_take_to_skies_toggled)
 	section.add_child(take_to_skies_checkbox)
 
 	# Turbo Boostas (Speedwaaagh! detachment rule): "use turbo" toggle. Shown
@@ -682,18 +688,21 @@ func _create_section4_actions(parent: VBoxContainer) -> void:
 	button_container.name = "ActionButtons"
 	
 	var undo_button = Button.new()
+	undo_button.name = "UndoModelButton"
 	undo_button.text = "Undo Model"
 	undo_button.pressed.connect(_on_undo_model_pressed)
 	_WhiteDwarfTheme.apply_secondary_button(undo_button)
 	button_container.add_child(undo_button)
 
 	var reset_button = Button.new()
+	reset_button.name = "ResetUnitButton"
 	reset_button.text = "Reset Unit"
 	reset_button.pressed.connect(_on_reset_unit_pressed)
 	_WhiteDwarfTheme.apply_secondary_button(reset_button)
 	button_container.add_child(reset_button)
 
 	var confirm_button = Button.new()
+	confirm_button.name = "ConfirmMoveButton"
 	# "End This Unit's Move" (not "Confirm Move") so it is not confused with the
 	# "Confirm Movement Mode" button above: this button FINALISES the unit's move
 	# for the phase, it does NOT lock in the chosen mode. Players were clicking it
@@ -1544,7 +1553,64 @@ func _update_take_to_skies_visibility() -> void:
 	var show := eligible and not mode_locked
 	take_to_skies_checkbox.visible = show
 	if not show:
-		take_to_skies_checkbox.button_pressed = false
+		_set_take_to_skies_checkbox_silently(false)
+	else:
+		# Reflect the unit's ACTUAL declaration: the drag flow auto-begins a
+		# NORMAL move at selection (took_to_skies=false), and a tick left over
+		# from the previously selected unit must not leak onto this one.
+		if current_phase and current_phase.has_method("get_active_move_data"):
+			var md = current_phase.get_active_move_data(active_unit_id)
+			if not md.is_empty() and not md.get("completed", false):
+				_set_take_to_skies_checkbox_silently(bool(md.get("took_to_skies", false)))
+
+func _set_take_to_skies_checkbox_silently(pressed: bool) -> void:
+	if not take_to_skies_checkbox or take_to_skies_checkbox.button_pressed == pressed:
+		return
+	_syncing_take_to_skies = true
+	take_to_skies_checkbox.button_pressed = pressed
+	_syncing_take_to_skies = false
+
+func _on_take_to_skies_toggled(pressed: bool) -> void:
+	# B2/ISS-061: the checkbox is normally folded into the BEGIN_* payload by
+	# _on_confirm_mode_pressed, but the default drag flow auto-begins a NORMAL
+	# move when the unit is selected — before the player can tick the box. A
+	# tick made while a move is already active must therefore be forwarded to
+	# the phase as SET_TAKE_TO_SKIES so the dense-terrain gate and move cap
+	# see the declaration.
+	if _syncing_take_to_skies:
+		return
+	if active_unit_id == "" or not current_phase:
+		return
+	if not current_phase.has_method("get_active_move_data"):
+		return
+	var move_data = current_phase.get_active_move_data(active_unit_id)
+	if move_data.is_empty() or move_data.get("completed", false):
+		return  # no active move yet — the tick rides the BEGIN payload instead
+	if bool(move_data.get("took_to_skies", false)) == pressed:
+		return
+	emit_signal("move_action_requested", {
+		"type": "SET_TAKE_TO_SKIES",
+		"actor_unit_id": active_unit_id,
+		"payload": {"take_to_skies": pressed}
+	})
+	# Dispatch is synchronous in single-player: re-read the authoritative move
+	# data next frame so a rejected toggle (e.g. a model already moved past the
+	# reduced cap) snaps the checkbox back while the error toast explains why.
+	call_deferred("_sync_take_to_skies_from_phase")
+
+func _sync_take_to_skies_from_phase() -> void:
+	if active_unit_id == "" or not current_phase or not take_to_skies_checkbox:
+		return
+	if not current_phase.has_method("get_active_move_data"):
+		return
+	var move_data = current_phase.get_active_move_data(active_unit_id)
+	if move_data.is_empty():
+		return
+	_set_take_to_skies_checkbox_silently(bool(move_data.get("took_to_skies", false)))
+	# The declaration changes the move cap (-2" on, back to full off) — pull the
+	# authoritative cap so the Move/Left readout matches immediately.
+	move_cap_inches = float(move_data.get("move_cap_inches", move_cap_inches))
+	_update_movement_display()
 
 func _take_to_skies_requested() -> bool:
 	return take_to_skies_checkbox != null and take_to_skies_checkbox.visible and take_to_skies_checkbox.button_pressed

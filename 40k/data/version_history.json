@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.59.1",
+			"date": "2026-07-18",
+			"summary": "'Take to the skies' now works when ticked mid-move: FLY units (e.g. Deffkoptas) that were blocked by dense terrain with the box already ticked will now actually fly over it, the Move/Left readout updates to the -2\" cap immediately, and the dense-terrain error explains itself properly.",
+			"changes": [
+				"Fixed: ticking 'Take to the skies (-2\" move)' after selecting a unit did nothing — the drag flow had already begun the move without the declaration, so dense terrain (rule 13.06) kept blocking the path and the -2\" cap was never applied. The tick (and un-tick) now updates the in-progress move.",
+				"Un-ticking mid-move is only allowed before any model has been dragged (staged paths may rely on flying); ticking is refused with a clear message if a model already moved beyond the reduced cap — use Reset Unit first.",
+				"The checkbox now always shows the unit's actual declaration when you select a unit, instead of carrying a stale tick over from the previously selected unit.",
+				"Clearer error: 'Dense terrain blocks this model's path (rule 13.06): catwalk-58 — tick Take to the skies to fly over it' — the old '(13.06)' read like a distance in inches, and the message never mentioned the fix."
+			]
+		},
+		{
 			"version": "0.59.0",
 			"date": "2026-07-18",
 			"summary": "Squad leaders now look and read like leaders. The Runtherd in every Gretchin mob (and the Boss Nob, Spanner, Makari and friends in other squads) gets its own board icon instead of a scaled-up copy of the rank-and-file art, and hovering it names the model with its own wounds and weapons instead of claiming it is just another squad member.",
