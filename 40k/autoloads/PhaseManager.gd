@@ -130,11 +130,23 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 		# SUPERIOR CREATION (Lions of the Emperor enhancement): bearers destroyed
 		# during the outgoing phase roll their 2+ revival now — "at the end of
 		# the phase" — before the next phase begins.
-		var sc_result = RulesEngine.resolve_superior_creation_revivals(GameState.state)
-		if not sc_result.get("diffs", []).is_empty():
-			apply_state_changes(sc_result.diffs)
-		for sc_line in sc_result.get("log_lines", []):
-			print("[PhaseManager] %s" % sc_line)
+		# Multiplayer: HOST-only. transition_to_phase runs on both peers, and
+		# each rolled its own unseeded d6 here (client make_rng falls back to
+		# randomize()) — divergent revival results that were never broadcast.
+		# The host now rolls once and ships the diffs to the client.
+		var sc_networked = NetworkManager.is_networked()
+		if not sc_networked or NetworkManager.is_host():
+			var sc_result = RulesEngine.resolve_superior_creation_revivals(GameState.state)
+			if not sc_result.get("diffs", []).is_empty():
+				apply_state_changes(sc_result.diffs)
+				if sc_networked:
+					NetworkManager._broadcast_result_from_phase_manager({
+						"success": true,
+						"diffs": sc_result.diffs,
+						"action_type": "SUPERIOR_CREATION_REVIVAL"
+					})
+			for sc_line in sc_result.get("log_lines", []):
+				print("[PhaseManager] %s" % sc_line)
 
 	# Update game state to new phase
 	GameState.set_phase(new_phase)
@@ -237,6 +249,23 @@ func advance_to_next_phase() -> void:
 					"op": "set",
 					"path": "meta.phase",
 					"value": next_phase
+				},
+				# The phase advance happens INSIDE the action apply on the host,
+				# so this broadcast reaches the client BEFORE the action result
+				# that changed active_player/battle_round (END_TURN). Without
+				# these, the client transitioned into the new phase with the
+				# STALE active player and ran the wrong player's phase-entry
+				# bookkeeping (observed: client entered COMMAND as P1 on P2's
+				# turn — wrong deck draws, missing detachment flags, desync).
+				{
+					"op": "set",
+					"path": "meta.active_player",
+					"value": GameState.get_active_player()
+				},
+				{
+					"op": "set",
+					"path": "meta.battle_round",
+					"value": GameState.get_battle_round()
 				}],
 				"action_type": "AUTO_PHASE_ADVANCE",
 				"action_data": {

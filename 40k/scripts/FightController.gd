@@ -1909,6 +1909,13 @@ func _on_katah_stance_required(unit_id: String, player: int) -> void:
 		emit_signal("fight_action_requested", action)
 		return
 
+	# Multiplayer: the stance choice belongs to the fighting unit's OWNER —
+	# only their seat shows the dialog (it previously popped on both screens).
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != player:
+		print("[FightController] Ka'tah stance is P%d's choice — local seat waits" % player)
+		return
+
 	var dialog_script = load("res://dialogs/KatahStanceDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load KatahStanceDialog.gd")
@@ -2054,10 +2061,23 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 	print("[FightController] Attack assignment required for ", unit_id)
 	print("[FightController] Eligible targets: ", targets.keys())
 
+	# Resolve the attacking unit's owner from state directly — on the remote
+	# client current_fighter_owner is not set by the (host-only) SELECT_FIGHTER
+	# handler, so derive it from the unit that's actually assigning attacks.
+	var attacker_owner = int(GameState.get_unit(unit_id).get("owner", current_fighter_owner))
+
 	# Skip dialog for AI players - they submit ASSIGN_ATTACKS actions directly
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(current_fighter_owner):
-		print("[FightController] Skipping dialog for AI player %d" % current_fighter_owner)
+	if ai_player_node and ai_player_node.is_ai_player(attacker_owner):
+		print("[FightController] Skipping dialog for AI player %d" % attacker_owner)
+		return
+
+	# Multiplayer: only the ATTACKING unit's owner assigns its attacks — the
+	# opponent's seat must not show this dialog (the defender's involvement is
+	# the separate save-allocation prompt after attacks resolve).
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != attacker_owner:
+		print("[FightController] Attack assignment is P%d's — local seat waits" % attacker_owner)
 		return
 
 	# Wait for previous dialog to close

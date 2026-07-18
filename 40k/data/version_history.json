@@ -2,6 +2,21 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.55.0",
+			"date": "2026-07-18",
+			"summary": "Online and LAN multiplayer are now brought up to 11th edition and had a large batch of sync bugs fixed. The multiplayer lobbies now use the 11th-edition Force Disposition matchup (each player picks their disposition and scores their own primary mission card) plus the official terrain-variant layouts, exactly like the single-player menu — instead of the old shared 10th-edition mission dropdown. A full host-vs-guest game was played end to end to shake these out.",
+			"changes": [
+				"LAN and Online multiplayer lobbies now offer per-player Force Dispositions and the matchup's official 11e terrain variants (which set the deployment automatically), matching the single-player setup. The old shared 'Take and Hold / Supply Drop / ...' mission dropdown is only used as a fallback if the 11e layout data is missing.",
+				"Both players now draw the SAME secondary mission hands: the deck shuffle is seeded from a shared game seed, so host and guest no longer silently see different cards.",
+				"End-of-turn choice prompts now appear on the correct player's screen in multiplayer — the 11e primary card action (Triangulate/Consecrate/Decoy/etc.), out-of-coherency model removal, Acrobatic Escape, and end-of-turn redeploy previously popped up on the host regardless of whose turn it was.",
+				"Fight-phase prompts are now shown to the right player too: Command Re-roll, Epic Challenge, the Martial Ka'tah stance choice, and the attack-assignment dialog were all appearing on both screens or only the host.",
+				"Melee wounds now reach the defending player for saving throws in multiplayer (previously a melee attack could leave the game waiting forever for a save the defender was never asked to make).",
+				"Mid-game mission/secondary/stratagem state and victory points now stay in sync between host and guest, including detachment abilities like Ork 'Get Stuck In' and the Custodes Martial Ka'tah buff being applied and cleared on both sides.",
+				"Desync detection now also works in online (relay) games, and the AFK turn timer that ends a stalled game is now actually active (90s per phase, with on-screen warnings).",
+				"Fixed the client entering a new phase as the wrong player after a turn change, which caused wrong CP/secondary-draw bookkeeping."
+			]
+		},
+		{
 			"version": "0.54.10",
 			"date": "2026-07-17",
 			"summary": "Custodian Guard (and the rest of the on-foot Adeptus Custodes range) can now be placed in Deep Strike when declaring battle formations. The underlying army dataset was missing the Deep Strike ability on these datasheets, so the Formations screen only offered them 'Strategic Reserves' even though they have Deep Strike in 11th edition. This is now backfilled when any army is loaded, so existing and newly-built Custodes lists are both fixed.",

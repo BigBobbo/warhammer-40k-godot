@@ -85,6 +85,95 @@ var _optimistic_sequence: int = 0
 var _pending_optimistic_actions: Array[Dictionary] = []
 # Each entry: { "seq": int, "action_type": String, "reverse_diffs": Array }
 
+# ============================================================================
+# MANAGER-STATE SYNC (11e multiplayer)
+# ============================================================================
+# GameState.state is synced host->client via result diffs, but a lot of 11e
+# game state lives in autoload managers that mutate OUTSIDE the diff pipeline:
+# MissionManager (kills tracking, disposition card state, primary VP awards
+# written straight into players.*), SecondaryMissionManager (decks, hands,
+# discards, secondary VP). Phase execute_action runs HOST-ONLY for
+# non-optimistic actions, so those manager mutations never reached the
+# client — secondary hands silently diverged and Purge-the-Foe-style kill
+# scoring used a client-side kill count that was permanently zero.
+# Fix: the host attaches an authoritative manager snapshot to every broadcast
+# result; the client applies it after the diffs (skipped only while it still
+# has optimistic actions outstanding, i.e. it is ahead of this result).
+
+func _attach_manager_sync(result: Dictionary) -> void:
+	"""Host: attach authoritative manager state to an outgoing result."""
+	if not is_host():
+		return
+	var sync = {}
+	var mission_mgr = get_node_or_null("/root/MissionManager")
+	if mission_mgr and mission_mgr.has_method("get_state_for_save"):
+		sync["mission_manager"] = mission_mgr.get_state_for_save()
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr and secondary_mgr.has_method("get_save_data"):
+		sync["secondary_missions"] = secondary_mgr.get_save_data()
+	# StratagemManager: usage history (once-per-turn/battle locks) and
+	# active_effects live host-side only; without them the client can never
+	# expire stratagem flags (its _clear_expired_effects sees no effects).
+	var stratagem_mgr = get_node_or_null("/root/StratagemManager")
+	if stratagem_mgr and stratagem_mgr.has_method("get_state_for_save"):
+		sync["stratagem_manager"] = stratagem_mgr.get_state_for_save()
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr and faction_mgr.has_method("get_state_for_save"):
+		sync["faction_ability_manager"] = faction_mgr.get_state_for_save()
+	var unit_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if unit_ability_mgr and unit_ability_mgr.has_method("get_state_for_save"):
+		sync["unit_ability_manager"] = unit_ability_mgr.get_state_for_save()
+	# players carries CP + VP totals — MissionManager award paths write these
+	# directly (not via diffs), so mirror the whole dict.
+	if game_state:
+		sync["players"] = game_state.state.get("players", {}).duplicate(true)
+	result["_manager_sync"] = sync
+
+func _maybe_resume_end_turn_after_remote_gate_clear(action: Dictionary, result: Dictionary) -> void:
+	"""Host-side: a remote player's 03.03 coherency removal just cleared the
+	gate that paused the ACTIVE (local) player's END_TURN — re-dispatch it.
+	The remote seat cannot (END_TURN is turn-gated); the local active seat's
+	controller never saw the removal, so nothing else resumes the turn."""
+	if action.get("type", "") != "REMOVE_MODEL_FOR_COHERENCY":
+		return
+	if result.get("awaiting_coherency_removal", true):
+		return  # More removals still pending
+	if not is_local_player_turn():
+		return  # The remote resolver is the active player — their controller resumes
+	print("NetworkManager: 03.03 gate cleared by remote player — resuming END_TURN for local active player")
+	var end_turn_action = {"type": "END_TURN", "player": get_local_player()}
+	call_deferred("submit_action", end_turn_action)
+
+func _apply_manager_sync(result: Dictionary) -> void:
+	"""Client: adopt the host's authoritative manager state from a result."""
+	if is_host():
+		return
+	if not result.has("_manager_sync"):
+		return
+	if _pending_optimistic_actions.size() > 0:
+		# We are ahead of this result (optimistic actions outstanding); the
+		# blob reflects an older host state — the next caught-up result syncs.
+		print("NetworkManager: manager sync deferred (%d optimistic actions pending)" % _pending_optimistic_actions.size())
+		return
+	var sync = result["_manager_sync"]
+	if sync.has("players") and game_state:
+		game_state.state["players"] = _desanitize_from_json(sync["players"])
+	var mission_mgr = get_node_or_null("/root/MissionManager")
+	if sync.has("mission_manager") and mission_mgr and mission_mgr.has_method("load_state"):
+		mission_mgr.load_state(_desanitize_from_json(sync["mission_manager"]))
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if sync.has("secondary_missions") and secondary_mgr and secondary_mgr.has_method("load_save_data"):
+		secondary_mgr.load_save_data(_desanitize_from_json(sync["secondary_missions"]))
+	var stratagem_mgr = get_node_or_null("/root/StratagemManager")
+	if sync.has("stratagem_manager") and stratagem_mgr and stratagem_mgr.has_method("load_state"):
+		stratagem_mgr.load_state(_desanitize_from_json(sync["stratagem_manager"]))
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if sync.has("faction_ability_manager") and faction_mgr and faction_mgr.has_method("load_state"):
+		faction_mgr.load_state(_desanitize_from_json(sync["faction_ability_manager"]))
+	var unit_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if sync.has("unit_ability_manager") and unit_ability_mgr and unit_ability_mgr.has_method("load_state"):
+		unit_ability_mgr.load_state(_desanitize_from_json(sync["unit_ability_manager"]))
+
 # Turn timer (Phase 3) — T5-MP8: Phase timeout for AFK players
 var turn_timer: Timer = null
 const TURN_TIMEOUT_SECONDS: float = 90.0
@@ -152,6 +241,15 @@ func _connect_phase_manager_timer_signals() -> void:
 		if not phase_manager_ref.phase_action_taken.is_connected(_on_player_action_for_timer):
 			phase_manager_ref.phase_action_taken.connect(_on_player_action_for_timer)
 			print("NetworkManager: Connected to PhaseManager.phase_action_taken for timer reset (T5-MP8)")
+	# T5-MP8: the timer BOOTSTRAP — _on_phase_changed calls start_turn_timer()
+	# on the host at every phase change. This connection was never made, so
+	# the whole AFK-timeout system (turn timer, warnings, deployment
+	# auto-reserves, consecutive-timeout game over) was dead code: nothing
+	# ever started the timer.
+	if phase_manager_ref and phase_manager_ref.has_signal("phase_changed"):
+		if not phase_manager_ref.phase_changed.is_connected(_on_phase_changed):
+			phase_manager_ref.phase_changed.connect(_on_phase_changed)
+			print("NetworkManager: Connected to PhaseManager.phase_changed for turn timer (T5-MP8)")
 
 func _process(_delta: float) -> void:
 	# T5-MP8: Check turn timer warning thresholds
@@ -596,10 +694,15 @@ func _handle_relayed_action(action: Dictionary) -> void:
 
 		# Broadcast result to guest via relay
 		print("NetworkManager: Broadcasting result via relay")
+		_attach_manager_sync(result)
+		result["_state_hash"] = compute_state_hash()
 		_send_via_relay({
 			"msg_type": "action_result",
 			"result": result
 		})
+
+		# Cross-seat 03.03 resume (see _send_action_to_host)
+		_maybe_resume_end_turn_after_remote_gate_clear(action, result)
 	else:
 		var fail_msg = result.get("error", result.get("message", "Unknown"))
 		print("NetworkManager: GameManager returned failure: ", fail_msg)
@@ -623,11 +726,20 @@ func _handle_relayed_result(result: Dictionary) -> void:
 			# Host confirmed — action already applied locally, skip re-application
 			_pending_optimistic_actions.pop_front()
 			print("NetworkManager: Optimistic action CONFIRMED by host: %s (remaining pending: %d)" % [result_action_type, _pending_optimistic_actions.size()])
+			# Caught up? Adopt the host's authoritative manager state and run
+			# the desync check for this confirmation too.
+			_apply_manager_sync(result)
+			_check_relayed_state_hash(result)
 			return
 
 	# Not optimistic (or non-deterministic action) — apply normally
 	print("NetworkManager: Client applying relayed result with %d diffs" % result.get("diffs", []).size())
 	game_manager.apply_result(result)
+
+	# Adopt authoritative manager state before the hash check (see
+	# _attach_manager_sync) — ISS-015 hash covers players.*.
+	_apply_manager_sync(result)
+	_check_relayed_state_hash(result)
 
 	_update_phase_snapshot()
 
@@ -636,12 +748,32 @@ func _handle_relayed_result(result: Dictionary) -> void:
 
 	print("NetworkManager: Client finished applying relayed result")
 
+func _check_relayed_state_hash(result: Dictionary) -> void:
+	"""ISS-015 desync detector for the web-relay path. The ENet RPC handler
+	has carried this check since ISS-015; the relay path (production online
+	games, which ALSO run optimistic prediction) had no detection at all.
+	Skipped while optimistic actions are outstanding — the local state is
+	legitimately ahead of the host result and would false-positive."""
+	if not result.has("_state_hash"):
+		return
+	if _pending_optimistic_actions.size() > 0:
+		return
+	var local_hash = compute_state_hash()
+	if local_hash != int(result["_state_hash"]):
+		push_error("NetworkManager: DESYNC DETECTED (relay) after %s — local state hash %d != host %d" % [
+			result.get("action_type", "?"), local_hash, int(result["_state_hash"])])
+		emit_signal("desync_detected", result.get("action_type", "?"))
+
 func _broadcast_result_from_phase_manager(result: Dictionary) -> void:
 	"""Broadcast a phase-manager-generated result (e.g. auto phase advance) to clients."""
 	if not is_host():
 		return
 
 	print("NetworkManager: Broadcasting phase manager result: ", result.get("action_type", "UNKNOWN"))
+	# Ship authoritative manager state with auto-advance results too. No state
+	# hash here: this fires mid-transition (before enter_phase side effects),
+	# so a hash comparison would race the client's own transition timing.
+	_attach_manager_sync(result)
 
 	if web_relay_mode:
 		_send_via_relay({
@@ -930,6 +1062,9 @@ func submit_action(action: Dictionary) -> void:
 		if result.success:
 			# Broadcast the result to client
 			print("NetworkManager: Broadcasting result to clients")
+			# Manager state (missions/secondaries/players) mutates outside the
+			# diff pipeline — ship the authoritative copy with the result.
+			_attach_manager_sync(result)
 			# ISS-015: attach a canonical post-action state hash so clients can
 			# detect divergence immediately instead of desyncing silently.
 			result["_state_hash"] = compute_state_hash()
@@ -971,6 +1106,8 @@ func _submit_action_via_relay(action: Dictionary) -> void:
 
 			# Broadcast result to guest via relay
 			print("NetworkManager: Broadcasting result via relay")
+			_attach_manager_sync(result)
+			result["_state_hash"] = compute_state_hash()
 			_send_via_relay({
 				"msg_type": "action_result",
 				"result": result
@@ -1111,11 +1248,20 @@ func _send_action_to_host(action: Dictionary) -> void:
 
 		# Broadcast the result to all clients (but not back to host since it already applied)
 		print("NetworkManager: Host broadcasting client action result to all clients")
+		# Manager state (missions/secondaries/players) mutates outside the
+		# diff pipeline — ship the authoritative copy with the result.
+		_attach_manager_sync(result)
 		# ISS-015: client-submitted actions get the same post-action state hash
 		# host-submitted ones do — previously only host actions were checked,
 		# leaving half the action stream uncovered by the desync detector.
 		result["_state_hash"] = compute_state_hash()
 		_broadcast_result.rpc(result)
+
+		# Cross-seat 03.03 resume: the CLIENT just resolved the last coherency
+		# removal that was blocking the HOST-active END_TURN — resume the turn
+		# end on the host's behalf (the client's controller cannot: END_TURN is
+		# turn-gated to the active player).
+		_maybe_resume_end_turn_after_remote_gate_clear(action, result)
 	else:
 		print("NetworkManager: GameManager returned failure: ", result.get("error", "Unknown"))
 
@@ -1134,6 +1280,11 @@ func _broadcast_result(result: Dictionary) -> void:
 	# Client applies the result (with diffs already computed by host)
 	print("NetworkManager: Client applying result with %d diffs" % result.get("diffs", []).size())
 	game_manager.apply_result(result)
+
+	# Adopt the host's authoritative manager state (MissionManager /
+	# SecondaryMissionManager / players VP+CP) BEFORE the hash check — the
+	# hash covers players.*, which manager award paths write outside diffs.
+	_apply_manager_sync(result)
 
 	# ISS-015: desync detector — compare our post-apply state hash with the
 	# host's. A mismatch means the diff stream diverged (lost RPC, ordering
@@ -1377,7 +1528,13 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	# Check for both shooting and fight phase action types (the reactive
 	# stratagem decisions can resume straight into save resolution)
 	var is_shooting_action = action_type in ["CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "APPLY_SAVES", "USE_REACTIVE_STRATAGEM", "DECLINE_REACTIVE_STRATAGEM"]
-	var is_fight_action = action_type in ["ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS", "APPLY_MELEE_SAVES"]
+	# BATCH_FIGHT_ACTIONS: the attack-assignment dialog submits assign+resolve
+	# as one batch — its result carries save_data_list exactly like
+	# CONFIRM_AND_RESOLVE_ATTACKS, and without it here the remote DEFENDER
+	# never got the melee save dialog (observed live: 4 melee wounds stuck
+	# "awaiting defender allocation" with the defending client shown nothing).
+	# SELECT_KATAH_STANCE: a stance pick can resume straight into resolution.
+	var is_fight_action = action_type in ["ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS", "APPLY_MELEE_SAVES", "BATCH_FIGHT_ACTIONS", "SELECT_KATAH_STANCE"]
 
 	if is_shooting_action or is_fight_action:
 		var save_data_list = result.get("save_data_list", [])
@@ -1811,6 +1968,116 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			print("NetworkManager: Client re-emitting rapid_ingress_opportunity for player %d (%d eligible units)" % [ri_player, ri_eligible.size()])
 			phase.emit_signal("rapid_ingress_opportunity", ri_player, ri_eligible)
 
+	# ====================================================================
+	# COMMAND RE-ROLL WINDOW — mirror the pause to the acting client
+	# ====================================================================
+	# Charge/Movement/Command rolls pause host-side when a Command Re-roll is
+	# available (awaiting_reroll). The deciding player is the ACTIVE player —
+	# when that's the remote client, its controller needs the signal or the
+	# dialog appears on the wrong machine and the phase deadlocks.
+	if result.get("awaiting_reroll", false):
+		var reroll_dice: Array = result.get("dice", [])
+		if not reroll_dice.is_empty():
+			var d0 = reroll_dice[0]
+			var rr_unit_id = str(d0.get("unit_id", ""))
+			var rr_context = {
+				"roll_type": str(d0.get("context", "charge_roll")),
+				"original_rolls": d0.get("rolls", []),
+				"total": d0.get("total", 0),
+				"unit_id": rr_unit_id,
+				"unit_name": str(d0.get("unit_name", rr_unit_id)),
+				"context_text": "",
+			}
+			if "awaiting_reroll_decision" in phase:
+				phase.awaiting_reroll_decision = true
+			if "reroll_pending_unit_id" in phase:
+				phase.reroll_pending_unit_id = rr_unit_id
+			if phase.has_signal("command_reroll_opportunity"):
+				print("NetworkManager: Client re-emitting command_reroll_opportunity for %s (P%d)" % [rr_unit_id, game_state.get_active_player()])
+				phase.emit_signal("command_reroll_opportunity", rr_unit_id, game_state.get_active_player(), rr_context)
+
+	# ====================================================================
+	# SCORING PHASE — end-of-turn choice gates (11e)
+	# ====================================================================
+	# ScoringPhase._handle_end_turn pauses END_TURN on player choices
+	# (03.03 coherency removals, Acrobatic Escape, end-of-turn redeploys,
+	# 11e primary card actions). The handler runs HOST-only, so its signals
+	# previously never reached the client — when the client-active player
+	# ended their turn, the choice dialogs popped on the HOST's screen and
+	# the deciding player saw nothing. Mirror the pause state into the
+	# client's phase instance and re-emit the signals; ScoringController
+	# gates the dialogs by deciding seat.
+	if result.get("trigger_coherency_removal", false):
+		var pending = _desanitize_from_json(result.get("coherency_removal_pending", []))
+		if "_awaiting_coherency_removal" in phase:
+			phase._awaiting_coherency_removal = true
+			phase._coherency_removal_pending = pending
+		if phase.has_signal("coherency_removal_required"):
+			print("NetworkManager: Client re-emitting coherency_removal_required (%d units)" % pending.size())
+			phase.emit_signal("coherency_removal_required", pending, game_state.get_active_player())
+
+	if action_type == "REMOVE_MODEL_FOR_COHERENCY":
+		var still_pending = _desanitize_from_json(result.get("coherency_removal_pending", []))
+		var awaiting = result.get("awaiting_coherency_removal", false)
+		if "_awaiting_coherency_removal" in phase:
+			phase._awaiting_coherency_removal = awaiting
+			phase._coherency_removal_pending = still_pending
+		if awaiting and phase.has_signal("coherency_removal_required"):
+			# More removals to choose — reprompt the owning seat(s)
+			phase.emit_signal("coherency_removal_required", still_pending, game_state.get_active_player())
+		elif not awaiting and is_local_player_turn():
+			# Gate cleared and it is OUR turn that was being ended — resume it.
+			print("NetworkManager: 03.03 gate cleared — client resuming END_TURN")
+			call_deferred("submit_action", {"type": "END_TURN", "player": get_local_player()})
+
+	if result.get("trigger_acrobatic_escape_vanish", false):
+		var ae_unit_id = str(result.get("acrobatic_escape_vanish_unit_id", ""))
+		var ae_player = int(result.get("acrobatic_escape_vanish_player", 0))
+		var ae_unit = game_state.state.get("units", {}).get(ae_unit_id, {})
+		var ae_unit_name = ae_unit.get("meta", {}).get("name", ae_unit_id)
+		if "_awaiting_acrobatic_escape_vanish" in phase:
+			phase._awaiting_acrobatic_escape_vanish = true
+		if ae_unit_id != "" and phase.has_signal("acrobatic_escape_vanish_available"):
+			print("NetworkManager: Client re-emitting acrobatic_escape_vanish_available for %s (P%d)" % [ae_unit_id, ae_player])
+			phase.emit_signal("acrobatic_escape_vanish_available", ae_unit_id, ae_unit_name, ae_player)
+
+	if result.get("trigger_end_turn_redeploy", false):
+		var rd_unit_id = str(result.get("end_turn_redeploy_unit_id", ""))
+		var rd_player = int(result.get("end_turn_redeploy_player", 0))
+		var rd_ability = str(result.get("end_turn_redeploy_ability", ""))
+		var rd_unit = game_state.state.get("units", {}).get(rd_unit_id, {})
+		var rd_unit_name = rd_unit.get("meta", {}).get("name", rd_unit_id)
+		if "_awaiting_end_turn_redeploy" in phase:
+			phase._awaiting_end_turn_redeploy = true
+		if rd_unit_id != "" and phase.has_signal("end_turn_redeploy_available"):
+			print("NetworkManager: Client re-emitting end_turn_redeploy_available for %s (P%d, %s)" % [rd_unit_id, rd_player, rd_ability])
+			phase.emit_signal("end_turn_redeploy_available", rd_unit_id, rd_unit_name, rd_player, rd_ability)
+
+	if result.get("trigger_card_action_prompt", false):
+		var ca_pending = _desanitize_from_json(result.get("card_action_pending", {}))
+		if "_awaiting_card_action" in phase:
+			phase._awaiting_card_action = true
+			phase._card_action_pending = ca_pending
+		if not ca_pending.is_empty() and phase.has_signal("card_action_choice_required"):
+			print("NetworkManager: Client re-emitting card_action_choice_required for P%d" % game_state.get_active_player())
+			phase.emit_signal("card_action_choice_required", ca_pending, game_state.get_active_player())
+
+	if action_type == "RESOLVE_CARD_ACTION" or action_type == "SKIP_CARD_ACTION":
+		# Gate resolved on the host — clear the client's mirror so validation
+		# and get_available_actions agree (the active seat's controller
+		# already re-dispatches END_TURN itself).
+		if "_awaiting_card_action" in phase:
+			phase._awaiting_card_action = false
+			phase._card_action_pending = {}
+
+	if action_type == "ACROBATIC_ESCAPE_VANISH" or action_type == "DECLINE_ACROBATIC_ESCAPE_VANISH":
+		if not result.get("trigger_acrobatic_escape_vanish", false) and "_awaiting_acrobatic_escape_vanish" in phase:
+			phase._awaiting_acrobatic_escape_vanish = false
+
+	if action_type == "END_TURN_REDEPLOY" or action_type == "DECLINE_END_TURN_REDEPLOY":
+		if not result.get("trigger_end_turn_redeploy", false) and "_awaiting_end_turn_redeploy" in phase:
+			phase._awaiting_end_turn_redeploy = false
+
 	print("NetworkManager: _emit_client_visual_updates END")
 
 # ============================================================================
@@ -2241,6 +2508,17 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 
 	# Check if this is a phase control action or reactive action that bypasses player/turn validation
 	var action_type = action.get("type", "")
+
+	# T5-MP8/P2-42: host-driven timeout enforcement acts ON BEHALF of the
+	# timed-out player (auto-reserving the AFK player's units, auto-ending
+	# their phase), so the action's player is often NOT the host. Skip the
+	# authority/turn layers for these — but ONLY when the action originates
+	# from the host process itself (peer_id 1 on the host). A remote client
+	# stamping auto_timeout still fails: its peer_id is never 1 here.
+	if action.get("auto_timeout", false) and peer_id == 1 and is_host():
+		print("NetworkManager: auto_timeout action '%s' from host — skipping authority/turn validation" % action_type)
+		return _validate_with_phase(action)
+
 	var exempt_actions = [
 		"END_DEPLOYMENT",
 		"END_PHASE",
@@ -2264,6 +2542,7 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		# Fight Phase actions - players alternate during active player's turn
 		"SELECT_FIGHTER",
 		"SELECT_MELEE_WEAPON",
+		"SELECT_KATAH_STANCE",
 		"PILE_IN",
 		"ASSIGN_ATTACKS",
 		"CONFIRM_AND_RESOLVE_ATTACKS",
@@ -2295,7 +2574,20 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		# faction reactives): the DEFENDER decides during the attacker's
 		# turn, so turn validation must be skipped (authority still checked).
 		"USE_REACTIVE_STRATAGEM",
-		"DECLINE_REACTIVE_STRATAGEM"
+		"DECLINE_REACTIVE_STRATAGEM",
+		# End-of-turn (Scoring) reactive windows — the decider is frequently
+		# NOT the active player, so turn validation must be skipped:
+		# - 03.03 coherency removals: each incoherent unit's OWNER chooses,
+		#   and the opponent's units can be out of coherency too.
+		"REMOVE_MODEL_FOR_COHERENCY",
+		# - Acrobatic Escape (Callidus) vanishes at the end of the OPPONENT's
+		#   turn — the non-active player decides.
+		"ACROBATIC_ESCAPE_VANISH",
+		"DECLINE_ACROBATIC_ESCAPE_VANISH",
+		# - End-of-turn redeploys (From Golden Light etc.) likewise belong to
+		#   the non-active player.
+		"END_TURN_REDEPLOY",
+		"DECLINE_END_TURN_REDEPLOY"
 	]
 	var is_exempt = action_type in exempt_actions
 
@@ -2333,6 +2625,12 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 			return {"valid": false, "reason": "Not your turn"}
 
 	# Layer 4: Game rules validation (delegate to phase)
+	return _validate_with_phase(action)
+
+func _validate_with_phase(action: Dictionary) -> Dictionary:
+	"""Layer 4 of validate_action: delegate game-rules validation to the
+	current phase instance. Split out so the host-side auto_timeout path can
+	skip the authority/turn layers but still run the rules check."""
 	# Use cached reference - get_node_or_null("/root/PhaseManager") fails in web exports
 	if not phase_manager_ref:
 		phase_manager_ref = get_node_or_null("/root/PhaseManager")
@@ -2486,11 +2784,18 @@ func _auto_deploy_remaining_units_on_timeout() -> void:
 
 	phase_auto_ended.emit("DEPLOYMENT")
 
+	# Only the ACTIVE (timed-out) player's units go to reserves — the opponent
+	# still has their own deployment turns. Reserving the opponent's whole
+	# army on the active player's timeout (the prior behavior) handed the AFK
+	# player's opponent a crippling disadvantage they never chose.
+	var timed_out_player = game_state.get_active_player()
 	var units = game_state.state.get("units", {})
 	var auto_deployed_count = 0
 
 	for unit_id in units:
 		var unit = units[unit_id]
+		if int(unit.get("owner", 0)) != timed_out_player:
+			continue
 		# Issue #323: only convert units that are still UNDEPLOYED. Anything
 		# already on the board (DEPLOYED/MOVED/SHOT/...) or already routed
 		# (IN_RESERVES, embarked, attached) must be left alone, otherwise the
@@ -2642,7 +2947,36 @@ func compute_state_hash() -> int:
 		"factions": s.get("factions", {}),
 		"meta": meta_canon,
 	}
-	return JSON.stringify(canon).hash()
+	# Transport-neutral normalization: the web relay is JSON, so the client's
+	# state holds floats where the host has ints and {x,y} dicts where the
+	# host has Vector2. Sanitize (Vector2 -> {x,y}) and canonicalize numbers
+	# (integral floats like 10.0 -> int 10) so both sides hash the identical
+	# representation regardless of transport — without this the relay path
+	# can never carry the ISS-015 desync check (JSON would make the host's
+	# int 10 and the client's float 10.0 hash differently). Applied
+	# symmetrically, so the already-matching ENet path is unaffected.
+	var canon_json = JSON.stringify(_canonicalize_numbers(_sanitize_for_json(canon)))
+	return canon_json.hash()
+
+func _canonicalize_numbers(value):
+	"""Recursively convert integral floats to ints so 10.0 and 10 hash the
+	same. Genuinely fractional values (positions like 240.5) stay float on
+	both sides. Keeps ENet (native ints) and relay (JSON floats) comparable."""
+	if value is float:
+		if is_finite(value) and value == floor(value) and abs(value) < 9.007199254740992e15:
+			return int(value)
+		return value
+	elif value is Dictionary:
+		var out := {}
+		for k in value:
+			out[k] = _canonicalize_numbers(value[k])
+		return out
+	elif value is Array:
+		var out := []
+		for item in value:
+			out.append(_canonicalize_numbers(item))
+		return out
+	return value
 
 func get_next_rng_seed() -> int:
 	if not is_networked():
