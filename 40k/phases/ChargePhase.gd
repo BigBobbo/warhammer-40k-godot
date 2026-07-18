@@ -2771,7 +2771,7 @@ func _validate_no_solid_terrain_on_paths(unit_id: String, per_model_paths: Dicti
 			var seg_to = Vector2(path[i + 1][0], path[i + 1][1])
 			var trav = tm.can_move_through_11e(model_keywords, seg_from, seg_to, [], ref.model)
 			if not trav.allowed:
-				errors.append("Model %s charge path is blocked by solid terrain (13.06): %s" % [path_key, str(trav.blockers)])
+				errors.append("Model %s charge path is blocked by solid terrain (rule 13.06): %s" % [path_key, ", ".join(PackedStringArray(trav.blockers))])
 				break
 
 	return {"valid": errors.is_empty(), "errors": errors}

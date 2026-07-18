@@ -10,6 +10,8 @@ var _failed = 0
 var _army_data = {}
 var _sm_data = {}
 var _ran_ma8 = false
+# Lootas model_profiles dict — set in _init, read by the MA-31 tests in _process.
+var mp = null
 
 func _init():
 	print("\n=== Test Model Profiles (MA-1, MA-5, MA-8, MA-10, MA-11, MA-24, MA-26, MA-30, MA-31) ===\n")
@@ -34,7 +36,7 @@ func _init():
 
 	# --- Test 2: model_profiles is a Dictionary ---
 	print("\n--- Test 2: model_profiles is a Dictionary ---")
-	var mp = _army_data.get("units", {}).get("U_LOOTAS_A", {}).get("meta", {}).get("model_profiles", null)
+	mp = _army_data.get("units", {}).get("U_LOOTAS_A", {}).get("meta", {}).get("model_profiles", null)
 	if mp is Dictionary:
 		print("  PASS: model_profiles is a Dictionary")
 		_passed += 1
@@ -417,7 +419,7 @@ func _process(_delta):
 
 	# --- Test 15: MA-11 Boyz unit has model_profiles with weapon_skill overrides ---
 	print("\n--- Test 15: MA-11 Boyz unit has model_profiles with weapon_skill overrides ---")
-	var boyz_f = army_data.get("units", {}).get("U_BOYZ_F", {})
+	var boyz_f = _army_data.get("units", {}).get("U_BOYZ_F", {})
 	var boyz_f_meta = boyz_f.get("meta", {})
 	var boyz_f_profiles = boyz_f_meta.get("model_profiles", {})
 	if boyz_f_profiles.has("boss_nob") and boyz_f_profiles.has("boy"):
@@ -425,13 +427,13 @@ func _process(_delta):
 		var boy_ws = boyz_f_profiles["boy"].get("stats_override", {}).get("weapon_skill", null)
 		if nob_ws != null and int(nob_ws) == 3 and boy_ws != null and int(boy_ws) == 4:
 			print("  PASS: boss_nob WS=3, boy WS=4")
-			passed += 1
+			_passed += 1
 		else:
 			print("  FAIL: Expected boss_nob WS=3 boy WS=4, got nob=%s boy=%s" % [str(nob_ws), str(boy_ws)])
-			failed += 1
+			_failed += 1
 	else:
 		print("  FAIL: U_BOYZ_F missing boss_nob or boy profiles (keys: %s)" % str(boyz_f_profiles.keys()))
-		failed += 1
+		_failed += 1
 
 	# --- Test 16: MA-11 Boyz models have correct model_type ---
 	print("\n--- Test 16: MA-11 Boyz models have correct model_type ---")
@@ -442,14 +444,14 @@ func _process(_delta):
 		boyz_type_counts[mt] = boyz_type_counts.get(mt, 0) + 1
 	if boyz_type_counts.get("boss_nob", 0) == 1 and boyz_type_counts.get("boy", 0) == 19:
 		print("  PASS: 1x boss_nob, 19x boy")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected 1x boss_nob, 19x boy, got %s" % str(boyz_type_counts))
-		failed += 1
+		_failed += 1
 
 	# --- Test 17: MA-24 Meganobz unit exists with transport_slots: 2 ---
 	print("\n--- Test 17: MA-24 Meganobz unit has transport_slots: 2 ---")
-	var meganobz = army_data.get("units", {}).get("U_MEGANOBZ_L", {})
+	var meganobz = _army_data.get("units", {}).get("U_MEGANOBZ_L", {})
 	var mega_meta = meganobz.get("meta", {})
 	var mega_profiles = mega_meta.get("model_profiles", {})
 	if mega_profiles.has("meganob_klaw") and mega_profiles.has("meganob_saws"):
@@ -457,23 +459,23 @@ func _process(_delta):
 		var saws_slots = int(mega_profiles["meganob_saws"].get("transport_slots", 0))
 		if klaw_slots == 2 and saws_slots == 2:
 			print("  PASS: meganob_klaw and meganob_saws both have transport_slots=2")
-			passed += 1
+			_passed += 1
 		else:
 			print("  FAIL: Expected transport_slots=2 for both, got klaw=%d saws=%d" % [klaw_slots, saws_slots])
-			failed += 1
+			_failed += 1
 	else:
 		print("  FAIL: U_MEGANOBZ_L missing meganob_klaw or meganob_saws profiles")
-		failed += 1
+		_failed += 1
 
 	# --- Test 18: MA-24 Meganobz has MEGA ARMOUR keyword ---
 	print("\n--- Test 18: MA-24 Meganobz has MEGA ARMOUR keyword ---")
 	var mega_keywords = mega_meta.get("keywords", [])
 	if "MEGA ARMOUR" in mega_keywords:
 		print("  PASS: Meganobz has MEGA ARMOUR keyword")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Meganobz missing MEGA ARMOUR keyword (got: %s)" % str(mega_keywords))
-		failed += 1
+		_failed += 1
 
 	# --- Test 19: MA-24 Meganobz has 5 models with correct types ---
 	print("\n--- Test 19: MA-24 Meganobz has 5 models with correct model_type ---")
@@ -484,10 +486,10 @@ func _process(_delta):
 		mega_type_counts[mt] = mega_type_counts.get(mt, 0) + 1
 	if mega_models.size() == 5 and mega_type_counts.get("meganob_klaw", 0) == 3 and mega_type_counts.get("meganob_saws", 0) == 2:
 		print("  PASS: 5 models with 3x meganob_klaw, 2x meganob_saws")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected 5 models (3 klaw, 2 saws), got %d models: %s" % [mega_models.size(), str(mega_type_counts)])
-		failed += 1
+		_failed += 1
 
 	# --- Test 20: MA-24 Regular Boyz profiles have transport_slots: 1 ---
 	print("\n--- Test 20: MA-24 Regular Boyz profiles have transport_slots: 1 ---")
@@ -500,11 +502,11 @@ func _process(_delta):
 			boyz_slots_ok = false
 	if boyz_slots_ok and boyz_profiles.size() > 0:
 		print("  PASS: All Boyz profiles have transport_slots=1")
-		passed += 1
+		_passed += 1
 	else:
 		if boyz_profiles.size() == 0:
 			print("  FAIL: No Boyz profiles found")
-		failed += 1
+		_failed += 1
 
 	# --- Test 21: MA-24 Slot-aware counting logic ---
 	print("\n--- Test 21: MA-24 Slot-aware counting logic (simulated) ---")
@@ -517,10 +519,10 @@ func _process(_delta):
 			mega_slot_count += int(profile.get("transport_slots", 1))
 	if mega_slot_count == 10:
 		print("  PASS: 5 Meganobz = 10 transport slots")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected 10 transport slots for 5 Meganobz, got %d" % mega_slot_count)
-		failed += 1
+		_failed += 1
 
 	# --- Test 22: MA-24 Mixed unit slot counting ---
 	print("\n--- Test 22: MA-24 Mixed slot counting (Boyz vs Meganobz) ---")
@@ -538,18 +540,18 @@ func _process(_delta):
 		var partial_boyz = 10  # 10 Boyz slots
 		if combined > 22 and (partial_boyz + mega_slot_count) <= 22:
 			print("  PASS: 20 Boyz + 5 Meganobz = 30 slots (exceeds 22), but 10 Boyz + 5 Meganobz = 20 slots (fits)")
-			passed += 1
+			_passed += 1
 		else:
 			print("  FAIL: Capacity math incorrect")
-			failed += 1
+			_failed += 1
 	else:
 		print("  FAIL: Slot counts wrong (boyz=%d mega=%d)" % [boyz_slot_count, mega_slot_count])
-		failed += 1
+		_failed += 1
 
 	# --- Test 23: MA-24 Unit without profiles defaults to 1 slot per model ---
 	print("\n--- Test 23: MA-24 Unit without profiles defaults to 1 per model ---")
-	var boyz_e_models = army_data.get("units", {}).get("U_BOYZ_E", {}).get("models", [])
-	var boyz_e_meta = army_data.get("units", {}).get("U_BOYZ_E", {}).get("meta", {})
+	var boyz_e_models = _army_data.get("units", {}).get("U_BOYZ_E", {}).get("models", [])
+	var boyz_e_meta = _army_data.get("units", {}).get("U_BOYZ_E", {}).get("meta", {})
 	var boyz_e_has_profiles = boyz_e_meta.get("model_profiles", {}).size() > 0
 	var boyz_e_slot_count = 0
 	for m in boyz_e_models:
@@ -562,10 +564,10 @@ func _process(_delta):
 				boyz_e_slot_count += 1
 	if not boyz_e_has_profiles and boyz_e_slot_count == boyz_e_models.size():
 		print("  PASS: U_BOYZ_E (no profiles) counts 1 per model (%d models = %d slots)" % [boyz_e_models.size(), boyz_e_slot_count])
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected no profiles and 1:1 model:slot ratio")
-		failed += 1
+		_failed += 1
 
 	# --- MA-26: Weapon ownership validation in shooting ---
 	# These tests verify the weapon ownership logic directly using the data structures,
@@ -574,7 +576,7 @@ func _process(_delta):
 	# for the assigned weapon name.
 
 	print("\n--- Test 24: MA-26 Assign deffgun to deffgun model — accepted ---")
-	var ma26_lootas = army_data.get("units", {}).get("U_LOOTAS_A", {}).duplicate(true)
+	var ma26_lootas = _army_data.get("units", {}).get("U_LOOTAS_A", {}).duplicate(true)
 	var ma26_profiles = ma26_lootas.get("meta", {}).get("model_profiles", {})
 	var ma26_models = ma26_lootas.get("models", [])
 	# m1 is loota_deffgun — Deffgun should be in its profile weapons
@@ -587,10 +589,10 @@ func _process(_delta):
 	var ma26_m1_weapons = ma26_profiles.get(ma26_m1_type, {}).get("weapons", [])
 	if "Deffgun" in ma26_m1_weapons:
 		print("  PASS: Deffgun is in deffgun model (m1, type=%s) profile weapons: %s" % [ma26_m1_type, str(ma26_m1_weapons)])
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Deffgun NOT in model m1 (type=%s) profile weapons: %s" % [ma26_m1_type, str(ma26_m1_weapons)])
-		failed += 1
+		_failed += 1
 
 	# --- Test 25: MA-26 Assign deffgun to mega-blasta model — rejected ---
 	print("\n--- Test 25: MA-26 Assign deffgun to mega-blasta model — rejected ---")
@@ -604,10 +606,10 @@ func _process(_delta):
 	var ma26_m9_weapons = ma26_profiles.get(ma26_m9_type, {}).get("weapons", [])
 	if "Deffgun" not in ma26_m9_weapons:
 		print("  PASS: Deffgun correctly NOT in KMB model (m9, type=%s) profile weapons: %s" % [ma26_m9_type, str(ma26_m9_weapons)])
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Deffgun unexpectedly found in KMB model m9 (type=%s) profile weapons: %s" % [ma26_m9_type, str(ma26_m9_weapons)])
-		failed += 1
+		_failed += 1
 
 	# --- Test 26: MA-26 Assign mega-blasta to spanner — accepted ---
 	print("\n--- Test 26: MA-26 Assign kustom mega-blasta to spanner — accepted ---")
@@ -621,31 +623,31 @@ func _process(_delta):
 	var ma26_m11_weapons = ma26_profiles.get(ma26_m11_type, {}).get("weapons", [])
 	if "Kustom mega-blasta" in ma26_m11_weapons:
 		print("  PASS: Kustom mega-blasta is in spanner model (m11, type=%s) profile weapons: %s" % [ma26_m11_type, str(ma26_m11_weapons)])
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Kustom mega-blasta NOT in spanner model m11 (type=%s) profile weapons: %s" % [ma26_m11_type, str(ma26_m11_weapons)])
-		failed += 1
+		_failed += 1
 
 	# --- Test 27: MA-26 Unit without profiles allows all weapons to all models ---
 	print("\n--- Test 27: MA-26 Unit without profiles allows all weapons ---")
-	var ma26_noprofile = army_data.get("units", {}).get("U_BOYZ_E", {}).duplicate(true)
+	var ma26_noprofile = _army_data.get("units", {}).get("U_BOYZ_E", {}).duplicate(true)
 	var ma26_noprofile_profiles = ma26_noprofile.get("meta", {}).get("model_profiles", {})
 	if ma26_noprofile_profiles.is_empty():
 		print("  PASS: Unit without profiles has empty model_profiles — all weapons allowed to all models")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected empty model_profiles but got: %s" % str(ma26_noprofile_profiles.keys()))
-		failed += 1
+		_failed += 1
 
 	# --- Test 28: MA-26 Validation logic matches: weapon_name checked against profile ---
 	print("\n--- Test 28: MA-26 Cross-check: deffgun model cannot fire KMB ---")
 	# m1 is loota_deffgun — Kustom mega-blasta should NOT be in its profile
 	if "Kustom mega-blasta" not in ma26_m1_weapons:
 		print("  PASS: KMB correctly NOT in deffgun model (m1) profile weapons: %s" % str(ma26_m1_weapons))
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: KMB unexpectedly found in deffgun model m1 profile weapons: %s" % str(ma26_m1_weapons))
-		failed += 1
+		_failed += 1
 
 	# ═══════════════════════════════════════════════════════════════════════
 	# MA-30: Unit tests for per-model weapon assignment
@@ -655,7 +657,7 @@ func _process(_delta):
 	# ═══════════════════════════════════════════════════════════════════════
 
 	# Build board dicts
-	var ork_board = {"units": army_data.get("units", {})}
+	var ork_board = {"units": _army_data.get("units", {})}
 
 	# --- Test 29: get_unit_weapons with model_profiles (Lootas) ---
 	print("\n--- Test 29: MA-30 get_unit_weapons with model_profiles (Lootas) ---")
@@ -686,9 +688,9 @@ func _process(_delta):
 		t29_ok = false
 	if t29_ok:
 		print("  PASS: Each Loota model gets correct profiled ranged weapons")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 30: get_unit_weapons without model_profiles (regression) ---
 	print("\n--- Test 30: MA-30 get_unit_weapons without model_profiles (U_BOYZ_E) ---")
@@ -710,9 +712,9 @@ func _process(_delta):
 				t30_ok = false
 	if t30_ok:
 		print("  PASS: All models get all ranged weapons (no profiles = no restriction)")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 31: get_unit_melee_weapons with model_profiles (Boyz_F) ---
 	print("\n--- Test 31: MA-30 get_unit_melee_weapons with model_profiles (Boyz_F) ---")
@@ -751,13 +753,13 @@ func _process(_delta):
 				t31_ok = false
 	if t31_ok:
 		print("  PASS: Melee weapons correctly assigned per model profile")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 32: get_unit_weapons with attached character (composite IDs) ---
 	print("\n--- Test 32: MA-30 get_unit_weapons with attached character on profiled unit ---")
-	var t32_lootas = army_data.get("units", {}).get("U_LOOTAS_A", {}).duplicate(true)
+	var t32_lootas = _army_data.get("units", {}).get("U_LOOTAS_A", {}).duplicate(true)
 	t32_lootas["attachment_data"] = {"attached_characters": ["CHAR_WARBOSS"]}
 	var t32_char = {
 		"id": "CHAR_WARBOSS",
@@ -788,9 +790,9 @@ func _process(_delta):
 			t32_ok = false
 	if t32_ok:
 		print("  PASS: Attached character weapons use composite IDs correctly")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 33: Pistol filter with profiled unit (Boyz_F) ---
 	print("\n--- Test 33: MA-30 Pistol filter with profiled unit (Boyz_F) ---")
@@ -812,9 +814,9 @@ func _process(_delta):
 				t33_ok = false
 	if t33_ok:
 		print("  PASS: Pistol filter returns only Slugga for profiled Boyz")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 34: Heavy filter with profiled unit (Lootas) ---
 	print("\n--- Test 34: MA-30 Heavy filter with profiled unit (Lootas) ---")
@@ -836,9 +838,9 @@ func _process(_delta):
 		t34_ok = false
 	if t34_ok:
 		print("  PASS: Heavy filter returns Deffgun only for deffgun-profiled models")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 35: Rapid fire filter with profiled unit (Lootas) ---
 	print("\n--- Test 35: MA-30 Rapid fire filter with profiled unit (Lootas) ---")
@@ -856,15 +858,15 @@ func _process(_delta):
 			t35_ok = false
 	if t35_ok:
 		print("  PASS: Rapid fire filter returns Deffgun only for deffgun-profiled models")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 36: Assault filter with profiled unit (Intercessors) ---
 	print("\n--- Test 36: MA-30 Assault filter with profiled unit ---")
 	var t36_ok = true
-	if not sm_data.is_empty():
-		var t36_int = sm_data.get("units", {}).get("U_INTERCESSORS_A", {}).duplicate(true)
+	if not _sm_data.is_empty():
+		var t36_int = _sm_data.get("units", {}).get("U_INTERCESSORS_A", {}).duplicate(true)
 		t36_int["id"] = "U_INT_TEST"
 		var t36_board = {"units": {"U_INT_TEST": t36_int}}
 		var t36_assault = _filter_unit_weapons("U_INT_TEST", "assault", t36_board)
@@ -885,19 +887,19 @@ func _process(_delta):
 		t36_ok = false
 	if t36_ok:
 		print("  PASS: Assault filter returns only assault-keyword weapons per profile")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 37: Torrent filter with profiled unit (negative test) ---
 	print("\n--- Test 37: MA-30 Torrent filter with profiled unit (no torrent weapons) ---")
 	var t37_torrent = _filter_unit_weapons("U_LOOTAS_A", "torrent", ork_board)
 	if t37_torrent.is_empty():
 		print("  PASS: Torrent filter correctly returns empty for Lootas (no torrent weapons)")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected empty torrent weapons for Lootas, got: %s" % str(t37_torrent))
-		failed += 1
+		_failed += 1
 
 	# ═══════════════════════════════════════════════════════════════════════
 	# MA-31: Unit tests for per-model combat resolution
@@ -913,7 +915,7 @@ func _process(_delta):
 	var t38_deffgun_profile = {"bs": 6, "ws": 4}
 	# Build weapon profile for KMB (bs=5 from JSON ballistic_skill:"5")
 	var t38_kmb_profile = {"bs": 5, "ws": 4}
-	var t38_lootas = army_data.get("units", {}).get("U_LOOTAS_A", {})
+	var t38_lootas = _army_data.get("units", {}).get("U_LOOTAS_A", {})
 	var t38_models = t38_lootas.get("models", [])
 	# Check each model's effective BS for the Deffgun
 	for m in t38_models:
@@ -950,9 +952,9 @@ func _process(_delta):
 				t38_ok = false
 	if t38_ok:
 		print("  PASS: Mixed BS correctly resolved — spanner BS4+, loota_deffgun BS6+, loota_kmb BS5+ (weapon default)")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 39: MA-31 bs_per_attack array built correctly for mixed BS ---
 	print("\n--- Test 39: MA-31 bs_per_attack array for mixed-BS Deffgun assignment ---")
@@ -1016,14 +1018,14 @@ func _process(_delta):
 		t39_ok = false
 	if t39_ok:
 		print("  PASS: bs_per_attack correctly built — Deffgun: 16x BS6; KMB: 6x BS5 + 3x BS4")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 40: MA-31 Mixed WS melee (Boyz: boss_nob WS3+ vs boy WS4+) ---
 	print("\n--- Test 40: MA-31 Mixed WS melee (Boyz_F: boss_nob WS3+, boy WS4+) ---")
 	var t40_ok = true
-	var t40_boyz = army_data.get("units", {}).get("U_BOYZ_F", {})
+	var t40_boyz = _army_data.get("units", {}).get("U_BOYZ_F", {})
 	var t40_models = t40_boyz.get("models", [])
 	# Choppa weapon: ws=3 in JSON (weapon_skill:"3") for boss_nob-level,
 	# but the weapon WS comes from the JSON weapon data
@@ -1061,14 +1063,14 @@ func _process(_delta):
 		t40_ok = false
 	if t40_ok:
 		print("  PASS: ws_per_attack correctly built — boss_nob: 3x WS3; boys: 57x WS4")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 41: MA-31 WS override only applies to models with matching model_type ---
 	print("\n--- Test 41: MA-31 Unit without profiles uses weapon WS for all models ---")
 	var t41_ok = true
-	var t41_boyz_e = army_data.get("units", {}).get("U_BOYZ_E", {})
+	var t41_boyz_e = _army_data.get("units", {}).get("U_BOYZ_E", {})
 	var t41_models_e = t41_boyz_e.get("models", [])
 	var t41_choppa_profile = {"ws": t40_choppa_ws, "bs": 4}
 	# U_BOYZ_E has no model_profiles — all models should use weapon default WS
@@ -1082,9 +1084,9 @@ func _process(_delta):
 			break
 	if t41_ok:
 		print("  PASS: Unit without profiles uses weapon WS=%d for all models" % t40_choppa_ws)
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 42: MA-31 Rapid Fire bonus only counts models with RF weapon ---
 	print("\n--- Test 42: MA-31 Rapid Fire bonus only counts deffgun models (not KMB) ---")
@@ -1131,9 +1133,9 @@ func _process(_delta):
 		t42_ok = false
 	if t42_ok:
 		print("  PASS: Rapid Fire bonus only applies to 8 Deffgun models; 3 KMB/spanner excluded")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 43: MA-31 Rapid Fire model count matches per-model weapon assignment ---
 	print("\n--- Test 43: MA-31 RF model count from weapon assignment matches ---")
@@ -1155,9 +1157,9 @@ func _process(_delta):
 			t43_ok = false
 	if t43_ok:
 		print("  PASS: RF weapon assignment matches per-model profile (8 deffgun models only)")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 44: MA-31 Per-model save characteristics in wound allocation ---
 	print("\n--- Test 44: MA-31 Per-model save characteristics ---")
@@ -1201,9 +1203,9 @@ func _process(_delta):
 		t44_ok = false
 	if t44_ok:
 		print("  PASS: 11 model_save_profiles built, all using unit base save=5+ (no save overrides in current profiles)")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 45: MA-31 Per-model save with hypothetical save override ---
 	print("\n--- Test 45: MA-31 Per-model save with hypothetical save override ---")
@@ -1239,9 +1241,9 @@ func _process(_delta):
 		t45_ok = false
 	if t45_ok:
 		print("  PASS: Hypothetical save override correctly applied — spanner save=4+, others save=5+")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 46: MA-31 Hazardous weapon resolution — only KMB models risk hazardous ---
 	print("\n--- Test 46: MA-31 Hazardous resolution — only KMB-carrying models risk hazardous ---")
@@ -1282,9 +1284,9 @@ func _process(_delta):
 		t46_ok = false
 	if t46_ok:
 		print("  PASS: Only 3 KMB models (m9, m10, m11) risk hazardous; 8 Deffgun models safe")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 47: MA-31 Hazardous allocation target prioritizes KMB-carrying models ---
 	print("\n--- Test 47: MA-31 Hazardous allocation targets model with hazardous weapon ---")
@@ -1318,9 +1320,9 @@ func _process(_delta):
 			t47_ok = false
 	if t47_ok:
 		print("  PASS: Hazardous allocation correctly targets KMB models (m9/m10/m11), not Deffgun models")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 48: MA-31 One-shot tracking with per-model weapons ---
 	print("\n--- Test 48: MA-31 One-shot tracking per model ---")
@@ -1358,9 +1360,9 @@ func _process(_delta):
 		t48_ok = false
 	if t48_ok:
 		print("  PASS: One-shot tracking is per-model — marking m1 doesn't affect m2/m3")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 49: MA-31 One-shot filter removes fired weapons per model ---
 	print("\n--- Test 49: MA-31 One-shot filter removes fired weapons per model ---")
@@ -1391,9 +1393,9 @@ func _process(_delta):
 		t49_ok = false
 	if t49_ok:
 		print("  PASS: One-shot filter correctly removes fired weapon from m1 only, m2 keeps it")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 50: MA-31 BS override with empty model (fallback to weapon BS) ---
 	print("\n--- Test 50: MA-31 BS override fallback — empty model uses weapon BS ---")
@@ -1410,9 +1412,9 @@ func _process(_delta):
 		t50_ok = false
 	if t50_ok:
 		print("  PASS: BS fallback works — empty model and empty model_type use weapon BS")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 51: MA-31 WS override with empty model (fallback to weapon WS) ---
 	print("\n--- Test 51: MA-31 WS override fallback — empty model uses weapon WS ---")
@@ -1428,9 +1430,9 @@ func _process(_delta):
 		t51_ok = false
 	if t51_ok:
 		print("  PASS: WS fallback works — empty model and empty model_type use weapon WS")
-		passed += 1
+		_passed += 1
 	else:
-		failed += 1
+		_failed += 1
 
 	# --- Test 52: MA-12 Boss Nob has save override in stats_override ---
 	print("\n--- Test 52: MA-12 Boss Nob has save override ---")
@@ -1438,10 +1440,10 @@ func _process(_delta):
 	var nob_save = boyz_f_profiles_2.get("boss_nob", {}).get("stats_override", {}).get("save", null)
 	if nob_save != null and int(nob_save) == 4:
 		print("  PASS: boss_nob has save=4 in stats_override")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected boss_nob save=4, got %s" % str(nob_save))
-		failed += 1
+		_failed += 1
 
 	# --- Test 53: MA-12 stats_override save lookup returns correct values ---
 	print("\n--- Test 53: MA-12 stats_override save lookup logic ---")
@@ -1455,10 +1457,10 @@ func _process(_delta):
 	var boy_eff_save = boy_override_save if boy_override_save > 0 else unit_save
 	if nob_eff_save == 4 and boy_eff_save == 5:
 		print("  PASS: boss_nob effective save=4+, boy effective save=5+ (unit default)")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected nob=4, boy=5, got nob=%d boy=%d" % [nob_eff_save, boy_eff_save])
-		failed += 1
+		_failed += 1
 
 	# --- Test 54: MA-12 stats_override invuln lookup returns defaults when absent ---
 	print("\n--- Test 54: MA-12 stats_override invuln lookup defaults ---")
@@ -1466,10 +1468,10 @@ func _process(_delta):
 	var boy_override_invuln = boyz_f_profiles_2.get(boy_type, {}).get("stats_override", {}).get("invuln", -1)
 	if nob_override_invuln <= 0 and boy_override_invuln <= 0:
 		print("  PASS: No invuln overrides in stats_override for either model type")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected no invuln overrides, got nob=%s boy=%s" % [str(nob_override_invuln), str(boy_override_invuln)])
-		failed += 1
+		_failed += 1
 
 	# --- Test 55: MA-12 Model types in Boyz have different effective saves ---
 	print("\n--- Test 55: MA-12 Boyz models have differentiated saves ---")
@@ -1485,10 +1487,10 @@ func _process(_delta):
 		save_values_by_type[mt] = eff
 	if save_values_by_type.get("boss_nob", -1) == 4 and save_values_by_type.get("boy", -1) == 5:
 		print("  PASS: boss_nob effective save=4+, boy effective save=5+")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected boss_nob=4, boy=5, got %s" % str(save_values_by_type))
-		failed += 1
+		_failed += 1
 
 	# --- Test 56: MA-18 Mixed base size formation spacing math ---
 	print("\n--- Test 56: MA-18 Mixed base size formation spread spacing ---")
@@ -1506,10 +1508,10 @@ func _process(_delta):
 	var edge_to_edge = expected_center_dist - nob_extent / 2.0 - boy_extent / 2.0
 	if abs(edge_to_edge - coherency_px) < 0.01:
 		print("  PASS: Spread spacing gives 2\" edge-to-edge (%.1fpx) for 40mm+32mm bases" % edge_to_edge)
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected %.1fpx edge-to-edge, got %.1fpx" % [coherency_px, edge_to_edge])
-		failed += 1
+		_failed += 1
 
 	# --- Test 57: MA-18 Mixed base tight formation spacing ---
 	print("\n--- Test 57: MA-18 Mixed base size formation tight spacing ---")
@@ -1518,19 +1520,19 @@ func _process(_delta):
 	var tight_edge_gap = tight_center_dist - nob_extent / 2.0 - boy_extent / 2.0
 	if abs(tight_edge_gap - 1.0) < 0.01:
 		print("  PASS: Tight spacing gives 1px gap (bases touching) for 40mm+32mm bases")
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected 1px gap, got %.1fpx" % tight_edge_gap)
-		failed += 1
+		_failed += 1
 
 	# --- Test 58: MA-18 Base extents differ for different base_mm ---
 	print("\n--- Test 58: MA-18 Different base_mm produces different extents ---")
 	if nob_extent > boy_extent:
 		print("  PASS: 40mm base extent (%.1fpx) > 32mm base extent (%.1fpx)" % [nob_extent, boy_extent])
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected 40mm extent > 32mm extent, got %.1f vs %.1f" % [nob_extent, boy_extent])
-		failed += 1
+		_failed += 1
 
 	# --- Test 59: MA-18 Uniform base sizes still work (backward compat) ---
 	print("\n--- Test 59: MA-18 Uniform base sizes produce equal spacing ---")
@@ -1541,14 +1543,14 @@ func _process(_delta):
 	var expected_uniform = boy_extent + coherency_px
 	if abs(uniform_center_dist - expected_uniform) < 0.01:
 		print("  PASS: Uniform 32mm bases give same spacing as old code (%.1fpx)" % uniform_center_dist)
-		passed += 1
+		_passed += 1
 	else:
 		print("  FAIL: Expected %.1fpx, got %.1fpx" % [expected_uniform, uniform_center_dist])
-		failed += 1
+		_failed += 1
 
 	# --- Test 60: MA-18 Boyz unit (U_BOYZ_F) has mixed base sizes for formation ---
 	print("\n--- Test 60: MA-18 Boyz unit boss_nob vs boy base_mm check ---")
-	var boyz_f_unit_18 = army_data.get("units", {}).get("U_BOYZ_F", {})
+	var boyz_f_unit_18 = _army_data.get("units", {}).get("U_BOYZ_F", {})
 	var boyz_f_meta_18 = boyz_f_unit_18.get("meta", {})
 	var boyz_profiles_18 = boyz_f_meta_18.get("model_profiles", {})
 	# Check that model_profiles exist and we can look up base sizes from models
@@ -1562,11 +1564,11 @@ func _process(_delta):
 			found_boy_base = m.get("base_mm", 0)
 	if found_nob_base > 0 and found_boy_base > 0:
 		print("  PASS: boss_nob base=%dmm, boy base=%dmm (formation will use per-model sizes)" % [found_nob_base, found_boy_base])
-		passed += 1
+		_passed += 1
 	else:
 		print("  INFO: boss_nob base=%dmm, boy base=%dmm (may use same base size)" % [found_nob_base, found_boy_base])
 		# Still pass - not all units have mixed bases, the code handles uniform bases too
-		passed += 1
+		_passed += 1
 
 	# --- Summary ---
 	_print_summary()
