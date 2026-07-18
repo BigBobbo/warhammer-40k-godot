@@ -14,6 +14,18 @@
 			]
 		},
 		{
+			"version": "0.58.3",
+			"date": "2026-07-18",
+			"summary": "Disembark fixes: the 3\" set-up border now hugs the transport's actual hull — rotated with the vehicle, with rounded corners — and switching units mid-placement no longer leaves a ghost placement measuring distances from the wrong transport.",
+			"changes": [
+				"The disembark range border is drawn from the transport hull's real pose: it rotates with the vehicle instead of staying an axis-aligned rectangle that didn't line up with a turned tank.",
+				"The border's corners are now true 3\" arcs (rounded), so it no longer overstates the allowed area at the corners; every point of the line is exactly the set-up distance from the hull.",
+				"Oval-based transports draw the border at the correct size (it was previously half-size).",
+				"Selecting another unit while placing disembarking models cancels the old placement cleanly — previously the stale placement kept intercepting board clicks and showed 'Must be within 3\" of transport (X\" away)' errors measured from the previously selected battlewagon, while its border stayed on screen.",
+				"Only one disembark placement can ever be live at a time, and an open placement is cleaned up when the Movement phase ends."
+			]
+		},
+		{
 			"version": "0.58.2",
 			"date": "2026-07-18",
 			"summary": "Renamed the Movement phase's red 'Confirm Move' button to 'End This Unit's Move' so it is no longer confused with the 'Confirm Movement Mode' button. Previously players could pick Advance and click the red button expecting to start moving, but it just ended the unit's move.",
