@@ -303,6 +303,7 @@ func _validate_declare_transport_embarkation(action: Dictionary) -> Dictionary:
 
 	var capacity = transport.transport_data.get("capacity", 0)
 	var capacity_keywords = transport.transport_data.get("capacity_keywords", [])
+	var excluded_keywords = transport.transport_data.get("excluded_keywords", [])
 
 	# Validate each unit
 	var total_models = 0
@@ -315,17 +316,30 @@ func _validate_declare_transport_embarkation(action: Dictionary) -> Dictionary:
 			errors.append("Unit does not belong to declaring player: " + unit_id)
 			continue
 
-		# Check keywords if required
+		# Check keywords if required — the unit must carry ALL capacity
+		# keywords ("22 ORKS INFANTRY models" means ORKS *and* INFANTRY).
+		# The old any-match let MOUNTED/VEHICLE Orks embark. Mirrors
+		# TransportManager._has_required_keywords.
 		if capacity_keywords.size() > 0:
 			var unit_keywords = unit.get("meta", {}).get("keywords", [])
-			var has_keyword = false
+			var has_all_keywords = true
 			for kw in capacity_keywords:
-				if kw in unit_keywords:
-					has_keyword = true
+				if not kw in unit_keywords:
+					has_all_keywords = false
 					break
-			if not has_keyword:
-				errors.append("Unit missing required transport keyword: " + unit_id)
+			if not has_all_keywords:
+				errors.append("Unit missing required transport keyword (%s): %s" % [str(capacity_keywords), unit_id])
 				continue
+
+		# Excluded keywords (e.g. "cannot transport JUMP PACK models")
+		var excl_hit := ""
+		for excl_kw in excluded_keywords:
+			if excl_kw in unit.get("meta", {}).get("keywords", []):
+				excl_hit = excl_kw
+				break
+		if excl_hit != "":
+			errors.append("Unit has excluded keyword %s and cannot embark: %s" % [excl_hit, unit_id])
+			continue
 
 		# Check not already declared elsewhere
 		if _is_unit_declared_attached(unit_id, player):
@@ -336,7 +350,7 @@ func _validate_declare_transport_embarkation(action: Dictionary) -> Dictionary:
 			errors.append("Unit already declared as embarked: " + unit_id)
 
 		# Count models for capacity (including any attached characters)
-		total_models += _get_unit_model_count_with_attached(unit_id, player)
+		total_models += _get_unit_model_count_with_attached(unit_id, player, transport)
 
 	# Check capacity
 	# Also count any already-declared units in this transport (including attached characters)
@@ -344,7 +358,7 @@ func _validate_declare_transport_embarkation(action: Dictionary) -> Dictionary:
 	var existing_embarked = formations.get("transport_embarkations", {}).get(transport_id, [])
 	var existing_models = 0
 	for existing_unit_id in existing_embarked:
-		existing_models += _get_unit_model_count_with_attached(existing_unit_id, player)
+		existing_models += _get_unit_model_count_with_attached(existing_unit_id, player, transport)
 
 	if existing_models + total_models > capacity:
 		errors.append("Exceeds transport capacity: %d + %d > %d" % [existing_models, total_models, capacity])
@@ -756,21 +770,33 @@ func _is_unit_declared_in_reserves(unit_id: String, player: int) -> bool:
 	return false
 
 # Count alive models in a unit, plus models from any characters declared as attached to it
-func _get_unit_model_count_with_attached(unit_id: String, player: int) -> int:
+func _get_unit_model_count_with_attached(unit_id: String, player: int, transport: Dictionary = {}) -> int:
+	# When a transport is provided, weight each model by the transport's
+	# capacity multipliers (e.g. MEGA ARMOUR / JUMP PACK models take the
+	# space of 2) — mirrors TransportManager._get_unit_capacity_cost.
 	var unit = get_unit(unit_id)
-	var count = 0
-	for model in unit.get("models", []):
-		if model.get("alive", true):
-			count += 1
+	var count = _capacity_weighted_model_count(unit, transport)
 	# Check if any characters are declared as attached to this unit (bodyguard)
 	var formations = player_formations.get(player, {})
 	var attachments = formations.get("leader_attachments", {})
 	for character_id in attachments:
 		if attachments[character_id] == unit_id:
 			var char_unit = get_unit(character_id)
-			for model in char_unit.get("models", []):
-				if model.get("alive", true):
-					count += 1
+			count += _capacity_weighted_model_count(char_unit, transport)
+	return count
+
+func _capacity_weighted_model_count(unit: Dictionary, transport: Dictionary) -> int:
+	var multipliers = transport.get("transport_data", {}).get("capacity_multipliers", {}) if not transport.is_empty() else {}
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var per_model_cost = 1
+	for kw in multipliers:
+		if kw in unit_keywords:
+			per_model_cost = int(multipliers[kw])
+			break
+	var count = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			count += per_model_cost
 	return count
 
 func _get_declared_reserves_points(player: int) -> int:
@@ -1129,7 +1155,7 @@ func get_available_actions() -> Array:
 		var already_embarked_ids = formations.get("transport_embarkations", {}).get(transport_id, [])
 		var already_embarked_count = 0
 		for emb_id in already_embarked_ids:
-			already_embarked_count += _get_unit_model_count_with_attached(emb_id, current_player)
+			already_embarked_count += _get_unit_model_count_with_attached(emb_id, current_player, get_unit(transport_id))
 		if already_embarked_count < capacity:
 			var all_player_units = GameState.get_units_for_player(current_player)
 			for uid in all_player_units:

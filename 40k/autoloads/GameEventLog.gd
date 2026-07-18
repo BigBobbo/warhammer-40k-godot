@@ -229,9 +229,18 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			if ai_desc != "":
 				return prefix + ai_desc
 			var transport_name = _get_unit_name(str(_af(action, "transport_id", _af(action, "target_unit_id", ""))))
+			# Embark declarations carry a unit_ids ARRAY (no single unit_id) —
+			# name every declared unit instead of falling back to "Unknown".
+			var embark_names: String = str(unit_name)
+			var unit_ids_arr = action.get("unit_ids", action.get("payload", {}).get("unit_ids", []))
+			if (unit_name == "Unknown" or unit_name == "") and unit_ids_arr is Array and not unit_ids_arr.is_empty():
+				var parts := []
+				for emb_uid in unit_ids_arr:
+					parts.append(_get_unit_name(str(emb_uid)))
+				embark_names = ", ".join(parts)
 			if transport_name != "Unknown" and transport_name != "":
-				return prefix + "%s embarked aboard %s" % [unit_name, transport_name]
-			return prefix + "%s embarked" % unit_name
+				return prefix + "%s embarked aboard %s" % [embark_names, transport_name]
+			return prefix + "%s embarked" % embark_names
 		"CONFIRM_DISEMBARK":
 			if ai_desc != "":
 				return prefix + ai_desc

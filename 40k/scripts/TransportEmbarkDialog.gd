@@ -138,6 +138,9 @@ func _populate_available_units(player: int) -> void:
 		# Check if unit can embark (has required keywords)
 		elif capacity_keywords.size() > 0 and not _has_required_keywords(unit, capacity_keywords):
 			reason = "missing_keywords"
+		# Excluded keywords (e.g. JUMP PACK exclusions) bar embarkation
+		elif _has_excluded_keyword(unit):
+			reason = "excluded_keyword"
 		# Check if unit would fit
 		elif _get_alive_model_count(unit) > capacity:
 			reason = "too_large"
@@ -169,12 +172,32 @@ func _has_required_keywords(unit: Dictionary, required: Array) -> bool:
 
 	return true
 
+func _has_excluded_keyword(unit: Dictionary) -> bool:
+	var transport = GameState.get_unit(transport_id)
+	var excluded = transport.get("transport_data", {}).get("excluded_keywords", []) if transport else []
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	for excl_kw in excluded:
+		if excl_kw in unit_keywords:
+			return true
+	return false
+
 func _get_alive_model_count(unit: Dictionary) -> int:
+	# Capacity-weighted: MEGA ARMOUR / JUMP PACK models take the space of 2
+	# (transport_data.capacity_multipliers) — keeps this dialog consistent
+	# with TransportManager.can_embark's capacity math.
+	var transport = GameState.get_unit(transport_id)
+	var multipliers = transport.get("transport_data", {}).get("capacity_multipliers", {}) if transport else {}
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var per_model = 1
+	for kw in multipliers:
+		if kw in unit_keywords:
+			per_model = int(multipliers[kw])
+			break
 	var count = 0
 	if unit.has("models"):
 		for model in unit.models:
 			if model.get("alive", true):
-				count += 1
+				count += per_model
 	return count
 
 func _create_unit_checkboxes() -> void:

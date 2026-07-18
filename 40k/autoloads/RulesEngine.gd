@@ -5775,6 +5775,13 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 		if target_unit.get("attached_to", null) != null:
 			continue
 
+		# Skip embarked units — models inside a TRANSPORT are not on the
+		# battlefield and can never be shot at directly (18.01). Do not rely on
+		# their positions being null: a unit that embarked mid-game may carry a
+		# stale pre-embark position.
+		if target_unit.get("embarked_in", null) != null:
+			continue
+
 		# Skip destroyed units
 		var has_alive_models = false
 		for model in target_unit.get("models", []):
@@ -6232,6 +6239,27 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 				var composite_id = "%s:%s" % [char_id, char_model_id]
 				result[composite_id] = _get_model_weapon_ids(char_unit, char_model, "Ranged")
 
+	# FIRING DECK (24.14): weapons selected from embarked models are treated as
+	# being equipped by the TRANSPORT model for this activation. Each loan gets a
+	# distinct "__fd<i>" alias so identical guns from different embarked models
+	# each contribute their own attacks; get_weapon_profile strips the alias.
+	var fd_loans = unit.get("flags", {}).get("firing_deck_weapons", [])
+	if fd_loans is Array and not fd_loans.is_empty():
+		var hull_model_id := ""
+		for model in models:
+			if model.get("alive", true) and model.get("id", "") != "":
+				hull_model_id = model.get("id", "")
+				break
+		if hull_model_id != "":
+			if not result.has(hull_model_id):
+				result[hull_model_id] = []
+			for i in range(fd_loans.size()):
+				var loan = fd_loans[i]
+				var base_weapon_id = str(loan.get("weapon_id", ""))
+				if base_weapon_id == "":
+					continue
+				result[hull_model_id].append("%s__fd%d" % [base_weapon_id, i])
+
 	return result
 
 # Helper function to generate consistent weapon IDs from names
@@ -6251,6 +6279,10 @@ static func _generate_weapon_id(weapon_name: String, weapon_type: String = "") -
 
 # Get weapon profile
 static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dictionary:
+	# FIRING DECK aliases ("<id>__fd<i>") resolve to the base weapon's profile.
+	var fd_idx = weapon_id.find("__fd")
+	if fd_idx > 0:
+		return get_weapon_profile(weapon_id.substr(0, fd_idx), board)
 	# First try legacy weapon profiles
 	if WEAPON_PROFILES.has(weapon_id):
 		var profile = WEAPON_PROFILES.get(weapon_id, {}).duplicate()
@@ -14004,6 +14036,10 @@ static func resolve_transport_destruction(transport_unit_id: String, board: Dict
 	var per_unit: Array = []
 	var total_mortal_wounds: int = 0
 	var total_models_destroyed: int = 0
+	# Shared placement counter across ALL disembarking units — per-unit angle
+	# counters restarted at 0 for every unit, stacking the first model of each
+	# unit on the exact same point.
+	var global_place_idx: int = 0
 
 	for embarked_id in embarked_unit_ids:
 		var embarked_unit = units.get(embarked_id, {})
@@ -14115,9 +14151,15 @@ static func resolve_transport_destruction(transport_unit_id: String, board: Dict
 			var model_index = 0
 			for i in range(models.size()):
 				if models[i].get("alive", true):
-					# Place surviving models in a circle within 3" of transport position
-					var angle = (2.0 * PI * model_index) / max(alive_model_count, 1)
-					var offset_px = Measurement.inches_to_px(2.0)  # 2" offset (within 3" rule)
+					# Place surviving models in expanding rings around the
+					# transport position. The shared global_place_idx keeps
+					# models of DIFFERENT units from stacking on one point;
+					# 12 slots per ring, ring radius grows 1.5" → 2.5" → 3.5"
+					# (18.05 allows set-up within 6" of the destroyed transport).
+					var ring = global_place_idx / 12
+					var slot = global_place_idx % 12
+					var angle = (2.0 * PI * slot) / 12.0 + ring * (PI / 12.0)
+					var offset_px = Measurement.inches_to_px(1.5 + 1.0 * ring)
 					var new_x = transport_pos.get("x", 0) + cos(angle) * offset_px
 					var new_y = transport_pos.get("y", 0) + sin(angle) * offset_px
 					unit_result["diffs"].append({
@@ -14126,7 +14168,8 @@ static func resolve_transport_destruction(transport_unit_id: String, board: Dict
 						"value": {"x": new_x, "y": new_y}
 					})
 					model_index += 1
-			print("║   Positioned %d surviving model(s) within 3\" of transport" % model_index)
+					global_place_idx += 1
+			print("║   Positioned %d surviving model(s) around the destroyed transport" % model_index)
 
 		all_diffs.append_array(unit_result["diffs"])
 		per_unit.append(unit_result)
