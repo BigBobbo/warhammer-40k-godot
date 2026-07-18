@@ -2,13 +2,35 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.59.0",
+			"version": "0.60.0",
 			"date": "2026-07-18",
 			"summary": "You can now see who is riding inside a transport at a glance: right-click a vehicle that has units embarked and the context menu now has an 'Embarked Units' section listing every passenger and its model count. Click a passenger to open its stats card.",
 			"changes": [
 				"Right-clicking a transport that is carrying units adds an 'Embarked Units' section to the pop-up menu, with one row per embarked unit showing its name and alive/total model count (e.g. 'Kommandos (10/10)').",
 				"Clicking an embarked unit's row opens that unit's stats card so you can inspect the passengers without disembarking them.",
 				"The embarked list shows in every unit visual style (not just letter mode), so a loaded transport always right-clicks to reveal its cargo."
+			]
+		},
+		{
+			"version": "0.59.0",
+			"date": "2026-07-18",
+			"summary": "The game now auto-saves at the start of every phase, so you can always pick a battle back up where you left it — even in the browser build on itch.io. Each auto-save is named after the two armies and the phase that is starting (e.g. \"Space Marines vs Orks - Movement\"), and overwrites the previous one for that phase instead of piling up. It's on by default and can be turned off under Settings > Gameplay > Auto-Save.",
+			"changes": [
+				"New auto-save: at the start of each phase (Deployment, Command, Movement, Shooting, Charge, Fight, Scoring) the game saves automatically, named \"<first army> vs <second army> - <phase>\".",
+				"On by default; turn it off any time via Settings > Gameplay > \"Auto-save at the start of each phase\".",
+				"Works on the browser / itch.io build too — these auto-saves go to your cloud saves just like a manual save (previous phase-based auto-saves only worked on the desktop build).",
+				"In online/LAN games only the player whose turn it is writes the auto-save, so the two players don't clash or double-save.",
+				"Auto-saves show a small \"Game autosaved\" toast instead of the big \"Game saved!\" banner, so the browser build isn't interrupted every phase."
+			]
+		},
+		{
+			"version": "0.58.5",
+			"date": "2026-07-18",
+			"summary": "Pressing W to pan the camera up no longer also opens the Weapon Range Comparison panel. That panel is now unbound by default — assign it a key in Settings › Keybindings if you want it on a hotkey.",
+			"changes": [
+				"Fixed the W-key collision: W now only pans the camera up. The Weapon Range Comparison panel used to share the W default and would toggle open every time you moved the view up.",
+				"The Weapon Range Comparison panel has no key bound by default. You can bind one yourself under Settings › Keybindings (it shows as 'None' until you do).",
+				"Existing configs that still had the old W binding for the panel are migrated to unbound automatically on load."
 			]
 		},
 		{

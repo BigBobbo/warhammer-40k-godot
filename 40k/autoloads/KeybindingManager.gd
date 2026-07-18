@@ -94,7 +94,11 @@ func _register_defaults() -> void:
 	# Default C, not T: T is the measuring tape. Chat is networked-only, so it
 	# yields the more-used key to the tape (which the player expects on T).
 	_register("toggle_chat_panel", "Toggle Chat Panel", CATEGORY_PANELS, KEY_C)
-	_register("weapon_range_panel", "Toggle Weapon Range Panel", CATEGORY_PANELS, KEY_W)
+	# Weapon Range Comparison panel: intentionally UNBOUND by default. It used to
+	# default to W, which is ALSO camera_pan_up — so pressing W to pan the camera up
+	# also toggled this panel unintentionally. No key is bound out of the box now;
+	# players can assign one in Settings › Keybindings if they want it on a hotkey.
+	_register("weapon_range_panel", "Toggle Weapon Range Panel", CATEGORY_PANELS, KEY_NONE)
 	_register("datasheet_modal", "Open Unit Datasheet", CATEGORY_PANELS, KEY_I)
 	_register("toggle_roster_strip", "Toggle Roster Strip", CATEGORY_PANELS, KEY_B)
 	_register("toggle_mathhammer", "Toggle Mathhammer", CATEGORY_PANELS, KEY_H)
@@ -151,6 +155,11 @@ func matches_action(event: InputEventKey, action_id: String) -> bool:
 	if not bindings.has(action_id):
 		return false
 	var b = bindings[action_id]
+	# An unbound action (no primary key AND no alt key) never matches any event.
+	# Guards against edge-case keycode-0 events (e.g. some IME/dead-key presses)
+	# accidentally triggering a deliberately-unbound action like weapon_range_panel.
+	if b.key == 0 and b.get("alt_key", 0) == 0:
+		return false
 	# Check modifier requirements (strict: modifier state must match exactly)
 	if b.shift != event.shift_pressed:
 		return false
@@ -172,6 +181,9 @@ func is_action_pressed(action_id: String) -> bool:
 	if not bindings.has(action_id):
 		return false
 	var b = bindings[action_id]
+	# An unbound action (no primary key AND no alt key) is never "pressed".
+	if b.key == 0 and b.get("alt_key", 0) == 0:
+		return false
 	# For held-key checks, verify modifiers if required
 	if b.shift and not Input.is_key_pressed(KEY_SHIFT):
 		return false
@@ -358,6 +370,18 @@ func load_bindings() -> void:
 			bindings[action_id].ctrl = cfg.get_value(action_id, "ctrl", bindings[action_id].default_ctrl)
 			bindings[action_id].alt = cfg.get_value(action_id, "alt", bindings[action_id].default_alt)
 			bindings[action_id].meta = cfg.get_value(action_id, "meta", bindings[action_id].get("default_meta", false))
+	# Migration (2026-07-18): weapon_range_panel used to default to W, colliding
+	# with camera_pan_up (also W) — pressing W to pan the camera up also toggled the
+	# Weapon Range Comparison panel. The panel is now UNBOUND by default. Clear any
+	# saved plain-W binding so the collision doesn't survive in existing config files.
+	# (A deliberate plain-W here would only recreate the collision; players who want
+	# the panel on a key can rebind it in Settings.)
+	if bindings.has("weapon_range_panel"):
+		var _wrp = bindings["weapon_range_panel"]
+		if _wrp.key == KEY_W and not _wrp.shift and not _wrp.ctrl and not _wrp.alt and not _wrp.get("meta", false):
+			_wrp.key = _wrp.default_key
+			_wrp.alt_key = _wrp.default_alt_key
+			print("[KeybindingManager] Migrated stale weapon_range_panel=W binding to unbound (new default)")
 	print("[KeybindingManager] Loaded keybindings from %s" % SAVE_PATH)
 
 # ============================================================================
