@@ -1,0 +1,42 @@
+{
+  "id": "dice_log_fills_right_panel_shooting",
+  "covers": ["ui.shooting.dice_log_fills_panel"],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Layout guard (companion to combat_log_fills_right_panel_fight / dice_log_fills_right_panel_charge, which prove the live log-growth behavior end-to-end): ShootingPanel must expand vertically to fill the ShootingScrollContainer viewport, with dice_log_display as the panel's designated vertical expander and no dead strip below the last visible section. NOTE: at the 1920x1080 design resolution the shooting panel has NO spare space even with the shooter deselected — DeclarationBox alone has ~716px of fixed section minimums — so actual log growth is unobservable here (measured 2026-07-17: log sits at its exact 180px minimum, panel overflows the viewport by ~4px). The log absorbs spare height only on taller canvas aspects (stretch aspect=expand), which the fullscreen xvfb harness cannot produce. This scenario therefore asserts the layout invariants and the expander wiring; the fight and charge scenarios assert the observable growth.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel", "timeout_s": 5.0 },
+    { "act": "wait_frames", "frames": 5 },
+
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script",
+      "script": "main.shooting_controller.active_shooter_id == \"\"",
+      "equals": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script",
+      "script": "var scroll = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/ShootingScrollContainer\")\nvar panel = scroll.get_node(\"ShootingPanel\")\nreturn scroll.size.y - panel.size.y",
+      "multiline": true,
+      "expect_max": 1.0 },
+
+    { "act": "execute_script",
+      "script": "var panel = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel\")\nvar last_bottom = 0.0\nfor c in panel.get_children():\n\tif c is Control and c.visible:\n\t\tlast_bottom = maxf(last_bottom, c.position.y + c.size.y)\nreturn panel.size.y - last_bottom",
+      "multiline": true,
+      "expect_max": 2.0 },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller.dice_log_display.size_flags_vertical",
+      "equals": 3 },
+
+    { "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel\").size_flags_vertical",
+      "multiline": false,
+      "equals": 3 },
+
+    { "act": "screenshot", "label": "01_shooting_dice_log_fills_panel" }
+  ]
+}

@@ -261,6 +261,9 @@ func _setup_right_panel() -> void:
 		fight_panel = VBoxContainer.new()
 		fight_panel.name = "FightPanel"
 		fight_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Fill the scroll viewport vertically so the combat log (the only
+		# vertically-expanding child) can absorb any leftover panel height.
+		fight_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		scroll_container.add_child(fight_panel)
 	else:
 		# Get existing fight panel
@@ -367,6 +370,8 @@ func _setup_right_panel() -> void:
 	dice_log_display.custom_minimum_size = Vector2(230, 100)
 	dice_log_display.bbcode_enabled = true
 	dice_log_display.scroll_following = true
+	# Expand to fill any unused right-panel height instead of leaving dead space.
+	dice_log_display.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fight_panel.add_child(dice_log_display)
 
 	_add_fight_gold_separator(fight_panel)

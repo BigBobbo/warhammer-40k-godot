@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.54.9",
+			"date": "2026-07-17",
+			"summary": "The combat/dice log in the right-hand panel now stretches to fill all unused space below it, instead of staying a small fixed-height box with a big empty gap underneath. More of the roll history is visible at once in the Shooting, Charge and Fight phases.",
+			"changes": [
+				"Fight phase: the COMBAT LOG box grows to fill the leftover height of the FIGHT CONTROLS panel (the FIGHT STATUS section sits at the bottom).",
+				"Shooting phase: the DICE LOG box grows the same way.",
+				"Charge phase: the DICE LOG box grows the same way (the CHARGE ACTIONS section sits below it).",
+				"When the panel content is taller than the screen, everything still scrolls exactly as before."
+			]
+		},
+		{
 			"version": "0.54.8",
 			"date": "2026-07-17",
 			"summary": "Against All Odds (Lions of the Emperor) fixes: the +1 to hit / +1 to wound now applies on the quick-resolve and Fire Overwatch shooting path too, a unit led by an attached Character is no longer wrongly denied the buff by its own leader, and friendly units hidden in Transports or Reserves no longer block it.",

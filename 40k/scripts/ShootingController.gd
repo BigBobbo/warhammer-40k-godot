@@ -431,6 +431,9 @@ func _setup_right_panel() -> void:
 		shooting_panel = VBoxContainer.new()
 		shooting_panel.name = "ShootingPanel"
 		shooting_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Fill the scroll viewport vertically so the dice log (the only
+		# vertically-expanding child) can absorb any leftover panel height.
+		shooting_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		scroll_container.add_child(shooting_panel)
 	else:
 		# Get existing shooting panel
@@ -749,6 +752,8 @@ func _setup_right_panel() -> void:
 	dice_log_display.custom_minimum_size = Vector2(230, 180)
 	dice_log_display.bbcode_enabled = true
 	dice_log_display.scroll_following = true
+	# Expand to fill any unused right-panel height instead of leaving dead space.
+	dice_log_display.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shooting_panel.add_child(dice_log_display)
 
 	print("ShootingController: Finished creating shooting UI - panel should be visible!")

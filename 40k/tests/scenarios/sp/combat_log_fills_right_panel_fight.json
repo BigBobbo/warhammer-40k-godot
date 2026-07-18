@@ -1,0 +1,32 @@
+{
+  "id": "combat_log_fills_right_panel_fight",
+  "covers": ["ui.fight.combat_log_fills_panel"],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Layout guard: the fight-phase right panel used to top-align its content at natural height inside FightScrollContainer, leaving a large dead area under FIGHT STATUS while the COMBAT LOG stayed a fixed 100px box (user report 2026-07-17). FightPanel now expands vertically to fill the scroll viewport and dice_log_display is the panel's vertical expander, so the combat log absorbs all leftover height. Asserts: (1) FightPanel height >= scroll viewport height, (2) dice_log_display grew well past its 100px custom_minimum_size, (3) the bottom edge of the last visible section reaches the panel bottom (no unused strip), then screenshots the panel.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel", "timeout_s": 5.0 },
+    { "act": "wait_frames", "frames": 5 },
+
+    { "act": "execute_script",
+      "script": "var scroll = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer\")\nvar panel = scroll.get_node(\"FightPanel\")\nreturn scroll.size.y - panel.size.y",
+      "multiline": true,
+      "expect_max": 1.0 },
+
+    { "act": "execute_script",
+      "script": "main.fight_controller.dice_log_display.size.y",
+      "expect_min": 150.0 },
+
+    { "act": "execute_script",
+      "script": "var panel = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel\")\nvar last_bottom = 0.0\nfor c in panel.get_children():\n\tif c is Control and c.visible:\n\t\tlast_bottom = maxf(last_bottom, c.position.y + c.size.y)\nreturn panel.size.y - last_bottom",
+      "multiline": true,
+      "expect_max": 2.0 },
+
+    { "act": "screenshot", "label": "01_fight_combat_log_fills_panel" }
+  ]
+}
