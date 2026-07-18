@@ -13,6 +13,15 @@
 			]
 		},
 		{
+			"version": "0.57.2",
+			"date": "2026-07-18",
+			"summary": "During deployment, rotating a model now carries that rotation over to the next model in the same unit. If you turn the first model 90° before placing it, every following model in that unit starts off already turned the same way — so you can lay out a whole squad facing a chosen direction without re-rotating each one.",
+			"changes": [
+				"Deployment: after you rotate a model, the ghost for the next model in the unit inherits that rotation instead of snapping back to the default enemy-facing.",
+				"The first model of each unit still auto-faces the opponent as before; the carry-over only kicks in once you have placed (and optionally rotated) a model, and resets when you start a new unit."
+			]
+		},
+		{
 			"version": "0.57.1",
 			"date": "2026-07-18",
 			"summary": "The Declare Battle Formations screen now uses nearly the full height of the screen. It happens before the battle starts — there is no board worth keeping visible yet — so instead of a cramped bar docked at the bottom, the form stretches from just below the top HUD bar to the usual bottom clearance, showing far more of your roster (leaders, warlord, transports, reserves) without scrolling.",
