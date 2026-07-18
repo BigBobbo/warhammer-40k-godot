@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.59.0",
+			"date": "2026-07-18",
+			"summary": "The game now auto-saves at the start of every phase, so you can always pick a battle back up where you left it — even in the browser build on itch.io. Each auto-save is named after the two armies and the phase that is starting (e.g. \"Space Marines vs Orks - Movement\"), and overwrites the previous one for that phase instead of piling up. It's on by default and can be turned off under Settings > Gameplay > Auto-Save.",
+			"changes": [
+				"New auto-save: at the start of each phase (Deployment, Command, Movement, Shooting, Charge, Fight, Scoring) the game saves automatically, named \"<first army> vs <second army> - <phase>\".",
+				"On by default; turn it off any time via Settings > Gameplay > \"Auto-save at the start of each phase\".",
+				"Works on the browser / itch.io build too — these auto-saves go to your cloud saves just like a manual save (previous phase-based auto-saves only worked on the desktop build).",
+				"In online/LAN games only the player whose turn it is writes the auto-save, so the two players don't clash or double-save.",
+				"Auto-saves show a small \"Game autosaved\" toast instead of the big \"Game saved!\" banner, so the browser build isn't interrupted every phase."
+			]
+		},
+		{
 			"version": "0.58.5",
 			"date": "2026-07-18",
 			"summary": "Pressing W to pan the camera up no longer also opens the Weapon Range Comparison panel. That panel is now unbound by default — assign it a key in Settings › Keybindings if you want it on a hotkey.",
