@@ -7041,6 +7041,14 @@ func _build_model_profile_hover_text(unit: Dictionary, model_id: String) -> Stri
 	var mid_str = model.get("id", model_id)
 	var block = "\n[color=#D49761]──────────[/color]\n"
 	block += "[b][color=#E8C86A]%s[/color][/b] [color=#888888](%s)[/color]" % [label, mid_str]
+	# The hovered model's OWN wounds, when they differ from the squad stat line
+	# above (e.g. a 2W Runtherd in a W:1 Gretchin mob) — otherwise the header's
+	# unit-level "W:1" misrepresents this model.
+	var m_w_max = int(model.get("wounds", 0))
+	var m_w_cur = int(model.get("current_wounds", m_w_max))
+	var unit_w = int(unit.get("meta", {}).get("stats", {}).get("wounds", 0))
+	if m_w_max > 0 and (m_w_max != unit_w or m_w_cur != m_w_max):
+		block += "  [color=#9BD49B]W:%d/%d[/color]" % [m_w_cur, m_w_max]
 	# Model-specific stat overrides (BS/WS/Sv/W/OC differing from the squad).
 	var overrides = profile.get("stats_override", {})
 	if not overrides.is_empty():
