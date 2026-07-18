@@ -1,0 +1,54 @@
+{
+  "id": "deploy_rotation_carryover",
+  "covers": [
+    "deployment.rotation_carryover_to_next_model"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Feature: during multi-model deployment, rotating a model carries that rotation over to the FOLLOWING model instead of snapping back to the default enemy-facing. Drives the real player path: begin_deploy a 3-model Custodian Guard unit, rotate the first model's ghost +90 degrees via six real 'E' keypresses (rotate_right = +15 each), place it, then assert the ghost for the SECOND model starts at that same +90 rotation (NOT the default facing). Repeats for the third model. Proves the fix in DeploymentController._update_ghost_for_next_model / _initial_deploy_rotation_for.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.status", "equals": 0 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nif dc.ghost_sprite == null:\n\treturn \"NO_GHOST\"\nreturn abs(dc.ghost_sprite.get_base_rotation() - BoardState.get_default_facing_for_player(1)) < 0.001", "equals": true },
+    { "act": "screenshot", "label": "01_model0_default_facing" },
+
+    { "act": "simulate_key", "keycode": "E" },
+    { "act": "simulate_key", "keycode": "E" },
+    { "act": "simulate_key", "keycode": "E" },
+    { "act": "simulate_key", "keycode": "E" },
+    { "act": "simulate_key", "keycode": "E" },
+    { "act": "simulate_key", "keycode": "E" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nvar want = BoardState.get_default_facing_for_player(1) + PI/2.0\nreturn abs(dc.ghost_sprite.get_base_rotation() - want) < 0.02", "equals": true },
+    { "act": "screenshot", "label": "02_model0_rotated_90" },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nvar z = BoardState.get_deployment_zone_for_player(1)\nvar c = Vector2.ZERO\nfor p in z:\n\tc += p\nc /= float(z.size())\ndc.try_place_at(c + Vector2(-90, 0))\nreturn dc.temp_positions[0] != null", "equals": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nvar want = BoardState.get_default_facing_for_player(1) + PI/2.0\nreturn abs(dc.temp_rotations[0] - want) < 0.02", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nif dc.ghost_sprite == null:\n\treturn \"NO_GHOST\"\nvar ghost_rot = dc.ghost_sprite.get_base_rotation()\nvar carried = abs(ghost_rot - dc.temp_rotations[0]) < 0.001\nvar not_default = abs(ghost_rot - BoardState.get_default_facing_for_player(1)) > 0.1\nreturn carried and not_default", "equals": true },
+    { "act": "screenshot", "label": "03_model1_ghost_carried_rotation" },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nvar z = BoardState.get_deployment_zone_for_player(1)\nvar c = Vector2.ZERO\nfor p in z:\n\tc += p\nc /= float(z.size())\ndc.try_place_at(c)\nreturn dc.temp_positions[1] != null", "equals": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nreturn abs(dc.temp_rotations[1] - dc.temp_rotations[0]) < 0.001", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nif dc.ghost_sprite == null:\n\treturn \"NO_GHOST\"\nreturn abs(dc.ghost_sprite.get_base_rotation() - dc.temp_rotations[0]) < 0.001", "equals": true },
+    { "act": "screenshot", "label": "04_model2_ghost_still_carried" },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nvar z = BoardState.get_deployment_zone_for_player(1)\nvar c = Vector2.ZERO\nfor p in z:\n\tc += p\nc /= float(z.size())\ndc.try_place_at(c + Vector2(90, 0))\nreturn dc.temp_positions[2] != null", "equals": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nreturn abs(dc.temp_rotations[2] - dc.temp_rotations[0]) < 0.001", "equals": true },
+    { "act": "screenshot", "label": "05_all_three_placed_rotated" }
+  ]
+}
