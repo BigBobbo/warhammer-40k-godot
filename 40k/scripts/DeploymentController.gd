@@ -422,7 +422,7 @@ func _maybe_offer_combat_squad_split(p_unit_id: String) -> bool:
 	if parent == null:
 		parent = self
 	parent.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	return true
 
 
@@ -871,7 +871,7 @@ func _show_character_attach_dialog() -> void:
 	# Add to scene tree FIRST so _ready() runs before setup()
 	get_tree().root.add_child(dialog)
 	dialog.setup(unit_id)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _on_attach_characters_selected(character_ids: Array) -> void:
 	DebugLogger.info("Character attach dialog closed", {
@@ -897,7 +897,7 @@ func _show_transport_embark_dialog() -> void:
 	# Add to scene tree FIRST so _ready() runs before setup()
 	get_tree().root.add_child(dialog)
 	dialog.setup(unit_id)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _on_embark_units_selected(unit_ids: Array) -> void:
 	DebugLogger.info("Embark dialog closed", {

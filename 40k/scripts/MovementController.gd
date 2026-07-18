@@ -2585,7 +2585,7 @@ func _handle_embarked_unit_selected(unit_id: String) -> void:
 	dialog.disembark_canceled.connect(_on_disembark_canceled.bind(unit_id))
 
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _on_disembark_confirmed(combat_mode: bool, unit_id: String) -> void:
 	"""Handle disembark confirmation - start placement controller"""
@@ -3644,7 +3644,7 @@ func _show_unit_switch_dialog(target_unit_id: String) -> void:
 		"%s's unconfirmed move will be confirmed." % current_name)
 	dialog.switch_confirmed.connect(_on_unit_switch_confirmed)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("MovementController: Unit switch dialog shown (%s -> %s)" % [active_unit_id, target_unit_id])
 
 func _on_unit_switch_confirmed(target_unit_id: String) -> void:
@@ -4622,7 +4622,7 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	dialog.command_reroll_used.connect(_on_command_reroll_used)
 	dialog.command_reroll_declined.connect(_on_command_reroll_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("MovementController: Command Re-roll dialog shown for player %d" % player)
 
 func _on_command_reroll_used(unit_id: String, player: int) -> void:
@@ -4694,7 +4694,7 @@ func _on_overwatch_opportunity(moved_unit_id: String, defending_player: int, eli
 	dialog.fire_overwatch_used.connect(_on_fire_overwatch_used)
 	dialog.fire_overwatch_declined.connect(_on_fire_overwatch_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("MovementController: Fire Overwatch dialog shown for player %d" % defending_player)
 
 	# MA-42: Show blocking overlay to active player
@@ -4778,7 +4778,7 @@ func _on_rapid_ingress_opportunity(player: int, eligible_units: Array) -> void:
 	dialog.rapid_ingress_used.connect(_on_rapid_ingress_used)
 	dialog.rapid_ingress_declined.connect(_on_rapid_ingress_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("MovementController: Rapid Ingress dialog shown for player %d (10s countdown)" % player)
 
 	# MA-42: Show blocking overlay to active player
@@ -4848,7 +4848,7 @@ func _on_krump_and_run_opportunity(player: int, eligible_units: Array, fell_back
 	dialog.krump_and_run_used.connect(_on_krump_and_run_used)
 	dialog.krump_and_run_declined.connect(_on_krump_and_run_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("MovementController: Krump and Run dialog shown for player %d" % player)
 
 func _on_krump_and_run_used(unit_id: String, player: int) -> void:
@@ -4905,7 +4905,7 @@ func _on_scatter_opportunity(player: int, eligible_units: Array, trigger_unit_id
 	dialog.scatter_used.connect(_on_scatter_used)
 	dialog.scatter_declined.connect(_on_scatter_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("MovementController: Scatter! dialog shown for player %d" % player)
 
 func _on_scatter_used(unit_id: String, player: int) -> void:

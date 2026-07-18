@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.56.0",
+			"date": "2026-07-18",
+			"summary": "No more pop-ups covering the middle of the battlefield. Every in-battle window — coherency removal, re-rolls, overwatch, weapon order, stratagems, transports, phase confirmations and more — now docks as a bar along the bottom of the screen (the same slot as the armour-save bar), so the board, game log and side panels always stay visible while you decide.",
+			"changes": [
+				"All in-battle pop-ups moved from the center of the screen to a consistent bottom-anchored bar, 48px above the phase breadcrumb — matching the armour-save allocation bar.",
+				"Covered: coherency removal (03.03), end-of-turn card actions, command/ability re-rolls, overwatch, heroic intervention, tank shock, weapon order / next weapon, reactive stratagems, grenades, split fire, epic challenge, counter-offensive, katah stances, fight sequence, sweeping advance, acrobatic escape, rapid ingress, scatter, disembark/embark prompts, firing deck, deployment (combat squads, character attach, transport), battle formations, the deployment roll-off, battle-shock / end-fight / end-phase confirmations, mission discard, the [S] stratagem browser, and surrender.",
+				"Bottom pop-ups without scrolling lists now shrink to their real content height — a slim command bar instead of a half-empty panel.",
+				"If a pop-up's content grows while it is open, it grows UPWARD from the bottom edge instead of sliding off-screen.",
+				"The legacy per-wound save panel (pre-11e games) moved into the same bottom slot.",
+				"Menu-level windows (main menu, save/load manager, game over, connection lost) stay centered — they are not battle decisions."
+			]
+		},
+		{
 			"version": "0.55.2",
 			"date": "2026-07-18",
 			"summary": "Online and LAN multiplayer are now brought up to 11th edition and had a large batch of sync bugs fixed. The multiplayer lobbies now use the 11th-edition Force Disposition matchup (each player picks their disposition and scores their own primary mission card) plus the official terrain-variant layouts, exactly like the single-player menu — instead of the old shared 10th-edition mission dropdown. A full host-vs-guest game was played end to end to shake these out.",

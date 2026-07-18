@@ -1793,7 +1793,7 @@ func _on_epic_challenge_opportunity(unit_id: String, player: int) -> void:
 	dialog.epic_challenge_used.connect(_on_epic_challenge_used)
 	dialog.epic_challenge_declined.connect(_on_epic_challenge_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("[FightController] Epic Challenge dialog shown")
 
 func _on_epic_challenge_used(unit_id: String, player: int) -> void:
@@ -1843,7 +1843,7 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 	dialog.counter_offensive_used.connect(_on_counter_offensive_used)
 	dialog.counter_offensive_declined.connect(_on_counter_offensive_declined)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("[FightController] Counter-Offensive dialog shown")
 
 	# MA-42: Show blocking overlay to active player
@@ -1927,7 +1927,7 @@ func _on_katah_stance_required(unit_id: String, player: int) -> void:
 	dialog.setup(unit_id, player, master_available)
 	dialog.stance_selected.connect(_on_katah_stance_selected)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	print("[FightController] Ka'tah stance dialog shown for %s (master_of_stances: %s)" % [unit_id, str(master_available)])
 
 func _on_katah_stance_selected(unit_id: String, stance: String, player: int) -> void:
@@ -2098,7 +2098,7 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 	dialog.skip_fight_requested.connect(_on_attack_dialog_skip_requested)
 	get_tree().root.add_child(dialog)
 	print("[FightController] Showing attack assignment dialog...")
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 func _on_attack_dialog_skip_requested(unit_id: String) -> void:
 	"""Escape hatch from an AttackAssignmentDialog with no eligible targets:
@@ -2193,7 +2193,7 @@ func _on_fighting_begun_staged(unit_id: String) -> void:
 	dialog.setup(current_phase, fighter_name)
 	dialog.staged_continue_requested.connect(_on_fight_staged_continue_requested)
 	dialog.staged_reroll_requested.connect(_on_fight_staged_reroll_requested)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 	active_fight_sequence_dialog = dialog
 	print("[FightController] FightSequenceDialog opened for %s" % fighter_name)
 
@@ -3833,7 +3833,7 @@ func _on_sweeping_advance_available(unit_id: String, player: int, in_engagement:
 	dialog.sweeping_advance_declined.connect(_on_sweeping_advance_declined.bind(unit_id))
 	dialog.tree_exiting.connect(_on_sweeping_advance_dialog_closed)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 	# Enable movement mode (reuses pile-in infrastructure)
 	sweeping_advance_active = true
@@ -3922,7 +3922,7 @@ func _on_acrobatic_escape_available(unit_id: String, player: int, move_distance:
 	dialog.acrobatic_escape_declined.connect(_on_acrobatic_escape_declined.bind(unit_id))
 	dialog.tree_exiting.connect(_on_acrobatic_escape_dialog_closed)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_at_bottom(dialog)
 
 	# Enable movement mode (reuses pile-in infrastructure)
 	acrobatic_escape_active = true

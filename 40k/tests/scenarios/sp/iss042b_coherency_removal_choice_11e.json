@@ -8,7 +8,7 @@
   "edition": 11,
   "transition_to_phase": 11,
   "disable_ai": true,
-  "description": "Audit #16 (11e 03.03 Regaining Coherency): at End of Turn the PLAYER chooses which model to remove from an out-of-coherency unit, instead of the engine auto-picking. A Boyz K model is displaced 15\" from its unit; END_TURN pauses with a coherency-removal offer and the CoherencyRemovalDialog opens; a second END_TURN is blocked; a bogus removal is rejected; clicking the real dialog button for the stray model removes it (destroyed, no on-death triggers), clears the gate, and the turn can end.",
+  "description": "Audit #16 (11e 03.03 Regaining Coherency): at End of Turn the PLAYER chooses which model to remove from an out-of-coherency unit, instead of the engine auto-picking. A Boyz K model is displaced 15\" from its unit; END_TURN pauses with a coherency-removal offer and the CoherencyRemovalDialog opens; a second END_TURN is blocked; a bogus removal is rejected; clicking the real dialog button for the stray model removes it (destroyed, no on-death triggers), clears the gate, and the turn can end. The dialog is bottom-anchored (popup consistency): it must sit in the bottom half of the screen, clear of the breadcrumb strip, leaving the board visible.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -61,6 +61,16 @@
     {
       "act": "screenshot",
       "label": "02_coherency_removal_dialog_open"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"CoherencyRemovalDialog\").position.y > tree.root.size.y * 0.5",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"CoherencyRemovalDialog\").position.y + tree.root.get_node(\"CoherencyRemovalDialog\").size.y <= tree.root.size.y - 40",
+      "equals": true
     },
     {
       "act": "dispatch_action",
