@@ -1002,6 +1002,13 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		print("CommandController: Skipping command reroll dialog for AI player %d" % player)
 		return
 
+	# Multiplayer: the re-roll decision belongs to the testing unit's OWNER —
+	# only their seat shows the dialog.
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != player:
+		print("CommandController: Command Re-roll is P%d's decision — local seat waits" % player)
+		return
+
 	# Load and show the dialog
 	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
 	if not dialog_script:

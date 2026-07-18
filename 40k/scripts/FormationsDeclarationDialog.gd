@@ -296,10 +296,8 @@ func _build_transport_section() -> void:
 		for unit_id in eligible_units:
 			var unit = GameState.get_unit(unit_id)
 			var unit_name = GameState.get_unit_display_name(unit_id)
-			var model_count = 0
-			for model in unit.get("models", []):
-				if model.get("alive", true):
-					model_count += 1
+			# Capacity-weighted count (MEGA ARMOUR / JUMP PACK take 2 spaces)
+			var model_count = _capacity_weighted_count(unit, transport)
 
 			var checkbox = CheckBox.new()
 			checkbox.text = "%s (%d models)" % [unit_name, model_count]
@@ -412,6 +410,7 @@ func _get_transport_eligible_units(transport_id: String) -> Array:
 	"""Get units that can embark in a transport."""
 	var transport = GameState.get_unit(transport_id)
 	var capacity_keywords = transport.get("transport_data", {}).get("capacity_keywords", [])
+	var excluded_keywords = transport.get("transport_data", {}).get("excluded_keywords", [])
 	var eligible = []
 
 	var units = GameState.get_units_for_player(declaring_player)
@@ -428,15 +427,25 @@ func _get_transport_eligible_units(transport_id: String) -> Array:
 		var keywords = unit.get("meta", {}).get("keywords", [])
 		if "CHARACTER" in keywords and leader_attachments.has(unit_id):
 			continue
-		# Check keyword requirements
+		# Check keyword requirements — ALL capacity keywords must be present
+		# ("22 ORKS INFANTRY models" = ORKS and INFANTRY). Mirrors
+		# TransportManager._has_required_keywords / FormationsPhase validation.
 		if capacity_keywords.size() > 0:
-			var has_keyword = false
+			var has_all_keywords = true
 			for kw in capacity_keywords:
-				if kw in keywords:
-					has_keyword = true
+				if not kw in keywords:
+					has_all_keywords = false
 					break
-			if not has_keyword:
+			if not has_all_keywords:
 				continue
+		# Excluded keywords (e.g. JUMP PACK exclusions) bar embarkation entirely
+		var excluded = false
+		for excl_kw in excluded_keywords:
+			if excl_kw in keywords:
+				excluded = true
+				break
+		if excluded:
+			continue
 		eligible.append(unit_id)
 
 	return eligible
@@ -618,12 +627,27 @@ func _rebuild_reserves_section() -> void:
 					break
 
 func _get_embarked_model_count(transport_id: String) -> int:
+	var transport = GameState.get_unit(transport_id)
 	var total = 0
 	for unit_id in transport_embarkations.get(transport_id, []):
 		var unit = GameState.get_unit(unit_id)
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				total += 1
+		total += _capacity_weighted_count(unit, transport)
+	return total
+
+# Capacity-weighted model count (MEGA ARMOUR / JUMP PACK models take the space
+# of 2) — keeps the dialog's meter in lockstep with FormationsPhase validation.
+func _capacity_weighted_count(unit: Dictionary, transport: Dictionary) -> int:
+	var multipliers = transport.get("transport_data", {}).get("capacity_multipliers", {})
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var per_model = 1
+	for kw in multipliers:
+		if kw in unit_keywords:
+			per_model = int(multipliers[kw])
+			break
+	var total = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			total += per_model
 	return total
 
 func _get_declared_reserves_points() -> int:

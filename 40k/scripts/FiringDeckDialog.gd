@@ -72,6 +72,12 @@ func setup(p_transport_id: String, p_embarked_unit_ids: Array, p_firing_deck_cap
 	# Populate available weapons from embarked units
 	_populate_available_weapons()
 
+	# ShootingPhase calls setup() before add_child(), so the containers built
+	# in _ready() may not exist yet — wait for them or the weapon checkbox
+	# list silently renders empty (weapons_container is null).
+	if not is_node_ready():
+		await ready
+
 	# Update UI
 	_update_capacity_label()
 	_create_weapon_checkboxes()

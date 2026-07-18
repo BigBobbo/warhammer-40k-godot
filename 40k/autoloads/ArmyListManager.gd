@@ -199,13 +199,12 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 										"description": desc,
 										"keywords": capacity_keywords
 									})
-							elif ability.has("name") and ability.name == "FIRING DECK":
-								var desc = ability.get("description", "")
-								var regex = RegEx.new()
-								regex.compile("Firing Deck (\\d+)")
-								var match = regex.search(desc)
-								if match:
-									firing_deck = int(match.get_string(1))
+							elif ability.has("name") and _parse_firing_deck_value(ability) > 0:
+								# Army files carry the ability as "Firing Deck 11" (name)
+								# with description "The unit gains the Firing Deck
+								# ability (11)." — parse the name first, then any
+								# number in the description as a fallback.
+								firing_deck = _parse_firing_deck_value(ability)
 
 					# P3-32: Parse capacity multipliers (e.g. "Each MEGA ARMOUR model takes up the space of 2 models")
 					var capacity_multipliers = {}
@@ -615,13 +614,9 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 									"description": desc,
 									"keywords": capacity_keywords
 								})
-						elif ability.has("name") and ability.name == "FIRING DECK":
-							var desc = ability.get("description", "")
-							var regex = RegEx.new()
-							regex.compile("Firing Deck (\\d+)")
-							var match = regex.search(desc)
-							if match:
-								firing_deck = int(match.get_string(1))
+						elif ability.has("name") and _parse_firing_deck_value(ability) > 0:
+							# "Firing Deck 11" name / "(11)" description — see primary parse site.
+							firing_deck = _parse_firing_deck_value(ability)
 
 				# P3-32: Parse capacity multipliers and exclusions
 				var capacity_multipliers = {}
@@ -1861,3 +1856,20 @@ func create_fallback_army(player: int) -> Dictionary:
 		},
 		"units": {}
 	}
+
+# Firing Deck value parser — accepts every spelling the data uses:
+# ability name "FIRING DECK" / "Firing Deck 11", or description text
+# "Firing Deck 11" / "The unit gains the Firing Deck ability (11)."
+func _parse_firing_deck_value(ability: Dictionary) -> int:
+	var fd_name := str(ability.get("name", ""))
+	if not fd_name.to_upper().begins_with("FIRING DECK"):
+		return 0
+	var num_regex = RegEx.new()
+	num_regex.compile("(\\d+)")
+	var name_match = num_regex.search(fd_name)
+	if name_match:
+		return int(name_match.get_string(1))
+	var desc_match = num_regex.search(str(ability.get("description", "")))
+	if desc_match:
+		return int(desc_match.get_string(1))
+	return 0

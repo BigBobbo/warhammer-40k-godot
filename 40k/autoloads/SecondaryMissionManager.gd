@@ -103,6 +103,17 @@ func setup_tactical_deck(player: int) -> void:
 	var player_key = str(player)
 	var state = _player_state[player_key]
 
+	# Multiplayer determinism: deck setup runs on BOTH peers (CommandPhase
+	# builds decks when it enters on each machine). Without a shared seed the
+	# two machines shuffle differently and silently show different hands all
+	# game. meta.game_seed is rolled by the host in the lobby and reaches the
+	# client via the initial snapshot / start_game message; single-player
+	# games without it keep the randomized RNG.
+	var shared_seed = GameState.state.get("meta", {}).get("game_seed", null)
+	if shared_seed != null:
+		_rng.seed = hash([int(shared_seed), player, "secondary_deck"])
+		print("SecondaryMissionManager: deterministic deck RNG for Player %d (game_seed %d)" % [player, int(shared_seed)])
+
 	# Get the edition's 18-card tactical deck (11e: GDM 2026 deck)
 	var deck_ids = SecondaryMissionData.get_mission_ids_for_deck_11e() \
 		if GameConstants.edition >= 11 else SecondaryMissionData.get_mission_ids_for_deck(false)

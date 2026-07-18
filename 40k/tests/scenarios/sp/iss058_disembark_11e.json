@@ -10,7 +10,7 @@
   "rng_seed": 42,
   "transition_to_phase": 7,
   "disable_ai": true,
-  "description": "ISS-058 remainder: MovementPhase drives the 11e disembark modes (18.04). The Battlewagon is stationary, so TACTICAL is the mandatory mode (3\" set-up) \u2014 positions at ~4\" are REJECTED. Signalling an impossible tactical set-up (payload.can_setup_tactical=false) falls back to COMBAT disembark: the same positions are accepted under the 6\" set-up, a hazard is rolled per model, and the unit is battle-shocked and cannot charge.",
+  "description": "ISS-058 remainder: MovementPhase drives the 11e disembark modes (18.04). The Battlewagon is stationary, so TACTICAL is the mandatory mode (3\" set-up) \u2014 positions at ~3.3-4.7\" are REJECTED. Signalling an impossible tactical set-up (payload.can_setup_tactical=false) falls back to COMBAT disembark: the same positions are accepted under the 6\" set-up, a hazard is rolled per model, and the unit is battle-shocked and cannot charge. Positions are legally spread (no overlap with Boyz F or each other) since the engine now validates placement overlap.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -38,44 +38,44 @@
         "payload": {
           "positions": [
             {
-              "x": 1298.0,
-              "y": 2070.0
-            },
-            {
-              "x": 1298.0,
-              "y": 2090.0
-            },
-            {
-              "x": 1298.0,
+              "x": 1270.0,
               "y": 2110.0
             },
             {
-              "x": 1298.0,
-              "y": 2130.0
+              "x": 1325.0,
+              "y": 2110.0
             },
             {
-              "x": 1298.0,
-              "y": 2150.0
-            },
-            {
-              "x": 1298.0,
+              "x": 1270.0,
               "y": 2170.0
             },
             {
-              "x": 1298.0,
-              "y": 2190.0
+              "x": 1325.0,
+              "y": 2170.0
             },
             {
-              "x": 1298.0,
-              "y": 2210.0
-            },
-            {
-              "x": 1298.0,
+              "x": 1270.0,
               "y": 2230.0
             },
             {
-              "x": 1298.0,
-              "y": 2250.0
+              "x": 1325.0,
+              "y": 2230.0
+            },
+            {
+              "x": 1270.0,
+              "y": 2290.0
+            },
+            {
+              "x": 1325.0,
+              "y": 2290.0
+            },
+            {
+              "x": 1270.0,
+              "y": 2350.0
+            },
+            {
+              "x": 1325.0,
+              "y": 2350.0
             }
           ]
         }
@@ -98,44 +98,44 @@
         "payload": {
           "positions": [
             {
-              "x": 1298.0,
-              "y": 2070.0
-            },
-            {
-              "x": 1298.0,
-              "y": 2090.0
-            },
-            {
-              "x": 1298.0,
+              "x": 1270.0,
               "y": 2110.0
             },
             {
-              "x": 1298.0,
-              "y": 2130.0
+              "x": 1325.0,
+              "y": 2110.0
             },
             {
-              "x": 1298.0,
-              "y": 2150.0
-            },
-            {
-              "x": 1298.0,
+              "x": 1270.0,
               "y": 2170.0
             },
             {
-              "x": 1298.0,
-              "y": 2190.0
+              "x": 1325.0,
+              "y": 2170.0
             },
             {
-              "x": 1298.0,
-              "y": 2210.0
-            },
-            {
-              "x": 1298.0,
+              "x": 1270.0,
               "y": 2230.0
             },
             {
-              "x": 1298.0,
-              "y": 2250.0
+              "x": 1325.0,
+              "y": 2230.0
+            },
+            {
+              "x": 1270.0,
+              "y": 2290.0
+            },
+            {
+              "x": 1325.0,
+              "y": 2290.0
+            },
+            {
+              "x": 1270.0,
+              "y": 2350.0
+            },
+            {
+              "x": 1325.0,
+              "y": 2350.0
             }
           ],
           "can_setup_tactical": false

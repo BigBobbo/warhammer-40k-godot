@@ -7980,6 +7980,27 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 	if not coherency_result.valid:
 		return {"valid": false, "errors": coherency_result.errors}
 
+	# Models cannot be set up overlapping other models (their own placements
+	# are checked pairwise, plus every other on-board model). The placement UI
+	# already enforces this — this keeps engine-only paths (AI / network /
+	# scripted actions) honest too.
+	for i in range(final_models.size()):
+		for j in range(i + 1, final_models.size()):
+			if Measurement.models_overlap(final_models[i], final_models[j]):
+				return {"valid": false, "errors": ["Disembark positions overlap each other"]}
+	for other_id in game_state_snapshot.units:
+		if other_id == unit_id:
+			continue
+		var other_unit = game_state_snapshot.units[other_id]
+		if other_unit.get("embarked_in", null) != null:
+			continue
+		for other_model in other_unit.get("models", []):
+			if not other_model.get("alive", true) or other_model.get("position") == null:
+				continue
+			for placed in final_models:
+				if Measurement.models_overlap(placed, other_model):
+					return {"valid": false, "errors": ["Disembark position overlaps a model from %s" % other_id]}
+
 	return {"valid": true, "errors": []}
 
 func _model_in_engagement_range(model_data: Dictionary, owner: int) -> bool:
@@ -8247,9 +8268,14 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 	if GameConstants.edition >= 11:
 		# 18.04 AFTER per mode: tactical = the unit is then SELECTED to
 		# make a normal or advance move; rapid/combat lock further moves.
-		if dis_mode == "tactical":
+		# If the transport already moved this turn the disembarked unit
+		# cannot move (TransportManager.disembark_unit sets cannot_move) —
+		# do NOT hand it a post-disembark move in that case.
+		if dis_mode == "tactical" and not unit.get("flags", {}).get("cannot_move", false):
 			log_phase_message("[11e] Tactical disembark — %s is selected for a normal/advance move" % unit_id)
 			call_deferred("_initialize_movement_for_disembarked_unit", unit_id)
+		elif dis_mode == "tactical":
+			log_phase_message("[11e] Tactical disembark — %s cannot move (transport moved this turn)" % unit_id)
 		return create_result(true, dis_changes)
 	# Post-disembark: offer movement if the transport hadn't already moved
 	if unit and not unit.get("flags", {}).get("cannot_move", false):
@@ -8324,6 +8350,18 @@ func _process_embark_unit(action: Dictionary) -> Dictionary:
 		"path": "units.%s.transport_data.embarked_units" % transport_id,
 		"value": current_embarked
 	})
+
+	# Embarked models are off the battlefield: clear their positions. Leaving
+	# the old positions in place made embarked units targetable by shooting,
+	# count as "on the battlefield" for charges, and block placement (they kept
+	# phantom footprints at their pre-embark spots).
+	var unit_models = unit.get("models", [])
+	for i in range(unit_models.size()):
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%d.position" % [unit_id, i],
+			"value": null
+		})
 
 	log_phase_message("Unit %s embarked in transport %s" % [unit_name, transport_name])
 

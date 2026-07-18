@@ -15,6 +15,37 @@
 			]
 		},
 		{
+			"version": "0.55.2",
+			"date": "2026-07-18",
+			"summary": "Online and LAN multiplayer are now brought up to 11th edition and had a large batch of sync bugs fixed. The multiplayer lobbies now use the 11th-edition Force Disposition matchup (each player picks their disposition and scores their own primary mission card) plus the official terrain-variant layouts, exactly like the single-player menu — instead of the old shared 10th-edition mission dropdown. A full host-vs-guest game was played end to end to shake these out.",
+			"changes": [
+				"LAN and Online multiplayer lobbies now offer per-player Force Dispositions and the matchup's official 11e terrain variants (which set the deployment automatically), matching the single-player setup. The old shared 'Take and Hold / Supply Drop / ...' mission dropdown is only used as a fallback if the 11e layout data is missing.",
+				"Both players now draw the SAME secondary mission hands: the deck shuffle is seeded from a shared game seed, so host and guest no longer silently see different cards.",
+				"End-of-turn choice prompts now appear on the correct player's screen in multiplayer — the 11e primary card action (Triangulate/Consecrate/Decoy/etc.), out-of-coherency model removal, Acrobatic Escape, and end-of-turn redeploy previously popped up on the host regardless of whose turn it was.",
+				"Fight-phase prompts are now shown to the right player too: Command Re-roll, Epic Challenge, the Martial Ka'tah stance choice, and the attack-assignment dialog were all appearing on both screens or only the host.",
+				"Melee wounds now reach the defending player for saving throws in multiplayer (previously a melee attack could leave the game waiting forever for a save the defender was never asked to make).",
+				"Mid-game mission/secondary/stratagem state and victory points now stay in sync between host and guest, including detachment abilities like Ork 'Get Stuck In' and the Custodes Martial Ka'tah buff being applied and cleared on both sides.",
+				"Desync detection now also works in online (relay) games, and the AFK turn timer that ends a stalled game is now actually active (90s per phase, with on-screen warnings).",
+				"Fixed the client entering a new phase as the wrong player after a turn change, which caused wrong CP/secondary-draw bookkeeping."
+			]
+		},
+		{
+			"version": "0.55.1",
+			"date": "2026-07-18",
+			"summary": "Transport overhaul from a full cross-phase audit: Firing Deck actually works now (Battlewagons never got their Firing Deck 11 from army files, and even selected weapons never fired), embarked units can no longer be shot at or declare charges through stale positions, illegal cargo (bikes, koptas) can no longer be declared into 'ORKS INFANTRY' transports, Mega Armour / Jump Pack models now take 2 transport spaces, and several disembark edge cases were tightened.",
+			"changes": [
+				"Firing Deck fixed end-to-end: 'Firing Deck 11' is now read from army files (it always loaded as 0, so the weapon-selection dialog never appeared), and the embarked models' selected weapons are now really fired by the transport as extra guns in its shooting sequence.",
+				"Embarked units are untouchable while inside: a unit that embarked during the Movement phase kept its old board position, so the enemy could still shoot it and it still counted as on the battlefield for charges. Embarking now clears model positions, and target lists always exclude embarked units.",
+				"Transport eligibility enforced everywhere: a '22 ORKS INFANTRY models' transport now requires BOTH keywords in the Formations declaration dialog and engine (Warbikers/Deffkoptas could previously be declared and deployed inside a Battlewagon).",
+				"Mega Armour and Jump Pack models now take up the space of 2 models in Battlewagons (capacity maths in the Formations dialog, deployment embark dialog and engine all agree).",
+				"Disembarking from a transport that already moved no longer secretly offers the unit a follow-up move (11e tactical disembark now respects the cannot-move restriction).",
+				"Disembark placement now warns and lets you fix the last model when the spread would break unit coherency, instead of silently discarding all your placements; placement errors show as toasts.",
+				"Emergency disembark from a destroyed transport no longer stacks survivors from different units on the same spot (models spread over expanding rings).",
+				"The engine now rejects disembark set-ups that overlap other models even when driven by the AI or scripts (the placement UI already prevented it).",
+				"Battle formations log now names the embarked units ('Burna Boyz embarked aboard Battlewagon Alpha' instead of 'Unknown embarked')."
+			]
+		},
+		{
 			"version": "0.55.0",
 			"date": "2026-07-17",
 			"summary": "Armour saves now always tell you WHO is attacking — and let you watch the battlefield while you decide. The Allocate Attacks window names the attacking unit ('Shot by Battlewagon Alpha'), sits as a slim command bar along the bottom of the screen instead of covering the board or any menus, and the battlefield itself outlines the attacker (red, with an arrow) and your unit under fire (gold).",

@@ -4700,6 +4700,13 @@ func _clear_phase_flags() -> void:
 		if unit.has("flags"):
 			unit.flags.erase("has_shot")
 			unit.flags.erase("performed_action")
+			unit.flags.erase("firing_deck_weapons")
+	# The loan lives on live GameState too (applied via state changes) — sweep it
+	# there as well so a leftover loan can never survive into a later phase.
+	for unit_id in GameState.state.get("units", {}):
+		var live_unit = GameState.state.units[unit_id]
+		if live_unit.has("flags"):
+			live_unit.flags.erase("firing_deck_weapons")
 
 func _clear_stratagem_phase_flags() -> void:
 	"""Clear effect-granted flags from all units at end of shooting phase.
@@ -5221,11 +5228,41 @@ func _on_firing_deck_models_selected(selected_weapons: Array, transport_id: Stri
 				"value": true
 			})
 
+	# 24.14: the selected weapons are treated as being equipped by the
+	# TRANSPORT model for this activation. Persist the loan on the transport's
+	# flags so RulesEngine.get_unit_weapons offers them (as __fd<i> aliases)
+	# alongside the transport's own guns; cleared when the unit finishes
+	# shooting (_clear_firing_deck_loan) and at end of phase.
+	var loans = []
+	for weapon_data in selected_weapons:
+		loans.append({
+			"unit_id": weapon_data.get("unit_id", ""),
+			"model_id": weapon_data.get("model_id", ""),
+			"weapon_id": weapon_data.get("weapon_id", ""),
+		})
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.firing_deck_weapons" % transport_id,
+		"value": loans
+	})
+
 	# Apply state changes
 	if changes.size() > 0:
 		# Apply through parent if it exists
 		if get_parent() and get_parent().has_method("apply_state_changes"):
 			get_parent().apply_state_changes(changes)
+	# Refresh the phase snapshot so target/weapon queries see the loan at once.
+	game_state_snapshot = GameState.state.duplicate(true)
+
+func _clear_firing_deck_loan(transport_id: String) -> void:
+	"""Remove the firing-deck weapon loan from a transport once its shooting ends."""
+	var unit = GameState.state.get("units", {}).get(transport_id, {})
+	if unit.is_empty() or not unit.get("flags", {}).has("firing_deck_weapons"):
+		return
+	unit.flags.erase("firing_deck_weapons")
+	if game_state_snapshot.get("units", {}).has(transport_id):
+		var snap_flags = game_state_snapshot.units[transport_id].get("flags", {})
+		snap_flags.erase("firing_deck_weapons")
 
 	# Now proceed with normal target selection for the transport
 	# The transport will use the selected weapons from embarked units
@@ -5323,6 +5360,9 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	var sanctified_changes = _check_sanctified_flames(unit_id) if not is_out_of_phase else []
 	if is_out_of_phase:
 		DebugLogger.info("ShootingPhase: Sanctified Flames check skipped — out-of-phase action active (P1-59)")
+
+	# 24.14: the firing-deck weapon loan lasts for this activation only.
+	_clear_firing_deck_loan(unit_id)
 
 	var changes = [{
 		"op": "set",

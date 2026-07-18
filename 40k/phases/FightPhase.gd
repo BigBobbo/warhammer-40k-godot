@@ -2275,6 +2275,17 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	# Clear Martial Ka'tah stance — "active until the unit finishes attacking"
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if faction_mgr:
+		# Multiplayer: emit the flag removals as broadcast diffs, not just a
+		# local erase. The host cleared these flags in its live state while the
+		# client (which set them via the SELECT_KATAH_STANCE result) never
+		# removed them → permanent post-fight desync. Capture which flags are
+		# present BEFORE clear_katah_stance erases them (it mutates live state
+		# directly), so the remove diffs are actually emitted.
+		var live_flags = GameState.state.get("units", {}).get(unit_id, {}).get("flags", {})
+		for katah_flag in ["effect_sustained_hits", "effect_lethal_hits", "katah_stance", "katah_sustained_hits_value"]:
+			if live_flags.has(katah_flag):
+				changes.append({"op": "remove", "path": "units.%s.flags.%s" % [unit_id, katah_flag]})
+		final_result["changes"] = changes
 		faction_mgr.clear_katah_stance(unit_id)
 		if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
 			var snap_flags = game_state_snapshot.units[unit_id].get("flags", {})
@@ -2427,9 +2438,15 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 		if not _sk_unit.is_empty():
 			_sk_unit.get("flags", {}).erase("selected_for_overrun_fight")
 
-	# Clear Martial Ka'tah stance if any
+	# Clear Martial Ka'tah stance if any — mirror the flag removal to the
+	# client via diffs (clear_katah_stance mutates live state directly).
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	var katah_remove_changes: Array = []
 	if faction_mgr:
+		var sk_flags = GameState.state.get("units", {}).get(action.unit_id, {}).get("flags", {})
+		for katah_flag in ["effect_sustained_hits", "effect_lethal_hits", "katah_stance", "katah_sustained_hits_value"]:
+			if sk_flags.has(katah_flag):
+				katah_remove_changes.append({"op": "remove", "path": "units.%s.flags.%s" % [action.unit_id, katah_flag]})
 		faction_mgr.clear_katah_stance(action.unit_id)
 
 	# Switch to next player
@@ -2439,7 +2456,7 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 
 	# Request next fight selection; when nobody is left and the 11e global
 	# Consolidate step is running (a forced fight was skipped), resume it.
-	var result = create_result(true, [])
+	var result = create_result(true, katah_remove_changes)
 	var dialog_data = _build_fight_selection_dialog_data()
 	if not dialog_data.is_empty():
 		_pending_fight_selection_data = dialog_data
@@ -4163,7 +4180,20 @@ func _process_select_katah_stance(action: Dictionary) -> Dictionary:
 		PhaseManager.apply_state_changes(katah_diffs)
 
 	# After Ka'tah — check for Dread Foe, then proceed to pile-in
-	return _resolve_dread_foe_then_pile_in(unit_id)
+	var katah_result = _resolve_dread_foe_then_pile_in(unit_id)
+	# Multiplayer: the stance flags were applied locally above but the result
+	# is what travels to the other peer — without carrying the diffs the
+	# remote client never saw the stance (observed live: katah_stance /
+	# effect_sustained_hits present host-side only → state-hash desync).
+	# Idempotent set-ops, so the local re-apply through the pipeline is safe.
+	if not katah_diffs.is_empty() and katah_result.get("success", false):
+		var kr_changes: Array = katah_result.get("changes", katah_result.get("diffs", []))
+		var merged := katah_diffs.duplicate()
+		merged.append_array(kr_changes)
+		katah_result["changes"] = merged
+		if katah_result.has("diffs"):
+			katah_result["diffs"] = merged
+	return katah_result
 
 func _validate_use_counter_offensive(action: Dictionary) -> Dictionary:
 	var errors = []

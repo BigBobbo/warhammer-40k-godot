@@ -603,6 +603,13 @@ func _on_discard_pressed(mission_index: int) -> void:
 		print("ScoringController: Game is already complete, cannot discard")
 		return
 
+	# Multiplayer: discarding is the ACTIVE player's decision about their own
+	# hand — the non-active seat's button does nothing (the host would reject
+	# the turn-gated action anyway; fail fast with a clear log instead).
+	if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_local_player_turn():
+		print("ScoringController: Discard ignored — not local player's turn")
+		return
+
 	var current_player = GameState.get_active_player()
 	print("ScoringController: Discard requested for mission index %d by player %d" % [mission_index, current_player])
 	emit_signal("scoring_action_requested", {
@@ -654,7 +661,11 @@ func set_phase(phase: BasePhase) -> void:
 		if phase.get("_awaiting_card_action"):
 			var pending_ca = phase.get("_card_action_pending")
 			if pending_ca is Dictionary and not pending_ca.is_empty():
-				call_deferred("_show_card_action_dialog", pending_ca, int(pending_ca.get("player", GameState.get_active_player())))
+				var ca_player = int(pending_ca.get("player", GameState.get_active_player()))
+				# Multiplayer: only the deciding seat re-shows
+				if not (NetworkManager and NetworkManager.is_networked()) \
+						or NetworkManager.get_local_player() == ca_player:
+					call_deferred("_show_card_action_dialog", pending_ca, ca_player)
 
 		# Update UI elements with current game state
 		_refresh_ui()
@@ -694,9 +705,19 @@ func _on_end_turn_pressed() -> void:
 
 func _on_coherency_removal_required(pending: Array, _player: int) -> void:
 	"""11e 03.03: the player chooses which model(s) to remove from
-	out-of-coherency units before the turn can end."""
-	print("[ScoringController] 03.03 coherency removal required for %d unit(s)" % pending.size())
-	_show_coherency_removal_dialog(pending)
+	out-of-coherency units before the turn can end. In multiplayer each
+	seat only decides for its OWN units — filter to the local player so
+	the dialog appears on the deciding player's screen (previously it
+	popped wherever the handler ran, i.e. always the host)."""
+	var to_show = pending
+	if NetworkManager and NetworkManager.is_networked():
+		var local_player = NetworkManager.get_local_player()
+		to_show = pending.filter(func(e): return int(e.get("player", 0)) == local_player)
+		if to_show.is_empty():
+			print("[ScoringController] 03.03 removals pending but none owned by local P%d — other seat decides" % local_player)
+			return
+	print("[ScoringController] 03.03 coherency removal required for %d unit(s)" % to_show.size())
+	_show_coherency_removal_dialog(to_show)
 
 func _show_coherency_removal_dialog(pending: Array) -> void:
 	var dialog = AcceptDialog.new()
@@ -757,10 +778,24 @@ func _show_coherency_removal_dialog(pending: Array) -> void:
 func _recheck_coherency_removal() -> void:
 	# After each removal: re-open the dialog while units remain incoherent;
 	# when the phase clears the gate, finish the turn the player asked for.
+	# Multiplayer CLIENT: the removal round-trips to the host, so the local
+	# phase flags are stale at this deferred call — the result-driven path in
+	# NetworkManager._emit_client_visual_updates re-prompts / resumes instead.
+	if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_host():
+		return
 	if current_phase and is_instance_valid(current_phase) \
 			and current_phase.get("_awaiting_coherency_removal"):
-		_show_coherency_removal_dialog(current_phase.get("_coherency_removal_pending"))
+		var pending = current_phase.get("_coherency_removal_pending")
+		if NetworkManager and NetworkManager.is_networked():
+			var local_player = NetworkManager.get_local_player()
+			pending = pending.filter(func(e): return int(e.get("player", 0)) == local_player)
+			if pending.is_empty():
+				return  # Remaining removals belong to the other seat
+		_show_coherency_removal_dialog(pending)
 	else:
+		# Only the ACTIVE player may re-dispatch END_TURN (turn-gated action).
+		if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_local_player_turn():
+			return
 		print("[ScoringController] 03.03 coherency restored — re-dispatching END_TURN")
 		emit_signal("scoring_action_requested", {"type": "END_TURN"})
 
@@ -775,6 +810,13 @@ func _on_card_action_choice_required(pending: Dictionary, player: int) -> void:
 	if ai_player_node and ai_player_node.is_ai_player(player):
 		# Should not happen (the phase gate skips AI players) — backstop only.
 		print("[ScoringController] Card action choice for AI P%d — skipping dialog" % player)
+		return
+	# Multiplayer: the card action belongs to the ACTIVE player's card — only
+	# their seat shows the dialog (previously it popped wherever the handler
+	# ran, i.e. always the host).
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != player:
+		print("[ScoringController] Card action choice is P%d's — local seat waits" % player)
 		return
 	print("[ScoringController] 11e card action choice for P%d: %s (%d targets)" % [
 		player, pending.get("action_name", "?"), pending.get("targets", []).size()])
@@ -911,6 +953,13 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 func _recheck_card_action() -> void:
 	# After resolve/skip the gate should be down — finish the turn the player
 	# asked for. If the phase still awaits (resolve rejected), re-show.
+	# Multiplayer CLIENT: the resolve round-trips to the host, so the local
+	# phase flag is stale-true here. The transport is ordered, so dispatching
+	# END_TURN immediately is safe — the host processes the resolve first.
+	if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_host():
+		print("[ScoringController] 11e card action resolve sent — dispatching END_TURN behind it")
+		emit_signal("scoring_action_requested", {"type": "END_TURN"})
+		return
 	if current_phase and is_instance_valid(current_phase) \
 			and current_phase.get("_awaiting_card_action"):
 		var pending = current_phase.get("_card_action_pending")
@@ -932,6 +981,13 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(player):
 		print("[ScoringController] Skipping Acrobatic Escape vanish dialog for AI player %d" % player)
+		return
+
+	# Multiplayer: the vanish belongs to the Callidus' OWNER (the non-active
+	# player) — only their seat shows the dialog.
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != player:
+		print("[ScoringController] Acrobatic Escape choice is P%d's — local seat waits" % player)
 		return
 
 	var dialog = AcceptDialog.new()
@@ -1049,6 +1105,13 @@ func _on_end_turn_redeploy_available(unit_id: String, unit_name: String, player:
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(player):
 		print("[ScoringController] Skipping end-of-turn redeploy dialog for AI player %d" % player)
+		return
+
+	# Multiplayer: the redeploy belongs to the unit's OWNER (the non-active
+	# player) — only their seat shows the dialog.
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != player:
+		print("[ScoringController] End-of-turn redeploy choice is P%d's — local seat waits" % player)
 		return
 
 	var dialog = AcceptDialog.new()

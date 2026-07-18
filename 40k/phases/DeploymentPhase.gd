@@ -519,14 +519,15 @@ func _validate_embark_units_deployment(action: Dictionary) -> Dictionary:
 
 	var capacity = transport.transport_data.get("capacity", 0)
 	var capacity_keywords = transport.transport_data.get("capacity_keywords", [])
+	var excluded_keywords = transport.transport_data.get("excluded_keywords", [])
 	var currently_embarked = transport.transport_data.get("embarked_units", [])
 
-	# Count current embarked models
+	# Count current embarked models (capacity-weighted: MEGA ARMOUR etc.)
 	var current_count = 0
 	for embarked_id in currently_embarked:
 		var embarked_unit = get_unit(embarked_id)
 		if not embarked_unit.is_empty():
-			current_count += _count_alive_models(embarked_unit)
+			current_count += _capacity_weighted_models(embarked_unit, transport)
 
 	# Validate each unit to embark
 	# IMPORTANT: Check against transport owner, not active player!
@@ -557,8 +558,18 @@ func _validate_embark_units_deployment(action: Dictionary) -> Dictionary:
 				errors.append("Unit missing required keywords %s: %s" % [str(capacity_keywords), unit_id])
 				continue
 
-		# Count models
-		var model_count = _count_alive_models(unit)
+		# Excluded keywords (e.g. JUMP PACK exclusions) bar embarkation
+		var excl_hit := ""
+		for excl_kw in excluded_keywords:
+			if excl_kw in unit.get("meta", {}).get("keywords", []):
+				excl_hit = excl_kw
+				break
+		if excl_hit != "":
+			errors.append("Unit has excluded keyword %s and cannot embark: %s" % [excl_hit, unit_id])
+			continue
+
+		# Count models (capacity-weighted)
+		var model_count = _capacity_weighted_models(unit, transport)
 		total_new_models += model_count
 
 	# Check capacity
@@ -1878,6 +1889,22 @@ func _unit_has_keywords(unit: Dictionary, required_keywords: Array) -> bool:
 		if not keyword in unit_keywords:
 			return false
 	return true
+
+func _capacity_weighted_models(unit: Dictionary, transport: Dictionary) -> int:
+	"""Alive models weighted by the transport's capacity multipliers
+	(e.g. MEGA ARMOUR / JUMP PACK models take the space of 2)."""
+	var multipliers = transport.get("transport_data", {}).get("capacity_multipliers", {})
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var per_model = 1
+	for kw in multipliers:
+		if kw in unit_keywords:
+			per_model = int(multipliers[kw])
+			break
+	var count = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			count += per_model
+	return count
 
 func _count_alive_models(unit: Dictionary) -> int:
 	"""Count alive models in a unit"""

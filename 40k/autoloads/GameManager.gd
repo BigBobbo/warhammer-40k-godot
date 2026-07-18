@@ -179,8 +179,6 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _delegate_to_current_phase(action)
 		"CONSOLIDATE":
 			return _delegate_to_current_phase(action)
-		"SKIP_UNIT":
-			return _delegate_to_current_phase(action)
 		"HEROIC_INTERVENTION":
 			return _delegate_to_current_phase(action)
 		"END_FIGHT":
