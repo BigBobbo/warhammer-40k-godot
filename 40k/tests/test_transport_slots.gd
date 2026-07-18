@@ -121,18 +121,23 @@ func _init():
 		print("  FAIL: Expected %d > %d" % [total_3, capacity])
 		failed += 1
 
-	# --- Test 11: Army JSON Meganobz unit has transport_slots=2 ---
-	print("\n--- Test 11: Army JSON Meganobz has transport_slots=2 ---")
+	# --- Test 11: Battlewagon TRANSPORT description carries the MEGA ARMOUR
+	# multiplier sentence the ArmyListManager parser turns into
+	# capacity_multipliers = {"MEGA ARMOUR": 2} (the live capacity mechanism;
+	# per-model model_profiles.transport_slots never shipped in orks.json).
+	print("\n--- Test 11: Battlewagon description carries MEGA ARMOUR multiplier ---")
 	var army_data = _load_army_json("orks")
 	var mega_json = army_data.get("units", {}).get("U_MEGANOBZ_L", {})
-	var mega_profiles = mega_json.get("meta", {}).get("model_profiles", {})
-	var klaw_slots = int(mega_profiles.get("meganob_klaw", {}).get("transport_slots", 0))
-	var saws_slots = int(mega_profiles.get("meganob_saws", {}).get("transport_slots", 0))
-	if klaw_slots == 2 and saws_slots == 2:
-		print("  PASS: JSON meganob_klaw and meganob_saws both have transport_slots=2")
+	var bw_json = army_data.get("units", {}).get("U_BATTLEWAGON_G", {})
+	var mult_sentence_found = false
+	for ability in bw_json.get("meta", {}).get("abilities", []):
+		if ability.get("name", "") == "TRANSPORT" and "Each MEGA ARMOUR model takes up the space of 2 models" in ability.get("description", ""):
+			mult_sentence_found = true
+	if mult_sentence_found:
+		print("  PASS: Battlewagon TRANSPORT description carries the MEGA ARMOUR x2 sentence")
 		passed += 1
 	else:
-		print("  FAIL: Expected 2/2, got klaw=%d saws=%d" % [klaw_slots, saws_slots])
+		print("  FAIL: MEGA ARMOUR multiplier sentence missing from Battlewagon TRANSPORT description")
 		failed += 1
 
 	# --- Test 12: Army JSON Meganobz has MEGA ARMOUR keyword ---
@@ -145,19 +150,24 @@ func _init():
 		print("  FAIL: Missing MEGA ARMOUR keyword")
 		failed += 1
 
-	# --- Test 13: Army JSON slot count from loaded Meganobz models ---
-	print("\n--- Test 13: Loaded Meganobz slot count from JSON ---")
+	# --- Test 13: Meganobz weigh double under the capacity multiplier ---
+	# Mirrors TransportManager._get_unit_capacity_cost with the multipliers the
+	# parser derives from the (fixed) Battlewagon description.
+	print("\n--- Test 13: Meganobz weigh 2 spaces each under capacity multipliers ---")
 	var mega_models_json = mega_json.get("models", [])
-	var json_slot_count = 0
-	for m in mega_models_json:
-		var mt = m.get("model_type", "")
-		var profile = mega_profiles.get(mt, {})
-		json_slot_count += int(profile.get("transport_slots", 1))
+	var mega_kw_list = mega_json.get("meta", {}).get("keywords", [])
+	var multipliers = {"MEGA ARMOUR": 2, "JUMP PACK": 2}
+	var per_model_cost = 1
+	for kw in multipliers:
+		if kw in mega_kw_list:
+			per_model_cost = multipliers[kw]
+			break
+	var json_slot_count = mega_models_json.size() * per_model_cost
 	if json_slot_count == 10:
-		print("  PASS: 5 Meganobz from JSON = 10 transport slots")
+		print("  PASS: 5 Meganobz weigh 10 capacity slots (2 each)")
 		passed += 1
 	else:
-		print("  FAIL: Expected 10, got %d" % json_slot_count)
+		print("  FAIL: Expected 10, got %d (models=%d, per_model=%d)" % [json_slot_count, mega_models_json.size(), per_model_cost])
 		failed += 1
 
 	# --- Test 14: Army JSON Battlewagon has capacity 22 ---
