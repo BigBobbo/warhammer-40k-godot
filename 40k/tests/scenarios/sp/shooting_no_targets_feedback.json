@@ -4,11 +4,13 @@
   "fixture": "audit_383_battleshock_shoot",
   "rng_seed": 42,
   "transition_to_phase": 8,
-  "description": "Stompa silent-click bug: the unit list shows shooters that P3-96 refuses to select (no eligible targets — both Witchseekers squads carry only 12\" flamers with every Ork 25\"+ away). Selecting such a unit and clicking enemies used to do NOTHING silently. Now: selection explains why nothing is targetable (dice log + status label + toast) and a board click on an enemy appends the per-target reason. Index 6 may be either Witchseekers squad depending on list order — both have zero eligible targets.",
+  "description": "Stompa silent-click bug: the unit list shows shooters that P3-96 refuses to select (no eligible targets — both Witchseekers squads carry only 12\" flamers with every Ork 25\"+ away). Selecting such a unit and clicking enemies used to do NOTHING silently. Now: selection explains why nothing is targetable (dice log + status label + toast) and a board click on an enemy appends the per-target reason. Index 6 may be either Witchseekers squad depending on list order — both have zero eligible targets. NOTE: the no-target shooters are hidden by the default 'show only units that can shoot' filter, so this scenario enables 'Show all units' up front to keep the full unfiltered list (and index 6) available.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 8 },
     { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "script": "SettingsService.set_shooting_show_all_units(true)" },
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\")._refresh_unit_list(false)" },
     { "act": "screenshot", "label": "01_shooting_phase_loaded" },
 
     { "act": "dispatch_action", "action": {
