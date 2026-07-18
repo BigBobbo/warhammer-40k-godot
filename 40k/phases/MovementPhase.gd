@@ -149,13 +149,24 @@ var _grot_oiler_bearer_id: String = ""              # The unit with Grot Oiler w
 var _grot_oiler_targets: Array = []                 # Eligible healing targets
 var _grot_oiler_pending_changes: Array = []         # Pending changes from END_MOVEMENT cleanup
 
-# Calculate pivot value for a unit based on base type and keywords (10e Core Rules + Pariah Nexus)
-# Per Pariah Nexus Companion & Q3 2024 Balance Update:
+# Calculate pivot value for a unit based on base type and keywords.
+#
+# 11e (the player edition): pivoting/rotating a model is FREE — the core rules
+# state "rotating a model does not count towards the distance it has moved",
+# with no exception for non-circular bases, Vehicles or Monsters. So every unit
+# has a 0" pivot value at edition >= 11 and no movement is deducted for turning.
+#
+# The 2" pivot cost below is a 10e-only rule (Pariah Nexus Companion & Q3 2024
+# Balance Update) — retained solely for the edition==10 regression baseline:
 # - All non-round base models: 2" (Pariah Nexus expanded this from just Vehicle/Monster)
 # - Vehicle round base >32mm with flying stem/hover stand: 2" (August 2024 FAQ)
 # - Aircraft: 0"
 # - All other (standard round base): 0"
 func get_pivot_value_for_unit(unit_id: String) -> float:
+	# 11e: no pivot cost for any base type — rotating is free.
+	if GameConstants.edition >= 11:
+		return 0.0
+
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return 0.0
@@ -2773,6 +2784,10 @@ func _validate_place_kunnin_infiltrator(action: Dictionary) -> Dictionary:
 			var dist_inches = dist_px / px_per_inch
 			# Edge-to-edge distance: center distance minus both radii
 			var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+			# NOTE: Kunnin' Infiltrator's printed text says >9"; whether 11e Orks
+			# rebased it to the core 8" reserves distance is unconfirmed (faction
+			# rules unavailable), so this deliberately stays 9" — do not "fix" to
+			# 8" without the current Ork datasheet. (Core reserves ARE 8" at e11.)
 			if edge_dist < 9.0:
 				errors.append("Model %d: must be >9\" from enemy models (currently %.1f\")" % [i, edge_dist])
 				break
@@ -3764,6 +3779,8 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 
 			# For Rapid Ingress, "enemies" are the active player's models
 			# get_enemy_model_positions(player) returns models NOT belonging to player
+			# 11e (20.04 Ingress): set up >8" from enemies (vs 10e's >9").
+			var min_enemy_sep = GameConstants.reinforcement_min_enemy_distance_inches()
 			var enemy_positions = GameState.get_enemy_model_positions(player)
 			for enemy in enemy_positions:
 				var enemy_pos_px = Vector2(enemy.x, enemy.y)
@@ -3771,8 +3788,8 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 				var dist_px = pos.distance_to(enemy_pos_px)
 				var dist_inches = dist_px / px_per_inch
 				var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-				if edge_dist < 9.0:
-					errors.append("Model %d: must be >9\" from enemy models (currently %.1f\")" % [i, edge_dist])
+				if edge_dist < min_enemy_sep:
+					errors.append("Model %d: must be >%.0f\" from enemy models (currently %.1f\")" % [i, min_enemy_sep, edge_dist])
 					break
 
 			# Strategic Reserves: must be within 6" of a battlefield edge
