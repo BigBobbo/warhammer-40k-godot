@@ -11,7 +11,7 @@
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "UX guard: the fight-flow confirm affordances must be singular. Previously the AttackAssignmentDialog showed both its own 'Fight!' button and the AcceptDialog built-in 'OK' button, wired to the same handler — confusing, and the OK path auto-hid the dialog even when the confirm was rejected (no assignments). The fighter picker had the same problem as a pop-up (an OK button that could only dismiss it without selecting) and has since moved into the right panel entirely (FightSelectionPanel): picking a unit is a single button click and NO centered pop-up may cover the board. This scenario drives the real player path: pass both Pile In halves, assert the fighter pick happens in the right-panel FightSelectionPanel with NO FightSelectionDialog pop-up in the tree, pick the Warboss, assert the AttackAssignmentDialog has NO visible built-in OK button while its 'Fight!' ConfirmButton IS visible, then assign all weapons and resolve the fight through that single button, proving the picker section re-shows for the next activation. Setup-only privileges: CP zeroed to suppress stratagem prompts not under test; model wounds inflated so no unit dies mid-scenario. STAGED FIGHT: after each Fight! click the FightSequenceDialog pauses at the hit and wound rolls — the scenario clicks through the staged continue buttons to complete each activation.",
+  "description": "UX guard: the fight-flow confirm affordances must be singular. Previously the AttackAssignmentDialog showed both its own 'Fight!' button and the AcceptDialog built-in 'OK' button, wired to the same handler — confusing, and the OK path auto-hid the dialog even when the confirm was rejected (no assignments). The fighter picker had the same problem as a pop-up (an OK button that could only dismiss it without selecting) and has since moved into the right panel entirely (FightSelectionPanel): picking a unit is a single button click and NO centered pop-up may cover the board. This scenario drives the real player path: pass both Pile In halves, assert the fighter pick happens in the right-panel FightSelectionPanel with NO FightSelectionDialog pop-up in the tree, pick the Warboss, assert the AttackAssignmentDialog has NO visible built-in OK button while its 'Fight!' ConfirmButton IS visible, then assign all weapons and resolve the fight through that single button, proving the picker section re-shows for the next activation. Setup-only privileges: CP zeroed to suppress stratagem prompts not under test; model wounds inflated so no unit dies mid-scenario. STAGED FIGHT: after each Fight! click the right-panel FightResolutionDock pauses at the hit and wound rolls — the scenario clicks through its staged primary button (same surface as the shooting resolution dock) to complete each activation.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
@@ -45,9 +45,9 @@
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)" },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)" },
     { "act": "wait_frames", "frames": 4 },
-    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },
 
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 8.0 },

@@ -2,6 +2,20 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.59.0",
+			"date": "2026-07-18",
+			"summary": "Melee hit and wound rolls now resolve in the right-hand panel, exactly like shooting — no more pop-up window covering the battle. The fight phase gets the same staged resolution dock the shooting phase uses: one button in a fixed spot steps through 'Roll to Wound' and 'Continue to Saving Throws', clickable Command Re-roll dice chips, a Fast Roll button, and the same 'Pauses' setting — so both phases feel identical to play.",
+			"changes": [
+				"Fight phase: the hit/wound roll pop-up at the bottom of the screen is gone — melee attacks now resolve in the right panel with the same dock the shooting phase uses, so the battlefield (and the melee itself) stays visible the whole time.",
+				"The dock header names both sides ('MELEE RESOLUTION — Warboss vs Custodian Guard') and lists each weapon with a live ▶ progress marker and per-weapon results (hits/wounds) as the sequence advances.",
+				"Command Re-roll in melee is now a row of clickable dice chips in the panel — same size, colors and behavior as the shooting phase's chips.",
+				"NEW for melee: 'Fast Roll ⏩' rips through the remaining hit/wound pauses of the activation, and the 'Pauses' policy (Every step / Only decisions / Never) now applies to fight as well as shooting — one setting, one rhythm.",
+				"NEW for melee: Space/Enter presses the dock's main button, so a whole melee activation can be resolved from the keyboard, just like shooting.",
+				"Dice detail streams to the right panel's COMBAT LOG only — melee rolls no longer appear in three different places at once.",
+				"Command Re-roll results now show properly in the shooting DICE LOG and fight COMBAT LOG ('↻ Command Re-roll (1 CP): hit die 2 → 5') instead of an empty 'Reroll Note' line."
+			]
+		},
+		{
 			"version": "0.58.0",
 			"date": "2026-07-18",
 			"summary": "Transports now clearly show what is riding inside them during deployment. The deployment list gives each embarked unit its own indented line under the transport (no more overlapping, cut-off text), and that same 'Carrying:' breakdown now stays on screen while you position the transport — so you always know which units and how many models are onboard.",

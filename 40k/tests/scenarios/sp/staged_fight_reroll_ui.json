@@ -4,16 +4,17 @@
     "ui.fight.staged_hit_wound_pause",
     "ui.fight.command_reroll",
     "ui.fight.continue_buttons",
-    "ui.fight.log_dice_icons",
-    "ui.fight.reroll_dice_icons",
-    "dialogs.FightSequenceDialog"
+    "ui.fight.right_panel_resolution",
+    "scripts.FightResolutionDock",
+    "scripts.ResolutionDockBase",
+    "scripts.FightController"
   ],
   "fixture": "co_pretrigger",
   "edition": 11,
   "rng_seed": 7,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "Drives the non-networked STAGED fight sequence through the real player path: pile-in halves passed, Warboss selected, attacks assigned, Fight! clicked -> FightSequenceDialog pauses after the hit roll ('Roll to Wound' + per-die Command Re-roll), a hit die is Command Re-rolled (CP spent), then the sequence continues stage by stage until the summary + Close. Verifies the fight no longer jumps straight through hit/wound rolls. Setup-only privileges: CP zeroed during selection to suppress the Epic Challenge prompt (not under test), then granted before Fight! so the Command Re-roll affordance appears; defender wounds inflated so the target survives all weapons.",
+  "description": "Drives the non-networked STAGED fight sequence through the real player path with the RIGHT-PANEL resolution dock (melee twin of the shooting dock — the old FightSequenceDialog bottom pop-up is gone): pile-in halves passed, Warboss selected, attacks assigned, Fight! clicked -> FightResolutionDock activates in the right panel and pauses after the hit roll ('Roll to Wound' + per-die Command Re-roll chips), dice detail streams to the right-panel COMBAT LOG, a hit die is Command Re-rolled (CP spent), then the sequence continues stage by stage until the 'Done' summary. Verifies no board-covering pop-up opens for melee resolution and the dock's header names attacker AND defender. Setup-only privileges: CP zeroed during selection to suppress the Epic Challenge prompt (not under test), then granted before Fight! so the Command Re-roll affordance appears; defender wounds inflated so the target survives all weapons.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
@@ -44,87 +45,106 @@
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
     { "act": "wait_frames", "frames": 6 },
 
-    { "act": "expect_node_visible", "node": "/root/FightSequenceDialog", "timeout_s": 5.0 },
-    { "act": "expect_node_visible", "node": "/root/FightSequenceDialog/Content/Buttons/StagedContinueButton", "timeout_s": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock", "timeout_s": 5.0 },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog/Content/HeaderLabel\").text.contains(\" — melee attacks vs \")",
+      "script": "main.get_tree().root.get_node_or_null(\"FightSequenceDialog\") == null",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").staged_continue_button.text.begins_with(\"Roll to Wound\")",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.state",
+      "equals": "staged_hits"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.header_label.text.contains(\" vs \")",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").reroll_row.visible",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.primary_button.text.begins_with(\"Roll to Wound\")",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"Rolling to Hit\")",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.reroll_row.get_parent().visible",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\")._log_dice_icon_count > 0",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.reroll_row.get_child(0).icon != null",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").reroll_row.get_child(0).icon != null",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.reroll_row.get_child(0).text == \"\"",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").reroll_row.get_child(0).text == \"\"",
+      "script": "main.get_node(\"FightController\").dice_log_display.get_parsed_text().contains(\"Hit Roll Melee\")",
       "equals": true
     },
-    { "act": "screenshot", "label": "02_hits_pause_with_reroll_row" },
+    { "act": "screenshot", "label": "02_hits_pause_with_reroll_chips_in_dock" },
 
-    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/RerollScroll/RerollRow/Die0", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockRerollScroll/DockRerollRow/DockDie0", "emit_pressed": true },
     { "act": "wait_frames", "frames": 4 },
     { "act": "expect_state", "path": "players.2.cp", "equals": 1 },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"Command Re-roll\")",
+      "script": "main.get_node(\"FightController\").dice_log_display.get_parsed_text().contains(\"Command Re-roll\")",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").reroll_row.visible",
-      "equals": false
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.reroll_row.get_child_count()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.state",
+      "equals": "staged_hits"
     },
     { "act": "screenshot", "label": "03_after_hit_command_reroll" },
 
-    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/StagedContinueButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton", "emit_pressed": true },
     { "act": "wait_frames", "frames": 6 },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"Rolling to Wound\") or main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"0 wounds\")",
+      "script": "main.get_node(\"FightController\").dice_log_display.get_parsed_text().contains(\"Wound Roll Melee\") or main.get_node(\"FightController\").fight_resolution_dock.state != \"staged_hits\"",
       "equals": true
     },
     { "act": "screenshot", "label": "04_after_continue_to_wounds" },
 
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)"
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)"
     },
     { "act": "wait_frames", "frames": 4 },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").close_button.visible",
-      "equals": true
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.state",
+      "equals": "complete"
     },
     {
       "act": "execute_script",
-      "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").dice_log_rich_text.get_parsed_text().contains(\"Melee attacks resolved\")",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.primary_button.text",
+      "equals": "Done ✔"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.status_label.text.contains(\"Melee attacks resolved\")",
       "equals": true
     },
-    { "act": "screenshot", "label": "05_sequence_complete_summary" },
-    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
+    { "act": "screenshot", "label": "05_sequence_complete_summary_in_dock" },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.is_active()",
+      "equals": false
+    },
     { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.has_fought", "equals": true },
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 8.0 },
     { "act": "screenshot", "label": "06_next_fighter_selection_repops" }

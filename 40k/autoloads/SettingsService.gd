@@ -74,7 +74,10 @@ var show_terrain_scatter: bool = true
 # AUTO_ALLOCATE_MIGRATION_KEY below, which retires older saved `true` values).
 var auto_allocate_wounds: bool = false
 
-# B3 (audit 2026-07): staged shooting pause policy —
+# B3 (audit 2026-07): staged resolution pause policy — ONE setting shared by
+# the shooting AND fight resolution docks (kept under its original
+# "shooting_pause_policy" name for saved-settings compatibility) so both
+# phases pause with the same rhythm:
 #   "every_step" (default): pause at every hit/wound roll
 #   "decisions":  pause only when a Command Re-roll is actually usable
 #                 (CP available, not used this phase, and a failed die exists)

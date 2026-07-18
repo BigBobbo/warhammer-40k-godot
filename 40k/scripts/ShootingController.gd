@@ -2482,6 +2482,13 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		dice_log_display.append_text("[b][color=yellow]>>> %s <<<[/color][/b]\n" % message)
 		return
 
+	# Command Re-roll note ("Command Re-roll (1 CP): hit die 2 → 5") — render
+	# the message itself instead of falling through to the generic roll
+	# formatter, which printed a meaningless "Reroll Note (need ): Rolls: —".
+	if context == "reroll_note":
+		dice_log_display.append_text("[b][color=orange]↻ %s[/color][/b]\n" % dice_data.get("message", "Re-roll"))
+		return
+
 	# FEEL NO PAIN: Handle feel_no_pain dice block
 	if context == "feel_no_pain":
 		var fnp_val = dice_data.get("fnp_value", 0)
