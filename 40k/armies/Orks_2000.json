@@ -862,7 +862,28 @@
       "description": "9-19 Beast Snagga Boy",
       "line": 2
      }
-    ]
+    ],
+    "model_profiles": {
+     "boss_nob": {
+      "label": "Beast Snagga Nob",
+      "short_label": "N",
+      "weapons": [
+       "Slugga",
+       "Power snappa"
+      ],
+      "stats_override": {}
+     },
+     "boy": {
+      "label": "Beast Snagga Boy",
+      "short_label": "B",
+      "weapons": [
+       "Slugga",
+       "Choppa",
+       "Close combat weapon"
+      ],
+      "stats_override": {}
+     }
+    }
    },
    "models": [
     {
@@ -872,7 +893,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boss_nob"
     },
     {
      "id": "m2",
@@ -881,7 +903,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boy"
     },
     {
      "id": "m3",
@@ -890,7 +913,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boy"
     },
     {
      "id": "m4",
@@ -899,7 +923,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boy"
     },
     {
      "id": "m5",
@@ -908,7 +933,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boy"
     },
     {
      "id": "m6",
@@ -917,7 +943,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boy"
     },
     {
      "id": "m7",
@@ -926,7 +953,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boy"
     },
     {
      "id": "m8",
@@ -935,7 +963,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boy"
     },
     {
      "id": "m9",
@@ -944,7 +973,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boy"
     },
     {
      "id": "m10",
@@ -953,7 +983,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boy"
     }
    ]
   },
@@ -1773,7 +1804,27 @@
       "description": "10-20 Gretchin",
       "line": 2
      }
-    ]
+    ],
+    "model_profiles": {
+     "runtherd": {
+      "label": "Runtherd",
+      "short_label": "R",
+      "weapons": [
+       "Slugga",
+       "Runtherd tools"
+      ],
+      "stats_override": {}
+     },
+     "gretchin": {
+      "label": "Gretchin",
+      "short_label": "G",
+      "weapons": [
+       "Grot blasta",
+       "Close combat weapon"
+      ],
+      "stats_override": {}
+     }
+    }
    },
    "models": [
     {
@@ -1783,7 +1834,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "runtherd"
     },
     {
      "id": "m2",
@@ -1792,7 +1844,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m3",
@@ -1801,7 +1854,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m4",
@@ -1810,7 +1864,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m5",
@@ -1819,7 +1874,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m6",
@@ -1828,7 +1884,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m7",
@@ -1837,7 +1894,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m8",
@@ -1846,7 +1904,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m9",
@@ -1855,7 +1914,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m10",
@@ -1864,7 +1924,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m11",
@@ -1873,7 +1934,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m12",
@@ -1882,7 +1944,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m13",
@@ -1891,7 +1954,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m14",
@@ -1900,7 +1964,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m15",
@@ -1909,7 +1974,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m16",
@@ -1918,7 +1984,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m17",
@@ -1927,7 +1994,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m18",
@@ -1936,7 +2004,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m19",
@@ -1945,7 +2014,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m20",
@@ -1954,7 +2024,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m21",
@@ -1963,7 +2034,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     },
     {
      "id": "m22",
@@ -1972,7 +2044,8 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "gretchin"
     }
    ]
   },
@@ -2105,7 +2178,29 @@
       "description": "9 Kommando",
       "line": 2
      }
-    ]
+    ],
+    "model_profiles": {
+     "boss_nob": {
+      "label": "Boss Nob",
+      "short_label": "N",
+      "weapons": [
+       "Slugga",
+       "Big choppa"
+      ],
+      "stats_override": {}
+     },
+     "kommando": {
+      "label": "Kommando",
+      "short_label": "K",
+      "weapons": [
+       "Kustom shoota",
+       "Slugga",
+       "Choppa",
+       "Close combat weapon"
+      ],
+      "stats_override": {}
+     }
+    }
    },
    "models": [
     {
@@ -2115,7 +2210,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boss_nob"
     },
     {
      "id": "m2",
@@ -2124,7 +2220,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "kommando"
     },
     {
      "id": "m3",
@@ -2133,7 +2230,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "kommando"
     },
     {
      "id": "m4",
@@ -2142,7 +2240,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "kommando"
     },
     {
      "id": "m5",
@@ -2151,7 +2250,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "kommando"
     },
     {
      "id": "m6",
@@ -2160,7 +2260,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "kommando"
     },
     {
      "id": "m7",
@@ -2169,7 +2270,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "kommando"
     },
     {
      "id": "m8",
@@ -2178,7 +2280,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "kommando"
     },
     {
      "id": "m9",
@@ -2187,7 +2290,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "kommando"
     },
     {
      "id": "m10",
@@ -2196,7 +2300,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "kommando"
     }
    ]
   },
@@ -2919,7 +3024,27 @@
       "description": "4-9 Stormboy",
       "line": 2
      }
-    ]
+    ],
+    "model_profiles": {
+     "boss_nob": {
+      "label": "Boss Nob",
+      "short_label": "N",
+      "weapons": [
+       "Slugga",
+       "Choppa"
+      ],
+      "stats_override": {}
+     },
+     "stormboy": {
+      "label": "Stormboy",
+      "short_label": "S",
+      "weapons": [
+       "Slugga",
+       "Choppa"
+      ],
+      "stats_override": {}
+     }
+    }
    },
    "models": [
     {
@@ -2929,7 +3054,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boss_nob"
     },
     {
      "id": "m2",
@@ -2938,7 +3064,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "stormboy"
     },
     {
      "id": "m3",
@@ -2947,7 +3074,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "stormboy"
     },
     {
      "id": "m4",
@@ -2956,7 +3084,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "stormboy"
     },
     {
      "id": "m5",
@@ -2965,7 +3094,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "stormboy"
     },
     {
      "id": "m6",
@@ -2974,7 +3104,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "stormboy"
     },
     {
      "id": "m7",
@@ -2983,7 +3114,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "stormboy"
     },
     {
      "id": "m8",
@@ -2992,7 +3124,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "stormboy"
     },
     {
      "id": "m9",
@@ -3001,7 +3134,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "stormboy"
     },
     {
      "id": "m10",
@@ -3010,7 +3144,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "stormboy"
     }
    ]
   },
@@ -3126,7 +3261,27 @@
       "description": "5 Tankbusta",
       "line": 2
      }
-    ]
+    ],
+    "model_profiles": {
+     "boss_nob": {
+      "label": "Boss Nob",
+      "short_label": "N",
+      "weapons": [
+       "Rokkit pistol",
+       "Choppa"
+      ],
+      "stats_override": {}
+     },
+     "tankbusta": {
+      "label": "Tankbusta",
+      "short_label": "T",
+      "weapons": [
+       "Rokkit launcha",
+       "Close combat weapon"
+      ],
+      "stats_override": {}
+     }
+    }
    },
    "models": [
     {
@@ -3136,7 +3291,8 @@
      "base_mm": 40,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "boss_nob"
     },
     {
      "id": "m2",
@@ -3145,7 +3301,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "tankbusta"
     },
     {
      "id": "m3",
@@ -3154,7 +3311,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "tankbusta"
     },
     {
      "id": "m4",
@@ -3163,7 +3321,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "tankbusta"
     },
     {
      "id": "m5",
@@ -3172,7 +3331,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "tankbusta"
     },
     {
      "id": "m6",
@@ -3181,7 +3341,8 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "model_type": "tankbusta"
     }
    ]
   },
@@ -3275,7 +3436,27 @@
       "description": "2-5 Warbiker",
       "line": 2
      }
-    ]
+    ],
+    "model_profiles": {
+     "boss_nob": {
+      "label": "Boss Nob on Warbike",
+      "short_label": "N",
+      "weapons": [
+       "Twin dakkagun",
+       "Close combat weapon"
+      ],
+      "stats_override": {}
+     },
+     "warbiker": {
+      "label": "Warbiker",
+      "short_label": "B",
+      "weapons": [
+       "Twin dakkagun",
+       "Close combat weapon"
+      ],
+      "stats_override": {}
+     }
+    }
    },
    "models": [
     {
@@ -3290,7 +3471,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "boss_nob"
     },
     {
      "id": "m2",
@@ -3304,7 +3486,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "warbiker"
     },
     {
      "id": "m3",
@@ -3318,7 +3501,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "warbiker"
     },
     {
      "id": "m4",
@@ -3332,7 +3516,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "warbiker"
     },
     {
      "id": "m5",
@@ -3346,7 +3531,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "warbiker"
     },
     {
      "id": "m6",
@@ -3360,7 +3546,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "warbiker"
     }
    ]
   },
@@ -3492,7 +3679,29 @@
       "description": "2-5 Warbiker",
       "line": 2
      }
-    ]
+    ],
+    "model_profiles": {
+     "boss_nob": {
+      "label": "Boss Nob on Warbike",
+      "short_label": "N",
+      "weapons": [
+       "Twin dakkagun",
+       "Big choppa",
+       "Choppa",
+       "Close combat weapon"
+      ],
+      "stats_override": {}
+     },
+     "warbiker": {
+      "label": "Warbiker",
+      "short_label": "B",
+      "weapons": [
+       "Twin dakkagun",
+       "Close combat weapon"
+      ],
+      "stats_override": {}
+     }
+    }
    },
    "models": [
     {
@@ -3507,7 +3716,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "boss_nob"
     },
     {
      "id": "m2",
@@ -3521,7 +3731,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "warbiker"
     },
     {
      "id": "m3",
@@ -3535,7 +3746,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "warbiker"
     },
     {
      "id": "m4",
@@ -3549,7 +3761,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "warbiker"
     },
     {
      "id": "m5",
@@ -3563,7 +3776,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "warbiker"
     },
     {
      "id": "m6",
@@ -3577,7 +3791,8 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     }
+     },
+     "model_type": "warbiker"
     }
    ]
   }
