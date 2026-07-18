@@ -16,3 +16,8 @@ const LARGE = Vector2(700, 500)
 ## strip stays visible — matches AllocationGroupOverlay's _BOTTOM_CLEARANCE,
 ## so every bottom bar/dialog sits on the same baseline.
 const BOTTOM_CLEARANCE := 48
+
+## Gap kept above full-height pre-battle dialogs so the top HUD bar (the
+## 100px phase/status bar that Main._restructure_ui_layout anchors to the
+## top of the screen) stays visible, plus a small breathing gap.
+const TOP_HUD_CLEARANCE := 108

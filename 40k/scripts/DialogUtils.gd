@@ -169,6 +169,78 @@ static func _bottom_position(vp_size: Vector2, w: int, h: int, margin_bottom: in
 	return Vector2i(max(x, 0), max(y, 0))
 
 
+## Show `dialog` centered horizontally and stretched to almost the FULL HEIGHT
+## of the screen. This is for PRE-BATTLE flows (formations declaration) where
+## the battlefield does not need to stay visible, so docking at the bottom
+## would just cramp the form: use the vertical room to show the whole roster
+## instead. Leaves `margin_top` clear for the top HUD bar and `margin_bottom`
+## for the bottom bar, so the window overlaps neither. In-battle gameplay
+## popups must keep using popup_at_bottom; menu/meta dialogs use
+## popup_centered_capped.
+##
+## The height is enforced through min_size == max_size, so the shared overflow
+## guard's reset_size() and any content-driven resize cannot collapse the
+## window back to its (much shorter) content minimum. `base_width` defaults to
+## the dialog's declared min_size width.
+static func popup_full_height(dialog: Window, base_width: float = 0.0, margin_top: int = DialogConstants.TOP_HUD_CLEARANCE, margin_bottom: int = DialogConstants.BOTTOM_CLEARANCE) -> void:
+	if dialog == null:
+		return
+	if base_width <= 0.0:
+		base_width = max(float(dialog.min_size.x), DialogConstants.MEDIUM.x)
+	if not dialog.is_inside_tree():
+		# Can't resolve the screen size before the dialog is in the tree; fall
+		# back to a plain popup rather than doing nothing.
+		dialog.popup(Rect2i(Vector2i.ZERO, Vector2i(int(base_width), int(DialogConstants.LARGE.y))))
+		return
+	var vp_size: Vector2 = _screen_size(dialog)
+	var max_w: int = int(vp_size.x * 0.95)
+	var w: int = min(int(base_width), max_w)
+	# Fill the vertical space between the clearances. On a viewport too small
+	# to honour both margins, fall back to the MEDIUM tier height — the shared
+	# overflow guard still backstops anything that ends up off-screen.
+	var h: int = max(int(vp_size.y) - margin_top - margin_bottom, int(DialogConstants.MEDIUM.y))
+	dialog.min_size = Vector2i(w, h)
+	dialog.max_size = Vector2i(max_w, h)
+	dialog.set_meta("wd_full_height_top", margin_top)
+	dialog.set_meta("wd_full_height_bottom", margin_bottom)
+	dialog.popup(Rect2i(_full_height_position(vp_size, w, margin_top), Vector2i(w, h)))
+	# Keep the window centered under the top HUD if its content later widens it
+	# (position-only — height is pinned by min/max, so this cannot feed back
+	# into size_changed).
+	if not dialog.size_changed.is_connected(DialogUtils._recenter_full_height.bind(dialog)):
+		dialog.size_changed.connect(DialogUtils._recenter_full_height.bind(dialog))
+
+
+static func _recenter_full_height(dialog: Window) -> void:
+	if not is_instance_valid(dialog) or not dialog.visible or not dialog.is_inside_tree():
+		return
+	var margin_top: int = int(dialog.get_meta("wd_full_height_top", DialogConstants.TOP_HUD_CLEARANCE))
+	dialog.position = _full_height_position(_screen_size(dialog), int(dialog.size.x), margin_top)
+
+
+## Recompute a full-height dialog's geometry against the CURRENT viewport —
+## used by the overflow guard when the game window shrank underneath an open
+## dialog. Sets size/position directly (no re-popup), so it cannot re-fire
+## visibility_changed and loop.
+static func _refit_full_height(dialog: Window) -> void:
+	if not is_instance_valid(dialog) or not dialog.visible or not dialog.is_inside_tree():
+		return
+	var vp_size: Vector2 = _screen_size(dialog)
+	var margin_top: int = int(dialog.get_meta("wd_full_height_top", DialogConstants.TOP_HUD_CLEARANCE))
+	var margin_bottom: int = int(dialog.get_meta("wd_full_height_bottom", DialogConstants.BOTTOM_CLEARANCE))
+	var max_w: int = int(vp_size.x * 0.95)
+	var w: int = min(int(dialog.size.x), max_w)
+	var h: int = max(int(vp_size.y) - margin_top - margin_bottom, int(DialogConstants.MEDIUM.y))
+	dialog.min_size = Vector2i(min(int(dialog.min_size.x), w), h)
+	dialog.max_size = Vector2i(max_w, h)
+	dialog.size = Vector2i(w, h)
+	dialog.position = _full_height_position(vp_size, w, margin_top)
+
+
+static func _full_height_position(vp_size: Vector2, w: int, margin_top: int) -> Vector2i:
+	return Vector2i(max(int((vp_size.x - w) / 2.0), 0), margin_top)
+
+
 ## The size of the screen/root viewport the `dialog` popup is embedded in.
 ## NOTE: a Window is itself a Viewport, so `dialog.get_viewport()` returns the
 ## dialog, not the screen — use the SceneTree root viewport instead.
@@ -217,6 +289,11 @@ static func _cap_if_overflowing(dialog: Window) -> void:
 	# re-clamping them via popup_centered would drag them back over the board.
 	if dialog.get_meta("wd_bottom_anchored", false):
 		_reanchor_bottom(dialog, int(dialog.get_meta("wd_bottom_margin", DialogConstants.BOTTOM_CLEARANCE)))
+		return
+	# Full-height pre-battle dialogs re-fit below the top HUD bar instead —
+	# re-centering would drag them up over it.
+	if dialog.has_meta("wd_full_height_top"):
+		_refit_full_height(dialog)
 		return
 	var max_w: int = int(vp_size.x * 0.95)
 	var max_h: int = int(vp_size.y * 0.9)

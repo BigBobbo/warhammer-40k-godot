@@ -26,7 +26,6 @@ var summary_label: RichTextLabel
 func _init():
 	title = "Declare Battle Formations"
 	min_size = Vector2(600, 500)
-	max_size = Vector2(700, 720)
 	WhiteDwarfTheme.apply_to_dialog(self)
 
 func setup(player: int) -> void:
@@ -38,13 +37,16 @@ func setup(player: int) -> void:
 	# Issue #367 fix: Main.gd instantiates this dialog via `AcceptDialog.new()`
 	# + `set_script()`, which means `_init()` above never fires (the object was
 	# constructed before the script was attached). Re-apply the window-level
-	# setup here so the dialog actually has a min_size, max_size, themed title,
-	# and gold-on-parchment chrome. Without this the dialog renders as a tiny
+	# setup here so the dialog actually has a min_size, themed title, and
+	# gold-on-parchment chrome. Without this the dialog renders as a tiny
 	# grey rectangle with an unstyled (garbled-looking) title and the children
 	# added by `_build_ui()` are clipped, producing the empty-body symptom in
 	# critique steps 2/6/11.
+	# min_size here is only the floor — this is a PRE-BATTLE dialog (the board
+	# doesn't need to stay visible), so Main shows it via
+	# DialogUtils.popup_full_height, which stretches it to nearly the full
+	# screen height. Deliberately no max_size cap: the popup helper owns it.
 	min_size = Vector2(600, 500)
-	max_size = Vector2(700, 720)
 	WhiteDwarfTheme.apply_to_dialog(self)
 
 	title = "Player %d — Declare Battle Formations" % player
@@ -60,8 +62,10 @@ func setup(player: int) -> void:
 	_build_ui()
 
 func _build_ui() -> void:
-	# Create a main vertical layout
+	# Create a main vertical layout. Stable node names so tests / the MCP
+	# bridge can address the procedurally-built controls by path.
 	var main_vbox = VBoxContainer.new()
+	main_vbox.name = "MainVBox"
 	main_vbox.add_theme_constant_override("separation", 8)
 	add_child(main_vbox)
 
@@ -116,17 +120,20 @@ func _build_ui() -> void:
 	# Custom confirm/skip buttons inside the layout (AcceptDialog's built-in buttons
 	# get clipped outside the visible area, so we manage our own)
 	var button_bar = HBoxContainer.new()
+	button_bar.name = "ButtonBar"
 	button_bar.add_theme_constant_override("separation", 12)
 	button_bar.alignment = BoxContainer.ALIGNMENT_END
 	main_vbox.add_child(button_bar)
 
 	var skip_button = Button.new()
+	skip_button.name = "SkipButton"
 	skip_button.text = "Skip (No Declarations)"
 	skip_button.pressed.connect(_on_canceled)
 	WhiteDwarfTheme.apply_secondary_button(skip_button)
 	button_bar.add_child(skip_button)
 
 	var confirm_button = Button.new()
+	confirm_button.name = "ConfirmButton"
 	confirm_button.text = "Confirm Formations"
 	confirm_button.pressed.connect(_on_confirmed)
 	WhiteDwarfTheme.apply_primary_button(confirm_button)
