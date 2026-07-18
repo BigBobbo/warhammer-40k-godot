@@ -14,6 +14,8 @@
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 8 },
     { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "script": "SettingsService.set_shooting_show_all_units(true)" },
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\")._refresh_unit_list(false)" },
     { "act": "screenshot", "label": "01_shooting_phase_loaded" },
 
     { "act": "execute_script",

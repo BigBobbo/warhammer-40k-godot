@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.64.0",
+			"date": "2026-07-18",
+			"summary": "The Shooting phase's SELECT SHOOTER list no longer clutters up with every unit you own. By default it shows only units that can actually do something this phase — a unit with an enemy in range and line of sight, or one that can perform a mission action. Units with nothing to shoot at are tucked away, and a new 'Show all units' checkbox (which tells you how many are hidden) brings them all back when you want the full roster. You can still click any unit's token on the board to select it even while it's hidden.",
+			"changes": [
+				"SELECT SHOOTER list now hides units that have no eligible target (out of range / no line of sight) and no mission action, so the list only shows units worth acting on.",
+				"New 'Show all units' checkbox in the shooting panel toggles the filter off to list every unit that could shoot; its label shows the hidden count (e.g. 'Show all units (6 hidden)').",
+				"The choice is remembered between phases and between sessions.",
+				"Already-shot units and the currently-selected shooter always stay listed; clicking a hidden unit's token on the board still selects it (and explains why it has no targets).",
+				"Fixed a stray 'Click missed' message that appeared when clicking shooting-panel buttons while a shooter was active."
+			]
+		},
+		{
 			"version": "0.63.0",
 			"date": "2026-07-18",
 			"summary": "The \"Auto\" helper now covers the Consolidate step too. Just like Auto Pile In, the Consolidate dialog has an \"Auto Consolidate\" button that moves every model toward the closest enemy (or objective, following the mandatory consolidate mode) for you — up to 3\", legally — instead of dragging each model by hand. It fills the move in as a preview to review and Confirm, or Reset.",
