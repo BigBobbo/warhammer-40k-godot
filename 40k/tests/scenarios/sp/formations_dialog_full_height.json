@@ -1,0 +1,69 @@
+{
+  "id": "formations_dialog_full_height",
+  "covers": [
+    "scripts.FormationsDeclarationDialog.full_height_layout",
+    "ui.dialog_positioning.formations_full_height"
+  ],
+  "fixture": "audit_378_formations",
+  "transition_to_phase": 0,
+  "description": "The Declare Battle Formations dialog is a PRE-BATTLE step: the board does not need to stay visible, so instead of docking at the bottom like in-battle popups it stretches to almost the full screen height — top edge at TOP_HUD_CLEARANCE (108, below the 100px top HUD bar), bottom edge BOTTOM_CLEARANCE (48) above the screen bottom, centered horizontally. Asserts the geometry for Player 1's dialog, confirms via the real Confirm button, asserts Player 2's dialog reopens at the same stable path with the same geometry (name-reuse of /root/Main/FormationsDialog), skips it via the real Skip button, and checks the phase advances.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var dlg = tree.root.get_node_or_null(\"Main/FormationsDialog\")\nif dlg == null:\n\treturn \"NO_DIALOG\"\nreturn dlg.visible",
+      "equals": true },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var dlg = tree.root.get_node(\"Main/FormationsDialog\")\nreturn dlg.position.y",
+      "equals": 108 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var dlg = tree.root.get_node(\"Main/FormationsDialog\")\nvar vp_h = int(tree.root.get_visible_rect().size.y)\nreturn dlg.size.y == vp_h - 108 - 48",
+      "equals": true },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var dlg = tree.root.get_node(\"Main/FormationsDialog\")\nvar vp_h = int(tree.root.get_visible_rect().size.y)\nreturn vp_h - (dlg.position.y + dlg.size.y)",
+      "equals": 48 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var dlg = tree.root.get_node(\"Main/FormationsDialog\")\nvar vp_w = int(tree.root.get_visible_rect().size.x)\nreturn abs((dlg.position.x + dlg.size.x / 2) - vp_w / 2) <= 1",
+      "equals": true },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var dlg = tree.root.get_node(\"Main/FormationsDialog\")\nreturn dlg.size.y",
+      "expect_min": 900 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var dlg = tree.root.get_node(\"Main/FormationsDialog\")\nreturn dlg.scroll_container.size.y",
+      "expect_min": 500 },
+
+    { "act": "screenshot", "label": "01_p1_dialog_full_height" },
+
+    { "act": "expect_node_visible", "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton" },
+    { "act": "click_node", "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton", "emit_pressed": true },
+
+    { "act": "wait_seconds", "seconds": 0.7 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var dlg = tree.root.get_node_or_null(\"Main/FormationsDialog\")\nif dlg == null:\n\treturn \"NO_P2_DIALOG\"\nif not dlg.visible:\n\treturn \"P2_DIALOG_HIDDEN\"\nreturn dlg.title",
+      "equals": "Player 2 — Declare Battle Formations" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var dlg = tree.root.get_node(\"Main/FormationsDialog\")\nvar vp_h = int(tree.root.get_visible_rect().size.y)\nreturn dlg.position.y == 108 and dlg.size.y == vp_h - 108 - 48",
+      "equals": true },
+
+    { "act": "screenshot", "label": "02_p2_dialog_full_height" },
+
+    { "act": "expect_node_visible", "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/SkipButton" },
+    { "act": "click_node", "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/SkipButton", "emit_pressed": true },
+
+    { "act": "wait_seconds", "seconds": 1.2 },
+
+    { "act": "execute_script",
+      "script": "GameState.get_current_phase() != 0",
+      "equals": true },
+
+    { "act": "screenshot", "label": "03_phase_advanced_after_both_confirm" }
+  ]
+}
