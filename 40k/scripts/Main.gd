@@ -12151,7 +12151,14 @@ func _toggle_weapon_range_comparison_panel() -> void:
 			hb.add_child(own_l)
 			list.add_child(hb)
 	var hint := Label.new()
-	hint.text = "Press W to close"
+	# The panel is toggled by whatever key is bound to weapon_range_panel (unbound
+	# by default — assign one in Settings). Reflect the live binding instead of a
+	# hardcoded "W", which no longer opens/closes this panel.
+	var _wrp_key := KeybindingManager.get_primary_key_display("weapon_range_panel") if KeybindingManager else "W"
+	if _wrp_key == "None" or _wrp_key == "":
+		hint.text = "Bind a key in Settings › Keybindings to toggle this panel"
+	else:
+		hint.text = "Press %s to close" % _wrp_key
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.modulate = Color(1, 1, 1, 0.6)

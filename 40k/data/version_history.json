@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.57.1",
+			"date": "2026-07-18",
+			"summary": "Pressing W to pan the camera up no longer also opens the Weapon Range Comparison panel. That panel is now unbound by default — assign it a key in Settings › Keybindings if you want it on a hotkey.",
+			"changes": [
+				"Fixed the W-key collision: W now only pans the camera up. The Weapon Range Comparison panel used to share the W default and would toggle open every time you moved the view up.",
+				"The Weapon Range Comparison panel has no key bound by default. You can bind one yourself under Settings › Keybindings (it shows as 'None' until you do).",
+				"Existing configs that still had the old W binding for the panel are migrated to unbound automatically on load."
+			]
+		},
+		{
 			"version": "0.57.0",
 			"date": "2026-07-18",
 			"summary": "The AI now plays the Lions of the Emperor detachment properly: it spaces its Custodes units 6\"+ apart to earn Against All Odds (+1 to Hit AND +1 to Wound while no friendly is within 6\"), values that buff in its shooting and charge maths, prefers solo charges over gang-ups, and makes smarter calls with From Golden Light, Gilded Champion and the Swift as the Eagle window.",
