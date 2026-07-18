@@ -14,6 +14,15 @@
 			]
 		},
 		{
+			"version": "0.58.2",
+			"date": "2026-07-18",
+			"summary": "Renamed the Movement phase's red 'Confirm Move' button to 'End This Unit's Move' so it is no longer confused with the 'Confirm Movement Mode' button. Previously players could pick Advance and click the red button expecting to start moving, but it just ended the unit's move.",
+			"changes": [
+				"Movement phase: the red 'Confirm Move' button is now labelled 'End This Unit's Move' — it finalises the unit's movement for the phase, distinct from the 'Confirm Movement Mode' button that starts an Advance / Remain Stationary.",
+				"Added a tooltip to the button explaining it should be used only after moving the models, and that it is not the same as 'Confirm Movement Mode'."
+			]
+		},
+		{
 			"version": "0.58.1",
 			"date": "2026-07-18",
 			"summary": "Fixed the Warbikers' Drive-by Dakka ability text. It previously read 'against A targets' — a garbled data string that made the rule unreadable — and now correctly states that the Armour Penetration bonus applies against targets within 9\", matching how the ability already works in-game.",
