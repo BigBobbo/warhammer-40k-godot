@@ -1,0 +1,39 @@
+{
+  "id": "transport_deploy_shows_embarked_units",
+  "covers": [
+    "ui.deployment.transport_contents_visible_in_list",
+    "ui.deployment.transport_contents_visible_on_placement_card",
+    "Main.refresh_unit_list.transport_subrows",
+    "Main.show_unit_card.transport_contents_label"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "disable_ai": true,
+  "description": "A transport carrying units must make its contents clear during deployment — both in the undeployed unit list and while the transport is being positioned. The audit_374_kunnin fixture has a Battlewagon (U_BATTLEWAGON_G) carrying Kommandos (U_KOMMANDOS_H, 10 models). Godot's ItemList cannot render multi-line items (it strips newlines and truncates long lines, which caused the original overlapping/cut-off text), so each embarked unit is shown as its own indented, non-selectable sub-row under the transport. This scenario returns the Battlewagon to the undeployed deployment list for its owner, refreshes, and asserts (1) the list shows a 'Carrying:' header sub-row plus a 'Kommandos (10 models)' sub-row under the Battlewagon, and (2) selecting the Battlewagon shows the same 'Carrying:' breakdown on the placement unit card (which previously showed nothing).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_current_scene()\nvar bw = GameState.state.units[\"U_BATTLEWAGON_G\"]\nvar owner = int(bw.get(\"owner\", 2))\nGameState.state.units[\"U_BATTLEWAGON_G\"][\"status\"] = GameStateData.UnitStatus.UNDEPLOYED\nGameState.set_active_player(owner)\nmain.current_phase = GameStateData.Phase.DEPLOYMENT\nmain.refresh_unit_list()\nvar il = main.unit_list\nvar bw_idx = -1\nfor i in range(il.get_item_count()):\n\tvar md = il.get_item_metadata(i)\n\tif md is String and md == \"U_BATTLEWAGON_G\":\n\t\tbw_idx = i\n\t\tbreak\nif bw_idx == -1:\n\treturn \"FAIL: battlewagon not in undeployed list\"\nvar saw_carrying = false\nvar saw_kommandos = false\nfor i in range(bw_idx + 1, il.get_item_count()):\n\tvar md = il.get_item_metadata(i)\n\tif not (md is Dictionary and md.get(\"_subrow\", false)):\n\t\tbreak\n\tvar t = str(il.get_item_text(i))\n\tif t.find(\"Carrying\") != -1:\n\t\tsaw_carrying = true\n\tif t.find(\"Kommandos\") != -1 and t.find(\"10\") != -1:\n\t\tsaw_kommandos = true\nif saw_carrying and saw_kommandos:\n\treturn \"PASS_LIST\"\nreturn \"FAIL: carrying=%s kommandos=%s\" % [str(saw_carrying), str(saw_kommandos)]",
+      "equals": "PASS_LIST"
+    },
+    { "act": "screenshot", "label": "01_deployment_list_carrying_subrows" },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_current_scene()\nmain.show_unit_card(\"U_BATTLEWAGON_G\")\nvar lbl = main.transport_contents_label\nif lbl == null:\n\treturn \"FAIL: no transport_contents_label node\"\nif not lbl.visible:\n\treturn \"FAIL: label not visible for transport\"\nvar t = str(lbl.text)\nif t.find(\"Carrying\") != -1 and t.find(\"Kommandos\") != -1 and t.find(\"10\") != -1:\n\treturn \"PASS_CARD\"\nreturn \"FAIL: card text=\" + t",
+      "equals": "PASS_CARD"
+    },
+    { "act": "screenshot", "label": "02_placement_card_carrying" },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_current_scene()\nmain.show_unit_card(\"U_KOMMANDOS_H\")\nreturn main.transport_contents_label.visible",
+      "equals": false
+    }
+  ]
+}
