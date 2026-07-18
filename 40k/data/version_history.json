@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.58.0",
+			"date": "2026-07-18",
+			"summary": "Transports now clearly show what is riding inside them during deployment. The deployment list gives each embarked unit its own indented line under the transport (no more overlapping, cut-off text), and that same 'Carrying:' breakdown now stays on screen while you position the transport — so you always know which units and how many models are onboard.",
+			"changes": [
+				"Deployment unit list: a transport lists every embarked unit on its own indented row (e.g. 'Mek (1 model)', 'Gretchin (11 models)') instead of one long overlapping line.",
+				"The transport's 'Carrying:' breakdown is now also shown on the unit card while you are placing the transport on the board — previously it disappeared once you started positioning it.",
+				"Each embarked unit shows its model count, so you can see exactly how many models are onboard.",
+				"Filtering the deployment list keeps a transport and its contents together, and searching an embarked unit's name still surfaces its transport."
+			]
+		},
+		{
 			"version": "0.57.2",
 			"date": "2026-07-18",
 			"summary": "During deployment, rotating a model now carries that rotation over to the next model in the same unit. If you turn the first model 90° before placing it, every following model in that unit starts off already turned the same way — so you can lay out a whole squad facing a chosen direction without re-rotating each one.",

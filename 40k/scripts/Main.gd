@@ -35,6 +35,7 @@ var _stratagem_panel: AcceptDialog = null
 @onready var unit_name_label: Label = $HUD_Right/VBoxContainer/UnitCard/UnitNameLabel
 @onready var keywords_label: Label = $HUD_Right/VBoxContainer/UnitCard/KeywordsLabel
 @onready var models_label: Label = $HUD_Right/VBoxContainer/UnitCard/ModelsLabel
+@onready var transport_contents_label: Label = $HUD_Right/VBoxContainer/UnitCard/TransportContentsLabel
 @onready var undo_button: Button = $HUD_Right/VBoxContainer/UnitCard/ButtonContainer/UndoButton
 @onready var reset_button: Button = $HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ResetButton
 @onready var confirm_button: Button = $HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton
@@ -3443,6 +3444,8 @@ func _apply_white_dwarf_theme() -> void:
 		_WhiteDwarfTheme.apply_to_label(keywords_label)
 	if models_label:
 		_WhiteDwarfTheme.apply_to_label(models_label)
+	if transport_contents_label:
+		_WhiteDwarfTheme.apply_to_label(transport_contents_label)
 
 	# Theme buttons in unit card — confirm is primary, others secondary
 	if undo_button:
@@ -6185,6 +6188,44 @@ func refresh_unit_list() -> void:
 	# T-104: re-apply the unit-list filter so user-typed text persists across refreshes.
 	_apply_unit_list_filter()
 
+func _get_transport_contents_lines(unit_data: Dictionary) -> Array:
+	# Returns one human-readable line per unit embarked in this transport, e.g.
+	# ["Ork Boyz (20 models)", "Warboss (1 model)"]. Empty array if the unit is
+	# not a transport or is carrying nothing. Shared by the deployment selection
+	# list and the placement card so both surfaces show identical contents.
+	var lines: Array = []
+	if not unit_data.has("transport_data"):
+		return lines
+	var embarked_ids = unit_data.get("transport_data", {}).get("embarked_units", [])
+	for emb_id in embarked_ids:
+		var emb_unit = GameState.get_unit(emb_id)
+		if emb_unit and not emb_unit.is_empty():
+			var emb_name = emb_unit.get("meta", {}).get("name", emb_id)
+			var emb_models = emb_unit.get("models", []).size()
+			var noun = "model" if emb_models == 1 else "models"
+			lines.append("%s (%d %s)" % [emb_name, emb_models, noun])
+	return lines
+
+func _append_transport_content_rows(unit_data: Dictionary, transport_id: String) -> void:
+	# Adds indented, non-selectable ItemList rows under a transport row listing
+	# each embarked unit. Sub-rows are tagged with metadata so the filter can
+	# keep them grouped with their transport. Called only during deployment.
+	var carrying_lines = _get_transport_contents_lines(unit_data)
+	var header_idx = unit_list.get_item_count()
+	if carrying_lines.size() > 0:
+		unit_list.add_item("      ⤷ Carrying:")
+	else:
+		unit_list.add_item("      ⤷ Carrying: (empty)")
+	unit_list.set_item_disabled(header_idx, true)
+	unit_list.set_item_selectable(header_idx, false)
+	unit_list.set_item_metadata(header_idx, {"_subrow": true, "parent_transport": transport_id})
+	for line in carrying_lines:
+		unit_list.add_item("          • " + line)
+		var sub_idx = unit_list.get_item_count() - 1
+		unit_list.set_item_disabled(sub_idx, true)
+		unit_list.set_item_selectable(sub_idx, false)
+		unit_list.set_item_metadata(sub_idx, {"_subrow": true, "parent_transport": transport_id})
+
 func _refresh_unit_list_inner() -> void:
 	# Update the new bottom panel unit lists (always visible for comparison)
 	if unit_stats_panel and unit_stats_panel.has_method("populate_unit_lists"):
@@ -6252,26 +6293,21 @@ func _refresh_unit_list_inner() -> void:
 								model_count += char_unit["models"].size()
 						if char_names.size() > 0:
 							attach_info = " + " + ", ".join(char_names)
-					# Show embarked unit names for transport vehicles
-					var transport_contents = ""
-					if unit_data.has("transport_data"):
-						var embarked_ids = unit_data.transport_data.get("embarked_units", [])
-						if embarked_ids.size() > 0:
-							var embarked_names = []
-							for emb_id in embarked_ids:
-								var emb_unit = GameState.get_unit(emb_id)
-								if emb_unit and not emb_unit.is_empty():
-									embarked_names.append(emb_unit.get("meta", {}).get("name", emb_id))
-							if embarked_names.size() > 0:
-								transport_contents = " [Contains: %s]" % ", ".join(embarked_names)
-						else:
-							transport_contents = " [Empty]"
-					var display_text = "%s (%d models)%s%s%s" % [unit_name, model_count, attach_info, transport_contents, ability_tag]
+					# Main selectable row: unit name, model count, attachments, tag.
+					var display_text = "%s (%d models)%s%s" % [unit_name, model_count, attach_info, ability_tag]
 					unit_list.add_item(display_text)
 					var idx = unit_list.get_item_count() - 1
 					unit_list.set_item_metadata(idx, unit_id)
 					unit_list.set_item_icon(idx, _get_status_dot(Color(0.3, 0.85, 0.3)))
 					unit_list.set_item_icon_modulate(idx, Color.WHITE)
+
+					# For transports, add one indented, non-selectable sub-row per
+					# embarked unit. ItemList can't render multi-line items (it
+					# strips newlines and truncates), so each embarked unit gets its
+					# own short row — nothing overlaps and the player sees exactly
+					# what is riding inside, even before placing it.
+					if unit_data.has("transport_data"):
+						_append_transport_content_rows(unit_data, unit_id)
 
 				# Reserves are declared during Formations phase, not Deployment.
 				# Hide the reserves button during deployment.
@@ -7113,6 +7149,12 @@ func _on_unit_selected(index: int) -> void:
 
 	var unit_id = unit_list.get_item_metadata(index)
 
+	# Defensive: transport "Carrying" sub-rows are disabled/non-selectable and
+	# carry a dict metadata, so they should never reach here — but if one does,
+	# ignore it rather than treating the dict as a unit id.
+	if not (unit_id is String) or unit_id == "":
+		return
+
 	# Show detailed stats in bottom panel
 	var unit_data = GameState.get_unit(unit_id)
 	print("Main: Unit selected - ", unit_id)
@@ -7340,7 +7382,21 @@ func show_unit_card(unit_id: String) -> void:
 	var unit_data = GameState.get_unit(unit_id)
 	unit_name_label.text = unit_data["meta"]["name"]
 	keywords_label.text = "Keywords: " + ", ".join(unit_data["meta"]["keywords"])
-	
+
+	# Show what a transport is carrying while it is being placed, matching the
+	# selection list. The label autowraps, so each embarked unit stays readable
+	# and the card simply grows taller as needed.
+	if transport_contents_label:
+		if unit_data.has("transport_data"):
+			var carrying_lines = _get_transport_contents_lines(unit_data)
+			if carrying_lines.size() > 0:
+				transport_contents_label.text = "Carrying:\n  • " + "\n  • ".join(carrying_lines)
+			else:
+				transport_contents_label.text = "Carrying: (empty)"
+			transport_contents_label.visible = true
+		else:
+			transport_contents_label.visible = false
+
 	unit_card.visible = true
 	update_unit_card_buttons()
 
@@ -13592,14 +13648,38 @@ func _apply_unit_list_filter() -> void:
 		return
 	if _unit_list_filter_text == "":
 		return
-	var i = unit_list.get_item_count() - 1
-	while i >= 0:
-		var t: String = str(unit_list.get_item_text(i)).to_lower()
-		# Preserve disabled section headers ("---") so structure stays readable.
-		var is_section_header: bool = t.begins_with("---")
-		if not is_section_header and t.find(_unit_list_filter_text) == -1:
-			unit_list.remove_item(i)
-		i -= 1
+	# Group-aware filtering: a transport row and its indented "Carrying" sub-rows
+	# form one group (sub-rows are tagged with metadata {_subrow:true}). A group
+	# is kept if ANY row in it matches, so filtering by an embarked unit's name
+	# keeps its transport, and filtering by the transport keeps its contents.
+	# Rows in other phases have no sub-rows, so each is its own group — identical
+	# to the previous per-row behavior.
+	var count = unit_list.get_item_count()
+	var to_remove: Array = []
+	var i = 0
+	while i < count:
+		# A group spans this primary row plus any following sub-rows.
+		var group_end = i + 1
+		while group_end < count and _is_subrow_item(group_end):
+			group_end += 1
+		var group_matches = false
+		for k in range(i, group_end):
+			var t: String = str(unit_list.get_item_text(k)).to_lower()
+			# Preserve disabled section headers ("---") so structure stays readable.
+			if t.begins_with("---") or t.find(_unit_list_filter_text) != -1:
+				group_matches = true
+				break
+		if not group_matches:
+			for k in range(i, group_end):
+				to_remove.append(k)
+		i = group_end
+	# Remove from the back so earlier indices stay valid.
+	for idx in range(to_remove.size() - 1, -1, -1):
+		unit_list.remove_item(to_remove[idx])
+
+func _is_subrow_item(index: int) -> bool:
+	var md = unit_list.get_item_metadata(index)
+	return md is Dictionary and md.get("_subrow", false)
 
 
 # ============================================================================
