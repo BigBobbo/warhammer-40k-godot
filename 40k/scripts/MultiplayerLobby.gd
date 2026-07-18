@@ -45,11 +45,17 @@ var deployment_options = [
 	{"id": "dawn_of_war", "name": "Dawn of War"},
 	{"id": "search_and_destroy", "name": "Search and Destroy"},
 	{"id": "sweeping_engagement", "name": "Sweeping Engagement"},
-	{"id": "crucible_of_battle", "name": "Crucible of Battle"}
+	{"id": "crucible_of_battle", "name": "Crucible of Battle"},
+	{"id": "tipping_point", "name": "Tipping Point"}
 ]
 var selected_deployment: String = "hammer_anvil"
 
 # Mission configuration
+# 10e legacy shared-mission list — only used when the 11e layout index is
+# missing (fallback builds). At 11e the primary mission is NOT a shared pick:
+# each player picks a Force Disposition and scores their own card from the
+# disposition pairing (PrimaryMissionData11e), exactly like the single-player
+# MainMenu flow.
 var mission_options = [
 	{"id": "take_and_hold", "name": "Take and Hold"},
 	{"id": "supply_drop", "name": "Supply Drop"},
@@ -62,6 +68,19 @@ var mission_options = [
 	{"id": "hidden_supplies", "name": "Hidden Supplies"},
 ]
 var selected_mission: String = "take_and_hold"
+
+# 11e Force Disposition + terrain-variant selection (mirrors MainMenu).
+# Host owns P1's disposition and the terrain variant; the client owns P2's
+# disposition (requested via RPC, host validates + rebroadcasts).
+var use_11e_missions: bool = false
+var selected_p1_disposition: String = "take_and_hold"
+var selected_p2_disposition: String = "take_and_hold"
+var selected_terrain: String = ""
+var terrain_variant_options: Array = []  # layout metadata dicts for the current matchup
+var p1_disposition_dropdown: OptionButton = null
+var p2_disposition_dropdown: OptionButton = null
+var terrain_variant_dropdown: OptionButton = null
+var primary_card_label: Label = null
 
 # Cloud army loading state
 var _cloud_fetch_count: int = 0
@@ -188,7 +207,21 @@ func _on_deployment_changed(index: int) -> void:
 		_sync_deployment_selection.rpc(selected_deployment)
 
 func _setup_mission_selection() -> void:
-	# Populate mission dropdown
+	# 11e GDM 2026: the primary mission is not a shared dropdown pick — each
+	# player selects a Force Disposition and scores the card their disposition
+	# pairs into against the opponent's (PrimaryMissionData11e). The terrain is
+	# one of the matchup's 3 official layout variants and fixes the deployment
+	# pattern. Falls back to the legacy 10e shared-mission dropdown only when
+	# the generated 11e layout index is absent (unexpected in player builds).
+	var tm = get_node_or_null("/root/TerrainManager")
+	use_11e_missions = tm != null and tm.has_method("get_11e_layout_ids") \
+		and not tm.get_11e_layout_ids().is_empty()
+
+	if use_11e_missions:
+		_setup_disposition_selection_11e()
+		return
+
+	# Legacy 10e fallback: populate mission dropdown
 	for option in mission_options:
 		mission_dropdown.add_item(option.name)
 	mission_dropdown.selected = 0
@@ -196,6 +229,173 @@ func _setup_mission_selection() -> void:
 	mission_dropdown.item_selected.connect(_on_mission_changed)
 	mission_dropdown.disabled = true  # Disabled until connected
 	print("MultiplayerLobby: Mission selection initialized with ", mission_options.size(), " options")
+
+func _setup_disposition_selection_11e() -> void:
+	"""Build the 11e Force Disposition + terrain-variant UI in place of the
+	legacy shared-mission dropdown (which is hidden). Mirrors MainMenu."""
+	var army_selection = $LobbyContainer/ArmySelection
+	var mission_container = mission_dropdown.get_parent()
+	mission_container.visible = false
+
+	var disposition_container = VBoxContainer.new()
+	disposition_container.name = "DispositionContainer"
+	disposition_container.add_theme_constant_override("separation", 6)
+	army_selection.add_child(disposition_container)
+	# Place where the mission row was (right below the section label)
+	army_selection.move_child(disposition_container, mission_container.get_index())
+
+	var section_label = Label.new()
+	section_label.text = "Force Disposition (11th Edition):"
+	disposition_container.add_child(section_label)
+
+	for player in [1, 2]:
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		disposition_container.add_child(row)
+
+		var label = Label.new()
+		label.text = "Player %d:" % player
+		label.custom_minimum_size = Vector2(150, 0)
+		row.add_child(label)
+
+		var dropdown = OptionButton.new()
+		dropdown.name = "P%dDispositionDropdown" % player
+		dropdown.custom_minimum_size = Vector2(300, 0)
+		for disp_id in PrimaryMissionData11e.DISPOSITIONS:
+			dropdown.add_item(PrimaryMissionData11e.get_disposition_name(disp_id))
+		dropdown.selected = 0
+		dropdown.disabled = true  # Enabled per-seat once connected
+		dropdown.item_selected.connect(_on_disposition_changed.bind(player))
+		row.add_child(dropdown)
+
+		if player == 1:
+			p1_disposition_dropdown = dropdown
+		else:
+			p2_disposition_dropdown = dropdown
+
+	# Resolved primary cards (read-only, derived from the pairing)
+	primary_card_label = Label.new()
+	primary_card_label.name = "PrimaryCardLabel"
+	primary_card_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	disposition_container.add_child(primary_card_label)
+
+	# Terrain variant row — the matchup's 3 official layouts; the variant
+	# fixes the deployment pattern (deployment dropdown becomes read-only).
+	var terrain_row = HBoxContainer.new()
+	terrain_row.add_theme_constant_override("separation", 8)
+	disposition_container.add_child(terrain_row)
+
+	var terrain_label = Label.new()
+	terrain_label.text = "Terrain Layout:"
+	terrain_label.custom_minimum_size = Vector2(150, 0)
+	terrain_row.add_child(terrain_label)
+
+	terrain_variant_dropdown = OptionButton.new()
+	terrain_variant_dropdown.name = "TerrainVariantDropdown"
+	terrain_variant_dropdown.custom_minimum_size = Vector2(300, 0)
+	terrain_variant_dropdown.disabled = true  # Host-only once connected
+	terrain_variant_dropdown.item_selected.connect(_on_terrain_variant_changed)
+	terrain_row.add_child(terrain_variant_dropdown)
+
+	# Deployment follows the chosen variant at 11e — never hand-picked
+	deployment_dropdown.disabled = true
+
+	_refresh_matchup_terrain_options_11e(true)
+	print("MultiplayerLobby: 11e Force Disposition selection initialized")
+
+func _refresh_matchup_terrain_options_11e(reset_to_variant_1: bool) -> void:
+	"""Rebuild the terrain variant dropdown for the current disposition
+	matchup, keep the deployment display in step, and refresh the resolved
+	primary-card label."""
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null:
+		return
+	terrain_variant_options = tm.get_layouts_for_matchup(selected_p1_disposition, selected_p2_disposition)
+
+	var keep_id = selected_terrain
+	terrain_variant_dropdown.clear()
+	for meta in terrain_variant_options:
+		var variant = int(meta.get("variant", 0))
+		var recs: Array = meta.get("recommended_deployments", [])
+		var dep_name = _deployment_display_name(str(recs[0])) if not recs.is_empty() else "?"
+		terrain_variant_dropdown.add_item("Variant %d (%s)" % [variant, dep_name])
+
+	if terrain_variant_options.is_empty():
+		selected_terrain = ""
+		_refresh_primary_card_label_11e()
+		return
+
+	var target_idx = 0
+	if not reset_to_variant_1:
+		for i in range(terrain_variant_options.size()):
+			if str(terrain_variant_options[i].get("id", "")) == keep_id:
+				target_idx = i
+				break
+	terrain_variant_dropdown.selected = target_idx
+	_apply_terrain_variant_11e(target_idx)
+
+func _apply_terrain_variant_11e(index: int) -> void:
+	"""Set selected_terrain + derived deployment from the variant metadata."""
+	if index < 0 or index >= terrain_variant_options.size():
+		return
+	var meta = terrain_variant_options[index]
+	selected_terrain = str(meta.get("id", ""))
+	var recs: Array = meta.get("recommended_deployments", [])
+	if not recs.is_empty():
+		var dep_id = str(recs[0])
+		for i in range(deployment_options.size()):
+			if deployment_options[i].id == dep_id:
+				selected_deployment = dep_id
+				deployment_dropdown.selected = i
+				break
+	_refresh_primary_card_label_11e()
+	print("MultiplayerLobby: 11e terrain variant -> %s (deployment: %s)" % [selected_terrain, selected_deployment])
+
+func _refresh_primary_card_label_11e() -> void:
+	if primary_card_label == null:
+		return
+	var p1_card = PrimaryMissionData11e.get_card(selected_p1_disposition, selected_p2_disposition)
+	var p2_card = PrimaryMissionData11e.get_card(selected_p2_disposition, selected_p1_disposition)
+	primary_card_label.text = "Primary — P1: %s | P2: %s" % [
+		str(p1_card.get("name", "?")), str(p2_card.get("name", "?"))]
+
+func _deployment_display_name(deployment_id: String) -> String:
+	for option in deployment_options:
+		if str(option.get("id", "")) == deployment_id:
+			return str(option.get("name", deployment_id))
+	return deployment_id
+
+func _disposition_index(disp_id: String) -> int:
+	var idx = PrimaryMissionData11e.DISPOSITIONS.find(disp_id)
+	return idx if idx >= 0 else 0
+
+func _on_disposition_changed(index: int, player: int) -> void:
+	if index < 0 or index >= PrimaryMissionData11e.DISPOSITIONS.size():
+		return
+	var disp_id = PrimaryMissionData11e.DISPOSITIONS[index]
+
+	if is_hosting:
+		if player == 1:
+			selected_p1_disposition = disp_id
+		else:
+			# Host may pre-pick P2's disposition before the client connects;
+			# once connected the dropdown is client-owned (disabled host-side).
+			selected_p2_disposition = disp_id
+		_refresh_matchup_terrain_options_11e(true)
+		if connected_players >= 2:
+			_sync_disposition_selection.rpc(player, disp_id)
+			_sync_terrain_selection.rpc(selected_terrain, selected_deployment)
+	else:
+		# Client owns only P2's disposition; ask the host to apply it
+		if player == 2:
+			_request_disposition_change.rpc_id(1, 2, disp_id)
+
+func _on_terrain_variant_changed(index: int) -> void:
+	if not is_hosting:
+		return
+	_apply_terrain_variant_11e(index)
+	if connected_players >= 2:
+		_sync_terrain_selection.rpc(selected_terrain, selected_deployment)
 
 func _on_mission_changed(index: int) -> void:
 	if index < 0 or index >= mission_options.size():
@@ -248,16 +448,23 @@ func _do_start_game() -> void:
 		# Re-initialize with selected deployment type if state already exists
 		GameState.initialize_default_state(selected_deployment)
 
-	# Re-mirror terrain into the fresh state on the HOST. initialize_default_state
-	# wipes board.terrain; clients rebuild theirs in load_from_snapshot (the
-	# snapshot carries terrain_layout), but nothing reloaded it host-side — so the
-	# host adjudicated terrain rules (movement through ruins walls etc.) against
-	# an EMPTY terrain list while the client saw 14 pieces.
+	# Load the chosen terrain into the fresh state on the HOST.
+	# initialize_default_state wipes board.terrain; clients rebuild theirs in
+	# load_from_snapshot (the snapshot carries terrain_layout), but the host
+	# must load it here or it adjudicates terrain rules (movement through
+	# ruins walls etc.) against an EMPTY terrain list while the client saw 14
+	# pieces. At 11e the layout is the matchup variant chosen in this lobby —
+	# NOT whatever layout happened to be loaded before (stale current_layout).
 	var terrain_mgr = get_node_or_null("/root/TerrainManager")
-	if terrain_mgr and terrain_mgr.current_layout != "":
-		terrain_mgr.load_terrain_layout(terrain_mgr.current_layout)
-		print("MultiplayerLobby: Reloaded terrain layout '%s' into fresh game state (%d pieces)" % [
-			terrain_mgr.current_layout, terrain_mgr.terrain_features.size()])
+	if terrain_mgr:
+		if use_11e_missions and selected_terrain != "":
+			terrain_mgr.load_terrain_layout(selected_terrain)
+			print("MultiplayerLobby: Loaded 11e matchup terrain '%s' (%d pieces)" % [
+				selected_terrain, terrain_mgr.terrain_features.size()])
+		elif terrain_mgr.current_layout != "":
+			terrain_mgr.load_terrain_layout(terrain_mgr.current_layout)
+			print("MultiplayerLobby: Reloaded terrain layout '%s' into fresh game state (%d pieces)" % [
+				terrain_mgr.current_layout, terrain_mgr.terrain_features.size()])
 
 	# Clear existing units
 	GameState.state.units.clear()
@@ -292,10 +499,37 @@ func _do_start_game() -> void:
 		"player1_army": selected_player1_army,
 		"player2_army": selected_player2_army,
 		"deployment": selected_deployment,
-		"mission": selected_mission
+		"mission": selected_mission,
+		# Both seats are humans in a networked game — stated explicitly so
+		# AI/human checks (e.g. ScoringPhase._is_human_player_11e) can't
+		# misread an absent key.
+		"player1_type": "HUMAN",
+		"player2_type": "HUMAN",
+		# 11e GDM 2026: per-player Force Dispositions drive the primary
+		# mission pairing (MissionManager.initialize_dispositions_11e reads
+		# these). The lobby currently always uses tactical secondaries.
+		"player1_disposition": selected_p1_disposition,
+		"player2_disposition": selected_p2_disposition,
+		"terrain": selected_terrain if use_11e_missions else (terrain_mgr.current_layout if terrain_mgr else ""),
+		"player1_secondary_mode": "tactical",
+		"player2_secondary_mode": "tactical",
 	}
 
-	# Initialize MissionManager with selected mission
+	# Shared deck seed: secondary mission deck shuffles must be identical on
+	# host and client (CommandPhase builds/draws decks on BOTH peers when it
+	# enters). The seed travels to the client inside the initial snapshot.
+	GameState.state.meta["game_seed"] = randi() & 0x7FFFFFFF
+
+	# Reset secondary mission state — the lobby previously never did this, so
+	# a second multiplayer game in one session inherited the previous game's
+	# decks/hands/VP (MainMenu's single-player flow always resets).
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr:
+		secondary_mgr.initialize_for_game()
+
+	# Initialize MissionManager with selected mission (at 11e this also reads
+	# the Force Dispositions from meta.game_config and resolves each player's
+	# primary mission card from the pairing table)
 	if MissionManager:
 		MissionManager.initialize_mission(selected_mission)
 		print("MultiplayerLobby: Mission initialized: ", selected_mission)
@@ -373,6 +607,13 @@ func _on_peer_connected(peer_id: int) -> void:
 		_sync_army_selection.rpc(2, selected_player2_army)
 		_sync_deployment_selection.rpc(selected_deployment)
 		_sync_mission_selection.rpc(selected_mission)
+		if use_11e_missions:
+			_sync_disposition_selection.rpc(1, selected_p1_disposition)
+			_sync_disposition_selection.rpc(2, selected_p2_disposition)
+			_sync_terrain_selection.rpc(selected_terrain, selected_deployment)
+			# The connected client now owns P2's disposition
+			if p2_disposition_dropdown:
+				p2_disposition_dropdown.disabled = true
 	else:
 		status_label.text = "Status: Connected to host"
 		info_label.text = "Select your army and wait for host to start"
@@ -380,6 +621,9 @@ func _on_peer_connected(peer_id: int) -> void:
 
 		# Enable client to select their army (Player 2)
 		player2_dropdown.disabled = false
+		# 11e: client owns their own Force Disposition
+		if use_11e_missions and p2_disposition_dropdown:
+			p2_disposition_dropdown.disabled = false
 
 func _on_peer_disconnected(peer_id: int) -> void:
 	print("MultiplayerLobby: Peer disconnected - ", peer_id)
@@ -416,8 +660,19 @@ func _update_ui_for_hosting() -> void:
 	# Enable host to select their army (Player 1), deployment, and mission
 	player1_dropdown.disabled = false
 	player2_dropdown.disabled = true  # Can't pre-select opponent's army
-	deployment_dropdown.disabled = false  # Host can select deployment map
-	mission_dropdown.disabled = false  # Host can select mission
+	if use_11e_missions:
+		# 11e: host owns P1 disposition + terrain variant; deployment is
+		# derived from the variant and stays read-only. Host may pre-set P2's
+		# disposition until the client connects and takes it over.
+		if p1_disposition_dropdown:
+			p1_disposition_dropdown.disabled = false
+		if p2_disposition_dropdown:
+			p2_disposition_dropdown.disabled = false
+		if terrain_variant_dropdown:
+			terrain_variant_dropdown.disabled = false
+	else:
+		deployment_dropdown.disabled = false  # Host can select deployment map
+		mission_dropdown.disabled = false  # Host can select mission
 
 func _update_ui_for_joining() -> void:
 	host_button.disabled = true
@@ -432,6 +687,14 @@ func _update_ui_for_joining() -> void:
 	player2_dropdown.disabled = true
 	deployment_dropdown.disabled = true  # Client cannot change deployment
 	mission_dropdown.disabled = true  # Client cannot change mission
+	if use_11e_missions:
+		# Client owns only P2's disposition — enabled on connection
+		if p1_disposition_dropdown:
+			p1_disposition_dropdown.disabled = true
+		if p2_disposition_dropdown:
+			p2_disposition_dropdown.disabled = true
+		if terrain_variant_dropdown:
+			terrain_variant_dropdown.disabled = true
 
 func _reset_ui() -> void:
 	host_button.disabled = false
@@ -449,11 +712,21 @@ func _reset_ui() -> void:
 	player1_dropdown.disabled = true
 	player2_dropdown.disabled = true
 	deployment_dropdown.disabled = true
-	deployment_dropdown.selected = 0
-	selected_deployment = deployment_options[0].id
 	mission_dropdown.disabled = true
-	mission_dropdown.selected = 0
-	selected_mission = mission_options[0].id
+	if use_11e_missions:
+		if p1_disposition_dropdown:
+			p1_disposition_dropdown.disabled = true
+		if p2_disposition_dropdown:
+			p2_disposition_dropdown.disabled = true
+		if terrain_variant_dropdown:
+			terrain_variant_dropdown.disabled = true
+		# Keep the current disposition/terrain picks — they carry over to the
+		# next hosting session in this lobby visit.
+	else:
+		deployment_dropdown.selected = 0
+		selected_deployment = deployment_options[0].id
+		mission_dropdown.selected = 0
+		selected_mission = mission_options[0].id
 
 	# Default matchup: Recon Stomps (P1) vs Custodes Lions (P2)
 	var p1_index = 0
@@ -682,6 +955,10 @@ func _sync_deployment_selection(deployment_id: String) -> void:
 func _sync_mission_selection(mission_id: String) -> void:
 	"""Called by host to synchronize mission selection to client."""
 	print("MultiplayerLobby: Syncing mission selection -> ", mission_id)
+	if use_11e_missions:
+		# 11e mode has no shared mission dropdown — nothing to mirror.
+		selected_mission = mission_id
+		return
 
 	# Find mission index
 	for i in range(mission_options.size()):
@@ -691,6 +968,75 @@ func _sync_mission_selection(mission_id: String) -> void:
 			return
 
 	print("MultiplayerLobby: Warning - Unknown mission ID: ", mission_id)
+
+# ============================================================================
+# NETWORK - 11e DISPOSITION / TERRAIN SYNCHRONIZATION
+# ============================================================================
+
+@rpc("authority", "call_remote", "reliable")
+func _sync_disposition_selection(player: int, disp_id: String) -> void:
+	"""Host broadcasts a disposition pick to the client."""
+	print("MultiplayerLobby: Syncing disposition — Player %d -> %s" % [player, disp_id])
+	if not use_11e_missions or not PrimaryMissionData11e.is_valid_disposition(disp_id):
+		return
+	if player == 1:
+		selected_p1_disposition = disp_id
+		if p1_disposition_dropdown:
+			p1_disposition_dropdown.selected = _disposition_index(disp_id)
+	else:
+		selected_p2_disposition = disp_id
+		if p2_disposition_dropdown:
+			p2_disposition_dropdown.selected = _disposition_index(disp_id)
+	# The terrain matchup depends on both dispositions; the host follows up
+	# with _sync_terrain_selection, so only refresh the local option list.
+	_refresh_matchup_terrain_options_11e(false)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _request_disposition_change(player: int, disp_id: String) -> void:
+	"""Client requests changing their own (P2) disposition. Host validates,
+	applies, and rebroadcasts (mirrors _request_army_change)."""
+	if not is_hosting:
+		return
+	var peer_id = multiplayer.get_remote_sender_id()
+	print("MultiplayerLobby: Disposition change request from peer %d: P%d -> %s" % [peer_id, player, disp_id])
+	# Only the guest may change player 2's disposition
+	var peer_player = 2 if peer_id != 1 else 1
+	if player != peer_player or player != 2:
+		print("MultiplayerLobby: Rejecting disposition change — peer %d cannot change player %d" % [peer_id, player])
+		return
+	if not PrimaryMissionData11e.is_valid_disposition(disp_id):
+		print("MultiplayerLobby: Rejecting disposition change — invalid id: ", disp_id)
+		return
+
+	selected_p2_disposition = disp_id
+	if p2_disposition_dropdown:
+		p2_disposition_dropdown.selected = _disposition_index(disp_id)
+	# New matchup — rebuild terrain options and default to variant 1
+	_refresh_matchup_terrain_options_11e(true)
+
+	_sync_disposition_selection.rpc(player, disp_id)
+	_sync_terrain_selection.rpc(selected_terrain, selected_deployment)
+
+@rpc("authority", "call_remote", "reliable")
+func _sync_terrain_selection(terrain_id: String, deployment_id: String) -> void:
+	"""Host broadcasts the chosen terrain variant (and its derived deployment)."""
+	print("MultiplayerLobby: Syncing terrain -> %s (deployment %s)" % [terrain_id, deployment_id])
+	if not use_11e_missions:
+		return
+	selected_terrain = terrain_id
+	selected_deployment = deployment_id
+	# Mirror the variant in the local dropdown (options were rebuilt from the
+	# synced dispositions, so the id should be present).
+	for i in range(terrain_variant_options.size()):
+		if str(terrain_variant_options[i].get("id", "")) == terrain_id:
+			if terrain_variant_dropdown:
+				terrain_variant_dropdown.selected = i
+			break
+	for i in range(deployment_options.size()):
+		if deployment_options[i].id == deployment_id:
+			deployment_dropdown.selected = i
+			break
+	_refresh_primary_card_label_11e()
 
 # ============================================================================
 # Cloud Army Integration
