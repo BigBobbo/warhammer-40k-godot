@@ -1,0 +1,55 @@
+{
+  "id": "weapon_range_panel_w_unbound",
+  "covers": ["keybindings.weapon_range_panel_unbound", "hud.weapon_range_panel"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 7,
+  "description": "Pressing W (camera Pan Up) must NOT open the Weapon Range Comparison panel. The weapon_range_panel action is unbound by default (shows as 'None'); camera_pan_up still owns W. Positive control at the end proves the panel itself still works when its toggle is invoked directly, so only the keybinding was removed — not the feature.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "KeybindingManager.get_key_display_name(\"weapon_range_panel\")",
+      "equals": "None" },
+    { "act": "execute_script",
+      "script": "KeybindingManager.get_binding(\"weapon_range_panel\").key",
+      "equals": 0 },
+    { "act": "execute_script",
+      "script": "KeybindingManager.get_primary_key_display(\"camera_pan_up\")",
+      "equals": "W" },
+
+    { "act": "execute_script",
+      "script": "main.get_node_or_null(\"WeaponRangePanel\") == null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main._weapon_range_panel == null",
+      "equals": true },
+
+    { "act": "screenshot", "label": "01_before_W_press" },
+
+    { "act": "simulate_key", "keycode": "W" },
+    { "act": "wait_frames", "frames": 5 },
+
+    { "act": "execute_script",
+      "script": "main.get_node_or_null(\"WeaponRangePanel\") == null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main._weapon_range_panel == null",
+      "equals": true },
+
+    { "act": "screenshot", "label": "02_after_W_press_no_panel" },
+
+    { "act": "execute_script", "script": "main._toggle_weapon_range_comparison_panel()" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script",
+      "script": "main.get_node_or_null(\"WeaponRangePanel\") != null",
+      "equals": true },
+    { "act": "screenshot", "label": "03_panel_opens_when_invoked_directly" },
+
+    { "act": "execute_script", "script": "main._toggle_weapon_range_comparison_panel()" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script",
+      "script": "main.get_node_or_null(\"WeaponRangePanel\") == null",
+      "equals": true }
+  ]
+}

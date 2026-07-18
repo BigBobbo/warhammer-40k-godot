@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.58.0",
+			"version": "0.62.0",
 			"date": "2026-07-18",
 			"summary": "The Shooting phase's SELECT SHOOTER list no longer clutters up with every unit you own. By default it shows only units that can actually do something this phase — a unit with an enemy in range and line of sight, or one that can perform a mission action. Units with nothing to shoot at are tucked away, and a new 'Show all units' checkbox (which tells you how many are hidden) brings them all back when you want the full roster. You can still click any unit's token on the board to select it even while it's hidden.",
 			"changes": [
@@ -11,6 +11,122 @@
 				"The choice is remembered between phases and between sessions.",
 				"Already-shot units and the currently-selected shooter always stay listed; clicking a hidden unit's token on the board still selects it (and explains why it has no targets).",
 				"Fixed a stray 'Click missed' message that appeared when clicking shooting-panel buttons while a shooter was active."
+			]
+		},
+		{
+			"version": "0.61.0",
+			"date": "2026-07-18",
+			"summary": "Melee hit and wound rolls now resolve in the right-hand panel, exactly like shooting — no more pop-up window covering the battle. The fight phase gets the same staged resolution dock the shooting phase uses: one button in a fixed spot steps through 'Roll to Wound' and 'Continue to Saving Throws', clickable Command Re-roll dice chips, a Fast Roll button, and the same 'Pauses' setting — so both phases feel identical to play.",
+			"changes": [
+				"Fight phase: the hit/wound roll pop-up at the bottom of the screen is gone — melee attacks now resolve in the right panel with the same dock the shooting phase uses, so the battlefield (and the melee itself) stays visible the whole time.",
+				"The dock header names both sides ('MELEE RESOLUTION — Warboss vs Custodian Guard') and lists each weapon with a live ▶ progress marker and per-weapon results (hits/wounds) as the sequence advances.",
+				"Command Re-roll in melee is now a row of clickable dice chips in the panel — same size, colors and behavior as the shooting phase's chips.",
+				"NEW for melee: 'Fast Roll ⏩' rips through the remaining hit/wound pauses of the activation, and the 'Pauses' policy (Every step / Only decisions / Never) now applies to fight as well as shooting — one setting, one rhythm.",
+				"NEW for melee: Space/Enter presses the dock's main button, so a whole melee activation can be resolved from the keyboard, just like shooting.",
+				"Dice detail streams to the right panel's COMBAT LOG only — melee rolls no longer appear in three different places at once.",
+				"Command Re-roll results now show properly in the shooting DICE LOG and fight COMBAT LOG ('↻ Command Re-roll (1 CP): hit die 2 → 5') instead of an empty 'Reroll Note' line."
+			]
+		},
+		{
+			"version": "0.60.0",
+			"date": "2026-07-18",
+			"summary": "You can now see who is riding inside a transport at a glance: right-click a vehicle that has units embarked and the context menu now has an 'Embarked Units' section listing every passenger and its model count. Click a passenger to open its stats card.",
+			"changes": [
+				"Right-clicking a transport that is carrying units adds an 'Embarked Units' section to the pop-up menu, with one row per embarked unit showing its name and alive/total model count (e.g. 'Kommandos (10/10)').",
+				"Clicking an embarked unit's row opens that unit's stats card so you can inspect the passengers without disembarking them.",
+				"The embarked list shows in every unit visual style (not just letter mode), so a loaded transport always right-clicks to reveal its cargo."
+			]
+		},
+		{
+			"version": "0.59.1",
+			"date": "2026-07-18",
+			"summary": "'Take to the skies' now works when ticked mid-move: FLY units (e.g. Deffkoptas) that were blocked by dense terrain with the box already ticked will now actually fly over it, the Move/Left readout updates to the -2\" cap immediately, and the dense-terrain error explains itself properly.",
+			"changes": [
+				"Fixed: ticking 'Take to the skies (-2\" move)' after selecting a unit did nothing — the drag flow had already begun the move without the declaration, so dense terrain (rule 13.06) kept blocking the path and the -2\" cap was never applied. The tick (and un-tick) now updates the in-progress move.",
+				"Un-ticking mid-move is only allowed before any model has been dragged (staged paths may rely on flying); ticking is refused with a clear message if a model already moved beyond the reduced cap — use Reset Unit first.",
+				"The checkbox now always shows the unit's actual declaration when you select a unit, instead of carrying a stale tick over from the previously selected unit.",
+				"Clearer error: 'Dense terrain blocks this model's path (rule 13.06): catwalk-58 — tick Take to the skies to fly over it' — the old '(13.06)' read like a distance in inches, and the message never mentioned the fix."
+			]
+		},
+		{
+			"version": "0.59.0",
+			"date": "2026-07-18",
+			"summary": "Squad leaders now look and read like leaders. The Runtherd in every Gretchin mob (and the Boss Nob, Spanner, Makari and friends in other squads) gets its own board icon instead of a scaled-up copy of the rank-and-file art, and hovering it names the model with its own wounds and weapons instead of claiming it is just another squad member.",
+			"changes": [
+				"All shipped Ork army lists (Battlewagons, Orks 2000, uploads, Taktikal) now tag their mixed-squad models: Gretchin get their Runtherd, Stormboyz/Warbikers/Tankbustas/Kommandos/Beast Snaggas their Boss Nob, Boyz mobs their Nob, Lootas their Spanner and KMB grots, Meganobz their klaw/killsaw split, and Ghazghkull's unit distinguishes Makari (who now only swings Makari's stabba, not Gork's Klaw).",
+				"Distinct top-down art renders for models with their own profile where it exists (Runtherd, Stormboyz/Warbikers Boss Nob); other leaders show their model-type ring and short label.",
+				"Hovering any model in a mixed squad shows that specific model's role, its OWN wounds when they differ from the squad stat line (e.g. Runtherd W:2/2 in a W:1 mob), and its personal weapon loadout.",
+				"Deploying these squads now offers the model-type picker so you choose where the leader stands, and per-model weapon restrictions apply in shooting and melee (the Runtherd fires his slugga, the grots their blastas).",
+				"Space Marine Intercessors likewise mark their Sergeant (power fist) apart from the rank-and-file."
+			]
+		},
+		{
+			"version": "0.58.5",
+			"date": "2026-07-18",
+			"summary": "Pressing W to pan the camera up no longer also opens the Weapon Range Comparison panel. That panel is now unbound by default — assign it a key in Settings › Keybindings if you want it on a hotkey.",
+			"changes": [
+				"Fixed the W-key collision: W now only pans the camera up. The Weapon Range Comparison panel used to share the W default and would toggle open every time you moved the view up.",
+				"The Weapon Range Comparison panel has no key bound by default. You can bind one yourself under Settings › Keybindings (it shows as 'None' until you do).",
+				"Existing configs that still had the old W binding for the panel are migrated to unbound automatically on load."
+			]
+		},
+		{
+			"version": "0.58.4",
+			"date": "2026-07-18",
+			"summary": "The little cover-type chips on terrain (LB / +2 / +1) are now hidden by default so the board is less cluttered. If you want them back, turn on Settings > Visual > 'Terrain Cover Labels'.",
+			"changes": [
+				"Terrain cover labels (the LB / +2 / +1 shield chips drawn on each terrain piece) are OFF by default.",
+				"Added a 'Terrain Cover Labels (LB / +2 / +1 chips on terrain)' checkbox to Settings > Visual to turn them on or off; the choice is saved and applies to the board immediately."
+			]
+		},
+		{
+			"version": "0.58.3",
+			"date": "2026-07-18",
+			"summary": "Disembark fixes: the 3\" set-up border now hugs the transport's actual hull — rotated with the vehicle, with rounded corners — and switching units mid-placement no longer leaves a ghost placement measuring distances from the wrong transport.",
+			"changes": [
+				"The disembark range border is drawn from the transport hull's real pose: it rotates with the vehicle instead of staying an axis-aligned rectangle that didn't line up with a turned tank.",
+				"The border's corners are now true 3\" arcs (rounded), so it no longer overstates the allowed area at the corners; every point of the line is exactly the set-up distance from the hull.",
+				"Oval-based transports draw the border at the correct size (it was previously half-size).",
+				"Selecting another unit while placing disembarking models cancels the old placement cleanly — previously the stale placement kept intercepting board clicks and showed 'Must be within 3\" of transport (X\" away)' errors measured from the previously selected battlewagon, while its border stayed on screen.",
+				"Only one disembark placement can ever be live at a time, and an open placement is cleaned up when the Movement phase ends."
+			]
+		},
+		{
+			"version": "0.58.2",
+			"date": "2026-07-18",
+			"summary": "Renamed the Movement phase's red 'Confirm Move' button to 'End This Unit's Move' so it is no longer confused with the 'Confirm Movement Mode' button. Previously players could pick Advance and click the red button expecting to start moving, but it just ended the unit's move.",
+			"changes": [
+				"Movement phase: the red 'Confirm Move' button is now labelled 'End This Unit's Move' — it finalises the unit's movement for the phase, distinct from the 'Confirm Movement Mode' button that starts an Advance / Remain Stationary.",
+				"Added a tooltip to the button explaining it should be used only after moving the models, and that it is not the same as 'Confirm Movement Mode'."
+			]
+		},
+		{
+			"version": "0.58.1",
+			"date": "2026-07-18",
+			"summary": "Fixed the Warbikers' Drive-by Dakka ability text. It previously read 'against A targets' — a garbled data string that made the rule unreadable — and now correctly states that the Armour Penetration bonus applies against targets within 9\", matching how the ability already works in-game.",
+			"changes": [
+				"Warbikers 'Drive-by Dakka' now reads: 'During the Shooting phase against targets within 9\", subtract 1 from the unit's Armour Penetration characteristic.' (previously the nonsensical 'against A targets').",
+				"Text-only correction across the bundled Ork army lists — the underlying rule (improve this unit's AP by 1 against targets within 9\" while shooting) was already implemented correctly and is unchanged."
+			]
+		},
+		{
+			"version": "0.58.0",
+			"date": "2026-07-18",
+			"summary": "Transports now clearly show what is riding inside them during deployment. The deployment list gives each embarked unit its own indented line under the transport (no more overlapping, cut-off text), and that same 'Carrying:' breakdown now stays on screen while you position the transport — so you always know which units and how many models are onboard.",
+			"changes": [
+				"Deployment unit list: a transport lists every embarked unit on its own indented row (e.g. 'Mek (1 model)', 'Gretchin (11 models)') instead of one long overlapping line.",
+				"The transport's 'Carrying:' breakdown is now also shown on the unit card while you are placing the transport on the board — previously it disappeared once you started positioning it.",
+				"Each embarked unit shows its model count, so you can see exactly how many models are onboard.",
+				"Filtering the deployment list keeps a transport and its contents together, and searching an embarked unit's name still surfaces its transport."
+			]
+		},
+		{
+			"version": "0.57.2",
+			"date": "2026-07-18",
+			"summary": "During deployment, rotating a model now carries that rotation over to the next model in the same unit. If you turn the first model 90° before placing it, every following model in that unit starts off already turned the same way — so you can lay out a whole squad facing a chosen direction without re-rotating each one.",
+			"changes": [
+				"Deployment: after you rotate a model, the ghost for the next model in the unit inherits that rotation instead of snapping back to the default enemy-facing.",
+				"The first model of each unit still auto-faces the opponent as before; the carry-over only kicks in once you have placed (and optionally rotated) a model, and resets when you start a new unit."
 			]
 		},
 		{

@@ -33,8 +33,10 @@ var _board_style_dropdown: OptionButton
 var _ruins_style_dropdown: OptionButton
 var _terrain_debug_checkbox: CheckBox
 var _terrain_scatter_checkbox: CheckBox
+var _terrain_cover_checkbox: CheckBox
 
 var _auto_allocate_checkbox: CheckBox
+var _autosave_phase_start_checkbox: CheckBox
 
 var _close_button: Button
 var _return_to_menu_button: Button
@@ -172,6 +174,7 @@ func _build_ui() -> void:
 	_colorblind_dropdown = _add_dropdown_row(visual_content, "Colorblind Mode:", ["None", "Protanopia (Red-Green)", "Deuteranopia (Green-Red)", "Tritanopia (Blue-Yellow)"], "_on_colorblind_changed")
 	_terrain_debug_checkbox = _add_checkbox_row(visual_content, "Terrain Debug Labels (internal ids + LoS badges)", "_on_terrain_debug_labels_toggled")
 	_terrain_scatter_checkbox = _add_checkbox_row(visual_content, "Terrain Scatter Props (crates, sandbags, trees)", "_on_terrain_scatter_toggled")
+	_terrain_cover_checkbox = _add_checkbox_row(visual_content, "Terrain Cover Labels (LB / +2 / +1 chips on terrain)", "_on_terrain_cover_labels_toggled")
 
 	# ── Gameplay Tab ──
 	var gameplay_scroll = _create_tab_scroll()
@@ -189,6 +192,16 @@ func _build_ui() -> void:
 	auto_alloc_help.add_theme_font_size_override("font_size", 12)
 	auto_alloc_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	gameplay_content.add_child(auto_alloc_help)
+
+	_add_section_header(gameplay_content, "Auto-Save")
+	_autosave_phase_start_checkbox = _add_checkbox_row(gameplay_content, "Auto-save at the start of each phase", "_on_autosave_phase_start_toggled")
+	var autosave_help = Label.new()
+	autosave_help.text = "On by default. Saves the game automatically at the start of every phase, named after the two armies and the phase that is starting (e.g. \"Space Marines vs Orks - Movement\"). Works in the browser build on itch.io too."
+	autosave_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	autosave_help.custom_minimum_size = Vector2(620, 0)
+	autosave_help.add_theme_font_size_override("font_size", 12)
+	autosave_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	gameplay_content.add_child(autosave_help)
 
 	# ── Controls Tab ──
 	var controls_scroll = _create_tab_scroll()
@@ -536,10 +549,14 @@ func _load_current_settings() -> void:
 		_terrain_debug_checkbox.button_pressed = SettingsService.terrain_debug_labels
 	if _terrain_scatter_checkbox:
 		_terrain_scatter_checkbox.button_pressed = SettingsService.show_terrain_scatter
+	if _terrain_cover_checkbox:
+		_terrain_cover_checkbox.button_pressed = SettingsService.show_terrain_cover_labels
 
 	# Gameplay
 	if _auto_allocate_checkbox:
 		_auto_allocate_checkbox.button_pressed = SettingsService.auto_allocate_wounds
+	if _autosave_phase_start_checkbox:
+		_autosave_phase_start_checkbox.button_pressed = SettingsService.autosave_on_phase_start
 
 	# Controls
 	if _menu_scroll_speed_slider:
@@ -638,12 +655,18 @@ func _on_terrain_debug_labels_toggled(pressed: bool) -> void:
 func _on_terrain_scatter_toggled(pressed: bool) -> void:
 	SettingsService.set_show_terrain_scatter(pressed)
 
+func _on_terrain_cover_labels_toggled(pressed: bool) -> void:
+	SettingsService.set_show_terrain_cover_labels(pressed)
+
 # ============================================================================
 # Gameplay Callbacks
 # ============================================================================
 
 func _on_auto_allocate_wounds_toggled(pressed: bool) -> void:
 	SettingsService.set_auto_allocate_wounds(pressed)
+
+func _on_autosave_phase_start_toggled(pressed: bool) -> void:
+	SettingsService.set_autosave_on_phase_start(pressed)
 
 # ============================================================================
 # Button Callbacks

@@ -35,6 +35,7 @@ var _stratagem_panel: AcceptDialog = null
 @onready var unit_name_label: Label = $HUD_Right/VBoxContainer/UnitCard/UnitNameLabel
 @onready var keywords_label: Label = $HUD_Right/VBoxContainer/UnitCard/KeywordsLabel
 @onready var models_label: Label = $HUD_Right/VBoxContainer/UnitCard/ModelsLabel
+@onready var transport_contents_label: Label = $HUD_Right/VBoxContainer/UnitCard/TransportContentsLabel
 @onready var undo_button: Button = $HUD_Right/VBoxContainer/UnitCard/ButtonContainer/UndoButton
 @onready var reset_button: Button = $HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ResetButton
 @onready var confirm_button: Button = $HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton
@@ -3443,6 +3444,8 @@ func _apply_white_dwarf_theme() -> void:
 		_WhiteDwarfTheme.apply_to_label(keywords_label)
 	if models_label:
 		_WhiteDwarfTheme.apply_to_label(models_label)
+	if transport_contents_label:
+		_WhiteDwarfTheme.apply_to_label(transport_contents_label)
 
 	# Theme buttons in unit card — confirm is primary, others secondary
 	if undo_button:
@@ -6185,6 +6188,44 @@ func refresh_unit_list() -> void:
 	# T-104: re-apply the unit-list filter so user-typed text persists across refreshes.
 	_apply_unit_list_filter()
 
+func _get_transport_contents_lines(unit_data: Dictionary) -> Array:
+	# Returns one human-readable line per unit embarked in this transport, e.g.
+	# ["Ork Boyz (20 models)", "Warboss (1 model)"]. Empty array if the unit is
+	# not a transport or is carrying nothing. Shared by the deployment selection
+	# list and the placement card so both surfaces show identical contents.
+	var lines: Array = []
+	if not unit_data.has("transport_data"):
+		return lines
+	var embarked_ids = unit_data.get("transport_data", {}).get("embarked_units", [])
+	for emb_id in embarked_ids:
+		var emb_unit = GameState.get_unit(emb_id)
+		if emb_unit and not emb_unit.is_empty():
+			var emb_name = emb_unit.get("meta", {}).get("name", emb_id)
+			var emb_models = emb_unit.get("models", []).size()
+			var noun = "model" if emb_models == 1 else "models"
+			lines.append("%s (%d %s)" % [emb_name, emb_models, noun])
+	return lines
+
+func _append_transport_content_rows(unit_data: Dictionary, transport_id: String) -> void:
+	# Adds indented, non-selectable ItemList rows under a transport row listing
+	# each embarked unit. Sub-rows are tagged with metadata so the filter can
+	# keep them grouped with their transport. Called only during deployment.
+	var carrying_lines = _get_transport_contents_lines(unit_data)
+	var header_idx = unit_list.get_item_count()
+	if carrying_lines.size() > 0:
+		unit_list.add_item("      ⤷ Carrying:")
+	else:
+		unit_list.add_item("      ⤷ Carrying: (empty)")
+	unit_list.set_item_disabled(header_idx, true)
+	unit_list.set_item_selectable(header_idx, false)
+	unit_list.set_item_metadata(header_idx, {"_subrow": true, "parent_transport": transport_id})
+	for line in carrying_lines:
+		unit_list.add_item("          • " + line)
+		var sub_idx = unit_list.get_item_count() - 1
+		unit_list.set_item_disabled(sub_idx, true)
+		unit_list.set_item_selectable(sub_idx, false)
+		unit_list.set_item_metadata(sub_idx, {"_subrow": true, "parent_transport": transport_id})
+
 func _refresh_unit_list_inner() -> void:
 	# Update the new bottom panel unit lists (always visible for comparison)
 	if unit_stats_panel and unit_stats_panel.has_method("populate_unit_lists"):
@@ -6252,26 +6293,21 @@ func _refresh_unit_list_inner() -> void:
 								model_count += char_unit["models"].size()
 						if char_names.size() > 0:
 							attach_info = " + " + ", ".join(char_names)
-					# Show embarked unit names for transport vehicles
-					var transport_contents = ""
-					if unit_data.has("transport_data"):
-						var embarked_ids = unit_data.transport_data.get("embarked_units", [])
-						if embarked_ids.size() > 0:
-							var embarked_names = []
-							for emb_id in embarked_ids:
-								var emb_unit = GameState.get_unit(emb_id)
-								if emb_unit and not emb_unit.is_empty():
-									embarked_names.append(emb_unit.get("meta", {}).get("name", emb_id))
-							if embarked_names.size() > 0:
-								transport_contents = " [Contains: %s]" % ", ".join(embarked_names)
-						else:
-							transport_contents = " [Empty]"
-					var display_text = "%s (%d models)%s%s%s" % [unit_name, model_count, attach_info, transport_contents, ability_tag]
+					# Main selectable row: unit name, model count, attachments, tag.
+					var display_text = "%s (%d models)%s%s" % [unit_name, model_count, attach_info, ability_tag]
 					unit_list.add_item(display_text)
 					var idx = unit_list.get_item_count() - 1
 					unit_list.set_item_metadata(idx, unit_id)
 					unit_list.set_item_icon(idx, _get_status_dot(Color(0.3, 0.85, 0.3)))
 					unit_list.set_item_icon_modulate(idx, Color.WHITE)
+
+					# For transports, add one indented, non-selectable sub-row per
+					# embarked unit. ItemList can't render multi-line items (it
+					# strips newlines and truncates), so each embarked unit gets its
+					# own short row — nothing overlaps and the player sees exactly
+					# what is riding inside, even before placing it.
+					if unit_data.has("transport_data"):
+						_append_transport_content_rows(unit_data, unit_id)
 
 				# Reserves are declared during Formations phase, not Deployment.
 				# Hide the reserves button during deployment.
@@ -7005,6 +7041,14 @@ func _build_model_profile_hover_text(unit: Dictionary, model_id: String) -> Stri
 	var mid_str = model.get("id", model_id)
 	var block = "\n[color=#D49761]──────────[/color]\n"
 	block += "[b][color=#E8C86A]%s[/color][/b] [color=#888888](%s)[/color]" % [label, mid_str]
+	# The hovered model's OWN wounds, when they differ from the squad stat line
+	# above (e.g. a 2W Runtherd in a W:1 Gretchin mob) — otherwise the header's
+	# unit-level "W:1" misrepresents this model.
+	var m_w_max = int(model.get("wounds", 0))
+	var m_w_cur = int(model.get("current_wounds", m_w_max))
+	var unit_w = int(unit.get("meta", {}).get("stats", {}).get("wounds", 0))
+	if m_w_max > 0 and (m_w_max != unit_w or m_w_cur != m_w_max):
+		block += "  [color=#9BD49B]W:%d/%d[/color]" % [m_w_cur, m_w_max]
 	# Model-specific stat overrides (BS/WS/Sv/W/OC differing from the squad).
 	var overrides = profile.get("stats_override", {})
 	if not overrides.is_empty():
@@ -7112,6 +7156,12 @@ func _on_unit_selected(index: int) -> void:
 			return
 
 	var unit_id = unit_list.get_item_metadata(index)
+
+	# Defensive: transport "Carrying" sub-rows are disabled/non-selectable and
+	# carry a dict metadata, so they should never reach here — but if one does,
+	# ignore it rather than treating the dict as a unit id.
+	if not (unit_id is String) or unit_id == "":
+		return
 
 	# Show detailed stats in bottom panel
 	var unit_data = GameState.get_unit(unit_id)
@@ -7340,7 +7390,21 @@ func show_unit_card(unit_id: String) -> void:
 	var unit_data = GameState.get_unit(unit_id)
 	unit_name_label.text = unit_data["meta"]["name"]
 	keywords_label.text = "Keywords: " + ", ".join(unit_data["meta"]["keywords"])
-	
+
+	# Show what a transport is carrying while it is being placed, matching the
+	# selection list. The label autowraps, so each embarked unit stays readable
+	# and the card simply grows taller as needed.
+	if transport_contents_label:
+		if unit_data.has("transport_data"):
+			var carrying_lines = _get_transport_contents_lines(unit_data)
+			if carrying_lines.size() > 0:
+				transport_contents_label.text = "Carrying:\n  • " + "\n  • ".join(carrying_lines)
+			else:
+				transport_contents_label.text = "Carrying: (empty)"
+			transport_contents_label.visible = true
+		else:
+			transport_contents_label.visible = false
+
 	unit_card.visible = true
 	update_unit_card_buttons()
 
@@ -8737,6 +8801,13 @@ func _on_save_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Save completed: %s" % file_path)
 	# SAVE-20: Dismiss progress indicator on save completion
 	_dismiss_save_load_progress()
+	# Auto-generated saves (e.g. the phase-start autosave) report via the subtle
+	# "Game autosaved" toast (the autosave_completed signal); don't ALSO flash the
+	# prominent "Game saved!" status banner, which on the itch.io web build would
+	# otherwise fire at the start of every phase.
+	var is_autosave = metadata.get("save_info", {}).get("save_type", "") == "autosave" or metadata.get("auto_generated", false)
+	if is_autosave:
+		return
 	if OS.has_feature("web"):
 		_show_save_notification("Game saved!", Color.GREEN)
 
@@ -12160,7 +12231,14 @@ func _toggle_weapon_range_comparison_panel() -> void:
 			hb.add_child(own_l)
 			list.add_child(hb)
 	var hint := Label.new()
-	hint.text = "Press W to close"
+	# The panel is toggled by whatever key is bound to weapon_range_panel (unbound
+	# by default — assign one in Settings). Reflect the live binding instead of a
+	# hardcoded "W", which no longer opens/closes this panel.
+	var _wrp_key := KeybindingManager.get_primary_key_display("weapon_range_panel") if KeybindingManager else "W"
+	if _wrp_key == "None" or _wrp_key == "":
+		hint.text = "Bind a key in Settings › Keybindings to toggle this panel"
+	else:
+		hint.text = "Press %s to close" % _wrp_key
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.modulate = Color(1, 1, 1, 0.6)
@@ -12596,13 +12674,13 @@ func _force_redraw_all_tokens() -> void:
 
 var _unit_context_menu: PopupMenu = null
 var _context_unit_id: String = ""
+# Unit ids backing the "Embarked Units" rows of the current context menu, in the
+# same order they were added. A clicked embarked row maps back to its unit via
+# (item_id - EMBARKED_MENU_ID_BASE).
+var _context_embarked_ids: Array = []
+const EMBARKED_MENU_ID_BASE := 1000
 
 func _handle_right_click(event: InputEventMouseButton) -> void:
-	# Only in letter mode
-	var style = SettingsService.unit_visual_style if SettingsService else "classic"
-	if style != "letter":
-		return
-
 	# Convert screen position to world position (use event.position, same as other handlers)
 	var world_pos = screen_to_world_position(event.position)
 
@@ -12610,7 +12688,41 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 	if uid == "":
 		return
 
+	# Build/show the context menu. It only consumes the right-click when it
+	# actually shows something, so a right-click that offers nothing (e.g. a
+	# non-transport outside letter mode) still flows to the other handlers
+	# (MovementController rotation, DeploymentController cancel).
+	var menu_pos := Vector2i(int(event.global_position.x), int(event.global_position.y))
+	if _show_unit_context_menu(uid, menu_pos):
+		# Consume the event so other handlers (DeploymentController cancel,
+		# MovementController rotation) don't also process this right-click
+		get_viewport().set_input_as_handled()
+
+
+# Builds and pops up the right-click context menu for `uid` at `screen_pos`.
+# Returns true when a menu was actually shown. Split out of _handle_right_click
+# so windowed scenarios can drive the menu with a known unit id.
+#
+# Menu contents:
+#   * Change Color / Change Label / Unit Stats — letter visual style only
+#     (these edit the letter token's appearance).
+#   * "Embarked Units" section — whenever the unit is a transport carrying
+#     units, regardless of visual style. Lists each passenger (name + alive/
+#     total model count); clicking a row opens that unit's stats card.
+func _show_unit_context_menu(uid: String, screen_pos: Vector2i) -> bool:
+	var style = SettingsService.unit_visual_style if SettingsService else "classic"
+	var is_letter: bool = style == "letter"
+
+	# Passengers embarked in this transport (empty for non-transports / empty holds).
+	var embarked_entries := _get_embarked_menu_entries(uid)
+
+	# Nothing to offer: the color/label/stats items are letter-mode only, and
+	# there are no embarked units to list. Leave the right-click for other handlers.
+	if not is_letter and embarked_entries.is_empty():
+		return false
+
 	_context_unit_id = uid
+	_context_embarked_ids.clear()
 
 	# Remove existing context menu
 	if _unit_context_menu and is_instance_valid(_unit_context_menu):
@@ -12618,20 +12730,63 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 
 	_unit_context_menu = PopupMenu.new()
 	_unit_context_menu.name = "UnitContextMenu"
-	_unit_context_menu.add_item("Change Color", 0)
-	_unit_context_menu.add_item("Change Label", 1)
-	_unit_context_menu.add_item("Unit Stats", 2)
+
+	if is_letter:
+		_unit_context_menu.add_item("Change Color", 0)
+		_unit_context_menu.add_item("Change Label", 1)
+		_unit_context_menu.add_item("Unit Stats", 2)
+
+	# "Embarked Units" section: a labeled separator header followed by one row
+	# per embarked unit. Clicking a row opens that passenger's stats card so the
+	# player can both SEE who is aboard and inspect them.
+	if not embarked_entries.is_empty():
+		_unit_context_menu.add_separator("Embarked Units")
+		for i in range(embarked_entries.size()):
+			var entry: Dictionary = embarked_entries[i]
+			var row_text := "  %s  (%d/%d)" % [entry["name"], entry["alive"], entry["total"]]
+			_unit_context_menu.add_item(row_text, EMBARKED_MENU_ID_BASE + i)
+			_context_embarked_ids.append(entry["id"])
+
 	_unit_context_menu.id_pressed.connect(_on_unit_context_menu_pressed)
 	add_child(_unit_context_menu)
-	_unit_context_menu.position = Vector2i(int(event.global_position.x), int(event.global_position.y))
+	_unit_context_menu.position = screen_pos
 	_unit_context_menu.popup()
+	return true
 
-	# Consume the event so other handlers (DeploymentController cancel,
-	# MovementController rotation) don't also process this right-click
-	get_viewport().set_input_as_handled()
+
+# Returns display rows for the units embarked in `transport_id`, in embark order:
+#   [{ "id": String, "name": String, "alive": int, "total": int }, ... ]
+# Empty for non-transport units or transports with an empty hold.
+func _get_embarked_menu_entries(transport_id: String) -> Array:
+	var entries := []
+	if not TransportManager:
+		return entries
+	for eid in TransportManager.get_embarked_unit_ids(transport_id):
+		var eunit = GameState.get_unit(eid)
+		if eunit == null or eunit.is_empty():
+			continue
+		var total := 0
+		var alive := 0
+		for m in eunit.get("models", []):
+			total += 1
+			if m.get("alive", true):
+				alive += 1
+		entries.append({
+			"id": eid,
+			"name": GameState.get_unit_display_name(eid),
+			"alive": alive,
+			"total": total,
+		})
+	return entries
 
 
 func _on_unit_context_menu_pressed(id: int) -> void:
+	# Embarked-unit rows: open the clicked passenger's stats card.
+	if id >= EMBARKED_MENU_ID_BASE:
+		var idx := id - EMBARKED_MENU_ID_BASE
+		if idx >= 0 and idx < _context_embarked_ids.size():
+			_show_unit_stats_card_popup(_context_embarked_ids[idx])
+		return
 	match id:
 		0:  # Change Color
 			_show_unit_color_picker_popup(_context_unit_id)
@@ -13592,14 +13747,38 @@ func _apply_unit_list_filter() -> void:
 		return
 	if _unit_list_filter_text == "":
 		return
-	var i = unit_list.get_item_count() - 1
-	while i >= 0:
-		var t: String = str(unit_list.get_item_text(i)).to_lower()
-		# Preserve disabled section headers ("---") so structure stays readable.
-		var is_section_header: bool = t.begins_with("---")
-		if not is_section_header and t.find(_unit_list_filter_text) == -1:
-			unit_list.remove_item(i)
-		i -= 1
+	# Group-aware filtering: a transport row and its indented "Carrying" sub-rows
+	# form one group (sub-rows are tagged with metadata {_subrow:true}). A group
+	# is kept if ANY row in it matches, so filtering by an embarked unit's name
+	# keeps its transport, and filtering by the transport keeps its contents.
+	# Rows in other phases have no sub-rows, so each is its own group — identical
+	# to the previous per-row behavior.
+	var count = unit_list.get_item_count()
+	var to_remove: Array = []
+	var i = 0
+	while i < count:
+		# A group spans this primary row plus any following sub-rows.
+		var group_end = i + 1
+		while group_end < count and _is_subrow_item(group_end):
+			group_end += 1
+		var group_matches = false
+		for k in range(i, group_end):
+			var t: String = str(unit_list.get_item_text(k)).to_lower()
+			# Preserve disabled section headers ("---") so structure stays readable.
+			if t.begins_with("---") or t.find(_unit_list_filter_text) != -1:
+				group_matches = true
+				break
+		if not group_matches:
+			for k in range(i, group_end):
+				to_remove.append(k)
+		i = group_end
+	# Remove from the back so earlier indices stay valid.
+	for idx in range(to_remove.size() - 1, -1, -1):
+		unit_list.remove_item(to_remove[idx])
+
+func _is_subrow_item(index: int) -> bool:
+	var md = unit_list.get_item_metadata(index)
+	return md is Dictionary and md.get("_subrow", false)
 
 
 # ============================================================================

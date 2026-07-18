@@ -1,0 +1,43 @@
+{
+  "id": "model_profile_icon_hover",
+  "covers": ["ui.model_profile_distinct_icon", "ui.token_hover_model_profile"],
+  "fixture": "shooting_phase",
+  "description": "MA-20 player-facing check: in a squad with heterogeneous profiles (Gretchin mob with Runtherds), the profiled model renders DIFFERENT top-down art from the rank-and-file (gretchin_runtherd.png vs gretchin.png), and hovering it names the profile ('Runtherd' + its own weapons) instead of claiming it is just another Gretchin. Fixture has U_GRETCHIN_A deployed with m1/m2 = runtherd, m3+ = gretchin. Regression test for armies that shipped the Runtherd as an untagged model (same icon, generic tooltip).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "units.U_GRETCHIN_A.models.0.model_type", "equals": "runtherd" },
+
+    { "act": "execute_script", "script": "main.fit_view_to_selection('U_GRETCHIN_A')", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var layer = tree.root.get_node('Main/BoardRoot/TokenLayer')\nvar runtherd_tex = null\nvar grot_tex = null\nfor t in layer.get_children():\n\tif t.has_meta('unit_id') and str(t.get_meta('unit_id')) == 'U_GRETCHIN_A':\n\t\tif str(t.get_meta('model_id')) == 'm1':\n\t\t\truntherd_tex = t._get_unit_sprite_texture()\n\t\tif str(t.get_meta('model_id')) == 'm3':\n\t\t\tgrot_tex = t._get_unit_sprite_texture()\nif runtherd_tex == null or grot_tex == null:\n\treturn 'missing texture'\nif runtherd_tex == grot_tex:\n\treturn 'same texture'\nreturn 'distinct:' + runtherd_tex.resource_path.get_file() + ' vs ' + grot_tex.resource_path.get_file()",
+      "equals": "distinct:gretchin_runtherd.png vs gretchin.png" },
+
+    { "act": "hover_board_at", "x": 617.76, "y": 38.7 },
+    { "act": "expect_node_visible", "node": "/root/Main/TokenHoverTooltip", "timeout_s": 2.0 },
+    { "act": "execute_script",
+      "script": "main.get_node('TokenHoverTooltip/TokenHoverLabel').get_parsed_text().contains('Runtherd')",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node('TokenHoverTooltip/TokenHoverLabel').get_parsed_text().contains('(m1)')",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node('TokenHoverTooltip/TokenHoverLabel').get_parsed_text().contains('Slugga')",
+      "equals": true },
+    { "act": "screenshot", "label": "01_runtherd_hover_named" },
+
+    { "act": "hover_board_at", "x": 698.5, "y": 38.7 },
+    { "act": "expect_node_visible", "node": "/root/Main/TokenHoverTooltip", "timeout_s": 2.0 },
+    { "act": "execute_script",
+      "script": "main.get_node('TokenHoverTooltip/TokenHoverLabel').get_parsed_text().contains('(m3)')",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node('TokenHoverTooltip/TokenHoverLabel').get_parsed_text().contains('Grot blasta')",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node('TokenHoverTooltip/TokenHoverLabel').get_parsed_text().contains('Runtherd')",
+      "equals": false },
+    { "act": "screenshot", "label": "02_rankandfile_hover_named" }
+  ]
+}

@@ -2,8 +2,8 @@ extends AcceptDialog
 
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 # Shared d6 face textures so hit/wound/save rolls and Command Re-roll chips render
-# as dice icons (pips), not raw numbers — matching FightSequenceDialog (the melee
-# twin) and the rest of the game's dice visuals.
+# as dice icons (pips), not raw numbers — matching the resolution docks and the
+# rest of the game's dice visuals.
 const _DiceFaceIcons = preload("res://scripts/DiceFaceIcons.gd")
 
 # WeaponOrderDialog - Allows players to order weapons before shooting sequence
@@ -36,7 +36,7 @@ var start_sequence_button: Button
 var close_button: Button
 var dice_log_rich_text: RichTextLabel
 # Count of d6 face icons mounted into the dice log — lets windowed scenarios
-# assert rolls rendered as dice icons (mirrors FightSequenceDialog).
+# assert rolls rendered as dice icons.
 var _log_dice_icon_count: int = 0
 
 # Staged-resolution UI
@@ -610,8 +610,8 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 
 func _append_roll_line(context: String, dice_data: Dictionary) -> void:
 	# Verbose, human-readable hit / wound line — dice render as inline d6 face
-	# icons (pips) instead of raw numbers, matching FightSequenceDialog and the
-	# rest of the game's dice visuals.
+	# icons (pips) instead of raw numbers, matching the rest of the game's dice
+	# visuals.
 	if not dice_log_rich_text:
 		return
 	var threshold = str(dice_data.get("threshold", ""))

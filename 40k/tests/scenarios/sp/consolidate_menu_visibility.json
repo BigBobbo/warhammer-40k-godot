@@ -5,7 +5,7 @@
     "phases.FightPhase.consolidate_11e",
     "scripts.FightController.consolidation_step_panel",
     "dialogs.ConsolidateDialog",
-    "dialogs.FightSequenceDialog",
+    "scripts.FightResolutionDock",
     "scripts.FightController._dismiss_blocking_fight_dialogs",
     "ui.layout.ConsolidateDialog_bottom_dock"
   ],
@@ -14,7 +14,7 @@
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "Regression for the Consolidate-step menu-visibility bug: the staged FightSequenceDialog (and any stray AttackAssignmentDialog) are centered, board-covering modals that LINGER on their 'Close' summary after the final fight. If the player never clicks Close (the common case), those dialogs used to stay stacked over the battlefield during the global Consolidate step, so the player could not see the models they were being asked to drag. This scenario plays the 11e phase through the Fight step but, unlike global_consolidation_step_11e, deliberately does NOT close the last activation's FightSequenceDialog — it asserts the dialog is still present, then enters the Consolidate step and asserts FightController._dismiss_blocking_fight_dialogs freed it, so the ConsolidationStepPanel picker and the bottom-docked ConsolidateDialog open over a clear board. Setup-only privileges (CP zeroed, wounds inflated for deterministic aliveness) mirror the sibling scenario; every in-game decision is a real click or drag.",
+  "description": "Regression for the Consolidate-step visibility guard: after the final fight the right-panel FightResolutionDock deliberately lingers on its 'Done' summary (the player never pressed Done \u2014 the common case). Unlike the old FightSequenceDialog bottom pop-up, the dock lives in the right panel so it never covers the battlefield; this scenario asserts the dock is still active on its summary, then enters the Consolidate step and asserts FightController._dismiss_blocking_fight_dialogs deactivated it (its job is done) and cleared any stray AttackAssignmentDialog, so the ConsolidationStepPanel picker and the bottom-docked ConsolidateDialog open over a clear board. Setup-only privileges (CP zeroed, wounds inflated for deterministic aliveness) mirror the sibling scenario; every in-game decision is a real click or drag.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
@@ -43,9 +43,9 @@
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)" },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)" },
     { "act": "wait_frames", "frames": 4 },
-    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },
 
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 8.0 },
@@ -56,9 +56,9 @@
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)" },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)" },
     { "act": "wait_frames", "frames": 4 },
-    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },
 
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 8.0 },
@@ -69,12 +69,12 @@
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)" },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)" },
     { "act": "wait_frames", "frames": 4 },
 
-    { "act": "expect_node_visible", "node": "/root/FightSequenceDialog", "timeout_s": 3.0 },
-    { "act": "execute_script", "script": "main.get_tree().root.get_node_or_null(\"FightSequenceDialog\") != null", "equals": true },
-    { "act": "screenshot", "label": "01_last_fight_sequence_dialog_left_open_blocking_board" },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.state", "equals": "complete" },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.is_active()", "equals": true },
+    { "act": "screenshot", "label": "01_resolution_dock_left_on_done_summary_board_clear" },
 
     { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 0 },
     { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
@@ -82,7 +82,7 @@
 
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel", "timeout_s": 5.0 },
     { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 1 },
-    { "act": "execute_script", "script": "main.get_tree().root.get_node_or_null(\"FightSequenceDialog\") == null", "equals": true },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.is_active()", "equals": false },
     { "act": "execute_script", "script": "main.get_tree().root.get_node_or_null(\"AttackAssignmentDialog\") == null", "equals": true },
     { "act": "screenshot", "label": "02_consolidate_step_board_clear_no_leftover_fight_dialogs" },
 
@@ -93,7 +93,7 @@
     { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList/Consolidate_U_TELEMON_HEAVY_DREADNOUGHT_I", "emit_pressed": true },
 
     { "act": "expect_node_visible", "node": "/root/ConsolidateDialog", "timeout_s": 5.0 },
-    { "act": "execute_script", "script": "main.get_tree().root.get_node_or_null(\"FightSequenceDialog\") == null", "equals": true },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.is_active()", "equals": false },
     { "act": "execute_script", "script": "main.get_tree().root.get_node(\"ConsolidateDialog\").position.y", "expect_min": 500 },
     { "act": "execute_script", "script": "main.get_tree().root.get_node(\"ConsolidateDialog\").position.y + main.get_tree().root.get_node(\"ConsolidateDialog\").size.y <= main.get_viewport().get_visible_rect().size.y", "equals": true },
     { "act": "screenshot", "label": "03_consolidate_dialog_over_clear_board" },

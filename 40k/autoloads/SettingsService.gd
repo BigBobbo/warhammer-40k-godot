@@ -31,6 +31,11 @@ var save_measurements: bool = false  # Whether to persist measurement lines in s
 var autosave_on_round_end: bool = true      # Auto-save when a battle round completes
 var autosave_on_phase_transition: bool = false  # Auto-save at every phase transition
 
+# Phase-start named autosave — creates/overwrites a save named
+# "<army1> vs <army2> - <phase>" at the start of each phase. On by default;
+# players can turn it off from Settings → Gameplay. Works on web/itch.io.
+var autosave_on_phase_start: bool = true
+
 # P3-111: Audio settings
 var master_volume: float = 1.0   # 0.0 to 1.0
 var music_volume: float = 0.7    # 0.0 to 1.0
@@ -63,6 +68,12 @@ var terrain_debug_labels: bool = false
 # footprints, borders and walls, for a cleaner/less cluttered look.
 var show_terrain_scatter: bool = true
 
+# Terrain cover labels — the per-tile shield glyph chips (LB / +2 / +1) that
+# TerrainCoverOverlay draws at the centroid of every terrain piece. Defaults OFF
+# so the board is uncluttered; players who want the cover-type reference can turn
+# it on via Settings > Visual.
+var show_terrain_cover_labels: bool = false
+
 # Gameplay settings
 # When true, the computer automatically chooses which wounded/destroyed models
 # are removed during wound allocation instead of prompting the local player.
@@ -74,7 +85,10 @@ var show_terrain_scatter: bool = true
 # AUTO_ALLOCATE_MIGRATION_KEY below, which retires older saved `true` values).
 var auto_allocate_wounds: bool = false
 
-# B3 (audit 2026-07): staged shooting pause policy —
+# B3 (audit 2026-07): staged resolution pause policy — ONE setting shared by
+# the shooting AND fight resolution docks (kept under its original
+# "shooting_pause_policy" name for saved-settings compatibility) so both
+# phases pause with the same rhythm:
 #   "every_step" (default): pause at every hit/wound roll
 #   "decisions":  pause only when a Command Re-roll is actually usable
 #                 (CP available, not used this phase, and a failed die exists)
@@ -123,6 +137,7 @@ signal unit_style_changed(new_style: String)
 signal unit_color_display_changed(new_mode: String)
 signal terrain_debug_labels_changed(enabled: bool)
 signal terrain_scatter_changed(enabled: bool)
+signal terrain_cover_labels_changed(enabled: bool)
 signal shooting_show_all_units_changed(show_all: bool)
 
 # P3-111: Settings config file path
@@ -204,6 +219,7 @@ func _ready() -> void:
 	if SaveLoadManager:
 		SaveLoadManager.set_autosave_on_round_end(autosave_on_round_end)
 		SaveLoadManager.set_autosave_on_phase_transition(autosave_on_phase_transition)
+		SaveLoadManager.set_autosave_on_phase_start(autosave_on_phase_start)
 
 	print("[SettingsService] Ready — ui_scale=%.2f, animation_speed=%.2f, colorblind=%s" % [ui_scale, animation_speed, colorblind_mode])
 
@@ -345,6 +361,13 @@ func set_autosave_on_phase_transition(enabled: bool) -> void:
 	_save_settings()
 	print("[SettingsService] autosave_on_phase_transition set to %s" % str(enabled))
 
+func set_autosave_on_phase_start(enabled: bool) -> void:
+	autosave_on_phase_start = enabled
+	if SaveLoadManager:
+		SaveLoadManager.set_autosave_on_phase_start(enabled)
+	_save_settings()
+	print("[SettingsService] autosave_on_phase_start set to %s" % str(enabled))
+
 func set_show_unit_labels(visible: bool) -> void:
 	show_unit_labels = visible
 	unit_labels_visibility_changed.emit(show_unit_labels)
@@ -428,6 +451,12 @@ func set_show_terrain_scatter(enabled: bool) -> void:
 	_save_settings()
 	print("[SettingsService] show_terrain_scatter set to %s" % str(enabled))
 
+func set_show_terrain_cover_labels(enabled: bool) -> void:
+	show_terrain_cover_labels = enabled
+	terrain_cover_labels_changed.emit(show_terrain_cover_labels)
+	_save_settings()
+	print("[SettingsService] show_terrain_cover_labels set to %s" % str(enabled))
+
 # ============================================================================
 # P3-111: Settings Persistence
 # ============================================================================
@@ -451,6 +480,7 @@ func _save_settings() -> void:
 	config.set_value("visual", "show_unit_labels", show_unit_labels)
 	config.set_value("visual", "terrain_debug_labels", terrain_debug_labels)
 	config.set_value("visual", "show_terrain_scatter", show_terrain_scatter)
+	config.set_value("visual", "show_terrain_cover_labels", show_terrain_cover_labels)
 	config.set_value("visual", "board_style", board_style)
 	config.set_value("visual", "ruins_style", ruins_style)
 
@@ -460,6 +490,7 @@ func _save_settings() -> void:
 	config.set_value("save_load", "save_measurements", save_measurements)
 	config.set_value("save_load", "autosave_on_round_end", autosave_on_round_end)
 	config.set_value("save_load", "autosave_on_phase_transition", autosave_on_phase_transition)
+	config.set_value("save_load", "autosave_on_phase_start", autosave_on_phase_start)
 
 	# Gameplay
 	config.set_value("gameplay", "auto_allocate_wounds", auto_allocate_wounds)
@@ -499,6 +530,7 @@ func _load_settings() -> void:
 	show_unit_labels = config.get_value("visual", "show_unit_labels", true)
 	terrain_debug_labels = config.get_value("visual", "terrain_debug_labels", false)
 	show_terrain_scatter = config.get_value("visual", "show_terrain_scatter", true)
+	show_terrain_cover_labels = config.get_value("visual", "show_terrain_cover_labels", false)
 	board_style = config.get_value("visual", "board_style", "grass")
 	ruins_style = config.get_value("visual", "ruins_style", "concrete")
 
@@ -508,6 +540,7 @@ func _load_settings() -> void:
 	save_measurements = config.get_value("save_load", "save_measurements", false)
 	autosave_on_round_end = config.get_value("save_load", "autosave_on_round_end", true)
 	autosave_on_phase_transition = config.get_value("save_load", "autosave_on_phase_transition", false)
+	autosave_on_phase_start = config.get_value("save_load", "autosave_on_phase_start", true)
 
 	# Gameplay
 	# Defender-control migration: configs written BEFORE the interactive

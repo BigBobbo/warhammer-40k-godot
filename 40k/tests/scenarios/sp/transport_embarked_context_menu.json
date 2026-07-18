@@ -1,0 +1,107 @@
+{
+  "id": "transport_embarked_context_menu",
+  "covers": [
+    "ui.right_click_context.embarked_units_section",
+    "transport.embarked_units_listing",
+    "ui.main.show_unit_context_menu"
+  ],
+  "fixture": "grenade_shooting_desync",
+  "edition": 11,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Right-clicking a transport that has units embarked adds an 'Embarked Units' section to its context menu listing each passenger (name + alive/total model count), and clicking a passenger row opens that unit's stats card. Drives the real player path against a fixture with two deployed, loaded Battlewagons: confirms the on-board token hit-tests to the transport, injects a REAL right-click InputEventMouseButton at Battlewagon Alpha's board position, and asserts _handle_right_click resolved the transport and the resulting UnitContextMenu contains a labeled 'Embarked Units' separator plus a 'Kommandos' row. Then fires the embarked row's handler and asserts a UnitStatsCardPopup opened. Also verifies the menu-entry builder lists BOTH Lootas passengers for Battlewagon Beta (in embark order) and that a non-transport unit yields no embarked entries.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "TransportManager.get_embarked_unit_ids(\"U_BATTLEWAGON_A\")",
+      "equals": [
+        "U_KOMMANDOS_A"
+      ]
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar pos = GameState.get_unit(\"U_BATTLEWAGON_A\")[\"models\"][0][\"position\"]\nreturn m._find_unit_at_world_pos(Vector2(pos[\"x\"], pos[\"y\"]))",
+      "equals": "U_BATTLEWAGON_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar pos = GameState.get_unit(\"U_BATTLEWAGON_A\")[\"models\"][0][\"position\"]\nvar world = Vector2(pos[\"x\"], pos[\"y\"])\nvar screen = m.world_to_screen_position(world)\nvar ev = InputEventMouseButton.new()\nev.button_index = MOUSE_BUTTON_RIGHT\nev.position = screen\nev.global_position = screen\nev.pressed = true\nev.button_mask = MOUSE_BUTTON_MASK_RIGHT\nInput.parse_input_event(ev)\nreturn {\"world\": [world.x, world.y], \"screen\": [screen.x, screen.y]}"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "main._context_unit_id",
+      "equals": "U_BATTLEWAGON_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._unit_context_menu.get_item_count()",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar menu = m._unit_context_menu\nif menu == null:\n\treturn \"NO_MENU\"\nvar has_header = false\nvar has_kommandos = false\nfor i in range(menu.get_item_count()):\n\tvar t = menu.get_item_text(i)\n\tif t.contains(\"Embarked Units\"):\n\t\thas_header = true\n\tif t.contains(\"Kommandos\"):\n\t\thas_kommandos = true\nreturn has_header and has_kommandos",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_alpha_context_menu_lists_kommandos"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\n# EMBARKED_MENU_ID_BASE + 0 -> the first embarked row (Kommandos); this is\n# exactly what the PopupMenu.id_pressed signal delivers on a real click.\nm._on_unit_context_menu_pressed(1000)\nreturn m.get_node_or_null(\"UnitStatsCardPopup\") != null",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "03_embarked_row_opens_stats_card"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar entries = m._get_embarked_menu_entries(\"U_BATTLEWAGON_B\")\nvar names = []\nfor e in entries:\n\tnames.append(e[\"name\"])\nreturn names",
+      "equals": [
+        "Lootas Beta",
+        "Lootas Alpha"
+      ]
+    },
+    {
+      "act": "execute_script",
+      "script": "main._get_embarked_menu_entries(\"U_KOMMANDOS_A\").size()",
+      "equals": 0
+    }
+  ]
+}
