@@ -292,6 +292,87 @@ func _test_against_all_odds() -> void:
 	}
 	_check("friendly within 6\" blocks AAO", not fam.check_against_all_odds(board_f.units["U_SHOOTER"], board_f))
 
+	# Attached leader (Leader rules: one unit) must NOT block the buff — in
+	# either direction (bodyguard attacking, or the attached character attacking).
+	var board_led = _make_board({
+		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
+		"factions": _lions_factions(1),
+	})
+	board_led.units["U_SHOOTER"]["attachment_data"] = {"attached_characters": ["U_LEADER"]}
+	board_led.units["U_LEADER"] = {
+		"id": "U_LEADER", "owner": 1, "attached_to": "U_SHOOTER",
+		"meta": {"name": "Leader", "keywords": ["ADEPTUS CUSTODES", "CHARACTER", "INFANTRY"], "stats": {}, "abilities": []},
+		"flags": {},
+		"models": [{"id": "ml0", "position": {"x": 0.0, "y": 150.0}, "base_mm": 32, "alive": true, "wounds": 6, "current_wounds": 6}]
+	}
+	_check("attached leader does not block AAO (bodyguard attacks)", fam.check_against_all_odds(board_led.units["U_SHOOTER"], board_led))
+	_check("bodyguard does not block AAO (attached leader attacks)", fam.check_against_all_odds(board_led.units["U_LEADER"], board_led))
+
+	# ...but a leader's models ARE part of the unit: a friendly within 6" of the
+	# LEADER model (though beyond 6" of every bodyguard model) still blocks.
+	var board_led2 = _make_board({
+		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
+		"factions": _lions_factions(1),
+	})
+	board_led2.units["U_SHOOTER"]["attachment_data"] = {"attached_characters": ["U_LEADER"]}
+	board_led2.units["U_LEADER"] = {
+		"id": "U_LEADER", "owner": 1, "attached_to": "U_SHOOTER",
+		"meta": {"name": "Leader", "keywords": ["ADEPTUS CUSTODES", "CHARACTER", "INFANTRY"], "stats": {}, "abilities": []},
+		"flags": {},
+		"models": [{"id": "ml0", "position": {"x": 0.0, "y": 400.0}, "base_mm": 32, "alive": true, "wounds": 6, "current_wounds": 6}]
+	}
+	# Friend ~4.7" edge-to-edge from the leader model (y=560 → 160px gap), but
+	# ~10" from the nearest bodyguard model (y=105 → 455px gap).
+	board_led2.units["U_FRIEND"] = {
+		"id": "U_FRIEND", "owner": 1,
+		"meta": {"name": "Friend", "keywords": ["INFANTRY"], "stats": {}, "abilities": []},
+		"flags": {},
+		"models": [{"id": "mf0", "position": {"x": 0.0, "y": 560.0}, "base_mm": 32, "alive": true, "wounds": 1, "current_wounds": 1}]
+	}
+	_check("friendly near the attached leader still blocks AAO", not fam.check_against_all_odds(board_led2.units["U_SHOOTER"], board_led2))
+
+	# Embarked friendly (stale battlefield position) must NOT block — an
+	# embarked unit is not on the battlefield.
+	var board_e = _make_board({
+		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
+		"factions": _lions_factions(1),
+	})
+	board_e.units["U_FRIEND"] = {
+		"id": "U_FRIEND", "owner": 1, "embarked_in": "U_TRANSPORT",
+		"meta": {"name": "Friend", "keywords": ["INFANTRY"], "stats": {}, "abilities": []},
+		"flags": {},
+		"models": [{"id": "mf0", "position": {"x": 80.0, "y": 0.0}, "base_mm": 32, "alive": true, "wounds": 1, "current_wounds": 1}]
+	}
+	_check("embarked friendly does not block AAO", fam.check_against_all_odds(board_e.units["U_SHOOTER"], board_e))
+
+	# Friendly in Strategic Reserves (stale position) must NOT block.
+	var board_r = _make_board({
+		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
+		"factions": _lions_factions(1),
+	})
+	board_r.units["U_FRIEND"] = {
+		"id": "U_FRIEND", "owner": 1,
+		"status": load("res://autoloads/GameState.gd").UnitStatus.IN_RESERVES,
+		"meta": {"name": "Friend", "keywords": ["INFANTRY"], "stats": {}, "abilities": []},
+		"flags": {},
+		"models": [{"id": "mf0", "position": {"x": 80.0, "y": 0.0}, "base_mm": 32, "alive": true, "wounds": 1, "current_wounds": 1}]
+	}
+	_check("friendly in reserves does not block AAO", fam.check_against_all_odds(board_r.units["U_SHOOTER"], board_r))
+
+	# base_mm must be honoured: a 60mm-base friendly at 7.5" centre-to-centre is
+	# ~5.7" edge-to-edge (blocks); assuming 32mm would put it at ~6.2" (no block).
+	var board_b = _make_board({
+		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
+		"factions": _lions_factions(1),
+	})
+	board_b.units["U_FRIEND"] = {
+		"id": "U_FRIEND", "owner": 1,
+		"meta": {"name": "Friend", "keywords": ["INFANTRY"], "stats": {}, "abilities": []},
+		"flags": {},
+		"models": [{"id": "mf0", "position": {"x": 300.0, "y": 0.0}, "base_mm": 60, "alive": true, "wounds": 1, "current_wounds": 1}]
+	}
+	_check("60mm base friendly at 5.7\" edge-to-edge blocks AAO", not fam.check_against_all_odds(board_b.units["U_SHOOTER"], board_b))
+
 	# Melee: same seed, Lions vs Shield Host — Lions must land at least as many
 	# hits and wounds (+1 to hit AND +1 to wound; seed chosen so the delta shows)
 	var melee_lions = _melee(_make_board({
@@ -307,6 +388,25 @@ func _test_against_all_odds() -> void:
 	var hits_lions = _count_successes(melee_lions, "hit_roll_melee")
 	var hits_shield = _count_successes(melee_shield, "hit_roll_melee")
 	_check("AAO melee +1 to hit (lions %d > shield %d)" % [hits_lions, hits_shield], hits_lions > hits_shield)
+	var wounds_lions = _count_successes(melee_lions, "wound_roll_melee")
+	var wounds_shield = _count_successes(melee_shield, "wound_roll_melee")
+	_check("AAO melee +1 to wound (lions %d > shield %d)" % [wounds_lions, wounds_shield], wounds_lions > wounds_shield)
+
+	# Ranged: same seed and 60 attacks — +1 to hit and +1 to wound must both show
+	var shoot_lions = _shoot(_make_board({
+		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
+		"factions": _lions_factions(1),
+	}), 4321, "bolt_rifle", 60)
+	var shoot_shield = _shoot(_make_board({
+		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
+		"factions": {"1": {"name": "Adeptus Custodes", "detachment": "Shield Host"}},
+	}), 4321, "bolt_rifle", 60)
+	var rhits_lions = _count_successes(shoot_lions, "to_hit")
+	var rhits_shield = _count_successes(shoot_shield, "to_hit")
+	_check("AAO ranged +1 to hit (lions %d > shield %d)" % [rhits_lions, rhits_shield], rhits_lions > rhits_shield)
+	var rwounds_lions = _count_successes(shoot_lions, "to_wound")
+	var rwounds_shield = _count_successes(shoot_shield, "to_wound")
+	_check("AAO ranged +1 to wound (lions %d > shield %d)" % [rwounds_lions, rwounds_shield], rwounds_lions > rwounds_shield)
 
 # ----------------------------------------------------------------------------
 # 3. Effect-granted LANCE
