@@ -8728,6 +8728,13 @@ func _on_save_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Save completed: %s" % file_path)
 	# SAVE-20: Dismiss progress indicator on save completion
 	_dismiss_save_load_progress()
+	# Auto-generated saves (e.g. the phase-start autosave) report via the subtle
+	# "Game autosaved" toast (the autosave_completed signal); don't ALSO flash the
+	# prominent "Game saved!" status banner, which on the itch.io web build would
+	# otherwise fire at the start of every phase.
+	var is_autosave = metadata.get("save_info", {}).get("save_type", "") == "autosave" or metadata.get("auto_generated", false)
+	if is_autosave:
+		return
 	if OS.has_feature("web"):
 		_show_save_notification("Game saved!", Color.GREEN)
 

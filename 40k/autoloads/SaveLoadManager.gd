@@ -48,11 +48,23 @@ var max_backups: int = 5
 var autosave_on_round_end: bool = true      # Save when a battle round completes
 var autosave_on_phase_transition: bool = false  # Save at every phase transition (off by default to avoid spam)
 
+# Phase-start named autosave (default ON). At the start of each phase the
+# controlling player creates/overwrites a save named "<army1> vs <army2> - <phase>".
+# Unlike autosave_on_phase_transition (rotating timestamped files, off by default,
+# desktop-only), this routes through save_game() so it ALSO works on the web /
+# itch.io build via CloudStorage, and uses a stable human-readable name that
+# overwrites in place instead of accumulating files.
+var autosave_on_phase_start: bool = true
+
 var autosave_timer: Timer = null
 var last_save_path: String = ""
 var _last_autosave_phase: int = -1  # Track last phase to avoid duplicate saves
 var _autosave_deferred_event: String = ""  # SAVE-6: Deferred autosave event tag when AI was thinking
 var _autosave_deferred_metadata: Dictionary = {}  # SAVE-6: Deferred autosave metadata
+# Remember the metadata of an in-flight cloud upload keyed by save_name, so the
+# async completion (_on_cloud_save_uploaded) can emit the REAL metadata (e.g. the
+# autosave flag) instead of a freshly-defaulted "manual" one.
+var _pending_cloud_metadata: Dictionary = {}
 
 func _ready() -> void:
 	is_web_platform = OS.has_feature("web")
@@ -120,6 +132,7 @@ func _connect_phase_signals() -> void:
 	if phase_manager:
 		phase_manager.phase_completed.connect(_on_phase_completed_autosave)
 		phase_manager.phase_changed.connect(_on_phase_changed_autosave)
+		phase_manager.phase_changed.connect(_on_phase_changed_named_autosave)
 		print("SaveLoadManager: Connected to PhaseManager for event-driven autosave")
 	else:
 		print("SaveLoadManager: PhaseManager not found, event-driven autosave disabled")
@@ -229,6 +242,90 @@ func _on_phase_changed_autosave(new_phase: int) -> void:
 
 	print("SaveLoadManager: Phase transition to %s — performing phase autosave" % phase_name)
 	_perform_event_autosave(event_tag, event_meta)
+
+# Phase-start named autosave: at the start of each phase, the controlling player
+# creates/overwrites a save named "<army1> vs <army2> - <phase>". On by default.
+# Routes through save_game() so it works on desktop AND the web / itch.io build
+# (CloudStorage). Distinct from _on_phase_changed_autosave (the rotating,
+# timestamped, off-by-default power-user autosave).
+func _on_phase_changed_named_autosave(new_phase: int) -> void:
+	if not autosave_on_phase_start:
+		return
+
+	# Don't fire under the headless unit-test / GUT harness — those transition
+	# phases with partial fixtures and must not write save files. The windowed
+	# scenario runner (--scenario-file=) is intentionally NOT excluded; exercising
+	# this player-facing behaviour is the whole point of a windowed scenario.
+	if _is_unit_test_harness():
+		return
+
+	# Only save at the start of the phases a player recognises on the phase bar.
+	var target_phases = [
+		GameStateData.Phase.DEPLOYMENT,
+		GameStateData.Phase.COMMAND,
+		GameStateData.Phase.MOVEMENT,
+		GameStateData.Phase.SHOOTING,
+		GameStateData.Phase.CHARGE,
+		GameStateData.Phase.FIGHT,
+		GameStateData.Phase.SCORING,
+	]
+	if new_phase not in target_phases:
+		return
+
+	# "By the controlling player": in a networked game only the client whose turn
+	# it is performs the save, so we don't double-write to the cloud or produce
+	# conflicting saves. Single-player is never networked, so it always saves.
+	if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_local_player_turn():
+		print("SaveLoadManager: phase-start autosave skipped — not the local player's turn")
+		return
+
+	var save_name = _phase_start_save_name(new_phase)
+	var metadata = {
+		"type": "autosave",
+		"auto_generated": true,
+		"trigger": "phase_start",
+		"phase": _phase_display_name(new_phase),
+		"active_player": GameState.get_active_player(),
+		"battle_round": GameState.get_battle_round()
+	}
+	print("SaveLoadManager: phase-start autosave → '%s'" % save_name)
+	var ok = save_game(save_name, metadata)
+	if ok:
+		# Report via the subtle "Game autosaved" toast (same channel as other
+		# autosaves). On desktop save_game() completed synchronously; on web it was
+		# queued and is very likely to succeed. The prominent "Game saved!" banner
+		# is suppressed for autosaves by Main._on_save_completed.
+		var display_path = ("cloud://" + _sanitize_filename(save_name)) if is_web_platform else (save_directory + _sanitize_filename(save_name) + SAVE_EXTENSION)
+		emit_signal("autosave_completed", display_path)
+
+# Build the "<army1> vs <army2> - <phase>" name for the phase-start autosave.
+func _phase_start_save_name(phase: int) -> String:
+	var army1 = GameState.get_faction_name(1)
+	var army2 = GameState.get_faction_name(2)
+	return "%s vs %s - %s" % [army1, army2, _phase_display_name(phase)]
+
+# Human-readable, Title-Cased phase name ("MOVEMENT" -> "Movement",
+# "FIRST_TURN_ROLLOFF" -> "First Turn Rolloff").
+func _phase_display_name(phase: int) -> String:
+	if phase < 0 or phase >= GameStateData.Phase.size():
+		return "Phase"
+	var raw = GameStateData.Phase.keys()[phase]
+	var words = []
+	for part in raw.split("_", false):
+		if part.is_empty():
+			continue
+		words.append(part.substr(0, 1).to_upper() + part.substr(1).to_lower())
+	return " ".join(words)
+
+# True only under the headless GUT / `-s` script suites (NOT the windowed
+# scenario runner, which uses --scenario-file=).
+func _is_unit_test_harness() -> bool:
+	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if typeof(a) != TYPE_STRING:
+			continue
+		if a == "-s" or a == "--script" or a.find("gut_cmdln") != -1:
+			return true
+	return false
 
 # P3-112: Perform an event-driven autosave with a descriptive filename
 func _perform_event_autosave(event_tag: String, event_metadata: Dictionary) -> bool:
@@ -554,6 +651,8 @@ func _save_game_to_cloud(save_name: String, metadata: Dictionary) -> void:
 	# Upload to cloud
 	emit_signal("operation_progress", "saving", "Uploading to cloud...")
 	if CloudStorage:
+		# Remember the real metadata so the async completion can emit it verbatim.
+		_pending_cloud_metadata[save_name] = save_metadata
 		CloudStorage.put_save(save_name, save_metadata, serialized_data)
 		# Completion handled by _on_cloud_save_uploaded signal
 	else:
@@ -580,7 +679,13 @@ func _load_game_from_cloud(save_name: String, owner_id: String = "") -> void:
 func _on_cloud_save_uploaded(save_name: String) -> void:
 	print("SaveLoadManager: [CLOUD] Save uploaded successfully: ", save_name)
 	last_save_path = "cloud://" + save_name
-	var save_metadata = _create_save_metadata({})
+	# Prefer the metadata we captured when the upload was queued (carries the
+	# autosave flag, phase, etc.); fall back to a fresh default only if missing.
+	var save_metadata = _pending_cloud_metadata.get(save_name, {})
+	if save_metadata.is_empty():
+		save_metadata = _create_save_metadata({})
+	else:
+		_pending_cloud_metadata.erase(save_name)
 	emit_signal("save_completed", last_save_path, save_metadata)
 
 func _on_cloud_save_downloaded(save_name: String, metadata: Dictionary, game_data: String) -> void:
@@ -758,6 +863,10 @@ func set_autosave_on_round_end(enabled: bool) -> void:
 func set_autosave_on_phase_transition(enabled: bool) -> void:
 	autosave_on_phase_transition = enabled
 	print("SaveLoadManager: autosave_on_phase_transition = %s" % str(enabled))
+
+func set_autosave_on_phase_start(enabled: bool) -> void:
+	autosave_on_phase_start = enabled
+	print("SaveLoadManager: autosave_on_phase_start = %s" % str(enabled))
 
 # Save file management
 func get_save_files() -> Array:

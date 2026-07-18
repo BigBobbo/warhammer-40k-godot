@@ -31,6 +31,11 @@ var save_measurements: bool = false  # Whether to persist measurement lines in s
 var autosave_on_round_end: bool = true      # Auto-save when a battle round completes
 var autosave_on_phase_transition: bool = false  # Auto-save at every phase transition
 
+# Phase-start named autosave — creates/overwrites a save named
+# "<army1> vs <army2> - <phase>" at the start of each phase. On by default;
+# players can turn it off from Settings → Gameplay. Works on web/itch.io.
+var autosave_on_phase_start: bool = true
+
 # P3-111: Audio settings
 var master_volume: float = 1.0   # 0.0 to 1.0
 var music_volume: float = 0.7    # 0.0 to 1.0
@@ -193,6 +198,7 @@ func _ready() -> void:
 	if SaveLoadManager:
 		SaveLoadManager.set_autosave_on_round_end(autosave_on_round_end)
 		SaveLoadManager.set_autosave_on_phase_transition(autosave_on_phase_transition)
+		SaveLoadManager.set_autosave_on_phase_start(autosave_on_phase_start)
 
 	print("[SettingsService] Ready — ui_scale=%.2f, animation_speed=%.2f, colorblind=%s" % [ui_scale, animation_speed, colorblind_mode])
 
@@ -334,6 +340,13 @@ func set_autosave_on_phase_transition(enabled: bool) -> void:
 	_save_settings()
 	print("[SettingsService] autosave_on_phase_transition set to %s" % str(enabled))
 
+func set_autosave_on_phase_start(enabled: bool) -> void:
+	autosave_on_phase_start = enabled
+	if SaveLoadManager:
+		SaveLoadManager.set_autosave_on_phase_start(enabled)
+	_save_settings()
+	print("[SettingsService] autosave_on_phase_start set to %s" % str(enabled))
+
 func set_show_unit_labels(visible: bool) -> void:
 	show_unit_labels = visible
 	unit_labels_visibility_changed.emit(show_unit_labels)
@@ -440,6 +453,7 @@ func _save_settings() -> void:
 	config.set_value("save_load", "save_measurements", save_measurements)
 	config.set_value("save_load", "autosave_on_round_end", autosave_on_round_end)
 	config.set_value("save_load", "autosave_on_phase_transition", autosave_on_phase_transition)
+	config.set_value("save_load", "autosave_on_phase_start", autosave_on_phase_start)
 
 	# Gameplay
 	config.set_value("gameplay", "auto_allocate_wounds", auto_allocate_wounds)
@@ -487,6 +501,7 @@ func _load_settings() -> void:
 	save_measurements = config.get_value("save_load", "save_measurements", false)
 	autosave_on_round_end = config.get_value("save_load", "autosave_on_round_end", true)
 	autosave_on_phase_transition = config.get_value("save_load", "autosave_on_phase_transition", false)
+	autosave_on_phase_start = config.get_value("save_load", "autosave_on_phase_start", true)
 
 	# Gameplay
 	# Defender-control migration: configs written BEFORE the interactive
