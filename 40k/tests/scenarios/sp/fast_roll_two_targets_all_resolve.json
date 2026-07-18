@@ -146,7 +146,7 @@
     },
     {
       "act": "click_if_visible",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
       "emit_pressed": true
     },
     {
@@ -155,7 +155,7 @@
     },
     {
       "act": "click_if_visible",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/RerollPanel/KeepRollsButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
       "emit_pressed": true
     },
     {
@@ -182,7 +182,7 @@
     },
     {
       "act": "click_if_visible",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
       "emit_pressed": true
     },
     {

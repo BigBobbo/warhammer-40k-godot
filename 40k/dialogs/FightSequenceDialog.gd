@@ -131,11 +131,45 @@ func _ready() -> void:
 
 func setup(phase, fighter_name: String) -> void:
 	current_phase = phase
-	header_label.text = "%s — melee attacks" % fighter_name
+	# Name the defender(s) too — "who is being hit" must never be implicit
+	# (same clarity rule as the shooting save overlay's attacker line).
+	var target_names = _staged_target_names()
+	if target_names.is_empty():
+		header_label.text = "%s — melee attacks" % fighter_name
+	else:
+		header_label.text = "%s — melee attacks vs %s" % [fighter_name, ", ".join(target_names)]
 	if current_phase == null:
 		return
 	if current_phase.has_signal("dice_rolled") and not current_phase.dice_rolled.is_connected(_on_dice_rolled):
 		current_phase.dice_rolled.connect(_on_dice_rolled)
+	_connect_remaining_phase_signals()
+
+
+# Distinct display names of the units this fight's confirmed assignments
+# strike, in declaration order. The dialog opens on `fighting_begun`, which
+# fires at CONFIRM time — targets live in `confirmed_attacks` there
+# (staged_fight_state is only built later, inside ROLL_DICE). Fall back to
+# staged_fight_state.assignments for any later re-setup, then to [] so the
+# caller keeps the plain header.
+func _staged_target_names() -> Array:
+	var names: Array = []
+	if current_phase == null:
+		return names
+	var assignments = current_phase.get("confirmed_attacks")
+	if not (assignments is Array) or assignments.is_empty():
+		var staged = current_phase.get("staged_fight_state")
+		assignments = staged.get("assignments", []) if staged is Dictionary else []
+	var seen: Array = []
+	for assignment in assignments:
+		var target_id = str(assignment.get("target", ""))
+		if target_id == "" or target_id in seen:
+			continue
+		seen.append(target_id)
+		names.append(GameState.get_unit_display_name(target_id))
+	return names
+
+
+func _connect_remaining_phase_signals() -> void:
 	if current_phase.has_signal("fight_stage_paused") and not current_phase.fight_stage_paused.is_connected(_on_stage_paused):
 		current_phase.fight_stage_paused.connect(_on_stage_paused)
 	# Hide while the defender allocates wounds in the overlay; the next

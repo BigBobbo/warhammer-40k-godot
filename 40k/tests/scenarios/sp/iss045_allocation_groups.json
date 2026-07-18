@@ -57,7 +57,7 @@
     },
     {
       "act": "execute_script",
-      "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/GroupList\").get_child_count()",
+      "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/Row/DecisionCol/GroupList\").get_child_count()",
       "equals": 2
     },
     {
@@ -66,7 +66,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/GroupList/Row1/Up1",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/GroupList/Row1/Up1",
       "emit_pressed": true
     },
     {
@@ -75,7 +75,7 @@
     },
     {
       "act": "expect_node_property",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
       "property": "disabled",
       "equals": true
     },
@@ -85,7 +85,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/GroupList/Row0/Down0",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/GroupList/Row0/Down0",
       "emit_pressed": true
     },
     {
@@ -94,13 +94,13 @@
     },
     {
       "act": "expect_node_property",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
       "property": "disabled",
       "equals": false
     },
     {
       "act": "click_node",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
       "emit_pressed": true
     },
     {
@@ -109,7 +109,7 @@
     },
     {
       "act": "click_if_visible",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/RerollPanel/KeepRollsButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
       "emit_pressed": true
     },
     {
@@ -140,7 +140,7 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel",
       "timeout_s": 3.0
     },
     {
@@ -164,7 +164,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
       "emit_pressed": true
     },
     {
