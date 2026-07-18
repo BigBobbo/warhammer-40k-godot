@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.61.1",
+			"date": "2026-07-18",
+			"summary": "Swept out several 10th-edition rules that were still being applied in the 11th-edition game. The headline: models on non-round bases (Battlewagons, Squiggoths, Gorkanauts and the like) no longer pay 2\" of movement to turn — pivoting is free in 11th edition. Also fixed cover wrongly boosting saves on Overwatch/auto-resolved shots and an over-strict charge distance.",
+			"changes": [
+				"Pivoting is now free: models on rectangular/oval bases (and vehicles on flying stems) no longer lose 2\" of their Move when they turn. The 2\" pivot cost was a 10th-edition rule and is gone.",
+				"Cover no longer improves armour saves during Fire Overwatch or when wounds are auto-allocated (for example against the AI). In 11th edition cover worsens the shooter's aim, which was already applied — the extra +1 to the save was a leftover 10th-edition rule that double-counted cover.",
+				"Charging models now only need to finish within Engagement Range (2\") of a target, not the old 1\". Charges that legitimately end 1–2\" away are no longer rejected.",
+				"Units arriving with the Rapid Ingress stratagem now set up more than 8\" from enemies, matching every other 11th-edition reserve arrival (it was still using the 10th-edition 9\").",
+				"Fixed an internal 1\" engagement-range value so the 'consolidate into combat' option is offered at the correct 2\" range."
+			]
+		},
+		{
 			"version": "0.61.0",
 			"date": "2026-07-18",
 			"summary": "Melee hit and wound rolls now resolve in the right-hand panel, exactly like shooting — no more pop-up window covering the battle. The fight phase gets the same staged resolution dock the shooting phase uses: one button in a fixed spot steps through 'Roll to Wound' and 'Continue to Saving Throws', clickable Command Re-roll dice chips, a Fast Roll button, and the same 'Pauses' setting — so both phases feel identical to play.",

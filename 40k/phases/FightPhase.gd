@@ -749,7 +749,7 @@ func _can_unit_reach_engagement_range(unit: Dictionary, consol_dist: float = 3.0
 	"""Check if it's POSSIBLE for unit to reach engagement range within consolidation distance.
 	This means: is ANY enemy model within (consol_dist + 1") of ANY friendly model?
 	(consolidation movement + 1" engagement range)"""
-	var max_reach = consol_dist + 1.0  # consolidation distance + engagement range
+	var max_reach = consol_dist + GameConstants.engagement_range_inches()  # consolidation distance + engagement range (2" at 11e, 1" at 10e)
 	var models = unit.get("models", [])
 	var all_units = game_state_snapshot.get("units", {})
 	var unit_owner = unit.get("owner", 0)
@@ -3581,11 +3581,11 @@ func _is_unit_in_combat(unit: Dictionary) -> bool:
 ## accounting for barricade terrain (2" instead of 1" if barricade is between them).
 func _get_effective_engagement_range(pos1: Vector2, pos2: Vector2) -> float:
 	if not is_inside_tree():
-		return 1.0
+		return GameConstants.engagement_range_inches()
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
 		return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
-	return 1.0
+	return GameConstants.engagement_range_inches()
 
 func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 	# Check if any model from unit1 is within 1" of any model from unit2
