@@ -498,8 +498,18 @@ func _do_click_item_list(step: Dictionary) -> Dictionary:
 		var index: int = int(step.get("index", -1))
 		if index < 0 or index >= list.get_item_count():
 			return {"pass": false, "error": "item index %d out of range (count %d)" % [index, list.get_item_count()]}
-		# get_item_rect is in the list's local space with scroll applied.
+		# get_item_rect returns CONTENT-space coords: it does NOT subtract the
+		# list's scroll offset (verified on 4.4.1 — the rect is identical at
+		# scroll 0 and scroll 169). Projecting it naively lands the click below
+		# the control for any scrolled list (observed on the 16-row movement
+		# unit list: row 7 projected 191px under the visible rows, silently
+		# clicking the panel beneath). Subtract the v-scroll to get true local
+		# coords, and fail loudly when the row is not actually visible instead
+		# of mis-clicking whatever sits there.
 		local_pos = list.get_item_rect(index).get_center()
+		local_pos.y -= list.get_v_scroll_bar().value
+		if local_pos.y < 0.0 or local_pos.y > list.size.y:
+			return {"pass": false, "error": "item %d is outside the visible rows (local y %.1f, list height %.1f) — scroll the list into view first" % [index, local_pos.y, list.size.y]}
 
 	var screen_pos: Vector2 = list.get_global_transform() * local_pos
 
