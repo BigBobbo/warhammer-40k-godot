@@ -18,7 +18,11 @@ var ghost_visuals: Array = []
 var placed_tokens: Array = []
 var current_model_idx: int = 0
 var transport_position: Vector2
+var transport_rotation: float = 0.0  # Hull facing — the range border must rotate with it
 var transport_base_shape: BaseShape = null  # Store the transport's base shape
+# Set when placement ends (completed or canceled) so a late cancel_placement()
+# from MovementController can't re-emit signals on a finished controller.
+var _finished: bool = false
 # 11e 18.04: the disembark mode drives the set-up distance (3"/6") and the
 # Combat-mode engaged-placement exception. combat_requested is set by the
 # dialog's Combat Disembark toggle (payload.can_setup_tactical=false).
@@ -50,9 +54,20 @@ func _ready() -> void:
 	range_indicator.name = "RangeIndicator"
 	add_child(range_indicator)
 
+	add_to_group("disembark_controllers")
 	print("DisembarkController initialized")
 
 func start_disembark(p_unit_id: String) -> void:
+	# Only one disembark placement may be live at a time, no matter which system
+	# spawned it (MovementController's dialog flow or MovementPhase's
+	# DISEMBARK_UNIT action path). A second live controller keeps validating
+	# board clicks against ITS transport — wrong-vehicle range errors — while
+	# its range border lingers on screen.
+	if is_inside_tree():
+		for other in get_tree().get_nodes_in_group("disembark_controllers"):
+			if other != self and is_instance_valid(other) and other.has_method("cancel_placement"):
+				other.cancel_placement()
+
 	unit_id = p_unit_id
 	unit_data = GameState.get_unit(unit_id)
 
@@ -79,6 +94,14 @@ func start_disembark(p_unit_id: String) -> void:
 	# Get transport base shape for range calculation
 	if transport_data.models.size() > 0:
 		transport_base_shape = Measurement.create_base_shape(transport_data.models[0])
+		# The set-up range is validated against models[0]'s actual pose
+		# (TransportManager.is_position_within_disembark_range), so the border
+		# must be drawn from that same position AND rotation — an unrotated
+		# border on a rotated hull doesn't match where placement is legal.
+		var transport_model = transport_data.models[0]
+		if transport_model.get("position") != null:
+			transport_position = Vector2(transport_model.position.x, transport_model.position.y)
+		transport_rotation = float(transport_model.get("rotation", 0.0))
 	else:
 		# Fallback to circular base
 		transport_base_shape = CircularBase.new(Measurement.base_radius_px(32))
@@ -159,17 +182,29 @@ func _draw_shape_based_range(range_visual: Node2D, range_px: float) -> void:
 
 	elif shape_type == "rectangular":
 		var rect_base = transport_base_shape as RectangularBase
-		# Create an expanded rectangle: original dimensions + 2 * range_px
-		var expanded_length = rect_base.length + (2 * range_px)
-		var expanded_width = rect_base.width + (2 * range_px)
-		_draw_rectangular_range(range_visual, expanded_length, expanded_width)
+		# Exact set-up boundary around a rectangular hull: edges pushed out by
+		# range_px joined by quarter-circle corners (a sharp expanded rectangle
+		# overstates the range at the corners), rotated to the hull's facing.
+		_draw_rounded_rect_range(range_visual, rect_base.length / 2.0, rect_base.width / 2.0, range_px)
 
 	elif shape_type == "oval":
 		var oval_base = transport_base_shape as OvalBase
-		# Create an expanded oval: original dimensions + 2 * range_px
-		var expanded_length = oval_base.length + (2 * range_px)
-		var expanded_width = oval_base.width + (2 * range_px)
-		_draw_oval_range(range_visual, expanded_length, expanded_width)
+		# OvalBase.length/width store SEMI-axes (its _init halves the incoming
+		# diameters). The old code treated them as diameters and halved again,
+		# drawing the border at half size. Draw the true offset curve instead.
+		_draw_oval_offset_range(range_visual, oval_base.length, oval_base.width, range_px)
+
+# Transform a point from the transport's local (hull-aligned) space to world.
+func _range_local_to_world(local_point: Vector2) -> Vector2:
+	return transport_position + local_point.rotated(transport_rotation)
+
+func _add_range_polyline(range_visual: Node2D, points: PackedVector2Array) -> void:
+	var line = Line2D.new()
+	line.points = points
+	line.default_color = RANGE_COLOR
+	line.width = 2.0
+	line.z_index = -1
+	range_visual.add_child(line)
 
 func _draw_circular_range(range_visual: Node2D, range_px: float) -> void:
 	# Fallback for when we don't have transport shape info
@@ -191,49 +226,45 @@ func _draw_circular_range_with_radius(range_visual: Node2D, radius: float) -> vo
 	line.z_index = -1
 	range_visual.add_child(line)
 
-func _draw_rectangular_range(range_visual: Node2D, length: float, width: float) -> void:
-	# Draw an expanded rectangle
-	var half_length = length / 2
-	var half_width = width / 2
-
-	var corners = [
-		Vector2(-half_length, -half_width),
-		Vector2(half_length, -half_width),
-		Vector2(half_length, half_width),
-		Vector2(-half_length, half_width),
-		Vector2(-half_length, -half_width)  # Close the shape
+func _draw_rounded_rect_range(range_visual: Node2D, half_length: float, half_width: float, range_px: float) -> void:
+	# Boundary of all points exactly range_px from the hull rectangle: four
+	# offset edges joined by quarter arcs centred on the hull corners. Built in
+	# hull-local space, then rotated/translated to the transport's pose so the
+	# border hugs the actual (possibly rotated) hull.
+	var points = PackedVector2Array()
+	var arc_segments = 12
+	# Walk the corners clockwise (local +X right, +Y down); each corner's arc
+	# sweeps 90 degrees starting where the previous offset edge ends.
+	var corner_arcs = [
+		{"center": Vector2(half_length, -half_width), "start_angle": -PI / 2.0},  # top-right
+		{"center": Vector2(half_length, half_width), "start_angle": 0.0},         # bottom-right
+		{"center": Vector2(-half_length, half_width), "start_angle": PI / 2.0},   # bottom-left
+		{"center": Vector2(-half_length, -half_width), "start_angle": PI},        # top-left
 	]
+	for arc in corner_arcs:
+		for i in range(arc_segments + 1):
+			var angle = arc.start_angle + (i / float(arc_segments)) * (PI / 2.0)
+			var local_point = arc.center + Vector2(cos(angle), sin(angle)) * range_px
+			points.append(_range_local_to_world(local_point))
+	points.append(points[0])  # close the outline (top offset edge)
+	_add_range_polyline(range_visual, points)
 
-	# Transform to world position
-	var world_points = PackedVector2Array()
-	for corner in corners:
-		world_points.append(transport_position + corner)
-
-	var line = Line2D.new()
-	line.points = world_points
-	line.default_color = RANGE_COLOR
-	line.width = 2.0
-	line.z_index = -1
-	range_visual.add_child(line)
-
-func _draw_oval_range(range_visual: Node2D, length: float, width: float) -> void:
-	# Draw an expanded oval using parametric equations
-	var oval_points = PackedVector2Array()
+func _draw_oval_offset_range(range_visual: Node2D, semi_length: float, semi_width: float, range_px: float) -> void:
+	# True offset curve of the ellipse: each edge sample pushed outward along
+	# the local normal by range_px. (Growing both semi-axes by range_px is NOT
+	# equidistant from an ellipse.) Built local, then rotated to the hull pose.
+	var points = PackedVector2Array()
 	var segments = 64
 
 	for i in range(segments + 1):
 		var t = (i / float(segments)) * TAU
-		var x = (length / 2.0) * cos(t)
-		var y = (width / 2.0) * sin(t)
-		var point = transport_position + Vector2(x, y)
-		oval_points.append(point)
+		var edge = Vector2(semi_length * cos(t), semi_width * sin(t))
+		var normal = Vector2(semi_width * cos(t), semi_length * sin(t))
+		if normal.length() > 0.001:
+			normal = normal.normalized()
+		points.append(_range_local_to_world(edge + normal * range_px))
 
-	var line = Line2D.new()
-	line.points = oval_points
-	line.default_color = RANGE_COLOR
-	line.width = 2.0
-	line.z_index = -1
-	range_visual.add_child(line)
+	_add_range_polyline(range_visual, points)
 
 func _create_ghost_for_model(idx: int) -> void:
 	# Find the actual model index (skip dead models)
@@ -499,6 +530,7 @@ func _complete_disembark() -> void:
 		return
 
 	# Just emit the completion signal - MovementPhase will handle offering movement
+	_finished = true
 	emit_signal("disembark_completed", unit_id, final_positions)
 	_cleanup()
 
@@ -545,7 +577,18 @@ func _get_placement_index(model_idx: int) -> int:
 			alive_count += 1
 	return -1
 
+## Public cancel used by MovementController when the player switches to another
+## unit (or leaves the phase) while this placement is still open. Without this,
+## a stale controller kept processing board clicks forever — validating them
+## against ITS transport and showing "Must be within 3\" of transport" errors
+## measured from the wrong vehicle, while its range border lingered on screen.
+func cancel_placement() -> void:
+	if _finished:
+		return
+	_cancel_disembark()
+
 func _cancel_disembark() -> void:
+	_finished = true
 	print("Disembark canceled for unit: ", unit_id)
 	emit_signal("disembark_canceled", unit_id)
 	_cleanup()

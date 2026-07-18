@@ -1,0 +1,121 @@
+{
+  "id": "disembark_rotated_border_stale_controller",
+  "covers": [
+    "scripts.DisembarkController.rotated_range_border",
+    "scripts.MovementController.single_live_disembark_placement",
+    "autoloads.TransportManager"
+  ],
+  "fixture": "grenade_dupes",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Disembark UI fixes: (1) the 3\" set-up border must be drawn from the transport hull's ACTUAL pose - rotated with the hull, with rounded (Minkowski) corners - so every border point sits exactly 3\" from the hull edge; previously an axis-aligned sharp rectangle was drawn that ignored rotation and overstated the corners. (2) Selecting another unit while a disembark placement is open must CANCEL the old placement controller; previously the stale controller kept processing board clicks, validating them against ITS transport (wrong-vehicle 'X\" away' errors) while its border lingered. Flow: rotate Battlewagon A by 0.6 rad, start Kommandos disembark via real list click + dialog OK, assert the live border is an exact 3\" iso-distance contour of the rotated hull, then click Lootas Alpha (embarked in far-away Battlewagon B) and assert the Kommandos controller was canceled BEFORE the new dialog is even confirmed. Confirm, assert the single live controller targets Battlewagon B, then place all 10 Lootas with real board clicks and assert the unit fully disembarks.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "units.U_KOMMANDOS_A.embarked_in", "equals": "U_BATTLEWAGON_A" },
+    { "act": "expect_state", "path": "units.U_LOOTAS_A.embarked_in", "equals": "U_BATTLEWAGON_B" },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_BATTLEWAGON_A\"].models[0][\"rotation\"] = 0.6\ntree.current_scene._recreate_unit_visuals()\nreturn GameState.state.units[\"U_BATTLEWAGON_A\"].models[0].rotation",
+      "multiline": true,
+      "equals": 0.6,
+      "comment": "Board setup: give Battlewagon A a rotated hull so the border fix is observable. The feature itself is driven through real UI clicks below."
+    },
+    {
+      "act": "execute_script",
+      "script": "var ul = tree.root.get_node(\"/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList\")\nvar sb = ul.get_v_scroll_bar()\nsb.value = 0.0\nvar rect7 = ul.get_item_rect(7)\nsb.value = clamp(rect7.position.y - 10.0, 0.0, sb.max_value)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "Scroll the unit list so the embarked rows are on screen (click_item_list clicks the visible row rect; it does not auto-scroll)."
+    },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 7 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"DisembarkDialog\")\nif d == null:\n\treturn \"NO DIALOG\"\nd.get_ok_button().emit_signal(\"pressed\")\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "Confirm the Kommandos disembark dialog (OK button has no stable NodePath inside ConfirmationDialog; emit pressed like other dialog scenarios)."
+    },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    {
+      "act": "execute_script",
+      "script": "var live = []\nfor c in tree.get_nodes_in_group(\"disembark_controllers\"):\n\tif is_instance_valid(c) and not c._finished:\n\t\tlive.append(c)\nif live.size() != 1:\n\treturn \"live=%d\" % live.size()\nvar c = live[0]\nif c.transport_id != \"U_BATTLEWAGON_A\":\n\treturn \"transport=%s\" % c.transport_id\nif absf(c.transport_rotation - 0.6) > 0.001:\n\treturn \"rot=%f\" % c.transport_rotation\nvar tm = c.transport_data.models[0]\nvar line = c.range_indicator.get_child(0).get_child(0)\nif line.points.size() < 40:\n\treturn \"points=%d\" % line.points.size()\nvar max_dev = 0.0\nfor p in line.points:\n\tvar dist = Measurement.model_edge_to_point_distance_px(tm, p)\n\tmax_dev = maxf(max_dev, absf(dist - Measurement.inches_to_px(3.0)))\nif max_dev > 1.5:\n\treturn \"max_dev=%f\" % max_dev\nreturn \"border-exact\"",
+      "multiline": true,
+      "equals": "border-exact",
+      "comment": "THE border assert: every drawn border point must sit exactly 3\" (120px) from the ROTATED hull edge (shape-aware distance). Old axis-aligned code fails this by up to ~50px at the corners and by far more once the hull is rotated."
+    },
+    {
+      "act": "execute_script",
+      "script": "var main = tree.current_scene\nmain.view_zoom = 1.2\nvar vps = main.get_viewport().get_visible_rect().size\nmain.view_offset = Vector2(892.5, 1877.5) - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "Zoom the view onto rotated Battlewagon A so the screenshot actually shows the tilted border."
+    },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "screenshot", "label": "01_rotated_border_battlewagon_a" },
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 8 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    {
+      "act": "execute_script",
+      "script": "var live = 0\nfor c in tree.get_nodes_in_group(\"disembark_controllers\"):\n\tif is_instance_valid(c) and not c._finished:\n\t\tlive += 1\nreturn live",
+      "multiline": true,
+      "equals": 0,
+      "comment": "Regression pin for the stale-controller bug: merely SELECTING another unit must cancel the open Kommandos placement - before the new dialog is even confirmed. Previously the old controller stayed live and kept erroring 'Must be within 3\" of transport (44\" away)' against clicks meant for the other battlewagon."
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"DisembarkDialog\")\nif d == null:\n\treturn \"NO DIALOG\"\nd.get_ok_button().emit_signal(\"pressed\")\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok"
+    },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    {
+      "act": "execute_script",
+      "script": "var live = []\nfor c in tree.get_nodes_in_group(\"disembark_controllers\"):\n\tif is_instance_valid(c) and not c._finished:\n\t\tlive.append(c)\nif live.size() != 1:\n\treturn \"live=%d\" % live.size()\nreturn live[0].transport_id",
+      "multiline": true,
+      "equals": "U_BATTLEWAGON_B",
+      "comment": "Exactly one live placement, bound to Battlewagon B - the unit the player actually clicked."
+    },
+    {
+      "act": "execute_script",
+      "script": "var main = tree.current_scene\nmain.view_zoom = 0.3\nvar vps = main.get_viewport().get_visible_rect().size\nvar board_center = Vector2(SettingsService.get_board_width_px() / 2.0, SettingsService.get_board_height_px() / 2.0)\nmain.view_offset = board_center - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "Reset to the fit view so the click_board_at projections land inside the window."
+    },
+    { "act": "screenshot", "label": "02_lootas_placement_started" },
+    { "act": "click_board_at", "x": 42.0, "y": 250.0 },
+    { "act": "click_board_at", "x": 97.0, "y": 250.0 },
+    { "act": "click_board_at", "x": 152.0, "y": 250.0 },
+    { "act": "click_board_at", "x": 207.0, "y": 250.0 },
+    { "act": "click_board_at", "x": 262.0, "y": 250.0 },
+    { "act": "click_board_at", "x": 42.0, "y": 310.0 },
+    { "act": "click_board_at", "x": 97.0, "y": 310.0 },
+    { "act": "click_board_at", "x": 152.0, "y": 310.0 },
+    { "act": "click_board_at", "x": 207.0, "y": 310.0 },
+    { "act": "click_board_at", "x": 262.0, "y": 310.0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "units.U_LOOTAS_A.embarked_in", "equals": null },
+    { "act": "expect_state", "path": "units.U_LOOTAS_A.disembarked_this_phase", "equals": true },
+    { "act": "expect_token_visible", "unit_id": "U_LOOTAS_A" },
+    {
+      "act": "execute_script",
+      "script": "var main = tree.current_scene\nmain.view_zoom = 1.2\nvar vps = main.get_viewport().get_visible_rect().size\nmain.view_offset = Vector2(152.6, 220.0) - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "screenshot", "label": "03_lootas_disembarked_near_battlewagon_b" },
+    {
+      "act": "execute_script",
+      "script": "var live = 0\nfor c in tree.get_nodes_in_group(\"disembark_controllers\"):\n\tif is_instance_valid(c) and not c._finished:\n\t\tlive += 1\nreturn live",
+      "multiline": true,
+      "equals": 0,
+      "comment": "No placement controller survives a completed disembark."
+    }
+  ]
+}
