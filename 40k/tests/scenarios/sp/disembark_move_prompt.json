@@ -1,0 +1,56 @@
+{
+  "id": "disembark_move_prompt",
+  "covers": [
+    "phases.MovementPhase.disembark_then_move",
+    "ui.PostDisembarkMoveDialog",
+    "scripts.DisembarkController.slot_aligned_positions"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "A player disembarks the Kommandos from the STATIONARY Battlewagon (tactical disembark, 18.04). Two things are asserted end-to-end through the live UI: (1) DisembarkController now emits slot-aligned positions, so every ALIVE model (the unit has casualties interspersed) lands at its placed position instead of leaving the tail unplaced; (2) the new PostDisembarkMoveDialog appears explaining the unit can still move, and clicking 'Move This Unit' leaves the unit selected in an active Normal move (movement_active, not yet moved) — the player can then actually move it, which the old silent flow hid behind a Confirm-Move trap.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "units.U_KOMMANDOS_H.embarked_in", "equals": "U_BATTLEWAGON_G" },
+    { "act": "screenshot", "label": "01_kommandos_embarked" },
+
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 4 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "script": "var dlg=null\nfor n in tree.root.get_children():\n\tif n is ConfirmationDialog and n.visible:\n\t\tdlg=n\nreturn dlg != null", "equals": true },
+    { "act": "screenshot", "label": "02_disembark_dialog" },
+
+    { "act": "execute_script", "multiline": true, "script": "var dlg=null\nfor n in tree.root.get_children():\n\tif n is ConfirmationDialog and n.visible:\n\t\tdlg=n\nif dlg==null:\n\treturn false\ndlg.get_ok_button().emit_signal(\"pressed\")\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "click_board_at", "x": 790.0, "y": 2100.0 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "click_board_at", "x": 790.0, "y": 2160.0 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "click_board_at", "x": 790.0, "y": 2220.0 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "click_board_at", "x": 740.0, "y": 2130.0 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "click_board_at", "x": 740.0, "y": 2190.0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_state", "path": "units.U_KOMMANDOS_H.embarked_in", "equals": null },
+    { "act": "expect_state", "path": "units.U_KOMMANDOS_H.disembarked_this_phase", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var km=GameState.get_unit(\"U_KOMMANDOS_H\")\nvar bw=GameState.get_unit(\"U_BATTLEWAGON_G\").models[0].position\nvar placed=0\nfor m in km.models:\n\tif m.get(\"alive\",false) and m.position != null:\n\t\tvar dx=float(m.position.x)-float(bw.x)\n\t\tvar dy=float(m.position.y)-float(bw.y)\n\t\tif sqrt(dx*dx+dy*dy) < 400.0:\n\t\t\tplaced+=1\nreturn placed", "equals": 5, "comment": "Positions fix: all 5 ALIVE models sit next to the Battlewagon. Before the fix only 2 did; the other 3 kept stale pre-disembark positions far away (~4\"+ up-board)." },
+
+    { "act": "expect_node_visible", "node": "/root/Main/PostDisembarkMoveDialog", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "03_post_disembark_move_prompt" },
+
+    { "act": "click_node", "node": "/root/Main/PostDisembarkMoveDialog/Content/ButtonBar/MoveButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script", "multiline": true, "script": "var d=tree.root.get_node_or_null(\"Main/PostDisembarkMoveDialog\")\nreturn d == null", "equals": true, "comment": "Dialog dismissed after choosing Move This Unit." },
+    { "act": "expect_state", "path": "units.U_KOMMANDOS_H.flags.movement_active", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var km=GameState.get_unit(\"U_KOMMANDOS_H\")\nreturn km.get(\"flags\",{}).get(\"moved\",false)", "equals": false, "comment": "The unit is offered its move and has NOT been locked as moved — the reported trap is gone." },
+    { "act": "execute_script", "multiline": true, "script": "var ph=tree.root.get_node(\"PhaseManager\").current_phase_instance\nreturn ph.active_moves.has(\"U_KOMMANDOS_H\")", "equals": true, "comment": "Unit is in an active Normal move: the player can now drag its models and Confirm Move." },
+    { "act": "screenshot", "label": "04_unit_selected_and_movable" }
+  ]
+}

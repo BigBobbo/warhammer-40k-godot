@@ -508,7 +508,8 @@ func _count_alive_models() -> int:
 func _complete_disembark() -> void:
 	print("Disembark placement complete for unit: ", unit_id)
 
-	# Convert null positions to actual positions for TransportManager
+	# ALIVE-ordered list (index k == the k-th alive model), matching how
+	# model_positions was filled during placement. Used for the coherency check.
 	var final_positions = []
 	for i in range(unit_data.models.size()):
 		if unit_data.models[i].alive:
@@ -529,9 +530,29 @@ func _complete_disembark() -> void:
 		_on_right_click()  # undo last placement so the player can fix it
 		return
 
+	# Re-key the placements to MODEL-SLOT order before handing them off.
+	# TransportManager.disembark_unit() and MovementPhase._validate_confirm_disembark()
+	# both walk positions[i] against unit.models[i] and `continue` past dead
+	# models — i.e. they expect one entry PER MODEL SLOT (this is also what the
+	# AI's _compute_disembark_positions produces). The list above is ALIVE-ordered,
+	# so a unit with casualties interspersed (e.g. models 1, 4, 5 dead) had its
+	# alive positions land on the WRONG slots and the trailing models never
+	# received a position at all — which then broke unit coherency the moment the
+	# player tried to Confirm Move. Emit a slot-aligned array instead (dead slots
+	# get a harmless placeholder the consumers skip).
+	var slot_positions = []
+	var k := 0
+	for i in range(unit_data.models.size()):
+		if unit_data.models[i].alive:
+			var p = final_positions[k] if k < final_positions.size() else null
+			slot_positions.append(p if p != null else Vector2.ZERO)
+			k += 1
+		else:
+			slot_positions.append(Vector2.ZERO)
+
 	# Just emit the completion signal - MovementPhase will handle offering movement
 	_finished = true
-	emit_signal("disembark_completed", unit_id, final_positions)
+	emit_signal("disembark_completed", unit_id, slot_positions)
 	_cleanup()
 
 

@@ -2766,10 +2766,76 @@ func _post_disembark_ui_update(unit_id: String) -> void:
 			if unit_list.get_item_metadata(i) == unit_id:
 				unit_list.select(i)
 				break
+
+		# The move is now offered but was previously offered SILENTLY — players
+		# pressed "Confirm Move" thinking it finalised the disembark and locked
+		# the unit at 0". Make the choice explicit and unmissable.
+		_show_post_disembark_move_prompt(unit_id)
 	else:
 		print("MovementController: Disembarked unit cannot move (transport already moved)")
 		active_unit_id = ""
 		_update_selected_unit_display()
+
+func _show_post_disembark_move_prompt(unit_id: String) -> void:
+	"""Explain, right after a tactical disembark, that the unit can still move —
+	and let the player choose Move / Stay — instead of leaving the offered move
+	silent (the source of the 'Confirm Move locked my unit' confusion)."""
+	# AI never drives the placement UI, but guard defensively so an AI turn can
+	# never be blocked waiting on a human dialog.
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.is_ai_player(GameState.get_active_player()):
+		return
+
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var move_inches = int(round(get_unit_movement(unit)))
+
+	# Avoid stacking duplicates if called twice for the same disembark.
+	var host = SceneRefs.main()
+	if host == null:
+		host = get_tree().root
+	var existing = host.get_node_or_null("PostDisembarkMoveDialog")
+	if existing:
+		existing.queue_free()
+
+	var dialog = PostDisembarkMoveDialog.new()
+	dialog.name = "PostDisembarkMoveDialog"
+	host.add_child(dialog)
+	dialog.setup(unit_id, unit_name, move_inches)
+	dialog.move_unit_chosen.connect(_on_post_disembark_move_chosen)
+	dialog.stay_here_chosen.connect(_on_post_disembark_stay_chosen)
+	DialogUtils.popup_at_bottom(dialog)
+	print("MovementController: Post-disembark move prompt shown for %s (move %d\")" % [unit_id, move_inches])
+
+func _on_post_disembark_move_chosen(unit_id: String) -> void:
+	"""Player chose to move the just-disembarked unit — it is already selected in
+	an active Normal move, so just reinforce what to do next."""
+	print("MovementController: Post-disembark — player will MOVE %s" % unit_id)
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		var unit = GameState.get_unit(unit_id)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		toast_mgr.show_toast("Drag %s to move it, then press Confirm Move." % unit_name, Color.DODGER_BLUE, 5.0)
+	# Ensure the unit is the active selection so drags/Confirm Move target it.
+	active_unit_id = unit_id
+	active_mode = "NORMAL"
+	_update_selected_unit_display()
+
+func _on_post_disembark_stay_chosen(unit_id: String) -> void:
+	"""Player chose to keep the unit where it disembarked — end its move at 0\"
+	via the same CONFIRM_UNIT_MOVE the Confirm Move button dispatches."""
+	print("MovementController: Post-disembark — player keeps %s in place" % unit_id)
+	active_unit_id = unit_id
+	emit_signal("move_action_requested", {
+		"type": "CONFIRM_UNIT_MOVE",
+		"actor_unit_id": unit_id,
+		"payload": {}
+	})
+	_clear_unit_highlight()
+	active_unit_id = ""
+	call_deferred("_update_selected_unit_display")
 
 func _on_disembark_canceled(unit_id: String) -> void:
 	"""Handle canceled disembark"""
