@@ -1,4 +1,8 @@
-# GitHub Actions workflow to build and deploy web export to itch.io
+# GitHub Actions workflow to build and deploy web + Linux exports to itch.io.
+# The Linux build exists for the Steam Deck: the web build in a browser only
+# receives whatever Steam Input forwards (often keyboard emulation — no
+# gamepad), while the downloadable Linux build added to Steam as a non-Steam
+# game with the 'Gamepad with Joystick' layout gets real controller input.
 name: Deploy Web Build
 
 on:
@@ -92,10 +96,58 @@ jobs:
           path: 40k/exports/web/
           retention-days: 7
 
+  # Build Linux (Steam Deck) export
+  build-linux:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+          export-templates: false
+
+      - name: Download Export Templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable
+          cd ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable
+          wget -q https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz
+          unzip -q Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz
+          mv templates/* .
+          rmdir templates
+          rm Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz
+
+      - name: Create server config
+        run: |
+          echo '{"server_url": "${{ secrets.WS_SERVER_URL }}"}' > 40k/server_config.local.json
+
+      - name: Import project assets
+        run: |
+          cd 40k
+          godot --headless --import --quit || true
+
+      - name: Export for Linux
+        run: |
+          cd 40k
+          mkdir -p exports/linux
+          godot --headless --path . --export-release "Linux" exports/linux/Warhammer40K.x86_64
+          ls -la exports/linux/
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: 40k/exports/linux/
+          retention-days: 7
+
   # Deploy to itch.io
   deploy-itch:
     runs-on: ubuntu-latest
-    needs: build-web
+    needs: [build-web, build-linux]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Download Web Artifact
@@ -103,6 +155,17 @@ jobs:
         with:
           name: web-build
           path: web-build
+
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+          path: linux-build
+
+      - name: Restore Linux executable bit
+        # actions artifacts do not preserve file modes; without this the
+        # itch download would not be runnable until the player chmods it.
+        run: chmod +x linux-build/Warhammer40K.x86_64 || true
 
       - name: Install Butler
         run: |
@@ -123,42 +186,51 @@ jobs:
           # processing, try again later") while it is still scanning the
           # previous upload. That is transient — retry with backoff instead
           # of failing the deploy and leaving stale bits live.
-          target="${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME }}:html5"
-          attempts=6
-          delay=30
-          for i in $(seq 1 "$attempts"); do
-            echo "::group::butler push attempt $i/$attempts"
-            # Bound each push: butler can hang waiting on itch (a stuck
-            # channel), and without a cap that would freeze the whole job.
-            # SIGTERM at 8m, SIGKILL 30s later.
-            out="$(timeout -k 30 480 ./butler push web-build "$target" 2>&1)"
-            status=$?
-            echo "$out"
-            echo "::endgroup::"
-            if [ "$status" -eq 0 ]; then
-              echo "butler push succeeded on attempt $i"
-              exit 0
-            fi
-            if [ "$status" -eq 124 ] || echo "$out" | grep -q "still processing"; then
-              if [ "$status" -eq 124 ]; then
-                echo "butler push timed out (itch.io likely has a build stuck processing); retrying in ${delay}s…"
-              else
-                echo "itch.io is still processing the previous build; retrying in ${delay}s…"
+          push_channel() {
+            local dir="$1"
+            local target="$2"
+            local attempts=6
+            local delay=30
+            for i in $(seq 1 "$attempts"); do
+              echo "::group::butler push $target attempt $i/$attempts"
+              # Bound each push: butler can hang waiting on itch (a stuck
+              # channel), and without a cap that would freeze the whole job.
+              # SIGTERM at 8m, SIGKILL 30s later.
+              local out
+              out="$(timeout -k 30 480 ./butler push "$dir" "$target" 2>&1)"
+              local status=$?
+              echo "$out"
+              echo "::endgroup::"
+              if [ "$status" -eq 0 ]; then
+                echo "butler push $target succeeded on attempt $i"
+                return 0
               fi
-              sleep "$delay"
-              delay=$((delay * 2))
-              continue
-            fi
-            echo "butler push failed with a non-transient error (see output above)"
-            exit "$status"
-          done
-          echo "::error::butler push still failing after $attempts attempts — itch.io's html5 channel likely has a build stuck in 'processing'. Check the itch.io dashboard for the warhammer40k-simulator project and clear/cancel any stuck build, then re-run this workflow."
-          exit 1
+              if [ "$status" -eq 124 ] || echo "$out" | grep -q "still processing"; then
+                if [ "$status" -eq 124 ]; then
+                  echo "butler push timed out (itch.io likely has a build stuck processing); retrying in ${delay}s…"
+                else
+                  echo "itch.io is still processing the previous build; retrying in ${delay}s…"
+                fi
+                sleep "$delay"
+                delay=$((delay * 2))
+                continue
+              fi
+              echo "butler push $target failed with a non-transient error (see output above)"
+              return "$status"
+            done
+            echo "::error::butler push still failing after $attempts attempts — the $target channel likely has a build stuck in 'processing'. Check the itch.io dashboard for the warhammer40k-simulator project and clear/cancel any stuck build, then re-run this workflow."
+            return 1
+          }
+
+          overall=0
+          push_channel web-build "${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME }}:html5" || overall=$?
+          push_channel linux-build "${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME }}:linux" || overall=$?
+          exit "$overall"
 
       - name: Deployment Summary
         run: |
-          echo "## Web Build Deployed to itch.io" >> $GITHUB_STEP_SUMMARY
+          echo "## Builds Deployed to itch.io" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Game: ${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Channel: html5" >> $GITHUB_STEP_SUMMARY
+          echo "- Channels: html5 (browser), linux (Steam Deck / desktop download)" >> $GITHUB_STEP_SUMMARY
           echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
