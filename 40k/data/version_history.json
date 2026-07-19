@@ -2,6 +2,26 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.67.0",
+			"date": "2026-07-19",
+			"summary": "The itch.io page now gets a downloadable Linux build alongside the browser version — this is the recommended way to play with a controller on the Steam Deck. The browser version only receives whatever Steam Input forwards (usually keyboard emulation, so the game never sees your controller); the Linux download added to Steam as a non-Steam game with the 'Gamepad with Joystick' layout gets real controller input and the full pad experience.",
+			"changes": [
+				"New Linux export preset (single-file x86_64 binary with embedded game data).",
+				"The itch.io auto-deploy now builds and publishes a 'linux' channel next to the existing browser build on every release.",
+				"Steam Deck setup: download the Linux build (itch app or browser), add it to Steam as a non-Steam game, set the controller layout to 'Gamepad with Joystick', and check the main menu says 'Controller: ACTIVE'."
+			]
+		},
+		{
+			"version": "0.66.0",
+			"date": "2026-07-19",
+			"summary": "Main menu now shows a controller status indicator (top right). Steam Deck sessions kept failing with a symptom — D-pad pans the camera, nothing selects — whose real cause is Steam Input sending keyboard emulation instead of gamepad input, so the game never sees a controller at all. The indicator makes this visible at a glance: 'not detected' (with a hint to set the Steam Input layout to Gamepad), 'connected — press any button', or 'ACTIVE'.",
+			"changes": [
+				"Top-right controller status on the main menu: 'not detected' / 'connected — press any button' / 'ACTIVE', updating live as devices connect and as you switch between mouse and controller.",
+				"When no controller is visible to the game, the label includes the Steam Deck fix hint: set the controller layout to 'Gamepad' in Steam Input (keyboard-emulation templates make the D-pad arrive as arrow keys — that is why the D-pad pans the camera while nothing else works).",
+				"Diagnostic aid: if this label does not say ACTIVE after pressing a controller button, none of the in-game controller features can work — fix the template first."
+			]
+		},
+		{
 			"version": "0.65.3",
 			"date": "2026-07-19",
 			"summary": "Big memory fix for the itch.io (browser) build: long games — especially AI vs AI — no longer balloon the tab's memory until the browser kills the page. Replay recording, AI decision logs, game history and debug logs are now all bounded, and a game abandoned via 'Return to Menu' fully stops instead of simulating invisibly behind the menu.",

@@ -1,0 +1,17 @@
+{
+  "id": "pad_m4_controller_indicator",
+  "covers": ["controller.m4.status_indicator"],
+  "description": "M4 controller diagnostic: the main menu shows a top-right controller status label. With no joypad visible it reads 'not detected' (with the Steam Deck template hint — the keyboard-emulation-template fingerprint), and the first joypad button press flips it to ACTIVE alongside the hint bar.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "str(main.get_node(\"ControllerStatus\").text).begins_with(\"Controller: not detected\")", "equals": true },
+    { "act": "execute_script", "script": "str(main.get_node(\"ControllerStatus\").text).contains(\"Steam Deck\")", "equals": true },
+    { "act": "screenshot", "label": "01_not_detected_with_deck_hint" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.get_node(\"ControllerStatus\").text)", "equals": "Controller: ACTIVE" },
+    { "act": "execute_script", "script": "PadHintBar.get_node(\"PadHintPanel\").visible", "equals": true },
+    { "act": "screenshot", "label": "02_active_after_first_press" }
+  ]
+}
