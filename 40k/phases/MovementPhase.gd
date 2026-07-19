@@ -3753,6 +3753,14 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 			return {"valid": false, "errors": errors}
 		DebugLogger.info(str("MovementPhase: P2-80 — Rapid Ingress unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id)))
 
+	# Set-up overlap gate (03.02) — same as normal reinforcement placement:
+	# Rapid Ingress models may not be set up overlapping existing models,
+	# each other, or walls.
+	if model_positions is Array:
+		var setup_overlap = _validate_reinforcement_setup_overlaps(unit, unit_id, model_positions, action.get("model_rotations", []))
+		if not setup_overlap.valid:
+			return setup_overlap
+
 	# Validate model positions — same rules as normal reinforcement placement
 	if model_positions is Array:
 		var board_width = GameState.state.board.size.width
@@ -5297,6 +5305,15 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 			return {"valid": false, "errors": errors}
 		DebugLogger.info(str("MovementPhase: P2-80 — Unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id)))
 
+	# Set-up overlap gate (03.02) — applies at every edition and must run
+	# BEFORE the 11e ingress branch below, which returns early. Without this,
+	# arriving models could legally be stacked on top of models already on
+	# the board (or on each other / on walls).
+	if model_positions is Array:
+		var setup_overlap = _validate_reinforcement_setup_overlaps(unit, unit_id, model_positions, action.get("model_rotations", []))
+		if not setup_overlap.valid:
+			return setup_overlap
+
 	# ISS-060 step 2 (11e 20.04/24.09): reinforcements arrive via an
 	# INGRESS MOVE — set-up validation through the template: wholly
 	# within 6\" of a battlefield edge (lifted by Deep Strike), more than
@@ -5439,6 +5456,70 @@ func _point_in_deployment_zone(x_inches: float, y_inches: float, zone_poly: Arra
 		if coord is Dictionary and coord.has("x") and coord.has("y"):
 			packed.append(Vector2(coord.x, coord.y))
 	return Geometry2D.is_point_in_polygon(Vector2(x_inches, y_inches), packed)
+
+func _validate_reinforcement_setup_overlaps(unit: Dictionary, unit_id: String, model_positions: Array, model_rotations: Array) -> Dictionary:
+	# 03.02: a unit that is SET UP (reinforcements, Rapid Ingress) is placed
+	# like any other set-up — its models may not overlap any base already on
+	# the board, may not overlap each other, and may not sit on a wall.
+	# The 11e ingress template (IngressMove.validate_setup) only enforces
+	# distance rules, and the pre-11e inline checks never covered overlap, so
+	# a scripted/AI PLACE_REINFORCEMENT could stack arriving models on top of
+	# units already on the board. The human placement UI blocks this
+	# client-side, which is why only AI games ever showed the stacks.
+	var errors: Array = []
+	var unit_models = unit.get("models", [])
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var placed: Array = []
+	for i in range(model_positions.size()):
+		if i >= unit_models.size():
+			break
+		var pos = model_positions[i]
+		if pos == null or not unit_models[i].get("alive", true):
+			continue
+		var pos_vec: Vector2
+		if pos is Vector2:
+			pos_vec = pos
+		elif pos is Dictionary:
+			pos_vec = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+		elif pos is Array and pos.size() >= 2:
+			pos_vec = Vector2(float(pos[0]), float(pos[1]))
+		else:
+			continue
+		var check_model = unit_models[i].duplicate()
+		check_model["position"] = pos_vec
+		if i < model_rotations.size() and model_rotations[i] != null:
+			check_model["rotation"] = float(model_rotations[i])
+		var model_label = str(check_model.get("id", "m%d" % (i + 1)))
+
+		# Against every model already on the board (any owner). Embarked units
+		# carry null positions and are skipped by the position check.
+		var found_overlap := false
+		for other_id in game_state_snapshot.get("units", {}):
+			if other_id == unit_id:
+				continue
+			var other_unit = game_state_snapshot.units[other_id]
+			for om in other_unit.get("models", []):
+				if not om.get("alive", true) or om.get("position", null) == null:
+					continue
+				if Measurement.models_overlap(check_model, om) and not _is_touching_within_tolerance(check_model, om):
+					errors.append("Model %s cannot be set up overlapping a model of %s" % [model_label, other_id])
+					found_overlap = true
+					break
+			if found_overlap:
+				break
+
+		# Against the other arriving models of this same set-up.
+		for pm in placed:
+			if Measurement.models_overlap(check_model, pm) and not _is_touching_within_tolerance(check_model, pm):
+				errors.append("Models %s and %s of the arriving unit cannot be set up overlapping each other" % [model_label, str(pm.get("id", "?"))])
+				break
+
+		# Walls: the set-up position must be clear of walls the unit can't occupy.
+		if Measurement.model_overlaps_any_wall(check_model, unit_keywords):
+			errors.append("Model %s cannot be set up overlapping a wall" % model_label)
+
+		placed.append(check_model)
+	return {"valid": errors.is_empty(), "errors": errors}
 
 func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	"""Process placing a reserve unit onto the battlefield"""

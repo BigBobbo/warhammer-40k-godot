@@ -5960,6 +5960,12 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 			if all_valid and not _check_formation_coherency(model_positions, base_mm):
 				print("AIDecisionMaker: [RESERVES]   %s (%s) — formation at candidate 0 fails coherency, trying alternates" % [unit_name, try_type])
 				all_valid = false
+			# Engine-exact overlap gate: _resolve_formation_collisions can return
+			# still-colliding positions (last-resort fallback) and its circular
+			# approximation under-covers oval/rect bases — never submit those.
+			if all_valid and _formation_really_overlaps(model_positions, base_mm, base_type, base_dimensions, deployed_models):
+				print("AIDecisionMaker: [RESERVES]   %s (%s) — formation at candidate 0 still overlaps models, trying alternates" % [unit_name, try_type])
+				all_valid = false
 
 			if not all_valid:
 				# Try alternate positions from our candidate list
@@ -5974,6 +5980,9 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 							break
 					if valid and not _check_formation_coherency(model_positions, base_mm):
 						print("AIDecisionMaker: [RESERVES]   %s (%s) — formation at candidate %d fails coherency" % [unit_name, try_type, pi])
+						valid = false
+					if valid and _formation_really_overlaps(model_positions, base_mm, base_type, base_dimensions, deployed_models):
+						print("AIDecisionMaker: [RESERVES]   %s (%s) — formation at candidate %d still overlaps models" % [unit_name, try_type, pi])
 						valid = false
 					if valid:
 						found_valid = true
@@ -10915,6 +10924,31 @@ static func _dest_really_overlaps(dest: Vector2, base_mm: int, base_type: String
 			continue
 		if meas.models_overlap(mover, ob):
 			return true
+	return false
+
+# Engine-exact post-check for a computed arrival/deployment formation: true if
+# any proposed position's REAL base overlaps an on-board model or another
+# model of the same formation (Measurement.models_overlap — the predicate the
+# engine's set-up validation uses). The circular approximations used while
+# building formations (_position_collides_with_deployed uses averaged radii)
+# under-cover oval/rectangular bases, and _resolve_formation_collisions falls
+# back to the ORIGINAL (colliding) position when its spiral search fails —
+# this gate keeps both kinds of bad output from ever being submitted.
+static func _formation_really_overlaps(model_positions: Array, base_mm: int, base_type: String,
+	base_dimensions: Dictionary, deployed_models: Array) -> bool:
+	var placed: Array = []
+	for pos in model_positions:
+		if pos == null or not (pos is Vector2):
+			continue
+		if _dest_really_overlaps(pos, base_mm, base_type, base_dimensions, deployed_models + placed):
+			return true
+		placed.append({
+			"position": pos,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions,
+			"rotation": 0.0
+		})
 	return false
 
 static func _resolve_movement_collision(
@@ -20761,6 +20795,11 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 				if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, ri_try_type, placement_bounds, snapshot, defending_player, battle_round):
 					all_valid = false
 					break
+			# Engine-exact overlap gate — same reasoning as the reserves flow:
+			# never submit a formation whose real bases overlap on-board models.
+			if all_valid and _formation_really_overlaps(model_positions, base_mm, base_type, base_dimensions, deployed_models):
+				print("AIDecisionMaker: [RAPID INGRESS]   %s (%s) — formation at candidate 0 still overlaps models, trying alternates" % [unit_name, ri_try_type])
+				all_valid = false
 
 			if not all_valid:
 				# Try alternate positions from our candidate list
@@ -20773,6 +20812,8 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 						if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, defending_player, battle_round):
 							valid = false
 							break
+					if valid and _formation_really_overlaps(model_positions, base_mm, base_type, base_dimensions, deployed_models):
+						valid = false
 					if valid:
 						found_valid = true
 						break

@@ -3361,6 +3361,11 @@ func _handle_failed_reinforcement(player: int, original_decision: Dictionary) ->
 				break
 		if valid and not AIDecisionMaker._check_formation_coherency(positions, base_mm):
 			valid = false
+		# Engine-exact overlap gate — _resolve_formation_collisions can return
+		# still-colliding positions; the engine now rejects those, so submitting
+		# them would just burn a retry.
+		if valid and AIDecisionMaker._formation_really_overlaps(positions, base_mm, base_type, base_dimensions, deployed_models):
+			valid = false
 
 		if not valid:
 			print("AIPlayer: Reinforcement retry %d for %s: invalid placement" % [attempt + 1, unit_name])

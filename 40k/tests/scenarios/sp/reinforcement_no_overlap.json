@@ -1,0 +1,205 @@
+{
+  "id": "reinforcement_no_overlap",
+  "covers": [
+    "phases.MovementPhase.PLACE_REINFORCEMENT.overlap_rejected",
+    "phases.MovementPhase._validate_reinforcement_setup_overlaps"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Reserves arrivals must not be set up overlapping models already on the board (03.02). Repro of the AI-vs-AI bug where Warbikers arriving from Strategic Reserves were stacked on a parked Battlewagon and on themselves: the 11e ingress validation only checked distances, so PLACE_REINFORCEMENT accepted overlapping positions. Uses audit_baseline_postdeploy with U_BOYZ_K (10 models) and U_BATTLEWAGON_G (180x100mm rect) reassigned to player 1 so the fixture's default active player can place them (every other ingress rule stays green; only the overlap gate decides). Case 1: Boyz arrival row placed directly on the parked Witchseekers along the top edge -> rejected, unit stays in reserves. Case 2: same unit on a clear top-strip row -> accepted. Case 3: the Battlewagon arrives into the empty left-edge strip -> accepted (rect base still fits).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.meta.battle_round = 2",
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_BOYZ_K.owner = 1",
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_BATTLEWAGON_G.owner = 1",
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "01_movement_round2"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_BOYZ_K.status",
+      "equals": 7
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PLACE_REINFORCEMENT",
+        "unit_id": "U_BOYZ_K",
+        "model_positions": [
+          {
+            "x": 850.0,
+            "y": 50.0
+          },
+          {
+            "x": 910.0,
+            "y": 50.0
+          },
+          {
+            "x": 970.0,
+            "y": 50.0
+          },
+          {
+            "x": 1030.0,
+            "y": 50.0
+          },
+          {
+            "x": 1090.0,
+            "y": 50.0
+          },
+          {
+            "x": 1150.0,
+            "y": 50.0
+          },
+          {
+            "x": 1210.0,
+            "y": 50.0
+          },
+          {
+            "x": 1270.0,
+            "y": 50.0
+          },
+          {
+            "x": 1330.0,
+            "y": 50.0
+          },
+          {
+            "x": 1390.0,
+            "y": 50.0
+          }
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_BOYZ_K.status",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "02_overlapping_arrival_rejected"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PLACE_REINFORCEMENT",
+        "unit_id": "U_BOYZ_K",
+        "model_positions": [
+          {
+            "x": 840.0,
+            "y": 140.0
+          },
+          {
+            "x": 900.0,
+            "y": 140.0
+          },
+          {
+            "x": 960.0,
+            "y": 140.0
+          },
+          {
+            "x": 1020.0,
+            "y": 140.0
+          },
+          {
+            "x": 1080.0,
+            "y": 140.0
+          },
+          {
+            "x": 1140.0,
+            "y": 140.0
+          },
+          {
+            "x": 1200.0,
+            "y": 140.0
+          },
+          {
+            "x": 1260.0,
+            "y": 140.0
+          },
+          {
+            "x": 1320.0,
+            "y": 140.0
+          },
+          {
+            "x": 1380.0,
+            "y": 140.0
+          }
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_BOYZ_K.models[0].position.x",
+      "equals": 840.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_clear_arrival_accepted"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PLACE_REINFORCEMENT",
+        "unit_id": "U_BATTLEWAGON_G",
+        "model_positions": [
+          {
+            "x": 120.0,
+            "y": 500.0
+          }
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_BATTLEWAGON_G.models[0].position.x",
+      "equals": 120.0
+    },
+    {
+      "act": "screenshot",
+      "label": "04_battlewagon_arrival_left_strip"
+    }
+  ]
+}
