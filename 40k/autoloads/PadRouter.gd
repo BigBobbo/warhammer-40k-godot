@@ -52,6 +52,11 @@ const HINTS_CARRY := [
 	["b", "Cancel"],
 	["menu", "Confirm / End"],
 ]
+const HINTS_MENU := [
+	["dpad", "Choose Action"],
+	["a", "Confirm"],
+	["b", "Cancel"],
+]
 
 # The target currently highlighted by LB/RB in shooting TARGET_SELECT mode
 # (empty when none). Windowed scenarios assert this.
@@ -81,6 +86,22 @@ func _input(event: InputEvent) -> void:
 	# A joypad event IS pad input — claim inline so the session's very first
 	# press acts instead of being dropped (the _process poll runs after us).
 	InputDeviceManager.claim_pad()
+	# While the action bar is open it owns the pad exclusively (a lightweight
+	# modal): D-pad / bumpers move the highlight, A confirms, B cancels, and
+	# everything else is swallowed so Start can't end the phase mid-decision.
+	if PadActionBar.is_open():
+		match event.button_index:
+			JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_LEFT_SHOULDER:
+				PadActionBar.move_highlight(-1)
+			JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_RIGHT_SHOULDER:
+				PadActionBar.move_highlight(1)
+			JOY_BUTTON_A:
+				_apply_menu_choice(PadActionBar.activate())
+			JOY_BUTTON_B:
+				PadActionBar.close()
+		get_viewport().set_input_as_handled()
+		_update_hints()
+		return
 	match event.button_index:
 		JOY_BUTTON_LEFT_SHOULDER:
 			if carry_active:
@@ -124,7 +145,59 @@ func _handle_a() -> bool:
 		return true
 	if _assign_highlighted_target():
 		return true
+	if _try_open_move_menu():
+		return true
 	return _try_begin_carry()
+
+
+# ============================================================================
+# M4 move-mode action menu (PadActionBar)
+# ============================================================================
+
+func _try_open_move_menu() -> bool:
+	if VirtualCursor.is_cursor_active():
+		return false  # cursor mode: A is a click (VirtualCursor consumed it)
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m):
+		return false
+	if m.current_phase != GameStateData.Phase.MOVEMENT:
+		return false
+	var mc = m.movement_controller if ("movement_controller" in m) else null
+	if mc == null or not is_instance_valid(mc) or not mc.has_method("pad_menu_options"):
+		return false
+	var opts: Array = mc.pad_menu_options()
+	if opts.is_empty():
+		return false
+	var unit = GameState.get_unit(str(mc.active_unit_id))
+	var title := str(unit.get("meta", {}).get("name", mc.active_unit_id))
+	PadActionBar.open(title, opts)
+	return true
+
+
+func _apply_menu_choice(choice_id: String) -> void:
+	if choice_id == "":
+		return
+	var m := get_tree().current_scene
+	if m == null:
+		return
+	var mc = m.movement_controller if ("movement_controller" in m) else null
+	if mc == null or not is_instance_valid(mc) or not mc.has_method("pad_apply_menu_choice"):
+		return
+	mc.pad_apply_menu_choice(choice_id)
+	# Choices that start moving models flow straight into the carry so the
+	# next thing on the stick is the model itself. Advance waits (its dice
+	# dialog owns the next press) and Stay Still is already done — for both,
+	# _try_begin_carry's focus/validity guards make the deferred call a no-op
+	# anyway, so gating here is just intent.
+	if choice_id == "NORMAL" or choice_id == "FALL_BACK":
+		call_deferred("_auto_carry_after_menu")
+
+
+func _auto_carry_after_menu() -> void:
+	if not carry_active and _try_begin_carry():
+		_update_hints()
 
 
 # ============================================================================
@@ -185,17 +258,42 @@ func _cycle_unit_list(dir: int) -> void:
 	var selected := list.get_selected_items()
 	if selected.size() > 0:
 		cur = selected[0]
-	# Skip disabled/header rows.
+	# Skip disabled/header rows AND rows the phase says are spent (PRP §2.6:
+	# cycling follows activation eligibility, not raw list order — without
+	# this, finishing a unit resets the list selection and the next bumper
+	# press lands right back on the unit that just moved).
 	var next := cur
+	var found := -1
 	for _i in range(list.item_count):
 		next = wrapi(next + dir, 0, list.item_count)
-		if list.is_item_selectable(next) and not list.is_item_disabled(next):
-			break
-	if next == cur or next < 0 or not list.is_item_selectable(next):
+		if not list.is_item_selectable(next) or list.is_item_disabled(next):
+			continue
+		if not _cycle_row_eligible(list, next):
+			continue
+		found = next
+		break
+	if found == -1 or found == cur:
 		return
-	list.select(next)
+	list.select(found)
 	list.ensure_current_is_visible()
-	list.item_selected.emit(next)
+	list.item_selected.emit(found)
+
+
+# Phase-aware eligibility for a unit-list row. Phase controllers opt in by
+# exposing pad_can_cycle_to(unit_id); rows without unit metadata stay eligible
+# (generic lists cycle exactly as before).
+func _cycle_row_eligible(list: ItemList, idx: int) -> bool:
+	var unit_id = list.get_item_metadata(idx)
+	if unit_id == null or str(unit_id) == "":
+		return true
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m):
+		return true
+	if m.current_phase == GameStateData.Phase.MOVEMENT and ("movement_controller" in m):
+		var mc = m.movement_controller
+		if mc != null and is_instance_valid(mc) and mc.has_method("pad_can_cycle_to"):
+			return mc.pad_can_cycle_to(str(unit_id))
+	return true
 
 
 func _find_visible_item_list(root: Node) -> ItemList:
@@ -348,9 +446,48 @@ func _drop_carry() -> void:
 func _cancel_carry() -> void:
 	# The mouse-parity cancel: put the model back where it was picked up and
 	# release (there is no dedicated drag-cancel in the mouse flow either).
+	var unit_id := _carry_unit_id
+	var staged_before := _movement_staged_count(unit_id)
 	VirtualCursor.warp_to(_carry_pickup_screen)
 	VirtualCursor.set_left_button(false)
 	carry_active = false
+	# Releasing at the pickup point still STAGES a zero-distance move (the
+	# drag pipeline stages every drop) — which would mark the unit as
+	# mid-move: the M4 action menu won't reopen and a junk 0" stage would be
+	# auto-confirmed later. Undo exactly that stage once the synthetic
+	# release has been processed. Movement phase only; -1 = not movement.
+	if staged_before >= 0:
+		_undo_cancelled_carry_stage(unit_id, staged_before)
+
+
+func _undo_cancelled_carry_stage(unit_id: String, staged_before: int) -> void:
+	# The synthetic release goes through the input queue — give it two frames
+	# to land before checking whether it staged anything.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if carry_active:
+		return  # already picked up again
+	if _movement_staged_count(unit_id) <= staged_before:
+		return  # the drop was rejected / nothing staged — nothing to undo
+	var m := get_tree().current_scene
+	if m == null or not ("movement_controller" in m):
+		return
+	var mc = m.movement_controller
+	if mc != null and is_instance_valid(mc) and str(mc.active_unit_id) == unit_id \
+			and mc.has_method("_on_undo_model_pressed"):
+		mc._on_undo_model_pressed()
+
+
+# staged_moves count for `unit_id` in the Movement phase, or -1 when not in
+# the Movement phase (charge carries stage differently and keep old behavior).
+func _movement_staged_count(unit_id: String) -> int:
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m) or m.current_phase != GameStateData.Phase.MOVEMENT:
+		return -1
+	var phase = PhaseManager.get_current_phase_instance()
+	if phase == null or not phase.has_method("get_active_move_data"):
+		return -1
+	return phase.get_active_move_data(unit_id).get("staged_moves", []).size()
 
 
 func _hop_model(dir: int) -> bool:
@@ -533,6 +670,8 @@ func _update_hints() -> void:
 	var hints := HINTS_BOARD
 	if carry_active:
 		hints = HINTS_CARRY
+	elif PadActionBar.is_open():
+		hints = HINTS_MENU
 	elif get_viewport().gui_get_focus_owner() != null:
 		hints = HINTS_FOCUS
 	else:
