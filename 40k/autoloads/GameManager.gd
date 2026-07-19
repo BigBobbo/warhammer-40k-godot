@@ -6,6 +6,11 @@ signal action_logged(log_text: String)
 
 var action_history: Array = []
 
+# MEM-5: cap for action_history/undo_history (multiplayer path) — reverse diffs
+# hold deep copies of prior state values, so unbounded growth bloated long
+# multiplayer sessions. Undo is single-step, so 200 retained actions is plenty.
+const MAX_ACTION_HISTORY: int = 200
+
 # Cached reference to PhaseManager (get_node_or_null fails in web exports)
 var _phase_manager_ref: Node = null
 
@@ -68,6 +73,14 @@ func apply_action(action: Dictionary) -> Dictionary:
 		else:
 			# Store empty array to keep histories aligned
 			undo_history.append([])
+
+		# MEM-5: bound both histories (kept aligned — trim fronts together).
+		# They grew per action for the whole session in multiplayer games, and
+		# undo only ever reaches back one action at a time.
+		while action_history.size() > MAX_ACTION_HISTORY:
+			action_history.pop_front()
+			if not undo_history.is_empty():
+				undo_history.pop_front()
 
 	return result
 
@@ -505,7 +518,10 @@ func apply_result(result: Dictionary) -> void:
 			if current_phase_inst and current_phase_inst.has_method("update_local_state"):
 				var game_state_ref = get_node_or_null("/root/GameState")
 				if game_state_ref:
-					current_phase_inst.update_local_state(game_state_ref.create_snapshot())
+					# MEM-2: update_local_state is a no-op since ISS-024 (phases
+					# read live state), so the full deep-copy snapshot formerly
+					# built here per deployment action was pure waste.
+					current_phase_inst.update_local_state(game_state_ref.state)
 					print("GameManager: Refreshed phase snapshot after %s" % action_type)
 
 	# Trigger a state change signal so UI updates

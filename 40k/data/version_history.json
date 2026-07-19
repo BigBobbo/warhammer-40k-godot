@@ -22,6 +22,20 @@
 			]
 		},
 		{
+			"version": "0.65.3",
+			"date": "2026-07-19",
+			"summary": "Big memory fix for the itch.io (browser) build: long games — especially AI vs AI — no longer balloon the tab's memory until the browser kills the page. Replay recording, AI decision logs, game history and debug logs are now all bounded, and a game abandoned via 'Return to Menu' fully stops instead of simulating invisibly behind the menu.",
+			"changes": [
+				"Fixed the main crash driver: the replay recorder kept a full copy of the game state at every phase change, and each copy also contained the entire ever-growing action history — memory grew faster every round. Snapshots are now history-free and capped, and replay files are only written per-turn on desktop (web writes once at game end).",
+				"AI decision records, the AI action log, AI turn history, the game event log and the in-game action history are all bounded now; the AI decision log no longer leaks between games or writes an ever-larger new file to browser storage every 50 decisions.",
+				"Every AI decision used to deep-copy the full game state (including all history) hundreds of times per turn — decisions now use a slim gameplay snapshot, which also removes several log lines per decision.",
+				"Debug logging is web-aware: 5 MB rolling log on web (50 MB desktop), rotation no longer re-reads the whole file (which spiked ~200 MB at the cap), and old session logs are cleaned up at startup instead of piling up in browser storage forever.",
+				"Returning to the main menu (game over, settings, or mid-game) now disables the AI and finalizes the replay recording — an abandoned AI-vs-AI game no longer keeps playing and recording invisibly behind the menu.",
+				"Dice History panel no longer grows without limit (it also skips work entirely while hidden), autosaves on web no longer burn a full save's work on a file that can never be written, and a few small board-visual leaks (shooting target chips, pile-in overlays, deployment picker) are freed on phase end.",
+				"Session action log file writes actually append now (a truncate bug meant the file only ever held the last action) and are capped at 10 MB, desktop-only."
+			]
+		},
+		{
 			"version": "0.65.2",
 			"date": "2026-07-19",
 			"summary": "AI armies no longer stack models on top of each other. Reinforcements arriving from Strategic Reserves / Deep Strike (the main offender in AI vs AI games — e.g. Warbikers landing on a corner Battlewagon and on themselves) are now rejected if any base would overlap, and the AI picks a clear spot instead. Battlewagons also get their real 180mm hull footprint instead of a 32mm round base.",

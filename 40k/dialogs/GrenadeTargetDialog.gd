@@ -163,7 +163,7 @@ func _on_grenade_unit_selected(unit_id: String) -> void:
 	print("GrenadeTargetDialog: Selected grenade unit: %s" % unit_id)
 
 	# Get eligible targets within 8" of this unit
-	var board = GameState.create_snapshot()
+	var board = GameState.create_snapshot(false)
 	eligible_targets = RulesEngine.get_grenade_eligible_targets(unit_id, board)
 
 	if eligible_targets.is_empty():

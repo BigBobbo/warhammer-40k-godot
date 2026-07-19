@@ -12,7 +12,22 @@ var current_session_id: String = ""
 var action_sequence: int = 0
 var session_actions: Array = []
 var auto_save_enabled: bool = true
-var max_memory_actions: int = 1000  # Limit memory usage
+var max_memory_actions: int = 500 if OS.has_feature("web") else 1000  # Limit memory usage
+
+# MEM-8: on web, user:// is RAM-backed — skip the per-action audit file there
+# (the in-memory session_actions ring is unaffected).
+var _file_logging_allowed: bool = not OS.has_feature("web")
+# MEM-8: hard byte cap for the session audit file; once reached we stop
+# appending (logged once) rather than growing without bound.
+const MAX_SESSION_FILE_BYTES: int = 10 * 1024 * 1024
+var _session_file_bytes: int = 0
+var _session_file_cap_reported: bool = false
+
+# MEM-8: heavy per-action payloads stripped before retention. Diffs are action
+# OUTPUTS (recomputed on replay; ReplayManager keeps its own copy for replay
+# files) and the _ai_* keys are decision metadata — neither is needed for the
+# deterministic replay bundle, and both made every retained action several KB.
+const _ACTION_STRIP_KEYS := ["_replay_diffs", "_ai_thinking_steps", "_ai_decision_records", "_ai_thinking_context"]
 
 func _ready() -> void:
 	_initialize_session()
@@ -50,9 +65,10 @@ func _generate_session_id() -> String:
 # Main logging interface
 func log_action(action: Dictionary) -> void:
 	# ISS-021: capture the pre-game baseline lazily, before the first action
-	# mutates anything beyond it.
+	# mutates anything beyond it. MEM-2: gameplay snapshot — the bundle replays
+	# the action stream forward, it never reads state.history.
 	if initial_snapshot.is_empty() and GameState != null:
-		initial_snapshot = GameState.create_snapshot()
+		initial_snapshot = GameState.create_snapshot(false)
 	var enriched_action = _enrich_action(action)
 	
 	# Add to memory
@@ -89,7 +105,12 @@ func log_action_batch(actions: Array) -> void:
 	emit_signal("action_batch_logged", enriched_actions)
 
 func _enrich_action(action: Dictionary) -> Dictionary:
-	var enriched = action.duplicate(true)
+	# MEM-8: strip heavy metadata via a shallow copy first, THEN deep-copy what
+	# remains — avoids deep-duplicating multi-KB diff/AI payloads per action.
+	var slim = action.duplicate()
+	for k in _ACTION_STRIP_KEYS:
+		slim.erase(k)
+	var enriched = slim.duplicate(true)
 	
 	# Add logging metadata
 	enriched["_log_metadata"] = {
@@ -116,23 +137,36 @@ func _capture_game_context() -> Dictionary:
 	}
 
 # File operations
+# MEM-8: the old implementation opened with FileAccess.WRITE, which TRUNCATES —
+# seek_end() was a no-op at position 0, so the "append log" only ever held the
+# last action. Real append = READ_WRITE on an existing file + seek_end. Writes
+# are skipped on web (RAM-backed FS) and stop at MAX_SESSION_FILE_BYTES.
 func _append_to_file(action: Dictionary) -> void:
-	var file = FileAccess.open(log_file_path, FileAccess.WRITE)
-	if file:
-		file.seek_end()
-		var json_string = JSON.stringify(action)
-		file.store_line(json_string)
-		file.close()
-	else:
-		push_error("ActionLogger: Failed to open log file for writing: " + log_file_path)
+	_append_lines_to_file([JSON.stringify(action)])
 
 func _append_batch_to_file(actions: Array) -> void:
-	var file = FileAccess.open(log_file_path, FileAccess.WRITE)
+	var lines: Array = []
+	for action in actions:
+		lines.append(JSON.stringify(action))
+	_append_lines_to_file(lines)
+
+func _append_lines_to_file(lines: Array) -> void:
+	if not _file_logging_allowed:
+		return
+	if _session_file_bytes > MAX_SESSION_FILE_BYTES:
+		if not _session_file_cap_reported:
+			_session_file_cap_reported = true
+			print("ActionLogger: session file cap reached (%d bytes) — further actions kept in memory only" % MAX_SESSION_FILE_BYTES)
+		return
+	var file_exists = FileAccess.file_exists(log_file_path)
+	var mode = FileAccess.READ_WRITE if file_exists else FileAccess.WRITE
+	var file = FileAccess.open(log_file_path, mode)
 	if file:
-		file.seek_end()
-		for action in actions:
-			var json_string = JSON.stringify(action)
-			file.store_line(json_string)
+		if file_exists:
+			file.seek_end()
+		for line in lines:
+			file.store_line(line)
+		_session_file_bytes = file.get_length()
 		file.close()
 	else:
 		push_error("ActionLogger: Failed to open log file for writing: " + log_file_path)
@@ -256,7 +290,7 @@ func create_replay_data() -> Dictionary:
 			"session_id": current_session_id,
 			"created_at": Time.get_unix_time_from_system(),
 			"total_actions": session_actions.size(),
-			"initial_state": GameState.create_snapshot()
+			"initial_state": GameState.create_snapshot(false)
 		},
 		"actions": session_actions.duplicate()
 	}
@@ -395,4 +429,4 @@ static func replay_hash(state: Dictionary) -> int:
 func reset_session_baseline() -> void:
 	session_actions.clear()
 	action_sequence = 0
-	initial_snapshot = GameState.create_snapshot()
+	initial_snapshot = GameState.create_snapshot(false)

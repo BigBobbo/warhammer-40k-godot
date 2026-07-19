@@ -9,6 +9,41 @@
   ],
   "tiles": [
     {
+      "id": "autoloads.ReplayManager.memops",
+      "description": "ReplayManager's recording stays bounded during a long AI-vs-AI game: phase-transition snapshots use the history-free gameplay snapshot and are capped (oldest non-initial snapshots dropped); recorded action events carry no _replay_diffs/_ai_* payloads (diffs are stored once, separately).",
+      "scenarios": ["memops_ai_vs_ai_bounded"],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.GameState.memops",
+      "description": "GameState.state[\"history\"] stays capped during a long AI-vs-AI game, and phase_log/history actions are stored without their _replay_diffs/_ai_* payloads.",
+      "scenarios": ["memops_ai_vs_ai_bounded"],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.AIPlayer.memops",
+      "description": "AIPlayer's whole-game accumulators (_all_decision_records, _action_log) stay within their bounded caps during a long AI-vs-AI game.",
+      "scenarios": ["memops_ai_vs_ai_bounded"],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.GameEventLog.memops",
+      "description": "GameEventLog.entries stays within its bounded cap during a long AI-vs-AI game.",
+      "scenarios": ["memops_ai_vs_ai_bounded"],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.ActionLogger.memops",
+      "description": "ActionLogger.session_actions stays within its bounded cap, and retained actions carry no _replay_diffs/_ai_decision_records payloads, during a long AI-vs-AI game.",
+      "scenarios": ["memops_ai_vs_ai_bounded"],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "scripts.ChargeController.attached_character_drag",
       "description": "During a Charge move the attached CHARACTER of a charging unit (e.g. a Blade Champion leading Custodian Guard) is draggable like its squadmates. ChargeController keys all movement bookkeeping by a charge key (bare model id for the bodyguard, '<char_unit>:<model>' for character models) and hit-tests in board space against each model's real base radius, nearest-wins.",
       "scenarios": [

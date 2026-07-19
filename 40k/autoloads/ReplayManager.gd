@@ -88,6 +88,23 @@ const PHASE_NAMES = {
 const REPLAY_VERSION = "1.0.0"
 const REPLAY_DIR = "user://replays/"
 
+# MEM-3: bound the in-memory recording snapshots. Snapshot 0 (the initial
+# state) is always kept so any position can be rebuilt by replaying diffs;
+# later snapshots are just seek-acceleration points, so dropping the oldest
+# non-initial ones only makes deep backward seeks slower, never wrong
+# (_find_recording_snapshot_index_at_or_before falls back toward snapshot 0).
+# Web builds keep fewer because the WASM heap never shrinks.
+var _max_recording_snapshots: int = 8 if OS.has_feature("web") else 24
+
+# MEM-3: heavy per-action metadata stripped from recorded events. The diffs are
+# already stored separately on the event ("diffs"), and the _ai_* payloads
+# (candidate scorings, thinking steps) were making every AI action's event
+# several KB — they are never read back during playback.
+const _EVENT_STRIP_KEYS := ["_replay_diffs", "_ai_thinking_steps", "_ai_decision_records", "_ai_thinking_context"]
+
+# MEM-3: cap replay files kept on disk (user:// is RAM-backed on web).
+var _max_replay_files: int = 5 if OS.has_feature("web") else 10
+
 # Cached reference to PhaseManager (get_node_or_null fails in web exports)
 var _phase_manager_ref: Node = null
 
@@ -153,8 +170,9 @@ func start_recording(persist_flag: bool = false) -> void:
 	_recording_snapshots.clear()
 	_recording_event_index = 0
 
-	# Capture initial state
-	_recording_initial_state = GameState.create_snapshot()
+	# Capture initial state. MEM-2/MEM-3: gameplay snapshot (no history/phase_log)
+	# — the replay's own event list IS the history.
+	_recording_initial_state = GameState.create_snapshot(false)
 
 	# Capture metadata
 	var game_config = GameState.state.get("meta", {}).get("game_config", {})
@@ -170,10 +188,13 @@ func start_recording(persist_flag: bool = false) -> void:
 		"player2_faction": GameState.get_faction_name(2),
 	}
 
-	# Take initial snapshot at event index 0
+	# Take initial snapshot at event index 0.
+	# MEM-3: share the initial-state dict instead of duplicating it — every
+	# consumer (_restore_to_position, build_recorded_state_at, the incremental
+	# save) either deep-copies before mutating or only serializes it.
 	_recording_snapshots.append({
 		"event_index": -1,
-		"state": _recording_initial_state.duplicate(true)
+		"state": _recording_initial_state
 	})
 
 	# Build a stable file path based on game_id so per-turn saves overwrite the same file
@@ -284,12 +305,18 @@ func _record_action_event(action_type: String, action_data: Dictionary, diffs: A
 	if action_type in FILTERED_ACTIONS:
 		return
 
-	# Build the replay event
+	# Build the replay event.
+	# MEM-3: slim the stored action — the diffs live in event["diffs"] and the
+	# _ai_* metadata is never used by playback; without this every AI action was
+	# retained (and re-serialized each turn) with its full thinking payload twice.
+	var slim_action = action_data.duplicate()  # shallow; nested payloads shared with the copy below
+	for k in _EVENT_STRIP_KEYS:
+		slim_action.erase(k)
 	var event = {
 		"index": _recording_event_index,
 		"type": "action",
 		"action_type": action_type,
-		"action_data": action_data.duplicate(true),
+		"action_data": slim_action.duplicate(true),
 		"diffs": diffs.duplicate(true),
 		"timestamp": Time.get_unix_time_from_system(),
 		"phase": GameState.get_current_phase(),
@@ -335,11 +362,17 @@ func _on_phase_changed_for_recording(new_phase: GameStateData.Phase) -> void:
 
 	_recording_events.append(event)
 
-	# Take a snapshot at every phase transition for backward navigation
+	# Take a snapshot at every phase transition for backward navigation.
+	# MEM-2/MEM-3: gameplay snapshot (no history/phase_log — those grew every
+	# phase, so snapshot N used to embed all actions of phases 1..N: quadratic
+	# memory over a game, the main itch.io OOM driver).
 	_recording_snapshots.append({
 		"event_index": _recording_event_index,
-		"state": GameState.create_snapshot()
+		"state": GameState.create_snapshot(false)
 	})
+	# MEM-3: keep the initial snapshot plus the newest N-1 seek points.
+	while _recording_snapshots.size() > _max_recording_snapshots:
+		_recording_snapshots.remove_at(1)
 
 	_recording_event_index += 1
 
@@ -368,6 +401,13 @@ func save_replay_incremental() -> void:
 
 	# Human games record in memory only (no per-turn replay files on disk).
 	if not persist_to_disk:
+		return
+
+	# MEM-3: on web, user:// is a RAM-backed filesystem and JSON.stringify of the
+	# whole recording is a multi-MB transient string that grows every turn — both
+	# ratcheted the WASM heap until the browser killed the tab. Web builds write
+	# the replay once, at stop_recording (game end / return to menu).
+	if OS.has_feature("web"):
 		return
 
 	# Update metadata with current state (but keep status as in_progress)
@@ -505,12 +545,41 @@ func _save_replay_to_file() -> String:
 		file.close()
 		print("ReplayManager: Saved replay to %s" % file_path)
 		DebugLogger.info("ReplayManager: Saved replay", {"path": file_path, "events": _recording_events.size()})
+		_prune_old_replays()
 		return file_path
 	else:
 		var error = "Failed to save replay to: " + file_path
 		push_error("ReplayManager: " + error)
 		DebugLogger.error("ReplayManager: " + error, {})
 		return ""
+
+# MEM-3: replay files were never auto-pruned — on web every AI-vs-AI game left
+# a multi-MB file in the RAM-backed user:// filesystem (persisted to IndexedDB
+# and mounted back into memory on every later visit). Keep the newest N.
+func _prune_old_replays() -> void:
+	var dir = DirAccess.open(REPLAY_DIR)
+	if dir == null:
+		return
+	var files: Array = []
+	dir.list_dir_begin()
+	var fname = dir.get_next()
+	while fname != "":
+		if not dir.current_is_dir() and fname.ends_with(".json"):
+			files.append({
+				"name": fname,
+				"mtime": FileAccess.get_modified_time(REPLAY_DIR + fname)
+			})
+		fname = dir.get_next()
+	dir.list_dir_end()
+	if files.size() <= _max_replay_files:
+		return
+	files.sort_custom(func(a, b): return a["mtime"] > b["mtime"])  # newest first
+	for i in range(_max_replay_files, files.size()):
+		var doomed: String = files[i]["name"]
+		if dir.remove(doomed) == OK:
+			print("ReplayManager: Pruned old replay %s" % doomed)
+		else:
+			DebugLogger.warn("ReplayManager: Failed to prune replay", {"file": doomed})
 
 func _generate_replay_id() -> String:
 	return "%08x-%04x-%04x" % [randi(), randi() & 0xFFFF, randi() & 0xFFFF]

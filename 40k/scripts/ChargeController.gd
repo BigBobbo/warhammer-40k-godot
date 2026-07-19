@@ -1222,7 +1222,7 @@ func _refresh_ui() -> void:
 func _can_unit_charge(unit: Dictionary) -> bool:
 	# Use RulesEngine to check if unit can charge
 	var unit_id = unit.get("id", "")
-	var board = GameState.create_snapshot()
+	var board = GameState.create_snapshot(false)
 	return RulesEngine.eligible_to_charge(unit_id, board)
 
 func get_displayed_charge_unit_ids() -> Array:
@@ -1244,7 +1244,7 @@ func _filter_units_with_charge_targets(unit_ids: Array) -> Array:
 	# display-only refinement; the phase's own eligibility (used by AI / phase
 	# logic) is unchanged.
 	var result: Array = []
-	var board = GameState.create_snapshot()
+	var board = GameState.create_snapshot(false)
 	for unit_id in unit_ids:
 		if not RulesEngine.charge_targets_within_12(unit_id, board).is_empty():
 			result.append(unit_id)
@@ -1346,7 +1346,7 @@ func _on_unit_selected(index: int) -> void:
 			skip_button.disabled = false  # Can always skip once a unit is selected
 		
 		# Get eligible targets for this unit
-		var board = GameState.create_snapshot()
+		var board = GameState.create_snapshot(false)
 		eligible_targets = RulesEngine.charge_targets_within_12(active_unit_id, board)
 		
 		print("Found ", eligible_targets.size(), " eligible targets for unit ", active_unit_id)
