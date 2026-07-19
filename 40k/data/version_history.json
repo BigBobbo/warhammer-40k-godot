@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.60.1",
+			"date": "2026-07-19",
+			"summary": "AI armies no longer stack models on top of each other. Reinforcements arriving from Strategic Reserves / Deep Strike (the main offender in AI vs AI games — e.g. Warbikers landing on a corner Battlewagon and on themselves) are now rejected if any base would overlap, and the AI picks a clear spot instead. Battlewagons also get their real 180mm hull footprint instead of a 32mm round base.",
+			"changes": [
+				"Fixed: models arriving from reserves (including Rapid Ingress) could be set up overlapping models already on the board, overlapping each other, or on top of walls — the 11th-edition ingress check only enforced distances. The engine now rejects any such set-up.",
+				"Fixed: when the AI could not find room for an arriving unit near its chosen spot, it placed the models anyway (trusting a rejection that never came) — it now tries other arrival spots along the board edges and keeps the unit in reserves for the turn if nowhere fits.",
+				"Fixed: the AI's collision check approximated oval and rectangular bases as circles, letting Warbikers (and other non-circular bases) be placed genuinely overlapping; arrival formations are now verified with the exact base shapes before being submitted.",
+				"Fixed: Battlewagons in the shipped Ork army lists had no base shape data and collided (and drew) as tiny 32mm circles — they now use their real 180x100mm rectangular footprint, so nothing can be placed 'inside' the wagon."
+			]
+		},
+		{
 			"version": "0.60.0",
 			"date": "2026-07-18",
 			"summary": "You can now see who is riding inside a transport at a glance: right-click a vehicle that has units embarked and the context menu now has an 'Embarked Units' section listing every passenger and its model count. Click a passenger to open its stats card.",
