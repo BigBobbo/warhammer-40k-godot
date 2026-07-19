@@ -1,0 +1,84 @@
+{
+  "id": "pad_m4_move_action_menu",
+  "covers": [
+    "controller.m4.move_action_menu",
+    "controller.m4.action_bar"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "M4 move-mode action menu: pressing A on a bumper-cycled unit opens the PadActionBar (Move / Advance / Stay Still) instead of silently starting a Normal Move. D-pad moves the highlight, B cancels, A confirms. Choosing Stay Still resolves the unit (remained_stationary flag set, selection cleared); choosing Move flows straight into the model carry; cancelling the carry before any drop reopens the menu so the mode can still be changed.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) != \"\"", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"first\", str(main.movement_controller.active_unit_id))" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
+    { "act": "screenshot", "label": "01_menu_open" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "ADVANCE" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": false },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "REMAIN_STATIONARY" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": false },
+    { "act": "execute_script", "script": "GameState.state.units[InputDeviceManager.get_meta(\"first\")].flags.get(\"remained_stationary\", false)", "equals": true },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "" },
+    { "act": "screenshot", "label": "02_stationary_chosen" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) != \"\" and str(main.movement_controller.active_unit_id) != str(InputDeviceManager.get_meta(\"first\"))", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "screenshot", "label": "03_menu_second_unit" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": false },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "screenshot", "label": "04_auto_carry_after_move" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": false },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "screenshot", "label": "05_menu_reopens_after_carry_cancel" },
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": false }
+  ]
+}
