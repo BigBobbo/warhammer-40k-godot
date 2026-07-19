@@ -2164,8 +2164,12 @@ func _show_mathhammer_predictions() -> void:
 		# Build mathhammer simulation config
 		# Issue #329: route through RNGService so RNGService.test_mode_seed applies for deterministic UI snapshots
 		var _mh_rng = RulesEngine.make_rng()
+		# MEM-12: fewer trials on web — this runs per declared attack, and the
+		# per-trial allocations ratchet the WASM heap. 200 trials keeps the
+		# one-line "~X wounds, Y% kill" estimate stable enough for the UI.
+		var _mh_trials = 200 if OS.has_feature("web") else 1000
 		var config = {
-			"trials": 1000,  # Reduced for real-time predictions
+			"trials": _mh_trials,  # Reduced for real-time predictions
 			"attackers": [attacker_config],
 			"defender": {"unit_id": target_id},
 			"rule_toggles": rule_toggles,

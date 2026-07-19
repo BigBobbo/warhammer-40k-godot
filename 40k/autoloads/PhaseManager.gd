@@ -184,10 +184,14 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 		else:
 			print("[PhaseManager] WARNING: No action_taken signal")
 		
-		# Enter the new phase
-		var snapshot = GameState.create_snapshot()
-		print("[PhaseManager] Creating snapshot for phase ", new_phase)
-		print("[PhaseManager] Snapshot has ", snapshot.get("units", {}).size(), " units")
+		# Enter the new phase.
+		# MEM-2: phases read LIVE state (BasePhase.game_state_snapshot is a
+		# property view over GameState.state and its setter is a no-op — ISS-024),
+		# so the full deep-copy snapshot formerly built here was discarded
+		# immediately. Pass the live state reference instead.
+		var snapshot = GameState.state
+		print("[PhaseManager] Entering phase ", new_phase, " (live-state view, ISS-024)")
+		print("[PhaseManager] State has ", snapshot.get("units", {}).size(), " units")
 		if snapshot.has("units") and snapshot.units.size() > 0:
 			print("[PhaseManager] Unit IDs: ", snapshot.units.keys())
 

@@ -5424,7 +5424,7 @@ func _show_er_overlay(unit_id: String) -> void:
 		return
 	var active_unit = GameState.get_unit(unit_id)
 	var owner = int(active_unit.get("owner", 0))
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	for uid in snapshot.get("units", {}):
 		var u = snapshot.units[uid]
 		if int(u.get("owner", 0)) == owner:

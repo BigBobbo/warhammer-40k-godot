@@ -162,6 +162,11 @@ func _exit_tree() -> void:
 		damage_feedback.queue_free()
 		damage_feedback = null
 
+	# MEM-13: pile-in/consolidate visuals were only freed on success/cancel —
+	# if the Fight phase ended while a pile-in drag was open they leaked under
+	# BoardView permanently.
+	_clear_pile_in_visuals()
+
 	# Right panel cleanup
 	var container = SceneRefs.hud_right_vbox()
 	if container and is_instance_valid(container):
@@ -3174,7 +3179,7 @@ func _maybe_snap_to_b2b(candidate_pos: Vector2) -> Vector2:
 	var snap_zone_px: float = Measurement.inches_to_px(PILEIN_SNAP_ZONE_INCHES)
 	var best_candidate: Vector2 = Vector2.ZERO
 	var best_excess: float = INF
-	var snapshot = GameState.create_snapshot() if GameState else {}
+	var snapshot = GameState.create_snapshot(false) if GameState else {}
 	for uid in snapshot.get("units", {}):
 		var u = snapshot.units[uid]
 		if int(u.get("owner", 0)) == owner:

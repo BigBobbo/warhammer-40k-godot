@@ -26,6 +26,14 @@ var _enabled := true
 
 
 func _ready() -> void:
+	# MEM-13: browsers have no TCP listener support — on web exports the server
+	# could never work, but the autoload still allocated and polled. Disable it
+	# outright there.
+	if OS.has_feature("web"):
+		_enabled = false
+		set_process(false)
+		print("[GodotMCP] Disabled on web export (no TCP support)")
+		return
 	if OS.has_feature("editor") == false and OS.get_environment("GODOT_MCP_DISABLED") == "1":
 		_enabled = false
 		print("[GodotMCP] Disabled via GODOT_MCP_DISABLED=1")

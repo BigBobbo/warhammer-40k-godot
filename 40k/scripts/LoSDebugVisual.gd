@@ -350,7 +350,7 @@ func _overview_state_signature() -> int:
 func _rebuild_overview() -> void:
 	overview_lines.clear()
 	_overview_sig = _overview_state_signature()
-	var board = GameState.create_snapshot()
+	var board = GameState.create_snapshot(false)
 	var units: Dictionary = board.get("units", {})
 
 	var sources: Array = []
@@ -469,7 +469,7 @@ func test_los_between_units(shooter_id: String, target_id: String) -> void:
 		return
 	
 	# Check and visualize
-	var board = GameState.create_snapshot()
+	var board = GameState.create_snapshot(false)
 	var result = check_and_visualize_los(shooter_pos, target_pos, board)
 	
 	print("[LoSDebugVisual] LoS from %s to %s: %s" % [
@@ -862,7 +862,7 @@ func test_enhanced_los_between_models(shooter_unit_id: String, shooter_model_id:
 		return
 	
 	# Visualize enhanced LoS
-	var board = GameState.create_snapshot()
+	var board = GameState.create_snapshot(false)
 	visualize_enhanced_los(shooter_model, target_model, board)
 	
 	print("[LoSDebugVisual] Enhanced LoS test: %s.%s → %s.%s" % [

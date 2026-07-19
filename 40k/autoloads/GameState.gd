@@ -1246,8 +1246,23 @@ func is_at_half_strength_combined(unit_id: String) -> bool:
 		return false  # combined starting strength odd -> cannot be at half
 	return alive_models * 2 == total_models
 
+# MEM-1: keys stripped from actions before they are stored in phase_log/history.
+# _replay_diffs can be a large array of state diffs (ReplayManager keeps its own
+# copy for replays) and the _ai_* keys carry the AI's full candidate-scoring
+# payloads — none are read back from history, they only bloated every snapshot
+# and save file.
+const _PHASE_LOG_STRIP_KEYS := ["_replay_diffs", "_ai_thinking_steps", "_ai_decision_records", "_ai_thinking_context"]
+
+# MEM-1: history is write-only during a game (only serialized into saves), so it
+# can be safely bounded. Web builds get a tighter cap because the WASM heap
+# never shrinks and every byte of state is multiplied by autosave serialization.
+var _max_history_entries: int = 40 if OS.has_feature("web") else 200
+
 func add_action_to_phase_log(action: Dictionary) -> void:
-	state["phase_log"].append(action)
+	var slim = action.duplicate()  # shallow: nested payloads stay shared
+	for k in _PHASE_LOG_STRIP_KEYS:
+		slim.erase(k)
+	state["phase_log"].append(slim)
 
 func commit_phase_log_to_history() -> void:
 	if state["phase_log"].size() > 0:
@@ -1258,9 +1273,23 @@ func commit_phase_log_to_history() -> void:
 		}
 		state["history"].append(phase_entry)
 		state["phase_log"].clear()
+		# MEM-1: bound the retained history (oldest phases drop first)
+		while state["history"].size() > _max_history_entries:
+			state["history"].pop_front()
 
-# Create a deep copy of the current state
-func create_snapshot() -> Dictionary:
+# Create a deep copy of the current state.
+#
+# MEM-2: include_history=false returns a "gameplay snapshot" — everything the
+# rules/AI/replay-navigation need (units, board, players, meta, terrain, manager
+# state) but WITHOUT the ever-growing history/phase_log arrays, the AI turn
+# history, or the measuring-tape dump, and without any logging. AIPlayer calls
+# this for every single decision (hundreds per AI turn) and ReplayManager for
+# every phase transition; deep-copying the full history each time made snapshot
+# cost grow quadratically over a game and was the main driver of the itch.io
+# (WASM) out-of-memory crashes. Saves keep using the full snapshot.
+func create_snapshot(include_history: bool = true) -> Dictionary:
+	if not include_history:
+		return _create_gameplay_snapshot()
 	# Create base snapshot
 	var snapshot = _deep_copy_dict(state)
 	
@@ -1335,6 +1364,56 @@ func create_snapshot() -> Dictionary:
 	
 	return snapshot
 
+# MEM-2: the light snapshot used by AI decisions and replay phase snapshots.
+# Deep-copies the live state minus the unbounded log arrays; keeps terrain and
+# the (small) manager-state dumps so replay navigation can still restore
+# stratagem/mission/ability locks. No prints — this runs hundreds of times per
+# AI turn.
+func _create_gameplay_snapshot() -> Dictionary:
+	var snapshot = {}
+	for key in state:
+		if key == "history" or key == "phase_log":
+			snapshot[key] = []
+			continue
+		var value = state[key]
+		if value is Dictionary:
+			snapshot[key] = _deep_copy_dict(value)
+		elif value is Array:
+			snapshot[key] = _deep_copy_array(value)
+		else:
+			snapshot[key] = value
+
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if terrain_manager:
+		if terrain_manager.current_layout != "":
+			snapshot.board["terrain_layout"] = terrain_manager.current_layout
+		if terrain_manager.terrain_features.size() > 0:
+			snapshot.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr:
+		var secondary_data = secondary_mgr.get_save_data()
+		if not secondary_data.is_empty():
+			snapshot["secondary_missions"] = secondary_data
+
+	var faction_ability_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_ability_mgr:
+		snapshot["faction_ability_manager"] = faction_ability_mgr.get_state_for_save()
+
+	var stratagem_mgr = get_node_or_null("/root/StratagemManager")
+	if stratagem_mgr and stratagem_mgr.has_method("get_state_for_save"):
+		snapshot["stratagem_manager"] = stratagem_mgr.get_state_for_save()
+
+	var mission_mgr = get_node_or_null("/root/MissionManager")
+	if mission_mgr and mission_mgr.has_method("get_state_for_save"):
+		snapshot["mission_manager"] = mission_mgr.get_state_for_save()
+
+	var unit_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if unit_ability_mgr and unit_ability_mgr.has_method("get_state_for_save"):
+		snapshot["unit_ability_manager"] = unit_ability_mgr.get_state_for_save()
+
+	return snapshot
+
 func _deep_copy_dict(dict: Dictionary) -> Dictionary:
 	var copy = {}
 	for key in dict:
@@ -1405,6 +1484,25 @@ func _restore_terrain_types(terrain_features: Array) -> Array:
 # Load state from a snapshot
 func load_from_snapshot(snapshot: Dictionary) -> void:
 	state = _deep_copy_dict(snapshot)
+
+	# MEM-1: saves written before the memory fixes carry history actions with
+	# their full _replay_diffs / _ai_* payloads baked in — the very bloat the
+	# slimmed phase log now prevents. Sanitize once on load so legacy saves
+	# shed it too (and the trimmed cap applies going forward).
+	if state.has("history") and state["history"] is Array:
+		for phase_entry in state["history"]:
+			if phase_entry is Dictionary and phase_entry.get("actions", null) is Array:
+				for a in phase_entry["actions"]:
+					if a is Dictionary:
+						for k in _PHASE_LOG_STRIP_KEYS:
+							a.erase(k)
+		while state["history"].size() > _max_history_entries:
+			state["history"].pop_front()
+	if state.has("phase_log") and state["phase_log"] is Array:
+		for a in state["phase_log"]:
+			if a is Dictionary:
+				for k in _PHASE_LOG_STRIP_KEYS:
+					a.erase(k)
 
 	# SAVE/LOAD FIX: Ensure formation metadata exists for backwards compatibility with old saves.
 	# If the saved phase is past FORMATIONS and formation flags are missing, infer they were completed.

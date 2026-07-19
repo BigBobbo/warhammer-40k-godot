@@ -22,6 +22,17 @@ var _processing_turn: bool = false  # Guard against re-entrant calls
 var _action_log: Array = []  # Log of AI actions for summary display
 var _turn_history: Array = []  # T7-56: Per-turn action history [{round, player, phase_range, actions}]
 var _turn_start_log_index: int = 0  # T7-56: Index into _action_log where current thinking sequence started
+# MEM-4: bounds for the whole-game AI logs (oldest entries drop first).
+var _max_action_log_entries: int = 300 if OS.has_feature("web") else 2000
+var _max_turn_history_entries: int = 30 if OS.has_feature("web") else 200
+
+# MEM-4: bounded append for _action_log; keeps _turn_start_log_index pointing
+# at the same logical entry when the front is trimmed.
+func _append_action_log(entry: Dictionary) -> void:
+	_action_log.push_back(entry)
+	while _action_log.size() > _max_action_log_entries:
+		_action_log.pop_front()
+		_turn_start_log_index = max(0, _turn_start_log_index - 1)
 var _current_phase_actions: int = 0  # Safety counter per phase
 const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
 var _failed_deploy_unit_ids: Array = []  # Units that failed both deployment and reserves — skip to avoid infinite loop
@@ -220,10 +231,11 @@ func _end_ai_thinking() -> void:
 		_ai_thinking = false
 		_step_by_step_paused = false  # T7-36: Clear step-by-step pause when thinking ends
 		var active_player = GameState.get_active_player()
-		var actions_snapshot = _action_log.duplicate()
-		emit_signal("ai_turn_ended", active_player, actions_snapshot)
-		# T7-56: Store only this turn's actions (slice from start index to end)
+		# T7-56/MEM-4: emit only this thinking sequence's actions. Duplicating the
+		# whole-game _action_log here (every phase change) was O(n^2) churn over a
+		# game, and made the "turn summary" panel tally the entire game.
 		var turn_actions = _action_log.slice(_turn_start_log_index)
+		emit_signal("ai_turn_ended", active_player, turn_actions.duplicate())
 		_store_turn_history(active_player, turn_actions)
 		print("AIPlayer: AI thinking ended for player %d" % active_player)
 
@@ -237,6 +249,10 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 	ai_difficulty.clear()
 	_action_log.clear()
 	_turn_history.clear()  # T7-56: Reset turn history on reconfigure
+	_all_decision_records.clear()  # MEM-4: was never cleared — leaked across games
+	_decision_records_dropped = 0
+	_decision_batches_total = 0
+	_turn_start_log_index = 0
 	_current_phase_actions = 0
 	# P2-92: Reset all transient runtime state on reconfigure
 	_failed_deploy_unit_ids.clear()
@@ -683,7 +699,7 @@ func request_suggestion() -> Dictionary:
 		if sel > 0:
 			player = sel
 
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var available = phase_manager.get_available_actions()
 	if available.is_empty():
 		_log_ai_thinking(player, "No actions available to suggest right now.")
@@ -734,6 +750,10 @@ func _store_turn_history(player: int, actions: Array) -> void:
 		"actions": actions.duplicate(true),
 	}
 	_turn_history.append(entry)
+	# MEM-4: bounded — turn history rides inside every save file (SAVE-7), so an
+	# unbounded array inflated each autosave serialization as the game went on.
+	while _turn_history.size() > _max_turn_history_entries:
+		_turn_history.pop_front()
 	emit_signal("turn_history_updated")
 	print("AIPlayer: T7-56 Stored turn history entry #%d (round %d, player %d, %d actions)" % [
 		_turn_history.size(), entry.battle_round, player, actions.size()])
@@ -966,7 +986,7 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 		_submit_reactive_action(defending_player, decline)
 		return
 
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var decision = AIDecisionMaker.evaluate_reactive_stratagem(
 		defending_player, available_stratagems, target_unit_ids, snapshot
 	)
@@ -1051,7 +1071,7 @@ func _on_movement_fire_overwatch_opportunity(defending_player: int, eligible_uni
 		_submit_reactive_action(defending_player, decline)
 		return
 
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var decision = AIDecisionMaker.evaluate_fire_overwatch(
 		defending_player, eligible_units, enemy_unit_id, snapshot
 	)
@@ -1085,7 +1105,7 @@ func _on_movement_rapid_ingress_opportunity(defending_player: int, eligible_unit
 		_submit_reactive_action(defending_player, decline)
 		return
 
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var decision = AIDecisionMaker.evaluate_rapid_ingress(defending_player, eligible_units, snapshot)
 	_flush_reactive_thinking(defending_player, "Rapid Ingress window (end of enemy movement)")
 
@@ -1116,7 +1136,7 @@ func _execute_rapid_ingress_sequence(player: int, use_action: Dictionary, placem
 
 	# Step 1: USE_RAPID_INGRESS (select the unit and spend CP)
 	var use_description = use_action.get("_ai_description", "AI uses Rapid Ingress")
-	_action_log.append({
+	_append_action_log({
 		"phase": GameState.get_current_phase(),
 		"action_type": use_action.get("type", ""),
 		"description": use_description,
@@ -1157,7 +1177,7 @@ func _execute_rapid_ingress_sequence(player: int, use_action: Dictionary, placem
 	# Step 2: PLACE_RAPID_INGRESS_REINFORCEMENT (place the unit on the board)
 	placement_action["player"] = player
 	var place_description = placement_action.get("_ai_description", "Rapid Ingress placement")
-	_action_log.append({
+	_append_action_log({
 		"phase": GameState.get_current_phase(),
 		"action_type": placement_action.get("type", ""),
 		"description": place_description,
@@ -1281,7 +1301,7 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 		_submit_reactive_action(player, decline)
 		return
 
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var decision = AIDecisionMaker.evaluate_counter_offensive(player, eligible_units, snapshot)
 	_flush_reactive_thinking(player, "Counteroffensive window (enemy just fought)")
 
@@ -1301,7 +1321,7 @@ func _on_epic_challenge_opportunity(unit_id: String, player: int) -> void:
 		return
 
 	var unit_name = _get_unit_name(unit_id)
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var decision = AIDecisionMaker.evaluate_epic_challenge(player, unit_id, snapshot)
 	_flush_reactive_thinking(player, "Epic Challenge window (%s selected to fight)" % unit_name)
 	if decision.is_empty():
@@ -1366,7 +1386,7 @@ func _on_katah_stance_required(unit_id: String, player: int) -> void:
 	if ability_mgr and ability_mgr.has_method("has_master_of_the_stances"):
 		master_available = ability_mgr.has_master_of_the_stances(unit_id)
 
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var decision = AIDecisionMaker.evaluate_katah_stance(player, unit_id, snapshot, master_available)
 	_flush_reactive_thinking(player, "Ka'tah stance (%s activating)" % _get_unit_name(unit_id))
 	decision["player"] = player
@@ -1395,7 +1415,7 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		_submit_reactive_action(player, decline)
 		return
 
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var should_reroll = false
 
 	var roll_type = roll_context.get("roll_type", "")
@@ -1485,7 +1505,7 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 
 	if actual_differs:
 		print("AIPlayer: Advance actual cap %.1f\" differs from estimate %.1f\" — recomputing destinations for %s" % [actual_move_cap, estimated_move, unit_id])
-		var snapshot = GameState.create_snapshot()
+		var snapshot = GameState.create_snapshot(false)
 		var enemies = _get_enemies_for_recompute(player, snapshot)
 		var objectives = snapshot.get("board", {}).get("objectives", [])
 
@@ -1583,7 +1603,7 @@ func _execute_reactive_action_deferred(player: int, decision: Dictionary) -> voi
 		return
 
 	var description = decision.get("_ai_description", str(decision.get("type", "unknown")))
-	_action_log.append({
+	_append_action_log({
 		"phase": GameState.get_current_phase(),
 		"action_type": decision.get("type", ""),
 		"description": description,
@@ -1782,7 +1802,7 @@ func _evaluate_and_act() -> void:
 
 func _execute_next_action(player: int) -> void:
 	var phase = GameState.get_current_phase()
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 
 	# Get available actions from phase
 	var phase_manager = get_node("/root/PhaseManager")
@@ -1902,13 +1922,21 @@ func _execute_next_action(player: int) -> void:
 			"thinking_steps": decision.get("_ai_thinking_steps", []),
 			"actions": [{"type": decision.get("type", ""), "description": decision.get("_ai_description", "")}],
 		})
+		_decision_batches_total += 1
+		# MEM-4: bound retained batches (oldest drop first)
+		while _all_decision_records.size() > _max_decision_record_batches:
+			_all_decision_records.pop_front()
+			_decision_records_dropped += 1
 		# Auto-save decision log every 50 decision batches for mid-game access
-		if _all_decision_records.size() % 50 == 0:
-			export_decision_log()
+		# (refreshes only the 'latest' file — no timestamped copy per export).
+		# Uses the monotonic total, not size(): once the cap pins size, a
+		# size-based check would fire on every append.
+		if _decision_batches_total % 50 == 0:
+			export_decision_log(false)
 
 	# Log for summary
 	var description = decision.get("_ai_description", str(decision.get("type", "unknown")))
-	_action_log.append({
+	_append_action_log({
 		"phase": phase,
 		"action_type": decision.get("type", ""),
 		"description": description,
@@ -2274,7 +2302,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 		if rebegin == null or not rebegin.get("success", false):
 			break
 
-		var snapshot = GameState.create_snapshot()
+		var snapshot = GameState.create_snapshot(false)
 		var enemies = _get_enemies_for_recompute(player, snapshot)
 		var parsed_objectives = AIDecisionMaker._get_objectives(snapshot)
 		# Head toward the AI's originally chosen target (from the pre-scale
@@ -2416,7 +2444,7 @@ func _try_stage_and_confirm(player: int, unit_id: String, destinations: Dictiona
 
 	if confirm_result != null and confirm_result.get("success", false):
 		print("AIPlayer: Confirmed movement for %s (%d models staged)" % [unit_id, staged_count])
-		_action_log.append({
+		_append_action_log({
 			"phase": GameState.get_current_phase(),
 			"action_type": "CONFIRM_UNIT_MOVE",
 			"description": "%s (moved %d models)" % [description, staged_count],
@@ -2504,7 +2532,7 @@ func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
 		if confirm_result != null and confirm_result.get("success", false):
 			print("AIPlayer: Confirmed scout movement for %s (%d/%d models staged)" % [
 				unit_id, staged_count, staged_count + failed_count])
-			_action_log.append({
+			_append_action_log({
 				"phase": GameState.get_current_phase(),
 				"action_type": "CONFIRM_SCOUT_MOVE",
 				"description": "%s (moved %d models)" % [description, staged_count],
@@ -2765,7 +2793,7 @@ func _on_secondary_requires_interaction(player: int, mission_id: String, interac
 				print("AIPlayer: Marked for Death drawn by AI P%d — HUMAN opponent P%d selects via dialog (not auto-resolving)" % [player, opponent])
 				return
 			var required_alpha = details.get("alpha_targets", 3)
-			var snapshot = GameState.create_snapshot()
+			var snapshot = GameState.create_snapshot(false)
 			var units = snapshot.get("units", {})
 			var eligible_units = []
 			for uid in units:
@@ -3171,7 +3199,7 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 	if unit_id == "":
 		return
 
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return
@@ -3259,7 +3287,7 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 		var result = NetworkIntegration.route_action(retry_action)
 		if result != null and result.get("success", false):
 			print("AIPlayer: Deployment retry %d succeeded for %s" % [attempt + 1, unit_name])
-			_action_log.append({
+			_append_action_log({
 				"phase": GameState.get_current_phase(),
 				"action_type": "DEPLOY_UNIT",
 				"description": "Deployed %s (retry %d)" % [unit_name, attempt + 1],
@@ -3292,7 +3320,7 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 
 	if result != null and result.get("success", false):
 		print("AIPlayer: Successfully placed %s in strategic reserves" % unit_name)
-		_action_log.append({
+		_append_action_log({
 			"phase": GameState.get_current_phase(),
 			"action_type": "PLACE_IN_RESERVES",
 			"description": "%s placed in reserves (fallback)" % unit_name,
@@ -3310,7 +3338,7 @@ func _handle_failed_reinforcement(player: int, original_decision: Dictionary) ->
 	if unit_id == "":
 		return
 
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return
@@ -3400,7 +3428,7 @@ func _handle_failed_reinforcement(player: int, original_decision: Dictionary) ->
 		var result = NetworkIntegration.route_action(retry_action)
 		if result != null and result.get("success", false):
 			print("AIPlayer: Reinforcement retry %d succeeded for %s" % [attempt + 1, unit_name])
-			_action_log.append({
+			_append_action_log({
 				"phase": GameState.get_current_phase(),
 				"action_type": "PLACE_REINFORCEMENT",
 				"description": "%s arrives (retry %d)" % [unit_name, attempt + 1],
@@ -3423,9 +3451,24 @@ func _handle_failed_reinforcement(player: int, original_decision: Dictionary) ->
 
 # Accumulated decision records from all AI decisions this game
 var _all_decision_records: Array = []  # Array of {round, phase, player, records: Array}
+# MEM-4: bound the retained decision-record batches. Each batch carries the
+# full candidate-scoring breakdown for one decision, so an unbounded array grew
+# without limit during AI-vs-AI games (and, before the configure() clear, even
+# across games). Oldest batches drop first; the export notes how many dropped.
+var _max_decision_record_batches: int = 100 if OS.has_feature("web") else 500
+var _decision_records_dropped: int = 0
+var _decision_batches_total: int = 0  # monotonic count of batches ever appended this game
 
-func export_decision_log() -> void:
-	"""Export the full AI decision log as JSON for the AI Gameplay Visualizer web app."""
+func export_decision_log(archive: bool = true) -> void:
+	"""Export the full AI decision log as JSON for the AI Gameplay Visualizer web app.
+	archive=true additionally writes a timestamped copy; the periodic mid-game
+	auto-export passes false so it only refreshes the 'latest' file (MEM-4: the
+	old behavior wrote a NEW ever-larger timestamped file every 50 decisions)."""
+	# MEM-4: on web, user:// files live in browser RAM (MEMFS + IndexedDB) and
+	# each export re-serializes the whole cumulative log — skip file exports
+	# there. The visualizer is a desktop-side tool reading files from disk.
+	if OS.has_feature("web"):
+		return
 	var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
 
 	# Build game metadata
@@ -3498,25 +3541,31 @@ func export_decision_log() -> void:
 		"action_log": _action_log.duplicate(true),
 		"turn_history": _turn_history.duplicate(true),
 	}
-
-	# Write to user:// directory
-	var filename = "ai_decision_log_%s.json" % timestamp
-	var path = "user://%s" % filename
-	var file = FileAccess.open(path, FileAccess.WRITE)
-	if file == null:
-		push_error("AIPlayer: Failed to open %s for writing" % path)
-		return
+	if _decision_records_dropped > 0:
+		export_data["decision_record_batches_dropped"] = _decision_records_dropped
 
 	var json_string = JSON.stringify(export_data, "\t")
-	file.store_string(json_string)
-	file.close()
 
-	# Also write a "latest" symlink-style copy for easy access
+	# The stable "latest" copy is always refreshed.
 	var latest_path = "user://ai_decision_log.json"
 	var latest_file = FileAccess.open(latest_path, FileAccess.WRITE)
 	if latest_file:
 		latest_file.store_string(json_string)
 		latest_file.close()
+	else:
+		push_error("AIPlayer: Failed to open %s for writing" % latest_path)
+		return
+
+	# Timestamped archive only for explicit/final exports (MEM-4).
+	var path = latest_path
+	if archive:
+		path = "user://ai_decision_log_%s.json" % timestamp
+		var file = FileAccess.open(path, FileAccess.WRITE)
+		if file:
+			file.store_string(json_string)
+			file.close()
+		else:
+			push_error("AIPlayer: Failed to open %s for writing" % path)
 
 	print("AIPlayer: Exported AI decision log to %s (%d rounds, %d action log entries, %d decision record batches)" % [
 		path, rounds_data.size(), _action_log.size(), _all_decision_records.size()])
