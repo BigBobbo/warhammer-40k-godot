@@ -1,0 +1,51 @@
+{
+  "id": "memops_ai_vs_ai_bounded",
+  "covers": ["autoloads.ReplayManager.memops", "autoloads.GameState.memops", "autoloads.AIPlayer.memops", "autoloads.GameEventLog.memops", "autoloads.ActionLogger.memops"],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "description": "MEM (itch.io OOM fix): AI-vs-AI at fastest speed for ~75s of real play. The unbounded accumulators that crashed long browser games must stay bounded and slimmed while the game demonstrably progresses: replay phase snapshots are capped and carry no history, recorded events and phase_log/history actions carry no _replay_diffs/_ai_* payloads, decision-record batches and event-log entries respect their caps. Boundedness must not stall the AI game (forward-progress assert mirrors iss062_ai_11e).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(0)" },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "AIPlayer.enabled", "equals": true },
+    { "act": "screenshot", "label": "01_memops_ai_vs_ai_started" },
+
+    { "act": "wait_seconds", "seconds": 75.0 },
+    { "act": "screenshot", "label": "02_memops_ai_midgame" },
+    { "act": "execute_script",
+      "script": "GameState.get_battle_round() * 100 + GameState.get_current_phase()",
+      "expect_min": 101 },
+
+    { "act": "execute_script", "script": "ReplayManager._recording_events.size()", "expect_min": 20 },
+    { "act": "execute_script", "script": "ReplayManager._recording_snapshots.size()", "expect_min": 2 },
+    { "act": "execute_script", "script": "ReplayManager._recording_snapshots.size()", "expect_max": 24 },
+    { "act": "execute_script", "script": "GameState.state[\"history\"].size()", "expect_max": 200 },
+    { "act": "execute_script", "script": "AIPlayer._all_decision_records.size()", "expect_max": 500 },
+    { "act": "execute_script", "script": "AIPlayer._action_log.size()", "expect_max": 2000 },
+    { "act": "execute_script", "script": "GameEventLog.entries.size()", "expect_max": 3000 },
+    { "act": "execute_script", "script": "ActionLogger.session_actions.size()", "expect_max": 1000 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var n = 0\nfor e in ReplayManager._recording_events:\n\tvar ad = e.get(\"action_data\", {})\n\tif ad.has(\"_replay_diffs\") or ad.has(\"_ai_decision_records\") or ad.has(\"_ai_thinking_steps\") or ad.has(\"_ai_thinking_context\"):\n\t\tn += 1\nreturn n",
+      "equals": 0 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var n = 0\nfor ph in GameState.state[\"history\"]:\n\tfor a in ph.get(\"actions\", []):\n\t\tif a.has(\"_replay_diffs\") or a.has(\"_ai_decision_records\") or a.has(\"_ai_thinking_steps\"):\n\t\t\tn += 1\nreturn n",
+      "equals": 0 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var n = 0\nfor s in ReplayManager._recording_snapshots:\n\tvar st = s.get(\"state\", {})\n\tif not st.get(\"history\", []).is_empty() or not st.get(\"phase_log\", []).is_empty():\n\t\tn += 1\nreturn n",
+      "equals": 0 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var n = 0\nfor a in ActionLogger.session_actions:\n\tif a.has(\"_replay_diffs\") or a.has(\"_ai_decision_records\"):\n\t\tn += 1\nreturn n",
+      "equals": 0 },
+
+    { "act": "screenshot", "label": "03_memops_bounded_verified" },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})" }
+  ]
+}

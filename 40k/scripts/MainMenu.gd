@@ -112,6 +112,18 @@ func _ready() -> void:
 		print("MainMenu: Cleaning up stale network state")
 		NetworkManager.disconnect_network()
 
+	# MEM-11: defensive stop for ANY route back to the menu (game over, settings,
+	# replay browser, web lobby). AIPlayer and ReplayManager are autoloads — if a
+	# game was abandoned mid-way they would otherwise keep simulating/recording
+	# invisibly behind the menu, growing memory until the tab was killed.
+	if AIPlayer and AIPlayer.enabled:
+		print("MainMenu: Disabling leftover AI from previous game")
+		AIPlayer.enabled = false
+		AIPlayer.ai_players = {1: false, 2: false}
+	if ReplayManager and ReplayManager.is_recording:
+		print("MainMenu: Finalizing leftover replay recording from previous game")
+		ReplayManager.stop_recording()
+
 	_apply_theme()
 	_base_terrain_options = terrain_options.duplicate()
 	_setup_dropdowns()

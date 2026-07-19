@@ -258,6 +258,8 @@ var _dice_history_panel: PanelContainer = null
 var _dice_history_label: RichTextLabel = null
 var _dice_history_scroll: ScrollContainer = null
 var _is_dice_history_visible: bool = false
+var _dice_history_line_count: int = 0  # MEM-10: lines appended to the dice-history label since last rebuild
+var _dice_history_label_stale: bool = false  # MEM-10: rolls arrived while the panel was hidden
 var _dice_history_toggle_button: Button = null
 
 # P2-40: Deployment log panel — tracks all deployments in order for multiplayer visibility
@@ -9023,11 +9025,27 @@ func _on_main_menu_requested() -> void:
 	if NetworkManager.is_networked():
 		print("Main: Disconnecting network before returning to menu")
 		NetworkManager.disconnect_network()
+	# MEM-11: stop the AI and the replay recording before leaving the game.
+	# Both live in autoloads, so without this an abandoned AI-vs-AI game kept
+	# simulating (and recording snapshots) invisibly behind the main menu,
+	# growing memory until the browser killed the tab.
+	_stop_background_game_activity()
 	# Reset PhaseManager state so it doesn't carry stale phase instances into the next game
 	var phase_manager = get_node_or_null("/root/PhaseManager")
 	if phase_manager:
 		phase_manager.reset()
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+
+# MEM-11: disable AI evaluation and finalize any in-progress replay recording.
+# Called on every route back to the main menu.
+func _stop_background_game_activity() -> void:
+	if AIPlayer and AIPlayer.enabled:
+		print("Main: Disabling AI before leaving the game scene")
+		AIPlayer.enabled = false
+		AIPlayer.ai_players = {1: false, 2: false}
+	if ReplayManager and ReplayManager.is_recording:
+		print("Main: Stopping replay recording before leaving the game scene")
+		ReplayManager.stop_recording()
 
 func _on_save_requested(save_name: String) -> void:
 	print("Main: Save requested with name: ", save_name)
@@ -9473,6 +9491,8 @@ func _on_game_over_return_to_menu() -> void:
 	if NetworkManager.is_networked():
 		print("Main: Disconnecting network before returning to menu from game over")
 		NetworkManager.disconnect_network()
+	# MEM-11: make sure AI + recording are fully stopped before the menu loads
+	_stop_background_game_activity()
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 # ============================================================================
@@ -11104,8 +11124,7 @@ func _setup_dice_history_panel() -> void:
 		print("Main: Connected to DiceHistoryPanel.roll_recorded")
 
 		# Populate any entries that were added before we connected
-		for entry_item in DiceHistoryPanel.get_history():
-			_append_dice_history_entry(entry_item)
+		_rebuild_dice_history_label()
 
 	# Add toggle button to HUD_Bottom
 	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
@@ -11126,6 +11145,13 @@ func _setup_dice_history_panel() -> void:
 	print("Main: Dice Roll History panel created")
 
 func _on_dice_history_roll_recorded(entry: Dictionary) -> void:
+	# MEM-10: while the panel is hidden, don't append to (or re-layout) the
+	# RichTextLabel — AI-vs-AI games record thousands of rolls with the panel
+	# closed. The label is rebuilt from the DiceHistoryPanel autoload (which
+	# caps itself at 500 entries) when the panel is next shown.
+	if not _is_dice_history_visible:
+		_dice_history_label_stale = true
+		return
 	_append_dice_history_entry(entry)
 
 	# Auto-scroll to bottom
@@ -11138,6 +11164,22 @@ func _append_dice_history_entry(entry: Dictionary) -> void:
 		return
 	var bbcode = DiceHistoryPanel.format_entry_bbcode(entry)
 	_dice_history_label.append_text(bbcode + "\n")
+	# MEM-10: the label previously grew without bound (append per roll, cleared
+	# only by the manual Clear button). Rebuild from the autoload's capped
+	# history once we exceed its cap by a margin.
+	_dice_history_line_count += 1
+	if _dice_history_line_count > 600:
+		_rebuild_dice_history_label()
+
+func _rebuild_dice_history_label() -> void:
+	if not _dice_history_label:
+		return
+	_dice_history_label.clear()
+	_dice_history_line_count = 0
+	for entry_item in DiceHistoryPanel.get_history():
+		_dice_history_label.append_text(DiceHistoryPanel.format_entry_bbcode(entry_item) + "\n")
+		_dice_history_line_count += 1
+	_dice_history_label_stale = false
 
 func _on_dice_history_collapse_pressed() -> void:
 	_is_dice_history_visible = false
@@ -11152,12 +11194,20 @@ func _on_dice_history_toggle_pressed() -> void:
 		_dice_history_panel.visible = _is_dice_history_visible
 	if _dice_history_toggle_button:
 		_dice_history_toggle_button.text = "Hide Dice" if _is_dice_history_visible else "Dice History"
+	# MEM-10: rolls recorded while hidden weren't appended — rebuild on show.
+	if _is_dice_history_visible and _dice_history_label_stale:
+		_rebuild_dice_history_label()
+		if _dice_history_scroll:
+			await get_tree().process_frame
+			_dice_history_scroll.scroll_vertical = int(_dice_history_scroll.get_v_scroll_bar().max_value)
 
 func _on_dice_history_clear_pressed() -> void:
 	if DiceHistoryPanel:
 		DiceHistoryPanel.clear()
 	if _dice_history_label:
 		_dice_history_label.clear()
+	_dice_history_line_count = 0
+	_dice_history_label_stale = false
 
 # ============================================================================
 # History Browser — click a game-log entry to revert the board to that step

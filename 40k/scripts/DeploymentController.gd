@@ -86,6 +86,13 @@ func _ready() -> void:
 	set_process(true)
 	set_process_unhandled_input(true)
 
+func _exit_tree() -> void:
+	# MEM-13: the model-type picker CanvasLayer is parented to /root (it must
+	# outdraw the HUD), so it survives this controller unless freed here — a
+	# picker left open when the deployment phase ended leaked past the game
+	# scene, even into the main menu.
+	_hide_model_type_picker()
+
 func set_layers(tokens: Node2D, ghosts: Node2D) -> void:
 	token_layer = tokens
 	ghost_layer = ghosts

@@ -333,6 +333,15 @@ func _perform_event_autosave(event_tag: String, event_metadata: Dictionary) -> b
 		print("SaveLoadManager: Autosave disabled, skipping event autosave for: %s" % event_tag)
 		return false
 
+	# MEM-6: on web these rotating autosaves targeted "cloud://autosaves/…",
+	# which FileAccess cannot open — the full snapshot + serialization ran and
+	# was then thrown away on every round end / timer tick. The phase-start
+	# named autosave (save_game → CloudStorage) already covers web crash
+	# recovery, so skip before doing any work.
+	if is_web_platform:
+		print("SaveLoadManager: Event autosave skipped on web (%s) — phase-start cloud autosave covers recovery" % event_tag)
+		return false
+
 	var battle_round = GameState.get_battle_round()
 	var active_player = GameState.get_active_player()
 	var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
@@ -806,6 +815,13 @@ func set_autosave_interval(seconds: float) -> void:
 
 func perform_autosave() -> bool:
 	if not autosave_enabled:
+		return false
+
+	# MEM-6: same as _perform_event_autosave — "cloud://" paths can't be opened
+	# with FileAccess, so the timer autosave burned a full snapshot+serialize on
+	# web with nothing written. Phase-start cloud autosaves cover web recovery.
+	if is_web_platform:
+		print("SaveLoadManager: Timer autosave skipped on web — phase-start cloud autosave covers recovery")
 		return false
 
 	# SAVE-6: Skip timer-based autosave if AI is mid-action to avoid capturing incomplete state

@@ -11,6 +11,21 @@ signal entry_added(text: String, entry_type: String)
 #             "combat_header", "combat_detail", "combat_result"
 var entries: Array = []
 
+# MEM-9: bound the retained log entries. AI-vs-AI games generate thousands of
+# entries (6-14 per attack sequence plus per-decision thinking blocks with
+# board-context payloads); the array was only cleared on new game. The UI
+# (GameLogPanel) already caps itself at 300 cards — this caps the data side.
+# Oldest entries drop first; readers use the tail or iterate, so trimming the
+# front is safe.
+var _max_entries: int = 800 if OS.has_feature("web") else 3000
+
+func _push_entry(entry: Dictionary) -> void:
+	entries.append(entry)
+	if entries.size() > _max_entries:
+		# Trim in a chunk (not one-by-one) so the O(n) front-removal cost is
+		# paid once per ~100 entries instead of on every append at the cap.
+		entries = entries.slice(100)
+
 # Noisy internal actions to filter out
 const FILTERED_ACTIONS = [
 	"STAGE_MODEL_MOVE",
@@ -374,7 +389,7 @@ func _current_history_marker() -> int:
 	return -1
 
 func _add_entry(text: String, entry_type: String) -> void:
-	entries.append({"text": text, "type": entry_type, "history_index": _current_history_marker()})
+	_push_entry({"text": text, "type": entry_type, "history_index": _current_history_marker()})
 	print("[GameEventLog] %s" % text)
 	DebugLogger.info("GameEventLog: %s" % text, {})
 	emit_signal("entry_added", text, entry_type)
@@ -401,7 +416,7 @@ func add_ai_thinking_block(player: int, header: String, lines: Array, context: D
 	var text = "P%d AI: %s" % [player, header]
 	for line in lines:
 		text += "\n" + str(line)
-	entries.append({"text": text, "type": "ai_thinking_block", "context": context, "history_index": _current_history_marker()})
+	_push_entry({"text": text, "type": "ai_thinking_block", "context": context, "history_index": _current_history_marker()})
 	print("[GameEventLog] %s" % text)
 	DebugLogger.info("GameEventLog: %s" % text, {})
 	emit_signal("entry_added", text, "ai_thinking_block")
@@ -415,7 +430,7 @@ func add_ai_turn_summary(player: int, header: String, lines: Array) -> void:
 	var text = header
 	for line in lines:
 		text += "\n" + str(line)
-	entries.append({"text": text, "type": "ai_turn_summary", "history_index": _current_history_marker()})
+	_push_entry({"text": text, "type": "ai_turn_summary", "history_index": _current_history_marker()})
 	print("[GameEventLog] %s" % text)
 	DebugLogger.info("GameEventLog: %s" % text, {})
 	emit_signal("entry_added", text, "ai_turn_summary")

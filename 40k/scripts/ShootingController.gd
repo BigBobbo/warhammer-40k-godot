@@ -321,6 +321,13 @@ func _exit_tree() -> void:
 		shooting_lines_container.queue_free()
 	remote_assignment_lines.clear()
 
+	# MEM-13: the target-chips container was created under BoardRoot every
+	# shooting phase but never freed here — one orphan Node2D accumulated per
+	# shooting phase (2 per battle round) for the rest of the session.
+	if target_chips_container and is_instance_valid(target_chips_container):
+		target_chips_container.queue_free()
+		target_chips_container = null
+
 	# T5-V2: Clean up animated shooting line visuals
 	_clear_shooting_line_visuals()
 	shooting_line_visuals.clear()
@@ -947,7 +954,7 @@ func resync_from_phase() -> void:
 	# The phase DOES have an active shooter — mirror it. If the controller had
 	# drifted to a different unit, snap back to the phase's shooter.
 	active_shooter_id = phase_active
-	eligible_targets = RulesEngine.get_eligible_targets(active_shooter_id, GameState.create_snapshot())
+	eligible_targets = RulesEngine.get_eligible_targets(active_shooter_id, GameState.create_snapshot(false))
 	weapon_assignments.clear()
 	var weapons_seen := {}
 	for assignment in current_phase.pending_assignments:
@@ -1998,7 +2005,7 @@ func _visualize_los_to_target(shooter_id: String, target_id: String) -> void:
 	if shooter_unit.is_empty() or target_unit.is_empty():
 		return
 
-	var board = GameState.create_snapshot()
+	var board = GameState.create_snapshot(false)
 
 	# Use enhanced LoS visualization for each model pair
 	for shooter_model in shooter_unit.get("models", []):
@@ -2183,7 +2190,7 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 		los_debug_visual.clear_all_debug_visuals()
 
 	# Request targets and trigger LoS visualization
-	eligible_targets = RulesEngine.get_eligible_targets(unit_id, GameState.create_snapshot())
+	eligible_targets = RulesEngine.get_eligible_targets(unit_id, GameState.create_snapshot(false))
 	_highlight_targets()
 	_refresh_shooter_status()
 	_refresh_weapon_tree()
@@ -4009,7 +4016,7 @@ func _build_auto_shoot_plan() -> Array:
 	"""Build a plan of SHOOT actions for all remaining eligible units.
 	Returns [{unit_id, unit_name, assignments, target_names, weapon_count}]."""
 	var plan = []
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var current_player = current_phase.get_current_player()
 	var units = current_phase.get_units_for_player(current_player)
 	var units_shot = current_phase.get_units_that_shot()
@@ -5033,7 +5040,7 @@ func _handle_board_click(position: Vector2) -> void:
 		else:
 			# Player clicked on an ineligible enemy unit — explain why instead of
 			# silently switching to a different unit.
-			var reason = RulesEngine.get_target_ineligibility_reason(active_shooter_id, closest_target, GameState.create_snapshot())
+			var reason = RulesEngine.get_target_ineligibility_reason(active_shooter_id, closest_target, GameState.create_snapshot(false))
 			if reason == "":
 				reason = "Target cannot be shot"
 			print("[ShootingController] Click on ineligible target %s: %s" % [closest_target, reason])
@@ -5082,7 +5089,7 @@ func _report_no_eligible_targets(unit_id: String, force: bool = false) -> void:
 	var unit = GameState.get_unit(unit_id)
 	var unit_meta = unit.get("meta", {})
 	var unit_name = unit_meta.get("display_name", unit_meta.get("name", unit_id))
-	var snapshot = GameState.create_snapshot()
+	var snapshot = GameState.create_snapshot(false)
 	var reasons: Array = []
 	var all_units = snapshot.get("units", {})
 	var my_owner = unit.get("owner", 0)
