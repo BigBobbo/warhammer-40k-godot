@@ -25,7 +25,12 @@ env:
   GODOT_VERSION: "4.4.1"
   EXPORT_NAME: "Warhammer40K"
   ITCH_USERNAME: "oisinrob"
-  ITCH_GAME: "warhammer40k-simulator"  # Update with actual itch.io game name
+  ITCH_GAME: "warhammer40k-simulator"       # HTML/browser page (html5 channel)
+  # Separate DOWNLOADABLE-kind itch page for the native Linux build. The itch
+  # app installs and auto-updates a native build from a downloadable page (an
+  # HTML page makes the app launch the browser build instead), so the Steam
+  # Deck download lives on its own slug. Leave blank to skip the linux push.
+  ITCH_GAME_DESKTOP: "steam40k"             # Downloadable page (linux channel)
 
 jobs:
   # First run tests
@@ -224,13 +229,20 @@ jobs:
 
           overall=0
           push_channel web-build "${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME }}:html5" || overall=$?
-          push_channel linux-build "${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME }}:linux" || overall=$?
+          # Native Linux → the downloadable page, so the itch app launches and
+          # auto-updates it natively. Skipped (with a notice) if no desktop
+          # slug is configured, so the web deploy never breaks on its account.
+          if [ -n "${{ env.ITCH_GAME_DESKTOP }}" ]; then
+            push_channel linux-build "${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME_DESKTOP }}:linux" || overall=$?
+          else
+            echo "::notice::ITCH_GAME_DESKTOP is empty — skipping the native Linux push."
+          fi
           exit "$overall"
 
       - name: Deployment Summary
         run: |
           echo "## Builds Deployed to itch.io" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Game: ${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Channels: html5 (browser), linux (Steam Deck / desktop download)" >> $GITHUB_STEP_SUMMARY
+          echo "- Browser (html5): ${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Native Linux / Steam Deck (linux): ${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME_DESKTOP }}" >> $GITHUB_STEP_SUMMARY
           echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
