@@ -84,6 +84,7 @@ var los_debug_visual: Node2D  # New LoS debug visualization
 
 # UI Elements
 var unit_selector: ItemList
+var show_all_units_checkbox: CheckBox  # Toggle: show every unit vs only units that can act
 var weapon_tree: Tree
 var target_basket: ItemList
 var confirm_button: Button
@@ -492,6 +493,23 @@ func _setup_right_panel() -> void:
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		unit_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	declaration_box.add_child(unit_label)
+
+	# Filter toggle: by default the list shows only units that can act this
+	# phase (an eligible shooting target or a mission action). Checking this
+	# reveals every unit that could shoot, even with no target in range/LoS.
+	show_all_units_checkbox = CheckBox.new()
+	show_all_units_checkbox.name = "ShowAllUnitsCheckbox"
+	show_all_units_checkbox.text = "Show all units"
+	show_all_units_checkbox.tooltip_text = "Off: list only units that can shoot at an eligible target (or perform a mission action). On: show every unit that could shoot, even with no target in range / line of sight."
+	show_all_units_checkbox.add_theme_font_size_override("font_size", 11)
+	show_all_units_checkbox.set_pressed_no_signal(SettingsService.get_shooting_show_all_units() if SettingsService else false)
+	show_all_units_checkbox.toggled.connect(_on_show_all_units_toggled)
+	declaration_box.add_child(show_all_units_checkbox)
+	# Keep the panel checkbox in sync when the setting changes elsewhere. The
+	# panel is rebuilt on every phase (re)entry, so guard against a duplicate
+	# connection on the autoload (which survives the rebuild).
+	if SettingsService and not SettingsService.shooting_show_all_units_changed.is_connected(_on_shooting_show_all_units_setting_changed):
+		SettingsService.shooting_show_all_units_changed.connect(_on_shooting_show_all_units_setting_changed)
 
 	unit_selector = ItemList.new()
 	unit_selector.custom_minimum_size = Vector2(230, 80)
@@ -957,10 +975,28 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 	
 	var units = current_phase.get_units_for_player(current_phase.get_current_player())
 	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
-	
+
+	# Filter (default): hide units that could technically shoot but have no
+	# eligible target and no mission action — they only clutter the list. The
+	# "Show all units" checkbox turns the filter off. Already-shot units (shown
+	# for reference with [SHOT]/[ACTION]) and the currently-selected shooter are
+	# always kept so the UI never yanks a row out from under the player.
+	var show_all = SettingsService.get_shooting_show_all_units() if SettingsService else false
+	var can_filter = current_phase.has_method("unit_has_shooting_phase_activity")
+	var hidden_count := 0
+
 	for unit_id in units:
 		var unit = units[unit_id]
 		if current_phase._can_unit_shoot(unit) or unit_id in units_shot:
+			# Apply the default filter unless it's a reference/active row.
+			if not show_all \
+					and can_filter \
+					and not (unit_id in units_shot) \
+					and unit_id != active_shooter_id \
+					and not current_phase.unit_has_shooting_phase_activity(unit_id):
+				hidden_count += 1
+				continue
+
 			var _unit_meta = unit.get("meta", {})
 			var unit_name = _unit_meta.get("display_name", _unit_meta.get("name", unit_id))
 			var alive_count = RulesEngine.count_alive_models(unit)
@@ -975,10 +1011,18 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 					unit_name += " [SHOT]"
 			elif unit_id == active_shooter_id:
 				unit_name += " [ACTIVE]"
-			
+
 			unit_selector.add_item(unit_name)
 			unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
-	
+
+	# Surface how many shooters the filter is hiding so it's discoverable — the
+	# checkbox label doubles as the count readout.
+	if show_all_units_checkbox and is_instance_valid(show_all_units_checkbox):
+		if not show_all and hidden_count > 0:
+			show_all_units_checkbox.text = "Show all units (%d hidden)" % hidden_count
+		else:
+			show_all_units_checkbox.text = "Show all units"
+
 	# Auto-select first unit for debugging if we have units
 	# BUT only if it's the local player's turn in multiplayer
 	# MA-36: Skip auto-select when user explicitly deselected via ESC (auto_select=false)
@@ -1021,6 +1065,33 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 	# T5-UX3: Update shoot all remaining button when unit list refreshes
 	_update_shoot_all_remaining_button()
 	_update_perform_action_button()
+
+func _on_show_all_units_toggled(pressed: bool) -> void:
+	"""Player toggled the 'Show all units' checkbox. Persist the choice; the
+	setting-changed signal handler rebuilds the shooter list."""
+	if SettingsService:
+		SettingsService.set_shooting_show_all_units(pressed)
+	else:
+		# No settings autoload (shouldn't happen in-game) — refresh directly.
+		_on_shooting_show_all_units_setting_changed(pressed)
+
+func _on_shooting_show_all_units_setting_changed(show_all: bool) -> void:
+	"""Rebuild the shooter list when the filter setting changes (from the panel
+	checkbox or anywhere else). Keeps the checkbox and the active shooter's
+	highlight in sync without disturbing any staged weapon assignments."""
+	if show_all_units_checkbox and is_instance_valid(show_all_units_checkbox) \
+			and show_all_units_checkbox.button_pressed != show_all:
+		show_all_units_checkbox.set_pressed_no_signal(show_all)
+	var keep_id = active_shooter_id
+	# Rebuild without auto-selecting so a manual selection isn't overridden.
+	_refresh_unit_list(false)
+	# Re-highlight the active shooter's row (its assignments are untouched — we
+	# only restore the visual selection, we don't re-run _on_unit_selected).
+	if keep_id != "" and unit_selector and is_instance_valid(unit_selector):
+		for i in range(unit_selector.get_item_count()):
+			if unit_selector.get_item_metadata(i) == keep_id:
+				unit_selector.select(i)
+				break
 
 func _refresh_shooter_status() -> void:
 	if not shooter_status_label or active_shooter_id == "":
@@ -2482,6 +2553,13 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		dice_log_display.append_text("[b][color=yellow]>>> %s <<<[/color][/b]\n" % message)
 		return
 
+	# Command Re-roll note ("Command Re-roll (1 CP): hit die 2 → 5") — render
+	# the message itself instead of falling through to the generic roll
+	# formatter, which printed a meaningless "Reroll Note (need ): Rolls: —".
+	if context == "reroll_note":
+		dice_log_display.append_text("[b][color=orange]↻ %s[/color][/b]\n" % dice_data.get("message", "Re-roll"))
+		return
+
 	# FEEL NO PAIN: Handle feel_no_pain dice block
 	if context == "feel_no_pain":
 		var fnp_val = dice_data.get("fnp_value", 0)
@@ -3658,56 +3736,67 @@ func _on_unit_selected(index: int) -> void:
 
 	var unit_id = unit_selector.get_item_metadata(index)
 	if unit_id:
-		# Clear previous LoS visualizations (comprehensive cleanup)
-		if los_debug_visual and is_instance_valid(los_debug_visual):
-			los_debug_visual.clear_all_debug_visuals()
+		_select_shooter_by_unit_id(unit_id)
 
-		print("ShootingController: User selected unit %s from list" % unit_id)
+func _select_shooter_by_unit_id(unit_id: String) -> void:
+	"""Select `unit_id` as the active shooter and populate the panel. Shared by
+	the list-row path (_on_unit_selected) and the board-token path, so a unit the
+	'show only units that can shoot' filter is hiding can still be selected by
+	clicking its token — the no-targets feedback then explains why nothing is
+	targetable, exactly as before the filter existed."""
+	if not current_phase or unit_id == "":
+		return
 
-		# Fresh explicit selection: allow the no-targets report to fire again.
-		_no_targets_reported_unit = ""
+	# Clear previous LoS visualizations (comprehensive cleanup)
+	if los_debug_visual and is_instance_valid(los_debug_visual):
+		los_debug_visual.clear_all_debug_visuals()
 
-		# Emit action request - visualization will be triggered when action is confirmed
-		emit_signal("shoot_action_requested", {
-			"type": "SELECT_SHOOTER",
-			"actor_unit_id": unit_id
-		})
+	print("ShootingController: User selected unit %s" % unit_id)
 
-		# DON'T call _on_unit_selected_for_shooting() here in multiplayer.
-		# The phase emits unit_selected_for_shooting after processing the action.
-		# For single-player we mirror immediately for responsiveness — but the OLD
-		# code did so UNCONDITIONALLY, which built a phantom weapon panel when the
-		# phase rejected the unit (e.g. re-selecting a unit that already threw a
-		# GRENADE — "already shot"). Every later ASSIGN_TARGET / CONFIRM_TARGETS then
-		# failed silently against a phase with no active shooter ("Rolling dice..."
-		# with nothing happening).
-		#
-		# SELECT_SHOOTER is routed + validated synchronously by the emit_signal above,
-		# so current_phase.active_shooter_id already reflects the outcome. Three cases:
-		#   1. Accepted            -> populate normally.
-		#   2. Rejected, but the unit CAN shoot (only lacks eligible targets right now)
-		#      -> still populate, so _report_no_eligible_targets explains WHY nothing
-		#         is targetable (the Stompa no-targets feedback feature).
-		#   3. Rejected AND the unit cannot shoot (already shot / advanced / fell back)
-		#      -> do NOT build a phantom panel; say why and resync to the phase.
-		if not NetworkManager.is_networked() and current_phase:
-			var sel_unit = current_phase.get_unit(unit_id)
-			if current_phase.active_shooter_id == unit_id:
-				_on_unit_selected_for_shooting(unit_id)
-			elif not sel_unit.is_empty() and current_phase._can_unit_shoot(sel_unit):
-				# Selectable in principle — only rejected for lack of targets.
-				_on_unit_selected_for_shooting(unit_id)
-			else:
-				var _sel_meta = sel_unit.get("meta", {})
-				var sel_name = _sel_meta.get("display_name", _sel_meta.get("name", unit_id))
-				var sel_reason = "cannot be selected to shoot"
-				if sel_unit.get("flags", {}).get("has_shot", false):
-					sel_reason = "has already shot this phase"
-				if dice_log_display:
-					dice_log_display.append_text("[color=orange]%s %s[/color]\n" % [sel_name, sel_reason])
-				ToastManager.show_warning("%s %s" % [sel_name, sel_reason])
-				# Snap the panel back to whatever the phase actually has active.
-				resync_from_phase()
+	# Fresh explicit selection: allow the no-targets report to fire again.
+	_no_targets_reported_unit = ""
+
+	# Emit action request - visualization will be triggered when action is confirmed
+	emit_signal("shoot_action_requested", {
+		"type": "SELECT_SHOOTER",
+		"actor_unit_id": unit_id
+	})
+
+	# DON'T call _on_unit_selected_for_shooting() here in multiplayer.
+	# The phase emits unit_selected_for_shooting after processing the action.
+	# For single-player we mirror immediately for responsiveness — but the OLD
+	# code did so UNCONDITIONALLY, which built a phantom weapon panel when the
+	# phase rejected the unit (e.g. re-selecting a unit that already threw a
+	# GRENADE — "already shot"). Every later ASSIGN_TARGET / CONFIRM_TARGETS then
+	# failed silently against a phase with no active shooter ("Rolling dice..."
+	# with nothing happening).
+	#
+	# SELECT_SHOOTER is routed + validated synchronously by the emit_signal above,
+	# so current_phase.active_shooter_id already reflects the outcome. Three cases:
+	#   1. Accepted            -> populate normally.
+	#   2. Rejected, but the unit CAN shoot (only lacks eligible targets right now)
+	#      -> still populate, so _report_no_eligible_targets explains WHY nothing
+	#         is targetable (the Stompa no-targets feedback feature).
+	#   3. Rejected AND the unit cannot shoot (already shot / advanced / fell back)
+	#      -> do NOT build a phantom panel; say why and resync to the phase.
+	if not NetworkManager.is_networked() and current_phase:
+		var sel_unit = current_phase.get_unit(unit_id)
+		if current_phase.active_shooter_id == unit_id:
+			_on_unit_selected_for_shooting(unit_id)
+		elif not sel_unit.is_empty() and current_phase._can_unit_shoot(sel_unit):
+			# Selectable in principle — only rejected for lack of targets.
+			_on_unit_selected_for_shooting(unit_id)
+		else:
+			var _sel_meta = sel_unit.get("meta", {})
+			var sel_name = _sel_meta.get("display_name", _sel_meta.get("name", unit_id))
+			var sel_reason = "cannot be selected to shoot"
+			if sel_unit.get("flags", {}).get("has_shot", false):
+				sel_reason = "has already shot this phase"
+			if dice_log_display:
+				dice_log_display.append_text("[color=orange]%s %s[/color]\n" % [sel_name, sel_reason])
+			ToastManager.show_warning("%s %s" % [sel_name, sel_reason])
+			# Snap the panel back to whatever the phase actually has active.
+			resync_from_phase()
 
 func _on_weapon_tree_item_selected() -> void:
 	if not weapon_tree:
@@ -4513,6 +4602,13 @@ func _input(event: InputEvent) -> void:
 
 	# Handle clicking on units for target selection
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# A click that lands on a HUD control (the shooter list, the "Show all
+		# units" checkbox, the action buttons, …) is a GUI interaction, not a
+		# board target click — don't misread it as a "click missed" on the board.
+		# (_try_click_select_shooter above already bails on GUI-hovered clicks; the
+		# target-assignment path needs the same guard.)
+		if get_viewport().gui_get_hovered_control() != null:
+			return
 		# Get the board root which contains the units
 		var board_root = SceneRefs.board_root()
 		if board_root:
@@ -4754,7 +4850,16 @@ func _try_click_select_shooter() -> bool:
 	if clicked_unit_id in units_shot:
 		print("ShootingController: Click on %s ignored — unit has already shot" % clicked_unit_id)
 		return false
-	if not _is_unit_in_shooter_list(clicked_unit_id):
+	# Gate on shooting eligibility, NOT list membership: the "show only units
+	# that can shoot" filter can hide a shootable-but-targetless unit from the
+	# list, but a board-token click on it should still select it (surfacing the
+	# no-targets feedback), so the filter never makes a friendly token dead.
+	var clicked_selectable := false
+	if current_phase.has_method("_can_unit_shoot"):
+		clicked_selectable = current_phase._can_unit_shoot(GameState.get_unit(clicked_unit_id))
+	else:
+		clicked_selectable = _is_unit_in_shooter_list(clicked_unit_id)
+	if not clicked_selectable:
 		print("ShootingController: Click on %s ignored — unit not selectable this phase" % clicked_unit_id)
 		return false
 
@@ -4807,7 +4912,9 @@ func _is_unit_in_shooter_list(unit_id: String) -> bool:
 func _select_shooter_in_list_by_id(unit_id: String) -> bool:
 	"""Select `unit_id` in the shooter list exactly as clicking its row would
 	(select + _on_unit_selected, the same pattern the auto-select path uses).
-	Returns false if the unit is not listed."""
+	If the unit is hidden by the 'show only units that can shoot' filter, it is
+	still selected directly (then the list is refreshed so it appears as the
+	[ACTIVE] shooter and its row is highlighted)."""
 	if not unit_selector or not is_instance_valid(unit_selector):
 		return false
 	for i in range(unit_selector.get_item_count()):
@@ -4815,7 +4922,17 @@ func _select_shooter_in_list_by_id(unit_id: String) -> bool:
 			unit_selector.select(i)
 			_on_unit_selected(i)
 			return true
-	return false
+	# Not a visible row — the filter is hiding it (no eligible target). A
+	# deliberate board-token click is still an explicit request to select it.
+	_select_shooter_by_unit_id(unit_id)
+	# It's now the active shooter, which the filter always keeps listed; rebuild
+	# and highlight its freshly-added row.
+	_refresh_unit_list(false)
+	for i in range(unit_selector.get_item_count()):
+		if unit_selector.get_item_metadata(i) == unit_id:
+			unit_selector.select(i)
+			break
+	return true
 
 func _unit_switch_display_name(unit_id: String) -> String:
 	var unit = GameState.get_unit(unit_id)

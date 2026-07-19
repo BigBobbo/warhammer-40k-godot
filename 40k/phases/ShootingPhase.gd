@@ -4247,6 +4247,34 @@ func _has_eligible_targets(unit_id: String) -> bool:
 			return true
 	return false
 
+func unit_has_shooting_phase_activity(unit_id: String) -> bool:
+	"""Whether a unit has a genuine reason to appear in the 'Select Shooter'
+	list by default (the shooting UI's 'show only units that can shoot' filter).
+	True when the unit can actually do something this phase:
+	  ▪ it has an eligible shooting target (in range + line of sight, or a
+	    Throat Slittas mortal-wound target), or
+	  ▪ it can perform a secondary MISSION action from its current position
+	    (Establish Locus, Deploy Homer, Plunder, …).
+	A unit that could technically shoot but has no target in range/LoS and no
+	mission action returns false and is hidden unless the player enables
+	'Show all units'. Already-shot units and the active shooter are handled
+	separately by the controller and always remain listed."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	# Gate: the unit must at least be able to participate this phase (alive,
+	# deployed, hasn't shot, not embarked — and, for Advanced units, able to
+	# shoot with Assault weapons or act via Skin-Crawling Disorientation).
+	if not _can_unit_perform_action(unit):
+		return false
+	# Can it shoot at something right now?
+	if _has_eligible_targets(unit_id):
+		return true
+	# Does it have a mission action available at its current position?
+	if not _get_secondary_action_options(unit_id).is_empty():
+		return true
+	return false
+
 func _unit_has_pistol_weapons(unit: Dictionary) -> bool:
 	"""Check if unit has any Pistol weapons (used for engagement range shooting)"""
 	# Find the unit_id by searching through game state units

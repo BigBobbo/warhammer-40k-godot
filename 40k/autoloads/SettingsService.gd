@@ -85,13 +85,26 @@ var show_terrain_cover_labels: bool = false
 # AUTO_ALLOCATE_MIGRATION_KEY below, which retires older saved `true` values).
 var auto_allocate_wounds: bool = false
 
-# B3 (audit 2026-07): staged shooting pause policy —
+# B3 (audit 2026-07): staged resolution pause policy — ONE setting shared by
+# the shooting AND fight resolution docks (kept under its original
+# "shooting_pause_policy" name for saved-settings compatibility) so both
+# phases pause with the same rhythm:
 #   "every_step" (default): pause at every hit/wound roll
 #   "decisions":  pause only when a Command Re-roll is actually usable
 #                 (CP available, not used this phase, and a failed die exists)
 #   "never":      auto-continue the hit/wound pauses (the between-weapon
 #                 pause and defender saves always remain)
 var shooting_pause_policy: String = "every_step"
+
+# Shooting phase "Select Shooter" list filter. When false (default) the list
+# shows only units that have a genuine reason to act this phase — a unit with an
+# eligible shooting target (in range + line of sight) or a mission action it can
+# perform. Units that could technically shoot but have no target in range/LoS are
+# hidden to declutter the list. When true, every unit that could shoot is listed
+# regardless of whether it has a target. Toggled live from the shooting panel's
+# "Show all units" checkbox (persisted here so the choice sticks between phases
+# and sessions).
+var shooting_show_all_units: bool = false
 
 # Rules edition: 10 (10th edition) or 11 (11th edition core rules, now the
 # default for players). Applied to GameConstants.edition at startup and whenever
@@ -125,6 +138,7 @@ signal unit_color_display_changed(new_mode: String)
 signal terrain_debug_labels_changed(enabled: bool)
 signal terrain_scatter_changed(enabled: bool)
 signal terrain_cover_labels_changed(enabled: bool)
+signal shooting_show_all_units_changed(show_all: bool)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -389,6 +403,15 @@ func set_shooting_pause_policy(policy: String) -> void:
 		_save_settings()
 		print("[SettingsService] shooting_pause_policy set to %s" % policy)
 
+func get_shooting_show_all_units() -> bool:
+	return shooting_show_all_units
+
+func set_shooting_show_all_units(show_all: bool) -> void:
+	shooting_show_all_units = show_all
+	shooting_show_all_units_changed.emit(shooting_show_all_units)
+	_save_settings()
+	print("[SettingsService] shooting_show_all_units set to %s" % str(show_all))
+
 func get_auto_allocate_wounds() -> bool:
 	return auto_allocate_wounds
 
@@ -472,6 +495,7 @@ func _save_settings() -> void:
 	# Gameplay
 	config.set_value("gameplay", "auto_allocate_wounds", auto_allocate_wounds)
 	config.set_value("gameplay", "shooting_pause_policy", shooting_pause_policy)
+	config.set_value("gameplay", "shooting_show_all_units", shooting_show_all_units)
 	config.set_value("gameplay", AUTO_ALLOCATE_MIGRATION_KEY, true)
 
 	# Controls
@@ -531,6 +555,7 @@ func _load_settings() -> void:
 		print("[SettingsService] auto_allocate_wounds migrated to the defender-control default (false)")
 
 	shooting_pause_policy = str(config.get_value("gameplay", "shooting_pause_policy", "every_step"))
+	shooting_show_all_units = config.get_value("gameplay", "shooting_show_all_units", false)
 
 	# Controls
 	menu_scroll_speed = clampf(config.get_value("controls", "menu_scroll_speed", 0.4), 0.1, 1.0)

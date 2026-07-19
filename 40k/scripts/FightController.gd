@@ -5,6 +5,7 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 const EngagementRangeVisualScript = preload("res://scripts/EngagementRangeVisual.gd")
 const DamageFeedbackVisualScript = preload("res://scripts/DamageFeedbackVisual.gd")  # T5-V12
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+const FightResolutionDockScript = preload("res://scripts/FightResolutionDock.gd")
 
 
 # FightController - Handles UI interactions for the Fight Phase
@@ -75,8 +76,10 @@ var current_fighter_owner: int = -1
 var active_melee_allocation_overlay = null
 var processing_melee_saves_signal: bool = false
 
-# STAGED FIGHT: the sequence dialog showing hit/wound pauses + Command Re-roll
-var active_fight_sequence_dialog = null
+# STAGED FIGHT: right-panel resolution dock showing the hit/wound pauses +
+# Command Re-roll chips (melee twin of the shooting phase's dock — replaces
+# the old board-covering FightSequenceDialog bottom pop-up).
+var fight_resolution_dock = null
 
 # 11e global-step sections in the right panel (12.02 Pile In / 12.07
 # Consolidate). These replace the old PileInStepDialog / ConsolidationStepDialog
@@ -299,6 +302,17 @@ func _setup_right_panel() -> void:
 	# Replaces the centered FightSelectionDialog pop-up that covered the board.
 	fight_selection_panel = _build_fight_selection_panel()
 	fight_panel.add_child(fight_selection_panel)
+
+	# STAGED FIGHT: docked melee resolution — the hit/wound pauses, Command
+	# Re-roll chips, Fast Roll and pause policy live HERE, in the same right
+	# panel slot the shooting phase resolves in, so the two phases share one
+	# interaction (and the battlefield — where the melee is — stays visible).
+	# Replaces the FightSequenceDialog bottom pop-up in single-player.
+	fight_resolution_dock = FightResolutionDockScript.new()
+	fight_resolution_dock.name = "FightResolutionDock"
+	fight_resolution_dock.visible = false
+	fight_resolution_dock.action_requested.connect(_on_fight_dock_action_requested)
+	fight_panel.add_child(fight_resolution_dock)
 
 	# Fight sequence display
 	var sequence_label = Label.new()
@@ -1295,6 +1309,11 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if DiceHistoryPanel:
 		DiceHistoryPanel.record_roll(dice_data, "Fight")
 
+	# Staged dock: advance the queue's ▶ marker as weapons progress.
+	if dice_data.get("context", "") == "weapon_progress":
+		if fight_resolution_dock and fight_resolution_dock.is_active():
+			fight_resolution_dock.on_weapon_progress(dice_data)
+
 	if not dice_log_display:
 		return
 
@@ -1307,6 +1326,26 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	var successes = dice_data.get("successes", 0)
 	var threshold = dice_data.get("threshold", "")
 	var weapon = dice_data.get("weapon", "")
+
+	# Command Re-roll note ("Command Re-roll (1 CP): hit die 2 → 5") — render
+	# the message itself instead of falling through to the generic roll
+	# formatter, which printed a meaningless "Reroll Note: Rolls: —".
+	if context == "reroll_note":
+		dice_log_display.append_text("[b][color=orange]↻ %s[/color][/b]\n" % dice_data.get("message", "Re-roll"))
+		return
+
+	# Message-only blocks (no rolls) — render their message like the shooting
+	# DICE LOG does instead of a noise line ("Weapon Progress: Rolls: — → 0
+	# successes") from the generic formatter below.
+	if context == "resolution_start":
+		dice_log_display.append_text("[b][color=white]--- %s ---[/color][/b]\n" % dice_data.get("message", "Beginning melee resolution..."))
+		return
+	if context == "weapon_progress":
+		dice_log_display.append_text("[b][color=yellow]>>> %s <<<[/color][/b]\n" % dice_data.get("message", ""))
+		return
+	if context == "mathhammer_prediction":
+		dice_log_display.append_text("[color=cyan]%s[/color]\n" % dice_data.get("message", ""))
+		return
 
 	# Format context name
 	var context_name = context.capitalize().replace("_", " ")
@@ -1328,9 +1367,9 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 
 	# Flush the header, then render the dice as inline d6 face icons (rounded
 	# square + pips) via the shared DiceFaceIcons textures — the same faces used
-	# by the shooting resolution log, the FightSequenceDialog and the animated
-	# dice roller — instead of a [n, n, n] number list, so dice look consistent
-	# across the whole game.
+	# by the shooting resolution log, the resolution dock's re-roll chips and
+	# the animated dice roller — instead of a [n, n, n] number list, so dice
+	# look consistent across the whole game.
 	dice_log_display.append_text(log_text)
 	dice_log_display.append_text("  Rolls: ")
 	if not rolls_raw.is_empty():
@@ -1443,6 +1482,24 @@ func _input(event: InputEvent) -> void:
 		_handle_pile_in_input(event)
 		get_viewport().set_input_as_handled()  # Prevent dialog from blocking
 		return
+
+	# While the resolution dock is live, Space/Enter presses its primary button
+	# — rip through the staged melee steps without ever moving the mouse (same
+	# shortcut the shooting dock has; MA-41: skip when a text input has focus).
+	# Only swallow the key when the button is actually pressable: this runs in
+	# _input (before GUI focus), and during "Resolving saves…" the defender's
+	# allocation overlay owns the interaction.
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_SPACE or event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
+			var focused = get_viewport().gui_get_focus_owner()
+			if not (focused is LineEdit or focused is TextEdit):
+				if fight_resolution_dock and fight_resolution_dock.is_active() \
+						and fight_resolution_dock.primary_button.visible \
+						and not fight_resolution_dock.primary_button.disabled:
+					print("[FightController] Keyboard shortcut — dock primary (%s)" % fight_resolution_dock.primary_button.text)
+					fight_resolution_dock.primary_button.emit_signal("pressed")
+					get_viewport().set_input_as_handled()
+					return
 
 	# Only handle target selection input if we have an active fighter and eligible targets
 	if current_fighter_id == "" or eligible_targets.is_empty():
@@ -2160,62 +2217,48 @@ func _on_attacks_confirmed(assignments: Array) -> void:
 	emit_signal("fight_action_requested", batch_action)
 
 # =============================================================================
-# STAGED FIGHT: sequence dialog (hit pause / wound pause / Command Re-roll)
+# STAGED FIGHT: right-panel resolution dock (hit pause / wound pause /
+# Command Re-roll) — same surface + rhythm as the shooting resolution dock
 # =============================================================================
 
 func _on_fighting_begun_staged(unit_id: String) -> void:
 	# The staged sequence only runs in non-networked play for human attackers —
-	# mirror FightPhase._should_stage_fight so we never open a dialog that will
-	# get no pause events.
+	# mirror FightPhase._should_stage_fight so we never activate a dock that
+	# will get no pause events.
 	if NetworkManager.is_networked():
 		return
 	var fighter_owner = GameState.get_unit(unit_id).get("owner", -1)
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.get("enabled") and ai_player_node.is_ai_player(fighter_owner):
 		return
-
-	# Replace any dialog left over from a previous activation.
-	if active_fight_sequence_dialog != null and is_instance_valid(active_fight_sequence_dialog):
-		active_fight_sequence_dialog.queue_free()
-		active_fight_sequence_dialog = null
-
-	var dialog_script = load("res://dialogs/FightSequenceDialog.gd")
-	if not dialog_script:
-		push_error("FightController: Failed to load FightSequenceDialog.gd")
+	if fight_resolution_dock == null:
+		push_error("FightController: fight_resolution_dock missing — right panel not built")
 		return
-	var dialog = AcceptDialog.new()
-	dialog.set_script(dialog_script)
-	var fighter_name = GameState.get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	# Add to the tree FIRST (_ready builds the UI nodes), THEN setup() — which
-	# connects the phase signals. Both happen during CONFIRM processing, before
-	# ROLL_DICE runs in the same batch, so no dice/pause event is missed.
-	get_tree().root.add_child(dialog)
-	dialog.setup(current_phase, fighter_name)
-	dialog.staged_continue_requested.connect(_on_fight_staged_continue_requested)
-	dialog.staged_reroll_requested.connect(_on_fight_staged_reroll_requested)
-	DialogUtils.popup_at_bottom(dialog)
-	active_fight_sequence_dialog = dialog
-	print("[FightController] FightSequenceDialog opened for %s" % fighter_name)
 
-func _on_fight_staged_continue_requested(next_step: String) -> void:
-	var action_type = "CONTINUE_TO_WOUNDS" if next_step == "wounds" else "CONTINUE_TO_SAVES"
-	print("[FightController] Staged continue: %s" % action_type)
-	emit_signal("fight_action_requested", {"type": action_type})
+	# fighting_begun fires during CONFIRM processing, before ROLL_DICE runs in
+	# the same batch — activating here means the dock catches every
+	# fight_stage_paused emission. confirmed_attacks holds this activation's
+	# ordered weapon assignments.
+	var assignments: Array = []
+	if current_phase != null:
+		var ca = current_phase.get("confirmed_attacks")
+		if ca is Array:
+			assignments = ca
+	fight_resolution_dock.activate(assignments, current_phase, self, unit_id)
+	print("[FightController] FightResolutionDock activated for %s (%d assignment(s))" % [unit_id, assignments.size()])
 
-func _on_fight_staged_reroll_requested(stage: String, die_index: int) -> void:
-	print("[FightController] Staged Command Re-roll: %s die %d" % [stage, die_index])
-	emit_signal("fight_action_requested", {
-		"type": "USE_FIGHT_REROLL",
-		"payload": {"stage": stage, "die_index": die_index}
-	})
+func _on_fight_dock_action_requested(action: Dictionary) -> void:
+	# Dock emits complete action dicts (CONTINUE_TO_WOUNDS / CONTINUE_TO_SAVES /
+	# USE_FIGHT_REROLL) — route them through the normal fight action pipeline.
+	print("[FightController] Dock action: %s" % str(action.get("type", "")))
+	emit_signal("fight_action_requested", action)
 
 func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	"""Show consolidate dialog and enable interactive movement"""
-	# The Consolidate move is a drag-on-the-battlefield interaction, so clear any
-	# leftover board-covering fight dialogs (the staged FightSequenceDialog lingers
-	# on its "Close" summary; a stray AttackAssignmentDialog can survive too) before
-	# opening the bottom-docked ConsolidateDialog — otherwise the player can't see
-	# the models they're being asked to move.
+	# The Consolidate move is a drag-on-the-battlefield interaction, so retire
+	# the resolution dock's finished summary and clear any stray board-covering
+	# AttackAssignmentDialog before opening the bottom-docked ConsolidateDialog
+	# — otherwise the player can't see the models they're being asked to move.
 	_dismiss_blocking_fight_dialogs()
 
 	# Skip dialog for AI players - they submit CONSOLIDATE actions directly
@@ -2394,9 +2437,9 @@ func _on_consolidation_step_required(data: Dictionary) -> void:
 		consolidating_player, data.get("eligible_units", {}).size()])
 
 	# All fighting is resolved once the global Consolidate step opens, so tear
-	# down any board-covering fight dialogs left over from the last activation
-	# (staged FightSequenceDialog on its "Close" summary, orphaned
-	# AttackAssignmentDialog). They otherwise hide the battlefield the player
+	# down anything left over from the last activation: the resolution dock's
+	# "Done" summary (its job is finished) and any orphaned board-covering
+	# AttackAssignmentDialog that would hide the battlefield the player
 	# consolidates across.
 	_dismiss_blocking_fight_dialogs()
 
@@ -2496,26 +2539,16 @@ func _on_end_consolidation(player: int) -> void:
 	emit_signal("fight_action_requested", action)
 
 func _dismiss_blocking_fight_dialogs() -> void:
-	"""Free the centered, board-covering fight-resolution dialogs so the
-	Consolidate step (an interactive drag on the battlefield) isn't buried under
-	them. The staged FightSequenceDialog stays open on its "Close" summary after
-	the final activation, and a stray AttackAssignmentDialog can linger too — both
-	sit centered over the board. This is only ever called once all fighting is
-	resolved (the Consolidate step / consolidate dialogs), so nothing is
-	interrupted; the combat log they displayed remains available in the right
+	"""Retire the last activation's resolution leftovers so the Consolidate
+	step (an interactive drag on the battlefield) starts clean. The resolution
+	dock can still be showing its "Done ✔" summary — its job is finished, so
+	deactivate it — and a stray board-covering AttackAssignmentDialog can
+	linger too. This is only ever called once all fighting is resolved, so
+	nothing is interrupted; the dice detail remains available in the right
 	panel's COMBAT LOG."""
-	# Staged melee resolution dialog — clear the tracked ref and, defensively,
-	# any node still parked under the stable "FightSequenceDialog" name (the ref
-	# can go stale if the dialog was closed/reopened).
-	if active_fight_sequence_dialog != null and is_instance_valid(active_fight_sequence_dialog):
-		active_fight_sequence_dialog.queue_free()
-	active_fight_sequence_dialog = null
-	var seq_dialog = get_tree().root.get_node_or_null("FightSequenceDialog")
-	if seq_dialog != null and is_instance_valid(seq_dialog):
-		# Release the stable name immediately (queue_free is deferred) so it can't
-		# collide with a future dialog claiming the same node name this frame.
-		seq_dialog.name = "StaleFightSequenceDialog"
-		seq_dialog.queue_free()
+	if fight_resolution_dock != null and is_instance_valid(fight_resolution_dock) and fight_resolution_dock.is_active():
+		fight_resolution_dock.deactivate()
+		print("[FightController] Deactivated resolution dock for Consolidate step")
 
 	# Any orphaned attack-assignment picker from the final activation.
 	var attack_dialog = get_tree().root.get_node_or_null("AttackAssignmentDialog")
@@ -3010,6 +3043,92 @@ func reset_pile_in_movements() -> void:
 	_update_pile_in_visuals()
 
 	print("[FightController] Pile-in movements reset")
+
+func auto_pile_in_movements() -> Dictionary:
+	"""Let the computer pile the whole unit in for the player.
+
+	Reuses the SAME solver the AI uses (AIDecisionMaker._compute_pile_in_movements)
+	so a human piling in can send every model toward the closest enemy — up to 3",
+	ending closer, avoiding overlaps, holding models already in base contact —
+	instead of dragging each one by hand. 19.03: attached characters' models pile
+	in as part of the same move. The result is loaded into the interactive preview
+	(tokens + arrows update); nothing is submitted here — the player reviews it and
+	clicks Confirm (or Reset). Returns the movements dict in this controller's
+	tracking-key form for the dialog to display."""
+	if pile_in_unit_id == "" or not current_phase:
+		return {}
+	var unit = current_phase.get_unit(pile_in_unit_id)
+	if unit.is_empty():
+		return {}
+	var owner = int(unit.get("owner", GameState.get_active_player()))
+
+	# The AI solver returns per-model destinations keyed by the model's ARRAY
+	# INDEX as a string ("0", "1", …) for pile_in_unit_id's own models, and
+	# "<char_unit_id>:<index>" for attached characters (19.03).
+	var snapshot = GameState.create_snapshot()
+	var ai_movements = AIDecisionMaker._compute_pile_in_movements(snapshot, pile_in_unit_id, unit, owner)
+	ai_movements = AIDecisionMaker._merge_attached_char_fight_movements(snapshot, pile_in_unit_id, owner, ai_movements, "pile_in")
+	return _load_ai_fight_movements_into_preview(ai_movements, "pile-in")
+
+func auto_consolidate_movements() -> Dictionary:
+	"""Let the computer consolidate the whole unit for the player — the mirror of
+	auto_pile_in_movements() for the 12.07 Consolidate step.
+
+	Reuses AIDecisionMaker._compute_consolidate_action, which picks the mandatory
+	12.08 mode (Ongoing/Engaging toward the closest enemy, or Objective toward the
+	nearest objective marker) the SAME way FightPhase._validate_consolidate_11e
+	judges it, folds in attached characters (19.03), and returns per-model
+	destinations up to 3". The result is loaded into the interactive preview;
+	nothing is submitted here — the player reviews it and clicks Confirm (or
+	Reset). Returns the movements dict in this controller's tracking-key form."""
+	if pile_in_unit_id == "" or not current_phase:
+		return {}
+	var unit = current_phase.get_unit(pile_in_unit_id)
+	if unit.is_empty():
+		return {}
+	var owner = int(unit.get("owner", GameState.get_active_player()))
+
+	# _compute_consolidate_action selects ENGAGEMENT/OBJECTIVE/NONE mode and merges
+	# attached characters, returning the same index-keyed movement shape as pile-in.
+	var snapshot = GameState.create_snapshot()
+	var action = AIDecisionMaker._compute_consolidate_action(snapshot, pile_in_unit_id, owner)
+	var ai_movements = action.get("movements", {})
+	return _load_ai_fight_movements_into_preview(ai_movements, "consolidate")
+
+func _load_ai_fight_movements_into_preview(ai_movements: Dictionary, label: String) -> Dictionary:
+	"""Shared by the auto pile-in / consolidate buttons: convert the AI solver's
+	index-keyed destinations ("0", "<char_unit>:0") into this controller's model-id
+	tracking keys, load them into current_model_positions (skipping models locked
+	in base contact — they must not move), and refresh the board tokens + arrow /
+	coherency visuals. Returns get_pile_in_movements() for the dialog to display."""
+	var applied := 0
+	for ai_key in ai_movements:
+		var route = _pile_in_split_key(str(ai_key))
+		var route_unit_id = route.unit_id
+		var idx_str = str(route.model_id)
+		if not idx_str.is_valid_int():
+			continue
+		var route_unit = current_phase.get_unit(route_unit_id)
+		var models = route_unit.get("models", [])
+		var idx = int(idx_str)
+		if idx < 0 or idx >= models.size():
+			continue
+		var model_id = models[idx].get("id", "m%d" % (idx + 1))
+		var key = _pile_in_model_key(route_unit_id, model_id)
+		if key in locked_base_contact_models:
+			continue
+		if not current_model_positions.has(key):
+			continue  # not part of the seeded move group (shouldn't happen)
+		current_model_positions[key] = ai_movements[ai_key]
+		applied += 1
+
+	print("[FightController] Auto %s computed %d model destination(s) for %s" % [label, applied, pile_in_unit_id])
+
+	# Reflect the computed destinations on the board tokens + arrow/coherency visuals
+	_apply_model_positions_to_scene()
+	_update_pile_in_visuals()
+
+	return get_pile_in_movements()
 
 func _apply_model_positions_to_scene() -> void:
 	"""Apply current_model_positions (and rotations) to the actual tokens in the scene"""
@@ -3698,6 +3817,12 @@ func _on_melee_saves_required(save_data_list: Array) -> void:
 	print("║ Target: ", target)
 	print("║ Weapon: ", weapon)
 	print("║ Wounds: ", wounds)
+
+	# Staged dock: show "Resolving saves…" while the defender allocates in the
+	# board overlay (same behavior as the shooting dock during saves).
+	if fight_resolution_dock and fight_resolution_dock.is_active():
+		var target_display = GameState.get_unit(target).get("meta", {}).get("name", target)
+		fight_resolution_dock.on_saves_pending(str(target_display))
 
 	# Check if overlay already exists
 	if active_melee_allocation_overlay != null and is_instance_valid(active_melee_allocation_overlay):

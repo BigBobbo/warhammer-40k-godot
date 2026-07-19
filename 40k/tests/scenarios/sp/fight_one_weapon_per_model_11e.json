@@ -55,9 +55,9 @@
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().staged_fight_state[\"assignments\"][0][\"weapon\"]", "equals": "power_klaw_melee" },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().staged_fight_state[\"assignments\"][1][\"weapon\"]", "equals": "attack_squig_melee" },
     { "act": "screenshot", "label": "02_warboss_fights_klaw_plus_extra_attacks_only" },
-    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)" },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)" },
     { "act": "wait_frames", "frames": 4 },
-    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },
 
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 8.0 },
@@ -81,9 +81,9 @@
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().staged_fight_state[\"assignments\"].size()", "equals": 1 },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().staged_fight_state[\"assignments\"][0][\"weapon\"]", "equals": "guardian_spear_melee" },
     { "act": "screenshot", "label": "03_guard_fights_single_weapon_of_three" },
-    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"FightSequenceDialog\").debug_click_through(12)" },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)" },
     { "act": "wait_frames", "frames": 4 },
-    { "act": "click_node", "node": "/root/FightSequenceDialog/Content/Buttons/CloseButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },
     { "act": "screenshot", "label": "04_fight_flow_continues_normally" },
     { "act": "execute_script", "script": "SettingsService.set_auto_allocate_wounds(false)" }

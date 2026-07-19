@@ -1,0 +1,59 @@
+{
+  "id": "auto_consolidate_closest_opponents",
+  "covers": [
+    "scripts.FightController.auto_consolidate_movements",
+    "scripts.FightController._load_ai_fight_movements_into_preview",
+    "dialogs.ConsolidateDialog.AutoButton",
+    "phases.FightPhase.consolidate_11e",
+    "scripts.AIDecisionMaker._compute_consolidate_action"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "New feature (consolidate half): the Consolidate dialog has an 'Auto Consolidate' button that moves every model toward the closest enemy for the player (reusing the AI's consolidate solver), instead of dragging each model. Setup walks the fight phase to the global Consolidate step (12.07) via END_PILE_IN/END_FIGHT, then places the Contemptor Dreadnought (the only consolidate-eligible unit for P1) and one Ork Boy in open space with a ~0.8\" gap (engaged, ongoing-mode, but not yet in base contact). Player path: click the Dreadnought's Consolidate step entry to open the ConsolidateDialog, then click 'Auto Consolidate'. The Dreadnought is moved toward the Boy automatically (get_pile_in_movements() becomes non-empty). Confirm submits ONE legal CONSOLIDATE that moves it closer (y increases toward the Boy) and records the unit as consolidated — all with no manual dragging.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)" },
+
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 2 } },
+    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 2 } },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel", "timeout_s": 5.0 },
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "consolidating_player_11e", "equals": 1 },
+
+    { "act": "execute_script", "multiline": true, "script": "var st = GameState.state\nst.units[\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"].models[0].position = {\"x\": 400.0, \"y\": 400.0}\nvar k = st.units[\"U_BOYZ_K\"]\nfor i in range(k.models.size()):\n\tk.models[i].position = {\"x\": 1500.0 + (i % 5) * 40.0, \"y\": 2100.0 + (i / 5) * 40.0}\nk.models[0].position = {\"x\": 400.0, \"y\": 504.0}\nreturn \"repositioned\"" },
+    { "act": "execute_script", "script": "main._sync_all_token_positions()" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "RulesEngine.is_unit_engaged(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", GameState.state)", "equals": true },
+    { "act": "screenshot", "label": "01_consolidate_step_dread_engaged_with_a_gap" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList/Consolidate_U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/ConsolidateDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.fight_controller.consolidate_active", "equals": true },
+    { "act": "expect_node_property", "node": "/root/ConsolidateDialog/Content/Buttons/AutoButton", "property": "text", "equals": "Auto Consolidate" },
+    { "act": "screenshot", "label": "02_consolidate_dialog_open_with_auto_button" },
+
+    { "act": "click_node", "node": "/root/ConsolidateDialog/Content/Buttons/AutoButton", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script", "script": "main.fight_controller.get_pile_in_movements().size() > 0", "equals": true },
+    { "act": "screenshot", "label": "03_auto_consolidate_filled_the_move" },
+
+    { "act": "click_node", "node": "/root/ConsolidateDialog/Content/Buttons/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().units_that_consolidated_11e.has(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")", "equals": true },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"].models[0].position.y > 410.0", "equals": true },
+    { "act": "execute_script", "script": "RulesEngine.is_unit_engaged(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", GameState.state)", "equals": true },
+    { "act": "screenshot", "label": "04_auto_consolidate_committed" }
+  ]
+}

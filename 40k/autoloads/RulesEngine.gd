@@ -5333,6 +5333,15 @@ static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, inv
 	var ap_magnitude = abs(ap)
 	var armour_save = base_save + ap_magnitude  # AP makes saves worse (higher number needed)
 
+	# 11e (13.08): Benefit of Cover worsens the attacking model's BS by 1 — it does
+	# NOT modify the save. Cover-improves-save is a 10e-only rule. The 11e resolution
+	# paths handle cover hit-side (ModifierStack) and the 11e allocation path never
+	# calls this function; the two legacy callers that still reach it (overwatch
+	# saves, AI/auto-allocate saves) must therefore ignore cover for saves at e11,
+	# otherwise cover is double-counted (BS worsened AND save improved).
+	if GameConstants.edition >= 11:
+		has_cover = false
+
 	# 10e Benefit of Cover cap: a unit with a Save characteristic of 3+ or better cannot
 	# have its Save improved by Cover against an attack with AP 0. The cap matters only
 	# when AP is 0 — at AP -1+ the modified (post-AP) save is already 4+ or worse, so
@@ -9771,16 +9780,19 @@ static func validate_base_to_base_possible_rules(unit_id: String, per_model_path
 	if target_models.is_empty():
 		return {"valid": true, "errors": []}
 
-	# 11.04 WHILE MOVING (11e): each model that CAN end within 1" of one or more
-	# charge targets MUST do so — a PER-MODEL obligation. The old 10e reading was
-	# wrongly satisfied by a SINGLE model reaching base contact; here every model
-	# is judged. Base-to-base (0") is the UI snap assist and over-satisfies the band.
+	# 11.04 WHILE MOVING (11e): each model that CAN end ENGAGED (within Engagement
+	# Range) with one or more charge targets MUST do so — a PER-MODEL obligation.
+	# The old 10e reading was wrongly satisfied by a SINGLE model reaching base
+	# contact; here every model is judged. Base-to-base (0") over-satisfies the band.
 	if rolled_distance <= 0:
 		return {"valid": true, "errors": []}
 
-	# Distance band a model must close into if it can (11e "within 1 inch").
-	# Named so a stricter "must base up" (0") house rule is a one-line change.
-	var close_inches: float = 1.0
+	# Distance band a model must close into if it can. 11e: a charge ends with the
+	# unit ENGAGED — Engagement Range is 2" horizontally (03.04). 10e used 1". This
+	# reads from GameConstants so the edition switch applies; a hardcoded 1" here
+	# was a 10e engagement-range leak that over-constrained 11e charges (a model
+	# legitimately ending engaged at ~1.1"-2.0" was wrongly told to close to 1").
+	var close_inches: float = GameConstants.engagement_range_inches()
 	var band_tol: float = 0.05  # fp / snap-noise slack on the band
 
 	for model_id in final_models:
