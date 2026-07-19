@@ -1,0 +1,37 @@
+{
+  "id": "pad_m4_rolloff",
+  "covers": [
+    "controller.m4.rolloff",
+    "controller.m4.dialog_focus_watchdog"
+  ],
+  "fixture": "audit_367_warlord",
+  "transition_to_phase": 13,
+  "disable_ai": true,
+  "rng_seed": 2,
+  "description": "M4 pad-only first-turn roll-off (reported live on the Steam Deck: 'Roll the dice' visible but unpressable). The RollOffDialog pops while the session is still KBM; when the pad claims the device afterwards the focus watchdog must focus RollButton so A rolls, then refocus ContinueButton after the dialog swaps its buttons, and A starts the battle.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 13 },
+    { "act": "expect_node_visible", "node": "/root/Main/RollOffDialog", "timeout_s": 2.0 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": false },
+
+    { "act": "simulate_joy_axis", "axis": 2, "value": 0.8 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_axis", "axis": 2, "value": 0.0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "execute_script", "script": "str(main.get_node(\"RollOffDialog\").gui_get_focus_owner().name)", "equals": "RollButton" },
+    { "act": "screenshot", "label": "01_roll_button_focused_by_watchdog" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 2.2 },
+    { "act": "execute_script", "script": "int(GameState.state.meta.get(\"first_turn_player\", -1)) > 0", "equals": true },
+    { "act": "execute_script", "script": "str(main.get_node(\"RollOffDialog\").gui_get_focus_owner().name)", "equals": "ContinueButton" },
+    { "act": "screenshot", "label": "02_continue_refocused_after_roll" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "not_equals": 13 },
+    { "act": "screenshot", "label": "03_battle_begins_pad_only" }
+  ]
+}

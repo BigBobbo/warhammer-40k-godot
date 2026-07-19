@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.65.0",
+			"version": "0.65.2",
 			"date": "2026-07-19",
 			"summary": "AI armies no longer stack models on top of each other. Reinforcements arriving from Strategic Reserves / Deep Strike (the main offender in AI vs AI games — e.g. Warbikers landing on a corner Battlewagon and on themselves) are now rejected if any base would overlap, and the AI picks a clear spot instead. Battlewagons also get their real 180mm hull footprint instead of a 32mm round base.",
 			"changes": [
@@ -10,6 +10,28 @@
 				"Fixed: when the AI could not find room for an arriving unit near its chosen spot, it placed the models anyway (trusting a rejection that never came) — it now tries other arrival spots along the board edges and keeps the unit in reserves for the turn if nowhere fits.",
 				"Fixed: the AI's collision check approximated oval and rectangular bases as circles, letting Warbikers (and other non-circular bases) be placed genuinely overlapping; arrival formations are now verified with the exact base shapes before being submitted.",
 				"Fixed: Battlewagons in the shipped Ork army lists had no base shape data and collided (and drew) as tiny 32mm circles — they now use their real 180x100mm rectangular footprint, so nothing can be placed 'inside' the wagon."
+			]
+		},
+		{
+			"version": "0.65.1",
+			"date": "2026-07-19",
+			"summary": "Controller fix: no more getting stuck at 'Roll the dice'. If a dialog (like the first-turn roll-off) opened before you touched the controller, the A button pressed nothing and the game looked frozen. A new focus watchdog now notices any open dialog with nothing highlighted while a controller is active and highlights its main button — this also fixes dialogs whose buttons change mid-flow (Roll → Continue).",
+			"changes": [
+				"Fixed: the first-turn roll-off (and any dialog that appeared before the first controller input) could not be confirmed with the A button.",
+				"Fixed: after rolling, the roll-off dialog's Continue button now gets highlighted automatically so A proceeds into the battle.",
+				"A controller-mode focus watchdog re-highlights the main button of any open dialog that lost its highlight; it never interferes while you are navigating a dialog, and mouse/keyboard play is unaffected."
+			]
+		},
+		{
+			"version": "0.65.0",
+			"date": "2026-07-19",
+			"summary": "Controller: the Movement phase now asks what you want to do. Pressing A on a unit opens an action menu above the hint bar — Move / Advance / Fall Back / Stay Still (plus special actions like Kunnin' Infiltrator) — instead of silently starting a Normal Move. Choosing Move or Fall Back picks the first model straight up. Bumper cycling also skips units that have already moved, and cancelling a pick-up with B no longer leaves a phantom 0\" staged move behind.",
+			"changes": [
+				"New pad action menu (Movement phase): A on a selected unit shows Move / Advance / Fall Back / Stay Still / special-action choices; D-pad or bumpers change the highlight, A confirms, B cancels.",
+				"Choosing Move or Fall Back flows straight into carrying the first model on the stick; Advance hands over to the advance roll first; Stay Still resolves the unit on the spot.",
+				"LB/RB unit cycling in the Movement phase now skips units that have finished moving, so the bumpers always land on a unit that can still act.",
+				"Cancelling a model carry with B now removes the zero-distance staged move the drop used to leave behind — and while nothing is staged you can reopen the menu to switch to Advance or Stay Still.",
+				"Mouse/keyboard flow is unchanged (the menu only appears for controller input)."
 			]
 		},
 		{

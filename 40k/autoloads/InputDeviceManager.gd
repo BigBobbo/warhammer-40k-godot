@@ -41,6 +41,17 @@ var _mouse_travel := 0.0
 # input), so a human grabbing the mouse still takes over within ~0.15 s.
 var _ignore_mouse_until_ms := 0
 
+# M4 dialog-focus watchdog: modals tracked by _on_tree_node_added, polled at
+# a low rate while the pad is active. Catches the two cases the popup hook
+# can't: (a) the dialog popped while KBM was active and the player THEN
+# switched to pad — e.g. the first-turn RollOffDialog appears before the
+# session's first pad press, leaving A pressing nothing; (b) the dialog
+# swapped its internal buttons mid-flow (RollOffDialog's Roll → Continue),
+# which hides the focused button and drops focus to null.
+const DIALOG_WATCH_INTERVAL := 0.3
+var _dialog_watch_accum := 0.0
+var _tracked_dialogs: Array = []
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -165,6 +176,10 @@ func _process(_delta: float) -> void:
 	# catches a press+release that lives inside a single frame; the axis
 	# checks catch held sticks/triggers.
 	if input_mode == InputMode.PAD:
+		_dialog_watch_accum += _delta
+		if _dialog_watch_accum >= DIALOG_WATCH_INTERVAL:
+			_dialog_watch_accum = 0.0
+			_watch_dialog_focus()
 		return
 	if not InputMap.has_action("pad_probe_buttons"):
 		return
@@ -230,12 +245,44 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 func _on_tree_node_added(node: Node) -> void:
 	if node is AcceptDialog:
 		node.about_to_popup.connect(_on_dialog_about_to_popup.bind(node))
+		_tracked_dialogs.append(node)
 		return
 	# WoundAllocationOverlay is a plain Control (not a Window), so it needs
 	# its own hook to receive pad focus when shown (§3.4 tricky-widget #4).
 	var script = node.get_script()
 	if script != null and str(script.resource_path).ends_with("WoundAllocationOverlay.gd"):
 		node.visibility_changed.connect(_on_wound_overlay_visibility.bind(node))
+		_tracked_dialogs.append(node)
+
+
+# Low-rate pad-mode watchdog (see _tracked_dialogs above): an open modal
+# whose window has no focus owner leaves A pressing nothing — refocus its
+# confirm button. No-ops whenever focus is alive, so pad navigation inside a
+# dialog is never fought.
+func _watch_dialog_focus() -> void:
+	var dlg := _find_open_tracked_dialog()
+	if dlg == null:
+		return
+	var vp: Viewport = dlg if dlg is Window else get_viewport()
+	if vp.gui_get_focus_owner() != null:
+		return
+	if dlg is Window:
+		VirtualCursor.park()
+	_focus_dialog_deferred.call_deferred(dlg)
+
+
+func _find_open_tracked_dialog() -> Node:
+	# Later-created dialogs stack above earlier ones — take the last visible.
+	var found: Node = null
+	var alive: Array = []
+	for d in _tracked_dialogs:
+		if not is_instance_valid(d):
+			continue
+		alive.append(d)
+		if (d is Window and d.visible) or (d is CanvasItem and d.is_visible_in_tree()):
+			found = d
+	_tracked_dialogs = alive
+	return found
 
 
 func _on_wound_overlay_visibility(overlay: Node) -> void:

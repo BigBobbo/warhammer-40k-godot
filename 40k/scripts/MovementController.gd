@@ -5155,6 +5155,114 @@ func _on_movement_action_popup_closed() -> void:
 		_popup_pending_unit_id = ""
 
 
+# ── Pad (M4) move-mode action menu adapters ────────────────────────────────
+# PadRouter opens PadActionBar with pad_menu_options() when the pad player
+# presses A on a selected unit whose movement mode is still open, and applies
+# the choice through pad_apply_menu_choice(). Both delegate to the exact
+# handlers the mouse radios / Confirm Movement Mode button use, so payload
+# logic (SHW gamble, turbo, mode locking, advance dice) stays in one place.
+
+func pad_can_cycle_to(unit_id: String) -> bool:
+	"""Bumper cycling skips units whose activation is spent (PRP §2.6: cycling
+	follows eligibility, not raw list order). Mouse row-clicks are unaffected."""
+	return _get_unit_movement_status(unit_id) != "completed"
+
+
+func pad_menu_options() -> Array:
+	"""Options for the pad action bar: [{id, label}], mirroring the mode-radio
+	eligibility. Empty when the unit has no open mode decision (mode locked,
+	models already staged/moved, embarked, or nothing selected)."""
+	if active_unit_id == "":
+		return []
+	if _pad_mode_resolved():
+		return []
+	var unit = GameState.get_unit(active_unit_id)
+	if unit.is_empty() or unit.get("embarked_in", null) != null:
+		return []
+	var opts: Array = []
+	if normal_radio and normal_radio.visible and not normal_radio.disabled:
+		opts.append({"id": "NORMAL", "label": "Move"})
+	if advance_radio and advance_radio.visible and not advance_radio.disabled:
+		opts.append({"id": "ADVANCE", "label": "Advance"})
+	if fall_back_radio and fall_back_radio.visible and not fall_back_radio.disabled:
+		opts.append({"id": "FALL_BACK", "label": "Fall Back"})
+	if stationary_radio and stationary_radio.visible and not stationary_radio.disabled:
+		opts.append({"id": "REMAIN_STATIONARY", "label": "Stay Still"})
+	for action in _get_special_movement_actions(active_unit_id):
+		var action_type := str(action.get("type", ""))
+		if action_type == "":
+			continue
+		opts.append({
+			"id": "SPECIAL:" + action_type,
+			"label": str(action.get("description", action_type))
+		})
+	return opts
+
+
+func _pad_mode_resolved() -> bool:
+	"""True when the active unit's move-mode decision is no longer open:
+	mode locked/completed, or models already staged/committed this move."""
+	if not current_phase or not current_phase.has_method("get_active_move_data"):
+		return false
+	var move_data = current_phase.get_active_move_data(active_unit_id)
+	if move_data.is_empty():
+		return false
+	if move_data.get("completed", false) or move_data.get("mode_locked", false):
+		return true
+	return not move_data.get("staged_moves", []).is_empty() \
+		or not move_data.get("model_moves", []).is_empty()
+
+
+func pad_apply_menu_choice(choice_id: String) -> void:
+	"""Apply a PadActionBar choice by driving the same handlers the mouse UI
+	uses (radios + Confirm Movement Mode / Fall Back dispatch)."""
+	if active_unit_id == "":
+		return
+	if choice_id.begins_with("SPECIAL:"):
+		emit_signal("move_action_requested", {
+			"type": choice_id.trim_prefix("SPECIAL:"),
+			"actor_unit_id": active_unit_id
+		})
+		return
+	_pad_set_mode_radio(choice_id)
+	match choice_id:
+		"NORMAL":
+			# Selection normally auto-dispatched BEGIN_NORMAL_MOVE already; the
+			# special-action popup path skips it, so make sure a move exists.
+			var move_data = current_phase.get_active_move_data(active_unit_id) \
+				if current_phase and current_phase.has_method("get_active_move_data") else {}
+			if move_data.is_empty():
+				emit_signal("move_action_requested", {
+					"type": "BEGIN_NORMAL_MOVE",
+					"actor_unit_id": active_unit_id
+				})
+		"ADVANCE", "REMAIN_STATIONARY":
+			_on_confirm_mode_pressed()
+		"FALL_BACK":
+			_on_fall_back_pressed()
+
+
+func _pad_set_mode_radio(mode: String) -> void:
+	var radio: CheckBox = null
+	match mode:
+		"NORMAL":
+			radio = normal_radio
+		"ADVANCE":
+			radio = advance_radio
+		"FALL_BACK":
+			radio = fall_back_radio
+		"REMAIN_STATIONARY":
+			radio = stationary_radio
+	if radio == null:
+		return
+	# ButtonGroup radios: pressing one programmatically releases the others.
+	# `pressed` is not emitted by programmatic sets, but keep the guard for
+	# parity with every other programmatic radio write in this file.
+	setting_radio_programmatically = true
+	radio.button_pressed = true
+	setting_radio_programmatically = false
+
+
 # ── Inner helper classes for selection visuals ──────────────────────────────
 
 class _SelectionBoxVisual extends Node2D:
