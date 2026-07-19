@@ -1,0 +1,119 @@
+# Builds a native Linux (x86_64) desktop binary and publishes it to a rolling
+# "deck-latest" GitHub Release on every push to main. The Steam Deck launcher
+# (tools/steamdeck/warhammer40k.sh) pulls this release, so the Deck always runs
+# the newest build. Also runs on demand via the Actions tab.
+name: Steam Deck Build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '40k/**'
+      - '.github/workflows/steamdeck-build.yml'
+      - 'tools/steamdeck/**'
+  workflow_dispatch:
+
+# One Deck build at a time; a newer push cancels an in-progress run so we never
+# race two uploads to the same rolling release.
+concurrency:
+  group: steamdeck-build
+  cancel-in-progress: true
+
+# Needed for the default GITHUB_TOKEN to create/update the rolling release.
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.4.1"
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    name: Build Linux (Steam Deck)
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+          export-templates: false
+
+      # Install export templates the same proven way deploy-web.yml does, so we
+      # do not depend on the setup action's default template behaviour.
+      - name: Download export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable
+          cd ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable
+          wget -q https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz
+          unzip -q Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz
+          mv templates/* .
+          rmdir templates
+          rm Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz
+
+      - name: Import project
+        run: |
+          cd 40k
+          godot --headless --import
+
+      - name: Export Linux build
+        run: |
+          cd 40k
+          mkdir -p build/linux
+          godot --headless --export-release "Linux/X11" build/linux/40k-game.x86_64
+          chmod +x build/linux/40k-game.x86_64
+
+      # Fail fast if the export silently produced nothing usable (e.g. embed_pck
+      # regression). The whole game + assets embed into one binary, so it is tens
+      # of MB; anything tiny means the pack did not embed.
+      - name: Verify binary
+        run: |
+          cd 40k/build/linux
+          test -f 40k-game.x86_64 || { echo "::error::export produced no binary"; exit 1; }
+          file 40k-game.x86_64
+          SIZE=$(stat -c%s 40k-game.x86_64)
+          echo "binary size = $SIZE bytes"
+          test "$SIZE" -gt 30000000 || { echo "::error::binary is only $SIZE bytes — PCK likely did not embed"; exit 1; }
+
+      - name: Package
+        run: |
+          cd 40k/build/linux
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "$SHORT_SHA" > BUILD_SHA
+          {
+            echo "commit=$SHORT_SHA"
+            echo "full_commit=$GITHUB_SHA"
+            echo "ref=$GITHUB_REF_NAME"
+            echo "run=$GITHUB_RUN_NUMBER"
+          } > BUILD_INFO.txt
+          tar -czf warhammer40k-linux.tar.gz 40k-game.x86_64 BUILD_SHA BUILD_INFO.txt
+          ls -la
+
+      - name: Publish rolling "deck-latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: deck-latest
+          name: "Steam Deck / Linux — latest build"
+          prerelease: true
+          make_latest: false
+          body: |
+            Rolling native **Linux (x86_64)** build for the Steam Deck, rebuilt
+            automatically on every push to `main`.
+
+            - Commit: `${{ github.sha }}`
+            - Install with the self-updating launcher in `tools/steamdeck/` —
+              see [`tools/steamdeck/README.md`](https://github.com/${{ github.repository }}/blob/main/tools/steamdeck/README.md).
+
+            This is a moving "latest" tag, not a versioned release. Published
+            Releases (if any) are unaffected.
+          files: |
+            40k/build/linux/warhammer40k-linux.tar.gz
+            40k/build/linux/BUILD_SHA
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

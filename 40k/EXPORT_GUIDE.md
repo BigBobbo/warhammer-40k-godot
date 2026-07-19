@@ -4,6 +4,25 @@
 
 To test multiplayer on different computers, you need to **export the game as a standalone executable**. This allows you to run the game on computers without Godot installed.
 
+## Steam Deck & Linux (automated — recommended)
+
+You normally do **not** need to export by hand for Linux/Steam Deck. On every
+push to `main`, `.github/workflows/steamdeck-build.yml` exports the **`Linux/X11`**
+preset (a single embedded-PCK `40k-game.x86_64`) and publishes it to a rolling
+GitHub Release tagged **`deck-latest`**.
+
+- **Play it on a Steam Deck (auto-updating, full controller support):** follow
+  [`tools/steamdeck/README.md`](../tools/steamdeck/README.md). You add a small
+  self-updating launcher to Steam as a Non-Steam game; each launch pulls the
+  newest `main` build. The game already has native gamepad support (see
+  `PRPs/steam_deck_controller_support.md`).
+- **Build the Linux binary yourself:** `cd 40k && godot --headless --import &&
+  godot --headless --export-release "Linux/X11" build/linux/40k-game.x86_64`
+  (needs the 4.4.1 export templates installed).
+
+A tagged/published GitHub Release also produces a Linux asset via
+`release-build.yml`. The rest of this guide covers manual, per-platform exports.
+
 ## Export Process
 
 ### 1. Install Export Templates
