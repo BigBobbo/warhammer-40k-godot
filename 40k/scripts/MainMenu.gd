@@ -141,6 +141,7 @@ func _ready() -> void:
 
 	# Version badge + "What's New" summary (helps tell which build is running)
 	_create_version_display()
+	_create_controller_status()
 
 	# M0 controller foundations: the menu must be drivable without a mouse —
 	# something has to own focus for D-pad/stick navigation to work at all,
@@ -292,6 +293,46 @@ func _create_version_display() -> void:
 	menu_container.add_child(panel)
 
 	print("MainMenu: Version display added at bottom (%s, %d changes)" % [VersionInfo.get_version(), changes.size()])
+
+
+func _create_controller_status() -> void:
+	"""Top-right always-visible controller diagnostic (M4). Steam Deck field
+	reports came down to 'is the game even receiving gamepad input?' — with a
+	keyboard-emulation Steam Input template the D-pad arrives as arrow keys
+	and NO joypad is ever visible to the game, which is undiagnosable from a
+	player's description alone. This label answers it at a glance:
+	  not detected  -> Steam Input is not presenting a gamepad (fix the
+	                   controller layout / template)
+	  connected     -> gamepad visible; press any button to switch the UI
+	                   into pad mode
+	  ACTIVE        -> pad mode is live (hint bar on, cycling/A-select work)"""
+	var label := Label.new()
+	label.name = "ControllerStatus"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	label.add_theme_font_size_override("font_size", 13)
+	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	label.offset_right = -14
+	label.offset_top = 10
+	label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	add_child(label)
+	InputDeviceManager.device_changed.connect(func(_mode): _update_controller_status())
+	InputDeviceManager.pad_connection_changed.connect(func(_connected): _update_controller_status())
+	_update_controller_status()
+
+
+func _update_controller_status() -> void:
+	var label := get_node_or_null("ControllerStatus") as Label
+	if label == null:
+		return
+	if InputDeviceManager.is_pad_active():
+		label.text = "Controller: ACTIVE"
+		label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	elif Input.get_connected_joypads().is_empty():
+		label.text = "Controller: not detected\nSteam Deck: set the controller layout to 'Gamepad' in Steam Input"
+		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	else:
+		label.text = "Controller: connected — press any button"
+		label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 
 func _apply_theme_to_dynamic_elements() -> void:
 	# Style dynamically created dropdowns and buttons

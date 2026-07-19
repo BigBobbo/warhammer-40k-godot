@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.66.0",
+			"date": "2026-07-19",
+			"summary": "Main menu now shows a controller status indicator (top right). Steam Deck sessions kept failing with a symptom — D-pad pans the camera, nothing selects — whose real cause is Steam Input sending keyboard emulation instead of gamepad input, so the game never sees a controller at all. The indicator makes this visible at a glance: 'not detected' (with a hint to set the Steam Input layout to Gamepad), 'connected — press any button', or 'ACTIVE'.",
+			"changes": [
+				"Top-right controller status on the main menu: 'not detected' / 'connected — press any button' / 'ACTIVE', updating live as devices connect and as you switch between mouse and controller.",
+				"When no controller is visible to the game, the label includes the Steam Deck fix hint: set the controller layout to 'Gamepad' in Steam Input (keyboard-emulation templates make the D-pad arrive as arrow keys — that is why the D-pad pans the camera while nothing else works).",
+				"Diagnostic aid: if this label does not say ACTIVE after pressing a controller button, none of the in-game controller features can work — fix the template first."
+			]
+		},
+		{
 			"version": "0.65.2",
 			"date": "2026-07-19",
 			"summary": "AI armies no longer stack models on top of each other. Reinforcements arriving from Strategic Reserves / Deep Strike (the main offender in AI vs AI games — e.g. Warbikers landing on a corner Battlewagon and on themselves) are now rejected if any base would overlap, and the AI picks a clear spot instead. Battlewagons also get their real 180mm hull footprint instead of a 32mm round base.",
