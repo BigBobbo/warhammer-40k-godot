@@ -2,6 +2,20 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.72.0",
+			"date": "2026-07-20",
+			"summary": "The downloadable Linux build (Steam Deck) now shares saved games with the itch.io browser version — and its local saving is fixed. Games saved in the browser appear in the Linux build's Load list (marked [Shared]/[Cloud]) and download when loaded; games saved on the Deck upload to the same online store so the browser sees them too. Local saves now live in the OS user-data folder (the old location was read-only inside the downloadable build, so saving silently failed).",
+			"changes": [
+				"Desktop builds now connect to the same online save server as the itch.io browser version: the save list merges your local files with every cloud save, and loading a cloud entry downloads it.",
+				"Manual saves (and the phase-start autosave) made on desktop are also uploaded to the online store, so a game started on the Steam Deck can be continued in the browser.",
+				"Fixed: the downloadable build could not save at all — saves now write to the user-data folder (writable everywhere) instead of the game's install folder; existing saves are migrated automatically.",
+				"Online (game-code) multiplayer now works out of the box on the downloadable build — it defaults to the production relay server instead of localhost.",
+				"Cloud armies (Army Builder) now load on the downloadable build for the same reason.",
+				"Save/Load failures and successes now show a notification on desktop too (they were web-only before, so desktop failures were silent).",
+				"If the save server can't be reached, the desktop Load list keeps showing your local saves with a warning toast instead of going blank."
+			]
+		},
+		{
 			"version": "0.71.0",
 			"date": "2026-07-20",
 			"summary": "Controller pass across every phase: all option lists the game displays are now selectable with the pad, following the deployment-phase pattern. Charge: D-pad up/down walks the ELIGIBLE TARGETS list and A toggles each target in/out (pad Ctrl+Click for multi-charges), Start declares then rolls, X skips. Shooting: D-pad up/down steps the weapon rows so each gun can get its own target. Reinforcement and scout-reserves placement get the full deployment pad kit (formation row, X undo, Start confirm, A cursor-warp). Also fixes reserves units being unselectable in loaded saves.",

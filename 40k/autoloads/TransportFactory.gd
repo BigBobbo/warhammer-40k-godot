@@ -52,6 +52,12 @@ func _load_server_config() -> void:
 	if OS.has_environment("WS_SERVER_URL"):
 		server_url = OS.get_environment("WS_SERVER_URL")
 		print("TransportFactory: Using environment server URL: ", server_url)
+	elif not OS.has_feature("editor"):
+		# Exported player builds (itch.io Linux download / Steam Deck): default
+		# to the production relay so Online (game-code) multiplayer works out of
+		# the box against the same server the browser build uses.
+		server_url = PRODUCTION_SERVER_URL
+		print("TransportFactory: Exported build - using production server: ", server_url)
 	else:
 		# Development default - local server
 		server_url = "ws://localhost:9080"

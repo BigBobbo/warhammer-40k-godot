@@ -32,12 +32,31 @@ const WEB_STORAGE_PREFIX = "w40k_save_"
 # SAVE-16: Multiple save slots
 const MAX_SAVE_SLOTS = 5
 
-var save_directory: String = "res://saves/"
-var autosave_directory: String = "res://saves/autosaves/"
-var backup_directory: String = "res://saves/backups/"
+# user:// is the only reliably writable location for exported builds: res://
+# lives inside the PCK and is READ-ONLY once the game is exported, so the old
+# res://saves/ location meant the downloadable Linux/macOS builds could not
+# save at all. On Linux this resolves to ~/.local/share/godot/app_userdata/40k/saves/.
+var save_directory: String = "user://saves/"
+var autosave_directory: String = "user://saves/autosaves/"
+var backup_directory: String = "user://saves/backups/"
+
+# Legacy desktop save location (pre-0.70): saves were written into the project
+# folder itself, which only worked when running from source. Files found here
+# are copied to user:// once at startup (non-destructive) so dev-checkout saves
+# keep appearing after the switch.
+const LEGACY_SAVE_DIR = "res://saves/"
 
 # Browser storage mode
 var is_web_platform: bool = false
+
+# Desktop cloud sync: when CloudStorage points at a real server (exported
+# builds default to the production server; dev opts in via server_config.json),
+# manual saves are ALSO uploaded and the save list merges cloud + local
+# entries, so the itch.io browser build and the downloadable Linux/Steam Deck
+# build interact with the same saved games.
+var _desktop_cloud_uploads_pending: Dictionary = {}  # save_name -> true while a dual-write upload is in flight
+var _last_local_save_files: Array = []  # Latest local listing, reused when the cloud list arrives to merge
+var _cloud_save_index: Dictionary = {}  # save_name -> {"ownership": ..., "owner_id": ...} from the last cloud list
 
 var autosave_enabled: bool = true
 var autosave_interval: float = 300.0  # 5 minutes
@@ -79,6 +98,9 @@ func _ready() -> void:
 		_connect_cloud_signals()
 	else:
 		_initialize_directories()
+		# Desktop also listens to CloudStorage: exported builds sync saves with
+		# the same server the itch.io browser build uses (see cloud_saves_enabled).
+		_connect_cloud_signals()
 
 	_setup_autosave_timer()
 	_connect_phase_signals()
@@ -96,28 +118,49 @@ func _connect_cloud_signals() -> void:
 	print("SaveLoadManager: Connected to CloudStorage signals")
 
 func _initialize_directories() -> void:
-	# Create directories in the project folder (res://)
-	var dir = DirAccess.open("res://")
+	# Create directories under user:// — writable on ALL desktop platforms,
+	# including exported builds where res:// is a read-only packed filesystem.
+	var dir = DirAccess.open("user://")
 	if dir:
-		print("SaveLoadManager: Current res:// directory: ", dir.get_current_dir())
-		print("SaveLoadManager: Project directory path: ", ProjectSettings.globalize_path("res://"))
-
-		if not dir.dir_exists("saves"):
-			var result = dir.make_dir("saves")
-			print("SaveLoadManager: Creating saves directory, result: ", result)
-
-		if not dir.dir_exists("saves/autosaves"):
-			var result = dir.make_dir_recursive("saves/autosaves")
-			print("SaveLoadManager: Creating autosaves directory, result: ", result)
-
-		if not dir.dir_exists("saves/backups"):
-			var result = dir.make_dir_recursive("saves/backups")
-			print("SaveLoadManager: Creating backups directory, result: ", result)
-
-		print("SaveLoadManager: Initialized save directories in project folder")
-		print("SaveLoadManager: Save files will be stored at: ", ProjectSettings.globalize_path("res://saves/"))
+		for sub in ["saves", "saves/autosaves", "saves/backups"]:
+			if not dir.dir_exists(sub):
+				var result = dir.make_dir_recursive(sub)
+				print("SaveLoadManager: Creating %s directory, result: %s" % [sub, str(result)])
+		print("SaveLoadManager: Save files will be stored at: ", ProjectSettings.globalize_path(save_directory))
+		_migrate_legacy_saves()
 	else:
-		print("SaveLoadManager: ERROR - Could not open res:// directory")
+		print("SaveLoadManager: ERROR - Could not open user:// directory")
+
+# One-time, non-destructive migration of pre-0.70 saves out of the project
+# folder. Copies only files that don't already exist at the destination, so it
+# is safe (and cheap) to run on every startup. Exported builds have nothing at
+# res://saves/, making this a no-op there.
+func _migrate_legacy_saves() -> void:
+	var legacy = DirAccess.open(LEGACY_SAVE_DIR)
+	if not legacy:
+		return
+	var migrated = 0
+	legacy.list_dir_begin()
+	var file_name = legacy.get_next()
+	while file_name != "":
+		if not legacy.current_is_dir() and (file_name.ends_with(SAVE_EXTENSION) or file_name.ends_with(METADATA_EXTENSION)):
+			var dest = save_directory + file_name
+			if not FileAccess.file_exists(dest):
+				if legacy.copy(LEGACY_SAVE_DIR + file_name, dest) == OK:
+					migrated += 1
+				else:
+					print("SaveLoadManager: WARNING - failed to migrate legacy save: ", file_name)
+		file_name = legacy.get_next()
+	legacy.list_dir_end()
+	if migrated > 0:
+		print("SaveLoadManager: Migrated %d legacy save file(s) from res://saves/ to %s" % [migrated, ProjectSettings.globalize_path(save_directory)])
+
+# Desktop cloud-save sync is on when CloudStorage talks to a real server:
+# always for exported player builds (production URL), and for dev runs that
+# explicitly configure one via server_config.json. Checked at call time (not
+# cached in _ready) so it never races autoload initialization order.
+func cloud_saves_enabled() -> bool:
+	return not is_web_platform and CloudStorage != null and CloudStorage.is_remote_configured
 
 func _setup_autosave_timer() -> void:
 	autosave_timer = Timer.new()
@@ -374,7 +417,12 @@ func save_game(file_name: String, metadata: Dictionary = {}) -> bool:
 		return true
 
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
-	return _save_game_to_path(save_path, metadata)
+	var success = _save_game_to_path(save_path, metadata)
+	# Desktop dual-write: mirror the save to the cloud store (best-effort) so
+	# the itch.io browser build sees it too. Local success is not gated on it.
+	if success and cloud_saves_enabled():
+		_upload_save_copy_to_cloud(sanitized_name)
+	return success
 
 func load_game(file_name: String, owner_id: String = "") -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
@@ -385,6 +433,21 @@ func load_game(file_name: String, owner_id: String = "") -> bool:
 		return true
 
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
+
+	# A shared cloud save (owned by ANOTHER player) must come from the server
+	# even if a same-named local file exists — the local file is a different game.
+	var is_shared_cloud_row = not owner_id.is_empty() and CloudStorage != null and owner_id != CloudStorage.player_id
+
+	if not is_shared_cloud_row and FileAccess.file_exists(save_path):
+		return _load_game_from_path(save_path)
+
+	# No local copy: a cloud-only entry (e.g. a game saved in the itch.io
+	# browser build). Download it when a save server is configured.
+	if cloud_saves_enabled():
+		_load_game_from_cloud(sanitized_name, owner_id)
+		# Async operation initiated; result arrives via load_completed/load_failed
+		return true
+
 	return _load_game_from_path(save_path)
 
 func save_game_to_slot(slot: int, metadata: Dictionary = {}) -> bool:
@@ -439,11 +502,8 @@ func quick_save() -> bool:
 		_save_game_to_cloud("quicksave", {"type": "quicksave"})
 		return true
 
-	var save_path = save_directory + "quicksave" + SAVE_EXTENSION
-	print("SaveLoadManager: Attempting quick save to: ", save_path)
-	print("SaveLoadManager: Full path: ", ProjectSettings.globalize_path(save_path))
-	var metadata = {"type": "quicksave"}
-	return _save_game_to_path(save_path, metadata)
+	print("SaveLoadManager: Attempting quick save (via save_game for cloud mirroring)")
+	return save_game("quicksave", {"type": "quicksave"})
 
 func quick_load() -> bool:
 	if is_web_platform:
@@ -685,7 +745,30 @@ func _load_game_from_cloud(save_name: String, owner_id: String = "") -> void:
 	else:
 		emit_signal("load_failed", "CloudStorage not available")
 
+# Desktop dual-write: mirror a just-written local save to the cloud store.
+# Reads the file back rather than re-serializing, so the uploaded payload is
+# byte-identical to the local copy.
+func _upload_save_copy_to_cloud(save_name: String) -> void:
+	var save_path = save_directory + save_name + SAVE_EXTENSION
+	var file = FileAccess.open(save_path, FileAccess.READ)
+	if not file:
+		print("SaveLoadManager: [CLOUD] Could not re-open %s for cloud mirror, skipping upload" % save_path)
+		return
+	var payload = file.get_as_text()
+	file.close()
+	var metadata = _load_metadata(save_path)
+	_desktop_cloud_uploads_pending[save_name] = true
+	print("SaveLoadManager: [CLOUD] Mirroring '%s' to cloud (%d bytes)" % [save_name, payload.length()])
+	CloudStorage.put_save(save_name, metadata, payload)
+
 func _on_cloud_save_uploaded(save_name: String) -> void:
+	# Desktop dual-write mirror: the local write already emitted save_completed —
+	# only log the sync instead of double-firing UI notifications.
+	if _desktop_cloud_uploads_pending.has(save_name):
+		_desktop_cloud_uploads_pending.erase(save_name)
+		print("SaveLoadManager: [CLOUD] Desktop save mirrored to cloud: ", save_name)
+		return
+
 	print("SaveLoadManager: [CLOUD] Save uploaded successfully: ", save_name)
 	last_save_path = "cloud://" + save_name
 	# Prefer the metadata we captured when the upload was queued (carries the
@@ -739,6 +822,7 @@ func _on_cloud_saves_list_received(saves: Array) -> void:
 
 	# Convert cloud save format to standard save_files format
 	var save_files = []
+	_cloud_save_index.clear()
 	for save in saves:
 		var metadata = save.get("metadata", {})
 		if metadata is String:
@@ -754,13 +838,41 @@ func _on_cloud_saves_list_received(saves: Array) -> void:
 			"file_path": "cloud://" + save.get("save_name", ""),
 			"metadata": metadata,
 			"ownership": save.get("ownership", "own"),
-			"owner_id": save.get("owner_id", "")
+			"owner_id": save.get("owner_id", ""),
+			"source": "cloud"
+		}
+		_cloud_save_index[save_info["display_name"]] = {
+			"ownership": save_info["ownership"],
+			"owner_id": save_info["owner_id"]
 		}
 		save_files.append(save_info)
+
+	# Desktop: merge with the local files listed by the most recent
+	# get_save_files() call, so the dialog shows one combined list.
+	if not is_web_platform:
+		save_files = _merge_cloud_and_local_saves(save_files, _last_local_save_files)
 
 	# Sort by modification time (newest first)
 	save_files.sort_custom(_compare_save_info_times)
 	emit_signal("save_files_received", save_files)
+
+# Desktop merge: one row per save name. A local copy wins the collision (it
+# loads instantly, and after a dual-write both copies are the same game);
+# cloud-only entries — e.g. games saved in the itch.io browser build — are
+# appended and load via cloud download.
+func _merge_cloud_and_local_saves(cloud_saves: Array, local_saves: Array) -> Array:
+	var merged: Array = []
+	var local_names := {}
+	for entry in local_saves:
+		local_names[entry.get("display_name", "")] = true
+		merged.append(entry)
+	var appended = 0
+	for entry in cloud_saves:
+		if not local_names.has(entry.get("display_name", "")):
+			merged.append(entry)
+			appended += 1
+	print("SaveLoadManager: [CLOUD] Merged save list: %d local + %d cloud-only" % [local_saves.size(), appended])
+	return merged
 
 func _on_cloud_save_deleted(save_name: String) -> void:
 	print("SaveLoadManager: [CLOUD] Save deleted: ", save_name)
@@ -905,7 +1017,8 @@ func get_save_files() -> Array:
 					"file_name": file_name,
 					"display_name": file_name.replace(SAVE_EXTENSION, ""),
 					"file_path": save_directory + file_name,
-					"metadata": _load_metadata(save_directory + file_name)
+					"metadata": _load_metadata(save_directory + file_name),
+					"source": "local"
 				}
 				save_files.append(save_info)
 			file_name = dir.get_next()
@@ -913,6 +1026,15 @@ func get_save_files() -> Array:
 
 	# Sort by modification time (newest first)
 	save_files.sort_custom(_compare_save_info_times)
+
+	# Desktop cloud sync: also kick off an async cloud list fetch. The merged
+	# (local + cloud) list arrives via the save_files_received signal, exactly
+	# like on web — callers that only use the sync return value still get the
+	# local files immediately.
+	_last_local_save_files = save_files.duplicate()
+	if cloud_saves_enabled():
+		CloudStorage.list_saves()
+
 	return save_files
 
 func delete_save_file(file_name: String) -> bool:
@@ -939,6 +1061,14 @@ func delete_save_file(file_name: String) -> bool:
 	# Delete metadata file
 	if FileAccess.file_exists(meta_path):
 		DirAccess.remove_absolute(meta_path)
+
+	# Desktop cloud sync: also delete OUR copy from the cloud store, but only
+	# when the last cloud listing actually showed this name as ours — firing a
+	# blind delete for local-only saves would surface a spurious 404 error, and
+	# shared saves (another player's) can't be deleted by us at all.
+	if cloud_saves_enabled() and _cloud_save_index.get(sanitized_name, {}).get("ownership", "") == "own":
+		print("SaveLoadManager: [CLOUD] Also deleting '%s' from cloud store" % sanitized_name)
+		CloudStorage.delete_save(sanitized_name)
 
 	return success
 
