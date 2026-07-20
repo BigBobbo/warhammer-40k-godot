@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.74.0",
+			"date": "2026-07-20",
+			"summary": "Steam Deck controls — the first 'smoothness' pass. Moving a model with the stick now stops it exactly on the edge of its movement range instead of rejecting the move and snapping it back. A new precision mode (hold the right stick, R3) slows the cursor for fine placement and target picking, and the cursor now gently eases onto the nearest model when you hover near one, so selecting a unit no longer needs pixel-perfect aim. On-screen text is also enlarged while a controller is in use so it stays readable on the Deck's screen (toggle in Settings › Controls).",
+			"changes": [
+				"Controller movement: pushing a model past its Move stat now clamps it to the edge of its movement range and stages the move, instead of rejecting the drop and snapping the model back — you just slide to the line (matches XCOM 2 / Advance Wars). Mouse & keyboard movement is unchanged.",
+				"Precision mode: hold the right stick click (R3) while steering the cursor to slow it right down for exact model placement and target selection; a 'Precision' hint appears while carrying a model.",
+				"Cursor magnetism: while a controller is active, the on-screen cursor gently eases toward the nearest model when you hover close to it, so grabbing a unit no longer needs pinpoint aim. It fades out as you move quickly and never interferes with placing a model.",
+				"Larger UI on controller / Steam Deck: while a gamepad is the active input device, on-screen text and buttons are scaled up so they stay legible on the Deck's small screen. Mouse & keyboard rendering is untouched. Toggle it under Settings › Controls › 'Larger UI text on controller / Steam Deck'."
+			]
+		},
+		{
 			"version": "0.73.0",
 			"date": "2026-07-20",
 			"summary": "Controller: LB/RB are now the ONLY way to cycle units. D-pad and left-stick up/down no longer switch units — they navigate the selected unit's phase options instead. In the Movement phase, D-pad up/down opens the move action menu (Move / Advance / Fall Back / Stay Still) and steps through it, and pressing a bumper while the menu is open switches units with the menu following the new unit.",

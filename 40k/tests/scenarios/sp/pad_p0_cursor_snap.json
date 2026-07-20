@@ -1,0 +1,47 @@
+{
+  "id": "pad_p0_cursor_snap",
+  "covers": ["controller.p0.cursor_precision", "controller.p0.cursor_magnetism"],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "P0 fine cursor control. Magnetism: with a controller active and the cursor hovered ~25px from a model token, the snap-assist produces a non-zero pull vector pointed at the token (dot >= 0.9), so selecting a unit doesn't need pixel-perfect aim. Precision: holding R3 (button 8) while carrying a model slows the cursor to well under half speed for fine placement — the same stick nudge travels < 0.6x as far with R3 held.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "InputDeviceManager.claim_pad()" },
+    { "act": "execute_script", "script": "VirtualCursor.warp_to(main.world_to_screen_position(Vector2(850.0, 50.0)) + Vector2(25.0, 0.0))" },
+    { "act": "wait_seconds", "seconds": 0.15 },
+    { "act": "execute_script", "script": "main.nearest_pad_snap_screen_pos(VirtualCursor.get_cursor_pos(), 34.0).distance_to(VirtualCursor.get_cursor_pos()) < 34.0", "equals": true },
+    { "act": "execute_script", "script": "VirtualCursor._snap_assist(0.2).length()", "expect_min": 0.2 },
+    { "act": "execute_script", "script": "VirtualCursor._snap_assist(0.2).normalized().dot((main.nearest_pad_snap_screen_pos(VirtualCursor.get_cursor_pos(), 34.0) - VirtualCursor.get_cursor_pos()).normalized())", "expect_min": 0.9 },
+    { "act": "screenshot", "label": "01_cursor_near_token_magnetism" },
+
+    { "act": "execute_script", "script": "VirtualCursor.park()" },
+    { "act": "pad_cursor_glide", "unit_id": "U_WITCHSEEKERS_C" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"cx0\", VirtualCursor.get_cursor_pos().x)" },
+    { "act": "simulate_joy_axis", "axis": 0, "value": 1.0, "hold_s": 0.2 },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"ta\", VirtualCursor.get_cursor_pos().x - InputDeviceManager.get_meta(\"cx0\"))" },
+    { "act": "execute_script", "script": "InputDeviceManager.get_meta(\"ta\")", "expect_min": 55.0 },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"cx1\", VirtualCursor.get_cursor_pos().x)" },
+    { "act": "simulate_joy_button", "button_index": 8, "state": "press" },
+    { "act": "simulate_joy_axis", "axis": 0, "value": 1.0, "hold_s": 0.2 },
+    { "act": "simulate_joy_button", "button_index": 8, "state": "release" },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"tb\", VirtualCursor.get_cursor_pos().x - InputDeviceManager.get_meta(\"cx1\"))" },
+    { "act": "execute_script", "script": "InputDeviceManager.get_meta(\"tb\")", "expect_min": 4.0 },
+    { "act": "execute_script", "script": "InputDeviceManager.get_meta(\"tb\") / InputDeviceManager.get_meta(\"ta\")", "expect_max": 0.6 },
+    { "act": "screenshot", "label": "02_precision_hold_slows_cursor" }
+  ]
+}

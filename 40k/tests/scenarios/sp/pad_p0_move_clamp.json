@@ -1,0 +1,38 @@
+{
+  "id": "pad_p0_move_clamp",
+  "covers": ["controller.p0.move_clamp"],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "P0 Steam Deck smoothness: carrying a model past its move range with the stick now CLAMPS it to the edge of its movement range and stages the move, instead of rejecting the over-range drop and snapping the model back. Picks up Witchseekers model 0 (Move 6\") via the pad action menu, verifies the clamp helper lands an absurd over-range target exactly on the reach circle (cap*40px) and leaves an in-range target untouched, then glides the cursor ~10\" past the range and drops A — the move is ACCEPTED (staged_moves grows to 1) instead of being rejected.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_WITCHSEEKERS_C" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_WITCHSEEKERS_C" },
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.dragging_model", "equals": true },
+
+    { "act": "execute_script", "script": "abs((main.movement_controller._clamp_move_to_budget(main.movement_controller.drag_start_pos + Vector2(100000.0, 0.0)) - main.movement_controller.drag_start_pos).length() - main.movement_controller._get_effective_move_cap() * 40.0) < 3.0", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller._clamp_move_to_budget(main.movement_controller.drag_start_pos + Vector2(20.0, 0.0)).distance_to(main.movement_controller.drag_start_pos + Vector2(20.0, 0.0)) < 0.01", "equals": true },
+
+    { "act": "pad_cursor_glide", "x": 850.0, "y": 450.0 },
+    { "act": "screenshot", "label": "01_carried_past_range_clamped_at_boundary" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 1 },
+    { "act": "screenshot", "label": "02_over_range_drop_accepted_not_rejected" }
+  ]
+}

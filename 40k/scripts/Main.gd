@@ -5954,6 +5954,29 @@ func world_to_screen_position(world_pos: Vector2) -> Vector2:
 	# scenario runner's click_board_at to warp the cursor to a board position.
 	return $BoardRoot.transform * world_pos
 
+# P0 Steam Deck magnetism: the nearest on-screen model token to `from_screen`
+# within `radius` px (screen space), or Vector2.INF when none — the snap-assist
+# target for the pad virtual cursor (VirtualCursor._snap_assist). Gated off while
+# a placement session is live: pulling a placement cursor toward existing tokens
+# would fight the player positioning a new model beside them.
+func nearest_pad_snap_screen_pos(from_screen: Vector2, radius: float) -> Vector2:
+	if deployment_controller != null and is_instance_valid(deployment_controller) \
+			and deployment_controller.has_method("is_placing") and deployment_controller.is_placing():
+		return Vector2.INF
+	if token_layer == null or not is_instance_valid(token_layer):
+		return Vector2.INF
+	var best := Vector2.INF
+	var best_d := radius
+	for child in token_layer.get_children():
+		if not (child is Node2D) or not child.visible:
+			continue
+		var s: Vector2 = world_to_screen_position(child.position)
+		var d := from_screen.distance_to(s)
+		if d < best_d:
+			best_d = d
+			best = s
+	return best
+
 # Multiplicative zoom applied per mouse-wheel notch. Scroll up zooms in by this
 # factor, scroll down by its reciprocal (so up-then-down returns to the same
 # zoom).
