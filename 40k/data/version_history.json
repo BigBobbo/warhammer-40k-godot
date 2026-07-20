@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.69.1",
+			"date": "2026-07-20",
+			"summary": "Fixed controller deployment on the Steam Deck (and any time the UI Scale is not 100%): the model you were placing appeared offset from the cursor instead of centred on it. The gamepad cursor now warps the pointer using the window's content scale, so the deployment and shooting placement previews line up exactly with the on-screen cursor again.",
+			"changes": [
+				"Deployment: the model preview is now centred on the controller cursor on the Steam Deck / at non-100% UI Scale (previously it drifted off by the content-scale factor).",
+				"Root cause: the virtual cursor warped the OS pointer in base-resolution coordinates, so anything reading the live pointer position (deployment and shooting placement ghosts) followed a mis-scaled point while drag-based tools stayed correct. The warp now goes through the viewport's screen transform. No change at 100% UI Scale on desktop."
+			]
+		},
+		{
 			"version": "0.69.0",
 			"date": "2026-07-20",
 			"summary": "Controller players can now open the pause menu without a keyboard. Pressing the View/Select button (the small ⧉ button — 'Back' on Xbox pads / the Deck's ☰ View button) opens the in-game menu, where you can Save/Load, change settings, or Return to Main Menu to exit the game. Previously the pad's only menu button (Start) ended the phase, leaving no controller way to reach the pause menu or quit.",
