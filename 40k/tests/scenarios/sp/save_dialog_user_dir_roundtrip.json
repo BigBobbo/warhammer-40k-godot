@@ -1,0 +1,58 @@
+{
+  "id": "save_dialog_user_dir_roundtrip",
+  "covers": [
+    "autoloads/SaveLoadManager.gd",
+    "scripts/SaveLoadDialog.gd",
+    "scripts/SettingsMenu.gd",
+    "save.user_dir",
+    "save.dialog_roundtrip"
+  ],
+  "fixture": "audit_367_warlord",
+  "transition_to_phase": 0,
+  "description": "Desktop save path regression net (0.70): the pause menu's Save/Load dialog must write manual saves to user://saves/ (writable in exported builds) — NOT the legacy res://saves/ (read-only inside an exported PCK, which silently broke saving on the itch.io Linux / Steam Deck build) — and must list the save when the dialog reopens. Drives the real UI: Escape opens the pause menu, its Save/Load button opens the dialog, the dialog's own Save button performs the save.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var p = \"user://saves/ScenarioDialogSave.w40ksave\"\nif FileAccess.file_exists(p):\n\tDirAccess.remove_absolute(p)\nif FileAccess.file_exists(p.replace(\".w40ksave\", \".meta\")):\n\tDirAccess.remove_absolute(p.replace(\".w40ksave\", \".meta\"))\nreturn true",
+      "equals": true },
+
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var main = tree.root.get_node(\"/root/Main\")\nvar m = main.get_node_or_null(\"SettingsMenu\")\nif m == null or not m.visible:\n\tmain._run_pause_menu_cascade(true)\nreturn true",
+      "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/Main/SettingsMenu" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var menu = tree.root.get_node(\"/root/Main/SettingsMenu\")\nvar btn = null\nvar stack = [menu]\nwhile stack.size() > 0:\n\tvar n = stack.pop_back()\n\tfor c in n.get_children():\n\t\tstack.append(c)\n\tif n is Button and \"Save\" in n.text and \"Load\" in n.text:\n\t\tbtn = n\nif btn == null or not btn.visible:\n\treturn false\nbtn.pressed.emit()\nreturn true",
+      "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_property", "node": "/root/Main/SaveLoadDialog", "property": "visible", "equals": true },
+    { "act": "screenshot", "label": "01_save_dialog_open" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/Main/SaveLoadDialog\")\nd.save_name_input.text = \"ScenarioDialogSave\"\nd.save_button.pressed.emit()\nreturn true",
+      "equals": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "return FileAccess.file_exists(\"user://saves/ScenarioDialogSave.w40ksave\")",
+      "equals": true },
+    { "act": "execute_script", "multiline": true,
+      "script": "return not FileAccess.file_exists(\"res://saves/ScenarioDialogSave.w40ksave\")",
+      "equals": true },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/Main/SaveLoadDialog\")\nd.show_dialog()\nreturn d.visible",
+      "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/Main/SaveLoadDialog\")\nvar found = false\nfor s in d.save_files_data:\n\tif s.get(\"display_name\", \"\") == \"ScenarioDialogSave\" and s.get(\"source\", \"\") == \"local\":\n\t\tfound = true\nreturn found",
+      "equals": true },
+    { "act": "screenshot", "label": "02_saved_row_listed_from_user_dir" }
+  ]
+}

@@ -1430,30 +1430,22 @@ func _on_load_requested(save_file: String, owner_id: String = "") -> void:
 		print("MainMenu: SaveLoadManager not available")
 		return
 
-	if OS.has_feature("web"):
-		# Web: async load - connect to signals, then trigger load
-		if not SaveLoadManager.load_completed.is_connected(_on_cloud_load_completed):
-			SaveLoadManager.load_completed.connect(_on_cloud_load_completed)
-		if not SaveLoadManager.load_failed.is_connected(_on_cloud_load_failed):
-			SaveLoadManager.load_failed.connect(_on_cloud_load_failed)
-		# SAVE-20: Connect progress signals for cloud load
-		if not SaveLoadManager.load_started.is_connected(_on_menu_load_started):
-			SaveLoadManager.load_started.connect(_on_menu_load_started)
-		if not SaveLoadManager.operation_progress.is_connected(_on_menu_save_load_progress):
-			SaveLoadManager.operation_progress.connect(_on_menu_save_load_progress)
-		SaveLoadManager.load_game(save_file, owner_id)
-		print("MainMenu: Initiated async cloud load for: ", save_file)
-	else:
-		# Desktop: synchronous load
-		var success = SaveLoadManager.load_game(save_file, owner_id)
-		if success:
-			print("MainMenu: Successfully loaded game: ", save_file)
-			if GameState.state.meta:
-				GameState.state.meta["from_save"] = true
-				GameState.state.meta.erase("from_menu")
-			get_tree().change_scene_to_file("res://scenes/Main.tscn")
-		else:
-			print("MainMenu: Failed to load game: ", save_file)
+	# Unified signal-driven load on ALL platforms: desktop local loads emit
+	# load_completed synchronously inside load_game(); web loads and desktop
+	# CLOUD loads (a save made in the itch.io browser build) emit it when the
+	# download lands. _on_cloud_load_completed sets the from_save flag and
+	# changes to the Main scene in every case.
+	if not SaveLoadManager.load_completed.is_connected(_on_cloud_load_completed):
+		SaveLoadManager.load_completed.connect(_on_cloud_load_completed)
+	if not SaveLoadManager.load_failed.is_connected(_on_cloud_load_failed):
+		SaveLoadManager.load_failed.connect(_on_cloud_load_failed)
+	# SAVE-20: Connect progress signals for cloud load
+	if not SaveLoadManager.load_started.is_connected(_on_menu_load_started):
+		SaveLoadManager.load_started.connect(_on_menu_load_started)
+	if not SaveLoadManager.operation_progress.is_connected(_on_menu_save_load_progress):
+		SaveLoadManager.operation_progress.connect(_on_menu_save_load_progress)
+	SaveLoadManager.load_game(save_file, owner_id)
+	print("MainMenu: Initiated load for: ", save_file)
 
 func _on_cloud_load_completed(file_path: String, metadata: Dictionary) -> void:
 	print("MainMenu: Cloud load completed: ", file_path)
@@ -1467,9 +1459,12 @@ func _on_cloud_load_completed(file_path: String, metadata: Dictionary) -> void:
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
 func _on_cloud_load_failed(error: String) -> void:
-	print("MainMenu: Cloud load failed: ", error)
+	print("MainMenu: Load failed: ", error)
 	# SAVE-20: Dismiss progress indicator on failure
 	_dismiss_menu_progress()
+	# Surface the failure on every platform (desktop used to fail silently)
+	if ToastManager:
+		ToastManager.show_error("Load failed: " + error)
 
 # SAVE-20: Progress indicator for main menu (cloud loads)
 func _on_menu_load_started(_file_path: String) -> void:

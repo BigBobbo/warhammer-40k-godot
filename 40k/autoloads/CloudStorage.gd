@@ -36,25 +36,62 @@ var request_queue: Array = []
 var is_processing: bool = false
 var _current_request: Dictionary = {}  # The request currently in flight (for retries)
 
-func _ready() -> void:
-	# Determine server URL
-	if OS.has_feature("web"):
-		base_url = PRODUCTION_URL
-	else:
-		# Check for local development server config
-		var config_path = "res://server_config.json"
-		if FileAccess.file_exists(config_path):
-			var file = FileAccess.open(config_path, FileAccess.READ)
-			if file:
-				var json = JSON.new()
-				if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
-					if json.data.has("api_url"):
-						base_url = json.data.api_url
-				file.close()
-		if base_url.is_empty():
-			base_url = LOCAL_URL
+# True when this client is meant to talk to a real save/army server: always on
+# web, on desktop when a server_config.json explicitly names one, and on
+# exported desktop builds (the itch.io Linux download / Steam Deck build),
+# which default to the production server so they share the same cloud saves
+# and armies as the browser build. False only for the implicit dev fallback
+# (running from source with no config), where localhost:9080 may not have a
+# server behind it — SaveLoadManager uses this to decide whether desktop
+# saves should sync to the cloud.
+var is_remote_configured: bool = false
 
-	print("CloudStorage: Using server URL: ", base_url)
+# Resolved in _init (not _ready) on purpose: autoloads are ALL instantiated
+# before ANY _ready runs, but SaveLoadManager is registered before CloudStorage
+# in project.godot — resolving here guarantees SaveLoadManager._ready sees the
+# final base_url/is_remote_configured values.
+func _init() -> void:
+	base_url = _resolve_base_url()
+
+func _resolve_base_url() -> String:
+	if OS.has_feature("web"):
+		is_remote_configured = true
+		return PRODUCTION_URL
+
+	# Explicit override: res://server_config.json (dev checkout) or
+	# user://server_config.json (player-writable, lives next to the saves).
+	for config_path in ["res://server_config.json", "user://server_config.json"]:
+		var override_url = _read_api_url_from_config(config_path)
+		if not override_url.is_empty():
+			is_remote_configured = true
+			print("CloudStorage: Using server URL from %s" % config_path)
+			return override_url
+
+	# Exported player builds (no editor feature) default to the production
+	# server so the downloadable Linux/macOS builds see the same cloud saves
+	# and armies as the itch.io browser build.
+	if not OS.has_feature("editor"):
+		is_remote_configured = true
+		return PRODUCTION_URL
+
+	# Running from source with no config: keep the local dev server default.
+	return LOCAL_URL
+
+func _read_api_url_from_config(config_path: String) -> String:
+	if not FileAccess.file_exists(config_path):
+		return ""
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	if not file:
+		return ""
+	var text = file.get_as_text()
+	file.close()
+	var json = JSON.new()
+	if json.parse(text) == OK and json.data is Dictionary and json.data.has("api_url"):
+		return str(json.data.api_url)
+	return ""
+
+func _ready() -> void:
+	print("CloudStorage: Using server URL: ", base_url, " (remote_configured: ", is_remote_configured, ")")
 
 	# Setup HTTP request node
 	http_request = HTTPRequest.new()

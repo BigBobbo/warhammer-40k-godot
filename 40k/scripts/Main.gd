@@ -5220,8 +5220,8 @@ func connect_signals() -> void:
 	SaveLoadManager.save_started.connect(_on_save_started)
 	SaveLoadManager.load_started.connect(_on_load_started)
 	SaveLoadManager.operation_progress.connect(_on_save_load_progress)
-	if OS.has_feature("web"):
-		SaveLoadManager.delete_completed.connect(_on_delete_completed_main)
+	# All platforms: desktop cloud deletes also complete asynchronously
+	SaveLoadManager.delete_completed.connect(_on_delete_completed_main)
 
 	# Connect VP/score signals to update top bar display
 	if MissionManager and MissionManager.has_signal("victory_points_scored"):
@@ -8844,8 +8844,8 @@ func trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 func _debug_load_system():
 	print("\n=== Quick Load Debug ===")
 	
-	# Check if save file exists
-	var file_path = "res://saves/quicksave.w40ksave"
+	# Check if save file exists (in SaveLoadManager's save directory — user://saves/ on desktop)
+	var file_path = SaveLoadManager.save_directory + "quicksave" + SaveLoadManager.SAVE_EXTENSION
 	if FileAccess.file_exists(file_path):
 		print("✅ Quicksave file exists at: ", file_path)
 		
@@ -8919,8 +8919,8 @@ func _on_save_completed(file_path: String, metadata: Dictionary) -> void:
 	var is_autosave = metadata.get("save_info", {}).get("save_type", "") == "autosave" or metadata.get("auto_generated", false)
 	if is_autosave:
 		return
-	if OS.has_feature("web"):
-		_show_save_notification("Game saved!", Color.GREEN)
+	# Confirm manual saves on every platform (desktop used to save silently)
+	_show_save_notification("Game saved!", Color.GREEN)
 
 func _on_load_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Load completed: %s" % file_path)
@@ -8957,8 +8957,10 @@ func _on_save_failed(error: String) -> void:
 	print("Save failed: %s" % error)
 	# SAVE-20: Dismiss progress indicator on failure
 	_dismiss_save_load_progress()
-	if OS.has_feature("web"):
-		_show_save_notification("Save failed: " + error, Color.RED)
+	# Surface the failure on every platform — the old web-only gate meant the
+	# broken desktop save path (read-only res://saves/ in exported builds)
+	# failed without the player ever seeing an error.
+	_show_save_notification("Save failed: " + error, Color.RED)
 
 func _on_load_failed(error: String) -> void:
 	print("Load failed: %s" % error)

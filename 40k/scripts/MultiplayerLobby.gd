@@ -791,21 +791,15 @@ func _on_resume_load_requested(save_file: String, owner_id: String = "") -> void
 		_show_error("SaveLoadManager not available")
 		return
 
-	if OS.has_feature("web"):
-		# Web: async load
-		if not SaveLoadManager.load_completed.is_connected(_on_resume_load_completed):
-			SaveLoadManager.load_completed.connect(_on_resume_load_completed)
-		if not SaveLoadManager.load_failed.is_connected(_on_resume_load_failed):
-			SaveLoadManager.load_failed.connect(_on_resume_load_failed)
-		SaveLoadManager.load_game(save_file, owner_id)
-		status_label.text = "Status: Loading saved game..."
-	else:
-		# Desktop: synchronous load
-		var success = SaveLoadManager.load_game(save_file, owner_id)
-		if success:
-			_finalize_resume_load()
-		else:
-			_show_error("Failed to load save file: " + save_file)
+	# Unified signal-driven load: desktop local loads emit load_completed
+	# synchronously inside load_game; web loads and desktop CLOUD loads (a save
+	# made in the itch.io browser build) emit it when the download lands.
+	if not SaveLoadManager.load_completed.is_connected(_on_resume_load_completed):
+		SaveLoadManager.load_completed.connect(_on_resume_load_completed)
+	if not SaveLoadManager.load_failed.is_connected(_on_resume_load_failed):
+		SaveLoadManager.load_failed.connect(_on_resume_load_failed)
+	SaveLoadManager.load_game(save_file, owner_id)
+	status_label.text = "Status: Loading saved game..."
 
 func _on_resume_load_completed(_file_path: String, _metadata: Dictionary) -> void:
 	print("MultiplayerLobby: SAVE-15 Cloud/async resume load completed")

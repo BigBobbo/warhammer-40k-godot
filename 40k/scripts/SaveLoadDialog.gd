@@ -59,13 +59,15 @@ func _ready() -> void:
 
 	_build_ui()
 
-	# Connect to SaveLoadManager async signal for web
-	if is_web_platform and SaveLoadManager and not _save_files_signal_connected:
+	# Connect to SaveLoadManager async signals on ALL platforms: web lists are
+	# always async, and desktop builds with cloud sync enabled receive a merged
+	# (local + cloud) list asynchronously after the immediate local one.
+	if SaveLoadManager and not _save_files_signal_connected:
 		SaveLoadManager.save_files_received.connect(_on_save_files_received)
 		SaveLoadManager.save_files_load_failed.connect(_on_save_files_load_failed)
 		SaveLoadManager.delete_completed.connect(_on_delete_completed)
 		_save_files_signal_connected = true
-		print("SaveLoadDialog: Connected to async save_files_received signal for web")
+		print("SaveLoadDialog: Connected to async save_files_received signals")
 
 	# Initialize
 	refresh_saves_list()
@@ -491,9 +493,16 @@ func refresh_saves_list() -> void:
 		print("SaveLoadDialog: Initiated async save list fetch for web")
 		return
 
+	# Desktop: local files populate immediately. When cloud sync is enabled,
+	# get_save_files() also kicks off an async cloud fetch — the merged list
+	# arrives via save_files_received and repopulates on top of this one.
 	var save_files = SaveLoadManager.get_save_files()
-	print("SaveLoadDialog: Found ", save_files.size(), " save files")
+	print("SaveLoadDialog: Found ", save_files.size(), " local save files")
 	_populate_saves_list(save_files)
+	if SaveLoadManager.has_method("cloud_saves_enabled") and SaveLoadManager.cloud_saves_enabled():
+		if refresh_button:
+			refresh_button.disabled = true  # Re-enabled when the cloud list (or its failure) arrives
+		print("SaveLoadDialog: Cloud sync enabled - awaiting merged save list")
 
 func _populate_saves_list(save_files: Array) -> void:
 	if not saves_list:
@@ -642,9 +651,17 @@ func _on_save_files_received(save_files: Array) -> void:
 # player knows their saves aren't gone — the server just couldn't be reached.
 func _on_save_files_load_failed(error: String) -> void:
 	print("SaveLoadDialog: Save list load FAILED: ", error)
-	_save_list_load_failed = true
 	if refresh_button:
 		refresh_button.disabled = false
+
+	# Desktop: the local saves are already on screen — keep them usable and just
+	# surface that the cloud half of the list couldn't be fetched.
+	if not is_web_platform:
+		if ToastManager:
+			ToastManager.show_error("Couldn't reach the save server — showing local saves only")
+		return
+
+	_save_list_load_failed = true
 	if not saves_list:
 		return
 	saves_list.clear()
@@ -698,6 +715,10 @@ func _format_save_display_name(save_info: Dictionary) -> String:
 	var prefix = ""
 	if save_info.get("ownership", "own") == "shared":
 		prefix = "[Shared] "
+	elif save_info.get("source", "") == "cloud" and not is_web_platform:
+		# Desktop merged list: mark entries that only exist in the cloud store
+		# (e.g. games saved in the itch.io browser build) — loading downloads them.
+		prefix = "[Cloud] "
 
 	# SAVE-13: Append AI difficulty info to display name
 	var ai_info = _get_ai_difficulty_label(metadata)
@@ -748,13 +769,16 @@ func _update_button_states() -> void:
 		else:
 			load_button.disabled = not has_selection
 	var is_shared = false
+	var is_cloud_only = false
 	if has_selection:
 		is_shared = save_files_data[selected_save_index].get("ownership", "own") == "shared"
+		is_cloud_only = save_files_data[selected_save_index].get("source", "") == "cloud"
 	if delete_button:
 		delete_button.disabled = not has_selection or is_shared
-	# SAVE-19: Export requires a selected save (desktop only)
+	# SAVE-19: Export requires a selected save with a LOCAL file (desktop only —
+	# cloud-only entries have nothing on disk to copy until they're loaded once)
 	if export_button:
-		export_button.disabled = not has_selection or is_web_platform
+		export_button.disabled = not has_selection or is_web_platform or is_cloud_only
 	# SAVE-19: Import is always available on desktop
 	if import_button:
 		import_button.disabled = is_web_platform
@@ -803,7 +827,9 @@ func _on_save_button_pressed() -> void:
 			_show_overwrite_confirmation(save_name)
 		else:
 			_perform_save(save_name)
-	elif SaveLoadManager.save_exists(save_name):
+	elif SaveLoadManager.save_exists(save_name) or _save_exists_in_cache(save_name):
+		# Desktop: the cache also covers cloud-only names from the merged list,
+		# so overwriting an itch.io-saved game still asks first.
 		_show_overwrite_confirmation(save_name)
 	else:
 		_perform_save(save_name)
