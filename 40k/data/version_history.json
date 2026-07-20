@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.73.0",
+			"date": "2026-07-20",
+			"summary": "Controller: LB/RB are now the ONLY way to cycle units. D-pad and left-stick up/down no longer switch units — they navigate the selected unit's phase options instead. In the Movement phase, D-pad up/down opens the move action menu (Move / Advance / Fall Back / Stay Still) and steps through it, and pressing a bumper while the menu is open switches units with the menu following the new unit.",
+			"changes": [
+				"Unit cycling is bumper-only: pressing up/down on the D-pad or left analog stick never changes the selected unit in any phase (previously the unit list could grab focus and up/down walked it).",
+				"Movement phase: D-pad up/down with a unit selected opens the same action menu as A (Move / Advance / Fall Back / Stay Still / special actions) and moves its highlight; left/right still work too.",
+				"LB/RB pressed while the action menu is open switch to the previous/next unit and reopen the menu for that unit, so you can browse units without leaving the menu.",
+				"Deployment/reinforcements/scout reserves keep their up/down row navigation (Select Model Type / Deploy Formation); single-row units now land panel focus on the card's buttons instead of the unit list.",
+				"The unit list can still be clicked with the mouse as before; pad button hints updated ('Move Menu', 'RB Cycle Units' in the menu bar)."
+			]
+		},
+		{
 			"version": "0.72.0",
 			"date": "2026-07-20",
 			"summary": "The downloadable Linux build (Steam Deck) now shares saved games with the itch.io browser version — and its local saving is fixed. Games saved in the browser appear in the Linux build's Load list (marked [Shared]/[Cloud]) and download when loaded; games saved on the Deck upload to the same online store so the browser sees them too. Local saves now live in the OS user-data folder (the old location was read-only inside the downloadable build, so saving silently failed).",

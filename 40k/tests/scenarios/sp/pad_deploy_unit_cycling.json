@@ -3,6 +3,7 @@
   "covers": [
     "controller.deploy.unit_cycling",
     "controller.deploy.formation_dpad",
+    "controller.bumper_only_unit_cycling",
     "deployment.unit_list_stays_visible",
     "deployment.switch_locked_after_placement",
     "PadRouter",
@@ -12,7 +13,7 @@
   "fixture": "New Game",
   "transition_to_phase": 1,
   "disable_ai": true,
-  "description": "DEPLOY-CYCLE: during deployment the right-panel unit list stays visible while placing, RB/LB cycle which unit is being deployed (the highlighted row follows, old unit returns to UNDEPLOYED, new one becomes DEPLOYING), D-pad left/right steps the formation mode Single/Spread/Tight, and once a model is placed switching is locked for BOTH pad bumpers and mouse row-clicks until every placed model is undone (pad X = undo last model with the cursor parked). Also proves the mouse row-click switch path works when nothing is placed.",
+  "description": "DEPLOY-CYCLE: during deployment the right-panel unit list stays visible while placing, RB/LB cycle which unit is being deployed (the highlighted row follows, old unit returns to UNDEPLOYED, new one becomes DEPLOYING) and are the ONLY unit-switching control: D-pad ▲ ▼ and left-stick up/down never change which unit is being deployed (the unit list is FOCUS_CLICK while the pad drives, so directional focus can't walk it). D-pad left/right steps the formation mode Single/Spread/Tight, and once a model is placed switching is locked for BOTH pad bumpers and mouse row-clicks until every placed model is undone (pad X = undo last model with the cursor parked). Also proves the mouse row-click switch path works when nothing is placed.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.2 },
     { "act": "expect_state", "path": "meta.phase", "equals": 1 },
@@ -40,6 +41,21 @@
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "execute_script", "script": "str(main.deployment_controller.unit_id) == str(InputDeviceManager.get_meta(\"u1\"))", "equals": true },
     { "act": "execute_script", "script": "int(GameState.get_unit(str(InputDeviceManager.get_meta(\"u2\"))).status)", "equals": 0 },
+
+    { "act": "execute_script", "script": "int(main.unit_list.focus_mode)", "equals": 1 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.deployment_controller.unit_id) == str(InputDeviceManager.get_meta(\"u1\"))", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.deployment_controller.unit_id) == str(InputDeviceManager.get_meta(\"u1\"))", "equals": true },
+    { "act": "simulate_joy_axis", "axis": 1, "value": 1.0, "hold_s": 0.5 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.deployment_controller.unit_id) == str(InputDeviceManager.get_meta(\"u1\"))", "equals": true },
+    { "act": "execute_script", "script": "main.unit_list.get_selected_items().size() > 0 and str(main.unit_list.get_item_metadata(main.unit_list.get_selected_items()[0])) == str(InputDeviceManager.get_meta(\"u1\"))", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner() == null", "equals": true },
 
     { "act": "simulate_joy_button", "button_index": 14 },
     { "act": "wait_seconds", "seconds": 0.3 },

@@ -1,0 +1,66 @@
+{
+  "id": "pad_bumper_only_unit_cycling",
+  "covers": [
+    "controller.bumper_only_unit_cycling",
+    "controller.m4.action_bar",
+    "controller.m2.unit_cycling",
+    "PadRouter",
+    "PadActionBar"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "BUMPER-ONLY unit cycling (Steam Deck): LB/RB are the only controls that switch units. In the Movement phase D-pad ▼ opens the selected unit's move action menu (Move / Advance / Stay Still) instead of touching the unit list, ▼/▲ step the menu highlight, and pressing RB/LB while the menu is open switches units WITH the menu following the new selection (close → cycle → reopen). B closes the menu without losing the selection, and holding the left stick up/down never changes the selected unit because the unit list is demoted to FOCUS_CLICK while the pad is the active device.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) != \"\"", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"ua\", str(main.movement_controller.active_unit_id))" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"ua\"))", "equals": true },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner() == null", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "ADVANCE" },
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
+    { "act": "screenshot", "label": "01_dpad_opens_menu_unit_unchanged" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) != str(InputDeviceManager.get_meta(\"ua\"))", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"ub\", str(main.movement_controller.active_unit_id))" },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "screenshot", "label": "02_rb_in_menu_cycles_unit_menu_follows" },
+
+    { "act": "simulate_joy_button", "button_index": 9 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"ua\"))", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": false },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"ua\"))", "equals": true },
+
+    { "act": "simulate_joy_axis", "axis": 1, "value": 1.0, "hold_s": 0.5 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"ua\"))", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": false },
+    { "act": "simulate_joy_axis", "axis": 1, "value": -1.0, "hold_s": 0.5 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"ua\"))", "equals": true },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner() == null", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var queue = [tree.current_scene.get_node(\"HUD_Right\")]\nwhile not queue.is_empty():\n\tvar n = queue.pop_front()\n\tif n is ItemList and n.is_visible_in_tree() and n.item_count > 0:\n\t\treturn int(n.focus_mode)\n\tfor c in n.get_children(true):\n\t\tqueue.append(c)\nreturn -1", "equals": 1 },
+    { "act": "screenshot", "label": "03_stick_updown_never_cycles" }
+  ]
+}
