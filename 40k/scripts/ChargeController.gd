@@ -1363,6 +1363,7 @@ func _refresh_target_list() -> void:
 		return
 	target_list.clear()
 	selected_targets.clear()
+	pad_target_cursor = -1  # rows rebuilt — pad ▲ ▼ cursor restarts
 	
 	print("DEBUG: _refresh_target_list - adding ", eligible_targets.size(), " targets")
 	for target_id in eligible_targets:
@@ -1457,6 +1458,71 @@ func _sync_selected_targets_from_list() -> void:
 	print("ChargeController: selected_targets now ", selected_targets)
 	_update_button_states()
 	_update_visuals()
+
+# ============================================================================
+# Pad (controller) support: D-pad ▲ ▼ walks the ELIGIBLE TARGETS rows with a
+# gold cursor tint, A toggles the walked row in/out of the declaration (pad
+# equivalent of Click / Ctrl+Click), Start declares then rolls, X skips.
+# Driven by PadRouter; windowed scenarios assert pad_target_cursor.
+# ============================================================================
+var pad_target_cursor: int = -1
+
+func pad_step_target(dir: int) -> bool:
+	if active_unit_id == "" or awaiting_roll or awaiting_movement:
+		return false
+	if not is_instance_valid(target_list) or target_list.get_item_count() == 0:
+		return false
+	var n = target_list.get_item_count()
+	if pad_target_cursor < 0 or pad_target_cursor >= n:
+		pad_target_cursor = 0 if dir > 0 else n - 1
+	else:
+		pad_target_cursor = wrapi(pad_target_cursor + dir, 0, n)
+	_update_pad_target_cursor_visual()
+	return true
+
+func pad_toggle_target() -> bool:
+	if active_unit_id == "" or awaiting_roll or awaiting_movement:
+		return false
+	if not is_instance_valid(target_list):
+		return false
+	if pad_target_cursor < 0 or pad_target_cursor >= target_list.get_item_count():
+		return false
+	# Additive toggle, exactly like Ctrl+Click — stepping to another row and
+	# pressing A again builds a multi-charge; A on a selected row removes it.
+	if target_list.is_selected(pad_target_cursor):
+		target_list.deselect(pad_target_cursor)
+	else:
+		target_list.select(pad_target_cursor, false)
+	_sync_selected_targets_from_list()
+	return true
+
+# Start: walk the charge flow forward — Roll 2D6 once declared, otherwise
+# Declare Charge when the selection allows it. Mirrors the two primary
+# buttons, honoring their disabled state.
+func pad_primary_action() -> bool:
+	if awaiting_roll and is_instance_valid(roll_button) and not roll_button.disabled:
+		_on_roll_charge_pressed()
+		return true
+	if is_instance_valid(declare_button) and not declare_button.disabled:
+		_on_declare_charge_pressed()
+		return true
+	return false
+
+# X: same as the Skip Charge button.
+func pad_skip() -> bool:
+	if not is_instance_valid(skip_button) or skip_button.disabled or not skip_button.visible:
+		return false
+	_on_skip_charge_pressed()
+	return true
+
+func _update_pad_target_cursor_visual() -> void:
+	if not is_instance_valid(target_list):
+		return
+	for i in range(target_list.get_item_count()):
+		if i == pad_target_cursor:
+			target_list.set_item_custom_bg_color(i, Color(0.94, 0.78, 0.31, 0.25))
+		else:
+			target_list.set_item_custom_bg_color(i, Color(0, 0, 0, 0))
 
 func _update_target_hint_label() -> void:
 	# Prominent, DYNAMIC teaching copy for the ELIGIBLE TARGETS list. The whole

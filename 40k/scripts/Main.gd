@@ -2264,7 +2264,12 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		return
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	# NULL-safe: loaded saves can carry "reserve_type": null, and the value
+	# flows into DeploymentController.reinforcement_placement_type (a typed
+	# String) — assigning Nil there is a runtime error.
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
+	if reserve_type == null:
+		reserve_type = "strategic_reserves"
 
 	# P2-80: Use the chosen placement type if available, otherwise default to reserve_type
 	var placement_type = _reinforcement_placement_type if _reinforcement_placement_type != "" else reserve_type
@@ -4890,9 +4895,7 @@ func _reselect_deploying_unit_row() -> void:
 # Called by PadRouter; returns false when no deployment placement is live so
 # the press can fall through to panel-focus entry.
 func pad_cycle_formation_mode(dir: int) -> bool:
-	if current_phase != GameStateData.Phase.DEPLOYMENT:
-		return false
-	if not (deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing()):
+	if not _pad_placement_active():
 		return false
 	var cur = FORMATION_MODE_ORDER.find(deployment_controller.formation_mode)
 	if cur == -1:
@@ -4932,6 +4935,22 @@ func _apply_formation_mode(mode: String) -> void:
 # Reset whenever the placing unit changes; clamped to the rows that exist.
 var _deploy_pad_row: String = ""
 var _deploy_pad_row_unit: String = ""
+
+# Any live model-placement session driven by the DeploymentController: normal
+# deployment, movement-phase reinforcement arrivals, and scout-reserves
+# set-up. The pad placement affordances (selector rows, X undo, Start
+# confirm, A cursor-warp) apply to all three identically.
+func _pad_placement_active() -> bool:
+	if not (deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing()):
+		return false
+	match current_phase:
+		GameStateData.Phase.DEPLOYMENT:
+			return true
+		GameStateData.Phase.MOVEMENT:
+			return deployment_controller.is_reinforcement_mode
+		GameStateData.Phase.SCOUT:
+			return deployment_controller.is_scout_reserves_mode
+	return false
 
 # Selector rows in on-screen order (FormationControls sits above the picker).
 func _deploy_pad_rows() -> Array:
@@ -4977,9 +4996,7 @@ func _deploy_active_pad_row() -> String:
 # Returns false when there is only one row so the press can fall through to
 # the generic panel-focus entry (same behavior as before for such units).
 func pad_cycle_deploy_row(dir: int) -> bool:
-	if current_phase != GameStateData.Phase.DEPLOYMENT:
-		return false
-	if not (deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing()):
+	if not _pad_placement_active():
 		return false
 	var rows = _deploy_pad_rows()
 	if rows.size() <= 1:
@@ -4991,9 +5008,7 @@ func pad_cycle_deploy_row(dir: int) -> bool:
 
 # D-pad ◀ ▶ while placing: cycle the value of the highlighted selector row.
 func pad_cycle_deploy_option(dir: int) -> bool:
-	if current_phase != GameStateData.Phase.DEPLOYMENT:
-		return false
-	if not (deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing()):
+	if not _pad_placement_active():
 		return false
 	if _deploy_active_pad_row() == "model_type" and _pad_cycle_model_type(dir):
 		return true
@@ -5030,9 +5045,7 @@ func _pad_cycle_model_type(dir: int) -> bool:
 # controller's mode — a unit switch resets the mode to SINGLE without any
 # pressed signal, so the sync has to happen here.
 func _update_deploy_row_highlight() -> void:
-	var placing = current_phase == GameStateData.Phase.DEPLOYMENT \
-		and deployment_controller and is_instance_valid(deployment_controller) \
-		and deployment_controller.is_placing()
+	var placing = _pad_placement_active()
 	var multi_row = placing and _deploy_pad_rows().size() > 1
 	var active_row = _deploy_active_pad_row() if placing else ""
 	var controls = unit_card.get_node_or_null("FormationControls")
@@ -5440,13 +5453,21 @@ func _input(event: InputEvent) -> void:
 				and str(shooting_controller.active_shooter_id) != "" \
 				and not shooting_controller.weapon_assignments.is_empty():
 			shooting_controller._on_confirm_pressed()
-		elif current_phase == GameStateData.Phase.DEPLOYMENT and deployment_controller \
-				and is_instance_valid(deployment_controller) and deployment_controller.is_placing() \
+		elif _pad_placement_active() \
 				and deployment_controller.get_placed_count() >= deployment_controller.get_total_model_count():
 			# DEPLOY-CYCLE: with every model of the unit placed, Start means
 			# "Confirm this unit" (same context-dependent Menu the shooting
-			# phase uses) — no button focus or cursor trip needed.
+			# phase uses) — no button focus or cursor trip needed. Applies to
+			# deployment, reinforcement arrivals and scout-reserves set-up.
 			_on_confirm_pressed()
+		elif current_phase == GameStateData.Phase.CHARGE and charge_controller \
+				and is_instance_valid(charge_controller) \
+				and charge_controller.has_method("pad_primary_action") \
+				and charge_controller.pad_primary_action():
+			# Charge: Start walks the flow forward — Declare Charge with
+			# targets selected, Roll 2D6 once declared. Falls through to the
+			# End-Phase confirm when neither applies.
+			pass
 		elif phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
 			_show_pad_phase_confirm()
 		get_viewport().set_input_as_handled()
@@ -7496,9 +7517,13 @@ func _on_unit_selected(index: int) -> void:
 		# Check if this is a reserve unit arriving as reinforcement
 		var selected_unit = GameState.get_unit(unit_id)
 		if selected_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
-			# Skip attached characters — they arrive with their bodyguard automatically
-			var attached_to = selected_unit.get("attached_to", "")
-			if attached_to != "":
+			# Skip attached characters — they arrive with their bodyguard automatically.
+			# NULL-safe: saves serialize "attached_to": null for unattached units,
+			# and get(..., "") returns that null (the key exists), which used to
+			# pass the != "" check and block selecting ANY reserve unit from a
+			# loaded save (mouse and pad alike).
+			var attached_to = selected_unit.get("attached_to", null)
+			if attached_to != null and str(attached_to) != "":
 				var bg_name = GameState.get_unit(attached_to).get("meta", {}).get("name", attached_to)
 				print("Main: Attached character selected — will arrive with bodyguard %s" % bg_name)
 				var toast_mgr = get_node_or_null("/root/ToastManager")
@@ -7507,8 +7532,11 @@ func _on_unit_selected(index: int) -> void:
 				return
 
 			print("Main: Reserve unit selected for reinforcement: ", unit_id)
-			# P2-80: If unit has Deep Strike but is in Strategic Reserves, offer choice
+			# P2-80: If unit has Deep Strike but is in Strategic Reserves, offer choice.
+			# NULL-safe: loaded saves can carry "reserve_type": null.
 			var reserve_type = selected_unit.get("reserve_type", "strategic_reserves")
+			if reserve_type == null:
+				reserve_type = "strategic_reserves"
 			if reserve_type == "strategic_reserves" and GameState.unit_has_deep_strike(unit_id):
 				print("Main: P2-80 — Unit has Deep Strike from Strategic Reserves, showing placement choice dialog")
 				_show_deep_strike_placement_dialog(unit_id)
