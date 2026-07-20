@@ -1,0 +1,56 @@
+{
+  "id": "pad_reinforcement_formation_row",
+  "covers": [
+    "controller.reinforcement.formation_row",
+    "controller.reinforcement.a_warp",
+    "PadRouter",
+    "Main"
+  ],
+  "fixture": "ri_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Pad support during movement-phase reinforcement placement (previously deployment-phase only): selecting a reserves unit from the right-panel list starts placement, _pad_placement_active() reports it, D-pad ◀ ▶ cycles the Deploy Formation row exactly as in deployment, A warps the virtual cursor over the placement area, and D-pad ▼ falls through to panel-focus entry (single selector row — no model-type picker in reinforcement mode), released by B.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_BOYZ_F.status", "equals": 7 },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar list = m.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_BOYZ_F\":\n\t\tlist.select(i)\n\t\tlist.item_selected.emit(i)\n\t\treturn true\nreturn false", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.is_reinforcement_mode", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.unit_id", "equals": "U_BOYZ_F" },
+    { "act": "execute_script", "script": "main._pad_placement_active()", "equals": true },
+    { "act": "screenshot", "label": "01_reinforcement_placement_started" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.deployment_controller.formation_mode", "equals": "SPREAD" },
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.deployment_controller.formation_mode", "equals": "TIGHT" },
+    { "act": "screenshot", "label": "02_dpad_formation_tight_in_reinforcement" },
+    { "act": "simulate_joy_button", "button_index": 13 },
+    { "act": "simulate_joy_button", "button_index": 13 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.deployment_controller.formation_mode", "equals": "SINGLE" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": true },
+    { "act": "screenshot", "label": "03_a_warped_cursor_over_placement_area" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": false },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner() != null", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner() == null", "equals": true }
+  ]
+}

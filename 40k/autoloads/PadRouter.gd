@@ -9,8 +9,16 @@ extends Node
 #            row-click uses). Deployment: cycling switches which unit is being
 #            deployed, but locks once any model of the current unit is placed
 #            (undo them all to unlock — mirrors the mouse rule)
-#   D-pad ◀ ▶ — deployment placing: step the formation mode
-#            (Single / Spread / Tight); otherwise panel focus entry
+#   D-pad ◀ ▶ — placement (deployment / reinforcement / scout reserves):
+#            cycle the value of the highlighted selector row — model type
+#            (multi-profile units) or formation (Single / Spread / Tight);
+#            otherwise panel focus entry
+#   D-pad ▲ ▼ — placement with a model-type picker: move the ▶ highlight
+#            between the Select Model Type and Deploy Formation rows.
+#            Charge: step the ELIGIBLE TARGETS rows (A toggles the stepped
+#            row in/out of the declaration — pad Click / Ctrl+Click).
+#            Shooting with an armed shooter: step the weapon rows so each
+#            gun can get its own target. Otherwise panel focus entry.
 #   A      — in TARGET_SELECT: assign the highlighted target to the current
 #            weapon (cursor mode and focused controls keep their own A)
 #   B      — release panel focus back to the board; with an active shooter,
@@ -38,20 +46,30 @@ const HINTS_BOARD := [
 ]
 const HINTS_TARGETS := [
 	["rb", "Cycle Targets"],
+	["dpad", "Weapon ▲ ▼"],
 	["a", "Assign Target"],
 	["x", "Skip Unit"],
 	["y", "Datasheet"],
 	["menu", "Confirm Targets"],
 	["b", "Deselect"],
 ]
+const HINTS_CHARGE := [
+	["rb", "Cycle Units"],
+	["dpad", "Target ▲ ▼"],
+	["a", "Toggle Target"],
+	["menu", "Declare / Roll"],
+	["x", "Skip Charge"],
+	["y", "Datasheet"],
+]
 const HINTS_DEPLOY := [
 	["ls", "Cursor"],
 	["lb", "Prev Unit"],
 	["rb", "Next Unit"],
 	["a", "Place Model"],
-	["dpad", "Formation ◀ ▶"],
+	["dpad", "Type / Formation"],
 	["x", "Undo Model"],
 	["y", "Datasheet"],
+	["menu", "Confirm / End"],
 ]
 const HINTS_FOCUS := [
 	["dpad", "Navigate"],
@@ -141,14 +159,17 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_B:
 			if _handle_back():
 				get_viewport().set_input_as_handled()
-		JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN:
-			if _enter_panel_focus():
+		JOY_BUTTON_DPAD_UP:
+			if _pad_deploy_row_cycle(-1) or _pad_step_secondary(-1) or _enter_panel_focus():
+				get_viewport().set_input_as_handled()
+		JOY_BUTTON_DPAD_DOWN:
+			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_LEFT:
-			if _hop_model(-1) or _pad_formation_cycle(-1) or _enter_panel_focus():
+			if _hop_model(-1) or _pad_deploy_option_cycle(-1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
-			if _hop_model(1) or _pad_formation_cycle(1) or _enter_panel_focus():
+			if _hop_model(1) or _pad_deploy_option_cycle(1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 	_update_hints()
 
@@ -158,6 +179,8 @@ func _handle_a() -> bool:
 		_drop_carry()
 		return true
 	if _assign_highlighted_target():
+		return true
+	if _pad_charge_toggle():
 		return true
 	if _try_open_move_menu():
 		return true
@@ -300,33 +323,94 @@ func _cycle_unit_list(dir: int) -> void:
 	list.item_selected.emit(found)
 
 
-# Deployment placing: D-pad ◀ ▶ steps the formation mode (Single/Spread/Tight)
-# via Main so the unit-card toggle row stays in sync. Focus navigation keeps
-# priority — with a focused control, ui_left/ui_right must keep navigating.
-func _pad_formation_cycle(dir: int) -> bool:
+# Deployment placing: D-pad ◀ ▶ cycles the value of the highlighted selector
+# row (model type or formation) via Main so the card UI stays in sync. Focus
+# navigation keeps priority — with a focused control, ui_left/ui_right must
+# keep navigating.
+func _pad_deploy_option_cycle(dir: int) -> bool:
 	if get_viewport().gui_get_focus_owner() != null:
 		return false
 	if _deployment_controller_placing() == null:
 		return false
 	var m := get_tree().current_scene
-	if m == null or not m.has_method("pad_cycle_formation_mode"):
+	if m == null or not m.has_method("pad_cycle_deploy_option"):
 		return false
-	return m.pad_cycle_formation_mode(dir)
+	return m.pad_cycle_deploy_option(dir)
 
 
-# The DeploymentController while the DEPLOYMENT phase is live and a unit is
-# mid-placement, else null. (Reinforcement / scout-reserves placements reuse
-# the controller in other phases and keep their existing pad behavior.)
+# Deployment placing: D-pad ▲ ▼ moves the ▶ highlight between the card's
+# selector rows (Deploy Formation / Select Model Type). Returns false when the
+# unit has no picker so the press falls through to panel-focus entry exactly
+# as before.
+func _pad_deploy_row_cycle(dir: int) -> bool:
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	if _deployment_controller_placing() == null:
+		return false
+	var m := get_tree().current_scene
+	if m == null or not m.has_method("pad_cycle_deploy_row"):
+		return false
+	return m.pad_cycle_deploy_row(dir)
+
+
+# ▲ ▼ fall-through: phase-specific option-list stepping — the ELIGIBLE
+# TARGETS rows in charge, the weapon rows in shooting — before the press
+# falls back to generic panel-focus entry. Each hook lives on its phase
+# controller so stepping drives the exact state a mouse interaction would.
+func _pad_step_secondary(dir: int) -> bool:
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m):
+		return false
+	match m.current_phase:
+		GameStateData.Phase.CHARGE:
+			var cc = m.charge_controller if ("charge_controller" in m) else null
+			if cc != null and is_instance_valid(cc) and cc.has_method("pad_step_target"):
+				return cc.pad_step_target(dir)
+		GameStateData.Phase.SHOOTING:
+			var sc = _shooting_controller_in_shooting_phase()
+			if sc != null and sc.has_method("pad_step_weapon"):
+				return sc.pad_step_weapon(dir)
+	return false
+
+
+# Charge: A (with the cursor parked) toggles the D-pad-highlighted target row
+# in or out of the declaration — the pad equivalent of Click / Ctrl+Click on
+# the ELIGIBLE TARGETS list.
+func _pad_charge_toggle() -> bool:
+	if VirtualCursor.is_cursor_active():
+		return false
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m) or m.current_phase != GameStateData.Phase.CHARGE:
+		return false
+	var cc = m.charge_controller if ("charge_controller" in m) else null
+	if cc == null or not is_instance_valid(cc) or not cc.has_method("pad_toggle_target"):
+		return false
+	return cc.pad_toggle_target()
+
+
+# The DeploymentController while a model-placement session is live, else
+# null. Covers all three placement flows: normal deployment, movement-phase
+# reinforcement arrivals, and scout-reserves set-up — the pad affordances
+# (X undo, selector rows, A cursor-warp, unit-switch lock) apply to each.
 func _deployment_controller_placing() -> Node:
 	var m := get_tree().current_scene
 	if m == null or not ("current_phase" in m) or not ("deployment_controller" in m):
 		return null
-	if m.current_phase != GameStateData.Phase.DEPLOYMENT:
-		return null
 	var dc = m.deployment_controller
 	if dc == null or not is_instance_valid(dc) or not dc.has_method("is_placing") or not dc.is_placing():
 		return null
-	return dc
+	match m.current_phase:
+		GameStateData.Phase.DEPLOYMENT:
+			return dc
+		GameStateData.Phase.MOVEMENT:
+			return dc if dc.is_reinforcement_mode else null
+		GameStateData.Phase.SCOUT:
+			return dc if dc.is_scout_reserves_mode else null
+	return null
 
 
 # Phase-aware eligibility for a unit-list row. Phase controllers opt in by
@@ -400,13 +484,23 @@ func _context_action() -> bool:
 		sc._keyboard_skip_unit()
 		target_highlight_id = ""
 		return true
-	# Deployment: X = undo the last placed model (parked-cursor context action,
-	# mirroring the movement undo below). Undoing every model re-enables LB/RB
-	# unit switching. undo_last_model emits models_placed_changed, so Main
-	# refreshes the card/buttons itself.
+	# Placement (deployment / reinforcement / scout reserves): X = undo the
+	# last placed model (parked-cursor context action, mirroring the movement
+	# undo below). Undoing every model re-enables LB/RB unit switching.
+	# undo_last_model emits models_placed_changed, so Main refreshes the
+	# card/buttons itself.
 	var dc = _deployment_controller_placing()
 	if dc != null and dc.get_placed_count() > 0 and dc.has_method("undo_last_model"):
 		return dc.undo_last_model()
+	# Charge: X = skip the selected unit's charge (same as the Skip Charge
+	# button; only enabled while no charge move is being resolved).
+	var mc_scene := get_tree().current_scene
+	if mc_scene != null and ("current_phase" in mc_scene) and mc_scene.current_phase == GameStateData.Phase.CHARGE \
+			and ("charge_controller" in mc_scene) and mc_scene.charge_controller != null \
+			and is_instance_valid(mc_scene.charge_controller) \
+			and mc_scene.charge_controller.has_method("pad_skip") \
+			and mc_scene.charge_controller.pad_skip():
+		return true
 	# Movement: X = undo last staged model (plan §4.2 context action).
 	var m := get_tree().current_scene
 	if m != null and ("current_phase" in m) and m.current_phase == GameStateData.Phase.MOVEMENT \
@@ -455,6 +549,16 @@ func _try_begin_carry() -> bool:
 	var m := get_tree().current_scene
 	if m == null or not ("current_phase" in m):
 		return false
+	# Any deployment-controller placement (deployment / reinforcement / scout
+	# reserves): "pickup" is just parking the cursor over the placement area;
+	# every A after that is a normal cursor click that places a model.
+	if _deployment_controller_placing() != null:
+		var dz_center := _deployment_zone_center()
+		if dz_center == Vector2.INF:
+			return false
+		_center_camera_on_world(dz_center)
+		VirtualCursor.warp_to(m.world_to_screen_position(dz_center))
+		return true
 	match m.current_phase:
 		GameStateData.Phase.MOVEMENT, GameStateData.Phase.CHARGE:
 			var ctrl = m.movement_controller if m.current_phase == GameStateData.Phase.MOVEMENT else m.charge_controller
@@ -478,19 +582,6 @@ func _try_begin_carry() -> bool:
 			VirtualCursor.set_left_button(true)
 			_carry_pickup_screen = screen
 			carry_active = true
-			return true
-		GameStateData.Phase.DEPLOYMENT:
-			# Placement is click-driven with a cursor-following ghost, so
-			# "pickup" is just parking the cursor over the deployment zone;
-			# every A after that is a normal cursor click that places a model.
-			var dc = m.deployment_controller
-			if dc == null or not is_instance_valid(dc) or not dc.is_placing():
-				return false
-			var center := _deployment_zone_center()
-			if center == Vector2.INF:
-				return false
-			_center_camera_on_world(center)
-			VirtualCursor.warp_to(m.world_to_screen_position(center))
 			return true
 	return false
 
@@ -737,4 +828,24 @@ func _update_hints() -> void:
 			hints = HINTS_TARGETS
 		elif _deployment_controller_placing() != null:
 			hints = HINTS_DEPLOY
+		else:
+			var cc = _charge_controller_selecting()
+			if cc != null:
+				hints = HINTS_CHARGE
 	PadHintBar.set_hints(hints)
+
+
+# The ChargeController while the charge phase is live with a unit selected
+# and its charge not yet being moved (declaration / roll stage), else null.
+func _charge_controller_selecting() -> Node:
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m) or not ("charge_controller" in m):
+		return null
+	if m.current_phase != GameStateData.Phase.CHARGE:
+		return null
+	var cc = m.charge_controller
+	if cc == null or not is_instance_valid(cc):
+		return null
+	if str(cc.active_unit_id) == "" or bool(cc.awaiting_movement):
+		return null
+	return cc

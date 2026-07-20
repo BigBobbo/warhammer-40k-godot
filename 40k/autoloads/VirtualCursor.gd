@@ -108,7 +108,19 @@ func _move_cursor(rel: Vector2) -> void:
 	if overshoot != Vector2.ZERO:
 		_edge_pan(overshoot.limit_length(30.0))
 	InputDeviceManager.note_synthetic_mouse()
-	Input.warp_mouse(_pos)
+	# Input.warp_mouse() takes WINDOW pixels, but _pos (like the ring and the
+	# synthetic motion below) is in viewport / base-resolution space. When the
+	# window's content scale is not 1 — the Steam Deck renders the 1920x1080 base
+	# onto a 1280x800 panel, and the UI Scale slider also sets content_scale_factor
+	# — warping to the raw _pos lands the OS pointer at the wrong physical spot.
+	# Everything that reads event.position (e.g. MovementController's drag) stays
+	# correct because it uses _pos directly, but everything that POLLS
+	# get_viewport().get_mouse_position() (the deployment/shooting placement ghosts)
+	# then follows the mis-warped pointer and drifts off the visible cursor by the
+	# content-scale factor. Convert through the viewport's screen transform so the
+	# polled mouse position resolves back to _pos. At content scale 1.0 (desktop)
+	# get_screen_transform() is the identity, so this is a no-op there.
+	Input.warp_mouse(get_viewport().get_screen_transform() * _pos)
 	var motion := InputEventMouseMotion.new()
 	motion.position = _pos
 	motion.global_position = _pos

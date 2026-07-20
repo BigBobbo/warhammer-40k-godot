@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.70.0",
+			"version": "0.72.0",
 			"date": "2026-07-20",
 			"summary": "The downloadable Linux build (Steam Deck) now shares saved games with the itch.io browser version — and its local saving is fixed. Games saved in the browser appear in the Linux build's Load list (marked [Shared]/[Cloud]) and download when loaded; games saved on the Deck upload to the same online store so the browser sees them too. Local saves now live in the OS user-data folder (the old location was read-only inside the downloadable build, so saving silently failed).",
 			"changes": [
@@ -13,6 +13,40 @@
 				"Cloud armies (Army Builder) now load on the downloadable build for the same reason.",
 				"Save/Load failures and successes now show a notification on desktop too (they were web-only before, so desktop failures were silent).",
 				"If the save server can't be reached, the desktop Load list keeps showing your local saves with a warning toast instead of going blank."
+			]
+		},
+		{
+			"version": "0.71.0",
+			"date": "2026-07-20",
+			"summary": "Controller pass across every phase: all option lists the game displays are now selectable with the pad, following the deployment-phase pattern. Charge: D-pad up/down walks the ELIGIBLE TARGETS list and A toggles each target in/out (pad Ctrl+Click for multi-charges), Start declares then rolls, X skips. Shooting: D-pad up/down steps the weapon rows so each gun can get its own target. Reinforcement and scout-reserves placement get the full deployment pad kit (formation row, X undo, Start confirm, A cursor-warp). Also fixes reserves units being unselectable in loaded saves.",
+			"changes": [
+				"Charge: D-pad up/down moves a gold cursor through the eligible-target rows, A toggles the row in or out of the declaration (single and multi-charges fully on pad), Start = Declare Charge then Roll 2D6, X = Skip Charge, with a charge-specific button-hint bar.",
+				"Shooting: with a shooter armed, D-pad up/down steps the weapon rows (same as clicking them) so LB/RB + A can assign a different target to every weapon; hint bar shows 'Weapon ▲ ▼'.",
+				"Reinforcements (movement phase) and scout-reserves set-up now support the same pad controls as deployment: D-pad left/right cycles the formation, X undoes the last placed model, Start confirms the fully-placed unit, and A parks the cursor over the placement area.",
+				"Bug fix (mouse AND pad): clicking a unit in the reserves list of a loaded save did nothing — saves store 'attached to: none' explicitly and the check misread that as 'attached to a bodyguard'. Reserve type stored as 'none' could also crash placement setup.",
+				"Everything else audited: movement modes (pad action menu), fight/command/scoring buttons and all dialogs already had pad paths and are unchanged."
+			]
+		},
+		{
+			"version": "0.70.0",
+			"date": "2026-07-20",
+			"summary": "Controller deployment, part 2: units with multiple model types (e.g. Lootas with Deffguns, Kustom Mega-blastas and a Spanner) are now fully deployable on the pad. D-pad up/down moves a gold ▶ highlight between the Select Model Type and Deploy Formation rows on the unit card, and left/right cycles the options of the highlighted row. Pressing Start confirms the unit once every model is placed.",
+			"changes": [
+				"D-pad up/down moves the ▶ highlight between the card's selector rows: Deploy Formation and (when the unit has multiple model profiles) Select Model Type.",
+				"D-pad left/right cycles the options of the highlighted row — model types skip exhausted entries and drive the exact same selection as clicking a picker button, so the ghost and highlight follow.",
+				"When a model type runs out mid-unit, the picker pauses as before — a single left/right press picks the next available type and placement resumes.",
+				"Start (Menu) now confirms the unit being deployed once all of its models are placed — no more steering the cursor to the Confirm button.",
+				"Units with a single model type behave exactly as before: left/right cycles the formation, up/down enters panel focus.",
+				"The button-hint bar now reads 'Type / Formation' and 'Confirm / End' during placement."
+			]
+		},
+		{
+			"version": "0.69.1",
+			"date": "2026-07-20",
+			"summary": "Fixed controller deployment on the Steam Deck (and any time the UI Scale is not 100%): the model you were placing appeared offset from the cursor instead of centred on it. The gamepad cursor now warps the pointer using the window's content scale, so the deployment and shooting placement previews line up exactly with the on-screen cursor again.",
+			"changes": [
+				"Deployment: the model preview is now centred on the controller cursor on the Steam Deck / at non-100% UI Scale (previously it drifted off by the content-scale factor).",
+				"Root cause: the virtual cursor warped the OS pointer in base-resolution coordinates, so anything reading the live pointer position (deployment and shooting placement ghosts) followed a mis-scaled point while drag-based tools stayed correct. The warp now goes through the viewport's screen transform. No change at 100% UI Scale on desktop."
 			]
 		},
 		{
