@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.70.0",
+			"date": "2026-07-20",
+			"summary": "Controller deployment, part 2: units with multiple model types (e.g. Lootas with Deffguns, Kustom Mega-blastas and a Spanner) are now fully deployable on the pad. D-pad up/down moves a gold ▶ highlight between the Select Model Type and Deploy Formation rows on the unit card, and left/right cycles the options of the highlighted row. Pressing Start confirms the unit once every model is placed.",
+			"changes": [
+				"D-pad up/down moves the ▶ highlight between the card's selector rows: Deploy Formation and (when the unit has multiple model profiles) Select Model Type.",
+				"D-pad left/right cycles the options of the highlighted row — model types skip exhausted entries and drive the exact same selection as clicking a picker button, so the ghost and highlight follow.",
+				"When a model type runs out mid-unit, the picker pauses as before — a single left/right press picks the next available type and placement resumes.",
+				"Start (Menu) now confirms the unit being deployed once all of its models are placed — no more steering the cursor to the Confirm button.",
+				"Units with a single model type behave exactly as before: left/right cycles the formation, up/down enters panel focus.",
+				"The button-hint bar now reads 'Type / Formation' and 'Confirm / End' during placement."
+			]
+		},
+		{
 			"version": "0.69.1",
 			"date": "2026-07-20",
 			"summary": "Fixed controller deployment on the Steam Deck (and any time the UI Scale is not 100%): the model you were placing appeared offset from the cursor instead of centred on it. The gamepad cursor now warps the pointer using the window's content scale, so the deployment and shooting placement previews line up exactly with the on-screen cursor again.",

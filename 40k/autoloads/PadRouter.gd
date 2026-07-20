@@ -9,8 +9,12 @@ extends Node
 #            row-click uses). Deployment: cycling switches which unit is being
 #            deployed, but locks once any model of the current unit is placed
 #            (undo them all to unlock — mirrors the mouse rule)
-#   D-pad ◀ ▶ — deployment placing: step the formation mode
+#   D-pad ◀ ▶ — deployment placing: cycle the value of the highlighted
+#            selector row — model type (multi-profile units) or formation
 #            (Single / Spread / Tight); otherwise panel focus entry
+#   D-pad ▲ ▼ — deployment placing with a model-type picker: move the ▶
+#            highlight between the Select Model Type and Deploy Formation
+#            rows; otherwise panel focus entry
 #   A      — in TARGET_SELECT: assign the highlighted target to the current
 #            weapon (cursor mode and focused controls keep their own A)
 #   B      — release panel focus back to the board; with an active shooter,
@@ -49,9 +53,10 @@ const HINTS_DEPLOY := [
 	["lb", "Prev Unit"],
 	["rb", "Next Unit"],
 	["a", "Place Model"],
-	["dpad", "Formation ◀ ▶"],
+	["dpad", "Type / Formation"],
 	["x", "Undo Model"],
 	["y", "Datasheet"],
+	["menu", "Confirm / End"],
 ]
 const HINTS_FOCUS := [
 	["dpad", "Navigate"],
@@ -141,14 +146,17 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_B:
 			if _handle_back():
 				get_viewport().set_input_as_handled()
-		JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN:
-			if _enter_panel_focus():
+		JOY_BUTTON_DPAD_UP:
+			if _pad_deploy_row_cycle(-1) or _enter_panel_focus():
+				get_viewport().set_input_as_handled()
+		JOY_BUTTON_DPAD_DOWN:
+			if _pad_deploy_row_cycle(1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_LEFT:
-			if _hop_model(-1) or _pad_formation_cycle(-1) or _enter_panel_focus():
+			if _hop_model(-1) or _pad_deploy_option_cycle(-1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
-			if _hop_model(1) or _pad_formation_cycle(1) or _enter_panel_focus():
+			if _hop_model(1) or _pad_deploy_option_cycle(1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 	_update_hints()
 
@@ -300,18 +308,34 @@ func _cycle_unit_list(dir: int) -> void:
 	list.item_selected.emit(found)
 
 
-# Deployment placing: D-pad ◀ ▶ steps the formation mode (Single/Spread/Tight)
-# via Main so the unit-card toggle row stays in sync. Focus navigation keeps
-# priority — with a focused control, ui_left/ui_right must keep navigating.
-func _pad_formation_cycle(dir: int) -> bool:
+# Deployment placing: D-pad ◀ ▶ cycles the value of the highlighted selector
+# row (model type or formation) via Main so the card UI stays in sync. Focus
+# navigation keeps priority — with a focused control, ui_left/ui_right must
+# keep navigating.
+func _pad_deploy_option_cycle(dir: int) -> bool:
 	if get_viewport().gui_get_focus_owner() != null:
 		return false
 	if _deployment_controller_placing() == null:
 		return false
 	var m := get_tree().current_scene
-	if m == null or not m.has_method("pad_cycle_formation_mode"):
+	if m == null or not m.has_method("pad_cycle_deploy_option"):
 		return false
-	return m.pad_cycle_formation_mode(dir)
+	return m.pad_cycle_deploy_option(dir)
+
+
+# Deployment placing: D-pad ▲ ▼ moves the ▶ highlight between the card's
+# selector rows (Deploy Formation / Select Model Type). Returns false when the
+# unit has no picker so the press falls through to panel-focus entry exactly
+# as before.
+func _pad_deploy_row_cycle(dir: int) -> bool:
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	if _deployment_controller_placing() == null:
+		return false
+	var m := get_tree().current_scene
+	if m == null or not m.has_method("pad_cycle_deploy_row"):
+		return false
+	return m.pad_cycle_deploy_row(dir)
 
 
 # The DeploymentController while the DEPLOYMENT phase is live and a unit is
