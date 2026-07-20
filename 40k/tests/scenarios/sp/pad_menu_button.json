@@ -1,0 +1,35 @@
+{
+  "id": "pad_menu_button",
+  "covers": ["controller.pause_menu.view_button"],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Controller pause-menu access: the View/Select button (JoyButton 4 = BACK) opens the in-game settings/pause menu — the pad equivalent of the Escape key, where Save/Load, settings and Return to Main Menu (the exit-the-game path) live. Pressing it again closes the menu. Regression guard for the fix: previously Start (End Phase) was the pad's only menu button, so a controller player had no way to reach the pause menu or quit.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+    { "act": "execute_script", "script": "InputDeviceManager.registered_actions.has(\"pad_menu_action\")", "equals": true },
+    { "act": "execute_script", "script": "is_instance_valid(main._settings_menu)", "equals": false },
+    { "act": "screenshot", "label": "01_board_no_menu" },
+
+    { "act": "simulate_joy_button", "button_index": 4 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "is_instance_valid(main._settings_menu)", "equals": true },
+    { "act": "execute_script", "script": "main.get_node_or_null(\"SettingsMenu\") != null", "equals": true },
+    { "act": "execute_script", "script": "main._settings_menu._return_to_menu_button.visible", "equals": true },
+    { "act": "execute_script", "script": "str(main._settings_menu._return_to_menu_button.text)", "equals": "Return to Main Menu" },
+    { "act": "screenshot", "label": "02_pause_menu_open_via_view" },
+
+    { "act": "simulate_joy_button", "button_index": 4 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "is_instance_valid(main._settings_menu)", "equals": false },
+    { "act": "screenshot", "label": "03_pause_menu_closed_via_view" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadHintBar.get_node(\"PadHintPanel\").visible", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var found = false\nfor chip in PadHintBar.get_node(\"PadHintPanel\").get_child(0).get_children():\n\tfor sub in chip.get_children():\n\t\tif sub is Label and str(sub.text) == \"Pause Menu\":\n\t\t\tfound = true\nreturn found", "equals": true },
+    { "act": "screenshot", "label": "04_board_hint_bar_shows_pause_menu" }
+  ]
+}

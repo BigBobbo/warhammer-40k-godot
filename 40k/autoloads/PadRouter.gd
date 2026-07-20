@@ -34,6 +34,7 @@ const HINTS_BOARD := [
 	["y", "Datasheet"],
 	["dpad", "Focus Panels"],
 	["menu", "End Phase"],
+	["view", "Pause Menu"],
 ]
 const HINTS_TARGETS := [
 	["rb", "Cycle Targets"],

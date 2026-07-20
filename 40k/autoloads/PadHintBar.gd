@@ -20,6 +20,7 @@ const M0_HINTS := [
 	["lt", "Zoom Out"],
 	["rt", "Zoom In"],
 	["menu", "End Phase"],
+	["view", "Pause Menu"],
 ]
 
 var _panel: PanelContainer

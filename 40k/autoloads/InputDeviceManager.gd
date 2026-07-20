@@ -116,6 +116,13 @@ func _register_pad_bindings() -> void:
 	# Menu (Start) = phase action with confirm (consumed in Main._input). M1.
 	_register_button_action("pad_phase_action", JOY_BUTTON_START)
 
+	# View/Select = the pad's "Escape": opens the in-game pause/settings menu
+	# (Save/Load, Return to Main Menu, quit path), consumed in Main._input.
+	# Start is already End-Phase, so the pause menu needs its own button — the
+	# View/Select button is the standard console convention for it, and there
+	# was previously NO pad way to reach the pause menu or exit a game.
+	_register_button_action("pad_menu_action", JOY_BUTTON_BACK)
+
 	# Probe action for propagation-proof device detection: bound to EVERY
 	# joypad button. Input action states update when an event is parsed,
 	# regardless of who consumes it (scene _input runs BEFORE autoloads and
