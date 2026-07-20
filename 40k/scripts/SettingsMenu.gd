@@ -38,6 +38,14 @@ var _terrain_cover_checkbox: CheckBox
 var _auto_allocate_checkbox: CheckBox
 var _autosave_phase_start_checkbox: CheckBox
 var _controller_text_boost_checkbox: CheckBox
+var _pad_invert_y_checkbox: CheckBox
+var _pad_swap_sticks_checkbox: CheckBox
+var _pad_magnetism_checkbox: CheckBox
+var _pad_camera_sens_slider: HSlider
+var _pad_camera_sens_label: Label
+var _pad_cursor_sens_slider: HSlider
+var _pad_cursor_sens_label: Label
+const GlyphDB = preload("res://scripts/input/GlyphDB.gd")
 
 var _close_button: Button
 var _return_to_menu_button: Button
@@ -329,6 +337,19 @@ func _build_controls_tab(parent: VBoxContainer) -> void:
 	boost_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(boost_help)
 
+	# P1 controller options — pad only; mouse & keyboard are unaffected.
+	_pad_invert_y_checkbox = _add_checkbox_row(parent, "Invert camera Y (right stick up / down)", "_on_pad_invert_y_toggled")
+	_pad_swap_sticks_checkbox = _add_checkbox_row(parent, "Swap sticks (cursor on right stick, camera on left)", "_on_pad_swap_sticks_toggled")
+	_pad_magnetism_checkbox = _add_checkbox_row(parent, "Cursor magnetism (cursor eases onto nearby models)", "_on_pad_magnetism_toggled")
+	_pad_camera_sens_slider = _add_slider_row(parent, "Camera Sensitivity:", 0.3, 2.0, 0.1, "_on_pad_camera_sens_changed")
+	_pad_camera_sens_label = _get_last_value_label()
+	_pad_cursor_sens_slider = _add_slider_row(parent, "Cursor Sensitivity:", 0.3, 2.0, 0.1, "_on_pad_cursor_sens_changed")
+	_pad_cursor_sens_label = _get_last_value_label()
+
+	# Read-only reference of the whole pad scheme, drawn with the in-game glyph chips.
+	_add_section_header(parent, "Controller Reference")
+	_add_controller_reference(parent)
+
 	# Reset All Defaults button
 	var spacer = Control.new()
 	spacer.custom_minimum_size = Vector2(0, 10)
@@ -578,6 +599,20 @@ func _load_current_settings() -> void:
 		_update_scroll_speed_label(_menu_scroll_speed_label, SettingsService.menu_scroll_speed)
 	if _controller_text_boost_checkbox:
 		_controller_text_boost_checkbox.button_pressed = SettingsService.controller_text_boost
+	if _pad_invert_y_checkbox:
+		_pad_invert_y_checkbox.button_pressed = SettingsService.pad_invert_camera_y
+	if _pad_swap_sticks_checkbox:
+		_pad_swap_sticks_checkbox.button_pressed = SettingsService.pad_swap_sticks
+	if _pad_magnetism_checkbox:
+		_pad_magnetism_checkbox.button_pressed = SettingsService.pad_cursor_magnetism
+	if _pad_camera_sens_slider:
+		_pad_camera_sens_slider.value = SettingsService.pad_camera_sensitivity
+		if _pad_camera_sens_label:
+			_pad_camera_sens_label.text = "%.1fx" % SettingsService.pad_camera_sensitivity
+	if _pad_cursor_sens_slider:
+		_pad_cursor_sens_slider.value = SettingsService.pad_cursor_sensitivity
+		if _pad_cursor_sens_label:
+			_pad_cursor_sens_label.text = "%.1fx" % SettingsService.pad_cursor_sensitivity
 
 func _connect_signals() -> void:
 	# Update in-game-only button visibility
@@ -662,6 +697,48 @@ func _on_menu_scroll_speed_changed(value: float) -> void:
 
 func _on_controller_text_boost_toggled(pressed: bool) -> void:
 	SettingsService.set_controller_text_boost(pressed)
+
+func _on_pad_invert_y_toggled(pressed: bool) -> void:
+	SettingsService.set_pad_invert_camera_y(pressed)
+
+func _on_pad_swap_sticks_toggled(pressed: bool) -> void:
+	SettingsService.set_pad_swap_sticks(pressed)
+
+func _on_pad_magnetism_toggled(pressed: bool) -> void:
+	SettingsService.set_pad_cursor_magnetism(pressed)
+
+func _on_pad_camera_sens_changed(value: float) -> void:
+	SettingsService.set_pad_camera_sensitivity(value)
+	if _pad_camera_sens_label:
+		_pad_camera_sens_label.text = "%.1fx" % value
+
+func _on_pad_cursor_sens_changed(value: float) -> void:
+	SettingsService.set_pad_cursor_sensitivity(value)
+	if _pad_cursor_sens_label:
+		_pad_cursor_sens_label.text = "%.1fx" % value
+
+func _add_controller_reference(parent: VBoxContainer) -> void:
+	# A compact, accurate map of the whole pad scheme, rendered with the same glyph
+	# chips the in-game hint bar uses (GlyphDB). Read-only — the face-button routing
+	# is context-dependent, so this documents rather than rebinds it.
+	var rows := [
+		["ls", "Move the on-screen cursor / point at the board"],
+		["rs", "Move the camera  ·  click (R3) = precision (slow) mode"],
+		["lb", "Cycle to the previous unit / target"],
+		["rb", "Cycle to the next unit / target"],
+		["a", "Select  ·  confirm  ·  pick up a model"],
+		["b", "Cancel  ·  back to the board"],
+		["x", "Skip  ·  undo the last model"],
+		["y", "Show the unit's datasheet"],
+		["dpad", "Menus, movement options & weapon / target rows"],
+		["lt", "Zoom out"],
+		["rt", "Zoom in"],
+		["menu", "End phase / confirm  (Start)"],
+		["view", "Pause menu  (View / Select)"],
+	]
+	for r in rows:
+		var chip: Control = GlyphDB.make_chip(str(r[0]), str(r[1]))
+		parent.add_child(chip)
 
 func _on_colorblind_changed(index: int) -> void:
 	var modes = ["none", "protanopia", "deuteranopia", "tritanopia"]

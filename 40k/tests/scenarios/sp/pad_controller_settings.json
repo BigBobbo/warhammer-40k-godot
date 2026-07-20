@@ -1,0 +1,41 @@
+{
+  "id": "pad_controller_settings",
+  "covers": ["controller.p1.settings", "controller.p1.swap_sticks", "controller.p1.magnetism_toggle", "controller.p1.reference_tab"],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "P1 Controller settings (Settings › Controls › Controller). Swap-sticks re-points the cursor stick to the RIGHT stick (JOY_AXIS_RIGHT_X=2) and back to the LEFT stick (0). Cursor sensitivity clamps to its 0.3-2.0 range. Cursor magnetism can be toggled off so the snap-assist produces zero pull near a token. The Controls tab builds the new controller option controls (invert-Y / swap / magnetism / camera & cursor sensitivity) alongside the read-only glyph reference of the pad scheme.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "InputDeviceManager.cursor_stick_axis_x()", "equals": 0 },
+    { "act": "execute_script", "script": "SettingsService.set_pad_swap_sticks(true)" },
+    { "act": "execute_script", "script": "InputDeviceManager.cursor_stick_axis_x()", "equals": 2 },
+    { "act": "execute_script", "script": "SettingsService.set_pad_swap_sticks(false)" },
+    { "act": "execute_script", "script": "InputDeviceManager.cursor_stick_axis_x()", "equals": 0 },
+
+    { "act": "execute_script", "script": "SettingsService.set_pad_cursor_sensitivity(99.0)" },
+    { "act": "execute_script", "script": "SettingsService.pad_cursor_sensitivity", "expect_max": 2.0 },
+    { "act": "execute_script", "script": "SettingsService.set_pad_cursor_sensitivity(1.0)" },
+
+    { "act": "execute_script", "script": "InputDeviceManager.claim_pad()" },
+    { "act": "execute_script", "script": "VirtualCursor.warp_to(main.world_to_screen_position(Vector2(850.0, 50.0)) + Vector2(25.0, 0.0))" },
+    { "act": "wait_seconds", "seconds": 0.15 },
+    { "act": "execute_script", "script": "SettingsService.set_pad_cursor_magnetism(true)" },
+    { "act": "execute_script", "script": "VirtualCursor._snap_assist(0.2).length()", "expect_min": 0.2 },
+    { "act": "execute_script", "script": "SettingsService.set_pad_cursor_magnetism(false)" },
+    { "act": "execute_script", "script": "VirtualCursor._snap_assist(0.2).length()", "expect_max": 0.001 },
+    { "act": "execute_script", "script": "SettingsService.set_pad_cursor_magnetism(true)" },
+
+    { "act": "execute_script", "script": "main._open_settings_menu()" },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "main._settings_menu._on_tab_pressed(3)" },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "main._settings_menu._pad_invert_y_checkbox != null and main._settings_menu._pad_swap_sticks_checkbox != null and main._settings_menu._pad_magnetism_checkbox != null and main._settings_menu._pad_camera_sens_slider != null and main._settings_menu._pad_cursor_sens_slider != null", "equals": true },
+    { "act": "execute_script", "script": "main._settings_menu._tab_containers[3].set(\"scroll_vertical\", 900)" },
+    { "act": "screenshot", "label": "01_controller_settings_tab" },
+    { "act": "execute_script", "script": "main._settings_menu._on_close_pressed()" }
+  ]
+}

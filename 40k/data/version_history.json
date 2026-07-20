@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.75.0",
+			"date": "2026-07-20",
+			"summary": "Steam Deck controls — customisation pass. A new Controller section in Settings › Controls lets you invert the camera Y axis, swap which stick moves the cursor vs the camera, tune camera and cursor sensitivity, and turn the cursor magnetism on or off — plus a full on-screen reference of the pad control scheme. The controller hint bar now leads with 'Cycle Units' (the bumpers are how you pick units), and the movement-range ring is bolder while you carry a model on a controller so the edge you slide to is unmistakable.",
+			"changes": [
+				"New Controller settings (Settings › Controls): Invert camera Y, Swap sticks (cursor on the right stick, camera on the left), Camera Sensitivity, Cursor Sensitivity, and a Cursor Magnetism on/off toggle. All pad-only — mouse & keyboard are unaffected — and saved between sessions.",
+				"Controller Reference: the Controls tab now shows the full pad scheme (what every button and stick does) using the same button glyphs as the in-game hint bar.",
+				"Controller hint bar now leads with 'RB Cycle Units' on the board and in the Movement phase (the bumpers are the primary way to pick units), and the left-stick pointer is labelled 'Point' so it reads as the secondary aim.",
+				"The movement-range circle is drawn brighter, thicker and above other tokens while you carry a model with a controller, so the boundary your model clamps to is easy to see."
+			]
+		},
+		{
 			"version": "0.74.0",
 			"date": "2026-07-20",
 			"summary": "Steam Deck controls — the first 'smoothness' pass. Moving a model with the stick now stops it exactly on the edge of its movement range instead of rejecting the move and snapping it back. A new precision mode (hold the right stick, R3) slows the cursor for fine placement and target picking, and the cursor now gently eases onto the nearest model when you hover near one, so selecting a unit no longer needs pixel-perfect aim. On-screen text is also enlarged while a controller is in use so it stays readable on the Deck's screen (toggle in Settings › Controls).",

@@ -54,6 +54,15 @@ var animation_speed: float = 1.0 # 0.25 to 3.0
 var controller_text_boost: bool = true
 const PAD_UI_SCALE_BOOST: float = 1.2
 
+# P1 Steam Deck controller options (Settings › Controls › Controller). All are
+# pad-only; mouse/keyboard is unaffected. Consumed by Main._process (camera pan),
+# VirtualCursor (cursor speed + magnetism) and InputDeviceManager (stick swap).
+var pad_invert_camera_y: bool = false
+var pad_swap_sticks: bool = false          # cursor on the RIGHT stick, camera on the LEFT
+var pad_camera_sensitivity: float = 1.0    # 0.3 to 2.0 — right-stick camera pan speed
+var pad_cursor_sensitivity: float = 1.0    # 0.3 to 2.0 — virtual-cursor speed
+var pad_cursor_magnetism: bool = true      # ease the cursor toward nearby tokens (P0 magnetism)
+
 # Menu / panel scroll speed — fraction of Godot's default mouse-wheel / trackpad
 # scroll distance applied to ScrollContainers and other scroll surfaces. 1.0 ==
 # stock engine speed; lower == slower. Consumed by ScrollSpeedController.
@@ -365,6 +374,7 @@ func _connect_device_boost() -> void:
 	if not idm.device_changed.is_connected(_on_input_device_changed):
 		idm.device_changed.connect(_on_input_device_changed)
 	_apply_ui_scale()  # the active device may already be PAD by the time this fires
+	_apply_pad_stick_swap()  # re-point the sticks per the saved preference
 
 func _on_input_device_changed(_mode: int) -> void:
 	# P0: KBM↔pad switch → re-apply so the controller text boost engages/clears.
@@ -375,6 +385,35 @@ func set_controller_text_boost(enabled: bool) -> void:
 	_apply_ui_scale()
 	_save_settings()
 	print("[SettingsService] Controller text boost: %s" % ("on" if enabled else "off"))
+
+# --- P1 pad controller options ---------------------------------------------
+func set_pad_invert_camera_y(enabled: bool) -> void:
+	pad_invert_camera_y = enabled
+	_save_settings()
+
+func set_pad_camera_sensitivity(value: float) -> void:
+	pad_camera_sensitivity = clampf(value, 0.3, 2.0)
+	_save_settings()
+
+func set_pad_cursor_sensitivity(value: float) -> void:
+	pad_cursor_sensitivity = clampf(value, 0.3, 2.0)
+	_save_settings()
+
+func set_pad_cursor_magnetism(enabled: bool) -> void:
+	pad_cursor_magnetism = enabled
+	_save_settings()
+
+func set_pad_swap_sticks(enabled: bool) -> void:
+	pad_swap_sticks = enabled
+	_apply_pad_stick_swap()
+	_save_settings()
+
+func _apply_pad_stick_swap() -> void:
+	# Consumers read the cursor/camera stick actions by NAME, so re-pointing which
+	# physical stick each is bound to (InputDeviceManager) is transparent to them.
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm != null and idm.has_method("apply_stick_swap"):
+		idm.apply_stick_swap(pad_swap_sticks)
 
 func set_animation_speed(value: float) -> void:
 	animation_speed = clampf(value, 0.25, 3.0)
@@ -555,6 +594,11 @@ func _save_settings() -> void:
 	# Controls
 	config.set_value("controls", "menu_scroll_speed", menu_scroll_speed)
 	config.set_value("controls", "controller_text_boost", controller_text_boost)
+	config.set_value("controls", "pad_invert_camera_y", pad_invert_camera_y)
+	config.set_value("controls", "pad_swap_sticks", pad_swap_sticks)
+	config.set_value("controls", "pad_camera_sensitivity", pad_camera_sensitivity)
+	config.set_value("controls", "pad_cursor_sensitivity", pad_cursor_sensitivity)
+	config.set_value("controls", "pad_cursor_magnetism", pad_cursor_magnetism)
 
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
@@ -615,5 +659,10 @@ func _load_settings() -> void:
 	# Controls
 	menu_scroll_speed = clampf(config.get_value("controls", "menu_scroll_speed", 0.4), 0.1, 1.0)
 	controller_text_boost = bool(config.get_value("controls", "controller_text_boost", true))
+	pad_invert_camera_y = bool(config.get_value("controls", "pad_invert_camera_y", false))
+	pad_swap_sticks = bool(config.get_value("controls", "pad_swap_sticks", false))
+	pad_camera_sensitivity = clampf(config.get_value("controls", "pad_camera_sensitivity", 1.0), 0.3, 2.0)
+	pad_cursor_sensitivity = clampf(config.get_value("controls", "pad_cursor_sensitivity", 1.0), 0.3, 2.0)
+	pad_cursor_magnetism = bool(config.get_value("controls", "pad_cursor_magnetism", true))
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)

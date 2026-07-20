@@ -182,6 +182,54 @@ func _register_button_action(action: String, button: JoyButton) -> void:
 
 
 # ============================================================================
+# P1 stick-swap rebind: re-point the cursor/camera stick actions. Consumers read
+# them by NAME (VirtualCursor: pad_cursor_*, Main: pad_camera_*), so swapping the
+# underlying physical axis is transparent to them — no consumer changes. Default:
+# cursor = LEFT stick, camera = RIGHT stick. Driven by SettingsService.pad_swap_sticks.
+# ============================================================================
+
+func apply_stick_swap(swapped: bool) -> void:
+	var cursor_x := JOY_AXIS_RIGHT_X if swapped else JOY_AXIS_LEFT_X
+	var cursor_y := JOY_AXIS_RIGHT_Y if swapped else JOY_AXIS_LEFT_Y
+	var camera_x := JOY_AXIS_LEFT_X if swapped else JOY_AXIS_RIGHT_X
+	var camera_y := JOY_AXIS_LEFT_Y if swapped else JOY_AXIS_RIGHT_Y
+	_rebind_axis("pad_cursor_left", cursor_x, -1.0)
+	_rebind_axis("pad_cursor_right", cursor_x, 1.0)
+	_rebind_axis("pad_cursor_up", cursor_y, -1.0)
+	_rebind_axis("pad_cursor_down", cursor_y, 1.0)
+	_rebind_axis("pad_camera_left", camera_x, -1.0)
+	_rebind_axis("pad_camera_right", camera_x, 1.0)
+	_rebind_axis("pad_camera_up", camera_y, -1.0)
+	_rebind_axis("pad_camera_down", camera_y, 1.0)
+
+
+# Scenario/verify seam: the physical axis currently bound to the cursor's
+# horizontal action — JOY_AXIS_LEFT_X (0) by default, JOY_AXIS_RIGHT_X (2) when
+# the sticks are swapped. Windowed scenarios assert the swap took effect.
+func cursor_stick_axis_x() -> int:
+	for ev in InputMap.action_get_events("pad_cursor_left"):
+		if ev is InputEventJoypadMotion:
+			return ev.axis
+	return -1
+
+
+func _rebind_axis(action: String, axis: JoyAxis, direction: float) -> void:
+	if not InputMap.has_action(action):
+		return
+	# Strip only the joypad-motion events (keep the action + its deadzone), then
+	# bind the chosen axis/direction. The registration helpers early-return on an
+	# existing action, so a live rebind must mutate events in place like this.
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventJoypadMotion:
+			InputMap.action_erase_event(action, ev)
+	var e := InputEventJoypadMotion.new()
+	e.device = -1
+	e.axis = axis
+	e.axis_value = direction
+	InputMap.action_add_event(action, e)
+
+
+# ============================================================================
 # Active-device tracking
 # ============================================================================
 

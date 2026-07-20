@@ -46,9 +46,9 @@ extends Node
 # active. Everything here acts on what falls through.
 
 const HINTS_BOARD := [
-	["ls", "Cursor"],
 	["rb", "Cycle Units"],
-	["a", "Select / Click"],
+	["a", "Select"],
+	["ls", "Point"],
 	["y", "Datasheet"],
 	["dpad", "Focus Panels"],
 	["menu", "End Phase"],
@@ -105,10 +105,10 @@ const HINTS_MENU := [
 # opens the same action bar A does, so the D-pad browses the unit's phase
 # options instead of the unit list.
 const HINTS_MOVE := [
-	["ls", "Cursor"],
 	["rb", "Cycle Units"],
-	["dpad", "Move Menu"],
 	["a", "Menu / Pick Up"],
+	["dpad", "Move Menu"],
+	["ls", "Point"],
 	["x", "Undo Model"],
 	["y", "Datasheet"],
 	["menu", "End Phase"],

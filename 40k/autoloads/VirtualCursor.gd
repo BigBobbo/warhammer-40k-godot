@@ -97,13 +97,15 @@ func _process(delta: float) -> void:
 		# Precision modifier (R3 held): scale the whole step down for fine
 		# placement / target picking (P0; Gears Tactics "Precision Mode").
 		var precision := PRECISION_FACTOR if _precision_held() else 1.0
+		# P1 controller option: cursor sensitivity (Settings › Controls).
+		var sens: float = SettingsService.pad_cursor_sensitivity if SettingsService != null else 1.0
 		if PadRouter.is_carrying():
 			# Carrying a model: linear response with a lower ceiling — inch
 			# budgets are small and precision beats travel speed.
-			_move_cursor(vec * CARRY_SPEED * delta * precision)
+			_move_cursor(vec * CARRY_SPEED * delta * precision * sens)
 		else:
 			# Quadratic response: gentle deflection = precision, full = speed.
-			var rel := vec.normalized() * BASE_SPEED * vec.length() * vec.length() * delta * precision
+			var rel := vec.normalized() * BASE_SPEED * vec.length() * vec.length() * delta * precision * sens
 			# Magnetism (P0): ease toward the nearest selectable token while
 			# fine-tuning near it so grabbing a unit doesn't need pixel-hunting.
 			rel += _snap_assist(vec.length())
@@ -124,6 +126,9 @@ func _precision_held() -> bool:
 # intended empty-board click during fast travel.
 func _snap_assist(deflection: float) -> Vector2:
 	if PadRouter.is_carrying():
+		return Vector2.ZERO
+	# P1 controller option: players can turn magnetism off (Settings › Controls).
+	if SettingsService != null and not SettingsService.pad_cursor_magnetism:
 		return Vector2.ZERO
 	var assist := clampf(1.0 - deflection, 0.0, 1.0)
 	if assist <= 0.0:
