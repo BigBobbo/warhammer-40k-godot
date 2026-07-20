@@ -46,6 +46,14 @@ var audio_muted: bool = false
 var ui_scale: float = 1.0        # 0.5 to 2.0
 var animation_speed: float = 1.0 # 0.25 to 3.0
 
+# P0 Steam Deck legibility: while a controller is the active device, multiply the
+# canvas content scale by PAD_UI_SCALE_BOOST so 11-13px HUD text clears the
+# Deck's ~9px physical floor (the 1920x1080 base rendered onto the 1280x800 panel
+# shrinks everything ~0.67x). KBM keeps content_scale = ui_scale unchanged.
+# Toggleable so a desktop player using a gamepad on a big screen can turn it off.
+var controller_text_boost: bool = true
+const PAD_UI_SCALE_BOOST: float = 1.2
+
 # Menu / panel scroll speed — fraction of Godot's default mouse-wheel / trackpad
 # scroll distance applied to ScrollContainers and other scroll surfaces. 1.0 ==
 # stock engine speed; lower == slower. Consumed by ScrollSpeedController.
@@ -205,6 +213,11 @@ func _ready() -> void:
 
 	# M0 controller foundations: the persisted UI Scale finally has a consumer.
 	_apply_ui_scale()
+	# P0 legibility: re-apply the scale whenever the active input device flips so
+	# the controller text boost turns on/off live. Deferred because SettingsService
+	# is an EARLIER autoload than InputDeviceManager — connecting inline here would
+	# silently no-op (the InputDeviceManager singleton isn't instantiated yet).
+	call_deferred("_connect_device_boost")
 
 	# Initialize StateSerializer with settings
 	if StateSerializer:
@@ -319,8 +332,49 @@ func _apply_ui_scale() -> void:
 	# window's content scale — this is what makes the UI Scale slider
 	# actually resize the HUD (it was persisted but consumed by nothing).
 	var w = get_window()
-	if w:
-		w.content_scale_factor = ui_scale
+	if not w:
+		return
+	var factor := ui_scale
+	# P0 Steam Deck legibility: boost the whole canvas while the pad is the
+	# active device so small HUD text is readable on the 800p panel. Re-applied
+	# on InputDeviceManager.device_changed so it flips live with the device.
+	if _pad_text_boost_active():
+		factor *= PAD_UI_SCALE_BOOST
+	w.content_scale_factor = factor
+
+func _pad_text_boost_active() -> bool:
+	if not controller_text_boost:
+		return false
+	if InputDeviceManager == null or not InputDeviceManager.is_pad_active():
+		return false
+	# Never perturb the canvas scale during an automated windowed scenario — the
+	# suite asserts content_scale / pixel positions at the base ui_scale (e.g.
+	# pad_m0_camera). The boost is a real-play affordance; it is validated live
+	# via the MCP bridge, not through the scenario runner.
+	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if typeof(a) == TYPE_STRING and a.begins_with("--scenario-file="):
+			return false
+	return true
+
+func _connect_device_boost() -> void:
+	# Runs one idle frame after _ready, by which point every autoload (including
+	# InputDeviceManager) is instantiated and reachable via /root.
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm == null:
+		return
+	if not idm.device_changed.is_connected(_on_input_device_changed):
+		idm.device_changed.connect(_on_input_device_changed)
+	_apply_ui_scale()  # the active device may already be PAD by the time this fires
+
+func _on_input_device_changed(_mode: int) -> void:
+	# P0: KBM↔pad switch → re-apply so the controller text boost engages/clears.
+	_apply_ui_scale()
+
+func set_controller_text_boost(enabled: bool) -> void:
+	controller_text_boost = enabled
+	_apply_ui_scale()
+	_save_settings()
+	print("[SettingsService] Controller text boost: %s" % ("on" if enabled else "off"))
 
 func set_animation_speed(value: float) -> void:
 	animation_speed = clampf(value, 0.25, 3.0)
@@ -500,6 +554,7 @@ func _save_settings() -> void:
 
 	# Controls
 	config.set_value("controls", "menu_scroll_speed", menu_scroll_speed)
+	config.set_value("controls", "controller_text_boost", controller_text_boost)
 
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
@@ -559,5 +614,6 @@ func _load_settings() -> void:
 
 	# Controls
 	menu_scroll_speed = clampf(config.get_value("controls", "menu_scroll_speed", 0.4), 0.1, 1.0)
+	controller_text_boost = bool(config.get_value("controls", "controller_text_boost", true))
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)

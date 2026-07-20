@@ -88,6 +88,7 @@ const HINTS_FOCUS := [
 ]
 const HINTS_CARRY := [
 	["ls", "Move Model"],
+	["rs", "Precision"],
 	["a", "Drop"],
 	["lb", "Rotate ⟲"],
 	["rb", "Rotate ⟳"],

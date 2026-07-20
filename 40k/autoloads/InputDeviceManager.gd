@@ -113,6 +113,13 @@ func _register_pad_bindings() -> void:
 	_register_axis_action("pad_cursor_up", JOY_AXIS_LEFT_Y, -1.0, 0.15)
 	_register_axis_action("pad_cursor_down", JOY_AXIS_LEFT_Y, 1.0, 0.15)
 
+	# Precision modifier: HOLD the right-stick click (R3) to slow the virtual
+	# cursor for fine model placement / target picking — the continuous-board
+	# stand-in for the tile snapping grid tactics get for free (Gears Tactics
+	# "Precision Mode"). Polled by VirtualCursor; R3 is otherwise unbound by any
+	# pad handler, and the right thumb is free while the left drives the cursor.
+	_register_button_action("pad_precision", JOY_BUTTON_RIGHT_STICK)
+
 	# Menu (Start) = phase action with confirm (consumed in Main._input). M1.
 	_register_button_action("pad_phase_action", JOY_BUTTON_START)
 

@@ -29,6 +29,14 @@ const CARRY_SPEED := 800.0  # px/s while carrying a model — precision over tra
 const GLIDE_SPEED := 2200.0  # px/s for test-seam glides (deterministic)
 const ARRIVE_EPSILON := 2.0
 
+# P0 fine-control: R3 (pad_precision) held scales the cursor step down for
+# pixel-work; magnetism eases the cursor toward the nearest selectable token
+# when the player is fine-tuning near it (the continuous-board answer to the
+# tile snapping grid tactics get for free).
+const PRECISION_FACTOR := 0.32  # cursor speed multiplier while R3 is held
+const SNAP_RADIUS := 34.0       # px: magnetism engages only within this of a token
+const SNAP_EASE := 0.22         # eased fraction of the gap toward a token per frame
+
 var _pos := Vector2.ZERO
 var _cursor_active := false
 var _initialized_pos := false
@@ -86,13 +94,52 @@ func _process(delta: float) -> void:
 	var vec := Input.get_vector("pad_cursor_left", "pad_cursor_right", "pad_cursor_up", "pad_cursor_down")
 	if vec != Vector2.ZERO:
 		_set_cursor_active(true)
+		# Precision modifier (R3 held): scale the whole step down for fine
+		# placement / target picking (P0; Gears Tactics "Precision Mode").
+		var precision := PRECISION_FACTOR if _precision_held() else 1.0
 		if PadRouter.is_carrying():
 			# Carrying a model: linear response with a lower ceiling — inch
 			# budgets are small and precision beats travel speed.
-			_move_cursor(vec * CARRY_SPEED * delta)
+			_move_cursor(vec * CARRY_SPEED * delta * precision)
 		else:
 			# Quadratic response: gentle deflection = precision, full = speed.
-			_move_cursor(vec.normalized() * BASE_SPEED * vec.length() * vec.length() * delta)
+			var rel := vec.normalized() * BASE_SPEED * vec.length() * vec.length() * delta * precision
+			# Magnetism (P0): ease toward the nearest selectable token while
+			# fine-tuning near it so grabbing a unit doesn't need pixel-hunting.
+			rel += _snap_assist(vec.length())
+			_move_cursor(rel)
+
+
+func _precision_held() -> bool:
+	return InputMap.has_action("pad_precision") and Input.is_action_pressed("pad_precision")
+
+
+# Magnetism (P0): a gentle pull toward the nearest selectable token when the
+# player is fine-tuning near it — the continuous-board answer to the tile
+# snapping grid tactics (Advance Wars, Into the Breach) get for free. Scene-
+# agnostic: duck-typed against a battle scene that opts in via
+# nearest_pad_snap_screen_pos(); menus (no such method) and model carry get no
+# pull. The pull scales with (1 - deflection) AND fades to zero at the snap
+# radius, so it never yanks on entry and can never drag the cursor off an
+# intended empty-board click during fast travel.
+func _snap_assist(deflection: float) -> Vector2:
+	if PadRouter.is_carrying():
+		return Vector2.ZERO
+	var assist := clampf(1.0 - deflection, 0.0, 1.0)
+	if assist <= 0.0:
+		return Vector2.ZERO
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("nearest_pad_snap_screen_pos"):
+		return Vector2.ZERO
+	var target = scene.nearest_pad_snap_screen_pos(_pos, SNAP_RADIUS)
+	if not (target is Vector2) or (target as Vector2) == Vector2.INF:
+		return Vector2.ZERO
+	var to_target: Vector2 = (target as Vector2) - _pos
+	var dist := to_target.length()
+	if dist < 1.0 or dist >= SNAP_RADIUS:
+		return Vector2.ZERO
+	var closeness := 1.0 - dist / SNAP_RADIUS  # 0 at the edge (smooth entry) → ~1 near centre
+	return to_target * SNAP_EASE * assist * closeness
 
 
 func _move_cursor(rel: Vector2) -> void:

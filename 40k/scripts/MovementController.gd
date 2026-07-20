@@ -2132,6 +2132,26 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 	# pickup position (reflects Advance distance and any remaining staged budget).
 	_show_model_range_overlay(model, drag_start_pos)
 
+# P0 Steam Deck smoothness: clamp a tentative drag position to the model's
+# remaining movement budget, so an over-range pad carry stops exactly on the
+# reach circle instead of being rejected on drop (matching XCOM 2 / Into the
+# Breach, where the unit stops at the movement boundary). Geometry only — the
+# endpoint terrain penalty is subtracted from the budget, and an already-legal
+# move is returned unchanged. Overlap / board-edge legality is left to the
+# caller: shortening distance must not silently force an illegal overlap.
+func _clamp_move_to_budget(world_pos: Vector2) -> Vector2:
+	var seg: Vector2 = world_pos - drag_start_pos
+	var seg_len_px: float = seg.length()
+	if seg_len_px <= 0.0:
+		return world_pos
+	var already_used: float = _get_accumulated_distance()
+	var effective_cap: float = _get_effective_move_cap()
+	var terrain_penalty: float = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
+	var max_geo_inches: float = max(0.0, effective_cap - already_used - terrain_penalty)
+	if Measurement.px_to_inches(seg_len_px) <= max_geo_inches + MOVEMENT_CAP_EPSILON:
+		return world_pos
+	return drag_start_pos + seg.normalized() * Measurement.inches_to_px(max_geo_inches)
+
 func _update_model_drag(mouse_pos: Vector2) -> void:
 	if not dragging_model:
 		return
@@ -2148,6 +2168,13 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	# Snap to grid if enabled
 	if _should_snap_to_grid():
 		world_pos = _snap_to_grid(world_pos)
+
+	# P0 Steam Deck smoothness: on the pad, clamp an over-range drag to the
+	# model's remaining move budget so the ghost stops on the reach circle
+	# instead of running past it (over-range clamped, not rejected — the XCOM 2 /
+	# Into the Breach feel). Mouse keeps its free red-preview drag.
+	if InputDeviceManager.is_pad_active():
+		world_pos = _clamp_move_to_budget(world_pos)
 
 	# Update path
 	current_path = [drag_start_pos, world_pos]
@@ -2235,7 +2262,12 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 		world_pos = _snap_to_grid(world_pos)
 	
 	print("Final position: ", world_pos)
-	
+
+	# P0: clamp over-range to the budget (see _update_model_drag) so a pad drop
+	# stages at the boundary rather than being rejected and snapping back.
+	if InputDeviceManager.is_pad_active():
+		world_pos = _clamp_move_to_budget(world_pos)
+
 	# Calculate distance
 	var distance_inches = Measurement.distance_polyline_inches([drag_start_pos, world_pos])
 

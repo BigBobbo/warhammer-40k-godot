@@ -37,6 +37,7 @@ var _terrain_cover_checkbox: CheckBox
 
 var _auto_allocate_checkbox: CheckBox
 var _autosave_phase_start_checkbox: CheckBox
+var _controller_text_boost_checkbox: CheckBox
 
 var _close_button: Button
 var _return_to_menu_button: Button
@@ -315,6 +316,19 @@ func _build_controls_tab(parent: VBoxContainer) -> void:
 	scroll_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(scroll_help)
 
+	# P0 Steam Deck legibility: opt-out for the controller text boost (larger UI
+	# while a gamepad is the active device). On by default; a desktop player on a
+	# big screen may prefer it off.
+	_add_section_header(parent, "Controller")
+	_controller_text_boost_checkbox = _add_checkbox_row(parent, "Larger UI text on controller / Steam Deck", "_on_controller_text_boost_toggled")
+	var boost_help = Label.new()
+	boost_help.text = "Boosts on-screen text and buttons while a controller is in use so they stay readable on the Steam Deck's screen. Mouse & keyboard are unaffected."
+	boost_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	boost_help.custom_minimum_size = Vector2(620, 0)
+	boost_help.add_theme_font_size_override("font_size", 12)
+	boost_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	parent.add_child(boost_help)
+
 	# Reset All Defaults button
 	var spacer = Control.new()
 	spacer.custom_minimum_size = Vector2(0, 10)
@@ -562,6 +576,8 @@ func _load_current_settings() -> void:
 	if _menu_scroll_speed_slider:
 		_menu_scroll_speed_slider.value = SettingsService.menu_scroll_speed
 		_update_scroll_speed_label(_menu_scroll_speed_label, SettingsService.menu_scroll_speed)
+	if _controller_text_boost_checkbox:
+		_controller_text_boost_checkbox.button_pressed = SettingsService.controller_text_boost
 
 func _connect_signals() -> void:
 	# Update in-game-only button visibility
@@ -643,6 +659,9 @@ func _on_animation_speed_changed(value: float) -> void:
 func _on_menu_scroll_speed_changed(value: float) -> void:
 	SettingsService.set_menu_scroll_speed(value)
 	_update_scroll_speed_label(_menu_scroll_speed_label, value)
+
+func _on_controller_text_boost_toggled(pressed: bool) -> void:
+	SettingsService.set_controller_text_boost(pressed)
 
 func _on_colorblind_changed(index: int) -> void:
 	var modes = ["none", "protanopia", "deuteranopia", "tritanopia"]
