@@ -1,11 +1,11 @@
 {
   "id": "pad_m2_unit_cycle",
-  "covers": ["controller.m2.unit_cycling", "controller.m2.panel_focus", "controller.m2.datasheet"],
+  "covers": ["controller.m2.unit_cycling", "controller.m2.panel_focus", "controller.m2.datasheet", "controller.bumper_only_unit_cycling"],
   "fixture": "audit_baseline_postdeploy",
   "transition_to_phase": 7,
   "disable_ai": true,
   "rng_seed": 42,
-  "description": "M2 native controls in the Movement phase: RB/LB cycles the unit list (same selection entry point as clicking a row), Y toggles the selected unit's datasheet, a D-pad press with nothing focused enters panel focus (unit list grabs focus), and B releases focus back to the board.",
+  "description": "M2 native controls in the Movement phase: RB/LB cycles the unit list (same selection entry point as clicking a row) and is the ONLY unit-cycling control. Y toggles the selected unit's datasheet. A D-pad ▼ press with a unit selected opens the move action menu (the unit's phase sub-menu) WITHOUT switching units and WITHOUT focusing the unit list; ▼/▲ step the menu highlight and B closes it. Left-stick up/down never changes the selected unit either — while the pad is active the unit list is demoted to FOCUS_CLICK so ui_up/ui_down cannot land in or walk it.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -19,6 +19,7 @@
     { "act": "simulate_joy_button", "button_index": 10 },
     { "act": "wait_seconds", "seconds": 0.4 },
     { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) != str(InputDeviceManager.get_meta(\"first\"))", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"second\", str(main.movement_controller.active_unit_id))" },
     { "act": "screenshot", "label": "02_second_unit_cycled" },
 
     { "act": "simulate_joy_button", "button_index": 3 },
@@ -31,12 +32,33 @@
 
     { "act": "simulate_joy_button", "button_index": 12 },
     { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner() != null", "equals": true },
-    { "act": "screenshot", "label": "04_panel_focus_entered" },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"second\"))", "equals": true },
+    { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner() == null", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
+    { "act": "screenshot", "label": "04_dpad_opens_move_menu_not_unit_list" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "ADVANCE" },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"second\"))", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
 
     { "act": "simulate_joy_button", "button_index": 1 },
     { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": false },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"second\"))", "equals": true },
+
+    { "act": "simulate_joy_axis", "axis": 1, "value": 1.0, "hold_s": 0.5 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"second\"))", "equals": true },
+    { "act": "simulate_joy_axis", "axis": 1, "value": -1.0, "hold_s": 0.5 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"second\"))", "equals": true },
     { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner() == null", "equals": true },
-    { "act": "screenshot", "label": "05_focus_released" }
+    { "act": "execute_script", "multiline": true, "script": "var queue = [tree.current_scene.get_node(\"HUD_Right\")]\nwhile not queue.is_empty():\n\tvar n = queue.pop_front()\n\tif n is ItemList and n.is_visible_in_tree() and n.item_count > 0:\n\t\treturn int(n.focus_mode)\n\tfor c in n.get_children(true):\n\t\tqueue.append(c)\nreturn -1", "equals": 1 },
+    { "act": "screenshot", "label": "05_stick_never_cycles_units" }
   ]
 }

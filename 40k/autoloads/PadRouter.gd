@@ -3,22 +3,32 @@ extends Node
 # M2 pad router (PRPs/steam_deck_controller_support.md §4.1/§5.1, milestone
 # M2): the native-controls layer on top of the M1 virtual cursor.
 #
-#   LB/RB  — cycle the "current list": eligible shooters / eligible targets
+#   LB/RB  — THE unit-cycling control, and the only one (BUMPER-ONLY rule):
+#            cycle the "current list": eligible shooters / eligible targets
 #            (shooting, reusing the shipped shoot_* semantics) or the
 #            right-panel unit list (other phases; same entry point a mouse
 #            row-click uses). Deployment: cycling switches which unit is being
 #            deployed, but locks once any model of the current unit is placed
-#            (undo them all to unlock — mirrors the mouse rule)
+#            (undo them all to unlock — mirrors the mouse rule). Works while
+#            the action bar is open too — the menu follows the new unit.
 #   D-pad ◀ ▶ — placement (deployment / reinforcement / scout reserves):
 #            cycle the value of the highlighted selector row — model type
 #            (multi-profile units) or formation (Single / Spread / Tight);
 #            otherwise panel focus entry
-#   D-pad ▲ ▼ — placement with a model-type picker: move the ▶ highlight
+#   D-pad ▲ ▼ — the SELECTED unit's phase sub-menu, never the unit list:
+#            placement with a model-type picker: move the ▶ highlight
 #            between the Select Model Type and Deploy Formation rows.
 #            Charge: step the ELIGIBLE TARGETS rows (A toggles the stepped
 #            row in/out of the declaration — pad Click / Ctrl+Click).
 #            Shooting with an armed shooter: step the weapon rows so each
-#            gun can get its own target. Otherwise panel focus entry.
+#            gun can get its own target. Movement with an open move-mode
+#            decision: open the action bar (Move / Advance / Fall Back /
+#            Stay Still) and step its options. Otherwise panel focus entry —
+#            which lands on buttons only: unit lists are demoted to
+#            FOCUS_CLICK while the pad is active (see
+#            _apply_list_focus_policy) so neither the D-pad nor the left
+#            stick's ui_up/ui_down can ever walk the unit list. Cycling
+#            units is the bumpers' job alone.
 #   A      — in TARGET_SELECT: assign the highlighted target to the current
 #            weapon (cursor mode and focused controls keep their own A)
 #   B      — release panel focus back to the board; with an active shooter,
@@ -86,8 +96,21 @@ const HINTS_CARRY := [
 ]
 const HINTS_MENU := [
 	["dpad", "Choose Action"],
+	["rb", "Cycle Units"],
 	["a", "Confirm"],
 	["b", "Cancel"],
+]
+# Movement with a selected unit whose move-mode decision is still open: ▲ ▼
+# opens the same action bar A does, so the D-pad browses the unit's phase
+# options instead of the unit list.
+const HINTS_MOVE := [
+	["ls", "Cursor"],
+	["rb", "Cycle Units"],
+	["dpad", "Move Menu"],
+	["a", "Menu / Pick Up"],
+	["x", "Undo Model"],
+	["y", "Datasheet"],
+	["menu", "End Phase"],
 ]
 
 # The target currently highlighted by LB/RB in shooting TARGET_SELECT mode
@@ -109,7 +132,14 @@ func is_carrying() -> bool:
 
 
 func _ready() -> void:
-	InputDeviceManager.device_changed.connect(func(_m): _update_hints())
+	InputDeviceManager.device_changed.connect(_on_device_changed)
+
+
+func _on_device_changed(mode: int) -> void:
+	# BUMPER-ONLY rule: while the pad drives, unit lists leave the focus
+	# chain (and give up any focus they already hold); on KBM they restore.
+	_apply_list_focus_policy(mode == InputDeviceManager.InputMode.PAD)
+	_update_hints()
 
 
 func _input(event: InputEvent) -> void:
@@ -118,15 +148,23 @@ func _input(event: InputEvent) -> void:
 	# A joypad event IS pad input — claim inline so the session's very first
 	# press acts instead of being dropped (the _process poll runs after us).
 	InputDeviceManager.claim_pad()
+	# Re-assert the bumper-only rule before routing: lists spawned since the
+	# last press get demoted, and any list that grabbed focus lets go.
+	_apply_list_focus_policy(true)
 	# While the action bar is open it owns the pad exclusively (a lightweight
-	# modal): D-pad / bumpers move the highlight, A confirms, B cancels, and
-	# everything else is swallowed so Start can't end the phase mid-decision.
+	# modal): D-pad moves the highlight, A confirms, B cancels, and everything
+	# else is swallowed so Start can't end the phase mid-decision. The bumpers
+	# keep their one global meaning — switch units — and the menu follows.
 	if PadActionBar.is_open():
 		match event.button_index:
-			JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_LEFT_SHOULDER:
+			JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_UP:
 				PadActionBar.move_highlight(-1)
-			JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_RIGHT_SHOULDER:
+			JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_DPAD_DOWN:
 				PadActionBar.move_highlight(1)
+			JOY_BUTTON_LEFT_SHOULDER:
+				_menu_cycle_unit(-1)
+			JOY_BUTTON_RIGHT_SHOULDER:
+				_menu_cycle_unit(1)
 			JOY_BUTTON_A:
 				_apply_menu_choice(PadActionBar.activate())
 			JOY_BUTTON_B:
@@ -160,10 +198,10 @@ func _input(event: InputEvent) -> void:
 			if _handle_back():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_UP:
-			if _pad_deploy_row_cycle(-1) or _pad_step_secondary(-1) or _enter_panel_focus():
+			if _pad_deploy_row_cycle(-1) or _pad_step_secondary(-1) or _try_open_move_menu() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_DOWN:
-			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _enter_panel_focus():
+			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _try_open_move_menu() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_LEFT:
 			if _hop_model(-1) or _pad_deploy_option_cycle(-1) or _enter_panel_focus():
@@ -171,6 +209,11 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_DPAD_RIGHT:
 			if _hop_model(1) or _pad_deploy_option_cycle(1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
+	# A handler above may have re-focused a list (e.g. a phase's selection
+	# refresh); take it back so a following stick deflection can't walk it.
+	var f := get_viewport().gui_get_focus_owner()
+	if f is ItemList:
+		f.release_focus()
 	_update_hints()
 
 
@@ -234,6 +277,23 @@ func _apply_menu_choice(choice_id: String) -> void:
 
 func _auto_carry_after_menu() -> void:
 	if not carry_active and _try_begin_carry():
+		_update_hints()
+
+
+# Bumper press while the action bar is open: the bumpers still mean "switch
+# unit" (their one global meaning), so close the menu, cycle, and reopen it
+# for the new unit — the sub-menu follows the selection. The reopen is
+# deferred so the list-selection handlers (radio updates etc.) settle first.
+func _menu_cycle_unit(dir: int) -> void:
+	PadActionBar.close()
+	_cycle(dir)
+	call_deferred("_reopen_move_menu")
+
+
+func _reopen_move_menu() -> void:
+	if carry_active or PadActionBar.is_open():
+		return
+	if _try_open_move_menu():
 		_update_hints()
 
 
@@ -742,12 +802,47 @@ func _find_first_focusable(root: Node) -> Control:
 	var queue: Array = [root]
 	while not queue.is_empty():
 		var n: Node = queue.pop_front()
-		if n is Control and n.focus_mode == Control.FOCUS_ALL and n.is_visible_in_tree() \
-				and not (n is BaseButton and n.disabled):
+		# ItemLists never take pad focus: lists are driven by their dedicated
+		# affordances (LB/RB unit cycling, ▲ ▼ steppers) — focusing one would
+		# turn ui_up/ui_down into unit cycling, the exact bug the bumper-only
+		# rule exists to prevent.
+		if n is Control and not (n is ItemList) and n.focus_mode == Control.FOCUS_ALL \
+				and n.is_visible_in_tree() and not (n is BaseButton and n.disabled):
 			return n
 		for child in n.get_children(true):
 			queue.append(child)
 	return null
+
+
+# BUMPER-ONLY unit cycling: while the pad is the active device every ItemList
+# in the side panels is demoted to FOCUS_CLICK (mouse clicks are unaffected)
+# so directional focus navigation — D-pad OR left-stick ui_up/ui_down — can
+# neither land in a list nor walk through it, and a list that already holds
+# focus (e.g. mouse-clicked before switching to pad) releases it. Restored to
+# the saved focus mode when the keyboard/mouse takes over.
+func _apply_list_focus_policy(pad: bool) -> void:
+	var m := get_tree().current_scene
+	if m == null:
+		return
+	for root_path in ["HUD_Right", "HUD_Bottom"]:
+		var root := m.get_node_or_null(root_path)
+		if root == null:
+			continue
+		var queue: Array = [root]
+		while not queue.is_empty():
+			var n: Node = queue.pop_front()
+			if n is ItemList:
+				if pad:
+					if n.focus_mode == Control.FOCUS_ALL:
+						n.set_meta("pad_saved_focus_mode", n.focus_mode)
+						n.focus_mode = Control.FOCUS_CLICK
+					if n.has_focus():
+						n.release_focus()
+				elif n.has_meta("pad_saved_focus_mode"):
+					n.focus_mode = n.get_meta("pad_saved_focus_mode")
+					n.remove_meta("pad_saved_focus_mode")
+			for child in n.get_children(true):
+				queue.append(child)
 
 
 # ============================================================================
@@ -832,7 +927,21 @@ func _update_hints() -> void:
 			var cc = _charge_controller_selecting()
 			if cc != null:
 				hints = HINTS_CHARGE
+			elif _movement_menu_available():
+				hints = HINTS_MOVE
 	PadHintBar.set_hints(hints)
+
+
+# Movement phase with a selected unit whose move-mode decision is still open
+# (the state where ▲ ▼ / A open the action bar).
+func _movement_menu_available() -> bool:
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m) or m.current_phase != GameStateData.Phase.MOVEMENT:
+		return false
+	var mc = m.movement_controller if ("movement_controller" in m) else null
+	if mc == null or not is_instance_valid(mc) or not mc.has_method("pad_menu_options"):
+		return false
+	return not mc.pad_menu_options().is_empty()
 
 
 # The ChargeController while the charge phase is live with a unit selected
