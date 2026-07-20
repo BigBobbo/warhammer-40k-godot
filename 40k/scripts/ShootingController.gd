@@ -3858,6 +3858,40 @@ func _on_weapon_tree_item_selected() -> void:
 			else:
 				dice_log_display.append_text("[color=yellow]Selected %s - Click on an enemy unit to assign target[/color]\n" % weapon_name)
 
+# Pad (controller) support: D-pad ▲ ▼ steps the weapon rows while a shooter
+# is armed, so a multi-weapon unit can aim each gun at a different target
+# without the mouse (LB/RB cycles the target highlight, A assigns it to the
+# stepped weapon). Runs the same selection handler a mouse row-click fires.
+func pad_step_weapon(dir: int) -> bool:
+	if str(active_shooter_id) == "":
+		return false
+	if weapon_tree == null or not is_instance_valid(weapon_tree) or not weapon_tree.is_visible_in_tree():
+		return false
+	var root: TreeItem = weapon_tree.get_root()
+	if root == null:
+		return false
+	var rows: Array = []
+	var child: TreeItem = root.get_first_child()
+	while child != null:
+		rows.append(child)
+		child = child.get_next()
+	if rows.is_empty():
+		return false
+	var sel: TreeItem = weapon_tree.get_selected()
+	var idx: int = rows.find(sel)
+	if idx == -1:
+		idx = 0 if dir > 0 else rows.size() - 1
+	else:
+		idx = wrapi(idx + dir, 0, rows.size())
+	var row: TreeItem = rows[idx]
+	row.select(0)
+	weapon_tree.scroll_to_item(row)
+	# TreeItem.select() does not reliably emit item_selected for programmatic
+	# calls — run the click handler explicitly unless the signal already did.
+	if str(selected_weapon_id) != str(row.get_metadata(0)):
+		_on_weapon_tree_item_selected()
+	return true
+
 func _on_weapon_tree_button_clicked(item: TreeItem, column: int, id: int, mouse_button_index: int) -> void:
 	if not item or column != 1:
 		return

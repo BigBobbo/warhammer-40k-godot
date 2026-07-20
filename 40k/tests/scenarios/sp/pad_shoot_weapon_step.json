@@ -1,0 +1,48 @@
+{
+  "id": "pad_shoot_weapon_step",
+  "covers": [
+    "controller.shooting.weapon_dpad_step",
+    "controller.shooting.per_weapon_target_assign",
+    "PadRouter",
+    "ShootingController"
+  ],
+  "fixture": "shooting_phase",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Pad weapon-row stepping: with a shooter armed, D-pad ▲ ▼ walks the weapon rows of the declaration tree (same handler a mouse row-click fires — selected_weapon_id, row tint and damage preview follow), wrapping at both ends. RB then cycles the target highlight and A assigns it to the stepped weapon, proving a multi-weapon unit can aim each gun independently with the pad alone.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 8 },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar sc = m.shooting_controller\nfor i in range(sc.unit_selector.item_count):\n\tif str(sc.unit_selector.get_item_metadata(i)) == \"U_BATTLEWAGON_A\":\n\t\tsc.unit_selector.select(i)\n\t\tsc.unit_selector.item_selected.emit(i)\n\t\tbreak\nreturn str(sc.active_shooter_id)", "equals": "U_BATTLEWAGON_A" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.selected_weapon_id) != \"\"", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"w1\", str(main.shooting_controller.selected_weapon_id))" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.selected_weapon_id) != str(InputDeviceManager.get_meta(\"w1\"))", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"w2\", str(main.shooting_controller.selected_weapon_id))" },
+
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.selected_weapon_id) == str(InputDeviceManager.get_meta(\"w1\"))", "equals": true },
+    { "act": "screenshot", "label": "01_weapon_row_stepped_back_to_first" },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar sc = m.shooting_controller\nfor i in range(12):\n\tif str(sc.selected_weapon_id) == \"lobba_ranged\":\n\t\tbreak\n\tsc.pad_step_weapon(1)\nreturn str(sc.selected_weapon_id)", "equals": "lobba_ranged" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(PadRouter.target_highlight_id) != \"\"", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"tgt\", str(PadRouter.target_highlight_id))" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.weapon_assignments.get(\"lobba_ranged\", \"\")) == str(InputDeviceManager.get_meta(\"tgt\"))", "equals": true },
+    { "act": "screenshot", "label": "02_target_assigned_to_stepped_lobba" }
+  ]
+}

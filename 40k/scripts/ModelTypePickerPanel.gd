@@ -10,6 +10,7 @@ var type_buttons: Dictionary = {}  # type_key -> Button
 var selected_type: String = ""
 var _model_profiles: Dictionary = {}
 var _btn_container: VBoxContainer
+var _title_label: Label = null
 
 func _ready() -> void:
 	# Style the panel
@@ -37,6 +38,7 @@ func _ready() -> void:
 	WhiteDwarfTheme.apply_to_label(title_label, true)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title_label)
+	_title_label = title_label
 
 	# Separator
 	var sep = ColorRect.new()
@@ -133,6 +135,13 @@ func _count_unplaced_by_type(models: Array, placed_indices: Array) -> Dictionary
 			continue
 		counts[mt] = counts.get(mt, 0) + 1
 	return counts
+
+# DEPLOY-CYCLE (pad): ▶ marker on the title while the D-pad ▲ ▼ focus is on
+# this row (left/right then cycles the model type).
+func set_pad_focus(active: bool) -> void:
+	if _title_label == null or not is_instance_valid(_title_label):
+		return
+	_title_label.text = "▶ Select Model Type" if active else "Select Model Type"
 
 func _on_type_pressed(type_key: String) -> void:
 	if type_buttons.has(type_key) and type_buttons[type_key].disabled:

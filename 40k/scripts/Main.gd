@@ -2264,7 +2264,12 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		return
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	# NULL-safe: loaded saves can carry "reserve_type": null, and the value
+	# flows into DeploymentController.reinforcement_placement_type (a typed
+	# String) — assigning Nil there is a runtime error.
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
+	if reserve_type == null:
+		reserve_type = "strategic_reserves"
 
 	# P2-80: Use the chosen placement type if available, otherwise default to reserve_type
 	var placement_type = _reinforcement_placement_type if _reinforcement_placement_type != "" else reserve_type
@@ -4794,6 +4799,7 @@ func _setup_formation_ui() -> void:
 	formation_container.name = "FormationControls"
 
 	var formation_label = Label.new()
+	formation_label.name = "FormationLabel"
 	formation_label.text = "Deploy Formation:"
 	formation_container.add_child(formation_label)
 
@@ -4889,9 +4895,7 @@ func _reselect_deploying_unit_row() -> void:
 # Called by PadRouter; returns false when no deployment placement is live so
 # the press can fall through to panel-focus entry.
 func pad_cycle_formation_mode(dir: int) -> bool:
-	if current_phase != GameStateData.Phase.DEPLOYMENT:
-		return false
-	if not (deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing()):
+	if not _pad_placement_active():
 		return false
 	var cur = FORMATION_MODE_ORDER.find(deployment_controller.formation_mode)
 	if cur == -1:
@@ -4918,6 +4922,153 @@ func _apply_formation_mode(mode: String) -> void:
 					child.button_pressed = true
 				btn_idx += 1
 	_on_formation_mode_changed(mode)
+
+# ============================================================================
+# DEPLOY-CYCLE (pad): D-pad ▲ ▼ row navigation inside the deployment card.
+# While placing, the card can hold up to two "selector rows" — Deploy
+# Formation and (for units with multiple model profiles) the Select Model
+# Type picker. ▲ ▼ moves a ▶ highlight between them; ◀ ▶ cycles the value of
+# whichever row is highlighted.
+# ============================================================================
+
+# Which selector row the D-pad focus is on: "formation" or "model_type".
+# Reset whenever the placing unit changes; clamped to the rows that exist.
+var _deploy_pad_row: String = ""
+var _deploy_pad_row_unit: String = ""
+
+# Any live model-placement session driven by the DeploymentController: normal
+# deployment, movement-phase reinforcement arrivals, and scout-reserves
+# set-up. The pad placement affordances (selector rows, X undo, Start
+# confirm, A cursor-warp) apply to all three identically.
+func _pad_placement_active() -> bool:
+	if not (deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing()):
+		return false
+	match current_phase:
+		GameStateData.Phase.DEPLOYMENT:
+			return true
+		GameStateData.Phase.MOVEMENT:
+			return deployment_controller.is_reinforcement_mode
+		GameStateData.Phase.SCOUT:
+			return deployment_controller.is_scout_reserves_mode
+	return false
+
+# Selector rows in on-screen order (FormationControls sits above the picker).
+func _deploy_pad_rows() -> Array:
+	var rows = ["formation"]
+	if _picker_enabled_type_count() > 1:
+		rows.append("model_type")
+	return rows
+
+func _picker_panel_or_null():
+	if not (deployment_controller and is_instance_valid(deployment_controller)):
+		return null
+	var p = deployment_controller.model_type_picker_panel
+	if p != null and is_instance_valid(p):
+		return p
+	return null
+
+func _picker_enabled_type_count() -> int:
+	var p = _picker_panel_or_null()
+	if p == null:
+		return 0
+	var n = 0
+	for key in p.type_buttons:
+		var btn = p.type_buttons[key]
+		if is_instance_valid(btn) and not btn.disabled:
+			n += 1
+	return n
+
+# The active selector row, defaulting to the model-type picker when it exists
+# (that is the choice the player has to make before a ghost can appear).
+func _deploy_active_pad_row() -> String:
+	var placing_unit = ""
+	if deployment_controller and is_instance_valid(deployment_controller):
+		placing_unit = str(deployment_controller.get_current_unit())
+	if _deploy_pad_row_unit != placing_unit:
+		_deploy_pad_row_unit = placing_unit
+		_deploy_pad_row = ""
+	var rows = _deploy_pad_rows()
+	if _deploy_pad_row == "" or not rows.has(_deploy_pad_row):
+		_deploy_pad_row = "model_type" if rows.has("model_type") else "formation"
+	return _deploy_pad_row
+
+# D-pad ▲ ▼ while placing: move the highlight between the selector rows.
+# Returns false when there is only one row so the press can fall through to
+# the generic panel-focus entry (same behavior as before for such units).
+func pad_cycle_deploy_row(dir: int) -> bool:
+	if not _pad_placement_active():
+		return false
+	var rows = _deploy_pad_rows()
+	if rows.size() <= 1:
+		return false
+	var cur = rows.find(_deploy_active_pad_row())
+	_deploy_pad_row = rows[wrapi(cur + dir, 0, rows.size())]
+	_update_deploy_row_highlight()
+	return true
+
+# D-pad ◀ ▶ while placing: cycle the value of the highlighted selector row.
+func pad_cycle_deploy_option(dir: int) -> bool:
+	if not _pad_placement_active():
+		return false
+	if _deploy_active_pad_row() == "model_type" and _pad_cycle_model_type(dir):
+		return true
+	return pad_cycle_formation_mode(dir)
+
+# Step selected_model_type through the picker's enabled buttons, driving the
+# same handler a mouse click on a type button uses (sets the type, highlights
+# the button, points model_idx at the first unplaced model, rebuilds ghosts).
+func _pad_cycle_model_type(dir: int) -> bool:
+	var p = _picker_panel_or_null()
+	if p == null:
+		return false
+	var order = []
+	for key in p.type_buttons:
+		var btn = p.type_buttons[key]
+		if is_instance_valid(btn) and not btn.disabled:
+			order.append(key)
+	if order.is_empty():
+		return false
+	var cur = order.find(str(deployment_controller.selected_model_type))
+	var next_type
+	if cur == -1:
+		# Nothing selected yet (picker waiting for a pick): ▶ takes the first
+		# type, ◀ the last.
+		next_type = order[0] if dir > 0 else order[order.size() - 1]
+	else:
+		next_type = order[wrapi(cur + dir, 0, order.size())]
+	deployment_controller._on_model_type_selected(str(next_type))
+	_update_deploy_row_highlight()
+	return true
+
+# Paint the ▶ + gold marker on the active selector row (and clear it when no
+# placement is live), and keep the formation toggle buttons matching the
+# controller's mode — a unit switch resets the mode to SINGLE without any
+# pressed signal, so the sync has to happen here.
+func _update_deploy_row_highlight() -> void:
+	var placing = _pad_placement_active()
+	var multi_row = placing and _deploy_pad_rows().size() > 1
+	var active_row = _deploy_active_pad_row() if placing else ""
+	var controls = unit_card.get_node_or_null("FormationControls")
+	if controls:
+		var flabel = controls.get_node_or_null("FormationLabel")
+		if flabel:
+			if multi_row and active_row == "formation":
+				flabel.text = "▶ Deploy Formation:"
+				flabel.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+			else:
+				flabel.text = "Deploy Formation:"
+				flabel.remove_theme_color_override("font_color")
+		if placing:
+			var target_idx = FORMATION_MODE_ORDER.find(str(deployment_controller.formation_mode))
+			var btn_idx = 0
+			for child in controls.get_children():
+				if child is Button:
+					if btn_idx == target_idx and not child.button_pressed:
+						child.button_pressed = true
+					btn_idx += 1
+	var p = _picker_panel_or_null()
+	if p != null and p.has_method("set_pad_focus"):
+		p.set_pad_focus(multi_row and active_row == "model_type")
 
 func _setup_keyboard_shortcut_overlay() -> void:
 	# P3-54: Create keyboard shortcut reference overlay (toggled with ? key)
@@ -5302,6 +5453,21 @@ func _input(event: InputEvent) -> void:
 				and str(shooting_controller.active_shooter_id) != "" \
 				and not shooting_controller.weapon_assignments.is_empty():
 			shooting_controller._on_confirm_pressed()
+		elif _pad_placement_active() \
+				and deployment_controller.get_placed_count() >= deployment_controller.get_total_model_count():
+			# DEPLOY-CYCLE: with every model of the unit placed, Start means
+			# "Confirm this unit" (same context-dependent Menu the shooting
+			# phase uses) — no button focus or cursor trip needed. Applies to
+			# deployment, reinforcement arrivals and scout-reserves set-up.
+			_on_confirm_pressed()
+		elif current_phase == GameStateData.Phase.CHARGE and charge_controller \
+				and is_instance_valid(charge_controller) \
+				and charge_controller.has_method("pad_primary_action") \
+				and charge_controller.pad_primary_action():
+			# Charge: Start walks the flow forward — Declare Charge with
+			# targets selected, Roll 2D6 once declared. Falls through to the
+			# End-Phase confirm when neither applies.
+			pass
 		elif phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
 			_show_pad_phase_confirm()
 		get_viewport().set_input_as_handled()
@@ -7351,9 +7517,13 @@ func _on_unit_selected(index: int) -> void:
 		# Check if this is a reserve unit arriving as reinforcement
 		var selected_unit = GameState.get_unit(unit_id)
 		if selected_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
-			# Skip attached characters — they arrive with their bodyguard automatically
-			var attached_to = selected_unit.get("attached_to", "")
-			if attached_to != "":
+			# Skip attached characters — they arrive with their bodyguard automatically.
+			# NULL-safe: saves serialize "attached_to": null for unattached units,
+			# and get(..., "") returns that null (the key exists), which used to
+			# pass the != "" check and block selecting ANY reserve unit from a
+			# loaded save (mouse and pad alike).
+			var attached_to = selected_unit.get("attached_to", null)
+			if attached_to != null and str(attached_to) != "":
 				var bg_name = GameState.get_unit(attached_to).get("meta", {}).get("name", attached_to)
 				print("Main: Attached character selected — will arrive with bodyguard %s" % bg_name)
 				var toast_mgr = get_node_or_null("/root/ToastManager")
@@ -7362,8 +7532,11 @@ func _on_unit_selected(index: int) -> void:
 				return
 
 			print("Main: Reserve unit selected for reinforcement: ", unit_id)
-			# P2-80: If unit has Deep Strike but is in Strategic Reserves, offer choice
+			# P2-80: If unit has Deep Strike but is in Strategic Reserves, offer choice.
+			# NULL-safe: loaded saves can carry "reserve_type": null.
 			var reserve_type = selected_unit.get("reserve_type", "strategic_reserves")
+			if reserve_type == null:
+				reserve_type = "strategic_reserves"
 			if reserve_type == "strategic_reserves" and GameState.unit_has_deep_strike(unit_id):
 				print("Main: P2-80 — Unit has Deep Strike from Strategic Reserves, showing placement choice dialog")
 				_show_deep_strike_placement_dialog(unit_id)
@@ -7425,7 +7598,10 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 			else:
 				# For non-transport units, deploy normally
 				deployment_controller.begin_deploy(unit_id)
-				# DEPLOY-CYCLE: the unit list stays visible while placing
+				# DEPLOY-CYCLE: the unit list stays visible while placing. The
+				# card was shown before begin_deploy on this path, so refresh it
+				# now that the picker/formation rows exist.
+				update_unit_card_buttons()
 				unit_list.visible = true
 				refresh_unit_list.call_deferred()
 		elif current_phase == GameStateData.Phase.SCOUT:
@@ -7520,6 +7696,9 @@ func show_unit_card(unit_id: String) -> void:
 	update_unit_card_buttons()
 
 func update_unit_card_buttons() -> void:
+	# DEPLOY-CYCLE: keep the D-pad ▶ row marker and the formation toggle row in
+	# sync with the live placement (also clears the marker outside deployment).
+	_update_deploy_row_highlight()
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			if deployment_controller:
