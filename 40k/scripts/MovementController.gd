@@ -5370,6 +5370,17 @@ func _draw_dashed_range_circle(center: Vector2, radius_px: float, label_text: St
 	# Shared by the per-model movement-reach overlays.
 	if not is_instance_valid(move_range_visual) or radius_px <= 0.0:
 		return
+	# P1 (Steam Deck): on the pad the carried model CLAMPS exactly onto this ring
+	# (MovementController._clamp_move_to_budget), so the boundary is a hard edge the
+	# player slides to — draw it brighter, thicker, and lifted above board tokens so
+	# it can't read as a faint suggestion or be occluded. Mouse keeps the softer
+	# dashed guide, since a mouse drag can cross the ring into an invalid preview.
+	var pad_carry := InputDeviceManager.is_pad_active()
+	var col: Color = MOVE_RANGE_OVERLAY_COLOR
+	var width: float = MOVE_RANGE_OVERLAY_WIDTH
+	if pad_carry:
+		col = Color(col.r, col.g, col.b, 0.9)
+		width = MOVE_RANGE_OVERLAY_WIDTH * 1.4
 	var total_arcs: int = 8
 	var arc_length: float = TAU / float(total_arcs)
 	var dash_fraction: float = 0.75
@@ -5378,10 +5389,12 @@ func _draw_dashed_range_circle(center: Vector2, radius_px: float, label_text: St
 		var arc_dash_end: float = arc_start + arc_length * dash_fraction
 		var dash := Line2D.new()
 		dash.name = "MoveRangeDash_%d_%d_%d" % [int(center.x), int(center.y), arc_idx]
-		dash.width = MOVE_RANGE_OVERLAY_WIDTH
-		dash.default_color = MOVE_RANGE_OVERLAY_COLOR
+		dash.width = width
+		dash.default_color = col
 		dash.begin_cap_mode = Line2D.LINE_CAP_ROUND
 		dash.end_cap_mode = Line2D.LINE_CAP_ROUND
+		if pad_carry:
+			dash.z_index = 50  # above board tokens (z 0); below the label's 55
 		var pts: int = 8
 		for i in range(pts + 1):
 			var theta: float = arc_start + (arc_dash_end - arc_start) * float(i) / float(pts)
@@ -5392,7 +5405,7 @@ func _draw_dashed_range_circle(center: Vector2, radius_px: float, label_text: St
 		var range_label := Label.new()
 		range_label.text = label_text
 		range_label.add_theme_font_size_override("font_size", 36)
-		range_label.add_theme_color_override("font_color", MOVE_RANGE_OVERLAY_COLOR)
+		range_label.add_theme_color_override("font_color", col)
 		range_label.position = center + Vector2(-20, -(radius_px + 40))
 		range_label.z_index = 55
 		move_range_visual.add_child(range_label)

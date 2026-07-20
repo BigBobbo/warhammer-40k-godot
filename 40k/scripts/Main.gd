@@ -6051,8 +6051,11 @@ func _process(delta: float) -> void:
 	# The pad_* actions are registered at runtime by InputDeviceManager.
 	if not _text_focused and InputMap.has_action("pad_camera_left"):
 		var pad_pan = Input.get_vector("pad_camera_left", "pad_camera_right", "pad_camera_up", "pad_camera_down")
+		# P1 controller options: optional Y invert + camera sensitivity (Settings › Controls).
+		if SettingsService.pad_invert_camera_y:
+			pad_pan.y = -pad_pan.y
 		if pad_pan != Vector2.ZERO:
-			view_offset += pad_pan.rotated(-view_rotation) * pan_speed
+			view_offset += pad_pan.rotated(-view_rotation) * pan_speed * SettingsService.pad_camera_sensitivity
 			view_changed = true
 		var pad_zoom = Input.get_action_strength("pad_zoom_in") - Input.get_action_strength("pad_zoom_out")
 		if pad_zoom != 0.0:
