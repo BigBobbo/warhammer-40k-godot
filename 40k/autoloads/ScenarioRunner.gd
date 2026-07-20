@@ -82,12 +82,12 @@ func _run_scenario() -> void:
 		if save_mgr == null or game_state == null:
 			_fail_and_quit("autoloads missing (SaveLoadManager / GameState)")
 			return
-		# SaveLoadManager only resolves res://saves/. The committed fixtures
-		# live in res://tests/saves/, so on a fresh clone (CI, containers)
-		# every fixture scenario failed with "Save file not found". Stage the
-		# fixture into saves/ when it's only present in tests/saves/.
+		# SaveLoadManager resolves saves from its save_directory (user://saves/
+		# on desktop since 0.70 — res:// is read-only in exported builds). The
+		# committed fixtures live in res://tests/saves/, so stage the fixture
+		# into the manager's save directory when it isn't already there.
 		var fixture_file = fixture if fixture.ends_with(".w40ksave") else fixture + ".w40ksave"
-		var saves_path = "res://saves/" + fixture_file
+		var saves_path = save_mgr.save_directory + fixture_file
 		var tests_path = "res://tests/saves/" + fixture_file
 		if not FileAccess.file_exists(saves_path) and FileAccess.file_exists(tests_path):
 			var dir = DirAccess.open("res://")
@@ -96,7 +96,7 @@ func _run_scenario() -> void:
 				var meta_src = tests_path.replace(".w40ksave", ".meta")
 				if FileAccess.file_exists(meta_src):
 					dir.copy(meta_src, saves_path.replace(".w40ksave", ".meta"))
-				print("[ScenarioRunner] staged fixture from tests/saves: %s" % fixture_file)
+				print("[ScenarioRunner] staged fixture from tests/saves into %s" % saves_path)
 		var ok = save_mgr.load_game(fixture)
 		if not ok:
 			_fail_and_quit("fixture load failed: %s" % fixture)
