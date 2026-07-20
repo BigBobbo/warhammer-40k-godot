@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.69.0",
+			"date": "2026-07-20",
+			"summary": "Controller players can now open the pause menu without a keyboard. Pressing the View/Select button (the small ⧉ button — 'Back' on Xbox pads / the Deck's ☰ View button) opens the in-game menu, where you can Save/Load, change settings, or Return to Main Menu to exit the game. Previously the pad's only menu button (Start) ended the phase, leaving no controller way to reach the pause menu or quit.",
+			"changes": [
+				"New controller binding: the View/Select button opens (and closes) the in-game pause/settings menu — the pad equivalent of the Escape key.",
+				"The controller hint bar now lists the View button as 'Pause Menu' so the affordance is discoverable.",
+				"From the pause menu you can Save/Load, adjust settings, or Return to Main Menu (and quit) — all reachable pad-only now."
+			]
+		},
+		{
 			"version": "0.68.0",
 			"date": "2026-07-20",
 			"summary": "Deployment picking reworked for controller AND mouse: the unit list in the top-right panel now stays visible while you place models, so you can always see who is up to deploy and change your mind. Controller: LB/RB cycle the unit to deploy, D-pad left/right switches the placement formation (Single / Spread / Tight), X undoes the last placed model.",

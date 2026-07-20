@@ -5307,44 +5307,26 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# Pad View/Select button (pad_menu_action): the controller's "Escape". Start
+	# is already End-Phase, so without this the pad had NO way to reach the
+	# pause/settings menu — where Save/Load and Return to Main Menu (the exit-the-
+	# game path) live. Opens that menu, or closes the top open overlay, mirroring
+	# the ESC cascade below (minus the shooting defer, which is Shooting/keyboard-
+	# specific). B/ui_cancel still closes the menu once open; this button toggles it.
+	if event.is_action_pressed("pad_menu_action"):
+		_run_pause_menu_cascade(false)
+		get_viewport().set_input_as_handled()
+		return
+
 	# ESC key handling — highest priority: opens settings menu (or closes overlays first)
 	# Use direct keycode check for reliability (is_action_pressed can miss with physical_keycode-only mappings)
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		print("Main: Escape key pressed")
-		# History browser: ESC returns to the live game before anything else.
-		if _history_view_active:
-			_exit_history_view()
+		# Shared with the pad View/Select button — see _run_pause_menu_cascade.
+		# Returns false only for the shooting defer (leave the event for
+		# ShootingController); every other branch handles and consumes it.
+		if _run_pause_menu_cascade(true):
 			get_viewport().set_input_as_handled()
-			return
-		# T7-56: Close replay panel on ESC if open
-		if _ai_turn_replay_panel and _ai_turn_replay_panel.visible:
-			_ai_turn_replay_panel.hide_panel()
-			get_viewport().set_input_as_handled()
-			return
-		# Measuring tape: ESC cancels the in-progress line, or exits the tool.
-		if MeasuringTapeManager and MeasuringTapeManager.measure_mode_active:
-			MeasuringTapeManager.cancel_or_exit()
-			_update_measure_mode_hint()
-			get_viewport().set_input_as_handled()
-			return
-		if shooting_controller and shooting_controller.active_shooter_id != "":
-			# Let ShootingController handle ESC for deselect/cancel
-			return
-		# Close save/load dialog if open
-		if save_load_dialog and save_load_dialog.visible:
-			save_load_dialog.hide()
-			get_viewport().set_input_as_handled()
-			return
-		# Close settings menu if open, otherwise open it
-		if _settings_menu and is_instance_valid(_settings_menu):
-			_settings_menu.queue_free()
-			_settings_menu = null
-			print("Main: Settings menu closed via Escape")
-			get_viewport().set_input_as_handled()
-			return
-		# Open settings menu
-		_open_settings_menu()
-		get_viewport().set_input_as_handled()
 		return
 
 	# History browser: while viewing a past step, none of Main's own game-input
@@ -13848,6 +13830,48 @@ func _scout_clear_highlights() -> void:
 # purpose — they must pre-empt GUI focus and modal dialogs. Controllers
 # handle their phase input in _unhandled_input unless they need to bypass a
 # modal dialog (see ShootingController/FightController/ChargeController).
+
+func _run_pause_menu_cascade(is_keyboard_escape: bool) -> bool:
+	# The single "pause / open settings" cascade, shared by the Escape key AND
+	# the pad View/Select button (pad_menu_action). Closes the highest-priority
+	# open overlay; if nothing is open, toggles the in-game settings menu — the
+	# screen with Save/Load and Return to Main Menu (the exit-the-game path).
+	#
+	# Returns true when the caller should mark the event handled. Returns false
+	# only for the keyboard-Escape shooting defer: ShootingController owns ESC
+	# while a shooter is active, so we leave the event for it. The pad's View
+	# button has no such downstream handler, so it passes is_keyboard_escape =
+	# false and falls straight through to the settings toggle instead.
+
+	# History browser: return to the live game before anything else.
+	if _history_view_active:
+		_exit_history_view()
+		return true
+	# T7-56: Close replay panel if open.
+	if _ai_turn_replay_panel and _ai_turn_replay_panel.visible:
+		_ai_turn_replay_panel.hide_panel()
+		return true
+	# Measuring tape: cancel the in-progress line, or exit the tool.
+	if MeasuringTapeManager and MeasuringTapeManager.measure_mode_active:
+		MeasuringTapeManager.cancel_or_exit()
+		_update_measure_mode_hint()
+		return true
+	if is_keyboard_escape and shooting_controller and shooting_controller.active_shooter_id != "":
+		# Let ShootingController handle ESC for deselect/cancel.
+		return false
+	# Close save/load dialog if open.
+	if save_load_dialog and save_load_dialog.visible:
+		save_load_dialog.hide()
+		return true
+	# Close settings menu if open, otherwise open it.
+	if _settings_menu and is_instance_valid(_settings_menu):
+		_settings_menu.queue_free()
+		_settings_menu = null
+		print("Main: Settings menu closed")
+		return true
+	# Open settings menu.
+	_open_settings_menu()
+	return true
 
 func _open_settings_menu() -> void:
 	# Shared entry point for opening the in-game settings menu (used by the
