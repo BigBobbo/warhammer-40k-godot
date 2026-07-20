@@ -4834,6 +4834,91 @@ func _on_formation_mode_changed(mode: String) -> void:
 	if deployment_controller:
 		deployment_controller.set_formation_mode(mode)
 
+# DEPLOY-CYCLE: deployment formation modes in D-pad / cycle order.
+const FORMATION_MODE_ORDER := ["SINGLE", "SPREAD", "TIGHT"]
+
+# DEPLOY-CYCLE: shared mouse/pad guard for changing which unit is being
+# deployed while another is mid-placement. Returns true when the caller may
+# proceed to deploy new_unit_id (the in-progress unit has been reset back to
+# UNDEPLOYED), false when the selection must stay where it is (same unit, or
+# models already placed).
+func _deploy_try_switch_unit(new_unit_id: String) -> bool:
+	if not (deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing()):
+		return true
+	var current_id = deployment_controller.get_current_unit()
+	if new_unit_id == current_id:
+		return false  # already deploying this unit — nothing to do
+	if deployment_controller.get_placed_count() > 0:
+		# Models already on the table: switching now would strand a half-placed
+		# unit. All placed models must be undone first (Undo button / Ctrl+Z /
+		# pad X) before another unit can be picked.
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_warning("Undo the placed models before switching units")
+		_select_unit_list_row_by_id(current_id)
+		# The bottom-panel path shows the clicked unit's card before this guard
+		# runs — snap the card back to the unit actually being placed.
+		show_unit_card(current_id)
+		return false
+	print("Main: DEPLOY-CYCLE switching deployment from %s to %s (no models placed)" % [current_id, new_unit_id])
+	deployment_controller.reset_unit()
+	return true
+
+# DEPLOY-CYCLE: re-highlight the list row whose metadata is uid WITHOUT
+# emitting item_selected (ItemList.select does not fire the signal).
+func _select_unit_list_row_by_id(uid: String) -> void:
+	if uid == "" or not unit_list or not is_instance_valid(unit_list):
+		return
+	for i in range(unit_list.get_item_count()):
+		var md = unit_list.get_item_metadata(i)
+		if md is String and str(md) == uid:
+			unit_list.select(i)
+			unit_list.ensure_current_is_visible()
+			return
+
+# DEPLOY-CYCLE: after any rebuild/filter of the unit list, restore the
+# highlight on the unit currently being placed so the top-right list always
+# shows who is being deployed.
+func _reselect_deploying_unit_row() -> void:
+	if current_phase != GameStateData.Phase.DEPLOYMENT:
+		return
+	if deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing():
+		_select_unit_list_row_by_id(deployment_controller.get_current_unit())
+
+# DEPLOY-CYCLE (pad): D-pad ◀ ▶ steps Single -> Spread -> Tight while placing.
+# Called by PadRouter; returns false when no deployment placement is live so
+# the press can fall through to panel-focus entry.
+func pad_cycle_formation_mode(dir: int) -> bool:
+	if current_phase != GameStateData.Phase.DEPLOYMENT:
+		return false
+	if not (deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing()):
+		return false
+	var cur = FORMATION_MODE_ORDER.find(deployment_controller.formation_mode)
+	if cur == -1:
+		cur = 0
+	var next_mode = FORMATION_MODE_ORDER[wrapi(cur + dir, 0, FORMATION_MODE_ORDER.size())]
+	_apply_formation_mode(next_mode)
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_toast("Formation: %s" % next_mode.capitalize())
+	return true
+
+# DEPLOY-CYCLE: apply a formation mode AND keep the FormationControls toggle
+# row in sync when the change comes from the pad. The buttons share a
+# ButtonGroup, so pressing one releases the rest; setting button_pressed
+# programmatically does not emit pressed, so the handler is called explicitly.
+func _apply_formation_mode(mode: String) -> void:
+	var controls = unit_card.get_node_or_null("FormationControls")
+	if controls:
+		var target_idx = FORMATION_MODE_ORDER.find(mode)
+		var btn_idx = 0
+		for child in controls.get_children():
+			if child is Button:
+				if btn_idx == target_idx:
+					child.button_pressed = true
+				btn_idx += 1
+	_on_formation_mode_changed(mode)
+
 func _setup_keyboard_shortcut_overlay() -> void:
 	# P3-54: Create keyboard shortcut reference overlay (toggled with ? key)
 	if _keyboard_shortcut_overlay and is_instance_valid(_keyboard_shortcut_overlay):
@@ -6006,6 +6091,10 @@ func _selected_unit_id_or_empty() -> String:
 		var c = get_node_or_null(path)
 		if c != null and "active_unit_id" in c and str(c.get("active_unit_id")) != "":
 			return str(c.get("active_unit_id"))
+	# DEPLOY-CYCLE: during deployment the unit being placed counts as selected
+	# (lets the pad Y datasheet toggle work while deploying).
+	if deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing():
+		return str(deployment_controller.get_current_unit())
 	return ""
 
 
@@ -6189,6 +6278,8 @@ func refresh_unit_list() -> void:
 	_refresh_unit_list_inner()
 	# T-104: re-apply the unit-list filter so user-typed text persists across refreshes.
 	_apply_unit_list_filter()
+	# DEPLOY-CYCLE: keep the being-placed unit highlighted across rebuilds.
+	_reselect_deploying_unit_row()
 
 func _get_transport_contents_lines(unit_data: Dictionary) -> Array:
 	# Returns one human-readable line per unit embarked in this transport, e.g.
@@ -6267,6 +6358,20 @@ func _refresh_unit_list_inner() -> void:
 				print("Refreshing right panel - waiting for opponent (Player %d)" % active_player)
 			else:
 				var units = GameState.get_undeployed_units_for_player(active_player)
+				# DEPLOY-CYCLE: the unit currently being placed has status
+				# DEPLOYING, so it drops out of get_undeployed_units_for_player —
+				# merge it back in at its natural roster position so its row
+				# stays in the always-visible list (re-highlighted after the
+				# filter pass by _reselect_deploying_unit_row).
+				var placing_id = ""
+				if deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing():
+					placing_id = deployment_controller.get_current_unit()
+				if placing_id != "" and not units.has(placing_id):
+					var merged = []
+					for uid in GameState.state.get("units", {}).keys():
+						if uid == placing_id or units.has(uid):
+							merged.append(uid)
+					units = merged
 				print("Refreshing right panel unit list for deployment - found ", units.size(), " undeployed units (your turn)")
 
 				for unit_id in units:
@@ -6300,7 +6405,10 @@ func _refresh_unit_list_inner() -> void:
 					unit_list.add_item(display_text)
 					var idx = unit_list.get_item_count() - 1
 					unit_list.set_item_metadata(idx, unit_id)
-					unit_list.set_item_icon(idx, _get_status_dot(Color(0.3, 0.85, 0.3)))
+					# DEPLOY-CYCLE: gold dot marks the unit being placed right
+					# now; green marks the rest of the selectable pool.
+					var dot_color = Color(1.0, 0.78, 0.2) if unit_id == placing_id else Color(0.3, 0.85, 0.3)
+					unit_list.set_item_icon(idx, _get_status_dot(dot_color))
 					unit_list.set_item_icon_modulate(idx, Color.WHITE)
 
 					# For transports, add one indented, non-selectable sub-row per
@@ -7142,7 +7250,15 @@ func _on_unit_selected(index: int) -> void:
 	_hovered_deploy_unit_id = ""
 
 	if deployment_controller and deployment_controller.is_placing() and current_phase == GameStateData.Phase.DEPLOYMENT:
-		return
+		# DEPLOY-CYCLE: the unit list stays visible while placing, so the player
+		# can click another row (or LB/RB-cycle onto it) to change their mind —
+		# allowed only until the first model of the current unit is placed.
+		var clicked_id = unit_list.get_item_metadata(index)
+		if not (clicked_id is String) or clicked_id == "":
+			return
+		if not _deploy_try_switch_unit(clicked_id):
+			return
+		# Current unit was reset — fall through and deploy the clicked unit.
 
 	# Block selection during AI player's turn
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
@@ -7204,7 +7320,11 @@ func _on_unit_selected(index: int) -> void:
 			# For non-transport units, deploy normally
 			deployment_controller.begin_deploy(unit_id)
 			show_unit_card(unit_id)
-			unit_list.visible = false
+			# DEPLOY-CYCLE: keep the unit list visible while placing so the
+			# player can still see (and switch) who to deploy. Deferred so the
+			# ItemList is not rebuilt from inside its own item_selected signal.
+			unit_list.visible = true
+			refresh_unit_list.call_deferred()
 	elif current_phase == GameStateData.Phase.SCOUT:
 		# ISS-067 (11e 24.31): a reserve Scout unit is set up wholly within its
 		# deployment zone instead of making a scout move.
@@ -7310,6 +7430,11 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 	if not is_enemy:  # Player unit selected
 		# Handle unit selection based on current phase
 		if current_phase == GameStateData.Phase.DEPLOYMENT and deployment_controller:
+			# DEPLOY-CYCLE: same switch rules as the right-panel list — blocked
+			# once models of the in-progress unit have been placed.
+			if not _deploy_try_switch_unit(unit_id):
+				update_ui()
+				return
 			# Check if this is a transport unit
 			var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
 			if "TRANSPORT" in unit_keywords:
@@ -7318,7 +7443,9 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 			else:
 				# For non-transport units, deploy normally
 				deployment_controller.begin_deploy(unit_id)
-				unit_list.visible = false
+				# DEPLOY-CYCLE: the unit list stays visible while placing
+				unit_list.visible = true
+				refresh_unit_list.call_deferred()
 		elif current_phase == GameStateData.Phase.SCOUT:
 			# Scout unit selected from bottom panel - trigger same logic as right panel
 			# ISS-067 (11e 24.31): reserve Scout units deploy into their DZ.
@@ -10921,7 +11048,9 @@ func _show_transport_deployment_dialog(transport_id: String) -> void:
 	# Deploy the transport
 	deployment_controller.begin_deploy(transport_id)
 	show_unit_card(transport_id)
-	unit_list.visible = false
+	# DEPLOY-CYCLE: the unit list stays visible while placing
+	unit_list.visible = true
+	refresh_unit_list.call_deferred()
 
 func _debug_check_right_panel() -> void:
 	"""Debug method to validate right panel state"""
@@ -13791,6 +13920,8 @@ func _on_unit_list_filter_changed(new_text: String) -> void:
 	# Re-run the inner refresh so we restore items, then apply filter
 	_refresh_unit_list_inner()
 	_apply_unit_list_filter()
+	# DEPLOY-CYCLE: keep the being-placed unit highlighted across rebuilds.
+	_reselect_deploying_unit_row()
 
 func _apply_unit_list_filter() -> void:
 	if not unit_list or not is_instance_valid(unit_list):

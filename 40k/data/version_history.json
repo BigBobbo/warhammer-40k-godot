@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.68.0",
+			"date": "2026-07-20",
+			"summary": "Deployment picking reworked for controller AND mouse: the unit list in the top-right panel now stays visible while you place models, so you can always see who is up to deploy and change your mind. Controller: LB/RB cycle the unit to deploy, D-pad left/right switches the placement formation (Single / Spread / Tight), X undoes the last placed model.",
+			"changes": [
+				"The right-panel unit list no longer disappears when you pick a unit to deploy — the unit being placed is highlighted with a gold dot and stays selected in the list.",
+				"Pick a different unit any time before placing a model: click its row (or bumper-cycle to it) and the selection just moves. Once at least one model is placed the unit is locked in — undo all its placed models to switch (a toast explains this).",
+				"Controller: RB selects the next unit to deploy, LB the previous one, wrapping around the list.",
+				"Controller: D-pad left/right cycles the deploy formation Single -> Spread -> Tight (the buttons on the unit card follow along).",
+				"Controller: X undoes the last placed model (with the cursor parked), Y opens the datasheet of the unit being deployed, and the button-hint bar now shows deployment-specific hints while placing."
+			]
+		},
+		{
 			"version": "0.67.0",
 			"date": "2026-07-19",
 			"summary": "The itch.io page now gets a downloadable Linux build alongside the browser version — this is the recommended way to play with a controller on the Steam Deck. The browser version only receives whatever Steam Input forwards (usually keyboard emulation, so the game never sees your controller); the Linux download added to Steam as a non-Steam game with the 'Gamepad with Joystick' layout gets real controller input and the full pad experience.",

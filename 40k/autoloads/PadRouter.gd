@@ -6,7 +6,11 @@ extends Node
 #   LB/RB  — cycle the "current list": eligible shooters / eligible targets
 #            (shooting, reusing the shipped shoot_* semantics) or the
 #            right-panel unit list (other phases; same entry point a mouse
-#            row-click uses)
+#            row-click uses). Deployment: cycling switches which unit is being
+#            deployed, but locks once any model of the current unit is placed
+#            (undo them all to unlock — mirrors the mouse rule)
+#   D-pad ◀ ▶ — deployment placing: step the formation mode
+#            (Single / Spread / Tight); otherwise panel focus entry
 #   A      — in TARGET_SELECT: assign the highlighted target to the current
 #            weapon (cursor mode and focused controls keep their own A)
 #   B      — release panel focus back to the board; with an active shooter,
@@ -38,6 +42,15 @@ const HINTS_TARGETS := [
 	["y", "Datasheet"],
 	["menu", "Confirm Targets"],
 	["b", "Deselect"],
+]
+const HINTS_DEPLOY := [
+	["ls", "Cursor"],
+	["lb", "Prev Unit"],
+	["rb", "Next Unit"],
+	["a", "Place Model"],
+	["dpad", "Formation ◀ ▶"],
+	["x", "Undo Model"],
+	["y", "Datasheet"],
 ]
 const HINTS_FOCUS := [
 	["dpad", "Navigate"],
@@ -131,10 +144,10 @@ func _input(event: InputEvent) -> void:
 			if _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_LEFT:
-			if _hop_model(-1) or _enter_panel_focus():
+			if _hop_model(-1) or _pad_formation_cycle(-1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
-			if _hop_model(1) or _enter_panel_focus():
+			if _hop_model(1) or _pad_formation_cycle(1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 	_update_hints()
 
@@ -218,6 +231,13 @@ func _cycle(dir: int) -> void:
 		else:
 			_cycle_target(sc, dir)
 		return
+	# Deployment: once any model of the current unit is on the table the unit
+	# is committed — LB/RB can't switch away until every model is undone
+	# (mirrors the mouse rule in Main._deploy_try_switch_unit).
+	var dc = _deployment_controller_placing()
+	if dc != null and dc.get_placed_count() > 0:
+		ToastManager.show_warning("Undo the placed models before switching units")
+		return
 	_cycle_unit_list(dir)
 
 
@@ -277,6 +297,35 @@ func _cycle_unit_list(dir: int) -> void:
 	list.select(found)
 	list.ensure_current_is_visible()
 	list.item_selected.emit(found)
+
+
+# Deployment placing: D-pad ◀ ▶ steps the formation mode (Single/Spread/Tight)
+# via Main so the unit-card toggle row stays in sync. Focus navigation keeps
+# priority — with a focused control, ui_left/ui_right must keep navigating.
+func _pad_formation_cycle(dir: int) -> bool:
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	if _deployment_controller_placing() == null:
+		return false
+	var m := get_tree().current_scene
+	if m == null or not m.has_method("pad_cycle_formation_mode"):
+		return false
+	return m.pad_cycle_formation_mode(dir)
+
+
+# The DeploymentController while the DEPLOYMENT phase is live and a unit is
+# mid-placement, else null. (Reinforcement / scout-reserves placements reuse
+# the controller in other phases and keep their existing pad behavior.)
+func _deployment_controller_placing() -> Node:
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m) or not ("deployment_controller" in m):
+		return null
+	if m.current_phase != GameStateData.Phase.DEPLOYMENT:
+		return null
+	var dc = m.deployment_controller
+	if dc == null or not is_instance_valid(dc) or not dc.has_method("is_placing") or not dc.is_placing():
+		return null
+	return dc
 
 
 # Phase-aware eligibility for a unit-list row. Phase controllers opt in by
@@ -350,6 +399,13 @@ func _context_action() -> bool:
 		sc._keyboard_skip_unit()
 		target_highlight_id = ""
 		return true
+	# Deployment: X = undo the last placed model (parked-cursor context action,
+	# mirroring the movement undo below). Undoing every model re-enables LB/RB
+	# unit switching. undo_last_model emits models_placed_changed, so Main
+	# refreshes the card/buttons itself.
+	var dc = _deployment_controller_placing()
+	if dc != null and dc.get_placed_count() > 0 and dc.has_method("undo_last_model"):
+		return dc.undo_last_model()
 	# Movement: X = undo last staged model (plan §4.2 context action).
 	var m := get_tree().current_scene
 	if m != null and ("current_phase" in m) and m.current_phase == GameStateData.Phase.MOVEMENT \
@@ -678,4 +734,6 @@ func _update_hints() -> void:
 		var sc = _shooting_controller_in_shooting_phase()
 		if sc != null and str(sc.active_shooter_id) != "":
 			hints = HINTS_TARGETS
+		elif _deployment_controller_placing() != null:
+			hints = HINTS_DEPLOY
 	PadHintBar.set_hints(hints)

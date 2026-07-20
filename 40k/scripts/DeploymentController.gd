@@ -459,8 +459,11 @@ func _on_combat_squad_split_declined(p_unit_id: String, dialog: ConfirmationDial
 		dialog.queue_free()
 	_split_declined_units[p_unit_id] = true
 	_pending_split_unit_id = ""
-	# Re-enter begin_deploy now that the user has declined the split.
-	begin_deploy(p_unit_id)
+	# Re-enter begin_deploy now that the user has declined the split — unless
+	# the player meanwhile started placing a different unit (DEPLOY-CYCLE keeps
+	# the unit list selectable while this dialog is open).
+	if unit_id == "":
+		begin_deploy(p_unit_id)
 
 
 func is_placing() -> bool:
