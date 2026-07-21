@@ -5468,6 +5468,14 @@ func _input(event: InputEvent) -> void:
 			# targets selected, Roll 2D6 once declared. Falls through to the
 			# End-Phase confirm when neither applies.
 			pass
+		elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller \
+				and is_instance_valid(movement_controller) \
+				and movement_controller.has_method("pad_confirm_move") \
+				and movement_controller.pad_confirm_move():
+			# Movement: Start confirms the active unit's in-progress move (staged
+			# models) — the same context-dependent Menu shooting/deployment use.
+			# Falls through to the End-Phase confirm when no move is pending.
+			pass
 		elif phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
 			_show_pad_phase_confirm()
 		get_viewport().set_input_as_handled()

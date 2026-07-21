@@ -113,6 +113,16 @@ const HINTS_MOVE := [
 	["y", "Datasheet"],
 	["menu", "End Phase"],
 ]
+# Movement with a committed move (mode locked or a model staged): the bumpers are
+# locked to this unit, A picks the model back up, D-pad hops between models, X
+# undoes the last staged model and Start confirms the whole unit's move.
+const HINTS_MOVE_LOCKED := [
+	["a", "Pick Up Model"],
+	["dpad", "Switch Model"],
+	["x", "Undo Model"],
+	["menu", "Confirm Move"],
+	["y", "Datasheet"],
+]
 
 # The target currently highlighted by LB/RB in shooting TARGET_SELECT mode
 # (empty when none). Windowed scenarios assert this.
@@ -322,6 +332,13 @@ func _cycle(dir: int) -> void:
 	var dc = _deployment_controller_placing()
 	if dc != null and dc.get_placed_count() > 0:
 		ToastManager.show_warning("Undo the placed models before switching units")
+		return
+	# Movement: a unit committed to its move (mode locked or a model staged) can't
+	# be bumped away until it's confirmed (Start) or reset (undo) — mirrors the
+	# deployment lock above so a mis-cycle can't strand a half-moved unit.
+	var mc := _movement_controller()
+	if mc != null and mc.has_method("pad_is_move_session_locked") and mc.pad_is_move_session_locked():
+		ToastManager.show_warning("Confirm or reset this unit's move before switching")
 		return
 	_cycle_unit_list(dir)
 
@@ -648,8 +665,22 @@ func _try_begin_carry() -> bool:
 
 
 func _drop_carry() -> void:
+	# Movement phase: consult the controller BEFORE releasing. An illegal drop
+	# (over a wall, past the move cap, overlapping) keeps the model in hand — the
+	# "you can't put the piece on an illegal square" rule — instead of snapping it
+	# back and stranding the still-active cursor, which used to swallow the next A
+	# press as a raw board click and silently switch the selected unit.
+	var mc := _movement_controller()
+	if mc != null and mc.has_method("pad_carry_drop_rejection"):
+		var reason := str(mc.pad_carry_drop_rejection(VirtualCursor.get_cursor_pos()))
+		if reason != "":
+			ToastManager.show_warning(reason)
+			return  # still carrying: A re-checks, the stick keeps steering
 	VirtualCursor.set_left_button(false)
 	carry_active = false
+	# Park so the cursor can't consume the next A as a stray click; with it
+	# parked, A routes back through the router (pick the model up again / confirm).
+	VirtualCursor.park()
 
 
 func _cancel_carry() -> void:
@@ -660,6 +691,9 @@ func _cancel_carry() -> void:
 	VirtualCursor.warp_to(_carry_pickup_screen)
 	VirtualCursor.set_left_button(false)
 	carry_active = false
+	# Park (warp_to above re-activated the cursor) so the next A re-arms through
+	# the router instead of firing as a stray click at the pickup point.
+	VirtualCursor.park()
 	# Releasing at the pickup point still STAGES a zero-distance move (the
 	# drag pipeline stages every drop) — which would mark the unit as
 	# mid-move: the M4 action menu won't reopen and a junk 0" stage would be
@@ -930,7 +964,31 @@ func _update_hints() -> void:
 				hints = HINTS_CHARGE
 			elif _movement_menu_available():
 				hints = HINTS_MOVE
+			elif _movement_session_locked():
+				hints = HINTS_MOVE_LOCKED
 	PadHintBar.set_hints(hints)
+
+
+# The MovementController while the Movement phase is live, else null. Used by the
+# bumper lock, the drop-rejection check and the locked-session hint so each reads
+# the same authoritative move state.
+func _movement_controller() -> Node:
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m) or m.current_phase != GameStateData.Phase.MOVEMENT:
+		return null
+	if not ("movement_controller" in m):
+		return null
+	var mc = m.movement_controller
+	if mc == null or not is_instance_valid(mc):
+		return null
+	return mc
+
+
+# True while the active unit has a committed move (mode locked or a model staged)
+# — the state where the bumpers are locked and the locked-session hints apply.
+func _movement_session_locked() -> bool:
+	var mc := _movement_controller()
+	return mc != null and mc.has_method("pad_is_move_session_locked") and mc.pad_is_move_session_locked()
 
 
 # Movement phase with a selected unit whose move-mode decision is still open
