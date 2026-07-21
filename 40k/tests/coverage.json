@@ -2996,6 +2996,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ui.phase_action_button.device_glyph",
+      "description": "The top-right phase-action button advertises the active input device's shortcut for ending a phase: the keyboard '[Enter] End Movement Phase' when KBM is active, and the pad Menu glyph '[☰] End Movement Phase' when a controller is active. The prefix comes from GlyphDB (single source of truth with the hint bar), re-stamps live on InputDeviceManager.device_changed without disturbing custom labels (roll-off Continue, Fight-phase step labels), and the pad confirm dialog reads the prefix-stripped action ('End Movement Phase?').",
+      "scenarios": [
+        "715_controller_end_phase_glyph"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "controller.end_phase.discoverability",
+      "description": "A controller player can discover how to end a phase without the touchscreen: the button they reach for names the Menu (☰) button bound to pad_phase_action, matching the '☰ End Phase' hint-bar chip, and pressing Menu (Start) pops the confirm dialog whose OK ends the phase.",
+      "scenarios": [
+        "715_controller_end_phase_glyph"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
