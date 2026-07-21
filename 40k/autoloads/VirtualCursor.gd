@@ -252,6 +252,12 @@ func _input(event: InputEvent) -> void:
 				_emit_button(MOUSE_BUTTON_LEFT, event.pressed)
 				get_viewport().set_input_as_handled()
 			JOY_BUTTON_X:
+				# Mid-carry the router owns X too (Movement "Finish Model" —
+				# drop + advance to the next un-placed model). A synthetic RMB
+				# under a held model was never useful anyway: rotation is on
+				# LB/RB, and a same-spot RMB tap rotates nothing.
+				if PadRouter.is_carrying():
+					return
 				_emit_button(MOUSE_BUTTON_RIGHT, event.pressed)
 				get_viewport().set_input_as_handled()
 
