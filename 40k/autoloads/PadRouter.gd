@@ -110,7 +110,7 @@ const HINTS_MENU := [
 # options instead of the unit list.
 const HINTS_MOVE := [
 	["rb", "Cycle Units"],
-	["a", "Menu / Pick Up"],
+	["a", "Move Menu"],
 	["dpad", "Move Menu"],
 	["ls", "Point"],
 	["lt/rt", "Zoom"],
@@ -118,15 +118,16 @@ const HINTS_MOVE := [
 	["y", "Datasheet"],
 	["menu", "End Phase"],
 ]
-# Movement with a committed move (mode locked or a model staged): the bumpers are
-# locked to this unit, A picks the model back up, the back paddles (L4/R4) hop
-# between models, X undoes the last staged model and Start confirms the whole move.
+# Movement with a committed move where every model has been placed (auto-carry
+# stops here): Start confirms the whole move, A picks a model back up to adjust it,
+# the back paddles (L4/R4) hop between models and X undoes the last staged model.
+# The bumpers stay locked to this unit until the move is confirmed or undone.
 const HINTS_MOVE_LOCKED := [
-	["a", "Pick Up Model"],
+	["menu", "Confirm Move"],
+	["a", "Move a Model"],
 	["l4", "◀ Model"],
 	["r4", "Model ▶"],
 	["x", "Undo Model"],
-	["menu", "Confirm Move"],
 	["y", "Datasheet"],
 ]
 
@@ -708,23 +709,104 @@ func _try_begin_carry() -> bool:
 	return false
 
 
-func _drop_carry() -> void:
+func _drop_carry(advance := true) -> bool:
 	# Movement phase: consult the controller BEFORE releasing. An illegal drop
 	# (over a wall, past the move cap, overlapping) keeps the model in hand — the
 	# "you can't put the piece on an illegal square" rule — instead of snapping it
 	# back and stranding the still-active cursor, which used to swallow the next A
-	# press as a raw board click and silently switch the selected unit.
+	# press as a raw board click and silently switch the selected unit. Returns
+	# true when the model was actually released (false = illegal, still carried).
 	var mc := _movement_controller()
 	if mc != null and mc.has_method("pad_carry_drop_rejection"):
 		var reason := str(mc.pad_carry_drop_rejection(VirtualCursor.get_cursor_pos()))
 		if reason != "":
 			ToastManager.show_warning(reason)
-			return  # still carrying: A re-checks, the stick keeps steering
+			return false  # still carrying: A re-checks, the stick keeps steering
 	VirtualCursor.set_left_button(false)
 	carry_active = false
 	# Park so the cursor can't consume the next A as a stray click; with it
 	# parked, A routes back through the router (pick the model up again / confirm).
 	VirtualCursor.park()
+	# Moving-by-default: once a model is placed, hand the stick the NEXT un-moved
+	# model of the same unit automatically so the player never presses "A to pick
+	# up" between the models of a unit — the stick just keeps moving models. Stops
+	# after the last model, dropping the player into the locked state to Confirm
+	# (Start). Movement phase only; charge keeps its one-model-at-a-time flow.
+	# advance=false when Start places the held model to end the whole move, so the
+	# player isn't handed another model at the very moment they asked to confirm.
+	if advance and _movement_controller() != null:
+		call_deferred("_auto_carry_next_model")
+	return true
+
+
+func _auto_carry_next_model() -> void:
+	# Runs a couple frames after a drop so the STAGE_MODEL_MOVE from the released
+	# model lands first (and so a Start/B pressed in the same frame wins). Advances
+	# in alive-model order within the SAME unit; stops once the last model has been
+	# placed so the player sits in the locked state and Start confirms the move.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if carry_active:
+		return  # player already picked something up again
+	# Never yank a model into the player's hand while a modal owns the pad, the
+	# cursor was re-activated, or a panel grabbed focus — those states mean the
+	# player is doing something else, and auto-grabbing would fight them.
+	if PadActionBar.is_open() or VirtualCursor.is_cursor_active():
+		return
+	if get_viewport().gui_get_focus_owner() != null:
+		return
+	var mc := _movement_controller()
+	if mc == null or str(mc.active_unit_id) == "":
+		return
+	var unit_id := str(mc.active_unit_id)
+	if unit_id != _carry_unit_id:
+		return  # unit changed under us — don't drag the camera to a new unit
+	var alive := _alive_model_count(unit_id)
+	var next_index := carry_model_index + 1
+	if next_index >= alive:
+		return  # whole unit placed — leave the player in the locked state to Confirm
+	carry_model_index = next_index
+	if _try_begin_carry():
+		_update_hints()
+
+
+func _alive_model_count(unit_id: String) -> int:
+	var unit = GameState.get_unit(unit_id)
+	var n := 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			n += 1
+	return n
+
+
+# Public seam for Main's Start (End-Phase / Confirm) handler: when Start is
+# pressed while a model is in hand, Main routes here instead of confirming
+# directly. Placing the held model first — then confirming once it has staged —
+# avoids clearing the active unit out from under a live carry, which left the
+# synthetic LMB / cursor stranded with no owner. Returns true when it took over
+# the press (a carry was active), so Main knows to stop and consume.
+func confirm_from_carry() -> bool:
+	if not carry_active:
+		return false
+	if _drop_carry(false):
+		call_deferred("_confirm_move_after_drop")
+	# Even if the drop was illegal (still carrying) we've handled the press — the
+	# player gets the "can't place here" toast rather than a stray phase confirm.
+	return true
+
+
+# Start pressed mid-carry: place the held model, then confirm the whole unit's
+# move. Deferred so the synthetic release from _drop_carry stages first — without
+# the wait, pad_confirm_move could confirm before the just-placed model registers.
+func _confirm_move_after_drop() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if carry_active:
+		return  # something re-armed a carry in between — don't confirm underneath it
+	var mc := _movement_controller()
+	if mc != null and mc.has_method("pad_confirm_move"):
+		mc.pad_confirm_move()
+	_update_hints()
 
 
 func _cancel_carry() -> void:

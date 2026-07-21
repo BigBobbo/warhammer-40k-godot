@@ -160,23 +160,28 @@ func _move_cursor(rel: Vector2) -> void:
 	if overshoot != Vector2.ZERO:
 		_edge_pan(overshoot.limit_length(30.0))
 	InputDeviceManager.note_synthetic_mouse()
-	# Input.warp_mouse() takes WINDOW pixels, but _pos (like the ring and the
-	# synthetic motion below) is in viewport / base-resolution space. When the
-	# window's content scale is not 1 — the Steam Deck renders the 1920x1080 base
-	# onto a 1280x800 panel, and the UI Scale slider also sets content_scale_factor
-	# — warping to the raw _pos lands the OS pointer at the wrong physical spot.
-	# Everything that reads event.position (e.g. MovementController's drag) stays
-	# correct because it uses _pos directly, but everything that POLLS
-	# get_viewport().get_mouse_position() (the deployment/shooting placement ghosts)
-	# then follows the mis-warped pointer and drifts off the visible cursor by the
-	# content-scale factor. Convert through the viewport's screen transform so the
-	# polled mouse position resolves back to _pos. At content scale 1.0 (desktop)
-	# get_screen_transform() is the identity, so this is a no-op there.
-	Input.warp_mouse(get_viewport().get_screen_transform() * _pos)
+	# _pos (like the ring) lives in viewport / base-resolution "canvas" space — the
+	# same space the camera renders the board into and that MovementController's
+	# board_root.transform.affine_inverse() expects. Two separate coordinate hops
+	# both need the viewport's screen transform, which at content scale != 1 (the
+	# Steam Deck renders the 1920x1080 base onto a 1280x800 panel; the UI Scale
+	# slider also drives content_scale_factor) is a pure scale:
+	#   1. Input.warp_mouse() takes WINDOW pixels, so the OS pointer must go to
+	#      st * _pos or it lands at the wrong physical spot.
+	#   2. Input.parse_input_event() feeds the event through Godot's screen->canvas
+	#      (stretch) transform — it applies st.affine_inverse() BEFORE _input /
+	#      _unhandled_input see the event. So a raw event.position = _pos arrives
+	#      at handlers as _pos / content_scale (the pickup hit-test then misses the
+	#      model by that factor — the "A picks up but the model won't move" bug).
+	#      Emit st * _pos so the delivered position resolves back to _pos, matching
+	#      what a real mouse over the same pixel would deliver.
+	# At content scale 1.0 (desktop / CI) st is the identity, so both are no-ops.
+	var st := get_viewport().get_screen_transform()
+	Input.warp_mouse(st * _pos)
 	var motion := InputEventMouseMotion.new()
-	motion.position = _pos
-	motion.global_position = _pos
-	motion.relative = rel
+	motion.position = st * _pos
+	motion.global_position = st * _pos
+	motion.relative = st.basis_xform(rel)
 	motion.button_mask = _current_button_mask()
 	Input.parse_input_event(motion)
 	_ring.position = _pos
@@ -246,8 +251,13 @@ func _input(event: InputEvent) -> void:
 func _emit_button(button: MouseButton, pressed: bool) -> void:
 	InputDeviceManager.note_synthetic_mouse()
 	var ev := InputEventMouseButton.new()
-	ev.position = _pos
-	ev.global_position = _pos
+	# See _move_cursor: emit in screen space so Godot's screen->canvas delivery
+	# transform resolves the handler-visible position back to _pos. Emitting raw
+	# _pos here is what made the synthetic pickup click land at _pos / content_scale
+	# and miss the model at content scale != 1.
+	var st := get_viewport().get_screen_transform()
+	ev.position = st * _pos
+	ev.global_position = st * _pos
 	ev.button_index = button
 	ev.pressed = pressed
 	if button == MOUSE_BUTTON_LEFT:
