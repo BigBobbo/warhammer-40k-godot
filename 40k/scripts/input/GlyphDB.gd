@@ -25,6 +25,8 @@ const GLYPHS := {
 	"rt": "RT",
 	"ls": "LS",
 	"rs": "RS",
+	"l4": "L4",
+	"r4": "R4",
 	"dpad": "✚",
 	"menu": "☰",
 	"view": "⧉",

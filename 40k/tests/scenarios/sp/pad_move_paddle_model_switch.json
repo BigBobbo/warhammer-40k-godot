@@ -1,0 +1,47 @@
+{
+  "id": "pad_move_paddle_model_switch",
+  "covers": [
+    "controller.move.paddle_model_switch",
+    "controller.move.dpad_no_longer_hops"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Model-switching moved off the D-pad onto the Steam Deck back paddles so D-pad ◀ ▶ stays free for the move-mode menu. Selects a 4-model unit; the R4 paddle (PADDLE1=16) steps carry_model_index forward and the L4 paddle (PADDLE2=17) steps it back, while D-pad LEFT/RIGHT (13/14) no longer change it. NOTE: this proves the in-engine routing (button_index → _hop_model); whether a physical Deck's L4/R4 reach the game as PADDLE buttons is Steam Input / SDL dependent and is not asserted here.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_WITCHSEEKERS_C" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "simulate_joy_button", "button_index": 16 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "screenshot", "label": "01_paddle_next_model_1" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+
+    { "act": "simulate_joy_button", "button_index": 13 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+
+    { "act": "simulate_joy_button", "button_index": 16 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 2 },
+
+    { "act": "simulate_joy_button", "button_index": 17 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "screenshot", "label": "02_paddle_prev_model_1" }
+  ]
+}

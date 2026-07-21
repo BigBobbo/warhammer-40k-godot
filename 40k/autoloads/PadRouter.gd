@@ -114,11 +114,12 @@ const HINTS_MOVE := [
 	["menu", "End Phase"],
 ]
 # Movement with a committed move (mode locked or a model staged): the bumpers are
-# locked to this unit, A picks the model back up, D-pad hops between models, X
-# undoes the last staged model and Start confirms the whole unit's move.
+# locked to this unit, A picks the model back up, the back paddles (L4/R4) hop
+# between models, X undoes the last staged model and Start confirms the whole move.
 const HINTS_MOVE_LOCKED := [
 	["a", "Pick Up Model"],
-	["dpad", "Switch Model"],
+	["l4", "◀ Model"],
+	["r4", "Model ▶"],
 	["x", "Undo Model"],
 	["menu", "Confirm Move"],
 	["y", "Datasheet"],
@@ -215,10 +216,23 @@ func _input(event: InputEvent) -> void:
 			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _try_open_move_menu() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_LEFT:
-			if _hop_model(-1) or _pad_deploy_option_cycle(-1) or _enter_panel_focus():
+			# Model-switching moved OFF the D-pad onto the Steam Deck back paddles
+			# (below) so D-pad ◀ ▶ stays free for menu / option navigation and no
+			# longer fights the move-mode menu. Deployment option-cycle keeps it.
+			if _pad_deploy_option_cycle(-1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
-			if _hop_model(1) or _pad_deploy_option_cycle(1) or _enter_panel_focus():
+			if _pad_deploy_option_cycle(1) or _enter_panel_focus():
+				get_viewport().set_input_as_handled()
+		# Steam Deck back paddles hop between the selected unit's models (Movement
+		# / Charge) — the job D-pad ◀ ▶ used to do. Both back pairs are bound so
+		# whichever the player's config exposes works: right paddles (commonly
+		# R4/R5 → PADDLE1/3) = next model, left paddles (L4/L5 → PADDLE2/4) = prev.
+		JOY_BUTTON_PADDLE1, JOY_BUTTON_PADDLE3:
+			if _hop_model(1):
+				get_viewport().set_input_as_handled()
+		JOY_BUTTON_PADDLE2, JOY_BUTTON_PADDLE4:
+			if _hop_model(-1):
 				get_viewport().set_input_as_handled()
 	# A handler above may have re-focused a list (e.g. a phase's selection
 	# refresh); take it back so a following stick deflection can't walk it.

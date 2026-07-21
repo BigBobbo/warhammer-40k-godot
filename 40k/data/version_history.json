@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.76.1",
+			"date": "2026-07-21",
+			"summary": "Steam Deck controls — switching between models in a unit moved off the D-pad and onto the back paddles (L4 = previous model, R4 = next model), so the D-pad ◀ ▶ is free for the move-mode menu (Normal Move / Advance / Fall Back / Remain Stationary) and no longer double-duties as model-switching.",
+			"changes": [
+				"Movement / Charge on a controller: hop between the models of the selected unit with the Steam Deck back paddles — L4 = previous model, R4 = next model (both back-button pairs are bound, so whichever your controller config exposes will work). The D-pad no longer switches models.",
+				"D-pad ◀ ▶ is now dedicated to menu / option navigation (e.g. stepping the move-mode menu), matching the D-pad ▲ ▼ that opens it — no more accidental model-switching while choosing a move type.",
+				"The controller hint bar and the Controller Reference (Settings › Controls) now show L4 ◀ Model / R4 Model ▶ for model-switching.",
+				"Note: the back paddles must be passed through to the game as gamepad paddle buttons. Running the native build directly, this works via SDL; under Steam's controller layer you may need to map L4/R4 to the paddle buttons in the Steam controller settings."
+			]
+		},
+		{
 			"version": "0.76.0",
 			"date": "2026-07-21",
 			"summary": "Steam Deck controls — Movement phase carry fix. On a controller, trying to drop a model somewhere it can't go (into a wall, past its move, or on top of another model) now KEEPS the model in your hand so you can just steer somewhere legal, instead of dropping it and leaving you unable to grab the unit again. Once you've moved a model the bumpers lock to that unit until you confirm (Start) or reset the move, so a stray bump can't strand a half-moved unit, and Start now confirms the selected unit's move.",

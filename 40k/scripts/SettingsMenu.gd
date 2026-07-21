@@ -731,6 +731,8 @@ func _add_controller_reference(parent: VBoxContainer) -> void:
 		["x", "Skip  ·  undo the last model"],
 		["y", "Show the unit's datasheet"],
 		["dpad", "Menus, movement options & weapon / target rows"],
+		["l4", "Previous model in the unit while moving (Steam Deck back paddle)"],
+		["r4", "Next model in the unit while moving (Steam Deck back paddle)"],
 		["lt", "Zoom out"],
 		["rt", "Zoom in"],
 		["menu", "End phase / confirm  (Start)"],
