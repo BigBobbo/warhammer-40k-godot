@@ -116,6 +116,8 @@ const HINTS_FOCUS := [
 	["a", "Press"],
 	["b", "Back To Board"],
 ]
+# Charge carry (one model at a time): the plain set — no per-model advance and
+# no group grab, so neither "X Finish Model" nor "dpad Grab All".
 const HINTS_CARRY := [
 	["ls", "Move Model"],
 	["rs", "Precision"],
@@ -126,18 +128,30 @@ const HINTS_CARRY := [
 	["b", "Cancel"],
 	["menu", "Confirm / End"],
 ]
-# Movement carry: same as HINTS_CARRY plus the multi-step contract — A drops a
+# Movement carry: the plain set plus the multi-step contract — A drops a
 # waypoint (the model KEEPS focus; A again picks it back up to keep going with
 # whatever movement it has left), X drops AND seals the model, advancing to the
-# unit's next un-placed model. Charge keeps the plain HINTS_CARRY.
+# unit's next un-placed model — and "dpad Grab All", which lifts every unmoved
+# model of the unit into one group carry.
 const HINTS_CARRY_MOVE := [
 	["ls", "Move Model"],
 	["rs", "Precision"],
 	["a", "Drop"],
 	["x", "Finish Model"],
+	["dpad", "Grab All"],
 	["l3", "Swap Model"],
 	["lb", "Rotate ⟲"],
 	["rb", "Rotate ⟳"],
+	["b", "Cancel"],
+	["menu", "Confirm / End"],
+]
+# Group carry (every unmoved model of the unit in hand at once): the whole
+# formation rides the stick; A places every model that fits at the drop spot
+# (models that don't fit stay behind and are handed back individually).
+const HINTS_CARRY_GROUP := [
+	["ls", "Move Models"],
+	["rs", "Precision"],
+	["a", "Place Models"],
 	["b", "Cancel"],
 	["menu", "Confirm / End"],
 ]
@@ -185,6 +199,7 @@ const HINTS_MOVE_STAGED := [
 const HINTS_MOVE_LOCKED := [
 	["menu", "Confirm Move"],
 	["a", "Move a Model"],
+	["dpad", "Grab All Unmoved"],
 	["l3", "Next Model"],
 	["b", "Undo Model"],
 	["y", "Datasheet"],
@@ -202,6 +217,11 @@ var carry_active: bool = false
 var carry_model_index: int = 0
 var _carry_pickup_screen := Vector2.ZERO
 var _carry_unit_id: String = ""  # resets carry_model_index when the unit changes
+# Group carry: EVERY unmoved model of the unit rides the cursor as one
+# formation (MovementController's mouse group-drag machinery runs underneath).
+# Entered from the move menu's "Move All Together" or any D-pad press while a
+# model is in hand / the unit is mid-move. Windowed scenarios assert this.
+var group_carry_active: bool = false
 
 
 func is_carrying() -> bool:
@@ -319,10 +339,10 @@ func _input(event: InputEvent) -> void:
 			if _handle_back():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_UP:
-			if _pad_deploy_row_cycle(-1) or _pad_step_secondary(-1) or _try_open_move_menu() or _enter_panel_focus():
+			if _pad_deploy_row_cycle(-1) or _pad_step_secondary(-1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_DOWN:
-			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _try_open_move_menu() or _enter_panel_focus():
+			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_LEFT:
 			# Model-switching lives on L3 (left-stick click — the one free, reliable
@@ -330,8 +350,9 @@ func _input(event: InputEvent) -> void:
 			# forwards them). D-pad ◀ ▶ stays free for menu / option navigation and
 			# never fights the move-mode menu. Deployment option-cycle keeps it;
 			# shooting uses ◀ ▶ to walk the armed shooter's target ring (bumpers stay
-			# on shooter cycling).
-			if _pad_step_shoot_target(-1) or _pad_deploy_option_cycle(-1) or _try_open_move_menu() or _enter_panel_focus():
+			# on shooter cycling). With a selected unit mid-move, ◀ also grabs every
+			# unmoved model (_try_grab_all_remaining), matching ▲ ▼ ▶.
+			if _pad_step_shoot_target(-1) or _pad_deploy_option_cycle(-1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
 			# _try_open_move_menu before panel focus (matching ▲ ▼): with an
@@ -339,7 +360,7 @@ func _input(event: InputEvent) -> void:
 			# hint bar advertises for "dpad", never strand the player in the
 			# right-panel focus chain — the panel is a mouse surface, and once
 			# focused every following D-pad press walks it instead of the menu.
-			if _pad_step_shoot_target(1) or _pad_deploy_option_cycle(1) or _try_open_move_menu() or _enter_panel_focus():
+			if _pad_step_shoot_target(1) or _pad_deploy_option_cycle(1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		# Steam Deck back paddles hop between the selected unit's models (Movement
 		# / Charge) — the job D-pad ◀ ▶ used to do. Works at every stage of the
@@ -421,13 +442,21 @@ func _apply_menu_choice(choice_id: String) -> void:
 	# next thing on the stick is the model itself. Advance waits (its dice
 	# dialog owns the next press) and Stay Still is already done — for both,
 	# _try_begin_carry's focus/validity guards make the deferred call a no-op
-	# anyway, so gating here is just intent.
-	if choice_id == "NORMAL" or choice_id == "FALL_BACK":
+	# anyway, so gating here is just intent. "Move All Together" flows into the
+	# GROUP carry: the whole unit rides the stick as one formation.
+	if choice_id == "NORMAL_ALL":
+		call_deferred("_auto_group_carry_after_menu")
+	elif choice_id == "NORMAL" or choice_id == "FALL_BACK":
 		call_deferred("_auto_carry_after_menu")
 
 
 func _auto_carry_after_menu() -> void:
 	if not carry_active and _try_begin_carry():
+		_update_hints()
+
+
+func _auto_group_carry_after_menu() -> void:
+	if not carry_active and _try_begin_group_carry():
 		_update_hints()
 
 
@@ -731,6 +760,11 @@ func _context_action() -> bool:
 	# the press inert so a stray X can't fire the skip-charge action or a
 	# synthetic right-click underneath a held model.
 	if carry_active:
+		# Group carry: A places the whole group and B cancels — X has no per-model
+		# meaning (there is no single "current" model to finish), so consume it
+		# inert rather than firing _finish_model_and_advance on the group.
+		if group_carry_active:
+			return true
 		if _movement_controller() != null:
 			return _finish_model_and_advance()
 		return true
@@ -848,32 +882,53 @@ func _try_begin_carry() -> bool:
 	return false
 
 
-func _drop_carry() -> bool:
+func _drop_carry(regrab_group := true) -> bool:
 	# Movement phase: consult the controller BEFORE releasing. An illegal drop
 	# (over a wall, past the move cap, overlapping) keeps the model in hand — the
 	# "you can't put the piece on an illegal square" rule — instead of snapping it
 	# back and stranding the still-active cursor, which used to swallow the next A
 	# press as a raw board click and silently switch the selected unit. Returns
 	# true when the model was actually released (false = illegal, still carried).
+	# Group carry: the drop only stays refused when NOT A SINGLE model fits at
+	# the spot — otherwise the release stages every model that fits and the
+	# leftovers are handed back (partial placement).
 	var mc := _movement_controller()
-	if mc != null and mc.has_method("pad_carry_drop_rejection"):
+	if group_carry_active:
+		if mc != null and mc.has_method("pad_group_drop_rejection"):
+			var group_reason := str(mc.pad_group_drop_rejection(VirtualCursor.get_cursor_pos()))
+			if group_reason != "":
+				ToastManager.show_warning(group_reason)
+				return false  # still carrying the whole group
+	elif mc != null and mc.has_method("pad_carry_drop_rejection"):
 		var reason := str(mc.pad_carry_drop_rejection(VirtualCursor.get_cursor_pos()))
 		if reason != "":
 			ToastManager.show_warning(reason)
 			return false  # still carrying: A re-checks, the stick keeps steering
+	var was_group := group_carry_active
 	VirtualCursor.set_left_button(false)
 	carry_active = false
+	group_carry_active = false
 	# Park so the cursor can't consume the next A as a stray click; with it
 	# parked, A routes back through the router (pick the model up again / confirm).
 	VirtualCursor.park()
-	# The dropped model KEEPS the focus (carry_model_index untouched): a drop is
-	# a waypoint, not a hand-off. A picks the same model back up to spend its
-	# remaining move in another leg (multi-step around terrain, mouse parity with
-	# release-and-re-drag); X seals the model and advances to the next un-placed
-	# one; L4/R4 browse freely. Nothing is auto-grabbed on the player's behalf.
-	# The hint bar is refreshed once the queued release has actually staged —
-	# the _input-tail refresh runs too early and would advertise the pre-drop set.
-	call_deferred("_refresh_hints_settled")
+	if was_group:
+		# Group drop (partial placement): hand back the models the drop couldn't
+		# fit as a smaller group once the async staging settles — the group edition
+		# of moving-by-default. Suppressed when Start drove the drop (regrab_group
+		# false — the player asked to confirm, not to keep moving) and under the
+		# scenario runner (it asserts the manual contract); those just refresh hints.
+		if regrab_group and _movement_controller() != null and not _in_windowed_scenario():
+			call_deferred("_auto_regrab_after_group_drop")
+		else:
+			call_deferred("_refresh_hints_settled")
+	else:
+		# Single model (#713 multi-step): the dropped model KEEPS the focus
+		# (carry_model_index untouched) — a drop is a waypoint, not a hand-off. A
+		# picks the same model back up to spend its remaining move in another leg;
+		# X seals the model and advances to the next un-placed one; L4/R4/L3 browse.
+		# Nothing is auto-grabbed. The hint bar refreshes once the queued release
+		# has staged — the _input-tail refresh runs too early (pre-drop set).
+		call_deferred("_refresh_hints_settled")
 	return true
 
 
@@ -975,6 +1030,126 @@ func _alive_model_id(unit_id: String, alive_index: int) -> String:
 	return ""
 
 
+# ============================================================================
+# Group carry — every unmoved model of the unit in one hand
+# ============================================================================
+
+# D-pad fall-through (Movement, after the move-menu check): grab EVERY model of
+# the active unit that has not been placed yet and carry them as one formation.
+# Reachable mid-carry (the in-hand model reverts first, like a paddle swap) and
+# in the locked mid-move state; while the move menu is open the same feature is
+# the "Move All Together" menu entry instead.
+func _try_grab_all_remaining() -> bool:
+	if group_carry_active:
+		return true  # already carrying the whole group — consume the press
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	if _deployment_controller_placing() != null:
+		return false  # reinforcement/scout placement owns the pad here
+	var mc := _movement_controller()
+	if mc == null or str(mc.active_unit_id) == "":
+		return false
+	if not mc.has_method("pad_select_unmoved_models") or not mc.has_method("pad_can_grab_group"):
+		return false
+	if not mc.pad_can_grab_group():
+		return false  # no live move session (mode not begun / already completed)
+	if carry_active:
+		_grab_all_from_carry()
+		return true
+	return _try_begin_group_carry()
+
+
+func _try_begin_group_carry() -> bool:
+	if carry_active or PadActionBar.is_open():
+		return false
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	var m := get_tree().current_scene
+	if m == null or not m.has_method("world_to_screen_position"):
+		return false
+	var mc := _movement_controller()
+	if mc == null or str(mc.active_unit_id) == "" or not mc.has_method("pad_select_unmoved_models"):
+		return false
+	if mc.has_method("pad_can_grab_group") and not mc.pad_can_grab_group():
+		return false
+	var count := int(mc.pad_select_unmoved_models())
+	if count <= 0:
+		return false  # every model already placed — nothing to grab
+	var anchor = mc.pad_group_anchor_world_pos()
+	if not (anchor is Vector2):
+		if mc.has_method("pad_abort_group_drag"):
+			mc.pad_abort_group_drag()
+		return false
+	_carry_unit_id = str(mc.active_unit_id)
+	# Center first, THEN project — the warp target must use the final camera
+	# transform. The synthetic press lands ON the anchor model (it is part of
+	# the selection), so MovementController starts its group drag underneath.
+	_center_camera_on_world(anchor)
+	var screen: Vector2 = m.world_to_screen_position(anchor)
+	VirtualCursor.warp_to(screen)
+	VirtualCursor.set_left_button(true)
+	_carry_pickup_screen = screen
+	carry_active = true
+	group_carry_active = true
+	return true
+
+
+# Grab-all pressed while a single model is in hand: revert that model to its
+# pickup spot (same contract as a paddle swap — staged drops keep their spot),
+# wait out the cancel's synthetic release + junk-stage undo (see
+# _swap_carry_to_index for the 3-frame timing), then take the whole group.
+func _grab_all_from_carry() -> void:
+	_cancel_carry()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if carry_active or PadActionBar.is_open():
+		return  # something else re-claimed the pad mid-grab
+	if get_viewport().gui_get_focus_owner() != null:
+		return
+	if VirtualCursor.is_cursor_active():
+		VirtualCursor.park()
+	if _try_begin_group_carry():
+		_update_hints()
+
+
+# The auto-regrab of group-drop leftovers is a real-play smoothness affordance.
+# The committed pad_group_move_all scenario asserts the manual contract, and the
+# partial-placement regrab is validated live via the MCP bridge — so suppress the
+# auto-hand-off under the scenario runner (mirrors how #713's single-model drop
+# stays manual there too).
+func _in_windowed_scenario() -> bool:
+	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if typeof(a) == TYPE_STRING and a.begins_with("--scenario-file="):
+			return true
+	return false
+
+
+# After a group drop settles: hand the player the models the drop could NOT
+# place, as a smaller group — moving-by-default for the leftovers. When
+# everything was placed, clear the selection rings and leave the player in the
+# locked state to Confirm (Start).
+func _auto_regrab_after_group_drop() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _await_group_drop_settled()
+	if carry_active:
+		return  # player already picked something up again
+	if PadActionBar.is_open() or VirtualCursor.is_cursor_active():
+		return
+	if get_viewport().gui_get_focus_owner() != null:
+		return
+	var mc := _movement_controller()
+	if mc == null or str(mc.active_unit_id) == "" or str(mc.active_unit_id) != _carry_unit_id:
+		return
+	if not _try_begin_group_carry():
+		# Whole unit placed — drop the leftover selection rings so the locked
+		# state's affordances (A = pick ONE model, paddles hop) read clean.
+		if mc.has_method("pad_abort_group_drag"):
+			mc.pad_abort_group_drag()
+	_update_hints()
+
+
 # Public seam for Main's Start (End-Phase / Confirm) handler: when Start is
 # pressed while a model is in hand, Main routes here instead of confirming
 # directly. Placing the held model first — then confirming once it has staged —
@@ -984,7 +1159,9 @@ func _alive_model_id(unit_id: String, alive_index: int) -> String:
 func confirm_from_carry() -> bool:
 	if not carry_active:
 		return false
-	if _drop_carry():
+	# regrab_group=false: Start places the held model/group to END the move — do
+	# not hand the leftovers back for more moving underneath the confirm.
+	if _drop_carry(false):
 		call_deferred("_confirm_move_after_drop")
 	# Even if the drop was illegal (still carrying) we've handled the press — the
 	# player gets the "can't place here" toast rather than a stray phase confirm.
@@ -994,9 +1171,13 @@ func confirm_from_carry() -> bool:
 # Start pressed mid-carry: place the held model, then confirm the whole unit's
 # move. Deferred so the synthetic release from _drop_carry stages first — without
 # the wait, pad_confirm_move could confirm before the just-placed model registers.
+# A group drop stages through an async pipeline (per-model dispatch + verify /
+# retry), so also wait for that to drain — confirming mid-pipeline would commit
+# a half-staged unit.
 func _confirm_move_after_drop() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
+	await _await_group_drop_settled()
 	if carry_active:
 		return  # something re-armed a carry in between — don't confirm underneath it
 	var mc := _movement_controller()
@@ -1005,7 +1186,29 @@ func _confirm_move_after_drop() -> void:
 	_update_hints()
 
 
+# Wait (bounded) for MovementController's group-drop staging pipeline to finish.
+func _await_group_drop_settled() -> void:
+	for _i in range(180):  # ≤ ~3s — the pipeline itself is ~0.25s + 10ms/model
+		var mc := _movement_controller()
+		if mc == null or not mc.has_method("pad_group_drop_busy") or not mc.pad_group_drop_busy():
+			return
+		await get_tree().process_frame
+
+
 func _cancel_carry() -> void:
+	# Group carry cancel: nothing has moved yet (only ghosts ride the cursor),
+	# so tear the drag down WITHOUT releasing over the board — releasing would
+	# stage a zero/short move for every member. Abort first (group_dragging goes
+	# false), then the queued synthetic release arrives as a no-op.
+	if group_carry_active:
+		var group_mc := _movement_controller()
+		if group_mc != null and group_mc.has_method("pad_abort_group_drag"):
+			group_mc.pad_abort_group_drag()
+		VirtualCursor.set_left_button(false)
+		carry_active = false
+		group_carry_active = false
+		VirtualCursor.park()
+		return
 	# The mouse-parity cancel: put the model back where it was picked up and
 	# release (there is no dedicated drag-cancel in the mouse flow either).
 	var unit_id := _carry_unit_id
@@ -1080,6 +1283,11 @@ func _hop_model(dir: int) -> bool:
 	if ctrl == null or not is_instance_valid(ctrl) or str(ctrl.active_unit_id) == "":
 		return false
 	if carry_active:
+		# Whole group in hand: there is no "other model" to swap to — every
+		# unmoved model is already carried. Consume the paddle so it can't fall
+		# through to another affordance.
+		if group_carry_active:
+			return true
 		# Mid-carry hop (Movement only): put the in-hand model back where it was
 		# picked up — an un-dropped move reverts; a model already dropped with A
 		# keeps its staged spot (the cancel's count-check leaves prior stages
@@ -1417,9 +1625,12 @@ func _shooting_controller_in_shooting_phase() -> Node:
 func _update_hints() -> void:
 	var hints := HINTS_BOARD
 	if carry_active:
-		# Movement carries advertise the multi-step X (Finish Model); charge
-		# carries keep the plain set — charge has no per-model advance.
-		hints = HINTS_CARRY_MOVE if _movement_controller() != null else HINTS_CARRY
+		if group_carry_active:
+			hints = HINTS_CARRY_GROUP
+		else:
+			# Movement carries advertise the multi-step X (Finish Model) + Grab All;
+			# charge carries keep the plain set (no per-model advance, no group grab).
+			hints = HINTS_CARRY_MOVE if _movement_controller() != null else HINTS_CARRY
 	elif PadActionBar.is_open():
 		hints = HINTS_MENU
 	elif get_viewport().gui_get_focus_owner() != null:
