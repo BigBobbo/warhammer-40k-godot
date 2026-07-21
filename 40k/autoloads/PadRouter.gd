@@ -16,8 +16,12 @@ extends Node
 #            (highlight rings + camera follow; A assigns to the current
 #            weapon). Placement (deployment / reinforcement / scout reserves):
 #            cycle the value of the highlighted selector row — model type
-#            (multi-profile units) or formation (Single / Spread / Tight);
-#            otherwise panel focus entry
+#            (multi-profile units) or formation (Single / Spread / Tight).
+#            Movement with an open move-mode decision: open the action bar,
+#            exactly like ▲ ▼ — EVERY D-pad direction lands in the on-screen
+#            menu, so a ◀/▶ press can never dump the player into right-panel
+#            focus while the hint bar promises "Move Menu"; otherwise panel
+#            focus entry
 #   D-pad ▲ ▼ — the SELECTED unit's phase sub-menu, never the unit list:
 #            placement with a model-type picker: move the ▶ highlight
 #            between the Select Model Type and Deploy Formation rows.
@@ -41,7 +45,14 @@ extends Node
 #            right-click (VirtualCursor consumes it first)
 #   Y      — toggle the datasheet of the highlighted target / selected unit
 #   D-pad  — with nothing focused: enter panel focus (right panel, then
-#            bottom bar); with focus: normal ui_* navigation (not consumed)
+#            bottom bar); with focus: normal ui_* navigation (not consumed).
+#            Panel-focus entry stands down mid-move (model in hand or the
+#            move session locked): those states advertise no D-pad affordance
+#            and focus would strand the player out of the carry flow. Focus a
+#            panel control still holds — mouse-click residue included — is
+#            released whenever the pad takes over as the active device and
+#            whenever a bumper cycles units, so stale focus can never hijack
+#            the D-pad away from the board flow (dialogs are never touched).
 #
 # Input-order note: _input runs in REVERSE tree order, so the order is
 # Main (scene) -> VirtualCursor -> PadRouter -> PadHintBar -> IDM. Main only
@@ -156,7 +167,17 @@ func _ready() -> void:
 func _on_device_changed(mode: int) -> void:
 	# BUMPER-ONLY rule: while the pad drives, unit lists leave the focus
 	# chain (and give up any focus they already hold); on KBM they restore.
-	_apply_list_focus_policy(mode == InputDeviceManager.InputMode.PAD)
+	var pad := mode == InputDeviceManager.InputMode.PAD
+	_apply_list_focus_policy(pad)
+	# Focus a mouse click left behind on a panel button must not hijack the
+	# pad: with any focus owner alive every router affordance stands down (the
+	# focus guards) and the first D-pad presses silently walk the OLD focus
+	# chain instead of opening the unit's menu. Picking up the pad returns to
+	# the board context; deliberate panel focus is one D-pad press away.
+	# Dialogs keep their focus (the IDM watcher needs it for A-to-confirm) —
+	# only the HUD panel subtrees release.
+	if pad:
+		_release_panel_focus()
 	_update_hints()
 
 
@@ -235,10 +256,15 @@ func _input(event: InputEvent) -> void:
 			# longer fights the move-mode menu. Deployment option-cycle keeps it;
 			# shooting uses ◀ ▶ to walk the armed shooter's target ring (the
 			# bumpers stay on shooter cycling per the bumper-only rule).
-			if _pad_step_shoot_target(-1) or _pad_deploy_option_cycle(-1) or _enter_panel_focus():
+			if _pad_step_shoot_target(-1) or _pad_deploy_option_cycle(-1) or _try_open_move_menu() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
-			if _pad_step_shoot_target(1) or _pad_deploy_option_cycle(1) or _enter_panel_focus():
+			# _try_open_move_menu before panel focus (matching ▲ ▼): with an
+			# open move-mode decision ◀ ▶ must open the same on-screen menu the
+			# hint bar advertises for "dpad", never strand the player in the
+			# right-panel focus chain — the panel is a mouse surface, and once
+			# focused every following D-pad press walks it instead of the menu.
+			if _pad_step_shoot_target(1) or _pad_deploy_option_cycle(1) or _try_open_move_menu() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		# Steam Deck back paddles hop between the selected unit's models (Movement
 		# / Charge) — the job D-pad ◀ ▶ used to do. Both back pairs are bound so
@@ -276,6 +302,12 @@ func _handle_a() -> bool:
 # ============================================================================
 
 func _try_open_move_menu() -> bool:
+	if carry_active:
+		# A model is in hand — the mode decision is being EXECUTED, not open.
+		# Opening the bar mid-carry (possible when the cursor reads parked in
+		# the same event that would have parked it) had A activating a menu
+		# chip instead of dropping the model.
+		return false
 	if VirtualCursor.is_cursor_active():
 		return false  # cursor mode: A is a click (VirtualCursor consumed it)
 	if get_viewport().gui_get_focus_owner() != null:
@@ -343,6 +375,13 @@ func _reopen_move_menu() -> void:
 # ============================================================================
 
 func _cycle(dir: int) -> void:
+	# Bumpers are a BOARD action: cycling while a side-panel control holds
+	# focus (mouse-click residue, or deliberate D-pad panel work) releases
+	# that focus first, so the pad lands back in the unit flow. Without this,
+	# the focus guards keep the D-pad walking panel buttons instead of opening
+	# the NEW unit's move menu, and a following A would press the still-focused
+	# control of the previous context. Dialog focus is untouched.
+	_release_panel_focus()
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null:
 		# BUMPER-ONLY rule holds in shooting too: LB/RB always cycles the
@@ -976,6 +1015,15 @@ func _native_nav_modal_open() -> bool:
 func _enter_panel_focus() -> bool:
 	if get_viewport().gui_get_focus_owner() != null:
 		return false  # already navigating — let ui_* handle the press
+	# Mid-move the pad lives on the board: while a model is in hand (movement /
+	# charge carry) or the active unit's move session is locked (mode locked or
+	# models staged, waiting on Start), those states advertise no D-pad
+	# affordance in the hint bar and a stray press must not teleport focus into
+	# the mouse panels, stranding the player out of the carry flow. Deliberate
+	# panel work stays reachable via the virtual cursor; D-pad entry re-arms
+	# the moment the move is confirmed or fully undone.
+	if carry_active or _movement_session_locked():
+		return false
 	var m := get_tree().current_scene
 	if m == null:
 		return false
@@ -986,6 +1034,25 @@ func _enter_panel_focus() -> bool:
 		var c := _find_first_focusable(root)
 		if c != null:
 			c.grab_focus()
+			return true
+	return false
+
+
+# Release GUI focus IF the owner lives inside one of the HUD panel subtrees
+# (right panel / bottom bar). Dialog and popup focus is never touched — the
+# InputDeviceManager dialog watcher depends on it for A-to-confirm. Returns
+# true when focus was actually released.
+func _release_panel_focus() -> bool:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == null:
+		return false
+	var m := get_tree().current_scene
+	if m == null:
+		return false
+	for root_path in ["HUD_Right", "HUD_Bottom"]:
+		var root := m.get_node_or_null(root_path)
+		if root != null and (root == focused or root.is_ancestor_of(focused)):
+			focused.release_focus()
 			return true
 	return false
 

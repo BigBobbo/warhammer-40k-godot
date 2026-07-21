@@ -229,7 +229,15 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventJoypadButton:
 		# D-pad hands control to focus navigation; do NOT consume — the same
 		# press should also move focus so the transition costs nothing.
+		# EXCEPT mid-carry: the carried model rides the cursor on a held
+		# synthetic LMB, and park() releases that button — a D-pad press would
+		# silently drop the model where it stands and desync PadRouter's carry
+		# state (its A-drop/B-cancel/X-undo all misroute against a stale
+		# carry_active). While a carry is live the router owns the cursor;
+		# it makes the D-pad inert instead.
 		if _cursor_active and event.pressed and event.button_index in [JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT]:
+			if PadRouter.is_carrying():
+				return
 			park()
 			return
 		if not _cursor_active:
