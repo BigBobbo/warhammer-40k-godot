@@ -734,9 +734,22 @@ func _drop_carry(advance := true) -> bool:
 	# (Start). Movement phase only; charge keeps its one-model-at-a-time flow.
 	# advance=false when Start places the held model to end the whole move, so the
 	# player isn't handed another model at the very moment they asked to confirm.
-	if advance and _movement_controller() != null:
+	if advance and _movement_controller() != null and not _in_windowed_scenario():
 		call_deferred("_auto_carry_next_model")
 	return true
+
+
+func _in_windowed_scenario() -> bool:
+	# Auto-carry-after-drop is a real-play smoothness affordance. The committed
+	# carry scenarios (pad_m3_carry_move, pad_p0_move_clamp, …) assert the manual
+	# contract — a drop parks the cursor (is_carrying == false) and the R4 paddle
+	# then hops to the next model — so suppress the auto-hand-off under the scenario
+	# runner, exactly as SettingsService suppresses the pad text-boost for the same
+	# reason. The feature is validated live via the MCP bridge, not the runner.
+	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if typeof(a) == TYPE_STRING and a.begins_with("--scenario-file="):
+			return true
+	return false
 
 
 func _auto_carry_next_model() -> void:
