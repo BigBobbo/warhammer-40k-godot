@@ -58,6 +58,10 @@ var selection_indicators: Array = []  # Visual indicators for selected models
 var group_dragging: bool = false
 var group_drag_start_positions: Dictionary = {}  # model_id -> Vector2
 var group_formation_offsets: Dictionary = {}  # model_id -> Vector2 (relative to group center)
+# True while _end_group_drag's staging pipeline (dispatch + verify/retry) is in
+# flight. The pad router waits on this before auto-regrabbing leftovers or
+# confirming a Start-pressed move, so it never reads a half-staged unit.
+var group_drop_in_flight: bool = false
 
 # UI References (board_view / hud_bottom / hud_right live in PhaseControllerBase)
 var path_visual: Line2D
@@ -1017,6 +1021,11 @@ func _on_unit_selected(index: int) -> void:
 	# before we repoint active_unit_id so the pending unit is the one confirmed.
 	if unit_id != active_unit_id:
 		_auto_confirm_pending_move(active_unit_id)
+		# The old unit's multi-selection must not survive the switch: model ids
+		# repeat between units, so a stale selection makes a later click on the
+		# NEW unit's "m1" read as "clicked a selected model" and group-drag the
+		# OLD unit's models under the new unit's actor id.
+		_clear_selection()
 
 	# Route reserve units to Main's reinforcement placement flow
 	if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
@@ -1836,6 +1845,10 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	_clear_move_range_overlay()  # T-094
 	_clear_er_overlay()  # T-094
 	_clear_coherency_dots()  # T-094
+	# The confirmed unit's multi-selection dies with its move — a selection that
+	# outlives the confirm matches the NEXT unit's model ids and group-drags the
+	# wrong models (see _is_clicking_on_selected_model).
+	_clear_selection()
 	active_unit_id = ""
 	active_mode = ""
 	move_cap_inches = 0.0
@@ -1970,6 +1983,9 @@ func _on_unit_move_reset(unit_id: String) -> void:
 	if unit_id == active_unit_id:
 		active_unit_id = ""
 		active_mode = ""
+	# A multi-selection built during the reset move is stale now (positions and
+	# staged state both rolled back) — drop it with the rest of the move state.
+	_clear_selection()
 
 	_update_movement_display()
 	_refresh_unit_list()
@@ -3828,10 +3844,15 @@ func _is_clicking_on_selected_model(mouse_pos: Vector2) -> bool:
 		if clicked_model.is_empty():
 			return false
 
-	# Check if this model is in our selected models list
+	# Check if this model is in our selected models list. Match the SOURCE UNIT
+	# too: model ids ("m1", …) collide between units, and a stale selection from
+	# a previously moved unit matching a fresh unit's model by id alone silently
+	# started a group drag of the OLD unit's models.
 	var clicked_model_id = clicked_model.get("model_id", "")
+	var clicked_unit_id = clicked_model.get("unit_id", "")
 	for selected_model in selected_models:
-		if selected_model.get("model_id", "") == clicked_model_id:
+		if selected_model.get("model_id", "") == clicked_model_id \
+				and selected_model.get("unit_id", active_unit_id) == clicked_unit_id:
 			return true
 
 	return false
@@ -4324,6 +4345,13 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 	# Calculate drag vector from drag start position
 	var drag_vector = world_pos - drag_start_pos
 
+	# P0 pad smoothness, group edition: clamp the whole formation to the tightest
+	# member's remaining budget so the ghosts stop on the reach circles instead of
+	# running past them (mirrors _clamp_move_to_budget in the single-model drag).
+	# Mouse keeps its free red-preview drag.
+	if InputDeviceManager.is_pad_active():
+		drag_vector = _clamp_group_drag_vector(drag_vector)
+
 	# Update ghost positions to show preview
 	for child in ghost_visual.get_children():
 		var model_id = child.get_meta("model_id", "")
@@ -4370,78 +4398,52 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 		if inches_left_label:
 			inches_left_label.text = "Group Min Left: %.1f\"" % min_remaining
 
-		# Validate the move and update ghost colors based on validity
-		var any_wall_collision = false
-		var any_out_of_bounds = false
-
-		# Check wall collisions and board edge for each model
+		# Per-model validity → per-ghost coloring. The drop places every model
+		# whose destination is legal (partial placement), so each ghost previews
+		# its OWN fate: green = will be placed, red = will stay behind.
+		var drag_len_inches: float = Measurement.px_to_inches(drag_vector.length())
+		var placeable_count := 0
+		var first_reason := ""
+		var rejection_by_model := {}
 		for model_data in selected_models:
-			var model_id = model_data.model_id
-			var start_pos = group_drag_start_positions.get(model_id, model_data.position)
-			var new_pos = start_pos + drag_vector
+			var reason := _group_move_rejection_for(model_data, group_drag_start_positions.get(model_data.model_id, model_data.position) + drag_vector, drag_len_inches, selected_models)
+			rejection_by_model[model_data.model_id] = reason
+			if reason == "":
+				placeable_count += 1
+			elif first_reason == "":
+				first_reason = reason
 
-			# Get the full model data with base information from GameState
-			var full_model = _get_model_by_id(active_unit_id, model_id)
-			if full_model.is_empty():
-				# Fallback to using model_data if we can't get full data
-				full_model = model_data
-
-			# Check if this position would overlap with walls
-			var test_model = full_model.duplicate()
-			test_model["position"] = new_pos
-
-			if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
-				any_wall_collision = true
-				if illegal_reason_label:
-					illegal_reason_label.text = "Cannot overlap with walls"
-					illegal_reason_label.modulate = Color.RED
-				break
-
-			# Check if this position would be outside the board
-			if _is_position_outside_board(new_pos, full_model):
-				any_out_of_bounds = true
-				if illegal_reason_label:
-					illegal_reason_label.text = "Cannot move beyond the board edge"
-					illegal_reason_label.modulate = Color.RED
-				break
-
-		# Clear error label when all positions are valid
-		var group_effective_cap = _get_effective_move_cap()
-		var group_distance_ok = max_used <= group_effective_cap + MOVEMENT_CAP_EPSILON
-		if not any_wall_collision and not any_out_of_bounds and group_distance_ok:
-			if illegal_reason_label:
+		if illegal_reason_label:
+			if placeable_count == selected_models.size():
 				illegal_reason_label.text = ""
+			elif placeable_count == 0:
+				illegal_reason_label.text = first_reason
+				illegal_reason_label.modulate = Color.RED
+			else:
+				illegal_reason_label.text = "%d of %d models can be placed here" % [placeable_count, selected_models.size()]
+				illegal_reason_label.modulate = Color.ORANGE
 
-		if not group_distance_ok or any_wall_collision or any_out_of_bounds:
-			# Some models exceed their movement or collide with walls - show invalid state
-			for child in ghost_visual.get_children():
-				if child is Label:
-					continue
-				if child.has_method("set_validity"):
-					child.set_validity(false)
-				elif child.has_method("queue_redraw"):
-					child.is_valid_position = false
-					child.queue_redraw()
-		else:
-			# Movement is valid
-			for child in ghost_visual.get_children():
-				if child is Label:
-					continue
-				if child.has_method("set_validity"):
-					child.set_validity(true)
-				elif child.has_method("queue_redraw"):
-					child.is_valid_position = true
-					child.queue_redraw()
+		for child in ghost_visual.get_children():
+			if child is Label:
+				continue
+			var ghost_ok: bool = str(rejection_by_model.get(child.get_meta("model_id", ""), "")) == ""
+			if child.has_method("set_validity"):
+				child.set_validity(ghost_ok)
+			elif child.has_method("queue_redraw"):
+				child.is_valid_position = ghost_ok
+				child.queue_redraw()
 
 		# Update floating movement remaining label for group drag
-		var group_valid = group_distance_ok and not any_wall_collision and not any_out_of_bounds
-		_update_movement_remaining_label(min_remaining, group_valid)
+		_update_movement_remaining_label(min_remaining, placeable_count == selected_models.size())
 		# Position label near the cursor during group drag
 		if movement_remaining_label and is_instance_valid(movement_remaining_label):
 			movement_remaining_label.position = world_pos + Vector2(-30, -40)
 
 func _end_group_drag(mouse_pos: Vector2) -> void:
-	"""End group drag movement - now async to handle batch processing"""
+	"""End group drag movement — partial placement: models whose destination is
+	legal are staged; blocked models stay where they were (and stay selected) so
+	the player can re-drag just them. The whole drop only fails when NO model can
+	be placed."""
 	if not group_dragging:
 		return
 
@@ -4457,122 +4459,289 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 
 	# Calculate final drag vector
 	var drag_vector = world_pos - drag_start_pos
+	# Pad drop: same budget clamp the live preview used, so the drop lands where
+	# the ghosts stopped instead of being rejected past the reach circle.
+	if InputDeviceManager.is_pad_active():
+		drag_vector = _clamp_group_drag_vector(drag_vector)
 
-	# Send movement actions for all models in the group
-	if current_phase:
-		print("Processing group movement for ", selected_models.size(), " models")
-
-		# First, validate that all moves are legal (no wall collisions)
-		var all_moves_valid = true
-		var invalid_reason = ""
-
-		for model_data in selected_models:
-			var model_id = model_data.model_id
-			var start_pos = group_drag_start_positions.get(model_id, model_data.position)
-			var new_pos = start_pos + drag_vector
-
-			# Get the full model data with base information from GameState
-			# Check both bodyguard unit and attached character units
-			var full_model = _get_model_by_id(model_data.get("unit_id", active_unit_id), model_id)
-			if full_model.is_empty():
-				full_model = _get_model_by_id(active_unit_id, model_id)
-			if full_model.is_empty():
-				print("ERROR: Could not get full model data for ", model_id)
-				continue
-
-			# Check if this position would overlap with walls
-			var test_model = full_model.duplicate()
-			test_model["position"] = new_pos
-
-			if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
-				all_moves_valid = false
-				invalid_reason = "Model %s would overlap with walls" % model_id
-				print("ERROR: ", invalid_reason)
-				break
-
-			# Also check model overlaps
-			if _check_position_would_overlap(new_pos):
-				all_moves_valid = false
-				invalid_reason = "Model %s would overlap with other models" % model_id
-				print("ERROR: ", invalid_reason)
-				break
-
-		# Only proceed with moves if all are valid
-		if not all_moves_valid:
-			print("Group move cancelled: ", invalid_reason)
-			# Show error message to user
-			if illegal_reason_label:
-				illegal_reason_label.text = invalid_reason
-				illegal_reason_label.modulate = Color.RED
-			# Also surface a toast so the player sees the reason even if the
-			# illegal_reason_label is off-screen (group drags are dragged from
-			# the unit body, not the HUD where the label lives).
-			var toast_mgr = get_node_or_null("/root/ToastManager")
-			if toast_mgr and toast_mgr.has_method("show_error"):
-				toast_mgr.show_error(invalid_reason)
-
-			# Clear the drag but don't move anything
-			group_dragging = false
-			group_drag_start_positions.clear()
-			group_formation_offsets.clear()
-			_clear_ghost_visual()
-			_update_model_selection_visuals()
-			return
-
-		# Build a batch of moves to send together
-		var batch_moves = []
-		for model_data in selected_models:
-			var model_id = model_data.model_id
-			var start_pos = group_drag_start_positions.get(model_id, model_data.position)
-			var new_pos = start_pos + drag_vector
-			var rotation = model_data.get("rotation", 0.0)
-
-			batch_moves.append({
-				"model_id": model_id,
-				"dest": [new_pos.x, new_pos.y],
-				"rotation": rotation,
-				"start_pos": start_pos
-			})
-			print("  Preparing move for model ", model_id, " from ", start_pos, " to ", new_pos)
-
-		# Send all moves in a batch to ensure they're processed together
-		if batch_moves.size() > 0:
-			# Option 1: Send individual moves with a small delay between them
-			var delay_timer = 0.0
-			for move in batch_moves:
-				var action = {
-					"type": "STAGE_MODEL_MOVE",
-					"actor_unit_id": active_unit_id,
-					"payload": {
-						"model_id": move.model_id,
-						"dest": move.dest,
-						"rotation": move.rotation
-					}
-				}
-				emit_signal("move_action_requested", action)
-
-				# Add small delay to ensure signal processing completes
-				await get_tree().create_timer(0.01).timeout
-
-			print("Successfully sent ", batch_moves.size(), " move actions")
-
-			# Verify all models were staged
-			await get_tree().create_timer(0.1).timeout  # Wait for processing
-			_verify_staged_moves(batch_moves)
-
+	# Freeze the members + start positions, then tear down the live-drag state
+	# immediately: the staging below awaits, and a still-true group_dragging
+	# would keep feeding cursor motion into _update_group_drag meanwhile.
+	var members: Array = selected_models.duplicate()
+	var starts: Dictionary = group_drag_start_positions.duplicate()
 	group_dragging = false
-
-	# Clear the group drag state
 	group_drag_start_positions.clear()
 	group_formation_offsets.clear()
-
-	# Clear ghost visuals
 	_clear_ghost_visual()
 	_clear_move_range_overlay()  # T-094 (revised): remove per-model reach circles
+
+	if not current_phase or members.is_empty():
+		_update_movement_display()
+		_update_model_selection_visuals()
+		return
+
+	# Per-model legality (client-side; the phase re-validates on staging). A
+	# member's destination is judged against everything EXCEPT the other members
+	# — they are all moving by the same vector, so member-vs-member spacing is
+	# preserved by construction.
+	var placeable: Array = []
+	var blocked: Array = []
+	var first_reason := ""
+	var drag_len_inches: float = Measurement.px_to_inches(drag_vector.length())
+	for model_data in members:
+		var start_pos = starts.get(model_data.model_id, model_data.position)
+		var reason := _group_move_rejection_for(model_data, start_pos + drag_vector, drag_len_inches, members)
+		if reason == "":
+			placeable.append(model_data)
+		else:
+			blocked.append(model_data)
+			if first_reason == "":
+				first_reason = reason
+			print("Group drop: model %s blocked — %s" % [str(model_data.model_id), reason])
+
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if placeable.is_empty():
+		# Nothing fits at that spot — refuse the whole drop (models stay put and
+		# stay selected so the player can immediately try another spot).
+		print("Group move cancelled: ", first_reason)
+		if illegal_reason_label:
+			illegal_reason_label.text = first_reason
+			illegal_reason_label.modulate = Color.RED
+		if toast_mgr and toast_mgr.has_method("show_error"):
+			toast_mgr.show_error(first_reason if first_reason != "" else "No model in the group can be placed there")
+		_update_movement_display()
+		_update_model_selection_visuals()
+		return
+
+	# Stage front-most first (largest projection along the drag direction).
+	# The phase checks a destination against other models' staged-or-current
+	# positions, so a member moving into the spot a leading member is vacating
+	# must stage AFTER that leader — front-most-first makes tight formations
+	# stage cleanly in one pass instead of relying on retries.
+	if drag_vector.length() > 0.001:
+		var dir := drag_vector.normalized()
+		placeable.sort_custom(func(a, b):
+			var pa: Vector2 = starts.get(a.model_id, a.position)
+			var pb: Vector2 = starts.get(b.model_id, b.position)
+			return pa.dot(dir) > pb.dot(dir))
+
+	group_drop_in_flight = true
+	var batch_moves = []
+	for model_data in placeable:
+		var model_id = model_data.model_id
+		var start_pos = starts.get(model_id, model_data.position)
+		var new_pos = start_pos + drag_vector
+		batch_moves.append({
+			"model_id": model_id,
+			"source_unit_id": model_data.get("unit_id", active_unit_id),
+			"dest": [new_pos.x, new_pos.y],
+			"rotation": model_data.get("rotation", 0.0),
+			"start_pos": start_pos
+		})
+		print("  Preparing move for model ", model_id, " from ", start_pos, " to ", new_pos)
+
+	for move in batch_moves:
+		emit_signal("move_action_requested", _build_group_stage_action(move))
+		# Small delay to ensure signal processing completes before the next one
+		await get_tree().create_timer(0.01).timeout
+
+	print("Sent ", batch_moves.size(), " group move actions (", blocked.size(), " blocked client-side)")
+
+	# Verify what actually staged; retry stragglers once (a member can be
+	# rejected because another member had not staged yet when it was checked).
+	await get_tree().create_timer(0.1).timeout
+	var missing := _unstaged_batch_moves(batch_moves)
+	if missing.size() > 0:
+		print("[WARNING] ", missing.size(), " group moves failed to stage — retrying: ", missing.map(func(mv): return mv.model_id))
+		for move in missing:
+			emit_signal("move_action_requested", _build_group_stage_action(move))
+			await get_tree().create_timer(0.01).timeout
+		await get_tree().create_timer(0.1).timeout
+		missing = _unstaged_batch_moves(batch_moves)
+
+	# Anything still missing joins the blocked pile (the phase refused it —
+	# e.g. engagement range or a rule the client-side pre-check doesn't model).
+	for move in missing:
+		for model_data in placeable:
+			if model_data.model_id == move.model_id and model_data.get("unit_id", active_unit_id) == move.source_unit_id:
+				blocked.append(model_data)
+				break
+	var moved_count: int = placeable.size() - missing.size()
+	print("Group drop result: ", moved_count, "/", members.size(), " models staged")
+
+	if blocked.is_empty():
+		if illegal_reason_label:
+			illegal_reason_label.text = ""
+	else:
+		# Partial drop: keep ONLY the leftover models selected so the next drag
+		# (mouse) / re-grab (pad) moves exactly the models still to be placed.
+		selected_models = blocked.duplicate()
+		selection_mode = "MULTI" if selected_models.size() > 1 else "SINGLE"
+		var reason_note := (" (%s)" % first_reason) if first_reason != "" else ""
+		if toast_mgr and toast_mgr.has_method("show_warning"):
+			toast_mgr.show_warning("Placed %d of %d models — %d couldn't be placed there%s" % [moved_count, members.size(), blocked.size(), reason_note])
+
+	group_drop_in_flight = false
 
 	# Update displays
 	_update_movement_display()
 	_update_model_selection_visuals()
+
+
+func _build_group_stage_action(move: Dictionary) -> Dictionary:
+	var payload = {
+		"model_id": move.model_id,
+		"dest": move.dest,
+		"rotation": move.rotation
+	}
+	# Attached-character models stage under the bodyguard's move with their
+	# source unit spelled out ("m1" ids collide between the two units).
+	if str(move.source_unit_id) != "" and str(move.source_unit_id) != active_unit_id:
+		payload["model_source_unit_id"] = move.source_unit_id
+	return {
+		"type": "STAGE_MODEL_MOVE",
+		"actor_unit_id": active_unit_id,
+		"payload": payload
+	}
+
+
+func _unstaged_batch_moves(batch_moves: Array) -> Array:
+	"""The subset of batch_moves that has no staged move recorded for the active
+	unit (source-unit aware — bodyguard and attached character ids can collide)."""
+	var staged := _staged_keys_for_active_unit()
+	var missing: Array = []
+	for move in batch_moves:
+		if not staged.has("%s:%s" % [str(move.source_unit_id), str(move.model_id)]):
+			missing.append(move)
+	return missing
+
+
+func _staged_keys_for_active_unit() -> Dictionary:
+	"""Set of "source_unit_id:model_id" keys with a staged move in the active
+	unit's move data."""
+	var keys := {}
+	if not current_phase or active_unit_id == "" or not current_phase.has_method("get_active_move_data"):
+		return keys
+	var move_data = current_phase.get_active_move_data(active_unit_id)
+	for staged_move in move_data.get("staged_moves", []):
+		var src := str(staged_move.get("model_source_unit_id", active_unit_id))
+		keys["%s:%s" % [src, str(staged_move.get("model_id", ""))]] = true
+	return keys
+
+
+func _clamp_group_drag_vector(v: Vector2) -> Vector2:
+	"""Clamp a group drag vector so no member exceeds its remaining movement
+	budget (geometry only, like _clamp_move_to_budget — endpoint legality stays
+	with the drop checks)."""
+	var len_px := v.length()
+	if len_px <= 0.0:
+		return v
+	var max_used := 0.0
+	for model_data in selected_models:
+		max_used = max(max_used, _get_accumulated_distance_for_model(model_data))
+	var allowed_inches: float = max(0.0, _get_effective_move_cap() - max_used)
+	if Measurement.px_to_inches(len_px) <= allowed_inches + MOVEMENT_CAP_EPSILON:
+		return v
+	return v.normalized() * Measurement.inches_to_px(allowed_inches)
+
+
+func _group_move_rejection_for(model_data: Dictionary, dest: Vector2, drag_len_inches: float, members: Array) -> String:
+	"""Why moving this group member by the group's drag vector is illegal
+	("" = legal): over its budget, off the board, on a wall, or overlapping a
+	model OUTSIDE the moving group. Client-side approximation of the phase's
+	STAGE_MODEL_MOVE validation, minus the other moving members (rigid
+	translation preserves member spacing)."""
+	var total: float = _get_accumulated_distance_for_model(model_data) + drag_len_inches
+	var effective_cap: float = _get_effective_move_cap()
+	if total > effective_cap + MOVEMENT_CAP_EPSILON:
+		return "Movement exceeds %.1f\" cap (would be %.1f\")" % [effective_cap, total]
+	var source_unit_id: String = str(model_data.get("unit_id", active_unit_id))
+	var full_model = _get_model_by_id(source_unit_id, model_data.model_id)
+	if full_model.is_empty():
+		full_model = model_data
+	if _is_position_outside_board(dest, full_model):
+		return "Cannot place model beyond the board edge"
+	var test_model = full_model.duplicate()
+	test_model["position"] = dest
+	if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
+		return "Cannot place model overlapping a wall this unit can't cross"
+	if _group_dest_overlaps_non_member(test_model, source_unit_id, str(model_data.model_id), members):
+		return "Cannot place model overlapping another model"
+	return ""
+
+
+func _group_dest_overlaps_non_member(test_model: Dictionary, source_unit_id: String, model_id: String, members: Array) -> bool:
+	"""Would test_model (already at its destination) overlap any alive model that
+	is NOT part of the moving group? Staged positions win over pre-move ones
+	(mirrors MovementPhase._position_overlaps_other_models, including its
+	touching tolerance for circular bases)."""
+	var member_keys := {}
+	for member in members:
+		member_keys["%s:%s" % [str(member.get("unit_id", active_unit_id)), str(member.model_id)]] = true
+	member_keys["%s:%s" % [source_unit_id, model_id]] = true
+	var staged_dests := {}
+	if current_phase and active_unit_id != "" and current_phase.has_method("get_active_move_data"):
+		for staged_move in current_phase.get_active_move_data(active_unit_id).get("staged_moves", []):
+			var src := str(staged_move.get("model_source_unit_id", active_unit_id))
+			staged_dests["%s:%s" % [src, str(staged_move.get("model_id", ""))]] = staged_move.get("dest")
+	var test_pos: Vector2 = test_model.get("position", Vector2.ZERO)
+	var test_circular: bool = test_model.get("base_type", "circular") == "circular"
+	var test_radius: float = Measurement.base_radius_px(test_model.get("base_mm", 32))
+	var units = GameState.state.get("units", {})
+	for check_unit_id in units:
+		var models = units[check_unit_id].get("models", [])
+		for i in range(models.size()):
+			var other = models[i]
+			if not other.get("alive", true):
+				continue
+			var other_id := str(other.get("id", "m%d" % (i + 1)))
+			var key := "%s:%s" % [str(check_unit_id), other_id]
+			if member_keys.has(key):
+				continue
+			var other_pos = staged_dests.get(key, null)
+			if other_pos == null:
+				# Embarked/undeployed models have no position — they can't be
+				# collided with (mirrors the phase checker's null skip).
+				if other.get("position") == null:
+					continue
+				other_pos = _get_model_position(other)
+			elif other_pos is Array and other_pos.size() >= 2:
+				other_pos = Vector2(float(other_pos[0]), float(other_pos[1]))
+			if not (other_pos is Vector2):
+				continue
+			# Circular-vs-circular fast path (the common case — this runs per
+			# member per drag frame): pure distance math, with the same 0.5px
+			# touching tolerance MovementPhase applies, and no dict duplication.
+			if test_circular and other.get("base_type", "circular") == "circular":
+				var other_radius: float = Measurement.base_radius_px(other.get("base_mm", 32))
+				if test_pos.distance_to(other_pos) + 0.5 < (test_radius + other_radius):
+					return true
+				continue
+			var other_check = other.duplicate()
+			other_check["position"] = other_pos
+			if Measurement.models_overlap(test_model, other_check):
+				# Same touching tolerance the phase applies for circular pairs,
+				# so a base placed exactly against a staged neighbour isn't
+				# flagged here only to be accepted by the phase.
+				if _circles_touch_within_tolerance(test_model, other_check):
+					continue
+				return true
+	return false
+
+
+func _circles_touch_within_tolerance(model_a: Dictionary, model_b: Dictionary) -> bool:
+	if model_a.get("base_type", "circular") != "circular" or model_b.get("base_type", "circular") != "circular":
+		return false
+	var pos_a = model_a.get("position", Vector2.ZERO)
+	var pos_b = model_b.get("position", Vector2.ZERO)
+	if pos_a is Dictionary:
+		pos_a = Vector2(pos_a.get("x", 0), pos_a.get("y", 0))
+	if pos_b is Dictionary:
+		pos_b = Vector2(pos_b.get("x", 0), pos_b.get("y", 0))
+	var radius_a = Measurement.base_radius_px(model_a.get("base_mm", 32))
+	var radius_b = Measurement.base_radius_px(model_b.get("base_mm", 32))
+	# 0.5px tolerance — matches MovementPhase.OVERLAP_TOLERANCE_PX.
+	return pos_a.distance_to(pos_b) + 0.5 >= (radius_a + radius_b)
 
 func _calculate_group_center_from_positions(positions: Dictionary) -> Vector2:
 	"""Calculate center from a dictionary of model_id -> Vector2 positions"""
@@ -4611,53 +4780,6 @@ func _get_model_by_id(unit_id: String, model_id: String) -> Dictionary:
 			return model
 
 	return {}
-
-func _verify_staged_moves(expected_moves: Array) -> void:
-	"""Verify that all expected moves were successfully staged"""
-	if not current_phase or not "active_moves" in current_phase:
-		print("[WARNING] Cannot verify staged moves - no active moves data")
-		return
-
-	if not current_phase.active_moves.has(active_unit_id):
-		print("[WARNING] No active moves for unit ", active_unit_id)
-		return
-
-	var move_data = current_phase.active_moves[active_unit_id]
-	var staged_moves = move_data.get("staged_moves", [])
-
-	# Build a set of staged model IDs
-	var staged_model_ids = {}
-	for staged_move in staged_moves:
-		staged_model_ids[staged_move.get("model_id", "")] = true
-
-	# Check which models are missing
-	var missing_models = []
-	for expected_move in expected_moves:
-		var model_id = expected_move.get("model_id", "")
-		if not staged_model_ids.has(model_id):
-			missing_models.append(model_id)
-
-	if missing_models.size() > 0:
-		print("[WARNING] The following models failed to stage moves: ", missing_models)
-		print("  Retrying failed models...")
-
-		# Retry the missing models
-		for expected_move in expected_moves:
-			var model_id = expected_move.get("model_id", "")
-			if model_id in missing_models:
-				var action = {
-					"type": "STAGE_MODEL_MOVE",
-					"actor_unit_id": active_unit_id,
-					"payload": {
-						"model_id": model_id,
-						"dest": expected_move.dest,
-						"rotation": expected_move.rotation
-					}
-				}
-				print("  Retrying move for model ", model_id)
-				emit_signal("move_action_requested", action)
-	else:
-		print("All ", expected_moves.size(), " models successfully staged for movement")
 
 func _create_group_ghost_visuals() -> void:
 	"""Create ghost visuals for all selected models in the group"""
@@ -5225,6 +5347,121 @@ func pad_carry_drop_rejection(screen_pos: Vector2) -> String:
 	return _compute_move_rejection(world_pos)
 
 
+# ── Pad group carry ("grab all unmoved models") seams ───────────────────────
+# PadRouter starts a group carry by (1) pad_select_unmoved_models(), (2) warping
+# the virtual cursor onto pad_group_anchor_world_pos() and (3) holding the
+# synthetic left button — the click lands on a selected model, so the exact
+# mouse group-drag pipeline (_start_group_movement → _update_group_drag →
+# _end_group_drag) runs underneath, partial placement included.
+
+func pad_can_grab_group() -> bool:
+	"""True while the active unit has a live, unfinished move session — the only
+	state in which STAGE_MODEL_MOVE (and therefore a group carry) is accepted."""
+	if active_unit_id == "":
+		return false
+	if not current_phase or not current_phase.has_method("get_active_move_data"):
+		return false
+	var move_data = current_phase.get_active_move_data(active_unit_id)
+	return not move_data.is_empty() and not move_data.get("completed", false)
+
+
+func pad_select_unmoved_models() -> int:
+	"""Select every alive model of the active unit (and its attached characters)
+	that has NO staged move yet — "all models still to be moved". Returns the
+	number selected (0 = nothing left to move)."""
+	if not current_phase or active_unit_id == "":
+		return 0
+	_clear_selection()
+	var staged := _staged_keys_for_active_unit()
+	var unit_ids = [active_unit_id]
+	var unit = current_phase.get_unit(active_unit_id)
+	if unit.is_empty():
+		return 0
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		unit_ids.append(char_id)
+	for sel_unit_id in unit_ids:
+		var sel_unit = current_phase.get_unit(sel_unit_id)
+		if sel_unit.is_empty():
+			continue
+		var models = sel_unit.get("models", [])
+		for i in range(models.size()):
+			var model = models[i]
+			if not model.get("alive", true):
+				continue
+			var model_id = model.get("id", "m%d" % (i + 1))
+			if staged.has("%s:%s" % [str(sel_unit_id), str(model_id)]):
+				continue  # already placed this move — keeps its spot
+			var model_data = model.duplicate()
+			model_data["unit_id"] = sel_unit_id
+			model_data["model_id"] = model_id
+			model_data["position"] = _get_model_position(model)
+			selected_models.append(model_data)
+	selection_mode = "MULTI" if selected_models.size() > 1 else "SINGLE"
+	_update_model_selection_visuals()
+	_update_movement_display()
+	print("Pad group carry: selected ", selected_models.size(), " unmoved models of ", active_unit_id)
+	return selected_models.size()
+
+
+func pad_group_anchor_world_pos():
+	"""World position of the selected model nearest the selection's centroid —
+	where the pad warps the cursor so the synthetic pickup click lands ON a
+	selected model. Null when nothing is selected."""
+	if selected_models.is_empty():
+		return null
+	var center := _calculate_group_center(selected_models)
+	var best = null
+	var best_d := INF
+	for model_data in selected_models:
+		var pos: Vector2 = model_data.get("position", Vector2.ZERO)
+		var d := pos.distance_squared_to(center)
+		if d < best_d:
+			best_d = d
+			best = pos
+	return best
+
+
+func pad_group_drop_rejection(screen_pos: Vector2) -> String:
+	"""Group-carry drop check: "" when AT LEAST ONE carried model can legally be
+	placed at the translated destination (the drop then stages exactly those),
+	else the blocking reason. PadRouter consults this BEFORE releasing so a
+	fully-illegal drop keeps the group in hand."""
+	if not group_dragging or selected_models.is_empty():
+		return ""
+	var board_root = SceneRefs.board_root()
+	var world_pos: Vector2 = board_root.transform.affine_inverse() * screen_pos if board_root else get_global_mouse_position()
+	var drag_vector: Vector2 = world_pos - drag_start_pos
+	if InputDeviceManager.is_pad_active():
+		drag_vector = _clamp_group_drag_vector(drag_vector)
+	var drag_len_inches: float = Measurement.px_to_inches(drag_vector.length())
+	var first_reason := ""
+	for model_data in selected_models:
+		var start_pos = group_drag_start_positions.get(model_data.model_id, model_data.position)
+		var reason := _group_move_rejection_for(model_data, start_pos + drag_vector, drag_len_inches, selected_models)
+		if reason == "":
+			return ""
+		if first_reason == "":
+			first_reason = reason
+	return first_reason if first_reason != "" else "No model in the group can be placed there"
+
+
+func pad_group_drop_busy() -> bool:
+	return group_drop_in_flight
+
+
+func pad_abort_group_drag() -> void:
+	"""Cancel a live group carry WITHOUT staging anything (pad B): models never
+	left their spots — only ghosts moved — so tearing down the drag state and
+	selection restores the pre-grab state exactly."""
+	group_dragging = false
+	group_drag_start_positions.clear()
+	group_formation_offsets.clear()
+	_clear_ghost_visual()
+	_clear_move_range_overlay()
+	_clear_selection()
+	_update_movement_display()
+
+
 func pad_is_move_session_locked() -> bool:
 	"""True once the active unit has committed to its move — mode locked (Advance
 	rolled, Fall Back, confirmed) OR at least one model staged/committed. While
@@ -5277,6 +5514,15 @@ func pad_menu_options() -> Array:
 		opts.append({"id": "FALL_BACK", "label": "Fall Back"})
 	if stationary_radio and stationary_radio.visible and not stationary_radio.disabled:
 		opts.append({"id": "REMAIN_STATIONARY", "label": "Stay Still"})
+	# Multi-model units: same Normal Move, but every model is picked up together
+	# (PadRouter starts a group carry instead of the one-model auto-carry);
+	# models a drop can't fit stay behind and are handed back individually.
+	# Appended AFTER the four modes so the committed menu-index contracts
+	# (NORMAL → step → ADVANCE …) hold; with wrap-around it is one ◀ press
+	# from the default highlight.
+	if normal_radio and normal_radio.visible and not normal_radio.disabled \
+			and _pad_group_menu_model_count() > 1:
+		opts.append({"id": "NORMAL_ALL", "label": "Move All Together"})
 	for action in _get_special_movement_actions(active_unit_id):
 		var action_type := str(action.get("type", ""))
 		if action_type == "":
@@ -5302,6 +5548,23 @@ func _pad_mode_resolved() -> bool:
 		or not move_data.get("model_moves", []).is_empty()
 
 
+func _pad_group_menu_model_count() -> int:
+	"""Alive models across the active unit + attached characters — gates the
+	"Move All Together" menu entry to units where a group grab means anything."""
+	var unit = GameState.get_unit(active_unit_id)
+	if unit.is_empty():
+		return 0
+	var count := 0
+	var unit_ids = [active_unit_id]
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		unit_ids.append(char_id)
+	for uid in unit_ids:
+		for model in GameState.get_unit(uid).get("models", []):
+			if model.get("alive", true):
+				count += 1
+	return count
+
+
 func pad_apply_menu_choice(choice_id: String) -> void:
 	"""Apply a PadActionBar choice by driving the same handlers the mouse UI
 	uses (radios + Confirm Movement Mode / Fall Back dispatch)."""
@@ -5313,6 +5576,11 @@ func pad_apply_menu_choice(choice_id: String) -> void:
 			"actor_unit_id": active_unit_id
 		})
 		return
+	# "Move All Together" IS a Normal Move — only the carry style differs
+	# (PadRouter reads the choice id and grabs the whole unit instead of one
+	# model). Everything below treats it as NORMAL.
+	if choice_id == "NORMAL_ALL":
+		choice_id = "NORMAL"
 	_pad_set_mode_radio(choice_id)
 	match choice_id:
 		"NORMAL":

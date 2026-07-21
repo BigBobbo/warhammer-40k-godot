@@ -2,6 +2,21 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.83.0",
+			"date": "2026-07-21",
+			"summary": "Move the whole squad at once with the controller. The Movement menu gains 'Move All Together': every model of the unit is picked up as one formation riding the stick, and a single A press places them all. Mid-move, any D-pad press grabs every model you haven't placed yet. If the drop spot doesn't fit the whole squad, the models that fit are placed and the rest are handed straight back to you — and the ghost preview shows green/red per model so you can see which will land before you drop.",
+			"changes": [
+				"Movement move menu (controller): new 'Move All Together' option — one press left of 'Move' — picks up every model of the unit as one group; move the formation with the stick and press A once to place them all.",
+				"Any D-pad press while a model is in hand, or while the unit is mid-move, grabs ALL models still to be moved as one group (models you already placed keep their spots).",
+				"Partial placement: if the destination can't fit every model, the models that fit are placed and the rest are handed back to you as a smaller group (with a 'Placed X of N' message) — previously a group drop was all-or-nothing. This applies to mouse group drags (Ctrl+click / Shift+box selections) too.",
+				"Group ghost preview now colors each model separately — green models will be placed at the drop, red ones will stay behind — and the status line shows 'X of N models can be placed here'.",
+				"A group drop where NO model fits is refused and keeps the group in your hand (with the reason), instead of scattering or snapping models back.",
+				"On the pad, the whole formation stops at the unit's remaining movement range (same clamp single models already had), so a group drop can't be rejected for over-shooting.",
+				"B cancels a group carry cleanly — nothing is staged and nothing moves.",
+				"Fixed: a leftover multi-selection from a previously moved unit could hijack a click on the next unit's models (model ids repeat between units) and silently dispatch moves for the wrong unit's positions. Selections are now cleared when switching units, confirming, or resetting a move."
+			]
+		},
+		{
 			"version": "0.82.0",
 			"date": "2026-07-21",
 			"summary": "Controller multi-step model movement — moving a model in several legs (around terrain, through a gap) now works on the pad like it does with the mouse. Dropping a model with A keeps it in focus: press A again to pick it back up and keep spending its remaining movement. When the model is where you want it, X finishes it and hands you the unit's next un-moved model. B undoes the last placed model.",
