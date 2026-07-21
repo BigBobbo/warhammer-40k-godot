@@ -9,7 +9,7 @@
   "transition_to_phase": 7,
   "disable_ai": true,
   "rng_seed": 42,
-  "description": "M3 model carry in the Movement phase: A (cursor parked) opens the M4 move-mode action bar; A again ('Move') begins the carry — the active model rides the cursor with a held synthetic LMB (the real drag pipeline runs), the stick drives it within the move cap and unit coherency, A drops (staged_moves grows), D-pad right hops to the next model for a second carry, X undoes the last staged model, Confirm Move lands only the kept move in GameState; then the oval-based jetbike is carried, rotated with LB (rebindable rotate_left synthesized), and the carry cancelled with B.",
+  "description": "M3 model carry in the Movement phase: A (cursor parked) opens the M4 move-mode action bar; A again ('Move') begins the carry — the active model rides the cursor with a held synthetic LMB (the real drag pipeline runs), the stick drives it within the move cap and unit coherency, A drops (staged_moves grows), the R4 back paddle (PADDLE1) hops to the next model for a second carry, X undoes the last staged model, Confirm Move lands only the kept move in GameState; then the oval-based jetbike is carried, rotated with LB (rebindable rotate_left synthesized), and the carry cancelled with B.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -122,7 +122,7 @@
     },
     {
       "act": "simulate_joy_button",
-      "button_index": 14
+      "button_index": 16
     },
     {
       "act": "wait_seconds",
