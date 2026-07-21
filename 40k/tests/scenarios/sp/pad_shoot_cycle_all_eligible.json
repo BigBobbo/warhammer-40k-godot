@@ -1,0 +1,44 @@
+{
+  "id": "pad_shoot_cycle_all_eligible",
+  "covers": [
+    "controller.bumper_only_unit_cycling",
+    "controller.m2.shooting_native",
+    "controller.shooting.cycle_ring_phase_eligibility",
+    "ShootingController",
+    "PadRouter"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Shooting-phase bumpers must never be dead on phase entry. The shooter list's default filter hides units with no eligible target, which at the start of the phase is most of the army — cycling only the visible rows made LB/RB silent no-ops (0-1 rows) while the hint bar promised 'RB Cycle Units'. The ring is now built from PHASE eligibility (_can_unit_shoot + not shot yet), like Movement's pad_can_cycle_to. Enters shooting the way a real player does — pad Start ends the Movement phase, A confirms the dialog — then asserts: a shooter is auto-armed AND camera-framed on entry (pad active), RB cycles to a filter-hidden eligible unit whose row appears selected in the list, and LB cycles back.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "simulate_joy_button", "button_index": 6 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script", "script": "str(main.shooting_controller.active_shooter_id) != \"\"", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"entry_shooter\", str(main.shooting_controller.active_shooter_id))" },
+
+    { "act": "execute_script", "script": "main.shooting_controller._pad_cycle_ring().size() > main.shooting_controller.unit_selector.get_item_count()", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar sc = m.shooting_controller\nvar u = GameState.get_unit(str(sc.active_shooter_id))\nvar pos = null\nfor model in u.get(\"models\", []):\n\tif model.get(\"alive\", true):\n\t\tpos = model.get(\"position\")\n\t\tbreak\nif pos == null:\n\treturn false\nvar screen = m.world_to_screen_position(Vector2(float(pos.x), float(pos.y)))\nvar vp = m.get_viewport().get_visible_rect().size\nreturn screen.x >= 0.0 and screen.y >= 0.0 and screen.x <= vp.x and screen.y <= vp.y", "equals": true },
+    { "act": "screenshot", "label": "01_entry_shooter_framed" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.active_shooter_id) != str(InputDeviceManager.get_meta(\"entry_shooter\"))", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var sc = tree.current_scene.shooting_controller\nvar sel = sc.unit_selector.get_selected_items()\nif sel.size() == 0:\n\treturn \"no_row_selected\"\nreturn str(sc.unit_selector.get_item_metadata(sel[0])) == str(sc.active_shooter_id)", "equals": true },
+    { "act": "screenshot", "label": "02_rb_cycled_to_hidden_eligible_unit" },
+
+    { "act": "simulate_joy_button", "button_index": 9 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.active_shooter_id) == str(InputDeviceManager.get_meta(\"entry_shooter\"))", "equals": true },
+    { "act": "screenshot", "label": "03_lb_cycled_back" }
+  ]
+}
