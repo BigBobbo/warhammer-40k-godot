@@ -2242,10 +2242,34 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	# P3-116: Update coherency preview lines during drag
 	_update_coherency_preview(world_pos)
 
+func _compute_move_rejection(world_pos: Vector2) -> String:
+	"""Single source of truth for why staging the active model at world_pos is
+	illegal ("" = legal): over the move cap, off the board, or overlapping a
+	wall/model. Shared by _end_model_drag (mouse + pad drop) and the pad carry's
+	pad_carry_drop_rejection() so a controller drop is judged identically to a
+	mouse drop."""
+	var terrain_penalty = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
+	var distance_inches = Measurement.distance_polyline_inches([drag_start_pos, world_pos]) + terrain_penalty
+	var total_distance = _get_accumulated_distance() + distance_inches
+	var effective_cap = _get_effective_move_cap()
+	if total_distance > effective_cap + MOVEMENT_CAP_EPSILON:
+		return "Movement exceeds %.1f\" cap (would be %.1f\")" % [effective_cap, total_distance]
+	if current_phase and selected_model and _is_position_outside_board(world_pos, selected_model):
+		return "Cannot place model beyond the board edge"
+	if current_phase and _check_position_would_overlap(world_pos):
+		# Distinguish wall overlap from model overlap so the player knows whether
+		# to find a different lane or just nudge sideways.
+		var test_model = selected_model.duplicate()
+		test_model["position"] = world_pos
+		if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
+			return "Cannot place model overlapping a wall this unit can't cross"
+		return "Cannot place model overlapping another model"
+	return ""
+
 func _end_model_drag(mouse_pos: Vector2) -> void:
 	if not dragging_model:
 		return
-	
+
 	print("Ending model drag")
 	
 	# Get the board transform from Main
@@ -2268,35 +2292,18 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	if InputDeviceManager.is_pad_active():
 		world_pos = _clamp_move_to_budget(world_pos)
 
-	# Calculate distance
-	var distance_inches = Measurement.distance_polyline_inches([drag_start_pos, world_pos])
-
-	# Add terrain penalty (elevation changes for non-FLY units)
+	# Distance is recomputed here only for the debug log; the legality decision
+	# lives in _compute_move_rejection so the pad carry can consult the exact
+	# same rules BEFORE it releases a model (see pad_carry_drop_rejection).
 	var terrain_penalty = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
-	distance_inches += terrain_penalty
+	var distance_inches = Measurement.distance_polyline_inches([drag_start_pos, world_pos]) + terrain_penalty
+	var total_distance = _get_accumulated_distance() + distance_inches
 	print("Distance moved: ", distance_inches, " inches (terrain penalty: ", terrain_penalty, ")")
 
-	# Get accumulated distance to check against cap (accounting for pivot cost)
-	var accumulated = _get_accumulated_distance()
-	var total_distance = accumulated + distance_inches
-	var effective_cap = _get_effective_move_cap()
-
-	# Build a single rejection-reason string for the toast so silent reverts
-	# don't leave the player guessing why the model snapped back.
-	var rejection_reason: String = ""
-	if total_distance > effective_cap + MOVEMENT_CAP_EPSILON:
-		rejection_reason = "Movement exceeds %.1f\" cap (would be %.1f\")" % [effective_cap, total_distance]
-	elif current_phase and selected_model and _is_position_outside_board(world_pos, selected_model):
-		rejection_reason = "Cannot place model beyond the board edge"
-	elif current_phase and _check_position_would_overlap(world_pos):
-		# Distinguish wall overlap from model overlap so the player knows
-		# whether to find a different lane or just nudge sideways.
-		var test_model = selected_model.duplicate()
-		test_model["position"] = world_pos
-		if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
-			rejection_reason = "Cannot place model overlapping a wall this unit can't cross"
-		else:
-			rejection_reason = "Cannot place model overlapping another model"
+	# Single rejection-reason string (empty = legal) so silent reverts don't
+	# leave the player guessing why the model snapped back — and so the pad
+	# carry refuses an illegal drop with the identical rule set.
+	var rejection_reason: String = _compute_move_rejection(world_pos)
 
 	if rejection_reason == "":
 		print("Move is valid, sending STAGE_MODEL_MOVE action")
@@ -5198,6 +5205,56 @@ func pad_can_cycle_to(unit_id: String) -> bool:
 	"""Bumper cycling skips units whose activation is spent (PRP §2.6: cycling
 	follows eligibility, not raw list order). Mouse row-clicks are unaffected."""
 	return _get_unit_movement_status(unit_id) != "completed"
+
+
+func pad_carry_drop_rejection(screen_pos: Vector2) -> String:
+	"""Pad carry seam: would dropping the carried model at screen_pos be
+	rejected? Returns the toast reason ("" = legal), computed at the EXACT world
+	position _end_model_drag would stage (same board transform, grid snap and
+	over-range budget clamp). PadRouter consults this BEFORE releasing the
+	synthetic button so an illegal drop keeps the model in hand instead of
+	snapping it back and stranding the cursor."""
+	if not dragging_model:
+		return ""
+	var board_root = SceneRefs.board_root()
+	var world_pos: Vector2 = board_root.transform.affine_inverse() * screen_pos if board_root else get_global_mouse_position()
+	if _should_snap_to_grid():
+		world_pos = _snap_to_grid(world_pos)
+	if InputDeviceManager.is_pad_active():
+		world_pos = _clamp_move_to_budget(world_pos)
+	return _compute_move_rejection(world_pos)
+
+
+func pad_is_move_session_locked() -> bool:
+	"""True once the active unit has committed to its move — mode locked (Advance
+	rolled, Fall Back, confirmed) OR at least one model staged/committed. While
+	locked, the pad bumpers refuse to switch units (deployment-style lock) so a
+	mis-cycle can't strand a half-moved unit. Choosing a mode but not yet touching
+	a model does NOT lock, so the player can still freely change their mind."""
+	if active_unit_id == "":
+		return false
+	if not current_phase or not current_phase.has_method("get_active_move_data"):
+		return false
+	var move_data = current_phase.get_active_move_data(active_unit_id)
+	if move_data.is_empty() or move_data.get("completed", false):
+		return false
+	if move_data.get("mode_locked", false):
+		return true
+	return not move_data.get("staged_moves", []).is_empty() \
+		or not move_data.get("model_moves", []).is_empty()
+
+
+func pad_confirm_move() -> bool:
+	"""Start-button context action in the Movement phase: confirm the active
+	unit's in-progress move (the same CONFIRM_UNIT_MOVE the "Confirm Move" button
+	sends). Returns true only when there is a pending move to confirm, so Start
+	falls through to the End-Phase confirm when nothing is staged."""
+	if active_unit_id == "":
+		return false
+	if not _has_pending_unconfirmed_move(active_unit_id):
+		return false
+	_on_confirm_move_pressed()
+	return true
 
 
 func pad_menu_options() -> Array:

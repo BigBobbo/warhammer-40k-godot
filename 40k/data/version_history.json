@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.76.0",
+			"date": "2026-07-21",
+			"summary": "Steam Deck controls — Movement phase carry fix. On a controller, trying to drop a model somewhere it can't go (into a wall, past its move, or on top of another model) now KEEPS the model in your hand so you can just steer somewhere legal, instead of dropping it and leaving you unable to grab the unit again. Once you've moved a model the bumpers lock to that unit until you confirm (Start) or reset the move, so a stray bump can't strand a half-moved unit, and Start now confirms the selected unit's move.",
+			"changes": [
+				"Controller movement: an illegal drop (into a wall this unit can't cross, beyond its Move, or overlapping another model) now keeps the model on the cursor so you can slide to a legal spot and drop again — it no longer snaps back and leaves you unable to pick the unit up. Fixes the 'the A button seems to point at something else and I can't move the vehicle again' bug.",
+				"Controller movement: after any drop the cursor is parked, so the next A always picks the model back up (or confirms) instead of registering as a stray board click that silently switched to another unit.",
+				"Controller movement: once a unit has a mode locked or a model staged, the bumpers stay locked to that unit (you're told to confirm or reset first) — the same lock deployment already uses — so a mis-cycle can't abandon a half-finished move.",
+				"Controller movement: Start now confirms the selected unit's move when one is in progress (matching how Start confirms targets in Shooting and a unit in Deployment); the hint bar shows the locked-unit controls (Pick Up Model / Switch Model / Undo Model / Confirm Move).",
+				"Mouse & keyboard movement is unchanged."
+			]
+		},
+		{
 			"version": "0.75.0",
 			"date": "2026-07-20",
 			"summary": "Steam Deck controls — customisation pass. A new Controller section in Settings › Controls lets you invert the camera Y axis, swap which stick moves the cursor vs the camera, tune camera and cursor sensitivity, and turn the cursor magnetism on or off — plus a full on-screen reference of the pad control scheme. The controller hint bar now leads with 'Cycle Units' (the bumpers are how you pick units), and the movement-range ring is bolder while you carry a model on a controller so the edge you slide to is unmistakable.",

@@ -1,0 +1,72 @@
+{
+  "id": "pad_move_illegal_drop_keeps_model",
+  "covers": [
+    "controller.move.illegal_drop_keeps_model",
+    "controller.move.drop_parks_cursor",
+    "controller.move.session_lock",
+    "controller.move.start_confirms"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Movement pad-carry regression (the Battle Wagon bug): a single-model vehicle-analog (Blade Champion, Move 6\") is picked up via the move action menu. Dropping A onto another in-range model (Shield Captain) is REJECTED and the model STAYS IN HAND (is_carrying true, nothing staged) instead of snapping back and stranding the cursor. A legal drop then stages the move AND parks the cursor, so the very next A re-arms as pick-up (the old bug swallowed that A as a stray board click that silently switched the selected unit). While a model is staged the bumpers refuse to switch units (session lock), and Start confirms the whole unit's move.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"bc_y0\", GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].position.y)" },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_BLADE_CHAMPION_A" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_BLADE_CHAMPION_A" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "screenshot", "label": "01_champion_carried" },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_SHIELD_CAPTAIN_A" },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.dragging_model", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves.get(\"U_BLADE_CHAMPION_A\", {}).get(\"staged_moves\", []).size()", "equals": 0 },
+    { "act": "screenshot", "label": "02_illegal_drop_still_in_hand" },
+
+    { "act": "pad_cursor_glide", "x": 120.0, "y": 300.0 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_BLADE_CHAMPION_A\"].staged_moves.size()", "equals": 1 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": false },
+    { "act": "screenshot", "label": "03_legal_drop_staged_and_parked" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_BLADE_CHAMPION_A" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "screenshot", "label": "04_A_rearmed_repickup" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_BLADE_CHAMPION_A\"].staged_moves.size()", "equals": 1 },
+
+    { "act": "simulate_joy_button", "button_index": 6 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_BLADE_CHAMPION_A\"].get(\"completed\", false)", "equals": true },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].position.y - InputDeviceManager.get_meta(\"bc_y0\")", "expect_min": 150 },
+    { "act": "screenshot", "label": "05_start_confirmed_move" }
+  ]
+}
