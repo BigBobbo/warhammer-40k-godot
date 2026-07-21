@@ -1,0 +1,94 @@
+{
+  "id": "pad_move_carry_hop_swap",
+  "covers": [
+    "controller.move.paddle_swap_mid_carry",
+    "controller.move.paddle_revert_unstaged",
+    "controller.move.paddle_keeps_staged",
+    "controller.move.paddle_menu_hop"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "L4/R4 back-paddle model switching works at EVERY stage of the Movement phase, not only the all-models-placed locked state. With the move-mode menu open the paddles hop between the unit's models (choosing which model the carry starts with) without closing the menu. Mid-carry, a paddle press puts the un-dropped model in hand back where it was picked up (its move reverts, no stage left behind) and hands over the prev/next model; a model already dropped with A keeps its staged position — hopping back to it picks it up AT that staged spot, and a later cancel returns it there. Confirming lands only the staged model's move in GameState.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"w0y\", GameState.state.units[\"U_WITCHSEEKERS_C\"].models[0].position.y)" },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"w1y\", GameState.state.units[\"U_WITCHSEEKERS_C\"].models[1].position.y)" },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"w2y\", GameState.state.units[\"U_WITCHSEEKERS_C\"].models[2].position.y)" },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_WITCHSEEKERS_C" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 16 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 17 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 0 },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.dragging_model", "equals": true },
+    { "act": "screenshot", "label": "01_model0_in_hand" },
+
+    { "act": "pad_cursor_glide", "x": 850.0, "y": 140.0 },
+    { "act": "simulate_joy_button", "button_index": 16 },
+    { "act": "wait_seconds", "seconds": 0.7 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 0 },
+    { "act": "screenshot", "label": "02_swapped_to_model1_model0_reverted" },
+
+    { "act": "pad_cursor_glide", "x": 910.0, "y": 100.0 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 1 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"d1x\", PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves[0].dest.x)" },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"d1y\", PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves[0].dest.y)" },
+
+    { "act": "simulate_joy_button", "button_index": 16 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 2 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+
+    { "act": "pad_cursor_glide", "x": 970.0, "y": 140.0 },
+    { "act": "simulate_joy_button", "button_index": 17 },
+    { "act": "wait_seconds", "seconds": 0.7 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 1 },
+    { "act": "execute_script", "script": "main.movement_controller.drag_start_pos.distance_to(PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves[0].dest)", "expect_max": 8 },
+    { "act": "screenshot", "label": "03_staged_model_repicked_at_staged_spot" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 1 },
+    { "act": "execute_script", "script": "abs(PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves[0].dest.x - InputDeviceManager.get_meta(\"d1x\"))", "expect_max": 8 },
+    { "act": "execute_script", "script": "abs(PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves[0].dest.y - InputDeviceManager.get_meta(\"d1y\"))", "expect_max": 8 },
+
+    { "act": "pad_cursor_glide", "button_text": "End This Unit's Move" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "abs(GameState.state.units[\"U_WITCHSEEKERS_C\"].models[1].position.y - InputDeviceManager.get_meta(\"w1y\"))", "expect_min": 35 },
+    { "act": "execute_script", "script": "abs(GameState.state.units[\"U_WITCHSEEKERS_C\"].models[0].position.y - InputDeviceManager.get_meta(\"w0y\"))", "expect_max": 1 },
+    { "act": "execute_script", "script": "abs(GameState.state.units[\"U_WITCHSEEKERS_C\"].models[2].position.y - InputDeviceManager.get_meta(\"w2y\"))", "expect_max": 1 },
+    { "act": "screenshot", "label": "04_confirm_only_staged_model_moved" }
+  ]
+}
