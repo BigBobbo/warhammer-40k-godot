@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.80.0",
+			"date": "2026-07-21",
+			"summary": "Steam Deck Movement phase — the L4 / R4 back paddles now switch models at EVERY stage of the phase, not only after the whole unit has been placed. Hop between a unit's models while browsing units or with the move menu open (to pick which model leads), and press a paddle mid-carry to swap models: the model in your hand goes back where you picked it up, while models you already dropped with A keep their spots.",
+			"changes": [
+				"L4 / R4 model switching now works while a model is in hand: the un-dropped model in your hand returns to where it was picked up and the previous/next model is handed to you instead. Models you already dropped with A stay exactly where you put them.",
+				"Hopping onto a model you already dropped picks it up from its dropped position (so you can adjust it), and putting it back down or cancelling keeps that position — nothing you confirmed is ever lost by switching models.",
+				"The paddles also hop between models while the move-mode menu is open and while a unit is merely selected (the camera follows), so you can choose which model to lead with before choosing Move.",
+				"After you drop a model, the automatic hand-off now skips models you already placed and hands you the next un-moved one — placing models out of order no longer hands you an already-placed model back.",
+				"The hint bar now shows the paddles wherever they work: 'L4/R4 Model ◀ ▶' with a unit selected or the move menu open, and 'L4/R4 Swap Model' while carrying — not just in the all-models-placed state."
+			]
+		},
+		{
 			"version": "0.79.0",
 			"date": "2026-07-21",
 			"summary": "Steam Deck Save/Load — the controller now actually works in the Save & Load window. Opening it used to leave the D-pad stuck on the main-menu buttons drawn behind it, so you could never pick a saved game to load. Now focus jumps straight into the window and lands on your list of saves: the D-pad walks the saved games (and every button), A loads the highlighted one, and B closes the window and returns you to where you were.",

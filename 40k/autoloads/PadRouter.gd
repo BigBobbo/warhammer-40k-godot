@@ -105,6 +105,7 @@ const HINTS_CARRY := [
 	["ls", "Move Model"],
 	["rs", "Precision"],
 	["a", "Drop"],
+	["l4/r4", "Swap Model"],
 	["lb", "Rotate ⟲"],
 	["rb", "Rotate ⟳"],
 	["b", "Cancel"],
@@ -113,6 +114,7 @@ const HINTS_CARRY := [
 const HINTS_MENU := [
 	["dpad", "Choose Action"],
 	["rb", "Cycle Units"],
+	["l4/r4", "Model ◀ ▶"],
 	["a", "Confirm"],
 	["b", "Cancel"],
 ]
@@ -123,6 +125,7 @@ const HINTS_MOVE := [
 	["rb", "Cycle Units"],
 	["a", "Move Menu"],
 	["dpad", "Move Menu"],
+	["l4/r4", "Model ◀ ▶"],
 	["ls", "Point"],
 	["lt/rt", "Zoom"],
 	["x", "Undo Model"],
@@ -216,6 +219,13 @@ func _input(event: InputEvent) -> void:
 				_apply_menu_choice(PadActionBar.activate())
 			JOY_BUTTON_B:
 				PadActionBar.close()
+			# Back paddles keep their one meaning with the menu up: hop the
+			# selected unit's models (camera-follow) so the player can pick WHICH
+			# model leads before choosing Move — the carry starts at this index.
+			JOY_BUTTON_PADDLE1, JOY_BUTTON_PADDLE3:
+				_hop_model(1)
+			JOY_BUTTON_PADDLE2, JOY_BUTTON_PADDLE4:
+				_hop_model(-1)
 		get_viewport().set_input_as_handled()
 		_update_hints()
 		return
@@ -267,7 +277,10 @@ func _input(event: InputEvent) -> void:
 			if _pad_step_shoot_target(1) or _pad_deploy_option_cycle(1) or _try_open_move_menu() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		# Steam Deck back paddles hop between the selected unit's models (Movement
-		# / Charge) — the job D-pad ◀ ▶ used to do. Both back pairs are bound so
+		# / Charge) — the job D-pad ◀ ▶ used to do. Works at every stage of the
+		# Movement phase: browsing/menu = camera hop to pick the lead model;
+		# mid-carry = revert the un-dropped model in hand and take the prev/next
+		# one (staged drops keep their spot). Both back pairs are bound so
 		# whichever the player's config exposes works: right paddles (commonly
 		# R4/R5 → PADDLE1/3) = next model, left paddles (L4/L5 → PADDLE2/4) = prev.
 		JOY_BUTTON_PADDLE1, JOY_BUTTON_PADDLE3:
@@ -822,8 +835,18 @@ func _auto_carry_next_model() -> void:
 	if unit_id != _carry_unit_id:
 		return  # unit changed under us — don't drag the camera to a new unit
 	var alive := _alive_model_count(unit_id)
-	var next_index := carry_model_index + 1
-	if next_index >= alive:
+	# Hand over the next model that has NOT been placed yet, scanning forward
+	# with wrap-around and skipping staged ones — paddle hops let models be
+	# placed out of order, and auto-handing back a model the player already
+	# dropped would silently threaten its kept position. None un-placed →
+	# leave the player in the locked state to Confirm.
+	var next_index := -1
+	for step in range(1, alive + 1):
+		var candidate := wrapi(carry_model_index + step, 0, alive)
+		if _staged_model_pos(unit_id, _alive_model_id(unit_id, candidate)) == null:
+			next_index = candidate
+			break
+	if next_index == -1:
 		return  # whole unit placed — leave the player in the locked state to Confirm
 	carry_model_index = next_index
 	if _try_begin_carry():
@@ -837,6 +860,19 @@ func _alive_model_count(unit_id: String) -> int:
 		if model.get("alive", true):
 			n += 1
 	return n
+
+
+# The id ("m1", …) of unit_id's Nth alive model, or "" when out of range.
+func _alive_model_id(unit_id: String, alive_index: int) -> String:
+	var unit = GameState.get_unit(unit_id)
+	var idx := 0
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		if idx == alive_index:
+			return str(model.get("id", ""))
+		idx += 1
+	return ""
 
 
 # Public seam for Main's Start (End-Phase / Confirm) handler: when Start is
@@ -874,7 +910,22 @@ func _cancel_carry() -> void:
 	# release (there is no dedicated drag-cancel in the mouse flow either).
 	var unit_id := _carry_unit_id
 	var staged_before := _movement_staged_count(unit_id)
-	VirtualCursor.warp_to(_carry_pickup_screen)
+	# Warp target: re-project the drag's authoritative world origin rather than
+	# trusting the remembered screen point — edge-panning during the carry makes
+	# that stale, and a release at a stale point stages a WRONG-position move.
+	# For an unstaged model the count-check undo below would still rescue it,
+	# but for a re-picked staged model the release REPLACES its stage in place
+	# (count unchanged → no undo), silently corrupting the kept position.
+	# Center the camera on the origin first so the projection is on-screen —
+	# the cursor warp clamps to the viewport.
+	var back_screen := _carry_pickup_screen
+	var m := get_tree().current_scene
+	var mc := _movement_controller()
+	if mc != null and ("dragging_model" in mc) and mc.dragging_model \
+			and ("drag_start_pos" in mc) and m != null and m.has_method("world_to_screen_position"):
+		_center_camera_on_world(mc.drag_start_pos)
+		back_screen = m.world_to_screen_position(mc.drag_start_pos)
+	VirtualCursor.warp_to(back_screen)
 	VirtualCursor.set_left_button(false)
 	carry_active = false
 	# Park (warp_to above re-activated the cursor) so the next A re-arms through
@@ -920,8 +971,6 @@ func _movement_staged_count(unit_id: String) -> int:
 
 
 func _hop_model(dir: int) -> bool:
-	if carry_active:
-		return false
 	var m := get_tree().current_scene
 	if m == null or not ("current_phase" in m):
 		return false
@@ -930,14 +979,24 @@ func _hop_model(dir: int) -> bool:
 	var ctrl = m.movement_controller if m.current_phase == GameStateData.Phase.MOVEMENT else m.charge_controller
 	if ctrl == null or not is_instance_valid(ctrl) or str(ctrl.active_unit_id) == "":
 		return false
+	if carry_active:
+		# Mid-carry hop (Movement only): put the in-hand model back where it was
+		# picked up — an un-dropped move reverts; a model already dropped with A
+		# keeps its staged spot (the cancel's count-check leaves prior stages
+		# alone) — then hand the player the prev/next model. Charge keeps its
+		# one-model-at-a-time flow.
+		if _movement_controller() == null:
+			return false
+		var alive_c := _alive_model_count(_carry_unit_id)
+		if alive_c <= 1:
+			return true  # nothing to swap to — consume without a pointless regrab
+		carry_model_index = wrapi(carry_model_index + dir, 0, alive_c)
+		_swap_carry_to_index()
+		return true
 	if str(ctrl.active_unit_id) != _carry_unit_id:
 		_carry_unit_id = str(ctrl.active_unit_id)
 		carry_model_index = 0
-	var unit = GameState.get_unit(str(ctrl.active_unit_id))
-	var alive := 0
-	for model in unit.get("models", []):
-		if model.get("alive", true):
-			alive += 1
+	var alive := _alive_model_count(str(ctrl.active_unit_id))
 	if alive == 0:
 		return false
 	carry_model_index = wrapi(carry_model_index + dir, 0, alive)
@@ -947,8 +1006,38 @@ func _hop_model(dir: int) -> bool:
 	return true
 
 
+# Mid-carry paddle hop: cancel the live carry (reverting an un-staged model to
+# its pickup spot), wait for the synthetic release + junk-stage undo to settle,
+# then pick up the model now at carry_model_index. 3 frames: _cancel_carry's
+# undo coroutine runs at frame 2, so frame 3 is safely after it — re-arming
+# earlier would make that coroutine bail on its carry_active guard and leave
+# the junk 0" stage in place.
+func _swap_carry_to_index() -> void:
+	_cancel_carry()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if carry_active or PadActionBar.is_open():
+		return  # something else re-claimed the pad mid-swap
+	if get_viewport().gui_get_focus_owner() != null:
+		return
+	var mc := _movement_controller()
+	if mc == null or str(mc.active_unit_id) == "" or str(mc.active_unit_id) != _carry_unit_id:
+		return
+	# The player is often still deflecting the stick when the paddle clicks,
+	# which re-activates the parked cursor and would make _try_begin_carry bail.
+	# The paddle press claimed this hop — park again and take the model.
+	if VirtualCursor.is_cursor_active():
+		VirtualCursor.park()
+	if _try_begin_carry():
+		_update_hints()
+
+
 # Returns the world-space position (Vector2) of the unit's Nth alive model,
-# or null when out of range.
+# or null when out of range. In the Movement phase a model that has already
+# been dropped this move sits at its STAGED dest (GameState only updates on
+# confirm), so prefer that — hopping to / picking up a staged model must land
+# where its token visually is, not at its pre-move position.
 func _model_world_pos(unit_id: String, alive_index: int):
 	var unit = GameState.get_unit(unit_id)
 	var idx := 0
@@ -956,6 +1045,9 @@ func _model_world_pos(unit_id: String, alive_index: int):
 		if not model.get("alive", true):
 			continue
 		if idx == alive_index:
+			var staged = _staged_model_pos(unit_id, str(model.get("id", "")))
+			if staged != null:
+				return staged
 			var pos = model.get("position", null)
 			if pos is Dictionary and pos.has("x"):
 				return Vector2(float(pos.x), float(pos.y))
@@ -963,6 +1055,35 @@ func _model_world_pos(unit_id: String, alive_index: int):
 				return pos
 			return null
 		idx += 1
+	return null
+
+
+# The staged (uncommitted) destination of unit_id's own model model_id in the
+# Movement phase, or null when it has no staged move / not in Movement.
+func _staged_model_pos(unit_id: String, model_id: String):
+	if model_id == "":
+		return null
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m) or m.current_phase != GameStateData.Phase.MOVEMENT:
+		return null
+	var phase = PhaseManager.get_current_phase_instance()
+	if phase == null or not phase.has_method("get_active_move_data"):
+		return null
+	var staged: Array = phase.get_active_move_data(unit_id).get("staged_moves", [])
+	# Match on model_source_unit_id too: bodyguard and attached character
+	# model ids can collide (both "m1"); we only hop the active unit's own models.
+	for i in range(staged.size() - 1, -1, -1):
+		var sm = staged[i]
+		if str(sm.get("model_id", "")) != model_id:
+			continue
+		if str(sm.get("model_source_unit_id", unit_id)) != unit_id:
+			continue
+		var dest = sm.get("dest")
+		if dest is Vector2:
+			return dest
+		if dest is Array and dest.size() >= 2:
+			return Vector2(float(dest[0]), float(dest[1]))
+		return null
 	return null
 
 
