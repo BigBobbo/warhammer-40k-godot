@@ -4,14 +4,17 @@ extends Node
 # M2): the native-controls layer on top of the M1 virtual cursor.
 #
 #   LB/RB  — THE unit-cycling control, and the only one (BUMPER-ONLY rule):
-#            cycle the "current list": eligible shooters / eligible targets
+#            cycle the ACTING unit in every phase — eligible shooters
 #            (shooting, reusing the shipped shoot_* semantics) or the
 #            right-panel unit list (other phases; same entry point a mouse
-#            row-click uses). Deployment: cycling switches which unit is being
-#            deployed, but locks once any model of the current unit is placed
-#            (undo them all to unlock — mirrors the mouse rule). Works while
-#            the action bar is open too — the menu follows the new unit.
-#   D-pad ◀ ▶ — placement (deployment / reinforcement / scout reserves):
+#            row-click uses). Never the target ring: targets are the armed
+#            unit's sub-menu on the D-pad. Deployment: cycling switches which
+#            unit is being deployed, but locks once any model of the current
+#            unit is placed (undo them all to unlock — mirrors the mouse rule).
+#            Works while the action bar is open too — the menu follows.
+#   D-pad ◀ ▶ — shooting with an armed shooter: walk the eligible-target ring
+#            (highlight rings + camera follow; A assigns to the current
+#            weapon). Placement (deployment / reinforcement / scout reserves):
 #            cycle the value of the highlighted selector row — model type
 #            (multi-profile units) or formation (Single / Spread / Tight);
 #            otherwise panel focus entry
@@ -49,14 +52,15 @@ const HINTS_BOARD := [
 	["rb", "Cycle Units"],
 	["a", "Select"],
 	["ls", "Point"],
+	["lt/rt", "Zoom"],
 	["y", "Datasheet"],
 	["dpad", "Focus Panels"],
 	["menu", "End Phase"],
 	["view", "Pause Menu"],
 ]
 const HINTS_TARGETS := [
-	["rb", "Cycle Targets"],
-	["dpad", "Weapon ▲ ▼"],
+	["rb", "Cycle Units"],
+	["dpad", "Target ◀▶ · Weapon ▲▼"],
 	["a", "Assign Target"],
 	["x", "Skip Unit"],
 	["y", "Datasheet"],
@@ -109,6 +113,7 @@ const HINTS_MOVE := [
 	["a", "Menu / Pick Up"],
 	["dpad", "Move Menu"],
 	["ls", "Point"],
+	["lt/rt", "Zoom"],
 	["x", "Undo Model"],
 	["y", "Datasheet"],
 	["menu", "End Phase"],
@@ -218,11 +223,13 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_DPAD_LEFT:
 			# Model-switching moved OFF the D-pad onto the Steam Deck back paddles
 			# (below) so D-pad ◀ ▶ stays free for menu / option navigation and no
-			# longer fights the move-mode menu. Deployment option-cycle keeps it.
-			if _pad_deploy_option_cycle(-1) or _enter_panel_focus():
+			# longer fights the move-mode menu. Deployment option-cycle keeps it;
+			# shooting uses ◀ ▶ to walk the armed shooter's target ring (the
+			# bumpers stay on shooter cycling per the bumper-only rule).
+			if _pad_step_shoot_target(-1) or _pad_deploy_option_cycle(-1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
-			if _pad_deploy_option_cycle(1) or _enter_panel_focus():
+			if _pad_step_shoot_target(1) or _pad_deploy_option_cycle(1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		# Steam Deck back paddles hop between the selected unit's models (Movement
 		# / Charge) — the job D-pad ◀ ▶ used to do. Both back pairs are bound so
@@ -329,16 +336,17 @@ func _reopen_move_menu() -> void:
 func _cycle(dir: int) -> void:
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null:
-		# With an armed shooter that HAS targets, LB/RB walks the target ring.
-		# A shooter with nothing to shoot at is a dead end — fall through to
-		# cycling shooters so the bumpers always advance the activation.
-		if str(sc.active_shooter_id) == "" or sc.eligible_targets.is_empty():
-			sc._keyboard_cycle_units(dir < 0)  # reuses the Tab / Shift+Tab path
-			target_highlight_id = ""
-			if str(sc.active_shooter_id) != "":
-				_center_camera_on_unit(str(sc.active_shooter_id))
-		else:
-			_cycle_target(sc, dir)
+		# BUMPER-ONLY rule holds in shooting too: LB/RB always cycles the
+		# SHOOTER (the acting unit), never the target ring. The old behavior —
+		# bumpers flipping to target-cycling the instant a shooter was armed —
+		# meant the first bumper press locked you out of browsing shooters
+		# entirely (deselect + press just re-armed the first one again).
+		# Targets are the armed shooter's sub-menu now: D-pad ◀ ▶, next to the
+		# weapon rows on ▲ ▼ (mirrors charge's target stepping).
+		sc._keyboard_cycle_units(dir < 0)  # reuses the Tab / Shift+Tab path
+		target_highlight_id = ""
+		if str(sc.active_shooter_id) != "":
+			_center_camera_on_unit(str(sc.active_shooter_id))
 		return
 	# Deployment: once any model of the current unit is on the table the unit
 	# is committed — LB/RB can't switch away until every model is undone
@@ -413,6 +421,14 @@ func _cycle_unit_list(dir: int) -> void:
 	list.select(found)
 	list.ensure_current_is_visible()
 	list.item_selected.emit(found)
+	# Camera-follow on bumper cycling (rows carry the unit id as metadata).
+	# Phase selection handlers don't move the camera themselves, so without
+	# this a pad player cycles "blind" — worst right after loading a save,
+	# where the whole-board overview (~0.3 zoom) leaves every unit unreadably
+	# small; _center_camera_on_unit frames-with-zoom in that regime.
+	var uid = list.get_item_metadata(found)
+	if uid != null and str(uid) != "":
+		_center_camera_on_unit(str(uid))
 
 
 # Deployment placing: D-pad ◀ ▶ cycles the value of the highlighted selector
@@ -465,6 +481,20 @@ func _pad_step_secondary(dir: int) -> bool:
 			if sc != null and sc.has_method("pad_step_weapon"):
 				return sc.pad_step_weapon(dir)
 	return false
+
+
+# Shooting: D-pad ◀ ▶ walks the armed shooter's target ring (on-board highlight
+# rings + camera-follow via _cycle_target). Falls through when there is no armed
+# shooter / no targets, so deployment option-cycling and panel-focus entry keep
+# their ◀ ▶ meanings in every other context.
+func _pad_step_shoot_target(dir: int) -> bool:
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	var sc = _shooting_controller_in_shooting_phase()
+	if sc == null or str(sc.active_shooter_id) == "" or sc.eligible_targets.is_empty():
+		return false
+	_cycle_target(sc, dir)
+	return true
 
 
 # Charge: A (with the cursor parked) toggles the D-pad-highlighted target row
@@ -854,8 +884,13 @@ func _find_first_focusable(root: Node) -> Control:
 		# ItemLists never take pad focus: lists are driven by their dedicated
 		# affordances (LB/RB unit cycling, ▲ ▼ steppers) — focusing one would
 		# turn ui_up/ui_down into unit cycling, the exact bug the bumper-only
-		# rule exists to prevent.
-		if n is Control and not (n is ItemList) and n.focus_mode == Control.FOCUS_ALL \
+		# rule exists to prevent. Text inputs (LineEdit/TextEdit) are skipped
+		# too: the pad can't type into them, their focus styling is invisible,
+		# and a focused text field silently disabled keyboard camera keys — the
+		# "loaded a save, pressed D-pad, now nothing zooms" trap. The Deck's own
+		# on-screen keyboard flow still works via cursor-click on the field.
+		if n is Control and not (n is ItemList) and not (n is LineEdit) and not (n is TextEdit) \
+				and n.focus_mode == Control.FOCUS_ALL \
 				and n.is_visible_in_tree() and not (n is BaseButton and n.disabled):
 			return n
 		for child in n.get_children(true):
@@ -880,7 +915,13 @@ func _apply_list_focus_policy(pad: bool) -> void:
 		var queue: Array = [root]
 		while not queue.is_empty():
 			var n: Node = queue.pop_front()
-			if n is ItemList:
+			# Text inputs leave the pad focus chain along with ItemLists: the pad
+			# cannot type into them, their focus styling is invisible, and a
+			# focused text field silently disabled the keyboard camera keys (the
+			# "loaded a save, pressed D-pad, now nothing zooms" trap). FOCUS_CLICK
+			# keeps mouse / virtual-cursor click focus working for KBM and for
+			# deliberate pad clicks (Deck OSK flow).
+			if n is ItemList or n is LineEdit or n is TextEdit:
 				if pad:
 					if n.focus_mode == Control.FOCUS_ALL:
 						n.set_meta("pad_saved_focus_mode", n.focus_mode)
@@ -917,10 +958,24 @@ func _toggle_datasheet() -> bool:
 	return true
 
 
+# Below this zoom the board is a fit-whole-table overview (a loaded save starts
+# at ~0.3) and individual models are unreadable — cycling to a unit there must
+# zoom IN on it, not just pan the overview sideways.
+const CYCLE_FRAME_MIN_ZOOM := 0.5
+
 func _center_camera_on_unit(unit_id: String) -> void:
 	var unit = GameState.get_unit(unit_id)
 	if unit.is_empty():
 		return
+	# Zoomed far out (e.g. right after loading a save): frame the cycled unit
+	# properly — fit_view_to_selection centers AND zooms to its bounding box —
+	# so bumper-cycling is usable without ever touching the zoom triggers. At
+	# normal zoom keep the player's chosen zoom and just pan (as before).
+	var m := get_tree().current_scene
+	if m != null and ("view_zoom" in m) and float(m.view_zoom) < CYCLE_FRAME_MIN_ZOOM \
+			and m.has_method("fit_view_to_selection"):
+		if m.fit_view_to_selection(unit_id):
+			return
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue

@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.77.0",
+			"date": "2026-07-21",
+			"summary": "Steam Deck controls — you can no longer get stranded zoomed-out after loading a game, and the shooting phase now follows the same rule as everywhere else: the bumpers always switch which unit is shooting, while the D-pad picks targets (◀ ▶) and weapons (▲ ▼). Cycling units zooms in and frames the selected unit when the camera is at the far-out overview, the hint bar shows that the triggers zoom (LT / RT), a gold ring highlights whichever button the D-pad has selected, and the hidden trap where D-pad focus landed on the unit-filter text box and silently disabled camera zoom/pan is fixed.",
+			"changes": [
+				"Shooting phase: LB/RB now ALWAYS cycles which unit is shooting — previously the first bumper press armed a shooter and the bumpers silently switched to cycling its targets, so you could never browse your shooters. Targets are now on D-pad ◀ ▶ (with the on-board highlight rings and camera follow), weapons stay on D-pad ▲ ▼, and A assigns the highlighted target to the selected weapon. The hint bar reads 'RB Cycle Units · ✚ Target ◀▶ · Weapon ▲▼'.",
+				"Loading a save starts at a whole-board overview; pressing LB/RB to cycle units now zooms in and frames the selected unit at a readable size when the camera is that far out. At normal zoom levels cycling keeps your zoom and just centers on the unit (bumper cycling now always brings the camera to the unit it selects).",
+				"Fixed the zoom dead-end: D-pad panel navigation could silently land focus on the 'Filter units' text box, which disabled camera zoom and pan until focus moved. Text boxes no longer take controller focus (you can still click into them with the cursor), and controller camera/zoom keeps working even when a text box is focused.",
+				"New gold focus ring: while a controller is in use, the button currently selected by D-pad navigation is outlined in gold, so pressing the D-pad visibly lands somewhere and A clearly shows what it will press.",
+				"The controller hint bar on the board and in the Movement phase now includes 'LT/RT Zoom' — the analog triggers have always zoomed, but nothing on screen said so.",
+				"If the triggers still don't zoom on your Deck, check the game's Steam Input layout is 'Gamepad with Joystick' (not a keyboard/mouse template) — the triggers must reach the game as analog axes."
+			]
+		},
+		{
 			"version": "0.76.1",
 			"date": "2026-07-21",
 			"summary": "Steam Deck controls — switching between models in a unit moved off the D-pad and onto the back paddles (L4 = previous model, R4 = next model), so the D-pad ◀ ▶ is free for the move-mode menu (Normal Move / Advance / Fall Back / Remain Stationary) and no longer double-duties as model-switching.",
