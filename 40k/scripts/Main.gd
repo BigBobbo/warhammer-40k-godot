@@ -5448,6 +5448,14 @@ func _input(event: InputEvent) -> void:
 	# M2: in the shooting phase with an armed shooter + assignments, Start
 	# means "Confirm Targets" instead (PRP §4.3 — context-dependent Menu).
 	if event.is_action_pressed("pad_phase_action"):
+		if current_phase == GameStateData.Phase.MOVEMENT and PadRouter \
+				and PadRouter.has_method("confirm_from_carry") and PadRouter.confirm_from_carry():
+			# A model is in hand (the moving-by-default carry): place it and confirm
+			# the unit's move via PadRouter, instead of confirming underneath the live
+			# carry and stranding the still-held cursor. State-checked here (not just
+			# consumed in PadRouter._input) so it works regardless of _input order.
+			get_viewport().set_input_as_handled()
+			return
 		if current_phase == GameStateData.Phase.SHOOTING and shooting_controller \
 				and is_instance_valid(shooting_controller) \
 				and str(shooting_controller.active_shooter_id) != "" \

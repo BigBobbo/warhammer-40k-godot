@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.78.0",
+			"date": "2026-07-21",
+			"summary": "Steam Deck Movement phase — you can actually move your models with the controller again, and moving is now the default. Picking a unit's move used to pick the model up but leave the stick moving an empty cursor (a coordinate bug that only bit at the Steam Deck's larger UI scale), so the model never budged. That's fixed, and the flow is smoother: choose Move once and the stick moves the model directly; drop a model and the next one is handed straight to you, so you never press 'A to pick up' between the models of a unit. A opens the move menu; Start places the model in hand and confirms the move.",
+			"changes": [
+				"Fixed: in the Movement phase on a controller, a model would not move — the stick moved a floating cursor instead of the picked-up model. This only happened at the controller UI scale (the Steam Deck / the UI Scale boost), where the on-screen cursor and the game's click point had drifted apart by the scale factor; the synthetic pointer now lands exactly where the cursor is, so the model is grabbed and moves with the stick.",
+				"Moving is now the default: after you choose Move (or Fall Back), the first model is picked up automatically and the left stick moves it. When you drop a model, the NEXT un-moved model in the unit is handed to you automatically — no more pressing 'A to pick up' between each model. Auto-hand-off stops after the last model so you can confirm.",
+				"A is the menu: on a selected unit, A (or D-pad ▲ ▼) opens the move-mode menu (Move / Advance / Remain Still). While a model is in hand, A drops it (and hands you the next), B puts it back, and the back paddles L4 / R4 switch which model you're moving.",
+				"Start while holding a model now places it and confirms the whole unit's move in one press, instead of confirming underneath the carry and leaving the cursor stuck. To leave some models where they are, press B to put the current model down, then Start to confirm.",
+				"Hint bar wording updated to match: 'A Move Menu' when a unit is selected, and 'Confirm Move / A Move a Model' once every model is placed."
+			]
+		},
+		{
 			"version": "0.77.0",
 			"date": "2026-07-21",
 			"summary": "Steam Deck controls — you can no longer get stranded zoomed-out after loading a game, and the shooting phase now follows the same rule as everywhere else: the bumpers always switch which unit is shooting, while the D-pad picks targets (◀ ▶) and weapons (▲ ▼). Cycling units zooms in and frames the selected unit when the camera is at the far-out overview, the hint bar shows that the triggers zoom (LT / RT), a gold ring highlights whichever button the D-pad has selected, and the hidden trap where D-pad focus landed on the unit-filter text box and silently disabled camera zoom/pan is fixed.",
