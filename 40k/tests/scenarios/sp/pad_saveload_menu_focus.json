@@ -1,0 +1,58 @@
+{
+  "id": "pad_saveload_menu_focus",
+  "covers": ["controller.saveload.menu_focus_trap", "controller.saveload.list_navigation", "controller.saveload.button_reachable", "controller.saveload.back_closes"],
+  "description": "Steam Deck Save/Load focus fix. Opening the Save/Load overlay from the main menu with a controller must move focus INTO the dialog (not leave it on the menu buttons drawn behind it), let the D-pad walk the existing-saves ItemList (PadRouter no longer steals its focus), reach every action button across the spacer gap (Import -> Main Menu -> Close), and close on B — restoring focus to the button that opened it. No fixture: the runner stays on the MainMenu, which is exactly where the bug was reported.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "multiline": true, "script": "for nm in [\"scn_focus_A\", \"scn_focus_B\", \"scn_focus_C\"]:\n\tSaveLoadManager.save_game(nm, {})\ntree.current_scene.save_load_dialog.refresh_saves_list()\nreturn SaveLoadManager.get_save_files().size() >= 3", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "InputDeviceManager.claim_pad()\nreturn InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "tree.current_scene.load_button.grab_focus()\nreturn str(tree.root.get_viewport().gui_get_focus_owner().name)", "equals": "LoadButton" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "main.save_load_dialog.visible", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nvar fo = tree.root.get_viewport().gui_get_focus_owner()\nvar n = fo\nwhile n != null:\n\tif n == d: return true\n\tn = n.get_parent()\nreturn false", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "return tree.root.get_viewport().gui_get_focus_owner() is ItemList", "equals": true },
+    { "act": "screenshot", "label": "01_focus_on_saves_list" },
+
+    { "act": "execute_script", "multiline": true, "script": "tree.current_scene.save_load_dialog.save_name_input.grab_focus()\nreturn tree.root.get_viewport().gui_get_focus_owner() is LineEdit", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nvar fo = tree.root.get_viewport().gui_get_focus_owner()\nvar inside = false\nvar n = fo\nwhile n != null:\n\tif n == d: inside = true\n\tn = n.get_parent()\nreturn inside", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nvar i = d._first_selectable_save_index()\nd.saves_list.grab_focus()\nd.saves_list.select(i)\nd._on_save_selected(i)\nreturn d.saves_list.get_selected_items()[0]", "equals": 0 },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nvar sel = d.saves_list.get_selected_items()\nvar fo = tree.root.get_viewport().gui_get_focus_owner()\nreturn sel.size() == 1 and sel[0] == 1 and (fo is ItemList)", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nvar sel = d.saves_list.get_selected_items()\nreturn sel.size() == 1 and sel[0] == 2 and (tree.root.get_viewport().gui_get_focus_owner() is ItemList)", "equals": true },
+    { "act": "screenshot", "label": "02_list_navigated" },
+
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nd.import_button.grab_focus()\nreturn tree.root.get_viewport().gui_get_focus_owner() == d.import_button", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nreturn tree.root.get_viewport().gui_get_focus_owner() == d.main_menu_button", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nreturn tree.root.get_viewport().gui_get_focus_owner() == d.cancel_button", "equals": true },
+    { "act": "screenshot", "label": "03_bottom_row_walk" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nvar fo = tree.root.get_viewport().gui_get_focus_owner()\nreturn (not d.visible) and fo == tree.current_scene.load_button", "equals": true },
+
+    { "act": "execute_script", "script": "main.start_button.focus_mode", "equals": 2 },
+    { "act": "screenshot", "label": "04_closed_focus_restored" },
+
+    { "act": "execute_script", "multiline": true, "script": "for nm in [\"scn_focus_A\", \"scn_focus_B\", \"scn_focus_C\"]:\n\tSaveLoadManager.delete_save_file(nm)\nreturn true", "equals": true }
+  ]
+}

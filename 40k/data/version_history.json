@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.79.0",
+			"date": "2026-07-21",
+			"summary": "Steam Deck Save/Load — the controller now actually works in the Save & Load window. Opening it used to leave the D-pad stuck on the main-menu buttons drawn behind it, so you could never pick a saved game to load. Now focus jumps straight into the window and lands on your list of saves: the D-pad walks the saved games (and every button), A loads the highlighted one, and B closes the window and returns you to where you were.",
+			"changes": [
+				"Fixed: opening Save & Load with a controller left the D-pad controlling the menu buttons behind the window instead of the window itself — there was no way to select one of your existing saves. Focus is now trapped inside the window while it is open, so the D-pad can only move between the controls that belong to it.",
+				"The saved-games list is now selectable with the D-pad: open the window and it lands on your list of saves; press ▲ ▼ to move between them, A to load the highlighted save (with the usual confirm prompt). Previously the list could not hold controller focus at all.",
+				"Every button in the window is reachable now — Load / Delete / Export / Import on the left and Main Menu / Close on the right — even though a gap separates the two groups.",
+				"B (Back) closes the Save & Load window, and focus returns to the button that opened it so you can keep navigating the menu without touching the touchpad.",
+				"This applies both to the main menu's Load button and to Save & Load opened from the in-game pause menu."
+			]
+		},
+		{
 			"version": "0.78.0",
 			"date": "2026-07-21",
 			"summary": "Steam Deck Movement phase — you can actually move your models with the controller again, and moving is now the default. Picking a unit's move used to pick the model up but leave the stick moving an empty cursor (a coordinate bug that only bit at the Steam Deck's larger UI scale), so the model never budged. That's fixed, and the flow is smoother: choose Move once and the stick moves the model directly; drop a model and the next one is handed straight to you, so you never press 'A to pick up' between the models of a unit. A opens the move menu; Start places the model in hand and confirms the move.",

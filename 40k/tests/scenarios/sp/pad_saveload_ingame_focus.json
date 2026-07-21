@@ -1,0 +1,39 @@
+{
+  "id": "pad_saveload_ingame_focus",
+  "covers": ["controller.saveload.ingame_focus_trap", "controller.saveload.ingame_list_navigation"],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "The same Save/Load controller-focus fix, exercised in-game (the dialog is reused from the pause/settings menu during a battle). Opening it with a pad must trap focus inside the overlay (not the HUD behind it), let the D-pad drive the existing-saves ItemList (PadRouter's board handlers stay off it), and close on B — restoring the HUD's focus modes.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "multiline": true, "script": "for nm in [\"scn_ig_A\", \"scn_ig_B\"]:\n\tSaveLoadManager.save_game(nm, {})\nreturn SaveLoadManager.get_save_files().size() >= 2", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "InputDeviceManager.claim_pad()\nreturn InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "tree.current_scene.save_load_dialog.show_dialog()\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script", "script": "main.save_load_dialog.visible", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nreturn d._focus_confined and d._confined_controls.size() > 0", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nvar fo = tree.root.get_viewport().gui_get_focus_owner()\nvar inside = false\nvar n = fo\nwhile n != null:\n\tif n == d: inside = true\n\tn = n.get_parent()\nreturn inside and (fo is ItemList)", "equals": true },
+    { "act": "screenshot", "label": "01_ingame_focus_on_list" },
+
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nvar i = d._first_selectable_save_index()\nd.saves_list.grab_focus()\nd.saves_list.select(i)\nd._on_save_selected(i)\nreturn d.saves_list.get_selected_items()[0]", "equals": 0 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene.save_load_dialog\nvar sel = d.saves_list.get_selected_items()\nreturn sel.size() == 1 and sel[0] == 1 and (tree.root.get_viewport().gui_get_focus_owner() is ItemList)", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.save_load_dialog.visible", "equals": false },
+    { "act": "execute_script", "multiline": true, "script": "return not tree.current_scene.save_load_dialog._focus_confined", "equals": true },
+    { "act": "screenshot", "label": "02_ingame_closed" },
+
+    { "act": "execute_script", "multiline": true, "script": "for nm in [\"scn_ig_A\", \"scn_ig_B\"]:\n\tSaveLoadManager.delete_save_file(nm)\nreturn true", "equals": true }
+  ]
+}
