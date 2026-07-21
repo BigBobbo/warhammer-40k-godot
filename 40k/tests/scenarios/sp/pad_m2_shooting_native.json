@@ -5,7 +5,7 @@
   "transition_to_phase": 8,
   "disable_ai": true,
   "rng_seed": 42,
-  "description": "M2 gate: a full shooting activation with ZERO virtual-cursor use. RB cycles to an eligible shooter (camera pans to it), RB cycles the eligible-target ring (camera pans to the highlighted target), A assigns the target to the current weapon, Start confirms targets (context-dependent Menu), and the staged dice resolution is walked with A on watcher-focused dialog buttons until the shooter is marked has_shot.",
+  "description": "M2 gate: a full shooting activation with ZERO virtual-cursor use. RB cycles to an eligible shooter (camera pans to it; bumpers ALWAYS cycle the acting unit per the bumper-only rule), D-pad ▶ walks the eligible-target ring (camera pans to the highlighted target), A assigns the target to the current weapon, Start confirms targets (context-dependent Menu), and the staged dice resolution is walked with A on watcher-focused dialog buttons until the shooter is marked has_shot.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 8 },
@@ -17,6 +17,14 @@
     { "act": "screenshot", "label": "01_shooter_cycled" },
 
     { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.target_highlight_id", "equals": "" },
+    { "act": "execute_script", "script": "str(main.shooting_controller.active_shooter_id) != \"\"", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 9 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.active_shooter_id) == InputDeviceManager.get_meta(\"shooter\")", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
     { "act": "wait_seconds", "seconds": 0.4 },
     { "act": "execute_script", "script": "PadRouter.target_highlight_id != \"\"", "equals": true },
     { "act": "screenshot", "label": "02_target_highlighted" },

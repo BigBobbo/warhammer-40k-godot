@@ -4,14 +4,17 @@ extends Node
 # M2): the native-controls layer on top of the M1 virtual cursor.
 #
 #   LB/RB  — THE unit-cycling control, and the only one (BUMPER-ONLY rule):
-#            cycle the "current list": eligible shooters / eligible targets
+#            cycle the ACTING unit in every phase — eligible shooters
 #            (shooting, reusing the shipped shoot_* semantics) or the
 #            right-panel unit list (other phases; same entry point a mouse
-#            row-click uses). Deployment: cycling switches which unit is being
-#            deployed, but locks once any model of the current unit is placed
-#            (undo them all to unlock — mirrors the mouse rule). Works while
-#            the action bar is open too — the menu follows the new unit.
-#   D-pad ◀ ▶ — placement (deployment / reinforcement / scout reserves):
+#            row-click uses). Never the target ring: targets are the armed
+#            unit's sub-menu on the D-pad. Deployment: cycling switches which
+#            unit is being deployed, but locks once any model of the current
+#            unit is placed (undo them all to unlock — mirrors the mouse rule).
+#            Works while the action bar is open too — the menu follows.
+#   D-pad ◀ ▶ — shooting with an armed shooter: walk the eligible-target ring
+#            (highlight rings + camera follow; A assigns to the current
+#            weapon). Placement (deployment / reinforcement / scout reserves):
 #            cycle the value of the highlighted selector row — model type
 #            (multi-profile units) or formation (Single / Spread / Tight);
 #            otherwise panel focus entry
@@ -56,8 +59,8 @@ const HINTS_BOARD := [
 	["view", "Pause Menu"],
 ]
 const HINTS_TARGETS := [
-	["rb", "Cycle Targets"],
-	["dpad", "Weapon ▲ ▼"],
+	["rb", "Cycle Units"],
+	["dpad", "Target ◀▶ · Weapon ▲▼"],
 	["a", "Assign Target"],
 	["x", "Skip Unit"],
 	["y", "Datasheet"],
@@ -220,11 +223,13 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_DPAD_LEFT:
 			# Model-switching moved OFF the D-pad onto the Steam Deck back paddles
 			# (below) so D-pad ◀ ▶ stays free for menu / option navigation and no
-			# longer fights the move-mode menu. Deployment option-cycle keeps it.
-			if _pad_deploy_option_cycle(-1) or _enter_panel_focus():
+			# longer fights the move-mode menu. Deployment option-cycle keeps it;
+			# shooting uses ◀ ▶ to walk the armed shooter's target ring (the
+			# bumpers stay on shooter cycling per the bumper-only rule).
+			if _pad_step_shoot_target(-1) or _pad_deploy_option_cycle(-1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
-			if _pad_deploy_option_cycle(1) or _enter_panel_focus():
+			if _pad_step_shoot_target(1) or _pad_deploy_option_cycle(1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		# Steam Deck back paddles hop between the selected unit's models (Movement
 		# / Charge) — the job D-pad ◀ ▶ used to do. Both back pairs are bound so
@@ -331,16 +336,17 @@ func _reopen_move_menu() -> void:
 func _cycle(dir: int) -> void:
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null:
-		# With an armed shooter that HAS targets, LB/RB walks the target ring.
-		# A shooter with nothing to shoot at is a dead end — fall through to
-		# cycling shooters so the bumpers always advance the activation.
-		if str(sc.active_shooter_id) == "" or sc.eligible_targets.is_empty():
-			sc._keyboard_cycle_units(dir < 0)  # reuses the Tab / Shift+Tab path
-			target_highlight_id = ""
-			if str(sc.active_shooter_id) != "":
-				_center_camera_on_unit(str(sc.active_shooter_id))
-		else:
-			_cycle_target(sc, dir)
+		# BUMPER-ONLY rule holds in shooting too: LB/RB always cycles the
+		# SHOOTER (the acting unit), never the target ring. The old behavior —
+		# bumpers flipping to target-cycling the instant a shooter was armed —
+		# meant the first bumper press locked you out of browsing shooters
+		# entirely (deselect + press just re-armed the first one again).
+		# Targets are the armed shooter's sub-menu now: D-pad ◀ ▶, next to the
+		# weapon rows on ▲ ▼ (mirrors charge's target stepping).
+		sc._keyboard_cycle_units(dir < 0)  # reuses the Tab / Shift+Tab path
+		target_highlight_id = ""
+		if str(sc.active_shooter_id) != "":
+			_center_camera_on_unit(str(sc.active_shooter_id))
 		return
 	# Deployment: once any model of the current unit is on the table the unit
 	# is committed — LB/RB can't switch away until every model is undone
@@ -475,6 +481,20 @@ func _pad_step_secondary(dir: int) -> bool:
 			if sc != null and sc.has_method("pad_step_weapon"):
 				return sc.pad_step_weapon(dir)
 	return false
+
+
+# Shooting: D-pad ◀ ▶ walks the armed shooter's target ring (on-board highlight
+# rings + camera-follow via _cycle_target). Falls through when there is no armed
+# shooter / no targets, so deployment option-cycling and panel-focus entry keep
+# their ◀ ▶ meanings in every other context.
+func _pad_step_shoot_target(dir: int) -> bool:
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	var sc = _shooting_controller_in_shooting_phase()
+	if sc == null or str(sc.active_shooter_id) == "" or sc.eligible_targets.is_empty():
+		return false
+	_cycle_target(sc, dir)
+	return true
 
 
 # Charge: A (with the cursor parked) toggles the D-pad-highlighted target row

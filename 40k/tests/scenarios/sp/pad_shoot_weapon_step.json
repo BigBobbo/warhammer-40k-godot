@@ -10,7 +10,7 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "Pad weapon-row stepping: with a shooter armed, D-pad ▲ ▼ walks the weapon rows of the declaration tree (same handler a mouse row-click fires — selected_weapon_id, row tint and damage preview follow), wrapping at both ends. RB then cycles the target highlight and A assigns it to the stepped weapon, proving a multi-weapon unit can aim each gun independently with the pad alone.",
+  "description": "Pad weapon-row stepping: with a shooter armed, D-pad ▲ ▼ walks the weapon rows of the declaration tree (same handler a mouse row-click fires — selected_weapon_id, row tint and damage preview follow), wrapping at both ends. D-pad ▶ then cycles the target highlight (bumpers stay on shooter cycling per the bumper-only rule) and A assigns it to the stepped weapon, proving a multi-weapon unit can aim each gun independently with the pad alone.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_phase", "equals": 8 },
@@ -35,7 +35,7 @@
 
     { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar sc = m.shooting_controller\nfor i in range(12):\n\tif str(sc.selected_weapon_id) == \"lobba_ranged\":\n\t\tbreak\n\tsc.pad_step_weapon(1)\nreturn str(sc.selected_weapon_id)", "equals": "lobba_ranged" },
 
-    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "simulate_joy_button", "button_index": 14 },
     { "act": "wait_seconds", "seconds": 0.4 },
     { "act": "execute_script", "script": "str(PadRouter.target_highlight_id) != \"\"", "equals": true },
     { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"tgt\", str(PadRouter.target_highlight_id))" },
