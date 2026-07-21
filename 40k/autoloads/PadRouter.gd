@@ -987,15 +987,17 @@ func _carry_next_unplaced_model() -> void:
 	var unit_id := str(mc.active_unit_id)
 	if unit_id != _carry_unit_id:
 		return  # unit changed under us — don't drag the camera to a new unit
-	var alive := _alive_model_count(unit_id)
+	var roster := _unit_move_roster(unit_id)
+	var alive := roster.size()
 	# Hand over the next model that has NOT been placed yet, scanning forward
 	# with wrap-around and skipping staged ones — paddle hops let models be
 	# placed out of order, and handing back a model the player already dropped
-	# would silently threaten its kept position.
+	# would silently threaten its kept position. The roster spans the bodyguard
+	# AND attached characters, so an attached leader is offered here by default.
 	var next_index := -1
 	for step in range(1, alive + 1):
 		var candidate := wrapi(carry_model_index + step, 0, alive)
-		if _staged_model_pos(unit_id, _alive_model_id(unit_id, candidate)) == null:
+		if _roster_entry_staged_pos(unit_id, roster[candidate]) == null:
 			next_index = candidate
 			break
 	if next_index == -1:
@@ -1008,26 +1010,43 @@ func _carry_next_unplaced_model() -> void:
 		_update_hints()
 
 
+# The active unit's combined move roster: its own alive models plus those of
+# every attached character, as ordered {source_unit_id, model_id} entries. An
+# attached leader forms one unit with its bodyguard and moves WITH it, so the
+# per-model pad flow (L3/paddle browse, X "Next Model", the auto-advance after a
+# drop) hands you the leader's model too — the leader is included by default, not
+# only via "Move All Together". Model ids collide between the two units, so each
+# entry keeps its source unit id; staging routes through the active unit's move
+# data with model_source_unit_id (see _staged_model_pos_for).
+func _unit_move_roster(active_unit_id: String) -> Array:
+	var roster: Array = []
+	var unit = GameState.get_unit(active_unit_id)
+	if unit.is_empty():
+		return roster
+	var unit_ids := [active_unit_id]
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		unit_ids.append(str(char_id))
+	for source_uid in unit_ids:
+		var models = GameState.get_unit(source_uid).get("models", [])
+		for i in range(models.size()):
+			var model = models[i]
+			if not model.get("alive", true):
+				continue
+			roster.append({
+				"source_unit_id": source_uid,
+				"model_id": str(model.get("id", "m%d" % (i + 1))),
+			})
+	return roster
+
+
 func _alive_model_count(unit_id: String) -> int:
-	var unit = GameState.get_unit(unit_id)
-	var n := 0
-	for model in unit.get("models", []):
-		if model.get("alive", true):
-			n += 1
-	return n
+	return _unit_move_roster(unit_id).size()
 
 
-# The id ("m1", …) of unit_id's Nth alive model, or "" when out of range.
-func _alive_model_id(unit_id: String, alive_index: int) -> String:
-	var unit = GameState.get_unit(unit_id)
-	var idx := 0
-	for model in unit.get("models", []):
-		if not model.get("alive", true):
-			continue
-		if idx == alive_index:
-			return str(model.get("id", ""))
-		idx += 1
-	return ""
+# The staged dest of a roster entry (null = not placed yet this move). Wraps
+# _staged_model_pos_for with the entry's own source unit.
+func _roster_entry_staged_pos(active_unit_id: String, entry: Dictionary):
+	return _staged_model_pos_for(active_unit_id, str(entry.get("source_unit_id", active_unit_id)), str(entry.get("model_id", "")))
 
 
 # ============================================================================
@@ -1347,28 +1366,41 @@ func _swap_carry_to_index() -> void:
 # confirm), so prefer that — hopping to / picking up a staged model must land
 # where its token visually is, not at its pre-move position.
 func _model_world_pos(unit_id: String, alive_index: int):
-	var unit = GameState.get_unit(unit_id)
-	var idx := 0
-	for model in unit.get("models", []):
-		if not model.get("alive", true):
-			continue
-		if idx == alive_index:
-			var staged = _staged_model_pos(unit_id, str(model.get("id", "")))
-			if staged != null:
-				return staged
-			var pos = model.get("position", null)
-			if pos is Dictionary and pos.has("x"):
-				return Vector2(float(pos.x), float(pos.y))
-			elif pos is Vector2:
-				return pos
-			return null
-		idx += 1
+	var roster := _unit_move_roster(unit_id)
+	if alive_index < 0 or alive_index >= roster.size():
+		return null
+	var entry = roster[alive_index]
+	var source_uid := str(entry.get("source_unit_id", unit_id))
+	var model_id := str(entry.get("model_id", ""))
+	# A model already dropped this move sits at its STAGED dest (GameState only
+	# updates on confirm), so prefer that — hopping to / picking up a staged model
+	# must land where its token visually is, not its pre-move position.
+	var staged = _staged_model_pos_for(unit_id, source_uid, model_id)
+	if staged != null:
+		return staged
+	var model := _roster_model(source_uid, model_id)
+	var pos = model.get("position", null)
+	if pos is Dictionary and pos.has("x"):
+		return Vector2(float(pos.x), float(pos.y))
+	elif pos is Vector2:
+		return pos
 	return null
 
 
-# The staged (uncommitted) destination of unit_id's own model model_id in the
-# Movement phase, or null when it has no staged move / not in Movement.
-func _staged_model_pos(unit_id: String, model_id: String):
+# The model dict for source_uid's model_id, or {} when absent.
+func _roster_model(source_uid: String, model_id: String) -> Dictionary:
+	for model in GameState.get_unit(source_uid).get("models", []):
+		if str(model.get("id", "")) == model_id:
+			return model
+	return {}
+
+
+# The staged (uncommitted) destination of source_unit_id's model_id within the
+# ACTIVE unit's move data, in the Movement phase, or null when it has no staged
+# move / not in Movement. Attached-character models stage under the bodyguard's
+# move (actor = active_unit_id) with model_source_unit_id set, so the move data
+# is always the active unit's; source_unit_id disambiguates the colliding ids.
+func _staged_model_pos_for(active_unit_id: String, source_unit_id: String, model_id: String):
 	if model_id == "":
 		return null
 	var m := get_tree().current_scene
@@ -1377,14 +1409,12 @@ func _staged_model_pos(unit_id: String, model_id: String):
 	var phase = PhaseManager.get_current_phase_instance()
 	if phase == null or not phase.has_method("get_active_move_data"):
 		return null
-	var staged: Array = phase.get_active_move_data(unit_id).get("staged_moves", [])
-	# Match on model_source_unit_id too: bodyguard and attached character
-	# model ids can collide (both "m1"); we only hop the active unit's own models.
+	var staged: Array = phase.get_active_move_data(active_unit_id).get("staged_moves", [])
 	for i in range(staged.size() - 1, -1, -1):
 		var sm = staged[i]
 		if str(sm.get("model_id", "")) != model_id:
 			continue
-		if str(sm.get("model_source_unit_id", unit_id)) != unit_id:
+		if str(sm.get("model_source_unit_id", active_unit_id)) != source_unit_id:
 			continue
 		var dest = sm.get("dest")
 		if dest is Vector2:
@@ -1695,8 +1725,8 @@ func _movement_has_unplaced_models() -> bool:
 	if mc == null or str(mc.active_unit_id) == "":
 		return false
 	var unit_id := str(mc.active_unit_id)
-	for i in range(_alive_model_count(unit_id)):
-		if _staged_model_pos(unit_id, _alive_model_id(unit_id, i)) == null:
+	for entry in _unit_move_roster(unit_id):
+		if _roster_entry_staged_pos(unit_id, entry) == null:
 			return true
 	return false
 

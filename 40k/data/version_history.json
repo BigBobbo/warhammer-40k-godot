@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.84.0",
+			"date": "2026-07-21",
+			"summary": "Attached leaders now move with their unit on the controller by default. When a Character has joined a unit, its model is part of that unit's move everywhere: L3 (and the paddles) now cycle onto the leader as well as the bodyguard's models, so you can move it in the normal one-model-at-a-time flow — not only via 'Move All Together'. You can no longer finish a unit's move having accidentally left its leader behind.",
+			"changes": [
+				"The controller's per-model move now includes an attached Character's model in the unit's roster: L3 / the back paddles cycle through the bodyguard's models AND the leader, and the automatic 'next model' after finishing one (X) hands you the leader too.",
+				"This means a joined leader is included in the unit's move by default — you no longer have to use 'Move All Together' to bring it along, and the move isn't treated as finished while the leader still hasn't been placed.",
+				"'Move All Together' and the mouse bulk-select already moved the leader with the group; this extends the same 'the leader moves with its unit' rule to the normal one-at-a-time move flow.",
+				"Picking up, dropping and confirming the leader's model routes its move under the parent unit correctly (the leader's own token ends up where you placed it)."
+			]
+		},
+		{
 			"version": "0.83.2",
 			"date": "2026-07-21",
 			"summary": "End a phase from the controller without hunting for the touchscreen. The top-right 'End … Phase' button now shows the controller's Menu (☰) button when you're playing with a controller, instead of the keyboard [Enter] you can't press on a Steam Deck. So the button you'd naturally reach for reads e.g. '☰ End Movement Phase', matching the '☰ End Phase' hint in the controller bar — press Menu (Start) and confirm to end the phase. It switches back to '[Enter]' the instant you use the mouse or keyboard.",
@@ -20,8 +31,7 @@
 				"Cycling onto a unit with no targets in range selects it, frames the camera on it, and explains why nothing is targetable — you can still Skip it with X or start a mission action, or just keep cycling.",
 				"The unit the game auto-selects when the Shooting phase starts (or after each unit finishes shooting) is now framed by the camera when playing on a controller — the phase no longer opens pointing at an empty stretch of table with the [ACTIVE] shooter somewhere off-screen.",
 				"When there is genuinely nothing left to cycle to, the bumpers say so with a toast ('No units left to shoot — Start ends the phase' / 'No other units to cycle to') instead of doing nothing.",
-				"Keyboard Tab / Shift+Tab shooter cycling gets the same fix (it shared the filtered-list ring)."
-			]
+				"Keyboard Tab / Shift+Tab shooter cycling gets the same fix (it shared the filtered-list ring)."			]
 		},
 		{
 			"version": "0.83.0",
