@@ -2,15 +2,27 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.81.0",
+			"version": "0.82.0",
 			"date": "2026-07-21",
 			"summary": "Controller multi-step model movement — moving a model in several legs (around terrain, through a gap) now works on the pad like it does with the mouse. Dropping a model with A keeps it in focus: press A again to pick it back up and keep spending its remaining movement. When the model is where you want it, X finishes it and hands you the unit's next un-moved model. B undoes the last placed model.",
 			"changes": [
 				"A drops the carried model as a waypoint and KEEPS it selected — it no longer auto-jumps you to the next model. Press A again to pick the same model back up from where it stands and continue its move; the inches already used carry over, exactly like releasing and re-dragging with the mouse.",
 				"X is the new 'this model is finished' button: mid-carry it drops the model AND hands you the unit's next un-moved model in one press; after a drop it does the same from the parked state. On a one-model unit a single X seals the move.",
 				"When every model has been placed, X tells you so with a toast ('All models placed — Start confirms the move') and Start confirms as before.",
-				"Undo moved from X to B: a plain B press (nothing held, nothing focused) takes back the last placed model. B while carrying still cancels the pickup, and the L4/R4 paddles still hop between models at any time.",
+				"Undo moved from X to B: a plain B press (nothing held, nothing focused) takes back the last placed model. B while carrying still cancels the pickup, and L3 still browses the unit's models at any time.",
 				"The hint bar teaches the flow as you go: while carrying it shows 'A Drop · X Finish Model', after a drop 'A Move Model · X Next Model · B Undo Model · Start Confirm Move', and once every model is placed the locked set with 'B Undo Model'."
+			]
+		},
+		{
+			"version": "0.81.0",
+			"date": "2026-07-21",
+			"summary": "Steam Deck — switching between a unit's models is now on L3 (click the left thumbstick), and it works the same way in every phase. The L4 / R4 back paddles didn't reliably reach the game — a stock Steam Deck presents a controller with no paddle buttons unless you set them up in Steam Input, so for most players the paddles did nothing. L3 is a standard, always-available button, so 'next model' now means the same thing whether you're moving or charging.",
+			"changes": [
+				"L3 (press the left thumbstick in) cycles to the next model of the unit you're working with, consistently across the Movement and Charge phases. While carrying a model it swaps which model is in your hand (the one you were holding goes back to where it started; models you already dropped stay put); otherwise it steps the selection (and the camera) so you can pick which model to move next. Press L3 repeatedly to walk through the unit's models and wrap around.",
+				"Y goes back to being the Datasheet button everywhere, with no phase-specific exceptions — the previous build briefly made Y switch models only in Movement, which was inconsistent between phases.",
+				"The L4 / R4 paddles remain bound for anyone who has mapped them through Steam Input, but they are no longer the advertised control. On a stock Steam Deck the paddles reach a game only when Steam Input is configured to forward them; the hint bar now shows L3 for switching models so the control it names actually works.",
+				"The controller hint bar reflects this: 'L3 Swap Model' while a model is in hand, and 'L3 Next Model' while selecting, in the move menu, once the move is placed, and during a charge.",
+				"Diagnostic: every controller button press is now recorded in the debug log with its button index, so if a control 'does nothing' it is possible to see from the log whether the button reaches the game at all."
 			]
 		},
 		{

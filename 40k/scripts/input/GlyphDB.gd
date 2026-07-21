@@ -25,6 +25,8 @@ const GLYPHS := {
 	"rt": "RT",
 	"ls": "LS",
 	"rs": "RS",
+	"l3": "L3",
+	"r3": "R3",
 	"l4": "L4",
 	"r4": "R4",
 	"dpad": "✚",

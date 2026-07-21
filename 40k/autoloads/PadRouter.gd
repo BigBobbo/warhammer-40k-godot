@@ -52,6 +52,12 @@ extends Node
 #            is parked — cursor mode owns X as right-click (VirtualCursor
 #            consumes it first, except mid-carry where the router owns X)
 #   Y      — toggle the datasheet of the highlighted target / selected unit
+#   L3     — click the left thumbstick: cycle to the NEXT model of the active
+#            unit, consistently in every phase that positions individual models
+#            (Movement + Charge, via _hop_model). THE model-switch control — the
+#            one free, reliable button, chosen over the Steam Deck L4/R4 paddles
+#            which reach the game as JOY_BUTTON_PADDLE* only when Steam Input is
+#            configured to forward them (still bound below as a bonus)
 #   D-pad  — with nothing focused: enter panel focus (right panel, then
 #            bottom bar); with focus: normal ui_* navigation (not consumed).
 #            Panel-focus entry stands down mid-move (model in hand or the
@@ -90,6 +96,7 @@ const HINTS_CHARGE := [
 	["rb", "Cycle Units"],
 	["dpad", "Target ▲ ▼"],
 	["a", "Toggle Target"],
+	["l3", "Next Model"],
 	["menu", "Declare / Roll"],
 	["x", "Skip Charge"],
 	["y", "Datasheet"],
@@ -113,7 +120,7 @@ const HINTS_CARRY := [
 	["ls", "Move Model"],
 	["rs", "Precision"],
 	["a", "Drop"],
-	["l4/r4", "Swap Model"],
+	["l3", "Swap Model"],
 	["lb", "Rotate ⟲"],
 	["rb", "Rotate ⟳"],
 	["b", "Cancel"],
@@ -128,7 +135,7 @@ const HINTS_CARRY_MOVE := [
 	["rs", "Precision"],
 	["a", "Drop"],
 	["x", "Finish Model"],
-	["l4/r4", "Swap Model"],
+	["l3", "Swap Model"],
 	["lb", "Rotate ⟲"],
 	["rb", "Rotate ⟳"],
 	["b", "Cancel"],
@@ -137,7 +144,7 @@ const HINTS_CARRY_MOVE := [
 const HINTS_MENU := [
 	["dpad", "Choose Action"],
 	["rb", "Cycle Units"],
-	["l4/r4", "Model ◀ ▶"],
+	["l3", "Next Model"],
 	["a", "Confirm"],
 	["b", "Cancel"],
 ]
@@ -149,7 +156,7 @@ const HINTS_MOVE := [
 	["rb", "Cycle Units"],
 	["a", "Move Menu"],
 	["dpad", "Move Menu"],
-	["l4/r4", "Model ◀ ▶"],
+	["l3", "Next Model"],
 	["ls", "Point"],
 	["lt/rt", "Zoom"],
 	["y", "Datasheet"],
@@ -158,26 +165,27 @@ const HINTS_MOVE := [
 # Movement mid-move with a model just dropped and models still un-placed (the
 # multi-step state): the dropped model KEEPS focus — A picks it back up to keep
 # spending its remaining move, X seals it and hands over the next un-placed
-# model, B undoes the last staged model, paddles browse freely. The bumpers
-# stay locked to this unit until the move is confirmed or undone.
+# model, B undoes the last staged model, L3 (and the paddles where Steam Input
+# forwards them) browses models freely. The bumpers stay locked to this unit
+# until the move is confirmed or undone.
 const HINTS_MOVE_STAGED := [
 	["a", "Move Model"],
 	["x", "Next Model"],
-	["l4/r4", "Model ◀ ▶"],
+	["l3", "Browse Models"],
 	["b", "Undo Model"],
 	["y", "Datasheet"],
 	["menu", "Confirm Move"],
 ]
 # Movement with a committed move where every model has been placed (X's
 # finish-model advance lands here after the last model): Start confirms the
-# whole move, A picks a model back up to adjust it, the back paddles (L4/R4)
-# hop between models and B undoes the last staged model. The bumpers stay
-# locked to this unit until the move is confirmed or undone.
+# whole move, A picks a model back up to adjust it, L3 (and the back paddles,
+# where Steam Input forwards them) cycles between models and B undoes the last
+# staged model. The bumpers stay locked to this unit until the move is confirmed
+# or undone.
 const HINTS_MOVE_LOCKED := [
 	["menu", "Confirm Move"],
 	["a", "Move a Model"],
-	["l4", "◀ Model"],
-	["r4", "Model ▶"],
+	["l3", "Next Model"],
 	["b", "Undo Model"],
 	["y", "Datasheet"],
 ]
@@ -227,6 +235,12 @@ func _input(event: InputEvent) -> void:
 	# A joypad event IS pad input — claim inline so the session's very first
 	# press acts instead of being dropped (the _process poll runs after us).
 	InputDeviceManager.claim_pad()
+	# Diagnostic (debug level): log the raw button index of every joypad press.
+	# A player whose Steam Deck L4/R4 "do nothing" can read the debug log to see
+	# whether the paddles arrive at all — on a stock Deck the game sees a virtual
+	# Xbox pad with NO paddle buttons, so Steam Input must be configured to
+	# forward them or they never reach here. PADDLE1..4 = indices 16..19.
+	DebugLogger.debug("PadRouter: joypad button pressed", {"button_index": event.button_index})
 	# A menu-level modal (the Save/Load dialog, …) drives itself entirely with
 	# Godot's native focus navigation. This board router must stay out of its way:
 	# bumper unit-cycling, D-pad panel-focus entry and — above all — the ItemList
@@ -256,9 +270,12 @@ func _input(event: InputEvent) -> void:
 				_apply_menu_choice(PadActionBar.activate())
 			JOY_BUTTON_B:
 				PadActionBar.close()
-			# Back paddles keep their one meaning with the menu up: hop the
-			# selected unit's models (camera-follow) so the player can pick WHICH
-			# model leads before choosing Move — the carry starts at this index.
+			# L3 (and the back paddles, where Steam Input forwards them) keeps its
+			# one meaning with the menu up: hop the selected unit's models
+			# (camera-follow) so the player can pick WHICH model leads before
+			# choosing Move — the carry starts at this index.
+			JOY_BUTTON_LEFT_STICK:
+				_hop_model(1)
 			JOY_BUTTON_PADDLE1, JOY_BUTTON_PADDLE3:
 				_hop_model(1)
 			JOY_BUTTON_PADDLE2, JOY_BUTTON_PADDLE4:
@@ -282,6 +299,16 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_Y:
 			if _toggle_datasheet():
 				get_viewport().set_input_as_handled()
+		JOY_BUTTON_LEFT_STICK:
+			# L3 (press the left thumbstick in) is THE model-cycle button — the one
+			# free, reliable controller button, so it means "next model" identically
+			# in every phase that positions a unit's individual models (Movement +
+			# Charge, via _hop_model). Reliable where the Steam Deck L4/R4 paddles are
+			# not (those reach the game as JOY_BUTTON_PADDLE* only when Steam Input is
+			# configured to forward them). _hop_model returns false elsewhere, so L3
+			# is a harmless no-op in phases without per-model positioning.
+			if _hop_model(1):
+				get_viewport().set_input_as_handled()
 		JOY_BUTTON_X:
 			if _context_action():
 				get_viewport().set_input_as_handled()
@@ -298,11 +325,12 @@ func _input(event: InputEvent) -> void:
 			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _try_open_move_menu() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_LEFT:
-			# Model-switching moved OFF the D-pad onto the Steam Deck back paddles
-			# (below) so D-pad ◀ ▶ stays free for menu / option navigation and no
-			# longer fights the move-mode menu. Deployment option-cycle keeps it;
-			# shooting uses ◀ ▶ to walk the armed shooter's target ring (the
-			# bumpers stay on shooter cycling per the bumper-only rule).
+			# Model-switching lives on L3 (left-stick click — the one free, reliable
+			# button; the Steam Deck paddles only reach the game when Steam Input
+			# forwards them). D-pad ◀ ▶ stays free for menu / option navigation and
+			# never fights the move-mode menu. Deployment option-cycle keeps it;
+			# shooting uses ◀ ▶ to walk the armed shooter's target ring (bumpers stay
+			# on shooter cycling).
 			if _pad_step_shoot_target(-1) or _pad_deploy_option_cycle(-1) or _try_open_move_menu() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
