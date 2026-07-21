@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.78.1",
+			"date": "2026-07-21",
+			"summary": "Controller Movement phase — the D-pad can no longer accidentally strand you in the right-hand mouse panel. Pressing ◀ or ▶ with a unit selected now opens the same on-screen move menu as ▲ / ▼ (what the hint bar always promised), and any leftover focus on the side-panel buttons is cleared when you pick the pad back up or cycle units with the bumpers — so the on-screen menu always answers and the panel is only ever reached on purpose.",
+			"changes": [
+				"Movement phase: with a unit selected and its move decision open, D-pad ◀ and ▶ now open the on-screen move menu (Move / Advance / Stay Still) exactly like ▲ and ▼, then step through its options. Previously ◀/▶ silently moved focus into the right-hand panel's buttons, after which the D-pad walked those buttons and the on-screen menu would no longer open — with no obvious way back (B was the undiscovered exit).",
+				"While a model is in hand, or a unit is mid-move waiting on Start to confirm, the D-pad no longer jumps focus into the side panels at all — those states advertise no D-pad panel action and the jump was always an accident. Every panel button remains reachable on purpose with the virtual cursor (left stick + A).",
+				"Picking the controller back up after using the mouse, or cycling units with LB/RB, now clears any focus the mouse left behind on side-panel buttons — the first D-pad press acts on the board/menu instead of invisibly navigating old focus, and A after a bumper-cycle can no longer 'press' a leftover highlighted button.",
+				"The right-hand panel stays visible on purpose: it is the unit list the bumpers cycle plus your move read-out. It is simply no longer reachable by accident from the D-pad."
+			]
+		},
+		{
 			"version": "0.78.0",
 			"date": "2026-07-21",
 			"summary": "Steam Deck Movement phase — you can actually move your models with the controller again, and moving is now the default. Picking a unit's move used to pick the model up but leave the stick moving an empty cursor (a coordinate bug that only bit at the Steam Deck's larger UI scale), so the model never budged. That's fixed, and the flow is smoother: choose Move once and the stick moves the model directly; drop a model and the next one is handed straight to you, so you never press 'A to pick up' between the models of a unit. A opens the move menu; Start places the model in hand and confirms the move.",
