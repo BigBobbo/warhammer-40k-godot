@@ -6057,7 +6057,12 @@ func _process(delta: float) -> void:
 
 	# Pad camera (M0 controller foundations): right stick pans, triggers zoom.
 	# The pad_* actions are registered at runtime by InputDeviceManager.
-	if not _text_focused and InputMap.has_action("pad_camera_left"):
+	# NOT gated on _text_focused: sticks and triggers cannot insert text, and the
+	# gate silently killed all pad camera control whenever focus landed on a text
+	# field (e.g. the unit-list filter after a D-pad press) — the "loaded a save
+	# and now nothing zooms" trap. The keyboard block above keeps its gate: WASD
+	# there IS typing.
+	if InputMap.has_action("pad_camera_left"):
 		var pad_pan = Input.get_vector("pad_camera_left", "pad_camera_right", "pad_camera_up", "pad_camera_down")
 		# P1 controller options: optional Y invert + camera sensitivity (Settings › Controls).
 		if SettingsService.pad_invert_camera_y:

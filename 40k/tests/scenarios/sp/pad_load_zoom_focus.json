@@ -1,0 +1,39 @@
+{
+  "id": "pad_load_zoom_focus",
+  "covers": ["controller.load_zoom_framing", "controller.focus_ring", "controller.zoom_hint", "controller.text_focus_trap"],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Loaded-save pad UX: a loaded game starts at the whole-board overview (~0.3 zoom); pressing LB to cycle units now FRAMES the selected unit at a readable zoom (>= 0.5) instead of panning the overview. The board/movement hint bar advertises 'LT/RT Zoom'. Text inputs (the unit-list filter) are demoted out of the pad focus chain (FOCUS_CLICK) so D-pad navigation can never silently land in a text box and kill the camera keys, and pad trigger zoom keeps working even when a text box IS focused. The gold PadFocusRing is visible over whatever control pad focus lands on.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "InputDeviceManager.claim_pad()" },
+    { "act": "execute_script", "script": "main.view_zoom", "expect_max": 0.45 },
+    { "act": "screenshot", "label": "01_loaded_fully_zoomed_out" },
+
+    { "act": "simulate_joy_button", "button_index": 9 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main.view_zoom", "expect_min": 0.5 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) != \"\"", "equals": true },
+    { "act": "screenshot", "label": "02_cycled_unit_framed" },
+
+    { "act": "execute_script", "multiline": true, "script": "var found := false\nvar stack: Array = [tree.root.get_node(\"/root/PadHintBar\")]\nwhile not stack.is_empty():\n\tvar nd: Node = stack.pop_back()\n\tfor c in nd.get_children():\n\t\tif c is Label and str(c.text) == \"Zoom\":\n\t\t\tfound = true\n\t\tstack.append(c)\nreturn found", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var pr = tree.root.get_node(\"/root/PadRouter\")\npr._apply_list_focus_policy(true)\nvar filt = tree.current_scene.get_node(\"HUD_Right\").find_child(\"UnitListFilter\", true, false)\nreturn filt.focus_mode if filt != null else -1", "equals": 1 },
+
+    { "act": "execute_script", "script": "PadRouter._enter_panel_focus()", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var fo = tree.root.get_viewport().gui_get_focus_owner()\nreturn fo != null and not (fo is LineEdit) and not (fo is TextEdit)", "equals": true },
+    { "act": "execute_script", "script": "PadFocusRing.is_ring_visible()", "equals": true },
+    { "act": "screenshot", "label": "03_focus_ring_on_button" },
+
+    { "act": "execute_script", "multiline": true, "script": "var filt = tree.current_scene.get_node(\"HUD_Right\").find_child(\"UnitListFilter\", true, false)\nfilt.focus_mode = Control.FOCUS_ALL\nfilt.grab_focus()\nreturn tree.current_scene._is_text_input_focused()", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"z0\", main.view_zoom)" },
+    { "act": "simulate_joy_axis", "axis": 5, "value": 1.0, "hold_s": 0.5 },
+    { "act": "execute_script", "script": "main.view_zoom - InputDeviceManager.get_meta(\"z0\")", "expect_min": 0.05 },
+    { "act": "screenshot", "label": "04_zoom_works_despite_text_focus" }
+  ]
+}

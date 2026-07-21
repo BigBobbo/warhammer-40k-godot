@@ -49,6 +49,7 @@ const HINTS_BOARD := [
 	["rb", "Cycle Units"],
 	["a", "Select"],
 	["ls", "Point"],
+	["lt/rt", "Zoom"],
 	["y", "Datasheet"],
 	["dpad", "Focus Panels"],
 	["menu", "End Phase"],
@@ -109,6 +110,7 @@ const HINTS_MOVE := [
 	["a", "Menu / Pick Up"],
 	["dpad", "Move Menu"],
 	["ls", "Point"],
+	["lt/rt", "Zoom"],
 	["x", "Undo Model"],
 	["y", "Datasheet"],
 	["menu", "End Phase"],
@@ -413,6 +415,14 @@ func _cycle_unit_list(dir: int) -> void:
 	list.select(found)
 	list.ensure_current_is_visible()
 	list.item_selected.emit(found)
+	# Camera-follow on bumper cycling (rows carry the unit id as metadata).
+	# Phase selection handlers don't move the camera themselves, so without
+	# this a pad player cycles "blind" — worst right after loading a save,
+	# where the whole-board overview (~0.3 zoom) leaves every unit unreadably
+	# small; _center_camera_on_unit frames-with-zoom in that regime.
+	var uid = list.get_item_metadata(found)
+	if uid != null and str(uid) != "":
+		_center_camera_on_unit(str(uid))
 
 
 # Deployment placing: D-pad ◀ ▶ cycles the value of the highlighted selector
@@ -854,8 +864,13 @@ func _find_first_focusable(root: Node) -> Control:
 		# ItemLists never take pad focus: lists are driven by their dedicated
 		# affordances (LB/RB unit cycling, ▲ ▼ steppers) — focusing one would
 		# turn ui_up/ui_down into unit cycling, the exact bug the bumper-only
-		# rule exists to prevent.
-		if n is Control and not (n is ItemList) and n.focus_mode == Control.FOCUS_ALL \
+		# rule exists to prevent. Text inputs (LineEdit/TextEdit) are skipped
+		# too: the pad can't type into them, their focus styling is invisible,
+		# and a focused text field silently disabled keyboard camera keys — the
+		# "loaded a save, pressed D-pad, now nothing zooms" trap. The Deck's own
+		# on-screen keyboard flow still works via cursor-click on the field.
+		if n is Control and not (n is ItemList) and not (n is LineEdit) and not (n is TextEdit) \
+				and n.focus_mode == Control.FOCUS_ALL \
 				and n.is_visible_in_tree() and not (n is BaseButton and n.disabled):
 			return n
 		for child in n.get_children(true):
@@ -880,7 +895,13 @@ func _apply_list_focus_policy(pad: bool) -> void:
 		var queue: Array = [root]
 		while not queue.is_empty():
 			var n: Node = queue.pop_front()
-			if n is ItemList:
+			# Text inputs leave the pad focus chain along with ItemLists: the pad
+			# cannot type into them, their focus styling is invisible, and a
+			# focused text field silently disabled the keyboard camera keys (the
+			# "loaded a save, pressed D-pad, now nothing zooms" trap). FOCUS_CLICK
+			# keeps mouse / virtual-cursor click focus working for KBM and for
+			# deliberate pad clicks (Deck OSK flow).
+			if n is ItemList or n is LineEdit or n is TextEdit:
 				if pad:
 					if n.focus_mode == Control.FOCUS_ALL:
 						n.set_meta("pad_saved_focus_mode", n.focus_mode)
@@ -917,10 +938,24 @@ func _toggle_datasheet() -> bool:
 	return true
 
 
+# Below this zoom the board is a fit-whole-table overview (a loaded save starts
+# at ~0.3) and individual models are unreadable — cycling to a unit there must
+# zoom IN on it, not just pan the overview sideways.
+const CYCLE_FRAME_MIN_ZOOM := 0.5
+
 func _center_camera_on_unit(unit_id: String) -> void:
 	var unit = GameState.get_unit(unit_id)
 	if unit.is_empty():
 		return
+	# Zoomed far out (e.g. right after loading a save): frame the cycled unit
+	# properly — fit_view_to_selection centers AND zooms to its bounding box —
+	# so bumper-cycling is usable without ever touching the zoom triggers. At
+	# normal zoom keep the player's chosen zoom and just pan (as before).
+	var m := get_tree().current_scene
+	if m != null and ("view_zoom" in m) and float(m.view_zoom) < CYCLE_FRAME_MIN_ZOOM \
+			and m.has_method("fit_view_to_selection"):
+		if m.fit_view_to_selection(unit_id):
+			return
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
