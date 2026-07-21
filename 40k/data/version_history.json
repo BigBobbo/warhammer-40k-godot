@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.81.0",
+			"date": "2026-07-21",
+			"summary": "Steam Deck — switching between a unit's models is now on L3 (click the left thumbstick), and it works the same way in every phase. The L4 / R4 back paddles didn't reliably reach the game — a stock Steam Deck presents a controller with no paddle buttons unless you set them up in Steam Input, so for most players the paddles did nothing. L3 is a standard, always-available button, so 'next model' now means the same thing whether you're moving or charging.",
+			"changes": [
+				"L3 (press the left thumbstick in) cycles to the next model of the unit you're working with, consistently across the Movement and Charge phases. While carrying a model it swaps which model is in your hand (the one you were holding goes back to where it started; models you already dropped stay put); otherwise it steps the selection (and the camera) so you can pick which model to move next. Press L3 repeatedly to walk through the unit's models and wrap around.",
+				"Y goes back to being the Datasheet button everywhere, with no phase-specific exceptions — the previous build briefly made Y switch models only in Movement, which was inconsistent between phases.",
+				"The L4 / R4 paddles remain bound for anyone who has mapped them through Steam Input, but they are no longer the advertised control. On a stock Steam Deck the paddles reach a game only when Steam Input is configured to forward them; the hint bar now shows L3 for switching models so the control it names actually works.",
+				"The controller hint bar reflects this: 'L3 Swap Model' while a model is in hand, and 'L3 Next Model' while selecting, in the move menu, once the move is placed, and during a charge.",
+				"Diagnostic: every controller button press is now recorded in the debug log with its button index, so if a control 'does nothing' it is possible to see from the log whether the button reaches the game at all."
+			]
+		},
+		{
 			"version": "0.80.0",
 			"date": "2026-07-21",
 			"summary": "Steam Deck Movement phase — the L4 / R4 back paddles now switch models at EVERY stage of the phase, not only after the whole unit has been placed. Hop between a unit's models while browsing units or with the move menu open (to pick which model leads), and press a paddle mid-carry to swap models: the model in your hand goes back where you picked it up, while models you already dropped with A keep their spots.",
