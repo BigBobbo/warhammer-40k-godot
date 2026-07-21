@@ -51,6 +51,19 @@ var import_button: Button
 var _export_file_dialog: FileDialog
 var _import_file_dialog: FileDialog
 
+# Steam Deck / controller focus handling. This overlay is a plain PanelContainer,
+# not a Window, so Godot does NOT confine keyboard/pad focus to it: D-pad (= ui_*)
+# navigation would walk the main-menu buttons drawn BEHIND the overlay, and the
+# player could never reach the saves list or the dialog's own buttons. While the
+# dialog is visible we demote every focusable Control OUTSIDE it to FOCUS_NONE so
+# directional navigation is trapped inside, then restore them on close. Membership
+# in the "pad_native_nav_modal" group tells PadRouter to keep its board-oriented
+# handlers (bumper unit-cycling, the ItemList focus-release) off this dialog.
+const PAD_MODAL_GROUP := "pad_native_nav_modal"
+var _focus_confined: bool = false
+var _confined_controls: Array = []       # Controls we flipped to FOCUS_NONE
+var _focus_before_open: Control = null   # Restore focus here when we close
+
 func _ready() -> void:
 	# Configure as full-screen overlay (hidden initially)
 	visible = false
@@ -58,6 +71,11 @@ func _ready() -> void:
 	is_web_platform = OS.has_feature("web")
 
 	_build_ui()
+
+	# Controller focus handling (see the PAD_MODAL_GROUP note above): join the
+	# group PadRouter checks, and confine/restore focus whenever we show or hide.
+	add_to_group(PAD_MODAL_GROUP)
+	visibility_changed.connect(_on_visibility_changed)
 
 	# Connect to SaveLoadManager async signals on ALL platforms: web lists are
 	# always async, and desktop builds with cloud sync enabled receive a merged
@@ -466,7 +484,28 @@ func _build_ui() -> void:
 	cancel_button.pressed.connect(_on_cancel_button_pressed)
 	btn_row.add_child(cancel_button)
 
+	_wire_pad_focus_neighbors()
+
 	print("SaveLoadDialog: UI built with WhiteDwarf theme")
+
+# The bottom action row separates its two clusters with an expanding spacer
+# (Load/Delete/Export/Import … Main Menu/Close). Geometric D-pad navigation
+# can't bridge that gap — from Import, "right" lands on the saves list above,
+# leaving Main Menu / Close unreachable by controller. Wire an explicit
+# left/right chain through every action button so the whole row is walkable.
+# Godot skips any link target that is disabled/hidden and follows the chain to
+# the next valid one, so the Load/Delete/Export buttons dropping out when no
+# save is selected doesn't break the walk.
+func _wire_pad_focus_neighbors() -> void:
+	var seq: Array = []
+	for b in [load_button, delete_button, export_button, import_button, main_menu_button, cancel_button]:
+		if b != null:
+			seq.append(b)
+	for i in range(seq.size()):
+		if i > 0:
+			seq[i].focus_neighbor_left = seq[i - 1].get_path()
+		if i < seq.size() - 1:
+			seq[i].focus_neighbor_right = seq[i + 1].get_path()
 
 # ============================================================================
 # Saves List Management
@@ -1029,10 +1068,14 @@ func show_dialog() -> void:
 	if _is_multiplayer_client:
 		print("SaveLoadDialog: SAVE-8 Non-host client detected — Load button will be hidden")
 
+	# Remember who had focus (the button that opened us) so a controller player
+	# lands back on it when the dialog closes, instead of on nothing.
+	_focus_before_open = get_viewport().gui_get_focus_owner()
+
 	refresh_saves_list()
 	_refresh_slot_info()  # SAVE-16: Refresh save slot info
 	save_name_input.text = ""
-	visible = true
+	visible = true  # fires visibility_changed -> _confine_focus()
 
 	# Z-ORDER FIX: This dialog is set up in Main._ready() BEFORE sibling overlays
 	# like the GameLogPanel (and LeftRosterStrip), so those later siblings would
@@ -1047,7 +1090,14 @@ func show_dialog() -> void:
 		load_button.visible = not _is_multiplayer_client
 
 	await get_tree().process_frame
-	if save_name_input:
+	# Controller players need focus INSIDE this overlay or the D-pad walks the
+	# menu buttons behind it (the reported Steam Deck bug). Land on the saves list
+	# (loading a save is the whole point of opening this from the menu) or, failing
+	# that, an always-enabled button. Keyboard/mouse users keep the old behaviour
+	# of landing in the save-name field, ready to type.
+	if InputDeviceManager and InputDeviceManager.is_pad_active():
+		_grab_initial_pad_focus()
+	elif save_name_input:
 		save_name_input.grab_focus()
 		print("SaveLoadDialog: Focus grabbed by save input")
 
@@ -1057,13 +1107,92 @@ func hide_dialog() -> void:
 	hide()
 
 # ============================================================================
-# Input handling — Escape to close
+# Controller focus management (Steam Deck)
+# ============================================================================
+
+func _on_visibility_changed() -> void:
+	if visible:
+		_confine_focus()
+	else:
+		_release_focus_confinement()
+		# Hand focus back to the control that opened us so pad menu navigation
+		# continues seamlessly (it was demoted to FOCUS_NONE while we were open).
+		if InputDeviceManager and InputDeviceManager.is_pad_active() \
+				and _focus_before_open != null and is_instance_valid(_focus_before_open) \
+				and _focus_before_open.is_visible_in_tree() \
+				and _focus_before_open.focus_mode != Control.FOCUS_NONE:
+			_focus_before_open.grab_focus()
+		_focus_before_open = null
+
+# Trap directional focus inside the dialog: demote every focusable Control that
+# is NOT part of this dialog's subtree to FOCUS_NONE, remembering each so we can
+# restore it verbatim on close. Idempotent — guarded by _focus_confined.
+func _confine_focus() -> void:
+	if _focus_confined:
+		return
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	_confined_controls.clear()
+	var queue: Array = [scene]
+	while not queue.is_empty():
+		var n: Node = queue.pop_front()
+		if n == self:
+			continue  # skip our own subtree — its controls must stay focusable
+		if n is Control and n.focus_mode == Control.FOCUS_ALL:
+			_confined_controls.append(n)
+			n.focus_mode = Control.FOCUS_NONE
+		for child in n.get_children():
+			queue.append(child)
+	_focus_confined = true
+	print("SaveLoadDialog: Focus confined (%d external controls demoted)" % _confined_controls.size())
+
+func _release_focus_confinement() -> void:
+	if not _focus_confined:
+		return
+	for c in _confined_controls:
+		if is_instance_valid(c):
+			c.focus_mode = Control.FOCUS_ALL
+	_confined_controls.clear()
+	_focus_confined = false
+	print("SaveLoadDialog: Focus confinement released")
+
+# The first save row a player can actually select (skips the disabled empty-state
+# / error placeholder rows), or -1 when the list has no selectable saves.
+func _first_selectable_save_index() -> int:
+	if not saves_list:
+		return -1
+	for i in range(saves_list.item_count):
+		if saves_list.is_item_selectable(i) and not saves_list.is_item_disabled(i):
+			return i
+	return -1
+
+func _grab_initial_pad_focus() -> void:
+	var idx := _first_selectable_save_index()
+	if saves_list and idx >= 0:
+		saves_list.grab_focus()
+		saves_list.select(idx)
+		_on_save_selected(idx)  # enable Load/Delete + populate the preview
+		print("SaveLoadDialog: Pad focus grabbed on saves list (row %d)" % idx)
+	elif cancel_button:
+		cancel_button.grab_focus()
+		print("SaveLoadDialog: Pad focus grabbed on Close button (no selectable saves)")
+
+# ============================================================================
+# Input handling — Escape / controller-B to close
 # ============================================================================
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		hide()
+		get_viewport().set_input_as_handled()
+		return
+	# Controller "back" (B → ui_cancel) closes the dialog, the standard console
+	# convention. A focused Button ignores ui_cancel, so the press reaches us here
+	# unless a child confirmation dialog (its own Window) consumed it first.
+	if event.is_action_pressed("ui_cancel") and event is InputEventJoypadButton:
 		hide()
 		get_viewport().set_input_as_handled()
 

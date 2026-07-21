@@ -187,6 +187,14 @@ func _input(event: InputEvent) -> void:
 	# A joypad event IS pad input — claim inline so the session's very first
 	# press acts instead of being dropped (the _process poll runs after us).
 	InputDeviceManager.claim_pad()
+	# A menu-level modal (the Save/Load dialog, …) drives itself entirely with
+	# Godot's native focus navigation. This board router must stay out of its way:
+	# bumper unit-cycling, D-pad panel-focus entry and — above all — the ItemList
+	# focus-release at the tail of this handler would each break the dialog's own
+	# D-pad list/button navigation (the saves list could never keep focus). Let
+	# the event flow untouched to the UI system; the pad is already claimed above.
+	if _native_nav_modal_open():
+		return
 	# Re-assert the bumper-only rule before routing: lists spawned since the
 	# last press get demoted, and any list that grabbed focus lets go.
 	_apply_list_focus_policy(true)
@@ -993,6 +1001,16 @@ func _synth_rotate(left: bool) -> void:
 # ============================================================================
 # Panel focus entry (D-pad from board context)
 # ============================================================================
+
+# True while a self-navigating menu modal (Save/Load dialog, …) is on screen.
+# Such dialogs join the "pad_native_nav_modal" group and want Godot's native
+# ui_* focus navigation, NOT this board router — see the guard in _input.
+func _native_nav_modal_open() -> bool:
+	for n in get_tree().get_nodes_in_group("pad_native_nav_modal"):
+		if is_instance_valid(n) and n is CanvasItem and n.is_visible_in_tree():
+			return true
+	return false
+
 
 func _enter_panel_focus() -> bool:
 	if get_viewport().gui_get_focus_owner() != null:

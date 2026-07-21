@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.79.0",
+			"date": "2026-07-21",
+			"summary": "Steam Deck Save/Load — the controller now actually works in the Save & Load window. Opening it used to leave the D-pad stuck on the main-menu buttons drawn behind it, so you could never pick a saved game to load. Now focus jumps straight into the window and lands on your list of saves: the D-pad walks the saved games (and every button), A loads the highlighted one, and B closes the window and returns you to where you were.",
+			"changes": [
+				"Fixed: opening Save & Load with a controller left the D-pad controlling the menu buttons behind the window instead of the window itself — there was no way to select one of your existing saves. Focus is now trapped inside the window while it is open, so the D-pad can only move between the controls that belong to it.",
+				"The saved-games list is now selectable with the D-pad: open the window and it lands on your list of saves; press ▲ ▼ to move between them, A to load the highlighted save (with the usual confirm prompt). Previously the list could not hold controller focus at all.",
+				"Every button in the window is reachable now — Load / Delete / Export / Import on the left and Main Menu / Close on the right — even though a gap separates the two groups.",
+				"B (Back) closes the Save & Load window, and focus returns to the button that opened it so you can keep navigating the menu without touching the touchpad.",
+				"This applies both to the main menu's Load button and to Save & Load opened from the in-game pause menu."
+			]
+		},
+		{
 			"version": "0.78.1",
 			"date": "2026-07-21",
 			"summary": "Controller Movement phase — the D-pad can no longer accidentally strand you in the right-hand mouse panel. Pressing ◀ or ▶ with a unit selected now opens the same on-screen move menu as ▲ / ▼ (what the hint bar always promised), and any leftover focus on the side-panel buttons is cleared when you pick the pad back up or cycle units with the bumpers — so the on-screen menu always answers and the panel is only ever reached on purpose.",
