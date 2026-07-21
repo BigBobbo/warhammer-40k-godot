@@ -1,0 +1,84 @@
+{
+  "id": "pad_move_l3_cycle_model",
+  "covers": [
+    "controller.move.l3_cycles_model",
+    "controller.move.l3_browse_cycle",
+    "controller.move.l3_carry_swap",
+    "controller.move.l3_keeps_staged",
+    "controller.move.y_stays_datasheet"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "L3 (JOY_BUTTON_LEFT_STICK=7 — click the left thumbstick) is THE model-switch button: the one free, reliable controller button, chosen over the Steam Deck L4/R4 paddles which only reach the game as JOY_BUTTON_PADDLE* when Steam Input forwards them. It advances to the NEXT model of the active unit the same way in every state — browse = camera/index cycle (does NOT open the datasheet), carry = swap the in-hand model (un-dropped move reverts, staged drops keep their spot). Y stays the Datasheet toggle everywhere with no phase exceptions. The paddles remain bound (validated separately in pad_move_carry_hop_swap).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_WITCHSEEKERS_C" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": false },
+
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 0 },
+    { "act": "simulate_joy_button", "button_index": 7 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "execute_script", "script": "main.get_node_or_null(\"DatasheetModal\") == null or not main.get_node(\"DatasheetModal\").visible", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 7 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 2 },
+    { "act": "screenshot", "label": "01_l3_browse_cycle_no_datasheet" },
+
+    { "act": "simulate_joy_button", "button_index": 3 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.get_node(\"DatasheetModal\").visible", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 2 },
+    { "act": "screenshot", "label": "02_y_still_opens_datasheet" },
+    { "act": "simulate_joy_button", "button_index": 3 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.get_node(\"DatasheetModal\").visible", "equals": false },
+
+    { "act": "simulate_joy_button", "button_index": 7 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "simulate_joy_button", "button_index": 7 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 0 },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.dragging_model", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 0 },
+
+    { "act": "pad_cursor_glide", "x": 850.0, "y": 140.0 },
+    { "act": "simulate_joy_button", "button_index": 7 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 0 },
+    { "act": "screenshot", "label": "03_l3_carry_swapped_model0_reverted" },
+
+    { "act": "pad_cursor_glide", "x": 910.0, "y": 100.0 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 1 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"sy\", PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves[0].dest.y)" },
+
+    { "act": "simulate_joy_button", "button_index": 7 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 2 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 1 },
+    { "act": "execute_script", "script": "abs(PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves[0].dest.y - InputDeviceManager.get_meta(\"sy\"))", "expect_max": 1 },
+    { "act": "screenshot", "label": "04_l3_after_drop_keeps_staged" }
+  ]
+}
