@@ -1,0 +1,300 @@
+{
+  "id": "pad_move_multistep_model",
+  "covers": [
+    "controller.multistep.drop_keeps_focus",
+    "controller.multistep.repick_accumulates",
+    "controller.multistep.x_finish_advances",
+    "controller.multistep.b_undo_staged"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Multi-step controller model movement (mouse release-and-re-drag parity): A drops the carried Witchseeker at a waypoint and the model KEEPS focus (no auto-advance) — A again picks the SAME model back up at its STAGED spot and the second leg accumulates path distance (|A→B| + |B→C|, not straight-line). X mid-carry seals the model (drop + hand over the unit's next un-placed model, auto-carried); a plain A-drop on that second model again keeps focus; a clean B undoes the last staged model; X from the parked multi-step state advances to the next un-placed model; B mid-carry still cancels the leg. Start then confirms the whole unit: only the sealed multi-leg model moved in GameState.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"w0x\", GameState.state.units[\"U_WITCHSEEKERS_C\"].models[0].position.x)"
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"w0y\", GameState.state.units[\"U_WITCHSEEKERS_C\"].models[0].position.y)"
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"w1y\", GameState.state.units[\"U_WITCHSEEKERS_C\"].models[1].position.y)"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "unit_id": "U_WITCHSEEKERS_C"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_WITCHSEEKERS_C"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "PadActionBar.is_open()",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.carry_model_index",
+      "equals": 0
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 850.0,
+      "y": 150.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.carry_model_index",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].model_distances[\"U_WITCHSEEKERS_C:m1\"]",
+      "expect_min": 2.2,
+      "expect_max": 2.8
+    },
+    {
+      "act": "screenshot",
+      "label": "01_waypoint_dropped_focus_kept"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.drag_start_pos.distance_to(Vector2(850.0, 150.0))",
+      "expect_max": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller._get_accumulated_distance()",
+      "expect_min": 2.2,
+      "expect_max": 2.8
+    },
+    {
+      "act": "screenshot",
+      "label": "02_same_model_repicked_at_waypoint"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 910.0,
+      "y": 170.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 2
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].model_distances[\"U_WITCHSEEKERS_C:m1\"]",
+      "expect_min": 3.85,
+      "expect_max": 4.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.carry_model_index",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03_x_sealed_model_and_advanced"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 970.0,
+      "y": 130.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.carry_model_index",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()",
+      "equals": 2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "04_b_undid_second_model_stage"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 2
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.carry_model_index",
+      "equals": 2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()",
+      "equals": 1
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].get(\"completed\", false)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(GameState.state.units[\"U_WITCHSEEKERS_C\"].models[0].position.x - 910.0) + abs(GameState.state.units[\"U_WITCHSEEKERS_C\"].models[0].position.y - 170.0)",
+      "expect_max": 12
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(GameState.state.units[\"U_WITCHSEEKERS_C\"].models[1].position.y - InputDeviceManager.get_meta(\"w1y\"))",
+      "expect_max": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "05_confirmed_multistep_only_sealed_model_moved"
+    }
+  ]
+}

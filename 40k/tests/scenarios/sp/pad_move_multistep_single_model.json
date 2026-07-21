@@ -1,0 +1,132 @@
+{
+  "id": "pad_move_multistep_single_model",
+  "covers": [
+    "controller.multistep.x_finish_single_model",
+    "controller.multistep.all_placed_toast"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Multi-step controller movement on a single-model unit (the everyday character/vehicle case): the Blade Champion is picked up via the move menu and X mid-carry seals him in one press — the drop stages, no next model exists, so the advance stops with the 'All models placed — Start confirms the move' toast and the player sits in the locked state (A could still re-pick; the model keeps focus). Start then confirms the move in GameState.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"bc_y0\", GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].position.y)"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "unit_id": "U_BLADE_CHAMPION_A"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_BLADE_CHAMPION_A"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "PadActionBar.is_open()",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": true
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 120.0,
+      "y": 300.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 2
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_BLADE_CHAMPION_A\"].staged_moves.size()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ToastManager.active_toasts.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_x_sealed_single_model_toast_shown"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_BLADE_CHAMPION_A\"].get(\"completed\", false)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].position.y - InputDeviceManager.get_meta(\"bc_y0\")",
+      "expect_min": 150
+    },
+    {
+      "act": "screenshot",
+      "label": "02_start_confirmed_single_model_move"
+    }
+  ]
+}

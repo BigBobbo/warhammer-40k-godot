@@ -39,10 +39,18 @@ extends Node
 #   A      — in TARGET_SELECT: assign the highlighted target to the current
 #            weapon (cursor mode and focused controls keep their own A)
 #   B      — release panel focus back to the board; with an active shooter,
-#            deselect (the shoot_cancel_target semantic)
+#            deselect (the shoot_cancel_target semantic). Movement: a clean B
+#            (nothing to release/park) undoes the last staged model — the
+#            mouse "Undo Last Model" button (X used to hold this job).
 #   X      — context action: skip the active shooter (shoot_skip_unit).
-#            Only when the virtual cursor is parked — cursor mode owns X as
-#            right-click (VirtualCursor consumes it first)
+#            Movement: "this model is finished" — mid-carry it drops the held
+#            model AND hands over the unit's next un-placed model; after an
+#            A-drop it does the same from the parked state. This is the
+#            multi-step seam: A taps waypoints (drop, re-pick, drop — the
+#            model keeps focus and its staged budget accumulates), X seals
+#            the model and advances. Otherwise only when the virtual cursor
+#            is parked — cursor mode owns X as right-click (VirtualCursor
+#            consumes it first, except mid-carry where the router owns X)
 #   Y      — toggle the datasheet of the highlighted target / selected unit
 #   D-pad  — with nothing focused: enter panel focus (right panel, then
 #            bottom bar); with focus: normal ui_* navigation (not consumed).
@@ -111,6 +119,21 @@ const HINTS_CARRY := [
 	["b", "Cancel"],
 	["menu", "Confirm / End"],
 ]
+# Movement carry: same as HINTS_CARRY plus the multi-step contract — A drops a
+# waypoint (the model KEEPS focus; A again picks it back up to keep going with
+# whatever movement it has left), X drops AND seals the model, advancing to the
+# unit's next un-placed model. Charge keeps the plain HINTS_CARRY.
+const HINTS_CARRY_MOVE := [
+	["ls", "Move Model"],
+	["rs", "Precision"],
+	["a", "Drop"],
+	["x", "Finish Model"],
+	["l4/r4", "Swap Model"],
+	["lb", "Rotate ⟲"],
+	["rb", "Rotate ⟳"],
+	["b", "Cancel"],
+	["menu", "Confirm / End"],
+]
 const HINTS_MENU := [
 	["dpad", "Choose Action"],
 	["rb", "Cycle Units"],
@@ -120,7 +143,8 @@ const HINTS_MENU := [
 ]
 # Movement with a selected unit whose move-mode decision is still open: ▲ ▼
 # opens the same action bar A does, so the D-pad browses the unit's phase
-# options instead of the unit list.
+# options instead of the unit list. (No X/undo chip: nothing can be staged
+# while the mode decision is still open.)
 const HINTS_MOVE := [
 	["rb", "Cycle Units"],
 	["a", "Move Menu"],
@@ -128,20 +152,33 @@ const HINTS_MOVE := [
 	["l4/r4", "Model ◀ ▶"],
 	["ls", "Point"],
 	["lt/rt", "Zoom"],
-	["x", "Undo Model"],
 	["y", "Datasheet"],
 	["menu", "End Phase"],
 ]
-# Movement with a committed move where every model has been placed (auto-carry
-# stops here): Start confirms the whole move, A picks a model back up to adjust it,
-# the back paddles (L4/R4) hop between models and X undoes the last staged model.
-# The bumpers stay locked to this unit until the move is confirmed or undone.
+# Movement mid-move with a model just dropped and models still un-placed (the
+# multi-step state): the dropped model KEEPS focus — A picks it back up to keep
+# spending its remaining move, X seals it and hands over the next un-placed
+# model, B undoes the last staged model, paddles browse freely. The bumpers
+# stay locked to this unit until the move is confirmed or undone.
+const HINTS_MOVE_STAGED := [
+	["a", "Move Model"],
+	["x", "Next Model"],
+	["l4/r4", "Model ◀ ▶"],
+	["b", "Undo Model"],
+	["y", "Datasheet"],
+	["menu", "Confirm Move"],
+]
+# Movement with a committed move where every model has been placed (X's
+# finish-model advance lands here after the last model): Start confirms the
+# whole move, A picks a model back up to adjust it, the back paddles (L4/R4)
+# hop between models and B undoes the last staged model. The bumpers stay
+# locked to this unit until the move is confirmed or undone.
 const HINTS_MOVE_LOCKED := [
 	["menu", "Confirm Move"],
 	["a", "Move a Model"],
 	["l4", "◀ Model"],
 	["r4", "Model ▶"],
-	["x", "Undo Model"],
+	["b", "Undo Model"],
 	["y", "Datasheet"],
 ]
 
@@ -660,7 +697,16 @@ func _assign_highlighted_target() -> bool:
 
 
 func _context_action() -> bool:
-	if VirtualCursor.is_cursor_active() and not carry_active:
+	# Mid-carry X (the cursor is live but VirtualCursor stands down — see its
+	# carry guard): Movement = "finish this model" — drop it here and hand
+	# over the unit's next un-placed model. Any other carry (charge) consumes
+	# the press inert so a stray X can't fire the skip-charge action or a
+	# synthetic right-click underneath a held model.
+	if carry_active:
+		if _movement_controller() != null:
+			return _finish_model_and_advance()
+		return true
+	if VirtualCursor.is_cursor_active():
 		return false  # cursor mode owns X (right-click); VC consumed it anyway
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null and str(sc.active_shooter_id) != "":
@@ -684,15 +730,10 @@ func _context_action() -> bool:
 			and mc_scene.charge_controller.has_method("pad_skip") \
 			and mc_scene.charge_controller.pad_skip():
 		return true
-	# Movement: X = undo last staged model (plan §4.2 context action).
-	var m := get_tree().current_scene
-	if m != null and ("current_phase" in m) and m.current_phase == GameStateData.Phase.MOVEMENT \
-			and not carry_active and m.movement_controller != null and is_instance_valid(m.movement_controller) \
-			and str(m.movement_controller.active_unit_id) != "" \
-			and m.movement_controller.has_method("_on_undo_model_pressed"):
-		m.movement_controller._on_undo_model_pressed()
-		return true
-	return false
+	# Movement, parked after an A-drop (the multi-step state): X = "this model
+	# is finished" — advance to the unit's next un-placed model. The undo that
+	# used to live here moved to B (_handle_back).
+	return _finish_model_and_advance()
 
 
 func _handle_back() -> bool:
@@ -716,6 +757,16 @@ func _handle_back() -> bool:
 	if sc != null and str(sc.active_shooter_id) != "":
 		sc._keyboard_deselect_shooter()
 		target_highlight_id = ""
+		return true
+	# Movement: a clean B (no focus to release, cursor already parked) backs the
+	# move out one model — the mouse "Undo Last Model" button. X used to hold
+	# this job; it now seals models in the multi-step flow, and B is the natural
+	# back-out. Only with something actually staged, so B stays inert otherwise.
+	var mc := _movement_controller()
+	if mc != null and str(mc.active_unit_id) != "" \
+			and _movement_staged_count(str(mc.active_unit_id)) > 0 \
+			and mc.has_method("_on_undo_model_pressed"):
+		mc._on_undo_model_pressed()
 		return true
 	return false
 
@@ -769,7 +820,7 @@ func _try_begin_carry() -> bool:
 	return false
 
 
-func _drop_carry(advance := true) -> bool:
+func _drop_carry() -> bool:
 	# Movement phase: consult the controller BEFORE releasing. An illegal drop
 	# (over a wall, past the move cap, overlapping) keeps the model in hand — the
 	# "you can't put the piece on an illegal square" rule — instead of snapping it
@@ -787,36 +838,55 @@ func _drop_carry(advance := true) -> bool:
 	# Park so the cursor can't consume the next A as a stray click; with it
 	# parked, A routes back through the router (pick the model up again / confirm).
 	VirtualCursor.park()
-	# Moving-by-default: once a model is placed, hand the stick the NEXT un-moved
-	# model of the same unit automatically so the player never presses "A to pick
-	# up" between the models of a unit — the stick just keeps moving models. Stops
-	# after the last model, dropping the player into the locked state to Confirm
-	# (Start). Movement phase only; charge keeps its one-model-at-a-time flow.
-	# advance=false when Start places the held model to end the whole move, so the
-	# player isn't handed another model at the very moment they asked to confirm.
-	if advance and _movement_controller() != null and not _in_windowed_scenario():
-		call_deferred("_auto_carry_next_model")
+	# The dropped model KEEPS the focus (carry_model_index untouched): a drop is
+	# a waypoint, not a hand-off. A picks the same model back up to spend its
+	# remaining move in another leg (multi-step around terrain, mouse parity with
+	# release-and-re-drag); X seals the model and advances to the next un-placed
+	# one; L4/R4 browse freely. Nothing is auto-grabbed on the player's behalf.
+	# The hint bar is refreshed once the queued release has actually staged —
+	# the _input-tail refresh runs too early and would advertise the pre-drop set.
+	call_deferred("_refresh_hints_settled")
 	return true
 
 
-func _in_windowed_scenario() -> bool:
-	# Auto-carry-after-drop is a real-play smoothness affordance. The committed
-	# carry scenarios (pad_m3_carry_move, pad_p0_move_clamp, …) assert the manual
-	# contract — a drop parks the cursor (is_carrying == false) and the R4 paddle
-	# then hops to the next model — so suppress the auto-hand-off under the scenario
-	# runner, exactly as SettingsService suppresses the pad text-boost for the same
-	# reason. The feature is validated live via the MCP bridge, not the runner.
-	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
-		if typeof(a) == TYPE_STRING and a.begins_with("--scenario-file="):
-			return true
-	return false
+func _refresh_hints_settled() -> void:
+	# A drop's synthetic release travels the input queue and its
+	# STAGE_MODEL_MOVE lands a frame or two later; refresh the hint bar after
+	# that so the multi-step affordances (A Move Model / X Next Model / B Undo
+	# Model) appear right at the drop instead of only on the next press.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_update_hints()
 
 
-func _auto_carry_next_model() -> void:
-	# Runs a couple frames after a drop so the STAGE_MODEL_MOVE from the released
+# X in the Movement phase: "this model is finished". Mid-carry it first drops
+# the held model (same legality gate as A — an illegal spot keeps it in hand);
+# from the parked multi-step state it advances directly. Either way the unit's
+# next un-placed model is then handed to the stick. Returns true when the press
+# was consumed (movement context existed), false to let X fall through.
+func _finish_model_and_advance() -> bool:
+	var mc := _movement_controller()
+	if mc == null or str(mc.active_unit_id) == "":
+		return false
+	if carry_active:
+		if not _drop_carry():
+			return true  # illegal spot: toast shown, model stays in hand
+	elif not _movement_session_locked():
+		return false  # no move in progress — nothing to finish
+	# Browsing with the pad after mouse-staged moves (or a unit switch) can leave
+	# the carry bookkeeping on another unit; re-anchor before the deferred scan.
+	if str(mc.active_unit_id) != _carry_unit_id:
+		_carry_unit_id = str(mc.active_unit_id)
+		carry_model_index = 0
+	call_deferred("_carry_next_unplaced_model")
+	return true
+
+
+func _carry_next_unplaced_model() -> void:
+	# Runs a couple frames after X so the STAGE_MODEL_MOVE from a just-released
 	# model lands first (and so a Start/B pressed in the same frame wins). Advances
-	# in alive-model order within the SAME unit; stops once the last model has been
-	# placed so the player sits in the locked state and Start confirms the move.
+	# in alive-model order within the SAME unit; with every model placed it leaves
+	# the player in the locked state where Start confirms the move.
 	await get_tree().process_frame
 	await get_tree().process_frame
 	if carry_active:
@@ -837,9 +907,8 @@ func _auto_carry_next_model() -> void:
 	var alive := _alive_model_count(unit_id)
 	# Hand over the next model that has NOT been placed yet, scanning forward
 	# with wrap-around and skipping staged ones — paddle hops let models be
-	# placed out of order, and auto-handing back a model the player already
-	# dropped would silently threaten its kept position. None un-placed →
-	# leave the player in the locked state to Confirm.
+	# placed out of order, and handing back a model the player already dropped
+	# would silently threaten its kept position.
 	var next_index := -1
 	for step in range(1, alive + 1):
 		var candidate := wrapi(carry_model_index + step, 0, alive)
@@ -847,7 +916,10 @@ func _auto_carry_next_model() -> void:
 			next_index = candidate
 			break
 	if next_index == -1:
-		return  # whole unit placed — leave the player in the locked state to Confirm
+		# Whole unit placed — tell the player what X can't do any more and where
+		# the flow goes next, then leave them in the locked state to Confirm.
+		ToastManager.show_toast("All models placed — Start confirms the move")
+		return
 	carry_model_index = next_index
 	if _try_begin_carry():
 		_update_hints()
@@ -884,7 +956,7 @@ func _alive_model_id(unit_id: String, alive_index: int) -> String:
 func confirm_from_carry() -> bool:
 	if not carry_active:
 		return false
-	if _drop_carry(false):
+	if _drop_carry():
 		call_deferred("_confirm_move_after_drop")
 	# Even if the drop was illegal (still carrying) we've handled the press — the
 	# player gets the "can't place here" toast rather than a stray phase confirm.
@@ -1317,7 +1389,9 @@ func _shooting_controller_in_shooting_phase() -> Node:
 func _update_hints() -> void:
 	var hints := HINTS_BOARD
 	if carry_active:
-		hints = HINTS_CARRY
+		# Movement carries advertise the multi-step X (Finish Model); charge
+		# carries keep the plain set — charge has no per-model advance.
+		hints = HINTS_CARRY_MOVE if _movement_controller() != null else HINTS_CARRY
 	elif PadActionBar.is_open():
 		hints = HINTS_MENU
 	elif get_viewport().gui_get_focus_owner() != null:
@@ -1335,7 +1409,10 @@ func _update_hints() -> void:
 			elif _movement_menu_available():
 				hints = HINTS_MOVE
 			elif _movement_session_locked():
-				hints = HINTS_MOVE_LOCKED
+				# Mid-move with models still to place = the multi-step state
+				# (A re-picks the dropped model, X advances); all placed = the
+				# locked state waiting on Start.
+				hints = HINTS_MOVE_STAGED if _movement_has_unplaced_models() else HINTS_MOVE_LOCKED
 	PadHintBar.set_hints(hints)
 
 
@@ -1359,6 +1436,20 @@ func _movement_controller() -> Node:
 func _movement_session_locked() -> bool:
 	var mc := _movement_controller()
 	return mc != null and mc.has_method("pad_is_move_session_locked") and mc.pad_is_move_session_locked()
+
+
+# True while the active movement unit still has at least one alive model with
+# no staged destination — the multi-step state where X ("Next Model") has
+# somewhere to advance to.
+func _movement_has_unplaced_models() -> bool:
+	var mc := _movement_controller()
+	if mc == null or str(mc.active_unit_id) == "":
+		return false
+	var unit_id := str(mc.active_unit_id)
+	for i in range(_alive_model_count(unit_id)):
+		if _staged_model_pos(unit_id, _alive_model_id(unit_id, i)) == null:
+			return true
+	return false
 
 
 # Movement phase with a selected unit whose move-mode decision is still open
