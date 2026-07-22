@@ -4,10 +4,10 @@
 		{
 			"version": "0.85.0",
 			"date": "2026-07-22",
-			"summary": "Undo now works on the controller while placing a Deep Strike / Strategic Reserves unit. Pressing X undoes the last model you placed — previously it did nothing, because the on-screen cursor 'ate' the button — and B is a new control that clears the whole unit's placement at once, so you can start over or decide not to bring the unit in right now. This also fixes X-to-undo during normal deployment and Scout reserves.",
+			"summary": "Undo now works on the controller while placing a Deep Strike / Strategic Reserves unit. Pressing X undoes the last model you placed — previously it did nothing, because the on-screen cursor 'ate' the button — and B is a new control that clears the whole unit and backs you out to the unit list, so you can pick a different unit or decide not to bring this one in right now. This also fixes X-to-undo during normal deployment and Scout reserves.",
 			"changes": [
 				"Fixed: X (Undo Model) did nothing on the controller while placing models, even though the mouse 'Undo' worked. Because the placing cursor is almost always active, the X press was being turned into a harmless right-click instead of undoing. X now undoes the last placed model regardless of the cursor — during deployment, Deep Strike / reinforcement arrivals, and Scout reserves.",
-				"New: B (Undo Unit) during placement clears the ENTIRE unit's placement in one press (the controller equivalent of the on-screen 'Reset' button) — handy when you've placed a reserves unit but decide you don't want to deploy it this turn.",
+				"New: B (Undo Unit) during Deep Strike / reinforcement placement clears the ENTIRE unit's placement and backs you out to the unit list — the unit returns to Reserves and re-appears under REINFORCEMENTS, so you can bring in a different unit or end the phase instead of being stuck placing this one. (During mandatory deployment / Scout reserves, B clears the unit and lets you re-place it from scratch.)",
 				"The controller hint bar during placement now lists both 'X Undo Model' and 'B Undo Unit'.",
 				"Safety: B only clears a unit once you've actually placed a model; with nothing placed it keeps its existing job (step back to the board / release panel focus), so it never wipes a placement unexpectedly."
 			]

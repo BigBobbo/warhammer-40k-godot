@@ -832,22 +832,23 @@ func _handle_back() -> bool:
 		did_reset = true
 	# Pad "Undo Unit": with a live placement session (deployment / reinforcement /
 	# scout) and at least one model staged, a clean B (no panel focus to release)
-	# undoes the ENTIRE unit — the pad counterpart to the mouse "Reset" button and
-	# to X's per-model undo (the reported gap: on the pad there was no way to clear
-	# a whole unit's placement, e.g. a Deep Strike unit the player decided not to
-	# bring in yet). Checked BEFORE the cursor-park below so a single B clears the
-	# unit even though the placing cursor is almost always active; gated on
-	# placed_count>0 so an empty placement still just parks the cursor (the
-	# reinforcement pad scenario relies on that). Routed through the same
-	# Main._on_reset_pressed the mouse button uses so every phase's reset/re-begin
-	# rules live in one place.
+	# undoes the ENTIRE unit — the pad counterpart to X's per-model undo (the
+	# reported gap: on the pad there was no way to clear a whole unit's placement,
+	# e.g. a Deep Strike unit the player decided not to bring in yet). Checked
+	# BEFORE the cursor-park below so a single B clears the unit even though the
+	# placing cursor is almost always active; gated on placed_count>0 so an empty
+	# placement still just parks the cursor (the reinforcement pad scenario relies
+	# on that). Routed through Main.pad_undo_unit: for a movement-phase
+	# reinforcement it BACKS OUT to the unit list (the reserve unit returns to
+	# Reserves, ready to bring in later or leave), and for mandatory deployment /
+	# scout-reserves it clears + re-begins like the mouse "Reset" button.
 	if not did_reset:
 		var m := get_tree().current_scene
 		var dc := _deployment_controller_placing()
-		if dc != null and dc.get_placed_count() > 0 and m != null and m.has_method("_on_reset_pressed"):
+		if dc != null and dc.get_placed_count() > 0 and m != null and m.has_method("pad_undo_unit"):
 			if VirtualCursor.is_cursor_active():
 				VirtualCursor.park()
-			m._on_reset_pressed()
+			m.pad_undo_unit()
 			_update_hints()
 			return true
 	if VirtualCursor.is_cursor_active():

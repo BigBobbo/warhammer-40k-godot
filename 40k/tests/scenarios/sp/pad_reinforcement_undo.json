@@ -12,7 +12,7 @@
   "rng_seed": 42,
   "transition_to_phase": 7,
   "disable_ai": true,
-  "description": "Controller undo during movement-phase reinforcement placement. Regression for the reported bug: with the virtual cursor active (its normal state while placing), pressing X did nothing because VirtualCursor swallowed it as a synthetic right-click. Now X undoes the last placed model regardless of cursor state, and B undoes the entire unit (mouse 'Reset' parity). Models are staged via the controller's own try_place_at (the same call a cursor A-click makes); the undo itself is driven by REAL joypad button events (X=2, B=1) through the live input pipeline.",
+  "description": "Controller undo during movement-phase reinforcement placement. Regression for the reported bug: with the virtual cursor active (its normal state while placing), pressing X did nothing because VirtualCursor swallowed it as a synthetic right-click. Now X undoes the last placed model regardless of cursor state, and B undoes the ENTIRE unit and BACKS OUT to the unit list — the reserve unit returns to Reserves (status 7) and re-appears under REINFORCEMENTS, so the player can pick another unit or end the phase instead of being re-dropped into placement. Models are staged via the controller's own try_place_at (the same call a cursor A-click makes); the undo itself is driven by REAL joypad button events (X=2, B=1) through the live input pipeline.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.0 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -46,10 +46,12 @@
 
     { "act": "simulate_joy_button", "button_index": 1 },
     { "act": "wait_seconds", "seconds": 0.4 },
-    { "act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 0 },
-    { "act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": true },
-    { "act": "execute_script", "script": "main.deployment_controller.is_reinforcement_mode", "equals": true },
-    { "act": "execute_script", "script": "main.deployment_controller.unit_id", "equals": "U_BOYZ_F" },
-    { "act": "screenshot", "label": "05_b_undid_entire_unit" }
+    { "act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": false },
+    { "act": "execute_script", "script": "main.deployment_controller.is_reinforcement_mode", "equals": false },
+    { "act": "expect_state", "path": "units.U_BOYZ_F.status", "equals": 7 },
+    { "act": "execute_script", "script": "main.unit_list.visible", "equals": true },
+    { "act": "execute_script", "script": "main.unit_card.visible", "equals": false },
+    { "act": "execute_script", "multiline": true, "script": "var list = tree.current_scene.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_BOYZ_F\":\n\t\treturn true\nreturn false", "equals": true },
+    { "act": "screenshot", "label": "05_b_backed_out_to_unit_list" }
   ]
 }
