@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.1",
+			"date": "2026-07-22",
+			"summary": "Rapid Ingress now works from the controller, closing two bugs left over from the earlier deep-strike fix. Using the Rapid Ingress stratagem to bring a unit on used to silently do nothing if it was your first placement of the Movement phase (the stratagem spent the CP but no placement UI ever appeared). And, like a normal reserves arrival, starting a Rapid Ingress placement now clears whatever unit you had selected, so the controller can't pop that other unit's Move / Advance / Stay Still menu or confirm its move underneath the placement.",
+			"changes": [
+				"Fixed Rapid Ingress silently doing nothing when it was the first placement of a Movement phase: the placement controller is freed at the start of every phase and Rapid Ingress — unlike the normal reserves / Scout / Kunnin' placement paths — never recreated it, so the whole placement never started. It now recreates the controller on demand.",
+				"Starting a Rapid Ingress placement now clears the previously selected unit's movement selection (auto-confirming any pending move first), matching a normal Deep Strike / Strategic Reserves arrival — so nothing you press during placement can act on that other unit, and Start no longer risks confirming its move mid-placement.",
+				"Both placement entry points now share one helper for this cleanup, so the two flows stay in step."
+			]
+		},
+		{
 			"version": "0.92.0",
 			"date": "2026-07-22",
 			"summary": "You can now walk the dice resolution on a controller in both the Shooting and Fight phases. The staged roll dock (Roll to Wound ▶ → Continue to Saving Throws ▶ → …) auto-focuses its button on a controller, so A advances each step — and it re-grabs focus after the defender's save-allocation overlay hands control back, so the roll no longer gets stuck between weapons. Previously the dock only responded to Space/Enter, leaving a controller unable to advance the rolls at all.",
