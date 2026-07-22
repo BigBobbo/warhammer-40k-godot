@@ -1,0 +1,57 @@
+{
+  "id": "shooting_shooty_power_trip_ui",
+  "covers": [
+    "scripts.ShootingController.shooty_power_trip_ui",
+    "phases.ShootingPhase.shooty_power_trip",
+    "audit_P1.shooting_shooty_power_trip"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "AUDIT P1: the Orks' Shooty Power Trip reactive must have a human UI. The phase set awaiting_shooty_power_trip and emitted shooty_power_trip_available, but neither the controller NOR AIPlayer listened — so it blocked both players. Here the prompt is raised for a human-owned Ork unit; the dialog must appear with Activate/Decline, and declining must clear the pending state (unblocking the phase).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    {
+      "act": "execute_script",
+      "script": "var fp = PhaseManager.get_current_phase_instance()\nfp.awaiting_shooty_power_trip = true\nfp.shooty_power_trip_pending_unit = \"U_BOYZ_E\"\nfp.emit_signal(\"shooty_power_trip_available\", \"U_BOYZ_E\", 2)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 8 },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"ShootyPowerTripDialog\")\nreturn d != null and d.visible",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"ShootyPowerTripDialog\")\nif d == null:\n\treturn \"NO_DIALOG\"\nvar btns = d.find_children(\"*\", \"Button\", true, false)\nvar has_use = false\nvar has_decline = false\nfor b in btns:\n\tvar t = String(b.text)\n\tif t.contains(\"Shooty Power Trip\"):\n\t\thas_use = true\n\tif t.contains(\"Decline\"):\n\t\thas_decline = true\nreturn has_use and has_decline",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "screenshot", "label": "shooty_power_trip_dialog_shown" },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"ShootyPowerTripDialog\")\nif d == null:\n\treturn \"NO_DIALOG\"\nd._on_decline_pressed()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 8 },
+    {
+      "act": "execute_script",
+      "script": "return PhaseManager.get_current_phase_instance().awaiting_shooty_power_trip",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node_or_null(\"ShootyPowerTripDialog\") == null",
+      "multiline": true,
+      "equals": true
+    }
+  ]
+}

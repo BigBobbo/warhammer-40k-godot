@@ -857,6 +857,13 @@ func _connect_phase_stratagem_signals() -> void:
 		phase.distraction_grot_available.connect(callable_dg)
 		_connected_phase_signals.append({"signal_name": "distraction_grot_available", "callable": callable_dg})
 		print("AIPlayer: Connected to ShootingPhase.distraction_grot_available")
+	# audit P1: Shooty Power Trip previously had NO listener (controller or AI),
+	# so the phase blocked the AI too. Auto-resolve it here (free beneficial roll).
+	if phase.has_signal("shooty_power_trip_available"):
+		var callable_spt = Callable(self, "_on_shooty_power_trip_available")
+		phase.shooty_power_trip_available.connect(callable_spt)
+		_connected_phase_signals.append({"signal_name": "shooty_power_trip_available", "callable": callable_spt})
+		print("AIPlayer: Connected to ShootingPhase.shooty_power_trip_available")
 
 	# --- MovementPhase signals ---
 	if phase.has_signal("fire_overwatch_opportunity"):
@@ -1019,6 +1026,20 @@ func _on_distraction_grot_available(unit_id: String, player: int) -> void:
 		"actor_unit_id": unit_id,
 		"player": player,
 		"_ai_description": "AI activates Distraction Grot (5+ invuln, free ability)"
+	}
+	_submit_reactive_action(player, decision)
+
+func _on_shooty_power_trip_available(unit_id: String, player: int) -> void:
+	"""audit P1: the AI auto-activates Shooty Power Trip (free once-per-battle
+	D6 bonus). Without a listener the phase blocked awaiting a decision."""
+	if not is_ai_player(player):
+		return
+	print("AIPlayer: Shooty Power Trip available for AI player %d, unit %s — auto-activating" % [player, unit_id])
+	var decision = {
+		"type": "USE_SHOOTY_POWER_TRIP",
+		"actor_unit_id": unit_id,
+		"player": player,
+		"_ai_description": "AI activates Shooty Power Trip (free D6 bonus)"
 	}
 	_submit_reactive_action(player, decision)
 
