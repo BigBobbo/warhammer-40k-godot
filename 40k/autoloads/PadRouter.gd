@@ -960,10 +960,17 @@ func _assign_highlighted_target() -> bool:
 		return false
 	if not sc.eligible_targets.has(target_highlight_id):
 		return false
-	# The controller auto-selects a shooter on phase entry WITHOUT dispatching
-	# SELECT_SHOOTER, so the phase may not have an active shooter yet and
-	# would reject the ASSIGN_TARGET. Sync it first (routed + validated
-	# synchronously, same as a list click).
+	# Capture the weapon the player stepped to with D-pad ▲▼ BEFORE the sync
+	# below. The controller auto-selects a shooter on phase entry WITHOUT
+	# dispatching SELECT_SHOOTER, so on the FIRST assign the phase has no active
+	# shooter and we must sync it — but that sync fires unit_selected_for_shooting
+	# → _refresh_weapon_tree, which REBUILDS the weapon tree and drops the
+	# selection. Restoring the captured weapon afterwards keeps the player's
+	# ▲▼ pick instead of silently reverting to the first (often out-of-range)
+	# weapon — the "my first shot does nothing" bug.
+	var chosen_weapon_id := str(sc.selected_weapon_id)
+	# Sync the phase's active shooter (routed + validated synchronously, same as
+	# a list click) so it will accept the ASSIGN_TARGET.
 	var phase = PhaseManager.get_current_phase_instance()
 	if phase != null and "active_shooter_id" in phase \
 			and str(phase.active_shooter_id) != str(sc.active_shooter_id):
@@ -971,12 +978,16 @@ func _assign_highlighted_target() -> bool:
 			"type": "SELECT_SHOOTER",
 			"actor_unit_id": str(sc.active_shooter_id)
 		})
-	# The click path requires a selected weapon row; select the first USABLE one
-	# if the player hasn't focused any (same default the mouse flow nudges you
-	# to). Disabled rows — engaged non-pistols, post-advance non-assault, an 11e
-	# shooting type's weapon_allowed — are unselectable, and TreeItem.select()
-	# on one silently does nothing, which used to make A a silent no-op.
-	if sc.weapon_tree != null and sc.weapon_tree.get_selected() == null:
+	# Restore the player's weapon after the sync's tree rebuild. Only fall back
+	# to the first USABLE row when the player hadn't picked a weapon yet (the
+	# same default the mouse flow nudges you to). Disabled rows — engaged
+	# non-pistols, post-advance non-assault, an 11e shooting type's
+	# weapon_allowed — are unselectable, and TreeItem.select() on one silently
+	# does nothing, which used to make A a silent no-op.
+	if chosen_weapon_id != "" and sc.has_method("pad_select_weapon") \
+			and sc.pad_select_weapon(chosen_weapon_id):
+		pass
+	elif sc.weapon_tree != null and sc.weapon_tree.get_selected() == null:
 		var root: TreeItem = sc.weapon_tree.get_root()
 		if root != null:
 			var child: TreeItem = root.get_first_child()

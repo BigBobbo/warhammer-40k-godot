@@ -3986,6 +3986,33 @@ func pad_clear_target_reticle() -> void:
 	if pad_target_reticle != null and is_instance_valid(pad_target_reticle):
 		pad_target_reticle.clear()
 
+# Re-select a specific weapon row by id (pad path). Used to restore the
+# player's D-pad ▲▼ weapon pick after a weapon-tree REBUILD — the first
+# ASSIGN_TARGET after phase entry re-syncs the phase's active shooter (see
+# PadRouter._assign_highlighted_target), which fires
+# unit_selected_for_shooting → _refresh_weapon_tree and drops the tree
+# selection. Without restoring it, that first assign silently reverts to the
+# first weapon (usually the wrong, often out-of-range gun) and the player's
+# ▲▼ choice is lost. Returns true when the row was found + (re)selected.
+func pad_select_weapon(weapon_id: String) -> bool:
+	if weapon_id == "" or weapon_tree == null or not is_instance_valid(weapon_tree):
+		return false
+	var root: TreeItem = weapon_tree.get_root()
+	if root == null:
+		return false
+	var child: TreeItem = root.get_first_child()
+	while child != null:
+		# Skip disabled rows (out of range / in engagement) — their metadata
+		# still matches but they can't be selected/assigned.
+		if str(child.get_metadata(0)) == weapon_id and child.is_selectable(0):
+			child.select(0)
+			weapon_tree.scroll_to_item(child)
+			if str(selected_weapon_id) != weapon_id:
+				_on_weapon_tree_item_selected()
+			return true
+		child = child.get_next()
+	return false
+
 func _on_weapon_tree_button_clicked(item: TreeItem, column: int, id: int, mouse_button_index: int) -> void:
 	if not item or column != 1:
 		return
@@ -5320,6 +5347,11 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 		var target_name_for_log = eligible_targets.get(target_id, {}).get("unit_name", target_id)
 		if dice_log_display:
 			dice_log_display.append_text("[color=red]✗ No %s bearers can fire on %s (range/LoS).[/color]\n" % [weapon_name_for_log, target_name_for_log])
+		# Pad players are looking at the board, not the dice log — surface the
+		# rejection as a toast so a controller A-press that can't legally assign
+		# (short-range weapon vs a far target, no line of sight) isn't a silent
+		# no-op. Mouse players get the same visible confirmation.
+		ToastManager.show_warning("%s can't fire on %s (range / line of sight)" % [weapon_name_for_log, target_name_for_log])
 		print("ShootingController: [SPLIT-FIRE] No eligible remaining bearers for %s → %s (reasons=%s)" % [weapon_id, target_id, str(split.reasons)])
 		return
 
