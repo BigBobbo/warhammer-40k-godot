@@ -3014,6 +3014,15 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ui.stratagem_button.device_glyph",
+      "description": "The top-bar Stratagems button drops its keyboard '[S] ' hint while a controller is active ('Stratagems') and restores it for keyboard/mouse ('[S] Stratagems'), because a pad reaches the button via D-pad panel focus + A rather than an 'S' key. Re-stamped live on InputDeviceManager.device_changed and idempotent across repeated device switches.",
+      "scenarios": [
+        "717_controller_stratagem_button_glyph"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

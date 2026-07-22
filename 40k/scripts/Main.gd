@@ -12,6 +12,11 @@ const UnitStatsCardPopupScript = preload("res://scripts/UnitStatsCardPopup.gd")
 # button ends the phase instead of a key they don't have.
 const GlyphDB = preload("res://scripts/input/GlyphDB.gd")
 const _PHASE_ACTION_KBM_PREFIX := "[Enter] "
+# The Stratagems button carries the keyboard "[S] " hint (Main.tscn). A pad has
+# no single Stratagems key — it reaches the button via D-pad panel focus + A —
+# so the "[S] " is dropped while a controller is active rather than showing a
+# key the player can't press.
+const _STRATAGEM_KBM_PREFIX := "[S] "
 
 # UI z_index layering constants — ensure panels always render above all board elements
 const UI_PANEL_Z: int = 500      # HUD panels (left, right, bottom, stats, logs)
@@ -289,6 +294,10 @@ func _ready() -> void:
 	# controller could end the phase at all.
 	if InputDeviceManager and not InputDeviceManager.device_changed.is_connected(_on_input_device_changed):
 		InputDeviceManager.device_changed.connect(_on_input_device_changed)
+	# Initial pass in case a pad is already the active device at startup (the
+	# phase button self-corrects via update_ui_for_phase; the stratagem button
+	# has no other refresh path, so seed it here).
+	_sync_stratagem_button_glyph()
 
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
@@ -10141,6 +10150,22 @@ func _sync_phase_action_glyph() -> void:
 
 func _on_input_device_changed(_mode: int) -> void:
 	_sync_phase_action_glyph()
+	_sync_stratagem_button_glyph()
+
+# Drop / restore the Stratagems button's "[S] " keyboard hint for the active
+# device: pad → "Stratagems" (reached via D-pad panel focus + A, no key), KBM →
+# "[S] Stratagems". Idempotent — strips any existing prefix before re-applying —
+# so it survives repeated device switches and any future dynamic relabel.
+func _sync_stratagem_button_glyph() -> void:
+	if not stratagem_panel_button or not is_instance_valid(stratagem_panel_button):
+		return
+	var bare: String = stratagem_panel_button.text
+	if bare.begins_with(_STRATAGEM_KBM_PREFIX):
+		bare = bare.substr(_STRATAGEM_KBM_PREFIX.length())
+	if InputDeviceManager and InputDeviceManager.is_pad_active():
+		stratagem_panel_button.text = bare
+	else:
+		stratagem_panel_button.text = _STRATAGEM_KBM_PREFIX + bare
 
 func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 	return _phase_action_prefix() + _get_phase_action_label(phase)
