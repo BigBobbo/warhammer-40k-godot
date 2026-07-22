@@ -77,8 +77,97 @@ var swift_as_eagle_pending_strat: String = "SWIFT AS THE EAGLE"
 var wazblasta_pending_unit: String = ""
 var awaiting_wazblasta: bool = false
 
+# PERF-LOS: per-snapshot eligible-target cache. get_eligible_targets() runs a
+# base-aware line-of-sight sweep over every enemy unit × weapon × model-pair —
+# seconds of work on a full board. The "Select Shooter" list filter calls it for
+# EVERY friendly unit, and _refresh_unit_list() re-runs on phase entry AND after
+# every target assignment, so without a cache the player paid that sweep again on
+# every single click (the reported multi-second pause). Eligibility is a pure
+# function of the current game_state_snapshot. Validity is keyed on BOTH the
+# snapshot's object identity (a fresh snapshot at any of the ~16 reassignment
+# sites invalidates everything) AND a content fingerprint of model positions /
+# alive / engagement (so an IN-PLACE mutation of the snapshot — which does not
+# change the object reference — still invalidates). See _eligibility_fingerprint.
+var _eligible_targets_cache: Dictionary = {}
+# PERF-LOS: separate yes/no cache for the "can this unit shoot at all?" list
+# filter. It uses the cheap first-match-only scan (stops at the first eligible
+# target) rather than building the full map, so the phase-entry sweep over every
+# unit is far cheaper. Shares the same invalidation.
+var _has_targets_cache: Dictionary = {}
+var _eligible_targets_cache_snapshot = null
+# PERF-LOS: content fingerprint (model positions + alive) of the snapshot the
+# caches were built against. Object identity alone is NOT enough: game_state_snapshot
+# can be mutated IN PLACE (e.g. a unit repositioned, or the scenario runner poking
+# model positions) without the object reference changing — that must still
+# invalidate eligibility. Recomputing this is O(models) and trivially cheap next
+# to the line-of-sight sweep it guards.
+var _eligibility_cache_fingerprint: int = 0
+
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
+
+# PERF-LOS: fingerprint every model's position + alive flag. Any change here can
+# change who is targetable, so a different fingerprint must drop the caches.
+func _eligibility_fingerprint() -> int:
+	var units = game_state_snapshot.get("units", {}) if game_state_snapshot else {}
+	var h: int = hash(units.size())
+	for uid in units:
+		var u = units[uid]
+		h = h * 1000003 + hash(uid)
+		for m in u.get("models", []):
+			var pos = m.get("position", null)
+			var px: float = 0.0
+			var py: float = 0.0
+			if pos is Dictionary:
+				px = pos.get("x", 0.0); py = pos.get("y", 0.0)
+			elif pos != null:
+				px = pos.x; py = pos.y
+			h = h * 1000003 + hash(px)
+			h = h * 1000003 + hash(py)
+			h = h * 1000003 + (1 if m.get("alive", true) else 0)
+		# in_engagement gates which weapons may fire, so fold it in too.
+		h = h * 1000003 + (1 if u.get("flags", {}).get("in_engagement", false) else 0)
+	return h
+
+# PERF-LOS: drop both eligibility caches when the snapshot object OR its relevant
+# content (positions / alive / engagement) changes.
+func _ensure_eligibility_cache_fresh() -> void:
+	var fp := _eligibility_fingerprint()
+	if not is_same(_eligible_targets_cache_snapshot, game_state_snapshot) or fp != _eligibility_cache_fingerprint:
+		_eligible_targets_cache.clear()
+		_has_targets_cache.clear()
+		_eligible_targets_cache_snapshot = game_state_snapshot
+		_eligibility_cache_fingerprint = fp
+
+# PERF-LOS: memoized full get_eligible_targets keyed on unit_id, valid while
+# game_state_snapshot keeps the same object identity (see cache decl above).
+func _cached_eligible_targets(unit_id: String) -> Dictionary:
+	_ensure_eligibility_cache_fresh()
+	# Return a deep copy: callers (e.g. the controller's live eligible_targets,
+	# which it may .clear() on deselect) must never mutate the cached authority.
+	# The eligible dict is small (one entry per eligible enemy unit), so the copy
+	# cost is trivial next to the seconds of LoS work it saves.
+	if _eligible_targets_cache.has(unit_id):
+		return _eligible_targets_cache[unit_id].duplicate(true)
+	var result = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+	_eligible_targets_cache[unit_id] = result
+	return result.duplicate(true)
+
+# PERF-LOS: cached yes/no "does this unit have any eligible shooting target?"
+# using the first-match-only early-out. Used by the Select-Shooter list filter,
+# which is the hot per-unit path on phase entry and every UI refresh.
+func _cached_has_eligible_target(unit_id: String) -> bool:
+	_ensure_eligibility_cache_fresh()
+	if _has_targets_cache.has(unit_id):
+		return _has_targets_cache[unit_id]
+	# If the full map was already computed (e.g. the unit was selected), reuse it.
+	if _eligible_targets_cache.has(unit_id):
+		var has_full: bool = not _eligible_targets_cache[unit_id].is_empty()
+		_has_targets_cache[unit_id] = has_full
+		return has_full
+	var has_any: bool = not RulesEngine.get_eligible_targets(unit_id, game_state_snapshot, true).is_empty()
+	_has_targets_cache[unit_id] = has_any
+	return has_any
 
 func _on_phase_enter() -> void:
 	log_phase_message("Entering Shooting Phase")
@@ -983,8 +1072,9 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 			})
 
 	# Normal shooting flow
-	# Get eligible targets
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+	# Get eligible targets (PERF-LOS: cached — usually already computed by the
+	# Select-Shooter list filter that ran this same phase).
+	var eligible_targets = _cached_eligible_targets(unit_id)
 
 	emit_signal("unit_selected_for_shooting", unit_id)
 	emit_signal("targets_available", unit_id, eligible_targets)
@@ -4236,8 +4326,10 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 func _has_eligible_targets(unit_id: String) -> bool:
 	"""P3-96: Check if a unit has at least one eligible shooting target.
 	Also returns true if the unit has Throat Slittas targets (alternative to shooting)."""
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	if not eligible_targets.is_empty():
+	# PERF-LOS: route through the cached first-match-only check — this is the hot
+	# filter path that _refresh_unit_list() calls for every unit on every UI
+	# refresh. It stops at the first eligible target instead of scanning them all.
+	if _cached_has_eligible_target(unit_id):
 		return true
 	# Check for Throat Slittas alternative (mortal wounds within 9")
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")

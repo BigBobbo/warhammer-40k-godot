@@ -5485,12 +5485,68 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 
 	return {"visible": false, "reason": "No valid targets in range and LoS"}
 
+# --- Line-of-sight memoization (PERF-LOS) ---------------------------------
+# Base-aware line of sight is a PURE function of shooter/target geometry
+# (position, base shape/size, rotation, elevation) and the terrain layout. It
+# is also the single dominant cost of the shooting phase: the "which units can
+# shoot" filter runs get_eligible_targets for EVERY friendly unit × enemy unit
+# × weapon × model-pair, on phase entry AND again after every target click,
+# with no caching. On a realistic board that measured 3–32 seconds per sweep —
+# the freeze the player sees entering shooting and the multi-second pause on
+# each target click.
+#
+# We memoize the yes/no result keyed by the exact geometry the check depends
+# on, scoped to a "terrain epoch": the cache is dropped the instant the terrain
+# array's reference changes. Every fresh GameState.create_snapshot() builds a
+# NEW terrain array, so a stale board can never yield a wrong hit, and any move
+# that changes a model's position changes its key (a miss). The rich-dict
+# callers that need sight_line/attempted_lines (LoSDebugVisual, LineOfSightManager)
+# call EnhancedLineOfSight.check_enhanced_visibility directly and bypass this.
+static var _los_memo: Dictionary = {}
+static var _los_memo_terrain = null   # reference-identity guard for the epoch
+const _LOS_MEMO_MAX := 200000         # safety cap (realistically ~pairs/board)
+
+# Drop the memo when the board's terrain layout changes identity. Using
+# reference identity (is_same) is intentional: snapshots duplicate terrain, so
+# a different board object is a different epoch and never shares cached results.
+static func _los_memo_check_epoch(board: Dictionary) -> void:
+	var terrain = board.get("terrain_features", null)
+	if not is_same(terrain, _los_memo_terrain):
+		_los_memo.clear()
+		_los_memo_terrain = terrain
+
+# Geometry fingerprint. Includes the model id AND position so a moved or swapped
+# model is always a cache miss, plus every base attribute that feeds the
+# base-aware sampler.
+static func _los_memo_key(sm: Dictionary, tm: Dictionary) -> String:
+	var sp = _get_model_position(sm)
+	var tp = _get_model_position(tm)
+	return "%s@%s/%s/%s/%s/%s/%s|%s@%s/%s/%s/%s/%s/%s" % [
+		sm.get("id", ""), sp, sm.get("base_mm", 32), sm.get("base_type", ""),
+		sm.get("base_dimensions", {}), sm.get("rotation", 0.0), sm.get("elevation_inches", 0.0),
+		tm.get("id", ""), tp, tm.get("base_mm", 32), tm.get("base_type", ""),
+		tm.get("base_dimensions", {}), tm.get("rotation", 0.0), tm.get("elevation_inches", 0.0),
+	]
+
+# PERF-LOS: force-clear the LoS memo (e.g. if terrain is ever edited in place).
+static func clear_los_memo() -> void:
+	_los_memo.clear()
+	_los_memo_terrain = null
+
 static func _check_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> bool:
 	# Enhanced mode with model data for base-aware visibility checking
 	if not shooter_model.is_empty() and not target_model.is_empty():
+		# PERF-LOS: memoized fast path (see _los_memo notes above).
+		_los_memo_check_epoch(board)
+		var key = _los_memo_key(shooter_model, target_model)
+		if _los_memo.has(key):
+			return _los_memo[key]
 		var result = EnhancedLineOfSight.check_enhanced_visibility(shooter_model, target_model, board)
-		return result.has_los
-	
+		var has_los: bool = result.has_los
+		if _los_memo.size() < _LOS_MEMO_MAX:
+			_los_memo[key] = has_los
+		return has_los
+
 	# Fallback to legacy point-to-point for backward compatibility
 	return _check_legacy_line_of_sight(from_pos, to_pos, board)
 
@@ -5756,7 +5812,12 @@ static func _get_model_position(model: Dictionary) -> Vector2:
 	return Vector2.ZERO
 
 # Utility functions for getting eligible targets
-static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Dictionary:
+# first_match_only (PERF-LOS): when true, return as soon as ONE eligible target
+# (with one in-range/visible weapon) is found. The "can this unit shoot at all?"
+# list filter only needs a yes/no, so it passes true and skips the rest of the
+# (expensive, LoS-heavy) enemy scan. The default false path builds the full map
+# the target-selection UI needs.
+static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first_match_only: bool = false) -> Dictionary:
 	var eligible = {}
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
@@ -5771,6 +5832,10 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 
 	# BIG GUNS NEVER TIRE: Check if actor is Monster/Vehicle (can shoot non-Pistol weapons in ER)
 	var actor_is_monster_vehicle = is_monster_or_vehicle(actor_unit)
+
+	# PERF-LOS: the actor's weapon layout is identical for every candidate target,
+	# so resolve it ONCE here instead of re-parsing it inside the per-target loop.
+	var unit_weapons = get_unit_weapons(actor_unit_id, board)
 
 	# Check each potential target unit
 	for target_unit_id in units:
@@ -5839,18 +5904,25 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 		if actor_in_engagement:
 			target_in_er = _is_target_within_engagement_range(actor_unit_id, target_unit_id, board)
 
-		# Check weapons that can target this unit
+		# Check weapons that can target this unit (unit_weapons hoisted above the loop)
 		var weapons_in_range = []
-		var unit_weapons = get_unit_weapons(actor_unit_id, board)
 
+		# PERF-LOS: a weapon carried by N models was previously visibility-checked
+		# once PER carrying model — and _check_target_visibility already scans every
+		# alive actor model internally, so those N-1 extra scans were pure waste
+		# (each a full actor×target model loop). On a horde unit that is the
+		# difference between checking "shoota" once vs 20×. Dedup by weapon: only
+		# the first bearer of each weapon triggers the (expensive) visibility scan.
+		var checked_weapons := {}
 		for model_id in unit_weapons:
 			var model = _get_model_by_id(actor_unit, model_id)
 			if not model or not model.get("alive", true):
 				continue
 
 			for weapon_id in unit_weapons[model_id]:
-				if weapon_id in weapons_in_range:
+				if weapon_id in weapons_in_range or checked_weapons.has(weapon_id):
 					continue
+				checked_weapons[weapon_id] = true
 
 				var is_pistol = is_pistol_weapon(weapon_id, board)
 
@@ -5869,6 +5941,12 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 				var visibility = _check_target_visibility(actor_unit_id, target_unit_id, weapon_id, board)
 				if visibility.visible:
 					weapons_in_range.append(weapon_id)
+					# PERF-LOS: for the yes/no filter, one visible weapon settles it —
+					# stop scanning this unit's remaining weapons.
+					if first_match_only:
+						break
+			if first_match_only and not weapons_in_range.is_empty():
+				break
 
 		if not weapons_in_range.is_empty():
 			eligible[target_unit_id] = {
@@ -5877,6 +5955,9 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 				"in_engagement_range": actor_in_engagement,  # Include flag for UI
 				"is_bgnt": actor_is_monster_vehicle and actor_in_engagement  # Flag for BGNT status
 			}
+			# PERF-LOS: filter caller only needs to know the unit CAN shoot something.
+			if first_match_only:
+				return eligible
 
 	return eligible
 

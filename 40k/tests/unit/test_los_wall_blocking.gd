@@ -68,6 +68,44 @@ func test_enhanced_los_wall_blocks_sight_into_ruins():
 	var result = EnhancedLineOfSight.check_enhanced_visibility(shooter, target, board)
 	assert_false(result.has_los, "P1-68: Wall should block LoS even when seeing into ruins")
 
+func test_enhanced_los_dict_format_wall_blocks_sight():
+	"""Regression: a wall whose start/end are {"x","y"} dicts (the shape terrain
+	takes after round-tripping through JSON — a loaded save or a networked game)
+	must still block LoS. Previously the dict was passed straight to Geometry2D,
+	which threw and made the wall check silently return false (walls stopped
+	blocking after load)."""
+	var polygon = _make_rect_polygon(400, 400, 200, 200)
+	var board = {
+		"terrain_features": [{
+			"id": "test_ruins",
+			"type": "ruins",
+			"height_category": "tall",
+			"polygon": polygon,
+			"walls": [{
+				"id": "test_wall",
+				"start": {"x": 200.0, "y": 200.0},  # dict form, not Vector2
+				"end": {"x": 200.0, "y": 600.0},
+				"type": "solid",
+				"blocks_los": true
+			}]
+		}]
+	}
+	var shooter = _make_infantry_model(Vector2(100, 400))  # west of ruin
+	var target = _make_infantry_model(Vector2(400, 400))   # inside ruin
+	var result = EnhancedLineOfSight.check_enhanced_visibility(shooter, target, board)
+	assert_false(result.has_los, "Dict-format wall must block LoS (JSON/save-load format)")
+
+func test_terrain_manager_dict_format_wall_blocks_movement():
+	"""Regression: TerrainManager.check_line_intersects_wall must also handle the
+	dict wall format (movement wall-crossing, the mirror of the LoS bug)."""
+	var wall = {"start": {"x": 100.0, "y": 0.0}, "end": {"x": 100.0, "y": 200.0}}
+	# Line (0,100)->(200,100) crosses the vertical wall at x=100.
+	assert_true(TerrainManager.check_line_intersects_wall(Vector2(0, 100), Vector2(200, 100), wall),
+		"Dict-format wall must block movement line that crosses it")
+	# Line (0,300)->(200,300) is clear of the wall.
+	assert_false(TerrainManager.check_line_intersects_wall(Vector2(0, 300), Vector2(200, 300), wall),
+		"Dict-format wall must NOT block a movement line that misses it")
+
 func test_enhanced_los_wall_blocks_sight_out_of_ruins():
 	"""P1-68: Wall should block LoS when shooting out of ruins"""
 	# Large ruin at (300,400), 400x400 pixels
