@@ -1,0 +1,679 @@
+<title>Controller Controls Map — WH40k Battle Simulator</title>
+<style>
+:root{
+  --bg:#f4efe4; --panel:#fffdf7; --panel-2:#efe7d6; --ink:#241f17; --ink-soft:#5b5343;
+  --line:#d9ccb3; --accent:#b9702a; --accent-soft:#c98a44; --gold:#9a7b2e;
+  --chip-bg:#241f17; --chip-ink:#f2e4c2; --chip-line:#000;
+  --good:#4f7d46; --warn:#a9762a; --crit:#b0472f; --info:#5b6b86;
+  --shadow:0 1px 2px rgba(60,45,20,.09),0 6px 18px rgba(60,45,20,.07);
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#14110c; --panel:#1d1810; --panel-2:#241d13; --ink:#ece3d0; --ink-soft:#a99e88;
+  --line:#3a3021; --accent:#d98a3a; --accent-soft:#e0a05a; --gold:#d8c078;
+  --chip-bg:#0c0a06; --chip-ink:#e8d9b2; --chip-line:#4a3d26;
+  --good:#6faf63; --warn:#d6a445; --crit:#d06a54; --info:#8fa0bf;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 26px rgba(0,0,0,.35);
+}}
+:root[data-theme="light"]{
+  --bg:#f4efe4; --panel:#fffdf7; --panel-2:#efe7d6; --ink:#241f17; --ink-soft:#5b5343;
+  --line:#d9ccb3; --accent:#b9702a; --accent-soft:#c98a44; --gold:#9a7b2e;
+  --chip-bg:#241f17; --chip-ink:#f2e4c2; --chip-line:#000;
+  --good:#4f7d46; --warn:#a9762a; --crit:#b0472f; --info:#5b6b86;
+}
+:root[data-theme="dark"]{
+  --bg:#14110c; --panel:#1d1810; --panel-2:#241d13; --ink:#ece3d0; --ink-soft:#a99e88;
+  --line:#3a3021; --accent:#d98a3a; --accent-soft:#e0a05a; --gold:#d8c078;
+  --chip-bg:#0c0a06; --chip-ink:#e8d9b2; --chip-line:#4a3d26;
+  --good:#6faf63; --warn:#d6a445; --crit:#d06a54; --info:#8fa0bf;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
+header.hero{border-bottom:1px solid var(--line);background:
+  linear-gradient(180deg,var(--panel-2),transparent);padding:56px 0 30px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--accent);margin:0 0 12px}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,5vw,46px);line-height:1.05;
+  margin:0 0 14px;text-wrap:balance;letter-spacing:-.01em}
+.lede{font-size:18px;color:var(--ink-soft);max-width:66ch;margin:0 0 8px}
+.meta{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);margin-top:16px;
+  display:flex;gap:18px;flex-wrap:wrap}
+.meta b{color:var(--ink)}
+
+.layout{display:grid;grid-template-columns:230px 1fr;gap:40px;align-items:start;
+  padding:36px 0 80px}
+nav.toc{position:sticky;top:18px;font-size:14px;max-height:calc(100vh - 36px);overflow:auto}
+.nav-group{margin-bottom:16px;display:flex;flex-direction:column;gap:3px}
+.nav-h{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-soft);margin-bottom:4px}
+nav.toc a{color:var(--ink-soft);padding:2px 0}
+nav.toc a:hover{color:var(--accent);text-decoration:none}
+main{min-width:0}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:24px 26px;box-shadow:var(--shadow);margin-bottom:34px}
+.card h2{font-family:var(--serif);font-size:24px;margin:0 0 4px;font-weight:600}
+.card .sub{color:var(--ink-soft);margin:0 0 20px;font-size:15px}
+
+/* physical map */
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 30px}
+@media(max-width:720px){.pgrid{grid-template-columns:1fr}}
+.prow{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:7px 0;
+  border-bottom:1px solid var(--line);align-items:start}
+.pk{display:flex;align-items:center;gap:8px}
+.pk-n{font-size:13.5px;font-weight:600}
+.pm{font-size:13.5px;color:var(--ink-soft)}
+.legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:6px}
+.leg{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-soft);font-family:var(--mono)}
+
+/* chips — mirrors the in-game GlyphDB hint chip */
+.chip{display:inline-flex;align-items:center}
+.chip-g{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--chip-ink);
+  background:var(--chip-bg);border:1px solid var(--chip-line);border-radius:4px;
+  padding:1px 7px;min-width:22px;text-align:center;line-height:1.5}
+
+/* coverage table */
+table{border-collapse:collapse;width:100%;font-size:14px}
+.cov-table th,.cov-table td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.cov-table th{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ink-soft);font-weight:600}
+.cov-area{font-weight:600;white-space:nowrap}
+.cov-note{color:var(--ink-soft);font-size:13px}
+.cov{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;
+  padding:2px 9px;border-radius:20px;white-space:nowrap}
+.cov-full{color:var(--good);background:color-mix(in srgb,var(--good) 16%,transparent)}
+.cov-part{color:var(--warn);background:color-mix(in srgb,var(--warn) 18%,transparent)}
+.cov-gap{color:var(--crit);background:color-mix(in srgb,var(--crit) 18%,transparent)}
+
+/* sections */
+.doc-section{padding:14px 0 6px;border-top:1px solid var(--line);margin-top:26px;scroll-margin-top:14px}
+.sec-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:6px}
+.doc-section h3{font-family:var(--serif);font-size:27px;font-weight:600;margin:0 0 8px}
+.sec-blurb{color:var(--ink-soft);max-width:70ch;margin:0 0 18px}
+
+.state{background:var(--panel);border:1px solid var(--line);border-radius:11px;
+  padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.state-head{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.state-head h4{font-family:var(--serif);font-size:19px;margin:0;font-weight:600}
+.when{font-size:13px;color:var(--ink-soft);margin:4px 0 14px}
+.when .src{font-family:var(--mono);font-size:11.5px;opacity:.8;margin-left:8px}
+.when .src code{background:var(--panel-2);padding:1px 5px;border-radius:4px}
+.state-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:20px;align-items:start}
+@media(max-width:760px){.state-body{grid-template-columns:1fr}}
+table.controls{background:var(--panel-2);border-radius:8px;overflow:hidden}
+table.controls th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-soft);text-align:left;padding:8px 12px;border-bottom:1px solid var(--line)}
+table.controls td{padding:7px 12px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:top}
+table.controls tr:last-child td{border-bottom:none}
+.c-glyph{width:52px;white-space:nowrap}
+.c-act{color:var(--ink)}
+
+figure.shot{margin:0}
+figure.shot img{width:100%;height:auto;border:1px solid var(--line);border-radius:8px;display:block;
+  background:var(--panel-2)}
+figure.shot figcaption{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-top:6px;text-align:center}
+.noshot{border:1px dashed var(--line);border-radius:8px;padding:20px;text-align:center;
+  color:var(--ink-soft);background:var(--panel-2);display:flex;flex-direction:column;gap:6px;justify-content:center}
+.noshot span{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.noshot p{font-size:12.5px;margin:0}
+
+.rp-badge{font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.rp-yes{color:var(--good);background:color-mix(in srgb,var(--good) 16%,transparent)}
+.rp-part{color:var(--warn);background:color-mix(in srgb,var(--warn) 18%,transparent)}
+.rp-no{color:var(--crit);background:color-mix(in srgb,var(--crit) 16%,transparent)}
+.rp-dialog{color:var(--info);background:color-mix(in srgb,var(--info) 18%,transparent)}
+.rp-na{color:var(--ink-soft);background:color-mix(in srgb,var(--ink-soft) 15%,transparent)}
+.rp-note{font-size:13px;color:var(--ink-soft);margin:14px 0 0;border-left:2px solid var(--accent);padding-left:12px}
+.notes{font-size:13px;color:var(--ink-soft);margin:12px 0 0;padding-left:18px}
+.notes li{margin:3px 0}
+
+/* gaps */
+.gap{background:var(--panel);border:1px solid var(--line);border-left-width:4px;border-radius:8px;
+  padding:14px 18px;margin-bottom:12px}
+.gap-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.gap-top h4{font-family:var(--serif);font-size:17px;margin:0;font-weight:600}
+.gap-badge{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.06em;
+  padding:2px 8px;border-radius:5px;text-transform:uppercase;white-space:nowrap}
+.gap p{font-size:13.5px;color:var(--ink-soft);margin:8px 0 0}
+.gap-ev{font-family:var(--mono);font-size:11.5px;opacity:.8;margin-top:8px!important}
+.g-crit{border-left-color:var(--crit)} .g-crit .gap-badge{color:#fff;background:var(--crit)}
+.g-warn{border-left-color:var(--warn)} .g-warn .gap-badge{color:#231a08;background:var(--warn)}
+.g-info{border-left-color:var(--info)} .g-info .gap-badge{color:#fff;background:var(--info)}
+
+footer{border-top:1px solid var(--line);padding:26px 0 60px;color:var(--ink-soft);font-size:13px}
+footer code{font-family:var(--mono);background:var(--panel-2);padding:1px 6px;border-radius:4px}
+.callout{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:18px 0}
+.callout h4{margin:0 0 6px;font-family:var(--serif);font-size:17px}
+.callout p{margin:6px 0;font-size:13.5px;color:var(--ink-soft)}
+@media(max-width:900px){.layout{grid-template-columns:1fr} nav.toc{position:static;max-height:none}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+
+<header class="hero"><div class="wrap">
+  <p class="eyebrow">Source of truth · Gamepad</p>
+  <h1>Controller Controls Map</h1>
+  <p class="lede">Every point where a player gives input on a game controller, and exactly what each
+  button does at that instant — across menus, pre-battle, and all seven battle phases of the
+  Warhammer 40,000 Battle Simulator.</p>
+  <p class="lede">The button tables are generated straight from <code style="font-family:var(--mono);font-size:.85em">PadRouter</code>'s
+  live hint-set constants, so a control listed here is a control the code actually renders. A drift-check
+  test fails CI if the code changes without this document being updated — so these controls only change
+  when we intend them to.</p>
+  <div class="meta">
+    <span><b>Layout:</b> Xbox / Steam Deck (SDL)</span>
+    <span><b>Generated:</b> 2026-07-22</span>
+    <span><b>Scope:</b> controller-first (mouse/keyboard-only steps flagged as gaps)</span>
+  </div>
+</div></header>
+
+<div class="wrap"><div class="layout">
+  <nav class="toc" aria-label="Contents">
+    <div class="nav-group"><span class="nav-h">Start here</span>
+      <a href="#how">How to read this</a><a href="#layout">Controller layout</a>
+      <a href="#coverage">Coverage summary</a><a href="#gaps">Controller gaps</a>
+    </div>
+    <div class="nav-group"><span class="nav-h">Menus &amp; shell</span><a href="#main-menu">Main menu</a><a href="#pause">Pause / Settings menu</a><a href="#datasheet">Datasheet overlay</a></div><div class="nav-group"><span class="nav-h">Pre-battle</span><a href="#formations">Formations / setup dialogs</a><a href="#deployment">Deployment</a><a href="#redeploy-scout">Redeployment &amp; Scout</a></div><div class="nav-group"><span class="nav-h">Battle phases</span><a href="#command">Command</a><a href="#movement">Movement</a><a href="#shooting">Shooting</a><a href="#charge">Charge</a><a href="#fight">Fight</a><a href="#scoring">Scoring / End turn</a></div>
+  </nav>
+
+  <main>
+    <section id="how" class="card">
+      <h2>How to read this</h2>
+      <p class="sub">The controls are contextual: the same button means different things in different states.</p>
+      <ul class="notes" style="font-size:14px">
+        <li><strong>The pad only drives the game while it is the active device.</strong> Any joypad press claims control (the on-screen hint bar appears); any mouse move or key press hands control back to keyboard &amp; mouse.</li>
+        <li><strong>LB / RB are the only unit-switcher.</strong> They cycle the acting unit in every phase. Unit lists on the right are deliberately NOT walkable with the D-pad or stick — cycling is the bumpers' job alone.</li>
+        <li><strong>The D-pad is context-dependent.</strong> With nothing selected it enters panel focus; with a phase sub-menu open (targets, weapons, move mode, deploy rows) it drives that instead.</li>
+        <li><strong>Each state below lists its buttons, whether the right-hand panel can be driven on the pad, and any gaps.</strong> The "Right panel on pad?" badge is the answer to "can I control the menu on the right here?"</li>
+      </ul>
+    </section>
+
+    <section id="layout" class="card">
+      <h2>Controller layout — always-on meanings</h2>
+      <p class="sub">These hold across the game unless a state below overrides them. Glyphs match the in-game hint bar.</p>
+      <div class="pgrid"><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">LS</span></span><span class="pk-n">Left stick</span></div><div class="pm">Virtual cursor — point at the board, drag models, aim placement</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">L3</span></span><span class="pk-n">L3 (click LS)</span></div><div class="pm">Next model — cycle the active unit&#x27;s individual models (Movement / Charge)</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">RS</span></span><span class="pk-n">Right stick</span></div><div class="pm">Pan the camera</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">R3</span></span><span class="pk-n">R3 (hold RS)</span></div><div class="pm">Precision modifier — hold to slow the cursor for fine placement</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">LT</span></span><span class="pk-n">Left trigger</span></div><div class="pm">Zoom out</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">RT</span></span><span class="pk-n">Right trigger</span></div><div class="pm">Zoom in</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">LB</span></span><span class="pk-n">Left bumper</span></div><div class="pm">Previous unit (cycle the acting unit) · rotate ⟲ while carrying a model</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">RB</span></span><span class="pk-n">Right bumper</span></div><div class="pm">Next unit (cycle the acting unit) · rotate ⟳ while carrying a model</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">A</span></span><span class="pk-n">A</span></div><div class="pm">Context confirm — select / assign / place / pick-up / drop / press</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">B</span></span><span class="pk-n">B</span></div><div class="pm">Back — deselect / cancel / undo / release panel focus</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">X</span></span><span class="pk-n">X</span></div><div class="pm">Context action — skip unit / undo model / finish model / snap to contact</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">Y</span></span><span class="pk-n">Y</span></div><div class="pm">Toggle the datasheet of the highlighted unit / target</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">✚</span></span><span class="pk-n">D-pad</span></div><div class="pm">Menus &amp; steppers — phase sub-menu, target/weapon steps, or focus the panels</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">☰</span></span><span class="pk-n">Start (☰)</span></div><div class="pm">Context confirm / End Phase (pad_phase_action)</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">⧉</span></span><span class="pk-n">View / Select (⧉)</span></div><div class="pm">Pause menu — Save/Load, Settings, Return to Main Menu (pad_menu_action)</div></div><div class="prow"><div class="pk"><span class="chip"><span class="chip-g">L4</span></span><span class="pk-n">L4 / R4 paddles</span></div><div class="pm">Prev / next model — same as L3, only if Steam Input forwards the Deck paddles</div></div></div>
+      <div class="legend"><div class="leg"><span class="chip"><span class="chip-g">A</span></span><span>A</span></div><div class="leg"><span class="chip"><span class="chip-g">B</span></span><span>B</span></div><div class="leg"><span class="chip"><span class="chip-g">X</span></span><span>X</span></div><div class="leg"><span class="chip"><span class="chip-g">Y</span></span><span>Y</span></div><div class="leg"><span class="chip"><span class="chip-g">LB</span></span><span>LB</span></div><div class="leg"><span class="chip"><span class="chip-g">RB</span></span><span>RB</span></div><div class="leg"><span class="chip"><span class="chip-g">LT</span></span><span>LT</span></div><div class="leg"><span class="chip"><span class="chip-g">RT</span></span><span>RT</span></div><div class="leg"><span class="chip"><span class="chip-g">LS</span></span><span>LS</span></div><div class="leg"><span class="chip"><span class="chip-g">RS</span></span><span>RS</span></div><div class="leg"><span class="chip"><span class="chip-g">L3</span></span><span>L3</span></div><div class="leg"><span class="chip"><span class="chip-g">R3</span></span><span>R3</span></div><div class="leg"><span class="chip"><span class="chip-g">✚</span></span><span>✚</span></div><div class="leg"><span class="chip"><span class="chip-g">☰</span></span><span>☰</span></div><div class="leg"><span class="chip"><span class="chip-g">⧉</span></span><span>⧉</span></div><div class="leg"><span class="chip"><span class="chip-g">L4</span></span><span>L4</span></div></div>
+    </section>
+
+    <section id="coverage" class="card">
+      <h2>Coverage at a glance</h2>
+      <p class="sub">How completely each area is playable on a controller today.</p>
+      <div style="overflow-x:auto"><table class="cov-table">
+        <thead><tr><th>Area</th><th>What the pad does</th><th>Coverage</th><th>Caveat</th></tr></thead>
+        <tbody><tr><td class="cov-area">Menus &amp; shell</td><td>Main menu, pause, settings, save/load</td><td><span class="cov cov-full">Full</span></td><td class="cov-note">Native focus nav throughout</td></tr><tr><td class="cov-area">Datasheet</td><td>Y opens/closes the stat card</td><td><span class="cov cov-part">Partial</span></td><td class="cov-note">No pad-B close; no scroll</td></tr><tr><td class="cov-area">Deployment</td><td>Place, rotate, undo, formation/type</td><td><span class="cov cov-full">Full</span></td><td class="cov-note">Reposition-placed-model is mouse-only</td></tr><tr><td class="cov-area">Redeployment</td><td>End phase only</td><td><span class="cov cov-gap">Gap</span></td><td class="cov-note">Redeploy move has no UI (AI-only)</td></tr><tr><td class="cov-area">Command</td><td>Battle-shock, stratagems, abilities</td><td><span class="cov cov-part">Partial</span></td><td class="cov-note">Faction choices AI-only; stratagem panel awkward</td></tr><tr><td class="cov-area">Movement</td><td>Menu, carry, group carry, finish</td><td><span class="cov cov-full">Full</span></td><td class="cov-note">Deepest controller flow — fully mapped</td></tr><tr><td class="cov-area">Shooting</td><td>Cycle shooter, target ring, weapons</td><td><span class="cov cov-part">Partial</span></td><td class="cov-note">HUD action buttons unreachable while armed</td></tr><tr><td class="cov-area">Charge</td><td>Declare, roll, move into engagement</td><td><span class="cov cov-full">Full</span></td><td class="cov-note">11e declare-then-target path is UI-less (all inputs)</td></tr><tr><td class="cov-area">Fight</td><td>Bumper-cycle fight buttons, assign</td><td><span class="cov cov-part">Partial</span></td><td class="cov-note">Per-model weapon / split attacks have no UI</td></tr><tr><td class="cov-area">Scoring</td><td>Auto + discard buttons</td><td><span class="cov cov-full">Full</span></td><td class="cov-note">Mostly automatic</td></tr></tbody>
+      </table></div>
+    </section>
+
+    
+  <section id="main-menu" class="doc-section">
+    <div class="sec-eyebrow">Menus &amp; shell</div>
+    <h3>Main menu</h3>
+    <p class="sec-blurb">The army/mission setup screen shown on launch. Pure native Godot focus navigation — no board router involved.</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Setup screen</h4>
+        <span class="rp-badge rp-na" title="Can you drive the right-hand panel with the pad here?">Right panel: N/A</span>
+      </div>
+      <p class="when"><strong>When:</strong> On launch, before a game starts. <span class="src">Source: native focus / phase handler</span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Move focus between dropdowns and buttons (ui_up/down/left/right)</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Press the focused button / open the focused dropdown</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Nothing — this is the root screen, there is no &#x27;back&#x27;</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/01_main_menu.png" alt="Setup screen"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> N/A — no in-game panels yet</p>
+      <ul class="notes"><li>Start Game is the default-focused control (grab_focus on load).</li><li>The top-right &#x27;Controller: not detected / ACTIVE&#x27; label is a live diagnostic.</li></ul>
+    </article>
+  </section>
+  <section id="pause" class="doc-section">
+    <div class="sec-eyebrow">Menus &amp; shell</div>
+    <h3>Pause / Settings menu</h3>
+    <p class="sec-blurb">There is no separate pause panel: View (⧉) runs a cascade that closes the top open overlay, or opens the Settings menu (which hosts Save/Load and Return to Main Menu).</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Settings menu open</h4>
+        <span class="rp-badge rp-dialog" title="Can you drive the right-hand panel with the pad here?">Right panel: Dialog</span>
+      </div>
+      <p class="when"><strong>When:</strong> After pressing View (⧉) with nothing else open. <span class="src">Source: native focus / phase handler</span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">⧉</span></span></td><td class="c-act">Open the menu (and closes the top overlay if one is up)</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Move between tabs (Audio / Visual / Gameplay / Controls) and controls</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Activate the focused tab / slider / checkbox / button</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Close the menu (ui_cancel)</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/09_pause_settings_menu.png" alt="Settings menu open"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> The menu is modal and traps pad focus until closed</p>
+      <ul class="notes"><li>Full controller navigation; Close is default-focused.</li><li>The Controls tab shows a read-only controller reference.</li><li>GAP: keybinding remap only captures keyboard keys — you cannot rebind actions to gamepad buttons.</li><li>Save/Load dialog: the saves list is walkable with the D-pad; A loads, B closes.</li></ul>
+    </article>
+  </section>
+  <section id="datasheet" class="doc-section">
+    <div class="sec-eyebrow">Menus &amp; shell</div>
+    <h3>Datasheet overlay</h3>
+    <p class="sec-blurb">The unit stat card. Opened anywhere with Y over a highlighted / selected unit.</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Datasheet shown</h4>
+        <span class="rp-badge rp-na" title="Can you drive the right-hand panel with the pad here?">Right panel: N/A</span>
+      </div>
+      <p class="when"><strong>When:</strong> After pressing Y with a unit highlighted or selected. <span class="src">Source: native focus / phase handler</span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Open — and press again to close (toggle)</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Does NOT close it — B is board &#x27;back&#x27;, not the datasheet (keyboard Esc closes it)</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/10_datasheet_modal.png" alt="Datasheet shown"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> N/A — display-only overlay</p>
+      <ul class="notes"><li>GAP: closes only with Y on pad (not the console-standard B).</li><li>GAP: no scroll container — a datasheet taller than the card is clipped (pad or mouse).</li></ul>
+    </article>
+  </section>
+  <section id="formations" class="doc-section">
+    <div class="sec-eyebrow">Pre-battle</div>
+    <h3>Formations / setup dialogs</h3>
+    <p class="sec-blurb">Formations, Roll-off, First-turn roll-off and the deployment sub-dialogs (attach leader / embark) are AcceptDialogs. A lands on the confirm button, B cancels, and once a button is focused the D-pad walks the rest.</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Declaration / roll dialog open</h4>
+        <span class="rp-badge rp-dialog" title="Can you drive the right-hand panel with the pad here?">Right panel: Dialog</span>
+      </div>
+      <p class="when"><strong>When:</strong> Formations declaration, roll-off, first-turn roll-off, and confirm dialogs. <span class="src">Source: <code>PadRouter.HINTS_FOCUS</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Navigate</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Press</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Back To Board</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/02_formations_or_prebattle.png" alt="Declaration / roll dialog open"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> A dialog owns the pad — A confirms, B cancels, D-pad walks its buttons</p>
+      <ul class="notes"><li>The pad hint bar shows the focus set (✚ Navigate · A Press · B Back To Board).</li><li>Start (☰) fires the phase action — e.g. Confirm Formations — shown top-right.</li><li>Roll-off winner picks deploy order by D-pad&#x27;ing to the choice button and pressing A.</li></ul>
+    </article>
+  </section>
+  <section id="deployment" class="doc-section">
+    <div class="sec-eyebrow">Pre-battle</div>
+    <h3>Deployment</h3>
+    <p class="sec-blurb">Placing models on the table. The one phase where LB/RB additionally lock once you place a model of the current unit (undo them all to switch units).</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Placing a unit</h4>
+        <span class="rp-badge rp-part" title="Can you drive the right-hand panel with the pad here?">Right panel: Partial</span>
+      </div>
+      <p class="when"><strong>When:</strong> After a unit is chosen to deploy and a placement session is live. <span class="src">Source: <code>PadRouter.HINTS_DEPLOY</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Cursor</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LB</span></span></td><td class="c-act">Prev Unit</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Next Unit</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Place Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Type / Formation</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">X</span></span></td><td class="c-act">Undo Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Undo Unit</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">Confirm / End</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/03_deployment_placing.png" alt="Placing a unit"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> The card&#x27;s Model-type / Formation selectors ARE the D-pad target here</p>
+      <ul class="notes"><li>LB/RB switch which unit is being deployed — but lock once any model is placed (undo to unlock).</li><li>D-pad ▲▼ moves the ▶ between the Model-type and Formation rows; ◀▶ changes the highlighted row&#x27;s value.</li><li>X undoes the last placed model; B undoes the whole unit; Start confirms once every model is placed.</li><li>GAP: repositioning an already-placed model (mouse Shift+click) has no pad equivalent — undo and re-place.</li></ul>
+    </article>
+  </section>
+  <section id="redeploy-scout" class="doc-section">
+    <div class="sec-eyebrow">Pre-battle</div>
+    <h3>Redeployment &amp; Scout</h3>
+    <p class="sec-blurb">Two short optional phases after deployment.</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Redeployment</h4>
+        <span class="rp-badge rp-na" title="Can you drive the right-hand panel with the pad here?">Right panel: N/A</span>
+      </div>
+      <p class="when"><strong>When:</strong> Immediately after deployment, if any unit can redeploy. <span class="src">Source: native focus / phase handler</span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">End Redeployment (the only affordance for any input device)</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No redeploy UI on any device</p>
+      <ul class="notes"><li>The pad can end the phase (no soft-lock), but performing an actual redeploy move has no UI for mouse OR pad — the ability is AI-only.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Scout moves</h4>
+        <span class="rp-badge rp-yes" title="Can you drive the right-hand panel with the pad here?">Right panel: Yes</span>
+      </div>
+      <p class="when"><strong>When:</strong> The Scout pre-battle phase. <span class="src">Source: <code>PadRouter.HINTS_BOARD</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Select</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Point</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LT/RT</span></span></td><td class="c-act">Zoom</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Focus Panels</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">End Phase</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">⧉</span></span></td><td class="c-act">Pause Menu</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> Confirm/Skip Scout buttons are panel-focusable (no stepper consumes the D-pad here)</p>
+      <ul class="notes"><li>Select a scout unit with the bumpers, move with the LS cursor, End with Start.</li><li>Reserves reuse the deployment placement flow (HINTS_DEPLOY).</li></ul>
+    </article>
+  </section>
+  <section id="command" class="doc-section">
+    <div class="sec-eyebrow">Battle phases</div>
+    <h3>Command</h3>
+    <p class="sec-blurb">CP, battle-shock, stratagems and faction abilities. Most human controls are HUD buttons reachable via panel focus, plus AcceptDialog prompts.</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Command board</h4>
+        <span class="rp-badge rp-yes" title="Can you drive the right-hand panel with the pad here?">Right panel: Yes</span>
+      </div>
+      <p class="when"><strong>When:</strong> The default Command-phase state. <span class="src">Source: <code>PadRouter.HINTS_BOARD</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Select</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Point</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LT/RT</span></span></td><td class="c-act">Zoom</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Focus Panels</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">End Phase</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">⧉</span></span></td><td class="c-act">Pause Menu</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/04_command_board.png" alt="Command board"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> Yes — D-pad enters panel focus; buttons only (unit lists are bumper-only)</p>
+      <ul class="notes"><li>Battle-shock roll, Insane Bravery, Waaagh!, Plant Banner, Oath target, New Orders live in the panels — reach them with the D-pad (Focus Panels).</li><li>Command Re-roll and the GDM &#x27;pick on board&#x27; prompts are dialogs (A confirms).</li><li>GAP (not pad-specific): faction command choices — Combat Doctrine, Martial Mastery / Ka&#x27;tah, Issue Taktik, Da Kaptin, Psychic Veil, Unleash the Lions — are AI-only, no human path.</li><li>The Stratagem panel has no dedicated pad button; it is only reachable by focusing the bottom-bar button.</li></ul>
+    </article>
+  </section>
+  <section id="movement" class="doc-section">
+    <div class="sec-eyebrow">Battle phases</div>
+    <h3>Movement</h3>
+    <p class="sec-blurb">The richest controller flow: a pop-up action menu, single- and group-model carry, per-model finishing, and a locked-move state.</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Unit selected — mode still open</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> A unit is selected and its move mode hasn&#x27;t been chosen yet. <span class="src">Source: <code>PadRouter.HINTS_MOVE</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Move Menu</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Move Menu</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">L3</span></span></td><td class="c-act">Next Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Point</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LT/RT</span></span></td><td class="c-act">Zoom</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">End Phase</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/05_movement_selected_move.png" alt="Unit selected — mode still open"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — the D-pad is consumed by this state&#x27;s steppers/menu; back out (B) first</p>
+      <ul class="notes"><li>Both A and D-pad open the Move Menu (Normal / Advance / Fall Back / Stay Still) — so the D-pad does NOT enter panel focus here.</li><li>Bumpers still cycle units; L3 picks which model will lead the move.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Move Menu open</h4>
+        <span class="rp-badge rp-dialog" title="Can you drive the right-hand panel with the pad here?">Right panel: Dialog</span>
+      </div>
+      <p class="when"><strong>When:</strong> After A / D-pad opens the action bar. <span class="src">Source: <code>PadRouter.HINTS_MENU</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Choose Action</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">L3</span></span></td><td class="c-act">Next Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Confirm</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Cancel</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/06_movement_action_bar.png" alt="Move Menu open"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> The action bar owns the pad — D-pad chooses, A confirms, B cancels</p>
+      <ul class="notes"><li>Bumpers still cycle units (the menu follows the new unit); L3 previews the lead model.</li><li>Choosing Normal/Fall Back hands you the first model; Advance rolls first, then hands it over.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Carrying a model</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> A model is picked up and rides the cursor. <span class="src">Source: <code>PadRouter.HINTS_CARRY_MOVE</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Move Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RS</span></span></td><td class="c-act">Precision</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Drop</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">X</span></span></td><td class="c-act">Finish Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Grab All</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">L3</span></span></td><td class="c-act">Swap Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LB</span></span></td><td class="c-act">Rotate ⟲</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Rotate ⟳</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Cancel</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">Confirm / End</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/07_movement_carry.png" alt="Carrying a model"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — panel focus stands down mid-carry / locked; act on the board first</p>
+      <ul class="notes"><li>LS moves the model, RS/hold = precision, LB/RB rotate, L3 swaps to another model.</li><li>A drops a waypoint (keeps the model — A again re-picks it); X finishes the model and hands over the next.</li><li>A D-pad press grabs EVERY unmoved model as one group (Grab All).</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Group carry</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> After Grab All — the whole squad rides the cursor. <span class="src">Source: <code>PadRouter.HINTS_CARRY_GROUP</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Move Models</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RS</span></span></td><td class="c-act">Precision</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Place Models</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Cancel</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">Confirm / End</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/05_movement_selected_move.png" alt="Group carry"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — panel focus stands down mid-carry / locked; act on the board first</p>
+      <ul class="notes"><li>A places every model that fits; leftovers are handed back individually. B cancels.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Mid-move, model dropped (staged)</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> A model was dropped with A and models remain unplaced. <span class="src">Source: <code>PadRouter.HINTS_MOVE_STAGED</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Move Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">X</span></span></td><td class="c-act">Finish Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Grab All</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">L3</span></span></td><td class="c-act">Next Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Undo Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">Confirm Move</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/05_movement_selected_move.png" alt="Mid-move, model dropped (staged)"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — panel focus stands down mid-carry / locked; act on the board first</p>
+      <ul class="notes"><li>A re-picks the dropped model, X finishes it, Grab All lifts the rest, B undoes the last stage.</li><li>L3 keeps its single label &#x27;Next Model&#x27; — the model-switcher never jumps onto X.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Move locked — all models placed</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> Every model is placed; waiting on confirmation. <span class="src">Source: <code>PadRouter.HINTS_MOVE_LOCKED</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">Confirm Move</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Move a Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Grab All Unmoved</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">L3</span></span></td><td class="c-act">Next Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Undo Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/05_movement_selected_move.png" alt="Move locked — all models placed"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — panel focus stands down mid-carry / locked; act on the board first</p>
+      <ul class="notes"><li>Start confirms the whole move; A picks a model back up to adjust; B undoes the last stage.</li><li>Bumpers stay locked to this unit until the move is confirmed or fully undone.</li></ul>
+    </article>
+  </section>
+  <section id="shooting" class="doc-section">
+    <div class="sec-eyebrow">Battle phases</div>
+    <h3>Shooting</h3>
+    <p class="sec-blurb">Pick a shooter with the bumpers, then the armed shooter&#x27;s targets and weapons become the D-pad sub-menu, with a gold reticle on the board.</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>No shooter armed</h4>
+        <span class="rp-badge rp-yes" title="Can you drive the right-hand panel with the pad here?">Right panel: Yes</span>
+      </div>
+      <p class="when"><strong>When:</strong> Shooting phase before/after a shooter is selected. <span class="src">Source: <code>PadRouter.HINTS_BOARD</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Select</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Point</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LT/RT</span></span></td><td class="c-act">Zoom</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Focus Panels</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">End Phase</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">⧉</span></span></td><td class="c-act">Pause Menu</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/08_shooting_targets.png" alt="No shooter armed"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> Yes — D-pad enters panel focus; buttons only (unit lists are bumper-only)</p>
+      <ul class="notes"><li>Bumpers cycle eligible shooters; A / board-click arms one.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Shooter armed — picking targets</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> A shooter is armed and has eligible targets. <span class="src">Source: <code>PadRouter.HINTS_TARGETS</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Target ◀▶ · Weapon ▲▼</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Assign Target</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">X</span></span></td><td class="c-act">Skip Unit</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">Confirm Targets</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Deselect</td></tr></tbody>
+        </table>
+        <figure class="shot"><img loading="lazy" src="controller_shots/08_shooting_targets.png" alt="Shooter armed — picking targets"><figcaption>Live capture — hint bar shows this state</figcaption></figure>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — the D-pad is consumed by this state&#x27;s steppers/menu; back out (B) first</p>
+      <ul class="notes"><li>D-pad ◀▶ walks the target ring (gold reticle + camera follow); ▲▼ steps the weapon rows.</li><li>A assigns the highlighted target to the current weapon; X skips the unit; Start confirms.</li><li>GAP (pad-specific): while a shooter is armed the D-pad is captured by target/weapon stepping, so the HUD buttons (Grenade, Perform/Start Action, Burn Objective, Clear All, Undo Last) can&#x27;t be reached by D-pad — B (deselect) is the only way out. Code-traced; not yet runtime-confirmed.</li></ul>
+    </article>
+  </section>
+  <section id="charge" class="doc-section">
+    <div class="sec-eyebrow">Battle phases</div>
+    <h3>Charge</h3>
+    <p class="sec-blurb">Stage-accurate hints: the Start button always names exactly what it will do (Declare / Roll / Confirm). Every D-pad direction lands in the charge flow.</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Selecting — picking targets</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> A charging unit is selected, no targets chosen yet. <span class="src">Source: <code>PadRouter.HINTS_CHARGE_SELECT</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Pick Target</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Toggle Target</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">X</span></span></td><td class="c-act">Skip Charge</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">End Phase</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — the D-pad is consumed by this state&#x27;s steppers/menu; back out (B) first</p>
+      <ul class="notes"><li>D-pad steps the ELIGIBLE TARGETS rows; A toggles a row in/out (pad Click / Ctrl+Click).</li><li>X skips the charge; Start ends the phase when nothing is declared.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Targets chosen — ready to declare</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> At least one target toggled on. <span class="src">Source: <code>PadRouter.HINTS_CHARGE_READY</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Pick Target</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Toggle Target</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">Declare Charge</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">X</span></span></td><td class="c-act">Skip Charge</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — the D-pad is consumed by this state&#x27;s steppers/menu; back out (B) first</p>
+      <ul class="notes"><li>Start = Declare Charge. D-pad keeps stepping targets; A toggles.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Declared — awaiting roll</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> Charge declared, dice not yet rolled. <span class="src">Source: <code>PadRouter.HINTS_CHARGE_ROLL</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">Roll 2D6</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">X</span></span></td><td class="c-act">Skip Charge</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — panel focus stands down mid-carry / locked; act on the board first</p>
+      <ul class="notes"><li>Start = Roll 2D6; X skips. A committed charge locks the bumpers to this unit.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Rolled — moving into engagement</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> Roll made, models heading into base contact. <span class="src">Source: <code>PadRouter.HINTS_CHARGE_MOVE</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Grab Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">L3</span></span></td><td class="c-act">Next Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">X</span></span></td><td class="c-act">Snap to Contact</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Undo Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">Confirm Charge</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — panel focus stands down mid-carry / locked; act on the board first</p>
+      <ul class="notes"><li>A grabs a model, L3 next model, X snap-to-contact, B undoes a model, Start confirms.</li><li>Carrying a charge model uses the plain carry set (HINTS_CARRY) — no per-model finish, no group grab.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Carrying a charge model</h4>
+        <span class="rp-badge rp-no" title="Can you drive the right-hand panel with the pad here?">Right panel: No</span>
+      </div>
+      <p class="when"><strong>When:</strong> A charge model is in hand during the charge move. <span class="src">Source: <code>PadRouter.HINTS_CARRY</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Move Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RS</span></span></td><td class="c-act">Precision</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Drop</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">L3</span></span></td><td class="c-act">Swap Model</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LB</span></span></td><td class="c-act">Rotate ⟲</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Rotate ⟳</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">B</span></span></td><td class="c-act">Cancel</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">Confirm Charge</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> No — panel focus stands down mid-carry / locked; act on the board first</p>
+      <ul class="notes"><li>LS moves, LB/RB rotate, L3 swaps model, A drops, B cancels, Start confirms the charge.</li></ul>
+    </article>
+  </section>
+  <section id="fight" class="doc-section">
+    <div class="sec-eyebrow">Battle phases</div>
+    <h3>Fight</h3>
+    <p class="sec-blurb">Selection is button-based (alternating fighters, pile-in, consolidate), so the bumpers cycle the fight-panel BUTTONS rather than a unit list.</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Fight board</h4>
+        <span class="rp-badge rp-yes" title="Can you drive the right-hand panel with the pad here?">Right panel: Yes</span>
+      </div>
+      <p class="when"><strong>When:</strong> Pile-in, fighter selection and consolidate steps. <span class="src">Source: <code>PadRouter.HINTS_FIGHT</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Navigate Panel</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Select</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Point</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">End Phase</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">⧉</span></span></td><td class="c-act">Pause Menu</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> Yes — bumpers cycle the fight-panel buttons, D-pad navigates the panel</p>
+      <ul class="notes"><li>Bumpers cycle the panel&#x27;s action buttons; A commits the focused one; D-pad navigates the panel.</li><li>Pile-in / consolidate model moves use the LS cursor.</li><li>The attack-assignment dialog carries its own on-dialog hint row (▲▼ Weapon · ◀▶ Target · A Assign · ☰ Fight!).</li><li>GAP (not pad-specific): per-model weapon choice, splitting attacks across targets, and SELECT_MELEE_WEAPON have no human UI.</li></ul>
+    </article>
+  </section>
+  <section id="scoring" class="doc-section">
+    <div class="sec-eyebrow">Battle phases</div>
+    <h3>Scoring / End turn</h3>
+    <p class="sec-blurb">Mostly automatic. Discards and 11e card actions are HUD buttons and dialogs.</p>
+    
+    <article class="state">
+      <div class="state-head">
+        <h4>Scoring board</h4>
+        <span class="rp-badge rp-yes" title="Can you drive the right-hand panel with the pad here?">Right panel: Yes</span>
+      </div>
+      <p class="when"><strong>When:</strong> The end-of-turn scoring phase. <span class="src">Source: <code>PadRouter.HINTS_BOARD</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Select</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Point</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LT/RT</span></span></td><td class="c-act">Zoom</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Focus Panels</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">End Phase</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">⧉</span></span></td><td class="c-act">Pause Menu</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> Yes — D-pad enters panel focus; buttons only (unit lists are bumper-only)</p>
+      <ul class="notes"><li>Primary and secondary scoring resolve automatically.</li><li>Discard (+1 CP) is a panel button; the mission-discard and 11e card dialogs are pad-navigable.</li><li>Start = End Turn.</li></ul>
+    </article>
+  </section>
+
+    <section id="gaps" class="card">
+      <h2>Controller coverage gaps</h2>
+      <p class="sub">Where a controller can't (yet) do something. <span style="color:var(--crit)">Pad blocker</span> = mouse/keyboard can, pad can't. <span style="color:var(--info)">No human path</span> = AI-only for every input device.</p>
+      <div class="gap g-crit"><div class="gap-top"><span class="gap-badge">Pad blocker</span><h4>Shooting HUD buttons unreachable while a shooter is armed</h4></div><p>Grenade, Perform/Start Secondary Action, Burn Objective, Clear All, Undo Last — the D-pad is captured by target/weapon stepping so panel-focus entry never fires. Only B (deselect) escapes, losing the shooting context.</p><p class="gap-ev">ShootingController.gd:3948-3966 · PadRouter.gd:419-444 — code-traced, not yet runtime-confirmed</p></div><div class="gap g-warn"><div class="gap-top"><span class="gap-badge">Pad gap</span><h4>Stratagem panel has no dedicated pad affordance</h4></div><p>Opened only by the S key or the bottom-bar button; no hint-bar chip. Technically reachable by focusing the button, but undiscoverable and pre-empted by phase steppers in most phases.</p><p class="gap-ev">Main.gd:5847-5849 · StratagemPanel.gd</p></div><div class="gap g-warn"><div class="gap-top"><span class="gap-badge">Pad gap</span><h4>Deployment: can&#x27;t reposition an already-placed model</h4></div><p>The mouse Shift+click pick-up/drop has no pad equivalent during placement — X and B only undo. A pad player must undo and re-place.</p><p class="gap-ev">DeploymentController.gd:119-146</p></div><div class="gap g-warn"><div class="gap-top"><span class="gap-badge">Pad gap</span><h4>Datasheet: pad-B doesn&#x27;t close it, and it can&#x27;t scroll</h4></div><p>Only Y toggles it closed on pad (Esc on keyboard). A datasheet taller than the fixed card is clipped with no scroll (pad or mouse).</p><p class="gap-ev">DatasheetModal.gd:18-19 · Main.gd:5829-5832</p></div><div class="gap g-warn"><div class="gap-top"><span class="gap-badge">Pad gap</span><h4>Can&#x27;t bind actions to gamepad buttons</h4></div><p>The keybinding remap UI only captures keyboard keys; the pad scheme is fixed and non-rebindable.</p><p class="gap-ev">SettingsMenu.gd:831</p></div><div class="gap g-info"><div class="gap-top"><span class="gap-badge">No human path</span><h4>No-human-path items (pad simply also can&#x27;t)</h4></div><p>Command faction choices; Movement Da Jump / Deff From Above / Grot Oiler / Mekaniak / Sawbonez / Quicksilver / Surge; Shooting Ritual/Terraform, Ammo Runt, Pulsa Rokkit, Shooty Power Trip, Swift, Wazblasta; Fight per-model weapon / split attacks; Charge 11e declare-then-target; Deployment Castellan&#x27;s Mark / Place-in-Reserves; Redeployment moves. These are AI-only for every input device — see CONTROLLER_AUDIT_2026-07.md.</p><p class="gap-ev">CONTROLLER_AUDIT_2026-07.md</p></div>
+    </section>
+
+    <footer>
+      <p><strong>Keeping this a source of truth.</strong> The per-state button tables are generated from
+      <code>PadRouter.HINTS_*</code> (dumped live from the running game). The companion file
+      <code>controller_hint_sets.json</code> mirrors those constants and is asserted equal by
+      <code>tests/test_controller_controls_doc_sync.gd</code> — if a hint set changes in code, CI fails until
+      this document is regenerated. To change the controls deliberately: edit the code, re-dump, regenerate.</p>
+      <p>Narrative, screenshots and gap analysis are hand-authored and safe to edit directly. Screenshots are
+      live captures from the running game via the <code>addons/godot_mcp</code> bridge. Related:
+      <code>CONTROLLER_AUDIT_2026-07.md</code> (phase↔action drift &amp; AI-only abilities).</p>
+    </footer>
+  </main>
+</div></div>
+
+<script>
+// theme toggle parity: honor a stamped data-theme over the media query (handled in CSS);
+// nothing else needed — the page is static.
+</script>

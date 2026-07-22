@@ -12,6 +12,13 @@ where there are **gaps, mismatches, irregularities, or improvement areas.**
   (`audit_deployment.md`, `audit_command.md`, `audit_movement.md`,
   `audit_shooting.md`, `audit_charge.md`, `audit_fight.md`,
   `audit_scoring_prebattle.md`, `audit_infrastructure.md`).
+- **Companion doc:** `40k/docs/CONTROLLER_CONTROLS_MAP.html` — the **gamepad
+  source of truth**: every controller button at every decision point, per-state,
+  with the "can the right panel be driven on the pad?" answer, live screenshots,
+  and the controller-specific gaps. Its button tables are generated from
+  `PadRouter.HINTS_*` and guarded by `tests/test_controller_controls_doc_sync.gd`.
+  This audit covers phase↔action drift and AI-only abilities; that doc covers the
+  button mapping.
 
 ---
 
