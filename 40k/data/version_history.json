@@ -13,6 +13,16 @@
 			]
 		},
 		{
+			"version": "0.84.1",
+			"date": "2026-07-22",
+			"summary": "Fixed Deep Strike / Strategic Reserves formation placement. Dropping a unit in Tight (or Spread) formation from reinforcements at a spot that is perfectly legal — on the board and more than 9\" from every enemy — was wrongly rejected with 'Formation would place models outside deployment zone or overlapping'. Formations arriving from reserves are now validated against the reinforcement rules (the whole battlefield, >9\" from enemies) instead of your deployment zone, so they place wherever a single-model reinforcement already could.",
+			"changes": [
+				"Deep Strike and Strategic Reserves arrivals can now be placed in Tight or Spread formation anywhere the reinforcement rules allow (on the board, >9\" from enemy models, plus the within-6\"-of-a-board-edge rule for Strategic Reserves) — not only inside your own deployment zone. Single-model reinforcement placement already worked this way; formation placement now matches it.",
+				"The formation ghost preview turns green in every legal reinforcement spot, so you can see a Deep Strike drop is valid before committing it.",
+				"When a reinforcement formation genuinely can't be placed, the message no longer mentions your 'deployment zone' (it isn't the constraint): the specific reason still shows (e.g. 'Must be >9\" from enemy models'), followed by 'Formation placement is not legal here'."
+			]
+		},
+		{
 			"version": "0.84.0",
 			"date": "2026-07-21",
 			"summary": "Attached leaders now move with their unit on the controller by default. When a Character has joined a unit, its model is part of that unit's move everywhere: L3 (and the paddles) now cycle onto the leader as well as the bodyguard's models, so you can move it in the normal one-model-at-a-time flow — not only via 'Move All Together'. You can no longer finish a unit's move having accidentally left its leader behind.",
