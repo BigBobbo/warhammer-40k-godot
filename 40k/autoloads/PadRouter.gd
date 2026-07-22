@@ -1662,6 +1662,14 @@ func _shooting_controller_in_shooting_phase() -> Node:
 	return sc
 
 
+# Public seam: recompute the hint bar for the current board context. A
+# native-nav modal (e.g. SecondaryMissionReviewDialog) that overrode the hint
+# bar while it owned the pad calls this on close, since this router's _input
+# stands down — and stops driving the hints — while such a modal is open.
+func refresh_hints() -> void:
+	_update_hints()
+
+
 func _update_hints() -> void:
 	var hints := HINTS_BOARD
 	if carry_active:
