@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.4",
+			"date": "2026-07-22",
+			"summary": "Controller fix (follow-up to the secondary-missions pop-up): the end-of-turn 'Discard for CP?' pop-up can now be used with a controller. Previously the D-pad never highlighted anything in that window, so a pad player couldn't discard a secondary mission for +1 CP or choose to end the turn without discarding — the only way past it was the mouse. Now the D-pad moves a visible selector through each mission's 'Discard' button and the 'End Turn Without Discarding' button, A activates the highlighted one, and the controller hint bar shows Navigate / Select / Close.",
+			"changes": [
+				"The 'Discard for CP?' pop-up is now fully controller-navigable: D-pad ▲/▼ steps through each mission's Discard button and the End-Turn button (wrapping around), and the highlighted control scrolls into view.",
+				"Press A on a Discard button to discard that mission for +1 CP, or A on 'End Turn Without Discarding' to skip — no mouse required.",
+				"Opening the pop-up now puts the controller selector on the first Discard button instead of the bottom button, shows the 'Navigate / Select / Close' hint bar while open, and hands the hint bar back to the board when it closes.",
+				"Fixed the A button firing a stray click instead of pressing the highlighted button when the virtual cursor happened to be active as the pop-up opened.",
+				"Applies the same controller fix shipped for the drawn-secondary-missions review pop-up to this closely related dialog."
+			]
+		},
+		{
 			"version": "0.92.3",
 			"date": "2026-07-22",
 			"summary": "Controller polish: the top-bar Stratagems button no longer shows a keyboard '[S]' hint you can't press on a controller. While you're playing with a pad it simply reads 'Stratagems' (you reach it by moving panel focus with the D-pad and pressing A); pick the mouse or keyboard back up and the '[S]' hint returns.",
