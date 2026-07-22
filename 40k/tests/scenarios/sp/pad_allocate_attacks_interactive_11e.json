@@ -1,0 +1,62 @@
+{
+  "id": "pad_allocate_attacks_interactive_11e",
+  "covers": [
+    "controller.allocate_attacks.order_focus",
+    "controller.allocate_attacks.pick_focus",
+    "controller.allocate_attacks.done_reachable",
+    "scripts.AllocationGroupOverlay.pad_focus_steps"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Steam Deck / controller: the full interactive 11e Allocate Attacks flow must be D-pad navigable at every step, not just the Done button. Defender-controlled (auto-allocate OFF), single Boyz group, 3-wound AP-3 attack (Sv5+ -> auto-fail, 3 of 20 die so the casualty PickPanel appears). Command Re-roll is removed by zeroing CP so the flow is deterministic order -> pick -> results. At each step the D-pad focus (and gold ring) must land on that step's primary button — Roll Saves, then Auto-pick, then Done — and A must advance it. Drives the real ShootingController._on_saves_required entry point.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+    { "act": "execute_script", "script": "SettingsService.set_auto_allocate_wounds(false)" },
+
+    { "act": "execute_script", "multiline": true, "script": "var pl = GameState.state.get(\"players\", {})\nfor k in pl.keys():\n\tpl[k][\"cp\"] = 0\nreturn true", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "InputDeviceManager.claim_pad()\nreturn InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\")._on_saves_required([RulesEngine.prepare_save_resolution(3, \"U_BOYZ_F\", \"U_CUSTODIAN_GUARD_B\", {\"name\": \"Pad Interactive Cannon\", \"ap\": -3, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"\"}, GameState.state)])" },
+
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton", "timeout_s": 3.0 },
+
+    { "act": "execute_script", "multiline": true, "script": "return PadRouter._native_nav_modal_open()", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var fo = tree.root.get_viewport().gui_get_focus_owner()\nif fo == null:\n\treturn \"<none>\"\nreturn str(fo.name)", "equals": "ConfirmButton" },
+
+    { "act": "screenshot", "label": "01_order_confirm_pad_focused" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/PickPanel", "timeout_s": 3.0 },
+
+    { "act": "execute_script", "multiline": true, "script": "var fo = tree.root.get_viewport().gui_get_focus_owner()\nif fo == null:\n\treturn \"<none>\"\nreturn str(fo.name)", "equals": "AutoPickButton" },
+
+    { "act": "screenshot", "label": "02_pick_autopick_pad_focused" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel", "timeout_s": 3.0 },
+
+    { "act": "execute_script", "multiline": true, "script": "var fo = tree.root.get_viewport().gui_get_focus_owner()\nif fo == null:\n\treturn \"<none>\"\nreturn str(fo.name)", "equals": "DoneButton" },
+
+    { "act": "screenshot", "label": "03_results_done_pad_focused" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script", "script": "main.get_node_or_null(\"AllocationGroupOverlay\") == null", "equals": true },
+    { "act": "execute_script", "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_BOYZ_F\"))", "equals": 17 },
+
+    { "act": "execute_script", "script": "GameState.set_edition(10)", "equals": 10 }
+  ]
+}

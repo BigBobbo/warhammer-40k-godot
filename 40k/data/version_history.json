@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.84.4",
+			"date": "2026-07-22",
+			"summary": "Controller fix: you can now reach the Allocate Attacks window with the D-pad. After you shoot and wound, the window that shows the save rolls and destroyed models (with its Done button) had never been wired for controller navigation, so a pad player was stuck — the D-pad walked the panels behind it and could never land on Done. Now the window grabs the D-pad focus (the gold ring) onto its live button at every step — Roll Saves, Keep Rolls, Auto-pick, and Done — so you can drive the whole allocation and dismiss the results with A.",
+			"changes": [
+				"The 11th-edition Allocate Attacks window (save allocation) now supports D-pad navigation on a controller. Previously its buttons — including the final Done button on the results screen — could not be focused with the D-pad, so a controller player could not close the window without the mouse/virtual cursor.",
+				"On a controller the window now traps focus inside itself (the D-pad can no longer wander onto the HUD/board behind it) and lands the gold focus ring on the current step's main button, updating as the flow moves through ordering, the Command Re-roll offer, casualty picking, and the final results — press A to activate it.",
+				"Casualty models are still picked on the board with the left-stick cursor; the D-pad now additionally reaches the Auto-pick / Confirm buttons of that step.",
+				"Keyboard and mouse behaviour is unchanged — the focus handling only engages while a controller is the active input device, and normal board navigation is restored the moment the window closes."
+			]
+		},
+		{
 			"version": "0.84.3",
 			"date": "2026-07-22",
 			"summary": "Controller deep-strike fix: placing a unit arriving from reserves no longer shows 'Move / Advance / Stay Still' instead of a way to confirm. Previously, if you had another unit selected and then picked a reserves unit to deep strike, pressing A or the D-pad mid-placement popped the movement menu of the PREVIOUSLY selected unit — options that make no sense for a unit that just arrived, and a stray A could even silently commit that other unit to Stay Still or an Advance. Now the placement flow owns the controller: A jumps the cursor to the board to place models, the D-pad reaches the Confirm button, Start confirms the arrival — and a freshly arrived unit is never offered movement options.",
