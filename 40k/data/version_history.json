@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.11",
+			"date": "2026-07-22",
+			"summary": "Fixed: the pre-battle Redeployment step no longer gets stuck. If you have a unit with a redeployment ability, you can now always press End Redeployment to move on — redeployment is optional, so any units you don't redeploy just stay where they deployed. Previously the phase refused to end while a redeploy unit was unresolved, and there was no way to resolve it, so it could stall.",
+			"changes": [
+				"Redeployment phase: End Redeployment is now always allowed (redeployment is optional). Ending treats any still-pending redeploy units as declined — they keep their deployed positions. This clears a soft-lock for armies with a redeployment ability. (A dedicated UI to actually perform a redeploy move is a separate follow-up.)"
+			]
+		},
+		{
 			"version": "0.92.10",
 			"date": "2026-07-22",
 			"summary": "Fixed: when your Orks are shot at, you can now choose to use Distraction Grot for a 5+ invulnerable save. A dialog appears asking whether to activate it — previously only the AI could make this choice, so if you were the human defender the game paused with no way to respond.",
