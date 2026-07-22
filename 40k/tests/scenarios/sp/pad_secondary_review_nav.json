@@ -1,0 +1,55 @@
+{
+  "id": "pad_secondary_review_nav",
+  "covers": [
+    "controller.secondary_review.dpad_nav",
+    "controller.secondary_review.replace",
+    "controller.secondary_review.close"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "description": "Controller support for the Secondary Mission Review dialog (drawn missions). Reported bug: the D-pad never highlighted this window, so a pad player could neither read the drawn missions nor replace one. The dialog must join the native-nav modal group, seed focus on the first Replace button, let D-pad ▼ cycle Replace_0 → Replace_1 → Continue → wrap, activate a Replace with A (spends 1 CP, re-focuses Continue), and close with A on Continue.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "GameState.get_active_player()", "equals": 2 },
+    { "act": "expect_cp", "player": 2, "equals": 4 },
+
+    { "act": "simulate_joy_axis", "axis": 0, "value": 0.9 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_axis", "axis": 0, "value": 0.0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"SecondaryMissionReviewDialog\")\nvar f=d.gui_get_focus_owner()\nreturn \"NULL\" if f==null else str(f.name)", "multiline": true, "equals": "ReplaceButton_0" },
+    { "act": "screenshot", "label": "01_initial_focus_first_replace" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"SecondaryMissionReviewDialog\")\nvar f=d.gui_get_focus_owner()\nreturn \"NULL\" if f==null else str(f.name)", "multiline": true, "equals": "ReplaceButton_1" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"SecondaryMissionReviewDialog\")\nvar f=d.gui_get_focus_owner()\nreturn \"NULL\" if f==null else str(f.name)", "multiline": true, "equals": "DoneButton" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"SecondaryMissionReviewDialog\")\nvar f=d.gui_get_focus_owner()\nreturn \"NULL\" if f==null else str(f.name)", "multiline": true, "equals": "ReplaceButton_0" },
+    { "act": "screenshot", "label": "02_wrapped_to_first_replace" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.7 },
+    { "act": "expect_cp", "player": 2, "equals": 3 },
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 1.0 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"SecondaryMissionReviewDialog\")\nvar f=d.gui_get_focus_owner()\nreturn \"NULL\" if f==null else str(f.name)", "multiline": true, "equals": "DoneButton" },
+    { "act": "screenshot", "label": "03_after_replace_continue_focused" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.7 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"SecondaryMissionReviewDialog\")\nreturn d==null or not d.visible", "multiline": true, "equals": true },
+    { "act": "screenshot", "label": "04_dialog_closed" }
+  ]
+}
