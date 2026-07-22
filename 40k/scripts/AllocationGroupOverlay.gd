@@ -124,6 +124,24 @@ var auto_pick_button: Button = null
 var precision_picker: OptionButton = null
 var _precision_eligible: Array = []
 
+# ── Controller (D-pad) focus support ──────────────────────────────────
+# This overlay is a plain Control (not a Window), so — exactly like the
+# Save/Load dialog — Godot does NOT confine keyboard/pad focus to it. Without
+# help the D-pad (= ui_*) walks the HUD / board controls drawn BEHIND the
+# overlay, and a controller player can never reach the ordering rows, the save
+# dice, the casualty buttons, or the final Done button. Mirroring
+# SaveLoadDialog we (1) join the "pad_native_nav_modal" group so PadRouter keeps
+# its board handlers (bumper cycling, panel-focus entry) OFF us and lets native
+# ui_* navigation drive the D-pad, (2) confine focus to our own subtree while a
+# pad is active (external focusables demoted to FOCUS_NONE, restored on exit),
+# and (3) grab focus onto the current step's primary button whenever the step
+# changes (order → reroll → pick → results) or the player picks up the pad.
+# Every focus GRAB is gated on the pad being the active device: keyboard/mouse
+# behaviour is deliberately untouched.
+const PAD_MODAL_GROUP := "pad_native_nav_modal"
+var _pad_focus_confined: bool = false
+var _pad_confined_controls: Array = []
+
 func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 	save_data = p_save_data
 	defender_player = p_defender_player
@@ -134,11 +152,17 @@ func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 	auto_mode = _compute_auto_mode()
 	_build_ui()
 	_rebuild_group_list()
+	# Controller: follow device switches so picking up the pad mid-window lands
+	# focus on the live step's button (see _on_pad_device_changed).
+	var idm := _idm()
+	if idm != null and idm.has_signal("device_changed") and not idm.device_changed.is_connected(_on_pad_device_changed):
+		idm.device_changed.connect(_on_pad_device_changed)
 	print("AllocationGroupOverlay: setup — %d group(s), %d wound(s) to save vs %s (auto_mode=%s)" % [
 		groups.size(), int(save_data.get("wounds_to_save", 0)), target_unit_id, str(auto_mode)])
 	if auto_mode:
 		# Legacy fast path: the computer orders, rolls and allocates in one
-		# step (AI defender, or the auto-allocate setting in local play).
+		# step (AI defender, or the auto-allocate setting in local play). The
+		# results step (with Done) still needs pad focus — _show_results grabs it.
 		print("AllocationGroupOverlay: auto_mode — resolving without defender interaction")
 		_on_confirm_pressed()
 		return
@@ -150,6 +174,9 @@ func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 	# and the combined target unit (gold) and link them with an attack arrow,
 	# so WHO is attacking WHOM stays visible on the battlefield itself.
 	_setup_attack_context_visual()
+	# Controller: land the D-pad on the order-step primary button (Confirm /
+	# Roll Saves) so a pad player can act without a mouse.
+	_refresh_pad_focus()
 
 
 # Auto (no-interaction) mode applies when the defender cannot interact:
@@ -241,6 +268,10 @@ func _setup_attack_context_visual() -> void:
 
 func _build_ui() -> void:
 	name = "AllocationGroupOverlay"
+	# Controller: tell PadRouter to keep its board-oriented D-pad handlers off
+	# this window so native ui_* focus navigation can drive it (see the
+	# PAD_MODAL_GROUP block above and the guard in PadRouter._input).
+	add_to_group(PAD_MODAL_GROUP)
 	# Parent is Main (a CanvasLayer): anchors AND offsets must be applied
 	# for the rect to fill the viewport (set_anchors_preset alone leaves
 	# the size at 0x0).
@@ -725,6 +756,9 @@ func _show_reroll_step() -> void:
 			chip.tooltip_text = "Passed save (rolled %d)" % v
 		dice_chips.add_child(chip)
 	reroll_panel.visible = true
+	# Controller: land the D-pad on Keep Rolls (safe default); the player can
+	# navigate to a failed die to spend the re-roll.
+	_refresh_pad_focus()
 	print("AllocationGroupOverlay: Command Re-roll offered — failed dice at raw indices %s" % str(failed))
 
 
@@ -846,6 +880,11 @@ func _enter_pick_or_finalize() -> void:
 	_setup_pick_highlights()
 	_update_pick_counter()
 	set_process_input(true)
+	# Controller: land the D-pad on the pick-step buttons (Auto-pick is always
+	# enabled) so a pad player has a reachable action. Model selection on the
+	# board is done with the left-stick virtual cursor (stick → cursor mode,
+	# D-pad → button focus — the two never fight, see VirtualCursor).
+	_refresh_pad_focus()
 	print("AllocationGroupOverlay: PICK step — %d casualty pick(s) required across %d group(s)" % [
 		total_required, _pick_required.size()])
 
@@ -1091,6 +1130,9 @@ func _show_results() -> void:
 		if d.get("context", "") == "devastating_wounds_11e":
 			result_label.append_text("\nDevastating wounds: %d crit(s) applied as mortal wounds (max one model each)" % d.get("crits", 0))
 	result_panel.visible = true
+	# Controller: land the D-pad on the Done button so a pad player can dismiss
+	# the results — the reported bug (Done unreachable on the D-pad).
+	_refresh_pad_focus()
 	# Keep a plain-text debug line (icons don't survive to the log).
 	print("AllocationGroupOverlay: resolved — save_rolls(lowest first)=%s, %d saved, %d failed, %d damage, %d destroyed%s" % [
 		str(rolls), batch_result.get("saves_passed", 0), batch_result.get("saves_failed", 0),
@@ -1136,3 +1178,104 @@ func _exit_tree() -> void:
 	if attack_context_visual != null and is_instance_valid(attack_context_visual):
 		attack_context_visual.queue_free()
 		attack_context_visual = null
+	# Controller: restore the focus modes we demoted and drop our device-change
+	# hook so the pad returns to normal board navigation once the window closes.
+	_release_pad_focus_confinement()
+	var idm := _idm()
+	if idm != null and idm.has_signal("device_changed") and idm.device_changed.is_connected(_on_pad_device_changed):
+		idm.device_changed.disconnect(_on_pad_device_changed)
+
+
+# ============================================================================
+# Controller (D-pad) focus support — see the PAD_MODAL_GROUP block near the top.
+# ============================================================================
+
+func _idm() -> Node:
+	# Lazy autoload lookup (autoload ids are not compile-time resolvable in the
+	# bare headless harness runs this overlay must keep compiling under).
+	return get_node_or_null("/root/InputDeviceManager")
+
+
+func _pad_active() -> bool:
+	var idm := _idm()
+	return idm != null and idm.has_method("is_pad_active") and idm.is_pad_active()
+
+
+func _on_pad_device_changed(_mode: int) -> void:
+	# Player changed input device while the window is open. On the pad, re-confine
+	# and land focus on the live step's button; back on KBM, release confinement
+	# so keyboard focus is not trapped. _refresh_pad_focus self-gates on the pad.
+	if _pad_active():
+		_refresh_pad_focus()
+	else:
+		_release_pad_focus_confinement()
+
+
+# The single button the D-pad should start on for whichever step is showing.
+func _current_primary_button() -> Button:
+	if result_panel != null and result_panel.visible and done_button != null and done_button.visible:
+		return done_button
+	if pick_panel != null and pick_panel.visible:
+		if confirm_removal_button != null and confirm_removal_button.visible and not confirm_removal_button.disabled:
+			return confirm_removal_button
+		if auto_pick_button != null and auto_pick_button.visible:
+			return auto_pick_button
+	if reroll_panel != null and reroll_panel.visible and keep_rolls_button != null and keep_rolls_button.visible:
+		return keep_rolls_button
+	if confirm_button != null and confirm_button.visible and not confirm_button.disabled:
+		return confirm_button
+	return null
+
+
+func _refresh_pad_focus() -> void:
+	# Deferred: a step change sets its panels' visible-flags on the same frame
+	# this is called from, so read them a frame later to pick the right button.
+	call_deferred("_refresh_pad_focus_now")
+
+
+func _refresh_pad_focus_now() -> void:
+	if not is_inside_tree() or not _pad_active():
+		return
+	# Trap directional focus in the overlay before grabbing, so a D-pad press
+	# off our primary button can't walk to a HUD/board control behind us.
+	if not _pad_focus_confined:
+		_confine_pad_focus()
+	var btn := _current_primary_button()
+	if btn != null and btn.is_visible_in_tree() and not btn.disabled:
+		btn.grab_focus()
+		print("AllocationGroupOverlay: pad focus → %s" % btn.name)
+
+
+# Trap directional focus inside this overlay: demote every focusable Control
+# OUTSIDE our subtree to FOCUS_NONE (remembered for verbatim restore on exit).
+# Idempotent — guarded by _pad_focus_confined. Board tokens are Node2D, not
+# focusable Controls, so casualty-picking with the virtual cursor is unaffected.
+func _confine_pad_focus() -> void:
+	if _pad_focus_confined:
+		return
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	_pad_confined_controls.clear()
+	var queue: Array = [scene]
+	while not queue.is_empty():
+		var n: Node = queue.pop_front()
+		if n == self:
+			continue  # skip our own subtree — its controls must stay focusable
+		if n is Control and n.focus_mode == Control.FOCUS_ALL:
+			_pad_confined_controls.append(n)
+			n.focus_mode = Control.FOCUS_NONE
+		for child in n.get_children():
+			queue.append(child)
+	_pad_focus_confined = true
+	print("AllocationGroupOverlay: pad focus confined (%d external controls demoted)" % _pad_confined_controls.size())
+
+
+func _release_pad_focus_confinement() -> void:
+	if not _pad_focus_confined:
+		return
+	for c in _pad_confined_controls:
+		if is_instance_valid(c):
+			c.focus_mode = Control.FOCUS_ALL
+	_pad_confined_controls.clear()
+	_pad_focus_confined = false
