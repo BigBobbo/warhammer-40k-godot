@@ -55,6 +55,12 @@ const PILE_IN_MAX_INCHES: float = 3.0
 var movement_visual: Line2D
 var range_visual: Node2D
 var target_highlights: Node2D
+# Pad target reticle: gold brackets marking the controller's current melee
+# target while the AttackAssignmentDialog is open (shared visual language with
+# the shooting / charge phases — see PadTargetReticle.gd). Driven by the
+# dialog's target_list ◀ ▶ stepping.
+const PadTargetReticleScript = preload("res://scripts/PadTargetReticle.gd")
+var pad_target_reticle: Node2D
 
 # T5-MP1: Drag preview sync throttle
 var _last_drag_preview_time: float = 0.0
@@ -151,6 +157,9 @@ func _exit_tree() -> void:
 		range_visual.queue_free()
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
+	if pad_target_reticle and is_instance_valid(pad_target_reticle):
+		pad_target_reticle.queue_free()
+		pad_target_reticle = null
 
 	# T5-V10: Clean up fight phase state banner
 	if fight_state_banner and is_instance_valid(fight_state_banner):
@@ -244,6 +253,14 @@ func _create_fight_visuals() -> void:
 	target_highlights = Node2D.new()
 	target_highlights.name = "FightTargetHighlights"
 	board_root.add_child(target_highlights)
+
+	# Pad target reticle — gold brackets on the melee target the controller's
+	# next Assign applies to (driven by the AttackAssignmentDialog's ◀ ▶ target
+	# stepping). Above the eligibility highlights so it always reads on top.
+	pad_target_reticle = PadTargetReticleScript.new()
+	pad_target_reticle.name = "PadTargetReticle"
+	board_root.add_child(pad_target_reticle)
+	pad_target_reticle.clear()
 
 func _setup_right_panel() -> void:
 	# Main.gd already handles cleanup before controller creation
@@ -1800,6 +1817,49 @@ func _create_selection_turn_style(color: Color) -> StyleBoxFlat:
 	style.border_width_bottom = 2
 	return style
 
+# Pad (controller): cycle keyboard focus among the ENABLED action buttons of
+# the currently-visible fight-panel section — the fighter-selection Fight_
+# buttons, or the pile-in / consolidate unit picks plus their End button. The
+# bumpers call this (via PadRouter) so "cycle a unit" means the same thing in
+# the fight phase as everywhere else, WITHOUT driving the informational FIGHT
+# SEQUENCE ItemList (whose generic bumper-cycle misfired SELECT_FIGHTER). A
+# then commits the focused button through the normal ui_accept path. Returns
+# true when a button was focused.
+func pad_cycle_fight_buttons(dir: int) -> bool:
+	var buttons := _pad_fight_action_buttons()
+	if buttons.is_empty():
+		return false
+	var focused = get_viewport().gui_get_focus_owner()
+	var idx := buttons.find(focused)
+	if idx == -1:
+		idx = 0 if dir > 0 else buttons.size() - 1
+	else:
+		idx = wrapi(idx + dir, 0, buttons.size())
+	buttons[idx].grab_focus()
+	return true
+
+# The enabled, visible action buttons of whichever fight-panel section is live,
+# in top-to-bottom order. Fighter selection takes priority; otherwise the
+# active global step (pile-in / consolidate) section.
+func _pad_fight_action_buttons() -> Array:
+	var roots: Array = []
+	if fight_selection_panel != null and is_instance_valid(fight_selection_panel) and fight_selection_panel.visible:
+		roots.append(fight_selection_panel)
+	if pile_in_step_panel != null and is_instance_valid(pile_in_step_panel) and pile_in_step_panel.visible:
+		roots.append(pile_in_step_panel)
+	if consolidation_step_panel != null and is_instance_valid(consolidation_step_panel) and consolidation_step_panel.visible:
+		roots.append(consolidation_step_panel)
+	var out: Array = []
+	for root in roots:
+		var q: Array = [root]
+		while not q.is_empty():
+			var n = q.pop_front()
+			if n is Button and n.visible and not n.disabled and n.focus_mode != Control.FOCUS_NONE:
+				out.append(n)
+			for c in n.get_children():
+				q.append(c)
+	return out
+
 func _on_fight_selection_unit_chosen(unit_id: String) -> void:
 	"""Submit SELECT_FIGHTER when a unit button is picked (single click)"""
 	print("DEBUG: FightController - Fighter picked from selection panel: ", unit_id)
@@ -2123,6 +2183,11 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 	print("[FightController] Attack assignment required for ", unit_id)
 	print("[FightController] Eligible targets: ", targets.keys())
 
+	# Mirror the dialog's target set onto the controller so the pad reticle
+	# (pad_show_target_reticle) can resolve the ring order + banner + board
+	# marks — the dialog owns the picker, but the board brackets live here.
+	eligible_targets = targets
+
 	# Resolve the attacking unit's owner from state directly — on the remote
 	# client current_fighter_owner is not set by the (host-only) SELECT_FIGHTER
 	# handler, so derive it from the unit that's actually assigning attacks.
@@ -2158,9 +2223,59 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 	dialog.setup(unit_id, targets, current_phase)
 	dialog.attacks_confirmed.connect(_on_attacks_confirmed)
 	dialog.skip_fight_requested.connect(_on_attack_dialog_skip_requested)
+	# Pad: the dialog drives the gold board reticle as ◀ ▶ steps its target
+	# list, and clears it when it closes — the melee twin of the shooting
+	# phase's target ring (so a controller player SEES which enemy the next
+	# Assign hits, not just a name in a list).
+	dialog.pad_target_focus_changed.connect(pad_show_target_reticle)
+	dialog.tree_exiting.connect(pad_clear_target_reticle)
 	get_tree().root.add_child(dialog)
 	print("[FightController] Showing attack assignment dialog...")
 	DialogUtils.popup_at_bottom(dialog)
+
+
+# Pad (controller) support: bracket `target_id` on the board as THE unit the
+# next Assign applies to — gold reticle brackets on every alive model plus a
+# "▶ TARGET n/m: NAME" banner (n/m walks the dialog's target-list order, which
+# mirrors eligible_targets). Called by the AttackAssignmentDialog on ◀ ▶
+# stepping and on open; safe no-op when the target is unknown or KBM is active.
+func pad_show_target_reticle(target_id: String) -> void:
+	if pad_target_reticle == null or not is_instance_valid(pad_target_reticle):
+		return
+	if not InputDeviceManager.is_pad_active():
+		pad_target_reticle.clear()
+		return
+	if not eligible_targets.has(target_id):
+		pad_target_reticle.clear()
+		return
+	var unit = current_phase.get_unit(target_id) if current_phase else GameState.get_unit(target_id)
+	if unit.is_empty():
+		pad_target_reticle.clear()
+		return
+	var marks: Array = []
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var pos = _get_model_position(model)
+		if pos == Vector2.ZERO:
+			continue
+		marks.append({
+			"pos": pos,
+			"radius_px": Measurement.base_radius_px(model.get("base_mm", 32)) + 4.0,
+		})
+	var ring: Array = eligible_targets.keys()
+	var idx := ring.find(target_id)
+	var unit_name = str(eligible_targets[target_id].get("unit_name", eligible_targets[target_id].get("name", target_id)))
+	var banner := "▶ TARGET %d/%d: %s" % [idx + 1, ring.size(), unit_name]
+	pad_target_reticle.show_for_marks(marks, banner)
+	# Frame the target in the UPPER strip — the AttackAssignmentDialog is
+	# bottom-anchored and would occlude a dead-centered target, so lift the
+	# bracketed unit into the clear top area (pad-only; no-op on KBM).
+	PadRouter.frame_unit_upper_if_pad(target_id)
+
+func pad_clear_target_reticle() -> void:
+	if pad_target_reticle != null and is_instance_valid(pad_target_reticle):
+		pad_target_reticle.clear()
 
 func _on_attack_dialog_skip_requested(unit_id: String) -> void:
 	"""Escape hatch from an AttackAssignmentDialog with no eligible targets:
