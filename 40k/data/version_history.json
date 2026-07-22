@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.91.0",
+			"date": "2026-07-22",
+			"summary": "Controller pop-up audit: the in-game Settings/pause menu now traps the D-pad. Opened with a controller, its D-pad no longer walks off into the buttons on the battlefield behind it — focus is held inside the menu until you close it (B / the View button). And while ANY full-screen pop-up is open (Settings, Save/Load, the Allocate Attacks / Roll Saves window), pressing Start (☰) no longer ends the phase underneath it.",
+			"changes": [
+				"Settings / pause menu: with a controller, the D-pad is now confined to the menu while it's open — previously a direction press could move the highlight onto a control drawn behind the menu (an army/unit dropdown, a HUD button), off the menu entirely. Closing the menu restores everything. Mouse and keyboard are unaffected.",
+				"Start (☰ / Menu button) is now ignored while any full-screen pop-up owns the controller — the Settings menu, the Save/Load dialog, or the Allocate Attacks / Roll Saves window — so you can't accidentally end the phase or confirm something underneath the pop-up. The View/Select button still opens and closes the pause menu as before.",
+				"This uses the same 'pop-up owns the D-pad' handling already added for the Save/Load dialog and the Allocate Attacks window, so every full-screen pop-up now behaves consistently on a controller."
+			]
+		},
+		{
 			"version": "0.90.1",
 			"date": "2026-07-22",
 			"summary": "Fixed a confusing controller hint while moving a squad model-by-model. In the brief state right after you drop a model with Ⓐ while other models still need placing, the bottom hint bar used to move the 'Next Model' label onto Ⓧ and rename L3 to 'Browse Models' — so for that one state 'Next Model' jumped from L3 (where it sits in every other movement state) onto Ⓧ. Now Ⓧ reads 'Finish Model' (matching what it says while carrying) and L3 always reads 'Next Model'. 'Next Model' is the L3 button, always.",
