@@ -2,12 +2,22 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.89.1",
+			"version": "0.90.1",
 			"date": "2026-07-22",
 			"summary": "Fixed a confusing controller hint while moving a squad model-by-model. In the brief state right after you drop a model with Ⓐ while other models still need placing, the bottom hint bar used to move the 'Next Model' label onto Ⓧ and rename L3 to 'Browse Models' — so for that one state 'Next Model' jumped from L3 (where it sits in every other movement state) onto Ⓧ. Now Ⓧ reads 'Finish Model' (matching what it says while carrying) and L3 always reads 'Next Model'. 'Next Model' is the L3 button, always.",
 			"changes": [
 				"Movement (controller): after dropping a model with Ⓐ while models remain unplaced, the hint bar now shows 'Ⓧ Finish Model' and 'L3 Next Model' — previously it showed 'Ⓧ Next Model' and 'L3 Browse Models', which made it look like Ⓧ had become the model-switch button.",
 				"'Next Model' now refers only ever to L3 (the left-stick click), consistently across selecting a unit, the move menu, mid-move, and once all models are placed. Ⓧ is 'Finish Model' everywhere it seals a model and advances to the next un-placed one."
+			]
+		},
+		{
+			"version": "0.90.0",
+			"date": "2026-07-22",
+			"summary": "Piling in and consolidating now work on a controller. The Pile-In and Consolidate step dialogs are controller-operable: Ⓨ runs Auto Pile In / Auto Consolidate (moves every model optimally toward the closest enemy — the no-drag path, since the on-screen cursor can't press-and-hold to drag a model by hand), ☰ Confirms the move, and Ⓑ Skips. A hint row in each dialog spells this out on a controller. Previously these steps had no working controller path at all.",
+			"changes": [
+				"Fight phase Pile-In and Consolidate step dialogs are now controller-drivable: Ⓨ = Auto Pile In / Auto Consolidate (optimal move toward the closest enemy), ☰ (Menu) = Confirm Move, Ⓑ = Skip. Each dialog shows a controller hint row (only when a pad is in use).",
+				"This closes the last gap in the Fight phase's controller support: previously the pile-in / consolidate model moves could only be done by mouse-dragging, which a controller cannot do (the virtual cursor clicks, it can't press-and-hold to drag).",
+				"Manual per-model dragging during pile-in / consolidate remains a mouse affordance; on a controller, Auto Pile In / Auto Consolidate handles the move."
 			]
 		},
 		{

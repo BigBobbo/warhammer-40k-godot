@@ -120,6 +120,19 @@ func _build_ui() -> void:
 	info.add_theme_color_override("font_color", _LEGEND_COLOR)
 	container.add_child(info)
 
+	# Pad (controller) hint row — shown only when the pad is the active device.
+	# Piling in on a controller uses Auto Pile In (Ⓨ) — the optimal no-drag
+	# move toward the closest enemy — then Confirm (☰). Manual per-model drag
+	# stays a mouse affordance (the on-screen cursor click can't press-and-hold).
+	var pad_hint := Label.new()
+	pad_hint.name = "PadHintLabel"
+	pad_hint.text = "Ⓨ Auto Pile In   ·   ☰ Confirm   ·   Ⓑ Skip"
+	pad_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pad_hint.add_theme_font_size_override("font_size", 12)
+	pad_hint.modulate = Color(1, 1, 1, 0.8)
+	pad_hint.visible = InputDeviceManager.is_pad_active()
+	container.add_child(pad_hint)
+
 	add_child(container)
 
 	confirmed.connect(_on_confirmed)
@@ -132,9 +145,52 @@ func _build_ui() -> void:
 	# Set minimum size for dialog
 	min_size = DialogConstants.SMALL
 
-	# CRITICAL: Allow input to pass through to the battlefield
+	# CRITICAL: Allow input to pass through to the battlefield. MUST stay inside
+	# _build_ui() — an earlier revision accidentally pushed this below a function
+	# definition, leaving the dialog exclusive (modal), which blocked the board
+	# drag from reaching FightController.
 	exclusive = false
 	unresizable = false
+
+	# Pad: the step dialog's action row is driven off the dialog's own
+	# window_input so it never fights PadRouter — ☰ Confirm, Ⓑ Skip, Ⓨ Auto.
+	window_input.connect(_pad_handle_input)
+	about_to_popup.connect(_pad_refresh_hint)
+
+# Pad: keep the hint row in sync with the active device when the dialog pops.
+func _pad_refresh_hint() -> void:
+	var h := get_node_or_null("Content/PadHintLabel")
+	if h != null:
+		h.visible = InputDeviceManager.is_pad_active()
+
+# Pad navigation for the Pile-In step dialog (mirrors the attack dialog): ☰
+# (Menu/Start) Confirms the move, Ⓑ Skips it, Ⓨ runs Auto Pile In — the
+# no-drag fast path that moves every model toward the closest enemy. The manual
+# model carry stays a mouse affordance (the on-screen cursor click can't
+# press-and-hold to drag a model).
+func _pad_handle_input(event: InputEvent) -> void:
+	if not (event is InputEventJoypadButton) or not event.pressed:
+		return
+	match event.button_index:
+		JOY_BUTTON_START:
+			_pad_press("ConfirmButton")
+			set_input_as_handled()
+		JOY_BUTTON_B:
+			_pad_press("SkipButton")
+			set_input_as_handled()
+		JOY_BUTTON_Y:
+			_pad_press("AutoButton")
+			set_input_as_handled()
+
+func _pad_press(button_name: String) -> void:
+	var q: Array = [self]
+	while not q.is_empty():
+		var n = q.pop_front()
+		if n is Button and str(n.name) == button_name and n.visible and not n.disabled:
+			n.emit_signal("pressed")
+			return
+		for c in n.get_children():
+			q.append(c)
 
 func update_movements(movements: Dictionary) -> void:
 	"""Called by FightController when user drags models"""

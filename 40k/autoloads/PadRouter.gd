@@ -251,7 +251,7 @@ const HINTS_FIGHT := [
 	["rb", "Cycle Units"],
 	["dpad", "Navigate Panel"],
 	["a", "Select"],
-	["ls", "Move Models"],
+	["ls", "Point"],
 	["y", "Datasheet"],
 	["menu", "End Phase"],
 	["view", "Pause Menu"],
