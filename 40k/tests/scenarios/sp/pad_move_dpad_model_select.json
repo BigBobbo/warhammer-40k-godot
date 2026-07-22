@@ -1,0 +1,69 @@
+{
+  "id": "pad_move_dpad_model_select",
+  "covers": [
+    "controller.move.dpad_lr_switches_model",
+    "controller.move.dpad_up_grabs_all",
+    "controller.move.dpad_down_shrinks_to_single"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Movement-phase controller model controls on the D-pad (the requested remap). With a 4-model unit moving under Normal Move (first model auto-carried): D-pad ▶ steps carry_model_index to the NEXT model and ◀ to the PREVIOUS one (the in-hand model swaps and stays carried) — the same job L3 / the paddles do; D-pad ▲ lifts EVERY unmoved model as one group carry ('move all together'); D-pad ▼ drops that whole-group carry back to carrying just one model. Proves ◀ ▶ = switch model, ▲ = all, ▼ = one, all while the move is under way. The pre-move menu behaviour (D-pad opens Move/Advance/Fall Back/Stay Still) is covered by pad_move_dpad_menu_no_panel_trap.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_WITCHSEEKERS_C" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": false },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 0 },
+    { "act": "screenshot", "label": "01_normal_move_first_model_carried" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": false },
+    { "act": "screenshot", "label": "02_dpad_right_next_model" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 2 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 13 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": false },
+    { "act": "screenshot", "label": "03_dpad_left_prev_model" },
+
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_seconds", "seconds": 0.7 },
+    { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.group_dragging", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.selected_models.size()", "equals": 4 },
+    { "act": "screenshot", "label": "04_dpad_up_grab_all_models" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.7 },
+    { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": false },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.group_dragging", "equals": false },
+    { "act": "screenshot", "label": "05_dpad_down_back_to_one_model" }
+  ]
+}
