@@ -1532,17 +1532,32 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 		var terrain_layout = state.board.get("terrain_layout", "")
 		var terrain_features = state.board.get("terrain_features", [])
 
+		var terrain_restored := false
 		if terrain_layout != "":
 			# Preferred path: reload terrain from JSON layout file
 			# This avoids issues with PackedVector2Array/Vector2 serialization over network
 			print("[GameState] Reloading terrain from layout: ", terrain_layout)
 			terrain_manager.load_terrain_layout(terrain_layout)
+			terrain_restored = true
 		elif terrain_features.size() > 0:
 			# Fallback: restore terrain features from snapshot data
 			# Convert any dict-format Vector2/polygon data back to Godot types
 			var restored_features = _restore_terrain_types(terrain_features)
 			terrain_manager.terrain_features = restored_features
 			terrain_manager.emit_signal("terrain_loaded", terrain_manager.terrain_features)
+			terrain_restored = true
+
+		# ROOT FIX (wall/terrain LoS): mirror the now-Godot-typed terrain back into
+		# the LIVE state so state.board.terrain_features matches TerrainManager. A
+		# multiplayer snapshot arrives as raw JSON — terrain polygons/walls are {x,y}
+		# dicts with no "_type" marker, so they never pass through
+		# StateSerializer._restore_complex_types — and _restore_terrain_types only
+		# fixed up TerrainManager's copy. Anything reading the live state directly
+		# (rather than a create_snapshot() copy, which overwrites terrain from
+		# TerrainManager) would then see dict-format walls, which silently failed to
+		# block line of sight. Keeping the two copies in the same format closes that.
+		if terrain_restored and terrain_manager.terrain_features.size() > 0:
+			state.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
 
 	# Load secondary mission state if present (autoload)
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
