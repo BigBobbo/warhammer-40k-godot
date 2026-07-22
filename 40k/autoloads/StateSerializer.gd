@@ -470,9 +470,11 @@ func _prepare_for_serialization(state: Dictionary) -> Dictionary:
 		"serializer": "StateSerializer"
 	}
 	
-	# Convert enums to integers for JSON compatibility
-	serializable = _convert_enums_to_int(serializable)
-	
+	# PERF-SAVE: _convert_enums_to_int() is a no-op — it walks and rebuilds the
+	# ENTIRE state tree only to return every value unchanged (enums are already
+	# ints in GDScript). On the phase-start autosave that redundant deep copy ran
+	# on every phase transition. Skip it; enums serialize fine as their int value.
+
 	# Convert Vector2 and other non-JSON types
 	serializable = _convert_complex_types(serializable)
 	
@@ -485,8 +487,9 @@ func _prepare_from_serialization(data: Dictionary) -> Dictionary:
 	if state.has("_serialization"):
 		state.erase("_serialization")
 
-	# Convert integers back to enums
-	state = _convert_int_to_enums(state)
+	# PERF-SAVE: _convert_int_to_enums() is a no-op (mirror of _convert_enums_to_int
+	# on the write side) — skip the full-tree rebuild. _normalize_int_fields() below
+	# still coerces the specific fields JSON float-ified back to int.
 
 	# Convert back from JSON-compatible types
 	state = _restore_complex_types(state)

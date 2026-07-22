@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.83.1",
+			"date": "2026-07-22",
+			"summary": "Shooting phase is fast again. Entering the Shooting phase and clicking a target used to freeze the game for seconds — worst on big armies with lots of terrain, and on the Steam Deck / itch.io builds. The game was recomputing line-of-sight for every one of your units against every enemy from scratch on entry AND after every single click. That work is now cached per game-state and only recomputed when the board actually changes, plus the line-of-sight and 'who can shoot' checks were made much cheaper.",
+			"changes": [
+				"Fixed a multi-second freeze when moving from Movement to Shooting: the 'which units can shoot' list no longer re-runs a full line-of-sight sweep every time — the result is cached and reused until the board changes.",
+				"Fixed the 'click a target and it pauses for a few seconds' lag: after the first time, refreshing the shooter list is effectively instant (measured ~4s → under 1ms) instead of re-scanning every unit's line of sight on every click.",
+				"Line-of-sight results are memoized per board state, so the same shooter/target check isn't recomputed dozens of times across weapons and refreshes.",
+				"The eligible-target scan no longer re-checks a weapon once per model that carries it (a horde unit checked the same weapon 20×), and stops as soon as it knows a unit can shoot something.",
+				"Phase-start autosave is a little lighter — dropped a redundant full copy of the game state during save/load. No change to save-file contents or compatibility.",
+				"No gameplay rules changed: the exact same units are shootable and the same targets are eligible — only the speed is different."
+			]
+		},
+		{
 			"version": "0.83.0",
 			"date": "2026-07-21",
 			"summary": "Move the whole squad at once with the controller. The Movement menu gains 'Move All Together': every model of the unit is picked up as one formation riding the stick, and a single A press places them all. Mid-move, any D-pad press grabs every model you haven't placed yet. If the drop spot doesn't fit the whole squad, the models that fit are placed and the rest are handed straight back to you — and the ghost preview shows green/red per model so you can see which will land before you drop.",
