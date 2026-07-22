@@ -1,0 +1,65 @@
+{
+  "id": "pad_move_attached_leader",
+  "covers": [
+    "controller.move.attached_leader_in_roster",
+    "controller.move.attached_leader_l3_reachable",
+    "controller.move.attached_leader_picks_up",
+    "controller.move.attached_leader_moves_permodel"
+  ],
+  "fixture": "attached_char_advance_overlap",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "An attached character (Blade Champion joined to the Custodian Guard) is included in the unit's move BY DEFAULT — not only via 'Move All Together'. The pad's per-model move roster spans the bodyguard's models AND the attached leader's, so L3 (JOY_BUTTON_LEFT_STICK=7) browsing reaches the leader, it picks up as a single model, and dropping + confirming actually moves it. Drives a plain Normal Move (not the group carry): select the bodyguard, open the move menu, choose Move, L3 past the three bodyguard models onto the leader, carry it ~2.5\" down, drop, and confirm — the leader's own position changes in GameState.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "PadRouter._alive_model_count(\"U_CUSTODIAN_GUARD_B\")", "equals": 4 },
+    { "act": "execute_script", "script": "str(PadRouter._unit_move_roster(\"U_CUSTODIAN_GUARD_B\")[3].source_unit_id)", "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"ly0\", GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].position.y)" },
+
+    { "act": "execute_script", "script": "main.movement_controller._select_unit_in_list_by_id(\"U_CUSTODIAN_GUARD_B\")", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_CUSTODIAN_GUARD_B" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.9 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": false },
+    { "act": "screenshot", "label": "01_single_carry_started" },
+
+    { "act": "simulate_joy_button", "button_index": 7 },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "simulate_joy_button", "button_index": 7 },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 2 },
+    { "act": "simulate_joy_button", "button_index": 7 },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 3 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "str(main.movement_controller.selected_model.get(\"unit_id\", \"\"))", "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "screenshot", "label": "02_leader_in_hand" },
+
+    { "act": "pad_cursor_glide", "x": 600.0, "y": 900.0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "str(main.movement_controller.selected_model.get(\"unit_id\", \"\"))", "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
+    { "act": "execute_script", "script": "PadRouter._staged_model_pos_for(\"U_CUSTODIAN_GUARD_B\", \"U_BLADE_CHAMPION_A\", \"m1\") != null", "equals": true },
+    { "act": "screenshot", "label": "03_leader_staged" },
+
+    { "act": "simulate_joy_button", "button_index": 6 },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "abs(GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].position.y - InputDeviceManager.get_meta(\"ly0\")) > 40", "equals": true },
+    { "act": "screenshot", "label": "04_leader_moved_permodel" }
+  ]
+}
