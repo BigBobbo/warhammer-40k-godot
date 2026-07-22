@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.83.2",
+			"date": "2026-07-22",
+			"summary": "Fixed walls not blocking line of sight (or movement) after loading a save or in a networked game. Terrain walls are stored as exact coordinates, but once terrain had round-tripped through a save file or a network sync those coordinates came back in a form the geometry check couldn't read — so the check errored out and quietly treated the wall as if it wasn't there. Units could see and shoot through walls they shouldn't, and the same walls stopped blocking movement. Now handled in both formats.",
+			"changes": [
+				"Walls again block line of sight correctly after loading a save or when playing over the network (previously they were silently ignored, letting units shoot through them).",
+				"The matching movement check now also respects those walls after load/network sync.",
+				"Removed the flood of 'Cannot convert Dictionary to Vector2' errors this produced in the log on boards that use walls."
+			]
+		},
+		{
 			"version": "0.83.1",
 			"date": "2026-07-22",
 			"summary": "Shooting phase is fast again. Entering the Shooting phase and clicking a target used to freeze the game for seconds — worst on big armies with lots of terrain, and on the Steam Deck / itch.io builds. The game was recomputing line-of-sight for every one of your units against every enemy from scratch on entry AND after every single click. That work is now cached per game-state and only recomputed when the board actually changes, plus the line-of-sight and 'who can shoot' checks were made much cheaper.",

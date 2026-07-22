@@ -660,9 +660,22 @@ func add_wall_to_terrain(terrain_id: String, wall_data: Dictionary) -> void:
 			emit_signal("terrain_loaded", terrain_features)
 			break
 
+# Coerce a wall endpoint to Vector2. See EnhancedLineOfSight._wall_point_to_vec2:
+# walls that round-tripped through JSON (loaded save / networked game) carry
+# start/end as {"x","y"} dicts, which Geometry2D cannot accept — the movement
+# wall-cross check errored out and silently reported "no wall" after load.
+static func _wall_point_to_vec2(v) -> Vector2:
+	if v is Vector2:
+		return v
+	if v is Dictionary:
+		return Vector2(v.get("x", 0.0), v.get("y", 0.0))
+	if v is Array and v.size() >= 2:
+		return Vector2(v[0], v[1])
+	return Vector2.ZERO
+
 func check_line_intersects_wall(from_pos: Vector2, to_pos: Vector2, wall: Dictionary) -> bool:
-	var wall_start = wall.get("start", Vector2.ZERO)
-	var wall_end = wall.get("end", Vector2.ZERO)
+	var wall_start = _wall_point_to_vec2(wall.get("start", Vector2.ZERO))
+	var wall_end = _wall_point_to_vec2(wall.get("end", Vector2.ZERO))
 
 	# Check if movement line intersects wall segment
 	var intersection = Geometry2D.segment_intersects_segment(

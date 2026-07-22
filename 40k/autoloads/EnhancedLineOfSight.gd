@@ -616,10 +616,25 @@ static func _point_in_polygon(point: Vector2, poly) -> bool:
 	
 	return Geometry2D.is_point_in_polygon(point, polygon_packed)
 
+# Coerce a wall endpoint to Vector2. Live terrain (TerrainManager._convert_json_walls)
+# stores start/end as Vector2, but terrain that has round-tripped through JSON —
+# a loaded save or a networked game — carries them as {"x","y"} dicts (and some
+# raw layouts use [x,y] arrays). Passing a Dictionary straight to Geometry2D threw
+# "Cannot convert argument 3 from Dictionary to Vector2" and made the whole wall
+# check silently return false, so walls stopped blocking line of sight after load.
+static func _wall_point_to_vec2(v) -> Vector2:
+	if v is Vector2:
+		return v
+	if v is Dictionary:
+		return Vector2(v.get("x", 0.0), v.get("y", 0.0))
+	if v is Array and v.size() >= 2:
+		return Vector2(v[0], v[1])
+	return Vector2.ZERO
+
 # P1-68: Check if a sight line segment intersects a wall segment
 static func _segment_intersects_wall(from: Vector2, to: Vector2, wall: Dictionary) -> bool:
-	var wall_start = wall.get("start", Vector2.ZERO)
-	var wall_end = wall.get("end", Vector2.ZERO)
+	var wall_start = _wall_point_to_vec2(wall.get("start", Vector2.ZERO))
+	var wall_end = _wall_point_to_vec2(wall.get("end", Vector2.ZERO))
 	if wall_start == Vector2.ZERO and wall_end == Vector2.ZERO:
 		return false
 	var intersection = Geometry2D.segment_intersects_segment(from, to, wall_start, wall_end)
