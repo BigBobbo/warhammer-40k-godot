@@ -1068,6 +1068,11 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 			if auto_idx >= 0:
 				unit_selector.select(auto_idx)
 				_on_unit_selected(auto_idx)
+				# Steam Deck: the auto-armed shooter can be anywhere on the
+				# board and a pad player has no mouse to go find it — frame it
+				# so the phase never opens (or hands over to the next shooter)
+				# pointing at empty table. No-op on keyboard/mouse.
+				PadRouter.follow_unit_if_pad(active_shooter_id)
 
 	# T5-UX3: Update shoot all remaining button when unit list refreshes
 	_update_shoot_all_remaining_button()
@@ -1089,16 +1094,11 @@ func _on_shooting_show_all_units_setting_changed(show_all: bool) -> void:
 	if show_all_units_checkbox and is_instance_valid(show_all_units_checkbox) \
 			and show_all_units_checkbox.button_pressed != show_all:
 		show_all_units_checkbox.set_pressed_no_signal(show_all)
-	var keep_id = active_shooter_id
 	# Rebuild without auto-selecting so a manual selection isn't overridden.
 	_refresh_unit_list(false)
 	# Re-highlight the active shooter's row (its assignments are untouched — we
 	# only restore the visual selection, we don't re-run _on_unit_selected).
-	if keep_id != "" and unit_selector and is_instance_valid(unit_selector):
-		for i in range(unit_selector.get_item_count()):
-			if unit_selector.get_item_metadata(i) == keep_id:
-				unit_selector.select(i)
-				break
+	_highlight_active_shooter_row()
 
 func _refresh_shooter_status() -> void:
 	if not shooter_status_label or active_shooter_id == "":
@@ -4785,49 +4785,81 @@ func _keyboard_deselect_shooter() -> void:
 
 	print("T5-UX12: Deselected shooter %s" % prev_shooter)
 
-# T5-UX12: Cycle through eligible shooter units with Tab (Shift+Tab for reverse)
+# T5-UX12: Cycle through eligible shooter units with Tab (Shift+Tab for
+# reverse) — also the LB/RB bumper path via PadRouter.
+#
+# The ring is built from PHASE eligibility (_can_unit_shoot + not shot yet),
+# NOT from the visible rows of the shooter list. The list's default filter
+# hides shooters with no eligible target right now, which at the start of the
+# phase is usually MOST of the army — cycling only the visible rows left the
+# bumpers dead on phase entry (0–1 rows: next == current, silent no-op) while
+# the hint bar promised "RB Cycle Units". Mirrors the Movement phase, where
+# bumper-cycling follows activation eligibility (pad_can_cycle_to), not
+# whatever the panel happens to render. Cycling onto a filtered-out unit goes
+# through _select_shooter_by_unit_id — the same path as clicking its token —
+# so the no-targets feedback explains why nothing is targetable, and X (Skip
+# Unit) can finish its activation.
 func _keyboard_cycle_units(reverse: bool) -> void:
-	if not unit_selector or not current_phase:
+	if not current_phase:
 		return
 
-	# Build list of eligible (un-shot) unit indices
-	var eligible_indices: Array = []
-	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
-
-	for i in range(unit_selector.get_item_count()):
-		var unit_id = unit_selector.get_item_metadata(i)
-		if unit_id and unit_id not in units_shot:
-			eligible_indices.append(i)
-
-	if eligible_indices.is_empty():
+	var ring: Array = _pad_cycle_ring()
+	if ring.is_empty():
 		if dice_log_display:
 			dice_log_display.append_text("[color=gray]No eligible units to cycle through[/color]\n")
+		# Pad players don't read the dice log — say it where they look.
+		ToastManager.show_warning("No units left to shoot — Start ends the phase")
 		return
 
-	# Find current active shooter index in the eligible list
-	var current_eligible_idx: int = -1
-	for ei in range(eligible_indices.size()):
-		var unit_id = unit_selector.get_item_metadata(eligible_indices[ei])
-		if unit_id == active_shooter_id:
-			current_eligible_idx = ei
-			break
-
-	# Calculate next index
-	var next_eligible_idx: int
+	var current_idx := ring.find(active_shooter_id)
+	var next_idx: int
 	if reverse:
-		next_eligible_idx = (current_eligible_idx - 1) if current_eligible_idx > 0 else eligible_indices.size() - 1
+		next_idx = (current_idx - 1) if current_idx > 0 else ring.size() - 1
 	else:
-		next_eligible_idx = (current_eligible_idx + 1) % eligible_indices.size()
+		next_idx = (current_idx + 1) % ring.size()
 
-	var next_list_idx = eligible_indices[next_eligible_idx]
-	var next_unit_id = unit_selector.get_item_metadata(next_list_idx)
+	var next_unit_id: String = str(ring[next_idx])
+	if next_unit_id == active_shooter_id:
+		# The armed shooter is the only eligible unit left — a silent no-op here
+		# reads as "the bumpers are broken", so say why nothing moves.
+		ToastManager.show_toast("No other units to cycle to")
+		return
 
-	if next_unit_id and next_unit_id != active_shooter_id:
-		# Select in the list UI
-		unit_selector.select(next_list_idx)
-		# Trigger the same selection flow as clicking
-		_on_unit_selected(next_list_idx)
-		print("T5-UX12: Cycled to unit %s (index %d)" % [next_unit_id, next_list_idx])
+	_select_shooter_by_unit_id(next_unit_id)
+	# The cycled-to unit may have no row (hidden by the no-targets filter) —
+	# rebuild the list (the active shooter's row is always kept) and highlight
+	# it, mirroring the show-all-checkbox refresh path.
+	_refresh_unit_list(false)
+	_highlight_active_shooter_row()
+	print("T5-UX12: Cycled to unit %s" % next_unit_id)
+
+# Every unit of the current player that can still shoot this phase, in the
+# order the (unfiltered) shooter list would show them. This is the bumper/Tab
+# cycling ring: activation eligibility, independent of the list's display
+# filter.
+func _pad_cycle_ring() -> Array:
+	var ring: Array = []
+	if not current_phase:
+		return ring
+	var units = current_phase.get_units_for_player(current_phase.get_current_player())
+	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
+	for unit_id in units:
+		if unit_id in units_shot:
+			continue
+		if current_phase._can_unit_shoot(units[unit_id]):
+			ring.append(unit_id)
+	return ring
+
+# Select + reveal the active shooter's row in the unit list without re-running
+# the selection flow (visual sync only).
+func _highlight_active_shooter_row() -> void:
+	if active_shooter_id == "" or not unit_selector or not is_instance_valid(unit_selector):
+		return
+	for i in range(unit_selector.get_item_count()):
+		if unit_selector.get_item_metadata(i) == active_shooter_id:
+			unit_selector.select(i)
+			unit_selector.ensure_current_is_visible()
+			break
 
 # T5-UX12: Skip the current active unit
 func _keyboard_skip_unit() -> void:

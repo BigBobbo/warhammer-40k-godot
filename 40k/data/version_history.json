@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.83.1",
+			"date": "2026-07-21",
+			"summary": "Shooting phase controller fix: LB/RB were dead at the start of the phase. The bumpers now cycle through EVERY unit that can still shoot — same as the Movement phase — not just the few the panel's 'has a target' filter shows, and the camera jumps to each unit as you cycle, including the shooter that's auto-selected when the phase begins.",
+			"changes": [
+				"LB/RB in the Shooting phase now cycle through every unit that can still shoot this phase, matching how Movement cycles units that can still move. Previously the bumpers only walked the visible shooter list, which by default hides units with no eligible target — at the start of the phase that is usually most of the army, so with 0-1 rows the bumpers silently did nothing.",
+				"Cycling onto a unit with no targets in range selects it, frames the camera on it, and explains why nothing is targetable — you can still Skip it with X or start a mission action, or just keep cycling.",
+				"The unit the game auto-selects when the Shooting phase starts (or after each unit finishes shooting) is now framed by the camera when playing on a controller — the phase no longer opens pointing at an empty stretch of table with the [ACTIVE] shooter somewhere off-screen.",
+				"When there is genuinely nothing left to cycle to, the bumpers say so with a toast ('No units left to shoot — Start ends the phase' / 'No other units to cycle to') instead of doing nothing.",
+				"Keyboard Tab / Shift+Tab shooter cycling gets the same fix (it shared the filtered-list ring)."
+			]
+		},
+		{
 			"version": "0.83.0",
 			"date": "2026-07-21",
 			"summary": "Move the whole squad at once with the controller. The Movement menu gains 'Move All Together': every model of the unit is picked up as one formation riding the stick, and a single A press places them all. Mid-move, any D-pad press grabs every model you haven't placed yet. If the drop spot doesn't fit the whole squad, the models that fit are placed and the rest are handed straight back to you — and the ghost preview shows green/red per model so you can see which will land before you drop.",

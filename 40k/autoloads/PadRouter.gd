@@ -1567,6 +1567,16 @@ func _toggle_datasheet() -> bool:
 	return true
 
 
+# Public seam for phase controllers (shooting auto-select, …): frame the
+# camera on unit_id, but ONLY while the pad is the active device. Automatic
+# camera jumps are hostile to mouse players — they can already see what they
+# clicked — so KBM callers are a no-op.
+func follow_unit_if_pad(unit_id: String) -> void:
+	if unit_id == "" or not InputDeviceManager.is_pad_active():
+		return
+	_center_camera_on_unit(unit_id)
+
+
 # Below this zoom the board is a fit-whole-table overview (a loaded save starts
 # at ~0.3) and individual models are unreadable — cycling to a unit there must
 # zoom IN on it, not just pan the overview sideways.
