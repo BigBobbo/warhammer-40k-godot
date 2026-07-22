@@ -633,6 +633,19 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 			model = unit_data["models"][idx]
 
 		var validate_rot = formation_rotations[i] if i < formation_rotations.size() else 0.0
+		# Issue #87 parity with the single-model try_place_at(): no part of any
+		# base may extend off the battlefield. Applies to all modes — normal
+		# deployment zones are already inset so this is a safety net there, but
+		# for reinforcement (Deep Strike / Strategic Reserves, which arrive within
+		# 6" of a board edge) and infiltrators the zone check is bypassed, so this
+		# is the ONLY edge guard. The per-mode validators below only test the
+		# model centre, not the full base footprint.
+		var edge_model: Dictionary = model.duplicate()
+		edge_model["rotation"] = validate_rot
+		if Measurement.model_outside_board(pos, edge_model):
+			all_valid = false
+			error_msg = "Models cannot be placed off the board"
+			break
 		if not _validate_formation_position(pos, model, zone, validate_rot):
 			all_valid = false
 			# _validate_formation_position already surfaced the specific reason

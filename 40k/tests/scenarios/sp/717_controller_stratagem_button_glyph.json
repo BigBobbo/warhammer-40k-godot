@@ -1,0 +1,25 @@
+{
+  "id": "717_controller_stratagem_button_glyph",
+  "covers": [
+    "ui.stratagem_button.device_glyph"
+  ],
+  "fixture": "New Game",
+  "description": "Controller UX: the top-bar Stratagems button carries a keyboard '[S] ' hint (Main.tscn), but a controller has no single Stratagems key — it reaches the button via D-pad panel focus + A. So while a pad is the active device the '[S] ' prefix is dropped ('Stratagems') and restored ('[S] Stratagems') for keyboard/mouse. Driven through the real InputDeviceManager.device_changed signal, so this also proves the Main handler is wired to re-stamp the label live.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nnode._sync_stratagem_button_glyph()\nreturn node.stratagem_panel_button.text",
+      "equals": "[S] Stratagems" },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "InputDeviceManager.claim_pad()\nreturn node.stratagem_panel_button.text",
+      "equals": "Stratagems" },
+
+    { "act": "screenshot", "label": "01_pad_stratagem_button_no_key" },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nInputDeviceManager.device_changed.emit(InputDeviceManager.InputMode.KBM)\nreturn node.stratagem_panel_button.text",
+      "equals": "[S] Stratagems" }
+  ]
+}

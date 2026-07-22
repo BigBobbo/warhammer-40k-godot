@@ -1,0 +1,91 @@
+{
+  "id": "disembark_then_advance_11e",
+  "covers": [
+    "phases.MovementPhase.11e_disembark_advance",
+    "movetypes.DisembarkMove.tactical",
+    "scripts.MovementController.pad_menu_options"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "18.04 TACTICAL disembark: a stationary transport lets the disembarked unit be 'then selected to make a normal OR advance move'. Regression net for the reported controller gap where the post-disembark move was locked to Normal, hiding Advance from the mouse mode radios AND the pad move menu. A clean transport + squad (owner 2) is injected on empty board so the disembarked unit is unengaged and genuinely eligible to advance. Asserts: after a successful tactical disembark the move-mode decision is OPEN (mode_locked=false), the pad move menu (pad_menu_options) offers ADVANCE, the mouse Advance radio is enabled, and BEGIN_ADVANCE resolves to an Advance move (cap = M + D6).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    {
+      "act": "execute_script",
+      "comment": "Inject a stationary Trukk carrying a Boyz squad (owner 2 = active player) on clear board (1600,700), then refresh the phase snapshot so get_unit() sees them.",
+      "multiline": true,
+      "script": "GameState.state.units[\"Z_TRUKK\"] = {\"id\":\"Z_TRUKK\",\"owner\":2,\"status\":2,\"flags\":{},\"transport_data\":{\"capacity\":12,\"embarked_units\":[\"Z_BOYZ\"]},\"meta\":{\"name\":\"Test Trukk\",\"keywords\":[\"VEHICLE\",\"TRANSPORT\"],\"stats\":{\"move\":12}},\"models\":[{\"id\":\"t0\",\"alive\":true,\"wounds\":10,\"current_wounds\":10,\"base_mm\":100,\"base_type\":\"circular\",\"position\":{\"x\":1600,\"y\":700},\"rotation\":0.0}]}\nGameState.state.units[\"Z_BOYZ\"] = {\"id\":\"Z_BOYZ\",\"owner\":2,\"status\":2,\"embarked_in\":\"Z_TRUKK\",\"flags\":{},\"meta\":{\"name\":\"Test Boyz\",\"keywords\":[\"INFANTRY\"],\"stats\":{\"move\":6}},\"models\":[{\"id\":\"z0\",\"alive\":true,\"wounds\":1,\"current_wounds\":1,\"base_mm\":32,\"base_type\":\"circular\",\"position\":null},{\"id\":\"z1\",\"alive\":true,\"wounds\":1,\"current_wounds\":1,\"base_mm\":32,\"base_type\":\"circular\",\"position\":null},{\"id\":\"z2\",\"alive\":true,\"wounds\":1,\"current_wounds\":1,\"base_mm\":32,\"base_type\":\"circular\",\"position\":null}]}\nPhaseManager.get_current_phase_instance().game_state_snapshot = GameState.state.duplicate(true)\nreturn GameState.state.units.has(\"Z_BOYZ\")",
+      "equals": true
+    },
+    { "act": "expect_state", "path": "units.Z_BOYZ.embarked_in", "equals": "Z_TRUKK" },
+    { "act": "screenshot", "label": "01_squad_embarked" },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_DISEMBARK",
+        "actor_unit_id": "Z_BOYZ",
+        "payload": {
+          "positions": [
+            { "x": 1600.0, "y": 850.0 },
+            { "x": 1670.0, "y": 850.0 },
+            { "x": 1530.0, "y": 850.0 }
+          ],
+          "can_setup_tactical": true
+        }
+      }
+    },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.Z_BOYZ.embarked_in", "equals": null },
+    { "act": "expect_state", "path": "units.Z_BOYZ.flags.cannot_move", "equals": false },
+    { "act": "wait_frames", "frames": 3 },
+    {
+      "act": "execute_script",
+      "comment": "Core fix: a tactical disembark leaves the move-mode decision OPEN (was locked to NORMAL, which hid Advance).",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"Z_BOYZ\", {}).get(\"mode_locked\", true)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "comment": "Pad surface: the PadActionBar move menu offers ADVANCE. Mirror the controller-side post-disembark UI update (the real disembark-completed handler calls this) so the mode radios the menu reads are set up.",
+      "multiline": true,
+      "script": "var mc = tree.current_scene.movement_controller\nmc._post_disembark_ui_update(\"Z_BOYZ\")\nvar ids = []\nfor o in mc.pad_menu_options():\n\tids.append(str(o.get(\"id\", \"\")))\nreturn \"ADVANCE\" in ids",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "comment": "Mouse surface: the Advance mode radio is visible and enabled after disembark.",
+      "multiline": true,
+      "script": "var ar = tree.current_scene.movement_controller.advance_radio\nreturn ar != null and ar.visible and not ar.disabled",
+      "equals": true
+    },
+    { "act": "screenshot", "label": "02_disembarked_advance_offered" },
+    {
+      "act": "execute_script",
+      "comment": "Advance is a VALID action for the freshly (unengaged) disembarked unit.",
+      "multiline": true,
+      "script": "var v = PhaseManager.get_current_phase_instance().validate_action({\"type\": \"BEGIN_ADVANCE\", \"actor_unit_id\": \"Z_BOYZ\"})\nreturn v.get(\"valid\", false)",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": { "type": "BEGIN_ADVANCE", "actor_unit_id": "Z_BOYZ", "payload": {} }
+    },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    {
+      "act": "dispatch_action",
+      "comment": "The advance roll offers a Command Re-roll; decline it to resolve the roll.",
+      "action": { "type": "DECLINE_COMMAND_REROLL", "actor_unit_id": "Z_BOYZ" }
+    },
+    {
+      "act": "execute_script",
+      "comment": "The move is now an Advance with cap = M(6) + advance roll (>6) — the disembarked unit actually advanced.",
+      "multiline": true,
+      "script": "var am = PhaseManager.get_current_phase_instance().active_moves.get(\"Z_BOYZ\", {})\nreturn am.get(\"mode\", \"\") == \"ADVANCE\" and am.get(\"move_cap_inches\", 0.0) > 6.0",
+      "equals": true
+    }
+  ]
+}

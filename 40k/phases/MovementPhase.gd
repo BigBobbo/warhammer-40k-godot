@@ -8351,7 +8351,16 @@ func _initialize_movement_for_disembarked_unit(unit_id: String) -> void:
 	# Set up active movement similar to BEGIN_NORMAL_MOVE
 	active_moves[unit_id] = {
 		"mode": "NORMAL",
-		"mode_locked": true,  # Lock to normal move since they just disembarked
+		# 18.04: after a tactical disembark the unit "is then selected to make a
+		# normal OR advance move" — so default to Normal but leave the mode
+		# decision OPEN (not locked). Locking to Normal here hid the Advance
+		# option from BOTH the mouse mode radios and the pad move menu (the
+		# PadActionBar), even though the transport hadn't moved and the unit was
+		# fully eligible to Advance. Unlocking lets the player pick Advance the
+		# same way they would for any other move; switching to Advance recreates
+		# active_moves via BEGIN_ADVANCE (rolling the D6), so the default Normal
+		# state here is only the starting point.
+		"mode_locked": false,
 		"completed": false,
 		"move_cap_inches": move_inches,
 		"advance_roll": 0,

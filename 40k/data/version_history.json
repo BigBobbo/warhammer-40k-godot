@@ -2,12 +2,51 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.92.2",
+			"version": "0.92.6",
 			"date": "2026-07-22",
 			"summary": "Placing a unit from reserves (Deep Strike / Strategic Reserves / Rapid Ingress) no longer spams a stack of red 'must be within 6\" of a board edge' warnings while you move the cursor over an illegal spot. The ghost still turns red to show you can't drop there, and clicking to place still tells you exactly why — but simply hovering is now quiet.",
 			"changes": [
 				"Fixed reinforcement / Deep Strike placement stacking a new validation toast every frame while hovering an illegal spot (it piled up to the 5-toast maximum). The per-frame ghost-colour check no longer shows toasts — it just reddens the ghost — while actually clicking to place still surfaces the specific reason (too close to an enemy, not within 6\" of a board edge, off the board, etc.).",
 				"Same fix applies to Infiltrators placement, formation (Spread / Tight) reinforcement drops, and dragging an already-placed model during deployment — all of which had the same per-frame toast spam."
+			]
+		},
+		{
+			"version": "0.92.5",
+			"date": "2026-07-22",
+			"summary": "A unit that disembarks from a transport that hasn't moved yet can now Advance, not just make a Normal move — on both the controller and the mouse. Previously the post-disembark move was silently locked to Normal, so there was no way to Advance a squad you'd just dropped off (18.04: a tactical disembark lets the unit 'make a normal OR advance move').",
+			"changes": [
+				"Movement — after a unit disembarks from a stationary transport, the move-mode choice is now open (Normal / Advance / Remain Still) instead of being forced to Normal. Pick Advance to roll the D6 and move M + Advance as usual.",
+				"Controller — the move menu (Ⓐ / D-pad) that appears after placing your disembarked models now offers Advance alongside Move and Stay Still, matching how you choose Advance for any other move. Previously the controller only showed the Move / Next Model controls with no way to Advance.",
+				"Mouse — the Advance mode radio is now shown and enabled after disembarking (it was greyed out before)."
+			]
+		},
+		{
+			"version": "0.92.4",
+			"date": "2026-07-22",
+			"summary": "Controller fix (follow-up to the secondary-missions pop-up): the end-of-turn 'Discard for CP?' pop-up can now be used with a controller. Previously the D-pad never highlighted anything in that window, so a pad player couldn't discard a secondary mission for +1 CP or choose to end the turn without discarding — the only way past it was the mouse. Now the D-pad moves a visible selector through each mission's 'Discard' button and the 'End Turn Without Discarding' button, A activates the highlighted one, and the controller hint bar shows Navigate / Select / Close.",
+			"changes": [
+				"The 'Discard for CP?' pop-up is now fully controller-navigable: D-pad ▲/▼ steps through each mission's Discard button and the End-Turn button (wrapping around), and the highlighted control scrolls into view.",
+				"Press A on a Discard button to discard that mission for +1 CP, or A on 'End Turn Without Discarding' to skip — no mouse required.",
+				"Opening the pop-up now puts the controller selector on the first Discard button instead of the bottom button, shows the 'Navigate / Select / Close' hint bar while open, and hands the hint bar back to the board when it closes.",
+				"Fixed the A button firing a stray click instead of pressing the highlighted button when the virtual cursor happened to be active as the pop-up opened.",
+				"Applies the same controller fix shipped for the drawn-secondary-missions review pop-up to this closely related dialog."
+			]
+		},
+		{
+			"version": "0.92.3",
+			"date": "2026-07-22",
+			"summary": "Controller polish: the top-bar Stratagems button no longer shows a keyboard '[S]' hint you can't press on a controller. While you're playing with a pad it simply reads 'Stratagems' (you reach it by moving panel focus with the D-pad and pressing A); pick the mouse or keyboard back up and the '[S]' hint returns.",
+			"changes": [
+				"The Stratagems button drops its '[S]' keyboard-shortcut hint while a controller is the active device — it reads 'Stratagems' — and restores '[S] Stratagems' the moment you use the mouse or keyboard. Mirrors the device-aware hint on the End-Phase button."
+			]
+		},
+		{
+			"version": "0.92.2",
+			"date": "2026-07-22",
+			"summary": "Deep Strike / Strategic Reserves formations can no longer be placed with a model's base hanging off the table edge. Because Strategic Reserves arrive within 6\" of a board edge, it was possible to drop a Tight/Spread formation right on the edge so the outermost model's base overhung the battlefield — the reinforcement check only looked at each model's centre, not its full base. Formation placement now applies the same whole-base-on-board guard the single-model placement already used.",
+			"changes": [
+				"Placing a reinforcement (Deep Strike / Strategic Reserves) or Infiltrators unit in Tight or Spread formation now rejects the drop if any model's base would extend off the battlefield, with 'Models cannot be placed off the board' — matching the single-model placement rule.",
+				"This closes an edge case where a formation anchored near a board edge could leave the outer models' centres on the table but their bases overhanging it."
 			]
 		},
 		{

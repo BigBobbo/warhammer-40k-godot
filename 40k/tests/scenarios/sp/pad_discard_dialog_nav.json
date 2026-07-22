@@ -1,0 +1,44 @@
+{
+  "id": "pad_discard_dialog_nav",
+  "covers": [
+    "controller.discard.dpad_nav",
+    "controller.discard.activate"
+  ],
+  "fixture": "co_pretrigger",
+  "disable_ai": true,
+  "description": "Controller support for the end-of-turn 'Discard for CP?' pop-up (MissionDiscardDialog). Like the drawn-missions review dialog, the D-pad could not navigate it: focus landed on the off-list skip button and geometric focus search dead-ended between the card-nested Discard buttons. After the fix the dialog joins the native-nav modal group, seeds focus on the first Discard button, lets D-pad ▼ cycle Discard_0 -> Discard_1 -> skip -> wrap, and A activates the focused control. Built via the shared create() factory (same path Main.gd uses).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.get_tree().root.add_child(ResourceLoader.load('res://dialogs/MissionDiscardDialog.gd').create([{'name': 'Storm Hostile Objective', 'category': 'tactical'}, {'name': 'Behind Enemy Lines', 'category': 'tactical'}], true))" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node('MissionDiscardDialog').popup_centered()" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "simulate_joy_axis", "axis": 0, "value": 0.9 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_axis", "axis": 0, "value": 0.0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"MissionDiscardDialog\")\nreturn d.gui_get_focus_owner() == d._discard_buttons[0]", "multiline": true, "equals": true },
+    { "act": "screenshot", "label": "01_initial_focus_first_discard" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"MissionDiscardDialog\")\nreturn d.gui_get_focus_owner() == d._discard_buttons[1]", "multiline": true, "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"MissionDiscardDialog\")\nreturn d.gui_get_focus_owner() == d._skip_button", "multiline": true, "equals": true },
+    { "act": "screenshot", "label": "02_focus_skip_button" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"MissionDiscardDialog\")\nreturn d.gui_get_focus_owner() == d._discard_buttons[0]", "multiline": true, "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"MissionDiscardDialog\")\nreturn d == null or not is_instance_valid(d)", "multiline": true, "equals": true },
+    { "act": "screenshot", "label": "03_dialog_closed_after_A" }
+  ]
+}
