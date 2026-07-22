@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.84.2",
+			"version": "0.84.3",
 			"date": "2026-07-22",
 			"summary": "Controller deep-strike fix: placing a unit arriving from reserves no longer shows 'Move / Advance / Stay Still' instead of a way to confirm. Previously, if you had another unit selected and then picked a reserves unit to deep strike, pressing A or the D-pad mid-placement popped the movement menu of the PREVIOUSLY selected unit — options that make no sense for a unit that just arrived, and a stray A could even silently commit that other unit to Stay Still or an Advance. Now the placement flow owns the controller: A jumps the cursor to the board to place models, the D-pad reaches the Confirm button, Start confirms the arrival — and a freshly arrived unit is never offered movement options.",
 			"changes": [
@@ -11,6 +11,17 @@
 				"A unit that just arrived from reserves is never offered movement options when selected afterwards — it has already made its ingress move (it can still charge later).",
 				"Switching units mid-placement now follows the same rules as deployment: blocked once models are on the table (undo them first), and switching away with nothing placed cleanly cancels the arrival, returning that unit to reserves instead of stranding it in limbo.",
 				"Re-selecting the unit you are already placing no longer silently restarts its placement (which wiped any models you had already put down)."
+			]
+		},
+		{
+			"version": "0.84.2",
+			"date": "2026-07-22",
+			"summary": "Controller fix: the 'New Secondary Missions' pop-up (shown when you draw secondaries in the Command phase) can now be used with a controller. Previously the D-pad never highlighted anything in that window, so a pad player could neither read the drawn missions nor spend 1 CP to replace one — the only way past it was the mouse. Now the D-pad moves a visible selector through each 'Replace this mission (1 CP)' button and the Continue button, the highlighted control scrolls into view, A activates it, and the controller hint bar shows Navigate / Select / Close.",
+			"changes": [
+				"The drawn-secondary-missions review pop-up is now fully controller-navigable: D-pad ▲/▼ steps through each Replace button and the Continue button (wrapping around), and the selector is always scrolled into view so you can read every mission.",
+				"Press A on a Replace button to spend 1 CP and swap that mission (it returns to your deck); press A on Continue to accept and close — no mouse required.",
+				"Opening the pop-up now puts the controller selector on the first Replace button (or Continue if you can't replace) instead of an off-screen button, and the on-screen hint bar switches to 'Navigate / Select / Close' while it's open, then back to the normal board hints when it closes.",
+				"Fixed the A button firing a stray click instead of pressing the highlighted button when the virtual cursor happened to be active as the pop-up opened."
 			]
 		},
 		{
