@@ -33,6 +33,7 @@ signal subphase_transition(from_subphase: String, to_subphase: String)
 signal epic_challenge_opportunity(unit_id: String, player: int)
 signal counter_offensive_opportunity(player: int, eligible_units: Array)
 signal katah_stance_required(unit_id: String, player: int)
+signal moment_shackle_required(unit_id: String, player: int)  # Blade Champion Moment Shackle choice at start of Fight phase (human UI)
 signal dread_foe_resolved(unit_id: String, result: Dictionary)  # P1-17: Dread Foe mortal wounds result
 signal saves_required(save_data_list: Array)  # P0-58: Interactive wound allocation for defender
 signal sweeping_advance_available(unit_id: String, player: int, in_engagement: bool, move_distance: float)  # Sweeping Advance opportunity
@@ -268,10 +269,30 @@ func _initialize_fight_sequence() -> void:
 	emit_signal("fight_order_determined", combatants)
 	emit_signal("fight_sequence_updated", combatants)
 
+	# 11e: the Blade Champion's Moment Shackle is chosen at the START of the
+	# Fight phase, before any unit fights. Offer it first (gating the opening
+	# Pile In step); once every pending choice is resolved the pile-in begins.
+	# The AI resolves it via get_available_actions(); a human needs the dialog
+	# that moment_shackle_required drives — without this the phase soft-locked.
+	if _maybe_offer_moment_shackle():
+		return
+
 	# 11e 12.02: the fight phase OPENS with the global Pile In step — both
 	# players pile in their eligible units (active player first) before any
 	# unit is selected to fight.
 	_begin_pile_in_step_11e()
+
+# Offer the next pending Moment Shackle choice to the active player. Returns
+# true if a choice is now outstanding (caller must NOT proceed to pile-in yet),
+# false when there is nothing pending. Emits moment_shackle_required so the
+# human dialog appears; the AI reads the same choice from get_available_actions.
+func _maybe_offer_moment_shackle() -> bool:
+	if _moment_shackle_pending_units.is_empty():
+		return false
+	var uid = _moment_shackle_pending_units[0]
+	log_phase_message("MOMENT SHACKLE: offering choice for %s (player %d)" % [uid, get_current_player()])
+	emit_signal("moment_shackle_required", uid, get_current_player())
+	return true
 
 func _check_for_combats() -> void:
 	var combatants = _combatants_11e()
@@ -5232,6 +5253,11 @@ func _process_use_moment_shackle(action: Dictionary) -> Dictionary:
 		log_phase_message("Moment Shackle: %s — 2+ invulnerable save this phase" % unit_name)
 		DebugLogger.info("[10][INFO] Moment Shackle: %s chose 2+ invulnerable save" % unit_name)
 
+	# Offer the next pending Moment Shackle choice, or open the Pile In step now
+	# that every choice is resolved (mirrors the fight-start gate).
+	if not _maybe_offer_moment_shackle():
+		_begin_pile_in_step_11e()
+
 	return create_result(true, diffs)
 
 func _process_decline_moment_shackle(action: Dictionary) -> Dictionary:
@@ -5240,6 +5266,11 @@ func _process_decline_moment_shackle(action: Dictionary) -> Dictionary:
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	log_phase_message("Moment Shackle: %s declined" % unit_name)
+
+	# Offer the next pending choice, or open the Pile In step (see above).
+	if not _maybe_offer_moment_shackle():
+		_begin_pile_in_step_11e()
+
 	return create_result(true, [])
 
 

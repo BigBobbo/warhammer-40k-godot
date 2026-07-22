@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.9",
+			"date": "2026-07-22",
+			"summary": "Fixed: a Custodes Blade Champion's Moment Shackle is now playable by a human. At the start of the Fight phase you get a dialog to choose the effect (Watcher's Axe — 12 Attacks, or a 2+ invulnerable save) or Decline — previously the phase waited for a choice that only the AI could make, so a human Custodes player was stuck.",
+			"changes": [
+				"Fight phase: added the Moment Shackle choice dialog for the human player. When your Blade Champion is eligible, the choice is offered at the start of the Fight phase (before piling in); picking an effect or declining then continues into the Pile In step as normal. The AI continues to resolve it automatically."
+			]
+		},
+		{
 			"version": "0.92.8",
 			"date": "2026-07-22",
 			"summary": "Fixed: the Command phase Battle-shock controls now actually appear. When one of your units is below (or at) half-strength, the right-hand Command panel shows a 'Roll Battle-shock: <unit>' button (and the 'Insane Bravery' stratagem button when available) so you can take the test yourself — previously this whole section silently never rendered and the test was only ever auto-resolved.",
