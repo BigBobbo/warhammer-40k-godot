@@ -254,14 +254,16 @@ func _validate_skip_redeploy(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _validate_end_redeployment_phase(action: Dictionary) -> Dictionary:
-	# Can only end if no units remain pending for any player
-	var total_pending = 0
-	for player in redeploy_units_pending:
-		total_pending += redeploy_units_pending[player].size()
-
-	if total_pending > 0:
-		return {"valid": false, "errors": ["Redeploy units still pending: %d" % total_pending]}
-
+	# Redeployment is OPTIONAL (Core Rules: rules that ALLOW players to redeploy
+	# certain units). A player may always decline to redeploy any of their
+	# remaining eligible units, so ending the phase is always valid — units left
+	# pending simply stay where they were deployed.
+	#
+	# Previously this returned invalid while ANY unit was pending. Because the
+	# Redeployment phase has no human UI to resolve a redeploy unit, a human
+	# with a redeploy-capable unit could neither act nor end the phase — a
+	# soft-lock (audit P0). Ending now clears the pending list (see
+	# _process_end_redeployment_phase).
 	return {"valid": true, "errors": []}
 
 # ========================================
@@ -385,6 +387,15 @@ func _process_skip_redeploy(action: Dictionary) -> Dictionary:
 
 func _process_end_redeployment_phase(action: Dictionary) -> Dictionary:
 	log_phase_message("Redeployment phase ending")
+	# Any units still pending are treated as declining to redeploy — they keep
+	# their deployed positions. Clear the pending lists so downstream state is
+	# clean and no later check re-blocks on them.
+	for player in redeploy_units_pending:
+		for unit_id in redeploy_units_pending[player]:
+			if not redeploy_units_completed.has(unit_id):
+				redeploy_units_completed.append(unit_id)
+	redeploy_units_pending.clear()
+	active_redeploy.clear()
 	emit_signal("phase_completed")
 	return create_result(true, [])
 
