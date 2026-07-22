@@ -1919,7 +1919,7 @@ func _process(delta: float) -> void:
 		reposition_ghost.position = mouse_pos
 		var unit_data = GameState.get_unit(unit_id)
 		var model_data = unit_data["models"][reposition_model_index]
-		var is_valid = _validate_reposition(mouse_pos, model_data, reposition_model_index)
+		var is_valid = _validate_reposition(mouse_pos, model_data, reposition_model_index, true)
 		reposition_ghost.set_validity(is_valid)
 		# Show coherency distance during repositioning too
 		var rot = 0.0
@@ -1962,14 +1962,18 @@ func _process(delta: float) -> void:
 		var is_valid = false
 
 		if is_reinforcement_mode:
-			# Reinforcement mode: validate >9" from enemies instead of deployment zone
-			is_valid = _validate_reinforcement_position(mouse_pos, model_data, rotation)
+			# Reinforcement mode: validate >9" from enemies instead of deployment zone.
+			# silent=true — this is the per-frame ghost-colour check; a failure just
+			# reddens the ghost, it must NOT stack a toast every frame (the click in
+			# try_place_at surfaces the reason).
+			is_valid = _validate_reinforcement_position(mouse_pos, model_data, rotation, true)
 			# Also check model overlap
 			if is_valid and _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation):
 				is_valid = false
 		elif is_infiltrators_mode:
 			# Infiltrators mode: validate >9" from enemy zone and enemy models
-			is_valid = _validate_infiltrators_position(mouse_pos, model_data, rotation)
+			# (silent per-frame — see the reinforcement branch above).
+			is_valid = _validate_infiltrators_position(mouse_pos, model_data, rotation, true)
 			# Also check model overlap
 			if is_valid and _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation):
 				is_valid = false
@@ -2321,11 +2325,18 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 
 			# MA-18: Use each model's actual data for validation
 			var model_data_for_validation = formation_model_data[i] if i < formation_model_data.size() else formation_model_data[0]
-			var is_valid = _validate_formation_position(positions[i], model_data_for_validation, zone, model_rot)
+			# silent=true — per-frame formation-ghost colour check; a failure just
+			# reddens the ghosts instead of stacking a toast per model per frame
+			# (the click path in try_place_formation_at surfaces the reason).
+			var is_valid = _validate_formation_position(positions[i], model_data_for_validation, zone, model_rot, true)
 			ghost.set_validity(is_valid)
 
-func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: PackedVector2Array, model_rotation: float = 0.0) -> bool:
-	"""Validate a single position in a formation"""
+func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: PackedVector2Array, model_rotation: float = 0.0, silent: bool = false) -> bool:
+	"""Validate a single position in a formation. silent=true suppresses the
+	reinforcement/infiltrator failure toasts — the per-frame formation-ghost
+	colour check passes it so hovering an illegal drop just reddens the ghosts
+	instead of stacking a toast per model per frame; the click path (formation
+	placement) leaves it false so a rejected drop still explains why."""
 	if is_reinforcement_mode:
 		# Reinforcement (Deep Strike / Strategic Reserves): reinforcements arrive
 		# across the whole battlefield, NOT the owning player's deployment zone,
@@ -2334,13 +2345,13 @@ func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: Pa
 		# zone check. Mirrors the single-model path in try_place_at()/_process();
 		# without this branch a formation dropped in a legal Deep Strike spot
 		# would be falsely rejected as "outside deployment zone".
-		if not _validate_reinforcement_position(pos, model_data, model_rotation):
+		if not _validate_reinforcement_position(pos, model_data, model_rotation, silent):
 			return false
 		if _overlaps_with_existing_models_shape(pos, model_data, model_rotation):
 			return false
 	elif is_infiltrators_mode:
 		# In Infiltrators mode, use Infiltrators validation instead of zone check
-		if not _validate_infiltrators_position(pos, model_data, model_rotation):
+		if not _validate_infiltrators_position(pos, model_data, model_rotation, silent):
 			return false
 		if _overlaps_with_existing_models_shape(pos, model_data, model_rotation):
 			return false
@@ -2429,21 +2440,25 @@ func _update_model_repositioning(mouse_pos: Vector2) -> void:
 	var world_pos = _get_world_mouse_position()
 	reposition_ghost.position = world_pos
 
-	# Validate new position
+	# Validate new position. silent=true — runs on every mouse-motion event to
+	# recolour the ghost; a failure must not stack a toast per motion (the drop
+	# in _end_model_repositioning surfaces the reason).
 	var unit_data = GameState.get_unit(unit_id)
 	var model_data = unit_data["models"][reposition_model_index]
-	var is_valid = _validate_reposition(world_pos, model_data, reposition_model_index)
+	var is_valid = _validate_reposition(world_pos, model_data, reposition_model_index, true)
 
 	reposition_ghost.set_validity(is_valid)
 
-func _validate_reposition(world_pos: Vector2, model_data: Dictionary, model_index: int) -> bool:
-	"""Validate if repositioning is allowed at the given position"""
+func _validate_reposition(world_pos: Vector2, model_data: Dictionary, model_index: int, silent: bool = false) -> bool:
+	"""Validate if repositioning is allowed at the given position. silent=true
+	suppresses the Infiltrators failure toasts for the per-frame reposition-ghost
+	colour check; the drop path leaves it false."""
 	var active_player = GameState.get_active_player()
 	var rotation = temp_rotations[model_index] if model_index < temp_rotations.size() else 0.0
 
 	if is_infiltrators_mode:
 		# In Infiltrators mode, use Infiltrators validation instead of zone check
-		if not _validate_infiltrators_position(world_pos, model_data, rotation):
+		if not _validate_infiltrators_position(world_pos, model_data, rotation, silent):
 			return false
 	else:
 		var zone = BoardState.get_deployment_zone_for_player(active_player)
@@ -2551,15 +2566,20 @@ func _cancel_model_repositioning() -> void:
 
 	_cleanup_repositioning()
 
-func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary, rotation: float) -> bool:
-	"""Validate a reinforcement placement position (Deep Strike / Strategic Reserves)"""
+func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary, rotation: float, silent: bool = false) -> bool:
+	"""Validate a reinforcement placement position (Deep Strike / Strategic Reserves).
+	silent=true suppresses the failure toasts — the per-frame ghost-colour check
+	(_process) passes it so hovering an illegal spot just reddens the ghost instead
+	of stacking a new toast every frame; the click path (try_place_at) leaves it
+	false so a rejected placement still explains why."""
 	var px_per_inch = 40.0
 	var board_width_px = GameState.state.board.size.width * px_per_inch
 	var board_height_px = GameState.state.board.size.height * px_per_inch
 
 	# Must be on the board
 	if world_pos.x < 0 or world_pos.x > board_width_px or world_pos.y < 0 or world_pos.y > board_height_px:
-		_show_toast("Must be on the battlefield")
+		if not silent:
+			_show_toast("Must be on the battlefield")
 		return false
 
 	# Must be >9" from all enemy models (edge-to-edge)
@@ -2575,7 +2595,8 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 		var dist_inches = dist_px / px_per_inch
 		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
 		if edge_dist < 9.0:
-			_show_toast("Must be >9\" from enemy models (%.1f\")" % edge_dist)
+			if not silent:
+				_show_toast("Must be >9\" from enemy models (%.1f\")" % edge_dist)
 			return false
 
 	# Strategic Reserves: must be within 6" of a battlefield edge
@@ -2590,7 +2611,8 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 		var board_h = GameState.state.board.size.height
 		var dist_to_edge = min(pos_inches_x, board_w - pos_inches_x, pos_inches_y, board_h - pos_inches_y)
 		if dist_to_edge > 6.0:
-			_show_toast("Strategic Reserves must be within 6\" of a board edge (%.1f\")" % dist_to_edge)
+			if not silent:
+				_show_toast("Strategic Reserves must be within 6\" of a board edge (%.1f\")" % dist_to_edge)
 			return false
 
 	# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
@@ -2602,20 +2624,24 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 		var dist_inches = dist_px / px_per_inch
 		var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
 		if edge_dist < 12.0:
-			_show_toast("Cannot deploy within 12\" of Omni-scramblers (%s) (%.1f\")" % [omni.get("unit_name", "unknown"), edge_dist])
+			if not silent:
+				_show_toast("Cannot deploy within 12\" of Omni-scramblers (%s) (%.1f\")" % [omni.get("unit_name", "unknown"), edge_dist])
 			return false
 
 	return true
 
-func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary, rotation: float) -> bool:
-	"""Validate an Infiltrators deployment position: anywhere on the board, >9 inches from enemy deployment zone and >9 inches from enemy models"""
+func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary, rotation: float, silent: bool = false) -> bool:
+	"""Validate an Infiltrators deployment position: anywhere on the board, >9 inches from enemy deployment zone and >9 inches from enemy models.
+	silent=true suppresses the failure toasts for the per-frame ghost-colour check
+	(see _validate_reinforcement_position); the click path leaves it false."""
 	var px_per_inch = 40.0
 	var board_width_px = GameState.state.board.size.width * px_per_inch
 	var board_height_px = GameState.state.board.size.height * px_per_inch
 
 	# Must be on the board
 	if world_pos.x < 0 or world_pos.x > board_width_px or world_pos.y < 0 or world_pos.y > board_height_px:
-		_show_toast("Must be on the battlefield")
+		if not silent:
+			_show_toast("Must be on the battlefield")
 		return false
 
 	var active_player = GameState.get_active_player()
@@ -2633,7 +2659,8 @@ func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary,
 
 		# Check if model center is inside enemy zone
 		if Geometry2D.is_point_in_polygon(world_pos, enemy_zone_poly_pixels):
-			_show_toast("Infiltrators must be >9\" from enemy deployment zone")
+			if not silent:
+				_show_toast("Infiltrators must be >9\" from enemy deployment zone")
 			return false
 
 		# Find minimum distance from model center to any edge of the enemy zone
@@ -2646,7 +2673,8 @@ func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary,
 				min_dist_px = dist
 		var edge_dist_inches = (min_dist_px / px_per_inch) - model_radius_inches
 		if edge_dist_inches < 9.0:
-			_show_toast("Infiltrators must be >9\" from enemy deployment zone (%.1f\")" % edge_dist_inches)
+			if not silent:
+				_show_toast("Infiltrators must be >9\" from enemy deployment zone (%.1f\")" % edge_dist_inches)
 			return false
 
 	# Must be >9" from all enemy models (edge-to-edge)
@@ -2658,7 +2686,8 @@ func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary,
 		var dist_inches = dist_px / px_per_inch
 		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
 		if edge_dist < 9.0:
-			_show_toast("Infiltrators must be >9\" from enemy models (%.1f\")" % edge_dist)
+			if not silent:
+				_show_toast("Infiltrators must be >9\" from enemy models (%.1f\")" % edge_dist)
 			return false
 
 	return true

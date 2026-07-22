@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.2",
+			"date": "2026-07-22",
+			"summary": "Placing a unit from reserves (Deep Strike / Strategic Reserves / Rapid Ingress) no longer spams a stack of red 'must be within 6\" of a board edge' warnings while you move the cursor over an illegal spot. The ghost still turns red to show you can't drop there, and clicking to place still tells you exactly why — but simply hovering is now quiet.",
+			"changes": [
+				"Fixed reinforcement / Deep Strike placement stacking a new validation toast every frame while hovering an illegal spot (it piled up to the 5-toast maximum). The per-frame ghost-colour check no longer shows toasts — it just reddens the ghost — while actually clicking to place still surfaces the specific reason (too close to an enemy, not within 6\" of a board edge, off the board, etc.).",
+				"Same fix applies to Infiltrators placement, formation (Spread / Tight) reinforcement drops, and dragging an already-placed model during deployment — all of which had the same per-frame toast spam."
+			]
+		},
+		{
 			"version": "0.92.1",
 			"date": "2026-07-22",
 			"summary": "Rapid Ingress now works from the controller, closing two bugs left over from the earlier deep-strike fix. Using the Rapid Ingress stratagem to bring a unit on used to silently do nothing if it was your first placement of the Movement phase (the stratagem spent the CP but no placement UI ever appeared). And, like a normal reserves arrival, starting a Rapid Ingress placement now clears whatever unit you had selected, so the controller can't pop that other unit's Move / Advance / Stay Still menu or confirm its move underneath the placement.",
