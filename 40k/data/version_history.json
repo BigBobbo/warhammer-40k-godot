@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.0",
+			"date": "2026-07-22",
+			"summary": "You can now walk the dice resolution on a controller in both the Shooting and Fight phases. The staged roll dock (Roll to Wound ▶ → Continue to Saving Throws ▶ → …) auto-focuses its button on a controller, so A advances each step — and it re-grabs focus after the defender's save-allocation overlay hands control back, so the roll no longer gets stuck between weapons. Previously the dock only responded to Space/Enter, leaving a controller unable to advance the rolls at all.",
+			"changes": [
+				"The staged resolution dock (shared by Shooting and Fight) now focuses its primary button (Roll to Wound / Continue to Saving Throws / Done) whenever it becomes actionable and a controller is in use, so A advances the dice resolution step by step. On keyboard/mouse nothing changes — focus is never stolen, Space/Enter still work.",
+				"A watchdog re-focuses that button the moment focus is lost — specifically after the defender's save-allocation overlay closes and the dock re-stages the next weapon, which previously left the button unfocused and the controller stuck mid-resolution.",
+				"This completes controller support for the Fight phase end-to-end: select a fighter, pile in (Auto), assign attacks (weapon/target with the gold reticle), Fight!, and now walk the whole hit → wound → saves → next-weapon → done resolution with A — no mouse required."
+			]
+		},
+		{
 			"version": "0.91.0",
 			"date": "2026-07-22",
 			"summary": "Controller pop-up audit: the in-game Settings/pause menu now traps the D-pad. Opened with a controller, its D-pad no longer walks off into the buttons on the battlefield behind it — focus is held inside the menu until you close it (B / the View button). And while ANY full-screen pop-up is open (Settings, Save/Load, the Allocate Attacks / Roll Saves window), pressing Start (☰) no longer ends the phase underneath it.",

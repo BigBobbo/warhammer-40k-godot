@@ -1,0 +1,64 @@
+{
+  "id": "pad_fight_resolution_walk",
+  "covers": [
+    "controller.fight.resolution_dock_pad_walk",
+    "controller.fight.dock_refocus_after_save_overlay",
+    "ResolutionDockBase",
+    "FightController"
+  ],
+  "fixture": "stompa_fight_11e",
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Fight resolution on a controller. The staged-resolution dock (shared ResolutionDockBase, right panel) had no pad path — its primary button was never focused, so A could not advance 'Roll to Wound ▶'. Now, when the pad is active, the dock focuses its primary button each time it becomes actionable, and a low-rate watchdog re-grabs it when focus is lost (the defender's save-allocation overlay frees its focused button a frame after the dock re-stages the next weapon, which used to strand the pad). This scenario drives a real fight to resolution (Warboss vs a Witchseeker squad moved into engagement) and validates the mechanism deterministically: after Fight! the dock is active with its primary button focused; force-clearing focus is repaired by the watchdog within its interval; A advances staged_hits → staged_wounds (dock re-focused) → awaiting_saves (the save-allocation overlay takes focus, ConfirmButton). The full end-to-end walk to completion is verified live in-session (the exact press-count depends on the dice animation timing, which is fragile to assert step-by-step here).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "multiline": true, "script": "var wb = GameState.state.units[\"U_WARBOSS_B\"].models[0].position\nvar base = Vector2(float(wb.x) + 60.0, float(wb.y))\nvar ws = GameState.state.units[\"U_WITCHSEEKERS_C\"].models\nfor i in range(ws.size()):\n\tws[i][\"position\"] = {\"x\": base.x + (i % 3) * 40.0, \"y\": base.y + int(i / 3.0) * 40.0}\nreturn ws.size()", "expect_min": 1 },
+    { "act": "execute_script", "multiline": true, "script": "var ph = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tvar r = ph.execute_action({\"type\": \"END_PILE_IN\"})\n\tif not r.get(\"success\", false):\n\t\tbreak\nreturn ph._subphase_string_11e()", "equals": "FIGHTS_FIRST" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var fc = tree.current_scene.fight_controller\nvar q = [fc.fight_selection_panel]\nwhile not q.is_empty():\n\tvar n = q.pop_front()\n\tif n is Button and str(n.name) == \"Fight_U_WARBOSS_B\":\n\t\tn.grab_focus()\n\tfor c in n.get_children():\n\t\tq.append(c)\nreturn str(tree.root.gui_get_focus_owner().name)", "equals": "Fight_U_WARBOSS_B" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 1.5 },
+
+    { "act": "execute_script", "multiline": true, "script": "var dlg = null\nfor n in tree.root.get_children():\n\tif n is AcceptDialog and n.visible:\n\t\tdlg = n\nif dlg == null:\n\treturn \"no epic\"\nvar btn = null\nvar q = [dlg]\nwhile not q.is_empty():\n\tvar x = q.pop_front()\n\tif x is Button and str(x.text).to_lower().find(\"decline\") != -1:\n\t\tbtn = x\n\tfor c in x.get_children():\n\t\tq.append(c)\nif btn != null:\n\tbtn.emit_signal(\"pressed\")\n\treturn \"declined\"\nreturn \"no decline\"", "equals": "declined" },
+    { "act": "wait_seconds", "seconds": 2.0 },
+
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\") != null", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var ad = tree.root.get_node_or_null(\"AttackAssignmentDialog\")\nfor i in range(ad.weapon_list.item_count):\n\tif str(ad.weapon_list.get_item_text(i)).to_lower().find(\"klaw\") != -1:\n\t\tad.weapon_list.select(i)\nvar picked = \"\"\nfor i in range(ad.target_list.item_count):\n\tif str(ad.target_list.get_item_metadata(i)) == \"U_WITCHSEEKERS_C\":\n\t\tad.target_list.select(i)\n\t\tpicked = \"U_WITCHSEEKERS_C\"\nreturn picked", "equals": "U_WITCHSEEKERS_C" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\").assignments.size()", "expect_min": 1 },
+
+    { "act": "simulate_joy_button", "button_index": 6 },
+    { "act": "wait_seconds", "seconds": 3.0 },
+
+    { "act": "execute_script", "script": "main.fight_controller.fight_resolution_dock.is_active()", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller.fight_resolution_dock.state", "equals": "staged_hits" },
+    { "act": "execute_script", "script": "str(tree.root.gui_get_focus_owner().name)", "equals": "DockPrimaryButton" },
+    { "act": "execute_script", "script": "main.fight_controller.fight_resolution_dock.primary_button.has_focus()", "equals": true },
+    { "act": "screenshot", "label": "01_dock_primary_focused" },
+
+    { "act": "execute_script", "script": "tree.root.gui_get_focus_owner().release_focus()" },
+    { "act": "execute_script", "script": "tree.root.gui_get_focus_owner() == null", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "str(tree.root.gui_get_focus_owner().name) if tree.root.gui_get_focus_owner() != null else \"none\"", "equals": "DockPrimaryButton" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "execute_script", "script": "main.fight_controller.fight_resolution_dock.state", "equals": "staged_wounds" },
+    { "act": "execute_script", "script": "str(tree.root.gui_get_focus_owner().name)", "equals": "DockPrimaryButton" },
+    { "act": "screenshot", "label": "02_advanced_to_wounds" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 2.5 },
+    { "act": "execute_script", "script": "main.fight_controller.fight_resolution_dock.state", "equals": "awaiting_saves" },
+    { "act": "execute_script", "script": "main.fight_controller.fight_resolution_dock.primary_button.disabled", "equals": true },
+    { "act": "screenshot", "label": "03_reached_save_stage" }
+  ]
+}
