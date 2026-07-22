@@ -1,0 +1,446 @@
+{
+  "HINTS_BOARD": [
+    [
+      "rb",
+      "Cycle Units"
+    ],
+    [
+      "a",
+      "Select"
+    ],
+    [
+      "ls",
+      "Point"
+    ],
+    [
+      "lt/rt",
+      "Zoom"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ],
+    [
+      "dpad",
+      "Focus Panels"
+    ],
+    [
+      "menu",
+      "End Phase"
+    ],
+    [
+      "view",
+      "Pause Menu"
+    ]
+  ],
+  "HINTS_CARRY": [
+    [
+      "ls",
+      "Move Model"
+    ],
+    [
+      "rs",
+      "Precision"
+    ],
+    [
+      "a",
+      "Drop"
+    ],
+    [
+      "l3",
+      "Swap Model"
+    ],
+    [
+      "lb",
+      "Rotate ⟲"
+    ],
+    [
+      "rb",
+      "Rotate ⟳"
+    ],
+    [
+      "b",
+      "Cancel"
+    ],
+    [
+      "menu",
+      "Confirm Charge"
+    ]
+  ],
+  "HINTS_CARRY_GROUP": [
+    [
+      "ls",
+      "Move Models"
+    ],
+    [
+      "rs",
+      "Precision"
+    ],
+    [
+      "a",
+      "Place Models"
+    ],
+    [
+      "b",
+      "Cancel"
+    ],
+    [
+      "menu",
+      "Confirm / End"
+    ]
+  ],
+  "HINTS_CARRY_MOVE": [
+    [
+      "ls",
+      "Move Model"
+    ],
+    [
+      "rs",
+      "Precision"
+    ],
+    [
+      "a",
+      "Drop"
+    ],
+    [
+      "x",
+      "Finish Model"
+    ],
+    [
+      "dpad",
+      "Grab All"
+    ],
+    [
+      "l3",
+      "Swap Model"
+    ],
+    [
+      "lb",
+      "Rotate ⟲"
+    ],
+    [
+      "rb",
+      "Rotate ⟳"
+    ],
+    [
+      "b",
+      "Cancel"
+    ],
+    [
+      "menu",
+      "Confirm / End"
+    ]
+  ],
+  "HINTS_CHARGE_MOVE": [
+    [
+      "a",
+      "Grab Model"
+    ],
+    [
+      "l3",
+      "Next Model"
+    ],
+    [
+      "x",
+      "Snap to Contact"
+    ],
+    [
+      "b",
+      "Undo Model"
+    ],
+    [
+      "menu",
+      "Confirm Charge"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ]
+  ],
+  "HINTS_CHARGE_READY": [
+    [
+      "dpad",
+      "Pick Target"
+    ],
+    [
+      "a",
+      "Toggle Target"
+    ],
+    [
+      "menu",
+      "Declare Charge"
+    ],
+    [
+      "x",
+      "Skip Charge"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ]
+  ],
+  "HINTS_CHARGE_ROLL": [
+    [
+      "menu",
+      "Roll 2D6"
+    ],
+    [
+      "x",
+      "Skip Charge"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ]
+  ],
+  "HINTS_CHARGE_SELECT": [
+    [
+      "rb",
+      "Cycle Units"
+    ],
+    [
+      "dpad",
+      "Pick Target"
+    ],
+    [
+      "a",
+      "Toggle Target"
+    ],
+    [
+      "x",
+      "Skip Charge"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ],
+    [
+      "menu",
+      "End Phase"
+    ]
+  ],
+  "HINTS_DEPLOY": [
+    [
+      "ls",
+      "Cursor"
+    ],
+    [
+      "lb",
+      "Prev Unit"
+    ],
+    [
+      "rb",
+      "Next Unit"
+    ],
+    [
+      "a",
+      "Place Model"
+    ],
+    [
+      "dpad",
+      "Type / Formation"
+    ],
+    [
+      "x",
+      "Undo Model"
+    ],
+    [
+      "b",
+      "Undo Unit"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ],
+    [
+      "menu",
+      "Confirm / End"
+    ]
+  ],
+  "HINTS_FIGHT": [
+    [
+      "rb",
+      "Cycle Units"
+    ],
+    [
+      "dpad",
+      "Navigate Panel"
+    ],
+    [
+      "a",
+      "Select"
+    ],
+    [
+      "ls",
+      "Point"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ],
+    [
+      "menu",
+      "End Phase"
+    ],
+    [
+      "view",
+      "Pause Menu"
+    ]
+  ],
+  "HINTS_FOCUS": [
+    [
+      "dpad",
+      "Navigate"
+    ],
+    [
+      "a",
+      "Press"
+    ],
+    [
+      "b",
+      "Back To Board"
+    ]
+  ],
+  "HINTS_MENU": [
+    [
+      "dpad",
+      "Choose Action"
+    ],
+    [
+      "rb",
+      "Cycle Units"
+    ],
+    [
+      "l3",
+      "Next Model"
+    ],
+    [
+      "a",
+      "Confirm"
+    ],
+    [
+      "b",
+      "Cancel"
+    ]
+  ],
+  "HINTS_MOVE": [
+    [
+      "rb",
+      "Cycle Units"
+    ],
+    [
+      "a",
+      "Move Menu"
+    ],
+    [
+      "dpad",
+      "Move Menu"
+    ],
+    [
+      "l3",
+      "Next Model"
+    ],
+    [
+      "ls",
+      "Point"
+    ],
+    [
+      "lt/rt",
+      "Zoom"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ],
+    [
+      "menu",
+      "End Phase"
+    ]
+  ],
+  "HINTS_MOVE_LOCKED": [
+    [
+      "menu",
+      "Confirm Move"
+    ],
+    [
+      "a",
+      "Move a Model"
+    ],
+    [
+      "dpad",
+      "Grab All Unmoved"
+    ],
+    [
+      "l3",
+      "Next Model"
+    ],
+    [
+      "b",
+      "Undo Model"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ]
+  ],
+  "HINTS_MOVE_STAGED": [
+    [
+      "a",
+      "Move Model"
+    ],
+    [
+      "x",
+      "Finish Model"
+    ],
+    [
+      "dpad",
+      "Grab All"
+    ],
+    [
+      "l3",
+      "Next Model"
+    ],
+    [
+      "b",
+      "Undo Model"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ],
+    [
+      "menu",
+      "Confirm Move"
+    ]
+  ],
+  "HINTS_TARGETS": [
+    [
+      "rb",
+      "Cycle Units"
+    ],
+    [
+      "dpad",
+      "Target ◀▶ · Weapon ▲▼"
+    ],
+    [
+      "a",
+      "Assign Target"
+    ],
+    [
+      "x",
+      "Skip Unit"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ],
+    [
+      "menu",
+      "Confirm Targets"
+    ],
+    [
+      "b",
+      "Deselect"
+    ]
+  ]
+}
