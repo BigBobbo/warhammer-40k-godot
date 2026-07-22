@@ -832,6 +832,7 @@ func phase_signal_map() -> Dictionary:
 		"sentinel_storm_available": _on_sentinel_storm_available,  # P1-10
 		"throat_slittas_available": _on_throat_slittas_available,  # P1-12
 		"distraction_grot_available": _on_distraction_grot_available,  # audit P0: human defender UI
+		"shooty_power_trip_available": _on_shooty_power_trip_available,  # audit P1: human UI
 	}
 
 func set_phase(phase: BasePhase) -> void:
@@ -3745,6 +3746,51 @@ func _on_distraction_grot_chosen(unit_id: String, use_ability: bool) -> void:
 		print("[ShootingController] Player declines Distraction Grot for %s" % unit_id)
 		emit_signal("shoot_action_requested", {
 			"type": "DECLINE_DISTRACTION_GROT",
+			"actor_unit_id": unit_id
+		})
+
+# ============================================================================
+# AUDIT P1: SHOOTY POWER TRIP — WARBOSS D6 BONUS
+# ============================================================================
+
+func _on_shooty_power_trip_available(unit_id: String, player: int) -> void:
+	"""Show the Shooty Power Trip prompt to a HUMAN. The phase pauses awaiting
+	USE/DECLINE; previously neither the controller NOR AIPlayer listened, so the
+	phase blocked both players. AIPlayer now auto-resolves the AI (its own
+	is_ai_player guard), so skip AI here to avoid a double-submit."""
+	print("[ShootingController] Shooty Power Trip available for %s (player %d)" % [unit_id, player])
+
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[ShootingController] Shooty Power Trip belongs to AI player %d — AIPlayer handles it" % player)
+		return
+
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != player:
+		print("[ShootingController] Shooty Power Trip is P%d's choice — local seat waits" % player)
+		return
+
+	var dialog = preload("res://dialogs/ShootyPowerTripDialog.gd").new()
+	dialog.name = "ShootyPowerTripDialog"
+	dialog.setup(unit_id, player)
+	dialog.shooty_power_trip_chosen.connect(_on_shooty_power_trip_chosen)
+	get_tree().root.add_child(dialog)
+	DialogUtils.popup_at_bottom(dialog)
+
+func _on_shooty_power_trip_chosen(unit_id: String, use_ability: bool) -> void:
+	"""Dispatch the Shooty Power Trip decision."""
+	if use_ability:
+		print("[ShootingController] Player activates Shooty Power Trip for %s" % unit_id)
+		emit_signal("shoot_action_requested", {
+			"type": "USE_SHOOTY_POWER_TRIP",
+			"actor_unit_id": unit_id
+		})
+		if dice_log_display:
+			dice_log_display.append_text("[b][color=gold]SHOOTY POWER TRIP! Rolling D6…[/color][/b]\n")
+	else:
+		print("[ShootingController] Player declines Shooty Power Trip for %s" % unit_id)
+		emit_signal("shoot_action_requested", {
+			"type": "DECLINE_SHOOTY_POWER_TRIP",
 			"actor_unit_id": unit_id
 		})
 
