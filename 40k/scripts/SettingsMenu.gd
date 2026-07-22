@@ -65,13 +65,38 @@ var _keybinding_reset_buttons: Dictionary = {}  # action_id -> Button
 # Whether to show "Return to Main Menu" button (only in-game)
 var show_return_to_menu: bool = false
 
+# ── Controller (D-pad) focus support ──────────────────────────────────
+# This menu is a full-screen plain Control overlay, so — exactly like the
+# Save/Load dialog and the 11e allocation overlay — Godot does NOT confine
+# keyboard/pad focus to it. Verified live: with the menu open and a pad active,
+# a D-pad press in ANY direction walks focus OUT to the ~26 focusable controls
+# drawn BEHIND it (MainMenu buttons, or the in-game HUD). Mirroring those two
+# modals we (1) join the "pad_native_nav_modal" group so PadRouter keeps its
+# board handlers off us and Main ignores the Start (End-Phase) press while
+# we're open, and (2) confine focus to our own subtree while a pad is active
+# (external focusables demoted to FOCUS_NONE, restored on close / device
+# switch). Keyboard/mouse behaviour is deliberately untouched: no confinement
+# unless the pad is the active device.
+const PAD_MODAL_GROUP := "pad_native_nav_modal"
+var _pad_focus_confined: bool = false
+var _pad_confined_controls: Array = []
+
 func _ready() -> void:
+	# Join before building so PadRouter/Main see the membership immediately.
+	add_to_group(PAD_MODAL_GROUP)
 	_build_ui()
 	_load_current_settings()
 	_connect_signals()
 	# M0 controller foundations: land pad focus somewhere visible so D-pad
 	# navigation works the moment the overlay opens.
 	_close_button.grab_focus()
+	# Controller: trap directional focus inside the menu (pad only) so the
+	# D-pad can't walk into the UI behind it, and follow device switches.
+	var idm := _idm()
+	if idm != null and idm.has_signal("device_changed") and not idm.device_changed.is_connected(_on_pad_device_changed):
+		idm.device_changed.connect(_on_pad_device_changed)
+	if _pad_active():
+		_confine_pad_focus()
 	print("[SettingsMenu] P3-111: Ready")
 
 func _build_ui() -> void:
@@ -772,17 +797,27 @@ func _on_autosave_phase_start_toggled(pressed: bool) -> void:
 
 func _on_close_pressed() -> void:
 	print("[SettingsMenu] Closed")
+	# Restore focus modes BEFORE emitting: a settings_closed handler that
+	# re-focuses the opener (e.g. MainMenu's Settings button) must find it
+	# focusable again. _exit_tree's release would run only at end-of-frame.
+	_release_pad_focus_confinement()
 	settings_closed.emit()
 	queue_free()
 
 func _on_save_load_pressed() -> void:
 	print("[SettingsMenu] Save/Load requested")
+	# Release FIRST so the handoff hands SaveLoadDialog a clean, all-focusable
+	# baseline to run its OWN confinement against — otherwise our end-of-frame
+	# _exit_tree restore would re-enable the controls SaveLoadDialog just
+	# demoted, breaking its focus trap.
+	_release_pad_focus_confinement()
 	save_load_requested.emit()
 	settings_closed.emit()
 	queue_free()
 
 func _on_return_to_menu_pressed() -> void:
 	print("[SettingsMenu] Returning to main menu")
+	_release_pad_focus_confinement()
 	settings_closed.emit()
 	queue_free()
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
@@ -835,3 +870,79 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		_on_close_pressed()
 		get_viewport().set_input_as_handled()
+
+
+# ============================================================================
+# Controller (D-pad) focus support — see the PAD_MODAL_GROUP block near the top.
+# Mirrors AllocationGroupOverlay / SaveLoadDialog so every full-screen modal
+# traps the pad the same way.
+# ============================================================================
+
+func _idm() -> Node:
+	# Lazy autoload lookup (autoload ids are not compile-time resolvable in the
+	# bare headless harness runs this menu must keep compiling under).
+	return get_node_or_null("/root/InputDeviceManager")
+
+
+func _pad_active() -> bool:
+	var idm := _idm()
+	return idm != null and idm.has_method("is_pad_active") and idm.is_pad_active()
+
+
+func _on_pad_device_changed(_mode: int) -> void:
+	# Player switched device while the menu is open. On the pad, confine and
+	# keep focus in the menu; back on KBM, release so keyboard focus is not
+	# trapped.
+	if not is_inside_tree():
+		return
+	if _pad_active():
+		if not _pad_focus_confined:
+			_confine_pad_focus()
+		if _close_button != null and is_instance_valid(_close_button):
+			_close_button.grab_focus()
+	else:
+		_release_pad_focus_confinement()
+
+
+# Trap directional focus inside this menu: demote every focusable Control
+# OUTSIDE our subtree to FOCUS_NONE (restored on close / KBM). Idempotent —
+# guarded by _pad_focus_confined.
+func _confine_pad_focus() -> void:
+	if _pad_focus_confined:
+		return
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	_pad_confined_controls.clear()
+	var queue: Array = [scene]
+	while not queue.is_empty():
+		var n: Node = queue.pop_front()
+		if n == self:
+			continue  # skip our own subtree — its controls must stay focusable
+		if n is Control and n.focus_mode == Control.FOCUS_ALL:
+			_pad_confined_controls.append(n)
+			n.focus_mode = Control.FOCUS_NONE
+		for child in n.get_children():
+			queue.append(child)
+	_pad_focus_confined = true
+	print("[SettingsMenu] pad focus confined (%d external controls demoted)" % _pad_confined_controls.size())
+
+
+func _release_pad_focus_confinement() -> void:
+	if not _pad_focus_confined:
+		return
+	for c in _pad_confined_controls:
+		if is_instance_valid(c):
+			c.focus_mode = Control.FOCUS_ALL
+	_pad_confined_controls.clear()
+	_pad_focus_confined = false
+	print("[SettingsMenu] pad focus confinement released")
+
+
+func _exit_tree() -> void:
+	# Belt-and-braces: restore focus modes and drop the device hook if any close
+	# path was missed (idempotent — the flag guards a double release).
+	_release_pad_focus_confinement()
+	var idm := _idm()
+	if idm != null and idm.has_signal("device_changed") and idm.device_changed.is_connected(_on_pad_device_changed):
+		idm.device_changed.disconnect(_on_pad_device_changed)
