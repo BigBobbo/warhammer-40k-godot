@@ -36,11 +36,15 @@ Environment (first run in a fresh container): `export PATH="$HOME/bin:$PATH"; go
 - **P0 #3 — Shooting Distraction Grot dialog** — PR #746 (`shooting_distraction_grot_ui.json`, 12/12 + screenshot).
 - **P0 #4 — Redeployment soft-lock (End always valid; optional phase)** — PR #747 (`redeployment_optional_end.json`, 10/10).
 - **P1 — Movement Bomb Squigs dialog** — PR #748 (`movement_bomb_squigs_ui.json`, 13/13 + screenshot).
+- **P1 — Shooting Shooty Power Trip** (human dialog + AI auto-resolver) — PR #751 (`shooting_shooty_power_trip_ui.json`, 11/11 + screenshot).
+- **P1 — Shooting Pulsa Rokkit** (human dialog + AI auto-resolver) — PR #752 (`shooting_pulsa_rokkit_ui.json`, 11/11).
+
+**Two recipes established for the reactive-ability gaps:** (a) *AI already handles it* → add human dialog only (Distraction Grot, Bomb Squigs); (b) *no handler on either side, phase blocks both* → add human dialog **and** an AIPlayer auto-resolver (Shooty Power Trip, Pulsa Rokkit). Most remaining reactive items are type (b).
 
 ### ⏳ Open (priority order)
-- **P1 — AI-only abilities still needing a human control** (same dialog recipe for the reactive ones):
-  - Movement: Deff From Above, Grot Oiler, Mekaniak, Sawbonez, Quicksilver, Da Jump (placement), Surge.
-  - Shooting: Ammo Runt, Pulsa Rokkit, Shooty Power Trip, Swift as the Eagle, Wazblasta; Ritual / Terraform actions.
+- **P1 — AI-only / unhandled abilities still needing a human control** (reactive recipe above):
+  - Shooting: Ammo Runt (type b, 3-arg w/ `remaining`), Swift as the Eagle, Wazblasta (no signal yet); Ritual / Terraform actions.
+  - Movement: Deff From Above, Grot Oiler (type b), Mekaniak, Sawbonez, Quicksilver (no signal yet), Da Jump (placement), Surge.
   - Command: Combat Doctrine, Martial Mastery/Ka'tah select, Issue Taktik, Da Kaptin, Psychic Veil, Unleash the Lions.
   - Fight: per-model weapon choice, split attacks across targets, `SELECT_MELEE_WEAPON` (deeper UX).
   - Charge: 11e declare-then-pick-targets-after-roll (deeper UX).
