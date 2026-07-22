@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.8",
+			"date": "2026-07-22",
+			"summary": "Fixed: the Command phase Battle-shock controls now actually appear. When one of your units is below (or at) half-strength, the right-hand Command panel shows a 'Roll Battle-shock: <unit>' button (and the 'Insane Bravery' stratagem button when available) so you can take the test yourself — previously this whole section silently never rendered and the test was only ever auto-resolved.",
+			"changes": [
+				"Command phase: the Battle-shock section (Roll Battle-shock buttons + Insane Bravery) now renders for the human player. It was only built once during startup before the phase was attached, so it always early-returned and never showed; it is now (re)built when the Command phase becomes active and refreshes as tests are taken."
+			]
+		},
+		{
 			"version": "0.92.7",
 			"date": "2026-07-22",
 			"summary": "Placing a unit from reserves (Deep Strike / Strategic Reserves / Rapid Ingress) no longer spams a stack of red 'must be within 6\" of a board edge' warnings while you move the cursor over an illegal spot. The ghost still turns red to show you can't drop there, and clicking to place still tells you exactly why — but simply hovering is now quiet.",

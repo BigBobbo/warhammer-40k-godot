@@ -949,6 +949,29 @@ func _refresh_ui() -> void:
 			if p2_label:
 				p2_label.text = "Player 2 (%s): %d CP" % [GameState.get_faction_name(2), p2_cp]
 
+		# Rebuild the battle-shock section. BUG FIX: it was only ever built from
+		# _setup_right_panel() during _ready(), when current_phase is still null —
+		# so _setup_battle_shock_section() early-returned and the "Roll Battle-shock"
+		# / "Insane Bravery" buttons never rendered for a human. set_phase() (which
+		# sets current_phase) calls _refresh_ui(), so rebuilding here makes the
+		# section appear once the phase is attached, and refresh as tests resolve.
+		# Placed before the faction rebuild so the sequential appends land in the
+		# intended order (objectives → battle-shock → faction → secondary).
+		var old_shock_section = command_panel.get_node_or_null("BattleShockSection")
+		if old_shock_section:
+			var bs_idx = old_shock_section.get_index()
+			if bs_idx > 0:
+				var bs_prev = command_panel.get_child(bs_idx - 1)
+				# The separator before the section is a gold ColorRect (see
+				# _add_command_gold_separator), not an HSeparator — check both so it
+				# doesn't leak a 2px line on every refresh.
+				if bs_prev is HSeparator or bs_prev is ColorRect:
+					command_panel.remove_child(bs_prev)
+					bs_prev.queue_free()
+			command_panel.remove_child(old_shock_section)
+			old_shock_section.queue_free()
+		_setup_battle_shock_section(command_panel)
+
 		# Rebuild the faction abilities section to reflect Oath of Moment / Waaagh! changes
 		var old_faction_section = command_panel.get_node_or_null("FactionAbilitiesSection")
 		if old_faction_section:
