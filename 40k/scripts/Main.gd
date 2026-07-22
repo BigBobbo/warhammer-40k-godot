@@ -2271,11 +2271,59 @@ func _on_deep_strike_placement_chosen(unit_id: String, placement_type: String) -
 	_reinforcement_placement_type = placement_type
 	_begin_reinforcement_placement(unit_id)
 
+# Movement-phase mirror of _deploy_try_switch_unit: while a reinforcement
+# placement session is live, selecting a DIFFERENT unit (reserve or deployed)
+# is blocked once models are on the table (undo them first), and a session
+# with nothing placed yet is cancelled cleanly — reset_unit() restores the
+# old unit to IN_RESERVES — so exactly one session drives the board at a
+# time. Without this, switching mid-placement stranded the old unit in
+# DEPLOYING (it vanished from the reinforcements list) or left the placement
+# ghost live underneath a newly started normal move. Returns true when the
+# caller may proceed with new_unit_id; false = keep the current session
+# (also for re-selecting the unit already being placed — proceeding would
+# restart placement and silently wipe its placed models).
+func _reinforcement_try_switch_unit(new_unit_id: String) -> bool:
+	if not (deployment_controller and is_instance_valid(deployment_controller) \
+			and deployment_controller.is_reinforcement_mode and deployment_controller.is_placing()):
+		return true
+	if str(deployment_controller.get_current_unit()) == new_unit_id:
+		return false  # already placing this unit — nothing to do
+	if deployment_controller.get_placed_count() > 0:
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_warning("Undo the placed models before switching units")
+		return false
+	print("Main: Cancelling 0-placed reinforcement placement of %s to switch to %s" % [deployment_controller.get_current_unit(), new_unit_id])
+	deployment_controller.reset_unit()
+	_hide_deep_strike_exclusion()
+	_selected_unit_for_reserves = ""
+	_reinforcement_placement_type = ""
+	return true
+
 func _begin_reinforcement_placement(unit_id: String) -> void:
 	"""Start placing a reserve unit on the battlefield as reinforcement"""
 	var unit = GameState.get_unit(unit_id)
 	if unit.is_empty():
 		return
+
+	# Session-switch semantics for direct callers (placement-choice dialog,
+	# tests): same rules as the selection handlers.
+	if not _reinforcement_try_switch_unit(unit_id):
+		return
+
+	# The arriving unit is the acting unit now. Auto-confirm the previously
+	# selected unit's pending move (same QoL as switching units in the list),
+	# then DROP the stale movement selection — leaving it set meant the pad's
+	# move-mode menu (Move / Advance / Stay Still) and Start's confirm-move
+	# fallback could still act on that unit underneath the placement session,
+	# which is how deep-striking with the controller showed movement options
+	# instead of a deploy confirm.
+	if movement_controller and is_instance_valid(movement_controller) \
+			and str(movement_controller.active_unit_id) != "":
+		movement_controller._auto_confirm_pending_move(str(movement_controller.active_unit_id))
+		movement_controller._clear_selection()
+		movement_controller.active_unit_id = ""
+		movement_controller._update_selected_unit_display()
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	# NULL-safe: loaded saves can carry "reserve_type": null, and the value
@@ -7577,6 +7625,11 @@ func _on_unit_selected(index: int) -> void:
 			_scout_active_unit_id = ""
 
 	elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
+		# Reinforcement placement lock: same switch rules as deployment while
+		# a reserve unit is being placed (see _reinforcement_try_switch_unit).
+		if not _reinforcement_try_switch_unit(unit_id):
+			update_ui()
+			return
 		# Check if this is a reserve unit arriving as reinforcement
 		var selected_unit = GameState.get_unit(unit_id)
 		if selected_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
@@ -7694,6 +7747,11 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 			else:
 				_scout_active_unit_id = ""
 		elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
+			# Reinforcement placement lock: same switch rules as deployment
+			# while a reserve unit is being placed.
+			if not _reinforcement_try_switch_unit(unit_id):
+				update_ui()
+				return
 			# Check if unit is embarked - route to disembark flow instead of normal move
 			if unit_data.get("embarked_in", null) != null:
 				print("Main: Embarked unit selected from stats panel, routing to disembark flow: ", unit_id)

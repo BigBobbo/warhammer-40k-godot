@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.85.0",
+			"version": "0.86.0",
 			"date": "2026-07-22",
 			"summary": "Charge phase controller overhaul. The Start (☰) button now walks the whole charge forward — Declare, Roll 2D6, then Confirm the charge moves — and can no longer end the phase out from under a charge in progress. The D-pad no longer dumps you into the side panels: all four directions pick targets, and A toggles a target immediately (no need to press ▲ first). The button hints at the bottom always name exactly what Start will do in the current step.",
 			"changes": [
@@ -12,6 +12,61 @@
 				"A now toggles the first target immediately when you haven't stepped the list yet, and no longer 'picks up' a model during the declare/roll steps (which used to strand the cursor holding an invisible drag).",
 				"New controller shortcuts while moving charge models: X = Snap to Contact (places every unmoved model base-to-base with its nearest target), B = Undo Last Model, L3 = swap which model you're carrying (previously dead in the charge carry).",
 				"The bottom hint bar updates live with the charge state — Pick Target / Toggle Target, Declare Charge, Roll 2D6, Grab Model / Snap to Contact / Confirm Charge — so it never promises an action Start can't deliver."
+			]
+		},
+		{
+			"version": "0.85.0",
+			"date": "2026-07-22",
+			"summary": "Controller: move the whole squad together in ANY move mode — including Advance. 'Move All Together' is no longer a separate menu entry; grabbing everyone is now part of the move itself. Pick Move, Advance or Fall Back, and any D-pad press lifts every model you haven't placed yet as one formation. Choosing Advance hands you the first model right after the dice (and any Command Re-roll decision), so advancing plays exactly like a normal move — one D-pad press and the whole squad rides the stick under the boosted advance cap.",
+			"changes": [
+				"'Move All Together' removed from the controller's move menu — moving the squad together is no longer its own move type. Instead, once a move is under way (Normal, Advance or Fall Back), any D-pad press grabs every model that hasn't been placed yet and carries them as one formation; models you already placed keep their spots.",
+				"Advance now supports the group move: after the advance roll resolves (kept or Command Re-rolled), the first model is automatically picked up — the same hand-over choosing Move gets — and a D-pad press lifts the whole unit, with the formation's reach clamped to the rolled Move + D6 cap.",
+				"The mid-move controller hint bar now shows 'dpad Grab All', so the group grab is discoverable after dropping a model, not just while carrying one.",
+				"Everything else about the group carry is unchanged: A places every model that fits (leftovers are handed back), B cancels without staging anything, and an all-illegal drop keeps the squad in hand."
+			]
+		},
+		{
+			"version": "0.84.4",
+			"date": "2026-07-22",
+			"summary": "Controller fix: you can now reach the Allocate Attacks window with the D-pad. After you shoot and wound, the window that shows the save rolls and destroyed models (with its Done button) had never been wired for controller navigation, so a pad player was stuck — the D-pad walked the panels behind it and could never land on Done. Now the window grabs the D-pad focus (the gold ring) onto its live button at every step — Roll Saves, Keep Rolls, Auto-pick, and Done — so you can drive the whole allocation and dismiss the results with A.",
+			"changes": [
+				"The 11th-edition Allocate Attacks window (save allocation) now supports D-pad navigation on a controller. Previously its buttons — including the final Done button on the results screen — could not be focused with the D-pad, so a controller player could not close the window without the mouse/virtual cursor.",
+				"On a controller the window now traps focus inside itself (the D-pad can no longer wander onto the HUD/board behind it) and lands the gold focus ring on the current step's main button, updating as the flow moves through ordering, the Command Re-roll offer, casualty picking, and the final results — press A to activate it.",
+				"Casualty models are still picked on the board with the left-stick cursor; the D-pad now additionally reaches the Auto-pick / Confirm buttons of that step.",
+				"Keyboard and mouse behaviour is unchanged — the focus handling only engages while a controller is the active input device, and normal board navigation is restored the moment the window closes."
+			]
+		},
+		{
+			"version": "0.84.3",
+			"date": "2026-07-22",
+			"summary": "Controller deep-strike fix: placing a unit arriving from reserves no longer shows 'Move / Advance / Stay Still' instead of a way to confirm. Previously, if you had another unit selected and then picked a reserves unit to deep strike, pressing A or the D-pad mid-placement popped the movement menu of the PREVIOUSLY selected unit — options that make no sense for a unit that just arrived, and a stray A could even silently commit that other unit to Stay Still or an Advance. Now the placement flow owns the controller: A jumps the cursor to the board to place models, the D-pad reaches the Confirm button, Start confirms the arrival — and a freshly arrived unit is never offered movement options.",
+			"changes": [
+				"Selecting a reserves unit to arrive (Deep Strike / Strategic Reserves) now clears the previously selected unit's movement selection, so nothing you press during placement can act on that other unit by accident (any moved-but-unconfirmed models on it are auto-confirmed first, as when switching units normally).",
+				"The controller's Move / Advance / Fall Back / Stay Still menu can no longer open while a reinforcement placement is in progress — A warps the cursor over the board to place models, D-pad ▲ ▼ reaches the panel's Confirm button, Start (☰) confirms the arrival once every model is down.",
+				"A unit that just arrived from reserves is never offered movement options when selected afterwards — it has already made its ingress move (it can still charge later).",
+				"Switching units mid-placement now follows the same rules as deployment: blocked once models are on the table (undo them first), and switching away with nothing placed cleanly cancels the arrival, returning that unit to reserves instead of stranding it in limbo.",
+				"Re-selecting the unit you are already placing no longer silently restarts its placement (which wiped any models you had already put down)."
+			]
+		},
+		{
+			"version": "0.84.2",
+			"date": "2026-07-22",
+			"summary": "Controller fix: the 'New Secondary Missions' pop-up (shown when you draw secondaries in the Command phase) can now be used with a controller. Previously the D-pad never highlighted anything in that window, so a pad player could neither read the drawn missions nor spend 1 CP to replace one — the only way past it was the mouse. Now the D-pad moves a visible selector through each 'Replace this mission (1 CP)' button and the Continue button, the highlighted control scrolls into view, A activates it, and the controller hint bar shows Navigate / Select / Close.",
+			"changes": [
+				"The drawn-secondary-missions review pop-up is now fully controller-navigable: D-pad ▲/▼ steps through each Replace button and the Continue button (wrapping around), and the selector is always scrolled into view so you can read every mission.",
+				"Press A on a Replace button to spend 1 CP and swap that mission (it returns to your deck); press A on Continue to accept and close — no mouse required.",
+				"Opening the pop-up now puts the controller selector on the first Replace button (or Continue if you can't replace) instead of an off-screen button, and the on-screen hint bar switches to 'Navigate / Select / Close' while it's open, then back to the normal board hints when it closes.",
+				"Fixed the A button firing a stray click instead of pressing the highlighted button when the virtual cursor happened to be active as the pop-up opened."
+			]
+		},
+		{
+			"version": "0.84.1",
+			"date": "2026-07-22",
+			"summary": "Fixed Deep Strike / Strategic Reserves formation placement. Dropping a unit in Tight (or Spread) formation from reinforcements at a spot that is perfectly legal — on the board and more than 9\" from every enemy — was wrongly rejected with 'Formation would place models outside deployment zone or overlapping'. Formations arriving from reserves are now validated against the reinforcement rules (the whole battlefield, >9\" from enemies) instead of your deployment zone, so they place wherever a single-model reinforcement already could.",
+			"changes": [
+				"Deep Strike and Strategic Reserves arrivals can now be placed in Tight or Spread formation anywhere the reinforcement rules allow (on the board, >9\" from enemy models, plus the within-6\"-of-a-board-edge rule for Strategic Reserves) — not only inside your own deployment zone. Single-model reinforcement placement already worked this way; formation placement now matches it.",
+				"The formation ghost preview turns green in every legal reinforcement spot, so you can see a Deep Strike drop is valid before committing it.",
+				"When a reinforcement formation genuinely can't be placed, the message no longer mentions your 'deployment zone' (it isn't the constraint): the specific reason still shows (e.g. 'Must be >9\" from enemy models'), followed by 'Formation placement is not legal here'."
 			]
 		},
 		{
@@ -44,7 +99,8 @@
 				"Cycling onto a unit with no targets in range selects it, frames the camera on it, and explains why nothing is targetable — you can still Skip it with X or start a mission action, or just keep cycling.",
 				"The unit the game auto-selects when the Shooting phase starts (or after each unit finishes shooting) is now framed by the camera when playing on a controller — the phase no longer opens pointing at an empty stretch of table with the [ACTIVE] shooter somewhere off-screen.",
 				"When there is genuinely nothing left to cycle to, the bumpers say so with a toast ('No units left to shoot — Start ends the phase' / 'No other units to cycle to') instead of doing nothing.",
-				"Keyboard Tab / Shift+Tab shooter cycling gets the same fix (it shared the filtered-list ring)."			]
+				"Keyboard Tab / Shift+Tab shooter cycling gets the same fix (it shared the filtered-list ring)."
+			]
 		},
 		{
 			"version": "0.83.0",

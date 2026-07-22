@@ -1,0 +1,57 @@
+{
+  "id": "pad_allocate_attacks_done_11e",
+  "covers": [
+    "controller.allocate_attacks.done_reachable",
+    "controller.allocate_attacks.native_nav_modal",
+    "controller.allocate_attacks.results_focus",
+    "scripts.AllocationGroupOverlay.pad_focus"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Steam Deck / controller: the 11e Allocate Attacks window (AllocationGroupOverlay) was not wired for D-pad navigation, so a pad player could never reach its Done button — the reported bug. This reproduces the exact reported case: auto-allocate wounds ON (the computer/opponent does the ordering + picking), so the window jumps straight to the results step showing the save rolls and casualties, leaving only Done. With a controller active the window must (a) join the 'pad_native_nav_modal' group so PadRouter stands down and native ui_* navigation drives it, and (b) grab focus onto the Done button so the D-pad ring lands on it and A dismisses it. Drives the real save-resolution entry point (ShootingController._on_saves_required) at edition 11 with a 3-wound AP-3 attack vs Boyz F (Sv5+ -> auto-fail).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+    { "act": "execute_script", "script": "SettingsService.set_auto_allocate_wounds(true)" },
+    { "act": "execute_script", "script": "SettingsService.auto_allocate_wounds", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "InputDeviceManager.claim_pad()\nreturn InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "execute_script", "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_BOYZ_F\"))", "equals": 20 },
+
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\")._on_saves_required([RulesEngine.prepare_save_resolution(3, \"U_BOYZ_F\", \"U_CUSTODIAN_GUARD_B\", {\"name\": \"Pad Alloc Test Cannon\", \"ap\": -3, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"\"}, GameState.state)])" },
+
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel", "timeout_s": 3.0 },
+
+    { "act": "execute_script", "multiline": true, "script": "var o = tree.current_scene.get_node_or_null(\"AllocationGroupOverlay\")\nreturn o != null and o.is_in_group(\"pad_native_nav_modal\")", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "return PadRouter._native_nav_modal_open()", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var fo = tree.root.get_viewport().gui_get_focus_owner()\nif fo == null:\n\treturn \"<none>\"\nreturn str(fo.name)", "equals": "DoneButton" },
+
+    { "act": "execute_script", "multiline": true, "script": "var o = tree.current_scene.get_node(\"AllocationGroupOverlay\")\nreturn o._pad_focus_confined and o._pad_confined_controls.size() > 0", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var o = tree.current_scene.get_node(\"AllocationGroupOverlay\")\nvar c = o._pad_confined_controls[0]\nGameState.set_meta(\"_test_demoted_ctrl\", c)\nreturn is_instance_valid(c) and c.focus_mode == Control.FOCUS_NONE", "equals": true },
+
+    { "act": "screenshot", "label": "01_results_done_pad_focused" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script", "script": "main.get_node_or_null(\"AllocationGroupOverlay\") == null", "equals": true },
+
+    { "act": "execute_script", "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_BOYZ_F\"))", "equals": 17 },
+
+    { "act": "execute_script", "multiline": true, "script": "var c = GameState.get_meta(\"_test_demoted_ctrl\")\nvar ok = is_instance_valid(c) and c.focus_mode == Control.FOCUS_ALL\nGameState.remove_meta(\"_test_demoted_ctrl\")\nreturn ok", "equals": true },
+
+    { "act": "screenshot", "label": "02_done_pressed_overlay_closed_focus_restored" },
+
+    { "act": "execute_script", "script": "SettingsService.set_auto_allocate_wounds(false)" },
+    { "act": "execute_script", "script": "GameState.set_edition(10)", "equals": 10 }
+  ]
+}

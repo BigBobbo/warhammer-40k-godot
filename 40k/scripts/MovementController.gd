@@ -1012,6 +1012,17 @@ func _on_unit_selected(index: int) -> void:
 	if not unit:
 		return
 
+	# Reinforcement placement lock (mirror of DEPLOY-CYCLE): while a reserve
+	# unit is being placed, switching units follows the deployment rules —
+	# free while nothing is placed (the session is cancelled, its unit returns
+	# to reserves), blocked once models are on the table until they are
+	# undone. Re-selecting the unit being placed is a no-op (restarting would
+	# wipe its placed models).
+	var main_for_switch = SceneRefs.main()
+	if main_for_switch and main_for_switch.has_method("_reinforcement_try_switch_unit") \
+			and not main_for_switch._reinforcement_try_switch_unit(str(unit_id)):
+		return
+
 	# Any unit selection ends an in-progress disembark placement: the old
 	# controller must not keep validating board clicks against its transport.
 	_cancel_active_disembark_placement()
@@ -1813,6 +1824,13 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 					advance_roll_label.visible = true
 				# Always update the move cap for advance, regardless of label existence
 				_update_movement_display_with_advance(advance_roll)
+		# Pad flow: an Advance chosen from the pad move menu resolves its dice
+		# here (immediately, or after the Command Re-roll dialog). Hand the pad
+		# player the first model — the same auto-carry choosing plain Move gets —
+		# so a D-pad press can then grab the whole squad. PadRouter no-ops unless
+		# IT armed this when the menu choice was applied (mouse/AI unaffected).
+		if PadRouter.has_method("on_advance_move_resolved"):
+			PadRouter.on_advance_move_resolved(unit_id)
 
 	# Notify Main to update UI
 	emit_signal("ui_update_requested")
@@ -5505,6 +5523,14 @@ func pad_menu_options() -> Array:
 	var unit = GameState.get_unit(active_unit_id)
 	if unit.is_empty() or unit.get("embarked_in", null) != null:
 		return []
+	# A unit that has already moved this phase — including one that just
+	# arrived from reserves (ingress sets flags.moved + the until-charge
+	# lock) — has no open mode decision: selecting it must not offer
+	# Move / Advance / Stay Still chips whose actions the phase would
+	# reject anyway.
+	var unit_flags = unit.get("flags", {})
+	if unit_flags.get("moved", false) or unit_flags.get("no_moves_until_charge_phase", false):
+		return []
 	var opts: Array = []
 	if normal_radio and normal_radio.visible and not normal_radio.disabled:
 		opts.append({"id": "NORMAL", "label": "Move"})
@@ -5514,15 +5540,10 @@ func pad_menu_options() -> Array:
 		opts.append({"id": "FALL_BACK", "label": "Fall Back"})
 	if stationary_radio and stationary_radio.visible and not stationary_radio.disabled:
 		opts.append({"id": "REMAIN_STATIONARY", "label": "Stay Still"})
-	# Multi-model units: same Normal Move, but every model is picked up together
-	# (PadRouter starts a group carry instead of the one-model auto-carry);
-	# models a drop can't fit stay behind and are handed back individually.
-	# Appended AFTER the four modes so the committed menu-index contracts
-	# (NORMAL → step → ADVANCE …) hold; with wrap-around it is one ◀ press
-	# from the default highlight.
-	if normal_radio and normal_radio.visible and not normal_radio.disabled \
-			and _pad_group_menu_model_count() > 1:
-		opts.append({"id": "NORMAL_ALL", "label": "Move All Together"})
+	# Moving the whole unit at once is NOT a separate menu entry: once any move
+	# mode is under way (Normal, Advance, Fall Back), a D-pad press grabs every
+	# model still to be moved (PadRouter._try_grab_all_remaining), so the group
+	# carry composes with every mode instead of being hardwired to Normal.
 	for action in _get_special_movement_actions(active_unit_id):
 		var action_type := str(action.get("type", ""))
 		if action_type == "":
@@ -5548,23 +5569,6 @@ func _pad_mode_resolved() -> bool:
 		or not move_data.get("model_moves", []).is_empty()
 
 
-func _pad_group_menu_model_count() -> int:
-	"""Alive models across the active unit + attached characters — gates the
-	"Move All Together" menu entry to units where a group grab means anything."""
-	var unit = GameState.get_unit(active_unit_id)
-	if unit.is_empty():
-		return 0
-	var count := 0
-	var unit_ids = [active_unit_id]
-	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
-		unit_ids.append(char_id)
-	for uid in unit_ids:
-		for model in GameState.get_unit(uid).get("models", []):
-			if model.get("alive", true):
-				count += 1
-	return count
-
-
 func pad_apply_menu_choice(choice_id: String) -> void:
 	"""Apply a PadActionBar choice by driving the same handlers the mouse UI
 	uses (radios + Confirm Movement Mode / Fall Back dispatch)."""
@@ -5576,11 +5580,6 @@ func pad_apply_menu_choice(choice_id: String) -> void:
 			"actor_unit_id": active_unit_id
 		})
 		return
-	# "Move All Together" IS a Normal Move — only the carry style differs
-	# (PadRouter reads the choice id and grabs the whole unit instead of one
-	# model). Everything below treats it as NORMAL.
-	if choice_id == "NORMAL_ALL":
-		choice_id = "NORMAL"
 	_pad_set_mode_radio(choice_id)
 	match choice_id:
 		"NORMAL":
