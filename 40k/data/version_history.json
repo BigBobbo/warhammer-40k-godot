@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.3",
+			"date": "2026-07-22",
+			"summary": "Controller polish: the top-bar Stratagems button no longer shows a keyboard '[S]' hint you can't press on a controller. While you're playing with a pad it simply reads 'Stratagems' (you reach it by moving panel focus with the D-pad and pressing A); pick the mouse or keyboard back up and the '[S]' hint returns.",
+			"changes": [
+				"The Stratagems button drops its '[S]' keyboard-shortcut hint while a controller is the active device — it reads 'Stratagems' — and restores '[S] Stratagems' the moment you use the mouse or keyboard. Mirrors the device-aware hint on the End-Phase button."
+			]
+		},
+		{
 			"version": "0.92.2",
 			"date": "2026-07-22",
 			"summary": "Deep Strike / Strategic Reserves formations can no longer be placed with a model's base hanging off the table edge. Because Strategic Reserves arrive within 6\" of a board edge, it was possible to drop a Tight/Spread formation right on the edge so the outermost model's base overhung the battlefield — the reinforcement check only looked at each model's centre, not its full base. Formation placement now applies the same whole-base-on-board guard the single-model placement already used.",
