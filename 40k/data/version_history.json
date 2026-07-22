@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.13",
+			"date": "2026-07-22",
+			"summary": "Controller: switching units with the left/right bumpers now glides the camera smoothly to the next unit instead of instantly jumping to it. Rapid cycling chases the newest unit fluidly, and the reframe from a zoomed-out overview (e.g. just after loading) animates too.",
+			"changes": [
+				"LB/RB unit cycling now pans the camera with a short eased tween instead of a hard cut. The same smooth transition applies when the bumpers reframe a unit from a zoomed-out overview and when the shooting/charge target walk follows a target.",
+				"Model carry pickup and the L3/paddle model-hop still snap instantly (they immediately project the model to a screen position), and they now also cancel any in-flight glide so the pickup can't be knocked off by a still-running pan."
+			]
+		},
+		{
 			"version": "0.92.12",
 			"date": "2026-07-22",
 			"summary": "Orks can now use Bomb Squigs by hand. After an eligible unit makes a Normal move, a dialog lets you pick which enemy unit takes D3 mortal wounds (or Decline) — previously only the AI could trigger this, so a human player never got the option.",

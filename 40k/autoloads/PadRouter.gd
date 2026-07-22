@@ -1931,35 +1931,57 @@ func _center_camera_on_unit(unit_id: String) -> void:
 	# Zoomed far out (e.g. right after loading a save): frame the cycled unit
 	# properly — fit_view_to_selection centers AND zooms to its bounding box —
 	# so bumper-cycling is usable without ever touching the zoom triggers. At
-	# normal zoom keep the player's chosen zoom and just pan (as before).
+	# normal zoom keep the player's chosen zoom and just pan. Either way the
+	# move now GLIDES (animate:true / smooth pan) instead of hard-cutting — the
+	# "it jumps the camera between the units" report.
 	var m := get_tree().current_scene
 	if m != null and ("view_zoom" in m) and float(m.view_zoom) < CYCLE_FRAME_MIN_ZOOM \
 			and m.has_method("fit_view_to_selection"):
-		if m.fit_view_to_selection(unit_id):
+		if m.fit_view_to_selection(unit_id, true):
 			return
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
 		var pos = model.get("position", null)
 		if pos is Dictionary and pos.has("x"):
-			_center_camera_on_world(Vector2(float(pos.x), float(pos.y)))
+			_smooth_center_camera_on_world(Vector2(float(pos.x), float(pos.y)))
 			return
 		elif pos is Vector2:
-			_center_camera_on_world(pos)
+			_smooth_center_camera_on_world(pos)
 			return
 
 
 func _center_camera_on_world(world_pos: Vector2) -> void:
-	# Same duck-typed camera model as VirtualCursor._edge_pan. Exact when the
-	# board isn't rotated; with view_rotation it lands near enough to see the
-	# unit (rotation-aware framing is an M5 polish item).
+	# INSTANT framing (carry pickup, model hop): the caller projects world→screen
+	# the same frame, so this must land immediately AND cancel any in-flight
+	# LB/RB unit-switch glide (snap_center_on_world) so a still-running tween
+	# can't overwrite view_offset underneath the projection. Same duck-typed
+	# camera model as VirtualCursor._edge_pan; exact when the board isn't rotated
+	# (rotation-aware framing is an M5 polish item). Falls back to a direct
+	# view_offset set on scenes without the tweened camera (test stubs).
 	var m := get_tree().current_scene
 	if m == null or not ("view_offset" in m) or not m.has_method("update_view_transform"):
+		return
+	if m.has_method("snap_center_on_world"):
+		m.snap_center_on_world(world_pos)
 		return
 	var vp: Vector2 = m.get_viewport().get_visible_rect().size
 	var zoom: float = m.view_zoom if "view_zoom" in m else 1.0
 	m.view_offset = world_pos - vp / (2.0 * zoom)
 	m.update_view_transform()
+
+
+# SMOOTH framing (LB/RB unit-switch, shooting/charge target walk): glide the
+# camera so world_pos is centered instead of hard-cutting — the "camera jumps
+# between units" report. Unlike _center_camera_on_world this is NOT followed by
+# a world→screen projection, so a mid-tween camera is fine. Falls back to the
+# instant pan on scenes without the tweened path (test stubs).
+func _smooth_center_camera_on_world(world_pos: Vector2) -> void:
+	var m := get_tree().current_scene
+	if m != null and m.has_method("smooth_center_on_world"):
+		m.smooth_center_on_world(world_pos)
+	else:
+		_center_camera_on_world(world_pos)
 
 
 # Frame `world_pos` at a chosen vertical screen fraction (0 = top, 0.5 = center)
