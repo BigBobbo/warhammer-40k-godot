@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.10",
+			"date": "2026-07-22",
+			"summary": "Fixed: when your Orks are shot at, you can now choose to use Distraction Grot for a 5+ invulnerable save. A dialog appears asking whether to activate it — previously only the AI could make this choice, so if you were the human defender the game paused with no way to respond.",
+			"changes": [
+				"Shooting phase: added the Distraction Grot prompt for a human defender. When one of your eligible units is targeted, you get an Activate / Decline dialog for the 5+ invulnerable save; choosing either continues shooting resolution as normal. The AI still resolves its own defenders automatically."
+			]
+		},
+		{
 			"version": "0.92.9",
 			"date": "2026-07-22",
 			"summary": "Fixed: a Custodes Blade Champion's Moment Shackle is now playable by a human. At the start of the Fight phase you get a dialog to choose the effect (Watcher's Axe — 12 Attacks, or a 2+ invulnerable save) or Decline — previously the phase waited for a choice that only the AI could make, so a human Custodes player was stuck.",

@@ -1,0 +1,58 @@
+{
+  "id": "shooting_distraction_grot_ui",
+  "covers": [
+    "scripts.ShootingController.distraction_grot_ui",
+    "phases.ShootingPhase.distraction_grot",
+    "audit_P0.shooting_distraction_grot"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "AUDIT P0: the Orks' Distraction Grot reactive must have a human-defender UI. The phase emits distraction_grot_available and pauses awaiting USE/DECLINE, but the ShootingController never listened, so a human defender was soft-locked. Here the prompt is raised for a human-owned Ork unit; the dialog must appear with Activate/Decline, and Decline must clear the pending state (unblocking the phase).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    {
+      "act": "execute_script",
+      "script": "var fp = PhaseManager.get_current_phase_instance()\nfp.awaiting_distraction_grot = true\nfp.distraction_grot_pending_unit = \"U_BOYZ_E\"\nfp.resolution_state = {\"phase\": \"awaiting_distraction_grot\", \"assignments\": []}\nfp.emit_signal(\"distraction_grot_available\", \"U_BOYZ_E\", 2)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 8 },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"DistractionGrotDialog\")\nreturn d != null and d.visible",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"DistractionGrotDialog\")\nif d == null:\n\treturn \"NO_DIALOG\"\nvar btns = d.find_children(\"*\", \"Button\", true, false)\nvar has_use = false\nvar has_decline = false\nfor b in btns:\n\tvar t = String(b.text)\n\tif t.contains(\"Distraction Grot\"):\n\t\thas_use = true\n\tif t.contains(\"Decline\"):\n\t\thas_decline = true\nreturn has_use and has_decline",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "screenshot", "label": "distraction_grot_dialog_shown" },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"DistractionGrotDialog\")\nif d == null:\n\treturn \"NO_DIALOG\"\nd._on_decline_pressed()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 8 },
+    {
+      "act": "execute_script",
+      "script": "return PhaseManager.get_current_phase_instance().awaiting_distraction_grot",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node_or_null(\"DistractionGrotDialog\") == null",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "screenshot", "label": "after_distraction_grot_declined" }
+  ]
+}
