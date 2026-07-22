@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.83.2",
+			"date": "2026-07-21",
+			"summary": "End a phase from the controller without hunting for the touchscreen. The top-right 'End … Phase' button now shows the controller's Menu (☰) button when you're playing with a controller, instead of the keyboard [Enter] you can't press on a Steam Deck. So the button you'd naturally reach for reads e.g. '☰ End Movement Phase', matching the '☰ End Phase' hint in the controller bar — press Menu (Start) and confirm to end the phase. It switches back to '[Enter]' the instant you use the mouse or keyboard.",
+			"changes": [
+				"The top-right phase-action button now adapts its shortcut hint to the input device in use: '[☰] End Movement Phase' on a controller, '[Enter] End Movement Phase' on keyboard/mouse. (Pressing the Menu/Start button already ended the phase behind a quick confirm — previously there was just no cue for it on the button itself.)",
+				"The hint updates live: pick up the controller and the button switches to the ☰ glyph; touch the mouse or a key and it switches back to [Enter].",
+				"Applies to every phase's action button — End Movement / Shooting / Charge / Fight / Command Phase, End Turn, Confirm Formations, Roll the dice, and the Fight-phase step labels — and the controller's confirm dialog always names the real action (e.g. 'End Movement Phase?')."
+			]
+		},
+		{
 			"version": "0.83.1",
 			"date": "2026-07-21",
 			"summary": "Shooting phase controller fix: LB/RB were dead at the start of the phase. The bumpers now cycle through EVERY unit that can still shoot — same as the Movement phase — not just the few the panel's 'has a target' filter shows, and the camera jumps to each unit as you cycle, including the shooter that's auto-selected when the phase begins.",
