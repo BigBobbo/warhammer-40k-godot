@@ -290,6 +290,17 @@ func _on_device_changed(mode: int) -> void:
 	# only the HUD panel subtrees release.
 	if pad:
 		_release_panel_focus()
+	# Shooting: the gold target reticle exists for the pad only — arm it the
+	# moment the pad takes over mid-phase, drop it (and the highlight) when the
+	# mouse does; sync_shoot_target_highlight branches on the active device.
+	sync_shoot_target_highlight()
+	# Charge: same contract for the ▲ ▼ target-row cursor and its reticle.
+	var m := get_tree().current_scene
+	if m != null and ("current_phase" in m) and m.current_phase == GameStateData.Phase.CHARGE \
+			and ("charge_controller" in m) and m.charge_controller != null \
+			and is_instance_valid(m.charge_controller) \
+			and m.charge_controller.has_method("pad_sync_target_cursor"):
+		m.charge_controller.pad_sync_target_cursor()
 	_update_hints()
 
 
@@ -597,7 +608,11 @@ func _cycle(dir: int) -> void:
 		# Targets are the armed shooter's sub-menu now: D-pad ◀ ▶, next to the
 		# weapon rows on ▲ ▼ (mirrors charge's target stepping).
 		sc._keyboard_cycle_units(dir < 0)  # reuses the Tab / Shift+Tab path
-		target_highlight_id = ""
+		# The selection flow above already re-armed the highlight for the NEW
+		# shooter (sync_shoot_target_highlight runs at the arming tail) — the
+		# old blanket reset here wiped it and left ◀ ▶ / A subject-less until
+		# the first D-pad press. Re-sync instead of blanking.
+		sync_shoot_target_highlight()
 		if str(sc.active_shooter_id) != "":
 			_center_camera_on_unit(str(sc.active_shooter_id))
 		return
@@ -631,6 +646,8 @@ func _cycle_target(sc: Node, dir: int) -> void:
 	ring.sort()
 	if ring.is_empty():
 		target_highlight_id = ""
+		if sc.has_method("pad_clear_target_reticle"):
+			sc.pad_clear_target_reticle()
 		return
 	# Entering TARGET_SELECT claims the pad: release any panel focus (the
 	# shooter-cycling path focuses the unit list) so A means "assign", not
@@ -641,7 +658,39 @@ func _cycle_target(sc: Node, dir: int) -> void:
 	var idx := ring.find(target_highlight_id)
 	idx = wrapi(idx + dir, 0, ring.size()) if idx != -1 else (0 if dir > 0 else ring.size() - 1)
 	target_highlight_id = str(ring[idx])
+	# Gold reticle brackets + "TARGET n/m" banner on the board — the camera pan
+	# alone was invisible whenever the targets sat close together, which read
+	# as "◀ ▶ does nothing" (the 2026-07 controller-targeting report).
+	if sc.has_method("pad_show_target_reticle"):
+		sc.pad_show_target_reticle(target_highlight_id)
 	_center_camera_on_unit(target_highlight_id)
+
+
+# (Re)arm the shooting target highlight for the pad: keeps a still-valid
+# highlight, otherwise lands on the first entry of the sorted target ring, and
+# draws the gold reticle either way. Called by ShootingController at every
+# shooter-arming tail (select / cycle / resync) and on device switch, so a pad
+# player ALWAYS has a bracketed subject for ◀ ▶ / A the moment a shooter is
+# armed. KBM players never get the reticle (mouse hover/click needs no cursor);
+# their highlight id is blanked so a later A can't fire at a stale target.
+func sync_shoot_target_highlight() -> void:
+	var sc = _shooting_controller_in_shooting_phase()
+	if sc == null or str(sc.active_shooter_id) == "" or sc.eligible_targets.is_empty():
+		target_highlight_id = ""
+		if sc != null and sc.has_method("pad_clear_target_reticle"):
+			sc.pad_clear_target_reticle()
+		return
+	if not InputDeviceManager.is_pad_active():
+		target_highlight_id = ""
+		if sc.has_method("pad_clear_target_reticle"):
+			sc.pad_clear_target_reticle()
+		return
+	if not sc.eligible_targets.has(target_highlight_id):
+		var ring: Array = sc.eligible_targets.keys()
+		ring.sort()
+		target_highlight_id = str(ring[0])
+	if sc.has_method("pad_show_target_reticle"):
+		sc.pad_show_target_reticle(target_highlight_id)
 
 
 func _cycle_unit_list(dir: int) -> void:
@@ -736,7 +785,14 @@ func _pad_step_secondary(dir: int) -> bool:
 		GameStateData.Phase.CHARGE:
 			var cc = m.charge_controller if ("charge_controller" in m) else null
 			if cc != null and is_instance_valid(cc) and cc.has_method("pad_step_target"):
-				return cc.pad_step_target(dir)
+				if cc.pad_step_target(dir):
+					# Camera-follow the stepped row's unit, mirroring the
+					# shooting phase's ◀ ▶ target walk — a charge target can
+					# sit off-screen and an invisible bracket teaches nothing.
+					if cc.has_method("pad_current_target_id") and str(cc.pad_current_target_id()) != "":
+						_center_camera_on_unit(str(cc.pad_current_target_id()))
+					return true
+				return false
 		GameStateData.Phase.SHOOTING:
 			var sc = _shooting_controller_in_shooting_phase()
 			if sc != null and sc.has_method("pad_step_weapon"):
@@ -880,12 +936,24 @@ func _assign_highlighted_target() -> bool:
 			"type": "SELECT_SHOOTER",
 			"actor_unit_id": str(sc.active_shooter_id)
 		})
-	# The click path requires a selected weapon row; select the first one if
-	# the player hasn't focused any (same default the mouse flow nudges you to).
+	# The click path requires a selected weapon row; select the first USABLE one
+	# if the player hasn't focused any (same default the mouse flow nudges you
+	# to). Disabled rows — engaged non-pistols, post-advance non-assault, an 11e
+	# shooting type's weapon_allowed — are unselectable, and TreeItem.select()
+	# on one silently does nothing, which used to make A a silent no-op.
 	if sc.weapon_tree != null and sc.weapon_tree.get_selected() == null:
 		var root: TreeItem = sc.weapon_tree.get_root()
-		if root != null and root.get_first_child() != null:
-			root.get_first_child().select(0)
+		if root != null:
+			var child: TreeItem = root.get_first_child()
+			while child != null and not child.is_selectable(0):
+				child = child.get_next()
+			if child != null:
+				child.select(0)
+	if sc.weapon_tree != null and sc.weapon_tree.get_selected() == null:
+		# Every weapon row is disabled (e.g. engaged with no pistols): consume
+		# the press WITH feedback — a silent A reads as "the pad is broken".
+		ToastManager.show_warning("No usable weapon for this target — X skips the unit")
+		return true
 	sc._select_target_for_current_weapon(target_highlight_id)
 	return true
 

@@ -2,6 +2,21 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.88.0",
+			"date": "2026-07-22",
+			"summary": "You can now SEE which enemy you're targeting on a controller — and split fire without a mouse. In the Shooting phase the current target wears gold reticle brackets with a 'TARGET 2/3: <name>' banner: it appears on the first target automatically when a shooter is armed, D-pad ◀ ▶ visibly walks it between targets (the damage forecast follows), and A assigns it to the highlighted weapon. Aim each weapon at a different enemy with ▲ ▼ + ◀ ▶ + A, and when you fire one weapon's bearers at a second enemy, the split-fire dialog is now fully controller-operable: ◀ ▶ picks how many models switch, A confirms, B cancels. The Charge phase speaks the same language — the target row your D-pad steps to is bracketed on the board too, with the camera following.",
+			"changes": [
+				"Shooting: the controller's current target is marked on the board with pulsing gold corner brackets on every model of the unit, plus a '▶ TARGET n/m: <name>' banner. Previously the only feedback for D-pad ◀ ▶ was a camera pan — with two targets close together it looked like the buttons did nothing.",
+				"Arming a shooter with the controller auto-brackets the first target, so A always has a visible subject and ◀ ▶'s first press visibly moves the bracket.",
+				"The FORECAST damage preview now follows the controller: it always shows the selected weapon against the bracketed target, both when cycling targets (◀ ▶) and when stepping weapons (▲ ▼).",
+				"Split fire per weapon on a controller: ▲ ▼ steps the weapon rows (now skipping disabled weapons), ◀ ▶ picks the target, A assigns — each gun can aim at a different enemy, with a toast confirming every assignment ('✓ Big shoota → Witchseekers', plus 'all weapons assigned — Start confirms' when done).",
+				"Split fire per model on a controller: assigning the same weapon at a second target opens the split-fire picker as with the mouse, and the picker is now pad-operable — D-pad ◀ ▶ (or ▲ ▼) steps the 'how many models' counter, A confirms, B cancels, with the hints shown in the dialog.",
+				"A no longer dies silently when every weapon is disabled (e.g. engaged with no pistols): a toast explains and points at X (skip unit).",
+				"Charge: the ELIGIBLE TARGETS row your D-pad ▲ ▼ steps to is bracketed on the board with the same gold reticle and TARGET n/m banner, the camera follows the stepped target (it can be off-screen at combat zoom), and the first row is auto-bracketed when you arm a unit. The reticle clears when the charge is declared.",
+				"The reticle is controller-only: it never appears while playing with mouse and keyboard, and it disappears the moment the mouse takes over."
+			]
+		},
+		{
 			"version": "0.87.2",
 			"date": "2026-07-22",
 			"summary": "Fixed walls not blocking line of sight (or movement) after loading a save or in a networked game. Terrain walls are stored as exact coordinates, but once terrain had round-tripped through a save file or a network sync those coordinates came back in a form the geometry check couldn't read — so the check errored out and quietly treated the wall as if it wasn't there. Units could see and shoot through walls they shouldn't, and the same walls stopped blocking movement. Now handled in both formats.",

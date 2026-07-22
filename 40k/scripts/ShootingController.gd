@@ -81,6 +81,11 @@ var los_visual: Line2D
 var range_visual: Node2D
 var target_highlights: Node2D
 var los_debug_visual: Node2D  # New LoS debug visualization
+# Pad target reticle: gold brackets marking the controller's current target
+# (see PadTargetReticle.gd + PadRouter._cycle_target). Runtime-loaded class so
+# this controller keeps compiling standalone headless.
+const PadTargetReticleScript = preload("res://scripts/PadTargetReticle.gd")
+var pad_target_reticle: Node2D
 
 # UI Elements
 var unit_selector: ItemList
@@ -308,6 +313,9 @@ func _exit_tree() -> void:
 		range_visual.queue_free()
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
+	if pad_target_reticle and is_instance_valid(pad_target_reticle):
+		pad_target_reticle.queue_free()
+		pad_target_reticle = null
 
 	# Clean up LoS debug drawings but do NOT free the node — it is the
 	# persistent BoardRoot layer shared with Main's phase-independent L
@@ -391,6 +399,14 @@ func _create_shooting_visuals() -> void:
 	target_highlights = Node2D.new()
 	target_highlights.name = "ShootingTargetHighlights"
 	board_root.add_child(target_highlights)
+
+	# Pad target reticle — the gold brackets marking THE unit the controller's
+	# next A press assigns to (driven by PadRouter's D-pad ◀ ▶ target ring).
+	# Above the eligibility rings so the "current target" always reads on top.
+	pad_target_reticle = PadTargetReticleScript.new()
+	pad_target_reticle.name = "PadTargetReticle"
+	board_root.add_child(pad_target_reticle)
+	pad_target_reticle.clear()
 
 	# T5-MP3: Create container for shooter-to-target visual lines (remote player feedback)
 	shooting_lines_container = Node2D.new()
@@ -969,6 +985,8 @@ func resync_from_phase() -> void:
 	_refresh_shooter_status()
 	_update_ui_state()
 	_refresh_unit_list(false)
+	# Pad: re-bracket a valid target for the resynced shooter (no-op on KBM).
+	PadRouter.sync_shoot_target_highlight()
 	_in_resync = false
 
 func _refresh_unit_list(auto_select: bool = true) -> void:
@@ -1704,6 +1722,10 @@ func _clear_visuals() -> void:
 	# Clear target highlights
 	_clear_target_highlights()
 
+	# Clear the pad target reticle (re-armed by PadRouter's sync when the next
+	# shooter goes active with the pad in hand)
+	pad_clear_target_reticle()
+
 	# Clear LoS debug visuals if present — shooter drawings only. A live
 	# held-L overview must survive shooter-workflow housekeeping (set_phase
 	# runs deferred on phase entry and would otherwise blank an overlay the
@@ -2179,6 +2201,12 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	if shooter_changed:
 		_auto_assign_logged = false
 		_clear_target_chips()  # B1: fresh unit, fresh chip letters
+		# A weapon id kept from the PREVIOUS shooter is meaningless for this
+		# one — clearing it stops the pad's forecast preview (and anything
+		# else reading selected_weapon_id) from previewing a gun the new unit
+		# doesn't carry. The tree refresh below re-selects via the usual
+		# auto-select-single-weapon path.
+		selected_weapon_id = ""
 
 	# NEW: Hide auto-target button when selecting new shooter
 	if auto_target_button_container:
@@ -2218,6 +2246,10 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 		for target_id in eligible_targets:
 			_visualize_los_to_target(unit_id, target_id)
 
+	# Pad: a freshly-armed shooter immediately brackets its first target so
+	# D-pad ◀ ▶ / A have a visible subject from the first press (no-op on KBM).
+	PadRouter.sync_shoot_target_highlight()
+
 func _on_targets_available(unit_id: String, targets: Dictionary) -> void:
 	print("ShootingController: Targets available for ", unit_id, ": ", targets.size())
 	active_shooter_id = unit_id
@@ -2233,12 +2265,15 @@ func _on_targets_available(unit_id: String, targets: Dictionary) -> void:
 	# _on_unit_selected_for_shooting reports first; the dedup guard suppresses this one).
 	if eligible_targets.is_empty():
 		_report_no_eligible_targets(unit_id)
-	
+
 	# Trigger LoS visualization for each eligible target
 	if los_debug_visual and los_debug_visual.debug_enabled:
 		print("ShootingController: Visualizing LoS to ", targets.size(), " targets")
 		for target_id in targets:
 			_visualize_los_to_target(unit_id, target_id)
+
+	# Pad: bracket the first target for the freshly-armed shooter (no-op on KBM).
+	PadRouter.sync_shoot_target_highlight()
 
 func _on_shooting_begun(unit_id: String) -> void:
 	"""T5-MP3 + T5-V2: Handle shooting_begun signal. Draws animated shooting lines
@@ -3873,7 +3908,11 @@ func pad_step_weapon(dir: int) -> bool:
 	var rows: Array = []
 	var child: TreeItem = root.get_first_child()
 	while child != null:
-		rows.append(child)
+		# Disabled weapon rows (engaged non-pistols, 11e shooting-type gate…)
+		# are unselectable — TreeItem.select() on one silently no-ops, which
+		# made ▲ ▼ look dead whenever the step landed on such a row. Skip them.
+		if child.is_selectable(0):
+			rows.append(child)
 		child = child.get_next()
 	if rows.is_empty():
 		return false
@@ -3890,7 +3929,62 @@ func pad_step_weapon(dir: int) -> bool:
 	# calls — run the click handler explicitly unless the signal already did.
 	if str(selected_weapon_id) != str(row.get_metadata(0)):
 		_on_weapon_tree_item_selected()
+	# Keep the FORECAST panel tracking the pad's (weapon, target) pair — the
+	# stepped weapon should be previewed against the bracketed target, not
+	# whatever target the mouse hovered last.
+	if PadRouter.target_highlight_id != "" and eligible_targets.has(PadRouter.target_highlight_id):
+		_update_damage_preview(str(row.get_metadata(0)), str(PadRouter.target_highlight_id))
 	return true
+
+# Pad (controller) support: mark `target_id` as THE unit the next A press
+# assigns to — gold reticle brackets on every alive model plus a
+# "▶ TARGET n/m: NAME" banner (n/m walks the same sorted ring PadRouter
+# cycles). Also retargets the FORECAST damage preview so the player sees the
+# expected damage of the current weapon into the bracketed unit BEFORE
+# committing. Called by PadRouter on every D-pad ◀ ▶ step and on highlight
+# sync; safe no-op when the target is unknown.
+func pad_show_target_reticle(target_id: String) -> void:
+	if pad_target_reticle == null or not is_instance_valid(pad_target_reticle):
+		return
+	if not eligible_targets.has(target_id):
+		pad_target_reticle.clear()
+		return
+	var unit = current_phase.get_unit(target_id) if current_phase else GameState.get_unit(target_id)
+	if unit.is_empty():
+		pad_target_reticle.clear()
+		return
+	var marks: Array = []
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var pos = _get_model_position(model)
+		if pos == Vector2.ZERO:
+			continue
+		marks.append({
+			"pos": pos,
+			"radius_px": Measurement.base_radius_px(model.get("base_mm", 32)) + 4.0,
+		})
+	var ring: Array = eligible_targets.keys()
+	ring.sort()  # same order PadRouter._cycle_target walks
+	var idx := ring.find(target_id)
+	var unit_name = str(eligible_targets[target_id].get("unit_name", target_id))
+	var banner := "▶ TARGET %d/%d: %s" % [idx + 1, ring.size(), unit_name]
+	pad_target_reticle.show_for_marks(marks, banner)
+	# Preview the current weapon (selected row, else the first USABLE row —
+	# disabled rows can't be assigned, so previewing them would mislead).
+	var weapon_id := str(selected_weapon_id)
+	if weapon_id == "" and weapon_tree != null and weapon_tree.get_root() != null:
+		var child: TreeItem = weapon_tree.get_root().get_first_child()
+		while child != null and not child.is_selectable(0):
+			child = child.get_next()
+		if child != null:
+			weapon_id = str(child.get_metadata(0))
+	if weapon_id != "":
+		_update_damage_preview(weapon_id, target_id)
+
+func pad_clear_target_reticle() -> void:
+	if pad_target_reticle != null and is_instance_valid(pad_target_reticle):
+		pad_target_reticle.clear()
 
 func _on_weapon_tree_button_clicked(item: TreeItem, column: int, id: int, mouse_button_index: int) -> void:
 	if not item or column != 1:
@@ -5387,6 +5481,7 @@ func _open_split_fire_picker(weapon_id: String, target_id: String, split: Dictio
 	# Also queue_free on cancel/close
 	dialog.canceled.connect(func(): dialog.queue_free())
 
+	_pad_wire_spin_dialog(dialog, spin, vbox)
 	add_child(dialog)
 	DialogUtils.popup_at_bottom(dialog)
 
@@ -5439,8 +5534,40 @@ func _open_move_fire_picker(weapon_id: String, new_target_id: String, split: Dic
 	)
 	dialog.canceled.connect(func(): dialog.queue_free())
 
+	_pad_wire_spin_dialog(dialog, spin, vbox)
 	add_child(dialog)
 	DialogUtils.popup_at_bottom(dialog)
+
+# Pad (controller) support for the split-fire pickers: D-pad ◀ ▶ (and ▲ ▼)
+# steps the bearer-count SpinBox while the dialog is open, A confirms (the
+# InputDeviceManager watcher focuses the OK/Move button) and B cancels — the
+# whole model-level split is drivable without a mouse. The spin's internal
+# LineEdit leaves the pad focus chain (FOCUS_CLICK) so ui_left/ui_right can
+# never get swallowed by text-caret movement; mouse/typing still works.
+func _pad_wire_spin_dialog(dialog: AcceptDialog, spin: SpinBox, vbox: VBoxContainer) -> void:
+	var line_edit := spin.get_line_edit()
+	if line_edit != null:
+		line_edit.focus_mode = Control.FOCUS_CLICK
+	if InputDeviceManager.is_pad_active():
+		var hint := Label.new()
+		hint.name = "PadSpinHint"
+		hint.text = "◀ ▶  adjust   ·   Ⓐ confirm   ·   Ⓑ cancel"
+		hint.add_theme_font_size_override("font_size", 12)
+		hint.modulate = Color(1, 1, 1, 0.75)
+		vbox.add_child(hint)
+	# AcceptDialog is a Window with its own viewport: PadRouter never sees
+	# these presses, so the dialog handles the D-pad itself.
+	dialog.window_input.connect(func(event: InputEvent):
+		if not (event is InputEventJoypadButton) or not event.pressed:
+			return
+		match event.button_index:
+			JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_DOWN:
+				spin.value = max(spin.min_value, spin.value - 1)
+				dialog.set_input_as_handled()
+			JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_DPAD_UP:
+				spin.value = min(spin.max_value, spin.value + 1)
+				dialog.set_input_as_handled()
+	)
 
 # B4: Retarget `moved_ids` (currently committed to other targets) at
 # `new_target_id`. Composed of existing actions: clear each touched
@@ -5556,6 +5683,16 @@ func _post_assign_ui_update(weapon_id: String, target_id: String, chosen_model_i
 		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
 		dice_log_display.append_text("[color=green]✓ %d × %s → %s[/color]\n" % [chosen_model_ids.size(), weapon_name, target_name])
+
+	# Pad players don't read the dice log — say it where they look. Also tell
+	# them where the flow goes once every weapon has a target (Start confirms).
+	if InputDeviceManager.is_pad_active():
+		var toast_weapon = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
+		var toast_target = eligible_targets.get(target_id, {}).get("unit_name", target_id)
+		if _count_unassigned_weapons() == 0:
+			ToastManager.show_toast("✓ %s → %s — all weapons assigned, Start confirms" % [toast_weapon, toast_target])
+		else:
+			ToastManager.show_toast("✓ %s → %s" % [toast_weapon, toast_target])
 
 	# Refresh damage preview
 	_last_preview_target_id = ""
@@ -6352,15 +6489,19 @@ func _on_weapon_tree_gui_input(event: InputEvent) -> void:
 			_hovered_weapon_id = ""
 			_hide_damage_preview()
 
-func _update_damage_preview(weapon_id: String) -> void:
+func _update_damage_preview(weapon_id: String, override_target_id: String = "") -> void:
 	"""P3-114: Calculate and display Mathhammer-style expected damage preview for a weapon.
-	Accounts for weapon keywords, ability effects, faction abilities, rerolls, FNP, etc."""
+	Accounts for weapon keywords, ability effects, faction abilities, rerolls, FNP, etc.
+	override_target_id (pad flow): preview into the reticle-bracketed unit
+	instead of the assigned/first target."""
 	if not damage_preview_panel or not damage_preview_label:
 		return
 
-	# Determine target: use assigned target, or first eligible target
+	# Determine target: pad reticle override, else assigned target, else first eligible
 	var target_id = ""
-	if weapon_assignments.has(weapon_id):
+	if override_target_id != "" and eligible_targets.has(override_target_id):
+		target_id = override_target_id
+	elif weapon_assignments.has(weapon_id):
 		target_id = weapon_assignments[weapon_id]
 	elif not eligible_targets.is_empty():
 		target_id = eligible_targets.keys()[0]
