@@ -18,6 +18,20 @@ var can_gain_cp: bool = false
 var _mission_scroll: ScrollContainer = null
 var _mission_list: VBoxContainer = null
 
+# Controller (pad) navigation state. Mirrors SecondaryMissionReviewDialog so a
+# pad player can reach the per-mission Discard buttons and the skip button with
+# the D-pad instead of being stranded (initial focus landed on the off-list
+# skip button and Godot's geometric focus search dead-ended between the
+# card-nested Discard buttons).
+var _discard_buttons: Array = []  # one per mission, top-to-bottom
+var _skip_button: Button = null
+
+# PadRouter checks this group and keeps its board handlers off a dialog that
+# drives itself with Godot's native ui_* focus navigation.
+const PAD_MODAL_GROUP := "pad_native_nav_modal"
+# Hint chips shown while this dialog owns the pad (PadRouter stands down).
+const PAD_HINTS := [["dpad", "Navigate"], ["a", "Select"], ["b", "Close"]]
+
 # Factory: build a ready-to-show dialog (script attached + UI built). The caller
 # connects the signals, adds it to the tree, and shows it (in-battle callers use
 # DialogUtils.popup_at_bottom so the board stays visible). Shared by Main.gd and
@@ -42,6 +56,15 @@ func setup(p_active_missions: Array, p_can_gain_cp: bool) -> void:
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
+
+	# Controller support: join the native-nav modal group so PadRouter stands
+	# down, and (re)build the pad focus chain whenever we become visible or the
+	# player picks up the pad while the dialog is open.
+	add_to_group(PAD_MODAL_GROUP)
+	if not visibility_changed.is_connected(_on_visibility_changed_pad):
+		visibility_changed.connect(_on_visibility_changed_pad)
+	if InputDeviceManager and not InputDeviceManager.device_changed.is_connected(_on_device_changed_pad):
+		InputDeviceManager.device_changed.connect(_on_device_changed_pad)
 
 	_build_ui()
 
@@ -82,6 +105,7 @@ func _build_ui() -> void:
 	var mission_list = VBoxContainer.new()
 	mission_list.add_theme_constant_override("separation", 6)
 
+	_discard_buttons.clear()
 	for i in range(active_missions.size()):
 		var mission = active_missions[i]
 		_add_mission_option(mission_list, mission, i)
@@ -108,6 +132,7 @@ func _build_ui() -> void:
 	skip_button.custom_minimum_size = Vector2(250, 40)
 	skip_button.pressed.connect(_on_skip_pressed)
 	button_container.add_child(skip_button)
+	_skip_button = skip_button
 
 	main_container.add_child(button_container)
 
@@ -170,15 +195,119 @@ func _add_mission_option(parent: VBoxContainer, mission: Dictionary, index: int)
 	discard_btn.add_theme_color_override("font_color", Color.GOLD)
 	discard_btn.pressed.connect(_on_discard_pressed.bind(index))
 	hbox.add_child(discard_btn)
+	# Register in the top-to-bottom controller focus chain.
+	_discard_buttons.append(discard_btn)
 
 func _on_discard_pressed(mission_index: int) -> void:
 	print("MissionDiscardDialog: Player chose to discard mission index %d" % mission_index)
 	emit_signal("mission_discard_requested", mission_index)
+	_restore_board_hints()
 	hide()
 	queue_free()
 
 func _on_skip_pressed() -> void:
 	print("MissionDiscardDialog: Player chose to end turn without discarding")
 	emit_signal("end_turn_without_discard")
+	_restore_board_hints()
 	hide()
 	queue_free()
+
+# ============================================================================
+# CONTROLLER (PAD) NAVIGATION
+# ============================================================================
+# Same fix as SecondaryMissionReviewDialog: without it the D-pad never lands in
+# this window, so a pad player cannot discard a mission for CP or skip. Join the
+# native-nav modal group (PadRouter stands down), wire an explicit wrap-around
+# focus chain (each Discard button, then the skip button), seed focus on the
+# first visible control, park the virtual cursor so A presses the focused button
+# (not a stray click), and keep the focused control scrolled into view.
+
+func _on_visibility_changed_pad() -> void:
+	if not visible or not _pad_active():
+		return
+	_apply_pad_hints()
+	_setup_pad_focus.call_deferred()
+
+
+func _on_device_changed_pad(mode: int) -> void:
+	# The player picked up the pad while the dialog was already open.
+	if not is_instance_valid(self) or not visible:
+		return
+	if mode != InputDeviceManager.InputMode.PAD:
+		return
+	_apply_pad_hints()
+	_setup_pad_focus.call_deferred()
+
+
+func _setup_pad_focus() -> void:
+	# Let the InputDeviceManager watchdog's initial confirm-button grab land
+	# first, then move focus to the TOP of the dialog (the first Discard button).
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_inside_tree() or not visible or not _pad_active():
+		return
+	# Park the virtual cursor so A presses the focused button instead of firing a
+	# synthetic left-click at the cursor position.
+	if VirtualCursor and VirtualCursor.has_method("park"):
+		VirtualCursor.park()
+	_wire_pad_focus_neighbors()
+	var first := _first_focus_target()
+	if first != null and is_instance_valid(first):
+		first.grab_focus()
+		_scroll_to_focused(first)
+
+
+# Wrap-around focus chain (each Discard button, then the skip button) so D-pad
+# ▲ ▼ steps through every control deterministically instead of relying on
+# Godot's geometric neighbour search (which dead-ended between the card-nested
+# Discard buttons).
+func _wire_pad_focus_neighbors() -> void:
+	var seq: Array = []
+	for b in _discard_buttons:
+		if is_instance_valid(b):
+			seq.append(b)
+	if is_instance_valid(_skip_button):
+		seq.append(_skip_button)
+	var n := seq.size()
+	if n == 0:
+		return
+	for i in range(n):
+		var ctrl: Control = seq[i]
+		ctrl.focus_mode = Control.FOCUS_ALL
+		var prev: Control = seq[(i - 1 + n) % n]
+		var next: Control = seq[(i + 1) % n]
+		ctrl.focus_neighbor_top = ctrl.get_path_to(prev)
+		ctrl.focus_previous = ctrl.get_path_to(prev)
+		ctrl.focus_neighbor_bottom = ctrl.get_path_to(next)
+		ctrl.focus_next = ctrl.get_path_to(next)
+		if not ctrl.focus_entered.is_connected(_scroll_to_focused.bind(ctrl)):
+			ctrl.focus_entered.connect(_scroll_to_focused.bind(ctrl))
+
+
+func _first_focus_target() -> Control:
+	for b in _discard_buttons:
+		if is_instance_valid(b):
+			return b
+	return _skip_button if is_instance_valid(_skip_button) else null
+
+
+func _scroll_to_focused(ctrl: Control) -> void:
+	# Only the mission cards live inside the scroll region; the skip button sits
+	# below it and is always visible.
+	if is_instance_valid(_mission_scroll) and is_instance_valid(ctrl) and _mission_scroll.is_ancestor_of(ctrl):
+		_mission_scroll.ensure_control_visible(ctrl)
+
+
+func _apply_pad_hints() -> void:
+	if PadHintBar and PadHintBar.has_method("set_hints"):
+		PadHintBar.set_hints(PAD_HINTS)
+
+
+func _restore_board_hints() -> void:
+	# Hand the hint bar back to PadRouter so it recomputes the board context.
+	if _pad_active() and PadRouter and PadRouter.has_method("refresh_hints"):
+		PadRouter.refresh_hints()
+
+
+func _pad_active() -> bool:
+	return InputDeviceManager != null and InputDeviceManager.is_pad_active()
