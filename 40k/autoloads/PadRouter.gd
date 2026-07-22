@@ -108,6 +108,7 @@ const HINTS_DEPLOY := [
 	["a", "Place Model"],
 	["dpad", "Type / Formation"],
 	["x", "Undo Model"],
+	["b", "Undo Unit"],
 	["y", "Datasheet"],
 	["menu", "Confirm / End"],
 ]
@@ -226,6 +227,14 @@ var group_carry_active: bool = false
 
 func is_carrying() -> bool:
 	return carry_active
+
+
+# True while a DeploymentController model-placement session is live (normal
+# deployment, movement-phase reinforcement arrivals, or scout-reserves set-up).
+# VirtualCursor queries this so it leaves the X button for this router — during
+# placement X means "undo the last placed model", not a synthetic right-click.
+func is_placement_active() -> bool:
+	return _deployment_controller_placing() != null
 
 
 func _ready() -> void:
@@ -768,6 +777,25 @@ func _context_action() -> bool:
 		if _movement_controller() != null:
 			return _finish_model_and_advance()
 		return true
+	# Placement (deployment / reinforcement / scout reserves): X = undo the last
+	# placed model. This is checked BEFORE the cursor-active bail below, because
+	# during placement the virtual cursor is the placing tool and is almost
+	# always active — gating undo on a parked cursor left X a dead button for the
+	# entire placement flow (the reported Deep Strike / reinforcement bug: X did
+	# nothing). VirtualCursor cooperates by NOT consuming X while a placement
+	# session is live (see its JOY_BUTTON_X guard + is_placement_active()), so
+	# the press reaches this router regardless of cursor state. A controller
+	# right-click has no reachable use while placing (model repositioning is a
+	# mouse shift+click affordance), so X is free to mean undo here. Undoing
+	# every model re-enables LB/RB unit switching; undo_last_model emits
+	# models_placed_changed, so Main refreshes the card/buttons itself.
+	var dc = _deployment_controller_placing()
+	if dc != null:
+		if dc.get_placed_count() > 0 and dc.has_method("undo_last_model"):
+			return dc.undo_last_model()
+		# In a placement session but nothing staged yet — swallow X so it can't
+		# fall through to a shooter-skip / stray action in the same frame.
+		return true
 	if VirtualCursor.is_cursor_active():
 		return false  # cursor mode owns X (right-click); VC consumed it anyway
 	var sc = _shooting_controller_in_shooting_phase()
@@ -775,14 +803,6 @@ func _context_action() -> bool:
 		sc._keyboard_skip_unit()
 		target_highlight_id = ""
 		return true
-	# Placement (deployment / reinforcement / scout reserves): X = undo the
-	# last placed model (parked-cursor context action, mirroring the movement
-	# undo below). Undoing every model re-enables LB/RB unit switching.
-	# undo_last_model emits models_placed_changed, so Main refreshes the
-	# card/buttons itself.
-	var dc = _deployment_controller_placing()
-	if dc != null and dc.get_placed_count() > 0 and dc.has_method("undo_last_model"):
-		return dc.undo_last_model()
 	# Charge: X = skip the selected unit's charge (same as the Skip Charge
 	# button; only enabled while no charge move is being resolved).
 	var mc_scene := get_tree().current_scene
@@ -810,6 +830,26 @@ func _handle_back() -> bool:
 	if focused != null:
 		focused.release_focus()
 		did_reset = true
+	# Pad "Undo Unit": with a live placement session (deployment / reinforcement /
+	# scout) and at least one model staged, a clean B (no panel focus to release)
+	# undoes the ENTIRE unit — the pad counterpart to the mouse "Reset" button and
+	# to X's per-model undo (the reported gap: on the pad there was no way to clear
+	# a whole unit's placement, e.g. a Deep Strike unit the player decided not to
+	# bring in yet). Checked BEFORE the cursor-park below so a single B clears the
+	# unit even though the placing cursor is almost always active; gated on
+	# placed_count>0 so an empty placement still just parks the cursor (the
+	# reinforcement pad scenario relies on that). Routed through the same
+	# Main._on_reset_pressed the mouse button uses so every phase's reset/re-begin
+	# rules live in one place.
+	if not did_reset:
+		var m := get_tree().current_scene
+		var dc := _deployment_controller_placing()
+		if dc != null and dc.get_placed_count() > 0 and m != null and m.has_method("_on_reset_pressed"):
+			if VirtualCursor.is_cursor_active():
+				VirtualCursor.park()
+			m._on_reset_pressed()
+			_update_hints()
+			return true
 	if VirtualCursor.is_cursor_active():
 		VirtualCursor.park()
 		did_reset = true

@@ -1,0 +1,55 @@
+{
+  "id": "pad_reinforcement_undo",
+  "covers": [
+    "controller.reinforcement.x_undo_model",
+    "controller.reinforcement.b_undo_unit",
+    "controller.deployment.x_undo_cursor_active",
+    "PadRouter",
+    "VirtualCursor",
+    "Main"
+  ],
+  "fixture": "ri_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Controller undo during movement-phase reinforcement placement. Regression for the reported bug: with the virtual cursor active (its normal state while placing), pressing X did nothing because VirtualCursor swallowed it as a synthetic right-click. Now X undoes the last placed model regardless of cursor state, and B undoes the entire unit (mouse 'Reset' parity). Models are staged via the controller's own try_place_at (the same call a cursor A-click makes); the undo itself is driven by REAL joypad button events (X=2, B=1) through the live input pipeline.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_BOYZ_F.status", "equals": 7 },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar list = m.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_BOYZ_F\":\n\t\tlist.select(i)\n\t\tlist.item_selected.emit(i)\n\t\treturn true\nreturn false", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.deployment_controller.is_reinforcement_mode", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\nvar models = GameState.get_unit(dc.unit_id).models\nvar candidates = [Vector2(1400,2350), Vector2(1300,2350), Vector2(900,2350), Vector2(1650,1300), Vector2(1650,700), Vector2(100,1300), Vector2(100,900), Vector2(1400,2300), Vector2(700,2350), Vector2(1650,1400), Vector2(500,2350), Vector2(1200,2350)]\nvar placed = 0\nfor c in candidates:\n\tif placed >= 2:\n\t\tbreak\n\tif dc._validate_reinforcement_position(c, models[dc.model_idx], 0.0):\n\t\tdc.try_place_at(c)\n\t\tplaced = dc.get_placed_count()\nreturn dc.get_placed_count()", "equals": 2 },
+    { "act": "screenshot", "label": "01_two_models_placed" },
+
+    { "act": "execute_script", "multiline": true, "script": "InputDeviceManager.claim_pad()\nVirtualCursor.warp_to(Vector2(960,540))\nreturn VirtualCursor.is_cursor_active()", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 2 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 1 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": true },
+    { "act": "screenshot", "label": "02_x_undid_one_model_cursor_still_active" },
+
+    { "act": "simulate_joy_button", "button_index": 2 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 0 },
+    { "act": "screenshot", "label": "03_x_undid_all_models" },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\nvar models = GameState.get_unit(dc.unit_id).models\nvar candidates = [Vector2(1400,2350), Vector2(1300,2350), Vector2(900,2350), Vector2(1650,1300), Vector2(1650,700), Vector2(100,1300), Vector2(100,900), Vector2(1400,2300), Vector2(700,2350), Vector2(1650,1400), Vector2(500,2350), Vector2(1200,2350)]\nvar placed = 0\nfor c in candidates:\n\tif placed >= 2:\n\t\tbreak\n\tif dc._validate_reinforcement_position(c, models[dc.model_idx], 0.0):\n\t\tdc.try_place_at(c)\n\t\tplaced = dc.get_placed_count()\nreturn dc.get_placed_count()", "equals": 2 },
+    { "act": "execute_script", "multiline": true, "script": "InputDeviceManager.claim_pad()\nVirtualCursor.warp_to(Vector2(960,540))\nreturn VirtualCursor.is_cursor_active()", "equals": true },
+    { "act": "screenshot", "label": "04_two_models_replaced" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 0 },
+    { "act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.is_reinforcement_mode", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.unit_id", "equals": "U_BOYZ_F" },
+    { "act": "screenshot", "label": "05_b_undid_entire_unit" }
+  ]
+}
