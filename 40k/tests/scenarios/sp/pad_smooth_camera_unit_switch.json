@@ -1,0 +1,38 @@
+{
+  "id": "pad_smooth_camera_unit_switch",
+  "covers": [
+    "controller.m2.unit_cycling",
+    "controller.smooth_camera_unit_switch",
+    "controller.bumper_only_unit_cycling",
+    "PadRouter",
+    "Main.smooth_center_on_world"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "LB/RB unit switching GLIDES the camera to the newly-selected unit instead of instantly jumping. At normal zoom a bumper press starts a short view_offset tween (Main._cycle_camera_tween) that is still running immediately after the press; once it settles the camera is centered on the new unit's first alive model, and the settled position differs from where the camera started — proving it animated over time rather than hard-cutting. (Model carry / L3 hop still snap instantly; that is covered by the carry scenarios.)",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "main.set(\"view_zoom\", 0.8)" },
+    { "act": "execute_script", "script": "main.update_view_transform()" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) != \"\"", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"ua\", str(main.movement_controller.active_unit_id))" },
+    { "act": "execute_script", "script": "main.set_meta(\"off_a\", main.view_offset)" },
+    { "act": "screenshot", "label": "01_first_unit_framed" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "execute_script", "multiline": true, "script": "var tw = tree.current_scene._cycle_camera_tween\nif tw == null:\n\treturn false\nreturn tw.is_valid() and tw.is_running()", "equals": true },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) != str(InputDeviceManager.get_meta(\"ua\"))", "equals": true },
+
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "script": "var mn = tree.current_scene\nvar uid = str(mn.movement_controller.active_unit_id)\nvar u = GameState.get_unit(uid)\nvar p = null\nfor mdl in u.get(\"models\", []):\n\tif mdl.get(\"alive\", true):\n\t\tvar pos = mdl.get(\"position\", null)\n\t\tif pos is Dictionary and pos.has(\"x\"):\n\t\t\tp = Vector2(float(pos.x), float(pos.y))\n\t\t\tbreak\n\t\telif pos is Vector2:\n\t\t\tp = pos\n\t\t\tbreak\nif p == null:\n\treturn false\nvar vp = mn.get_viewport().get_visible_rect().size\nvar expected = p - vp / (2.0 * mn.view_zoom)\nreturn mn.view_offset.distance_to(expected) < 2.0", "equals": true },
+    { "act": "execute_script", "script": "main.view_offset.distance_to(main.get_meta(\"off_a\"))", "expect_min": 1.0 },
+    { "act": "screenshot", "label": "02_glide_settled_on_new_unit" }
+  ]
+}

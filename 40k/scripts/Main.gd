@@ -6386,7 +6386,7 @@ func fit_view_to_decision(unit_ids: Array) -> bool:
 # T14: zoom + center the camera on a unit's bounding box (all its models).
 # Returns true on success, false if the unit can't be resolved or has no
 # models. Sets last_camera_fit_action = "selection" on success.
-func fit_view_to_selection(unit_id: String) -> bool:
+func fit_view_to_selection(unit_id: String, animate: bool = false) -> bool:
 	if unit_id == "":
 		return false
 	var unit = GameState.get_unit(unit_id)
@@ -6425,11 +6425,19 @@ func fit_view_to_selection(unit_id: String) -> bool:
 	var zy: float = vp_size.y / (box_h + PAD_PX * 2.0)
 	var z: float = min(min(zx, zy), MAX_ZOOM)
 	var center := (min_pt + max_pt) * 0.5
+	last_camera_fit_action = "selection"
+	var target_offset: Vector2 = center - vp_size / (2.0 * z)
+	if animate:
+		# Controller LB/RB reframing from a zoomed-out overview: glide to the
+		# unit's bounding box instead of hard-cutting (the "it jumps the camera
+		# between the units" report). _sync_camera_node_to_view restores the
+		# camera.position/zoom the instant path sets once the glide settles.
+		_run_cycle_camera_tween(target_offset, z)
+		return true
 	camera.position = center
 	camera.zoom = Vector2(z, z)
 	view_zoom = z
-	view_offset = center - vp_size / (2.0 * z)
-	last_camera_fit_action = "selection"
+	view_offset = target_offset
 	update_view_transform()
 	return true
 
@@ -6580,6 +6588,64 @@ func focus_on_deployment_zone(player: int, animate: bool = true) -> void:
 
 func _tween_update_view(_progress: float) -> void:
 	update_view_transform()
+
+# ── LB/RB unit-switch camera glide ──────────────────────────────────────────
+# Controller unit-cycling (PadRouter LB/RB, and the shooting/charge target
+# walk) frames each unit with a short glide instead of a hard cut — the "it
+# jumps the camera between the units" report. Uses the same view_offset /
+# view_zoom + update_view_transform model as the instant pans, driven by a
+# tween so rapid presses smoothly chase the newest unit (each press kills the
+# in-flight glide and restarts from wherever the camera currently is).
+var _cycle_camera_tween: Tween = null
+
+# Duration of the unit-switch glide: long enough to read as motion, short
+# enough to stay responsive when cycling quickly.
+const CYCLE_CAMERA_PAN_TIME := 0.28
+
+# Smoothly pan (keeping the current zoom) so world_pos sits at viewport centre.
+# The pad's LB/RB unit-cycle camera-follow at normal zoom.
+func smooth_center_on_world(world_pos: Vector2) -> void:
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+	var target_offset: Vector2 = world_pos - vp_size / (2.0 * view_zoom)
+	_run_cycle_camera_tween(target_offset, view_zoom)
+
+# Instant camera framing that also cancels any in-flight unit-switch glide.
+# Carry pickup / model-hop paths call this and then project world→screen the
+# SAME frame, so a still-running cycle tween must not overwrite view_offset
+# underneath them.
+func snap_center_on_world(world_pos: Vector2) -> void:
+	if _cycle_camera_tween and _cycle_camera_tween.is_valid():
+		_cycle_camera_tween.kill()
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+	view_offset = world_pos - vp_size / (2.0 * view_zoom)
+	update_view_transform()
+
+# Shared tween driver for the unit-switch glide: kill any prior glide, then
+# animate view_offset (+ view_zoom — unchanged for a plain pan, retargeted by
+# the fit path) to the target, calling update_view_transform every frame. Syncs
+# the Camera2D node to the settled view on completion so it matches the
+# instant-pan end state.
+func _run_cycle_camera_tween(target_offset: Vector2, target_zoom: float) -> void:
+	if _cycle_camera_tween and _cycle_camera_tween.is_valid():
+		_cycle_camera_tween.kill()
+	if view_offset.is_equal_approx(target_offset) and is_equal_approx(view_zoom, target_zoom):
+		return  # already framed — no glide needed
+	_cycle_camera_tween = create_tween()
+	_cycle_camera_tween.set_parallel(true)
+	_cycle_camera_tween.set_ease(Tween.EASE_OUT)
+	_cycle_camera_tween.set_trans(Tween.TRANS_CUBIC)
+	_cycle_camera_tween.tween_property(self, "view_offset", target_offset, CYCLE_CAMERA_PAN_TIME)
+	_cycle_camera_tween.tween_property(self, "view_zoom", target_zoom, CYCLE_CAMERA_PAN_TIME)
+	_cycle_camera_tween.tween_method(_tween_update_view, 0.0, 1.0, CYCLE_CAMERA_PAN_TIME)
+	_cycle_camera_tween.finished.connect(_sync_camera_node_to_view)
+
+# Keep the Camera2D node's position/zoom in step with the view_offset/view_zoom
+# rendering source of truth after a glide settles (the fit path and the direct
+# pans set camera.* themselves; a tweened pan only touches view_*).
+func _sync_camera_node_to_view() -> void:
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+	camera.position = view_offset + vp_size / (2.0 * view_zoom)
+	camera.zoom = Vector2(view_zoom, view_zoom)
 
 # P2-40: Briefly pan camera to a world position, then return after a delay
 func focus_on_position_briefly(world_pos: Vector2, hold_duration: float = 1.5, pan_duration: float = 0.5) -> void:
