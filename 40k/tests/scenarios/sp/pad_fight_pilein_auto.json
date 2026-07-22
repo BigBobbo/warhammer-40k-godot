@@ -1,0 +1,44 @@
+{
+  "id": "pad_fight_pilein_auto",
+  "covers": [
+    "controller.fight.pilein_step_pad",
+    "controller.fight.pilein_dialog_auto_confirm",
+    "PadRouter",
+    "FightController",
+    "PileInDialog"
+  ],
+  "fixture": "stompa_fight_11e",
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Fight phase global Pile-In step on a controller. At phase entry the Pile-In step panel is up; the bumpers focus its action buttons (a Button, not the informational Fight Sequence list). Selecting a unit (Ⓐ) opens the PileInDialog, which is fully pad-operable from its own window_input: Ⓨ runs Auto Pile In (the no-drag optimal move toward the closest enemy — manual per-model drag stays a mouse affordance since the virtual-cursor click can't press-and-hold), and ☰ (Menu) presses Confirm Move to commit the pile-in. A pad hint row spells this out. Validates the previously-broken pile-in is now completable end-to-end on a pad.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_step_panel != null and main.fight_controller.pile_in_step_panel.visible", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"no focus\"\nif f is ItemList:\n\treturn \"MISFIRE: itemlist\"\nreturn \"button:\" + str(f.name)", "equals": "button:EndPileInButton" },
+
+    { "act": "execute_script", "multiline": true, "script": "var fc = tree.current_scene.fight_controller\nvar btn = null\nvar q = [fc.pile_in_step_panel]\nwhile not q.is_empty():\n\tvar n = q.pop_front()\n\tif n is Button and str(n.name) == \"PileIn_U_WARBOSS_B\":\n\t\tbtn = n\n\tfor c in n.get_children():\n\t\tq.append(c)\nif btn == null:\n\treturn \"no button\"\nbtn.grab_focus()\nreturn str(tree.root.gui_get_focus_owner().name)", "equals": "PileIn_U_WARBOSS_B" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"PileInDialog\") != null", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_active", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node_or_null(\"PileInDialog\")\nvar h = d.get_node_or_null(\"Content/PadHintLabel\")\nreturn h != null and h.visible", "equals": true },
+    { "act": "screenshot", "label": "01_pilein_dialog_open" },
+
+    { "act": "simulate_joy_button", "button_index": 3 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"PileInDialog\").model_movements.size()", "expect_min": 1 },
+    { "act": "screenshot", "label": "02_auto_pilein_moved" },
+
+    { "act": "simulate_joy_button", "button_index": 6 },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"PileInDialog\") == null", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_active", "equals": false },
+    { "act": "screenshot", "label": "03_pilein_confirmed" }
+  ]
+}
