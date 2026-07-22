@@ -2832,6 +2832,13 @@ func _post_disembark_ui_update(unit_id: String) -> void:
 
 		_update_selected_unit_display()
 		_update_fall_back_visibility()
+		# 18.04: a tactical disembark lets the unit make a normal OR advance move.
+		# Set up the mode radios with the decision OPEN (the phase left mode_locked
+		# false) so the Advance option is offered on BOTH the mouse (mode radios)
+		# and the pad (the PadActionBar move menu reads radio visibility/enabled).
+		# Without this the radios stay stale/disabled after disembark and neither
+		# surface exposes Advance — the reported controller gap.
+		_reset_mode_selection_for_new_unit(unit_id)
 		emit_signal("ui_update_requested")
 
 		# Find and select the unit in the list
