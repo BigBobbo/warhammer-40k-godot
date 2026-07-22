@@ -2,14 +2,16 @@
   "id": "deep_strike_tight_formation",
   "covers": [
     "controller.reinforcement.formation_placement",
+    "controller.reinforcement.formation_off_board",
     "DeploymentController._validate_formation_position",
-    "DeploymentController.try_place_formation_at"
+    "DeploymentController.try_place_formation_at",
+    "Measurement.model_outside_board"
   ],
   "fixture": "ri_pretrigger",
   "rng_seed": 42,
   "transition_to_phase": 7,
   "disable_ai": true,
-  "description": "Deep Strike + TIGHT formation regression (GH bug): placing a formation from Deep Strike at a spot that is a LEGAL deep-strike position (on the board, >9\" from all enemies) but OUTSIDE the owning player's deployment zone was being falsely rejected with 'Formation would place models outside deployment zone or overlapping'. Root cause: _validate_formation_position only branched on is_infiltrators_mode, so reinforcement placements fell through to the deployment-zone check. This drives the real reinforcement UI path (select reserves unit -> TIGHT formation -> try_place_formation_at) at board-centre no-man's-land (880,1200) and asserts the 5-model formation actually places. Negative case: the next TIGHT group dropped 5.5\" from the enemy Witchseekers is still rejected, proving the >9\" reinforcement gate stays enforced.",
+  "description": "Deep Strike + TIGHT formation regression (GH bug): placing a formation from Deep Strike at a spot that is a LEGAL deep-strike position (on the board, >9\" from all enemies) but OUTSIDE the owning player's deployment zone was being falsely rejected with 'Formation would place models outside deployment zone or overlapping'. Root cause: _validate_formation_position only branched on is_infiltrators_mode, so reinforcement placements fell through to the deployment-zone check. This drives the real reinforcement UI path (select reserves unit -> TIGHT formation -> try_place_formation_at) at board-centre no-man's-land (880,1200) and asserts the 5-model formation actually places. Negative case 1: the next TIGHT group dropped 5.5\" from the enemy Witchseekers is still rejected, proving the >9\" reinforcement gate stays enforced. Negative case 2 (off-board edge guard): a TIGHT group anchored at (115,900) leaves the left model's CENTRE on the board (~x=12) but its 32mm base hanging over the left edge (~x=-13); reinforcement/infiltrator validators only test the centre, so before the edge fix the whole row placed off the table. Asserts the group is rejected (placed count stays 5) — mirrors the single-model try_place_at() board-edge guard.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.0 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -37,6 +39,11 @@
 
     { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\ndc.try_place_formation_at(Vector2(880, 270))\nreturn dc.get_placed_count()", "equals": 5 },
     { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "screenshot", "label": "03_near_enemy_group_still_rejected" }
+    { "act": "screenshot", "label": "03_near_enemy_group_still_rejected" },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\nvar r = dc.calculate_tight_formation(Vector2(115, 900), 5, 32, 0.0, [])\nvar cx = r[\"positions\"][0].x\nreturn cx > 0.0 and (cx - 25.2) < 0.0", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\ndc.try_place_formation_at(Vector2(115, 900))\nreturn dc.get_placed_count()", "equals": 5 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "screenshot", "label": "04_off_board_edge_group_rejected" }
   ]
 }

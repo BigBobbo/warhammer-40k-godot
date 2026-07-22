@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.2",
+			"date": "2026-07-22",
+			"summary": "Deep Strike / Strategic Reserves formations can no longer be placed with a model's base hanging off the table edge. Because Strategic Reserves arrive within 6\" of a board edge, it was possible to drop a Tight/Spread formation right on the edge so the outermost model's base overhung the battlefield — the reinforcement check only looked at each model's centre, not its full base. Formation placement now applies the same whole-base-on-board guard the single-model placement already used.",
+			"changes": [
+				"Placing a reinforcement (Deep Strike / Strategic Reserves) or Infiltrators unit in Tight or Spread formation now rejects the drop if any model's base would extend off the battlefield, with 'Models cannot be placed off the board' — matching the single-model placement rule.",
+				"This closes an edge case where a formation anchored near a board edge could leave the outer models' centres on the table but their bases overhanging it."
+			]
+		},
+		{
 			"version": "0.92.1",
 			"date": "2026-07-22",
 			"summary": "Rapid Ingress now works from the controller, closing two bugs left over from the earlier deep-strike fix. Using the Rapid Ingress stratagem to bring a unit on used to silently do nothing if it was your first placement of the Movement phase (the stratagem spent the CP but no placement UI ever appeared). And, like a normal reserves arrival, starting a Rapid Ingress placement now clears whatever unit you had selected, so the controller can't pop that other unit's Move / Advance / Stay Still menu or confirm its move underneath the placement.",
