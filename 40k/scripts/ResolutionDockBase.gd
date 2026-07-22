@@ -337,6 +337,8 @@ func _on_stage_paused(stage: String, info: Dictionary) -> void:
 		return
 	if stage == "complete":
 		_handle_complete(info)
+		# Pad: focus the now-actionable "Done ✔" button so A finishes the dock.
+		call_deferred("_pad_focus_primary")
 		return
 	current_index = int(info.get("current_index", current_index))
 	_mark_done_below(current_index)
@@ -364,6 +366,9 @@ func _on_stage_paused(stage: String, info: Dictionary) -> void:
 	fast_button.text = "Fast Roll ⏩"
 	_populate_reroll_chips(stage, info)
 	_rebuild_queue()
+	# Pad: focus the primary button so A advances to the next stage (deferred so
+	# the button's enabled/laid-out state settles first).
+	call_deferred("_pad_focus_primary")
 
 func on_saves_pending(target_name: String) -> void:
 	if state == "idle":
@@ -396,6 +401,45 @@ func _on_primary_pressed() -> void:
 			emit_signal("action_requested", {"type": "CONTINUE_TO_SAVES"})
 		_:
 			_primary_pressed_other(state)
+
+# Pad (controller) support: the dock is a right-panel VBoxContainer, not a
+# dialog, so nothing focuses its primary button — a controller player had no
+# way to advance the staged resolution (keyboard uses Space/Enter). When the
+# pad is the active device, focus the primary button each time it becomes
+# actionable so A advances it (and the D-pad reaches the Command Re-roll chips
+# / Fast Roll beside it). No-op on keyboard/mouse — focus is never stolen there.
+func _pad_active() -> bool:
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	return idm != null and idm.has_method("is_pad_active") and idm.is_pad_active()
+
+func _pad_focus_primary() -> void:
+	if not _pad_active():
+		return
+	if is_instance_valid(primary_button) and primary_button.visible and not primary_button.disabled:
+		primary_button.grab_focus()
+
+# Low-rate watchdog (mirrors InputDeviceManager's dialog-focus watcher): the
+# deferred focus above can race the defender's save-allocation overlay closing —
+# the overlay frees its focused button a frame after the dock re-stages the next
+# weapon, leaving focus NULL and the pad stuck on an actionable-but-unfocused
+# "Roll to Wound ▶". Re-grab the primary button ONLY when focus is genuinely
+# lost (null), so deliberate D-pad navigation to the Fast Roll / Command Re-roll
+# chips beside it is never fought. Skipped during awaiting_saves (the overlay
+# owns focus then) and on keyboard/mouse.
+var _pad_refocus_accum: float = 0.0
+const _PAD_REFOCUS_INTERVAL := 0.25
+
+func _process(delta: float) -> void:
+	if state == "idle" or state == "awaiting_saves" or not _pad_active():
+		return
+	_pad_refocus_accum += delta
+	if _pad_refocus_accum < _PAD_REFOCUS_INTERVAL:
+		return
+	_pad_refocus_accum = 0.0
+	if not (is_instance_valid(primary_button) and primary_button.visible and not primary_button.disabled):
+		return
+	if get_viewport().gui_get_focus_owner() == null:
+		primary_button.grab_focus()
 
 # ---------------------------------------------------------------------------
 # Command Re-roll chips
