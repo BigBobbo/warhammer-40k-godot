@@ -2495,6 +2495,45 @@ func _on_reinforcement_confirmed() -> void:
 	refresh_unit_list()
 	update_ui()
 
+# Controller "Undo Unit" (PadRouter B during placement): clear the ENTIRE unit's
+# staged placement. For a movement-phase reinforcement this BACKS OUT to the unit
+# list — the reserve unit returns to Reserves and re-appears under REINFORCEMENTS,
+# so a player who decided not to bring it in right now can pick a different unit
+# or end the phase (rather than being re-dropped into placement of the same unit).
+# Mandatory deployment and scout-reserves keep the mouse "Reset" behaviour
+# (clear + re-begin), since those flows are about placing the unit, not skipping it.
+func pad_undo_unit() -> void:
+	if not (deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing()):
+		return
+	if current_phase == GameStateData.Phase.MOVEMENT and deployment_controller.is_reinforcement_mode:
+		_cancel_reinforcement_to_list()
+	else:
+		_on_reset_pressed()
+
+# Cancel an in-progress movement-phase reinforcement placement and return to the
+# unit list. reset_unit() clears the staged models + previews and restores the
+# unit to IN_RESERVES (it is reinforcement mode), and clears is_placing /
+# is_reinforcement_mode. We then tear down the reinforcement UI the same way
+# _on_reinforcement_confirmed does (exclusion bubbles, confirm signal, selection
+# state) and re-show the movement unit list so the reserve unit is selectable again.
+func _cancel_reinforcement_to_list() -> void:
+	deployment_controller.reset_unit()
+	_hide_deep_strike_exclusion()
+	if deployment_controller.unit_confirmed.is_connected(_on_reinforcement_confirmed):
+		deployment_controller.unit_confirmed.disconnect(_on_reinforcement_confirmed)
+	_selected_unit_for_reserves = ""
+	_reinforcement_placement_type = ""
+	# Coherency warning may have been shown for the partial placement — clear it.
+	if coherency_banner and is_instance_valid(coherency_banner):
+		coherency_banner.visible = false
+	# Return to the movement unit list (the reserve unit re-appears under the
+	# REINFORCEMENTS header, still available to bring in later).
+	unit_card.visible = false
+	unit_list.visible = true
+	if movement_controller and is_instance_valid(movement_controller) and movement_controller.has_method("_refresh_unit_list"):
+		movement_controller._refresh_unit_list()
+	update_ui()
+
 # ISS-067 (11e 24.31) — Scout unit in Strategic Reserves may be set up wholly
 # within its own deployment zone during the Scout phase. Reuses the deployment
 # controller's ghost placement machinery in scout-reserves mode (normal
@@ -5510,12 +5549,14 @@ func _input(event: InputEvent) -> void:
 	# M2: in the shooting phase with an armed shooter + assignments, Start
 	# means "Confirm Targets" instead (PRP §4.3 — context-dependent Menu).
 	if event.is_action_pressed("pad_phase_action"):
-		if current_phase == GameStateData.Phase.MOVEMENT and PadRouter \
+		if (current_phase == GameStateData.Phase.MOVEMENT or current_phase == GameStateData.Phase.CHARGE) \
+				and PadRouter \
 				and PadRouter.has_method("confirm_from_carry") and PadRouter.confirm_from_carry():
-			# A model is in hand (mid-carry): place it and confirm the unit's move
-			# via PadRouter, instead of confirming underneath the live carry and
-			# stranding the still-held cursor. State-checked here (not just
-			# consumed in PadRouter._input) so it works regardless of _input order.
+			# A model is in hand (mid-carry): place it and confirm the unit's
+			# move / charge via PadRouter, instead of confirming underneath the
+			# live carry and stranding the still-held cursor. State-checked here
+			# (not just consumed in PadRouter._input) so it works regardless of
+			# _input order.
 			get_viewport().set_input_as_handled()
 			return
 		if current_phase == GameStateData.Phase.SHOOTING and shooting_controller \

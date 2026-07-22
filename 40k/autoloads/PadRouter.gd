@@ -92,13 +92,39 @@ const HINTS_TARGETS := [
 	["menu", "Confirm Targets"],
 	["b", "Deselect"],
 ]
-const HINTS_CHARGE := [
+# Charge hints are per-stage so the ☰ chip NEVER promises an action Start
+# can't deliver (the old static "Declare / Roll" chip showed even when neither
+# was possible and Start fell through to the End-Phase confirm — the reported
+# "it says declare or roll but it ends the phase" trap).
+const HINTS_CHARGE_SELECT := [
 	["rb", "Cycle Units"],
-	["dpad", "Target ▲ ▼"],
+	["dpad", "Pick Target"],
 	["a", "Toggle Target"],
-	["l3", "Next Model"],
-	["menu", "Declare / Roll"],
 	["x", "Skip Charge"],
+	["y", "Datasheet"],
+	["menu", "End Phase"],
+]
+const HINTS_CHARGE_READY := [
+	["dpad", "Pick Target"],
+	["a", "Toggle Target"],
+	["menu", "Declare Charge"],
+	["x", "Skip Charge"],
+	["y", "Datasheet"],
+]
+const HINTS_CHARGE_ROLL := [
+	["menu", "Roll 2D6"],
+	["x", "Skip Charge"],
+	["y", "Datasheet"],
+]
+# Rolled successfully, models not all in engagement yet (no model in hand):
+# A picks a model up, X bulk-snaps, B undoes the last placed model, Start
+# confirms once every declared target is reached.
+const HINTS_CHARGE_MOVE := [
+	["a", "Grab Model"],
+	["l3", "Next Model"],
+	["x", "Snap to Contact"],
+	["b", "Undo Model"],
+	["menu", "Confirm Charge"],
 	["y", "Datasheet"],
 ]
 const HINTS_DEPLOY := [
@@ -108,6 +134,7 @@ const HINTS_DEPLOY := [
 	["a", "Place Model"],
 	["dpad", "Type / Formation"],
 	["x", "Undo Model"],
+	["b", "Undo Unit"],
 	["y", "Datasheet"],
 	["menu", "Confirm / End"],
 ]
@@ -117,7 +144,8 @@ const HINTS_FOCUS := [
 	["b", "Back To Board"],
 ]
 # Charge carry (one model at a time): the plain set — no per-model advance and
-# no group grab, so neither "X Finish Model" nor "dpad Grab All".
+# no group grab, so neither "X Finish Model" nor "dpad Grab All". Start drops
+# the held model and confirms the charge when every declared target is reached.
 const HINTS_CARRY := [
 	["ls", "Move Model"],
 	["rs", "Precision"],
@@ -126,7 +154,7 @@ const HINTS_CARRY := [
 	["lb", "Rotate ⟲"],
 	["rb", "Rotate ⟳"],
 	["b", "Cancel"],
-	["menu", "Confirm / End"],
+	["menu", "Confirm Charge"],
 ]
 # Movement carry: the plain set plus the multi-step contract — A drops a
 # waypoint (the model KEEPS focus; A again picks it back up to keep going with
@@ -234,6 +262,14 @@ var _pending_advance_carry_unit: String = ""
 
 func is_carrying() -> bool:
 	return carry_active
+
+
+# True while a DeploymentController model-placement session is live (normal
+# deployment, movement-phase reinforcement arrivals, or scout-reserves set-up).
+# VirtualCursor queries this so it leaves the X button for this router — during
+# placement X means "undo the last placed model", not a synthetic right-click.
+func is_placement_active() -> bool:
+	return _deployment_controller_placing() != null
 
 
 func _ready() -> void:
@@ -347,10 +383,10 @@ func _input(event: InputEvent) -> void:
 			if _handle_back():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_UP:
-			if _pad_deploy_row_cycle(-1) or _pad_step_secondary(-1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
+			if _pad_deploy_row_cycle(-1) or _pad_step_secondary(-1) or _charge_dpad_consume() or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_DOWN:
-			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
+			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _charge_dpad_consume() or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_LEFT:
 			# Model-switching lives on L3 (left-stick click — the one free, reliable
@@ -358,9 +394,12 @@ func _input(event: InputEvent) -> void:
 			# forwards them). D-pad ◀ ▶ stays free for menu / option navigation and
 			# never fights the move-mode menu. Deployment option-cycle keeps it;
 			# shooting uses ◀ ▶ to walk the armed shooter's target ring (bumpers stay
-			# on shooter cycling). With a selected unit mid-move, ◀ also grabs every
+			# on shooter cycling); charge steps the ELIGIBLE TARGETS rows so every
+			# D-pad direction lands in the charge flow, matching ▲ ▼ — a ◀/▶ press
+			# must never dump the player into right-panel focus while the hint bar
+			# says "Pick Target". With a selected unit mid-move, ◀ also grabs every
 			# unmoved model (_try_grab_all_remaining), matching ▲ ▼ ▶.
-			if _pad_step_shoot_target(-1) or _pad_deploy_option_cycle(-1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
+			if _pad_step_shoot_target(-1) or _pad_step_charge_target(-1) or _charge_dpad_consume() or _pad_deploy_option_cycle(-1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
 			# _try_open_move_menu before panel focus (matching ▲ ▼): with an
@@ -368,7 +407,7 @@ func _input(event: InputEvent) -> void:
 			# hint bar advertises for "dpad", never strand the player in the
 			# right-panel focus chain — the panel is a mouse surface, and once
 			# focused every following D-pad press walks it instead of the menu.
-			if _pad_step_shoot_target(1) or _pad_deploy_option_cycle(1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
+			if _pad_step_shoot_target(1) or _pad_step_charge_target(1) or _charge_dpad_consume() or _pad_deploy_option_cycle(1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		# Steam Deck back paddles hop between the selected unit's models (Movement
 		# / Charge) — the job D-pad ◀ ▶ used to do. Works at every stage of the
@@ -576,6 +615,14 @@ func _cycle(dir: int) -> void:
 	if mc != null and mc.has_method("pad_is_move_session_locked") and mc.pad_is_move_session_locked():
 		ToastManager.show_warning("Confirm or reset this unit's move before switching")
 		return
+	# Charge: same lock once the charge is committed (declared / rolling /
+	# moving). Cycling would re-fire _on_unit_selected, which resets
+	# awaiting_roll/awaiting_movement locally while the PHASE keeps the pending
+	# charge — leaving a disabled Roll button and no way forward (the reported
+	# "Roll 2D6 is shaded out and Start ends the phase" dead-end).
+	if _charge_session_locked():
+		ToastManager.show_warning("Resolve this charge first — Start rolls / confirms")
+		return
 	_cycle_unit_list(dir)
 
 
@@ -711,6 +758,37 @@ func _pad_step_shoot_target(dir: int) -> bool:
 	return true
 
 
+# Charge: D-pad ◀ ▶ steps the ELIGIBLE TARGETS rows exactly like ▲ ▼ — all
+# four directions land in the charge flow, so no direction can dump the player
+# into panel focus while a target is being picked.
+func _pad_step_charge_target(dir: int) -> bool:
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	var cc := _charge_controller_any()
+	if cc == null or not cc.has_method("pad_step_target"):
+		return false
+	return cc.pad_step_target(dir)
+
+
+# D-pad fall-through while a charge is mid-resolution: target stepping is
+# locked (rows frozen after the declaration), and panel-focus entry would
+# strand the player in the mouse panels — consume the press and say what the
+# pad CAN do instead. Inert (false) outside those locked charge states.
+func _charge_dpad_consume() -> bool:
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	var cc := _charge_controller_any()
+	if cc == null:
+		return false
+	if bool(cc.awaiting_movement):
+		ToastManager.show_toast("Charge rolled — A grabs a model, X snaps to contact, Start confirms")
+		return true
+	if bool(cc.awaiting_roll):
+		ToastManager.show_toast("Charge declared — Start rolls 2D6")
+		return true
+	return false
+
+
 # Charge: A (with the cursor parked) toggles the D-pad-highlighted target row
 # in or out of the declaration — the pad equivalent of Click / Ctrl+Click on
 # the ELIGIBLE TARGETS list.
@@ -827,6 +905,25 @@ func _context_action() -> bool:
 		if _movement_controller() != null:
 			return _finish_model_and_advance()
 		return true
+	# Placement (deployment / reinforcement / scout reserves): X = undo the last
+	# placed model. This is checked BEFORE the cursor-active bail below, because
+	# during placement the virtual cursor is the placing tool and is almost
+	# always active — gating undo on a parked cursor left X a dead button for the
+	# entire placement flow (the reported Deep Strike / reinforcement bug: X did
+	# nothing). VirtualCursor cooperates by NOT consuming X while a placement
+	# session is live (see its JOY_BUTTON_X guard + is_placement_active()), so
+	# the press reaches this router regardless of cursor state. A controller
+	# right-click has no reachable use while placing (model repositioning is a
+	# mouse shift+click affordance), so X is free to mean undo here. Undoing
+	# every model re-enables LB/RB unit switching; undo_last_model emits
+	# models_placed_changed, so Main refreshes the card/buttons itself.
+	var dc = _deployment_controller_placing()
+	if dc != null:
+		if dc.get_placed_count() > 0 and dc.has_method("undo_last_model"):
+			return dc.undo_last_model()
+		# In a placement session but nothing staged yet — swallow X so it can't
+		# fall through to a shooter-skip / stray action in the same frame.
+		return true
 	if VirtualCursor.is_cursor_active():
 		return false  # cursor mode owns X (right-click); VC consumed it anyway
 	var sc = _shooting_controller_in_shooting_phase()
@@ -834,22 +931,18 @@ func _context_action() -> bool:
 		sc._keyboard_skip_unit()
 		target_highlight_id = ""
 		return true
-	# Placement (deployment / reinforcement / scout reserves): X = undo the
-	# last placed model (parked-cursor context action, mirroring the movement
-	# undo below). Undoing every model re-enables LB/RB unit switching.
-	# undo_last_model emits models_placed_changed, so Main refreshes the
-	# card/buttons itself.
-	var dc = _deployment_controller_placing()
-	if dc != null and dc.get_placed_count() > 0 and dc.has_method("undo_last_model"):
-		return dc.undo_last_model()
+	# Charge, moving models into engagement (no model in hand): X = Snap to
+	# Contact — the one-press "place every unmoved model base-to-base with its
+	# nearest declared target" helper, the pad's answer to per-model dragging.
+	# (The placement-undo block above already handled deployment / reinforcement /
+	# scout X-undo before the cursor-active bail, so it is intentionally not
+	# repeated here.)
+	var cc := _charge_controller_any()
+	if cc != null and cc.has_method("pad_snap_to_contact") and cc.pad_snap_to_contact():
+		return true
 	# Charge: X = skip the selected unit's charge (same as the Skip Charge
 	# button; only enabled while no charge move is being resolved).
-	var mc_scene := get_tree().current_scene
-	if mc_scene != null and ("current_phase" in mc_scene) and mc_scene.current_phase == GameStateData.Phase.CHARGE \
-			and ("charge_controller" in mc_scene) and mc_scene.charge_controller != null \
-			and is_instance_valid(mc_scene.charge_controller) \
-			and mc_scene.charge_controller.has_method("pad_skip") \
-			and mc_scene.charge_controller.pad_skip():
+	if cc != null and cc.has_method("pad_skip") and cc.pad_skip():
 		return true
 	# Movement, parked after an A-drop (the multi-step state): X = "this model
 	# is finished" — advance to the unit's next un-placed model. The undo that
@@ -869,6 +962,27 @@ func _handle_back() -> bool:
 	if focused != null:
 		focused.release_focus()
 		did_reset = true
+	# Pad "Undo Unit": with a live placement session (deployment / reinforcement /
+	# scout) and at least one model staged, a clean B (no panel focus to release)
+	# undoes the ENTIRE unit — the pad counterpart to X's per-model undo (the
+	# reported gap: on the pad there was no way to clear a whole unit's placement,
+	# e.g. a Deep Strike unit the player decided not to bring in yet). Checked
+	# BEFORE the cursor-park below so a single B clears the unit even though the
+	# placing cursor is almost always active; gated on placed_count>0 so an empty
+	# placement still just parks the cursor (the reinforcement pad scenario relies
+	# on that). Routed through Main.pad_undo_unit: for a movement-phase
+	# reinforcement it BACKS OUT to the unit list (the reserve unit returns to
+	# Reserves, ready to bring in later or leave), and for mandatory deployment /
+	# scout-reserves it clears + re-begins like the mouse "Reset" button.
+	if not did_reset:
+		var m := get_tree().current_scene
+		var dc := _deployment_controller_placing()
+		if dc != null and dc.get_placed_count() > 0 and m != null and m.has_method("pad_undo_unit"):
+			if VirtualCursor.is_cursor_active():
+				VirtualCursor.park()
+			m.pad_undo_unit()
+			_update_hints()
+			return true
 	if VirtualCursor.is_cursor_active():
 		VirtualCursor.park()
 		did_reset = true
@@ -888,6 +1002,11 @@ func _handle_back() -> bool:
 			and _movement_staged_count(str(mc.active_unit_id)) > 0 \
 			and mc.has_method("_on_undo_model_pressed"):
 		mc._on_undo_model_pressed()
+		return true
+	# Charge, moving models (no model in hand): the same clean-B back-out —
+	# the Undo Last Model button under the charge panel.
+	var cc := _charge_controller_any()
+	if cc != null and cc.has_method("pad_undo_model") and cc.pad_undo_model():
 		return true
 	return false
 
@@ -918,6 +1037,13 @@ func _try_begin_carry() -> bool:
 		GameStateData.Phase.MOVEMENT, GameStateData.Phase.CHARGE:
 			var ctrl = m.movement_controller if m.current_phase == GameStateData.Phase.MOVEMENT else m.charge_controller
 			if ctrl == null or not is_instance_valid(ctrl) or str(ctrl.active_unit_id) == "":
+				return false
+			# Charge models are only draggable while the phase is executing the
+			# charge move (roll made, models heading into engagement). Starting a
+			# carry in the declare/roll stages warped the cursor and held a
+			# synthetic LMB that ChargeController ignores — a junk carry whose
+			# hint bar then promised affordances that did nothing.
+			if m.current_phase == GameStateData.Phase.CHARGE and not bool(ctrl.awaiting_movement):
 				return false
 			var unit_id := str(ctrl.active_unit_id)
 			if unit_id != _carry_unit_id:
@@ -1231,11 +1357,12 @@ func _auto_regrab_after_group_drop() -> void:
 
 
 # Public seam for Main's Start (End-Phase / Confirm) handler: when Start is
-# pressed while a model is in hand, Main routes here instead of confirming
-# directly. Placing the held model first — then confirming once it has staged —
-# avoids clearing the active unit out from under a live carry, which left the
-# synthetic LMB / cursor stranded with no owner. Returns true when it took over
-# the press (a carry was active), so Main knows to stop and consume.
+# pressed while a model is in hand (movement OR charge carry), Main routes here
+# instead of confirming directly. Placing the held model first — then confirming
+# once it has staged — avoids clearing the active unit out from under a live
+# carry, which left the synthetic LMB / cursor stranded with no owner. Returns
+# true when it took over the press (a carry was active), so Main knows to stop
+# and consume.
 func confirm_from_carry() -> bool:
 	if not carry_active:
 		return false
@@ -1253,7 +1380,8 @@ func confirm_from_carry() -> bool:
 # the wait, pad_confirm_move could confirm before the just-placed model registers.
 # A group drop stages through an async pipeline (per-model dispatch + verify /
 # retry), so also wait for that to drain — confirming mid-pipeline would commit
-# a half-staged unit.
+# a half-staged unit. In the charge phase the same seam confirms the charge move
+# (or, when models are still short of engagement, toasts what's left to do).
 func _confirm_move_after_drop() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -1263,6 +1391,10 @@ func _confirm_move_after_drop() -> void:
 	var mc := _movement_controller()
 	if mc != null and mc.has_method("pad_confirm_move"):
 		mc.pad_confirm_move()
+	else:
+		var cc := _charge_controller_any()
+		if cc != null and cc.has_method("pad_primary_action"):
+			cc.pad_primary_action()
 	_update_hints()
 
 
@@ -1368,12 +1500,14 @@ func _hop_model(dir: int) -> bool:
 		# through to another affordance.
 		if group_carry_active:
 			return true
-		# Mid-carry hop (Movement only): put the in-hand model back where it was
-		# picked up — an un-dropped move reverts; a model already dropped with A
-		# keeps its staged spot (the cancel's count-check leaves prior stages
-		# alone) — then hand the player the prev/next model. Charge keeps its
-		# one-model-at-a-time flow.
-		if _movement_controller() == null:
+		# Mid-carry hop (Movement + Charge): put the in-hand model back where it
+		# was picked up — an un-dropped move reverts; a model already dropped
+		# with A keeps its placed spot (movement's cancel count-check leaves
+		# prior stages alone; a charge release at the pickup point fails the
+		# ends-closer validation and reverts) — then hand the player the
+		# prev/next model. The HINTS_CARRY "L3 Swap Model" chip shows in both
+		# phases, so L3 must deliver in both.
+		if _movement_controller() == null and _charge_controller_any() == null:
 			return false
 		var alive_c := _alive_model_count(_carry_unit_id)
 		if alive_c <= 1:
@@ -1399,7 +1533,7 @@ func _hop_model(dir: int) -> bool:
 # then pick up the model now at carry_model_index. 3 frames: _cancel_carry's
 # undo coroutine runs at frame 2, so frame 3 is safely after it — re-arming
 # earlier would make that coroutine bail on its carry_active guard and leave
-# the junk 0" stage in place.
+# the junk 0" stage in place. Serves Movement AND the charge move stage.
 func _swap_carry_to_index() -> void:
 	_cancel_carry()
 	await get_tree().process_frame
@@ -1409,7 +1543,9 @@ func _swap_carry_to_index() -> void:
 		return  # something else re-claimed the pad mid-swap
 	if get_viewport().gui_get_focus_owner() != null:
 		return
-	var mc := _movement_controller()
+	var mc = _movement_controller()
+	if mc == null:
+		mc = _charge_controller_any()
 	if mc == null or str(mc.active_unit_id) == "" or str(mc.active_unit_id) != _carry_unit_id:
 		return
 	# The player is often still deflecting the stick when the paddle clicks,
@@ -1541,8 +1677,9 @@ func _enter_panel_focus() -> bool:
 	# affordance in the hint bar and a stray press must not teleport focus into
 	# the mouse panels, stranding the player out of the carry flow. Deliberate
 	# panel work stays reachable via the virtual cursor; D-pad entry re-arms
-	# the moment the move is confirmed or fully undone.
-	if carry_active or _movement_session_locked():
+	# the moment the move is confirmed or fully undone. The same stand-down
+	# covers a committed charge (declared / rolling / moving into engagement).
+	if carry_active or _movement_session_locked() or _charge_session_locked():
 		return false
 	var m := get_tree().current_scene
 	if m == null:
@@ -1751,9 +1888,20 @@ func _update_hints() -> void:
 		elif _deployment_controller_placing() != null:
 			hints = HINTS_DEPLOY
 		else:
-			var cc = _charge_controller_selecting()
+			var cc = _charge_controller_any()
 			if cc != null:
-				hints = HINTS_CHARGE
+				# Stage-accurate charge hints: the ☰ chip always names exactly
+				# what Start will do in the current state (End Phase / Declare
+				# Charge / Roll 2D6 / Confirm Charge), so the promise can never
+				# diverge from the action again.
+				if bool(cc.awaiting_movement):
+					hints = HINTS_CHARGE_MOVE
+				elif bool(cc.awaiting_roll):
+					hints = HINTS_CHARGE_ROLL
+				elif cc.selected_targets.size() > 0:
+					hints = HINTS_CHARGE_READY
+				else:
+					hints = HINTS_CHARGE_SELECT
 			elif _movement_menu_available():
 				hints = HINTS_MOVE
 			elif _movement_session_locked():
@@ -1812,9 +1960,9 @@ func _movement_menu_available() -> bool:
 	return not mc.pad_menu_options().is_empty()
 
 
-# The ChargeController while the charge phase is live with a unit selected
-# and its charge not yet being moved (declaration / roll stage), else null.
-func _charge_controller_selecting() -> Node:
+# The ChargeController while the charge phase is live with a unit selected —
+# ANY stage (picking targets, awaiting the roll, or moving models), else null.
+func _charge_controller_any() -> Node:
 	var m := get_tree().current_scene
 	if m == null or not ("current_phase" in m) or not ("charge_controller" in m):
 		return null
@@ -1823,6 +1971,23 @@ func _charge_controller_selecting() -> Node:
 	var cc = m.charge_controller
 	if cc == null or not is_instance_valid(cc):
 		return null
-	if str(cc.active_unit_id) == "" or bool(cc.awaiting_movement):
+	if str(cc.active_unit_id) == "":
 		return null
 	return cc
+
+
+# The ChargeController while the charge phase is live with a unit selected
+# and its charge not yet being moved (declaration / roll stage), else null.
+func _charge_controller_selecting() -> Node:
+	var cc := _charge_controller_any()
+	if cc == null or bool(cc.awaiting_movement):
+		return null
+	return cc
+
+
+# True while the selected unit's charge is committed (declared / rolling /
+# moving) — the state where bumper cycling and panel-focus entry stand down,
+# mirroring the movement phase's locked-session guards.
+func _charge_session_locked() -> bool:
+	var cc := _charge_controller_any()
+	return cc != null and cc.has_method("pad_is_charge_locked") and cc.pad_is_charge_locked()

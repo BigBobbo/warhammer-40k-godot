@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.85.2",
+			"version": "0.87.2",
 			"date": "2026-07-22",
 			"summary": "Fixed walls not blocking line of sight (or movement) after loading a save or in a networked game. Terrain walls are stored as exact coordinates, but once terrain had round-tripped through a save file or a network sync those coordinates came back in a form the geometry check couldn't read — so the check errored out and quietly treated the wall as if it wasn't there. Units could see and shoot through walls they shouldn't, and the same walls stopped blocking movement. Now handled in both formats.",
 			"changes": [
@@ -12,7 +12,7 @@
 			]
 		},
 		{
-			"version": "0.85.1",
+			"version": "0.87.1",
 			"date": "2026-07-22",
 			"summary": "Shooting phase is fast again. Entering the Shooting phase and clicking a target used to freeze the game for seconds — worst on big armies with lots of terrain, and on the Steam Deck / itch.io builds. The game was recomputing line-of-sight for every one of your units against every enemy from scratch on entry AND after every single click. That work is now cached per game-state and only recomputed when the board actually changes, plus the line-of-sight and 'who can shoot' checks were made much cheaper.",
 			"changes": [
@@ -22,6 +22,30 @@
 				"The eligible-target scan no longer re-checks a weapon once per model that carries it (a horde unit checked the same weapon 20×), and stops as soon as it knows a unit can shoot something.",
 				"Phase-start autosave is a little lighter — dropped a redundant full copy of the game state during save/load. No change to save-file contents or compatibility.",
 				"No gameplay rules changed: the exact same units are shootable and the same targets are eligible — only the speed is different."
+			]
+		},
+		{
+			"version": "0.87.0",
+			"date": "2026-07-22",
+			"summary": "Undo now works on the controller while placing a Deep Strike / Strategic Reserves unit. Pressing X undoes the last model you placed — previously it did nothing, because the on-screen cursor 'ate' the button — and B is a new control that clears the whole unit and backs you out to the unit list, so you can pick a different unit or decide not to bring this one in right now. This also fixes X-to-undo during normal deployment and Scout reserves.",
+			"changes": [
+				"Fixed: X (Undo Model) did nothing on the controller while placing models, even though the mouse 'Undo' worked. Because the placing cursor is almost always active, the X press was being turned into a harmless right-click instead of undoing. X now undoes the last placed model regardless of the cursor — during deployment, Deep Strike / reinforcement arrivals, and Scout reserves.",
+				"New: B (Undo Unit) during Deep Strike / reinforcement placement clears the ENTIRE unit's placement and backs you out to the unit list — the unit returns to Reserves and re-appears under REINFORCEMENTS, so you can bring in a different unit or end the phase instead of being stuck placing this one. (During mandatory deployment / Scout reserves, B clears the unit and lets you re-place it from scratch.)",
+				"The controller hint bar during placement now lists both 'X Undo Model' and 'B Undo Unit'.",
+				"Safety: B only clears a unit once you've actually placed a model; with nothing placed it keeps its existing job (step back to the board / release panel focus), so it never wipes a placement unexpectedly."
+			]
+		},
+		{
+			"version": "0.86.0",
+			"date": "2026-07-22",
+			"summary": "Charge phase controller overhaul. The Start (☰) button now walks the whole charge forward — Declare, Roll 2D6, then Confirm the charge moves — and can no longer end the phase out from under a charge in progress. The D-pad no longer dumps you into the side panels: all four directions pick targets, and A toggles a target immediately (no need to press ▲ first). The button hints at the bottom always name exactly what Start will do in the current step.",
+			"changes": [
+				"Start (☰) is now stage-aware in the Charge phase: it Declares with targets selected, Rolls 2D6 once declared, and Confirms the charge moves once your models are in engagement range — including while a model is still in hand (it places the model first). It only offers 'End Charge Phase?' when no charge is underway.",
+				"Fixed the dead-end where Roll 2D6 appeared greyed out and Start ended the phase: cycling units (LB/RB) mid-charge silently reset the charge locally while the phase still held it. The bumpers are now locked while a charge is being resolved, with a toast explaining what to do instead.",
+				"D-pad ◀ ▶ now step the ELIGIBLE TARGETS rows just like ▲ ▼, and the D-pad no longer drops you into right-panel / bottom-bar button focus mid-charge — no more 'sometimes it controls the menu, sometimes the bottom of the screen'.",
+				"A now toggles the first target immediately when you haven't stepped the list yet, and no longer 'picks up' a model during the declare/roll steps (which used to strand the cursor holding an invisible drag).",
+				"New controller shortcuts while moving charge models: X = Snap to Contact (places every unmoved model base-to-base with its nearest target), B = Undo Last Model, L3 = swap which model you're carrying (previously dead in the charge carry).",
+				"The bottom hint bar updates live with the charge state — Pick Target / Toggle Target, Declare Charge, Roll 2D6, Grab Model / Snap to Contact / Confirm Charge — so it never promises an action Start can't deliver."
 			]
 		},
 		{

@@ -256,7 +256,16 @@ func _input(event: InputEvent) -> void:
 				# drop + advance to the next un-placed model). A synthetic RMB
 				# under a held model was never useful anyway: rotation is on
 				# LB/RB, and a same-spot RMB tap rotates nothing.
-				if PadRouter.is_carrying():
+				#
+				# The router ALSO owns X during any deployment-controller
+				# placement session (normal deployment / reinforcement / scout
+				# reserves): there X = "undo the last placed model". The cursor
+				# is the placing tool and is almost always active, so consuming
+				# X here as a right-click is exactly what made undo a dead button
+				# on the pad during Deep Strike / reinforcement placement.
+				# Right-click has no controller-reachable use while placing, so
+				# fall through and let PadRouter._context_action handle the undo.
+				if PadRouter.is_carrying() or PadRouter.is_placement_active():
 					return
 				_emit_button(MOUSE_BUTTON_RIGHT, event.pressed)
 				get_viewport().set_input_as_handled()

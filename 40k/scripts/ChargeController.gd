@@ -1309,6 +1309,12 @@ func _update_button_states() -> void:
 	if is_instance_valid(declare_button):
 		print("DEBUG: Declare button disabled:", declare_button.disabled)
 	
+	# Charge state changes land asynchronously (declare/roll/resolve signals), so
+	# the pad hint bar would go stale between presses — every affordance change
+	# funnels through here, so re-render the hints from the new state.
+	if PadRouter and PadRouter.has_method("refresh_hints"):
+		PadRouter.refresh_hints()
+
 	# Update info label with clear step-by-step instructions
 	if is_instance_valid(charge_info_label):
 		if awaiting_movement:
@@ -1460,10 +1466,12 @@ func _sync_selected_targets_from_list() -> void:
 	_update_visuals()
 
 # ============================================================================
-# Pad (controller) support: D-pad ▲ ▼ walks the ELIGIBLE TARGETS rows with a
-# gold cursor tint, A toggles the walked row in/out of the declaration (pad
-# equivalent of Click / Ctrl+Click), Start declares then rolls, X skips.
-# Driven by PadRouter; windowed scenarios assert pad_target_cursor.
+# Pad (controller) support: D-pad ▲ ▼ ◀ ▶ walks the ELIGIBLE TARGETS rows with
+# a gold cursor tint, A toggles the walked row in/out of the declaration (pad
+# equivalent of Click / Ctrl+Click), Start walks the WHOLE flow forward
+# (Declare → Roll → Confirm Charge Moves), X skips / snaps-to-contact, B
+# undoes a placed model. Driven by PadRouter; windowed scenarios assert
+# pad_target_cursor.
 # ============================================================================
 var pad_target_cursor: int = -1
 
@@ -1483,10 +1491,14 @@ func pad_step_target(dir: int) -> bool:
 func pad_toggle_target() -> bool:
 	if active_unit_id == "" or awaiting_roll or awaiting_movement:
 		return false
-	if not is_instance_valid(target_list):
+	if not is_instance_valid(target_list) or target_list.get_item_count() == 0:
 		return false
+	# A pressed before any ▲ ▼ step: act on the FIRST row instead of silently
+	# doing nothing (the "A Toggle Target" hint must be honest from the moment
+	# the unit is selected, without demanding a D-pad press first).
 	if pad_target_cursor < 0 or pad_target_cursor >= target_list.get_item_count():
-		return false
+		pad_target_cursor = 0
+		_update_pad_target_cursor_visual()
 	# Additive toggle, exactly like Ctrl+Click — stepping to another row and
 	# pressing A again builds a multi-charge; A on a selected row removes it.
 	if target_list.is_selected(pad_target_cursor):
@@ -1496,12 +1508,26 @@ func pad_toggle_target() -> bool:
 	_sync_selected_targets_from_list()
 	return true
 
-# Start: walk the charge flow forward — Roll 2D6 once declared, otherwise
-# Declare Charge when the selection allows it. Mirrors the two primary
-# buttons, honoring their disabled state.
+# Start: walk the charge flow forward — Confirm Charge Moves while moving,
+# Roll 2D6 once declared, otherwise Declare Charge when the selection allows
+# it. Mirrors the primary buttons, honoring their disabled state. While a
+# charge is mid-resolution (awaiting_roll / awaiting_movement) the press is
+# ALWAYS consumed — Start must never fall through to "End Charge Phase?" and
+# torch a declared or successfully-rolled charge.
 func pad_primary_action() -> bool:
-	if awaiting_roll and is_instance_valid(roll_button) and not roll_button.disabled:
-		_on_roll_charge_pressed()
+	if awaiting_movement:
+		if is_instance_valid(confirm_button) and confirm_button.visible and not confirm_button.disabled:
+			_on_confirm_charge_moves()
+		elif not models_to_move.is_empty():
+			ToastManager.show_toast("Move models into engagement range — A grabs a model, X snaps to contact")
+		else:
+			ToastManager.show_toast("Charge move not confirmable yet")
+		return true
+	if awaiting_roll:
+		if is_instance_valid(roll_button) and not roll_button.disabled:
+			_on_roll_charge_pressed()
+		else:
+			ToastManager.show_toast("Waiting on the charge roll")
 		return true
 	if is_instance_valid(declare_button) and not declare_button.disabled:
 		_on_declare_charge_pressed()
@@ -1514,6 +1540,32 @@ func pad_skip() -> bool:
 		return false
 	_on_skip_charge_pressed()
 	return true
+
+# X while moving charge models (no model in hand): the Snap to Contact button —
+# places every unmoved model base-to-base with its nearest declared target.
+func pad_snap_to_contact() -> bool:
+	if not awaiting_movement:
+		return false
+	if not is_instance_valid(auto_path_charge_button) or auto_path_charge_button.disabled \
+			or not auto_path_charge_button.visible:
+		return false
+	_on_auto_path_charge()
+	return true
+
+# B while moving charge models (no model in hand): the Undo Last Model button.
+func pad_undo_model() -> bool:
+	if not awaiting_movement or _moved_model_order.is_empty():
+		return false
+	_on_undo_last_charge_model()
+	return true
+
+# True while this unit's charge is committed (declared and rolling, or rolled
+# and moving) — the state where bumper unit-cycling must be locked, because
+# _on_unit_selected would reset awaiting_roll/awaiting_movement locally while
+# the phase still holds the pending charge, stranding the player with a
+# disabled Roll button and no way forward (the reported pad dead-end).
+func pad_is_charge_locked() -> bool:
+	return active_unit_id != "" and (awaiting_roll or awaiting_movement)
 
 func _update_pad_target_cursor_visual() -> void:
 	if not is_instance_valid(target_list):
