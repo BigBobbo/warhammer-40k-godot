@@ -415,6 +415,16 @@ func _try_open_move_menu() -> bool:
 		# the same event that would have parked it) had A activating a menu
 		# chip instead of dropping the model.
 		return false
+	if _deployment_controller_placing() != null:
+		# A live placement session (movement-phase reinforcement arrival)
+		# owns the pad. The arriving unit is being SET UP and cannot move —
+		# and mc.active_unit_id still points at whichever unit was selected
+		# BEFORE the reserve unit, so opening the bar here offered "Move /
+		# Advance / Stay Still" for that stale unit mid-deep-strike (and A on
+		# a chip would silently resolve the STALE unit's move mode). Stand
+		# down: A falls through to _try_begin_carry's cursor-warp and ▲ ▼ to
+		# panel focus (the Confirm button) — deployment-phase behavior.
+		return false
 	if VirtualCursor.is_cursor_active():
 		return false  # cursor mode: A is a click (VirtualCursor consumed it)
 	if get_viewport().gui_get_focus_owner() != null:
