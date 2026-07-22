@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.5",
+			"date": "2026-07-22",
+			"summary": "A unit that disembarks from a transport that hasn't moved yet can now Advance, not just make a Normal move — on both the controller and the mouse. Previously the post-disembark move was silently locked to Normal, so there was no way to Advance a squad you'd just dropped off (18.04: a tactical disembark lets the unit 'make a normal OR advance move').",
+			"changes": [
+				"Movement — after a unit disembarks from a stationary transport, the move-mode choice is now open (Normal / Advance / Remain Still) instead of being forced to Normal. Pick Advance to roll the D6 and move M + Advance as usual.",
+				"Controller — the move menu (Ⓐ / D-pad) that appears after placing your disembarked models now offers Advance alongside Move and Stay Still, matching how you choose Advance for any other move. Previously the controller only showed the Move / Next Model controls with no way to Advance.",
+				"Mouse — the Advance mode radio is now shown and enabled after disembarking (it was greyed out before)."
+			]
+		},
+		{
 			"version": "0.92.4",
 			"date": "2026-07-22",
 			"summary": "Controller fix (follow-up to the secondary-missions pop-up): the end-of-turn 'Discard for CP?' pop-up can now be used with a controller. Previously the D-pad never highlighted anything in that window, so a pad player couldn't discard a secondary mission for +1 CP or choose to end the turn without discarding — the only way past it was the mouse. Now the D-pad moves a visible selector through each mission's 'Discard' button and the 'End Turn Without Discarding' button, A activates the highlighted one, and the controller hint bar shows Navigate / Select / Close.",
