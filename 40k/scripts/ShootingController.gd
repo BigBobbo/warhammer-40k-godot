@@ -831,6 +831,7 @@ func phase_signal_map() -> Dictionary:
 		"ai_shooting_visual": _on_ai_shooting_visual,  # T7-38
 		"sentinel_storm_available": _on_sentinel_storm_available,  # P1-10
 		"throat_slittas_available": _on_throat_slittas_available,  # P1-12
+		"distraction_grot_available": _on_distraction_grot_available,  # audit P0: human defender UI
 	}
 
 func set_phase(phase: BasePhase) -> void:
@@ -3699,6 +3700,53 @@ func _on_sentinel_storm_chosen(unit_id: String, use_ability: bool) -> void:
 		active_shooter_id = ""
 		weapon_assignments.clear()
 		_clear_visuals()
+
+# ============================================================================
+# AUDIT P0: DISTRACTION GROT — DEFENDER'S 5+ INVULN REACTIVE
+# ============================================================================
+
+func _on_distraction_grot_available(unit_id: String, player: int) -> void:
+	"""Show the Distraction Grot prompt to a HUMAN defender. The phase pauses
+	awaiting USE/DECLINE_DISTRACTION_GROT; previously the controller ignored the
+	signal, so a human defender was soft-locked. AIPlayer resolves the AI
+	defender (its own is_ai_player guard), so skip AI here to avoid a
+	double-submit."""
+	print("[ShootingController] Distraction Grot available for %s (defending player %d)" % [unit_id, player])
+
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[ShootingController] Distraction Grot belongs to AI player %d — AIPlayer handles it" % player)
+		return
+
+	# Multiplayer: only the defending seat chooses.
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != player:
+		print("[ShootingController] Distraction Grot is P%d's choice — local seat waits" % player)
+		return
+
+	var dialog = preload("res://dialogs/DistractionGrotDialog.gd").new()
+	dialog.name = "DistractionGrotDialog"
+	dialog.setup(unit_id, player)
+	dialog.distraction_grot_chosen.connect(_on_distraction_grot_chosen)
+	get_tree().root.add_child(dialog)
+	DialogUtils.popup_at_bottom(dialog)
+
+func _on_distraction_grot_chosen(unit_id: String, use_ability: bool) -> void:
+	"""Dispatch the defender's Distraction Grot decision."""
+	if use_ability:
+		print("[ShootingController] Player activates Distraction Grot for %s" % unit_id)
+		emit_signal("shoot_action_requested", {
+			"type": "USE_DISTRACTION_GROT",
+			"actor_unit_id": unit_id
+		})
+		if dice_log_display:
+			dice_log_display.append_text("[b][color=gold]DISTRACTION GROT! 5+ invulnerable save.[/color][/b]\n")
+	else:
+		print("[ShootingController] Player declines Distraction Grot for %s" % unit_id)
+		emit_signal("shoot_action_requested", {
+			"type": "DECLINE_DISTRACTION_GROT",
+			"actor_unit_id": unit_id
+		})
 
 # ============================================================================
 # P1-12: THROAT SLITTAS — MORTAL WOUNDS PROMPT
