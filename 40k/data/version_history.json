@@ -13,6 +13,17 @@
 			]
 		},
 		{
+			"version": "0.84.2",
+			"date": "2026-07-22",
+			"summary": "Controller fix: the 'New Secondary Missions' pop-up (shown when you draw secondaries in the Command phase) can now be used with a controller. Previously the D-pad never highlighted anything in that window, so a pad player could neither read the drawn missions nor spend 1 CP to replace one — the only way past it was the mouse. Now the D-pad moves a visible selector through each 'Replace this mission (1 CP)' button and the Continue button, the highlighted control scrolls into view, A activates it, and the controller hint bar shows Navigate / Select / Close.",
+			"changes": [
+				"The drawn-secondary-missions review pop-up is now fully controller-navigable: D-pad ▲/▼ steps through each Replace button and the Continue button (wrapping around), and the selector is always scrolled into view so you can read every mission.",
+				"Press A on a Replace button to spend 1 CP and swap that mission (it returns to your deck); press A on Continue to accept and close — no mouse required.",
+				"Opening the pop-up now puts the controller selector on the first Replace button (or Continue if you can't replace) instead of an off-screen button, and the on-screen hint bar switches to 'Navigate / Select / Close' while it's open, then back to the normal board hints when it closes.",
+				"Fixed the A button firing a stray click instead of pressing the highlighted button when the virtual cursor happened to be active as the pop-up opened."
+			]
+		},
+		{
 			"version": "0.84.1",
 			"date": "2026-07-22",
 			"summary": "Fixed Deep Strike / Strategic Reserves formation placement. Dropping a unit in Tight (or Spread) formation from reinforcements at a spot that is perfectly legal — on the board and more than 9\" from every enemy — was wrongly rejected with 'Formation would place models outside deployment zone or overlapping'. Formations arriving from reserves are now validated against the reinforcement rules (the whole battlefield, >9\" from enemies) instead of your deployment zone, so they place wherever a single-model reinforcement already could.",
