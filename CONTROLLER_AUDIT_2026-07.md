@@ -15,6 +15,43 @@ where there are **gaps, mismatches, irregularities, or improvement areas.**
 
 ---
 
+## 0. Remediation status (living tracker)
+
+Fixes are being worked through in priority order, **one merged PR per item**, each
+validated against the running game with a new windowed scenario under
+`40k/tests/scenarios/sp/` (dialogs are screenshot-confirmed). Update this list as
+items land so any session can resume by reading it + `git log`.
+
+**Workflow for each item** (so a fresh session can pick up):
+1. `git fetch origin main && git checkout -B claude/game-controller-audit-ni0mip origin/main` (re-verify the item is still live — `main` moves fast).
+2. Fix, following the proven recipe where it fits: a phase emits a `*_available` / `*_required` signal or gates on a `USE/DECLINE_*` action; the controller connects it in `set_phase` / `phase_signal_map` and shows a dialog for the local human (skip AI — `AIPlayer.is_ai_player(player)` — and non-owning MP seats to avoid a double-submit); the dialog dispatches the action.
+3. Add a windowed scenario (model on an existing dialog scenario, e.g. `fight_moment_shackle_ui.json`); run `bash 40k/tests/run_scenarios.sh tests/scenarios/sp/<id>.json`; spot-check regressions on 1–2 neighbouring scenarios.
+4. Bump `40k/data/version_history.json` for player-facing changes; commit; rebase onto `origin/main`; push `--force-with-lease`; open PR; merge.
+
+Environment (first run in a fresh container): `export PATH="$HOME/bin:$PATH"; godot --headless --path 40k --import`. NDJSON bridge client at (session scratchpad)`/mcp.py`.
+
+### ✅ Done (merged)
+- **P0 #1 — Command battle-shock UI renders** — PR #742 (`command_battleshock_ui_renders.json`, 13/13).
+- **P0 #2 — Fight Moment Shackle dialog** — PR #745 (`fight_moment_shackle_ui.json`, 14/14 + screenshot).
+- **P0 #3 — Shooting Distraction Grot dialog** — PR #746 (`shooting_distraction_grot_ui.json`, 12/12 + screenshot).
+- **P0 #4 — Redeployment soft-lock (End always valid; optional phase)** — PR #747 (`redeployment_optional_end.json`, 10/10).
+- **P1 — Movement Bomb Squigs dialog** — PR #748 (`movement_bomb_squigs_ui.json`, 13/13 + screenshot).
+
+### ⏳ Open (priority order)
+- **P1 — AI-only abilities still needing a human control** (same dialog recipe for the reactive ones):
+  - Movement: Deff From Above, Grot Oiler, Mekaniak, Sawbonez, Quicksilver, Da Jump (placement), Surge.
+  - Shooting: Ammo Runt, Pulsa Rokkit, Shooty Power Trip, Swift as the Eagle, Wazblasta; Ritual / Terraform actions.
+  - Command: Combat Doctrine, Martial Mastery/Ka'tah select, Issue Taktik, Da Kaptin, Psychic Veil, Unleash the Lions.
+  - Fight: per-model weapon choice, split attacks across targets, `SELECT_MELEE_WEAPON` (deeper UX).
+  - Charge: 11e declare-then-pick-targets-after-roll (deeper UX).
+  - Deployment: Castellan's Mark redeploy; "Place in Reserves" (verify vs. Formations before acting).
+- **P2 — mismatches** (§4): dead buttons (`VOLUNTARY_DISCARD`, Movement "Embark"), stratagem-panel phase bypass, Fight dead emitters (`CONFIRM_ATTACKS` / `CLEAR_ALL_ASSIGNMENTS`), Charge overwatch/tank-shock missing `player`, Deployment Infiltrator 9" vs 8", `SWITCH_PLAYER` orphan, "Shoot All Remaining" skips allocation, Scout ">9"" vs 8".
+- **P3 — irregularities / dead code** (§4): keybinding collisions, `get_available_actions()` not driving UI, inconsistent End-Phase ownership, dead dialogs/panels, discoverability.
+
+> Note: `374_panoptispex_ignores_cover` fails on clean `main` (pre-existing, unrelated) — not introduced by any fix above.
+
+---
+
 ## 1. How input flows (architecture primer)
 
 | Layer | Role |
