@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.87.0",
+			"date": "2026-07-22",
+			"summary": "Undo now works on the controller while placing a Deep Strike / Strategic Reserves unit. Pressing X undoes the last model you placed — previously it did nothing, because the on-screen cursor 'ate' the button — and B is a new control that clears the whole unit and backs you out to the unit list, so you can pick a different unit or decide not to bring this one in right now. This also fixes X-to-undo during normal deployment and Scout reserves.",
+			"changes": [
+				"Fixed: X (Undo Model) did nothing on the controller while placing models, even though the mouse 'Undo' worked. Because the placing cursor is almost always active, the X press was being turned into a harmless right-click instead of undoing. X now undoes the last placed model regardless of the cursor — during deployment, Deep Strike / reinforcement arrivals, and Scout reserves.",
+				"New: B (Undo Unit) during Deep Strike / reinforcement placement clears the ENTIRE unit's placement and backs you out to the unit list — the unit returns to Reserves and re-appears under REINFORCEMENTS, so you can bring in a different unit or end the phase instead of being stuck placing this one. (During mandatory deployment / Scout reserves, B clears the unit and lets you re-place it from scratch.)",
+				"The controller hint bar during placement now lists both 'X Undo Model' and 'B Undo Unit'.",
+				"Safety: B only clears a unit once you've actually placed a model; with nothing placed it keeps its existing job (step back to the board / release panel focus), so it never wipes a placement unexpectedly."
+			]
+		},
+		{
 			"version": "0.86.0",
 			"date": "2026-07-22",
 			"summary": "Charge phase controller overhaul. The Start (☰) button now walks the whole charge forward — Declare, Roll 2D6, then Confirm the charge moves — and can no longer end the phase out from under a charge in progress. The D-pad no longer dumps you into the side panels: all four directions pick targets, and A toggles a target immediately (no need to press ▲ first). The button hints at the bottom always name exactly what Start will do in the current step.",
