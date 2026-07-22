@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.6",
+			"date": "2026-07-22",
+			"summary": "Shooting phase controller fix: your first shot now uses the weapon you actually picked. On a controller, stepping ▲▼ to a weapon and pressing A to assign a target used to quietly throw away your weapon choice on the very first shot of the phase and fall back to the first gun in the list — often too short-ranged to reach the target, so nothing happened. The weapon you chose is now kept, and any assignment that can't legally happen (out of range / no line of sight) now tells you on-screen instead of doing nothing.",
+			"changes": [
+				"Controller: the first target assignment after entering the Shooting phase now keeps the weapon you stepped to with ▲▼. Previously the phase and the panel were briefly out of sync on entry, and the first A-press rebuilt the weapon list and reverted to the first weapon — usually a short-range gun that couldn't reach your target, so the shot silently did nothing and you had to press A a second time.",
+				"When a weapon can't be assigned to a target because it's out of range or has no line of sight, you now get an on-screen message ('<weapon> can't fire on <target> (range / line of sight)') instead of a silent no-op. This shows for mouse and controller alike.",
+				"No change to how assignments work once a shooter is fully selected — this only fixes the first assignment of the phase and the missing feedback."
+			]
+		},
+		{
 			"version": "0.92.5",
 			"date": "2026-07-22",
 			"summary": "A unit that disembarks from a transport that hasn't moved yet can now Advance, not just make a Normal move — on both the controller and the mouse. Previously the post-disembark move was silently locked to Normal, so there was no way to Advance a squad you'd just dropped off (18.04: a tactical disembark lets the unit 'make a normal OR advance move').",
