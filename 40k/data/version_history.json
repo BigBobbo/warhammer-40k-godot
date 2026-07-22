@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.15",
+			"date": "2026-07-22",
+			"summary": "Orks can now fire the Pulsa Rokkit by hand. When an eligible unit is about to shoot, a dialog lets you Fire it (+1 Strength and +1 AP on its ranged weapons this phase) or Decline — previously nothing responded to this ability, so the Shooting phase could stall for both players.",
+			"changes": [
+				"Shooting phase: added the Pulsa Rokkit prompt. A human gets a Fire / Decline dialog; the AI now auto-fires it. Previously neither the controller nor the AI listened, so it blocked the phase awaiting a decision that never came."
+			]
+		},
+		{
 			"version": "0.92.14",
 			"date": "2026-07-22",
 			"summary": "Orks can now use Shooty Power Trip by hand. When an eligible Warboss unit is about to shoot, a dialog lets you Activate it (roll a D6 for a bonus) or Decline — previously nothing responded to this ability, so the Shooting phase could stall for both players.",
