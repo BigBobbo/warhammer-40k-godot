@@ -624,6 +624,8 @@ func set_phase(phase: BasePhase) -> void:
 			phase.counter_offensive_opportunity.connect(_on_counter_offensive_opportunity)
 		if phase.has_signal("katah_stance_required") and not phase.katah_stance_required.is_connected(_on_katah_stance_required):
 			phase.katah_stance_required.connect(_on_katah_stance_required)
+		if phase.has_signal("moment_shackle_required") and not phase.moment_shackle_required.is_connected(_on_moment_shackle_required):
+			phase.moment_shackle_required.connect(_on_moment_shackle_required)
 		if phase.has_signal("dread_foe_resolved") and not phase.dread_foe_resolved.is_connected(_on_dread_foe_resolved):
 			phase.dread_foe_resolved.connect(_on_dread_foe_resolved)
 		# P0-58: Connect saves_required signal for interactive melee wound allocation
@@ -2074,6 +2076,56 @@ func _on_katah_stance_selected(unit_id: String, stance: String, player: int) -> 
 		else:
 			stance_display = "Rendax (Lethal Hits)"
 		dice_log_display.append_text("[color=gold]MARTIAL KA'TAH: %s assumes %s stance[/color]\n" % [unit_name, stance_display])
+
+func _on_moment_shackle_required(unit_id: String, player: int) -> void:
+	"""Show the Blade Champion's Moment Shackle choice at the start of the Fight
+	phase. AI resolves it via get_available_actions(), so this only drives the
+	human dialog (previously missing — the phase soft-locked a human here)."""
+	print("[FightController] Moment Shackle choice required for %s (player %d)" % [unit_id, player])
+
+	# AI player: it submits USE/DECLINE_MOMENT_SHACKLE from get_available_actions().
+	# Do not also pop a dialog (that would double-submit).
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[FightController] Moment Shackle belongs to AI player %d — no dialog" % player)
+		return
+
+	# Multiplayer: only the owning seat chooses.
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != player:
+		print("[FightController] Moment Shackle is P%d's choice — local seat waits" % player)
+		return
+
+	var dialog_script = load("res://dialogs/MomentShackleDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load MomentShackleDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.name = "MomentShackleDialog"
+	dialog.setup(unit_id, player)
+	dialog.moment_shackle_chosen.connect(_on_moment_shackle_chosen)
+	get_tree().root.add_child(dialog)
+	DialogUtils.popup_at_bottom(dialog)
+	print("[FightController] Moment Shackle dialog shown for %s" % unit_id)
+
+func _on_moment_shackle_chosen(unit_id: String, choice: String, player: int) -> void:
+	"""Dispatch the Moment Shackle decision from the dialog."""
+	print("[FightController] Moment Shackle chosen: %s for %s" % [choice, unit_id])
+	if choice == "decline":
+		emit_signal("fight_action_requested", {
+			"type": "DECLINE_MOMENT_SHACKLE",
+			"unit_id": unit_id,
+			"player": player
+		})
+	else:
+		emit_signal("fight_action_requested", {
+			"type": "USE_MOMENT_SHACKLE",
+			"unit_id": unit_id,
+			"choice": choice,
+			"player": player
+		})
 
 func _on_dread_foe_resolved(unit_id: String, result: Dictionary) -> void:
 	"""P1-17: Display Dread Foe mortal wounds result in dice log"""

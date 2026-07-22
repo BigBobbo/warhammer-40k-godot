@@ -1,0 +1,65 @@
+{
+  "id": "fight_moment_shackle_ui",
+  "covers": [
+    "scripts.FightController.moment_shackle_ui",
+    "phases.FightPhase.moment_shackle",
+    "audit_P0.fight_moment_shackle"
+  ],
+  "fixture": "audit_fights_last",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "AUDIT P0: the Blade Champion's Moment Shackle choice must have a human UI. Regression net for the fix adding moment_shackle_required signal + MomentShackleDialog. The phase used to block on USE/DECLINE_MOMENT_SHACKLE with no signal and no controller dialog, so a human was soft-locked. Here the active player's unit is given the Moment Shackle ability and queued; the dialog must appear, and choosing an effect must resolve (flag set, pending cleared, dialog gone).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.state[\"units\"][\"U_BOYZ_FL\"]\nvar meta = u.get(\"meta\", {})\nvar abilities = meta.get(\"abilities\", [])\nabilities.append({\"name\": \"Moment Shackle\"})\nmeta[\"abilities\"] = abilities\nu[\"meta\"] = meta\nif not u.has(\"flags\"):\n\tu[\"flags\"] = {}\nu[\"flags\"][\"moment_shackle_used\"] = false\nvar fp = PhaseManager.get_current_phase_instance()\nfp._moment_shackle_pending_units = [\"U_BOYZ_FL\"]\nfp._maybe_offer_moment_shackle()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 8 },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"MomentShackleDialog\")\nreturn d != null and d.visible",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"MomentShackleDialog\")\nif d == null:\n\treturn \"NO_DIALOG\"\nvar btns = d.find_children(\"*\", \"Button\", true, false)\nvar has_attacks = false\nvar has_decline = false\nfor b in btns:\n\tvar t = String(b.text)\n\tif t.contains(\"12 Attacks\"):\n\t\thas_attacks = true\n\tif t.contains(\"Decline\"):\n\t\thas_decline = true\nreturn has_attacks and has_decline",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "screenshot", "label": "moment_shackle_dialog_shown" },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"MomentShackleDialog\")\nif d == null:\n\treturn \"NO_DIALOG\"\nd._on_attacks_pressed()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 8 },
+    {
+      "act": "execute_script",
+      "script": "return GameState.state[\"units\"][\"U_BOYZ_FL\"].get(\"flags\", {}).get(\"moment_shackle_used\", false)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return PhaseManager.get_current_phase_instance()._moment_shackle_pending_units.size()",
+      "multiline": true,
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node_or_null(\"MomentShackleDialog\") == null",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "screenshot", "label": "after_moment_shackle_resolved" }
+  ]
+}
