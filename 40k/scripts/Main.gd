@@ -5525,6 +5525,17 @@ func _is_text_input_focused() -> bool:
 	return focused is LineEdit or focused is TextEdit
 
 
+## True while a full-screen modal that owns the pad is visible — any member of
+## the "pad_native_nav_modal" group (SaveLoadDialog, AllocationGroupOverlay,
+## SettingsMenu). Guards the pad Start (End-Phase) handler so it can't fire
+## underneath an open modal. The View button (pause cascade) stays live.
+func _pad_native_nav_modal_open() -> bool:
+	for n in get_tree().get_nodes_in_group("pad_native_nav_modal"):
+		if is_instance_valid(n) and n is CanvasItem and n.is_visible_in_tree():
+			return true
+	return false
+
+
 # M1 controller support: Menu/Start presses the phase action button behind a
 # confirmation, reusing whatever the button currently does/says.
 var _pad_phase_confirm: ConfirmationDialog = null
@@ -5549,6 +5560,17 @@ func _input(event: InputEvent) -> void:
 	# M2: in the shooting phase with an armed shooter + assignments, Start
 	# means "Confirm Targets" instead (PRP §4.3 — context-dependent Menu).
 	if event.is_action_pressed("pad_phase_action"):
+		# A full-screen modal in the "pad_native_nav_modal" group (Save/Load
+		# dialog, the 11e Allocate Attacks / roll-saves overlay, the settings
+		# menu) owns the pad until dismissed — Start must NOT confirm targets /
+		# end the phase / pop the phase-confirm underneath it. Those modals
+		# drive themselves with native ui_* focus navigation and their own
+		# buttons; Start has no meaning while one is up. (The View button —
+		# pad_menu_action — is deliberately NOT guarded so the pause cascade
+		# stays reachable as the escape hatch.)
+		if _pad_native_nav_modal_open():
+			get_viewport().set_input_as_handled()
+			return
 		if (current_phase == GameStateData.Phase.MOVEMENT or current_phase == GameStateData.Phase.CHARGE) \
 				and PadRouter \
 				and PadRouter.has_method("confirm_from_carry") and PadRouter.confirm_from_carry():

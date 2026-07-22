@@ -1,0 +1,46 @@
+{
+  "id": "pad_settings_modal_focus",
+  "covers": [
+    "controller.modal.settings_focus_containment",
+    "scripts.SettingsMenu.pad_confine",
+    "scripts.Main.pad_start_guard_modal"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "CONTROLLER MODAL FOCUS (SettingsMenu): the in-game pause/settings menu is a full-screen plain-Control overlay that previously let the D-pad walk focus OUT to the HUD controls drawn behind it (verified live on main: from the focused Close button, all 4 directional neighbours pointed OUTSIDE the menu). With the pad active it now (1) confines directional focus to itself — every focusable Control outside its subtree is demoted, so find_valid_focus_neighbor in every direction stays inside the menu or is null — and (2) Main ignores the pad Start (End-Phase) press while it is open, so the phase can't end underneath it. The View button (pad_menu_action) still toggles it closed, and closing restores the demoted controls' focus.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+    { "act": "execute_script", "script": "InputDeviceManager.claim_pad()" },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "execute_script", "script": "int(GameState.state.meta.phase)", "equals": 6 },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"phase_before\", int(GameState.state.meta.phase))" },
+
+    { "act": "simulate_joy_button", "button_index": 4 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "is_instance_valid(main._settings_menu)", "equals": true },
+    { "act": "execute_script", "script": "main._settings_menu.is_in_group(\"pad_native_nav_modal\")", "equals": true },
+    { "act": "execute_script", "script": "main._settings_menu._pad_focus_confined", "equals": true },
+    { "act": "screenshot", "label": "01_settings_open_pad" },
+
+    { "act": "execute_script", "multiline": true, "script": "var sm = tree.current_scene._settings_menu\nvar f = tree.root.gui_get_focus_owner()\nreturn f != null and sm.is_ancestor_of(f)", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var sm = tree.current_scene._settings_menu\nvar f = tree.root.gui_get_focus_owner()\nvar sides = [SIDE_TOP, SIDE_BOTTOM, SIDE_LEFT, SIDE_RIGHT]\nvar escapes = 0\nfor s in sides:\n\tvar n = f.find_valid_focus_neighbor(s)\n\tif n != null and not sm.is_ancestor_of(n):\n\t\tescapes += 1\nreturn escapes", "equals": 0 },
+
+    { "act": "simulate_joy_button", "button_index": 6 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "is_instance_valid(main._settings_menu)", "equals": true },
+    { "act": "execute_script", "script": "int(GameState.state.meta.phase) == InputDeviceManager.get_meta(\"phase_before\")", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var c = tree.current_scene._pad_phase_confirm\nreturn c == null or not is_instance_valid(c) or not c.visible", "equals": true },
+    { "act": "screenshot", "label": "02_start_did_not_end_phase" },
+
+    { "act": "execute_script", "multiline": true, "script": "var sm = tree.current_scene._settings_menu\nvar cnt = 0\nfor c in sm._pad_confined_controls:\n\tif is_instance_valid(c) and c.focus_mode == Control.FOCUS_NONE:\n\t\tcnt += 1\nreturn cnt > 0", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 4 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "is_instance_valid(main._settings_menu)", "equals": false },
+    { "act": "execute_script", "multiline": true, "script": "var n = 0\nfor b in tree.current_scene.find_children(\"*\", \"Button\", true, false):\n\tif b.is_visible_in_tree() and b.focus_mode == Control.FOCUS_ALL:\n\t\tn += 1\nreturn n > 0", "equals": true },
+    { "act": "screenshot", "label": "03_settings_closed_focus_restored" }
+  ]
+}
