@@ -864,6 +864,12 @@ func _connect_phase_stratagem_signals() -> void:
 		phase.shooty_power_trip_available.connect(callable_spt)
 		_connected_phase_signals.append({"signal_name": "shooty_power_trip_available", "callable": callable_spt})
 		print("AIPlayer: Connected to ShootingPhase.shooty_power_trip_available")
+	# audit P1: Pulsa Rokkit had no listener either — auto-resolve for the AI.
+	if phase.has_signal("pulsa_rokkit_available"):
+		var callable_pr = Callable(self, "_on_pulsa_rokkit_available")
+		phase.pulsa_rokkit_available.connect(callable_pr)
+		_connected_phase_signals.append({"signal_name": "pulsa_rokkit_available", "callable": callable_pr})
+		print("AIPlayer: Connected to ShootingPhase.pulsa_rokkit_available")
 
 	# --- MovementPhase signals ---
 	if phase.has_signal("fire_overwatch_opportunity"):
@@ -1040,6 +1046,20 @@ func _on_shooty_power_trip_available(unit_id: String, player: int) -> void:
 		"actor_unit_id": unit_id,
 		"player": player,
 		"_ai_description": "AI activates Shooty Power Trip (free D6 bonus)"
+	}
+	_submit_reactive_action(player, decision)
+
+func _on_pulsa_rokkit_available(unit_id: String, player: int) -> void:
+	"""audit P1: the AI auto-fires Pulsa Rokkit (free once-per-battle +1 S/+1 AP
+	on ranged weapons). Without a listener the phase blocked awaiting a decision."""
+	if not is_ai_player(player):
+		return
+	print("AIPlayer: Pulsa Rokkit available for AI player %d, unit %s — auto-firing" % [player, unit_id])
+	var decision = {
+		"type": "USE_PULSA_ROKKIT",
+		"actor_unit_id": unit_id,
+		"player": player,
+		"_ai_description": "AI fires Pulsa Rokkit (+1 S / +1 AP ranged)"
 	}
 	_submit_reactive_action(player, decision)
 

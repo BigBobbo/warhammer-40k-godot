@@ -1,0 +1,57 @@
+{
+  "id": "shooting_pulsa_rokkit_ui",
+  "covers": [
+    "scripts.ShootingController.pulsa_rokkit_ui",
+    "phases.ShootingPhase.pulsa_rokkit",
+    "audit_P1.shooting_pulsa_rokkit"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "AUDIT P1: the Orks' Pulsa Rokkit reactive must have a human UI. The phase set awaiting_pulsa_rokkit and emitted pulsa_rokkit_available, but neither the controller NOR AIPlayer listened — so it blocked both players. Here the prompt is raised for a human-owned Ork unit; the dialog must appear with Fire/Decline, and declining must clear the pending state.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    {
+      "act": "execute_script",
+      "script": "var fp = PhaseManager.get_current_phase_instance()\nfp.awaiting_pulsa_rokkit = true\nfp.pulsa_rokkit_pending_unit = \"U_BOYZ_E\"\nfp.emit_signal(\"pulsa_rokkit_available\", \"U_BOYZ_E\", 2)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 8 },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"PulsaRokkitDialog\")\nreturn d != null and d.visible",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"PulsaRokkitDialog\")\nif d == null:\n\treturn \"NO_DIALOG\"\nvar btns = d.find_children(\"*\", \"Button\", true, false)\nvar has_use = false\nvar has_decline = false\nfor b in btns:\n\tvar t = String(b.text)\n\tif t.contains(\"Pulsa Rokkit\"):\n\t\thas_use = true\n\tif t.contains(\"Decline\"):\n\t\thas_decline = true\nreturn has_use and has_decline",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "screenshot", "label": "pulsa_rokkit_dialog_shown" },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"PulsaRokkitDialog\")\nif d == null:\n\treturn \"NO_DIALOG\"\nd._on_decline_pressed()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 8 },
+    {
+      "act": "execute_script",
+      "script": "return PhaseManager.get_current_phase_instance().awaiting_pulsa_rokkit",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node_or_null(\"PulsaRokkitDialog\") == null",
+      "multiline": true,
+      "equals": true
+    }
+  ]
+}
