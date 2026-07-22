@@ -635,7 +635,14 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 		var validate_rot = formation_rotations[i] if i < formation_rotations.size() else 0.0
 		if not _validate_formation_position(pos, model, zone, validate_rot):
 			all_valid = false
-			error_msg = "Formation would place models outside deployment zone or overlapping"
+			# _validate_formation_position already surfaced the specific reason
+			# (e.g. ">9\" from enemy models") via its own toast; the fallback text
+			# must not claim "deployment zone" in reinforcement/infiltrator modes
+			# where placement is not zone-constrained.
+			if is_reinforcement_mode or is_infiltrators_mode:
+				error_msg = "Formation placement is not legal here"
+			else:
+				error_msg = "Formation would place models outside deployment zone or overlapping"
 			break
 
 	if not all_valid:
@@ -2319,7 +2326,19 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 
 func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: PackedVector2Array, model_rotation: float = 0.0) -> bool:
 	"""Validate a single position in a formation"""
-	if is_infiltrators_mode:
+	if is_reinforcement_mode:
+		# Reinforcement (Deep Strike / Strategic Reserves): reinforcements arrive
+		# across the whole battlefield, NOT the owning player's deployment zone,
+		# so validate against the reinforcement rules (>9" from enemies, on the
+		# board, Strategic-Reserves board-edge, Omni-scramblers) instead of the
+		# zone check. Mirrors the single-model path in try_place_at()/_process();
+		# without this branch a formation dropped in a legal Deep Strike spot
+		# would be falsely rejected as "outside deployment zone".
+		if not _validate_reinforcement_position(pos, model_data, model_rotation):
+			return false
+		if _overlaps_with_existing_models_shape(pos, model_data, model_rotation):
+			return false
+	elif is_infiltrators_mode:
 		# In Infiltrators mode, use Infiltrators validation instead of zone check
 		if not _validate_infiltrators_position(pos, model_data, model_rotation):
 			return false
