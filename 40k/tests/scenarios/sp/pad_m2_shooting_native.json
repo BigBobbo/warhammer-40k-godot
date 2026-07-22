@@ -5,7 +5,7 @@
   "transition_to_phase": 8,
   "disable_ai": true,
   "rng_seed": 42,
-  "description": "M2 gate: a full shooting activation with ZERO virtual-cursor use. RB cycles to an eligible shooter (camera pans to it; bumpers ALWAYS cycle the acting unit per the bumper-only rule), D-pad ▶ walks the eligible-target ring (camera pans to the highlighted target), A assigns the target to the current weapon, Start confirms targets (context-dependent Menu), and the staged dice resolution is walked with A on watcher-focused dialog buttons until the shooter is marked has_shot. Since the cycle ring follows PHASE eligibility (every unit that can still shoot — engaged vehicles and no-target units included, matching Movement), the fixed RB presses may park on a shooter whose weapons are all disabled; before the target walk, the scenario cycles on (same _keyboard_cycle_units path a bumper press drives) until the armed shooter has an assignable weapon and a target.",
+  "description": "M2 gate: a full shooting activation with ZERO virtual-cursor use. RB cycles to an eligible shooter (camera pans to it; bumpers ALWAYS cycle the acting unit per the bumper-only rule — the target highlight AUTO-ARMS on the ring's FIRST entry via sync_shoot_target_highlight, it is never cycled by bumpers), D-pad ▶ walks the eligible-target ring (gold reticle + camera pan on the highlighted target), A assigns the target to the current weapon, Start confirms targets (context-dependent Menu), and the staged dice resolution is walked with A on watcher-focused dialog buttons until the shooter is marked has_shot. Since the cycle ring follows PHASE eligibility (every unit that can still shoot — engaged vehicles and no-target units included, matching Movement), the fixed RB presses may park on a shooter whose weapons are all disabled; before the target walk, the scenario cycles on (same _keyboard_cycle_units path a bumper press drives) until the armed shooter has an assignable weapon and a target.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 8 },
@@ -18,7 +18,7 @@
 
     { "act": "simulate_joy_button", "button_index": 10 },
     { "act": "wait_seconds", "seconds": 0.4 },
-    { "act": "execute_script", "script": "PadRouter.target_highlight_id", "equals": "" },
+    { "act": "execute_script", "multiline": true, "script": "var sc = tree.current_scene.shooting_controller\nif sc.eligible_targets.is_empty():\n\treturn str(PadRouter.target_highlight_id) == \"\"\nvar ring = sc.eligible_targets.keys()\nring.sort()\nreturn str(PadRouter.target_highlight_id) == str(ring[0])", "equals": true },
     { "act": "execute_script", "script": "str(main.shooting_controller.active_shooter_id) != \"\"", "equals": true },
     { "act": "simulate_joy_button", "button_index": 9 },
     { "act": "wait_seconds", "seconds": 0.4 },

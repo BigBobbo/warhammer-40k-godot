@@ -99,6 +99,10 @@ var target_engagement_visuals: Array = []  # Engagement range circles around cha
 var charge_line_visual: Line2D
 var range_visual: Node2D
 var target_highlights: Node2D
+# Pad target reticle: gold brackets on the D-pad-stepped target row's unit
+# (shared visual language with the shooting phase — see PadTargetReticle.gd).
+const PadTargetReticleScript = preload("res://scripts/PadTargetReticle.gd")
+var pad_target_reticle: Node2D
 
 # T7-58: Charge arrow visuals - animated arrows from charger to targets
 var charge_arrow_visuals: Array = []  # Array of ChargeArrowVisual instances
@@ -153,6 +157,9 @@ func _exit_tree() -> void:
 		range_visual.queue_free()
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
+	if pad_target_reticle and is_instance_valid(pad_target_reticle):
+		pad_target_reticle.queue_free()
+		pad_target_reticle = null
 	_clear_charge_arrow_visuals()  # T7-58
 	_clear_charge_trajectory_preview()  # P3-127
 	_clear_movement_visuals()
@@ -772,6 +779,15 @@ func _create_charge_visuals() -> void:
 	target_highlights.name = "ChargeTargetHighlights"
 	board_root.add_child(target_highlights)
 
+	# Pad target reticle — same gold "the unit your next A applies to" brackets
+	# the shooting phase draws, here marking the D-pad ▲ ▼-stepped ELIGIBLE
+	# TARGETS row on the board (the gold list-row tint alone never told the
+	# player WHERE that unit actually stands).
+	pad_target_reticle = PadTargetReticleScript.new()
+	pad_target_reticle.name = "PadTargetReticle"
+	board_root.add_child(pad_target_reticle)
+	pad_target_reticle.clear()
+
 	# P3-127: Create charge trajectory preview
 	charge_trajectory_preview = ChargeTrajectoryPreview.new()
 	board_root.add_child(charge_trajectory_preview)
@@ -1379,8 +1395,15 @@ func _refresh_target_list() -> void:
 		var item_index = target_list.get_item_count() - 1
 		target_list.set_item_metadata(item_index, target_id)
 		print("DEBUG: Added target item ", item_index, ": '", display_text, "' with metadata: ", target_id)
-	
+
 	print("DEBUG: Target list now has ", target_list.get_item_count(), " items")
+
+	# Pad: bracket the first target row immediately (mirrors the shooting
+	# phase's auto-armed reticle) so ▲ ▼ / A always have a visible subject —
+	# the first press should MOVE the cursor, not conjure it.
+	if InputDeviceManager.is_pad_active() and target_list.get_item_count() > 0:
+		pad_target_cursor = 0
+		_update_pad_target_cursor_visual()
 
 func _on_target_list_gui_input(event: InputEvent) -> void:
 	# Own the LEFT-click selection so multi-target charge works on every platform.
@@ -1474,6 +1497,29 @@ func _sync_selected_targets_from_list() -> void:
 # pad_target_cursor.
 # ============================================================================
 var pad_target_cursor: int = -1
+
+# The unit id of the row the pad target cursor sits on ("" when unset).
+# PadRouter camera-follows this after a ▲ ▼ step, mirroring the shooting
+# phase's ◀ ▶ target walk — a stepped target can sit off-screen (12" is most
+# of a screen at combat zoom) and a bracket the player can't see is no better
+# than no bracket.
+func pad_current_target_id() -> String:
+	if not is_instance_valid(target_list):
+		return ""
+	if pad_target_cursor < 0 or pad_target_cursor >= target_list.get_item_count():
+		return ""
+	return str(target_list.get_item_metadata(pad_target_cursor))
+
+# Device-switch seam: arm/clear the pad target cursor + board reticle for the
+# active input device (PadRouter calls this when the device changes). Picking
+# the pad up mid-charge brackets the first row; the mouse taking over clears
+# the reticle via _refresh_pad_target_reticle's own device guard.
+func pad_sync_target_cursor() -> void:
+	if InputDeviceManager.is_pad_active() and is_instance_valid(target_list) \
+			and target_list.get_item_count() > 0 and pad_target_cursor < 0 \
+			and active_unit_id != "" and not awaiting_roll and not awaiting_movement:
+		pad_target_cursor = 0
+	_update_pad_target_cursor_visual()
 
 func pad_step_target(dir: int) -> bool:
 	if active_unit_id == "" or awaiting_roll or awaiting_movement:
@@ -1575,6 +1621,41 @@ func _update_pad_target_cursor_visual() -> void:
 			target_list.set_item_custom_bg_color(i, Color(0.94, 0.78, 0.31, 0.25))
 		else:
 			target_list.set_item_custom_bg_color(i, Color(0, 0, 0, 0))
+	_refresh_pad_target_reticle()
+
+# Board-side half of the pad target cursor: gold reticle brackets on the
+# stepped row's unit (same visual language as the shooting phase's D-pad ◀ ▶
+# target ring — the list-row tint alone never showed WHERE the unit stands).
+# Self-guarding: clears whenever the pad cursor has no live subject (no unit,
+# rows locked after declaring, cursor unset, or the mouse is driving).
+func _refresh_pad_target_reticle() -> void:
+	if pad_target_reticle == null or not is_instance_valid(pad_target_reticle):
+		return
+	if active_unit_id == "" or awaiting_roll or awaiting_movement \
+			or not is_instance_valid(target_list) \
+			or pad_target_cursor < 0 or pad_target_cursor >= target_list.get_item_count() \
+			or not InputDeviceManager.is_pad_active():
+		pad_target_reticle.clear()
+		return
+	var target_id := str(target_list.get_item_metadata(pad_target_cursor))
+	var unit = GameState.get_unit(target_id)
+	if unit.is_empty():
+		pad_target_reticle.clear()
+		return
+	var marks: Array = []
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var pos = _get_model_position(model)
+		if pos == Vector2.ZERO:
+			continue
+		marks.append({
+			"pos": pos,
+			"radius_px": Measurement.base_radius_px(model.get("base_mm", 32)) + 4.0,
+		})
+	var unit_name = str(unit.get("meta", {}).get("display_name", unit.get("meta", {}).get("name", target_id)))
+	var banner := "▶ TARGET %d/%d: %s" % [pad_target_cursor + 1, target_list.get_item_count(), unit_name]
+	pad_target_reticle.show_for_marks(marks, banner)
 
 func _update_target_hint_label() -> void:
 	# Prominent, DYNAMIC teaching copy for the ELIGIBLE TARGETS list. The whole
@@ -1666,6 +1747,9 @@ func _update_visuals() -> void:
 	_clear_charge_arrow_visuals()  # T7-58: Clear old arrows
 	_clear_charge_trajectory_preview()  # P3-127: Clear old trajectories
 	_clear_charge_range_circle()  # T-092: Clear 12" range overlay
+	# Pad reticle re-evaluates on every state change (declare/roll lock the
+	# rows → it clears itself; deselect → cleared via the active_unit guard).
+	_refresh_pad_target_reticle()
 
 	if active_unit_id == "":
 		return
@@ -3109,6 +3193,9 @@ func _on_declare_charge_pressed() -> void:
 	# with the next _refresh_target_list (unit re-select / next charge).
 	_set_target_list_locked(true)
 	_clear_charge_trajectory_preview()  # P3-127: Clear trajectory once charge is declared
+	# Rows locked → the pad's "next A applies to this row" contract is over;
+	# the reticle's own awaiting_roll guard clears it.
+	_refresh_pad_target_reticle()
 	_update_button_states()
 
 func _set_target_list_locked(locked: bool) -> void:

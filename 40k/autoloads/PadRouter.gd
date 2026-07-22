@@ -234,6 +234,22 @@ const HINTS_MOVE_LOCKED := [
 	["b", "Undo Model"],
 	["y", "Datasheet"],
 ]
+# Fight phase, board context (fighter selection + the global Pile In /
+# Consolidate steps): the bumpers cycle the panel's action buttons (fighter /
+# unit picks + End), D-pad enters/navigates that panel, A commits the focused
+# button. The interactive pile-in / consolidate model moves use the virtual
+# cursor (left stick + A), same as any board drag. The attack-assignment dialog
+# carries its own on-dialog hint row (▲▼ Weapon · ◀▶ Target · Ⓐ Assign · ☰
+# Fight!), so no separate board set is needed while it is open.
+const HINTS_FIGHT := [
+	["rb", "Cycle Units"],
+	["dpad", "Navigate Panel"],
+	["a", "Select"],
+	["ls", "Move Models"],
+	["y", "Datasheet"],
+	["menu", "End Phase"],
+	["view", "Pause Menu"],
+]
 
 # The target currently highlighted by LB/RB in shooting TARGET_SELECT mode
 # (empty when none). Windowed scenarios assert this.
@@ -290,6 +306,17 @@ func _on_device_changed(mode: int) -> void:
 	# only the HUD panel subtrees release.
 	if pad:
 		_release_panel_focus()
+	# Shooting: the gold target reticle exists for the pad only — arm it the
+	# moment the pad takes over mid-phase, drop it (and the highlight) when the
+	# mouse does; sync_shoot_target_highlight branches on the active device.
+	sync_shoot_target_highlight()
+	# Charge: same contract for the ▲ ▼ target-row cursor and its reticle.
+	var m := get_tree().current_scene
+	if m != null and ("current_phase" in m) and m.current_phase == GameStateData.Phase.CHARGE \
+			and ("charge_controller" in m) and m.charge_controller != null \
+			and is_instance_valid(m.charge_controller) \
+			and m.charge_controller.has_method("pad_sync_target_cursor"):
+		m.charge_controller.pad_sync_target_cursor()
 	_update_hints()
 
 
@@ -580,6 +607,19 @@ func _reopen_move_menu() -> void:
 # ============================================================================
 
 func _cycle(dir: int) -> void:
+	# Fight phase: the bumpers cycle keyboard focus among the ACTION BUTTONS of
+	# the visible fight-panel section (fighter picks, pile-in / consolidate unit
+	# picks + their End button) and A commits the focused one — the "pick a
+	# unit" bumper meaning, adapted to the fight phase's button-based selection.
+	# Crucially this does NOT drive the informational FIGHT SEQUENCE ItemList,
+	# whose generic bumper-cycle used to misfire SELECT_FIGHTER on the wrong
+	# unit. Handled before the panel-focus release below so a second press
+	# advances from the currently-focused button instead of restarting at 0.
+	var fc := _fight_controller()
+	if fc != null:
+		if fc.has_method("pad_cycle_fight_buttons"):
+			fc.pad_cycle_fight_buttons(dir)
+		return
 	# Bumpers are a BOARD action: cycling while a side-panel control holds
 	# focus (mouse-click residue, or deliberate D-pad panel work) releases
 	# that focus first, so the pad lands back in the unit flow. Without this,
@@ -597,7 +637,11 @@ func _cycle(dir: int) -> void:
 		# Targets are the armed shooter's sub-menu now: D-pad ◀ ▶, next to the
 		# weapon rows on ▲ ▼ (mirrors charge's target stepping).
 		sc._keyboard_cycle_units(dir < 0)  # reuses the Tab / Shift+Tab path
-		target_highlight_id = ""
+		# The selection flow above already re-armed the highlight for the NEW
+		# shooter (sync_shoot_target_highlight runs at the arming tail) — the
+		# old blanket reset here wiped it and left ◀ ▶ / A subject-less until
+		# the first D-pad press. Re-sync instead of blanking.
+		sync_shoot_target_highlight()
 		if str(sc.active_shooter_id) != "":
 			_center_camera_on_unit(str(sc.active_shooter_id))
 		return
@@ -631,6 +675,8 @@ func _cycle_target(sc: Node, dir: int) -> void:
 	ring.sort()
 	if ring.is_empty():
 		target_highlight_id = ""
+		if sc.has_method("pad_clear_target_reticle"):
+			sc.pad_clear_target_reticle()
 		return
 	# Entering TARGET_SELECT claims the pad: release any panel focus (the
 	# shooter-cycling path focuses the unit list) so A means "assign", not
@@ -641,7 +687,39 @@ func _cycle_target(sc: Node, dir: int) -> void:
 	var idx := ring.find(target_highlight_id)
 	idx = wrapi(idx + dir, 0, ring.size()) if idx != -1 else (0 if dir > 0 else ring.size() - 1)
 	target_highlight_id = str(ring[idx])
+	# Gold reticle brackets + "TARGET n/m" banner on the board — the camera pan
+	# alone was invisible whenever the targets sat close together, which read
+	# as "◀ ▶ does nothing" (the 2026-07 controller-targeting report).
+	if sc.has_method("pad_show_target_reticle"):
+		sc.pad_show_target_reticle(target_highlight_id)
 	_center_camera_on_unit(target_highlight_id)
+
+
+# (Re)arm the shooting target highlight for the pad: keeps a still-valid
+# highlight, otherwise lands on the first entry of the sorted target ring, and
+# draws the gold reticle either way. Called by ShootingController at every
+# shooter-arming tail (select / cycle / resync) and on device switch, so a pad
+# player ALWAYS has a bracketed subject for ◀ ▶ / A the moment a shooter is
+# armed. KBM players never get the reticle (mouse hover/click needs no cursor);
+# their highlight id is blanked so a later A can't fire at a stale target.
+func sync_shoot_target_highlight() -> void:
+	var sc = _shooting_controller_in_shooting_phase()
+	if sc == null or str(sc.active_shooter_id) == "" or sc.eligible_targets.is_empty():
+		target_highlight_id = ""
+		if sc != null and sc.has_method("pad_clear_target_reticle"):
+			sc.pad_clear_target_reticle()
+		return
+	if not InputDeviceManager.is_pad_active():
+		target_highlight_id = ""
+		if sc.has_method("pad_clear_target_reticle"):
+			sc.pad_clear_target_reticle()
+		return
+	if not sc.eligible_targets.has(target_highlight_id):
+		var ring: Array = sc.eligible_targets.keys()
+		ring.sort()
+		target_highlight_id = str(ring[0])
+	if sc.has_method("pad_show_target_reticle"):
+		sc.pad_show_target_reticle(target_highlight_id)
 
 
 func _cycle_unit_list(dir: int) -> void:
@@ -736,7 +814,14 @@ func _pad_step_secondary(dir: int) -> bool:
 		GameStateData.Phase.CHARGE:
 			var cc = m.charge_controller if ("charge_controller" in m) else null
 			if cc != null and is_instance_valid(cc) and cc.has_method("pad_step_target"):
-				return cc.pad_step_target(dir)
+				if cc.pad_step_target(dir):
+					# Camera-follow the stepped row's unit, mirroring the
+					# shooting phase's ◀ ▶ target walk — a charge target can
+					# sit off-screen and an invisible bracket teaches nothing.
+					if cc.has_method("pad_current_target_id") and str(cc.pad_current_target_id()) != "":
+						_center_camera_on_unit(str(cc.pad_current_target_id()))
+					return true
+				return false
 		GameStateData.Phase.SHOOTING:
 			var sc = _shooting_controller_in_shooting_phase()
 			if sc != null and sc.has_method("pad_step_weapon"):
@@ -880,12 +965,24 @@ func _assign_highlighted_target() -> bool:
 			"type": "SELECT_SHOOTER",
 			"actor_unit_id": str(sc.active_shooter_id)
 		})
-	# The click path requires a selected weapon row; select the first one if
-	# the player hasn't focused any (same default the mouse flow nudges you to).
+	# The click path requires a selected weapon row; select the first USABLE one
+	# if the player hasn't focused any (same default the mouse flow nudges you
+	# to). Disabled rows — engaged non-pistols, post-advance non-assault, an 11e
+	# shooting type's weapon_allowed — are unselectable, and TreeItem.select()
+	# on one silently does nothing, which used to make A a silent no-op.
 	if sc.weapon_tree != null and sc.weapon_tree.get_selected() == null:
 		var root: TreeItem = sc.weapon_tree.get_root()
-		if root != null and root.get_first_child() != null:
-			root.get_first_child().select(0)
+		if root != null:
+			var child: TreeItem = root.get_first_child()
+			while child != null and not child.is_selectable(0):
+				child = child.get_next()
+			if child != null:
+				child.select(0)
+	if sc.weapon_tree != null and sc.weapon_tree.get_selected() == null:
+		# Every weapon row is disabled (e.g. engaged with no pistols): consume
+		# the press WITH feedback — a silent A reads as "the pad is broken".
+		ToastManager.show_warning("No usable weapon for this target — X skips the unit")
+		return true
 	sc._select_target_for_current_weapon(target_highlight_id)
 	return true
 
@@ -1848,6 +1945,40 @@ func _center_camera_on_world(world_pos: Vector2) -> void:
 	m.update_view_transform()
 
 
+# Frame `world_pos` at a chosen vertical screen fraction (0 = top, 0.5 = center)
+# instead of dead-center. The fight attack reticle uses this to lift the
+# bracketed target into the clear top strip above the bottom-anchored
+# AttackAssignmentDialog, which otherwise occludes a centered target.
+func _center_camera_on_world_biased(world_pos: Vector2, frac_y: float) -> void:
+	var m := get_tree().current_scene
+	if m == null or not ("view_offset" in m) or not m.has_method("update_view_transform"):
+		return
+	var vp: Vector2 = m.get_viewport().get_visible_rect().size
+	var zoom: float = m.view_zoom if "view_zoom" in m else 1.0
+	m.view_offset = world_pos - Vector2(vp.x * 0.5, vp.y * frac_y) / zoom
+	m.update_view_transform()
+
+
+# Frame `unit_id` in the UPPER portion of the viewport (pad-only), so a
+# bottom-anchored dialog can't hide it. Used by the fight attack reticle.
+func frame_unit_upper_if_pad(unit_id: String) -> void:
+	if unit_id == "" or not InputDeviceManager.is_pad_active():
+		return
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var pos = model.get("position", null)
+		if pos is Dictionary and pos.has("x"):
+			_center_camera_on_world_biased(Vector2(float(pos.x), float(pos.y)), 0.22)
+			return
+		elif pos is Vector2:
+			_center_camera_on_world_biased(pos, 0.22)
+			return
+
+
 func _shooting_controller_in_shooting_phase() -> Node:
 	var m := get_tree().current_scene
 	if m == null or not ("current_phase" in m) or not ("shooting_controller" in m):
@@ -1866,6 +1997,20 @@ func _shooting_controller_in_shooting_phase() -> Node:
 # stands down — and stops driving the hints — while such a modal is open.
 func refresh_hints() -> void:
 	_update_hints()
+
+
+# The FightController while the Fight phase is live, else null. Used by the
+# bumper button-cycle and the fight hint sets so each reads the same authority.
+func _fight_controller() -> Node:
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m) or not ("fight_controller" in m):
+		return null
+	if m.current_phase != GameStateData.Phase.FIGHT:
+		return null
+	var fc = m.fight_controller
+	if fc == null or not is_instance_valid(fc):
+		return null
+	return fc
 
 
 func _update_hints() -> void:
@@ -1909,6 +2054,12 @@ func _update_hints() -> void:
 				# (A re-picks the dropped model, X advances); all placed = the
 				# locked state waiting on Start.
 				hints = HINTS_MOVE_STAGED if _movement_has_unplaced_models() else HINTS_MOVE_LOCKED
+			elif _fight_controller() != null:
+				# Fight board context (fighter selection / pile-in / consolidate).
+				# The attack dialog carries its own on-dialog hint row while open;
+				# its focus lives in the modal's own viewport, so the main-viewport
+				# focus check above stays false and this set still shows behind it.
+				hints = HINTS_FIGHT
 	PadHintBar.set_hints(hints)
 
 

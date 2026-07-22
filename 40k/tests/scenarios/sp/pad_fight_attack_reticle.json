@@ -1,0 +1,66 @@
+{
+  "id": "pad_fight_attack_reticle",
+  "covers": [
+    "controller.fight.attack_dialog_pad_nav",
+    "controller.fight.target_reticle",
+    "controller.fight.weapon_target_step",
+    "controller.fight.assign_and_fight",
+    "PadRouter",
+    "PadTargetReticle",
+    "FightController",
+    "AttackAssignmentDialog"
+  ],
+  "fixture": "stompa_fight_11e",
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Fight phase controller attack assignment — the melee twin of the shooting-phase target fix. With a fighter's AttackAssignmentDialog open and TWO eligible melee targets, the pad drives it exactly like the shooting phase: the current target wears the gold PadTargetReticle (brackets + '▶ TARGET n/m: NAME' banner), auto-armed on the first target and framed into the clear strip above the bottom-anchored dialog. D-pad ◀ ▶ walks the target list (the reticle + banner follow), ▲ ▼ steps the weapon list, Ⓐ adds the assignment, and ☰ (Menu) resolves the fight. The dialog is opened directly with two real targets so the ◀ ▶ walk is deterministic (the fixture's live engagement offers only one).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "script": "InputDeviceManager.claim_pad()" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var fc = tree.current_scene.fight_controller\nvar targets = {\n\t\"U_TELEMON_HEAVY_DREADNOUGHT_I\": {\"name\": GameState.get_unit_display_name(\"U_TELEMON_HEAVY_DREADNOUGHT_I\"), \"unit_name\": GameState.get_unit_display_name(\"U_TELEMON_HEAVY_DREADNOUGHT_I\")},\n\t\"U_CUSTODIAN_GUARD_B\": {\"name\": GameState.get_unit_display_name(\"U_CUSTODIAN_GUARD_B\"), \"unit_name\": GameState.get_unit_display_name(\"U_CUSTODIAN_GUARD_B\")}\n}\nfc.current_fighter_id = \"U_WARBOSS_B\"\nfc.current_fighter_owner = 2\nfc._on_attack_assignment_required(\"U_WARBOSS_B\", targets)\nreturn \"opening\"", "equals": "opening" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\") != null", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller.pad_target_reticle.is_showing()", "equals": true },
+    { "act": "execute_script", "script": "str(main.fight_controller.pad_target_reticle.banner_text).find(\"TARGET 1/2\") != -1", "equals": true },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\").target_list.item_count", "equals": 2 },
+    { "act": "screenshot", "label": "01_dialog_open_reticle_target1" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\").target_list.get_selected_items()[0]", "equals": 1 },
+    { "act": "execute_script", "script": "str(main.fight_controller.pad_target_reticle.banner_text).find(\"TARGET 2/2\") != -1", "equals": true },
+    { "act": "execute_script", "script": "str(main.fight_controller.pad_target_reticle.banner_text).find(\"Custodian Guard\") != -1", "equals": true },
+    { "act": "screenshot", "label": "02_dpad_right_target2" },
+
+    { "act": "simulate_joy_button", "button_index": 13 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\").target_list.get_selected_items()[0]", "equals": 0 },
+    { "act": "execute_script", "script": "str(main.fight_controller.pad_target_reticle.banner_text).find(\"TARGET 1/2\") != -1", "equals": true },
+
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"w0\", tree.root.get_node_or_null(\"AttackAssignmentDialog\").weapon_list.get_selected_items()[0])" },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\").weapon_list.get_selected_items()[0] != int(InputDeviceManager.get_meta(\"w0\"))", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\").weapon_list.get_selected_items()[0] == int(InputDeviceManager.get_meta(\"w0\"))", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\").assignments.size()", "equals": 1 },
+    { "act": "execute_script", "script": "str(tree.root.get_node_or_null(\"AttackAssignmentDialog\").assignments[0].get(\"target\", \"\"))", "equals": "U_TELEMON_HEAVY_DREADNOUGHT_I" },
+    { "act": "screenshot", "label": "03_assigned_via_A" },
+
+    { "act": "simulate_joy_button", "button_index": 6 },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\") == null", "equals": true },
+    { "act": "screenshot", "label": "04_menu_fight_confirmed" }
+  ]
+}

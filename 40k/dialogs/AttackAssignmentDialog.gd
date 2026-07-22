@@ -8,6 +8,11 @@ signal attacks_confirmed(assignments: Array)
 # requested, so this only fires on unforeseen paths — but without it the
 # dialog is un-completable (nothing to assign) and the game self-locks.
 signal skip_fight_requested(unit_id: String)
+# Pad (controller): emitted with the unit_id of the target_list row the D-pad
+# ◀ ▶ cursor now sits on, so the FightController can bracket it on the board
+# with the shared gold reticle. Also fires once on open (auto-arm) when the pad
+# is the active device.
+signal pad_target_focus_changed(target_id: String)
 
 var unit_id: String = ""
 var eligible_targets: Dictionary = {}
@@ -19,6 +24,7 @@ var assignments_display: RichTextLabel = null
 var extra_attacks_weapons: Array = []  # T3-3: Track Extra Attacks weapons for auto-inclusion
 var extra_attacks_target_list: ItemList = null  # T3-3: Target selector for Extra Attacks weapons
 var all_to_target_button: Button = null  # T5-UX5: "All to Target" shortcut button
+var _pad_hint_label: Label = null  # Controller hint row (shown only when a pad is active)
 
 func setup(fighter_id: String, targets: Dictionary, phase) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -252,9 +258,142 @@ func _build_ui() -> void:
 	assignments_display.name = "AssignmentsDisplay"
 	container.add_child(assignments_display)
 
+	# Pad (controller) hint row — the melee twin of the shooting phase's target
+	# ring, spelled out for a controller. Shown only when the pad is the active
+	# device; a mouse player never sees it. See _pad_handle_input.
+	_pad_hint_label = Label.new()
+	_pad_hint_label.name = "PadHintLabel"
+	_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   Ⓐ Assign   ·   ☰ Fight!   ·   Ⓑ Skip"
+	_pad_hint_label.add_theme_font_size_override("font_size", 12)
+	_pad_hint_label.modulate = Color(1, 1, 1, 0.75)
+	_pad_hint_label.visible = InputDeviceManager.is_pad_active()
+	container.add_child(_pad_hint_label)
+
 	add_child(container)
 
 	confirmed.connect(_on_confirmed)
+
+	# Pad: the ItemLists are driven by the D-pad through window_input (below), so
+	# demote them out of the focus chain — otherwise the dialog watcher / native
+	# ui_up-down would fight our stepping. Buttons keep focus for A-fallthrough.
+	for lst in [weapon_list, target_list, extra_attacks_target_list]:
+		if lst != null:
+			lst.focus_mode = Control.FOCUS_CLICK
+	window_input.connect(_pad_handle_input)
+	# Auto-arm the board reticle on the first shown frame when a pad is active,
+	# so ◀ ▶ / A have a visible target from the very first press.
+	about_to_popup.connect(_pad_arm_on_popup)
+
+
+# Pad: arm the reticle for the initially-selected target (index 0) when the
+# dialog pops with a pad active. Deferred a frame so the dialog is on-screen and
+# the FightController's connection is live.
+func _pad_arm_on_popup() -> void:
+	if _pad_hint_label != null:
+		_pad_hint_label.visible = InputDeviceManager.is_pad_active()
+	if not InputDeviceManager.is_pad_active():
+		return
+	call_deferred("_pad_emit_current_target")
+
+
+func _pad_emit_current_target() -> void:
+	var tid := _pad_current_target_id()
+	if tid != "":
+		pad_target_focus_changed.emit(tid)
+
+
+func _pad_current_target_id() -> String:
+	if target_list == null or target_list.item_count == 0:
+		return ""
+	var sel := target_list.get_selected_items()
+	var idx: int = sel[0] if not sel.is_empty() else 0
+	return str(target_list.get_item_metadata(idx))
+
+
+# Pad navigation for the whole attack dialog, handled on the dialog's own
+# window_input so it never fights PadRouter (an exclusive AcceptDialog is its
+# own viewport). Mirrors the shooting phase's controller mapping exactly:
+#   ▲ ▼   step the weapon list   (one melee weapon per model — 11e)
+#   ◀ ▶   step the target list   (updates the board reticle via the signal)
+#   Ⓐ     Add Assignment          (assign the selected weapon → target)
+#   ☰      Fight!                  (confirm + resolve — the phase-action button)
+#   Ⓑ     Skip / cancel           (ends the activation when a Skip button exists)
+func _pad_handle_input(event: InputEvent) -> void:
+	if not (event is InputEventJoypadButton) or not event.pressed:
+		return
+	match event.button_index:
+		JOY_BUTTON_DPAD_UP:
+			_pad_step_list(weapon_list, -1)
+			set_input_as_handled()
+		JOY_BUTTON_DPAD_DOWN:
+			_pad_step_list(weapon_list, 1)
+			set_input_as_handled()
+		JOY_BUTTON_DPAD_LEFT:
+			if _pad_step_list(target_list, -1):
+				_pad_emit_current_target()
+			set_input_as_handled()
+		JOY_BUTTON_DPAD_RIGHT:
+			if _pad_step_list(target_list, 1):
+				_pad_emit_current_target()
+			set_input_as_handled()
+		JOY_BUTTON_A:
+			_pad_assign()
+			set_input_as_handled()
+		JOY_BUTTON_START:
+			_on_confirmed()
+			set_input_as_handled()
+		JOY_BUTTON_B:
+			# End the fight when the dialog offers it (no-targets escape hatch);
+			# otherwise leave B for the dialog's own cancel/close.
+			var skip_btn := _find_child_button("SkipFightButton")
+			if skip_btn != null and skip_btn.visible and not skip_btn.disabled:
+				_on_skip_fight_pressed()
+				set_input_as_handled()
+
+
+# Step an ItemList's single selection with wrap; returns true when it moved.
+func _pad_step_list(lst: ItemList, dir: int) -> bool:
+	if lst == null or lst.item_count == 0:
+		return false
+	var sel := lst.get_selected_items()
+	var cur: int = sel[0] if not sel.is_empty() else (0 if dir > 0 else lst.item_count - 1)
+	var nxt := wrapi(cur + dir, 0, lst.item_count)
+	if nxt == cur:
+		return false
+	lst.select(nxt)
+	lst.ensure_current_is_visible()
+	return true
+
+
+# Pad Ⓐ = Add Assignment: assign the selected weapon to the selected target,
+# with a toast so a controller player (who can't see the mouse-only display
+# refresh at a glance) gets confirmation and knows ☰ resolves the fight.
+func _pad_assign() -> void:
+	if weapon_list == null or target_list == null:
+		return
+	if weapon_list.item_count == 0 or target_list.item_count == 0:
+		return
+	_on_assign_pressed()
+	var wsel := weapon_list.get_selected_items()
+	var tsel := target_list.get_selected_items()
+	if wsel.is_empty() or tsel.is_empty():
+		return
+	var wname := str(weapon_list.get_item_text(wsel[0])).split(" (")[0]
+	var tname := str(target_list.get_item_text(tsel[0])).split(" (")[0]
+	var toast := get_node_or_null("/root/ToastManager")
+	if toast != null:
+		toast.show_toast("✓ %s → %s — ☰ to Fight!" % [wname, tname])
+
+
+func _find_child_button(node_name: String) -> Button:
+	var q: Array = [self]
+	while not q.is_empty():
+		var n = q.pop_front()
+		if n is Button and str(n.name) == node_name:
+			return n
+		for c in n.get_children():
+			q.append(c)
+	return null
 
 func _on_assign_pressed() -> void:
 	print("[AttackAssignmentDialog] Assign button pressed")

@@ -11,7 +11,7 @@
   "rng_seed": 42,
   "transition_to_phase": 9,
   "disable_ai": true,
-  "description": "Pad charge flow: RB cycles the UNITS THAT CAN CHARGE list, D-pad ▲ ▼ walks the ELIGIBLE TARGETS rows with a gold cursor tint, A toggles the walked row in and out of the declaration (pad Click / Ctrl+Click — builds and trims a multi-charge), Start declares then rolls, and X skips another unit's charge. Battlewagon is parked near two Custodes units (one ~2.5\" away, one ~9\") and Boyz Alpha near the close one, so two units are chargeable. CP is zeroed for both players so a failed roll cannot pop the Command Re-roll dialog mid-scenario.",
+  "description": "Pad charge flow: RB cycles the UNITS THAT CAN CHARGE list; arming a unit with the pad AUTO-BRACKETS the first ELIGIBLE TARGETS row (gold row tint + the shared on-board PadTargetReticle with its TARGET n/m banner — same visual language as the shooting phase's D-pad target ring). D-pad ▲ ▼ walks the rows (reticle follows), A toggles the walked row in and out of the declaration (pad Click / Ctrl+Click — builds and trims a multi-charge), Start declares (reticle clears — rows lock) then rolls, and X skips another unit's charge. Battlewagon is parked near two Custodes units (one ~2.5\" away, one ~9\") and Boyz Alpha near the close one, so two units are chargeable. CP is zeroed for both players so a failed roll cannot pop the Command Re-roll dialog mid-scenario.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
@@ -31,14 +31,18 @@
     { "act": "execute_script", "script": "str(main.charge_controller.active_unit_id) != \"\"", "equals": true },
     { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"charger\", str(main.charge_controller.active_unit_id))" },
     { "act": "execute_script", "script": "main.charge_controller.eligible_targets.size()", "expect_min": 1 },
-    { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": -1 },
+    { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 0 },
 
     { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar cc = m.charge_controller\nif str(cc.active_unit_id) != \"U_BATTLEWAGON_G\":\n\tfor i in range(cc.unit_selector.item_count):\n\t\tif str(cc.unit_selector.get_item_metadata(i)) == \"U_BATTLEWAGON_G\":\n\t\t\tcc.unit_selector.select(i)\n\t\t\tcc.unit_selector.item_selected.emit(i)\n\t\t\tbreak\nreturn str(cc.active_unit_id)", "equals": "U_BATTLEWAGON_G" },
     { "act": "execute_script", "script": "main.charge_controller.eligible_targets.size()", "equals": 2 },
+    { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 0 },
+    { "act": "execute_script", "script": "main.charge_controller.pad_target_reticle.is_showing()", "equals": true },
+    { "act": "execute_script", "script": "str(main.charge_controller.pad_target_reticle.banner_text).find(\"TARGET 1/2\") != -1", "equals": true },
 
     { "act": "simulate_joy_button", "button_index": 12 },
     { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 0 },
+    { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 1 },
+    { "act": "execute_script", "script": "str(main.charge_controller.pad_target_reticle.banner_text).find(\"TARGET 2/2\") != -1", "equals": true },
     { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 0 },
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 0.3 },
@@ -46,7 +50,8 @@
 
     { "act": "simulate_joy_button", "button_index": 12 },
     { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 1 },
+    { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 0 },
+    { "act": "execute_script", "script": "str(main.charge_controller.pad_target_reticle.banner_text).find(\"TARGET 1/2\") != -1", "equals": true },
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 2 },
@@ -63,6 +68,7 @@
     { "act": "simulate_joy_button", "button_index": 6 },
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "execute_script", "script": "main.charge_controller.awaiting_roll", "equals": true },
+    { "act": "execute_script", "script": "main.charge_controller.pad_target_reticle.is_showing()", "equals": false },
     { "act": "screenshot", "label": "02_start_declared_charge" },
 
     { "act": "simulate_joy_button", "button_index": 6 },

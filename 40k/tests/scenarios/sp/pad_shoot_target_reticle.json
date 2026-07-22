@@ -1,0 +1,58 @@
+{
+  "id": "pad_shoot_target_reticle",
+  "covers": [
+    "controller.shooting.target_reticle",
+    "controller.shooting.target_cycle_visible",
+    "controller.shooting.weapon_level_split_fire",
+    "PadRouter",
+    "PadTargetReticle",
+    "ShootingController"
+  ],
+  "fixture": "shooting_phase",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "The controller-targeting fix (2026-07 report: 'two targets in range but ◀ ▶ appears to do nothing'): with a shooter armed, the pad's current target is now unmistakable — the FIRST pad press auto-brackets the first entry of the sorted target ring with the gold PadTargetReticle (corner brackets on every alive model + a '▶ TARGET n/m: NAME' banner) and the FORECAST panel previews the current weapon into it. D-pad ◀ ▶ then WALKS the ring: the highlight id, the reticle banner and the bracket marks all move together. A assigns the bracketed target to the stepped weapon; ▼ steps to the next weapon and a second ◀/A pair aims it at a DIFFERENT target — weapon-level split fire, pad only, with the pending_assignments split across two distinct target units at the end.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 8 },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar sc = m.shooting_controller\nfor i in range(sc.unit_selector.item_count):\n\tif str(sc.unit_selector.get_item_metadata(i)) == \"U_BATTLEWAGON_A\":\n\t\tsc.unit_selector.select(i)\n\t\tsc.unit_selector.item_selected.emit(i)\n\t\tbreak\nreturn str(sc.active_shooter_id)", "equals": "U_BATTLEWAGON_A" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.shooting_controller.eligible_targets.size()", "expect_min": 2 },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "script": "var sc = tree.current_scene.shooting_controller\nvar ring = sc.eligible_targets.keys()\nring.sort()\nreturn str(PadRouter.target_highlight_id) == str(ring[0])", "equals": true },
+    { "act": "execute_script", "script": "main.shooting_controller.pad_target_reticle.is_showing()", "equals": true },
+    { "act": "execute_script", "script": "str(main.shooting_controller.pad_target_reticle.banner_text).find(\"TARGET 1/\") != -1", "equals": true },
+    { "act": "execute_script", "script": "str(main.shooting_controller.selected_weapon_id) != \"\"", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"w1\", str(main.shooting_controller.selected_weapon_id))" },
+    { "act": "screenshot", "label": "01_first_target_auto_bracketed" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "script": "var sc = tree.current_scene.shooting_controller\nvar ring = sc.eligible_targets.keys()\nring.sort()\nreturn str(PadRouter.target_highlight_id) == str(ring[1])", "equals": true },
+    { "act": "execute_script", "script": "str(main.shooting_controller.pad_target_reticle.banner_text).find(\"TARGET 2/\") != -1", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"t1\", str(PadRouter.target_highlight_id))" },
+    { "act": "screenshot", "label": "02_dpad_right_moved_reticle" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.weapon_assignments.get(InputDeviceManager.get_meta(\"w1\"), \"\")) == str(InputDeviceManager.get_meta(\"t1\"))", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.selected_weapon_id) != str(InputDeviceManager.get_meta(\"w1\"))", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"w2\", str(main.shooting_controller.selected_weapon_id))" },
+    { "act": "simulate_joy_button", "button_index": 13 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(PadRouter.target_highlight_id) != str(InputDeviceManager.get_meta(\"t1\"))", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"t2\", str(PadRouter.target_highlight_id))" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.weapon_assignments.get(InputDeviceManager.get_meta(\"w2\"), \"\")) == str(InputDeviceManager.get_meta(\"t2\"))", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var ph = PhaseManager.get_current_phase_instance()\nvar targets = {}\nfor a in ph.pending_assignments:\n\ttargets[str(a.target_unit_id)] = true\nreturn targets.size()", "expect_min": 2 },
+    { "act": "screenshot", "label": "03_two_weapons_two_targets_split" }
+  ]
+}

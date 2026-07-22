@@ -1,0 +1,34 @@
+{
+  "id": "pad_fight_selection_bumper",
+  "covers": [
+    "controller.fight.selection_bumper_focus",
+    "controller.fight.no_informational_list_misfire",
+    "PadRouter",
+    "FightController"
+  ],
+  "fixture": "stompa_fight_11e",
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Fight phase controller selection: the bumpers cycle keyboard focus among the ENABLED fighter-selection buttons (Fight_<unit_id>) of the right panel — the fight phase's 'pick a unit' — and NOT the informational FIGHT SEQUENCE ItemList, whose generic bumper-cycle used to misfire SELECT_FIGHTER on the wrong unit. The scenario ends the global Pile-In step to reach fighter selection, presses RB, and asserts focus landed on a Fight_ button (a Button, not the ItemList) without a stray fighter having been committed by the press.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "multiline": true, "script": "var ph = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tvar res = ph.execute_action({\"type\": \"END_PILE_IN\"})\n\tif not res.get(\"success\", false):\n\t\tbreak\nreturn ph._subphase_string_11e()", "equals": "FIGHTS_FIRST" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main.fight_controller.fight_selection_panel != null and main.fight_controller.fight_selection_panel.visible", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"no focus\"\nif f is ItemList:\n\treturn \"FOCUS ON ITEMLIST (misfire)\"\nreturn str(f.name)", "equals": "Fight_U_WARBOSS_B" },
+    { "act": "execute_script", "multiline": true, "script": "return (tree.root.gui_get_focus_owner() is Button)", "equals": true },
+    { "act": "screenshot", "label": "01_bumper_focused_fighter_button" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "str(main.fight_controller.current_fighter_id)", "equals": "U_WARBOSS_B" },
+    { "act": "screenshot", "label": "02_a_committed_fighter" }
+  ]
+}

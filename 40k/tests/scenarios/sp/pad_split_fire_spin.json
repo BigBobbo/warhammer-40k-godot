@@ -1,0 +1,54 @@
+{
+  "id": "pad_split_fire_spin",
+  "covers": [
+    "controller.shooting.model_level_split_fire",
+    "controller.shooting.split_picker_dpad_spin",
+    "PadRouter",
+    "ShootingController"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Model-level split fire, controller only (2026-07 report: the mouse-built split-fire flow was unreachable on pad): Witchseekers (4 × witchseeker flamer) are teleported between the Ork lines so three targets are eligible and no model is in engagement range. The session's first A press auto-brackets the first ring entry (Battlewagon) and assigns ALL 4 flamer bearers to it in one press (concentrated fire is the one-click default). D-pad ▶ walks the reticle to the Boyz and a second A on the SAME weapon opens the SplitFirePicker ('all bearers committed — move how many?'). The picker is now pad-operable: D-pad ▶ steps the bearer-count SpinBox (1 → 3) via the dialog's own window_input (an exclusive Window never lets PadRouter see the presses), and A confirms via the InputDeviceManager watcher-focused Move button. The final pending_assignments carry the exact split: 1 flamer stays on the Battlewagon, 3 move to the Boyz.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script", "multiline": true, "script": "var models = GameState.state.units[\"U_WITCHSEEKERS_D\"][\"models\"]\nfor i in range(models.size()):\n\tmodels[i][\"position\"] = {\"x\": 950.0 + (i % 2) * 42.0, \"y\": 1660.0 + int(i / 2.0) * 42.0}\nreturn models.size()", "equals": 4 },
+    { "act": "execute_script", "script": "main.shooting_controller._select_shooter_by_unit_id(\"U_WITCHSEEKERS_D\")" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "str(main.shooting_controller.active_shooter_id)", "equals": "U_WITCHSEEKERS_D" },
+    { "act": "execute_script", "script": "main.shooting_controller.eligible_targets.size()", "equals": 3 },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.7 },
+    { "act": "execute_script", "script": "str(PadRouter.target_highlight_id)", "equals": "U_BATTLEWAGON_G" },
+    { "act": "execute_script", "multiline": true, "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.pending_assignments.size() != 1:\n\treturn \"expected 1 assignment, got %d\" % ph.pending_assignments.size()\nvar a = ph.pending_assignments[0]\nreturn str(a.target_unit_id) + \":\" + str((a.model_ids as Array).size())", "equals": "U_BATTLEWAGON_G:4" },
+    { "act": "screenshot", "label": "01_all_bearers_on_first_target" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(PadRouter.target_highlight_id)", "equals": "U_BOYZ_E" },
+    { "act": "execute_script", "script": "str(main.shooting_controller.pad_target_reticle.banner_text).find(\"TARGET 2/3\") != -1", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.9 },
+    { "act": "execute_script", "multiline": true, "script": "var sc = tree.current_scene.shooting_controller\nvar d = sc.get_node_or_null(\"SplitFirePicker\")\nif d == null:\n\treturn \"no dialog\"\nvar spin = d.find_child(\"SplitFireSpin\", true, false)\nreturn str(int(spin.value)) + \"/\" + str(int(spin.max_value))", "equals": "1/4" },
+    { "act": "screenshot", "label": "02_split_picker_opened_by_pad" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.25 },
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.25 },
+    { "act": "execute_script", "multiline": true, "script": "var sc = tree.current_scene.shooting_controller\nvar d = sc.get_node_or_null(\"SplitFirePicker\")\nvar spin = d.find_child(\"SplitFireSpin\", true, false)\nreturn int(spin.value)", "equals": 3 },
+    { "act": "screenshot", "label": "03_dpad_stepped_spin_to_3" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.9 },
+    { "act": "execute_script", "multiline": true, "script": "var ph = PhaseManager.get_current_phase_instance()\nvar by_target = {}\nfor a in ph.pending_assignments:\n\tby_target[str(a.target_unit_id)] = (a.model_ids as Array).size()\nreturn str(by_target.get(\"U_BATTLEWAGON_G\", 0)) + \"+\" + str(by_target.get(\"U_BOYZ_E\", 0))", "equals": "1+3" },
+    { "act": "execute_script", "script": "main.shooting_controller.get_node_or_null(\"SplitFirePicker\") == null", "equals": true },
+    { "act": "screenshot", "label": "04_split_committed_1_and_3" }
+  ]
+}
