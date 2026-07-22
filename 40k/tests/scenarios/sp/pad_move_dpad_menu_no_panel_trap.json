@@ -85,7 +85,7 @@
     { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": false },
     { "act": "screenshot", "label": "05_dpad_inert_while_move_locked" },
 
-    { "act": "simulate_joy_button", "button_index": 2 },
+    { "act": "simulate_joy_button", "button_index": 1 },
     { "act": "wait_seconds", "seconds": 0.4 },
     { "act": "execute_script", "script": "main.movement_controller.pad_is_move_session_locked()", "equals": false },
     { "act": "simulate_joy_button", "button_index": 12 },

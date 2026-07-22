@@ -1012,6 +1012,17 @@ func _on_unit_selected(index: int) -> void:
 	if not unit:
 		return
 
+	# Reinforcement placement lock (mirror of DEPLOY-CYCLE): while a reserve
+	# unit is being placed, switching units follows the deployment rules —
+	# free while nothing is placed (the session is cancelled, its unit returns
+	# to reserves), blocked once models are on the table until they are
+	# undone. Re-selecting the unit being placed is a no-op (restarting would
+	# wipe its placed models).
+	var main_for_switch = SceneRefs.main()
+	if main_for_switch and main_for_switch.has_method("_reinforcement_try_switch_unit") \
+			and not main_for_switch._reinforcement_try_switch_unit(str(unit_id)):
+		return
+
 	# Any unit selection ends an in-progress disembark placement: the old
 	# controller must not keep validating board clicks against its transport.
 	_cancel_active_disembark_placement()
@@ -5504,6 +5515,14 @@ func pad_menu_options() -> Array:
 		return []
 	var unit = GameState.get_unit(active_unit_id)
 	if unit.is_empty() or unit.get("embarked_in", null) != null:
+		return []
+	# A unit that has already moved this phase — including one that just
+	# arrived from reserves (ingress sets flags.moved + the until-charge
+	# lock) — has no open mode decision: selecting it must not offer
+	# Move / Advance / Stay Still chips whose actions the phase would
+	# reject anyway.
+	var unit_flags = unit.get("flags", {})
+	if unit_flags.get("moved", false) or unit_flags.get("no_moves_until_charge_phase", false):
 		return []
 	var opts: Array = []
 	if normal_radio and normal_radio.visible and not normal_radio.disabled:
