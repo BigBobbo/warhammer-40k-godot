@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.85.0",
+			"date": "2026-07-22",
+			"summary": "Controller: move the whole squad together in ANY move mode — including Advance. 'Move All Together' is no longer a separate menu entry; grabbing everyone is now part of the move itself. Pick Move, Advance or Fall Back, and any D-pad press lifts every model you haven't placed yet as one formation. Choosing Advance hands you the first model right after the dice (and any Command Re-roll decision), so advancing plays exactly like a normal move — one D-pad press and the whole squad rides the stick under the boosted advance cap.",
+			"changes": [
+				"'Move All Together' removed from the controller's move menu — moving the squad together is no longer its own move type. Instead, once a move is under way (Normal, Advance or Fall Back), any D-pad press grabs every model that hasn't been placed yet and carries them as one formation; models you already placed keep their spots.",
+				"Advance now supports the group move: after the advance roll resolves (kept or Command Re-rolled), the first model is automatically picked up — the same hand-over choosing Move gets — and a D-pad press lifts the whole unit, with the formation's reach clamped to the rolled Move + D6 cap.",
+				"The mid-move controller hint bar now shows 'dpad Grab All', so the group grab is discoverable after dropping a model, not just while carrying one.",
+				"Everything else about the group carry is unchanged: A places every model that fits (leftovers are handed back), B cancels without staging anything, and an all-illegal drop keeps the squad in hand."
+			]
+		},
+		{
 			"version": "0.84.0",
 			"date": "2026-07-21",
 			"summary": "Attached leaders now move with their unit on the controller by default. When a Character has joined a unit, its model is part of that unit's move everywhere: L3 (and the paddles) now cycle onto the leader as well as the bodyguard's models, so you can move it in the normal one-model-at-a-time flow — not only via 'Move All Together'. You can no longer finish a unit's move having accidentally left its leader behind.",

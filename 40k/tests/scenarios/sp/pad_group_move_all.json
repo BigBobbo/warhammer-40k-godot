@@ -1,8 +1,9 @@
 {
   "id": "pad_group_move_all",
   "covers": [
-    "controller.move.group_carry_menu",
     "controller.move.group_carry_dpad_grab",
+    "controller.move.group_carry_advance",
+    "controller.move.advance_auto_carry",
     "controller.move.group_drop_all_staged",
     "controller.move.group_illegal_drop_keeps_group",
     "controller.move.group_cancel_stages_nothing"
@@ -11,7 +12,7 @@
   "transition_to_phase": 7,
   "disable_ai": true,
   "rng_seed": 42,
-  "description": "Pad group carry: the whole multi-model unit can be moved at once. Part A (menu path): selecting 'Move All Together' from the move menu (one dpad-left wrap from Move) picks up EVERY model of the Witchseekers as one formation riding the cursor; a single A drop stages all four models at the translated positions and the confirm button lands all four in GameState. Part B (D-pad path, second unit): after choosing plain Move (single model auto-carried), any D-pad press converts the carry into the whole-group carry; an all-off-board drop is refused and keeps the group in hand (toast, still carrying); B cancels the group without staging anything; the menu then reopens and 'Move All Together' + drop + confirm moves the second unit too.",
+  "description": "Pad group carry composes with every move mode instead of being a separate 'Move All Together' menu entry (removed). Part A (Normal Move): choosing Move auto-carries one model; a D-pad press converts the carry into EVERY unmoved model riding the stick as one formation; one A drop stages all four Witchseekers and the confirm lands them in GameState. Part B (Advance — the flow that used to dead-end): choosing Advance rolls the dice behind the Command Re-roll dialog; keeping the roll auto-carries the first model (same hand-over as Move), a D-pad press grabs the whole squad under the advance cap, an all-off-board drop is refused (still carrying), B cancels with nothing staged, a D-pad press from the resting mid-move state re-grabs the group, and the drop + confirm move all four models with flags.advanced set.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -30,25 +31,26 @@
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
     { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
+    { "act": "execute_script", "script": "str(main.movement_controller.pad_menu_options()).find(\"NORMAL_ALL\")", "equals": -1 },
 
-    { "act": "simulate_joy_button", "button_index": 13 },
-    { "act": "wait_seconds", "seconds": 0.2 },
-    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL_ALL" },
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": false },
+
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": true },
     { "act": "execute_script", "script": "main.movement_controller.group_dragging", "equals": true },
     { "act": "execute_script", "script": "main.movement_controller.selected_models.size()", "equals": 4 },
-    { "act": "screenshot", "label": "01_whole_unit_in_hand" },
+    { "act": "screenshot", "label": "01_normal_whole_unit_in_hand_via_dpad" },
 
     { "act": "pad_cursor_glide", "x": 910.0, "y": 190.0 },
-    { "act": "screenshot", "label": "02_formation_preview_at_target" },
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 1.2 },
     { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
     { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 4 },
-    { "act": "screenshot", "label": "03_group_dropped_all_four_staged" },
+    { "act": "screenshot", "label": "02_normal_group_dropped_all_four_staged" },
 
     { "act": "pad_cursor_glide", "button_text": "End This Unit's Move" },
     { "act": "simulate_joy_button", "button_index": 0 },
@@ -57,7 +59,7 @@
     { "act": "execute_script", "script": "GameState.state.units[\"U_WITCHSEEKERS_C\"].models[1].position.y - InputDeviceManager.get_meta(\"c_y0\")", "expect_min": 100 },
     { "act": "execute_script", "script": "GameState.state.units[\"U_WITCHSEEKERS_C\"].models[2].position.y - InputDeviceManager.get_meta(\"c_y0\")", "expect_min": 100 },
     { "act": "execute_script", "script": "GameState.state.units[\"U_WITCHSEEKERS_C\"].models[3].position.y - InputDeviceManager.get_meta(\"c_y0\")", "expect_min": 100 },
-    { "act": "screenshot", "label": "04_confirmed_all_four_moved" },
+    { "act": "screenshot", "label": "03_normal_confirmed_all_four_moved" },
 
     { "act": "execute_script", "script": "main.movement_controller._select_unit_in_list_by_id(\"U_WITCHSEEKERS_D\")", "equals": true },
     { "act": "wait_seconds", "seconds": 0.4 },
@@ -67,18 +69,30 @@
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "ADVANCE" },
     { "act": "simulate_joy_button", "button_index": 0 },
-    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "main.get_node_or_null(\"/root/CommandRerollDialog\") != null", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance._awaiting_reroll_decision", "equals": true },
+    { "act": "screenshot", "label": "04_advance_reroll_dialog_owns_the_pad" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_D\"].advance_roll", "expect_min": 1 },
     { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
     { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": false },
+    { "act": "screenshot", "label": "05_advance_resolved_first_model_auto_carried" },
 
     { "act": "simulate_joy_button", "button_index": 11 },
     { "act": "wait_seconds", "seconds": 0.6 },
-    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
     { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": true },
     { "act": "execute_script", "script": "main.movement_controller.selected_models.size()", "equals": 4 },
     { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_D\"].staged_moves.size()", "equals": 0 },
-    { "act": "screenshot", "label": "05_dpad_converted_single_carry_to_group" },
+    { "act": "screenshot", "label": "06_advance_whole_unit_in_hand" },
 
     { "act": "pad_cursor_glide", "x": 1160.0, "y": -160.0 },
     { "act": "simulate_joy_button", "button_index": 0 },
@@ -86,7 +100,7 @@
     { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
     { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": true },
     { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_D\"].staged_moves.size()", "equals": 0 },
-    { "act": "screenshot", "label": "06_offboard_drop_refused_group_still_in_hand" },
+    { "act": "screenshot", "label": "07_advance_offboard_drop_refused_still_in_hand" },
 
     { "act": "simulate_joy_button", "button_index": 1 },
     { "act": "wait_seconds", "seconds": 0.5 },
@@ -95,26 +109,24 @@
     { "act": "execute_script", "script": "main.movement_controller.selected_models.size()", "equals": 0 },
     { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_D\"].staged_moves.size()", "equals": 0 },
 
-    { "act": "simulate_joy_button", "button_index": 11 },
-    { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
-    { "act": "simulate_joy_button", "button_index": 13 },
-    { "act": "wait_seconds", "seconds": 0.2 },
-    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL_ALL" },
-    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "simulate_joy_button", "button_index": 12 },
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.selected_models.size()", "equals": 4 },
+    { "act": "screenshot", "label": "08_advance_dpad_regrab_from_resting_state" },
 
     { "act": "pad_cursor_glide", "x": 1160.0, "y": 200.0 },
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 1.2 },
     { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_D\"].staged_moves.size()", "equals": 4 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_D\"].model_distances.values().max() <= PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_D\"].move_cap_inches", "equals": true },
 
     { "act": "pad_cursor_glide", "button_text": "End This Unit's Move" },
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "execute_script", "script": "GameState.state.units[\"U_WITCHSEEKERS_D\"].models[0].position.y - InputDeviceManager.get_meta(\"d_y0\")", "expect_min": 100 },
     { "act": "execute_script", "script": "GameState.state.units[\"U_WITCHSEEKERS_D\"].models[3].position.y - InputDeviceManager.get_meta(\"d_y0\")", "expect_min": 100 },
-    { "act": "screenshot", "label": "07_second_unit_moved_via_dpad_group_flow" }
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WITCHSEEKERS_D\"].flags.get(\"advanced\", false)", "equals": true },
+    { "act": "screenshot", "label": "09_advance_confirmed_all_four_moved" }
   ]
 }
