@@ -6,6 +6,12 @@ const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const GameLogPanelScript = preload("res://scripts/GameLogPanel.gd")
 const GameLogEntryScript = preload("res://scripts/GameLogEntry.gd")
 const UnitStatsCardPopupScript = preload("res://scripts/UnitStatsCardPopup.gd")
+# Controller glyphs for inline button labels (PRP §"inline button labels"): the
+# phase-action button advertises the keyboard [Enter] OR the pad Menu (☰) button
+# depending on the active device, so a Steam Deck player sees which controller
+# button ends the phase instead of a key they don't have.
+const GlyphDB = preload("res://scripts/input/GlyphDB.gd")
+const _PHASE_ACTION_KBM_PREFIX := "[Enter] "
 
 # UI z_index layering constants — ensure panels always render above all board elements
 const UI_PANEL_Z: int = 500      # HUD panels (left, right, bottom, stats, logs)
@@ -275,6 +281,14 @@ func _ready() -> void:
 	# Design-guidelines overlays / panels (T01-T45). Factored into a helper
 	# so this _ready stays scannable.
 	_install_design_guidelines_overlays()
+
+	# Keep the phase-action button's shortcut hint in sync with the active input
+	# device: pad → "[☰] End Phase" (the Menu button bound to pad_phase_action),
+	# KBM → "[Enter] End Phase". Without this a Steam Deck player only ever saw
+	# "[Enter]" on the button they'd naturally reach for and had no cue that the
+	# controller could end the phase at all.
+	if InputDeviceManager and not InputDeviceManager.device_changed.is_connected(_on_input_device_changed):
+		InputDeviceManager.device_changed.connect(_on_input_device_changed)
 
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
@@ -2257,11 +2271,59 @@ func _on_deep_strike_placement_chosen(unit_id: String, placement_type: String) -
 	_reinforcement_placement_type = placement_type
 	_begin_reinforcement_placement(unit_id)
 
+# Movement-phase mirror of _deploy_try_switch_unit: while a reinforcement
+# placement session is live, selecting a DIFFERENT unit (reserve or deployed)
+# is blocked once models are on the table (undo them first), and a session
+# with nothing placed yet is cancelled cleanly — reset_unit() restores the
+# old unit to IN_RESERVES — so exactly one session drives the board at a
+# time. Without this, switching mid-placement stranded the old unit in
+# DEPLOYING (it vanished from the reinforcements list) or left the placement
+# ghost live underneath a newly started normal move. Returns true when the
+# caller may proceed with new_unit_id; false = keep the current session
+# (also for re-selecting the unit already being placed — proceeding would
+# restart placement and silently wipe its placed models).
+func _reinforcement_try_switch_unit(new_unit_id: String) -> bool:
+	if not (deployment_controller and is_instance_valid(deployment_controller) \
+			and deployment_controller.is_reinforcement_mode and deployment_controller.is_placing()):
+		return true
+	if str(deployment_controller.get_current_unit()) == new_unit_id:
+		return false  # already placing this unit — nothing to do
+	if deployment_controller.get_placed_count() > 0:
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_warning("Undo the placed models before switching units")
+		return false
+	print("Main: Cancelling 0-placed reinforcement placement of %s to switch to %s" % [deployment_controller.get_current_unit(), new_unit_id])
+	deployment_controller.reset_unit()
+	_hide_deep_strike_exclusion()
+	_selected_unit_for_reserves = ""
+	_reinforcement_placement_type = ""
+	return true
+
 func _begin_reinforcement_placement(unit_id: String) -> void:
 	"""Start placing a reserve unit on the battlefield as reinforcement"""
 	var unit = GameState.get_unit(unit_id)
 	if unit.is_empty():
 		return
+
+	# Session-switch semantics for direct callers (placement-choice dialog,
+	# tests): same rules as the selection handlers.
+	if not _reinforcement_try_switch_unit(unit_id):
+		return
+
+	# The arriving unit is the acting unit now. Auto-confirm the previously
+	# selected unit's pending move (same QoL as switching units in the list),
+	# then DROP the stale movement selection — leaving it set meant the pad's
+	# move-mode menu (Move / Advance / Stay Still) and Start's confirm-move
+	# fallback could still act on that unit underneath the placement session,
+	# which is how deep-striking with the controller showed movement options
+	# instead of a deploy confirm.
+	if movement_controller and is_instance_valid(movement_controller) \
+			and str(movement_controller.active_unit_id) != "":
+		movement_controller._auto_confirm_pending_move(str(movement_controller.active_unit_id))
+		movement_controller._clear_selection()
+		movement_controller.active_unit_id = ""
+		movement_controller._update_selected_unit_display()
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	# NULL-safe: loaded saves can carry "reserve_type": null, and the value
@@ -5434,7 +5496,7 @@ func _show_pad_phase_confirm() -> void:
 		_pad_phase_confirm.title = "Confirm"
 		_pad_phase_confirm.confirmed.connect(_on_pad_phase_confirmed)
 		add_child(_pad_phase_confirm)
-	_pad_phase_confirm.dialog_text = phase_action_button.text.replace("[Enter] ", "").strip_edges() + "?"
+	_pad_phase_confirm.dialog_text = _phase_action_bare_label().strip_edges() + "?"
 	DialogUtils.popup_at_bottom(_pad_phase_confirm)
 
 func _on_pad_phase_confirmed() -> void:
@@ -7561,6 +7623,11 @@ func _on_unit_selected(index: int) -> void:
 			_scout_active_unit_id = ""
 
 	elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
+		# Reinforcement placement lock: same switch rules as deployment while
+		# a reserve unit is being placed (see _reinforcement_try_switch_unit).
+		if not _reinforcement_try_switch_unit(unit_id):
+			update_ui()
+			return
 		# Check if this is a reserve unit arriving as reinforcement
 		var selected_unit = GameState.get_unit(unit_id)
 		if selected_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
@@ -7678,6 +7745,11 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 			else:
 				_scout_active_unit_id = ""
 		elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
+			# Reinforcement placement lock: same switch rules as deployment
+			# while a reserve unit is being placed.
+			if not _reinforcement_try_switch_unit(unit_id):
+				update_ui()
+				return
 			# Check if unit is embarked - route to disembark flow instead of normal move
 			if unit_data.get("embarked_in", null) != null:
 				print("Main: Embarked unit selected from stats panel, routing to disembark flow: ", unit_id)
@@ -8367,7 +8439,7 @@ func _on_roll_off_result(p1: int, p2: int, winner: int, tied: bool) -> void:
 	# Keep the top-bar button consistent on both peers (it may still read
 	# "[Enter] Roll the dice" on the peer that didn't submit).
 	if phase_action_button:
-		phase_action_button.text = "[Enter] Continue"
+		phase_action_button.text = _phase_action_prefix() + "Continue"
 
 func _on_roll_off_acknowledged() -> void:
 	# The human dismissed a result that needed no choice from them.
@@ -9944,25 +10016,70 @@ func _get_phase_tooltip_text(phase: GameStateData.Phase) -> String:
 		_:
 			return "Current phase. Press ? for keyboard shortcuts."
 
-func _get_phase_button_text(phase: GameStateData.Phase) -> String:
-	match phase:
-		GameStateData.Phase.FORMATIONS: return "[Enter] Confirm Formations"
-		GameStateData.Phase.DEPLOYMENT: return "[Enter] End Deployment"
-		GameStateData.Phase.REDEPLOYMENT: return "[Enter] End Redeployment"
-		GameStateData.Phase.SCOUT: return "[Enter] End Scout Moves"
-		GameStateData.Phase.SCOUT_MOVES: return "[Enter] End Scout Moves"
-		GameStateData.Phase.ROLL_OFF: return "[Enter] Roll the dice"
-		GameStateData.Phase.FIRST_TURN_ROLLOFF: return "[Enter] Roll the dice"
-		GameStateData.Phase.COMMAND: return "[Enter] End Command Phase"
-		GameStateData.Phase.MOVEMENT: return "[Enter] End Movement Phase"
-		GameStateData.Phase.SHOOTING: return "[Enter] End Shooting Phase"
-		GameStateData.Phase.CHARGE: return "[Enter] End Charge Phase"
-		GameStateData.Phase.FIGHT: return _get_fight_phase_button_text()
-		GameStateData.Phase.SCORING: return "[Enter] End Turn"
-		GameStateData.Phase.MORALE: return "[Enter] End Morale Phase"
-		_: return "[Enter] End Phase"
+# The pad glyph prefix for the phase-action button, e.g. "[☰] ". Mirrors the
+# keyboard "[Enter] " prefix so the Steam Deck's Menu (☰) button — the one bound
+# to pad_phase_action / End Phase — is named on the button itself. Uses GlyphDB
+# so the glyph stays a single source of truth with the hint bar.
+func _phase_action_pad_prefix() -> String:
+	return "[%s] " % GlyphDB.glyph_text("menu")
 
-func _get_fight_phase_button_text() -> String:
+# The shortcut prefix for the current input device: pad → "[☰] ", KBM → "[Enter] ".
+func _phase_action_prefix() -> String:
+	if InputDeviceManager and InputDeviceManager.is_pad_active():
+		return _phase_action_pad_prefix()
+	return _PHASE_ACTION_KBM_PREFIX
+
+# The phase-action button label with any known shortcut prefix stripped, so the
+# pad confirm dialog reads the true action ("End Movement Phase?") regardless of
+# which glyph currently leads the button (or a special state like "Continue").
+func _phase_action_bare_label() -> String:
+	if not phase_action_button or not is_instance_valid(phase_action_button):
+		return ""
+	var t: String = phase_action_button.text
+	for p in [_PHASE_ACTION_KBM_PREFIX, _phase_action_pad_prefix()]:
+		if t.begins_with(p):
+			return t.substr(p.length())
+	return t
+
+# Re-stamp the button's shortcut prefix for the active device without touching
+# the label — so switching KBM ⇄ pad live swaps "[Enter] " ⇄ "[☰] " and leaves
+# any custom label (Continue, the Fight-phase step labels) intact.
+func _sync_phase_action_glyph() -> void:
+	if not phase_action_button or not is_instance_valid(phase_action_button):
+		return
+	var t: String = phase_action_button.text
+	for p in [_PHASE_ACTION_KBM_PREFIX, _phase_action_pad_prefix()]:
+		if t.begins_with(p):
+			phase_action_button.text = _phase_action_prefix() + t.substr(p.length())
+			return
+	# No recognized shortcut prefix — leave the text untouched.
+
+func _on_input_device_changed(_mode: int) -> void:
+	_sync_phase_action_glyph()
+
+func _get_phase_button_text(phase: GameStateData.Phase) -> String:
+	return _phase_action_prefix() + _get_phase_action_label(phase)
+
+# The bare action label (no shortcut prefix) for the phase-action button.
+func _get_phase_action_label(phase: GameStateData.Phase) -> String:
+	match phase:
+		GameStateData.Phase.FORMATIONS: return "Confirm Formations"
+		GameStateData.Phase.DEPLOYMENT: return "End Deployment"
+		GameStateData.Phase.REDEPLOYMENT: return "End Redeployment"
+		GameStateData.Phase.SCOUT: return "End Scout Moves"
+		GameStateData.Phase.SCOUT_MOVES: return "End Scout Moves"
+		GameStateData.Phase.ROLL_OFF: return "Roll the dice"
+		GameStateData.Phase.FIRST_TURN_ROLLOFF: return "Roll the dice"
+		GameStateData.Phase.COMMAND: return "End Command Phase"
+		GameStateData.Phase.MOVEMENT: return "End Movement Phase"
+		GameStateData.Phase.SHOOTING: return "End Shooting Phase"
+		GameStateData.Phase.CHARGE: return "End Charge Phase"
+		GameStateData.Phase.FIGHT: return _get_fight_phase_action_label()
+		GameStateData.Phase.SCORING: return "End Turn"
+		GameStateData.Phase.MORALE: return "End Morale Phase"
+		_: return "End Phase"
+
+func _get_fight_phase_action_label() -> String:
 	# The Fight phase runs three internal steps (11e): the global Pile In step
 	# (12.02) the phase opens with, the alternating Fight step (12.04), and the
 	# global Consolidate step (12.07). The action button ends whichever step is
@@ -9972,9 +10089,9 @@ func _get_fight_phase_button_text() -> String:
 	var fp = PhaseManager.get_current_phase_instance()
 	if fp and fp.has_method("get_fight_step_11e"):
 		match fp.get_fight_step_11e():
-			"PILE_IN": return "[Enter] Finish Pile Ins"
-			"CONSOLIDATE": return "[Enter] Finish Consolidations"
-	return "[Enter] End Fight Phase"
+			"PILE_IN": return "Finish Pile Ins"
+			"CONSOLIDATE": return "Finish Consolidations"
+	return "End Fight Phase"
 
 func _get_phase_button_tooltip(phase: GameStateData.Phase) -> String:
 	match phase:
@@ -9989,7 +10106,7 @@ func _get_phase_button_tooltip(phase: GameStateData.Phase) -> String:
 		_: return "Advance to the next phase"
 
 func _get_fight_phase_button_tooltip() -> String:
-	# Mirrors _get_fight_phase_button_text: describe the CURRENT Fight-phase
+	# Mirrors _get_fight_phase_action_label: describe the CURRENT Fight-phase
 	# step, since only the Fight step actually ends the phase.
 	var fp = PhaseManager.get_current_phase_instance()
 	if fp and fp.has_method("get_fight_step_11e"):

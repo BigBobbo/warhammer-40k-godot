@@ -17,6 +17,23 @@ var _replacement_used: bool = false
 var _scroll_vbox: VBoxContainer = null
 var _replace_info_label: Label = null
 
+# Controller (pad) navigation state.
+var _outer_scroll: ScrollContainer = null
+var _done_button: Button = null
+# Interactive controls in top-to-bottom order — the D-pad focus chain (each
+# Replace button, then Continue). Rebuilt whenever the mission cards are.
+var _replace_buttons: Array = []
+
+# PadRouter checks this group and keeps its board-oriented handlers (bumper
+# unit-cycling, panel-focus entry, the ItemList focus-release) off a dialog
+# that drives itself with Godot's native ui_* focus navigation. Without it the
+# D-pad never lands in this window and the player cannot review or replace a
+# drawn mission with a controller.
+const PAD_MODAL_GROUP := "pad_native_nav_modal"
+# Hint chips shown while this dialog owns the pad (PadRouter stands down, so it
+# no longer drives the hint bar and would otherwise leave the board hints up).
+const PAD_HINTS := [["dpad", "Navigate"], ["a", "Select"], ["b", "Close"]]
+
 func setup(player: int, drawn_missions: Array, player_cp: int, deck_size: int) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
 	_player = player
@@ -35,6 +52,15 @@ func setup(player: int, drawn_missions: Array, player_cp: int, deck_size: int) -
 	# Prevent closing via X button without completing
 	close_requested.connect(_on_done_pressed)
 
+	# Controller support: join the native-nav modal group so PadRouter stands
+	# down, and (re)build the pad focus chain whenever we become visible or the
+	# player picks up the pad while the dialog is open.
+	add_to_group(PAD_MODAL_GROUP)
+	if not visibility_changed.is_connected(_on_visibility_changed_pad):
+		visibility_changed.connect(_on_visibility_changed_pad)
+	if InputDeviceManager and not InputDeviceManager.device_changed.is_connected(_on_device_changed_pad):
+		InputDeviceManager.device_changed.connect(_on_device_changed_pad)
+
 	_build_ui()
 
 func _build_ui() -> void:
@@ -46,6 +72,7 @@ func _build_ui() -> void:
 	outer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	outer_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	outer_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_outer_scroll = outer_scroll
 
 	var main_container = VBoxContainer.new()
 	main_container.name = "MainContainer"
@@ -80,6 +107,7 @@ func _build_ui() -> void:
 	main_container.add_child(_scroll_vbox)
 
 	# Show each drawn mission
+	_replace_buttons.clear()
 	for i in range(_drawn_missions.size()):
 		var mission = _drawn_missions[i]
 		_add_mission_card(_scroll_vbox, mission, i)
@@ -119,6 +147,7 @@ func _build_ui() -> void:
 	done_btn.pressed.connect(_on_done_pressed)
 	WhiteDwarfTheme.apply_primary_button(done_btn)
 	button_container.add_child(done_btn)
+	_done_button = done_btn
 
 	outer_scroll.add_child(main_container)
 	add_child(outer_scroll)
@@ -232,6 +261,8 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 		replace_btn.pressed.connect(_on_replace_pressed.bind(mission_id))
 		WhiteDwarfTheme.apply_secondary_button(replace_btn)
 		card_vbox.add_child(replace_btn)
+		# Register in the top-to-bottom controller focus chain.
+		_replace_buttons.append(replace_btn)
 
 func _add_dialog_gold_separator(parent: Control) -> void:
 	var sep = ColorRect.new()
@@ -270,7 +301,10 @@ func update_after_replacement(new_missions: Array) -> void:
 	for child in _scroll_vbox.get_children():
 		child.queue_free()
 
-	# Rebuild mission cards (no replace buttons since replacement was used)
+	# Rebuild mission cards (no replace buttons since replacement was used).
+	# The old Replace buttons are being freed, so drop their (now stale)
+	# references from the focus chain before rebuilding.
+	_replace_buttons.clear()
 	for i in range(_drawn_missions.size()):
 		var mission = _drawn_missions[i]
 		_add_mission_card(_scroll_vbox, mission, i)
@@ -279,8 +313,121 @@ func update_after_replacement(new_missions: Array) -> void:
 	_replace_info_label.text = "Mission replaced! Review your new mission above."
 	_replace_info_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
 
+	# Controller: only the Continue button remains interactive now — re-point the
+	# focus chain at it so the pad isn't left focused on a freed Replace button.
+	if InputDeviceManager and InputDeviceManager.is_pad_active():
+		_setup_pad_focus.call_deferred()
+
 func _on_done_pressed() -> void:
 	print("SecondaryMissionReviewDialog: Player %d accepted drawn missions" % _player)
 	emit_signal("review_completed")
+	_restore_board_hints()
 	hide()
 	queue_free()
+
+# ============================================================================
+# CONTROLLER (PAD) NAVIGATION
+# ============================================================================
+# Reported bug: with a controller the D-pad never highlighted this window, so
+# the player could neither read the drawn missions nor replace one. Root cause:
+# initial focus landed on the Continue button (scrolled off-screen at the
+# bottom) and Godot's geometric focus search — with the Replace buttons nested
+# one-per-card — skipped the second Replace button and dead-ended. Fix: join the
+# native-nav modal group (PadRouter stands down), wire an explicit top-to-bottom
+# focus chain, seed focus on the first VISIBLE control, and keep the focused
+# control scrolled into view.
+
+func _on_visibility_changed_pad() -> void:
+	if not visible or not _pad_active():
+		return
+	_apply_pad_hints()
+	_setup_pad_focus.call_deferred()
+
+
+func _on_device_changed_pad(mode: int) -> void:
+	# The player picked up the pad while the dialog was already open (it may have
+	# popped in mouse/keyboard mode). Set up native navigation now.
+	if not is_instance_valid(self) or not visible:
+		return
+	if mode != InputDeviceManager.InputMode.PAD:
+		return
+	_apply_pad_hints()
+	_setup_pad_focus.call_deferred()
+
+
+func _setup_pad_focus() -> void:
+	# Let the InputDeviceManager watchdog's initial confirm-button grab land
+	# first, then move focus to the TOP of the dialog so the selector is visible
+	# from the start. Two frames also clears any layout settling from popup().
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_inside_tree() or not visible or not _pad_active():
+		return
+	# Park the virtual cursor so A presses the focused button instead of firing a
+	# synthetic left-click at the cursor position (VirtualCursor consumes A while
+	# the cursor is live). The InputDeviceManager watchdog does the same when a
+	# dialog pops while the pad is already active; do it here too so the pick-up-
+	# the-pad-mid-dialog path is covered.
+	if VirtualCursor and VirtualCursor.has_method("park"):
+		VirtualCursor.park()
+	_wire_pad_focus_neighbors()
+	var first := _first_focus_target()
+	if first != null and is_instance_valid(first):
+		first.grab_focus()
+		_scroll_to_focused(first)
+
+
+# Build the wrap-around focus chain (each Replace button, then Continue) so
+# D-pad ▲ ▼ steps through every interactive control deterministically instead of
+# relying on Godot's geometric neighbour search.
+func _wire_pad_focus_neighbors() -> void:
+	var seq: Array = []
+	for b in _replace_buttons:
+		if is_instance_valid(b):
+			seq.append(b)
+	if is_instance_valid(_done_button):
+		seq.append(_done_button)
+	var n := seq.size()
+	if n == 0:
+		return
+	for i in range(n):
+		var ctrl: Control = seq[i]
+		ctrl.focus_mode = Control.FOCUS_ALL
+		var prev: Control = seq[(i - 1 + n) % n]
+		var next: Control = seq[(i + 1) % n]
+		ctrl.focus_neighbor_top = ctrl.get_path_to(prev)
+		ctrl.focus_previous = ctrl.get_path_to(prev)
+		ctrl.focus_neighbor_bottom = ctrl.get_path_to(next)
+		ctrl.focus_next = ctrl.get_path_to(next)
+		if not ctrl.focus_entered.is_connected(_scroll_to_focused.bind(ctrl)):
+			ctrl.focus_entered.connect(_scroll_to_focused.bind(ctrl))
+
+
+func _first_focus_target() -> Control:
+	for b in _replace_buttons:
+		if is_instance_valid(b):
+			return b
+	return _done_button if is_instance_valid(_done_button) else null
+
+
+func _scroll_to_focused(ctrl: Control) -> void:
+	# Keep the focused control on-screen so the controller "selector" is always
+	# visible — the dialog content is taller than the scroll region.
+	if is_instance_valid(_outer_scroll) and is_instance_valid(ctrl):
+		_outer_scroll.ensure_control_visible(ctrl)
+
+
+func _apply_pad_hints() -> void:
+	if PadHintBar and PadHintBar.has_method("set_hints"):
+		PadHintBar.set_hints(PAD_HINTS)
+
+
+func _restore_board_hints() -> void:
+	# Hand the hint bar back to PadRouter so it recomputes the board context
+	# (we overrode it with navigate/select chips while the dialog owned the pad).
+	if _pad_active() and PadRouter and PadRouter.has_method("refresh_hints"):
+		PadRouter.refresh_hints()
+
+
+func _pad_active() -> bool:
+	return InputDeviceManager != null and InputDeviceManager.is_pad_active()

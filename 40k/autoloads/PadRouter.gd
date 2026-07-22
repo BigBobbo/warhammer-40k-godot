@@ -179,12 +179,14 @@ const HINTS_MOVE := [
 # Movement mid-move with a model just dropped and models still un-placed (the
 # multi-step state): the dropped model KEEPS focus — A picks it back up to keep
 # spending its remaining move, X seals it and hands over the next un-placed
-# model, B undoes the last staged model, L3 (and the paddles where Steam Input
-# forwards them) browses models freely. The bumpers stay locked to this unit
-# until the move is confirmed or undone.
+# model, a D-pad press lifts every still-unmoved model as one group (any move
+# mode — staged drops keep their spots), B undoes the last staged model, L3
+# (and the paddles where Steam Input forwards them) browses models freely. The
+# bumpers stay locked to this unit until the move is confirmed or undone.
 const HINTS_MOVE_STAGED := [
 	["a", "Move Model"],
 	["x", "Next Model"],
+	["dpad", "Grab All"],
 	["l3", "Browse Models"],
 	["b", "Undo Model"],
 	["y", "Datasheet"],
@@ -219,9 +221,15 @@ var _carry_pickup_screen := Vector2.ZERO
 var _carry_unit_id: String = ""  # resets carry_model_index when the unit changes
 # Group carry: EVERY unmoved model of the unit rides the cursor as one
 # formation (MovementController's mouse group-drag machinery runs underneath).
-# Entered from the move menu's "Move All Together" or any D-pad press while a
-# model is in hand / the unit is mid-move. Windowed scenarios assert this.
+# Entered by any D-pad press while a model is in hand / the unit is mid-move —
+# it composes with every move mode (Normal, Advance, Fall Back) rather than
+# being a menu entry of its own. Windowed scenarios assert this.
 var group_carry_active: bool = false
+# Armed by _apply_menu_choice when the pad menu's Advance is chosen: the unit
+# whose advance dice are in flight. When MovementController reports the roll
+# resolved (on_advance_move_resolved), the first model is auto-carried — the
+# same hand-over plain Move gets. Cleared by any other menu choice / on use.
+var _pending_advance_carry_unit: String = ""
 
 
 func is_carrying() -> bool:
@@ -407,6 +415,16 @@ func _try_open_move_menu() -> bool:
 		# the same event that would have parked it) had A activating a menu
 		# chip instead of dropping the model.
 		return false
+	if _deployment_controller_placing() != null:
+		# A live placement session (movement-phase reinforcement arrival)
+		# owns the pad. The arriving unit is being SET UP and cannot move —
+		# and mc.active_unit_id still points at whichever unit was selected
+		# BEFORE the reserve unit, so opening the bar here offered "Move /
+		# Advance / Stay Still" for that stale unit mid-deep-strike (and A on
+		# a chip would silently resolve the STALE unit's move mode). Stand
+		# down: A falls through to _try_begin_carry's cursor-warp and ▲ ▼ to
+		# panel focus (the Confirm button) — deployment-phase behavior.
+		return false
 	if VirtualCursor.is_cursor_active():
 		return false  # cursor mode: A is a click (VirtualCursor consumed it)
 	if get_viewport().gui_get_focus_owner() != null:
@@ -437,16 +455,20 @@ func _apply_menu_choice(choice_id: String) -> void:
 	var mc = m.movement_controller if ("movement_controller" in m) else null
 	if mc == null or not is_instance_valid(mc) or not mc.has_method("pad_apply_menu_choice"):
 		return
+	# Advance rolls dice before any model can move (and may pause behind the
+	# Command Re-roll dialog) — arm the hand-over BEFORE applying, because with
+	# no re-roll on offer the roll resolves synchronously inside
+	# pad_apply_menu_choice and on_advance_move_resolved fires during the call.
+	_pending_advance_carry_unit = str(mc.active_unit_id) if choice_id == "ADVANCE" else ""
 	mc.pad_apply_menu_choice(choice_id)
 	# Choices that start moving models flow straight into the carry so the
-	# next thing on the stick is the model itself. Advance waits (its dice
-	# dialog owns the next press) and Stay Still is already done — for both,
-	# _try_begin_carry's focus/validity guards make the deferred call a no-op
-	# anyway, so gating here is just intent. "Move All Together" flows into the
-	# GROUP carry: the whole unit rides the stick as one formation.
-	if choice_id == "NORMAL_ALL":
-		call_deferred("_auto_group_carry_after_menu")
-	elif choice_id == "NORMAL" or choice_id == "FALL_BACK":
+	# next thing on the stick is the model itself. Advance's carry begins when
+	# its roll resolves instead (on_advance_move_resolved — the dice dialog owns
+	# the presses in between) and Stay Still is already done — _try_begin_carry's
+	# focus/validity guards make the deferred call a no-op anyway, so gating
+	# here is just intent. There is no separate "move all" menu entry: with the
+	# carry in hand, a D-pad press lifts the whole squad in ANY move mode.
+	if choice_id == "NORMAL" or choice_id == "FALL_BACK":
 		call_deferred("_auto_carry_after_menu")
 
 
@@ -455,8 +477,45 @@ func _auto_carry_after_menu() -> void:
 		_update_hints()
 
 
-func _auto_group_carry_after_menu() -> void:
-	if not carry_active and _try_begin_group_carry():
+# Public seam for MovementController._on_unit_move_begun: the pad player chose
+# Advance from the move menu and the advance roll has now resolved — immediately
+# when no Command Re-roll was on offer, else via the dialog's Keep/Re-roll
+# choice. Hand them the first model, exactly like choosing plain Move does, so
+# the squad is one D-pad press (Grab All) from moving together. No-ops unless
+# _apply_menu_choice armed it, so mouse radio clicks and AI advances never
+# trigger a carry.
+func on_advance_move_resolved(unit_id: String) -> void:
+	if _pending_advance_carry_unit == "" or unit_id != _pending_advance_carry_unit:
+		return
+	_pending_advance_carry_unit = ""
+	if not InputDeviceManager.is_pad_active():
+		return
+	_auto_carry_after_advance(unit_id)
+
+
+# The resolution signal fires mid-frame: the action-bar choice (no-reroll path)
+# or the Command Re-roll dialog's button press (reroll path) is still tearing
+# down, and _try_begin_carry refuses while either holds focus. Wait (bounded)
+# for the bar/dialog/focus to clear, then take the first model — bailing the
+# moment something else claims the pad.
+func _auto_carry_after_advance(unit_id: String) -> void:
+	for _i in range(30):
+		await get_tree().process_frame
+		if carry_active or group_carry_active or PadActionBar.is_open():
+			return  # player already picked something up / reopened a menu
+		if get_viewport().gui_get_focus_owner() == null \
+				and get_tree().root.get_node_or_null("CommandRerollDialog") == null:
+			break
+	if carry_active or PadActionBar.is_open():
+		return
+	if get_viewport().gui_get_focus_owner() != null:
+		return  # a dialog/panel never let go — leave the pad alone
+	var mc := _movement_controller()
+	if mc == null or str(mc.active_unit_id) != unit_id:
+		return  # the moment passed (unit switched / phase moved on)
+	if VirtualCursor.is_cursor_active():
+		VirtualCursor.park()
+	if _try_begin_carry():
 		_update_hints()
 
 
@@ -987,15 +1046,17 @@ func _carry_next_unplaced_model() -> void:
 	var unit_id := str(mc.active_unit_id)
 	if unit_id != _carry_unit_id:
 		return  # unit changed under us — don't drag the camera to a new unit
-	var alive := _alive_model_count(unit_id)
+	var roster := _unit_move_roster(unit_id)
+	var alive := roster.size()
 	# Hand over the next model that has NOT been placed yet, scanning forward
 	# with wrap-around and skipping staged ones — paddle hops let models be
 	# placed out of order, and handing back a model the player already dropped
-	# would silently threaten its kept position.
+	# would silently threaten its kept position. The roster spans the bodyguard
+	# AND attached characters, so an attached leader is offered here by default.
 	var next_index := -1
 	for step in range(1, alive + 1):
 		var candidate := wrapi(carry_model_index + step, 0, alive)
-		if _staged_model_pos(unit_id, _alive_model_id(unit_id, candidate)) == null:
+		if _roster_entry_staged_pos(unit_id, roster[candidate]) == null:
 			next_index = candidate
 			break
 	if next_index == -1:
@@ -1008,26 +1069,43 @@ func _carry_next_unplaced_model() -> void:
 		_update_hints()
 
 
+# The active unit's combined move roster: its own alive models plus those of
+# every attached character, as ordered {source_unit_id, model_id} entries. An
+# attached leader forms one unit with its bodyguard and moves WITH it, so the
+# per-model pad flow (L3/paddle browse, X "Next Model", the auto-advance after a
+# drop) hands you the leader's model too — the leader is included by default, not
+# only via the D-pad group grab. Model ids collide between the two units, so each
+# entry keeps its source unit id; staging routes through the active unit's move
+# data with model_source_unit_id (see _staged_model_pos_for).
+func _unit_move_roster(active_unit_id: String) -> Array:
+	var roster: Array = []
+	var unit = GameState.get_unit(active_unit_id)
+	if unit.is_empty():
+		return roster
+	var unit_ids := [active_unit_id]
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		unit_ids.append(str(char_id))
+	for source_uid in unit_ids:
+		var models = GameState.get_unit(source_uid).get("models", [])
+		for i in range(models.size()):
+			var model = models[i]
+			if not model.get("alive", true):
+				continue
+			roster.append({
+				"source_unit_id": source_uid,
+				"model_id": str(model.get("id", "m%d" % (i + 1))),
+			})
+	return roster
+
+
 func _alive_model_count(unit_id: String) -> int:
-	var unit = GameState.get_unit(unit_id)
-	var n := 0
-	for model in unit.get("models", []):
-		if model.get("alive", true):
-			n += 1
-	return n
+	return _unit_move_roster(unit_id).size()
 
 
-# The id ("m1", …) of unit_id's Nth alive model, or "" when out of range.
-func _alive_model_id(unit_id: String, alive_index: int) -> String:
-	var unit = GameState.get_unit(unit_id)
-	var idx := 0
-	for model in unit.get("models", []):
-		if not model.get("alive", true):
-			continue
-		if idx == alive_index:
-			return str(model.get("id", ""))
-		idx += 1
-	return ""
+# The staged dest of a roster entry (null = not placed yet this move). Wraps
+# _staged_model_pos_for with the entry's own source unit.
+func _roster_entry_staged_pos(active_unit_id: String, entry: Dictionary):
+	return _staged_model_pos_for(active_unit_id, str(entry.get("source_unit_id", active_unit_id)), str(entry.get("model_id", "")))
 
 
 # ============================================================================
@@ -1036,9 +1114,11 @@ func _alive_model_id(unit_id: String, alive_index: int) -> String:
 
 # D-pad fall-through (Movement, after the move-menu check): grab EVERY model of
 # the active unit that has not been placed yet and carry them as one formation.
-# Reachable mid-carry (the in-hand model reverts first, like a paddle swap) and
-# in the locked mid-move state; while the move menu is open the same feature is
-# the "Move All Together" menu entry instead.
+# This is THE "move all together" affordance and it works in every move mode —
+# Normal, Advance (after the roll resolves), Fall Back — because it only needs a
+# live move session, not a particular one. Reachable mid-carry (the in-hand
+# model reverts first, like a paddle swap) and in the staged/locked mid-move
+# states; while the move menu is open the D-pad walks the menu instead.
 func _try_grab_all_remaining() -> bool:
 	if group_carry_active:
 		return true  # already carrying the whole group — consume the press
@@ -1347,28 +1427,41 @@ func _swap_carry_to_index() -> void:
 # confirm), so prefer that — hopping to / picking up a staged model must land
 # where its token visually is, not at its pre-move position.
 func _model_world_pos(unit_id: String, alive_index: int):
-	var unit = GameState.get_unit(unit_id)
-	var idx := 0
-	for model in unit.get("models", []):
-		if not model.get("alive", true):
-			continue
-		if idx == alive_index:
-			var staged = _staged_model_pos(unit_id, str(model.get("id", "")))
-			if staged != null:
-				return staged
-			var pos = model.get("position", null)
-			if pos is Dictionary and pos.has("x"):
-				return Vector2(float(pos.x), float(pos.y))
-			elif pos is Vector2:
-				return pos
-			return null
-		idx += 1
+	var roster := _unit_move_roster(unit_id)
+	if alive_index < 0 or alive_index >= roster.size():
+		return null
+	var entry = roster[alive_index]
+	var source_uid := str(entry.get("source_unit_id", unit_id))
+	var model_id := str(entry.get("model_id", ""))
+	# A model already dropped this move sits at its STAGED dest (GameState only
+	# updates on confirm), so prefer that — hopping to / picking up a staged model
+	# must land where its token visually is, not its pre-move position.
+	var staged = _staged_model_pos_for(unit_id, source_uid, model_id)
+	if staged != null:
+		return staged
+	var model := _roster_model(source_uid, model_id)
+	var pos = model.get("position", null)
+	if pos is Dictionary and pos.has("x"):
+		return Vector2(float(pos.x), float(pos.y))
+	elif pos is Vector2:
+		return pos
 	return null
 
 
-# The staged (uncommitted) destination of unit_id's own model model_id in the
-# Movement phase, or null when it has no staged move / not in Movement.
-func _staged_model_pos(unit_id: String, model_id: String):
+# The model dict for source_uid's model_id, or {} when absent.
+func _roster_model(source_uid: String, model_id: String) -> Dictionary:
+	for model in GameState.get_unit(source_uid).get("models", []):
+		if str(model.get("id", "")) == model_id:
+			return model
+	return {}
+
+
+# The staged (uncommitted) destination of source_unit_id's model_id within the
+# ACTIVE unit's move data, in the Movement phase, or null when it has no staged
+# move / not in Movement. Attached-character models stage under the bodyguard's
+# move (actor = active_unit_id) with model_source_unit_id set, so the move data
+# is always the active unit's; source_unit_id disambiguates the colliding ids.
+func _staged_model_pos_for(active_unit_id: String, source_unit_id: String, model_id: String):
 	if model_id == "":
 		return null
 	var m := get_tree().current_scene
@@ -1377,14 +1470,12 @@ func _staged_model_pos(unit_id: String, model_id: String):
 	var phase = PhaseManager.get_current_phase_instance()
 	if phase == null or not phase.has_method("get_active_move_data"):
 		return null
-	var staged: Array = phase.get_active_move_data(unit_id).get("staged_moves", [])
-	# Match on model_source_unit_id too: bodyguard and attached character
-	# model ids can collide (both "m1"); we only hop the active unit's own models.
+	var staged: Array = phase.get_active_move_data(active_unit_id).get("staged_moves", [])
 	for i in range(staged.size() - 1, -1, -1):
 		var sm = staged[i]
 		if str(sm.get("model_id", "")) != model_id:
 			continue
-		if str(sm.get("model_source_unit_id", unit_id)) != unit_id:
+		if str(sm.get("model_source_unit_id", active_unit_id)) != source_unit_id:
 			continue
 		var dest = sm.get("dest")
 		if dest is Vector2:
@@ -1567,6 +1658,16 @@ func _toggle_datasheet() -> bool:
 	return true
 
 
+# Public seam for phase controllers (shooting auto-select, …): frame the
+# camera on unit_id, but ONLY while the pad is the active device. Automatic
+# camera jumps are hostile to mouse players — they can already see what they
+# clicked — so KBM callers are a no-op.
+func follow_unit_if_pad(unit_id: String) -> void:
+	if unit_id == "" or not InputDeviceManager.is_pad_active():
+		return
+	_center_camera_on_unit(unit_id)
+
+
 # Below this zoom the board is a fit-whole-table overview (a loaded save starts
 # at ~0.3) and individual models are unreadable — cycling to a unit there must
 # zoom IN on it, not just pan the overview sideways.
@@ -1620,6 +1721,14 @@ func _shooting_controller_in_shooting_phase() -> Node:
 	if sc == null or not is_instance_valid(sc):
 		return null
 	return sc
+
+
+# Public seam: recompute the hint bar for the current board context. A
+# native-nav modal (e.g. SecondaryMissionReviewDialog) that overrode the hint
+# bar while it owned the pad calls this on close, since this router's _input
+# stands down — and stops driving the hints — while such a modal is open.
+func refresh_hints() -> void:
+	_update_hints()
 
 
 func _update_hints() -> void:
@@ -1685,8 +1794,8 @@ func _movement_has_unplaced_models() -> bool:
 	if mc == null or str(mc.active_unit_id) == "":
 		return false
 	var unit_id := str(mc.active_unit_id)
-	for i in range(_alive_model_count(unit_id)):
-		if _staged_model_pos(unit_id, _alive_model_id(unit_id, i)) == null:
+	for entry in _unit_move_roster(unit_id):
+		if _roster_entry_staged_pos(unit_id, entry) == null:
 			return true
 	return false
 

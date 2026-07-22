@@ -1,0 +1,42 @@
+{
+  "id": "deep_strike_tight_formation",
+  "covers": [
+    "controller.reinforcement.formation_placement",
+    "DeploymentController._validate_formation_position",
+    "DeploymentController.try_place_formation_at"
+  ],
+  "fixture": "ri_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Deep Strike + TIGHT formation regression (GH bug): placing a formation from Deep Strike at a spot that is a LEGAL deep-strike position (on the board, >9\" from all enemies) but OUTSIDE the owning player's deployment zone was being falsely rejected with 'Formation would place models outside deployment zone or overlapping'. Root cause: _validate_formation_position only branched on is_infiltrators_mode, so reinforcement placements fell through to the deployment-zone check. This drives the real reinforcement UI path (select reserves unit -> TIGHT formation -> try_place_formation_at) at board-centre no-man's-land (880,1200) and asserts the 5-model formation actually places. Negative case: the next TIGHT group dropped 5.5\" from the enemy Witchseekers is still rejected, proving the >9\" reinforcement gate stays enforced.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_BOYZ_F.status", "equals": 7 },
+
+    { "act": "execute_script", "multiline": true, "script": "GameState.state.units.U_BOYZ_F.reserve_type = \"deep_strike\"\nreturn GameState.state.units.U_BOYZ_F.reserve_type", "equals": "deep_strike" },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar list = m.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_BOYZ_F\":\n\t\tlist.select(i)\n\t\tlist.item_selected.emit(i)\n\t\treturn true\nreturn false", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.is_reinforcement_mode", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.reinforcement_placement_type", "equals": "deep_strike" },
+
+    { "act": "execute_script", "script": "main.deployment_controller.set_formation_mode(\"TIGHT\")" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.deployment_controller.formation_mode", "equals": "TIGHT" },
+    { "act": "screenshot", "label": "01_deep_strike_tight_formation_armed" },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\ndc.try_place_formation_at(Vector2(880, 1200))\nreturn dc.get_placed_count()", "equals": 5 },
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\nvar p = dc.temp_positions[0]\nreturn p != null and p.y > 560.0 and p.y < 1840.0", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "screenshot", "label": "02_formation_placed_in_no_mans_land" },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\ndc.try_place_formation_at(Vector2(880, 270))\nreturn dc.get_placed_count()", "equals": 5 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "screenshot", "label": "03_near_enemy_group_still_rejected" }
+  ]
+}

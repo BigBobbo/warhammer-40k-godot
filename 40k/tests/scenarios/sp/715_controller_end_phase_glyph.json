@@ -1,0 +1,36 @@
+{
+  "id": "715_controller_end_phase_glyph",
+  "covers": [
+    "ui.phase_action_button.device_glyph",
+    "controller.end_phase.discoverability"
+  ],
+  "fixture": "New Game",
+  "description": "Controller end-phase UX: the top-right phase-action button (the one a player reaches for to end a phase) must advertise the pad Menu (☰) button when a controller is active, instead of the keyboard [Enter] a Steam Deck player cannot press. This reuses the existing pad_phase_action (JOY_BUTTON_START) -> confirm flow; the test proves the inline glyph label AND the confirm dialog text both adapt to the active input device. Assertions are self-contained (each sets the device + phase synchronously) so they are immune to AI phase drift.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn node._get_phase_button_text(GameStateData.Phase.MOVEMENT)",
+      "equals": "[Enter] End Movement Phase" },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "InputDeviceManager.claim_pad()\nreturn node._get_phase_button_text(GameStateData.Phase.MOVEMENT)",
+      "equals": "[☰] End Movement Phase" },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "InputDeviceManager.claim_pad()\nnode.current_phase = GameStateData.Phase.MOVEMENT\nnode.update_ui_for_phase()\nreturn node.phase_action_button.text",
+      "equals": "[☰] End Movement Phase" },
+
+    { "act": "screenshot", "label": "01_pad_end_movement_button_glyph" },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "InputDeviceManager.claim_pad()\nnode.current_phase = GameStateData.Phase.MOVEMENT\nnode.update_ui_for_phase()\nnode._show_pad_phase_confirm()\nreturn node._pad_phase_confirm.dialog_text",
+      "equals": "End Movement Phase?" },
+
+    { "act": "screenshot", "label": "02_pad_end_movement_confirm" },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nnode.current_phase = GameStateData.Phase.MOVEMENT\nnode.update_ui_for_phase()\nreturn node.phase_action_button.text",
+      "equals": "[Enter] End Movement Phase" }
+  ]
+}
