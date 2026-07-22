@@ -2,7 +2,7 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.84.1",
+			"version": "0.84.2",
 			"date": "2026-07-22",
 			"summary": "Controller deep-strike fix: placing a unit arriving from reserves no longer shows 'Move / Advance / Stay Still' instead of a way to confirm. Previously, if you had another unit selected and then picked a reserves unit to deep strike, pressing A or the D-pad mid-placement popped the movement menu of the PREVIOUSLY selected unit — options that make no sense for a unit that just arrived, and a stray A could even silently commit that other unit to Stay Still or an Advance. Now the placement flow owns the controller: A jumps the cursor to the board to place models, the D-pad reaches the Confirm button, Start confirms the arrival — and a freshly arrived unit is never offered movement options.",
 			"changes": [
@@ -11,6 +11,16 @@
 				"A unit that just arrived from reserves is never offered movement options when selected afterwards — it has already made its ingress move (it can still charge later).",
 				"Switching units mid-placement now follows the same rules as deployment: blocked once models are on the table (undo them first), and switching away with nothing placed cleanly cancels the arrival, returning that unit to reserves instead of stranding it in limbo.",
 				"Re-selecting the unit you are already placing no longer silently restarts its placement (which wiped any models you had already put down)."
+			]
+		},
+		{
+			"version": "0.84.1",
+			"date": "2026-07-22",
+			"summary": "Fixed Deep Strike / Strategic Reserves formation placement. Dropping a unit in Tight (or Spread) formation from reinforcements at a spot that is perfectly legal — on the board and more than 9\" from every enemy — was wrongly rejected with 'Formation would place models outside deployment zone or overlapping'. Formations arriving from reserves are now validated against the reinforcement rules (the whole battlefield, >9\" from enemies) instead of your deployment zone, so they place wherever a single-model reinforcement already could.",
+			"changes": [
+				"Deep Strike and Strategic Reserves arrivals can now be placed in Tight or Spread formation anywhere the reinforcement rules allow (on the board, >9\" from enemy models, plus the within-6\"-of-a-board-edge rule for Strategic Reserves) — not only inside your own deployment zone. Single-model reinforcement placement already worked this way; formation placement now matches it.",
+				"The formation ghost preview turns green in every legal reinforcement spot, so you can see a Deep Strike drop is valid before committing it.",
+				"When a reinforcement formation genuinely can't be placed, the message no longer mentions your 'deployment zone' (it isn't the constraint): the specific reason still shows (e.g. 'Must be >9\" from enemy models'), followed by 'Formation placement is not legal here'."
 			]
 		},
 		{
