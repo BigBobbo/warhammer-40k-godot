@@ -2300,6 +2300,23 @@ func _reinforcement_try_switch_unit(new_unit_id: String) -> bool:
 	_reinforcement_placement_type = ""
 	return true
 
+# A placement session (reinforcement arrival OR Rapid Ingress) makes the
+# arriving unit the acting unit. Auto-confirm the previously selected unit's
+# pending move (same QoL as switching units in the list), then DROP the stale
+# movement selection — leaving it set meant the pad's move-mode menu (Move /
+# Advance / Stay Still) and Start's confirm-move fallback could still act on
+# that unit underneath the placement session, which is how deep-striking with
+# the controller showed movement options instead of a deploy confirm. Shared
+# by both placement entry points so Rapid Ingress gets the same protection as
+# a normal reserves arrival.
+func _clear_stale_movement_selection_for_placement() -> void:
+	if movement_controller and is_instance_valid(movement_controller) \
+			and str(movement_controller.active_unit_id) != "":
+		movement_controller._auto_confirm_pending_move(str(movement_controller.active_unit_id))
+		movement_controller._clear_selection()
+		movement_controller.active_unit_id = ""
+		movement_controller._update_selected_unit_display()
+
 func _begin_reinforcement_placement(unit_id: String) -> void:
 	"""Start placing a reserve unit on the battlefield as reinforcement"""
 	var unit = GameState.get_unit(unit_id)
@@ -2311,19 +2328,7 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 	if not _reinforcement_try_switch_unit(unit_id):
 		return
 
-	# The arriving unit is the acting unit now. Auto-confirm the previously
-	# selected unit's pending move (same QoL as switching units in the list),
-	# then DROP the stale movement selection — leaving it set meant the pad's
-	# move-mode menu (Move / Advance / Stay Still) and Start's confirm-move
-	# fallback could still act on that unit underneath the placement session,
-	# which is how deep-striking with the controller showed movement options
-	# instead of a deploy confirm.
-	if movement_controller and is_instance_valid(movement_controller) \
-			and str(movement_controller.active_unit_id) != "":
-		movement_controller._auto_confirm_pending_move(str(movement_controller.active_unit_id))
-		movement_controller._clear_selection()
-		movement_controller.active_unit_id = ""
-		movement_controller._update_selected_unit_display()
+	_clear_stale_movement_selection_for_placement()
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	# NULL-safe: loaded saves can carry "reserve_type": null, and the value
@@ -2747,11 +2752,28 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 	if unit.is_empty():
 		return
 
+	# Same as a normal reserves arrival: the Rapid-Ingressing unit is the acting
+	# unit now, so drop any stale movement selection. Without this the controller
+	# could still pop the previously selected unit's move menu (the PadRouter
+	# placement guard blocks that) OR — the narrower residual — Start's
+	# confirm-move fallback could confirm that unit's staged move mid-placement.
+	_clear_stale_movement_selection_for_placement()
+
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
 	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
 
 	print("Main: Beginning Rapid Ingress placement for %s (%s)" % [unit_name, type_label])
+
+	# Ensure the deployment controller exists — it is freed and nulled on every
+	# phase transition (setup_phase_controllers), and Rapid Ingress can be the
+	# first placement of the Movement phase. The normal reinforcement / scout /
+	# Kunnin' paths all recreate it on demand; Rapid Ingress previously did not,
+	# so the whole `if deployment_controller:` block below silently no-op'd and
+	# the stratagem spent CP with no placement UI ever appearing.
+	if not deployment_controller:
+		print("Main: Creating deployment controller for Rapid Ingress placement")
+		setup_deployment_controller()
 
 	# Use the deployment controller to handle model placement
 	if deployment_controller:
