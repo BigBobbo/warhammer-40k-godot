@@ -1,0 +1,62 @@
+{
+  "id": "command_battleshock_ui_renders",
+  "covers": [
+    "scripts.CommandController.battle_shock_ui",
+    "audit_P0.command_battleshock_render"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "description": "AUDIT P0: the Command-phase Battle-shock UI (Roll Battle-shock button) must actually RENDER for a human. Regression net for the fix where _setup_battle_shock_section early-returned during _ready (current_phase null) and was never rebuilt, so the button never appeared. U_KOMMANDOS_H starts at exactly half-strength (11e battle-shock trigger); after it is queued, the CommandController must show a BattleShockSection with a 'Roll Battle-shock' button.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_KOMMANDOS_H\"][\"flags\"].merge({\"battle_shocked\": false}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._identify_units_needing_tests()"
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_KOMMANDOS_H\" in PhaseManager.get_current_phase_instance()._units_needing_test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var acts = PhaseManager.get_current_phase_instance().get_available_actions()\nvar found = false\nfor a in acts:\n\tif a.get(\"type\", \"\") == \"BATTLE_SHOCK_TEST\" and a.get(\"unit_id\", \"\") == \"U_KOMMANDOS_H\":\n\t\tfound = true\nreturn found",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.current_scene.get_node_or_null(\"CommandController\")\nif cc == null:\n\treturn \"NO_CONTROLLER\"\ncc._refresh_ui()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 4 },
+    {
+      "act": "execute_script",
+      "script": "var panel = SceneRefs.main_path(\"HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel\")\nif panel == null:\n\treturn \"NO_PANEL\"\nvar sec = panel.get_node_or_null(\"BattleShockSection\")\nreturn sec != null and sec.is_visible_in_tree()",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var panel = SceneRefs.main_path(\"HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel\")\nvar sec = panel.get_node_or_null(\"BattleShockSection\") if panel else null\nif sec == null:\n\treturn \"NO_SECTION\"\nvar btns = sec.find_children(\"*\", \"Button\", true, false)\nvar found = false\nfor b in btns:\n\tif String(b.text).contains(\"Battle-shock\"):\n\t\tfound = true\nreturn found",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "screenshot", "label": "battleshock_section_rendered" }
+  ]
+}
