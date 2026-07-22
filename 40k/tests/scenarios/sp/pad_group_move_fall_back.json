@@ -1,0 +1,71 @@
+{
+  "id": "pad_group_move_fall_back",
+  "covers": [
+    "controller.move.group_carry_fall_back",
+    "controller.move.group_carry_dpad_grab",
+    "controller.move.fall_back_auto_carry"
+  ],
+  "fixture": "audit_374_kunnin",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "edition": 11,
+  "description": "The controller group-grab composes with Fall Back (not just Normal/Advance). Setup mirrors iss040: an enemy Witchseeker is teleported into engagement range of the 10-model Ork Boyz (+ attached Weirdboy = an 11-model unit, P2 active), so BEGIN_FALL_BACK becomes legal. Pad path: the move menu offers 'Fall Back' (and NOT a separate 'Move All Together' entry, which was removed); choosing it starts an ordered-retreat move and auto-carries the first model exactly like Normal; a D-pad press then lifts EVERY unmoved model of the unit (all 11, incl. the attached Weirdboy) as one formation riding the stick under the 6\" Fall Back cap; a single A drop stages the group (most of the unit) with each model moving within the cap. Proves the D-pad 'grab all' works in Fall Back mode; the underlying Fall Back move mechanic + confirm/flags are covered by iss040/iss064.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][0].merge({\"position\": {\"x\": 1648.0, \"y\": 1718.4}}, true)" },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][0].merge({\"position\": {\"x\": 1648.0, \"y\": 1718.4}}, true)" },
+    { "act": "execute_script", "script": "RulesEngine.is_unit_engaged(\"U_BOYZ_K\", GameState.state)", "equals": true },
+
+    { "act": "execute_script", "script": "main.movement_controller._select_unit_in_list_by_id(\"U_BOYZ_K\")", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_BOYZ_K" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
+    { "act": "execute_script", "script": "str(main.movement_controller.pad_menu_options()).find(\"FALL_BACK\") != -1", "equals": true },
+    { "act": "execute_script", "script": "str(main.movement_controller.pad_menu_options()).find(\"NORMAL_ALL\")", "equals": -1 },
+
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.15 },
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "FALL_BACK" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_BOYZ_K\"].mode", "equals": "FALL_BACK" },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_BOYZ_K\"].fall_back_mode", "equals": "ordered_retreat" },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_BOYZ_K\"].move_cap_inches", "equals": 6.0 },
+    { "act": "screenshot", "label": "01_fall_back_auto_carried_first_model" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.group_dragging", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.selected_models.size()", "equals": 11 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_BOYZ_K\"].staged_moves.size()", "equals": 0 },
+    { "act": "screenshot", "label": "02_whole_squad_in_hand_fall_back" },
+
+    { "act": "execute_script", "multiline": true, "script": "var mc = tree.current_scene.movement_controller\nVirtualCursor.warp_to(tree.current_scene.world_to_screen_position(mc.drag_start_pos + Vector2(0, 240)))\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "str(main.movement_controller.pad_group_drop_rejection(VirtualCursor.get_cursor_pos()))", "equals": "" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 2.0 },
+
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_BOYZ_K\"].staged_moves.size() >= 6", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var sm = PhaseManager.current_phase_instance.active_moves[\"U_BOYZ_K\"].staged_moves\nvar moved_south = 0\nfor s in sm:\n\tvar d = s.get(\"dest\")\n\tvar f = s.get(\"from\")\n\tif d != null and f != null and float(d.y) - float(f.y) > 0.5:\n\t\tmoved_south += 1\nreturn moved_south >= 6", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var sm = PhaseManager.current_phase_instance.active_moves[\"U_BOYZ_K\"].staged_moves\nvar within_cap = true\nfor s in sm:\n\tif float(s.get(\"total_distance\", 0.0)) > 6.001:\n\t\twithin_cap = false\nreturn within_cap", "equals": true },
+    { "act": "screenshot", "label": "03_group_fall_back_staged" }
+  ]
+}
