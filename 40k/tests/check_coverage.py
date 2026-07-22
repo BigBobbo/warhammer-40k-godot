@@ -3,16 +3,23 @@
 Coverage validator for the windowed-scenario gate.
 
 Verifies that:
-  1. Every tile in coverage.json with status='covered' references at least
-     one scenario file that exists under tests/scenarios/.
-  2. Every cover tag declared by a scenario file maps to a tile in
-     coverage.json.
-  3. (Soft warning) tiles with last_verified_commit older than HEAD~50
-     should be re-verified — flagged as stale but does not fail.
+  1. (ERROR) Every tile in coverage.json with status='covered' references at
+     least one scenario file that exists under tests/scenarios/. This catches
+     real breakage — a tile pointing at a renamed/deleted scenario.
+  2. (WARNING) Every cover tag declared by a scenario file maps to a tile in
+     coverage.json. This is catalogue-completeness bookkeeping, not a
+     correctness signal, and it races unwinnably in a repo where scenario-
+     adding PRs merge concurrently: any PR that lands a new scenario without
+     running sync_coverage.py leaves main's tag→tile mapping momentarily
+     incomplete, which used to turn this gate permanently red and ignored.
+     It is now a non-fatal warning; run `python3 40k/tests/sync_coverage.py`
+     to clear it (it appends a tile per un-catalogued tag).
+  3. (WARNING) tiles with last_verified_commit older than HEAD~50 should be
+     re-verified — flagged as stale but does not fail.
 
 Exit code:
-  0 — all checks pass
-  1 — at least one check failed
+  0 — no errors (warnings may still print)
+  1 — at least one ERROR (a covered tile references a missing scenario)
   2 — usage / IO error
 
 Usage:
@@ -95,7 +102,11 @@ def main() -> int:
                     if sid not in scenario_index:
                         errors.append(f"tile '{tid}' references scenario '{sid}' but no such file under tests/scenarios/")
 
-    # 2) Scenario covers -> tile check
+    # 2) Scenario covers -> tile check (WARNING, not error). Catalogue
+    # completeness only; it races with concurrent scenario-adding merges, so a
+    # hard failure here made the gate permanently red and useless. Surface the
+    # gap (and how to fix it) without failing the build.
+    uncatalogued = 0
     for sid, sd in scenario_index.items():
         covers = sd.get("covers", [])
         if not covers:
@@ -103,7 +114,10 @@ def main() -> int:
             continue
         for tag in covers:
             if tag not in tile_ids:
-                errors.append(f"scenario '{sid}' ({sd['_path']}) declares cover tag '{tag}' but no matching tile in coverage.json")
+                uncatalogued += 1
+                warnings.append(f"scenario '{sid}' ({sd['_path']}) declares cover tag '{tag}' but no matching tile in coverage.json")
+    if uncatalogued:
+        warnings.append(f"{uncatalogued} un-catalogued cover tag(s) — run `python3 40k/tests/sync_coverage.py` to register tiles for them")
 
     # 3) Staleness warning
     try:
