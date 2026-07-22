@@ -1,0 +1,40 @@
+{
+  "id": "reinforcement_hover_no_toast_spam",
+  "covers": [
+    "deployment.reinforcement.hover_ghost_silent",
+    "deployment.reinforcement.click_still_explains",
+    "DeploymentController"
+  ],
+  "fixture": "ri_pretrigger",
+  "rng_seed": 42,
+  "edition": 11,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Reinforcement / Deep Strike placement no longer spams validation toasts while you hover. The per-frame ghost-colour check (_process) reused the click-path validators, which each call _show_toast on failure — so hovering an illegal drop stacked a new 'Strategic Reserves must be within 6\" of a board edge' toast every frame until it hit MAX_TOASTS (the 5-toast pile). The validators now take a silent flag: the per-frame ghost check passes it (just reddens the ghost), while the click path (try_place_at) still surfaces the reason. Starts a Battlewagon Strategic-Reserves placement, hovers the board centre (>6\" from every edge = illegal) for over a second and asserts ZERO toasts accumulate, then dispatches an actual placement at the same illegal spot and asserts a toast DOES appear.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_BATTLEWAGON_G.status", "equals": 7 },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar list = m.movement_controller.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_BATTLEWAGON_G\":\n\t\tlist.select(i)\n\t\tlist.item_selected.emit(i)\n\t\treturn true\nreturn false", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.is_reinforcement_mode", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "for t in ToastManager.active_toasts.duplicate():\n\tif is_instance_valid(t):\n\t\tt.queue_free()\nToastManager.active_toasts.clear()\nreturn ToastManager.active_toasts.size()", "equals": 0 },
+
+    { "act": "hover_board_at", "x": 880, "y": 1200 },
+    { "act": "wait_seconds", "seconds": 1.3 },
+    { "act": "execute_script", "script": "ToastManager.active_toasts.size()", "equals": 0 },
+    { "act": "screenshot", "label": "01_hover_illegal_spot_no_toast_stack" },
+
+    { "act": "hover_board_at", "x": 700, "y": 1300 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "ToastManager.active_toasts.size()", "equals": 0 },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nm.deployment_controller.try_place_at(Vector2(880, 1200))\nreturn ToastManager.active_toasts.size() >= 1", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 0 },
+    { "act": "screenshot", "label": "02_click_illegal_spot_shows_one_toast" }
+  ]
+}
