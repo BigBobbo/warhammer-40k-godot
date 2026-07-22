@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.85.0",
+			"date": "2026-07-22",
+			"summary": "Charge phase controller overhaul. The Start (☰) button now walks the whole charge forward — Declare, Roll 2D6, then Confirm the charge moves — and can no longer end the phase out from under a charge in progress. The D-pad no longer dumps you into the side panels: all four directions pick targets, and A toggles a target immediately (no need to press ▲ first). The button hints at the bottom always name exactly what Start will do in the current step.",
+			"changes": [
+				"Start (☰) is now stage-aware in the Charge phase: it Declares with targets selected, Rolls 2D6 once declared, and Confirms the charge moves once your models are in engagement range — including while a model is still in hand (it places the model first). It only offers 'End Charge Phase?' when no charge is underway.",
+				"Fixed the dead-end where Roll 2D6 appeared greyed out and Start ended the phase: cycling units (LB/RB) mid-charge silently reset the charge locally while the phase still held it. The bumpers are now locked while a charge is being resolved, with a toast explaining what to do instead.",
+				"D-pad ◀ ▶ now step the ELIGIBLE TARGETS rows just like ▲ ▼, and the D-pad no longer drops you into right-panel / bottom-bar button focus mid-charge — no more 'sometimes it controls the menu, sometimes the bottom of the screen'.",
+				"A now toggles the first target immediately when you haven't stepped the list yet, and no longer 'picks up' a model during the declare/roll steps (which used to strand the cursor holding an invisible drag).",
+				"New controller shortcuts while moving charge models: X = Snap to Contact (places every unmoved model base-to-base with its nearest target), B = Undo Last Model, L3 = swap which model you're carrying (previously dead in the charge carry).",
+				"The bottom hint bar updates live with the charge state — Pick Target / Toggle Target, Declare Charge, Roll 2D6, Grab Model / Snap to Contact / Confirm Charge — so it never promises an action Start can't deliver."
+			]
+		},
+		{
 			"version": "0.84.0",
 			"date": "2026-07-21",
 			"summary": "Attached leaders now move with their unit on the controller by default. When a Character has joined a unit, its model is part of that unit's move everywhere: L3 (and the paddles) now cycle onto the leader as well as the bodyguard's models, so you can move it in the normal one-model-at-a-time flow — not only via 'Move All Together'. You can no longer finish a unit's move having accidentally left its leader behind.",
