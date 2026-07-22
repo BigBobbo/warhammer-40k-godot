@@ -1,0 +1,68 @@
+{
+  "id": "movement_bomb_squigs_ui",
+  "covers": [
+    "scripts.MovementController.bomb_squigs_ui",
+    "phases.MovementPhase.bomb_squigs",
+    "audit_P1.movement_bomb_squigs"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "AUDIT P1: the Orks' Bomb Squigs reactive must have a human UI. The MovementPhase set _bomb_squigs_pending_unit and emitted bomb_squigs_available, but only AIPlayer listened, so a human could never use it. Here the prompt is raised for a human-owned Ork unit; the dialog must appear with a target button per eligible enemy + Decline, and declining must clear the pending state.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(2)\nPhaseManager.transition_to_phase(7)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 6 },
+    {
+      "act": "execute_script",
+      "script": "return GameState.state[\"meta\"][\"phase\"]",
+      "multiline": true,
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "var fp = PhaseManager.get_current_phase_instance()\nfp._bomb_squigs_pending_unit = \"U_BOYZ_E\"\nfp.emit_signal(\"bomb_squigs_available\", \"U_BOYZ_E\", 2, [{\"target_unit_id\": \"U_BLADE_CHAMPION_A\"}])\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 8 },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"BombSquigsDialog\")\nreturn d != null and d.visible",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"BombSquigsDialog\")\nif d == null:\n\treturn \"NO_DIALOG\"\nvar btns = d.find_children(\"*\", \"Button\", true, false)\nvar has_target = false\nvar has_decline = false\nfor b in btns:\n\tvar t = String(b.text)\n\tif t.contains(\"Bomb Squigs\"):\n\t\thas_target = true\n\tif t.contains(\"Decline\"):\n\t\thas_decline = true\nreturn has_target and has_decline",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "screenshot", "label": "bomb_squigs_dialog_shown" },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"BombSquigsDialog\")\nif d == null:\n\treturn \"NO_DIALOG\"\nd._on_decline_pressed()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 8 },
+    {
+      "act": "execute_script",
+      "script": "return PhaseManager.get_current_phase_instance()._bomb_squigs_pending_unit",
+      "multiline": true,
+      "equals": ""
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node_or_null(\"BombSquigsDialog\") == null",
+      "multiline": true,
+      "equals": true
+    }
+  ]
+}

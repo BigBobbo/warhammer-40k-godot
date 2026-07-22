@@ -851,6 +851,11 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("scatter_opportunity"):
 				if not phase.scatter_opportunity.is_connected(_on_scatter_opportunity):
 					phase.scatter_opportunity.connect(_on_scatter_opportunity)
+				# audit P1: Bomb Squigs — human had no UI; the phase emitted
+				# bomb_squigs_available but only AIPlayer listened.
+				if phase.has_signal("bomb_squigs_available"):
+					if not phase.bomb_squigs_available.is_connected(_on_bomb_squigs_available):
+						phase.bomb_squigs_available.connect(_on_bomb_squigs_available)
 
 			# Update the game state snapshot reference
 			if phase.has_method("get_game_state_snapshot"):
@@ -5216,6 +5221,39 @@ func _on_scatter_declined(player: int) -> void:
 # ===================================================
 # KUNNIN' INFILTRATOR HANDLING (OA-24)
 # ===================================================
+
+func _on_bomb_squigs_available(unit_id: String, player: int, eligible_targets: Array) -> void:
+	"""audit P1: show the Orks' Bomb Squigs prompt to a human. The phase set
+	_bomb_squigs_pending_unit and emitted this signal, but only AIPlayer listened
+	(guarded by is_ai_player) — so a human could never use it. Skip AI and
+	non-owning MP seats to avoid a double-submit."""
+	print("[MovementController] Bomb Squigs available for %s (player %d, %d targets)" % [unit_id, player, eligible_targets.size()])
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		return
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != player:
+		return
+	var dialog = preload("res://dialogs/BombSquigsDialog.gd").new()
+	dialog.name = "BombSquigsDialog"
+	dialog.setup(unit_id, player, eligible_targets)
+	dialog.bomb_squigs_chosen.connect(_on_bomb_squigs_chosen)
+	get_tree().root.add_child(dialog)
+	DialogUtils.popup_at_bottom(dialog)
+
+func _on_bomb_squigs_chosen(actor_unit_id: String, target_unit_id: String, use_ability: bool) -> void:
+	"""Dispatch the Bomb Squigs decision from the dialog."""
+	if use_ability:
+		emit_signal("move_action_requested", {
+			"type": "USE_BOMB_SQUIGS",
+			"actor_unit_id": actor_unit_id,
+			"target_unit_id": target_unit_id
+		})
+	else:
+		emit_signal("move_action_requested", {
+			"type": "DECLINE_BOMB_SQUIGS",
+			"actor_unit_id": actor_unit_id
+		})
 
 func _on_kunnin_infiltrator_available(unit_id: String, player: int) -> void:
 	"""Handle Kunnin' Infiltrator activation — notify UI that redeployment placement is needed.

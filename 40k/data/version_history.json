@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.12",
+			"date": "2026-07-22",
+			"summary": "Orks can now use Bomb Squigs by hand. After an eligible unit makes a Normal move, a dialog lets you pick which enemy unit takes D3 mortal wounds (or Decline) — previously only the AI could trigger this, so a human player never got the option.",
+			"changes": [
+				"Movement phase: added the Bomb Squigs prompt for a human player. When one of your units makes a Normal move and has the ability, you get a dialog with a button per eligible enemy target (and Decline). The MovementPhase already offered this to the AI only; the MovementController now listens for it too."
+			]
+		},
+		{
 			"version": "0.92.11",
 			"date": "2026-07-22",
 			"summary": "Fixed: the pre-battle Redeployment step no longer gets stuck. If you have a unit with a redeployment ability, you can now always press End Redeployment to move on — redeployment is optional, so any units you don't redeploy just stay where they deployed. Previously the phase refused to end while a redeploy unit was unresolved, and there was no way to resolve it, so it could stall.",
