@@ -1,0 +1,39 @@
+{
+  "id": "pad_shoot_first_assign_keeps_weapon",
+  "covers": [
+    "controller.m2.shooting_native",
+    "controller.shooting.first_assign_weapon_preserved",
+    "ShootingController.pad_select_weapon",
+    "PadRouter"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "The FIRST target assignment after entering the Shooting phase must keep the weapon the pad player stepped to. The phase-entry auto-select arms a shooter in the controller but does NOT dispatch SELECT_SHOOTER, so the phase's active shooter stays empty; the first A-press re-syncs it, which fires unit_selected_for_shooting -> _refresh_weapon_tree and REBUILDS the weapon tree, dropping the selection. Before the fix, that first assign silently reverted to the first weapon (usually a short-range gun that can't reach the highlighted target -> a silent no-op). The fix captures the player's weapon before the sync and restores it via pad_select_weapon. Enters shooting the real way (pad Start ends Movement, A confirms), asserts the entry desync precondition, picks the longest-range NON-first weapon + an eligible target while still desynced, then a single A must assign THAT weapon.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "simulate_joy_button", "button_index": 6 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script", "script": "str(main.shooting_controller.active_shooter_id) != \"\"", "equals": true },
+    { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().active_shooter_id) != str(main.shooting_controller.active_shooter_id)", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar sc = m.shooting_controller\nif sc.eligible_targets.is_empty():\n\treturn false\nvar target_id = \"\"\nfor tid in sc.eligible_targets.keys():\n\ttarget_id = str(tid)\n\tbreak\nvar root = sc.weapon_tree.get_root()\nif root == null:\n\treturn false\nvar child = root.get_first_child()\nvar first_id = \"\"\nvar best_id = \"\"\nvar best_range = -1\nwhile child != null:\n\tvar wid = str(child.get_metadata(0))\n\tif first_id == \"\":\n\t\tfirst_id = wid\n\tif child.is_selectable(0):\n\t\tvar rng = int(RulesEngine.get_weapon_profile(wid).get(\"range\", 0))\n\t\tif rng > best_range:\n\t\t\tbest_range = rng\n\t\t\tbest_id = wid\n\tchild = child.get_next()\nif best_id == \"\" or best_id == first_id:\n\treturn false\nsc.pad_select_weapon(best_id)\nPadRouter.target_highlight_id = target_id\nInputDeviceManager.set_meta(\"chosen_w\", best_id)\nInputDeviceManager.set_meta(\"first_w\", first_id)\nreturn str(sc.selected_weapon_id) == best_id", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "screenshot", "label": "01_weapon_picked_phase_desynced" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script", "script": "main.shooting_controller.weapon_assignments.size()", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.shooting_controller.weapon_assignments.has(str(InputDeviceManager.get_meta(\"chosen_w\")))", "equals": true },
+    { "act": "execute_script", "script": "not main.shooting_controller.weapon_assignments.has(str(InputDeviceManager.get_meta(\"first_w\")))", "equals": true },
+    { "act": "screenshot", "label": "02_first_assign_kept_chosen_weapon" }
+  ]
+}
