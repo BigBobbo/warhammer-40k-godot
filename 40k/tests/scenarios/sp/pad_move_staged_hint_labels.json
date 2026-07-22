@@ -1,0 +1,62 @@
+{
+  "id": "pad_move_staged_hint_labels",
+  "covers": [
+    "controller.move.staged_hint_x_is_finish",
+    "controller.move.staged_hint_l3_is_next",
+    "controller.move.next_model_label_is_l3_only"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Regression guard for the reported controller confusion: while moving a multi-model unit's individual models, the transient 'model dropped, others still un-placed' state (HINTS_MOVE_STAGED) used to relabel 'Next Model' onto X and demote L3 to 'Browse Models', so for one state 'Next Model' jumped from L3 to X. Drive that exact state — select U_WITCHSEEKERS_C, open the move menu, choose Move (auto-carry), swap to a model, drop it as a waypoint while two models remain un-placed — then assert the hint bar the player reads: X is 'Finish Model' (matching the carry set), L3 is 'Next Model' (matching every other non-carry movement state), and X is NEVER 'Next Model'. Proves 'Next Model' is an L3-only label.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_WITCHSEEKERS_C" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": false },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 0 },
+
+    { "act": "pad_cursor_glide", "x": 850.0, "y": 140.0 },
+    { "act": "simulate_joy_button", "button_index": 7 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PadRouter.carry_model_index", "equals": 1 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 0 },
+
+    { "act": "pad_cursor_glide", "x": 910.0, "y": 100.0 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()", "equals": 1 },
+
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "execute_script", "script": "PadHintBar.get_node(\"PadHintPanel\").visible", "equals": true },
+
+    { "act": "execute_script", "script": "PadHintBar.label_for(\"x\")", "equals": "Finish Model" },
+    { "act": "execute_script", "script": "PadHintBar.label_for(\"l3\")", "equals": "Next Model" },
+    { "act": "execute_script", "script": "PadHintBar.label_for(\"x\")", "not_equals": "Next Model" },
+    { "act": "execute_script", "script": "PadHintBar.label_for(\"a\")", "equals": "Move Model" },
+    { "act": "execute_script", "script": "PadHintBar.label_for(\"menu\")", "equals": "Confirm Move" },
+    { "act": "execute_script", "script": "PadHintBar.label_for(\"dpad\")", "equals": "Grab All" },
+    { "act": "execute_script", "script": "PadHintBar.label_for(\"b\")", "equals": "Undo Model" },
+
+    { "act": "screenshot", "label": "01_staged_x_finish_l3_next" }
+  ]
+}

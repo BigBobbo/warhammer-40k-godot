@@ -206,16 +206,22 @@ const HINTS_MOVE := [
 ]
 # Movement mid-move with a model just dropped and models still un-placed (the
 # multi-step state): the dropped model KEEPS focus — A picks it back up to keep
-# spending its remaining move, X seals it and hands over the next un-placed
-# model, a D-pad press lifts every still-unmoved model as one group (any move
-# mode — staged drops keep their spots), B undoes the last staged model, L3
-# (and the paddles where Steam Input forwards them) browses models freely. The
-# bumpers stay locked to this unit until the move is confirmed or undone.
+# spending its remaining move, X "Finish Model" seals it and hands over the next
+# un-placed model, a D-pad press lifts every still-unmoved model as one group (any
+# move mode — staged drops keep their spots), B undoes the last staged model, L3
+# (and the paddles where Steam Input forwards them) browses models freely. L3
+# keeps its one label — "Next Model", the same as every other non-carry movement
+# state — so "Next Model" always means the L3 model-switcher and never collides
+# with X: X is "Finish Model" here (matching the carry set), never "Next Model".
+# (The reported controller confusion: this state used to relabel "Next Model"
+# onto X and demote L3 to "Browse Models", so for one transient state "Next Model"
+# jumped buttons.) The bumpers stay locked to this unit until the move is
+# confirmed or undone.
 const HINTS_MOVE_STAGED := [
 	["a", "Move Model"],
-	["x", "Next Model"],
+	["x", "Finish Model"],
 	["dpad", "Grab All"],
-	["l3", "Browse Models"],
+	["l3", "Next Model"],
 	["b", "Undo Model"],
 	["y", "Datasheet"],
 	["menu", "Confirm Move"],
@@ -1217,7 +1223,7 @@ func _drop_carry(regrab_group := true) -> bool:
 func _refresh_hints_settled() -> void:
 	# A drop's synthetic release travels the input queue and its
 	# STAGE_MODEL_MOVE lands a frame or two later; refresh the hint bar after
-	# that so the multi-step affordances (A Move Model / X Next Model / B Undo
+	# that so the multi-step affordances (A Move Model / X Finish Model / B Undo
 	# Model) appear right at the drop instead of only on the next press.
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -1295,7 +1301,7 @@ func _carry_next_unplaced_model() -> void:
 # The active unit's combined move roster: its own alive models plus those of
 # every attached character, as ordered {source_unit_id, model_id} entries. An
 # attached leader forms one unit with its bodyguard and moves WITH it, so the
-# per-model pad flow (L3/paddle browse, X "Next Model", the auto-advance after a
+# per-model pad flow (L3/paddle browse, X "Finish Model", the auto-advance after a
 # drop) hands you the leader's model too — the leader is included by default, not
 # only via the D-pad group grab. Model ids collide between the two units, so each
 # entry keeps its source unit id; staging routes through the active unit's move
@@ -2086,7 +2092,7 @@ func _movement_session_locked() -> bool:
 
 
 # True while the active movement unit still has at least one alive model with
-# no staged destination — the multi-step state where X ("Next Model") has
+# no staged destination — the multi-step state where X ("Finish Model") has
 # somewhere to advance to.
 func _movement_has_unplaced_models() -> bool:
 	var mc := _movement_controller()
