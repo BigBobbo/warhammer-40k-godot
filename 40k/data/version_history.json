@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.89.1",
+			"date": "2026-07-22",
+			"summary": "Fixed a confusing controller hint while moving a squad model-by-model. In the brief state right after you drop a model with Ⓐ while other models still need placing, the bottom hint bar used to move the 'Next Model' label onto Ⓧ and rename L3 to 'Browse Models' — so for that one state 'Next Model' jumped from L3 (where it sits in every other movement state) onto Ⓧ. Now Ⓧ reads 'Finish Model' (matching what it says while carrying) and L3 always reads 'Next Model'. 'Next Model' is the L3 button, always.",
+			"changes": [
+				"Movement (controller): after dropping a model with Ⓐ while models remain unplaced, the hint bar now shows 'Ⓧ Finish Model' and 'L3 Next Model' — previously it showed 'Ⓧ Next Model' and 'L3 Browse Models', which made it look like Ⓧ had become the model-switch button.",
+				"'Next Model' now refers only ever to L3 (the left-stick click), consistently across selecting a unit, the move menu, mid-move, and once all models are placed. Ⓧ is 'Finish Model' everywhere it seals a model and advances to the next un-placed one."
+			]
+		},
+		{
 			"version": "0.89.0",
 			"date": "2026-07-22",
 			"summary": "The controller target-picking treatment now reaches the Fight phase. The Assign Attacks dialog is fully controller-operable — the melee twin of the shooting fix: D-pad ▲▼ steps the weapon, ◀▶ steps the target (the enemy you're about to hit wears the same gold reticle brackets + 'TARGET n/m' banner, auto-armed and lifted into the clear strip above the dialog so it's never hidden), Ⓐ adds the assignment, and ☰ resolves the fight. Picking which unit fights, and the pile-in / consolidate unit picks, are reachable with the bumpers + D-pad too — the bumpers no longer misfire on the fight-order list.",

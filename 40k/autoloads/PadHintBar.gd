@@ -26,6 +26,11 @@ const M0_HINTS := [
 var _panel: PanelContainer
 var _row: HBoxContainer
 
+# The [glyph_id, label] pairs currently rendered, verbatim from the last
+# set_hints() call. Exposed so windowed scenarios can assert exactly which chips
+# the player sees (e.g. that "Next Model" only ever rides L3, never X).
+var current_hints: Array = []
+
 
 func _ready() -> void:
 	layer = 90
@@ -36,11 +41,23 @@ func _ready() -> void:
 
 
 func set_hints(hints: Array) -> void:
+	current_hints = hints.duplicate(true)
 	for child in _row.get_children():
 		child.queue_free()
 	for hint in hints:
 		_row.add_child(GlyphDB.make_chip(str(hint[0]), str(hint[1])))
 	_panel.visible = not hints.is_empty() and InputDeviceManager.is_pad_active()
+
+
+# The label currently paired with `glyph_id` in the hint bar, or "" if that
+# button has no chip in the active context. Lets windowed scenarios assert what
+# the player actually reads for a given button (e.g. that L3 — not X — carries
+# the "Next Model" label in the multi-step movement state).
+func label_for(glyph_id: String) -> String:
+	for hint in current_hints:
+		if str(hint[0]) == glyph_id:
+			return str(hint[1])
+	return ""
 
 
 func _on_device_changed(mode: int) -> void:
