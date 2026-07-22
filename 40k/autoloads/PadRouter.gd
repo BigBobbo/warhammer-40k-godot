@@ -179,12 +179,14 @@ const HINTS_MOVE := [
 # Movement mid-move with a model just dropped and models still un-placed (the
 # multi-step state): the dropped model KEEPS focus — A picks it back up to keep
 # spending its remaining move, X seals it and hands over the next un-placed
-# model, B undoes the last staged model, L3 (and the paddles where Steam Input
-# forwards them) browses models freely. The bumpers stay locked to this unit
-# until the move is confirmed or undone.
+# model, a D-pad press lifts every still-unmoved model as one group (any move
+# mode — staged drops keep their spots), B undoes the last staged model, L3
+# (and the paddles where Steam Input forwards them) browses models freely. The
+# bumpers stay locked to this unit until the move is confirmed or undone.
 const HINTS_MOVE_STAGED := [
 	["a", "Move Model"],
 	["x", "Next Model"],
+	["dpad", "Grab All"],
 	["l3", "Browse Models"],
 	["b", "Undo Model"],
 	["y", "Datasheet"],
@@ -219,9 +221,15 @@ var _carry_pickup_screen := Vector2.ZERO
 var _carry_unit_id: String = ""  # resets carry_model_index when the unit changes
 # Group carry: EVERY unmoved model of the unit rides the cursor as one
 # formation (MovementController's mouse group-drag machinery runs underneath).
-# Entered from the move menu's "Move All Together" or any D-pad press while a
-# model is in hand / the unit is mid-move. Windowed scenarios assert this.
+# Entered by any D-pad press while a model is in hand / the unit is mid-move —
+# it composes with every move mode (Normal, Advance, Fall Back) rather than
+# being a menu entry of its own. Windowed scenarios assert this.
 var group_carry_active: bool = false
+# Armed by _apply_menu_choice when the pad menu's Advance is chosen: the unit
+# whose advance dice are in flight. When MovementController reports the roll
+# resolved (on_advance_move_resolved), the first model is auto-carried — the
+# same hand-over plain Move gets. Cleared by any other menu choice / on use.
+var _pending_advance_carry_unit: String = ""
 
 
 func is_carrying() -> bool:
@@ -447,16 +455,20 @@ func _apply_menu_choice(choice_id: String) -> void:
 	var mc = m.movement_controller if ("movement_controller" in m) else null
 	if mc == null or not is_instance_valid(mc) or not mc.has_method("pad_apply_menu_choice"):
 		return
+	# Advance rolls dice before any model can move (and may pause behind the
+	# Command Re-roll dialog) — arm the hand-over BEFORE applying, because with
+	# no re-roll on offer the roll resolves synchronously inside
+	# pad_apply_menu_choice and on_advance_move_resolved fires during the call.
+	_pending_advance_carry_unit = str(mc.active_unit_id) if choice_id == "ADVANCE" else ""
 	mc.pad_apply_menu_choice(choice_id)
 	# Choices that start moving models flow straight into the carry so the
-	# next thing on the stick is the model itself. Advance waits (its dice
-	# dialog owns the next press) and Stay Still is already done — for both,
-	# _try_begin_carry's focus/validity guards make the deferred call a no-op
-	# anyway, so gating here is just intent. "Move All Together" flows into the
-	# GROUP carry: the whole unit rides the stick as one formation.
-	if choice_id == "NORMAL_ALL":
-		call_deferred("_auto_group_carry_after_menu")
-	elif choice_id == "NORMAL" or choice_id == "FALL_BACK":
+	# next thing on the stick is the model itself. Advance's carry begins when
+	# its roll resolves instead (on_advance_move_resolved — the dice dialog owns
+	# the presses in between) and Stay Still is already done — _try_begin_carry's
+	# focus/validity guards make the deferred call a no-op anyway, so gating
+	# here is just intent. There is no separate "move all" menu entry: with the
+	# carry in hand, a D-pad press lifts the whole squad in ANY move mode.
+	if choice_id == "NORMAL" or choice_id == "FALL_BACK":
 		call_deferred("_auto_carry_after_menu")
 
 
@@ -465,8 +477,45 @@ func _auto_carry_after_menu() -> void:
 		_update_hints()
 
 
-func _auto_group_carry_after_menu() -> void:
-	if not carry_active and _try_begin_group_carry():
+# Public seam for MovementController._on_unit_move_begun: the pad player chose
+# Advance from the move menu and the advance roll has now resolved — immediately
+# when no Command Re-roll was on offer, else via the dialog's Keep/Re-roll
+# choice. Hand them the first model, exactly like choosing plain Move does, so
+# the squad is one D-pad press (Grab All) from moving together. No-ops unless
+# _apply_menu_choice armed it, so mouse radio clicks and AI advances never
+# trigger a carry.
+func on_advance_move_resolved(unit_id: String) -> void:
+	if _pending_advance_carry_unit == "" or unit_id != _pending_advance_carry_unit:
+		return
+	_pending_advance_carry_unit = ""
+	if not InputDeviceManager.is_pad_active():
+		return
+	_auto_carry_after_advance(unit_id)
+
+
+# The resolution signal fires mid-frame: the action-bar choice (no-reroll path)
+# or the Command Re-roll dialog's button press (reroll path) is still tearing
+# down, and _try_begin_carry refuses while either holds focus. Wait (bounded)
+# for the bar/dialog/focus to clear, then take the first model — bailing the
+# moment something else claims the pad.
+func _auto_carry_after_advance(unit_id: String) -> void:
+	for _i in range(30):
+		await get_tree().process_frame
+		if carry_active or group_carry_active or PadActionBar.is_open():
+			return  # player already picked something up / reopened a menu
+		if get_viewport().gui_get_focus_owner() == null \
+				and get_tree().root.get_node_or_null("CommandRerollDialog") == null:
+			break
+	if carry_active or PadActionBar.is_open():
+		return
+	if get_viewport().gui_get_focus_owner() != null:
+		return  # a dialog/panel never let go — leave the pad alone
+	var mc := _movement_controller()
+	if mc == null or str(mc.active_unit_id) != unit_id:
+		return  # the moment passed (unit switched / phase moved on)
+	if VirtualCursor.is_cursor_active():
+		VirtualCursor.park()
+	if _try_begin_carry():
 		_update_hints()
 
 
@@ -1025,7 +1074,7 @@ func _carry_next_unplaced_model() -> void:
 # attached leader forms one unit with its bodyguard and moves WITH it, so the
 # per-model pad flow (L3/paddle browse, X "Next Model", the auto-advance after a
 # drop) hands you the leader's model too — the leader is included by default, not
-# only via "Move All Together". Model ids collide between the two units, so each
+# only via the D-pad group grab. Model ids collide between the two units, so each
 # entry keeps its source unit id; staging routes through the active unit's move
 # data with model_source_unit_id (see _staged_model_pos_for).
 func _unit_move_roster(active_unit_id: String) -> Array:
@@ -1065,9 +1114,11 @@ func _roster_entry_staged_pos(active_unit_id: String, entry: Dictionary):
 
 # D-pad fall-through (Movement, after the move-menu check): grab EVERY model of
 # the active unit that has not been placed yet and carry them as one formation.
-# Reachable mid-carry (the in-hand model reverts first, like a paddle swap) and
-# in the locked mid-move state; while the move menu is open the same feature is
-# the "Move All Together" menu entry instead.
+# This is THE "move all together" affordance and it works in every move mode —
+# Normal, Advance (after the roll resolves), Fall Back — because it only needs a
+# live move session, not a particular one. Reachable mid-carry (the in-hand
+# model reverts first, like a paddle swap) and in the staged/locked mid-move
+# states; while the move menu is open the D-pad walks the menu instead.
 func _try_grab_all_remaining() -> bool:
 	if group_carry_active:
 		return true  # already carrying the whole group — consume the press
