@@ -1,150 +1,48 @@
 {
   "id": "pad_m3_carry_deploy",
-  "covers": [
-    "controller.m3.carry_deployment"
-  ],
+  "covers": ["controller.m3.carry_deployment", "controller.deployment.transport_embark_dialog"],
   "fixture": "audit_377_defender_first",
+  "rng_seed": 42,
   "transition_to_phase": 1,
   "disable_ai": true,
-  "rng_seed": 42,
-  "description": "M3 deployment by pad: RB cycles the undeployed-unit list (starting placement of the Battlewagon), A warps the cursor+ghost to the deployment zone, LB rotates the ghost (synthesized rebindable rotate key), a stick nudge finds room for the huge oval base, A places it, cursor-clicking Confirm pops the transport embark dialog, 'Deploy Without Embarking' completes the unit and the deployment turn alternates to player 1; B parks the cursor.",
+  "description": "M3 deployment by pad, for a TRANSPORT (Battlewagon): the unit is selected from the right-panel list, A warps the cursor+ghost to the deployment zone and a second A places the huge rectangular base, cursor-clicking Confirm pops the transport embark dialog, and 'Deploy Without Embarking' completes the unit so the deployment turn alternates to player 1; B then parks the cursor. NOTE: the unit is selected deterministically via the list (not by bumper-cycling) because LB/RB are now the unit-cycling control during deployment placement (the BUMPER-ONLY rule) — LB no longer rotates the ghost, so a single LB press here would cycle to a different unit. This scenario's job is the transport + embark-dialog flow; RB/LB unit cycling is covered by pad_deploy_unit_cycling.",
   "steps": [
-    {
-      "act": "wait_seconds",
-      "seconds": 1.5
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.phase",
-      "equals": 1
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.active_player",
-      "equals": 2
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 10
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.5
-    },
-    {
-      "act": "execute_script",
-      "script": "main.deployment_controller.is_placing()",
-      "equals": true
-    },
-    {
-      "act": "execute_script",
-      "script": "InputDeviceManager.set_meta(\"dep\", str(main.deployment_controller.unit_id))"
-    },
-    {
-      "act": "screenshot",
-      "label": "01_unit_selected_for_deploy"
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 0
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.3
-    },
-    {
-      "act": "execute_script",
-      "script": "VirtualCursor.is_cursor_active()",
-      "equals": true
-    },
-    {
-      "act": "screenshot",
-      "label": "02_ghost_at_zone"
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 9
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.2
-    },
-    {
-      "act": "screenshot",
-      "label": "03_ghost_rotated"
-    },
-    {
-      "act": "simulate_joy_axis",
-      "axis": 0,
-      "value": 0.5,
-      "hold_s": 0.25
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 0
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.4
-    },
-    {
-      "act": "execute_script",
-      "script": "main.deployment_controller.placed_tokens.size()",
-      "expect_min": 1
-    },
-    {
-      "act": "screenshot",
-      "label": "04_model_placed"
-    },
-    {
-      "act": "pad_cursor_glide",
-      "button_text": "Confirm"
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 0
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.6
-    },
-    {
-      "act": "screenshot",
-      "label": "05_embark_dialog"
-    },
-    {
-      "act": "pad_cursor_glide",
-      "button_text": "Deploy Without Embarking"
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 0
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.8
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.active_player",
-      "equals": 1
-    },
-    {
-      "act": "screenshot",
-      "label": "06_unit_confirmed_turn_alternated"
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 1
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.3
-    },
-    {
-      "act": "execute_script",
-      "script": "VirtualCursor.is_cursor_active()",
-      "equals": false
-    }
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "multiline": true, "script": "InputDeviceManager.claim_pad()\nvar list = tree.current_scene.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_BATTLEWAGON_G\":\n\t\tlist.select(i)\n\t\tlist.item_selected.emit(i)\n\t\treturn true\nreturn false", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": true },
+    { "act": "execute_script", "script": "str(main.deployment_controller.unit_id)", "equals": "U_BATTLEWAGON_G" },
+    { "act": "execute_script", "script": "main.deployment_controller._is_transport(\"U_BATTLEWAGON_G\")", "equals": true },
+    { "act": "screenshot", "label": "01_transport_selected_for_deploy" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": true },
+    { "act": "screenshot", "label": "02_ghost_at_zone" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 1 },
+    { "act": "screenshot", "label": "04_model_placed" },
+
+    { "act": "pad_cursor_glide", "button_text": "Confirm" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true, "script": "for n in tree.root.get_children():\n\tvar sp = n.get_script()\n\tif sp and str(sp.resource_path).findn(\"TransportEmbarkDialog\") >= 0:\n\t\treturn true\nreturn false", "equals": true },
+    { "act": "screenshot", "label": "05_embark_dialog" },
+
+    { "act": "pad_cursor_glide", "button_text": "Deploy Without Embarking" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": false },
+    { "act": "screenshot", "label": "06_unit_confirmed_turn_alternated" },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": false }
   ]
 }
