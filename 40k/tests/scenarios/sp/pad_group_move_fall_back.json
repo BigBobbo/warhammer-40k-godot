@@ -10,7 +10,7 @@
   "disable_ai": true,
   "rng_seed": 42,
   "edition": 11,
-  "description": "The controller group-grab composes with Fall Back (not just Normal/Advance). Setup mirrors iss040: an enemy Witchseeker is teleported into engagement range of the 10-model Ork Boyz (+ attached Weirdboy = an 11-model unit, P2 active), so BEGIN_FALL_BACK becomes legal. Pad path: the move menu offers 'Fall Back' (and NOT a separate 'Move All Together' entry, which was removed); choosing it starts an ordered-retreat move and auto-carries the first model exactly like Normal; a D-pad press then lifts EVERY unmoved model of the unit (all 11, incl. the attached Weirdboy) as one formation riding the stick under the 6\" Fall Back cap; a single A drop stages the group (most of the unit) with each model moving within the cap. Proves the D-pad 'grab all' works in Fall Back mode; the underlying Fall Back move mechanic + confirm/flags are covered by iss040/iss064.",
+  "description": "The controller group-grab composes with Fall Back (not just Normal/Advance). Setup mirrors iss040: an enemy Witchseeker is teleported into engagement range of the 10-model Ork Boyz (+ attached Weirdboy = an 11-model unit, P2 active), so BEGIN_FALL_BACK becomes legal. Pad path: the move menu offers 'Fall Back' (and NOT a separate 'Move All Together' entry, which was removed); choosing it starts an ordered-retreat move and auto-carries the first model exactly like Normal; a D-pad ▲ press then lifts EVERY unmoved model of the unit (all 11, incl. the attached Weirdboy) as one formation riding the stick under the 6\" Fall Back cap; a single A drop stages the group (most of the unit) with each model moving within the cap. Proves the D-pad ▲ 'grab all' works in Fall Back mode; the underlying Fall Back move mechanic + confirm/flags are covered by iss040/iss064.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.0 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -49,7 +49,7 @@
     { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_BOYZ_K\"].move_cap_inches", "equals": 6.0 },
     { "act": "screenshot", "label": "01_fall_back_auto_carried_first_model" },
 
-    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 11 },
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": true },
     { "act": "execute_script", "script": "main.movement_controller.group_dragging", "equals": true },

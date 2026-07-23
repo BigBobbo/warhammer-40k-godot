@@ -1,0 +1,214 @@
+{
+  "id": "iss_firing_deck_autoresolve_11e",
+  "covers": [
+    "shooting.firing_deck.auto_resolve_11e",
+    "shooting.firing_deck.dialog_when_choice",
+    "phases.ShootingPhase._compute_firing_deck_plan"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 8,
+  "description": "24.14 Firing Deck friction reduction: when every eligible embarked model has a single non-[ONE SHOT] ranged weapon that fits under Firing Deck X and isn't [HAZARDOUS], SELECT_SHOOTER auto-loans the weapons onto the transport (no dialog) and they appear as the transport's own guns. When a model carries more than one ranged weapon (a real choice), the selection dialog still shows.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.set_edition(11)\nvar U = GameState.state[\"units\"]\nU.merge({\"U_FD_TANK\": {\"id\": \"U_FD_TANK\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"FD Test Wagon\", \"keywords\": [\"VEHICLE\", \"TRANSPORT\"], \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}]}, \"transport_data\": {\"firing_deck\": 11, \"capacity\": 22, \"embarked_units\": [\"U_FD_MOB\"]}, \"models\": [{\"id\": \"t0\", \"alive\": true, \"position\": {\"x\": 200, \"y\": 400}, \"base_mm\": 170, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_MOB\": {\"id\": \"U_FD_MOB\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"embarked_in\": \"U_FD_TANK\", \"meta\": {\"name\": \"FD Boyz\", \"keywords\": [\"INFANTRY\"], \"weapons\": [{\"name\": \"Shoota\", \"type\": \"Ranged\", \"range\": \"18\", \"attacks\": \"2\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}, {\"name\": \"Choppa\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}]}, \"models\": [{\"id\": \"m0\", \"alive\": true, \"position\": {\"x\": 150, \"y\": 350}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}, {\"id\": \"m1\", \"alive\": true, \"position\": {\"x\": 170, \"y\": 350}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_TARGET\": {\"id\": \"U_FD_TARGET\", \"owner\": 2, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"FD Target\", \"keywords\": [\"INFANTRY\"], \"weapons\": []}, \"models\": [{\"id\": \"e0\", \"alive\": true, \"position\": {\"x\": 650, \"y\": 400}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_TANK2\": {\"id\": \"U_FD_TANK2\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"FD Choice Wagon\", \"keywords\": [\"VEHICLE\", \"TRANSPORT\"], \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}]}, \"transport_data\": {\"firing_deck\": 11, \"capacity\": 22, \"embarked_units\": [\"U_FD_MOB2\"]}, \"models\": [{\"id\": \"t0\", \"alive\": true, \"position\": {\"x\": 200, \"y\": 900}, \"base_mm\": 170, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_MOB2\": {\"id\": \"U_FD_MOB2\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"embarked_in\": \"U_FD_TANK2\", \"meta\": {\"name\": \"FD Nob\", \"keywords\": [\"INFANTRY\"], \"weapons\": [{\"name\": \"Shoota\", \"type\": \"Ranged\", \"range\": \"18\", \"attacks\": \"2\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}, {\"name\": \"Kombi-weapon\", \"type\": \"Ranged\", \"range\": \"18\", \"attacks\": \"1\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}, {\"name\": \"Choppa\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}]}, \"models\": [{\"id\": \"m0\", \"alive\": true, \"position\": {\"x\": 150, \"y\": 850}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_TARGET2\": {\"id\": \"U_FD_TARGET2\", \"owner\": 2, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"FD Target 2\", \"keywords\": [\"INFANTRY\"], \"weapons\": []}, \"models\": [{\"id\": \"e0\", \"alive\": true, \"position\": {\"x\": 650, \"y\": 900}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_TANK3\": {\"id\": \"U_FD_TANK3\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"FD Full Wagon\", \"keywords\": [\"VEHICLE\", \"TRANSPORT\"], \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}]}, \"transport_data\": {\"firing_deck\": 2, \"capacity\": 22, \"embarked_units\": [\"U_FD_MOB3\"]}, \"models\": [{\"id\": \"t0\", \"alive\": true, \"position\": {\"x\": 200, \"y\": 1400}, \"base_mm\": 170, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_MOB3\": {\"id\": \"U_FD_MOB3\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"embarked_in\": \"U_FD_TANK3\", \"meta\": {\"name\": \"FD Shoota Boyz\", \"keywords\": [\"INFANTRY\"], \"weapons\": [{\"name\": \"Shoota\", \"type\": \"Ranged\", \"range\": \"18\", \"attacks\": \"2\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}, {\"name\": \"Choppa\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}]}, \"models\": [{\"id\": \"m0\", \"alive\": true, \"position\": {\"x\": 150, \"y\": 1350}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}, {\"id\": \"m1\", \"alive\": true, \"position\": {\"x\": 170, \"y\": 1350}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}, {\"id\": \"m2\", \"alive\": true, \"position\": {\"x\": 190, \"y\": 1350}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_TARGET3\": {\"id\": \"U_FD_TARGET3\", \"owner\": 2, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"FD Target 3\", \"keywords\": [\"INFANTRY\"], \"weapons\": []}, \"models\": [{\"id\": \"e0\", \"alive\": true, \"position\": {\"x\": 650, \"y\": 1400}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_TANK4\": {\"id\": \"U_FD_TANK4\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"FD Mixed Wagon\", \"keywords\": [\"VEHICLE\", \"TRANSPORT\"], \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}]}, \"transport_data\": {\"firing_deck\": 2, \"capacity\": 22, \"embarked_units\": [\"U_FD_MOB4A\", \"U_FD_MOB4B\"]}, \"models\": [{\"id\": \"t0\", \"alive\": true, \"position\": {\"x\": 200, \"y\": 1900}, \"base_mm\": 170, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_MOB4A\": {\"id\": \"U_FD_MOB4A\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"embarked_in\": \"U_FD_TANK4\", \"meta\": {\"name\": \"FD Shoota Pair\", \"keywords\": [\"INFANTRY\"], \"weapons\": [{\"name\": \"Shoota\", \"type\": \"Ranged\", \"range\": \"18\", \"attacks\": \"2\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}, {\"name\": \"Choppa\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}]}, \"models\": [{\"id\": \"m0\", \"alive\": true, \"position\": {\"x\": 150, \"y\": 1850}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}, {\"id\": \"m1\", \"alive\": true, \"position\": {\"x\": 170, \"y\": 1850}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_MOB4B\": {\"id\": \"U_FD_MOB4B\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"embarked_in\": \"U_FD_TANK4\", \"meta\": {\"name\": \"FD Rokkit Boy\", \"keywords\": [\"INFANTRY\"], \"weapons\": [{\"name\": \"Rokkit launcha\", \"type\": \"Ranged\", \"range\": \"24\", \"attacks\": \"1\", \"ballistic_skill\": \"5\", \"strength\": \"8\", \"ap\": \"2\", \"damage\": \"3\", \"special_rules\": \"\"}, {\"name\": \"Choppa\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}]}, \"models\": [{\"id\": \"m0\", \"alive\": true, \"position\": {\"x\": 230, \"y\": 1850}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_TARGET4\": {\"id\": \"U_FD_TARGET4\", \"owner\": 2, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"FD Target 4\", \"keywords\": [\"INFANTRY\"], \"weapons\": []}, \"models\": [{\"id\": \"e0\", \"alive\": true, \"position\": {\"x\": 650, \"y\": 1900}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}}, true)\nreturn U.has(\"U_FD_TANK\") and U.has(\"U_FD_TANK2\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.get_eligible_targets(\"U_FD_TANK\", GameState.state).size() > 0",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_FD_TANK"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for c in tree.root.get_children():\n\tvar sc = c.get_script()\n\tif sc != null and str(sc.resource_path).ends_with(\"FiringDeckDialog.gd\"):\n\t\treturn true\nreturn false",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_FD_TANK\").get(\"flags\", {}).get(\"firing_deck_weapons\", []).size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "str(RulesEngine.get_unit_weapons(\"U_FD_TANK\", GameState.state)).contains(\"__fd\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_FD_MOB\").get(\"flags\", {}).get(\"has_shot\", false)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_auto_resolved_no_dialog_loan_on_tank"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.get_eligible_targets(\"U_FD_TANK2\", GameState.state).size() > 0",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_FD_TANK2"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for c in tree.root.get_children():\n\tvar sc = c.get_script()\n\tif sc != null and str(sc.resource_path).ends_with(\"FiringDeckDialog.gd\"):\n\t\treturn true\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_dialog_shown_when_real_choice"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for c in tree.root.get_children():\n\tvar sc = c.get_script()\n\tif sc != null and str(sc.resource_path).ends_with(\"FiringDeckDialog.gd\"):\n\t\tif c.checkboxes.has(\"U_FD_MOB2_0_Shoota\"):\n\t\t\tc.checkboxes[\"U_FD_MOB2_0_Shoota\"].set_pressed(true)\n\t\t\treturn c.selected_weapons.size()\nreturn -1",
+      "equals": 1
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for c in tree.root.get_children():\n\tvar sc = c.get_script()\n\tif sc != null and str(sc.resource_path).ends_with(\"FiringDeckDialog.gd\"):\n\t\tc._on_confirm_pressed()\n\t\treturn true\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for c in tree.root.get_children():\n\tvar sc = c.get_script()\n\tif sc != null and str(sc.resource_path).ends_with(\"FiringDeckDialog.gd\"):\n\t\treturn true\nreturn false",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_FD_TANK2\").get(\"flags\", {}).get(\"firing_deck_weapons\", []).size()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "str(RulesEngine.get_unit_weapons(\"U_FD_TANK2\", GameState.state)).contains(\"__fd\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_dialog_confirmed_loan_applied"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.get_eligible_targets(\"U_FD_TANK3\", GameState.state).size() > 0",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_FD_TANK3"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for c in tree.root.get_children():\n\tvar sc = c.get_script()\n\tif sc != null and str(sc.resource_path).ends_with(\"FiringDeckDialog.gd\"):\n\t\treturn true\nreturn false",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_FD_TANK3\").get(\"flags\", {}).get(\"firing_deck_weapons\", []).size()",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "04_over_cap_identical_autopicks_cap"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.get_eligible_targets(\"U_FD_TANK4\", GameState.state).size() > 0",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_FD_TANK4"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for c in tree.root.get_children():\n\tvar sc = c.get_script()\n\tif sc != null and str(sc.resource_path).ends_with(\"FiringDeckDialog.gd\"):\n\t\treturn true\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05_over_cap_mixed_shows_dialog"
+    }
+  ]
+}

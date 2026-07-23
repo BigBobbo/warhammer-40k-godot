@@ -2778,6 +2778,16 @@ func _handle_embarked_unit_selected(unit_id: String) -> void:
 	if not unit:
 		return
 
+	# CAMERA-PAN-TRANSPORT: an embarked unit is invisible on the board (its
+	# models ride inside the transport). Pan the camera to the transport it is
+	# embarked in so the player can see where the unit physically sits before
+	# deciding whether/where to disembark. fit_view_to_selection redirects the
+	# embarked passenger to its transport's bounding box; animate:true glides
+	# smoothly instead of hard-cutting.
+	var main_node = SceneRefs.main()
+	if main_node and main_node.has_method("fit_view_to_selection"):
+		main_node.fit_view_to_selection(unit_id, true)
+
 	print("MovementController: Unit %s is embarked, showing disembark dialog" % unit_id)
 
 	# Create and show disembark dialog
@@ -2891,10 +2901,47 @@ func _post_disembark_ui_update(unit_id: String) -> void:
 			if unit_list.get_item_metadata(i) == unit_id:
 				unit_list.select(i)
 				break
+
+		# Make the follow-up move affordance obvious. The unit is now "selected
+		# to make a normal or advance move" (18.04), but nothing told the player:
+		# on the pad the Move / Advance / Stay Still menu only opens on an A /
+		# D-pad press, and a mouse player may not notice the mode radios light up.
+		# Announce it explicitly and refresh the pad hints so the "Move Menu"
+		# chips show the instant placement ends. (Reported controller confusion.)
+		_announce_post_disembark_move(unit)
 	else:
 		print("MovementController: Disembarked unit cannot move (transport already moved)")
 		active_unit_id = ""
 		_update_selected_unit_display()
+
+func _announce_post_disembark_move(unit: Dictionary) -> void:
+	"""Tell the player that a just-disembarked unit can still move, and how.
+
+	After a tactical disembark from a transport that hasn't moved, the unit is
+	'then selected to make a normal or advance move' (11e 18.04). That
+	affordance is easy to miss — especially on a controller, where the
+	Move / Advance / Stay Still menu only appears once the player presses A or
+	the D-pad. Surface it with a device-tailored toast and refresh the pad hint
+	bar so its 'Move Menu' chips show immediately rather than after the next
+	input event."""
+	var unit_name: String = unit.get("meta", {}).get("name", active_unit_id)
+
+	# Refresh the pad hint bar now so HINTS_MOVE (A / D-pad -> Move Menu) is
+	# shown the instant placement ends. Harmless on keyboard/mouse — PadHintBar
+	# stays hidden unless the pad is the active device.
+	if PadRouter and PadRouter.has_method("refresh_hints"):
+		PadRouter.refresh_hints()
+
+	var msg: String
+	if InputDeviceManager.is_pad_active():
+		msg = "%s disembarked — it can still move. Press A or the D-pad to open the Move menu (Move / Advance / Stay Still)." % unit_name
+	else:
+		msg = "%s disembarked — it can still move. Pick Move, Advance, or Stay Still in the movement panel." % unit_name
+
+	# Longer than a default toast: this is an actionable prompt, not a status blip.
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr and toast_mgr.has_method("show_toast"):
+		toast_mgr.show_toast(msg, Color(0.55, 0.8, 1.0), 6.0)
 
 func _on_disembark_canceled(unit_id: String) -> void:
 	"""Handle canceled disembark"""

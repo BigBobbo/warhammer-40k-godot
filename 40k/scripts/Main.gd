@@ -6383,15 +6383,35 @@ func fit_view_to_decision(unit_ids: Array) -> bool:
 	return true
 
 
+# CAMERA-PAN-TRANSPORT: an embarked unit has no independent presence on the
+# board — its models are tucked inside the transport with stale/absent
+# positions — so framing the passenger's own models would center on nothing
+# useful. Resolve an embarked unit to the transport it rides in so selecting a
+# passenger frames the transport that physically holds it. Returns the original
+# unit dict when it is not embarked (or the transport can't be resolved).
+func _resolve_board_presence_unit(unit: Dictionary) -> Dictionary:
+	var embarked_in = unit.get("embarked_in", null)
+	if embarked_in == null or str(embarked_in) == "":
+		return unit
+	var transport = GameState.get_unit(str(embarked_in))
+	if typeof(transport) == TYPE_DICTIONARY and transport.has("models"):
+		return transport
+	return unit
+
 # T14: zoom + center the camera on a unit's bounding box (all its models).
 # Returns true on success, false if the unit can't be resolved or has no
 # models. Sets last_camera_fit_action = "selection" on success.
+# CAMERA-PAN-TRANSPORT: when the selected unit is embarked, the framing target
+# is redirected to its transport (see _resolve_board_presence_unit) so the
+# camera pans to where the unit actually sits on the table.
 func fit_view_to_selection(unit_id: String, animate: bool = false) -> bool:
 	if unit_id == "":
 		return false
 	var unit = GameState.get_unit(unit_id)
 	if typeof(unit) != TYPE_DICTIONARY or not unit.has("models"):
 		return false
+	# Embarked passenger -> frame its transport instead of its hidden models.
+	unit = _resolve_board_presence_unit(unit)
 	var models = unit.get("models", [])
 	if typeof(models) != TYPE_ARRAY or models.is_empty():
 		return false

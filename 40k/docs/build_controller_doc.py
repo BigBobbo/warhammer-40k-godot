@@ -53,7 +53,7 @@ with open(os.path.join(DOCS, "controller_hint_sets.json")) as f:
 # Physical button map (always-on meanings). glyph -> (name, meaning)
 PHYSICAL = [
     ("ls",  "Left stick",        "Virtual cursor — point at the board, drag models, aim placement"),
-    ("l3",  "L3 (click LS)",     "Next model — cycle the active unit's individual models (Movement / Charge)"),
+    ("l3",  "L3 (click LS)",     "Next model — cycle the active unit's individual models (Movement / Charge; in Movement the D-pad ◀▶ do this too)"),
     ("rs",  "Right stick",       "Pan the camera"),
     ("r3",  "R3 (hold RS)",      "Precision modifier — hold to slow the cursor for fine placement"),
     ("lt",  "Left trigger",      "Zoom out"),
@@ -64,7 +64,7 @@ PHYSICAL = [
     ("b",   "B",                 "Back — deselect / cancel / undo / release panel focus"),
     ("x",   "X",                 "Context action — skip unit / undo model / finish model / snap to contact"),
     ("y",   "Y",                 "Toggle the datasheet of the highlighted unit / target"),
-    ("dpad","D-pad",             "Menus & steppers — phase sub-menu, target/weapon steps, or focus the panels"),
+    ("dpad","D-pad",             "Menus & steppers — phase sub-menu, target/weapon steps, move models (Movement: ◀▶ switch · ▲ all · ▼ one), or focus the panels"),
     ("menu","Start (☰)",         "Context confirm / End Phase (pad_phase_action)"),
     ("view","View / Select (⧉)", "Pause menu — Save/Load, Settings, Return to Main Menu (pad_menu_action)"),
     ("l4",  "L4 / R4 paddles",   "Prev / next model — same as L3, only if Steam Input forwards the Deck paddles"),
@@ -228,23 +228,24 @@ SECTIONS = [
                 "when": "A model is picked up and rides the cursor.",
                 "hint_set": "HINTS_CARRY_MOVE", "shot": "07_movement_carry.png",
                 "rp": RP_NO_STANDDOWN,
-                "notes": ["LS moves the model, RS/hold = precision, LB/RB rotate, L3 swaps to another model.",
-                          "A drops a waypoint (keeps the model — A again re-picks it); X finishes the model and hands over the next.",
-                          "A D-pad press grabs EVERY unmoved model as one group (Grab All)."],
+                "notes": ["LS moves the model, RS/hold = precision, LB/RB rotate.",
+                          "D-pad ◀▶ switch which model you're carrying (same as L3 / the back paddles); D-pad ▲ grabs EVERY unmoved model as one group ('move all together').",
+                          "A drops a waypoint (keeps the model — A again re-picks it); X finishes the model and hands over the next."],
             },
             {
                 "name": "Group carry",
-                "when": "After Grab All — the whole squad rides the cursor.",
+                "when": "After D-pad ▲ (grab all) — the whole squad rides the cursor.",
                 "hint_set": "HINTS_CARRY_GROUP",
                 "rp": RP_NO_STANDDOWN,
-                "notes": ["A places every model that fits; leftovers are handed back individually. B cancels."],
+                "notes": ["A places every model that fits; leftovers are handed back individually. B cancels.",
+                          "D-pad ▼ drops the group back to carrying just one model."],
             },
             {
                 "name": "Mid-move, model dropped (staged)",
                 "when": "A model was dropped with A and models remain unplaced.",
                 "hint_set": "HINTS_MOVE_STAGED",
                 "rp": RP_NO_STANDDOWN,
-                "notes": ["A re-picks the dropped model, X finishes it, Grab All lifts the rest, B undoes the last stage.",
+                "notes": ["A re-picks the dropped model, X finishes it, D-pad ◀▶ switch model / ▲ lifts the rest as a group, B undoes the last stage.",
                           "L3 keeps its single label 'Next Model' — the model-switcher never jumps onto X."],
             },
             {
@@ -252,7 +253,7 @@ SECTIONS = [
                 "when": "Every model is placed; waiting on confirmation.",
                 "hint_set": "HINTS_MOVE_LOCKED",
                 "rp": RP_NO_STANDDOWN,
-                "notes": ["Start confirms the whole move; A picks a model back up to adjust; B undoes the last stage.",
+                "notes": ["Start confirms the whole move; A picks a model back up to adjust; D-pad ◀▶ / L3 cycle models and ▲ re-grabs them all; B undoes the last stage.",
                           "Bumpers stay locked to this unit until the move is confirmed or fully undone."],
             },
         ],
@@ -716,7 +717,7 @@ footer code{{font-family:var(--mono);background:var(--panel-2);padding:1px 6px;b
       <ul class="notes" style="font-size:14px">
         <li><strong>The pad only drives the game while it is the active device.</strong> Any joypad press claims control (the on-screen hint bar appears); any mouse move or key press hands control back to keyboard &amp; mouse.</li>
         <li><strong>LB / RB are the only unit-switcher.</strong> They cycle the acting unit in every phase. Unit lists on the right are deliberately NOT walkable with the D-pad or stick — cycling is the bumpers' job alone.</li>
-        <li><strong>The D-pad is context-dependent.</strong> With nothing selected it enters panel focus; with a phase sub-menu open (targets, weapons, move mode, deploy rows) it drives that instead.</li>
+        <li><strong>The D-pad is context-dependent.</strong> With nothing selected it enters panel focus; with a phase sub-menu open (targets, weapons, move mode, deploy rows) it drives that instead; and while you are moving a unit it switches models (◀▶), grabs all (▲), or drops back to one (▼).</li>
         <li><strong>Each state below lists its buttons, whether the right-hand panel can be driven on the pad, and any gaps.</strong> The "Right panel on pad?" badge is the answer to "can I control the menu on the right here?"</li>
       </ul>
     </section>
