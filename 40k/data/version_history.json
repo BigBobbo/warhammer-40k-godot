@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.6",
+			"date": "2026-07-23",
+			"summary": "Firing Deck transports now shoot their embarked models' guns automatically — no more model-selection dialog. When you select a transport (e.g. a Battlewagon) with embarked units, their weapons are added straight onto the transport as its own guns, so a wagon full of Boyz just fires its Shootas and you go straight to choosing targets.",
+			"changes": [
+				"Shooting phase: selecting a Firing Deck transport no longer opens the per-model selection dialog. Each embarked model's basic ranged gun is loaned onto the transport automatically (up to the Firing Deck limit) and treated as the transport's own weapon.",
+				"The 'basic gun' is a model's plain rank-and-file weapon (the lowest-damage, lowest-strength non-Pistol option), so a Boyz mob fires Shootas rather than a special weapon on every model. [ONE SHOT] and [HAZARDOUS] weapons are never auto-fired, and Mega Armour / Jump Pack models correctly count as two toward the Firing Deck limit.",
+				"Note: datasheets list every wargear option per model, so the game can't tell which exact gun a model is built with and fires the most basic option — e.g. Lootas will fire Big Shootas rather than Deffguns."
+			]
+		},
+		{
 			"version": "0.93.5",
 			"date": "2026-07-23",
 			"summary": "Controller: you can now 'Take to the skies' with a FLY unit using the pad. When you open the move menu for an eligible flying unit, a 'Take to the skies: Off/On' entry lets you declare the fly-over before choosing Move or Advance — previously the toggle was mouse-only and unreachable on a controller.",

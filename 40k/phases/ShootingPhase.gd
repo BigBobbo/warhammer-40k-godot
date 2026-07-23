@@ -5330,75 +5330,106 @@ func validate_loaded_state() -> bool:
 
 # Transport Firing Deck support
 
-# 24.14: decide whether the firing-deck selection needs the player or can be
-# auto-resolved. Returns {"mode":"dialog"} when a genuine choice exists, or
-# {"mode":"auto","loans":[...]} when every eligible model has exactly one
-# non-[ONE SHOT] ranged weapon, they all fit under Firing Deck X, and none are
-# [HAZARDOUS]. `loans` may be empty (the embarked units carry no deck-eligible
-# weapon at all) — the caller then just shoots the transport's own guns.
+# 24.14: choose the firing-deck weapons automatically so the transport shoots
+# with its embarked models' guns without a per-model dialog. Datasheets list
+# every wargear OPTION on each model (the loadout isn't pinned per model), so a
+# model typically reports several ranged weapons; we pick each model's BASIC
+# ranged gun (the plain rank-and-file weapon, not a one-off special upgrade) so a
+# mob of Boyz fires ~Shootas rather than, say, a Big Shoota on every model —
+# which would over-count a weapon the mob only carries one of. Returns
+# {"mode":"auto","loans":[...]}; `loans` may be empty (no deck-eligible weapon),
+# in which case the caller just shoots the transport's own guns.
 func _compute_firing_deck_plan(transport_id: String, eligible_embarked: Array) -> Dictionary:
 	var transport = get_unit(transport_id)
 	var t_data = transport.get("transport_data", {})
 	var capacity = int(t_data.get("firing_deck", 0))
-	# [EMBARKING]: some models count as more than one model for capacity/Firing
-	# Deck (e.g. MEGA ARMOUR / JUMP PACK). The transport's capacity_multipliers
-	# is the data-driven source of which keywords double-count; MEGA ARMOUR /
-	# JUMP PACK are a safety fallback when it's absent.
+	# [EMBARKING]: MEGA ARMOUR / JUMP PACK models (and any keyword the transport
+	# declares with a capacity_multiplier > 1) count as two for Firing Deck, so
+	# each of their weapons consumes 2 of the X slots.
 	var multi_keywords := ["MEGA ARMOUR", "JUMP PACK"]
 	for mk in t_data.get("capacity_multipliers", {}):
 		if int(t_data["capacity_multipliers"][mk]) > 1 and not (mk in multi_keywords):
 			multi_keywords.append(mk)
 	var board = game_state_snapshot
-	var loans := []
+	# One candidate loan per eligible model, tagged with its Firing Deck slot cost.
+	var candidates := []
 	for embarked_id in eligible_embarked:
 		var embarked = get_unit(embarked_id)
 		if embarked.is_empty():
 			continue
-		# A double-counting model's weapons consume more than one Firing Deck
-		# slot. That slot arithmetic isn't modelled here, so defer to the manual
-		# dialog rather than risk auto-loaning more weapons than the cap allows.
 		var kws = embarked.get("meta", {}).get("keywords", [])
-		var is_multi := false
+		var slot_cost := 1
 		for mk in multi_keywords:
 			if mk in kws:
-				is_multi = true
+				slot_cost = 2
 				break
-		if is_multi:
-			return {"mode": "dialog"}
 		var model_weapons = RulesEngine.get_unit_weapons(embarked_id, board)
 		for model in embarked.get("models", []):
 			if not model.get("alive", true):
 				continue
 			var mid = str(model.get("id", ""))
-			var eligible_ids := []
-			for wid in model_weapons.get(mid, []):
-				if RulesEngine.is_one_shot_weapon(wid, board):
-					continue  # 24.14 step 2 excludes [ONE SHOT]
-				eligible_ids.append(wid)
-			if eligible_ids.is_empty():
-				continue
-			# More than one ranged option → the player must pick which one fires.
-			if eligible_ids.size() > 1:
-				return {"mode": "dialog"}
-			var chosen = str(eligible_ids[0])
-			# [HAZARDOUS] (24.15): firing it risks the transport — let the player
-			# decide rather than auto-committing them to the hazard roll.
-			if RulesEngine.is_hazardous_weapon(chosen, board):
-				return {"mode": "dialog"}
-			loans.append({"unit_id": embarked_id, "model_id": mid, "weapon_id": chosen})
-	# More eligible weapons than the deck can carry.
-	if loans.size() > capacity:
-		# If every eligible weapon is identical, any capacity-sized subset fires
-		# exactly the same — the shots come from the TRANSPORT, so which donor
-		# model contributes is irrelevant. Auto-pick the first X and skip the
-		# dialog (e.g. a full wagon of identical-loadout Boyz). When the eligible
-		# weapons differ, WHICH ones fire is a real choice → ask the player.
-		var first_wid = str(loans[0].get("weapon_id", ""))
-		for loan in loans:
-			if str(loan.get("weapon_id", "")) != first_wid:
-				return {"mode": "dialog"}
-		return {"mode": "auto", "loans": loans.slice(0, capacity)}
+			var chosen = _pick_firing_deck_weapon(model_weapons.get(mid, []), board)
+			if chosen == "":
+				continue  # no auto-eligible (non-[ONE SHOT], non-[HAZARDOUS]) gun
+			candidates.append({
+				"loan": {"unit_id": embarked_id, "model_id": mid, "weapon_id": chosen},
+				"cost": slot_cost
+			})
+	# Fit the candidates under Firing Deck X (double-counting models cost 2). All
+	# models of a unit share the same basic gun, so an over-capacity mob just
+	# fires the first X — any subset of identical guns is equivalent.
+	var loans := []
+	var used := 0
+	for c in candidates:
+		if used + int(c["cost"]) <= capacity:
+			loans.append(c["loan"])
+			used += int(c["cost"])
 	return {"mode": "auto", "loans": loans}
+
+
+# Pick a model's BASIC ranged gun for the firing deck from its weapon ids.
+# Excludes [ONE SHOT] (24.14 step 2) and [HAZARDOUS] (24.15 — never auto-commit
+# the transport to a hazard roll), prefers a non-Pistol, and among what remains
+# picks the plainest gun (lowest Damage, then lowest Strength) so a mob fires its
+# rank-and-file weapon rather than a special upgrade only one model really has.
+# Returns "" when the model has no auto-eligible ranged weapon.
+func _pick_firing_deck_weapon(weapon_ids: Array, board: Dictionary) -> String:
+	var eligible := []
+	for wid in weapon_ids:
+		if RulesEngine.is_one_shot_weapon(wid, board):
+			continue
+		if RulesEngine.is_hazardous_weapon(wid, board):
+			continue
+		eligible.append(str(wid))
+	if eligible.is_empty():
+		return ""
+	# Prefer non-Pistol guns when the model has any (a Pistol is a fallback gun).
+	var pool := []
+	for wid in eligible:
+		if not RulesEngine.is_pistol_weapon(wid, board):
+			pool.append(wid)
+	if pool.is_empty():
+		pool = eligible
+	# Plainest gun wins: lowest Damage, then lowest Strength; ties keep order.
+	var best := ""
+	var best_dmg := 1 << 30
+	var best_str := 1 << 30
+	for wid in pool:
+		var prof = RulesEngine.get_weapon_profile(wid, board)
+		var dmg := _fd_numeric_rank(str(prof.get("damage", "1")))
+		var stg := _fd_numeric_rank(str(prof.get("strength", "1")))
+		if best == "" or dmg < best_dmg or (dmg == best_dmg and stg < best_str):
+			best = wid
+			best_dmg = dmg
+			best_str = stg
+	return best
+
+
+# Rank a weapon stat string numerically: a plain integer sorts by value; anything
+# variable/special (e.g. "D6", "D3", "2D6") sorts high, so a random-damage upgrade
+# is never mistaken for the basic gun.
+func _fd_numeric_rank(s: String) -> int:
+	return int(s) if s.is_valid_int() else (1 << 20)
 
 
 # 24.14: loan `loans` (each {unit_id, model_id, weapon_id}) onto the transport so
