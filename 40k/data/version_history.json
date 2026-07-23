@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.9",
+			"date": "2026-07-23",
+			"summary": "Inspecting or hovering a model now shows the gun it ACTUALLY carries instead of every wargear option on its datasheet. A Slugga Boy reads 'Slugga', not the whole Shoota/Big Shoota/Rokkit menu; in a mixed mob the special-weapon model shows its own gun. The unit panel's ranged weapon table is labelled '(as equipped)' and lists only carried guns with a per-gun model count.",
+			"changes": [
+				"Board hover: the per-model tooltip now lists the model's resolved ranged weapon (its real gun) rather than the full datasheet menu, so hovering different models in a mixed mob shows their different weapons. Also works for units without per-model profiles (e.g. Burna Boyz, Deffkoptas).",
+				"Unit inspect panel: the 'RANGED WEAPONS' table now shows a weapon-name column and, for resolved units, is titled 'RANGED WEAPONS (as equipped)' and lists only the guns models actually carry, each tagged with how many carry it (e.g. 'Slugga ×10').",
+				"Unit inspect panel: the model-composition breakdown's per-type 'Weapons:' line shows the resolved loadout (e.g. '9x Slugga') instead of the option menu.",
+				"Melee weapons now show their names too; unresolved units and single-model units are unchanged and still list their full weapon set."
+			]
+		},
+		{
 			"version": "0.93.8",
 			"date": "2026-07-23",
 			"summary": "More units now report the guns they actually carry. Widened the per-model loadout resolver so it also handles units the first pass had to leave alone: mobs whose army-list only records some of the guns (a 20-model Boyz mob listed with just '10x Slugga' now shows 20 Sluggas), and models that legitimately carry two guns (Deffkoptas keep both their Kopta rokkits and Slugga). Eight more multi-model units are now resolved, with no risk of ever handing a model a weapon it can't take.",
