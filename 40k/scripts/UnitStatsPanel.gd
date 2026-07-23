@@ -505,7 +505,7 @@ func _carried_ranged_counts(unit_data: Dictionary) -> Dictionary:
 	var models = unit_data.get("models", [])
 	if models.size() < 2:
 		return {}
-	RulesEngine._ensure_loadout_resolved(unit_data)
+	RulesEngine.ensure_loadout_resolved(unit_data)
 	var counts := {}
 	var any_resolved := false
 	for m in models:
@@ -525,7 +525,7 @@ func _carried_melee_counts(unit_data: Dictionary) -> Dictionary:
 	var models = unit_data.get("models", [])
 	if models.size() < 2:
 		return {}
-	RulesEngine._ensure_loadout_resolved(unit_data)
+	RulesEngine.ensure_loadout_resolved(unit_data)
 	var counts := {}
 	var any_resolved := false
 	for m in models:
@@ -763,7 +763,7 @@ func _create_composition_list(unit_data: Dictionary, composition_container: VBox
 	# so the composition breakdown can show the guns models ACTUALLY carry rather
 	# than the whole datasheet menu.
 	if models.size() >= 2:
-		RulesEngine._ensure_loadout_resolved(unit_data)
+		RulesEngine.ensure_loadout_resolved(unit_data)
 
 	# If model_profiles exist, show detailed per-type breakdown
 	if not model_profiles.is_empty() and not models.is_empty():

@@ -14929,6 +14929,12 @@ static func check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionary
 static func generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
 	return _generate_weapon_id(weapon_name, weapon_type)
 
+## MA-LOADOUT: force per-model loadout resolution (ranged + melee) on a unit so
+## UI/read paths can then read model.ranged_loadout / model.melee_loadout.
+## Idempotent — a no-op once the unit has been resolved.
+static func ensure_loadout_resolved(unit: Dictionary) -> void:
+	_ensure_loadout_resolved(unit)
+
 ## Staged fight: re-roll Hold Still (OA-19) mortal wounds for a melee
 ## hit_context after a Command Re-roll changed the critical-wound tally.
 static func roll_hold_still_mortal_wounds(hit_context: Dictionary, all_critical_wound_count: int, rng_service: RNGService = null) -> int:

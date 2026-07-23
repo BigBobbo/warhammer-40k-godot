@@ -7560,7 +7560,7 @@ func _build_model_profile_hover_text(unit: Dictionary, model_id: String) -> Stri
 	# MA-LOADOUT Phase 2 (Task A): make sure the per-model ranged loadout is
 	# resolved so hover shows the model's REAL gun rather than the whole datasheet
 	# menu. Idempotent — a no-op once the unit has been resolved.
-	RulesEngine._ensure_loadout_resolved(unit)
+	RulesEngine.ensure_loadout_resolved(unit)
 	var resolved_ranged = model.get("ranged_loadout", null)  # Array of names, or null
 	var has_resolved_ranged: bool = resolved_ranged is Array and not (resolved_ranged as Array).is_empty()
 	var model_type = model.get("model_type", "")
