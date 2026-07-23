@@ -6137,6 +6137,13 @@ static func _is_target_within_engagement_range(actor_unit_id: String, target_uni
 	return false
 
 static func _get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
+	# FIRING DECK (24.14): synthetic bearer ids "<hull_id>@fd<i>" (produced by
+	# get_unit_weapons for loaned embarked weapons) resolve to the transport's
+	# hull model so BS / position / LoS use the transport. Real model ids never
+	# contain "@fd", so this strip is a no-op for every normal lookup.
+	var fd_idx = model_id.find("@fd")
+	if fd_idx > 0:
+		model_id = model_id.substr(0, fd_idx)
 	for model in unit.get("models", []):
 		if model.get("id", "") == model_id:
 			return model
@@ -6431,9 +6438,15 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 				result[composite_id] = _get_model_weapon_ids(char_unit, char_model, "Ranged")
 
 	# FIRING DECK (24.14): weapons selected from embarked models are treated as
-	# being equipped by the TRANSPORT model for this activation. Each loan gets a
-	# distinct "__fd<i>" alias so identical guns from different embarked models
-	# each contribute their own attacks; get_weapon_profile strips the alias.
+	# being equipped by the TRANSPORT model for this activation. Each loan becomes
+	# a distinct SYNTHETIC BEARER model id "<hull_id>@fd<i>" that carries the
+	# loaned weapon's BASE id (not a per-weapon "__fd" alias). Modelling each loan
+	# as one more bearer of the SAME base weapon lets identical guns collapse into
+	# a single "<weapon> ×N" row and split-fire exactly like a squad's shared
+	# weapon — while still contributing N models' worth of attacks (resolution
+	# counts one attack-set per bearer). _get_model_by_id maps the synthetic id
+	# back to the transport hull model, so BS / position / LoS use the transport
+	# (identical to the previous alias, which also bound to the hull).
 	var fd_loans = unit.get("flags", {}).get("firing_deck_weapons", [])
 	if fd_loans is Array and not fd_loans.is_empty():
 		var hull_model_id := ""
@@ -6442,14 +6455,13 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 				hull_model_id = model.get("id", "")
 				break
 		if hull_model_id != "":
-			if not result.has(hull_model_id):
-				result[hull_model_id] = []
 			for i in range(fd_loans.size()):
 				var loan = fd_loans[i]
 				var base_weapon_id = str(loan.get("weapon_id", ""))
 				if base_weapon_id == "":
 					continue
-				result[hull_model_id].append("%s__fd%d" % [base_weapon_id, i])
+				var bearer_id = "%s@fd%d" % [hull_model_id, i]
+				result[bearer_id] = [base_weapon_id]
 
 	return result
 

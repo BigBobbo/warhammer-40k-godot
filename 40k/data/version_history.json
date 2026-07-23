@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.8",
+			"date": "2026-07-23",
+			"summary": "Firing Deck weapon assignment now groups identical guns. When several embarked models fire the same weapon through a transport's firing deck (e.g. 10 Boyz with Sluggas), they show up as a single 'Slugga ×10' row instead of ten separate weapons — and you can split that fire across multiple targets exactly like a normal squad.",
+			"changes": [
+				"Shooting phase: firing-deck weapons of the same type are now collapsed into one grouped row (e.g. 'Slugga ×10') in the weapon-assignment list, instead of cluttering it with one row per model.",
+				"Split fire: the grouped firing-deck weapon can be split across targets just like a squad's shared weapon — assign it to a target to send all of them, then click another eligible target to peel off however many you want.",
+				"Rules unchanged: this is purely a UI convenience. The same number of shots are fired with the same profiles; only how the weapons are listed and targeted has changed."
+			]
+		},
+		{
 			"version": "0.93.7",
 			"date": "2026-07-23",
 			"summary": "Units now shoot with the guns they actually carry. Datasheets list every wargear OPTION per model, which made a mob report ALL of them at once — a 10-model Ork Boyz mob showed ~38 ranged weapons instead of 10. When a unit's army-list wargear pins the loadout, each model is now assigned its real gun, so shooting (and the Firing Deck) uses the correct weapons.",
