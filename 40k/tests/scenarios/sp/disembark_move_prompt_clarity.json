@@ -59,9 +59,16 @@
     },
     {
       "act": "execute_script",
-      "comment": "Pad hint bar refreshed to the movement set: with the pad active and no panel focus, the A button's chip now reads 'Move Menu' so the disembarked unit's move affordance is visible without a first blind press.",
+      "comment": "Pad hint bar refreshed by the toast's OWN refresh_hints() call (no manual release/refresh here — this reads the state the real controller flow leaves behind): with the pad active from the previous step, the A button's chip now reads 'Move Menu' so the disembarked unit's move affordance is visible without a first blind press.",
       "multiline": true,
-      "script": "InputDeviceManager.claim_pad()\ntree.root.gui_release_focus()\nPadRouter.refresh_hints()\nreturn PadHintBar.label_for(\"a\")",
+      "script": "return PadHintBar.label_for(\"a\")",
+      "equals": "Move Menu"
+    },
+    {
+      "act": "execute_script",
+      "comment": "The D-pad likewise opens the Move menu (HINTS_MOVE pairs both A and the D-pad with 'Move Menu').",
+      "multiline": true,
+      "script": "return PadHintBar.label_for(\"dpad\")",
       "equals": "Move Menu"
     },
     { "act": "screenshot", "label": "03_disembark_move_prompt_pad" }
