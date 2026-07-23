@@ -1,0 +1,48 @@
+{
+  "id": "movement_embarked_select_pans_to_transport",
+  "covers": [
+    "camera.pan_to_transport_on_embarked_select",
+    "movement.embarked_unit_selection",
+    "Main.fit_view_to_selection.embarked_redirect"
+  ],
+  "fixture": "grenade_shooting_desync",
+  "edition": 11,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Selecting an embarked unit in the Movement phase pans + zooms the camera to the transport carrying it. The fixture has Kommandos embarked in Battlewagon Alpha. The camera is first fit to the whole board (unit unselected, transport ~677px from centre), then the embarked Kommandos row is REAL-clicked in the movement unit list (scrolled into view first, since the list only shows ~5 rows). Asserts the camera glide settles centred on Battlewagon Alpha's position (last_camera_fit_action='selection', camera within a few px of the transport centroid, having moved a long way from the zoomed-out framing) and that the disembark dialog opened as before. A final direct check locks in that fit_view_to_selection redirects an embarked passenger to its transport rather than framing its hidden models.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_KOMMANDOS_A\").get(\"embarked_in\", \"\")", "equals": "U_BATTLEWAGON_A" },
+    { "act": "execute_script", "script": "str(main.movement_controller.unit_list.get_item_metadata(7))", "equals": "U_KOMMANDOS_A" },
+
+    { "act": "execute_script", "script": "main.fit_view_to_board()" },
+    { "act": "wait_for_tweens", "timeout_s": 3.0 },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.set_meta(\"cam_before\", main.camera.position)" },
+    { "act": "screenshot", "label": "01_board_zoomed_out_none_selected" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var ul = tree.current_scene.movement_controller.unit_list\nul.get_v_scroll_bar().value = ul.get_item_rect(7).position.y\nreturn ul.get_v_scroll_bar().value >= 0.0" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 7 },
+    { "act": "wait_for_tweens", "timeout_s": 3.0 },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_KOMMANDOS_A" },
+    { "act": "execute_script", "script": "main.last_camera_fit_action", "equals": "selection" },
+    { "act": "execute_script", "multiline": true,
+      "script": "var t = GameState.get_unit(\"U_BATTLEWAGON_A\")\nvar p = t[\"models\"][0][\"position\"]\nvar center = Vector2(float(p[\"x\"]), float(p[\"y\"]))\nreturn tree.current_scene.camera.position.distance_to(center)",
+      "expect_max": 5.0 },
+    { "act": "execute_script", "script": "main.camera.position.distance_to(main.get_meta(\"cam_before\"))", "expect_min": 100.0 },
+
+    { "act": "expect_node_visible", "node": "/root/DisembarkDialog", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "02_camera_panned_to_battlewagon_alpha" },
+
+    { "act": "execute_script", "script": "main.fit_view_to_selection(\"U_KOMMANDOS_A\")", "equals": true },
+    { "act": "execute_script", "multiline": true,
+      "script": "var t = GameState.get_unit(\"U_BATTLEWAGON_A\")\nvar p = t[\"models\"][0][\"position\"]\nvar center = Vector2(float(p[\"x\"]), float(p[\"y\"]))\nreturn tree.current_scene.camera.position.distance_to(center)",
+      "expect_max": 5.0 }
+  ]
+}
