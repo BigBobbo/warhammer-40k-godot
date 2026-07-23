@@ -2,12 +2,22 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.93.2",
+			"version": "0.93.3",
 			"date": "2026-07-23",
 			"summary": "Selecting an embarked unit now pans the camera to the transport carrying it. In the Movement phase (or when clicking its card in the left roster strip), picking a unit that's riding inside a transport glides the view to that transport so you can see where it actually sits before disembarking — previously the camera stayed put and the unit was invisible on the board.",
 			"changes": [
 				"Movement phase: selecting an embarked unit from the unit list now smoothly pans the camera to the transport it is embarked in, then shows the disembark dialog as before.",
 				"Camera fit-to-selection (left roster strip click, Shift+F, controller unit-cycle reframe) now redirects an embarked unit to its transport's position instead of framing the passenger's hidden/stale models."
+			]
+		},
+		{
+			"version": "0.93.2",
+			"date": "2026-07-23",
+			"summary": "Firing Deck transports (e.g. the Battlewagon) no longer pop up the model-selection dialog when there's nothing to decide. If every eligible embarked model has a single ranged weapon and they either all fit under the transport's Firing Deck value — or there are more but they're all identical — those guns are added straight onto the transport and you go directly to picking targets. The dialog still appears whenever there's a real choice to make.",
+			"changes": [
+				"Shooting phase: a Firing Deck transport now auto-resolves its embarked weapons when there's no real choice — every eligible model has a single non-Hazardous ranged weapon, and they either all fit under Firing Deck X, or there are more than X but they're all identical (so any X fire the same). The loaned guns just appear as the transport's own weapons with no dialog.",
+				"The selection dialog still opens whenever the choice actually matters: a model carrying more than one ranged weapon, more eligible weapons than the deck can carry that AREN'T all identical, a Hazardous weapon (which you may want to skip), or Mega Armour / Jump Pack models that count as two.",
+				"Fixed the loaned weapons not showing in the weapon list after confirming the Firing Deck dialog, and a stray re-selection of the transport after it had finished shooting."
 			]
 		},
 		{
