@@ -2,6 +2,23 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.5",
+			"date": "2026-07-23",
+			"summary": "Controller: you can now 'Take to the skies' with a FLY unit using the pad. When you open the move menu for an eligible flying unit, a 'Take to the skies: Off/On' entry lets you declare the fly-over before choosing Move or Advance — previously the toggle was mouse-only and unreachable on a controller.",
+			"changes": [
+				"Movement phase (controller): the on-screen move menu now shows a 'Take to the skies: Off/On' toggle for FLY units. Highlight it and press A to flip the declaration (−2\" move, 0\" with HOVER, ignore terrain and models); the menu stays open with the updated label so you can then pick your move mode. No existing controller button was changed."
+			]
+		},
+		{
+			"version": "0.93.4",
+			"date": "2026-07-23",
+			"summary": "You can now 'Take to the skies' with a FLY unit using the keyboard — press J (rebindable) during the Movement phase instead of having to find and click the checkbox. The checkbox now shows its hotkey, and the key only does anything for an eligible flying unit that still has an open move.",
+			"changes": [
+				"Movement phase: added a hotkey (default J) that toggles the 'Take to the skies' declaration for FLY units — the same −2\" fly-over move (0\" with HOVER) that ignores terrain and models. It mirrors clicking the checkbox and safely no-ops for non-FLY units or a locked move.",
+				"The 'Take to the skies' checkbox label now shows the current key, and the shortcut appears in the Hotkey Help overlay (Shift+/). Rebind it under Settings › Controls › Gameplay; it does not reuse any existing key."
+			]
+		},
+		{
 			"version": "0.93.3",
 			"date": "2026-07-23",
 			"summary": "Selecting an embarked unit now pans the camera to the transport carrying it. In the Movement phase (or when clicking its card in the left roster strip), picking a unit that's riding inside a transport glides the view to that transport so you can see where it actually sits before disembarking — previously the camera stayed put and the unit was invisible on the board.",

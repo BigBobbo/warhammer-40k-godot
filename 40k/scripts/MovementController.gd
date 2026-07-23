@@ -625,6 +625,11 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	# the player can tick this box — forward later ticks to the active move.
 	take_to_skies_checkbox.toggled.connect(_on_take_to_skies_toggled)
 	section.add_child(take_to_skies_checkbox)
+	# B2 (21.03): advertise the rebindable hotkey (default J) on the label and keep
+	# it in sync with any rebind the player makes in Settings › Controls.
+	_refresh_take_to_skies_label()
+	if KeybindingManager and not KeybindingManager.binding_changed.is_connected(_on_keybinding_changed_for_skies):
+		KeybindingManager.binding_changed.connect(_on_keybinding_changed_for_skies)
 
 	# Turbo Boostas (Speedwaaagh! detachment rule): "use turbo" toggle. Shown
 	# only for SPEED FREEKS / TRUKK units (excl. AIRCRAFT) of a Speedwaaagh!
@@ -1640,6 +1645,36 @@ func _sync_take_to_skies_from_phase() -> void:
 func _take_to_skies_requested() -> bool:
 	return take_to_skies_checkbox != null and take_to_skies_checkbox.visible and take_to_skies_checkbox.button_pressed
 
+func _refresh_take_to_skies_label() -> void:
+	# Show the current take-to-skies hotkey on the checkbox so it is discoverable
+	# without opening the keybindings screen. Falls back to the bare label if the
+	# action is unbound (KEY_NONE) or KeybindingManager is unavailable.
+	if not take_to_skies_checkbox:
+		return
+	var base := "Take to the skies (-2\" move)"
+	if KeybindingManager:
+		var key := KeybindingManager.get_primary_key_display("toggle_take_to_skies")
+		if key != "" and key != "None":
+			take_to_skies_checkbox.text = "%s  [%s]" % [base, key]
+			return
+	take_to_skies_checkbox.text = base
+
+func _on_keybinding_changed_for_skies(action_id: String) -> void:
+	if action_id == "toggle_take_to_skies":
+		_refresh_take_to_skies_label()
+
+func _toggle_take_to_skies_hotkey() -> void:
+	# Keyboard path (default J, rebindable) for the take-to-skies toggle. Mirrors a
+	# real click on the checkbox: only acts when the toggle is actually offered
+	# (visible = FLY unit at e11 with an open move decision, and not disabled) so a
+	# stray press can never leak the flag onto a non-FLY unit or a locked move.
+	if not take_to_skies_checkbox or not take_to_skies_checkbox.visible or take_to_skies_checkbox.disabled:
+		return
+	# Flip it NON-silently so `_on_take_to_skies_toggled` forwards SET_TAKE_TO_SKIES
+	# and the deferred re-sync snaps the box back if the phase rejects it (e.g. a
+	# model already moved past the reduced cap).
+	take_to_skies_checkbox.button_pressed = not take_to_skies_checkbox.button_pressed
+
 func _unit_can_turbo_boost(unit_id: String) -> bool:
 	# Turbo Boostas (Speedwaaagh!): SPEED FREEKS / TRUKK units (excl.
 	# AIRCRAFT) of a Speedwaaagh! player at e11.
@@ -2083,6 +2118,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_select_all_unit_models()
 		elif event.keycode == KEY_ESCAPE:
 			_clear_selection()
+		elif KeybindingManager.matches_action(event, "toggle_take_to_skies"):
+			# B2 (21.03): flip "Take to the skies" from the keyboard so FLY units can
+			# declare the fly-over without hunting for the checkbox. No-ops unless the
+			# toggle is currently offered (guarded inside the helper).
+			_toggle_take_to_skies_hotkey()
 		# Keyboard rotation controls - work during dragging or when model selected
 		elif (selected_model.size() > 0 or selected_models.size() > 0):
 			if KeybindingManager.matches_action(event, "rotate_left"):
@@ -5644,6 +5684,20 @@ func pad_menu_options() -> Array:
 			"id": "SPECIAL:" + action_type,
 			"label": str(action.get("description", action_type))
 		})
+	# B2 (21.03): "Take to the skies" is a FLY-only move MODIFIER, not a mode.
+	# Offer it as an in-menu toggle chip (kept LAST so its slot is stable) so a
+	# controller player can declare the fly-over — the same −2" move (0" with
+	# HOVER) that ignores terrain and models — before choosing Move / Advance.
+	# Selecting it flips the flag and reopens the menu (see
+	# PadRouter._apply_menu_choice) instead of starting a move.
+	if _unit_can_fly(active_unit_id):
+		var skies_on := false
+		if current_phase and current_phase.has_method("get_active_move_data"):
+			skies_on = bool(current_phase.get_active_move_data(active_unit_id).get("took_to_skies", false))
+		opts.append({
+			"id": "TAKE_TO_SKIES",
+			"label": "Take to the skies: %s" % ("On" if skies_on else "Off")
+		})
 	return opts
 
 
@@ -5688,6 +5742,29 @@ func pad_apply_menu_choice(choice_id: String) -> void:
 			_on_confirm_mode_pressed()
 		"FALL_BACK":
 			_on_fall_back_pressed()
+
+
+func pad_toggle_take_to_skies() -> void:
+	"""Controller entry point for the take-to-skies toggle (move-menu chip).
+	Mirrors the checkbox / hotkey: dispatch SET_TAKE_TO_SKIES for the active move
+	and re-sync the checkbox + move-cap readout (the Advance / Fall Back confirm
+	folds the checkbox state into its BEGIN payload, so it must stay in step)."""
+	if not _unit_can_fly(active_unit_id) or not current_phase:
+		return
+	if not current_phase.has_method("get_active_move_data"):
+		return
+	var md = current_phase.get_active_move_data(active_unit_id)
+	if md.is_empty() or md.get("completed", false):
+		return  # no active move yet — nothing to declare the fly-over on
+	var want := not bool(md.get("took_to_skies", false))
+	emit_signal("move_action_requested", {
+		"type": "SET_TAKE_TO_SKIES",
+		"actor_unit_id": active_unit_id,
+		"payload": {"take_to_skies": want}
+	})
+	# Dispatch is synchronous in single-player: pull the authoritative state next
+	# frame so a rejected toggle snaps back and the cap readout matches.
+	call_deferred("_sync_take_to_skies_from_phase")
 
 
 func _pad_set_mode_radio(mode: String) -> void:

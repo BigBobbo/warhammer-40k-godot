@@ -1,0 +1,57 @@
+{
+  "id": "pad_take_to_skies_menu_11e",
+  "covers": [
+    "movement.fly.take_to_skies_pad_menu",
+    "padrouter.move_menu.take_to_skies_toggle",
+    "movementcontroller.pad_toggle_take_to_skies"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "edition": 11,
+  "description": "Controller access to 'Take to the skies'. A FLY unit (Shield-Captain on Dawneagle Jetbike, M12) is selected with the virtual cursor + A, which auto-begins a NORMAL move. Parking the cursor (B) then A opens the pad move menu, which now carries a 'Take to the skies: Off' chip appended last for FLY units. D-pad Up wraps the highlight to that chip; A toggles it: took_to_skies flips true, the cap drops M12->10\", the mouse checkbox stays in sync, and the menu REOPENS with the label now reading 'On' (a modifier, not a move — no carry starts). A second D-pad Up + A un-declares it: took_to_skies false, cap back to 12\". Proves a controller player can reach the toggle with no button conflicts.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "pad_cursor_glide", "unit_id": "U_SHIELD_CAPTAIN_JETBIKE_A" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_SHIELD_CAPTAIN_JETBIKE_A" },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"took_to_skies\"]", "equals": false },
+    { "act": "execute_script", "script": "PadActionBar._options[PadActionBar._options.size()-1].get(\"id\",\"\")", "equals": "TAKE_TO_SKIES" },
+    { "act": "execute_script", "script": "PadActionBar._options[PadActionBar._options.size()-1].get(\"label\",\"\")", "equals": "Take to the skies: Off" },
+    { "act": "screenshot", "label": "01_move_menu_take_to_skies_off" },
+
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "TAKE_TO_SKIES" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"took_to_skies\"]", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"move_cap_inches\"]", "equals": 10.0 },
+    { "act": "execute_script", "script": "main.movement_controller.move_cap_inches", "equals": 10.0 },
+    { "act": "execute_script", "script": "main.movement_controller.take_to_skies_checkbox.button_pressed", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
+    { "act": "execute_script", "script": "PadActionBar._options[PadActionBar._options.size()-1].get(\"label\",\"\")", "equals": "Take to the skies: On" },
+    { "act": "screenshot", "label": "02_took_to_skies_on_menu_reopened" },
+
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "TAKE_TO_SKIES" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"took_to_skies\"]", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"move_cap_inches\"]", "equals": 12.0 },
+    { "act": "screenshot", "label": "03_took_to_skies_off_again" }
+  ]
+}
