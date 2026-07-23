@@ -12,7 +12,7 @@
   "transition_to_phase": 7,
   "disable_ai": true,
   "rng_seed": 42,
-  "description": "Pad group carry composes with every move mode instead of being a separate 'Move All Together' menu entry (removed). Part A (Normal Move): choosing Move auto-carries one model; a D-pad press converts the carry into EVERY unmoved model riding the stick as one formation; one A drop stages all four Witchseekers and the confirm lands them in GameState. Part B (Advance — the flow that used to dead-end): choosing Advance rolls the dice behind the Command Re-roll dialog; keeping the roll auto-carries the first model (same hand-over as Move), a D-pad press grabs the whole squad under the advance cap, an all-off-board drop is refused (still carrying), B cancels with nothing staged, a D-pad press from the resting mid-move state re-grabs the group, and the drop + confirm move all four models with flags.advanced set.",
+  "description": "Pad group carry composes with every move mode instead of being a separate 'Move All Together' menu entry (removed). D-pad ▲ = grab all (the group-carry direction); ◀ ▶ switch single models and ▼ drops a group back to one. Part A (Normal Move): choosing Move auto-carries one model; a D-pad ▲ press converts the carry into EVERY unmoved model riding the stick as one formation; one A drop stages all four Witchseekers and the confirm lands them in GameState. Part B (Advance — the flow that used to dead-end): choosing Advance rolls the dice behind the Command Re-roll dialog; keeping the roll auto-carries the first model (same hand-over as Move), a D-pad ▲ press grabs the whole squad under the advance cap, an all-off-board drop is refused (still carrying), B cancels with nothing staged, a D-pad ▲ press from the resting mid-move state re-grabs the group, and the drop + confirm move all four models with flags.advanced set.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -109,7 +109,7 @@
     { "act": "execute_script", "script": "main.movement_controller.selected_models.size()", "equals": 0 },
     { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_D\"].staged_moves.size()", "equals": 0 },
 
-    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 11 },
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "execute_script", "script": "PadRouter.group_carry_active", "equals": true },
     { "act": "execute_script", "script": "main.movement_controller.selected_models.size()", "equals": 4 },

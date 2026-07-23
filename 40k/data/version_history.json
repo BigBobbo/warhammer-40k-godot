@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.0",
+			"date": "2026-07-22",
+			"summary": "Controller: the D-pad now drives model movement in the Movement phase. While you're moving a unit, D-pad ◀ ▶ switch between the unit's models, ▲ picks up all of them to move together, and ▼ drops back to moving just one. L3 and the Steam Deck paddles still switch models too, and the D-pad still opens the Move/Advance/Fall Back/Stay Still menu before a move begins.",
+			"changes": [
+				"Movement phase (controller): once a move is under way, D-pad Left/Right switch which model you're moving (previously only L3 / the back paddles did this), D-pad Up grabs every unmoved model as one group ('move all together'), and D-pad Down drops a whole-group carry back to a single model.",
+				"Before you pick a move mode, the D-pad still opens the on-screen Move / Advance / Fall Back / Stay Still menu, so Advance and Fall Back stay reachable. L3 and the Steam Deck L4/R4 paddles keep working as model switchers.",
+				"Updated the on-screen controller hints in the carry / mid-move states to show the new D-pad model controls."
+			]
+		},
+		{
 			"version": "0.92.15",
 			"date": "2026-07-22",
 			"summary": "Orks can now fire the Pulsa Rokkit by hand. When an eligible unit is about to shoot, a dialog lets you Fire it (+1 Strength and +1 AP on its ranged weapons this phase) or Decline — previously nothing responded to this ability, so the Shooting phase could stall for both players.",
