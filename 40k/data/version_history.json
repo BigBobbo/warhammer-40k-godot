@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.1",
+			"date": "2026-07-23",
+			"summary": "Disembarking is clearer: when you disembark a unit from a transport that hasn't moved, a prompt now tells you the unit can still Move, Advance, or Stay Still — and on a controller it names the button (A / D-pad) that opens the Move menu. Previously the follow-up move was available but nothing pointed it out, so it was easy to miss.",
+			"changes": [
+				"Movement phase: after placing a disembarked unit from a stationary transport, an on-screen prompt announces that it can still move and how to choose (Move / Advance / Stay Still). The message adapts to your input device — controller players are told to press A or the D-pad to open the Move menu.",
+				"Controller: the on-screen button-hint bar now refreshes to show the 'Move Menu' hints the instant disembark placement finishes, instead of only after the next button press."
+			]
+		},
+		{
 			"version": "0.93.0",
 			"date": "2026-07-22",
 			"summary": "Controller: the D-pad now drives model movement in the Movement phase. While you're moving a unit, D-pad ◀ ▶ switch between the unit's models, ▲ picks up all of them to move together, and ▼ drops back to moving just one. L3 and the Steam Deck paddles still switch models too, and the D-pad still opens the Move/Advance/Fall Back/Stay Still menu before a move begins.",
