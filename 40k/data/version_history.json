@@ -2,12 +2,21 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.93.1",
+			"version": "0.93.2",
 			"date": "2026-07-23",
 			"summary": "Selecting an embarked unit now pans the camera to the transport carrying it. In the Movement phase (or when clicking its card in the left roster strip), picking a unit that's riding inside a transport glides the view to that transport so you can see where it actually sits before disembarking — previously the camera stayed put and the unit was invisible on the board.",
 			"changes": [
 				"Movement phase: selecting an embarked unit from the unit list now smoothly pans the camera to the transport it is embarked in, then shows the disembark dialog as before.",
 				"Camera fit-to-selection (left roster strip click, Shift+F, controller unit-cycle reframe) now redirects an embarked unit to its transport's position instead of framing the passenger's hidden/stale models."
+			]
+		},
+		{
+			"version": "0.93.1",
+			"date": "2026-07-23",
+			"summary": "Disembarking is clearer: when you disembark a unit from a transport that hasn't moved, a prompt now tells you the unit can still Move, Advance, or Stay Still — and on a controller it names the button (A / D-pad) that opens the Move menu. Previously the follow-up move was available but nothing pointed it out, so it was easy to miss.",
+			"changes": [
+				"Movement phase: after placing a disembarked unit from a stationary transport, an on-screen prompt announces that it can still move and how to choose (Move / Advance / Stay Still). The message adapts to your input device — controller players are told to press A or the D-pad to open the Move menu.",
+				"Controller: the on-screen button-hint bar now refreshes to show the 'Move Menu' hints the instant disembark placement finishes, instead of only after the next button press."
 			]
 		},
 		{
