@@ -81,6 +81,10 @@
       "Place Models"
     ],
     [
+      "dpad",
+      "▼ One Model"
+    ],
+    [
       "b",
       "Cancel"
     ],
@@ -108,7 +112,7 @@
     ],
     [
       "dpad",
-      "Grab All"
+      "◀▶ Model · ▲ All"
     ],
     [
       "l3",
@@ -368,7 +372,7 @@
     ],
     [
       "dpad",
-      "Grab All Unmoved"
+      "◀▶ Model · ▲ All"
     ],
     [
       "l3",
@@ -394,7 +398,7 @@
     ],
     [
       "dpad",
-      "Grab All"
+      "◀▶ Model · ▲ All"
     ],
     [
       "l3",

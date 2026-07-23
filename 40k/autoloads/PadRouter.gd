@@ -17,22 +17,27 @@ extends Node
 #            weapon). Placement (deployment / reinforcement / scout reserves):
 #            cycle the value of the highlighted selector row — model type
 #            (multi-profile units) or formation (Single / Spread / Tight).
-#            Movement with an open move-mode decision: open the action bar,
-#            exactly like ▲ ▼ — EVERY D-pad direction lands in the on-screen
-#            menu, so a ◀/▶ press can never dump the player into right-panel
-#            focus while the hint bar promises "Move Menu"; otherwise panel
-#            focus entry
+#            Movement WHILE MOVING MODELS (a model in hand, or the resting
+#            staged/locked mid-move states): switch WHICH model of the unit you
+#            are moving — ◀ prev / ▶ next (via _hop_model; L3 and the paddles do
+#            the same). Movement with an open move-mode decision (before a move
+#            begins): open the action bar, exactly like ▲ ▼ — EVERY D-pad
+#            direction lands in the on-screen menu, so a ◀/▶ press can never dump
+#            the player into right-panel focus while the hint bar promises "Move
+#            Menu"; otherwise panel focus entry
 #   D-pad ▲ ▼ — the SELECTED unit's phase sub-menu, never the unit list:
 #            placement with a model-type picker: move the ▶ highlight
 #            between the Select Model Type and Deploy Formation rows.
 #            Charge: step the ELIGIBLE TARGETS rows (A toggles the stepped
 #            row in/out of the declaration — pad Click / Ctrl+Click).
 #            Shooting with an armed shooter: step the weapon rows so each
-#            gun can get its own target. Movement with an open move-mode
-#            decision: open the action bar (Move / Advance / Fall Back /
-#            Stay Still) and step its options. Otherwise panel focus entry —
-#            which lands on buttons only: unit lists are demoted to
-#            FOCUS_CLICK while the pad is active (see
+#            gun can get its own target. Movement WHILE MOVING MODELS: ▲ grabs
+#            EVERY unmoved model of the unit as one group carry ("move all
+#            together"); ▼ drops a whole-group carry back to moving just the one
+#            current model. Movement with an open move-mode decision: open the
+#            action bar (Move / Advance / Fall Back / Stay Still) and step its
+#            options. Otherwise panel focus entry — which lands on buttons only:
+#            unit lists are demoted to FOCUS_CLICK while the pad is active (see
 #            _apply_list_focus_policy) so neither the D-pad nor the left
 #            stick's ui_up/ui_down can ever walk the unit list. Cycling
 #            units is the bumpers' job alone.
@@ -54,10 +59,11 @@ extends Node
 #   Y      — toggle the datasheet of the highlighted target / selected unit
 #   L3     — click the left thumbstick: cycle to the NEXT model of the active
 #            unit, consistently in every phase that positions individual models
-#            (Movement + Charge, via _hop_model). THE model-switch control — the
-#            one free, reliable button, chosen over the Steam Deck L4/R4 paddles
-#            which reach the game as JOY_BUTTON_PADDLE* only when Steam Input is
-#            configured to forward them (still bound below as a bonus)
+#            (Movement + Charge, via _hop_model). A model-switch control — the
+#            one free, reliable button, kept alongside the Steam Deck L4/R4
+#            paddles (which reach the game as JOY_BUTTON_PADDLE* only when Steam
+#            Input is configured to forward them) and, in Movement, the D-pad
+#            ◀ ▶ (see above) — all three do the same _hop_model switch
 #   D-pad  — with nothing focused: enter panel focus (right panel, then
 #            bottom bar); with focus: normal ui_* navigation (not consumed).
 #            Panel-focus entry stands down mid-move (model in hand or the
@@ -159,14 +165,14 @@ const HINTS_CARRY := [
 # Movement carry: the plain set plus the multi-step contract — A drops a
 # waypoint (the model KEEPS focus; A again picks it back up to keep going with
 # whatever movement it has left), X drops AND seals the model, advancing to the
-# unit's next un-placed model — and "dpad Grab All", which lifts every unmoved
-# model of the unit into one group carry.
+# unit's next un-placed model — and the D-pad model controls: ◀ ▶ swap which
+# model is in hand, ▲ lifts every unmoved model into one group carry.
 const HINTS_CARRY_MOVE := [
 	["ls", "Move Model"],
 	["rs", "Precision"],
 	["a", "Drop"],
 	["x", "Finish Model"],
-	["dpad", "Grab All"],
+	["dpad", "◀▶ Model · ▲ All"],
 	["l3", "Swap Model"],
 	["lb", "Rotate ⟲"],
 	["rb", "Rotate ⟳"],
@@ -175,11 +181,13 @@ const HINTS_CARRY_MOVE := [
 ]
 # Group carry (every unmoved model of the unit in hand at once): the whole
 # formation rides the stick; A places every model that fits at the drop spot
-# (models that don't fit stay behind and are handed back individually).
+# (models that don't fit stay behind and are handed back individually). D-pad ▼
+# drops the group back to carrying just one model.
 const HINTS_CARRY_GROUP := [
 	["ls", "Move Models"],
 	["rs", "Precision"],
 	["a", "Place Models"],
+	["dpad", "▼ One Model"],
 	["b", "Cancel"],
 	["menu", "Confirm / End"],
 ]
@@ -207,20 +215,18 @@ const HINTS_MOVE := [
 # Movement mid-move with a model just dropped and models still un-placed (the
 # multi-step state): the dropped model KEEPS focus — A picks it back up to keep
 # spending its remaining move, X "Finish Model" seals it and hands over the next
-# un-placed model, a D-pad press lifts every still-unmoved model as one group (any
-# move mode — staged drops keep their spots), B undoes the last staged model, L3
-# (and the paddles where Steam Input forwards them) browses models freely. L3
-# keeps its one label — "Next Model", the same as every other non-carry movement
-# state — so "Next Model" always means the L3 model-switcher and never collides
-# with X: X is "Finish Model" here (matching the carry set), never "Next Model".
-# (The reported controller confusion: this state used to relabel "Next Model"
-# onto X and demote L3 to "Browse Models", so for one transient state "Next Model"
-# jumped buttons.) The bumpers stay locked to this unit until the move is
-# confirmed or undone.
+# un-placed model, D-pad ◀ ▶ hop between the unit's models and ▲ lifts every
+# still-unmoved model as one group (any move mode — staged drops keep their
+# spots), B undoes the last staged model, L3 (and the paddles where Steam Input
+# forwards them) browses models freely. L3 keeps its one label — "Next Model",
+# the same as every other non-carry movement state — so "Next Model" always means
+# the model-switcher and never collides with X: X is "Finish Model" here
+# (matching the carry set), never "Next Model". The bumpers stay locked to this
+# unit until the move is confirmed or undone.
 const HINTS_MOVE_STAGED := [
 	["a", "Move Model"],
 	["x", "Finish Model"],
-	["dpad", "Grab All"],
+	["dpad", "◀▶ Model · ▲ All"],
 	["l3", "Next Model"],
 	["b", "Undo Model"],
 	["y", "Datasheet"],
@@ -228,14 +234,14 @@ const HINTS_MOVE_STAGED := [
 ]
 # Movement with a committed move where every model has been placed (X's
 # finish-model advance lands here after the last model): Start confirms the
-# whole move, A picks a model back up to adjust it, L3 (and the back paddles,
-# where Steam Input forwards them) cycles between models and B undoes the last
-# staged model. The bumpers stay locked to this unit until the move is confirmed
-# or undone.
+# whole move, A picks a model back up to adjust it, D-pad ◀ ▶ / L3 (and the back
+# paddles, where Steam Input forwards them) cycle between models, D-pad ▲ re-grabs
+# them all as a group and B undoes the last staged model. The bumpers stay locked
+# to this unit until the move is confirmed or undone.
 const HINTS_MOVE_LOCKED := [
 	["menu", "Confirm Move"],
 	["a", "Move a Model"],
-	["dpad", "Grab All Unmoved"],
+	["dpad", "◀▶ Model · ▲ All"],
 	["l3", "Next Model"],
 	["b", "Undo Model"],
 	["y", "Datasheet"],
@@ -416,31 +422,39 @@ func _input(event: InputEvent) -> void:
 			if _handle_back():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_UP:
+			# Movement, mid-move: ▲ = "move all together" — grab every unmoved model
+			# of the unit as one group carry (_try_grab_all_remaining). The move-mode
+			# menu (decision still open) opens first, exactly as ▼ ◀ ▶ do, so no
+			# D-pad direction can dump the player into right-panel focus while the
+			# hint bar promises "Move Menu".
 			if _pad_deploy_row_cycle(-1) or _pad_step_secondary(-1) or _charge_dpad_consume() or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_DOWN:
-			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _charge_dpad_consume() or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
+			# Movement, mid-move: ▼ = "move just one model" — the counterpart to ▲.
+			# From a whole-group carry it drops back to carrying the single current
+			# model (_try_shrink_to_single); otherwise it is a satisfied no-op that
+			# still keeps the press on the board flow. The move-mode menu opens first
+			# while the decision is still open.
+			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _charge_dpad_consume() or _try_open_move_menu() or _try_shrink_to_single() or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_LEFT:
-			# Model-switching lives on L3 (left-stick click — the one free, reliable
-			# button; the Steam Deck paddles only reach the game when Steam Input
-			# forwards them). D-pad ◀ ▶ stays free for menu / option navigation and
-			# never fights the move-mode menu. Deployment option-cycle keeps it;
-			# shooting uses ◀ ▶ to walk the armed shooter's target ring (bumpers stay
-			# on shooter cycling); charge steps the ELIGIBLE TARGETS rows so every
-			# D-pad direction lands in the charge flow, matching ▲ ▼ — a ◀/▶ press
-			# must never dump the player into right-panel focus while the hint bar
-			# says "Pick Target". With a selected unit mid-move, ◀ also grabs every
-			# unmoved model (_try_grab_all_remaining), matching ▲ ▼ ▶.
-			if _pad_step_shoot_target(-1) or _pad_step_charge_target(-1) or _charge_dpad_consume() or _pad_deploy_option_cycle(-1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
+			# Movement, mid-move: ◀ ▶ = "switch which model you're moving" (prev /
+			# next), via _try_move_hop_model → _hop_model (swap the in-hand model, or
+			# hop the camera + selection when resting between models). This is THE
+			# model-switch control now, alongside L3 / the Steam Deck paddles which
+			# keep the same job for redundancy. Before a move begins, the move-mode
+			# menu still owns the D-pad (opened here via _try_open_move_menu), so ◀ ▶
+			# can never dump the player into right-panel focus while the hint bar
+			# says "Move Menu". Other phases keep ◀ ▶: deployment option-cycle,
+			# shooting's target ring, charge's ELIGIBLE TARGETS rows (all handled
+			# before the movement hop below).
+			if _pad_step_shoot_target(-1) or _pad_step_charge_target(-1) or _charge_dpad_consume() or _pad_deploy_option_cycle(-1) or _try_open_move_menu() or _try_move_hop_model(-1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
-			# _try_open_move_menu before panel focus (matching ▲ ▼): with an
-			# open move-mode decision ◀ ▶ must open the same on-screen menu the
-			# hint bar advertises for "dpad", never strand the player in the
-			# right-panel focus chain — the panel is a mouse surface, and once
-			# focused every following D-pad press walks it instead of the menu.
-			if _pad_step_shoot_target(1) or _pad_step_charge_target(1) or _charge_dpad_consume() or _pad_deploy_option_cycle(1) or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
+			# ▶ mirrors ◀ (see above): mid-move it switches to the NEXT model; with an
+			# open move-mode decision it opens the same on-screen menu the hint bar
+			# advertises for "dpad"; other phases keep their ◀ ▶ meanings first.
+			if _pad_step_shoot_target(1) or _pad_step_charge_target(1) or _charge_dpad_consume() or _pad_deploy_option_cycle(1) or _try_open_move_menu() or _try_move_hop_model(1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		# Steam Deck back paddles hop between the selected unit's models (Movement
 		# / Charge) — the job D-pad ◀ ▶ used to do. Works at every stage of the
@@ -1352,13 +1366,13 @@ func _roster_entry_staged_pos(active_unit_id: String, entry: Dictionary):
 # Group carry — every unmoved model of the unit in one hand
 # ============================================================================
 
-# D-pad fall-through (Movement, after the move-menu check): grab EVERY model of
-# the active unit that has not been placed yet and carry them as one formation.
-# This is THE "move all together" affordance and it works in every move mode —
-# Normal, Advance (after the roll resolves), Fall Back — because it only needs a
-# live move session, not a particular one. Reachable mid-carry (the in-hand
-# model reverts first, like a paddle swap) and in the staged/locked mid-move
-# states; while the move menu is open the D-pad walks the menu instead.
+# D-pad ▲ (Movement, after the move-menu check): grab EVERY model of the active
+# unit that has not been placed yet and carry them as one formation. This is THE
+# "move all together" affordance and it works in every move mode — Normal,
+# Advance (after the roll resolves), Fall Back — because it only needs a live
+# move session, not a particular one. Reachable mid-carry (the in-hand model
+# reverts first, like a paddle swap) and in the staged/locked mid-move states;
+# while the move menu is open the D-pad walks the menu instead.
 func _try_grab_all_remaining() -> bool:
 	if group_carry_active:
 		return true  # already carrying the whole group — consume the press
@@ -1377,6 +1391,75 @@ func _try_grab_all_remaining() -> bool:
 		_grab_all_from_carry()
 		return true
 	return _try_begin_group_carry()
+
+
+# D-pad ◀ ▶ (Movement, after the move-menu check): switch WHICH model of the
+# active unit you're moving — prev (◀) / next (▶). THE model-switch control, next
+# to L3 and the Steam Deck paddles which keep the same job. Active only once a
+# move is under way (a model in hand, or the resting staged/locked mid-move
+# states) so that before a move begins the decision-open menu and panel-focus
+# entry keep the D-pad. Reuses _hop_model — mid-carry it reverts the in-hand
+# model and takes the neighbour; resting it hops the camera + selection so the
+# player can preview a model before A / ▼ picks it up. Movement only: charge's
+# ◀ ▶ target stepping is handled earlier in the _input chain.
+func _try_move_hop_model(dir: int) -> bool:
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	if _deployment_controller_placing() != null:
+		return false  # reinforcement/scout placement owns the pad here
+	if _movement_controller() == null:
+		return false
+	if not carry_active and not _movement_session_locked():
+		return false  # no move in progress — leave ◀ ▶ for the menu / panels
+	return _hop_model(dir)
+
+
+# D-pad ▼ (Movement, after the move-menu check): "move just one model" — the
+# counterpart to ▲ (move all). From a whole-group carry it drops the group back
+# to carrying the single CURRENT model (_shrink_group_to_single). While already
+# moving one model, or resting mid-move, there is nothing to shrink — but the
+# press is still consumed so it can't dump the player into panel focus (the
+# player is mid-move; ◀ ▶ pick the model, A / ▲ act on it). Falls through only
+# when no move is under way, so the D-pad keeps its menu / panel meanings there.
+func _try_shrink_to_single() -> bool:
+	if get_viewport().gui_get_focus_owner() != null:
+		return false
+	if _deployment_controller_placing() != null:
+		return false  # reinforcement/scout placement owns the pad here
+	if _movement_controller() == null:
+		return false
+	if group_carry_active:
+		_shrink_group_to_single()
+		return true
+	# Single carry or resting mid-move: already "just one model" — consume so the
+	# press stays on the board flow rather than entering the mouse panels.
+	return carry_active or _movement_session_locked()
+
+
+# ▼ while the whole unit is in hand: drop back to carrying just the current
+# model. Abort the group drag (nothing was staged — only ghosts moved), wait out
+# the synthetic release, then pick up the single model at carry_model_index. The
+# 3-frame wait mirrors _grab_all_from_carry's reverse transition (the group
+# abort's queued release must land before _try_begin_carry re-arms the cursor).
+func _shrink_group_to_single() -> void:
+	var mc := _movement_controller()
+	if mc != null and mc.has_method("pad_abort_group_drag"):
+		mc.pad_abort_group_drag()
+	VirtualCursor.set_left_button(false)
+	carry_active = false
+	group_carry_active = false
+	VirtualCursor.park()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if carry_active or PadActionBar.is_open():
+		return  # something else re-claimed the pad mid-shrink
+	if get_viewport().gui_get_focus_owner() != null:
+		return
+	if VirtualCursor.is_cursor_active():
+		VirtualCursor.park()
+	if _try_begin_carry():
+		_update_hints()
 
 
 func _try_begin_group_carry() -> bool:
