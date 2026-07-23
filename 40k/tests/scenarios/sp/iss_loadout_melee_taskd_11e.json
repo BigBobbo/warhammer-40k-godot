@@ -1,0 +1,56 @@
+{
+  "id": "iss_loadout_melee_taskd_11e",
+  "covers": [
+    "fight.loadout_resolution.melee",
+    "autoloads.RulesEngine.get_unit_melee_weapons",
+    "scripts.UnitStatsPanel._carried_melee_counts"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 10,
+  "description": "Task D: melee loadout resolution. In the Fight phase a Burna Boyz mob (datasheet lists Cuttin' flames AND Close combat weapon on every model) reports its RESOLVED melee via get_unit_melee_weapons \u2014 4 Cuttin' flames + 1 CCW, one weapon per model (5 instances, not the 10 the menu would give). The unit panel's MELEE WEAPONS table shows the resolved loadout '(as equipped)'.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.set_edition(11)\nvar U = GameState.state[\"units\"]\nU.merge({\"U_TD_BURNA\": {\"id\": \"U_TD_BURNA\", \"squad_id\": \"U_BURNA_BOYZ_A\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Burna Boyz\", \"keywords\": [\"BURNA BOYZ\", \"INFANTRY\", \"ORKS\"], \"stats\": {\"move\": 6, \"toughness\": 5, \"save\": 5, \"wounds\": 1, \"leadership\": 7, \"objective_control\": 1}, \"points\": 60, \"is_warlord\": false, \"enhancements\": [], \"wargear\": [\"1x Spanner\", \"1x Big shoota\", \"1x Close combat weapon\", \"4x Burna Boy\", \"4x Burna\", \"4x Cuttin' flames\"], \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"rapid fire 2\", \"abilities\": [{\"id\": \"rapid_fire\", \"x\": 2}]}, {\"name\": \"Burna\", \"type\": \"Ranged\", \"range\": \"12\", \"attacks\": \"D6\", \"ballistic_skill\": \"N/A\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"ignores cover, torrent\", \"abilities\": [{\"id\": \"ignores_cover\"}, {\"id\": \"torrent\"}]}, {\"name\": \"Close combat weapon\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\"}, {\"name\": \"Cuttin' flames\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"2\", \"weapon_skill\": \"4\", \"strength\": \"4\", \"ap\": \"-2\", \"damage\": \"1\"}], \"abilities\": [{\"name\": \"Waaagh!\", \"type\": \"Faction\", \"description\": \"Once per battle, until your next Command phase:\\n  -> The unit gains the Advance & Charge ability.\\n  -> Add 1 to the unit's Strength characteristic (melee).\\n  -> Add 1 to the unit's Attacks characteristic (melee).\\n  -> The unit has a 5+ invulnerable save.\"}, {\"name\": \"Pyromaniaks\", \"type\": \"Datasheet\", \"description\": \"During the Shooting phase, you can re-roll a Wound roll of 1.\"}], \"unit_composition\": [{\"description\": \"1-2 Spanner\", \"line\": 1}, {\"description\": \"4-8 Burna Boy\", \"line\": 2}]}, \"models\": [{\"id\": \"td0\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 700, \"y\": 700}, \"alive\": true, \"status_effects\": []}, {\"id\": \"td1\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 770, \"y\": 700}, \"alive\": true, \"status_effects\": []}, {\"id\": \"td2\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 840, \"y\": 700}, \"alive\": true, \"status_effects\": []}, {\"id\": \"td3\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 910, \"y\": 700}, \"alive\": true, \"status_effects\": []}, {\"id\": \"td4\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 980, \"y\": 700}, \"alive\": true, \"status_effects\": []}]}}, true)\nreturn U.has(\"U_TD_BURNA\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nvar mm = RulesEngine.get_unit_melee_weapons(\"U_TD_BURNA\", GameState.state)\nvar total = 0\nvar cf = 0\nvar ccw = 0\nvar worst = 0\nfor mid in mm:\n\tworst = max(worst, mm[mid].size())\n\tfor wn in mm[mid]:\n\t\ttotal += 1\n\t\tif str(wn) == \"Cuttin' flames\": cf += 1\n\t\telif str(wn) == \"Close combat weapon\": ccw += 1\nreturn \"%d|%d|%d|%d\" % [total, cf, ccw, worst]",
+      "equals": "5|4|1|1"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nvar unit = GameState.state[\"units\"][\"U_TD_BURNA\"]\nvar melee_menu = 0\nfor w in unit[\"meta\"][\"weapons\"]:\n\tif str(w.get(\"type\",\"\")).to_lower() == \"melee\": melee_menu += 1\nreturn melee_menu * unit[\"models\"].size()",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nvar panel = main.get_node_or_null(\"UnitStatsPanel\")\nif panel == null: return \"NO_PANEL\"\npanel.set_collapsed(false)\npanel.show_panel(true)\npanel.display_unit(GameState.state[\"units\"][\"U_TD_BURNA\"])\nvar parts = []\nvar stack = [panel.player_weapons_container]\nwhile stack.size() > 0:\n\tvar n = stack.pop_back()\n\tif n == null: continue\n\tif n is Label: parts.append(str(n.text))\n\tfor c in n.get_children(): stack.append(c)\nvar txt = \" || \".join(parts)\nvar ok = (\"MELEE WEAPONS (as equipped)\" in txt) and (\"Cuttin' flames \u00d74\" in txt) and (\"Close combat weapon\" in txt)\nreturn \"OK\" if ok else (\"BAD: \" + txt)",
+      "equals": "OK"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_burna_fight_resolved_melee_panel"
+    }
+  ]
+}

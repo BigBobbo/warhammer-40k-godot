@@ -6269,22 +6269,28 @@ static func _get_model_weapon_ids(unit: Dictionary, model: Dictionary, weapon_ty
 	if use_profile:
 		allowed_weapon_names = model_profiles[model_type].get("weapons", [])
 
-	# MA-LOADOUT: a resolved per-model RANGED loadout (derived from the unit's
-	# wargear by _ensure_loadout_resolved) overrides the model_profiles menu for
-	# ranged weapons only — so a model reports the gun it actually carries rather
-	# than every wargear option. Melee/other filters are unchanged.
+	# MA-LOADOUT: a resolved per-model loadout (derived from the unit's wargear by
+	# _ensure_loadout_resolved) overrides the model_profiles menu — so a model
+	# reports the weapon it actually carries rather than every wargear option.
+	# Ranged (Phase 1/Task C) and melee (Phase 1b/Task D) are symmetric.
+	var tf = weapon_type_filter.to_lower()
 	var resolved_ranged = model.get("ranged_loadout", null)
-	var use_resolved_ranged = weapon_type_filter.to_lower() == "ranged" and resolved_ranged is Array
+	var resolved_melee = model.get("melee_loadout", null)
+	var use_resolved_ranged = tf == "ranged" and resolved_ranged is Array
+	var use_resolved_melee = tf == "melee" and resolved_melee is Array
 
 	var weapon_ids = []
 	for weapon in weapons_data:
 		var wtype = weapon.get("type", "")
-		if wtype.to_lower() != weapon_type_filter.to_lower():
+		if wtype.to_lower() != tf:
 			continue
 
 		var wname = weapon.get("name", "")
 		if use_resolved_ranged:
 			if wname not in resolved_ranged:
+				continue
+		elif use_resolved_melee:
+			if wname not in resolved_melee:
 				continue
 		elif use_profile and wname not in allowed_weapon_names:
 			continue
@@ -6296,7 +6302,9 @@ static func _get_model_weapon_ids(unit: Dictionary, model: Dictionary, weapon_ty
 	return weapon_ids
 
 
-# MA-LOADOUT: resolve which RANGED gun each model actually carries.
+# MA-LOADOUT: resolve which weapon(s) each model of a multi-model unit actually
+# carries, from the unit's `wargear` counts, stamping them onto the models
+# (`ranged_loadout` — and, once Task D lands, `melee_loadout`).
 #
 # Datasheets store, per model_type, the full MENU of wargear options. When the
 # importer already narrowed that to one weapon (e.g. Lootas' loota_deffgun ->
@@ -6304,47 +6312,83 @@ static func _get_model_weapon_ids(unit: Dictionary, model: Dictionary, weapon_ty
 # generic "boy" type) — or gave no model_profiles at all — every model reports
 # EVERY option, so a 10-model mob reports ~4x its real guns.
 #
-# The unit's `wargear` records the actual loadout with counts ("8x Deffgun",
-# "2x Kustom mega-blasta"). When that unambiguously pins the ranged loadout —
-# every model gets exactly one gun and the counts sum to the model count — stamp
-# each model with its real gun in `ranged_loadout`. This is deliberately
-# conservative: anything it can't parse cleanly (incomplete/oversized wargear,
-# no counts, dual-gun models) is left exactly as-is (the pre-existing behavior),
-# so it only ever REDUCES over-counting, never changes an already-correct unit.
+# Resolution is deliberately conservative: it only ever REDUCES over-counting and
+# every assignment is cross-checked against model_profiles, so it never hands a
+# model a weapon its type can't take and never changes an already-correct unit.
+# Anything it can't pin cleanly is left exactly as-is (the safe fallback) and
+# logged. See _resolve_type_loadout for the cases handled (A/B/C).
 static func _ensure_loadout_resolved(unit: Dictionary) -> void:
 	if unit.get("_loadout_checked", false):
 		return
 	unit["_loadout_checked"] = true
 
-	var meta = unit.get("meta", {})
-	var models = unit.get("models", [])
 	# Multi-model units only. A single-model unit (VEHICLE / MONSTER / character)
 	# legitimately fires ALL of its weapons, so we must never collapse it to one
 	# gun — its "menu" is its real arsenal, not a per-model choice.
-	if models.size() < 2:
+	if unit.get("models", []).size() < 2:
 		return
 
-	# Ranged weapon names this datasheet actually lists.
-	var ranged_names := {}
+	_resolve_type_loadout(unit, "Ranged", "ranged_loadout")
+	# MA-LOADOUT Phase 1b (Task D): resolve melee the same way, so the Fight phase
+	# stops over-counting a model's melee options (a Boy's Choppa AND Close combat
+	# weapon, a Nob's several melee profiles). Melee wargear is spottier than
+	# ranged, so most units fall back to the menu; those that pin it cleanly
+	# (Kommandos -> Choppa, Burna Boyz -> Cuttin' flames + CCW) are resolved.
+	_resolve_type_loadout(unit, "Melee", "melee_loadout")
+
+
+# MA-LOADOUT: cross-check guard — may this model's type actually take
+# `weapon_name`? True when the unit has no model_profiles constraint for this
+# model (its menu is already limited to meta.weapons), otherwise the name must be
+# in the model_type's allowed weapon list. This is the guard against inventing a
+# weapon a model_type can't have (the #1 risk when widening coverage).
+static func _model_allows_weapon(unit: Dictionary, model: Dictionary, weapon_name: String) -> bool:
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	var model_type = model.get("model_type", "")
+	if model_profiles.is_empty() or model_type == "" or not model_profiles.has(model_type):
+		return true
+	return weapon_name in model_profiles[model_type].get("weapons", [])
+
+
+# MA-LOADOUT: shared resolver for one weapon type ("Ranged" / "Melee"). Parses
+# the unit's `wargear` counts for that type's weapons and, when they unambiguously
+# pin the per-model loadout, stamps `loadout_key` on each model. Leaves the unit
+# untouched (safe fallback) and logs why otherwise.
+#
+# Cases handled:
+#   A) one gun per model, counts sum to the model count (original Phase 1) — the
+#      special (lowest-count) guns go on the first models that may take them.
+#   B) uniform multi-gun models: every distinct gun appears exactly once per
+#      model (each count == model_count), so each model carries the same set
+#      (Deffkopta -> [Kopta rokkits, Slugga]). Guards out oversized/broken
+#      wargear (a 2-model unit carrying 10-model counts fails this cleanly).
+#   C) incomplete-but-consistent: fewer counts than models but all the SAME gun
+#      (a 20-Boy mob recorded with only "10x Slugga") -> that gun on every model.
+static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, loadout_key: String) -> void:
+	var meta = unit.get("meta", {})
+	var models = unit.get("models", [])
+
+	# Weapon names of this type the datasheet actually lists.
+	var type_names := {}
 	for w in meta.get("weapons", []):
-		if str(w.get("type", "")).to_lower() == "ranged":
-			ranged_names[str(w.get("name", ""))] = true
-	if ranged_names.is_empty():
+		if str(w.get("type", "")).to_lower() == weapon_type_filter.to_lower():
+			type_names[str(w.get("name", ""))] = true
+	if type_names.is_empty():
 		return
 
-	# Only act when a model currently over-reports ranged weapons. Units already
+	# Only act when a model currently over-reports this weapon type. Units already
 	# resolved per model_type (loota_deffgun, etc.) are left untouched.
 	var over_reports := false
 	for model in models:
-		if _get_model_weapon_ids(unit, model, "Ranged").size() > 1:
+		if _get_model_weapon_ids(unit, model, weapon_type_filter).size() > 1:
 			over_reports = true
 			break
 	if not over_reports:
 		return
 
-	# Parse wargear into ranged {name: count}, summing duplicate lines and
-	# ignoring entries that aren't this unit's ranged weapons (roles, melee, and
-	# count-less entries we can't size).
+	# Parse wargear into {name: count} for this type, summing duplicate lines and
+	# ignoring entries that aren't this unit's weapons of this type (roles, the
+	# other weapon type, and count-less entries we can't size).
 	var counts := {}
 	var total := 0
 	for entry in meta.get("wargear", []):
@@ -6360,26 +6404,123 @@ static func _ensure_loadout_resolved(unit: Dictionary) -> void:
 			if not num_str.is_valid_int():
 				continue
 			var name = txt.substr(space + 1).strip_edges()
-			if ranged_names.has(name):
+			if type_names.has(name):
 				var n = int(num_str)
 				counts[name] = int(counts.get(name, 0)) + n
 				total += n
 
-	# Confidence gate: exactly one ranged gun per model, summing to the model
-	# count. Otherwise leave the unit as-is (safe fallback).
-	if counts.is_empty() or total != models.size():
+	var model_count = models.size()
+	var uname = str(meta.get("name", ""))
+	var tlow = weapon_type_filter.to_lower()
+	if counts.is_empty():
+		print("[MA-LOADOUT] %s (%s): left unresolved — no parseable %s wargear counts" % [uname, weapon_type_filter, tlow])
 		return
 
-	# Assign one ranged weapon per model. Lowest-count (special) weapons go to the
-	# first models so they're identifiable; the bulk basic gun fills the rest.
-	var ordered = counts.keys()
-	ordered.sort_custom(func(a, b): return int(counts[a]) < int(counts[b]))
-	var idx := 0
-	for name in ordered:
-		for _i in range(int(counts[name])):
-			if idx < models.size():
-				models[idx]["ranged_loadout"] = [name]
-				idx += 1
+	var distinct = counts.keys()
+
+	# CASE A — exactly one gun per model. Assign lowest-count (special) weapons to
+	# the earliest model that may take them so they're identifiable; the bulk gun
+	# fills the rest. Falls back if a gun can't be placed within model_profiles.
+	if total == model_count:
+		var ordered = distinct.duplicate()
+		ordered.sort_custom(func(a, b): return int(counts[a]) < int(counts[b]))
+		var assigned := {}   # model index -> gun name
+		var used := {}       # model index -> true
+		for name in ordered:
+			for _i in range(int(counts[name])):
+				var placed := false
+				for mi in range(model_count):
+					if used.has(mi):
+						continue
+					if _model_allows_weapon(unit, models[mi], name):
+						used[mi] = true
+						assigned[mi] = name
+						placed = true
+						break
+				if not placed:
+					print("[MA-LOADOUT] %s (%s): left unresolved — could not place '%s' within model_profiles" % [uname, weapon_type_filter, name])
+					return
+		for mi in range(model_count):
+			models[mi][loadout_key] = [assigned[mi]]
+		return
+
+	# CASE B — uniform multi-gun models (each distinct gun appears once per model).
+	var uniform := true
+	for name in distinct:
+		if int(counts[name]) != model_count:
+			uniform = false
+			break
+	if uniform and total == distinct.size() * model_count:
+		var gun_set := []
+		for name in distinct:
+			gun_set.append(name)
+		for model in models:
+			for name in gun_set:
+				if not _model_allows_weapon(unit, model, name):
+					print("[MA-LOADOUT] %s (%s): left unresolved — set gun '%s' not allowed for model_type '%s'" % [uname, weapon_type_filter, name, str(model.get("model_type", ""))])
+					return
+		for model in models:
+			model[loadout_key] = gun_set.duplicate()
+		return
+
+	# CASE C — incomplete-but-consistent: fewer counts than models, all one gun.
+	if distinct.size() == 1 and total < model_count:
+		var name = str(distinct[0])
+		for model in models:
+			if not _model_allows_weapon(unit, model, name):
+				print("[MA-LOADOUT] %s (%s): left unresolved — consistent gun '%s' not allowed for model_type '%s'" % [uname, weapon_type_filter, name, str(model.get("model_type", ""))])
+				return
+		for model in models:
+			model[loadout_key] = [name]
+		return
+
+	print("[MA-LOADOUT] %s (%s): left unresolved — counts inconclusive (total=%d models=%d distinct=%d)" % [uname, weapon_type_filter, total, model_count, distinct.size()])
+
+# MA-LOADOUT Phase 3 (Task B): the model IDs in this unit that carry a
+# NON-majority ranged loadout — i.e. the special/heavy-weapon models that should
+# look distinct on the board. Uses each model's ACTUALLY-reported ranged guns
+# (the same resolved data get_unit_weapons uses — covers both wargear-resolved
+# loadouts and model_type-resolved mobs like Lootas), so an over-reporting
+# unresolved unit (every model shows the same menu) yields [] and gets no marker.
+# Returns [] when every model carries the same guns (nobody stands out). Single
+# source of truth shared by TokenVisual (draws the marker) and the tests.
+static func get_special_weapon_model_ids(unit: Dictionary) -> Array:
+	var models = unit.get("models", [])
+	if models.size() < 2:
+		return []
+	_ensure_loadout_resolved(unit)
+	var sig_of := {}       # model_id -> ranged-loadout signature
+	var sig_counts := {}   # signature -> count
+	for m in models:
+		if not m.get("alive", true):
+			continue
+		var ids = _get_model_weapon_ids(unit, m, "Ranged")
+		var sig = _loadout_signature(ids)
+		sig_of[str(m.get("id", ""))] = sig
+		sig_counts[sig] = int(sig_counts.get(sig, 0)) + 1
+	if sig_counts.size() <= 1:
+		return []  # every model reports the same guns -> nobody is "special"
+	# Majority signature = the bulk/basic gun the rank-and-file carry.
+	var majority_sig := ""
+	var majority_n := -1
+	for s in sig_counts:
+		if int(sig_counts[s]) > majority_n:
+			majority_n = int(sig_counts[s])
+			majority_sig = s
+	var out := []
+	for mid in sig_of:
+		if sig_of[mid] != majority_sig:
+			out.append(mid)
+	return out
+
+# Stable order-independent signature for a per-model loadout (the sorted weapon
+# names joined), so [A,B] and [B,A] compare equal.
+static func _loadout_signature(loadout: Array) -> String:
+	var names := []
+	for n in loadout:
+		names.append(str(n))
+	names.sort()
+	return "|".join(names)
 
 # Get weapons for a unit
 static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
@@ -12606,6 +12747,11 @@ static func get_unit_melee_weapons(unit_id: String, board: Dictionary = {}) -> D
 	if unit.is_empty():
 		return unit_weapons
 
+	# MA-LOADOUT Phase 1b (Task D): resolve per-model melee loadouts (once) so a
+	# model reports the melee weapon(s) it actually fights with rather than every
+	# datasheet option. Idempotent — a no-op once the unit is resolved.
+	_ensure_loadout_resolved(unit)
+
 	var models = unit.get("models", [])
 	var weapons_data = unit.get("meta", {}).get("weapons", [])
 	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
@@ -12626,10 +12772,18 @@ static func get_unit_melee_weapons(unit_id: String, board: Dictionary = {}) -> D
 		var model_id = "m" + str(model_index)
 		var model_weapons = []
 
-		# Per-model profile branch: if model_profiles exist and model has a model_type,
-		# only assign melee weapons listed in that model's profile
+		# Prefer the resolved per-model melee loadout when present (the weapons the
+		# model actually fights with); else fall back to the profile menu, else all.
+		var resolved_melee = model.get("melee_loadout", null)
 		var model_type = model.get("model_type", "")
-		if not model_profiles.is_empty() and model_type != "" and model_profiles.has(model_type):
+		if resolved_melee is Array:
+			for weapon in weapons_data:
+				if weapon.get("type", "").to_lower() == "melee" and weapon.get("name", "") in resolved_melee:
+					var wname = weapon.get("name", "Unknown Weapon")
+					if wname not in model_weapons:
+						model_weapons.append(wname)
+		elif not model_profiles.is_empty() and model_type != "" and model_profiles.has(model_type):
+			# Per-model profile branch: only melee weapons listed in this model's profile
 			var profile = model_profiles[model_type]
 			var profile_weapon_names = profile.get("weapons", [])
 			for weapon in weapons_data:
@@ -14774,6 +14928,12 @@ static func check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionary
 ## type-aware format).
 static func generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
 	return _generate_weapon_id(weapon_name, weapon_type)
+
+## MA-LOADOUT: force per-model loadout resolution (ranged + melee) on a unit so
+## UI/read paths can then read model.ranged_loadout / model.melee_loadout.
+## Idempotent — a no-op once the unit has been resolved.
+static func ensure_loadout_resolved(unit: Dictionary) -> void:
+	_ensure_loadout_resolved(unit)
 
 ## Staged fight: re-roll Hold Still (OA-19) mortal wounds for a melee
 ## hit_context after a Command Re-roll changed the critical-wound tally.

@@ -2,6 +2,48 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.11",
+			"date": "2026-07-23",
+			"summary": "The Fight phase now uses the melee weapons models actually carry, the same way shooting was fixed. Datasheets list every close-combat OPTION per model, which made a mob report all of them at once; when the army list pins the melee loadout (Kommandos with Choppas, Burna Boyz with Cuttin' flames, Beast Snagga with Choppas + a Power snappa) each model now fights with its real weapon instead of the whole menu.",
+			"changes": [
+				"Fight phase: multi-model units whose datasheet lists several melee options per model are resolved from their wargear — each model reports the melee weapon it actually fights with, so a Burna Boyz mob shows 4 Cuttin' flames + 1 Close combat weapon rather than both on every model.",
+				"Unit inspect panel: the MELEE WEAPONS table is titled '(as equipped)' for resolved units and lists only the weapons carried, each with a model count — matching the ranged table.",
+				"Conservative and safe: melee wargear is spottier than ranged, so units that can't be pinned cleanly keep their full melee menu; single-model units are untouched; and the resolver never assigns a melee weapon a model's datasheet doesn't allow (e.g. a Kommando Boss that can only take a Big Choppa is left alone rather than forced to a Choppa)."
+			]
+		},
+		{
+			"version": "0.93.10",
+			"date": "2026-07-23",
+			"summary": "The model carrying a mob's special/heavy weapon now stands out on the board. An amber spark badge is drawn on the token of any model whose gun differs from the rank-and-file (the Big Shoota Boy in a Burna mob, the Kustom Mega-blasta Lootas, a mob's odd-model-out), so you can see at a glance who has what without opening a menu.",
+			"changes": [
+				"Board: models that carry a non-standard ranged weapon (a minority gun within their unit) get a small amber 4-point badge at the top-left of their token.",
+				"The badge is only drawn when a model genuinely stands out — uniform mobs (every model the same gun) and single-model units get nothing new, and unresolved units are unchanged.",
+				"Works with both wargear-resolved loadouts and model-type mobs like Lootas; the marked count always matches the mob's actual special-weapon models."
+			]
+		},
+		{
+			"version": "0.93.9",
+			"date": "2026-07-23",
+			"summary": "Inspecting or hovering a model now shows the gun it ACTUALLY carries instead of every wargear option on its datasheet. A Slugga Boy reads 'Slugga', not the whole Shoota/Big Shoota/Rokkit menu; in a mixed mob the special-weapon model shows its own gun. The unit panel's ranged weapon table is labelled '(as equipped)' and lists only carried guns with a per-gun model count.",
+			"changes": [
+				"Board hover: the per-model tooltip now lists the model's resolved ranged weapon (its real gun) rather than the full datasheet menu, so hovering different models in a mixed mob shows their different weapons. Also works for units without per-model profiles (e.g. Burna Boyz, Deffkoptas).",
+				"Unit inspect panel: the 'RANGED WEAPONS' table now shows a weapon-name column and, for resolved units, is titled 'RANGED WEAPONS (as equipped)' and lists only the guns models actually carry, each tagged with how many carry it (e.g. 'Slugga ×10').",
+				"Unit inspect panel: the model-composition breakdown's per-type 'Weapons:' line shows the resolved loadout (e.g. '9x Slugga') instead of the option menu.",
+				"Melee weapons now show their names too; unresolved units and single-model units are unchanged and still list their full weapon set."
+			]
+		},
+		{
+			"version": "0.93.8",
+			"date": "2026-07-23",
+			"summary": "More units now report the guns they actually carry. Widened the per-model loadout resolver so it also handles units the first pass had to leave alone: mobs whose army-list only records some of the guns (a 20-model Boyz mob listed with just '10x Slugga' now shows 20 Sluggas), and models that legitimately carry two guns (Deffkoptas keep both their Kopta rokkits and Slugga). Eight more multi-model units are now resolved, with no risk of ever handing a model a weapon it can't take.",
+			"changes": [
+				"Shooting: a mob whose wargear lists fewer guns than it has models, all of the same type, is now resolved to that gun on every model (20-model Boyz mob -> 20 Sluggas instead of the whole 5-option menu).",
+				"Shooting: models that carry a fixed set of two guns (e.g. Deffkoptas with Kopta rokkits + Slugga) are recognised and each reports exactly that pair, instead of an ambiguous menu.",
+				"Every assignment is cross-checked against the model's own datasheet options, so the resolver never invents a weapon a model can't actually take.",
+				"Units that still can't be resolved (no wargear detail, or army-list counts that don't match the model count) are left exactly as before and logged, so it's clear which ones fall back."
+			]
+		},
+		{
 			"version": "0.93.7",
 			"date": "2026-07-23",
 			"summary": "Units now shoot with the guns they actually carry. Datasheets list every wargear OPTION per model, which made a mob report ALL of them at once — a 10-model Ork Boyz mob showed ~38 ranged weapons instead of 10. When a unit's army-list wargear pins the loadout, each model is now assigned its real gun, so shooting (and the Firing Deck) uses the correct weapons.",

@@ -13,6 +13,12 @@ var is_selected: bool = false
 var is_hovered: bool = false
 var _pulse_time: float = 0.0
 
+# MA-LOADOUT Phase 3 (Task B): cached "carries the special/heavy weapon" flag so
+# the per-frame redraw doesn't recompute the unit-wide majority every time.
+# Invalidated whenever model_data changes (set_model_data).
+var _special_checked: bool = false
+var _is_special_weapon: bool = false
+
 # Sprite overlay (Phase 2 - static)
 var _sprite_resolved: bool = false
 var _sprite_texture: Texture2D = null
@@ -485,6 +491,8 @@ func _draw() -> void:
 		_draw_letter_mode()
 		_draw_battle_shock_indicator()  # T-096: also show in letter mode
 		_draw_colorblind_shape_badge()  # T-097: colorblind-friendly shape badge
+		var lm_bounds = base_shape.get_bounds()
+		_draw_special_weapon_indicator(min(lm_bounds.size.x, lm_bounds.size.y) / 2.0)
 		return
 
 	if use_retro and not debug_mode:
@@ -521,6 +529,12 @@ func _draw() -> void:
 
 	# Draw model number with shadow for readability (all styles)
 	_draw_model_number()
+
+	# MA-LOADOUT Phase 3 (Task B): mark the special/heavy-weapon model so a player
+	# can see at a glance which model carries the non-standard gun.
+	if not debug_mode:
+		var sw_bounds = base_shape.get_bounds()
+		_draw_special_weapon_indicator(min(sw_bounds.size.x, sw_bounds.size.y) / 2.0)
 
 	# Draw unit name label beneath the token base
 	_draw_unit_name_label()
@@ -1158,6 +1172,42 @@ func _has_beacon_flag() -> bool:
 		return false
 	var unit = GameState.get_unit(get_meta("unit_id"))
 	return not unit.is_empty() and unit.get("flags", {}).get("beacon", false)
+
+func _draw_special_weapon_indicator(radius: float) -> void:
+	# MA-LOADOUT Phase 3 (Task B): draw an amber 4-point "spark" badge at the
+	# token's top-left when this model carries the special/heavy weapon (its
+	# resolved ranged loadout differs from the mob's bulk gun). Distinct in colour
+	# and position from the leader chevron (top-centre) and the Marked-for-Death /
+	# Beacon rings (top-right). Nothing is drawn for unresolved units or uniform
+	# mobs where no model stands out. Result cached — see set_model_data.
+	if not has_meta("unit_id"):
+		return
+	if not _special_checked:
+		_special_checked = true
+		_is_special_weapon = false
+		var unit = GameState.get_unit(get_meta("unit_id"))
+		if not unit.is_empty():
+			var special_ids = RulesEngine.get_special_weapon_model_ids(unit)
+			_is_special_weapon = str(model_data.get("id", "")) in special_ids
+	if not _is_special_weapon:
+		return
+
+	var center = Vector2(-radius * 0.62, -radius - 6.0)
+	var outer = max(4.0, radius * 0.34)
+	var inner = outer * 0.42
+	var star = PackedVector2Array()
+	for i in range(8):
+		var ang = -PI / 2.0 + TAU * i / 8.0
+		var r = outer if (i % 2 == 0) else inner
+		star.append(center + Vector2(cos(ang), sin(ang)) * r)
+	# Dark outline (scaled-up copy) behind an amber fill so it reads at board zoom.
+	var outline = PackedVector2Array()
+	for p in star:
+		outline.append(center + (p - center) * 1.3)
+	draw_colored_polygon(outline, Color(0.12, 0.08, 0.0, 0.92))
+	draw_colored_polygon(star, Color(1.0, 0.72, 0.12, 1.0))
+	# Small dark core keeps the star shape legible when the token is tiny.
+	draw_circle(center, max(1.0, inner * 0.35), Color(0.2, 0.12, 0.0, 0.92))
 
 func _draw_selection_ring(radius: float) -> void:
 	var pulse = (sin(_pulse_time * 4.0) + 1.0) / 2.0
@@ -1817,6 +1867,7 @@ func set_model_data(data: Dictionary) -> void:
 	model_data = data
 	base_shape = Measurement.create_base_shape(data)
 	_faction_font = null  # Reset font cache on model change
+	_special_checked = false  # Task B: recompute special-weapon flag on data change
 	queue_redraw()
 
 	# Set model number if available
