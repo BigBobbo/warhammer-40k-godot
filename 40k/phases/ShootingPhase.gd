@@ -5386,9 +5386,18 @@ func _compute_firing_deck_plan(transport_id: String, eligible_embarked: Array) -
 			if RulesEngine.is_hazardous_weapon(chosen, board):
 				return {"mode": "dialog"}
 			loans.append({"unit_id": embarked_id, "model_id": mid, "weapon_id": chosen})
-	# More eligible weapons than the deck can carry → the player must choose which.
+	# More eligible weapons than the deck can carry.
 	if loans.size() > capacity:
-		return {"mode": "dialog"}
+		# If every eligible weapon is identical, any capacity-sized subset fires
+		# exactly the same — the shots come from the TRANSPORT, so which donor
+		# model contributes is irrelevant. Auto-pick the first X and skip the
+		# dialog (e.g. a full wagon of identical-loadout Boyz). When the eligible
+		# weapons differ, WHICH ones fire is a real choice → ask the player.
+		var first_wid = str(loans[0].get("weapon_id", ""))
+		for loan in loans:
+			if str(loan.get("weapon_id", "")) != first_wid:
+				return {"mode": "dialog"}
+		return {"mode": "auto", "loans": loans.slice(0, capacity)}
 	return {"mode": "auto", "loans": loans}
 
 

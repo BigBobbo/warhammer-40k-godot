@@ -4,10 +4,10 @@
 		{
 			"version": "0.92.16",
 			"date": "2026-07-23",
-			"summary": "Firing Deck transports (e.g. the Battlewagon) no longer pop up the model-selection dialog when there's nothing to decide. If every eligible embarked model has a single ranged weapon and they all fit under the transport's Firing Deck value, those guns are added straight onto the transport and you go directly to picking targets. The dialog still appears whenever there's a real choice to make.",
+			"summary": "Firing Deck transports (e.g. the Battlewagon) no longer pop up the model-selection dialog when there's nothing to decide. If every eligible embarked model has a single ranged weapon and they either all fit under the transport's Firing Deck value — or there are more but they're all identical — those guns are added straight onto the transport and you go directly to picking targets. The dialog still appears whenever there's a real choice to make.",
 			"changes": [
-				"Shooting phase: a Firing Deck transport now auto-resolves its embarked weapons when the selection is forced — every eligible model has a single ranged weapon, they all fit under Firing Deck X, and none are Hazardous — so the loaned guns appear as the transport's own weapons with no dialog.",
-				"The selection dialog still opens whenever there's an actual choice: a model carrying more than one ranged weapon, more eligible weapons than the Firing Deck can carry, a Hazardous weapon (which you may want to skip), or Mega Armour / Jump Pack models that count as two.",
+				"Shooting phase: a Firing Deck transport now auto-resolves its embarked weapons when there's no real choice — every eligible model has a single non-Hazardous ranged weapon, and they either all fit under Firing Deck X, or there are more than X but they're all identical (so any X fire the same). The loaned guns just appear as the transport's own weapons with no dialog.",
+				"The selection dialog still opens whenever the choice actually matters: a model carrying more than one ranged weapon, more eligible weapons than the deck can carry that AREN'T all identical, a Hazardous weapon (which you may want to skip), or Mega Armour / Jump Pack models that count as two.",
 				"Fixed the loaned weapons not showing in the weapon list after confirming the Firing Deck dialog, and a stray re-selection of the transport after it had finished shooting."
 			]
 		},
