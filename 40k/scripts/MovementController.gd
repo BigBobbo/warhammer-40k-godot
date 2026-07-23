@@ -5637,6 +5637,20 @@ func pad_menu_options() -> Array:
 			"id": "SPECIAL:" + action_type,
 			"label": str(action.get("description", action_type))
 		})
+	# B2 (21.03): "Take to the skies" is a FLY-only move MODIFIER, not a mode.
+	# Offer it as an in-menu toggle chip (kept LAST so its slot is stable) so a
+	# controller player can declare the fly-over — the same −2" move (0" with
+	# HOVER) that ignores terrain and models — before choosing Move / Advance.
+	# Selecting it flips the flag and reopens the menu (see
+	# PadRouter._apply_menu_choice) instead of starting a move.
+	if _unit_can_fly(active_unit_id):
+		var skies_on := false
+		if current_phase and current_phase.has_method("get_active_move_data"):
+			skies_on = bool(current_phase.get_active_move_data(active_unit_id).get("took_to_skies", false))
+		opts.append({
+			"id": "TAKE_TO_SKIES",
+			"label": "Take to the skies: %s" % ("On" if skies_on else "Off")
+		})
 	return opts
 
 
@@ -5681,6 +5695,29 @@ func pad_apply_menu_choice(choice_id: String) -> void:
 			_on_confirm_mode_pressed()
 		"FALL_BACK":
 			_on_fall_back_pressed()
+
+
+func pad_toggle_take_to_skies() -> void:
+	"""Controller entry point for the take-to-skies toggle (move-menu chip).
+	Mirrors the checkbox / hotkey: dispatch SET_TAKE_TO_SKIES for the active move
+	and re-sync the checkbox + move-cap readout (the Advance / Fall Back confirm
+	folds the checkbox state into its BEGIN payload, so it must stay in step)."""
+	if not _unit_can_fly(active_unit_id) or not current_phase:
+		return
+	if not current_phase.has_method("get_active_move_data"):
+		return
+	var md = current_phase.get_active_move_data(active_unit_id)
+	if md.is_empty() or md.get("completed", false):
+		return  # no active move yet — nothing to declare the fly-over on
+	var want := not bool(md.get("took_to_skies", false))
+	emit_signal("move_action_requested", {
+		"type": "SET_TAKE_TO_SKIES",
+		"actor_unit_id": active_unit_id,
+		"payload": {"take_to_skies": want}
+	})
+	# Dispatch is synchronous in single-player: pull the authoritative state next
+	# frame so a rejected toggle snaps back and the cap readout matches.
+	call_deferred("_sync_take_to_skies_from_phase")
 
 
 func _pad_set_mode_radio(mode: String) -> void:

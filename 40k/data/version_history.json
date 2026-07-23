@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.17",
+			"date": "2026-07-23",
+			"summary": "Controller: you can now 'Take to the skies' with a FLY unit using the pad. When you open the move menu for an eligible flying unit, a 'Take to the skies: Off/On' entry lets you declare the fly-over before choosing Move or Advance — previously the toggle was mouse-only and unreachable on a controller.",
+			"changes": [
+				"Movement phase (controller): the on-screen move menu now shows a 'Take to the skies: Off/On' toggle for FLY units. Highlight it and press A to flip the declaration (−2\" move, 0\" with HOVER, ignore terrain and models); the menu stays open with the updated label so you can then pick your move mode. No existing controller button was changed."
+			]
+		},
+		{
 			"version": "0.92.16",
 			"date": "2026-07-23",
 			"summary": "You can now 'Take to the skies' with a FLY unit using the keyboard — press J (rebindable) during the Movement phase instead of having to find and click the checkbox. The checkbox now shows its hotkey, and the key only does anything for an eligible flying unit that still has an open move.",

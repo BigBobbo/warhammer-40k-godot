@@ -527,6 +527,15 @@ func _apply_menu_choice(choice_id: String) -> void:
 	var mc = m.movement_controller if ("movement_controller" in m) else null
 	if mc == null or not is_instance_valid(mc) or not mc.has_method("pad_apply_menu_choice"):
 		return
+	# "Take to the skies" is a move-mode MODIFIER, not a mode: toggle the FLY
+	# declaration and reopen the menu (with the refreshed On/Off label) rather
+	# than starting a move, so the player can then pick Move / Advance with the
+	# fly-over already set. No carry is armed.
+	if choice_id == "TAKE_TO_SKIES":
+		if mc.has_method("pad_toggle_take_to_skies"):
+			mc.pad_toggle_take_to_skies()
+		call_deferred("_reopen_move_menu")
+		return
 	# Advance rolls dice before any model can move (and may pause behind the
 	# Command Re-roll dialog) — arm the hand-over BEFORE applying, because with
 	# no re-roll on offer the roll resolves synchronously inside
