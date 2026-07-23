@@ -6464,6 +6464,52 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 
 	print("[MA-LOADOUT] %s (%s): left unresolved — counts inconclusive (total=%d models=%d distinct=%d)" % [uname, weapon_type_filter, total, model_count, distinct.size()])
 
+# MA-LOADOUT Phase 3 (Task B): the model IDs in this unit that carry a
+# NON-majority ranged loadout — i.e. the special/heavy-weapon models that should
+# look distinct on the board. Uses each model's ACTUALLY-reported ranged guns
+# (the same resolved data get_unit_weapons uses — covers both wargear-resolved
+# loadouts and model_type-resolved mobs like Lootas), so an over-reporting
+# unresolved unit (every model shows the same menu) yields [] and gets no marker.
+# Returns [] when every model carries the same guns (nobody stands out). Single
+# source of truth shared by TokenVisual (draws the marker) and the tests.
+static func get_special_weapon_model_ids(unit: Dictionary) -> Array:
+	var models = unit.get("models", [])
+	if models.size() < 2:
+		return []
+	_ensure_loadout_resolved(unit)
+	var sig_of := {}       # model_id -> ranged-loadout signature
+	var sig_counts := {}   # signature -> count
+	for m in models:
+		if not m.get("alive", true):
+			continue
+		var ids = _get_model_weapon_ids(unit, m, "Ranged")
+		var sig = _loadout_signature(ids)
+		sig_of[str(m.get("id", ""))] = sig
+		sig_counts[sig] = int(sig_counts.get(sig, 0)) + 1
+	if sig_counts.size() <= 1:
+		return []  # every model reports the same guns -> nobody is "special"
+	# Majority signature = the bulk/basic gun the rank-and-file carry.
+	var majority_sig := ""
+	var majority_n := -1
+	for s in sig_counts:
+		if int(sig_counts[s]) > majority_n:
+			majority_n = int(sig_counts[s])
+			majority_sig = s
+	var out := []
+	for mid in sig_of:
+		if sig_of[mid] != majority_sig:
+			out.append(mid)
+	return out
+
+# Stable order-independent signature for a per-model loadout (the sorted weapon
+# names joined), so [A,B] and [B,A] compare equal.
+static func _loadout_signature(loadout: Array) -> String:
+	var names := []
+	for n in loadout:
+		names.append(str(n))
+	names.sort()
+	return "|".join(names)
+
 # Get weapons for a unit
 static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
 	# First try legacy format for backward compatibility

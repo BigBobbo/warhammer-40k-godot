@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.10",
+			"date": "2026-07-23",
+			"summary": "The model carrying a mob's special/heavy weapon now stands out on the board. An amber spark badge is drawn on the token of any model whose gun differs from the rank-and-file (the Big Shoota Boy in a Burna mob, the Kustom Mega-blasta Lootas, a mob's odd-model-out), so you can see at a glance who has what without opening a menu.",
+			"changes": [
+				"Board: models that carry a non-standard ranged weapon (a minority gun within their unit) get a small amber 4-point badge at the top-left of their token.",
+				"The badge is only drawn when a model genuinely stands out — uniform mobs (every model the same gun) and single-model units get nothing new, and unresolved units are unchanged.",
+				"Works with both wargear-resolved loadouts and model-type mobs like Lootas; the marked count always matches the mob's actual special-weapon models."
+			]
+		},
+		{
 			"version": "0.93.9",
 			"date": "2026-07-23",
 			"summary": "Inspecting or hovering a model now shows the gun it ACTUALLY carries instead of every wargear option on its datasheet. A Slugga Boy reads 'Slugga', not the whole Shoota/Big Shoota/Rokkit menu; in a mixed mob the special-weapon model shows its own gun. The unit panel's ranged weapon table is labelled '(as equipped)' and lists only carried guns with a per-gun model count.",

@@ -81,6 +81,7 @@ func _run():
 		return
 	var resolved_units := 0
 	var unresolved_multimodel := []
+	var special_units := []  # Task B: units with special-weapon model(s) flagged
 	for path in _list_army_files():
 		var data = _load_json(path)
 		if typeof(data) != TYPE_DICTIONARY:
@@ -163,12 +164,26 @@ func _run():
 			elif models.size() >= 2 and worst > 1:
 				unresolved_multimodel.append("%s/%s(%s)" % [fname, uid, str(unit.get("meta", {}).get("name", ""))])
 
+			# Task B: collect special-weapon models (minority resolved gun). Also
+			# assert the marked models are a strict subset of alive models (never
+			# mark every model — that would defeat "stands out").
+			var special = RE.get_special_weapon_model_ids(unit)
+			if special.size() > 0:
+				var alive_now := 0
+				for m in models:
+					if m.get("alive", true):
+						alive_now += 1
+				_check("special-subset %s/%s" % [fname, uid], special.size() < alive_now,
+					"special=%d alive=%d" % [special.size(), alive_now])
+				special_units.append("%s/%s(%s): %d special" % [fname, uid, str(unit.get("meta", {}).get("name", "")), special.size()])
+
 	# -------- Targeted spot-checks --------
 	_spot_check_boyz()
 	_spot_check_orks_lootas_unchanged()
 	_spot_check_burna()
 	_spot_check_boyz_incomplete()   # Task C: incomplete-but-consistent (20-Boy mob, 10x Slugga)
 	_spot_check_deffkopta()         # Task C: uniform dual-gun (kopta rokkits + slugga)
+	_spot_check_special_weapons()   # Task B: minority-gun model detection
 
 	# Task C: widening coverage must RESOLVE MORE units than the Phase-1 baseline
 	# (16) and leave fewer over-counters. Lower/upper bounds so future additions
@@ -181,6 +196,10 @@ func _run():
 	print("")
 	print("Resolved units (loadout pinned from wargear): %d" % resolved_units)
 	print("Unresolved multi-model over-counters left as-is (data-limited): %d" % unresolved_multimodel.size())
+	print("")
+	print("Units with special-weapon model(s) flagged (Task B): %d" % special_units.size())
+	for u in special_units:
+		print("   * %s" % u)
 	for u in unresolved_multimodel:
 		print("   - %s" % u)
 	print("")
@@ -262,3 +281,38 @@ func _spot_check_deffkopta():
 	# Each model is stamped resolved with a 2-gun set (not left as the raw menu).
 	var m0 = u.get("models", [])[0]
 	_check("Deffkoptas -> model stamped 2-gun set", m0.get("ranged_loadout", []).size() == 2, str(m0.get("ranged_loadout", [])))
+	# Task B: a uniform 2-gun mob has no stand-out model.
+	_check("Deffkoptas -> 0 special (uniform)", RE.get_special_weapon_model_ids(u).size() == 0, str(RE.get_special_weapon_model_ids(u)))
+
+func _spot_check_special_weapons():
+	# Task B: minority-gun model detection (the special/heavy-weapon models).
+	# Burna Boyz (battlewagons): 4 Burna + 1 Big shoota -> exactly 1 special.
+	var bw = _load_json("res://armies/battlewagons.json")
+	if typeof(bw) == TYPE_DICTIONARY:
+		var u = bw["units"].get("U_BURNA_BOYZ_A", {})
+		if not u.is_empty():
+			var sp = RE.get_special_weapon_model_ids(u)
+			_check("Burna Boyz -> 1 special-weapon model", sp.size() == 1, "special=%s" % str(sp))
+	var ork = _load_json("res://armies/orks.json")
+	if typeof(ork) == TYPE_DICTIONARY:
+		# orks Lootas: 8 Deffgun + 3 KMB (model_type resolved) -> 3 special (KMB minority).
+		var lu = ork["units"].get("U_LOOTAS_A", {})
+		if not lu.is_empty():
+			var sp2 = RE.get_special_weapon_model_ids(lu)
+			_check("orks Lootas -> 3 special (KMB minority)", sp2.size() == 3, "special=%s" % str(sp2))
+		# Boyz K: all Slugga -> 0 special (uniform).
+		var bk = ork["units"].get("U_BOYZ_K", {})
+		if not bk.is_empty():
+			_check("Boyz K (all Slugga) -> 0 special", RE.get_special_weapon_model_ids(bk).size() == 0, str(RE.get_special_weapon_model_ids(bk)))
+		# Boyz E: Task-C resolved to all Slugga -> 0 special.
+		var be = ork["units"].get("U_BOYZ_E", {})
+		if not be.is_empty():
+			_check("Boyz E (all Slugga) -> 0 special", RE.get_special_weapon_model_ids(be).size() == 0, str(RE.get_special_weapon_model_ids(be)))
+	# Single-model units never get a special marker (guarded on models.size()).
+	var sm = _load_json("res://armies/space_marines.json")
+	if typeof(sm) == TYPE_DICTIONARY:
+		for uid in sm.get("units", {}):
+			var su = sm["units"][uid]
+			if typeof(su) == TYPE_DICTIONARY and su.get("models", []).size() == 1:
+				_check("single-model %s -> 0 special" % uid, RE.get_special_weapon_model_ids(su).size() == 0, "")
+				break
