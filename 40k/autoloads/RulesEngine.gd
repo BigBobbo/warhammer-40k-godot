@@ -6269,22 +6269,28 @@ static func _get_model_weapon_ids(unit: Dictionary, model: Dictionary, weapon_ty
 	if use_profile:
 		allowed_weapon_names = model_profiles[model_type].get("weapons", [])
 
-	# MA-LOADOUT: a resolved per-model RANGED loadout (derived from the unit's
-	# wargear by _ensure_loadout_resolved) overrides the model_profiles menu for
-	# ranged weapons only — so a model reports the gun it actually carries rather
-	# than every wargear option. Melee/other filters are unchanged.
+	# MA-LOADOUT: a resolved per-model loadout (derived from the unit's wargear by
+	# _ensure_loadout_resolved) overrides the model_profiles menu — so a model
+	# reports the weapon it actually carries rather than every wargear option.
+	# Ranged (Phase 1/Task C) and melee (Phase 1b/Task D) are symmetric.
+	var tf = weapon_type_filter.to_lower()
 	var resolved_ranged = model.get("ranged_loadout", null)
-	var use_resolved_ranged = weapon_type_filter.to_lower() == "ranged" and resolved_ranged is Array
+	var resolved_melee = model.get("melee_loadout", null)
+	var use_resolved_ranged = tf == "ranged" and resolved_ranged is Array
+	var use_resolved_melee = tf == "melee" and resolved_melee is Array
 
 	var weapon_ids = []
 	for weapon in weapons_data:
 		var wtype = weapon.get("type", "")
-		if wtype.to_lower() != weapon_type_filter.to_lower():
+		if wtype.to_lower() != tf:
 			continue
 
 		var wname = weapon.get("name", "")
 		if use_resolved_ranged:
 			if wname not in resolved_ranged:
+				continue
+		elif use_resolved_melee:
+			if wname not in resolved_melee:
 				continue
 		elif use_profile and wname not in allowed_weapon_names:
 			continue
@@ -6323,6 +6329,12 @@ static func _ensure_loadout_resolved(unit: Dictionary) -> void:
 		return
 
 	_resolve_type_loadout(unit, "Ranged", "ranged_loadout")
+	# MA-LOADOUT Phase 1b (Task D): resolve melee the same way, so the Fight phase
+	# stops over-counting a model's melee options (a Boy's Choppa AND Close combat
+	# weapon, a Nob's several melee profiles). Melee wargear is spottier than
+	# ranged, so most units fall back to the menu; those that pin it cleanly
+	# (Kommandos -> Choppa, Burna Boyz -> Cuttin' flames + CCW) are resolved.
+	_resolve_type_loadout(unit, "Melee", "melee_loadout")
 
 
 # MA-LOADOUT: cross-check guard — may this model's type actually take
@@ -12735,6 +12747,11 @@ static func get_unit_melee_weapons(unit_id: String, board: Dictionary = {}) -> D
 	if unit.is_empty():
 		return unit_weapons
 
+	# MA-LOADOUT Phase 1b (Task D): resolve per-model melee loadouts (once) so a
+	# model reports the melee weapon(s) it actually fights with rather than every
+	# datasheet option. Idempotent — a no-op once the unit is resolved.
+	_ensure_loadout_resolved(unit)
+
 	var models = unit.get("models", [])
 	var weapons_data = unit.get("meta", {}).get("weapons", [])
 	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
@@ -12755,10 +12772,18 @@ static func get_unit_melee_weapons(unit_id: String, board: Dictionary = {}) -> D
 		var model_id = "m" + str(model_index)
 		var model_weapons = []
 
-		# Per-model profile branch: if model_profiles exist and model has a model_type,
-		# only assign melee weapons listed in that model's profile
+		# Prefer the resolved per-model melee loadout when present (the weapons the
+		# model actually fights with); else fall back to the profile menu, else all.
+		var resolved_melee = model.get("melee_loadout", null)
 		var model_type = model.get("model_type", "")
-		if not model_profiles.is_empty() and model_type != "" and model_profiles.has(model_type):
+		if resolved_melee is Array:
+			for weapon in weapons_data:
+				if weapon.get("type", "").to_lower() == "melee" and weapon.get("name", "") in resolved_melee:
+					var wname = weapon.get("name", "Unknown Weapon")
+					if wname not in model_weapons:
+						model_weapons.append(wname)
+		elif not model_profiles.is_empty() and model_type != "" and model_profiles.has(model_type):
+			# Per-model profile branch: only melee weapons listed in this model's profile
 			var profile = model_profiles[model_type]
 			var profile_weapon_names = profile.get("weapons", [])
 			for weapon in weapons_data:

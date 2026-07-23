@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.11",
+			"date": "2026-07-23",
+			"summary": "The Fight phase now uses the melee weapons models actually carry, the same way shooting was fixed. Datasheets list every close-combat OPTION per model, which made a mob report all of them at once; when the army list pins the melee loadout (Kommandos with Choppas, Burna Boyz with Cuttin' flames, Beast Snagga with Choppas + a Power snappa) each model now fights with its real weapon instead of the whole menu.",
+			"changes": [
+				"Fight phase: multi-model units whose datasheet lists several melee options per model are resolved from their wargear — each model reports the melee weapon it actually fights with, so a Burna Boyz mob shows 4 Cuttin' flames + 1 Close combat weapon rather than both on every model.",
+				"Unit inspect panel: the MELEE WEAPONS table is titled '(as equipped)' for resolved units and lists only the weapons carried, each with a model count — matching the ranged table.",
+				"Conservative and safe: melee wargear is spottier than ranged, so units that can't be pinned cleanly keep their full melee menu; single-model units are untouched; and the resolver never assigns a melee weapon a model's datasheet doesn't allow (e.g. a Kommando Boss that can only take a Big Choppa is left alone rather than forced to a Choppa)."
+			]
+		},
+		{
 			"version": "0.93.10",
 			"date": "2026-07-23",
 			"summary": "The model carrying a mob's special/heavy weapon now stands out on the board. An amber spark badge is drawn on the token of any model whose gun differs from the rank-and-file (the Big Shoota Boy in a Burna mob, the Kustom Mega-blasta Lootas, a mob's odd-model-out), so you can see at a glance who has what without opening a menu.",
