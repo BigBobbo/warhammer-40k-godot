@@ -61,8 +61,14 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var n = 0\nfor l in GameState.get_unit(\"U_FD_TANK_A\").get(\"flags\", {}).get(\"firing_deck_weapons\", []):\n\tif str(l.get(\"weapon_id\", \"\")).begins_with(\"shoota\"):\n\t\tn += 1\nreturn n",
-      "equals": 9
+      "script": "var n = 0\nfor l in GameState.get_unit(\"U_FD_TANK_A\").get(\"flags\", {}).get(\"firing_deck_weapons\", []):\n\tif str(l.get(\"weapon_id\", \"\")).begins_with(\"slugga\"):\n\t\tn += 1\nreturn n",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for l in GameState.get_unit(\"U_FD_TANK_A\").get(\"flags\", {}).get(\"firing_deck_weapons\", []):\n\tvar w = str(l.get(\"weapon_id\", \"\"))\n\tif w.begins_with(\"shoota\") or w.begins_with(\"big_shoota\") or w.begins_with(\"rokkit\"):\n\t\treturn true\nreturn false",
+      "equals": false
     },
     {
       "act": "execute_script",
@@ -71,7 +77,7 @@
     },
     {
       "act": "screenshot",
-      "label": "01_boyz_autoloaded_shootas_no_dialog"
+      "label": "01_boyz_autoloaded_real_guns_no_dialog"
     },
     {
       "act": "execute_script",
@@ -106,14 +112,8 @@
       "equals": 5
     },
     {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var loans = GameState.get_unit(\"U_FD_TANK_B\").get(\"flags\", {}).get(\"firing_deck_weapons\", [])\nif loans.is_empty():\n\treturn false\nfor l in loans:\n\tif not str(l.get(\"weapon_id\", \"\")).begins_with(\"burna\"):\n\t\treturn false\nreturn true",
-      "equals": true
-    },
-    {
       "act": "screenshot",
-      "label": "02_burnaboyz_autoloaded_burnas_no_dialog"
+      "label": "02_burnaboyz_autoloaded_real_guns_no_dialog"
     }
   ]
 }

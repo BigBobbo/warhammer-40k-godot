@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.7",
+			"date": "2026-07-23",
+			"summary": "Units now shoot with the guns they actually carry. Datasheets list every wargear OPTION per model, which made a mob report ALL of them at once — a 10-model Ork Boyz mob showed ~38 ranged weapons instead of 10. When a unit's army-list wargear pins the loadout, each model is now assigned its real gun, so shooting (and the Firing Deck) uses the correct weapons.",
+			"changes": [
+				"Shooting: multi-model units whose datasheet lists several weapon options per model are resolved from their wargear — each model reports the single gun it actually carries (a Slugga Boyz mob shows 10 Sluggas; Burna Boyz show 4 Burnas + 1 Big Shoota) instead of every option at once.",
+				"Firing Deck: a transport now loans the embarked models' ACTUAL guns (Sluggas for a Slugga mob), replacing the earlier best-guess.",
+				"Conservative and safe: single-model units (vehicles, characters) still fire all their weapons, melee is unchanged, and any unit whose wargear can't be parsed cleanly keeps its previous behaviour rather than risk a wrong loadout.",
+				"Known limitation: some units can't be resolved because the imported army data is incomplete (e.g. a 20-model Boyz mob whose wargear lists only 10 guns, or squads with no wargear detail) — these are left exactly as before."
+			]
+		},
+		{
 			"version": "0.93.6",
 			"date": "2026-07-23",
 			"summary": "Firing Deck transports now shoot their embarked models' guns automatically — no more model-selection dialog. When you select a transport (e.g. a Battlewagon) with embarked units, their weapons are added straight onto the transport as its own guns, so a wagon full of Boyz just fires its Shootas and you go straight to choosing targets.",

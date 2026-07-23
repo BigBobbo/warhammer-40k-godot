@@ -1,0 +1,66 @@
+{
+  "id": "iss_loadout_resolution_11e",
+  "covers": [
+    "shooting.loadout_resolution.per_model_wargear",
+    "autoloads.RulesEngine._ensure_loadout_resolved"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 8,
+  "description": "MA-LOADOUT: a real 5-model Burna Boyz mob (datasheet lists Big shoota AND Burna on every model) now reports its ACTUAL loadout in normal shooting \u2014 4 Burnas + 1 Big shoota per its wargear, 5 ranged instances total, not the 10 the menu would report. The weapon panel shows the real loadout.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.set_edition(11)\nvar U = GameState.state[\"units\"]\nU.merge({\"U_LR_BURNA\": {\"id\": \"U_LR_BURNA\", \"squad_id\": \"U_BURNA_BOYZ_A\", \"owner\": 1, \"status\": 2, \"meta\": {\"name\": \"Burna Boyz\", \"keywords\": [\"BURNA BOYZ\", \"INFANTRY\", \"ORKS\"], \"stats\": {\"move\": 6, \"toughness\": 5, \"save\": 5, \"wounds\": 1, \"leadership\": 7, \"objective_control\": 1}, \"points\": 60, \"is_warlord\": false, \"enhancements\": [], \"wargear\": [\"1x Spanner\", \"1x Big shoota\", \"1x Close combat weapon\", \"4x Burna Boy\", \"4x Burna\", \"4x Cuttin' flames\"], \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"rapid fire 2\", \"abilities\": [{\"id\": \"rapid_fire\", \"x\": 2}]}, {\"name\": \"Burna\", \"type\": \"Ranged\", \"range\": \"12\", \"attacks\": \"D6\", \"ballistic_skill\": \"N/A\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"ignores cover, torrent\", \"abilities\": [{\"id\": \"ignores_cover\"}, {\"id\": \"torrent\"}]}, {\"name\": \"Close combat weapon\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\"}, {\"name\": \"Cuttin' flames\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"2\", \"weapon_skill\": \"4\", \"strength\": \"4\", \"ap\": \"-2\", \"damage\": \"1\"}], \"abilities\": [{\"name\": \"Waaagh!\", \"type\": \"Faction\", \"description\": \"Once per battle, until your next Command phase:\\n  -> The unit gains the Advance & Charge ability.\\n  -> Add 1 to the unit's Strength characteristic (melee).\\n  -> Add 1 to the unit's Attacks characteristic (melee).\\n  -> The unit has a 5+ invulnerable save.\"}, {\"name\": \"Pyromaniaks\", \"type\": \"Datasheet\", \"description\": \"During the Shooting phase, you can re-roll a Wound roll of 1.\"}], \"unit_composition\": [{\"description\": \"1-2 Spanner\", \"line\": 1}, {\"description\": \"4-8 Burna Boy\", \"line\": 2}]}, \"models\": [{\"id\": \"m1\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 300, \"y\": 400}, \"alive\": true, \"status_effects\": []}, {\"id\": \"m2\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 335, \"y\": 400}, \"alive\": true, \"status_effects\": []}, {\"id\": \"m3\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 370, \"y\": 400}, \"alive\": true, \"status_effects\": []}, {\"id\": \"m4\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 405, \"y\": 400}, \"alive\": true, \"status_effects\": []}, {\"id\": \"m5\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 440, \"y\": 400}, \"alive\": true, \"status_effects\": []}], \"flags\": {}}, \"U_LR_TARGET\": {\"id\": \"U_LR_TARGET\", \"owner\": 2, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"LR Target\", \"keywords\": [\"INFANTRY\"], \"weapons\": []}, \"models\": [{\"id\": \"e0\", \"alive\": true, \"position\": {\"x\": 300, \"y\": 780}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}}, true)\nreturn U.has(\"U_LR_BURNA\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var mw = RulesEngine.get_unit_weapons(\"U_LR_BURNA\", GameState.state)\nvar t = 0\nfor mid in mw:\n\tt += mw[mid].size()\nreturn t",
+      "multiline": true,
+      "equals": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "var mw = RulesEngine.get_unit_weapons(\"U_LR_BURNA\", GameState.state)\nvar b = 0; var bs = 0\nfor mid in mw:\n\tfor w in mw[mid]:\n\t\tif str(w).begins_with(\"burna\"): b += 1\n\t\telif str(w).begins_with(\"big_shoota\"): bs += 1\nreturn \"%d_burna_%d_bigshoota\" % [b, bs]",
+      "multiline": true,
+      "equals": "4_burna_1_bigshoota"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.get_eligible_targets(\"U_LR_BURNA\", GameState.state).size() > 0",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_LR_BURNA"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_burnaboyz_weapon_panel_real_loadout"
+    }
+  ]
+}
