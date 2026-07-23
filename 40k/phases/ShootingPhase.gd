@@ -975,20 +975,38 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 
 	var unit = get_unit(unit_id)
 
-	# Check if this is a transport with firing deck
+	# Check if this is a transport with firing deck (24.14)
 	if unit.has("transport_data") and unit.transport_data.get("firing_deck", 0) > 0:
-		var has_eligible_embarked = false
+		var eligible_embarked := []
 		for embarked_id in unit.transport_data.get("embarked_units", []):
 			var embarked = get_unit(embarked_id)
 			if embarked and not embarked.get("flags", {}).get("has_shot", false):
-				has_eligible_embarked = true
-				break
+				eligible_embarked.append(embarked_id)
 
-		if has_eligible_embarked:
-			# Show firing deck dialog to select which embarked models will shoot
-			call_deferred("_show_firing_deck_dialog", unit_id)
-			log_phase_message("Selected transport %s - choosing firing deck models" % unit.get("meta", {}).get("name", unit_id))
-			return create_result(true, [])
+		if not eligible_embarked.is_empty():
+			# 24.14: only prompt when there's a genuine choice to make. When every
+			# eligible model has a single ranged weapon, they all fit under Firing
+			# Deck X, and none are [HAZARDOUS], auto-loan them onto the transport
+			# and skip the selection dialog entirely.
+			var fd_plan = _compute_firing_deck_plan(unit_id, eligible_embarked)
+			if fd_plan.get("mode", "dialog") == "dialog":
+				# Show firing deck dialog to select which embarked models will shoot
+				call_deferred("_show_firing_deck_dialog", unit_id)
+				log_phase_message("Selected transport %s - choosing firing deck models" % unit.get("meta", {}).get("name", unit_id))
+				return create_result(true, [])
+			var fd_loans = fd_plan.get("loans", [])
+			if not fd_loans.is_empty():
+				# No choice to make — loan the weapons and go straight to target
+				# selection with them treated as the transport's own guns.
+				_apply_firing_deck_loan(unit_id, fd_loans)
+				var fd_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+				emit_signal("unit_selected_for_shooting", unit_id)
+				emit_signal("targets_available", unit_id, fd_targets)
+				log_phase_message("Firing deck auto-resolved for %s: %d weapon(s) loaned (no choice to make)" % [unit.get("meta", {}).get("name", unit_id), fd_loans.size()])
+				return create_result(true, [])
+			# Embarked but no firing-deck-eligible weapons (all melee/[ONE SHOT]);
+			# fall through so the transport still shoots its own weapons.
+			log_phase_message("Transport %s: no firing-deck-eligible embarked weapons; shooting its own guns" % unit.get("meta", {}).get("name", unit_id))
 
 	# P1-12: Check for Throat Slittas — offer mortal wounds instead of shooting
 	if not action.get("payload", {}).get("skip_throat_slittas_check", false):
@@ -5312,6 +5330,95 @@ func validate_loaded_state() -> bool:
 
 # Transport Firing Deck support
 
+# 24.14: decide whether the firing-deck selection needs the player or can be
+# auto-resolved. Returns {"mode":"dialog"} when a genuine choice exists, or
+# {"mode":"auto","loans":[...]} when every eligible model has exactly one
+# non-[ONE SHOT] ranged weapon, they all fit under Firing Deck X, and none are
+# [HAZARDOUS]. `loans` may be empty (the embarked units carry no deck-eligible
+# weapon at all) — the caller then just shoots the transport's own guns.
+func _compute_firing_deck_plan(transport_id: String, eligible_embarked: Array) -> Dictionary:
+	var transport = get_unit(transport_id)
+	var t_data = transport.get("transport_data", {})
+	var capacity = int(t_data.get("firing_deck", 0))
+	# [EMBARKING]: some models count as more than one model for capacity/Firing
+	# Deck (e.g. MEGA ARMOUR / JUMP PACK). The transport's capacity_multipliers
+	# is the data-driven source of which keywords double-count; MEGA ARMOUR /
+	# JUMP PACK are a safety fallback when it's absent.
+	var multi_keywords := ["MEGA ARMOUR", "JUMP PACK"]
+	for mk in t_data.get("capacity_multipliers", {}):
+		if int(t_data["capacity_multipliers"][mk]) > 1 and not (mk in multi_keywords):
+			multi_keywords.append(mk)
+	var board = game_state_snapshot
+	var loans := []
+	for embarked_id in eligible_embarked:
+		var embarked = get_unit(embarked_id)
+		if embarked.is_empty():
+			continue
+		# A double-counting model's weapons consume more than one Firing Deck
+		# slot. That slot arithmetic isn't modelled here, so defer to the manual
+		# dialog rather than risk auto-loaning more weapons than the cap allows.
+		var kws = embarked.get("meta", {}).get("keywords", [])
+		var is_multi := false
+		for mk in multi_keywords:
+			if mk in kws:
+				is_multi = true
+				break
+		if is_multi:
+			return {"mode": "dialog"}
+		var model_weapons = RulesEngine.get_unit_weapons(embarked_id, board)
+		for model in embarked.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var mid = str(model.get("id", ""))
+			var eligible_ids := []
+			for wid in model_weapons.get(mid, []):
+				if RulesEngine.is_one_shot_weapon(wid, board):
+					continue  # 24.14 step 2 excludes [ONE SHOT]
+				eligible_ids.append(wid)
+			if eligible_ids.is_empty():
+				continue
+			# More than one ranged option → the player must pick which one fires.
+			if eligible_ids.size() > 1:
+				return {"mode": "dialog"}
+			var chosen = str(eligible_ids[0])
+			# [HAZARDOUS] (24.15): firing it risks the transport — let the player
+			# decide rather than auto-committing them to the hazard roll.
+			if RulesEngine.is_hazardous_weapon(chosen, board):
+				return {"mode": "dialog"}
+			loans.append({"unit_id": embarked_id, "model_id": mid, "weapon_id": chosen})
+	# More eligible weapons than the deck can carry → the player must choose which.
+	if loans.size() > capacity:
+		return {"mode": "dialog"}
+	return {"mode": "auto", "loans": loans}
+
+
+# 24.14: loan `loans` (each {unit_id, model_id, weapon_id}) onto the transport so
+# get_unit_weapons offers them as the transport's own weapons for this
+# activation, and mark each contributing embarked unit as having shot. Applied
+# out-of-band via the parent so it persists to live GameState; the phase
+# snapshot is refreshed so subsequent weapon/target queries see the loan.
+func _apply_firing_deck_loan(transport_id: String, loans: Array) -> void:
+	var changes := []
+	var marked := {}
+	for loan in loans:
+		var emb_id = str(loan.get("unit_id", ""))
+		if emb_id != "" and not marked.has(emb_id):
+			marked[emb_id] = true
+			changes.append({
+				"op": "set",
+				"path": "units.%s.flags.has_shot" % emb_id,
+				"value": true
+			})
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.firing_deck_weapons" % transport_id,
+		"value": loans.duplicate(true)
+	})
+	if get_parent() and get_parent().has_method("apply_state_changes"):
+		get_parent().apply_state_changes(changes)
+	# Refresh the phase snapshot so target/weapon queries see the loan at once.
+	game_state_snapshot = GameState.state.duplicate(true)
+
 func _show_firing_deck_dialog(transport_id: String) -> void:
 	"""Show dialog to select which embarked models will shoot through firing deck"""
 	var transport = get_unit(transport_id)
@@ -5337,22 +5444,11 @@ func _on_firing_deck_models_selected(selected_weapons: Array, transport_id: Stri
 
 	resolution_state["firing_deck_weapons"][transport_id] = selected_weapons
 
-	# Mark those units as having shot
-	var changes = []
-	for weapon_data in selected_weapons:
-		var unit_id = weapon_data.get("unit_id", "")
-		if unit_id != "":
-			changes.append({
-				"op": "set",
-				"path": "units.%s.flags.has_shot" % unit_id,
-				"value": true
-			})
-
-	# 24.14: the selected weapons are treated as being equipped by the
-	# TRANSPORT model for this activation. Persist the loan on the transport's
-	# flags so RulesEngine.get_unit_weapons offers them (as __fd<i> aliases)
-	# alongside the transport's own guns; cleared when the unit finishes
-	# shooting (_clear_firing_deck_loan) and at end of phase.
+	# 24.14: the selected weapons are treated as being equipped by the TRANSPORT
+	# model for this activation (RulesEngine.get_unit_weapons offers them as
+	# __fd<i> aliases alongside the transport's own guns). The loan is cleared
+	# when the transport finishes shooting (_clear_firing_deck_loan) and at end
+	# of phase.
 	var loans = []
 	for weapon_data in selected_weapons:
 		loans.append({
@@ -5360,22 +5456,25 @@ func _on_firing_deck_models_selected(selected_weapons: Array, transport_id: Stri
 			"model_id": weapon_data.get("model_id", ""),
 			"weapon_id": weapon_data.get("weapon_id", ""),
 		})
-	changes.append({
-		"op": "set",
-		"path": "units.%s.flags.firing_deck_weapons" % transport_id,
-		"value": loans
-	})
+	_apply_firing_deck_loan(transport_id, loans)
 
-	# Apply state changes
-	if changes.size() > 0:
-		# Apply through parent if it exists
-		if get_parent() and get_parent().has_method("apply_state_changes"):
-			get_parent().apply_state_changes(changes)
-	# Refresh the phase snapshot so target/weapon queries see the loan at once.
-	game_state_snapshot = GameState.state.duplicate(true)
+	# Resume the normal shooting flow so the loaned weapons appear in the weapon
+	# tree and the player can pick targets. (Previously the weapon tree was built
+	# when the transport was first selected — before the loan existed — and was
+	# never refreshed after the dialog confirmed, so the loaned guns stayed
+	# invisible.)
+	var eligible_targets = RulesEngine.get_eligible_targets(transport_id, game_state_snapshot)
+	emit_signal("unit_selected_for_shooting", transport_id)
+	emit_signal("targets_available", transport_id, eligible_targets)
+	log_phase_message("Firing deck weapons selected for %s" % get_unit(transport_id).get("meta", {}).get("name", transport_id))
 
 func _clear_firing_deck_loan(transport_id: String) -> void:
-	"""Remove the firing-deck weapon loan from a transport once its shooting ends."""
+	"""Remove the firing-deck weapon loan from a transport once its shooting ends.
+
+	Loan-clearing only — it must NOT re-emit target selection (it runs at
+	shooting completion; re-arming targeting there spuriously re-selected the
+	just-finished transport). The post-selection targeting resume lives in
+	_on_firing_deck_models_selected / the auto-resolve path instead."""
 	var unit = GameState.state.get("units", {}).get(transport_id, {})
 	if unit.is_empty() or not unit.get("flags", {}).has("firing_deck_weapons"):
 		return
@@ -5383,15 +5482,6 @@ func _clear_firing_deck_loan(transport_id: String) -> void:
 	if game_state_snapshot.get("units", {}).has(transport_id):
 		var snap_flags = game_state_snapshot.units[transport_id].get("flags", {})
 		snap_flags.erase("firing_deck_weapons")
-
-	# Now proceed with normal target selection for the transport
-	# The transport will use the selected weapons from embarked units
-	var eligible_targets = RulesEngine.get_eligible_targets(transport_id, game_state_snapshot)
-
-	emit_signal("unit_selected_for_shooting", transport_id)
-	emit_signal("targets_available", transport_id, eligible_targets)
-
-	log_phase_message("Firing deck weapons selected for %s" % get_unit(transport_id).get("meta", {}).get("name", transport_id))
 
 # Interactive Save Resolution
 
