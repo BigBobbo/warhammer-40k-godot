@@ -1,0 +1,73 @@
+{
+  "id": "iss_loadout_coverage_taskc_11e",
+  "covers": [
+    "shooting.loadout_resolution.widen_coverage",
+    "autoloads.RulesEngine._resolve_type_loadout"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 8,
+  "description": "Task C: widen loadout resolution. A 20-model Boyz mob recorded with only '10x Slugga' (incomplete-but-consistent) now resolves to 20 Sluggas with no menu ghosts; a Deffkoptas unit (Kopta rokkits + Slugga per model) resolves to a uniform 2-gun set. The Deffkoptas' shooting weapon panel shows the real resolved loadout.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.set_edition(11)\nvar U = GameState.state[\"units\"]\nU.merge({\"U_TC_BOYZ\": {\"id\": \"U_TC_BOYZ\", \"squad_id\": \"U_BOYZ_E\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Boyz\", \"keywords\": [\"BATTLELINE\", \"BOYZ\", \"GRENADES\", \"INFANTRY\", \"MOB\", \"ORKS\"], \"stats\": {\"move\": 6, \"toughness\": 5, \"save\": 5, \"wounds\": 1, \"leadership\": 7, \"objective_control\": 2}, \"points\": 150, \"is_warlord\": false, \"enhancements\": [], \"wargear\": [\"9x Slugga\", \"1x Slugga\"], \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"rapid fire 2\", \"abilities\": [{\"id\": \"rapid_fire\", \"x\": 2}]}, {\"name\": \"Kombi-weapon\", \"type\": \"Ranged\", \"range\": \"24\", \"attacks\": \"1\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"anti-infantry 4+, devastating wounds, rapid fire 1\", \"abilities\": [{\"id\": \"anti\", \"keyword\": \"INFANTRY\", \"threshold\": 4}, {\"id\": \"devastating_wounds\"}, {\"id\": \"rapid_fire\", \"x\": 1}]}, {\"name\": \"Rokkit launcha\", \"type\": \"Ranged\", \"range\": \"24\", \"attacks\": \"D3\", \"ballistic_skill\": \"5\", \"strength\": \"9\", \"ap\": \"-2\", \"damage\": \"3\", \"special_rules\": \"blast\", \"abilities\": [{\"id\": \"blast\"}]}, {\"name\": \"Shoota\", \"type\": \"Ranged\", \"range\": \"18\", \"attacks\": \"2\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"rapid fire 1\", \"abilities\": [{\"id\": \"rapid_fire\", \"x\": 1}]}, {\"name\": \"Slugga\", \"type\": \"Ranged\", \"range\": \"12\", \"attacks\": \"1\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"pistol\", \"abilities\": [{\"id\": \"pistol\"}]}, {\"name\": \"Big choppa\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"7\", \"ap\": \"-1\", \"damage\": \"2\"}, {\"name\": \"Choppa\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"-1\", \"damage\": \"1\"}, {\"name\": \"Close combat weapon\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"2\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\"}, {\"name\": \"Power klaw\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"4\", \"strength\": \"9\", \"ap\": \"-2\", \"damage\": \"2\"}], \"abilities\": [{\"name\": \"Waaagh!\", \"type\": \"Faction\", \"description\": \"Once per battle, until your next Command phase:\\n  -> The unit gains the Advance & Charge ability.\\n  -> Add 1 to the unit's Strength characteristic (melee).\\n  -> Add 1 to the unit's Attacks characteristic (melee).\\n  -> The unit has a 5+ invulnerable save.\"}, {\"name\": \"Bodyguard\", \"type\": \"Datasheet\", \"description\": \"This model gains the Extra Leader Attachment ability.\"}, {\"name\": \"Get Da Good Bitz\", \"type\": \"Datasheet\", \"description\": \"The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives).\"}], \"unit_composition\": [{\"description\": \"1 Boss Nob\", \"line\": 1}, {\"description\": \"9-19 Boy\", \"line\": 2}]}, \"models\": [{\"id\": \"b0\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 200, \"y\": 200}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b1\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 255, \"y\": 200}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b2\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 310, \"y\": 200}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b3\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 365, \"y\": 200}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b4\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 420, \"y\": 200}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b5\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 200, \"y\": 255}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b6\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 255, \"y\": 255}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b7\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 310, \"y\": 255}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b8\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 365, \"y\": 255}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b9\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 420, \"y\": 255}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b10\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 200, \"y\": 310}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b11\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 255, \"y\": 310}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b12\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 310, \"y\": 310}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b13\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 365, \"y\": 310}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b14\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 420, \"y\": 310}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b15\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 200, \"y\": 365}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b16\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 255, \"y\": 365}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b17\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 310, \"y\": 365}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b18\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 365, \"y\": 365}, \"alive\": true, \"status_effects\": []}, {\"id\": \"b19\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 420, \"y\": 365}, \"alive\": true, \"status_effects\": []}]}, \"U_TC_DEFF\": {\"id\": \"U_TC_DEFF\", \"squad_id\": \"U_DEFFKOPTAS_A\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Deffkoptas\", \"keywords\": [\"DEFFKOPTAS\", \"FLY\", \"GRENADES\", \"ORKS\", \"SPEED FREEKS\", \"VEHICLE\"], \"stats\": {\"move\": 12, \"toughness\": 6, \"save\": 4, \"wounds\": 4, \"leadership\": 7, \"objective_control\": 2, \"invuln\": 6}, \"points\": 75, \"is_warlord\": false, \"enhancements\": [], \"wargear\": [\"3x Kopta rokkits\", \"3x Slugga\", \"3x Spinnin' blades\"], \"weapons\": [{\"name\": \"Kopta rokkits\", \"type\": \"Ranged\", \"range\": \"24\", \"attacks\": \"D3\", \"ballistic_skill\": \"5\", \"strength\": \"9\", \"ap\": \"-2\", \"damage\": \"3\", \"special_rules\": \"blast, twin linked\", \"abilities\": [{\"id\": \"blast\"}, {\"id\": \"twin_linked\"}]}, {\"name\": \"Slugga\", \"type\": \"Ranged\", \"range\": \"12\", \"attacks\": \"1\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"pistol\", \"abilities\": [{\"id\": \"pistol\"}]}, {\"name\": \"Spinnin' blades\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"6\", \"weapon_skill\": \"3\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\"}], \"abilities\": [{\"name\": \"Waaagh!\", \"type\": \"Faction\", \"description\": \"Once per battle, until your next Command phase:\\n  -> The unit gains the Advance & Charge ability.\\n  -> Add 1 to the unit's Strength characteristic (melee).\\n  -> Add 1 to the unit's Attacks characteristic (melee).\\n  -> The unit has a 5+ invulnerable save.\"}, {\"name\": \"Deep Strike\", \"type\": \"Core\", \"description\": \"The unit has the Deep Strike ability.\"}, {\"name\": \"Deff from Above\", \"type\": \"Datasheet\", \"description\": \"Roll one D6 for each model in this unit: for each 4+, the target suffers 1 mortal wound.\"}], \"unit_composition\": [{\"description\": \"3-6 Deffkopta\", \"line\": 1}]}, \"models\": [{\"id\": \"k0\", \"wounds\": 4, \"current_wounds\": 4, \"base_mm\": 75, \"base_type\": \"oval\", \"base_dimensions\": {\"length\": 42, \"width\": 75}, \"position\": {\"x\": 400, \"y\": 1000}, \"alive\": true, \"status_effects\": []}, {\"id\": \"k1\", \"wounds\": 4, \"current_wounds\": 4, \"base_mm\": 75, \"base_type\": \"oval\", \"base_dimensions\": {\"length\": 42, \"width\": 75}, \"position\": {\"x\": 600, \"y\": 1000}, \"alive\": true, \"status_effects\": []}, {\"id\": \"k2\", \"wounds\": 4, \"current_wounds\": 4, \"base_mm\": 75, \"base_type\": \"oval\", \"base_dimensions\": {\"length\": 42, \"width\": 75}, \"position\": {\"x\": 800, \"y\": 1000}, \"alive\": true, \"status_effects\": []}]}, \"U_TC_TARGET\": {\"id\": \"U_TC_TARGET\", \"owner\": 2, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"TC Target\", \"keywords\": [\"INFANTRY\"], \"weapons\": []}, \"models\": [{\"id\": \"e0\", \"alive\": true, \"position\": {\"x\": 600, \"y\": 1280}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}}, true)\nreturn U.has(\"U_TC_BOYZ\") and U.has(\"U_TC_DEFF\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": "20_slugga_0_ghost",
+      "script": "var mw = RulesEngine.get_unit_weapons(\"U_TC_BOYZ\", GameState.state)\nvar sl = 0\nvar ghost = 0\nfor mid in mw:\n\tfor w in mw[mid]:\n\t\tif str(w).begins_with(\"slugga\"): sl += 1\n\t\telif str(w).begins_with(\"big_shoota\") or str(w).begins_with(\"rokkit\") or str(w).begins_with(\"shoota\") or str(w).begins_with(\"kombi\"): ghost += 1\nreturn \"%d_slugga_%d_ghost\" % [sl, ghost]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": 20,
+      "script": "var mw = RulesEngine.get_unit_weapons(\"U_TC_BOYZ\", GameState.state)\nvar t = 0\nfor mid in mw:\n\tt += mw[mid].size()\nreturn t"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": "3_kopta_3_slugga_6_total",
+      "script": "var mw = RulesEngine.get_unit_weapons(\"U_TC_DEFF\", GameState.state)\nvar kr = 0\nvar sl = 0\nvar t = 0\nfor mid in mw:\n\tt += mw[mid].size()\n\tfor w in mw[mid]:\n\t\tif str(w).begins_with(\"kopta_rokkits\"): kr += 1\n\t\telif str(w).begins_with(\"slugga\"): sl += 1\nreturn \"%d_kopta_%d_slugga_%d_total\" % [kr, sl, t]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "return RulesEngine.get_eligible_targets(\"U_TC_DEFF\", GameState.state).size() > 0"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_TC_DEFF"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_deffkoptas_resolved_weapon_panel"
+    }
+  ]
+}

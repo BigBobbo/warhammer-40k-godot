@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.8",
+			"date": "2026-07-23",
+			"summary": "More units now report the guns they actually carry. Widened the per-model loadout resolver so it also handles units the first pass had to leave alone: mobs whose army-list only records some of the guns (a 20-model Boyz mob listed with just '10x Slugga' now shows 20 Sluggas), and models that legitimately carry two guns (Deffkoptas keep both their Kopta rokkits and Slugga). Eight more multi-model units are now resolved, with no risk of ever handing a model a weapon it can't take.",
+			"changes": [
+				"Shooting: a mob whose wargear lists fewer guns than it has models, all of the same type, is now resolved to that gun on every model (20-model Boyz mob -> 20 Sluggas instead of the whole 5-option menu).",
+				"Shooting: models that carry a fixed set of two guns (e.g. Deffkoptas with Kopta rokkits + Slugga) are recognised and each reports exactly that pair, instead of an ambiguous menu.",
+				"Every assignment is cross-checked against the model's own datasheet options, so the resolver never invents a weapon a model can't actually take.",
+				"Units that still can't be resolved (no wargear detail, or army-list counts that don't match the model count) are left exactly as before and logged, so it's clear which ones fall back."
+			]
+		},
+		{
 			"version": "0.93.7",
 			"date": "2026-07-23",
 			"summary": "Units now shoot with the guns they actually carry. Datasheets list every wargear OPTION per model, which made a mob report ALL of them at once — a 10-model Ork Boyz mob showed ~38 ranged weapons instead of 10. When a unit's army-list wargear pins the loadout, each model is now assigned its real gun, so shooting (and the Firing Deck) uses the correct weapons.",

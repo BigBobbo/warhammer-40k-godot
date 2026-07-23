@@ -124,16 +124,42 @@ func _run():
 					"resolved=%s raw=%d new=%d" % [str(got_resolved), raw_total, new_total])
 			if got_resolved:
 				resolved_units += 1
-				# INVARIANT 2: a resolved model reports exactly ONE ranged gun.
-				_check("resolved-1gun %s/%s" % [fname, uid], worst <= 1,
-					"worst=%d" % worst)
-				# INVARIANT 3: total ranged == number of alive models (one each).
+				# INVARIANT 2 (generalized for Task C): every resolved model reports
+				# the SAME number k of ranged guns (k>=1) — a uniform loadout size.
+				# This still catches over-counting but allows legit multi-gun models
+				# (Deffkopta k=2) alongside one-gun mobs (k=1).
+				var kmin := 999999
+				var kmax := 0
+				for mid in mw:
+					var c = mw[mid].size()
+					kmin = min(kmin, c)
+					kmax = max(kmax, c)
+				_check("resolved-uniform-k %s/%s" % [fname, uid], kmin == kmax and kmin >= 1,
+					"kmin=%d kmax=%d" % [kmin, kmax])
+				# INVARIANT 3 (generalized): total ranged == k × alive models.
 				var alive := 0
 				for m in models:
 					if m.get("alive", true):
 						alive += 1
-				_check("resolved-total==models %s/%s" % [fname, uid], new_total == alive,
-					"total=%d alive=%d" % [new_total, alive])
+				_check("resolved-total==k*alive %s/%s" % [fname, uid], new_total == kmax * alive,
+					"total=%d k=%d alive=%d" % [new_total, kmax, alive])
+				# INVARIANT 5 (Task C): every stamped gun is one the model_type may
+				# actually take — never invent a weapon a model can't have.
+				var mp2 = unit.get("meta", {}).get("model_profiles", {})
+				var meta_ranged := {}
+				for w in unit.get("meta", {}).get("weapons", []):
+					if str(w.get("type", "")).to_lower() == "ranged":
+						meta_ranged[str(w.get("name", ""))] = true
+				for m in models:
+					if not m.has("ranged_loadout"):
+						continue
+					var mt2 = str(m.get("model_type", ""))
+					var use_prof = not mp2.is_empty() and mt2 != "" and mp2.has(mt2)
+					var allowed2 = mp2[mt2].get("weapons", []) if use_prof else []
+					for wname in m["ranged_loadout"]:
+						var ok2 = (str(wname) in allowed2) if use_prof else meta_ranged.has(str(wname))
+						_check("resolved-gun-allowed %s/%s" % [fname, uid], ok2,
+							"'%s' not allowed for model_type '%s'" % [str(wname), mt2])
 			elif models.size() >= 2 and worst > 1:
 				unresolved_multimodel.append("%s/%s(%s)" % [fname, uid, str(unit.get("meta", {}).get("name", ""))])
 
@@ -141,6 +167,16 @@ func _run():
 	_spot_check_boyz()
 	_spot_check_orks_lootas_unchanged()
 	_spot_check_burna()
+	_spot_check_boyz_incomplete()   # Task C: incomplete-but-consistent (20-Boy mob, 10x Slugga)
+	_spot_check_deffkopta()         # Task C: uniform dual-gun (kopta rokkits + slugga)
+
+	# Task C: widening coverage must RESOLVE MORE units than the Phase-1 baseline
+	# (16) and leave fewer over-counters. Lower/upper bounds so future additions
+	# only make this stronger.
+	_check("Task C: resolved count increased vs Phase-1 baseline (16)", resolved_units >= 24,
+		"resolved=%d (expected >=24)" % resolved_units)
+	_check("Task C: unresolved over-counters decreased vs baseline (24)", unresolved_multimodel.size() <= 16,
+		"unresolved=%d (expected <=16)" % unresolved_multimodel.size())
 
 	print("")
 	print("Resolved units (loadout pinned from wargear): %d" % resolved_units)
@@ -192,3 +228,37 @@ func _spot_check_burna():
 	# wargear = 4x Burna + 1x Big shoota
 	_check("Burna Boyz -> 4 Burna", hist.get("burna_ranged", 0) == 4, str(hist))
 	_check("Burna Boyz -> 1 Big shoota", hist.get("big_shoota_ranged", 0) == 1, str(hist))
+
+func _spot_check_boyz_incomplete():
+	# Task C CASE C: a 20-model Boyz mob whose wargear records only "9x Slugga,
+	# 1x Slugga" (10 Slugga < 20 models, one consistent gun) -> every model Slugga.
+	var data = _load_json("res://armies/orks.json")
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	for uid in ["U_BOYZ_E", "U_BOYZ_F"]:
+		var u = data["units"].get(uid, {})
+		if u.is_empty():
+			continue
+		var n = u.get("models", []).size()
+		var hist = _weapon_hist(uid, u)
+		_check("Boyz %s -> %d Slugga (incomplete-consistent)" % [uid, n], hist.get("slugga_ranged", 0) == n, str(hist))
+		_check("Boyz %s -> no Big shoota" % uid, not hist.has("big_shoota_ranged"), str(hist))
+		_check("Boyz %s -> no Rokkit" % uid, not hist.has("rokkit_launcha_ranged"), str(hist))
+		_check("Boyz %s -> no Shoota" % uid, not hist.has("shoota_ranged"), str(hist))
+
+func _spot_check_deffkopta():
+	# Task C CASE B: Deffkoptas carry a Kopta rokkits AND a Slugga (2 ranged each);
+	# wargear "3x Kopta rokkits, 3x Slugga" over 3 models -> uniform 2-gun set.
+	var data = _load_json("res://armies/battlewagons.json")
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	var u = data["units"].get("U_DEFFKOPTAS_A", {})
+	if u.is_empty():
+		return
+	var n = u.get("models", []).size()
+	var hist = _weapon_hist("U_DEFFKOPTAS_A", u)
+	_check("Deffkoptas -> %d Kopta rokkits" % n, hist.get("kopta_rokkits_ranged", 0) == n, str(hist))
+	_check("Deffkoptas -> %d Slugga" % n, hist.get("slugga_ranged", 0) == n, str(hist))
+	# Each model is stamped resolved with a 2-gun set (not left as the raw menu).
+	var m0 = u.get("models", [])[0]
+	_check("Deffkoptas -> model stamped 2-gun set", m0.get("ranged_loadout", []).size() == 2, str(m0.get("ranged_loadout", [])))
