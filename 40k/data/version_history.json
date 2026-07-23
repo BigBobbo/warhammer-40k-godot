@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.16",
+			"date": "2026-07-23",
+			"summary": "Selecting an embarked unit now pans the camera to the transport carrying it. In the Movement phase (or when clicking its card in the left roster strip), picking a unit that's riding inside a transport glides the view to that transport so you can see where it actually sits before disembarking — previously the camera stayed put and the unit was invisible on the board.",
+			"changes": [
+				"Movement phase: selecting an embarked unit from the unit list now smoothly pans the camera to the transport it is embarked in, then shows the disembark dialog as before.",
+				"Camera fit-to-selection (left roster strip click, Shift+F, controller unit-cycle reframe) now redirects an embarked unit to its transport's position instead of framing the passenger's hidden/stale models."
+			]
+		},
+		{
 			"version": "0.92.15",
 			"date": "2026-07-22",
 			"summary": "Orks can now fire the Pulsa Rokkit by hand. When an eligible unit is about to shoot, a dialog lets you Fire it (+1 Strength and +1 AP on its ranged weapons this phase) or Decline — previously nothing responded to this ability, so the Shooting phase could stall for both players.",

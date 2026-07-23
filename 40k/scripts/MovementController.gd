@@ -2738,6 +2738,16 @@ func _handle_embarked_unit_selected(unit_id: String) -> void:
 	if not unit:
 		return
 
+	# CAMERA-PAN-TRANSPORT: an embarked unit is invisible on the board (its
+	# models ride inside the transport). Pan the camera to the transport it is
+	# embarked in so the player can see where the unit physically sits before
+	# deciding whether/where to disembark. fit_view_to_selection redirects the
+	# embarked passenger to its transport's bounding box; animate:true glides
+	# smoothly instead of hard-cutting.
+	var main_node = SceneRefs.main()
+	if main_node and main_node.has_method("fit_view_to_selection"):
+		main_node.fit_view_to_selection(unit_id, true)
+
 	print("MovementController: Unit %s is embarked, showing disembark dialog" % unit_id)
 
 	# Create and show disembark dialog
