@@ -1,0 +1,48 @@
+{
+  "id": "take_to_skies_hotkey_11e",
+  "covers": [
+    "movement.fly.take_to_skies_hotkey",
+    "keybindings.toggle_take_to_skies",
+    "movementcontroller.take_to_skies_checkbox.hotkey_toggle"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "edition": 11,
+  "description": "Keyboard access to 'Take to the skies'. A FLY unit (Shield-Captain on Dawneagle Jetbike, MOUNTED/FLY, M12) is selected in the Movement phase, which auto-begins a NORMAL move and shows the 'Take to the skies (-2\" move) [J]' checkbox unticked. Pressing the rebindable hotkey J (registered in KeybindingManager, wired through MovementController._unhandled_input) drives the SAME SET_TAKE_TO_SKIES path as clicking the box: took_to_skies flips true, the cap drops M12->10\", and the checkbox reflects the pressed state. Pressing J again on the still-clean move un-declares it: took_to_skies false, cap back to 12\". Proves the player can reach the toggle from the keyboard without the checkbox, and that the label advertises the key.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script", "script": "TerrainManager.load_terrain_layout(\"take_and_hold_mirror_1\")" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"models\"][0].merge({\"position\": {\"x\": 1220.0, \"y\": 1140.0}}, true)" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"models\"][0].merge({\"position\": {\"x\": 1220.0, \"y\": 1140.0}}, true)" },
+    { "act": "execute_script", "script": "main._recreate_unit_visuals()" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "click_unit", "unit_id": "U_SHIELD_CAPTAIN_JETBIKE_A" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_SHIELD_CAPTAIN_JETBIKE_A" },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/TakeToSkiesCheckBox" },
+    { "act": "execute_script", "script": "main.movement_controller.take_to_skies_checkbox.text.contains(\"[J]\")", "equals": true },
+    { "act": "execute_script", "script": "main.movement_controller.take_to_skies_checkbox.button_pressed", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"took_to_skies\"]", "equals": false },
+    { "act": "screenshot", "label": "01_selected_hotkey_hint_visible" },
+
+    { "act": "simulate_key", "keycode": "J" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"took_to_skies\"]", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"move_cap_inches\"]", "equals": 10.0 },
+    { "act": "execute_script", "script": "main.movement_controller.move_cap_inches", "equals": 10.0 },
+    { "act": "execute_script", "script": "main.movement_controller.take_to_skies_checkbox.button_pressed", "equals": true },
+    { "act": "screenshot", "label": "02_J_pressed_took_to_skies_cap_10" },
+
+    { "act": "simulate_key", "keycode": "J" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"took_to_skies\"]", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_JETBIKE_A\"][\"move_cap_inches\"]", "equals": 12.0 },
+    { "act": "execute_script", "script": "main.movement_controller.take_to_skies_checkbox.button_pressed", "equals": false },
+    { "act": "screenshot", "label": "03_J_again_undeclared_cap_12" }
+  ]
+}

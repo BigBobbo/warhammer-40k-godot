@@ -80,6 +80,14 @@ func _register_defaults() -> void:
 	_register("shoot_skip_unit", "Skip Active Shooter", CATEGORY_GAMEPLAY, KEY_N)
 	_register("shoot_end_phase", "End Shooting Phase", CATEGORY_GAMEPLAY, KEY_E)
 
+	# Movement phase — "Take to the skies" FLY toggle (B2 / rule 21.03). Default J:
+	# a key that is unbound and unshadowed everywhere else (F/A/S/H are all taken
+	# by camera, panels and overlays, so the obvious "fly" mnemonics would collide).
+	# Only does anything for a FLY unit at edition 11 with an open move decision;
+	# it mirrors ticking the on-screen checkbox. Rebindable here and in
+	# Settings › Controls.
+	_register("toggle_take_to_skies", "Take to the Skies (FLY)", CATEGORY_GAMEPLAY, KEY_J)
+
 	# ── Model ──
 	_register("rotate_left", "Rotate Model Left", CATEGORY_MODEL, KEY_Q)
 	_register("rotate_right", "Rotate Model Right", CATEGORY_MODEL, KEY_E)

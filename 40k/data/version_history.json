@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.92.16",
+			"date": "2026-07-23",
+			"summary": "You can now 'Take to the skies' with a FLY unit using the keyboard — press J (rebindable) during the Movement phase instead of having to find and click the checkbox. The checkbox now shows its hotkey, and the key only does anything for an eligible flying unit that still has an open move.",
+			"changes": [
+				"Movement phase: added a hotkey (default J) that toggles the 'Take to the skies' declaration for FLY units — the same −2\" fly-over move (0\" with HOVER) that ignores terrain and models. It mirrors clicking the checkbox and safely no-ops for non-FLY units or a locked move.",
+				"The 'Take to the skies' checkbox label now shows the current key, and the shortcut appears in the Hotkey Help overlay (Shift+/). Rebind it under Settings › Controls › Gameplay; it does not reuse any existing key."
+			]
+		},
+		{
 			"version": "0.92.15",
 			"date": "2026-07-22",
 			"summary": "Orks can now fire the Pulsa Rokkit by hand. When an eligible unit is about to shoot, a dialog lets you Fire it (+1 Strength and +1 AP on its ranged weapons this phase) or Decline — previously nothing responded to this ability, so the Shooting phase could stall for both players.",

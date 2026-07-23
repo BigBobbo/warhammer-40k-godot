@@ -13087,6 +13087,7 @@ func _toggle_hotkey_help_overlay() -> void:
 		[_kbm.get_key_display_name("toggle_roster_strip"), "Toggle left roster strip"],
 		["%s (toggle)" % _kbm.get_key_display_name("measuring_tape"), "Measuring tape — click start then end point"],
 		[_kbm.get_key_display_name("clear_measurements"), "Clear all measurements"],
+		[_kbm.get_key_display_name("toggle_take_to_skies"), "FLY unit: take to the skies (Movement phase)"],
 		[_kbm.get_key_display_name("toggle_grid_overlay"), "Toggle 1\" tactical grid overlay"],
 		[_kbm.get_key_display_name("toggle_visual_style"), "Toggle visual style (letter / enhanced)"],
 		[_kbm.get_key_display_name("toggle_debug_mode"), "Toggle debug mode"],
