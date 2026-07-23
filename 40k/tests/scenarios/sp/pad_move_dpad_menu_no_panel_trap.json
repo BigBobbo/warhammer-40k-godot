@@ -12,7 +12,7 @@
   "transition_to_phase": 7,
   "disable_ai": true,
   "rng_seed": 42,
-  "description": "Movement-phase D-pad panel-trap fix: with a bumper-selected unit whose move decision is open, D-pad RIGHT (and LEFT) open the on-screen PadActionBar exactly like DOWN/UP — focus never lands in the right-hand mouse panel, so the player can't get stranded walking panel buttons. Stale panel focus (mouse-click residue simulated via grab_focus, or deliberate direct panel entry) is released the moment the pad is picked back up (device switch) or a bumper cycles units, and the very same press already acts on the board flow. While a model is in hand or the move session is locked (model staged, awaiting Start), the D-pad refuses panel-focus entry entirely; entry re-arms once the staged model is undone.",
+  "description": "Movement-phase D-pad panel-trap fix: with a bumper-selected unit whose move decision is still OPEN, D-pad RIGHT (and LEFT) open the on-screen PadActionBar exactly like DOWN/UP — focus never lands in the right-hand mouse panel, so the player can't get stranded walking panel buttons. Stale panel focus (mouse-click residue simulated via grab_focus, or deliberate direct panel entry) is released the moment the pad is picked back up (device switch) or a bumper cycles units, and the very same press already acts on the board flow. Once a move is UNDER WAY (a model in hand, or the move session locked with a model staged), the D-pad drives the model controls instead (◀ ▶ switch model, ▲ grab all, ▼ back to one) and still refuses panel-focus entry entirely — it stays on the board flow; entry re-arms only once the staged model is undone.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -73,7 +73,7 @@
     { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner() == null", "equals": true },
     { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": false },
     { "act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true },
-    { "act": "screenshot", "label": "04_dpad_inert_while_carrying" },
+    { "act": "screenshot", "label": "04_dpad_model_switch_no_panel_trap_while_carrying" },
 
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 0.6 },
@@ -83,7 +83,7 @@
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "execute_script", "script": "main.get_viewport().gui_get_focus_owner() == null", "equals": true },
     { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": false },
-    { "act": "screenshot", "label": "05_dpad_inert_while_move_locked" },
+    { "act": "screenshot", "label": "05_dpad_no_panel_trap_while_move_locked" },
 
     { "act": "simulate_joy_button", "button_index": 1 },
     { "act": "wait_seconds", "seconds": 0.4 },
