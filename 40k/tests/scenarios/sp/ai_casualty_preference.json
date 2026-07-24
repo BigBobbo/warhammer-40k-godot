@@ -1,0 +1,60 @@
+{
+  "id": "ai_casualty_preference",
+  "covers": [
+    "scripts.rules.CasualtyPreference",
+    "scripts.AllocationGroupOverlay.auto_preference",
+    "settings.auto_allocate_wounds"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "edition": 11,
+  "transition_to_phase": 8,
+  "description": "Smart auto casualty allocation: with 'computer allocates wounds' ON, the 11e AllocationGroupOverlay resolves a 4-wound AP-3 attack against Boyz F (5+ save, auto-fails) using CasualtyPreference's die-first order instead of lowest-index. Verifies the exact bases the module ranked first are the ones removed, that the farthest-from-enemy model survives, and that 4 casualties land in GameState with no defender clicks.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script",
+      "script": "SettingsService.set_auto_allocate_wounds(true)" },
+    { "act": "execute_script",
+      "script": "SettingsService.auto_allocate_wounds",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_BOYZ_F\"))",
+      "equals": 20 },
+
+    { "act": "execute_script",
+      "script": "var built = RulesEngine._build_attached_allocation_unit_11e(\"U_BOYZ_F\", GameState.state)\nvar pref = CasualtyPreference.compute_preferred_targets(built.unit, GameState.state, {\"defender_player\": 2})\nGameState.state.meta[\"_test_expected_casualties\"] = pref.slice(0, 4)\nvar models = GameState.get_unit(\"U_BOYZ_F\").models\nvar meas = node.get_node(\"/root/Measurement\")\nvar enemies = []\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 1:\n\t\tfor em in u.get(\"models\", []):\n\t\t\tif em.get(\"alive\", true) and em.get(\"position\") != null:\n\t\t\t\tenemies.append(em)\nvar far_i = -1\nvar far_d = -1.0\nfor i in range(models.size()):\n\tif not models[i].get(\"alive\", true) or models[i].get(\"position\") == null:\n\t\tcontinue\n\tvar best = INF\n\tfor em in enemies:\n\t\tbest = min(best, meas.model_to_model_distance_inches(models[i], em))\n\tif best > far_d:\n\t\tfar_d = best\n\t\tfar_i = i\nGameState.state.meta[\"_test_farthest_model\"] = far_i\nvar alive_virtual = 0\nfor m in built.unit.models:\n\tif m.get(\"alive\", true):\n\t\talive_virtual += 1\nreturn \"ORDERED_ALL\" if pref.size() == alive_virtual and alive_virtual >= 20 else \"pref=%d alive=%d\" % [pref.size(), alive_virtual]",
+      "multiline": true,
+      "equals": "ORDERED_ALL" },
+
+    { "act": "screenshot", "label": "01_before_smart_allocation" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._on_saves_required([RulesEngine.prepare_save_resolution(4, \"U_BOYZ_F\", \"U_CUSTODIAN_GUARD_B\", {\"name\": \"Smart-Alloc Test Gun\", \"ap\": -3, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"\"}, GameState.state)])" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "is_instance_valid(main.get_node(\"ShootingController\").active_allocation_overlay)",
+      "equals": true },
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "screenshot", "label": "02_overlay_results_smart_picks" },
+
+    { "act": "execute_script",
+      "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_BOYZ_F\"))",
+      "equals": 16 },
+
+    { "act": "execute_script",
+      "script": "var expected = GameState.state.meta.get(\"_test_expected_casualties\", [])\nvar models = GameState.get_unit(\"U_BOYZ_F\").models\nvar dead = []\nfor i in range(models.size()):\n\tif not models[i].get(\"alive\", true):\n\t\tdead.append(i)\ndead.sort()\nvar exp = []\nfor v in expected:\n\texp.append(int(v))\nexp.sort()\nreturn str(dead) + \" vs expected \" + str(exp) if str(dead) != str(exp) else \"MATCH\"",
+      "multiline": true,
+      "equals": "MATCH" },
+
+    { "act": "execute_script",
+      "script": "var far_i = int(GameState.state.meta.get(\"_test_farthest_model\", -1))\nvar models = GameState.get_unit(\"U_BOYZ_F\").models\nreturn far_i >= 0 and models[far_i].get(\"alive\", true)",
+      "multiline": true,
+      "equals": true },
+
+    { "act": "screenshot", "label": "03_after_4_smart_casualties" }
+  ]
+}

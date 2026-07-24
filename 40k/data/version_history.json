@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.94.0",
+			"date": "2026-07-24",
+			"summary": "The computer now picks casualties intelligently. When the AI defends — or you turn on 'Computer allocates wounds' — models are no longer removed in list order: cheap bodies die first and from the front, while sergeants, special-weapon carriers, objective holders and unit coherency are protected.",
+			"changes": [
+				"Auto wound allocation now removes the models closest to the enemy first, so an opponent's next-turn charge gets longer, not shorter.",
+				"Sergeant-type models (Sergeant, Nob, Champion, Exarch...) and special/heavy weapon carriers are the last non-Character models to be removed.",
+				"If the unit is holding or contesting an objective whose control would flip, the models keeping it in control range are removed last — including terrain-hosted objectives (11e), where standing on the hosting area is what counts, exactly as objective control scores it.",
+				"Casualties are chosen so the survivors stay in unit coherency whenever possible — the computer removes end models before 'bridge' models that would split the squad.",
+				"Applies to the 11e allocation overlay (shooting and melee), AI-vs-AI resolution, and the legacy 10e per-wound overlay. Human defenders who allocate manually are unaffected — and the dice never change, only which bases are removed."
+			]
+		},
+		{
 			"version": "0.93.15",
 			"date": "2026-07-24",
 			"summary": "The dice log moved out of the right-hand control panel and into the left game-log panel as a switchable tab. In the shooting, charge and fight phases the roll-by-roll log no longer grows down the right side and pushes the controls above it out of reach — the left panel now has two tabs, 'Game Log' and 'Dice Log', that you flip between. When new rolls land while you're reading the Game Log, the Dice Log tab shows a small dot so you know results are waiting.",

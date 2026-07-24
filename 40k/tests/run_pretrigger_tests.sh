@@ -106,6 +106,7 @@ TESTS=(
     "tests/test_iss049_charge_11e.gd"
     "tests/test_charge_phase_fixes.gd"
     "tests/test_iss041b_resolution_11e.gd"
+    "tests/test_casualty_preference.gd"
     "tests/test_iss016_modifier_stack.gd"
     "tests/test_iss045_allocation_overlay.gd"
     "tests/test_iss048_shooting_types_11e.gd"
