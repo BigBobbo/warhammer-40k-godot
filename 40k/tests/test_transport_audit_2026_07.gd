@@ -14,8 +14,9 @@ extends SceneTree
 #      charge-eligible).
 #   5. RulesEngine.get_eligible_targets never offers an embarked unit.
 #   6. CONFIRM_DISEMBARK rejects placements overlapping other models.
-#   7. FIRING DECK loans: get_unit_weapons offers __fd aliases from
-#      flags.firing_deck_weapons and get_weapon_profile resolves them.
+#   7. FIRING DECK loans: get_unit_weapons offers each loaned embarked weapon
+#      as a synthetic hull bearer "<hull>@fd<i>" carrying the base weapon id
+#      (so identical guns group into one row and split-fire like a squad).
 #
 # Usage: godot --headless --path . -s tests/test_transport_audit_2026_07.gd
 
@@ -227,12 +228,23 @@ func _test_firing_deck_loan() -> void:
 	}
 	var rules = root.get_node("RulesEngine")
 	var weapons = rules.get_unit_weapons("U_WAGON", board)
+	# FIRING DECK grouping: the two loaned Shootas are exposed as synthetic hull
+	# bearers "m1@fd0" / "m1@fd1", each carrying the BASE weapon id (not a
+	# per-weapon "__fd" alias), so identical guns collapse into one "×N" row and
+	# split-fire like a squad. The hull model itself keeps only its own guns.
 	var hull = weapons.get("m1", [])
-	_check("hull model exposes both loaned aliases",
-		"shoota_ranged__fd0" in hull and "shoota_ranged__fd1" in hull, str(hull))
-	var profile = rules.get_weapon_profile("shoota_ranged__fd0", board)
-	_check("__fd alias resolves to the Shoota profile", profile.get("name", "") == "Shoota", str(profile.get("name")))
-	_check("alias keeps base attacks", int(profile.get("attacks", 0)) == 2, str(profile.get("attacks")))
+	_check("hull model keeps its own gun (Big shoota), not the loaned Shootas",
+		"big_shoota_ranged" in hull and not ("shoota_ranged" in hull), str(hull))
+	var bearer0 = weapons.get("m1@fd0", [])
+	var bearer1 = weapons.get("m1@fd1", [])
+	_check("both loans become synthetic hull bearers carrying the base weapon",
+		"shoota_ranged" in bearer0 and "shoota_ranged" in bearer1, str([bearer0, bearer1]))
+	# The synthetic bearer id resolves to the transport hull model (BS/position).
+	var resolved = rules.get_model_by_id(board.units.U_WAGON, "m1@fd0")
+	_check("synthetic bearer id resolves to the hull model", resolved.get("id", "") == "m1", str(resolved.get("id")))
+	var profile = rules.get_weapon_profile("shoota_ranged", board)
+	_check("loaned base weapon resolves to the Shoota profile", profile.get("name", "") == "Shoota", str(profile.get("name")))
+	_check("loaned weapon keeps base attacks", int(profile.get("attacks", 0)) == 2, str(profile.get("attacks")))
 
 	# Embarked unit still cannot shoot on its own (weapons come via the loan).
 	var boyz_weapons = rules.get_unit_weapons("U_BOYZ", board)

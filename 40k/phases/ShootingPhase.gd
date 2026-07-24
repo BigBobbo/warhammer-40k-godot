@@ -5486,9 +5486,9 @@ func _on_firing_deck_models_selected(selected_weapons: Array, transport_id: Stri
 
 	# 24.14: the selected weapons are treated as being equipped by the TRANSPORT
 	# model for this activation (RulesEngine.get_unit_weapons offers them as
-	# __fd<i> aliases alongside the transport's own guns). The loan is cleared
-	# when the transport finishes shooting (_clear_firing_deck_loan) and at end
-	# of phase.
+	# synthetic hull bearers alongside the transport's own guns). The loan is
+	# cleared when the transport finishes shooting (_clear_firing_deck_loan) and
+	# at end of phase.
 	var loans = []
 	for weapon_data in selected_weapons:
 		loans.append({
