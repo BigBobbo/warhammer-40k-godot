@@ -7544,14 +7544,12 @@ func _show_token_hover(unit_id: String, screen_pos: Vector2, model_id: String = 
 	_position_token_hover(screen_pos)
 
 func _build_model_profile_hover_text(unit: Dictionary, model_id: String) -> String:
-	# Returns a BBCode block describing the hovered model's profile + weapons, or
-	# "" when the unit has no per-model profiles (legacy squads — nothing to add).
+	# Returns a BBCode block describing the hovered model's profile + the weapons
+	# it ACTUALLY carries, or "" when there is nothing model-specific to add.
 	if model_id == "":
 		return ""
 	var meta = unit.get("meta", {})
 	var profiles = meta.get("model_profiles", {})
-	if profiles.is_empty():
-		return ""
 	var model = {}
 	for m in unit.get("models", []):
 		if m.get("id", "") == model_id:
@@ -7559,27 +7557,57 @@ func _build_model_profile_hover_text(unit: Dictionary, model_id: String) -> Stri
 			break
 	if model.is_empty():
 		return ""
+	# MA-LOADOUT Phase 2 (Task A): make sure the per-model ranged loadout is
+	# resolved so hover shows the model's REAL gun rather than the whole datasheet
+	# menu. Idempotent — a no-op once the unit has been resolved.
+	RulesEngine.ensure_loadout_resolved(unit)
+	var resolved_ranged = model.get("ranged_loadout", null)  # Array of names, or null
+	var has_resolved_ranged: bool = resolved_ranged is Array and not (resolved_ranged as Array).is_empty()
 	var model_type = model.get("model_type", "")
-	if model_type == "" or not profiles.has(model_type):
+	var has_profile: bool = not profiles.is_empty() and model_type != "" and profiles.has(model_type)
+	# Legacy squad with neither a profile nor a resolved loadout: nothing to add.
+	if not has_profile and not has_resolved_ranged:
 		return ""
-	var profile = profiles[model_type]
-	var label = profile.get("label", model_type)
+	var profile = profiles.get(model_type, {}) if has_profile else {}
+	var label = str(profile.get("label", ""))
+	if label == "":
+		label = model_type if model_type != "" else str(meta.get("name", "Model"))
 	# Weapon name -> full profile lookup from the unit weapon list.
 	var weapon_index := {}
 	for w in meta.get("weapons", []):
 		weapon_index[w.get("name", "")] = w
-	var profile_weapons = profile.get("weapons", [])
+	# RANGED: the resolved loadout (real gun) when we have it; otherwise the
+	# profile's ranged menu (unresolved fallback — never hide a model's guns).
+	var ranged_names: Array = []
+	if has_resolved_ranged:
+		ranged_names = resolved_ranged
+	elif has_profile:
+		for wname in profile.get("weapons", []):
+			var w = weapon_index.get(wname, {})
+			if w.get("type", "") == "Ranged":
+				ranged_names.append(wname)
+	# MELEE: the profile's menu (melee resolution is a later task); a legacy
+	# non-profiled model has none to enumerate here.
+	var melee_names: Array = []
+	if has_profile:
+		for wname in profile.get("weapons", []):
+			var w = weapon_index.get(wname, {})
+			if w.is_empty() or w.get("type", "") != "Ranged":
+				melee_names.append(wname)
 	var ranged_lines: Array = []
-	var melee_lines: Array = []
-	for wname in profile_weapons:
+	for wname in ranged_names:
 		var w = weapon_index.get(wname, {})
 		if w.is_empty():
-			melee_lines.append("• %s" % wname)
-			continue
-		if w.get("type", "") == "Ranged":
+			ranged_lines.append("• %s" % wname)
+		else:
 			ranged_lines.append("• %s [color=#888888]%s\"  A%s BS%s S%s AP%s D%s[/color]" % [
 				w.get("name", wname), w.get("range", "-"), w.get("attacks", "-"),
 				w.get("ballistic_skill", "-"), w.get("strength", "-"), w.get("ap", "0"), w.get("damage", "-")])
+	var melee_lines: Array = []
+	for wname in melee_names:
+		var w = weapon_index.get(wname, {})
+		if w.is_empty():
+			melee_lines.append("• %s" % wname)
 		else:
 			melee_lines.append("• %s [color=#888888]A%s WS%s S%s AP%s D%s[/color]" % [
 				w.get("name", wname), w.get("attacks", "-"), w.get("weapon_skill", "-"),

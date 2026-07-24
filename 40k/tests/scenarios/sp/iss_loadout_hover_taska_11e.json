@@ -1,0 +1,74 @@
+{
+  "id": "iss_loadout_hover_taska_11e",
+  "covers": [
+    "ui.loadout.hover_real_weapon",
+    "scripts.Main._build_model_profile_hover_text",
+    "scripts.UnitStatsPanel._format_profile_weapons"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 8,
+  "description": "Task A: hovering/inspecting a model shows the gun it ACTUALLY carries. A Slugga Boyz mob's boy reads 'Slugga' (no Big shoota/Rokkit/Kombi menu ghosts); in a mixed Burna Boyz mob the Big-shoota model reads 'Big shoota' and a Burna model reads 'Burna'. The unit inspect panel's model-composition weapons line shows the resolved loadout.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.set_edition(11)\nvar U = GameState.state[\"units\"]\nU.merge({\"U_TA_BOYZ\": {\"id\": \"U_TA_BOYZ\", \"squad_id\": \"U_BOYZ_K\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Boyz\", \"keywords\": [\"BATTLELINE\", \"BOYZ\", \"GRENADES\", \"INFANTRY\", \"MOB\", \"ORKS\"], \"stats\": {\"move\": 6, \"toughness\": 5, \"save\": 5, \"wounds\": 1, \"leadership\": 7, \"objective_control\": 2}, \"points\": 75, \"is_warlord\": false, \"enhancements\": [], \"wargear\": [\"9x Slugga\", \"1x Slugga\"], \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"rapid fire 2\", \"abilities\": [{\"id\": \"rapid_fire\", \"x\": 2}]}, {\"name\": \"Kombi-weapon\", \"type\": \"Ranged\", \"range\": \"24\", \"attacks\": \"1\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"anti-infantry 4+, devastating wounds, rapid fire 1\", \"abilities\": [{\"id\": \"anti\", \"keyword\": \"INFANTRY\", \"threshold\": 4}, {\"id\": \"devastating_wounds\"}, {\"id\": \"rapid_fire\", \"x\": 1}]}, {\"name\": \"Rokkit launcha\", \"type\": \"Ranged\", \"range\": \"24\", \"attacks\": \"D3\", \"ballistic_skill\": \"5\", \"strength\": \"9\", \"ap\": \"-2\", \"damage\": \"3\", \"special_rules\": \"blast\", \"abilities\": [{\"id\": \"blast\"}]}, {\"name\": \"Shoota\", \"type\": \"Ranged\", \"range\": \"18\", \"attacks\": \"2\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"rapid fire 1\", \"abilities\": [{\"id\": \"rapid_fire\", \"x\": 1}]}, {\"name\": \"Slugga\", \"type\": \"Ranged\", \"range\": \"12\", \"attacks\": \"1\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"pistol\", \"abilities\": [{\"id\": \"pistol\"}]}, {\"name\": \"Big choppa\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"7\", \"ap\": \"-1\", \"damage\": \"2\"}, {\"name\": \"Choppa\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"-1\", \"damage\": \"1\"}, {\"name\": \"Close combat weapon\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"2\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\"}, {\"name\": \"Power klaw\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"4\", \"strength\": \"9\", \"ap\": \"-2\", \"damage\": \"2\"}], \"abilities\": [{\"name\": \"Waaagh!\", \"type\": \"Faction\", \"description\": \"Once per battle, until your next Command phase:\\n  -> The unit gains the Advance & Charge ability.\\n  -> Add 1 to the unit's Strength characteristic (melee).\\n  -> Add 1 to the unit's Attacks characteristic (melee).\\n  -> The unit has a 5+ invulnerable save.\"}, {\"name\": \"Bodyguard\", \"type\": \"Datasheet\", \"description\": \"This model gains the Extra Leader Attachment ability.\"}, {\"name\": \"Get Da Good Bitz\", \"type\": \"Datasheet\", \"description\": \"The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives).\"}], \"unit_composition\": [{\"description\": \"1 Boss Nob\", \"line\": 1}, {\"description\": \"9-19 Boy\", \"line\": 2}], \"model_profiles\": {\"boss_nob\": {\"label\": \"Boss Nob\", \"short_label\": \"N\", \"weapons\": [\"Big choppa\", \"Choppa\", \"Power klaw\", \"Slugga\", \"Kombi-weapon\"], \"stats_override\": {\"save\": 4, \"weapon_skill\": 3}, \"transport_slots\": 1}, \"boy\": {\"label\": \"Boy\", \"short_label\": \"B\", \"weapons\": [\"Choppa\", \"Close combat weapon\", \"Shoota\", \"Slugga\", \"Big shoota\", \"Rokkit launcha\"], \"stats_override\": {\"weapon_skill\": 4}, \"transport_slots\": 1}}}, \"models\": [{\"id\": \"U_TA_BOYZ_m0\", \"wounds\": 2, \"current_wounds\": 2, \"base_mm\": 32, \"position\": {\"x\": 250, \"y\": 250}, \"alive\": true, \"status_effects\": [], \"model_type\": \"boss_nob\"}, {\"id\": \"U_TA_BOYZ_m1\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 295, \"y\": 250}, \"alive\": true, \"status_effects\": [], \"model_type\": \"boy\"}, {\"id\": \"U_TA_BOYZ_m2\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 340, \"y\": 250}, \"alive\": true, \"status_effects\": [], \"model_type\": \"boy\"}, {\"id\": \"U_TA_BOYZ_m3\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 385, \"y\": 250}, \"alive\": true, \"status_effects\": [], \"model_type\": \"boy\"}, {\"id\": \"U_TA_BOYZ_m4\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 430, \"y\": 250}, \"alive\": true, \"status_effects\": [], \"model_type\": \"boy\"}, {\"id\": \"U_TA_BOYZ_m5\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 250, \"y\": 295}, \"alive\": true, \"status_effects\": [], \"model_type\": \"boy\"}, {\"id\": \"U_TA_BOYZ_m6\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 295, \"y\": 295}, \"alive\": true, \"status_effects\": [], \"model_type\": \"boy\"}, {\"id\": \"U_TA_BOYZ_m7\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 340, \"y\": 295}, \"alive\": true, \"status_effects\": [], \"model_type\": \"boy\"}, {\"id\": \"U_TA_BOYZ_m8\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 385, \"y\": 295}, \"alive\": true, \"status_effects\": [], \"model_type\": \"boy\"}, {\"id\": \"U_TA_BOYZ_m9\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 430, \"y\": 295}, \"alive\": true, \"status_effects\": [], \"model_type\": \"boy\"}]}, \"U_TA_BURNA\": {\"id\": \"U_TA_BURNA\", \"squad_id\": \"U_BURNA_BOYZ_A\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Burna Boyz\", \"keywords\": [\"BURNA BOYZ\", \"INFANTRY\", \"ORKS\"], \"stats\": {\"move\": 6, \"toughness\": 5, \"save\": 5, \"wounds\": 1, \"leadership\": 7, \"objective_control\": 1}, \"points\": 60, \"is_warlord\": false, \"enhancements\": [], \"wargear\": [\"1x Spanner\", \"1x Big shoota\", \"1x Close combat weapon\", \"4x Burna Boy\", \"4x Burna\", \"4x Cuttin' flames\"], \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"rapid fire 2\", \"abilities\": [{\"id\": \"rapid_fire\", \"x\": 2}]}, {\"name\": \"Burna\", \"type\": \"Ranged\", \"range\": \"12\", \"attacks\": \"D6\", \"ballistic_skill\": \"N/A\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"ignores cover, torrent\", \"abilities\": [{\"id\": \"ignores_cover\"}, {\"id\": \"torrent\"}]}, {\"name\": \"Close combat weapon\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\"}, {\"name\": \"Cuttin' flames\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"2\", \"weapon_skill\": \"4\", \"strength\": \"4\", \"ap\": \"-2\", \"damage\": \"1\"}], \"abilities\": [{\"name\": \"Waaagh!\", \"type\": \"Faction\", \"description\": \"Once per battle, until your next Command phase:\\n  -> The unit gains the Advance & Charge ability.\\n  -> Add 1 to the unit's Strength characteristic (melee).\\n  -> Add 1 to the unit's Attacks characteristic (melee).\\n  -> The unit has a 5+ invulnerable save.\"}, {\"name\": \"Pyromaniaks\", \"type\": \"Datasheet\", \"description\": \"During the Shooting phase, you can re-roll a Wound roll of 1.\"}], \"unit_composition\": [{\"description\": \"1-2 Spanner\", \"line\": 1}, {\"description\": \"4-8 Burna Boy\", \"line\": 2}]}, \"models\": [{\"id\": \"U_TA_BURNA_m0\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 250, \"y\": 700}, \"alive\": true, \"status_effects\": []}, {\"id\": \"U_TA_BURNA_m1\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 295, \"y\": 700}, \"alive\": true, \"status_effects\": []}, {\"id\": \"U_TA_BURNA_m2\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 340, \"y\": 700}, \"alive\": true, \"status_effects\": []}, {\"id\": \"U_TA_BURNA_m3\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 385, \"y\": 700}, \"alive\": true, \"status_effects\": []}, {\"id\": \"U_TA_BURNA_m4\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 430, \"y\": 700}, \"alive\": true, \"status_effects\": []}]}}, true)\nreturn U.has(\"U_TA_BOYZ\") and U.has(\"U_TA_BURNA\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nvar unit = GameState.state[\"units\"][\"U_TA_BOYZ\"]\nvar mid = \"\"\nfor m in unit[\"models\"]:\n\tif str(m.get(\"model_type\",\"\")) == \"boy\":\n\t\tmid = str(m[\"id\"])\n\t\tbreak\nvar txt = str(main._build_model_profile_hover_text(unit, mid))\nreturn (\"Slugga\" in txt) and not (\"hoota\" in txt) and not (\"Rokkit\" in txt) and not (\"Kombi\" in txt)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nRulesEngine.get_unit_weapons(\"U_TA_BURNA\", GameState.state)\nvar unit = GameState.state[\"units\"][\"U_TA_BURNA\"]\nvar mid = \"\"\nfor m in unit[\"models\"]:\n\tvar lo = m.get(\"ranged_loadout\", [])\n\tif lo is Array and lo.has(\"Big shoota\"):\n\t\tmid = str(m[\"id\"])\n\t\tbreak\nvar txt = str(main._build_model_profile_hover_text(unit, mid))\nreturn (mid != \"\") and (\"Big shoota\" in txt) and not (\"Burna\" in txt.replace(\"Burna Boyz\",\"\"))",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nRulesEngine.get_unit_weapons(\"U_TA_BURNA\", GameState.state)\nvar unit = GameState.state[\"units\"][\"U_TA_BURNA\"]\nvar mid = \"\"\nfor m in unit[\"models\"]:\n\tvar lo = m.get(\"ranged_loadout\", [])\n\tif lo is Array and lo.has(\"Burna\"):\n\t\tmid = str(m[\"id\"])\n\t\tbreak\nvar txt = str(main._build_model_profile_hover_text(unit, mid))\nreturn (mid != \"\") and (\"Burna\" in txt) and not (\"Big shoota\" in txt)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nvar panel = main.get_node_or_null(\"UnitStatsPanel\")\nif panel == null: return \"NO_PANEL\"\nvar unit = GameState.state[\"units\"][\"U_TA_BOYZ\"]\npanel.set_collapsed(false)\npanel.display_unit(unit)\nvar parts = []\nvar stack = [panel.player_composition_container]\nwhile stack.size() > 0:\n\tvar n = stack.pop_back()\n\tif n == null: continue\n\tif n is Label: parts.append(str(n.text))\n\tfor c in n.get_children(): stack.append(c)\nvar txt = \" || \".join(parts)\nvar ok = (\"Slugga\" in txt) and not (\"Big shoota\" in txt) and not (\"Rokkit\" in txt) and not (\"Kombi\" in txt)\nreturn \"OK\" if ok else (\"BAD: \" + txt)",
+      "equals": "OK"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nvar panel = main.get_node_or_null(\"UnitStatsPanel\")\nif panel == null: return \"NO_PANEL\"\nvar unit = GameState.state[\"units\"][\"U_TA_BOYZ\"]\npanel.set_collapsed(false)\npanel.display_unit(unit)\nvar parts = []\nvar stack = [panel.player_weapons_container]\nwhile stack.size() > 0:\n\tvar n = stack.pop_back()\n\tif n == null: continue\n\tif n is Label: parts.append(str(n.text))\n\tfor c in n.get_children(): stack.append(c)\nvar txt = \" || \".join(parts)\nvar ok = (\"Slugga\" in txt) and (\"as equipped\" in txt) and not (\"Big shoota\" in txt) and not (\"Rokkit\" in txt) and not (\"Kombi\" in txt)\nreturn \"OK\" if ok else (\"BAD: \" + txt)",
+      "equals": "OK"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nvar panel = main.get_node_or_null(\"UnitStatsPanel\")\nif panel == null: return false\npanel.set_collapsed(false)\npanel.show_panel(true)\npanel.display_unit(GameState.state[\"units\"][\"U_TA_BOYZ\"])\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_boyz_inspect_panel_resolved_loadout"
+    }
+  ]
+}

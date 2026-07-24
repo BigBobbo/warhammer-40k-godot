@@ -1,0 +1,60 @@
+{
+  "id": "iss_loadout_special_marker_taskb_11e",
+  "covers": [
+    "ui.loadout.special_weapon_marker",
+    "scripts.TokenVisual._draw_special_weapon_indicator",
+    "autoloads.RulesEngine.get_special_weapon_model_ids"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 8,
+  "description": "Task B: the special/heavy-weapon model looks distinct on the board. A 5-model Burna Boyz mob (4 Burna + 1 Big shoota) flags exactly one model (the Big shoota, model tb0) as special; an amber spark badge is drawn on that token. Camera zooms in for the screenshot.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.set_edition(11)\nvar U = GameState.state[\"units\"]\nU.merge({\"U_TB_BURNA\": {\"id\": \"U_TB_BURNA\", \"squad_id\": \"U_BURNA_BOYZ_A\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Burna Boyz\", \"keywords\": [\"BURNA BOYZ\", \"INFANTRY\", \"ORKS\"], \"stats\": {\"move\": 6, \"toughness\": 5, \"save\": 5, \"wounds\": 1, \"leadership\": 7, \"objective_control\": 1}, \"points\": 60, \"is_warlord\": false, \"enhancements\": [], \"wargear\": [\"1x Spanner\", \"1x Big shoota\", \"1x Close combat weapon\", \"4x Burna Boy\", \"4x Burna\", \"4x Cuttin' flames\"], \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"rapid fire 2\", \"abilities\": [{\"id\": \"rapid_fire\", \"x\": 2}]}, {\"name\": \"Burna\", \"type\": \"Ranged\", \"range\": \"12\", \"attacks\": \"D6\", \"ballistic_skill\": \"N/A\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"ignores cover, torrent\", \"abilities\": [{\"id\": \"ignores_cover\"}, {\"id\": \"torrent\"}]}, {\"name\": \"Close combat weapon\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\"}, {\"name\": \"Cuttin' flames\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"2\", \"weapon_skill\": \"4\", \"strength\": \"4\", \"ap\": \"-2\", \"damage\": \"1\"}], \"abilities\": [{\"name\": \"Waaagh!\", \"type\": \"Faction\", \"description\": \"Once per battle, until your next Command phase:\\n  -> The unit gains the Advance & Charge ability.\\n  -> Add 1 to the unit's Strength characteristic (melee).\\n  -> Add 1 to the unit's Attacks characteristic (melee).\\n  -> The unit has a 5+ invulnerable save.\"}, {\"name\": \"Pyromaniaks\", \"type\": \"Datasheet\", \"description\": \"During the Shooting phase, you can re-roll a Wound roll of 1.\"}], \"unit_composition\": [{\"description\": \"1-2 Spanner\", \"line\": 1}, {\"description\": \"4-8 Burna Boy\", \"line\": 2}]}, \"models\": [{\"id\": \"tb0\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 760, \"y\": 720}, \"alive\": true, \"status_effects\": []}, {\"id\": \"tb1\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 835, \"y\": 720}, \"alive\": true, \"status_effects\": []}, {\"id\": \"tb2\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 910, \"y\": 720}, \"alive\": true, \"status_effects\": []}, {\"id\": \"tb3\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 985, \"y\": 720}, \"alive\": true, \"status_effects\": []}, {\"id\": \"tb4\", \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": {\"x\": 1060, \"y\": 720}, \"alive\": true, \"status_effects\": []}]}}, true)\nreturn U.has(\"U_TB_BURNA\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nvar unit = GameState.state[\"units\"][\"U_TB_BURNA\"]\nvar sp = RulesEngine.get_special_weapon_model_ids(unit)\nreturn \"%d:%s\" % [sp.size(), (\"tb0\" if sp.has(\"tb0\") else \"?\")]",
+      "equals": "1:tb0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nmain._recreate_unit_visuals()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.get_root().get_node_or_null(\"Main\")\nif main == null: main = tree.current_scene\nvar vp = main.get_viewport().get_visible_rect().size\nvar z = 1.7\nmain.view_rotation = 0.0\nmain.view_zoom = z\nmain.view_offset = Vector2(910, 720) - vp / (2.0 * z)\nmain.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_burna_special_weapon_marker"
+    }
+  ]
+}

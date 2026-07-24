@@ -400,81 +400,150 @@ func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContai
 	var weapons = unit_data["meta"]["weapons"]
 	if weapons.is_empty():
 		return
-	
+
+	# MA-LOADOUT Phase 2 (Task A): which ranged guns the unit's models ACTUALLY
+	# carry (empty = unresolved / single-model -> show the whole datasheet menu).
+	var carried_ranged = _carried_ranged_counts(unit_data)
+	var ranged_resolved = not carried_ranged.is_empty()
+
 	# Separate weapons by type
 	var ranged_weapons = []
 	var melee_weapons = []
-	
+
 	for weapon in weapons:
 		if weapon.get("type", "") == "Ranged":
 			ranged_weapons.append(weapon)
 		elif weapon.get("type", "") == "Melee":
 			melee_weapons.append(weapon)
-	
+
 	# Create ranged weapons table
 	if not ranged_weapons.is_empty():
 		var ranged_label = Label.new()
-		ranged_label.text = "RANGED WEAPONS"
+		# Signal when the list is the resolved loadout rather than the full menu.
+		ranged_label.text = "RANGED WEAPONS (as equipped)" if ranged_resolved else "RANGED WEAPONS"
 		ranged_label.add_theme_font_size_override("font_size", 14)
 		ranged_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 		weapons_container.add_child(ranged_label)
-		
+
 		var ranged_grid = GridContainer.new()
-		ranged_grid.columns = 7
+		ranged_grid.columns = 8
 		ranged_grid.add_theme_constant_override("h_separation", 10)
 		ranged_grid.add_theme_constant_override("v_separation", 5)
-		
+
 		# Headers
-		for header in ["Range", "A", "BS", "S", "AP", "D", "Abilities"]:
+		for header in ["Weapon", "Range", "A", "BS", "S", "AP", "D", "Abilities"]:
 			var label = Label.new()
 			label.text = header
 			label.add_theme_font_size_override("font_size", 12)
 			label.modulate = _WhiteDwarfTheme.WH_GOLD  # Gold tint for ranged headers
 			ranged_grid.add_child(label)
-		
-		# Data rows
+
+		# Data rows — when resolved, show only carried guns, tagged with how many
+		# models carry each; otherwise show every datasheet option (unchanged).
 		for weapon in ranged_weapons:
-			_add_weapon_row(ranged_grid, weapon, "ranged")
-		
+			var wname = str(weapon.get("name", ""))
+			if ranged_resolved and not carried_ranged.has(wname):
+				continue
+			var name_cell = wname
+			if ranged_resolved:
+				var c = int(carried_ranged.get(wname, 0))
+				if c > 1:
+					name_cell = "%s ×%d" % [wname, c]
+			_add_weapon_row(ranged_grid, weapon, "ranged", name_cell)
+
 		weapons_container.add_child(ranged_grid)
-		
+
 		# Add spacing
 		var spacer = Control.new()
 		spacer.custom_minimum_size = Vector2(0, 10)
 		weapons_container.add_child(spacer)
-	
-	# Create melee weapons table
+
+	# Create melee weapons table (Task D: resolved melee loadout, symmetric w/ ranged)
 	if not melee_weapons.is_empty():
+		var carried_melee = _carried_melee_counts(unit_data)
+		var melee_resolved = not carried_melee.is_empty()
+
 		var melee_label = Label.new()
-		melee_label.text = "MELEE WEAPONS"
+		melee_label.text = "MELEE WEAPONS (as equipped)" if melee_resolved else "MELEE WEAPONS"
 		melee_label.add_theme_font_size_override("font_size", 14)
 		melee_label.add_theme_color_override("font_color", Color(0.9, 0.4, 0.35))  # Lightened WH red
 		weapons_container.add_child(melee_label)
-		
+
 		var melee_grid = GridContainer.new()
-		melee_grid.columns = 7
+		melee_grid.columns = 8
 		melee_grid.add_theme_constant_override("h_separation", 10)
 		melee_grid.add_theme_constant_override("v_separation", 5)
-		
+
 		# Headers
-		for header in ["Range", "A", "WS", "S", "AP", "D", "Abilities"]:
+		for header in ["Weapon", "Range", "A", "WS", "S", "AP", "D", "Abilities"]:
 			var label = Label.new()
 			label.text = header
 			label.add_theme_font_size_override("font_size", 12)
 			label.modulate = Color(0.9, 0.4, 0.35)  # Lightened WH red for melee headers
 			melee_grid.add_child(label)
-		
-		# Data rows
+
+		# Data rows — when resolved, show only carried melee weapons with a model
+		# count; otherwise show every datasheet option.
 		for weapon in melee_weapons:
-			_add_weapon_row(melee_grid, weapon, "melee")
-		
+			var wname = str(weapon.get("name", ""))
+			if melee_resolved and not carried_melee.has(wname):
+				continue
+			var name_cell = wname
+			if melee_resolved:
+				var c = int(carried_melee.get(wname, 0))
+				if c > 1:
+					name_cell = "%s ×%d" % [wname, c]
+			_add_weapon_row(melee_grid, weapon, "melee", name_cell)
+
 		weapons_container.add_child(melee_grid)
 
-func _add_weapon_row(grid: GridContainer, weapon: Dictionary, type: String) -> void:
+# Task A (MA-LOADOUT Phase 2): {ranged weapon name: model count} that the unit's
+# models actually carry, using the resolved per-model loadout. Empty when the
+# unit isn't resolved (caller falls back to the full menu) or is a single-model
+# unit (which fires all its weapons and must never be filtered).
+func _carried_ranged_counts(unit_data: Dictionary) -> Dictionary:
+	var models = unit_data.get("models", [])
+	if models.size() < 2:
+		return {}
+	RulesEngine.ensure_loadout_resolved(unit_data)
+	var counts := {}
+	var any_resolved := false
+	for m in models:
+		if not m.get("alive", true):
+			continue
+		var lo = m.get("ranged_loadout", null)
+		if lo is Array:
+			any_resolved = true
+			for nm in lo:
+				counts[str(nm)] = int(counts.get(str(nm), 0)) + 1
+	return counts if any_resolved else {}
+
+# Task D (MA-LOADOUT Phase 1b): melee counterpart of _carried_ranged_counts.
+# {melee weapon name: model count} actually carried, or empty when the unit's
+# melee isn't resolved / it's a single-model unit.
+func _carried_melee_counts(unit_data: Dictionary) -> Dictionary:
+	var models = unit_data.get("models", [])
+	if models.size() < 2:
+		return {}
+	RulesEngine.ensure_loadout_resolved(unit_data)
+	var counts := {}
+	var any_resolved := false
+	for m in models:
+		if not m.get("alive", true):
+			continue
+		var lo = m.get("melee_loadout", null)
+		if lo is Array:
+			any_resolved = true
+			for nm in lo:
+				counts[str(nm)] = int(counts.get(str(nm), 0)) + 1
+	return counts if any_resolved else {}
+
+func _add_weapon_row(grid: GridContainer, weapon: Dictionary, type: String, name_cell: String = "") -> void:
 	var cells = []
-	
+
 	if type == "ranged":
 		cells = [
+			name_cell,
 			str(weapon.get("range", "")) + "\"" if weapon.get("range", "") != "" else "",
 			str(weapon.get("attacks", "")),
 			str(weapon.get("ballistic_skill", "")) + "+" if weapon.get("ballistic_skill", "") != "" else "",
@@ -485,6 +554,7 @@ func _add_weapon_row(grid: GridContainer, weapon: Dictionary, type: String) -> v
 		]
 	else:  # melee
 		cells = [
+			name_cell,
 			"Melee",
 			str(weapon.get("attacks", "")),
 			str(weapon.get("weapon_skill", "")) + "+" if weapon.get("weapon_skill", "") != "" else "",
@@ -493,11 +563,13 @@ func _add_weapon_row(grid: GridContainer, weapon: Dictionary, type: String) -> v
 			str(weapon.get("damage", "")),
 			weapon.get("special_rules", "")
 		]
-	
-	for cell_text in cells:
+
+	for i in range(cells.size()):
 		var label = Label.new()
-		label.text = str(cell_text)
+		label.text = str(cells[i])
 		label.add_theme_font_size_override("font_size", 11)
+		if i == 0:
+			label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 		grid.add_child(label)
 
 func _create_abilities_list(unit_data: Dictionary, abilities_container: VBoxContainer) -> void:
@@ -687,6 +759,12 @@ func _create_composition_list(unit_data: Dictionary, composition_container: VBox
 	var model_profiles = meta.get("model_profiles", {})
 	var models = unit_data.get("models", [])
 
+	# MA-LOADOUT Phase 2 (Task A): resolve the per-model ranged loadout (idempotent)
+	# so the composition breakdown can show the guns models ACTUALLY carry rather
+	# than the whole datasheet menu.
+	if models.size() >= 2:
+		RulesEngine.ensure_loadout_resolved(unit_data)
+
 	# If model_profiles exist, show detailed per-type breakdown
 	if not model_profiles.is_empty() and not models.is_empty():
 		_create_model_profiles_breakdown(composition_container, model_profiles, models, meta)
@@ -783,11 +861,15 @@ func _create_model_profiles_breakdown(container: VBoxContainer, model_profiles: 
 			override_label.modulate = Color(0.9, 0.85, 0.7)  # Slightly gold tint
 			container.add_child(override_label)
 
-		# Show weapons for this profile
+		# Show weapons for this profile. When the per-model ranged loadout has been
+		# resolved (MA-LOADOUT Phase 2 / Task A) show the guns this type ACTUALLY
+		# carries, grouped with counts, instead of the full datasheet menu; the
+		# melee menu is kept until melee resolution lands. Falls back to the menu
+		# when the unit is unresolved.
 		var profile_weapons = profile.get("weapons", [])
 		if not profile_weapons.is_empty():
 			var weapons_label = Label.new()
-			weapons_label.text = "  Weapons: " + ", ".join(profile_weapons)
+			weapons_label.text = "  Weapons: " + _format_profile_weapons(models, profile_key, profile_weapons, meta)
 			weapons_label.add_theme_font_size_override("font_size", 10)
 			weapons_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			container.add_child(weapons_label)
@@ -821,6 +903,64 @@ func _create_model_profiles_breakdown(container: VBoxContainer, model_profiles: 
 	total_label.add_theme_font_size_override("font_size", 11)
 	total_label.modulate = Color(0.8, 1.0, 0.8) if total_alive == total_count else Color(1.0, 0.8, 0.8)
 	container.add_child(total_label)
+
+# Task A (MA-LOADOUT Phase 2): format the "Weapons:" line for one model_type
+# group. Prefers the resolved per-model RANGED loadout (grouped with counts) over
+# the full datasheet menu, so a Slugga Boyz mob reads "9x Slugga" instead of the
+# 6-option boy menu; melee/other options are kept from the menu (melee resolution
+# is a later task). Falls back to the whole menu when the type isn't resolved.
+func _format_profile_weapons(models: Array, profile_key: String, profile_weapons: Array, meta: Dictionary) -> String:
+	# Weapon name -> datasheet type (Ranged/Melee/...).
+	var name_type := {}
+	for w in meta.get("weapons", []):
+		name_type[str(w.get("name", ""))] = str(w.get("type", ""))
+	# Count resolved ranged AND melee weapons carried by alive models of THIS type.
+	var carried_r := {}
+	var carried_m := {}
+	var any_r := false
+	var any_m := false
+	for m in models:
+		if not m.get("alive", true):
+			continue
+		if str(m.get("model_type", "")) != profile_key:
+			continue
+		var lor = m.get("ranged_loadout", null)
+		if lor is Array:
+			any_r = true
+			for nm in lor:
+				carried_r[str(nm)] = int(carried_r.get(str(nm), 0)) + 1
+		var lom = m.get("melee_loadout", null)
+		if lom is Array:
+			any_m = true
+			for nm in lom:
+				carried_m[str(nm)] = int(carried_m.get(str(nm), 0)) + 1
+	if not any_r and not any_m:
+		# Nothing resolved -> keep the full menu exactly as before.
+		return ", ".join(profile_weapons)
+	var parts: Array = []
+	# Ranged: resolved guns (with counts) when known, else the ranged menu options.
+	if any_r:
+		var ro = carried_r.keys()
+		ro.sort()
+		for nm in ro:
+			var c = int(carried_r[nm])
+			parts.append(("%dx %s" % [c, nm]) if c > 1 else str(nm))
+	else:
+		for wname in profile_weapons:
+			if name_type.get(str(wname), "") == "Ranged":
+				parts.append(str(wname))
+	# Melee: resolved weapons (with counts) when known, else the melee menu options.
+	if any_m:
+		var mo = carried_m.keys()
+		mo.sort()
+		for nm in mo:
+			var c = int(carried_m[nm])
+			parts.append(("%dx %s" % [c, nm]) if c > 1 else str(nm))
+	else:
+		for wname in profile_weapons:
+			if name_type.get(str(wname), "") != "Ranged":
+				parts.append(str(wname))
+	return ", ".join(parts)
 
 # Stat name abbreviations matching Warhammer 40k conventions
 const STAT_ABBREVIATIONS = {
