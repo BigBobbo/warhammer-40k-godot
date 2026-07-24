@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.95.0",
+			"date": "2026-07-24",
+			"summary": "Basic Trainin' is here — an in-game tutorial that teaches how the app controls, for players who already know the tabletop rules. A new Tutorial button on the main menu opens a lesson picker; the first lesson, 'Scoutin' da Field', walks you through camera, unit selection, datasheets, the log tabs, and your first move order — with an Ork instructor barking directions. Works fully on mouse+keyboard AND on a gamepad (Steam Deck style), with prompts that switch to controller glyphs automatically.",
+			"changes": [
+				"New 'Tutorial' button on the main menu, right under Start Game, opening the Basic Trainin' lesson picker (completion checkmarks, replay any time).",
+				"Lesson T1 'Scoutin' da Field' (~4 min): camera pan/zoom, picking units from the list or board, the unit datasheet, Game Log / Dice Log tabs, the hint bar (pad) or hotkey help (keyboard), the End Phase button, and staging + confirming your first move.",
+				"Lessons run in a small scripted skirmish — your Orks (Warboss leading Boyz inside a Battlewagon, plus Gretchin) against an AI Custodes patrol — separate from your real games: no autosaves, no replays, and your save slots stay untouched.",
+				"While a lesson is active, only the taught actions are allowed — pressing anything else gets a friendly nudge from Da Boss instead of breaking the lesson. Skip Step and Exit Tutorial are always available.",
+				"Tutorial prompts show the right buttons for YOUR input device — keyboard names follow your rebindings, and switching to a controller mid-lesson switches the instructions to pad glyphs.",
+				"Fixed: pressing Escape with a unit datasheet open now closes the datasheet instead of stacking the settings menu on top of it — keyboard players previously had no way to close it at all."
+			]
+		},
+		{
 			"version": "0.94.0",
 			"date": "2026-07-24",
 			"summary": "The computer now picks casualties intelligently. When the AI defends — or you turn on 'Computer allocates wounds' — models are no longer removed in list order: cheap bodies die first and from the front, while sergeants, special-weapon carriers, objective holders and unit coherency are protected.",

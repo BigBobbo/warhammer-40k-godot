@@ -14470,6 +14470,15 @@ func _run_pause_menu_cascade(is_keyboard_escape: bool) -> bool:
 		MeasuringTapeManager.cancel_or_exit()
 		_update_measure_mode_hint()
 		return true
+	# Datasheet modal: a top overlay — Escape must close it, not stack the
+	# settings menu on top. The old "Shared ESC" branch later in Main._input
+	# is unreachable for ESC (this cascade consumes the event first), which
+	# left keyboard players with NO way to close the datasheet at all — the
+	# pad's Y toggle was the only path. Found while validating tutorial T1.
+	var datasheet_modal = get_node_or_null("DatasheetModal")
+	if datasheet_modal != null and datasheet_modal.visible:
+		datasheet_modal.close()
+		return true
 	if is_keyboard_escape and shooting_controller and shooting_controller.active_shooter_id != "":
 		# Let ShootingController handle ESC for deselect/cancel.
 		return false

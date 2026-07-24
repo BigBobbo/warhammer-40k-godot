@@ -600,7 +600,7 @@ Sizes: S ≈ a session, M ≈ 2–4 sessions, L ≈ a week of sessions. Every
 milestone that ships player-facing behavior bumps `40k/data/version_history.json`
 and lands only with its scenarios green (`bash 40k/tests/run_scenarios.sh`).
 
-### TM0 — Engine vertical slice + T1 (M)
+### TM0 — Engine vertical slice + T1 (M) — ✅ SHIPPED 2026-07-24 (v0.95.0)
 `TutorialManager` (lifecycle, progress store, gate hook, fixture boot),
 `TutorialScript` parser + schema doc, instructor card (device-adaptive text,
 Skip/Exit, hint-after-timeout), **soft** spotlight only (pulsing ring via the

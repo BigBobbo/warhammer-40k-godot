@@ -376,6 +376,11 @@ func _perform_event_autosave(event_tag: String, event_metadata: Dictionary) -> b
 		print("SaveLoadManager: Autosave disabled, skipping event autosave for: %s" % event_tag)
 		return false
 
+	# Tutorial lessons never autosave — keeps player save slots clean
+	# (PRPs/tutorial_system.md §5.2).
+	if GameState.state.get("meta", {}).get("tutorial", false):
+		return false
+
 	# MEM-6: on web these rotating autosaves targeted "cloud://autosaves/…",
 	# which FileAccess cannot open — the full snapshot + serialization ran and
 	# was then thrown away on every round end / timer tick. The phase-start
@@ -927,6 +932,10 @@ func set_autosave_interval(seconds: float) -> void:
 
 func perform_autosave() -> bool:
 	if not autosave_enabled:
+		return false
+
+	# Tutorial lessons never autosave (PRPs/tutorial_system.md §5.2).
+	if GameState.state.get("meta", {}).get("tutorial", false):
 		return false
 
 	# MEM-6: same as _perform_event_autosave — "cloud://" paths can't be opened

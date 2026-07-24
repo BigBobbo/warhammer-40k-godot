@@ -74,6 +74,8 @@ VirtualCursor="*res://autoloads/VirtualCursor.gd"
 MCPServer="*res://addons/godot_mcp/mcp_server.gd"
 ScenarioRunner="*res://autoloads/ScenarioRunner.gd"
 AIBenchmarkRunner="*res://autoloads/AIBenchmarkRunner.gd"
+TutorialOverlay="*res://scripts/tutorial/TutorialOverlay.gd"
+TutorialManager="*res://autoloads/TutorialManager.gd"
 
 [display]
 

@@ -1,0 +1,84 @@
+{
+  "id": "tut_t1_basics",
+  "covers": ["tutorial.t1.basics", "tutorial.engine.gate", "tutorial.engine.progress"],
+  "rng_seed": 4242,
+  "description": "Tutorial lesson T1 (Scoutin' da Field), mouse+keyboard player path, end to end: main menu -> Tutorial button -> lesson picker -> lesson boots from the tutorial_postdeploy fixture -> every step is completed with real input (camera wheel, unit-list clicks, datasheet key, dice-log tab, hotkey help, grot drag, confirm move) -> the action gate blocks an out-of-scope END_MOVEMENT with tutorial_blocked -> lesson completes, summary shows, completion is persisted, Back to Menu returns to the main menu.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "screenshot", "label": "00_menu" },
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton" },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "01_picker" },
+    { "act": "click_node", "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t1_basics/Play_t1_basics" },
+    { "act": "wait_seconds", "seconds": 8.0 },
+    { "act": "execute_script", "script": "TutorialManager.active", "equals": true },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "welcome" },
+    { "act": "screenshot", "label": "02_welcome" },
+
+    { "act": "dispatch_action", "action": { "type": "END_MOVEMENT" } },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "expect_action_result", "path": "tutorial_blocked", "equals": true },
+    { "act": "expect_phase", "equals": 7 },
+
+    { "act": "click_node", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton" },
+    { "act": "wait_frames", "frames": 15 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "camera" },
+
+    { "act": "hover_board_at", "x": 880.0, "y": 600.0 },
+    { "act": "simulate_wheel", "direction": "up", "count": 2 },
+    { "act": "wait_frames", "frames": 20 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "select_wagon" },
+
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 0 },
+    { "act": "wait_frames", "frames": 20 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "open_datasheet" },
+    { "act": "screenshot", "label": "03_wagon_selected" },
+
+    { "act": "simulate_key", "keycode": "I" },
+    { "act": "wait_frames", "frames": 20 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "close_datasheet" },
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_frames", "frames": 20 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "dice_log" },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog" },
+    { "act": "wait_frames", "frames": 20 },
+    { "act": "screenshot", "label": "04_dice_log" },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "hotkey_help_open" },
+
+    { "act": "simulate_key", "keycode": "Question" },
+    { "act": "wait_frames", "frames": 20 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "hotkey_help_close" },
+    { "act": "simulate_key", "keycode": "Question" },
+    { "act": "wait_frames", "frames": 20 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "end_phase_intro" },
+    { "act": "screenshot", "label": "05_end_phase_intro" },
+
+    { "act": "click_node", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton" },
+    { "act": "wait_frames", "frames": 15 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "move_grots" },
+
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 2 },
+    { "act": "wait_frames", "frames": 15 },
+    { "act": "drag_board", "from_x": 1280.0, "from_y": 680.0, "to_x": 1312.0, "to_y": 776.0 },
+    { "act": "wait_frames", "frames": 20 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "confirm_grots" },
+    { "act": "screenshot", "label": "06_grot_staged" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton" },
+    { "act": "wait_frames", "frames": 20 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "wrap" },
+
+    { "act": "click_node", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton" },
+    { "act": "wait_frames", "frames": 20 },
+    { "act": "expect_node_visible", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "TutorialManager.is_completed(\"t1_basics\")", "equals": true },
+    { "act": "screenshot", "label": "07_summary" },
+
+    { "act": "click_node", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton" },
+    { "act": "wait_seconds", "seconds": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/ScrollContainer", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "TutorialManager.active", "equals": false },
+    { "act": "screenshot", "label": "08_back_at_menu" }
+  ]
+}
