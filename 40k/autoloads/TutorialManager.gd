@@ -432,9 +432,12 @@ func _eval_condition(cond: Dictionary, path: String) -> bool:
 		var value = _walk_path(GameState.state, str(cond.state))
 		return _compare(cond, value)
 	if cond.has("script"):
-		if _step_script == null:
+		# Compile on demand (cached by code string) — script leaves can sit
+		# at the top level OR nested inside any/all combinators.
+		var leaf_script := _compile_snippet(str(cond.script))
+		if leaf_script == null:
 			return false
-		var value2 = _call_snippet(_step_script)
+		var value2 = _call_snippet(leaf_script)
 		if cond.has("equals") or cond.has("not_equals") or cond.has("exists") \
 				or cond.has("expect_min") or cond.has("expect_max"):
 			return _compare(cond, value2)

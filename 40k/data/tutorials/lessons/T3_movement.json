@@ -1,0 +1,125 @@
+{
+  "id": "t3_get_movin",
+  "order": 3,
+  "title": "Get Movin'",
+  "subtitle": "Movement phase: disembark, move modes & the confirm gate",
+  "est_minutes": 5,
+  "boot": { "fixture": "tutorial_postdeploy", "phase": 7, "rng_seed": 4242 },
+  "summary": {
+    "bark": "NOW WE'S ROLLIN'!",
+    "bullets": [
+      "Click a unit's [Embarked] row to get da boyz out of a transport — place each base inside da glowin' ring.",
+      "Movement modes: pick da radio, den [b]Confirm Movement Mode[/b] — it don't stick till ya confirm.",
+      "Drag models (or carry 'em wiv da pad), [b]Undo Model[/b] / [b]Reset Unit[/b] fix mistakes.",
+      "[b]End This Unit's Move[/b] locks one unit. Da big red button ends da whole phase.",
+      "Next lesson: Dakka Time — shootin'."
+    ]
+  },
+  "steps": [
+    {
+      "id": "intro",
+      "prompt": {
+        "bark": "MOVEMENT PHASE!",
+        "text": "Every unit can move once a turn. Pick 'em from da unit list on da right — we'll get da Boyz out of da wagon first."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "done": { "ack": true }
+    },
+    {
+      "id": "disembark_start",
+      "prompt": {
+        "bark": "EVERYBODY OUT!",
+        "kbm": "Click da [b]Boyz + Warboss [Embarked][/b] row in da list, den click [b]OK[/b] to start da disembark.",
+        "pad": "Glide {ls} onto da [b]Boyz + Warboss [Embarked][/b] row, press {a}, den {a} again on da dialog."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList" },
+      "spotlight": "soft",
+      "allow": ["DISEMBARK_UNIT", "CONFIRM_DISEMBARK", "BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"],
+      "done": { "any": [
+        { "script": "var br = tree.root.get_node_or_null(\"/root/Main/BoardRoot\")\nif br == null:\n\treturn false\nfor c in br.get_children():\n\tvar scr = c.get_script()\n\tif scr != null and \"DisembarkController\" in str(scr.resource_path):\n\t\treturn true\nreturn false" },
+        { "state": "units.U_BOYZ_T.disembarked_this_phase", "equals": true }
+      ] },
+      "hint": { "text": "It's da row wiv [Embarked in Battlewagon] on it." }
+    },
+    {
+      "id": "disembark_place",
+      "prompt": {
+        "bark": "INSIDE DA RING!",
+        "kbm": "Click a spot inside da glowin' ring for [b]each[/b] model — keep 'em close together an' not on top of each uvver. Da move locks in after da last one.",
+        "pad": "Glide {ls} to a spot inside da ring an' press {a} for [b]each[/b] model — keep 'em close, not stacked."
+      },
+      "spotlight": "none",
+      "allow": ["DISEMBARK_UNIT", "CONFIRM_DISEMBARK"],
+      "done": { "any": [
+        { "action": { "type": "CONFIRM_DISEMBARK" } },
+        { "state": "units.U_BOYZ_T.disembarked_this_phase", "equals": true }
+      ] },
+      "hint_after_s": 35,
+      "hint": { "text": "Right-click cancels if ya get stuck — den click da row again. Every base needs to be wivin 3\" of da wagon." }
+    },
+    {
+      "id": "wagon_mode",
+      "prompt": {
+        "bark": "PUT YER FOOT DOWN!",
+        "kbm": "Now da wagon: click [b]Battlewagon[/b] in da list, pick da [b]Advance[/b] radio, den hit [b]Confirm Movement Mode[/b] — da mode don't stick till ya confirm it!",
+        "pad": "Tap {rb} till da [b]Battlewagon[/b]'s picked, glide onto [b]Advance[/b], {a}, den [b]Confirm Movement Mode[/b] an' {a}."
+      },
+      "anchor": { "button_text": "Confirm Movement Mode" },
+      "spotlight": "soft",
+      "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "LOCK_MOVEMENT_MODE"],
+      "done": { "action": { "type": "BEGIN_ADVANCE" } },
+      "hint": { "text": "Radio first, den da Confirm Movement Mode button under it. Da dice add to da wagon's move." }
+    },
+    {
+      "id": "keep_da_roll",
+      "prompt": {
+        "bark": "DA DICE SPOKE!",
+        "text": "Advance adds a D6 to da move — an' when a roll's dis important, da game offers a [b]Command Re-roll[/b] (costs 1 CP). We're keepin' it: click [b]Keep Roll[/b]."
+      },
+      "anchor": { "button_text": "Keep Roll" },
+      "spotlight": "soft",
+      "allow": [],
+      "done": { "action": { "type": "DECLINE_COMMAND_REROLL" } },
+      "skip_fallback": { "dispatch": { "type": "DECLINE_COMMAND_REROLL" } },
+      "hint": { "text": "Keep Roll — save da CP for somefin' bigger." }
+    },
+    {
+      "id": "wagon_move",
+      "prompt": {
+        "bark": "SHIFT IT!",
+        "kbm": "Drag da wagon's hull forward an' drop it — da panel shows how many inches ya used.",
+        "pad": "Press {a} on da wagon to grab it, glide {ls} where ya want it, {a} to drop."
+      },
+      "anchor": { "unit": "U_BATTLEWAGON_T" },
+      "spotlight": "soft",
+      "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE"],
+      "done": { "action": { "type": "STAGE_MODEL_MOVE", "actor_unit_id": "U_BATTLEWAGON_T" } },
+      "hint": { "text": "Grab da middle of da hull. [b]Undo Model[/b] takes da last drop back." }
+    },
+    {
+      "id": "wagon_confirm",
+      "prompt": {
+        "bark": "LOCK IT IN!",
+        "kbm": "Happy? [b]End This Unit's Move[/b] locks da wagon in. ([b]Undo Model[/b] an' [b]Reset Unit[/b] are right next to it if ya ain't.)",
+        "pad": "Glide onto [b]End This Unit's Move[/b] an' press {a}."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton" },
+      "spotlight": "soft",
+      "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE", "CONFIRM_UNIT_MOVE"],
+      "done": { "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_BATTLEWAGON_T" } }
+    },
+    {
+      "id": "end_phase",
+      "prompt": {
+        "bark": "DONE 'ERE!",
+        "kbm": "Da grots can stay put — units don't [i]have[/i] to move. Hit da big red button to end da Movement phase.",
+        "pad": "Da grots can stay put. Press {menu} an' confirm to end da Movement phase."
+      },
+      "anchor": { "node": "/root/Main/PhaseActionButton" },
+      "spotlight": "strict",
+      "allow": ["END_MOVEMENT"],
+      "done": { "any": [ { "action": { "type": "END_MOVEMENT" } }, { "phase": 8 } ] }
+    }
+  ]
+}

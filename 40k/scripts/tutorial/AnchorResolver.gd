@@ -62,7 +62,14 @@ static func resolve(anchor: Dictionary, tree: SceneTree) -> Dictionary:
 # Screen rect for an already-resolved node (cheap per-frame refresh path).
 static func rect_for_node(n: Node, tree: SceneTree) -> Rect2:
 	if n is Control:
-		return (n as Control).get_global_rect()
+		var rect := (n as Control).get_global_rect()
+		# Controls inside an embedded Window (AcceptDialog family) report
+		# window-local coords — offset by the window position so the
+		# spotlight lands on screen where the player sees the button.
+		var win := (n as Control).get_window()
+		if win != null and tree != null and win != tree.root:
+			rect.position += Vector2(win.position)
+		return rect
 	if n is Node2D:
 		var center := node2d_to_screen(n as Node2D, tree)
 		if center == Vector2.INF:

@@ -436,11 +436,18 @@ func _do_click_unit(step: Dictionary) -> Dictionary:
 
 func _do_click_node(step: Dictionary) -> Dictionary:
 	var node_path: String = str(step.get("node", ""))
-	if node_path == "":
-		return {"pass": false, "error": "click_node needs node"}
-	var node: Node = get_node_or_null(node_path)
+	var button_text: String = str(step.get("button_text", ""))
+	if node_path == "" and button_text == "":
+		return {"pass": false, "error": "click_node needs node or button_text"}
+	var node: Node
+	if node_path != "":
+		node = get_node_or_null(node_path)
+	else:
+		# Same resolver pad_cursor_glide uses — for procedurally-built
+		# controls with no stable NodePath (e.g. the movement mode radios).
+		node = _find_visible_button_by_text(button_text)
 	if node == null:
-		return {"pass": false, "error": "no node at path %s" % node_path}
+		return {"pass": false, "error": "no node at path %s%s" % [node_path, button_text]}
 
 	# Shortcut: emit pressed directly on Buttons (skips hit-testing pitfalls)
 	if step.get("emit_pressed", false) and node.has_signal("pressed"):

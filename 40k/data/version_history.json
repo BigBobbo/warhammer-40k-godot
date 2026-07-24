@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.96.0",
+			"date": "2026-07-24",
+			"summary": "Basic Trainin' lesson 2: 'Get Movin''. The movement-phase tutorial teaches disembarking da Boyz from the Battlewagon (with the 3\" placement ring), the Advance mode + Confirm Movement Mode gate, the Command Re-roll offer, carrying/dragging models, and ending a unit's move versus ending the phase. With two lessons installed the picker now offers the Full Course, and finishing a lesson offers the next one.",
+			"changes": [
+				"New lesson T3 'Get Movin'' (~5 min): unit list -> disembark row -> placement ring, movement mode radios + the Confirm Movement Mode gate, the Command Re-roll keep/re-roll dialog, dragging the Battlewagon hull, Undo Model / Reset Unit, End This Unit's Move, and End Movement Phase.",
+				"The tutorial spotlight has a strict mode: the screen dims around the highlighted control and stray clicks outside it are blocked (used on End Phase so you can't fat-finger past the lesson).",
+				"Lesson picker shows a Full Course row once more than one lesson is installed; lesson summaries offer 'Next Lesson'.",
+				"Tutorial prompts anchored to buttons inside popup dialogs now highlight the right spot on screen (embedded-window coordinates were off)."
+			]
+		},
+		{
 			"version": "0.95.0",
 			"date": "2026-07-24",
 			"summary": "Basic Trainin' is here — an in-game tutorial that teaches how the app controls, for players who already know the tabletop rules. A new Tutorial button on the main menu opens a lesson picker; the first lesson, 'Scoutin' da Field', walks you through camera, unit selection, datasheets, the log tabs, and your first move order — with an Ork instructor barking directions. Works fully on mouse+keyboard AND on a gamepad (Steam Deck style), with prompts that switch to controller glyphs automatically.",

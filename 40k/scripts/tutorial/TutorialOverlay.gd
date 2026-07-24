@@ -37,6 +37,7 @@ var _anchor_ok: bool = false
 var _spotlight_mode: String = "none"
 var _reresolve_accum: float = 0.0
 var _card_at_bottom: bool = false
+var _dim_strips: Array = []
 
 
 func _ready() -> void:
@@ -59,6 +60,20 @@ func _build() -> void:
 	_spotlight.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_spotlight.draw.connect(_draw_spotlight)
 	add_child(_spotlight)
+
+	# Strict-mode dimmer: four ColorRect strips framing the anchor cutout.
+	# mouse_filter STOP means stray pointer input outside the hole is
+	# swallowed; input inside the hole passes to the game untouched
+	# (PRPs/tutorial_system.md §4.3). Built BEFORE the card so the card
+	# stays on top and clickable.
+	for i in range(4):
+		var strip := ColorRect.new()
+		strip.name = "DimStrip%d" % i
+		strip.color = Color(WhiteDwarfThemeData.WH_BLACK, 0.45)
+		strip.mouse_filter = Control.MOUSE_FILTER_STOP
+		strip.visible = false
+		add_child(strip)
+		_dim_strips.append(strip)
 
 	_card = PanelContainer.new()
 	_card.name = "InstructorCard"
@@ -258,6 +273,8 @@ func show_summary(view: Dictionary) -> void:
 	_anchor_node = null
 	_anchor_ok = false
 	_spotlight_mode = "none"
+	for strip in _dim_strips:
+		strip.visible = false
 	_place_card(false)
 	var idm := get_node_or_null("/root/InputDeviceManager")
 	if idm != null and idm.is_pad_active():
@@ -275,6 +292,8 @@ func hide_all() -> void:
 	_anchor_node = null
 	_anchor_ok = false
 	_spotlight_mode = "none"
+	for strip in _dim_strips:
+		strip.visible = false
 
 
 func shake() -> void:
@@ -325,7 +344,27 @@ func _process(delta: float) -> void:
 			var top_rect := Rect2(card_rect.position.x, CARD_TOP_OFFSET, card_rect.size.x, card_rect.size.y)
 			if not top_rect.grow(8).intersects(_anchor_rect):
 				_place_card(false)
+	_update_dim_strips()
 	_spotlight.queue_redraw()
+
+
+func _update_dim_strips() -> void:
+	var strict_on: bool = _spotlight_mode == "strict" and _anchor_ok
+	for strip in _dim_strips:
+		strip.visible = strict_on
+	if not strict_on:
+		return
+	var vp := _spotlight.get_viewport_rect().size
+	var hole := _anchor_rect.grow(10.0)
+	# top / bottom / left / right frame around the hole
+	_dim_strips[0].position = Vector2.ZERO
+	_dim_strips[0].size = Vector2(vp.x, max(hole.position.y, 0.0))
+	_dim_strips[1].position = Vector2(0, hole.end.y)
+	_dim_strips[1].size = Vector2(vp.x, max(vp.y - hole.end.y, 0.0))
+	_dim_strips[2].position = Vector2(0, max(hole.position.y, 0.0))
+	_dim_strips[2].size = Vector2(max(hole.position.x, 0.0), hole.size.y)
+	_dim_strips[3].position = Vector2(hole.end.x, max(hole.position.y, 0.0))
+	_dim_strips[3].size = Vector2(max(vp.x - hole.end.x, 0.0), hole.size.y)
 
 
 func _draw_spotlight() -> void:
