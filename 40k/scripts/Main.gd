@@ -6250,7 +6250,14 @@ func _process(delta: float) -> void:
 	
 	
 	if view_changed:
+		# A manual pan/zoom means the player grabbed the camera themselves —
+		# abandon any in-flight LB/RB unit-switch glide so the two don't fight.
+		_cam_glide_active = false
 		update_view_transform()
+
+	# Drive the LB/RB unit-switch camera glide (clamped-delta, hitch-proof — see
+	# _update_cycle_camera_glide). No-op unless a glide is active.
+	_update_cycle_camera_glide(delta)
 
 	# T5-MP8: Update phase timer HUD and waiting overlay timer (runs every frame, labels only change on integer second)
 	_update_phase_timer_hud()
@@ -6452,7 +6459,7 @@ func fit_view_to_selection(unit_id: String, animate: bool = false) -> bool:
 		# unit's bounding box instead of hard-cutting (the "it jumps the camera
 		# between the units" report). _sync_camera_node_to_view restores the
 		# camera.position/zoom the instant path sets once the glide settles.
-		_run_cycle_camera_tween(target_offset, z)
+		_start_cycle_camera_glide(target_offset, z)
 		return true
 	camera.position = center
 	camera.zoom = Vector2(z, z)
@@ -6611,53 +6618,90 @@ func _tween_update_view(_progress: float) -> void:
 
 # ── LB/RB unit-switch camera glide ──────────────────────────────────────────
 # Controller unit-cycling (PadRouter LB/RB, and the shooting/charge target
-# walk) frames each unit with a short glide instead of a hard cut — the "it
-# jumps the camera between the units" report. Uses the same view_offset /
-# view_zoom + update_view_transform model as the instant pans, driven by a
-# tween so rapid presses smoothly chase the newest unit (each press kills the
-# in-flight glide and restarts from wherever the camera currently is).
-var _cycle_camera_tween: Tween = null
+# walk) frames each unit with a short eased glide instead of a hard cut — the
+# "it jumps the camera between the units" report.
+#
+# Driven MANUALLY from _process with a CLAMPED per-frame delta, NOT a Tween.
+# Why: the unit-selection handler that fires on the same button press is heavy
+# (BEGIN_NORMAL_MOVE rebuilds the move ghosts / range overlays), so the press
+# frame runs long. A Tween created inside that frame swallows the whole slow
+# frame's delta on its very first tick — with EASE_OUT it lurched ~60% of the
+# way in one step (measured), which read as "pause, then jump" rather than a
+# glide. Clamping the per-frame advance means any slow frame (the press frame,
+# or a later GC hitch) can move the glide by at most one small increment, so the
+# motion stays smooth slow→fast→slow no matter how the frames land. Each press
+# retargets from the current position, so rapid cycling chases smoothly.
+var _cam_glide_active: bool = false
+var _cam_glide_from_offset: Vector2 = Vector2.ZERO
+var _cam_glide_to_offset: Vector2 = Vector2.ZERO
+var _cam_glide_from_zoom: float = 1.0
+var _cam_glide_to_zoom: float = 1.0
+var _cam_glide_elapsed: float = 0.0
 
-# Duration of the unit-switch glide: long enough to read as motion, short
-# enough to stay responsive when cycling quickly.
-const CYCLE_CAMERA_PAN_TIME := 0.28
+# Glide duration. Long enough to read as a deliberate slow-fast-slow move,
+# short enough to stay responsive when cycling quickly.
+const CYCLE_CAMERA_PAN_TIME := 0.42
+
+# Hitch guard: never advance the glide by more than this much wall-time in one
+# frame (~2 frames at 60fps). Caps the long press/selection frame (or any GC
+# hitch) to a single small step instead of teleporting the camera.
+const CYCLE_CAMERA_MAX_STEP := 1.0 / 30.0
+
+# Test/coverage seam: true while a unit-switch glide is animating.
+func is_cycle_glide_active() -> bool:
+	return _cam_glide_active
 
 # Smoothly pan (keeping the current zoom) so world_pos sits at viewport centre.
 # The pad's LB/RB unit-cycle camera-follow at normal zoom.
 func smooth_center_on_world(world_pos: Vector2) -> void:
 	var vp_size: Vector2 = get_viewport().get_visible_rect().size
 	var target_offset: Vector2 = world_pos - vp_size / (2.0 * view_zoom)
-	_run_cycle_camera_tween(target_offset, view_zoom)
+	_start_cycle_camera_glide(target_offset, view_zoom)
 
 # Instant camera framing that also cancels any in-flight unit-switch glide.
 # Carry pickup / model-hop paths call this and then project world→screen the
-# SAME frame, so a still-running cycle tween must not overwrite view_offset
+# SAME frame, so a still-running glide must not overwrite view_offset
 # underneath them.
 func snap_center_on_world(world_pos: Vector2) -> void:
-	if _cycle_camera_tween and _cycle_camera_tween.is_valid():
-		_cycle_camera_tween.kill()
+	_cam_glide_active = false
 	var vp_size: Vector2 = get_viewport().get_visible_rect().size
 	view_offset = world_pos - vp_size / (2.0 * view_zoom)
 	update_view_transform()
 
-# Shared tween driver for the unit-switch glide: kill any prior glide, then
-# animate view_offset (+ view_zoom — unchanged for a plain pan, retargeted by
-# the fit path) to the target, calling update_view_transform every frame. Syncs
-# the Camera2D node to the settled view on completion so it matches the
-# instant-pan end state.
-func _run_cycle_camera_tween(target_offset: Vector2, target_zoom: float) -> void:
-	if _cycle_camera_tween and _cycle_camera_tween.is_valid():
-		_cycle_camera_tween.kill()
+# Begin (or retarget) the unit-switch glide from wherever the camera is right
+# now. view_zoom is unchanged for a plain pan, retargeted by the fit path.
+func _start_cycle_camera_glide(target_offset: Vector2, target_zoom: float) -> void:
 	if view_offset.is_equal_approx(target_offset) and is_equal_approx(view_zoom, target_zoom):
+		_cam_glide_active = false
 		return  # already framed — no glide needed
-	_cycle_camera_tween = create_tween()
-	_cycle_camera_tween.set_parallel(true)
-	_cycle_camera_tween.set_ease(Tween.EASE_OUT)
-	_cycle_camera_tween.set_trans(Tween.TRANS_CUBIC)
-	_cycle_camera_tween.tween_property(self, "view_offset", target_offset, CYCLE_CAMERA_PAN_TIME)
-	_cycle_camera_tween.tween_property(self, "view_zoom", target_zoom, CYCLE_CAMERA_PAN_TIME)
-	_cycle_camera_tween.tween_method(_tween_update_view, 0.0, 1.0, CYCLE_CAMERA_PAN_TIME)
-	_cycle_camera_tween.finished.connect(_sync_camera_node_to_view)
+	_cam_glide_from_offset = view_offset
+	_cam_glide_to_offset = target_offset
+	_cam_glide_from_zoom = view_zoom
+	_cam_glide_to_zoom = target_zoom
+	_cam_glide_elapsed = 0.0
+	_cam_glide_active = true
+
+# Advance the unit-switch glide one frame. Called every frame from _process
+# with the frame delta, CLAMPED so a heavy frame can't fast-forward the motion.
+func _update_cycle_camera_glide(delta: float) -> void:
+	if not _cam_glide_active:
+		return
+	_cam_glide_elapsed += min(delta, CYCLE_CAMERA_MAX_STEP)
+	var t: float = clampf(_cam_glide_elapsed / CYCLE_CAMERA_PAN_TIME, 0.0, 1.0)
+	var e: float = _ease_in_out_cubic(t)
+	view_offset = _cam_glide_from_offset.lerp(_cam_glide_to_offset, e)
+	view_zoom = lerpf(_cam_glide_from_zoom, _cam_glide_to_zoom, e)
+	update_view_transform()
+	if t >= 1.0:
+		_cam_glide_active = false
+		_sync_camera_node_to_view()
+
+# Cubic ease-in-out (slow → fast → slow): the standard camera-glide feel.
+func _ease_in_out_cubic(t: float) -> float:
+	if t < 0.5:
+		return 4.0 * t * t * t
+	var f: float = -2.0 * t + 2.0
+	return 1.0 - (f * f * f) / 2.0
 
 # Keep the Camera2D node's position/zoom in step with the view_offset/view_zoom
 # rendering source of truth after a glide settles (the fit path and the direct
