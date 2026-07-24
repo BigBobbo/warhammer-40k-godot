@@ -1,0 +1,177 @@
+{
+  "id": "firing_deck_weapon_grouping_11e",
+  "covers": [
+    "shooting.firing_deck.weapon_grouping",
+    "shooting.firing_deck.split_fire",
+    "autoloads.RulesEngine.get_unit_weapons",
+    "autoloads.RulesEngine._get_model_by_id",
+    "scripts.ShootingController._refresh_weapon_tree"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 8,
+  "description": "24.14 Firing Deck UI grouping: a transport carrying 10 embarked Boyz who all fire Sluggas through the firing deck must show ONE grouped 'Slugga xN' weapon row (plus the transport's own Big shoota) instead of 10 separate one-off weapons. Because each loan is now modelled as another bearer of the SAME base weapon (synthetic hull bearers), the grouped row split-fires exactly like a squad's shared weapon: assigning it to Target A commits all 10, then clicking Target C opens the Move picker so the player can peel off 4 - leaving Slugga 6->A / 4->C. The fixture's pre-deployed units are relocated far away first so only the injected transport + two targets matter.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.set_edition(11)\nvar U = GameState.state[\"units\"]\nvar mine = {\"U_FD_TANK_A\": true, \"U_FD_BOYZ\": true, \"U_FD_TARGET_A\": true, \"U_FD_TARGET_C\": true}\nfor uid in U.keys():\n\tif mine.has(uid):\n\t\tcontinue\n\tfor m in U[uid].get(\"models\", []):\n\t\tif m.get(\"position\") != null:\n\t\t\tm[\"position\"] = {\"x\": 12000.0, \"y\": 12000.0}\nvar boyz_models = []\nfor i in range(10):\n\tboyz_models.append({\"id\": \"m%d\" % (i + 1), \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"position\": null, \"alive\": true, \"status_effects\": []})\nU.merge({\"U_FD_TANK_A\": {\"id\": \"U_FD_TANK_A\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"FD Wagon A\", \"keywords\": [\"VEHICLE\", \"TRANSPORT\"], \"stats\": {\"move\": 10, \"toughness\": 10, \"save\": 3, \"wounds\": 16, \"leadership\": 6, \"objective_control\": 5}, \"weapons\": [{\"name\": \"Big shoota\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"\"}]}, \"transport_data\": {\"firing_deck\": 11, \"capacity\": 22, \"capacity_multipliers\": {\"MEGA ARMOUR\": 2, \"JUMP PACK\": 2}, \"embarked_units\": [\"U_FD_BOYZ\"]}, \"models\": [{\"id\": \"t0\", \"alive\": true, \"position\": {\"x\": 200, \"y\": 400}, \"base_mm\": 170, \"wounds\": 16, \"current_wounds\": 16}]}, \"U_FD_BOYZ\": {\"id\": \"U_FD_BOYZ\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"embarked_in\": \"U_FD_TANK_A\", \"meta\": {\"name\": \"Boyz\", \"keywords\": [\"INFANTRY\", \"ORKS\", \"MOB\"], \"stats\": {\"move\": 6, \"toughness\": 5, \"save\": 5, \"wounds\": 1, \"leadership\": 7, \"objective_control\": 2}, \"weapons\": [{\"name\": \"Slugga\", \"type\": \"Ranged\", \"range\": \"12\", \"attacks\": \"1\", \"ballistic_skill\": \"5\", \"strength\": \"4\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"pistol\", \"abilities\": [{\"id\": \"pistol\"}]}, {\"name\": \"Choppa\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"3\", \"weapon_skill\": \"3\", \"strength\": \"4\", \"ap\": \"-1\", \"damage\": \"1\"}]}, \"models\": boyz_models}, \"U_FD_TARGET_A\": {\"id\": \"U_FD_TARGET_A\", \"owner\": 2, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Target A\", \"keywords\": [\"INFANTRY\"], \"stats\": {\"move\": 6, \"toughness\": 4, \"save\": 4, \"wounds\": 2, \"leadership\": 6, \"objective_control\": 2}, \"weapons\": []}, \"models\": [{\"id\": \"e0\", \"alive\": true, \"position\": {\"x\": 650, \"y\": 400}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}, \"U_FD_TARGET_C\": {\"id\": \"U_FD_TARGET_C\", \"owner\": 2, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Target C\", \"keywords\": [\"INFANTRY\"], \"stats\": {\"move\": 6, \"toughness\": 4, \"save\": 4, \"wounds\": 2, \"leadership\": 6, \"objective_control\": 2}, \"weapons\": []}, \"models\": [{\"id\": \"e0\", \"alive\": true, \"position\": {\"x\": 200, \"y\": 800}, \"base_mm\": 32, \"wounds\": 2, \"current_wounds\": 2}]}}, true)\nreturn U.has(\"U_FD_TANK_A\") and U.has(\"U_FD_BOYZ\") and U.has(\"U_FD_TARGET_A\") and U.has(\"U_FD_TARGET_C\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var et = RulesEngine.get_eligible_targets(\"U_FD_TANK_A\", GameState.state)\nreturn et.has(\"U_FD_TARGET_A\") and et.has(\"U_FD_TARGET_C\") and et.size() == 2",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_FD_TANK_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_FD_TANK_A\").get(\"flags\", {}).get(\"firing_deck_weapons\", []).size()",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var root = tree.current_scene.get_node(\"ShootingController\").weapon_tree.get_root()\nvar n = 0\nvar c = root.get_first_child()\nwhile c:\n\tn += 1\n\tc = c.get_next()\nreturn n",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var root = tree.current_scene.get_node(\"ShootingController\").weapon_tree.get_root()\nvar slug_rows = 0\nvar c = root.get_first_child()\nwhile c:\n\tif str(c.get_metadata(0)).begins_with(\"slugga\"):\n\t\tslug_rows += 1\n\tc = c.get_next()\nreturn slug_rows",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var root = tree.current_scene.get_node(\"ShootingController\").weapon_tree.get_root()\nvar c = root.get_first_child()\nwhile c:\n\tif str(c.get_metadata(0)).begins_with(\"slugga\"):\n\t\treturn c.get_text(0).contains(\"10\")\n\tc = c.get_next()\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_slugga_grouped_x10"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var wt = tree.current_scene.get_node(\"ShootingController\").weapon_tree\nvar c = wt.get_root().get_first_child()\nwhile c:\n\tif str(c.get_metadata(0)).begins_with(\"slugga\"):\n\t\tc.select(0)\n\t\tbreak\n\tc = c.get_next()\nreturn wt.get_selected() != null and str(wt.get_selected().get_metadata(0)).begins_with(\"slugga\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.emit_signal(\"item_selected\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._select_target_for_current_weapon(\"U_FD_TARGET_A\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pa = tree.current_scene.get_node(\"ShootingController\").current_phase.pending_assignments\nvar t = 0\nfor x in pa:\n\tif str(x.get(\"weapon_id\", \"\")).begins_with(\"slugga\"):\n\t\tt += x.get(\"model_ids\", []).size()\nreturn t",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pa = tree.current_scene.get_node(\"ShootingController\").current_phase.pending_assignments\nfor x in pa:\n\tif str(x.get(\"weapon_id\", \"\")).begins_with(\"slugga\"):\n\t\treturn str(x.get(\"target_unit_id\", \"\"))\nreturn \"none\"",
+      "equals": "U_FD_TARGET_A"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_all_10_to_target_a"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var wt = tree.current_scene.get_node(\"ShootingController\").weapon_tree\nvar c = wt.get_root().get_first_child()\nwhile c:\n\tif str(c.get_metadata(0)).begins_with(\"slugga\"):\n\t\tc.select(0)\n\t\tbreak\n\tc = c.get_next()\nreturn true"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.emit_signal(\"item_selected\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._select_target_for_current_weapon(\"U_FD_TARGET_C\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFirePicker\", true, false) != null",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_move_picker_open"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var picker = tree.current_scene.get_node(\"ShootingController\").find_child(\"SplitFirePicker\", true, false)\nvar spin = picker.find_child(\"SplitFireSpin\", true, false)\nspin.value = 4\nreturn int(spin.value)",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFirePicker\", true, false).get_ok_button().emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pa = tree.current_scene.get_node(\"ShootingController\").current_phase.pending_assignments\nvar n = 0\nfor x in pa:\n\tif str(x.get(\"weapon_id\", \"\")).begins_with(\"slugga\"):\n\t\tn += 1\nreturn n",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pa = tree.current_scene.get_node(\"ShootingController\").current_phase.pending_assignments\nvar a = 0\nfor x in pa:\n\tif str(x.get(\"weapon_id\", \"\")).begins_with(\"slugga\") and x.get(\"target_unit_id\", \"\") == \"U_FD_TARGET_A\":\n\t\ta = x.get(\"model_ids\", []).size()\nreturn a",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pa = tree.current_scene.get_node(\"ShootingController\").current_phase.pending_assignments\nvar b = 0\nfor x in pa:\n\tif str(x.get(\"weapon_id\", \"\")).begins_with(\"slugga\") and x.get(\"target_unit_id\", \"\") == \"U_FD_TARGET_C\":\n\t\tb = x.get(\"model_ids\", []).size()\nreturn b",
+      "equals": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "04_split_slugga_6_to_a_4_to_c"
+    }
+  ]
+}

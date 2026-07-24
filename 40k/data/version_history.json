@@ -2,13 +2,23 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.93.12",
+			"version": "0.93.13",
 			"date": "2026-07-24",
 			"summary": "Switching units with the controller bumpers (LB/RB) now glides the camera smoothly instead of pausing and then jumping. The camera eases slow-to-fast-to-slow to the newly selected unit, and the brief work the game does when you pick a unit can no longer make the move lurch.",
 			"changes": [
 				"Controller: the LB/RB unit-switch camera move is now a proper eased glide (slow → fast → slow) with a slightly longer, more readable duration.",
 				"Fixed the 'pause then jump' when cycling units: the camera pan is driven with a capped per-frame step, so the heavier frame that happens when a unit is selected can no longer fast-forward the animation to its destination.",
 				"Grabbing the camera yourself (pan/zoom) mid-glide instantly hands control back to you."
+			]
+		},
+		{
+			"version": "0.93.12",
+			"date": "2026-07-23",
+			"summary": "Firing Deck weapon assignment now groups identical guns. When several embarked models fire the same weapon through a transport's firing deck (e.g. 10 Boyz with Sluggas), they show up as a single 'Slugga ×10' row instead of ten separate weapons — and you can split that fire across multiple targets exactly like a normal squad.",
+			"changes": [
+				"Shooting phase: firing-deck weapons of the same type are now collapsed into one grouped row (e.g. 'Slugga ×10') in the weapon-assignment list, instead of cluttering it with one row per model.",
+				"Split fire: the grouped firing-deck weapon can be split across targets just like a squad's shared weapon — assign it to a target to send all of them, then click another eligible target to peel off however many you want.",
+				"Rules unchanged: this is purely a UI convenience. The same number of shots are fired with the same profiles; only how the weapons are listed and targeted has changed."
 			]
 		},
 		{

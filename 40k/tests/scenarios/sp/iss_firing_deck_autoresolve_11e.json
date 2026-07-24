@@ -72,7 +72,7 @@
     },
     {
       "act": "execute_script",
-      "script": "str(RulesEngine.get_unit_weapons(\"U_FD_TANK_A\", GameState.state)).contains(\"__fd\")",
+      "script": "str(RulesEngine.get_unit_weapons(\"U_FD_TANK_A\", GameState.state)).contains(\"@fd\")",
       "equals": true
     },
     {
