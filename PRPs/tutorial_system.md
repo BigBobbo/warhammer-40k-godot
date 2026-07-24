@@ -20,7 +20,8 @@ reuses).
 - **What:** a "Tutorial" entry on the main menu opening a lesson picker with
   **7 bite-size lessons (3–6 min each)**, all set in one small scripted
   skirmish: **Orks (Warboss + 10 Boyz + Battlewagon + 10 Gretchin) vs a small
-  Space Marine patrol (AI)**. Lessons = the phases of that one battle, so the
+  Adeptus Custodes patrol (AI)** — the repo's most-validated matchup. Lessons =
+  the phases of that one battle, so the
   "Full Course" plays them back-to-back as a single continuous game, and each
   lesson is *also* individually launchable from a saved checkpoint.
 - **How:** a data-driven **TutorialManager autoload** runs lesson scripts
@@ -262,9 +263,16 @@ is nearly a mechanical translation of the lesson script itself.
 
 - Ork ingredients exist in `40k/armies/orks.json`: Warboss (×3 variants +
   Ghazghkull), Boyz (10- and 20-model units), Battlewagon (`TRANSPORT`,
-  `VEHICLE`), plus Gretchin in `battlewagons.json`. Marines opponent material
-  in `space_marines.json`: Intercessors (5), Tactical Squad (5), Infiltrators
-  (5). Army JSON schema 2 / edition 11, loaded by `ArmyListManager`
+  `VEHICLE`), plus Gretchin in `battlewagons.json`. Custodes opponent material
+  in `adeptus_custodes.json`: Witchseekers (4, 50 pts), Custodian Guard
+  (4, 170 pts), Blade Champion / Shield-Captain characters — and, decisively,
+  **Custodes-vs-Orks is the most-validated matchup in the repo**: it is the
+  pairing of `audit_baseline_postdeploy.w40ksave` (the workhorse fixture behind
+  the ~58 pad scenarios), of custodes-specific scenario fixtures
+  (`custodes_lions_pretrigger`, `custodes_silent_hunters_pretrigger`,
+  `co_pretrigger` — the fight-phase example in `_schema.md` asserts on
+  `U_CUSTODIAN_GUARD_B`), and of the main menu's default Human-vs-AI config.
+  Army JSON schema 2 / edition 11, loaded by `ArmyListManager`
   (`load_army_for_game` `:485`, `apply_army_to_game_state` `:312`).
 - Transports work end-to-end today: `TransportManager` (embark `:100` /
   disembark `:126` / capacity `:205`), deployment embark dialog
@@ -330,11 +338,18 @@ armies placed so every lesson's action happens within one screen of travel:
 - **Player (Orks, ~495 pts):** `tutorial_orks.json` — Warboss (leads da Boyz),
   Boyz ×10, Battlewagon (Boyz + Warboss start embarked from T3 onward),
   Gretchin ×10 (cheap second squad: deployment formations + objective sitting).
-- **Opponent (AI Space Marines, ~300 pts):** `tutorial_marines.json` —
-  Intercessors ×5 (the shoot-at/charge target), Tactical Squad ×5 (holds an
-  objective). Optional third: Infiltrators ×5 if T4 wants a hidden-target LoS
-  beat. Marines rather than mirror Orks so "click the **enemy**" is visually
-  unambiguous.
+- **Opponent (AI Adeptus Custodes, ~220–330 pts):** `tutorial_custodes.json` —
+  Witchseekers ×4 (the soft shoot-at target: T3/4+/1W, so T4's seeded shooting
+  visibly kills), Custodian Guard ×4 (objective holder and the charge/fight
+  target — their counter-attack reliably wounds Boyz, which is exactly what
+  T6's defender-allocation beat needs). Optional third: Blade Champion if a
+  character-target beat is wanted; otherwise two units keeps AI turns short.
+  Custodes over Space Marines because Custodes-vs-Orks already has validated
+  games behind it (§3.6: the `audit_baseline_postdeploy` pad-scenario
+  workhorse, multiple custodes fixtures, the default menu matchup) — the
+  tutorial reuses proven unit data instead of fixturing `space_marines.json`
+  for the first time. Gold-armoured Custodes over mirror Orks so "click the
+  **enemy**" is visually unambiguous.
 
 Both files: schema 2, edition 11, copied unit blocks from existing armies, plus
 `faction.tutorial: true` so the normal army dropdowns can filter them out
@@ -452,7 +467,7 @@ down unconditionally and returns to the menu.
 | `scripts/tutorial/TutorialScript.gd` | RefCounted parser | loads/validates lesson JSON, resolves glyph/key tokens, exposes typed steps |
 | `scripts/tutorial/AnchorResolver.gd` | static util | the four selector kinds (unit token / NodePath via SceneRefs / button-text / board-px), extracted to mirror `ScenarioRunner`'s proven resolvers |
 | `data/tutorials/lessons/T1_basics.json` … `T7_command.json` | data | lesson scripts (schema §5.3) |
-| `armies/tutorial_orks.json`, `armies/tutorial_marines.json` | data | tutorial armies (`faction.tutorial: true`; menu dropdowns filter them) |
+| `armies/tutorial_orks.json`, `armies/tutorial_custodes.json` | data | tutorial armies (`faction.tutorial: true`; menu dropdowns filter them) |
 | `data/tutorials/fixtures/*.w40ksave` (+ `.meta`) | data (shipped in export) | lesson checkpoints: `tutorial_postdeploy`, `tutorial_t4_shoot`, `tutorial_t5_charge`, `tutorial_t6_fight`, `tutorial_t7_round2` |
 | `tools/gen_tutorial_fixtures.sh` + `tests/helpers/TutorialFixtureGenerator.gd` | tooling | regenerates all checkpoints by booting the tutorial config and replaying a committed, seeded action script through the real pipeline — fixtures stay reproducible across save-schema migrations |
 | `tools/lint_tutorials.sh` | tooling / CI | boots each lesson's fixture headless-windowed, resolves every anchor + done-condition path (dry-run, no input), fails on drift — the lesson equivalent of `SCENARIO_SELECTOR_DRY_RUN` |
@@ -540,7 +555,7 @@ Done-condition vocabulary (deliberately mirrors `_schema.md` asserts):
 
 - Every lesson sets `rng_seed` (RulesEngine + SecondaryMissionManager test
   seeds), so taught rolls behave: T3's Advance roll is respectable, T5's charge
-  succeeds, T4's shooting kills at least one Intercessor. Seeds are chosen once
+  succeeds, T4's shooting kills at least one Witchseeker. Seeds are chosen once
   while authoring the fixture and pinned in both the lesson file and its QA
   scenario. The player still presses every roll button themselves
   (anti-pattern #3: never roll for the player).
@@ -657,10 +672,13 @@ Decisions taken by this design (flag disagreement before TM0):
 
 1. **Seven lessons, one shared battle**, Full Course = same lessons chained;
    two scene loads total in the course (menu→T1, T1→T2), zero from T2 on.
-2. **Player side is fixed (Orks)** and the opponent is **AI Space Marines** —
-   visual enemy contrast beats the mirror-match reading of "two small Ork
-   forces"; the Ork force matches the requested Battlewagon + Boyz + Warboss
-   exactly. (Mirror-Orks is a data-only change if preferred.)
+2. **Player side is fixed (Orks)** and the opponent is **AI Adeptus Custodes**
+   (owner decision, 2026-07-24) — Custodes-vs-Orks is the matchup with existing
+   validated games behind it (`audit_baseline_postdeploy` + the custodes
+   scenario fixtures, §3.6), the elite low-model-count roster keeps AI turns
+   short, and gold-vs-green gives unambiguous enemy contrast; the Ork force
+   matches the requested Battlewagon + Boyz + Warboss exactly. (Space Marines
+   or mirror-Orks remain data-only swaps if ever preferred.)
 3. **Tutorial armies ship as filtered army files**, checkpoints as shipped
    fixtures + regeneration tool.
 4. **Gate at `BasePhase.execute_action`; no per-controller button surgery in v1.**
