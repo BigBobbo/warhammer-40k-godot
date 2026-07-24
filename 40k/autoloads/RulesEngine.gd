@@ -4499,6 +4499,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				"precision_group": _precision_group_11e(ar_weapon_has_precision, target_unit,
 					board.get("units", {}).get(actor_unit_id, {}), board,
 					str(assignment.get("precision_group_choice", ""))),
+				# AI defenders resolved engine-side (no overlay) still pick their
+				# casualties smartly; [] for human defenders = engine default.
+				"preferred_targets": CasualtyPreference.engine_auto_preference(target_unit, board),
 			})
 		casualties += alloc11.casualties
 		damage_applied += alloc11.damage_applied
@@ -12262,6 +12265,9 @@ static func _resolve_melee_assignment_saves(hit_context: Dictionary, w: Dictiona
 				"precision_group": _precision_group_11e(weapon_has_precision, target_unit,
 					board.get("units", {}).get(actor_unit_id, {}), board,
 					str(assignment.get("precision_group_choice", ""))),
+				# AI defenders resolved engine-side (no overlay) still pick their
+				# casualties smartly; [] for human defenders = engine default.
+				"preferred_targets": CasualtyPreference.engine_auto_preference(target_unit, board),
 			})
 		var m_log := []
 		m_log.append("Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name])

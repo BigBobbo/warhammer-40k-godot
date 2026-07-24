@@ -679,7 +679,16 @@ func _on_confirm_pressed() -> void:
 	var wounds_to_save = int(save_data.get("wounds_to_save", 0))
 	_current_rolls = _rules().RNGService.new(_fresh_seed()).roll_d6(wounds_to_save) if wounds_to_save > 0 else []
 	_batch_seed = _fresh_seed()
-	batch_result = _run_batch([])
+	# Auto mode (AI defender / computer-allocates setting): the computer picks
+	# the casualty order — chaff first, sergeants/special weapons last, charge
+	# denial, objective control and coherency considered (CasualtyPreference).
+	# Human defenders keep the engine default here; their explicit choices
+	# arrive later via the PICK step re-run.
+	var auto_preferred: Array = []
+	if auto_mode:
+		auto_preferred = CasualtyPreference.compute_preferred_targets(
+			_virtual_target_unit, _game_state().state, {"defender_player": defender_player})
+	batch_result = _run_batch(auto_preferred)
 	print("AllocationGroupOverlay: rolled saves %s → %d failed, %d casualties" % [
 		str(_current_rolls), batch_result.get("saves_failed", 0), batch_result.get("casualties", 0)])
 

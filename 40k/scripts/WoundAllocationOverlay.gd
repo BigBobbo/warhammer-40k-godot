@@ -1629,8 +1629,28 @@ func _auto_pick_model_id() -> String:
 	if priority != "" and _is_valid_selection(priority):
 		return priority
 
-	# Otherwise pick the first selectable bodyguard model (lowest index).
 	var models = target_unit.get("models", [])
+
+	# Smart pick: value / charge-denial / proximity / objective / coherency
+	# aware die-first ranking (CasualtyPreference) — the same brain the 11e
+	# batch overlay uses. Falls through to the legacy lowest-index scan if
+	# nothing in the ranking is currently selectable.
+	var gs = get_node_or_null("/root/GameState")
+	if gs != null:
+		var pref: Array = CasualtyPreference.compute_preferred_targets(
+			target_unit, gs.state, {"defender_player": target_unit.get("owner", 0)})
+		for idx in pref:
+			var pi = int(idx)
+			if pi < 0 or pi >= models.size():
+				continue
+			var pm = models[pi]
+			if not pm.get("alive", true):
+				continue
+			var pmid = pm.get("id", "m%d" % pi)
+			if _is_valid_selection(pmid):
+				return pmid
+
+	# Legacy fallback: the first selectable bodyguard model (lowest index).
 	for i in range(models.size()):
 		var model = models[i]
 		if not model.get("alive", true):
