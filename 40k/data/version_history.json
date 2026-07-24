@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.16",
+			"date": "2026-07-24",
+			"summary": "You can once again rotate a model while moving it — including round-base models — with a controller, the keyboard, or the mouse. During a Movement carry the hint bar shows 'LB Rotate / RB Rotate', but a stale rule was silently swallowing those presses for round bases (most infantry, characters and walkers), so nothing happened. Rotation now works for every base type in the Movement phase, matching the Deployment phase where you already face your models. Rotating is free in 11th edition, so no movement is spent.",
+			"changes": [
+				"Movement: rotating a model now works for round bases too, not just oval/rectangular vehicles — LB/RB on a controller, Q/E on the keyboard, and right-click-drag with the mouse all rotate the model you're carrying.",
+				"Fixed the 'LB Rotate' controller hint doing nothing on round-base models: the Movement phase no longer blocks rotation by base shape, so the advertised control matches what happens.",
+				"Movement rotation now behaves like the Deployment phase (which already lets you face any model). Rotating remains free in 11th edition — no move distance is spent to pivot."
+			]
+		},
+		{
 			"version": "0.93.15",
 			"date": "2026-07-24",
 			"summary": "The dice log moved out of the right-hand control panel and into the left game-log panel as a switchable tab. In the shooting, charge and fight phases the roll-by-roll log no longer grows down the right side and pushes the controls above it out of reach — the left panel now has two tabs, 'Game Log' and 'Dice Log', that you flip between. When new rolls land while you're reading the Game Log, the Dice Log tab shows a small dot so you know results are waiting.",

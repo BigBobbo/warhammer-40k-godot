@@ -3511,15 +3511,13 @@ func _start_model_rotation(mouse_pos: Vector2) -> void:
 	if selected_model.is_empty():
 		return
 
-	# Check if model has a non-circular base, or is a Vehicle with flying stem on round base >32mm
+	# Any model may be re-faced during a move, regardless of base shape — keep the
+	# mouse (right-click drag) in step with the controller/keyboard path
+	# (_rotate_model_by_angle) and the Deployment phase, both of which rotate any
+	# base type. Rotating is free in 11e; round bases carry a 0" pivot value so
+	# they are never charged.
 	var base_type = selected_model.get("base_type", "circular")
 	var base_mm = selected_model.get("base_mm", 32)
-	var has_flying_stem = selected_model.get("flying_stem", false)
-
-	if base_type == "circular":
-		# Vehicles on round bases >32mm with flying stem can still pivot (with cost)
-		if not (base_mm > 32 and has_flying_stem):
-			return  # No rotation needed for standard circular bases
 
 	rotating_model = true
 	var model_pos = selected_model.get("position", Vector2.ZERO)
@@ -3557,13 +3555,14 @@ func _rotate_model_by_angle(angle: float) -> void:
 	if selected_model.is_empty():
 		return
 
-	var base_type = selected_model.get("base_type", "circular")
-	var base_mm = selected_model.get("base_mm", 32)
-	var has_flying_stem = selected_model.get("flying_stem", false)
-
-	if base_type == "circular" and not (base_mm > 32 and has_flying_stem):
-		return
-
+	# Any model may be re-faced during a move, regardless of base shape. 11e
+	# makes rotating free (MovementPhase.get_pivot_value_for_unit returns 0), and
+	# the Deployment phase already lets every base type be rotated. A stale
+	# `base_type == "circular"` guard used to sit here and silently swallow the
+	# controller (LB/RB, via _synth_rotate) and keyboard (Q/E) rotation for
+	# round-base models — the majority of units — even while the carry hint bar
+	# advertised "Rotate". The pivot-cost check below stays a no-op whenever the
+	# phase reports a 0" pivot value, so round bases are never charged.
 	var current_rotation = selected_model.get("rotation", 0.0)
 	# Store original rotation before first keyboard rotation
 	_store_original_rotation(selected_model.get("id", selected_model.get("model_id", "")), current_rotation)

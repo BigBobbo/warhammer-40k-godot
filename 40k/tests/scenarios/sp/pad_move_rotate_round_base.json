@@ -1,0 +1,46 @@
+{
+  "id": "pad_move_rotate_round_base",
+  "covers": [
+    "controller.m3.rotate_round_base",
+    "movement.rotate_any_base_type"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Regression: a ROUND-base model (Blade Champion, 40mm) can be rotated during a controller Movement carry. Carry begins via the move-menu (A, A -> Move), then LB (rotate_left, synthesized from the pad) is pressed twice. Before the fix the circular-base guard in _rotate_model_by_angle swallowed this and rotation stayed 0.0, contradicting the 'LB Rotate' hint the carry bar shows. Asserts both the controller's selected_model AND the live on-board token rotate, then that the rotation is committed to GameState after the drop.",
+  "steps": [
+    {"act": "wait_seconds", "seconds": 1.5},
+    {"act": "expect_state", "path": "meta.phase", "equals": 7},
+
+    {"act": "pad_cursor_glide", "unit_id": "U_BLADE_CHAMPION_A"},
+    {"act": "simulate_joy_button", "button_index": 0},
+    {"act": "wait_seconds", "seconds": 0.4},
+    {"act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_BLADE_CHAMPION_A"},
+    {"act": "simulate_joy_button", "button_index": 1},
+    {"act": "wait_seconds", "seconds": 0.2},
+    {"act": "simulate_joy_button", "button_index": 0},
+    {"act": "wait_seconds", "seconds": 0.3},
+    {"act": "execute_script", "script": "PadActionBar.is_open()", "equals": true},
+    {"act": "simulate_joy_button", "button_index": 0},
+    {"act": "wait_seconds", "seconds": 0.4},
+    {"act": "execute_script", "script": "PadRouter.is_carrying()", "equals": true},
+    {"act": "execute_script", "script": "main.movement_controller.dragging_model", "equals": true},
+
+    {"act": "execute_script", "script": "str(main.movement_controller.selected_model.get(\"base_type\", \"MISSING\"))", "equals": "MISSING"},
+    {"act": "execute_script", "script": "InputDeviceManager.set_meta(\"m_id\", str(main.movement_controller.selected_model.get(\"id\", \"m1\")))"},
+    {"act": "execute_script", "script": "InputDeviceManager.set_meta(\"rot0\", main.movement_controller.selected_model.get(\"rotation\", 0.0))"},
+
+    {"act": "simulate_joy_button", "button_index": 9},
+    {"act": "simulate_joy_button", "button_index": 9},
+    {"act": "wait_seconds", "seconds": 0.3},
+    {"act": "screenshot", "label": "round_base_rotated_on_pad"},
+
+    {"act": "execute_script", "script": "abs(main.movement_controller.selected_model.get(\"rotation\", 0.0) - InputDeviceManager.get_meta(\"rot0\"))", "expect_min": 0.4},
+    {"act": "execute_script", "script": "abs(ScenarioRunner.token_model_rotation(\"U_BLADE_CHAMPION_A\", str(InputDeviceManager.get_meta(\"m_id\"))) - InputDeviceManager.get_meta(\"rot0\"))", "expect_min": 0.4},
+
+    {"act": "simulate_joy_button", "button_index": 0},
+    {"act": "wait_seconds", "seconds": 0.5},
+    {"act": "execute_script", "script": "abs(GameState.state[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0].get(\"rotation\", 0.0) - InputDeviceManager.get_meta(\"rot0\"))", "expect_min": 0.4}
+  ]
+}
