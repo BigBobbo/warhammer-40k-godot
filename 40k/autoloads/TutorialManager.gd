@@ -229,6 +229,15 @@ func _initialize_from_config(config: Dictionary) -> void:
 	var secondary_mgr := get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr:
 		secondary_mgr.initialize_for_game()
+		# Fixed secondaries keep the tactical draw modal out of lessons
+		# (mirrors MainMenu._initialize_game_with_config, P2-85 block).
+		for player in [1, 2]:
+			if str(config.get("player%d_secondary_mode" % player, "tactical")) == "fixed":
+				var fixed: Array = config.get("player%d_fixed_missions" % player, [])
+				if fixed.size() == 2:
+					var result: Dictionary = secondary_mgr.setup_fixed_missions(player, fixed)
+					if not result.get("success", false):
+						print("TutorialManager: fixed missions setup failed for player %d: %s" % [player, str(result.get("error", ""))])
 	GameState.state.meta["game_config"] = config
 
 

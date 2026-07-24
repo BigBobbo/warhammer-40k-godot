@@ -1,0 +1,343 @@
+{
+  "id": "tut_t2_musterin",
+  "covers": [
+    "tutorial.t2.formations",
+    "tutorial.t2.deployment",
+    "tutorial.engine.config_boot"
+  ],
+  "rng_seed": 4242,
+  "description": "Tutorial lesson T2 (Musterin' da Boyz), mouse+keyboard player path: fresh tutorial game booted from the lesson's config (no fixture) -> Formations panel: attach Warboss to Boyz via the dropdown, tick Boyz into the Battlewagon, Confirm Formations (batch declares incl. DECLARE_TRANSPORT_EMBARKATION) -> deployment roll-off via the dialog Roll/Continue buttons -> deploy the Battlewagon (click board + Confirm) with the AI alternating -> deploy Gretchin with the Spread formation -> first-turn roll-off -> lesson complete. The Formations panel and roll-off dialog are embedded modal Windows: their buttons are driven via the emit escape hatch and the tie-tolerant roll steps emit only if the button is still present.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "attach_warboss"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_formations"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\tnd.select(1)\n\t\tnd.item_selected.emit(1)\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "OptionButton popup menus are native Windows - select+emit is the dropdown escape hatch"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "embark_boyz"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is CheckBox and str(nd.text).begins_with(\"Boyz\") and not (\"Reserves\" in str(nd.text)):\n\t\tnd.button_pressed = true\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the Formations panel is a modal embedded Window - synthetic root-viewport clicks cannot reach its controls; setting button_pressed emits toggled exactly like a click"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_formations"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_declarations_staged"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_off"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and \"Re-roll\" in str(nd.text):\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "tie tolerance: press the roll button if still up, else the A DEAD HEAT re-roll button; no-op when neither exists"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "deploy_wagon"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_deployment_starts"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+      "index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "click_board_at",
+      "x": 640.0,
+      "y": 320.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BATTLEWAGON_T.status",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "deploy_grots"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_wagon_down_ai_alternated"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+      "index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "click_node",
+      "button_text": "Tight"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "click_board_at",
+      "x": 1320.0,
+      "y": 700.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "click_board_at",
+      "x": 1320.0,
+      "y": 760.0,
+      "comment": "Tight lays one rank of 5 per click - second rank"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "click_board_at",
+      "x": 1250.0,
+      "y": 640.0,
+      "comment": "the Runtherd"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_GRETCHIN_T.status",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "first_turn_roll"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_all_deployed"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and \"Re-roll\" in str(nd.text):\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "tie tolerance: press the roll button if still up, else the A DEAD HEAT re-roll button; no-op when neither exists"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and \"Re-roll\" in str(nd.text):\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "tie tolerance: press the roll button if still up, else the A DEAD HEAT re-roll button; no-op when neither exists"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "wrap"
+    },
+    {
+      "act": "screenshot",
+      "label": "06_muster_done"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.is_completed(\"t2_musterin\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "07_summary"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    }
+  ]
+}

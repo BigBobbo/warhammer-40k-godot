@@ -1,0 +1,143 @@
+{
+  "id": "t2_musterin",
+  "order": 2,
+  "title": "Musterin' da Boyz",
+  "subtitle": "Formations, transports, leaders & deployment",
+  "est_minutes": 6,
+  "boot": {
+    "config": {
+      "terrain": "take_and_hold_mirror_1",
+      "mission": "take_and_hold",
+      "deployment": "tipping_point",
+      "player1_army": "tutorial_orks",
+      "player2_army": "tutorial_custodes",
+      "player1_type": "HUMAN",
+      "player2_type": "AI",
+      "player1_difficulty": 1,
+      "player2_difficulty": 0,
+      "ai_speed": 0,
+      "player1_secondary_mode": "fixed",
+      "player2_secondary_mode": "fixed",
+      "player1_fixed_missions": ["assassination", "engage_on_all_fronts"],
+      "player2_fixed_missions": ["assassination", "engage_on_all_fronts"],
+      "player1_disposition": "take_and_hold",
+      "player2_disposition": "take_and_hold"
+    },
+    "rng_seed": 4242
+  },
+  "summary": {
+    "bark": "ARMY'S MUSTERED!",
+    "bullets": [
+      "Battle Formations lock in leaders, transport cargo an' reserves BEFORE anyone deploys.",
+      "Da roll-off dialog: roll, read da result, winner picks who deploys first.",
+      "Deploy: pick a unit row, click da board to place, [b]Confirm[/b] locks it. Q/E turns a vehicle.",
+      "Formation buttons (Single / Spread / Tight) place a whole squad quick.",
+      "You an' da enemy take turns deployin'. Next lesson: Get Movin'."
+    ]
+  },
+  "steps": [
+    {
+      "id": "attach_warboss",
+      "prompt": {
+        "bark": "MUSTER UP!",
+        "kbm": "Before deployin', dis panel locks in yer [b]Battle Formations[/b]. First: under [b]LEADER ATTACHMENTS[/b], set da 'Warboss →' dropdown to [b]Boyz[/b] — now he fights wiv his mob.",
+        "pad": "Dis panel locks in yer [b]Battle Formations[/b]. Glide {ls} onto da 'Warboss →' dropdown, {a}, an' pick [b]Boyz[/b]."
+      },
+      "anchor": { "node": "/root/Main/FormationsDialog" },
+      "spotlight": "none",
+      "allow": [],
+      "done": {
+        "script": "var fd = tree.root.get_node_or_null(\"/root/Main/FormationsDialog\")\nif fd == null:\n\treturn false\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\treturn nd.selected == 1\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false"
+      },
+      "hint": { "text": "Top section of da panel — da dropdown next to 'Warboss →'." }
+    },
+    {
+      "id": "embark_boyz",
+      "prompt": {
+        "bark": "GET IN DA WAGON!",
+        "kbm": "Under [b]TRANSPORT EMBARKATION[/b], tick [b]Boyz[/b] — da mob (an' da Boss wiv 'em) starts da battle inside da Battlewagon.",
+        "pad": "Glide {ls} onto da [b]Boyz[/b] tickbox under TRANSPORT EMBARKATION an' press {a}."
+      },
+      "anchor": { "button_text": "Boyz (10 models)" },
+      "spotlight": "soft",
+      "allow": [],
+      "done": {
+        "script": "var fd = tree.root.get_node_or_null(\"/root/Main/FormationsDialog\")\nif fd == null:\n\treturn false\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is CheckBox and str(nd.text).begins_with(\"Boyz\") and not (\"Reserves\" in str(nd.text)):\n\t\treturn nd.button_pressed\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false"
+      }
+    },
+    {
+      "id": "confirm_formations",
+      "prompt": {
+        "bark": "LOCK DA MUSTER!",
+        "kbm": "Hit [b]Confirm Formations[/b] — dat sends all yer declarations at once. Da enemy declares deirs after.",
+        "pad": "Glide onto [b]Confirm Formations[/b] an' press {a}."
+      },
+      "anchor": { "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton" },
+      "spotlight": "soft",
+      "allow": ["DECLARE_LEADER_ATTACHMENT", "DECLARE_TRANSPORT_EMBARKATION", "DESIGNATE_WARLORD", "DECLARE_RESERVES", "CONFIRM_FORMATIONS", "END_FORMATIONS"],
+      "done": { "action": { "type": "CONFIRM_FORMATIONS" } }
+    },
+    {
+      "id": "roll_off",
+      "prompt": {
+        "bark": "ROLL DA BONES!",
+        "kbm": "Deployment roll-off: click [b]⚄ Roll the dice[/b] in da dialog (roll again on a tie), den [b]Continue[/b] — da winner picks who deploys first.",
+        "pad": "Press {a} on da dialog's Roll button. Re-roll ties, den Continue."
+      },
+      "spotlight": "none",
+      "allow": ["ROLL_OFF_DEPLOYMENT", "CHOOSE_DEPLOYMENT"],
+      "done": { "phase": 1 },
+      "hint": { "text": "Da dialog's Roll button works too — same fing." }
+    },
+    {
+      "id": "deploy_wagon",
+      "prompt": {
+        "bark": "PARK DA WAGON!",
+        "kbm": "Click [b]Battlewagon[/b] in da list, den click inside yer glowin' deployment zone to place it. {key:rotate_left}/{key:rotate_right} turns it. [b]Confirm[/b] locks it in.",
+        "pad": "Pick da [b]Battlewagon[/b] row, glide {ls} into yer zone, {a} to place, den [b]Confirm[/b]."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel" },
+      "spotlight": "soft",
+      "allow": ["DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT"],
+      "done": { "state": "units.U_BATTLEWAGON_T.status", "equals": 2 },
+      "hint": { "text": "Yer zone is da highlighted band at da top of da board. Undo an' Reset Unit are on da unit card." }
+    },
+    {
+      "id": "deploy_grots",
+      "prompt": {
+        "bark": "GROTS IN A MOB!",
+        "kbm": "Da enemy deploys between yer units — dat's da alternation. Now: click [b]Gretchin[/b], pick da [b]Tight[/b] formation, click open ground in yer zone to lay da whole squad out, den [b]Confirm[/b].",
+        "pad": "Pick da [b]Gretchin[/b] row, glide onto [b]Tight[/b], {a}, place 'em wiv {a}, den [b]Confirm[/b]."
+      },
+      "anchor": { "button_text": "Tight" },
+      "spotlight": "soft",
+      "allow": ["DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT"],
+      "done": { "state": "units.U_GRETCHIN_T.status", "equals": 2 },
+      "hint": { "text": "Formation buttons sit on da unit card — Single / Spread / Tight change how a click lays da mob down. Keep da whole blob inside da glowin' zone." }
+    },
+    {
+      "id": "first_turn_roll",
+      "prompt": {
+        "bark": "WHO GOES FIRST?",
+        "kbm": "Yer Boyz are already in da wagon, so muster's done. One last roll-off decides who takes da first turn — [b]Roll[/b] in da dialog (again on a tie), den [b]Continue[/b].",
+        "pad": "Press {a} on da dialog's Roll button — again on a tie — den Continue."
+      },
+      "spotlight": "none",
+      "allow": ["ROLL_OFF_FIRST_TURN", "CONFIRM_FIRST_TURN", "END_DEPLOYMENT"],
+      "done": {
+        "script": "var p = int(GameState.state.meta.get(\"phase\", -1))\nreturn p != 1 and p != 2 and p != 13 and p != 3"
+      },
+      "hint": { "text": "Keep pressin' on ties — da dice settle eventually." }
+    },
+    {
+      "id": "wrap",
+      "prompt": {
+        "bark": "MUSTER COMPLETE!",
+        "text": "Army's on da table: wagon loaded, grots spread, Boss ridin' wiv his ladz. Da battle rounds start now — [b]Get Movin'[/b] teaches da movement phase."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "done": { "ack": true }
+    }
+  ]
+}

@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.97.0",
+			"date": "2026-07-24",
+			"summary": "Basic Trainin' lesson: 'Musterin' da Boyz'. A fresh-battle deployment tutorial covering the whole pre-game: Battle Formations (attach the Warboss to his Boyz, load them into the Battlewagon), the deployment roll-off dialog, placing units in your zone with the formation buttons while the AI alternates, and the first-turn roll-off — including the dead-heat re-roll. The instructor card now dodges to the side whenever a game dialog is open so it stays readable.",
+			"changes": [
+				"New lesson T2 'Musterin' da Boyz' (~6 min): Battle Formations panel (leader attach dropdown, transport embarkation tickboxes, warlord), Confirm Formations, the roll-off dialog (roll / re-roll ties / continue), deploying the Battlewagon and Gretchin (Tight formation, one rank per click), and the first-turn roll-off.",
+				"Tutorial instructor card dodges to the left flank while a game dialog is open — dialogs render above everything, so the card now stays readable beside them.",
+				"Tutorial lesson picker no longer drifts off-centre once several lessons are installed.",
+				"Tutorial fresh-battle boots honour fixed secondary missions, keeping the tactical draw modal out of lessons."
+			]
+		},
+		{
 			"version": "0.96.0",
 			"date": "2026-07-24",
 			"summary": "Basic Trainin' lesson 2: 'Get Movin''. The movement-phase tutorial teaches disembarking da Boyz from the Battlewagon (with the 3\" placement ring), the Advance mode + Confirm Movement Mode gate, the Command Re-roll offer, carrying/dragging models, and ending a unit's move versus ending the phase. With two lessons installed the picker now offers the Full Course, and finishing a lesson offers the next one.",

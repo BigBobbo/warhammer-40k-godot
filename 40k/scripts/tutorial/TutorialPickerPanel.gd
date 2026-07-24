@@ -16,12 +16,22 @@ func _ready() -> void:
 	name = "TutorialPicker"
 	visible = false
 	WhiteDwarfThemeData.apply_to_panel(self)
-	set_anchors_preset(Control.PRESET_CENTER)
-	grow_horizontal = Control.GROW_DIRECTION_BOTH
-	grow_vertical = Control.GROW_DIRECTION_BOTH
+	set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
 	custom_minimum_size = Vector2(680, 0)
 	z_index = 90
+	_build_ui()
 
+
+# Re-apply centered offsets AFTER the row list has rebuilt and layout has
+# settled — applying the preset at open()-time uses the stale (pre-rebuild)
+# minimum size and can park the panel off-screen once several lessons are
+# installed.
+func _apply_center() -> void:
+	reset_size()
+	set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+
+
+func _build_ui() -> void:
 	# Stable node names — windowed scenarios address these by path.
 	var margin := MarginContainer.new()
 	margin.name = "Margin"
@@ -76,6 +86,7 @@ func _ready() -> void:
 func open() -> void:
 	_rebuild_rows()
 	visible = true
+	call_deferred("_apply_center")
 	if _first_play_button != null:
 		_first_play_button.grab_focus()
 	else:

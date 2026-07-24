@@ -36,7 +36,7 @@ var _anchor_rect: Rect2 = Rect2()
 var _anchor_ok: bool = false
 var _spotlight_mode: String = "none"
 var _reresolve_accum: float = 0.0
-var _card_at_bottom: bool = false
+var _card_mode: String = "top"
 var _dim_strips: Array = []
 
 
@@ -75,6 +75,14 @@ func _build() -> void:
 		add_child(strip)
 		_dim_strips.append(strip)
 
+	# NOTE on stacking: embedded Windows (the AcceptDialog family —
+	# Formations, roll-off, command re-roll...) composite ABOVE every
+	# CanvasLayer, so no layer number can keep the card on top of them.
+	# Hosting the card in its own always-on-top Window renders correctly but
+	# synthetic input (virtual cursor clicks, windowed scenarios) cannot
+	# reach embedded-window buttons — so instead the card DODGES to the left
+	# flank (over the game-log panel) whenever a game dialog is open; the
+	# centered dialogs never cover that strip. Found while validating T2.
 	_card = PanelContainer.new()
 	_card.name = "InstructorCard"
 	WhiteDwarfThemeData.apply_to_panel(_card)
@@ -208,20 +216,46 @@ func _build() -> void:
 		if m: m.exit_tutorial())
 	footer.add_child(_exit_button)
 
-	_place_card(false)
+	_place_card("top")
 
 
-func _place_card(at_bottom: bool) -> void:
-	_card_at_bottom = at_bottom
-	if at_bottom:
-		_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
-		_card.offset_bottom = -CARD_BOTTOM_OFFSET
-		_card.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	else:
-		_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE)
-		_card.offset_top = CARD_TOP_OFFSET
-		_card.grow_vertical = Control.GROW_DIRECTION_END
-	_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+# Card placement modes: "top" (default), "bottom" (dodging a board anchor),
+# "left" (dodging an open game dialog — dialogs are centered, the strip over
+# the game-log panel stays clear).
+func _place_card(mode: String) -> void:
+	_card_mode = mode
+	match mode:
+		"bottom":
+			_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
+			_card.offset_bottom = -CARD_BOTTOM_OFFSET
+			_card.grow_vertical = Control.GROW_DIRECTION_BEGIN
+			_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		"left":
+			_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_MINSIZE)
+			_card.offset_left = 10
+			_card.grow_vertical = Control.GROW_DIRECTION_BOTH
+			_card.grow_horizontal = Control.GROW_DIRECTION_END
+		_:
+			_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE)
+			_card.offset_top = CARD_TOP_OFFSET
+			_card.grow_vertical = Control.GROW_DIRECTION_END
+			_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+
+
+func card_rect() -> Rect2:
+	return _card.get_global_rect()
+
+
+# True while any embedded game Window (AcceptDialog family) is showing —
+# those composite above every CanvasLayer, so the card must dodge them.
+func _any_game_window_open() -> bool:
+	for scope in [get_tree().root, get_tree().root.get_node_or_null("Main")]:
+		if scope == null:
+			continue
+		for child in scope.get_children():
+			if child is Window and child != get_tree().root and (child as Window).visible:
+				return true
+	return false
 
 
 # ------------------------------------------------------------------- API ----
@@ -244,8 +278,8 @@ func show_step(view: Dictionary) -> void:
 	_anchor_node = null
 	_anchor_ok = false
 	_reresolve_accum = ANCHOR_RERESOLVE_S  # resolve on next frame
-	if _card_at_bottom:
-		_place_card(false)
+	if _card_mode != "top":
+		_place_card("top")
 	var idm := get_node_or_null("/root/InputDeviceManager")
 	if _continue_button.visible and idm != null and idm.is_pad_active():
 		_continue_button.grab_focus()
@@ -275,7 +309,7 @@ func show_summary(view: Dictionary) -> void:
 	_spotlight_mode = "none"
 	for strip in _dim_strips:
 		strip.visible = false
-	_place_card(false)
+	_place_card("top")
 	var idm := get_node_or_null("/root/InputDeviceManager")
 	if idm != null and idm.is_pad_active():
 		if _next_button.visible:
@@ -318,6 +352,7 @@ func current_progress_text() -> String:
 # --------------------------------------------------------------- process ----
 
 func _process(delta: float) -> void:
+	_update_card_mode()
 	if _anchor_spec.is_empty():
 		_anchor_ok = false
 		_spotlight.queue_redraw()
@@ -335,17 +370,26 @@ func _process(delta: float) -> void:
 		_anchor_node = res.node
 		if res.ok:
 			_anchor_rect = res.rect
-	# Keep the card out of the way of what it points at (PRP §4.3).
-	if _anchor_ok:
-		var card_rect := _card.get_global_rect()
-		if card_rect.grow(8).intersects(_anchor_rect) and not _card_at_bottom:
-			_place_card(true)
-		elif _card_at_bottom:
-			var top_rect := Rect2(card_rect.position.x, CARD_TOP_OFFSET, card_rect.size.x, card_rect.size.y)
-			if not top_rect.grow(8).intersects(_anchor_rect):
-				_place_card(false)
 	_update_dim_strips()
 	_spotlight.queue_redraw()
+
+
+# Card placement priority: dodge open game dialogs (left flank), then dodge
+# the spotlighted anchor (bottom), else top-center (PRP §4.3).
+func _update_card_mode() -> void:
+	var wanted := "top"
+	if _any_game_window_open():
+		wanted = "left"
+	elif _anchor_ok:
+		var cr := card_rect()
+		if _card_mode != "bottom":
+			if cr.grow(8).intersects(_anchor_rect):
+				wanted = "bottom"
+		else:
+			var top_rect := Rect2(cr.position.x, CARD_TOP_OFFSET, cr.size.x, cr.size.y)
+			wanted = "top" if not top_rect.grow(8).intersects(_anchor_rect) else "bottom"
+	if wanted != _card_mode:
+		_place_card(wanted)
 
 
 func _update_dim_strips() -> void:

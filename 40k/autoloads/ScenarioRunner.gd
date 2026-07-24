@@ -459,6 +459,13 @@ func _do_click_node(step: Dictionary) -> Dictionary:
 	if node is Control:
 		var rect: Rect2 = (node as Control).get_global_rect()
 		screen_pos = rect.position + rect.size * 0.5
+		# Controls inside an embedded Window (AcceptDialog family, the
+		# tutorial's CardWindow) report window-local coordinates — offset by
+		# the window position so the real click lands where the player sees
+		# the control.
+		var host_window := (node as Control).get_window()
+		if host_window != null and host_window != get_tree().root:
+			screen_pos += Vector2(host_window.position)
 	elif node is Node2D:
 		screen_pos = _node2d_to_screen(node as Node2D)
 	else:
