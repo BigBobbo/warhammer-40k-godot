@@ -2,13 +2,22 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.93.13",
+			"version": "0.93.14",
 			"date": "2026-07-24",
 			"summary": "Switching units with the controller bumpers (LB/RB) now glides the camera smoothly instead of pausing and then jumping. The camera eases slow-to-fast-to-slow to the newly selected unit, and the brief work the game does when you pick a unit can no longer make the move lurch.",
 			"changes": [
 				"Controller: the LB/RB unit-switch camera move is now a proper eased glide (slow → fast → slow) with a slightly longer, more readable duration.",
 				"Fixed the 'pause then jump' when cycling units: the camera pan is driven with a capped per-frame step, so the heavier frame that happens when a unit is selected can no longer fast-forward the animation to its destination.",
 				"Grabbing the camera yourself (pan/zoom) mid-glide instantly hands control back to you."
+			]
+		},
+		{
+			"version": "0.93.13",
+			"date": "2026-07-24",
+			"summary": "The special-weapon model marker now sits on the model's own base. Instead of an amber badge at the top-left of the token (which could look like it hovered over a neighbouring model), the model carrying the squad's special/heavy weapon now shows a dashed base ring — four amber dashes at the north/south/east/west of its base rim — so it's unmistakable which model it belongs to.",
+			"changes": [
+				"Board: the special-weapon indicator is now drawn as four amber dashes on the model's base ring (N/E/S/W) rather than a corner badge, removing the ambiguity about which model was flagged.",
+				"The dashes are screen-aligned so the pattern reads the same regardless of which way the model faces, with a dark backing so they stay visible on any base colour."
 			]
 		},
 		{
