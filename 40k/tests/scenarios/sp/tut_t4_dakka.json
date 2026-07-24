@@ -1,0 +1,232 @@
+{
+  "id": "tut_t4_dakka",
+  "covers": [
+    "tutorial.t4.shooting",
+    "tutorial.engine.fixture_boot"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial lesson T4 (Dakka Time), mouse player path: boot from the tutorial_t4_shoot fixture -> select the Boyz as shooter by clicking their token on the board (weapons auto-assign to the only visible target) -> Confirm (3 weapons) -> Fast Roll All in the resolution dock -> Done on each defender save results card (tolerant: pressed only while visible) -> Complete Shooting -> end the phase with the big phase button -> lesson summary -> back to menu.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t4_dakka/Play_t4_dakka"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "01_intro"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_da_boyz"
+    },
+    {
+      "act": "click_board_at",
+      "x": 608.0,
+      "y": 500.0,
+      "comment": "a Boyz model - board-token path selects the unit as shooter"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_dakka"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_targets_assigned"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton",
+      "comment": "auto-assign count is timing-dependent (2 or 3 weapons) so the label text is not stable - use the named node"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_da_dice"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_dice_dock"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "defender save results card 1 - press Done only while visible"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "defender save results card 2 (tolerant no-op when absent)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "defender save results card 3 (tolerant no-op when absent)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton\")\nif b != null and b.is_visible_in_tree() and str(b.text).begins_with(\"Complete\"):\n\tb.pressed.emit()\n\treturn true\nvar d = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton\")\nif d != null and d.is_visible_in_tree():\n\td.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "press Complete Shooting when the dock offers it; else clear any straggler Done card"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton\")\nif b != null and b.is_visible_in_tree() and str(b.text).begins_with(\"Complete\"):\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "second chance Complete Shooting after a late Done card"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.has_shot",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_boyz_shot"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "05_phase_summary"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/ShootingPhaseSummaryDialog/Content/Actions/ConfirmEndShooting\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the phase summary is an embedded modal AcceptDialog mounted on /root (Main.gd:11318) - confirm via emit"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.is_completed(\"t4_dakka\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05_summary"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "id": "t4_dakka",
+  "order": 4,
+  "title": "Dakka Time",
+  "subtitle": "Shooting phase: pick a shooter, confirm targets, roll da dice",
+  "est_minutes": 4,
+  "boot": { "fixture": "tutorial_t4_shoot", "phase": 8, "rng_seed": 4242 },
+  "summary": {
+    "bark": "DAKKA DAKKA DAKKA!",
+    "bullets": [
+      "Click a unit (board or list) to make it da shooter — weapons wiv one target in sight aim demselves.",
+      "[b]Confirm (N weapons)[/b] locks da targets in and opens da dice dock.",
+      "[b]Fast Roll All ⏩[/b] rolls everyfin'; [b]Roll to Hit ▶[/b] goes step by step. [b]Done[/b] closes each save card.",
+      "[b]Complete Shooting[/b] finishes da unit — den pick da next shooter or end da phase.",
+      "[b]Shoot All Remaining[/b] auto-fires every unit ya ain't bothered aimin' yerself.",
+      "Next lesson: 'Ere We Go! — chargin'."
+    ]
+  },
+  "steps": [
+    {
+      "id": "intro",
+      "prompt": {
+        "bark": "SHOOTIN' TIME!",
+        "text": "Da Boyz are out of da wagon an' da Witchseekers are in slugga range. In da Shooting phase every unit gets one go at blastin' — let's teach yer trigger fingers."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "done": { "ack": true }
+    },
+    {
+      "id": "pick_da_boyz",
+      "prompt": {
+        "bark": "OI, YOU LOT!",
+        "kbm": "Click yer [b]Boyz[/b] mob — on da board or in da unit list on da right. Wiv only one enemy in sight, deir weapons aim at da Witchseekers all by demselves.",
+        "pad": "Glide {ls} onto da [b]Boyz[/b] mob an' press {a}. Deir weapons aim at da only target demselves."
+      },
+      "anchor": { "unit": "U_BOYZ_T" },
+      "spotlight": "soft",
+      "allow": ["SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS", "SKIP_UNIT"],
+      "done": { "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_BOYZ_T" } },
+      "hint": { "text": "Da mob of ten south of da wagon. Da Warboss shoots wiv 'em — he's attached." }
+    },
+    {
+      "id": "confirm_dakka",
+      "prompt": {
+        "bark": "LOCK DA TARGETS!",
+        "kbm": "Da weapon list shows every gun an' who it's pointin' at — da button counts how many is locked. If a row still says [b](Click to Select)[/b], click da row, den click da Witchseekers. Den hit [b]Confirm[/b].",
+        "pad": "If a gun row says [b](Click to Select)[/b], pick it wiv {a} an' aim at da Witchseekers. Den glide onto [b]Confirm[/b] an' press {a}."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton" },
+      "spotlight": "soft",
+      "allow": ["SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS", "CONFIRM_TARGETS"],
+      "done": { "action": { "type": "CONFIRM_TARGETS" } },
+      "hint": { "text": "Ya don't have to fire every gun — Confirm locks whatever's assigned." }
+    },
+    {
+      "id": "roll_da_dice",
+      "prompt": {
+        "bark": "LET 'EM RIP!",
+        "kbm": "Da dice dock's open. [b]Fast Roll All ⏩[/b] rolls every gun at once ([b]Roll to Hit ▶[/b] does it step by step). Enemy saves pop up a results card — click [b]Done[/b] on each. When da big button says [b]Complete Shooting[/b], click it to finish da mob's go.",
+        "pad": "Press {a} on [b]Fast Roll All ⏩[/b], {a} on each [b]Done[/b] card, den {a} on [b]Complete Shooting[/b]."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock" },
+      "spotlight": "soft",
+      "allow": ["RESOLVE_WEAPON_SEQUENCE", "CONTINUE_SEQUENCE", "CONTINUE_TO_WOUNDS", "CONTINUE_TO_SAVES", "APPLY_SAVES", "FAST_FINISH_SHOOTING", "COMPLETE_SHOOTING_FOR_UNIT", "USE_SHOOTING_REROLL", "RESOLVE_SHOOTING", "CONFIRM_TARGETS"],
+      "done": { "state": "units.U_BOYZ_T.flags.has_shot", "equals": true },
+      "hint_after_s": 35,
+      "hint": { "text": "Da 'Every step' dropdown picks how often da rollin' pauses. Stuck? Da big dock button always shows da next step." }
+    },
+    {
+      "id": "end_phase",
+      "prompt": {
+        "bark": "CEASEFIRE!",
+        "kbm": "Da wagon an' da grots could shoot too — ([b]Shoot All Remaining[/b] does 'em all in one go) — but we're savin' da ammo. Hit da big red button, check da phase summary, den [b]End Shooting Phase[/b].",
+        "pad": "Da wagon an' grots could shoot too — we're savin' ammo. Press {menu}, den confirm [b]End Shooting Phase[/b] on da summary."
+      },
+      "anchor": { "node": "/root/Main/PhaseActionButton" },
+      "spotlight": "strict",
+      "allow": ["END_SHOOTING"],
+      "done": { "any": [ { "action": { "type": "END_SHOOTING" } }, { "phase": 9 } ] },
+      "hint": { "text": "Da summary counts yer hits an' casualties — Go Back if ya forgot someone." }
+    }
+  ]
+}

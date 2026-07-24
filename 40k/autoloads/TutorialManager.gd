@@ -133,6 +133,13 @@ func _teardown(emit_exit: bool) -> void:
 # Boot the lesson's world, wait for the Main scene to settle, then arm step 0.
 func _boot_and_arm() -> void:
 	var boot: Dictionary = current_lesson.get("boot", {})
+	# The tutorial teaches the shipped game, which is 11th edition only. The
+	# automated harness pins GameConstants.edition to the legacy 10e baseline
+	# (SettingsService._is_automated_harness) — without this override a lesson
+	# run under a windowed scenario played 10e rules (observed: the retired
+	# GO TO GROUND stratagem pausing T4's shooting confirm for a defender
+	# window that never appears in a real player launch).
+	GameConstants.edition = 11
 	# Deterministic dice for taught rolls (PRP §5.4).
 	var seed_val := int(boot.get("rng_seed", -1))
 	if seed_val >= 0:

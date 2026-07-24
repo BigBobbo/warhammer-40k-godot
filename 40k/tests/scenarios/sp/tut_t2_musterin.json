@@ -6,6 +6,7 @@
     "tutorial.engine.config_boot"
   ],
   "rng_seed": 4242,
+  "edition": 11,
   "description": "Tutorial lesson T2 (Musterin' da Boyz), mouse+keyboard player path: fresh tutorial game booted from the lesson's config (no fixture) -> Formations panel: attach Warboss to Boyz via the dropdown, tick Boyz into the Battlewagon, Confirm Formations (batch declares incl. DECLARE_TRANSPORT_EMBARKATION) -> deployment roll-off via the dialog Roll/Continue buttons -> deploy the Battlewagon (click board + Confirm) with the AI alternating -> deploy Gretchin with the Spread formation -> first-turn roll-off -> lesson complete. The Formations panel and roll-off dialog are embedded modal Windows: their buttons are driven via the emit escape hatch and the tie-tolerant roll steps emit only if the button is still present.",
   "steps": [
     {

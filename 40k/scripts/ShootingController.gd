@@ -700,9 +700,12 @@ func _setup_right_panel() -> void:
 	_WhiteDwarfTheme.apply_to_item_list(target_basket)
 	declaration_box.add_child(target_basket)
 	
-	# Action buttons
+	# Action buttons — stable names: the tutorial overlay and windowed
+	# scenarios anchor these by path (the confirm label's weapon count is
+	# assignment-dependent, so text lookup is not reliable).
 	var button_container = HBoxContainer.new()
-	
+	button_container.name = "TargetButtonRow"
+
 	clear_button = Button.new()
 	clear_button.text = "Clear All"
 	clear_button.pressed.connect(_on_clear_pressed)
@@ -719,6 +722,7 @@ func _setup_right_panel() -> void:
 	button_container.add_child(undo_button)
 
 	confirm_button = Button.new()
+	confirm_button.name = "ConfirmTargetsButton"
 	confirm_button.text = "Confirm Targets"
 	confirm_button.pressed.connect(_on_confirm_pressed)
 	_WhiteDwarfTheme.apply_primary_button(confirm_button)
