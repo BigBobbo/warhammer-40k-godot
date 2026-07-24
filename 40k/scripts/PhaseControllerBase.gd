@@ -53,6 +53,31 @@ func get_board_root() -> Node:
 	return SceneRefs.board_root()
 
 
+## Dice log relocation: the Shooting/Charge/Fight dice logs now live in the
+## left GameLogPanel as a switchable "Dice Log" tab, so the long, growing log
+## no longer crowds the phase controls in the right panel. Controllers call
+## this to resolve the shared RichTextLabel instead of building their own; every
+## existing `dice_log_display.append_text/clear/add_image` call then targets the
+## shared tab unchanged. Falls back to a local right-panel label (the historical
+## behavior) when the panel isn't present — e.g. trimmed / headless setups — so
+## `dice_log_display` is always a valid, writable RichTextLabel.
+func resolve_shared_dice_log(fallback_parent: Node = null) -> RichTextLabel:
+	var glp = SceneRefs.game_log_panel() if SceneRefs else null
+	if glp != null and glp.has_method("get_dice_log_display"):
+		var shared = glp.get_dice_log_display()
+		if shared != null:
+			return shared
+	var rt := RichTextLabel.new()
+	rt.name = "DiceLogFallback"
+	rt.custom_minimum_size = Vector2(230, 180)
+	rt.bbcode_enabled = true
+	rt.scroll_following = true
+	rt.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if fallback_parent != null:
+		fallback_parent.add_child(rt)
+	return rt
+
+
 # ── ISS-013: phase signal registry ──────────────────────────────────
 # Subclasses declare the phase signals they consume; attach/detach connect
 # and disconnect them symmetrically. This replaces both the per-signal

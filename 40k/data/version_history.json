@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.15",
+			"date": "2026-07-24",
+			"summary": "The dice log moved out of the right-hand control panel and into the left game-log panel as a switchable tab. In the shooting, charge and fight phases the roll-by-roll log no longer grows down the right side and pushes the controls above it out of reach — the left panel now has two tabs, 'Game Log' and 'Dice Log', that you flip between. When new rolls land while you're reading the Game Log, the Dice Log tab shows a small dot so you know results are waiting.",
+			"changes": [
+				"Shooting / Charge / Fight: the dice log now lives in the left panel as a 'Dice Log' tab next to the existing 'Game Log', instead of at the bottom of the right control panel where it could get long enough to block the controls above it.",
+				"Click the 'Game Log' / 'Dice Log' tabs at the top of the left panel to switch between the card-based event log and the raw dice log. Both fill the panel and scroll on their own, so neither can push the other off-screen.",
+				"The Dice Log tab flags an unread dot when fresh rolls arrive while you're on the Game Log tab, and clears it once you view them.",
+				"The right-hand phase panels are now just controls — the small animated dice-roll graphic still plays there during a roll."
+			]
+		},
+		{
 			"version": "0.93.14",
 			"date": "2026-07-24",
 			"summary": "Switching units with the controller bumpers (LB/RB) now glides the camera smoothly instead of pausing and then jumping. The camera eases slow-to-fast-to-slow to the newly selected unit, and the brief work the game does when you pick a unit can no longer make the move lurch.",

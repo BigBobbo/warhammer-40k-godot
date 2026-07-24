@@ -772,30 +772,16 @@ func _setup_right_panel() -> void:
 	declaration_box.add_child(burn_objective_button)
 	burn_objective_button.visible = false  # Hidden until a unit qualifies
 
-	# Dice log
-	_add_shooting_gold_separator(declaration_box)
-	
-	var dice_label = Label.new()
-	dice_label.text = "DICE LOG"
-	dice_label.add_theme_font_size_override("font_size", 12)
-	dice_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	if FactionPalettes.FONT_RAJDHANI_BOLD:
-		dice_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	shooting_panel.add_child(dice_label)
-	
-	# T5-V1: Animated dice roll visualization
+	# Dice log — relocated to the left GameLogPanel's switchable "Dice Log" tab so
+	# the long, growing log no longer pushes the shooting controls out of reach.
+	# The small dice-roll animation (hidden until a roll) stays in the right panel.
 	dice_roll_visual = DiceRollVisual.new()
 	dice_roll_visual.custom_minimum_size = Vector2(230, 0)
 	dice_roll_visual.visible = false  # Hidden until first roll
 	shooting_panel.add_child(dice_roll_visual)
 
-	dice_log_display = RichTextLabel.new()
-	dice_log_display.custom_minimum_size = Vector2(230, 180)
-	dice_log_display.bbcode_enabled = true
-	dice_log_display.scroll_following = true
-	# Expand to fill any unused right-panel height instead of leaving dead space.
-	dice_log_display.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	shooting_panel.add_child(dice_log_display)
+	dice_log_display = resolve_shared_dice_log(shooting_panel)
+	dice_log_display.clear()
 
 	print("ShootingController: Finished creating shooting UI - panel should be visible!")
 	print("ShootingController: UI Debug Info:")

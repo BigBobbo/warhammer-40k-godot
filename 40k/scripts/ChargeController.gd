@@ -922,27 +922,16 @@ func _setup_right_panel() -> void:
 
 	_add_charge_gold_separator(charge_panel)
 
-	# Dice log display
-	var dice_label = Label.new()
-	dice_label.text = "DICE LOG"
-	dice_label.add_theme_font_size_override("font_size", 13)
-	dice_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	if FactionPalettes:
-		dice_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	charge_panel.add_child(dice_label)
-	
-	# T5-V1: Animated dice roll visualization
+	# Dice log — relocated to the left GameLogPanel's switchable "Dice Log" tab so
+	# the growing log no longer crowds the charge controls. The small dice-roll
+	# animation (hidden until a roll) stays in the right panel.
 	dice_roll_visual = DiceRollVisual.new()
 	dice_roll_visual.custom_minimum_size = Vector2(200, 0)
 	dice_roll_visual.visible = false  # Hidden until first roll
 	charge_panel.add_child(dice_roll_visual)
 
-	dice_log_display = RichTextLabel.new()
-	dice_log_display.custom_minimum_size = Vector2(200, 100)
-	dice_log_display.bbcode_enabled = true
-	# Expand to fill any unused right-panel height instead of leaving dead space.
-	dice_log_display.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	charge_panel.add_child(dice_log_display)
+	dice_log_display = resolve_shared_dice_log(charge_panel)
+	dice_log_display.clear()
 
 	_add_charge_gold_separator(charge_panel)
 

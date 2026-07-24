@@ -7794,10 +7794,10 @@
       "fidelity": "DECLARED"
     },
     {
-      "id": "ui.charge.dice_log_fills_panel",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: dice_log_fills_right_panel_charge.",
+      "id": "ui.charge.dice_log_left_tab",
+      "description": "The charge-phase dice log now lives in the left GameLogPanel's 'Dice Log' tab (shared with shooting/fight), not the right panel, so the growing log no longer crowds the charge controls. Declared by: dice_log_left_tab_charge.",
       "scenarios": [
-        "dice_log_fills_right_panel_charge"
+        "dice_log_left_tab_charge"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -7904,10 +7904,10 @@
       "fidelity": "DECLARED"
     },
     {
-      "id": "ui.fight.combat_log_fills_panel",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: combat_log_fills_right_panel_fight.",
+      "id": "ui.fight.dice_log_left_tab",
+      "description": "The fight-phase combat log now lives in the left GameLogPanel's 'Dice Log' tab (shared with shooting/charge), not the right panel, so the growing log no longer crowds the fight controls. Declared by: dice_log_left_tab_fight.",
       "scenarios": [
-        "combat_log_fills_right_panel_fight"
+        "dice_log_left_tab_fight"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -8146,10 +8146,10 @@
       "fidelity": "DECLARED"
     },
     {
-      "id": "ui.shooting.dice_log_fills_panel",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: dice_log_fills_right_panel_shooting.",
+      "id": "ui.shooting.dice_log_left_tab",
+      "description": "The shooting-phase dice log now lives in the left GameLogPanel's 'Dice Log' tab (shared with charge/fight), not the right panel, so the growing log no longer crowds the shooting controls or blocks the items above it. Declared by: dice_log_left_tab_shooting.",
       "scenarios": [
-        "dice_log_fills_right_panel_shooting"
+        "dice_log_left_tab_shooting"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
