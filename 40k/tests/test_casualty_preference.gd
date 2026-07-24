@@ -11,6 +11,9 @@ extends SceneTree
 #   D) positionless boards degrade to value-only ordering (no crash)
 #   E) engine integration: resolve_allocation_batch_11e kills the
 #      computed order's bases; engine_auto_preference gates on AI defender
+#   F) terrain-hosted objectives (11e 14.01): the hosting AREA is the
+#      objective — a model on the area is protected even when outside the
+#      marker radius, and a model inside the radius but OFF the area is not
 #
 # Usage: godot --headless --path . -s tests/test_casualty_preference.gd
 
@@ -172,6 +175,46 @@ func _run_tests():
 	_check("2 casualties", int(batch.casualties) == 2, str(batch.casualties))
 	_check("the two CLOSEST bases died [4,3]",
 		str(batch.models_destroyed) == str([4, 3]), str(batch.models_destroyed))
+
+	# ── F) terrain-hosted objective (11e 14.01): area beats radius ──────
+	print("\n-- F) terrain-hosted objective uses the hosting area --")
+	var tm = root.get_node_or_null("TerrainManager")
+	_check("TerrainManager autoload present", tm != null)
+	if tm != null:
+		var tf_before = tm.terrain_features
+		# hosting area: 600..900 × 300..500 around the marker at (800,400).
+		tm.terrain_features = [{
+			"id": "area_test", "piece_class": "area",
+			"polygon": PackedVector2Array([
+				Vector2(600, 300), Vector2(900, 300), Vector2(900, 500), Vector2(600, 500)]),
+		}]
+		# A (idx0): ON the area but OUTSIDE the 3.79" marker radius —
+		#   protected ONLY under accurate 14.01 area logic.
+		# B (idx1): INSIDE the marker radius but OFF the area — NOT in range
+		#   under 14.01 (the area IS the objective), so it is plain chaff.
+		# C (idx2): far chaff, on neither.
+		var area_models = [
+			_model("A", 610, 400),
+			_model("B", 950, 400),
+			_model("C", 400, 400),
+		]
+		var area_unit = {"id": "U_AREA", "owner": 2, "flags": {},
+			"meta": {"name": "AreaUnit", "keywords": ["INFANTRY"],
+				"stats": {"toughness": 5, "save": 5, "wounds": 1, "objective_control": 2}},
+			"models": area_models}
+		# enemy stands ON the area too (contests it) and is closest to A, so
+		# proximity + charge denial actively pull A forward — only the
+		# terrain-hosted protection can rank A last.
+		var state_f = _state_with(
+			{"U_AREA": area_unit, "U_ENEMY": _enemy_unit("U_ENEMY", [[700, 450]])},
+			[{"id": "obj_area", "position": {"x": 800.0, "y": 400.0}, "radius_mm": 40.0}])
+		var order_f = CasualtyPreference.compute_preferred_targets(area_unit, state_f)
+		_check("model ON the area (outside marker radius) dies LAST",
+			int(order_f[2]) == 0, str(order_f))
+		_check("model inside radius but OFF the area is unprotected chaff",
+			int(order_f[0]) == 1, str(order_f))
+		_check("full order is [B, C, A]", str(order_f) == str([1, 2, 0]), str(order_f))
+		tm.terrain_features = tf_before
 
 	var ai = root.get_node_or_null("AIPlayer")
 	_check("AIPlayer autoload present", ai != null)

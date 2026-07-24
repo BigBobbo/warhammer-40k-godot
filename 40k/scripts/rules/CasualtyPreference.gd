@@ -31,10 +31,13 @@ extends RefCounted
 ##                the survivors in unit coherency whenever possible (never
 ##                remove the "bridge" model while an end model will do)
 ##
-## Known heuristic limits (documented, not bugs): terrain-hosted objectives
-## (11e 14.01) are approximated by the marker control radius rather than the
-## hosting area, and Leadership/board-role nuances beyond the factors above
-## are out of scope.
+## Objective range uses MissionManager.model_in_objective_range — the SAME
+## shared predicate objective control itself uses — so terrain-hosted
+## objectives (11e 14.01: the hosting AREA is the objective, base-overlap
+## counts, the marker radius does not) are measured accurately; the classic
+## 3" + 20mm marker radius applies on open ground, and is also the fallback
+## when MissionManager is unavailable. Leadership/board-role nuances beyond
+## the factors above are out of scope.
 
 const KEEP_CHARACTER: float = 100000.0        # engine group order protects them anyway; belt & braces
 const KEEP_SERGEANT: float = 600.0            # sergeant-type models: last non-character picks
@@ -59,6 +62,13 @@ const SERGEANT_TOKENS: Array = [
 
 static func _measurement() -> Node:
 	return Engine.get_main_loop().root.get_node("/root/Measurement")
+
+
+static func _mission_manager() -> Node:
+	var loop = Engine.get_main_loop()
+	if loop == null or loop.root == null:
+		return null
+	return loop.root.get_node_or_null("MissionManager")
 
 
 ## Main entry. `unit` is the (possibly attached-composite) defending unit
@@ -107,8 +117,14 @@ static func compute_preferred_targets(unit: Dictionary, state: Dictionary, opts:
 	var parts: Array = []
 	for i in order:
 		parts.append("%s=%.0f" % [str(models[i].get("id", i)), keep[i]])
-	print("[CasualtyPreference] %s die-first order (idx=%s): %s" % [
-		str(unit.get("id", unit.get("meta", {}).get("name", "?"))), str(order), ", ".join(parts)])
+	var line := "[CasualtyPreference] %s die-first order (idx=%s): %s" % [
+		str(unit.get("id", unit.get("meta", {}).get("name", "?"))), str(order), ", ".join(parts)]
+	print(line)
+	# Mirror into the persistent debug log (stdout isn't always reachable).
+	var loop = Engine.get_main_loop()
+	var dl = loop.root.get_node_or_null("DebugLogger") if loop != null and loop.root != null else null
+	if dl != null and dl.has_method("info"):
+		dl.info(line, {})
 	return order
 
 
@@ -276,6 +292,21 @@ static func _obj_pos(obj: Dictionary):
 	return null
 
 
+## Terrain-aware objective-range test: delegates to MissionManager's shared
+## predicate (identical to what objective control uses — 11e 14.01 hosting
+## areas included). Marker-radius fallback only when MissionManager is
+## unavailable (e.g. bare-bones harnesses).
+static func _model_in_range_of_objective(model: Dictionary, obj: Dictionary, meas: Node, mm: Node) -> bool:
+	if not model.get("alive", true) or model.get("position") == null:
+		return false
+	if mm != null and mm.has_method("model_in_objective_range"):
+		return mm.model_in_objective_range(model, obj)
+	var opos = _obj_pos(obj)
+	if opos == null:
+		return false
+	return meas.model_edge_to_point_distance_px(model, opos) <= meas.inches_to_px(OBJECTIVE_CONTROL_RANGE_INCHES)
+
+
 ## MissionManager OC math: a unit contributes its OC once when ANY alive
 ## model is inside control range; battle-shocked or OC-0 units contribute
 ## nothing. (Heuristic: terrain-hosted objectives are approximated by the
@@ -291,10 +322,9 @@ static func _unit_oc(u: Dictionary) -> int:
 	return maxi(oc, 0)
 
 
-static func _objective_oc_totals(state: Dictionary, defender: int, opos: Vector2, control_px: float) -> Dictionary:
+static func _objective_oc_totals(state: Dictionary, defender: int, obj: Dictionary, meas: Node, mm: Node) -> Dictionary:
 	var friendly: int = 0
 	var enemy: int = 0
-	var meas = _measurement()
 	var units: Dictionary = state.get("units", {})
 	for uid in units:
 		var u: Dictionary = units[uid]
@@ -308,9 +338,7 @@ static func _objective_oc_totals(state: Dictionary, defender: int, opos: Vector2
 			continue
 		var any_in: bool = false
 		for m in u.get("models", []):
-			if not m.get("alive", true) or m.get("position") == null:
-				continue
-			if meas.model_edge_to_point_distance_px(m, opos) <= control_px:
+			if _model_in_range_of_objective(m, obj, meas, mm):
 				any_in = true
 				break
 		if not any_in:
@@ -337,20 +365,15 @@ static func _objective_keep(unit: Dictionary, alive: Array, state: Dictionary, d
 		return out
 	var models: Array = unit.get("models", [])
 	var meas = _measurement()
-	var control_px: float = meas.inches_to_px(OBJECTIVE_CONTROL_RANGE_INCHES)
+	var mm = _mission_manager()
 	for obj in objectives:
-		var opos = _obj_pos(obj)
-		if opos == null:
-			continue
 		var in_range: Array = []
 		for i in alive:
-			if models[i].get("position") == null:
-				continue
-			if meas.model_edge_to_point_distance_px(models[i], opos) <= control_px:
+			if _model_in_range_of_objective(models[i], obj, meas, mm):
 				in_range.append(i)
 		if in_range.is_empty():
 			continue
-		var totals: Dictionary = _objective_oc_totals(state, defender, opos, control_px)
+		var totals: Dictionary = _objective_oc_totals(state, defender, obj, meas, mm)
 		var friendly: int = int(totals.friendly)
 		var enemy: int = int(totals.enemy)
 		var without: int = friendly - unit_oc
