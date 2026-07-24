@@ -1,0 +1,55 @@
+{
+  "id": "dice_log_left_tab_shooting",
+  "covers": ["ui.shooting.dice_log_left_tab"],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "The shooting dice log was relocated from the right control panel (where the long, growing log crowded the controls / blocked the items above it) into the left GameLogPanel as a switchable 'Dice Log' tab, alongside the existing 'Game Log' card view. Proves: (1) the controller's dice_log_display IS the shared label owned by the GameLogPanel — same instance as game_log_panel.get_dice_log_display(); (2) that label is a descendant of the GameLogPanel and NOT of HUD_Right; (3) new dice output arriving while the player is on the Game Log tab raises the Dice Log tab's unread nudge; (4) clicking the real 'Dice Log' tab button shows the dice log, hides the card scroll, and clears the nudge; (5) clicking 'Game Log' returns to the cards. Drives the real tab buttons (simulate_click / emit_pressed) and screenshots both tabs.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabGameLog", "timeout_s": 5.0 },
+    { "act": "wait_frames", "frames": 5 },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller.dice_log_display == main.game_log_panel.get_dice_log_display()",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.game_log_panel.is_ancestor_of(main.shooting_controller.dice_log_display)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/HUD_Right\").is_ancestor_of(main.shooting_controller.dice_log_display)",
+      "equals": false },
+
+    { "act": "execute_script", "script": "main.game_log_panel.get_active_tab()", "equals": "game" },
+    { "act": "execute_script", "script": "tree.root.get_node(\"Main/GameLogPanel/VBox/DiceLogDisplay\").visible", "equals": false },
+    { "act": "execute_script", "script": "tree.root.get_node(\"Main/GameLogPanel/VBox/LogScroll\").visible", "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.get_dice_log_display().append_text(\"[color=#AACCEE]To Hit (need 3+): rolled 4, 5, 2 -> 2 hits[/color]\\n\")",
+      "multiline": false },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "main.game_log_panel.is_dice_tab_unread()", "equals": true },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_active_tab()", "equals": "dice" },
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/DiceLogDisplay", "timeout_s": 2.0 },
+    { "act": "execute_script", "script": "tree.root.get_node(\"Main/GameLogPanel/VBox/LogScroll\").visible", "equals": false },
+    { "act": "execute_script", "script": "main.game_log_panel.is_dice_tab_unread()", "equals": false },
+    { "act": "execute_script", "script": "main.game_log_panel.get_dice_log_display().get_total_character_count()", "expect_min": 1 },
+    { "act": "screenshot", "label": "01_dice_log_tab_active_left_panel", "region": [0, 100, 360, 760] },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabGameLog", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_active_tab()", "equals": "game" },
+    { "act": "execute_script", "script": "tree.root.get_node(\"Main/GameLogPanel/VBox/LogScroll\").visible", "equals": true },
+    { "act": "execute_script", "script": "tree.root.get_node(\"Main/GameLogPanel/VBox/DiceLogDisplay\").visible", "equals": false },
+    { "act": "screenshot", "label": "02_game_log_tab_active_left_panel", "region": [0, 100, 360, 760] },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "screenshot", "label": "03_full_frame_right_panel_decluttered" }
+  ]
+}

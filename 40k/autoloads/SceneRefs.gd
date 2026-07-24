@@ -29,6 +29,11 @@ func board_view() -> Node:
 func terrain_visual() -> Node:
 	return main_path("BoardRoot/TerrainVisual")
 
+func game_log_panel() -> Node:
+	# The left-side event log panel. Also hosts the shared "Dice Log" tab that
+	# the shooting/charge/fight controllers write their dice output to.
+	return main_path("GameLogPanel")
+
 func hud_right() -> Node:
 	return main_path("HUD_Right")
 

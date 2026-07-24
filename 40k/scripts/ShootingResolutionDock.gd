@@ -9,8 +9,8 @@ extends ResolutionDockBase
 ## single primary button that is always in the same place ("Roll to Hit ▶" →
 ## "Roll to Wound ▶" → "Continue to Saving Throws ▶" → "Next Weapon ▶" →
 ## "Complete Shooting"), Command Re-roll die chips at the staged pauses, and a
-## Fast Roll escape. Dice detail streams to the DICE LOG right below the dock;
-## the battlefield stays visible the whole time.
+## Fast Roll escape. Dice detail streams to the DICE LOG (the "Dice Log" tab of
+## the left-hand game log panel); the battlefield stays visible the whole time.
 ##
 ## The staged hit/wound rhythm, reroll chips, pause policy and queue rendering
 ## live in ResolutionDockBase — shared with the fight phase's

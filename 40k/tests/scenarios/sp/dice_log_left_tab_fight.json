@@ -1,0 +1,32 @@
+{
+  "id": "dice_log_left_tab_fight",
+  "covers": ["ui.fight.dice_log_left_tab"],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Companion to dice_log_left_tab_shooting: the fight-phase combat log now routes to the shared 'Dice Log' tab of the left GameLogPanel instead of the right control panel. Proves the fight controller's dice_log_display IS the shared GameLogPanel label (same instance), that it is parented under the GameLogPanel and not HUD_Right, and that the real 'Dice Log' tab button surfaces it. Screenshots the Dice Log tab.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog", "timeout_s": 5.0 },
+    { "act": "wait_frames", "frames": 5 },
+
+    { "act": "execute_script",
+      "script": "main.fight_controller.dice_log_display == main.game_log_panel.get_dice_log_display()",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.game_log_panel.is_ancestor_of(main.fight_controller.dice_log_display)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/HUD_Right\").is_ancestor_of(main.fight_controller.dice_log_display)",
+      "equals": false },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_active_tab()", "equals": "dice" },
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/DiceLogDisplay", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_fight_dice_log_left_tab", "region": [0, 100, 360, 760] }
+  ]
+}
