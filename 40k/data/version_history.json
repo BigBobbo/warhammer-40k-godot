@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.13",
+			"date": "2026-07-24",
+			"summary": "The special-weapon model marker now sits on the model's own base. Instead of an amber badge at the top-left of the token (which could look like it hovered over a neighbouring model), the model carrying the squad's special/heavy weapon now shows a dashed base ring — four amber dashes at the north/south/east/west of its base rim — so it's unmistakable which model it belongs to.",
+			"changes": [
+				"Board: the special-weapon indicator is now drawn as four amber dashes on the model's base ring (N/E/S/W) rather than a corner badge, removing the ambiguity about which model was flagged.",
+				"The dashes are screen-aligned so the pattern reads the same regardless of which way the model faces, with a dark backing so they stay visible on any base colour."
+			]
+		},
+		{
 			"version": "0.93.12",
 			"date": "2026-07-23",
 			"summary": "Firing Deck weapon assignment now groups identical guns. When several embarked models fire the same weapon through a transport's firing deck (e.g. 10 Boyz with Sluggas), they show up as a single 'Slugga ×10' row instead of ten separate weapons — and you can split that fire across multiple targets exactly like a normal squad.",

@@ -1174,12 +1174,13 @@ func _has_beacon_flag() -> bool:
 	return not unit.is_empty() and unit.get("flags", {}).get("beacon", false)
 
 func _draw_special_weapon_indicator(radius: float) -> void:
-	# MA-LOADOUT Phase 3 (Task B): draw an amber 4-point "spark" badge at the
-	# token's top-left when this model carries the special/heavy weapon (its
-	# resolved ranged loadout differs from the mob's bulk gun). Distinct in colour
-	# and position from the leader chevron (top-centre) and the Marked-for-Death /
-	# Beacon rings (top-right). Nothing is drawn for unresolved units or uniform
-	# mobs where no model stands out. Result cached — see set_model_data.
+	# MA-LOADOUT Phase 3 (Task B): mark the model carrying the special/heavy weapon
+	# (its resolved ranged loadout differs from the mob's bulk gun) by breaking its
+	# base ring into four amber dashes at screen N / E / S / W. Drawing ON the
+	# model's OWN base rim makes it unmistakable which model it belongs to — the
+	# earlier top-left badge could look like it hovered over a neighbouring model.
+	# Nothing is drawn for unresolved units or uniform mobs where no model stands
+	# out. Result cached — see set_model_data.
 	if not has_meta("unit_id"):
 		return
 	if not _special_checked:
@@ -1192,22 +1193,19 @@ func _draw_special_weapon_indicator(radius: float) -> void:
 	if not _is_special_weapon:
 		return
 
-	var center = Vector2(-radius * 0.62, -radius - 6.0)
-	var outer = max(4.0, radius * 0.34)
-	var inner = outer * 0.42
-	var star = PackedVector2Array()
-	for i in range(8):
-		var ang = -PI / 2.0 + TAU * i / 8.0
-		var r = outer if (i % 2 == 0) else inner
-		star.append(center + Vector2(cos(ang), sin(ang)) * r)
-	# Dark outline (scaled-up copy) behind an amber fill so it reads at board zoom.
-	var outline = PackedVector2Array()
-	for p in star:
-		outline.append(center + (p - center) * 1.3)
-	draw_colored_polygon(outline, Color(0.12, 0.08, 0.0, 0.92))
-	draw_colored_polygon(star, Color(1.0, 0.72, 0.12, 1.0))
-	# Small dark core keeps the star shape legible when the token is tiny.
-	draw_circle(center, max(1.0, inner * 0.35), Color(0.2, 0.12, 0.0, 0.92))
+	# Four short arcs on the base rim at screen N/E/S/W (screen-aligned so the
+	# pattern reads the same regardless of which way the model faces). A darker,
+	# slightly wider backing arc sits under each amber dash so it stays legible on
+	# any base/border colour.
+	var amber := Color(1.0, 0.72, 0.12, 1.0)
+	var dark := Color(0.12, 0.08, 0.0, 0.92)
+	var dash_w: float = max(3.0, radius * 0.13)
+	var half_span := deg_to_rad(20.0)  # each dash spans ~40°, with ~50° gaps
+	var cardinals := [-PI / 2.0, 0.0, PI / 2.0, PI]
+	for a in cardinals:
+		draw_arc(Vector2.ZERO, radius, a - half_span, a + half_span, 12, dark, dash_w + 2.0)
+	for a in cardinals:
+		draw_arc(Vector2.ZERO, radius, a - half_span, a + half_span, 12, amber, dash_w)
 
 func _draw_selection_ring(radius: float) -> void:
 	var pulse = (sin(_pulse_time * 4.0) + 1.0) / 2.0
