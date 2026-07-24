@@ -46,9 +46,11 @@
       "equals": true },
 
     { "act": "execute_script",
-      "script": "main.shooting_controller.dice_log_display.get_parent().get_parent().ensure_control_visible(main.shooting_controller.dice_log_display)" },
+      "script": "main.game_log_panel.show_dice_tab()" },
 
     { "act": "wait_frames", "frames": 3 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/DiceLogDisplay", "timeout_s": 2.0 },
 
     { "act": "screenshot", "label": "resolution_log_dice_icons" }
   ]

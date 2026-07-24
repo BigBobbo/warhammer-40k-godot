@@ -146,6 +146,22 @@ var _thought_link_visual: Node2D = null
 var _card_count: int = 0
 var _is_visible: bool = true
 
+# --- Tabs (Game Log | Dice Log) ---
+# The panel hosts two logs: the card-based Game Log and the raw Dice Log
+# (relocated here from the shooting/charge/fight controllers' right panel so the
+# growing dice output no longer crowds the phase controls). Only one is shown at
+# a time; the header tab buttons switch between them.
+const _GAME_TAB_TEXT := "Game Log"
+const _DICE_TAB_TEXT := "Dice Log"
+var _active_tab: String = "game"
+var _tab_game_button: Button = null
+var _tab_dice_button: Button = null
+var _dice_log_display: RichTextLabel = null
+# Unread nudge: when new dice output lands while the player is on the Game Log
+# tab, the Dice Log tab shows a dot instead of yanking them off the game log.
+var _dice_unread: bool = false
+var _last_dice_char_count: int = 0
+
 # --- History browser (click a card to revert the board to that step) ---
 # Set immediately before each card is built so _register_card can stamp the card
 # with the recording marker (and plain text) of the entry it represents.
@@ -178,6 +194,71 @@ func _ready() -> void:
 		_category_visible[cat] = true
 	for cat in DEFAULT_HIDDEN_CATEGORIES:
 		_category_visible[cat] = false
+
+func _process(_delta: float) -> void:
+	# Flag the Dice Log tab when new output lands while the player is on the Game
+	# Log tab, so they know results are waiting without being yanked off the log.
+	# Cheap: RichTextLabel.get_total_character_count() is a cached read.
+	if not is_instance_valid(_dice_log_display):
+		return
+	var count := _dice_log_display.get_total_character_count()
+	if count != _last_dice_char_count:
+		if count > _last_dice_char_count and _active_tab != "dice" and not _dice_unread:
+			_dice_unread = true
+			_update_tab_buttons()
+		_last_dice_char_count = count
+
+# ==========================================================================
+# Tabs — Game Log (cards) vs Dice Log (raw roll output)
+# ==========================================================================
+
+func _show_tab(which: String) -> void:
+	_active_tab = which
+	var on_game := which == "game"
+	# Game Log content: the scroll of cards, plus the filter bar (only when the
+	# player has expanded it) and the filter/AI header buttons which only make
+	# sense for the card log.
+	if _scroll:
+		_scroll.visible = on_game
+	if _filter_bar:
+		_filter_bar.visible = on_game and _filters_expanded
+	if _filter_button:
+		_filter_button.visible = on_game
+	if _ai_filter_button:
+		_ai_filter_button.visible = on_game
+	# Dice Log content.
+	if _dice_log_display:
+		_dice_log_display.visible = not on_game
+	# Viewing the dice tab clears the unread nudge.
+	if not on_game:
+		_dice_unread = false
+		if is_instance_valid(_dice_log_display):
+			_last_dice_char_count = _dice_log_display.get_total_character_count()
+	_update_tab_buttons()
+
+func _update_tab_buttons() -> void:
+	var on_game := _active_tab == "game"
+	if _tab_game_button:
+		WhiteDwarfTheme.apply_tab_button(_tab_game_button, on_game)
+	if _tab_dice_button:
+		WhiteDwarfTheme.apply_tab_button(_tab_dice_button, not on_game)
+		_tab_dice_button.text = _DICE_TAB_TEXT + ("  ●" if _dice_unread else "")
+
+func get_dice_log_display() -> RichTextLabel:
+	"""The shared Dice Log RichTextLabel the phase controllers write to."""
+	return _dice_log_display
+
+func get_active_tab() -> String:
+	return _active_tab
+
+func is_dice_tab_unread() -> bool:
+	return _dice_unread
+
+func show_dice_tab() -> void:
+	_show_tab("dice")
+
+func show_game_tab() -> void:
+	_show_tab("game")
 
 func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 105.0, offset_bottom: float = 0.0) -> void:
 	name = "GameLogPanel"
@@ -217,12 +298,30 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 	header.custom_minimum_size = Vector2(0, 28)
 	vbox.add_child(header)
 
-	var title = Label.new()
-	title.text = "Game Log"
-	title.add_theme_font_size_override("font_size", 14)
-	title.add_theme_color_override("font_color", COLOR_GOLD)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
+	# Tab switcher — the "title" is now two tabs: the card-based Game Log and the
+	# relocated Dice Log. Styled via WhiteDwarfTheme.apply_tab_button in
+	# _update_tab_buttons() / _show_tab().
+	_tab_game_button = Button.new()
+	_tab_game_button.name = "TabGameLog"
+	_tab_game_button.text = _GAME_TAB_TEXT
+	_tab_game_button.tooltip_text = "Show the game event log"
+	_tab_game_button.custom_minimum_size = Vector2(0, 24)
+	_tab_game_button.pressed.connect(func(): _show_tab("game"))
+	header.add_child(_tab_game_button)
+
+	_tab_dice_button = Button.new()
+	_tab_dice_button.name = "TabDiceLog"
+	_tab_dice_button.text = _DICE_TAB_TEXT
+	_tab_dice_button.tooltip_text = "Show the dice roll log for the current phase"
+	_tab_dice_button.custom_minimum_size = Vector2(0, 24)
+	_tab_dice_button.pressed.connect(func(): _show_tab("dice"))
+	header.add_child(_tab_dice_button)
+
+	# Spacer pushes the filter / AI / collapse controls to the right edge.
+	var header_spacer = Control.new()
+	header_spacer.name = "HeaderSpacer"
+	header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(header_spacer)
 
 	# Filters toggle — expands/collapses the per-category chip bar below.
 	_filter_button = Button.new()
@@ -274,6 +373,25 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 	_card_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_card_container.add_theme_constant_override("separation", CARD_GAP)
 	_scroll.add_child(_card_container)
+
+	# --- Dice Log tab content (hidden until the Dice Log tab is selected) ---
+	# A single shared RichTextLabel the phase controllers write their dice output
+	# to (via resolve_shared_dice_log). fit_content is off + scroll_active on so
+	# unlimited dice output scrolls INSIDE this box instead of ever growing the
+	# panel — the whole point of moving it off the right panel.
+	_dice_log_display = RichTextLabel.new()
+	_dice_log_display.name = "DiceLogDisplay"
+	_dice_log_display.bbcode_enabled = true
+	_dice_log_display.fit_content = false
+	_dice_log_display.scroll_active = true
+	_dice_log_display.scroll_following = true
+	_dice_log_display.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_dice_log_display.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_dice_log_display.visible = false
+	vbox.add_child(_dice_log_display)
+
+	# Set the initial tab (Game Log) — also styles the tab buttons.
+	_show_tab("game")
 
 	# --- Toggle button in HUD ---
 	if hud_bottom:

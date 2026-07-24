@@ -388,27 +388,16 @@ func _setup_right_panel() -> void:
 	fight_panel.add_child(_phase_scoreboard)
 	_add_fight_gold_separator(fight_panel)
 
-	var dice_label = Label.new()
-	dice_label.text = "COMBAT LOG"
-	dice_label.add_theme_font_size_override("font_size", 13)
-	dice_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	if FactionPalettes:
-		dice_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	fight_panel.add_child(dice_label)
-	
-	# T5-V1: Animated dice roll visualization
+	# Combat log — relocated to the left GameLogPanel's switchable "Dice Log" tab
+	# so the growing log no longer crowds the fight controls. The small dice-roll
+	# animation (hidden until a roll) stays in the right panel.
 	dice_roll_visual = DiceRollVisual.new()
 	dice_roll_visual.custom_minimum_size = Vector2(230, 0)
 	dice_roll_visual.visible = false  # Hidden until first roll
 	fight_panel.add_child(dice_roll_visual)
 
-	dice_log_display = RichTextLabel.new()
-	dice_log_display.custom_minimum_size = Vector2(230, 100)
-	dice_log_display.bbcode_enabled = true
-	dice_log_display.scroll_following = true
-	# Expand to fill any unused right-panel height instead of leaving dead space.
-	dice_log_display.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	fight_panel.add_child(dice_log_display)
+	dice_log_display = resolve_shared_dice_log(fight_panel)
+	dice_log_display.clear()
 
 	_add_fight_gold_separator(fight_panel)
 
