@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.93.12",
+			"date": "2026-07-24",
+			"summary": "Switching units with the controller bumpers (LB/RB) now glides the camera smoothly instead of pausing and then jumping. The camera eases slow-to-fast-to-slow to the newly selected unit, and the brief work the game does when you pick a unit can no longer make the move lurch.",
+			"changes": [
+				"Controller: the LB/RB unit-switch camera move is now a proper eased glide (slow → fast → slow) with a slightly longer, more readable duration.",
+				"Fixed the 'pause then jump' when cycling units: the camera pan is driven with a capped per-frame step, so the heavier frame that happens when a unit is selected can no longer fast-forward the animation to its destination.",
+				"Grabbing the camera yourself (pan/zoom) mid-glide instantly hands control back to you."
+			]
+		},
+		{
 			"version": "0.93.11",
 			"date": "2026-07-23",
 			"summary": "The Fight phase now uses the melee weapons models actually carry, the same way shooting was fixed. Datasheets list every close-combat OPTION per model, which made a mob report all of them at once; when the army list pins the melee loadout (Kommandos with Choppas, Burna Boyz with Cuttin' flames, Beast Snagga with Choppas + a Power snappa) each model now fights with its real weapon instead of the whole menu.",
