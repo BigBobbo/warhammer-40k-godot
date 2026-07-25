@@ -6095,6 +6095,7 @@ func _on_apply_to_all_pressed() -> void:
 		return
 
 	var assigned_count = 0
+	var pending_emits: Array = []
 	var child = root.get_first_child()
 
 	while child:
@@ -6135,15 +6136,20 @@ func _on_apply_to_all_pressed() -> void:
 			child.set_custom_color(1, Color(0.5, 0.85, 0.5))
 			child.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
 
-			# Emit assignment action
-			emit_signal("shoot_action_requested", {
-				"type": "ASSIGN_TARGET",
-				"payload": payload
-			})
+			# Queue — emitted after the TreeItem walk (same use-after-free
+			# hazard as the quick-assign path below).
+			pending_emits.append(payload)
 
 			assigned_count += 1
 
 		child = child.get_next()
+
+	# Walk finished: safe to route actions that may rebuild the tree.
+	for emit_payload in pending_emits:
+		emit_signal("shoot_action_requested", {
+			"type": "ASSIGN_TARGET",
+			"payload": emit_payload
+		})
 
 	# Hide the "Apply to All" button since all weapons are now assigned
 	if auto_target_button_container:
@@ -6236,6 +6242,16 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 	var skipped_pistol_names = []
 	var has_assigned_pistol = false
 	var has_assigned_non_pistol = false
+	# CRASH FIX: payloads are collected here and emitted AFTER the walk below
+	# finishes. Emitting inside the loop routes each ASSIGN_TARGET through the
+	# full engine + UI stack while we are still holding a live TreeItem; any
+	# handler that refreshes the weapon tree (a REJECTED assign does exactly
+	# that — tutorial gate, multiplayer, or any validate/execute divergence)
+	# calls weapon_tree.clear(), freeing `child` under us, and the next
+	# child.get_next() dereferences freed memory → SIGSEGV. Same hazard the
+	# single-target auto-assign path already defers around (see the
+	# _pending_auto_assigns comment in _refresh_weapon_tree).
+	var pending_emits: Array = []
 	var child = root.get_first_child()
 
 	while child:
@@ -6298,15 +6314,21 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 				"model_ids": model_ids
 			}
 
-			# Emit assignment action
-			emit_signal("shoot_action_requested", {
-				"type": "ASSIGN_TARGET",
-				"payload": payload
-			})
+			# Queue — emitted after the walk (see pending_emits above).
+			pending_emits.append(payload)
 
 			assigned_count += 1
 
 		child = child.get_next()
+
+	# Walk finished: no live TreeItem is held any more, so the tree rebuild a
+	# rejected assign triggers (Main -> resync_from_phase -> weapon_tree.clear())
+	# can no longer free the iterator out from under us.
+	for emit_payload in pending_emits:
+		emit_signal("shoot_action_requested", {
+			"type": "ASSIGN_TARGET",
+			"payload": emit_payload
+		})
 
 	# Store as last assigned target for the existing "Apply to All" feature
 	last_assigned_target_id = target_id

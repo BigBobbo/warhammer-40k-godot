@@ -610,7 +610,14 @@ fixture (hand-generated this once), **lesson T1 complete**, scenarios
 (bridge-driven) with zero errors in the debug log; a disallowed action is
 blocked with the nudge toast; completion checkmark survives restart.
 
-### TM1 — Strict spotlight, armies, deployment lesson (L) — ✅ SHIPPED 2026-07-24 (v0.97.0)
+### TM1 — Strict spotlight, armies, deployment lesson (L) — ⚠️ PARTIALLY SHIPPED 2026-07-24 (v0.97.0)
+Landed: strict dimmer + pointer blocking, tutorial armies + menu filtering,
+lesson T2, scenario `tut_t2_musterin`. **Not built: the fixture generator tool
+and the lesson lint tool.** T4–T7's fixtures were produced by driving the
+bridge by hand, so there is no committed regeneration path, and nothing lints
+lesson anchors — both are the mitigations §7 names for fixture drift and
+lesson rot. Original scope below.
+
 Strict dimmer-with-cutout + pointer blocking, board-anchor re-projection,
 tutorial armies + menu filtering, **Boyz-in-Battlewagon smoke scenario**
 (§3.6 residual risk) *before* lesson authoring, **lesson T2**

@@ -1,0 +1,278 @@
+{
+  "id": "tut_t4_dakka_pad",
+  "covers": [
+    "tutorial.t4.shooting.pad",
+    "tutorial.t4.resolution_dock.pad"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial lesson T4 driven with pad input: LB claims pad mode, D-pad + A opens the tutorial menu, cursor-glide + A through the picker and the instructor card, glide onto the Boyz token to select the shooter, glide + A on Confirm Targets, then the resolution dock (Fast Roll, defender save cards, Complete Shooting) entirely by cursor-glide + A. The allocation overlay is a plain Control so the virtual cursor reaches it; the end-of-phase summary is an embedded modal Window, so its confirm is emitted.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode so the tutorial renders pad copy and the virtual cursor arms"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t4_dakka/Play_t4_dakka"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "01_intro_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Continue"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_da_boyz"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "unit_id": "U_BOYZ_T"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_dakka"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_shooter_picked_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_da_dice"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_dice_dock_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "04_save_card_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.has_shot",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_boyz_shot_pad"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start is the pad end-phase verb"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "pad confirm on the end-phase prompt (no-op if the summary opened directly)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/ShootingPhaseSummaryDialog/Content/Actions/ConfirmEndShooting\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the phase summary is an embedded modal Window - the virtual cursor cannot reach it, so emit its confirm"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.is_completed(\"t4_dakka\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "06_summary_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Back to Menu"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    }
+  ]
+}

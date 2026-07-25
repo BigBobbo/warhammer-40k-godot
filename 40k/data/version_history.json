@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.0.2",
+      "date": "2026-07-25",
+      "summary": "Crash fix: quick-assigning all weapons to a target could hard-crash the game when the assignment was refused.",
+      "changes": [
+        "Fixed a crash (engine segfault) when clicking an enemy to quick-assign every weapon and the game refused the assignment — the weapon list was rebuilt mid-update and the game read freed memory. The same fault is fixed in the 'Apply to All' path.",
+        "Refused assignments now leave the weapon list in a clean state instead of taking the game down."
+      ]
+    },
+    {
       "version": "1.0.1",
       "date": "2026-07-25",
       "summary": "Full Course fix: moving from one tutorial lesson to the next no longer throws errors during the hand-off.",
