@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.0.4",
+      "date": "2026-07-25",
+      "summary": "Controller fix for the charge lesson, matching the shooting fix.",
+      "changes": [
+        "Fixed ''Ere We Go!' controller instructions: declaring a charge is the right bumper to pick the unit, the D-pad to walk the target ring, A to toggle a target and Start to declare — then Start rolls, X snaps the mob into contact and Start confirms. The old text described mouse buttons.",
+        "The charge lesson is now verified end-to-end on a controller."
+      ]
+    },
+    {
       "version": "1.0.3",
       "date": "2026-07-25",
       "summary": "Controller fix for the shooting lesson: it was teaching the mouse controls to pad players.",

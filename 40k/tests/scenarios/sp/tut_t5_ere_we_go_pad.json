@@ -1,0 +1,303 @@
+{
+  "id": "tut_t5_ere_we_go_pad",
+  "covers": [
+    "tutorial.t5.charge.pad",
+    "tutorial.t5.snap_to_contact.pad"
+  ],
+  "rng_seed": 99,
+  "edition": 11,
+  "description": "Tutorial lesson T5 driven with the SHIPPED pad charge scheme (PadRouter HINTS_CHARGE_*): RB cycles the acting unit, D-pad picks the target, A toggles it into the declaration, Start declares, Start rolls 2D6, X is Snap to Contact, Start confirms the charge, Start ends the phase. No cursor clicks on charge HUD buttons - with a chargeable unit armed the router owns A and Start. The Command Re-roll offer is an embedded modal Window driven by native focus, so its Keep Roll is emitted.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t5_ere_we_go/Play_t5_ere_we_go"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_intro_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Continue"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "declare"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10,
+      "comment": "RB cycles the acting unit to the only eligible charger"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nreturn str(cc.active_unit_id)",
+      "multiline": true,
+      "equals": "U_BOYZ_T"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "D-pad right parks the virtual cursor and steps the ring off index 0. _pad_charge_toggle() refuses while the cursor is ACTIVE, so a D-pad press is what hands the pad back to the board after a cursor glide."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 13,
+      "comment": "D-pad left steps back to the nearest target the ring started on"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nreturn str(cc.target_list.get_item_text(cc.pad_target_cursor))",
+      "multiline": true,
+      "equals": "Custodian Guard (2.9\")",
+      "comment": "pin WHICH row the ring armed on (pad_step_target sets index 0 from unset)"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A toggles the ring-highlighted target into the declaration"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "02_target_toggled_pad"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nreturn \"U_CUSTODIAN_GUARD_T\" in cc.selected_targets",
+      "multiline": true,
+      "equals": true,
+      "comment": "assert WHICH target the pad toggled - charging the far Witchseekers instead would still 'declare' but could never reach contact"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start = Declare Charge (HINTS_CHARGE_READY)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start = Roll 2D6 (HINTS_CHARGE_ROLL)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "keep_da_roll"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_rolled_pad"
+    },
+    {
+      "act": "execute_script",
+      "script": "var q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and str(nd.text).strip_edges() == \"Keep Roll\":\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the Command Re-roll offer is an embedded modal Window - native focus drives it for a real player, emit here"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "move_in"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 2,
+      "comment": "X = Snap to Contact (HINTS_CHARGE_MOVE)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "04_snapped_pad"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start = Confirm Charge (HINTS_CHARGE_MOVE)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.charged_this_turn",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_charged_pad"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "pad confirm on the end-phase prompt"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.is_completed(\"t5_ere_we_go\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "06_summary_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Back to Menu"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    }
+  ]
+}
