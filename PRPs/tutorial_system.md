@@ -665,8 +665,12 @@ cursor glide until a D-pad press parks the cursor; and the charge target ring
 is pre-armed on the nearest enemy, so "press ▶ then A" selects the *wrong*
 target (which declares fine, then silently cannot reach contact).
 
-### TM4 — Polish & Deck pass (S–M)
-First-launch nudge (+ pad-aware copy), picker art/checkmarks polish, prompt
+### TM4 — Polish & Deck pass (S–M) — first-launch nudge SHIPPED 2026-07-25
+Shipped: the first-launch nudge (`TutorialNudgePanel`, pad-aware copy, shown
+once per profile, gated on no-lesson-completed + no-real-game-started, covered
+by `tut_first_launch_nudge`). Still open: picker art polish, the 1280×800
+legibility audit, bark-line pass, hint-timeout tuning, release notes.
+Original scope: first-launch nudge (+ pad-aware copy), picker art/checkmarks polish, prompt
 legibility audit at 1280×800 (≥ 12 px effective), bark-line pass, hint-timeout
 tuning from self-playtests, itch/release notes. *Gate:* Deck-resolution
 screenshot audit of every instructor card; nudge shows exactly once for a

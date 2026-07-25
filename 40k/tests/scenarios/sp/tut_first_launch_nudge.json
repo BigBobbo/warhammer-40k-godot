@@ -1,0 +1,114 @@
+{
+  "id": "tut_first_launch_nudge",
+  "covers": [
+    "tutorial.nudge.first_launch",
+    "tutorial.nudge.shows_once"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "TM4 first-launch nudge: on a genuinely fresh profile the main menu offers the tutorial once. This scenario wipes tutorial progress, re-runs the menu's nudge check, asserts the panel appears, dismisses it with 'Not now', and then asserts it does NOT come back on a second check - being asked twice is the failure mode the feature is designed around. Also asserts the manager refuses the nudge once a lesson is completed or a real game has been started.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.reset_progress()\nreturn TutorialManager.should_show_first_launch_nudge()",
+      "multiline": true,
+      "equals": true,
+      "comment": "fresh profile: nothing completed, no real game started, never nudged"
+    },
+    {
+      "act": "execute_script",
+      "script": "var mm = tree.root.get_node(\"/root/MainMenu\")\nmm._maybe_show_tutorial_nudge()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "re-run the menu's own check (it already ran at _ready, before progress was wiped)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialNudge",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_nudge_shown"
+    },
+    {
+      "act": "execute_script",
+      "script": "var n = tree.root.get_node(\"/root/MainMenu/TutorialNudge\")\nreturn n.get_node(\"Margin/VBox/Footer/StartTrainingButton\").is_visible_in_tree() and n.get_node(\"Margin/VBox/Footer/DismissNudgeButton\").is_visible_in_tree()",
+      "multiline": true,
+      "equals": true,
+      "comment": "both choices are offered - the nudge never forces the tutorial"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialNudge/Margin/VBox/Footer/DismissNudgeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"/root/MainMenu/TutorialNudge\").visible",
+      "multiline": true,
+      "equals": false,
+      "comment": "'Not now' hides it"
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.should_show_first_launch_nudge()",
+      "multiline": true,
+      "equals": false,
+      "comment": "and retires it for good - the whole point of the feature"
+    },
+    {
+      "act": "execute_script",
+      "script": "var mm = tree.root.get_node(\"/root/MainMenu\")\nmm._maybe_show_tutorial_nudge()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"/root/MainMenu/TutorialNudge\").visible",
+      "multiline": true,
+      "equals": false,
+      "comment": "a second menu visit does not re-offer it"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_dismissed_stays_dismissed"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.reset_progress()\nTutorialManager.note_real_game_started()\nreturn TutorialManager.should_show_first_launch_nudge()",
+      "multiline": true,
+      "equals": false,
+      "comment": "someone who already played a real game is not a first-launch player"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.reset_progress()\nTutorialManager._progress.set_value(\"lessons\", \"t1_basics_completed\", true)\nreturn TutorialManager.should_show_first_launch_nudge()",
+      "multiline": true,
+      "equals": false,
+      "comment": "someone who already finished a lesson is not either"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.reset_progress()\nTutorialManager.note_nudge_shown()\nreturn not TutorialManager.should_show_first_launch_nudge()",
+      "multiline": true,
+      "equals": true,
+      "comment": "leave the profile with the nudge retired, NOT pristine: a fresh profile would make the nudge pop over the menu during every other tutorial scenario in the suite"
+    }
+  ]
+}

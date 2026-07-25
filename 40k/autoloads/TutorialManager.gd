@@ -688,6 +688,26 @@ func note_real_game_started() -> void:
 	_progress.save(PROGRESS_PATH)
 
 
+# TM4 first-launch nudge (PRP §1 principle 3 — "suggested once, never forced",
+# the Into the Breach model). True only for a genuinely fresh profile: nobody
+# has finished a lesson, nobody has started a real game, and the nudge has not
+# been shown before. Dismissing it (either button) marks it shown for good.
+func should_show_first_launch_nudge() -> bool:
+	if bool(_progress.get_value("meta", "nudge_shown", false)):
+		return false
+	if int(_progress.get_value("meta", "real_games_started", 0)) > 0:
+		return false
+	for lesson in get_lessons():
+		if is_completed(str(lesson.id)):
+			return false
+	return not get_lessons().is_empty()
+
+
+func note_nudge_shown() -> void:
+	_progress.set_value("meta", "nudge_shown", true)
+	_progress.save(PROGRESS_PATH)
+
+
 func reset_progress() -> void:
 	_progress = ConfigFile.new()
 	_progress.save(PROGRESS_PATH)

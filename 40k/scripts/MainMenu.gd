@@ -3,6 +3,7 @@ extends Control
 const FixedMissionSelectionDialogScript = preload("res://dialogs/FixedMissionSelectionDialog.gd")
 const WhiteDwarfThemeData = preload("res://scripts/WhiteDwarfTheme.gd")
 const TutorialPickerPanelScript = preload("res://scripts/tutorial/TutorialPickerPanel.gd")
+const TutorialNudgePanelScript = preload("res://scripts/tutorial/TutorialNudgePanel.gd")
 
 # MainMenu - Entry point for the game, allows configuration of mission and armies
 
@@ -90,6 +91,7 @@ var army_sort_dropdown: OptionButton = null
 
 var save_load_dialog: PanelContainer
 var _tutorial_picker: PanelContainer = null
+var _tutorial_nudge: PanelContainer = null
 
 # SAVE-20: Save/load progress indicator
 var _save_load_progress_overlay: PanelContainer = null
@@ -328,7 +330,24 @@ func _create_tutorial_ui() -> void:
 
 	_tutorial_picker = TutorialPickerPanelScript.new()
 	add_child(_tutorial_picker)
+
+	# TM4: offer the tutorial once on a genuinely fresh profile. Deferred so the
+	# menu has finished laying out before the panel centres itself.
+	_tutorial_nudge = TutorialNudgePanelScript.new()
+	add_child(_tutorial_nudge)
+	call_deferred("_maybe_show_tutorial_nudge")
 	print("MainMenu: Tutorial button + picker created")
+
+
+func _maybe_show_tutorial_nudge() -> void:
+	var mgr := get_node_or_null("/root/TutorialManager")
+	if mgr == null or not mgr.has_method("should_show_first_launch_nudge"):
+		return
+	if not mgr.should_show_first_launch_nudge():
+		return
+	if _tutorial_nudge != null:
+		_tutorial_nudge.open()
+		print("MainMenu: first-launch tutorial nudge shown")
 
 func _on_tutorial_button_pressed() -> void:
 	print("MainMenu: Tutorial button pressed")

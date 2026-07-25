@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.2.0",
+      "date": "2026-07-25",
+      "summary": "New players are now offered the tutorial on first launch — once, and never again if you wave it away.",
+      "changes": [
+        "The main menu now offers Basic Trainin' the first time you launch: 'Show me da ropes' starts the Full Course, 'Not now' retires the offer for good. It never appears again once you've finished a lesson or started a real game.",
+        "The Tutorial button on the menu remains the permanent way in."
+      ]
+    },
+    {
       "version": "1.1.0",
       "date": "2026-07-25",
       "summary": "Basic Trainin' is fully controller-ready: all seven lessons and the Full Course play start to finish on a pad.",
