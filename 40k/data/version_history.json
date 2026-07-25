@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "0.99.0",
+      "date": "2026-07-25",
+      "summary": "Basic Trainin' lessons 'Ere We Go!' and 'Krumpin'' — the Charge and Fight phases, from declaring a charge to swinging the choppas.",
+      "changes": [
+        "New tutorial lesson ''Ere We Go!' (T5): pick a target, declare the charge, roll 2D6, keep or re-roll it, snap the mob into contact and confirm.",
+        "New tutorial lesson 'Krumpin'' (T6): the pile-in step, activating a unit that charged, choosing one melee weapon and target, rolling the fight out, and the end-of-phase warning when someone hasn't swung.",
+        "Fixed: during a tutorial the AI opponent's own Fight-phase actions (pile in, activations, consolidate) were being blocked by the lesson's step gate, freezing the phase. The gate now only restricts the player's own units."
+      ]
+    },
+    {
       "version": "0.98.0",
       "date": "2026-07-24",
       "summary": "Basic Trainin' lesson: 'Dakka Time'. The Shooting phase, start to finish — pick a shooter, confirm targets, roll the dice dock, and read the phase summary.",

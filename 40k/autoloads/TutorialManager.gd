@@ -509,9 +509,22 @@ func _walk_path(root, path: String):
 func is_action_allowed(action: Dictionary) -> bool:
 	if not active or _bypass_gate:
 		return true
-	# The opponent (AI player 2) always plays freely (PRP §5.4).
+	# The opponent (AI player 2) always plays freely (PRP §5.4). Their turn is
+	# the obvious case — but phases that interleave BOTH players inside one
+	# player's turn (Fight: 12.02 Pile In, 12.04 alternating activations,
+	# 12.07 Consolidate; any defender reactive window) submit opponent actions
+	# while the tutorial player is still the active player. Gating those froze
+	# the AI mid-phase, so honour the action's OWN player when it carries one.
 	if GameState.get_active_player() != TUTORIAL_PLAYER:
 		return true
+	var action_player := int(action.get("player", TUTORIAL_PLAYER))
+	if action_player != TUTORIAL_PLAYER:
+		return true
+	var actor_id := str(action.get("actor_unit_id", action.get("unit_id", "")))
+	if actor_id != "":
+		var actor := GameState.get_unit(actor_id)
+		if not actor.is_empty() and int(actor.get("owner", TUTORIAL_PLAYER)) != TUTORIAL_PLAYER:
+			return true
 	var action_type := str(action.get("type", ""))
 	for prefix in IMPLICIT_SAFE_PREFIXES:
 		if action_type.begins_with(prefix):

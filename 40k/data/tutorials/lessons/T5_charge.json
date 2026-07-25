@@ -1,0 +1,114 @@
+{
+  "id": "t5_ere_we_go",
+  "order": 5,
+  "title": "'Ere We Go!",
+  "subtitle": "Charge phase: declare, roll 2D6, get stuck in",
+  "est_minutes": 4,
+  "boot": { "fixture": "tutorial_t5_charge", "phase": 9, "rng_seed": 99 },
+  "summary": {
+    "bark": "'ERE WE GO, 'ERE WE GO!",
+    "bullets": [
+      "Pick da chargin' unit, tick da target(s) in da list, den [b]Declare Charge[/b].",
+      "[b]Roll 2D6[/b] — dat's how far every model can move. Too short an' da charge fails.",
+      "A [b]Command Re-roll[/b] (1 CP) gets offered on da charge roll — take it if ya came up short.",
+      "[b]Snap to Contact[/b] shoves da whole mob into base contact; drag 'em yerself if ya want it tidy.",
+      "[b]Confirm Charge Moves[/b] locks it. Chargin' units fight first next phase.",
+      "Next lesson: Krumpin' — da Fight phase."
+    ]
+  },
+  "steps": [
+    {
+      "id": "intro",
+      "prompt": {
+        "bark": "CHARGE PHASE!",
+        "text": "Da Boyz shot 'em up — now dey wanna get stuck in. Chargin' is three steps: [b]declare[/b] who ya want, [b]roll[/b] 2D6, den [b]move[/b] into contact. Fail da roll an' dey don't move at all."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "done": { "ack": true }
+    },
+    {
+      "id": "declare",
+      "prompt": {
+        "bark": "PICK YER SCRAP!",
+        "kbm": "Click da [b]Boyz[/b] in da unit list, tick [b]Custodian Guard[/b] in da target list, den hit [b]Declare Charge[/b].",
+        "pad": "Glide {ls} onto da [b]Boyz[/b] row, {a}. Tick [b]Custodian Guard[/b] wiv {a}, den [b]Declare Charge[/b]."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton" },
+      "spotlight": "soft",
+      "allow": ["DECLARE_CHARGE", "SKIP_CHARGE"],
+      "done": { "action": { "type": "DECLARE_CHARGE", "actor_unit_id": "U_BOYZ_T" } },
+      "hint": { "text": "Ya can declare more dan one target — but every one of 'em gets to shoot Overwatch back." }
+    },
+    {
+      "id": "roll",
+      "prompt": {
+        "bark": "ROLL DA BONES!",
+        "kbm": "Hit [b]Roll 2D6[/b]. Whatever ya roll is how many inches [i]every[/i] model in da mob gets — an' dey all gotta end up wivin engagement range for it to count.",
+        "pad": "Glide onto [b]Roll 2D6[/b] an' press {a}."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton" },
+      "spotlight": "soft",
+      "allow": ["CHARGE_ROLL", "SKIP_CHARGE"],
+      "done": { "action": { "type": "CHARGE_ROLL" } },
+      "hint": { "text": "Da panel shows da rolled distance right after — dat's yer budget." }
+    },
+    {
+      "id": "keep_da_roll",
+      "prompt": {
+        "bark": "GOOD ENUFF!",
+        "text": "Nine inches — plenty. Da game offers a [b]Command Re-roll[/b] on any charge roll (1 CP) in case ya come up short; we don't need it. Click [b]Keep Roll[/b]."
+      },
+      "anchor": { "button_text": "Keep Roll" },
+      "spotlight": "soft",
+      "allow": [],
+      "done": { "action": { "type": "DECLINE_COMMAND_REROLL" } },
+      "skip_fallback": { "dispatch": { "type": "DECLINE_COMMAND_REROLL" } },
+      "hint": { "text": "Keep Roll — save da CP. Ya'd only re-roll if da charge fell short." }
+    },
+    {
+      "id": "move_in",
+      "prompt": {
+        "bark": "INTO 'EM!",
+        "kbm": "Now shift da mob. Drag each model — or just hit [b]Snap to Contact[/b] an' da whole lot piles into base contact. Da panel counts how many still need placin'.",
+        "pad": "Press {a} on [b]Snap to Contact[/b] — or grab models one at a time wiv {a}, glide {ls}, {a} to drop."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/SnapToContactButton" },
+      "spotlight": "soft",
+      "allow": ["APPLY_CHARGE_MOVE", "COMPLETE_UNIT_CHARGE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE"],
+      "done": { "any": [
+        { "script": "var cc = tree.root.get_node_or_null(\"/root/Main/ChargeController\")\nif cc == null:\n\treturn false\nreturn cc.moved_models.size() > 0" },
+        { "action": { "type": "APPLY_CHARGE_MOVE", "actor_unit_id": "U_BOYZ_T" } }
+      ] },
+      "hint": { "text": "[b]Undo Last Model[/b] takes back one drop if ya put a boy somewhere daft." }
+    },
+    {
+      "id": "confirm",
+      "prompt": {
+        "bark": "LOCK IT IN!",
+        "kbm": "Hit [b]Confirm Charge Moves[/b] to finish da charge. Da mob's now [b]in engagement[/b] — an' chargin' units strike first in da Fight phase.",
+        "pad": "Glide onto [b]Confirm Charge Moves[/b] an' press {a}."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/ConfirmChargeButton" },
+      "spotlight": "soft",
+      "allow": ["APPLY_CHARGE_MOVE", "COMPLETE_UNIT_CHARGE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE"],
+      "done": { "any": [
+        { "action": { "type": "COMPLETE_UNIT_CHARGE" } },
+        { "action": { "type": "APPLY_CHARGE_MOVE", "actor_unit_id": "U_BOYZ_T" } },
+        { "state": "units.U_BOYZ_T.flags.charged_this_turn", "equals": true }
+      ] }
+    },
+    {
+      "id": "end_phase",
+      "prompt": {
+        "bark": "DAT'S DA LOT!",
+        "kbm": "Da wagon an' da grots ain't chargin' today. Hit da big red button to end da Charge phase.",
+        "pad": "Da wagon an' grots ain't chargin'. Press {menu} an' confirm to end da phase."
+      },
+      "anchor": { "node": "/root/Main/PhaseActionButton" },
+      "spotlight": "strict",
+      "allow": ["END_CHARGE", "SKIP_CHARGE"],
+      "done": { "any": [ { "action": { "type": "END_CHARGE" } }, { "phase": 10 } ] }
+    }
+  ]
+}
