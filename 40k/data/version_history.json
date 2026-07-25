@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.0.0",
+      "date": "2026-07-25",
+      "summary": "Basic Trainin' is complete: all seven lessons, from reading the table to running the Command phase. Roughly 32 minutes end to end.",
+      "changes": [
+        "New tutorial lesson 'Runnin' da Show' (T7): the Command phase — reviewing secondary missions, mission prompts that need a choice, calling da WAAAGH!, and the stratagem panel.",
+        "The tutorial menu now lists all seven lessons plus a Full Course option.",
+        "Tutorial highlights now scroll a side panel automatically when the button they point at is below the fold.",
+        "Fixed: tutorial steps that wait for a dialog to open never triggered, because dialogs are windows rather than regular UI nodes."
+      ]
+    },
+    {
       "version": "0.99.0",
       "date": "2026-07-25",
       "summary": "Basic Trainin' lessons 'Ere We Go!' and 'Krumpin'' — the Charge and Fight phases, from declaring a charge to swinging the choppas.",

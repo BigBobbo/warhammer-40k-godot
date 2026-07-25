@@ -370,8 +370,25 @@ func _process(delta: float) -> void:
 		_anchor_node = res.node
 		if res.ok:
 			_anchor_rect = res.rect
+			# A spotlighted control can sit below the fold of a scrolling side
+			# panel (e.g. the Command panel's Waaagh! button once the objective
+			# and VP sections are populated). Scroll it into view on first
+			# resolve so the ring lands on something the player can actually
+			# see and click.
+			_scroll_anchor_into_view(res.node)
 	_update_dim_strips()
 	_spotlight.queue_redraw()
+
+
+func _scroll_anchor_into_view(node: Node) -> void:
+	if node == null or not (node is Control):
+		return
+	var parent := node.get_parent()
+	while parent != null:
+		if parent is ScrollContainer:
+			(parent as ScrollContainer).ensure_control_visible(node as Control)
+			return
+		parent = parent.get_parent()
 
 
 # Card placement priority: dodge open game dialogs (left flank), then dodge

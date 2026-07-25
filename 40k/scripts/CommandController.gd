@@ -707,6 +707,8 @@ func _setup_waaagh_subsection(section: VBoxContainer, faction_mgr, current_playe
 		section.add_child(active_label)
 	elif faction_mgr.is_waaagh_available(current_player):
 		var btn = Button.new()
+		# Stable name — the tutorial overlay and windowed scenarios anchor it.
+		btn.name = "CallWaaaghButton"
 		btn.text = "CALL DA WAAAGH!"
 		btn.custom_minimum_size = Vector2(230, 34)
 		btn.add_theme_font_size_override("font_size", 13)

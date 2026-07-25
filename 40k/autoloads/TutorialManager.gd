@@ -442,7 +442,14 @@ func _eval_condition(cond: Dictionary, path: String) -> bool:
 		var want_visible: bool = cond.has("node_visible")
 		var node_path := str(cond.get("node_visible", cond.get("node_hidden", "")))
 		var n := get_tree().root.get_node_or_null(NodePath(node_path))
-		var vis: bool = n != null and n is CanvasItem and (n as CanvasItem).is_visible_in_tree()
+		# Windows (every AcceptDialog in this game) are NOT CanvasItems and have
+		# no is_visible_in_tree() — a CanvasItem-only check reported every open
+		# dialog as hidden, so node_visible leaves on dialogs never fired.
+		var vis := false
+		if n is CanvasItem:
+			vis = (n as CanvasItem).is_visible_in_tree()
+		elif n is Window:
+			vis = (n as Window).visible
 		return vis == want_visible
 	if cond.has("state"):
 		var value = _walk_path(GameState.state, str(cond.state))

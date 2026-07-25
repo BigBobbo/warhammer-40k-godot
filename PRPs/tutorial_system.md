@@ -610,7 +610,7 @@ fixture (hand-generated this once), **lesson T1 complete**, scenarios
 (bridge-driven) with zero errors in the debug log; a disallowed action is
 blocked with the nudge toast; completion checkmark survives restart.
 
-### TM1 — Strict spotlight, armies, deployment lesson (L)
+### TM1 — Strict spotlight, armies, deployment lesson (L) — ✅ SHIPPED 2026-07-24 (v0.97.0)
 Strict dimmer-with-cutout + pointer blocking, board-anchor re-projection,
 tutorial armies + menu filtering, **Boyz-in-Battlewagon smoke scenario**
 (§3.6 residual risk) *before* lesson authoring, **lesson T2**
@@ -620,16 +620,24 @@ the hand-made TM0 fixture — plus the T4–T7 checkpoints), lesson lint tool,
 scenarios `tut_t2` (+pad). *Gate:* full T2 run on both devices; fixtures
 regenerate byte-stable from the tool; lint green in CI.
 
-### TM2 — Battle-round lessons I (M)
+### TM2 — Battle-round lessons I (M) — ✅ SHIPPED 2026-07-24/25 (v0.96.0, v0.98.0)
 **T3 Movement** (incl. disembark, carry-mode pad steps, Confirm-Mode gate
 teaching) and **T4 Shooting** (seeded resolution-dock walk), their fixtures +
 scenarios. *Gate:* T3 pad variant proves carry mode teachable end-to-end.
 
-### TM3 — Battle-round lessons II (M)
+### TM3 — Battle-round lessons II (M) — ✅ SHIPPED 2026-07-25 (v0.99.0, v1.0.0)
 **T5 Charge**, **T6 Fight** (incl. one defender-allocation beat), **T7
 Command/Stratagems/capstone turn**, Full-Course sequencing (lesson-to-lesson
 continuation without reloads), completion celebration. *Gate:* Full Course
 playable start-to-finish on pad via the bridge; all `tut_*` scenarios green.
+
+Shipped notes: T4–T7 boot from fixtures generated through the real action
+pipeline (`tutorial_t4_shoot`, `t5_charge`, `t6_fight`, `t7_round2`). Charge
+uses `rng_seed: 99` (2D6 = 9). Every lesson scenario pins `"edition": 11` and
+`TutorialManager` forces edition 11 at boot, because the automated harness
+otherwise pins the legacy 10e baseline. Mouse scenarios are green for all
+seven lessons; pad variants exist for T1 and T3 only — the remaining pad
+variants and the Full-Course-on-pad gate are still open.
 
 ### TM4 — Polish & Deck pass (S–M)
 First-launch nudge (+ pad-aware copy), picker art/checkmarks polish, prompt
