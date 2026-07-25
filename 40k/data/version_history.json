@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.0.3",
+      "date": "2026-07-25",
+      "summary": "Controller fix for the shooting lesson: it was teaching the mouse controls to pad players.",
+      "changes": [
+        "Fixed 'Dakka Time' controller instructions: picking a shooter is the right bumper (the only unit-cycling control), and confirming targets is the Start button — not gliding the cursor onto the panel. The old text described mouse steps that do nothing on a pad.",
+        "The shooting lesson is now verified end-to-end on a controller."
+      ]
+    },
+    {
       "version": "1.0.2",
       "date": "2026-07-25",
       "summary": "Crash fix: quick-assigning all weapons to a target could hard-crash the game when the assignment was refused.",

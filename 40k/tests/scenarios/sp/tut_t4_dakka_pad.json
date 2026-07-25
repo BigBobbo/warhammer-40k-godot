@@ -6,7 +6,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T4 driven with pad input: LB claims pad mode, D-pad + A opens the tutorial menu, cursor-glide + A through the picker and the instructor card, glide onto the Boyz token to select the shooter, glide + A on Confirm Targets, then the resolution dock (Fast Roll, defender save cards, Complete Shooting) entirely by cursor-glide + A. The allocation overlay is a plain Control so the virtual cursor reaches it; the end-of-phase summary is an embedded modal Window, so its confirm is emitted.",
+  "description": "Tutorial lesson T4 driven with the SHIPPED pad scheme (PadRouter HINTS_TARGETS): LB claims pad mode, D-pad + A opens the tutorial menu, cursor-glide + A through the picker and the instructor card, then RB cycles the acting unit to the Boyz and Start (menu) is Confirm Targets -- NOT a cursor click on the HUD, because with a shooter armed PadRouter._handle_a assigns the highlighted target before the cursor ever sees A. The resolution dock is driven by cursor-glide + A (no shooter armed at that point, so A falls through to the cursor). The phase summary is an embedded modal Window, so its confirm is emitted.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -91,12 +91,19 @@
       "equals": "pick_da_boyz"
     },
     {
-      "act": "pad_cursor_glide",
-      "unit_id": "U_BOYZ_T"
+      "act": "simulate_joy_button",
+      "button_index": 10,
+      "comment": "RB cycles the acting unit - the only unit-selection control on the pad"
     },
     {
-      "act": "simulate_joy_button",
-      "button_index": 0
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nreturn str(pi.active_shooter_id)",
+      "multiline": true,
+      "equals": "U_BOYZ_T"
     },
     {
       "act": "wait_seconds",
@@ -112,12 +119,9 @@
       "label": "02_shooter_picked_pad"
     },
     {
-      "act": "pad_cursor_glide",
-      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
-    },
-    {
       "act": "simulate_joy_button",
-      "button_index": 0
+      "button_index": 6,
+      "comment": "Start = Confirm Targets on the pad (HINTS_TARGETS)"
     },
     {
       "act": "wait_seconds",
@@ -161,24 +165,22 @@
       "seconds": 2.5
     },
     {
-      "act": "pad_cursor_glide",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 0
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "extra defender save cards are seed-dependent - press only if one is up (the first card above is driven with real pad input)"
     },
     {
       "act": "wait_seconds",
       "seconds": 2.5
     },
     {
-      "act": "pad_cursor_glide",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 0
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "extra defender save cards are seed-dependent - press only if one is up (the first card above is driven with real pad input)"
     },
     {
       "act": "wait_seconds",

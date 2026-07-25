@@ -32,7 +32,7 @@
       "prompt": {
         "bark": "OI, YOU LOT!",
         "kbm": "Click yer [b]Boyz[/b] mob — on da board or in da unit list on da right. Wiv only one enemy in sight, deir weapons aim at da Witchseekers all by demselves.",
-        "pad": "Glide {ls} onto da [b]Boyz[/b] mob an' press {a}. Deir weapons aim at da only target demselves."
+        "pad": "Tap {rb} till da [b]Boyz[/b] are da active shooter — {rb} cycles yer units, dat's da only control dat does. Deir weapons aim at da only target demselves."
       },
       "anchor": { "unit": "U_BOYZ_T" },
       "spotlight": "soft",
@@ -45,7 +45,7 @@
       "prompt": {
         "bark": "LOCK DA TARGETS!",
         "kbm": "Da weapon list shows every gun an' who it's pointin' at — da button counts how many is locked. If a row still says [b](Click to Select)[/b], click da row, den click da Witchseekers. Den hit [b]Confirm[/b].",
-        "pad": "If a gun row says [b](Click to Select)[/b], pick it wiv {a} an' aim at da Witchseekers. Den glide onto [b]Confirm[/b] an' press {a}."
+        "pad": "Wiv a shooter armed, {dpad} ◀▶ walks da targets an' ▲▼ walks yer guns; {a} aims da current gun at da highlighted target. When yer happy, press {menu} — dat's [b]Confirm Targets[/b] on da pad."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton" },
       "spotlight": "soft",
