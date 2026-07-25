@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.0.5",
+      "date": "2026-07-25",
+      "summary": "Controller fix for the fight lesson — the last of the three lessons that were describing mouse steps to pad players.",
+      "changes": [
+        "Fixed 'Krumpin'' controller instructions: the fight panel is navigated with the D-pad (or pointed at with the stick) and pressed with A — the right bumper does not cycle fighters there. The attack panel's own controls are now spelled out: D-pad picks weapon and target, A assigns, Start swings.",
+        "The fight lesson is now verified end-to-end on a controller."
+      ]
+    },
+    {
       "version": "1.0.4",
       "date": "2026-07-25",
       "summary": "Controller fix for the charge lesson, matching the shooting fix.",
