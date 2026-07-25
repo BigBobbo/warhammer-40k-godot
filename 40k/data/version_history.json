@@ -2,6 +2,34 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.2.0",
+      "date": "2026-07-25",
+      "summary": "New players are now offered the tutorial on first launch — once, and never again if you wave it away.",
+      "changes": [
+        "The main menu now offers Basic Trainin' the first time you launch: 'Show me da ropes' starts the Full Course, 'Not now' retires the offer for good. It never appears again once you've finished a lesson or started a real game.",
+        "The Tutorial button on the menu remains the permanent way in."
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-07-25",
+      "summary": "Basic Trainin' is fully controller-ready: all seven lessons and the Full Course play start to finish on a pad.",
+      "changes": [
+        "Fixed 'Runnin' da Show' controller instructions — it claimed Y opened the stratagem panel; Y is the datasheet.",
+        "All seven lessons are now verified end-to-end on a controller, as is playing them back-to-back as a Full Course.",
+        "Each phase's controller instructions now match what that phase actually does, rather than describing mouse steps."
+      ]
+    },
+    {
+      "version": "1.0.5",
+      "date": "2026-07-25",
+      "summary": "Controller fix for the fight lesson — the last of the three lessons that were describing mouse steps to pad players.",
+      "changes": [
+        "Fixed 'Krumpin'' controller instructions: the fight panel is navigated with the D-pad (or pointed at with the stick) and pressed with A — the right bumper does not cycle fighters there. The attack panel's own controls are now spelled out: D-pad picks weapon and target, A assigns, Start swings.",
+        "The fight lesson is now verified end-to-end on a controller."
+      ]
+    },
+    {
       "version": "1.0.4",
       "date": "2026-07-25",
       "summary": "Controller fix for the charge lesson, matching the shooting fix.",

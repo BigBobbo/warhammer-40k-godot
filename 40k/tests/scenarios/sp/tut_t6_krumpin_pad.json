@@ -1,0 +1,304 @@
+{
+  "id": "tut_t6_krumpin_pad",
+  "covers": [
+    "tutorial.t6.fight.pad",
+    "tutorial.t6.attack_dialog.pad"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial lesson T6 driven with pad input. The Fight phase advertises HINTS_FIGHT (D-pad navigates the focused panel, A presses, ls points, Start ends the phase) and the AttackAssignmentDialog carries its own pad hint row (dpad up/down weapon, left/right target, A assign, Start Fight!). Note RB does not cycle fighters here - after the instructor card is dismissed the pad sits in panel-focus mode, so the fighter is picked with the cursor (or D-pad navigation within the panel). Cursor-glide + A is legitimate on the fight HUD because PadRouter._handle_a has no fight-phase board verb.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t6_krumpin/Play_t6_krumpin"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "screenshot",
+      "label": "01_intro_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Continue"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pile_in"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_fighter"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_pile_in_done_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_T",
+      "comment": "RB does NOT cycle fighters here: dismissing the instructor card leaves the pad in panel-focus mode (hint bar reads Navigate/Press/Back To Board), where D-pad and A belong to the focused panel. HINTS_FIGHT lists 'ls Point', so the cursor is a first-class fight control."
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "assign_attacks"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_attack_dialog_pad"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn str(d.unit_id)",
+      "multiline": true,
+      "equals": "U_BOYZ_T",
+      "comment": "RB armed the Boyz (the unit that charged), not some other engaged unit"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "D-pad down steps the weapon list (the dialog's own pad hint row)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A assigns the stepped weapon to the current target"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn d.assignments.size() > 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "the pad A really built an assignment"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start = Fight! (the dialog's pad hint row)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_it_out"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_dice_dock_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockFastButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar prim = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton\")\nif prim != null and prim.is_visible_in_tree():\n\tprim.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "defender cards are seed-dependent - clear whichever is up"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar prim = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton\")\nif prim != null and prim.is_visible_in_tree():\n\tprim.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar prim = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton\")\nif prim != null and prim.is_visible_in_tree():\n\tprim.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.has_fought",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_boyz_fought_pad"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start = End Phase (HINTS_FIGHT)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "pad confirm on the end-phase prompt (Start opens it, A accepts)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "the unfought-units warning (Warboss has not swung) is an embedded modal Window - confirm it if the pad flow surfaced it; tolerant because the pad confirm above may already have ended the phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.is_completed(\"t6_krumpin\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "06_summary_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Back to Menu"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    }
+  ]
+}

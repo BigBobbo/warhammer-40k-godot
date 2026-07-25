@@ -4,7 +4,11 @@
   "title": "Krumpin'",
   "subtitle": "Fight phase: pile in, pick a weapon, swing",
   "est_minutes": 4,
-  "boot": { "fixture": "tutorial_t6_fight", "phase": 10, "rng_seed": 4242 },
+  "boot": {
+    "fixture": "tutorial_t6_fight",
+    "phase": 10,
+    "rng_seed": 4242
+  },
   "summary": {
     "bark": "GET STUCK IN!",
     "bullets": [
@@ -24,75 +28,149 @@
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "ack": true }
+      "done": {
+        "ack": true
+      }
     },
     {
       "id": "pile_in",
       "prompt": {
         "bark": "SHUFFLE UP!",
         "kbm": "Pile In lets every engaged unit move 3\" closer to da enemy. Yer Boyz are already in contact, so just hit [b]End Pile In[/b].",
-        "pad": "Yer Boyz are already in contact — glide onto [b]End Pile In[/b] an' press {a}."
+        "pad": "Yer Boyz are already in contact — glide {ls} onto [b]End Pile In[/b] an' press {a}."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton"
+      },
       "spotlight": "soft",
-      "allow": ["PILE_IN", "END_PILE_IN"],
-      "done": { "action": { "type": "END_PILE_IN" } },
-      "hint": { "text": "Clickin' da unit row would let ya drag models 3\" first — not needed here." }
+      "allow": [
+        "PILE_IN",
+        "END_PILE_IN"
+      ],
+      "done": {
+        "action": {
+          "type": "END_PILE_IN"
+        }
+      },
+      "hint": {
+        "text": "Clickin' da unit row would let ya drag models 3\" first — not needed here."
+      }
     },
     {
       "id": "pick_fighter",
       "prompt": {
         "bark": "BOYZ FIRST!",
         "kbm": "Click [b]Boyz[/b] under UNITS THAT CAN FIGHT. Dey charged, so dey swing before da Custodes do.",
-        "pad": "Glide {ls} onto da [b]Boyz[/b] row an' press {a}."
+        "pad": "Da fight panel takes {dpad} to move da highlight an' {a} to press — or glide {ls} onto da [b]Boyz[/b] row an' press {a}. Dey charged, so dey swing first."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList"
+      },
       "spotlight": "soft",
-      "allow": ["SELECT_FIGHTER"],
-      "done": { "any": [
-        { "action": { "type": "SELECT_FIGHTER" } },
-        { "node_visible": "/root/AttackAssignmentDialog" }
-      ] },
-      "hint": { "text": "Da list only shows units in engagement range — dat's who can fight." }
+      "allow": [
+        "SELECT_FIGHTER"
+      ],
+      "done": {
+        "any": [
+          {
+            "action": {
+              "type": "SELECT_FIGHTER"
+            }
+          },
+          {
+            "node_visible": "/root/AttackAssignmentDialog"
+          }
+        ]
+      },
+      "hint": {
+        "text": "Da list only shows units in engagement range — dat's who can fight."
+      }
     },
     {
       "id": "assign_attacks",
       "prompt": {
         "bark": "PICK YER CHOPPA!",
         "kbm": "Each model fights wiv [b]one[/b] melee weapon. Pick a weapon in da list, click da [b]Custodian Guard[/b] target, hit [b]Weapon to Target[/b], den [b]Fight![/b]",
-        "pad": "{ls} up/down picks da weapon, left/right da target, {a} assigns — den {menu} for [b]Fight![/b]"
+        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon, ◀▶ picks da target, {a} assigns 'em, den {menu} for [b]Fight![/b]"
       },
-      "anchor": { "node": "/root/AttackAssignmentDialog" },
+      "anchor": {
+        "node": "/root/AttackAssignmentDialog"
+      },
       "spotlight": "none",
-      "allow": ["BATCH_FIGHT_ACTIONS", "ASSIGN_ATTACKS", "SELECT_FIGHTER"],
-      "done": { "action": { "type": "BATCH_FIGHT_ACTIONS" } },
-      "hint": { "text": "Da panel shows expected damage per weapon — da Power klaw hits hardest but da Choppa gets more swings." }
+      "allow": [
+        "BATCH_FIGHT_ACTIONS",
+        "ASSIGN_ATTACKS",
+        "SELECT_FIGHTER"
+      ],
+      "done": {
+        "action": {
+          "type": "BATCH_FIGHT_ACTIONS"
+        }
+      },
+      "hint": {
+        "text": "Da panel shows expected damage per weapon — da Power klaw hits hardest but da Choppa gets more swings."
+      }
     },
     {
       "id": "roll_it_out",
       "prompt": {
         "bark": "KRUMP 'EM!",
         "kbm": "Same dice dock as shootin': [b]Fast Roll ⏩[/b] rolls hits, wounds an' saves in one go (or step frough wiv da big button). Finish wiv [b]Done ✔[/b].",
-        "pad": "Press {a} on [b]Fast Roll ⏩[/b], clear any save cards, den [b]Done ✔[/b]."
+        "pad": "Glide {ls} onto [b]Fast Roll ⏩[/b] an' press {a}, clear any save cards, den [b]Done ✔[/b]."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock"
+      },
       "spotlight": "soft",
-      "allow": ["CONTINUE_TO_WOUNDS", "CONTINUE_TO_SAVES", "APPLY_SAVES", "CONTINUE_SEQUENCE", "FAST_FINISH_FIGHT", "COMPLETE_FIGHT_FOR_UNIT", "USE_FIGHT_REROLL", "RESOLVE_FIGHT"],
-      "done": { "state": "units.U_BOYZ_T.flags.has_fought", "equals": true },
+      "allow": [
+        "CONTINUE_TO_WOUNDS",
+        "CONTINUE_TO_SAVES",
+        "APPLY_SAVES",
+        "CONTINUE_SEQUENCE",
+        "FAST_FINISH_FIGHT",
+        "COMPLETE_FIGHT_FOR_UNIT",
+        "USE_FIGHT_REROLL",
+        "RESOLVE_FIGHT"
+      ],
+      "done": {
+        "state": "units.U_BOYZ_T.flags.has_fought",
+        "equals": true
+      },
       "hint_after_s": 30,
-      "hint": { "text": "Da big dock button always says what's next — keep pressin' it till it says Done." }
+      "hint": {
+        "text": "Da big dock button always says what's next — keep pressin' it till it says Done."
+      }
     },
     {
       "id": "end_phase",
       "prompt": {
         "bark": "DAT'S ENOUGH KRUMPIN'!",
         "kbm": "Da enemy gets deir swings too — dat's alternatin' activation. Hit da big red button to end da phase; if anyone ain't swung yet da game warns ya first — confirm wiv [b]End Fight Phase[/b].",
-        "pad": "Da enemy swings back — dat's alternatin' activation. Press {menu}, den confirm [b]End Fight Phase[/b] if it warns ya."
+        "pad": "Da enemy swings back — dat's alternatin' activation. Press {menu} to end da phase, den confirm [b]End Fight Phase[/b] if it warns ya."
       },
-      "anchor": { "node": "/root/Main/PhaseActionButton" },
+      "anchor": {
+        "node": "/root/Main/PhaseActionButton"
+      },
       "spotlight": "strict",
-      "allow": ["END_FIGHT", "SELECT_FIGHTER", "SKIP_UNIT", "END_CONSOLIDATION", "CONSOLIDATE"],
-      "done": { "any": [ { "action": { "type": "END_FIGHT" } }, { "phase": 11 } ] }
+      "allow": [
+        "END_FIGHT",
+        "SELECT_FIGHTER",
+        "SKIP_UNIT",
+        "END_CONSOLIDATION",
+        "CONSOLIDATE"
+      ],
+      "done": {
+        "any": [
+          {
+            "action": {
+              "type": "END_FIGHT"
+            }
+          },
+          {
+            "phase": 11
+          }
+        ]
+      }
     }
   ]
 }
