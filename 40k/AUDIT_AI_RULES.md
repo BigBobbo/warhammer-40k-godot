@@ -33,6 +33,13 @@ movements (no engine auto-pathing fallback).
 
 ---
 
+> **Status update (2026-07-25, v0.94.1):** All Tier 0 items (0.1–0.10, plus four
+> extra dice-parse sites found at :18888/:19199/:20973/:20979 and the same
+> max-wounds bug in the charge scorer) and Tier 1 items 1 + 7 are FIXED on this
+> branch. Validated live: MCP-driven unit checks plus 3 windowed AI scenarios
+> (memops_ai_vs_ai_bounded, ai_casualty_preference, ai_coordinated_movement) all
+> pass. Everything else below remains open.
+
 ## Tier 0 — Bugs that silently disable AI intelligence that already exists
 
 These are not "missing features" — they are one-line bugs that make heuristics the

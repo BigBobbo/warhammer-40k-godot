@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.94.1",
+			"date": "2026-07-25",
+			"summary": "AI tune-up: the computer now values its weapons correctly. Dice-stat weapons (D6 shots, D6 damage) and who actually carries each gun are finally counted, so the AI picks far better shooting and melee targets — plus several stuck-AI safeguards.",
+			"changes": [
+				"AI now reads dice-notation weapon stats (D3/D6/2D6 attacks and damage) at their true average instead of treating them as 1 — anti-tank guns and power klaws are no longer massively undervalued.",
+				"AI damage estimates now count only the models that actually carry a weapon (loadouts, profiles or '9x Choppa'-style wargear), so one Nob's klaw no longer counts as ten.",
+				"AI fight and charge target picks now use a target's CURRENT wounds — a nearly-dead Knight is finally seen as finishable.",
+				"Fixed four dead data lookups that silently disabled AI heuristics: objective-control scores in embark/disembark/target value, the Heavy-weapon charge-intent check, the gang-up charge bonus, and multi-target charge base-size reach.",
+				"Martial Mastery and objective bookkeeping small fixes (correct average-save math, objectives matched by position).",
+				"Stuck-AI safeguards: an AI decision gap now counts toward the phase escape hatch instead of hanging the game, and any unrecognised failed action re-evaluates immediately instead of stalling."
+			]
+		},
+		{
 			"version": "0.94.0",
 			"date": "2026-07-24",
 			"summary": "The computer now picks casualties intelligently. When the AI defends — or you turn on 'Computer allocates wounds' — models are no longer removed in list order: cheap bodies die first and from the front, while sergeants, special-weapon carriers, objective holders and unit coherency are protected.",

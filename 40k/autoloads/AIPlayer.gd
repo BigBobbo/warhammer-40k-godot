@@ -1910,6 +1910,16 @@ func _execute_next_action(player: int) -> void:
 
 	if decision.is_empty():
 		push_warning("AIPlayer: No decision made for player %d in phase %d" % [player, phase])
+		# SOAK-2: an empty decision WITH actions on offer means the decision
+		# maker has no branch for the current window (e.g. an unhandled
+		# blocking ability). It must count as a non-progress attempt and
+		# re-evaluate — returning without incrementing left
+		# MAX_ACTIONS_PER_PHASE unreachable, turning every unhandled window
+		# into a permanent hang instead of tripping the tiered escape hatch.
+		if not available.is_empty():
+			_current_phase_actions += 1
+			_request_evaluation()
+			return
 		_end_ai_thinking()
 		return
 
@@ -2256,6 +2266,12 @@ func _execute_next_action(player: int) -> void:
 			var reinf_unit_name = _get_unit_name(reinf_unit_id)
 			_log_ai_event(player, "%s reinforcement failed (%s) — retrying" % [reinf_unit_name, _format_error_concise(error_msg)])
 			_handle_failed_reinforcement(player, decision)
+
+		# SOAK-2 default: any OTHER failed action type re-evaluates against
+		# fresh offers instead of stalling until the 2 s watchdog. The attempt
+		# was already counted above, so MAX_ACTIONS_PER_PHASE bounds this loop.
+		else:
+			_request_evaluation()
 	else:
 		# Any successful action means the loop is progressing — clear the
 		# consecutive SELECT_FIGHTER failure counter.
