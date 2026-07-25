@@ -4716,6 +4716,13 @@ func setup_deployment_zones() -> void:
 var _setting_up_controllers: bool = false  # Semaphore to prevent concurrent setup
 
 func setup_phase_controllers() -> void:
+	# Same outgoing-Main guard as _close_stale_review_dialogs: this awaits
+	# process_frame, so on a Main that has left the tree it errors on a null
+	# get_tree() and leaves _setting_up_controllers latched.
+	if not is_inside_tree() or get_tree() == null:
+		print("Main: setup_phase_controllers() skipped — node is outside the tree")
+		return
+
 	# CRITICAL: Prevent concurrent calls that create duplicate controllers
 	if _setting_up_controllers:
 		print("Main: setup_phase_controllers() already running - waiting for completion...")
@@ -9975,6 +9982,12 @@ func _toggle_deployment_zones() -> void:
 		ToastManager.show_toast("Deployment zones hidden (Z to show)", Color(0.6, 0.6, 0.8), 2.0)
 
 func _close_stale_review_dialogs() -> void:
+	# A phase-change signal can reach an outgoing Main that has already left the
+	# tree (tutorial Full Course swaps Main.tscn for the next lesson), where
+	# get_tree() is null. Seen as "Invalid access to property 'root' on a null
+	# instance" on every lesson-to-lesson transition.
+	if not is_inside_tree() or get_tree() == null:
+		return
 	for child in get_tree().root.get_children():
 		if child is AcceptDialog and is_instance_valid(child) and child.visible:
 			print("Main: Closing stale dialog on phase change: %s" % child.name)

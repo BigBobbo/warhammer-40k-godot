@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.0.1",
+      "date": "2026-07-25",
+      "summary": "Full Course fix: moving from one tutorial lesson to the next no longer throws errors during the hand-off.",
+      "changes": [
+        "Fixed: starting the next lesson in a Full Course left the outgoing game screen doing work after it had been torn down, throwing script errors on every hand-off.",
+        "The Full Course hand-off is now covered by an automated test."
+      ]
+    },
+    {
       "version": "1.0.0",
       "date": "2026-07-25",
       "summary": "Basic Trainin' is complete: all seven lessons, from reading the table to running the Command phase. Roughly 32 minutes end to end.",
