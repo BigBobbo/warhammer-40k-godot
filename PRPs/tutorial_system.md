@@ -642,9 +642,28 @@ Shipped notes: T4–T7 boot from fixtures generated through the real action
 pipeline (`tutorial_t4_shoot`, `t5_charge`, `t6_fight`, `t7_round2`). Charge
 uses `rng_seed: 99` (2D6 = 9). Every lesson scenario pins `"edition": 11` and
 `TutorialManager` forces edition 11 at boot, because the automated harness
-otherwise pins the legacy 10e baseline. Mouse scenarios are green for all
-seven lessons; pad variants exist for T1 and T3 only — the remaining pad
-variants and the Full-Course-on-pad gate are still open.
+otherwise pins the legacy 10e baseline.
+
+**Gate closed 2026-07-25:** all seven lessons are green on mouse AND pad, and
+`tut_full_course_chain_pad` drives the course hand-off on a controller.
+
+The pad pass rewrote the pad prompts of T4–T7 — every one had been authored
+from the mouse flow and named controls that do nothing on a pad. Each phase
+differs, so the copy is now per-phase specific:
+
+| Phase | Pick the unit | The big verb | Notes |
+|---|---|---|---|
+| Shooting | RB cycles shooters | **Start** = Confirm Targets | D-pad ◀▶ target, ▲▼ weapon; A assigns |
+| Charge | RB cycles chargers | **Start** = Declare / Roll / Confirm | A toggles the ringed target; **X** = Snap to Contact |
+| Fight | panel focus / cursor — **RB does not cycle** | Start = End Phase | attack dialog has its own row: D-pad weapon+target, A assign, Start Fight! |
+| Command | cursor glide | Start = End Phase | no board verbs, so the cursor owns A |
+
+Two traps worth keeping in mind when authoring future pad steps:
+`_pad_charge_toggle()` and `_try_begin_carry()` both refuse while
+`VirtualCursor.is_cursor_active()`, so A is inert on the board right after a
+cursor glide until a D-pad press parks the cursor; and the charge target ring
+is pre-armed on the nearest enemy, so "press ▶ then A" selects the *wrong*
+target (which declares fine, then silently cannot reach contact).
 
 ### TM4 — Polish & Deck pass (S–M)
 First-launch nudge (+ pad-aware copy), picker art/checkmarks polish, prompt

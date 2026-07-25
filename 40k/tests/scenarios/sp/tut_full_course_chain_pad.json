@@ -1,0 +1,155 @@
+{
+  "id": "tut_full_course_chain_pad",
+  "covers": [
+    "tutorial.course.chaining.pad",
+    "tutorial.course.picker_row.pad"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Full Course sequencing driven with pad input - the PRP TM3 gate. LB claims pad mode, D-pad + A opens the tutorial menu, the Full Course row and the Next Lesson button are reached by cursor-glide + A. Skips through lesson 1's steps to its summary (each lesson's own player path has its own scenario, including pad variants); what this proves is that the lesson-to-lesson hand-off works on a controller and leaves exactly one Main in the tree.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_picker"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_full_course/Play_full_course"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.active and TutorialManager.course_mode",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(TutorialManager.current_lesson.get(\"id\", \"\"))",
+      "multiline": true,
+      "equals": "t1_basics"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_lesson_one"
+    },
+    {
+      "act": "execute_script",
+      "script": "for i in range(40):\n\tif not TutorialManager.active:\n\t\tbreak\n\tif TutorialManager.current_step_id() == \"\":\n\t\tbreak\n\tTutorialManager.skip_step()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "skip to the summary - each lesson's real player path has its own scenario"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/NextLessonButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.is_completed(\"t1_basics\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_lesson_one_summary"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/NextLessonButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 12.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(TutorialManager.current_lesson.get(\"id\", \"\"))",
+      "multiline": true,
+      "equals": "t2_musterin"
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.active and TutorialManager.course_mode",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var mains = []\nfor n in tree.root.get_children():\n\tif str(n.name) == \"Main\":\n\t\tmains.append(n)\nreturn mains.size()",
+      "multiline": true,
+      "equals": 1,
+      "comment": "the outgoing Main must be gone - a leaked second Main would double-handle phase signals"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_lesson_two_booted"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.exit_tutorial()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    }
+  ]
+}

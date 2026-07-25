@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.1.0",
+      "date": "2026-07-25",
+      "summary": "Basic Trainin' is fully controller-ready: all seven lessons and the Full Course play start to finish on a pad.",
+      "changes": [
+        "Fixed 'Runnin' da Show' controller instructions — it claimed Y opened the stratagem panel; Y is the datasheet.",
+        "All seven lessons are now verified end-to-end on a controller, as is playing them back-to-back as a Full Course.",
+        "Each phase's controller instructions now match what that phase actually does, rather than describing mouse steps."
+      ]
+    },
+    {
       "version": "1.0.5",
       "date": "2026-07-25",
       "summary": "Controller fix for the fight lesson — the last of the three lessons that were describing mouse steps to pad players.",
