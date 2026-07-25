@@ -2,6 +2,7 @@ extends Control
 
 const FixedMissionSelectionDialogScript = preload("res://dialogs/FixedMissionSelectionDialog.gd")
 const WhiteDwarfThemeData = preload("res://scripts/WhiteDwarfTheme.gd")
+const TutorialPickerPanelScript = preload("res://scripts/tutorial/TutorialPickerPanel.gd")
 
 # MainMenu - Entry point for the game, allows configuration of mission and armies
 
@@ -88,6 +89,7 @@ var army_sort_container: HBoxContainer = null
 var army_sort_dropdown: OptionButton = null
 
 var save_load_dialog: PanelContainer
+var _tutorial_picker: PanelContainer = null
 
 # SAVE-20: Save/load progress indicator
 var _save_load_progress_overlay: PanelContainer = null
@@ -154,6 +156,7 @@ func _ready() -> void:
 	# Version badge + "What's New" summary (helps tell which build is running)
 	_create_version_display()
 	_create_controller_status()
+	_create_tutorial_ui()
 
 	# M0 controller foundations: the menu must be drivable without a mouse —
 	# something has to own focus for D-pad/stick navigation to work at all,
@@ -306,6 +309,31 @@ func _create_version_display() -> void:
 
 	print("MainMenu: Version display added at bottom (%s, %d changes)" % [VersionInfo.get_version(), changes.size()])
 
+
+func _create_tutorial_ui() -> void:
+	"""Tutorial entry point (PRPs/tutorial_system.md §4.1): a Tutorial button
+	right under Start Game, opening the lesson picker panel."""
+	var button_section = $ScrollContainer/MenuContainer/ButtonSection
+	if button_section == null:
+		return
+	var tutorial_button := Button.new()
+	tutorial_button.name = "TutorialButton"
+	tutorial_button.text = "Tutorial"
+	WhiteDwarfThemeData.apply_secondary_button(tutorial_button)
+	button_section.add_child(tutorial_button)
+	var start_idx = _get_child_index(button_section, "StartButton")
+	if start_idx >= 0:
+		button_section.move_child(tutorial_button, start_idx + 1)
+	tutorial_button.pressed.connect(_on_tutorial_button_pressed)
+
+	_tutorial_picker = TutorialPickerPanelScript.new()
+	add_child(_tutorial_picker)
+	print("MainMenu: Tutorial button + picker created")
+
+func _on_tutorial_button_pressed() -> void:
+	print("MainMenu: Tutorial button pressed")
+	if _tutorial_picker:
+		_tutorial_picker.open()
 
 func _create_controller_status() -> void:
 	"""Top-right always-visible controller diagnostic (M4). Steam Deck field
@@ -935,6 +963,11 @@ func _load_available_armies() -> void:
 
 	# Convert army IDs to display names with points
 	for army_id in available_armies:
+		# Tutorial armies (armies/tutorial_*.json) are loaded explicitly by
+		# TutorialManager and stay out of the regular dropdowns
+		# (PRPs/tutorial_system.md §4.2).
+		if str(army_id).begins_with("tutorial_"):
+			continue
 		var base_name = _format_army_name(army_id)
 		var date_str = ArmyListManager.get_army_date(army_id)
 		var points = ArmyListManager.get_army_points(army_id)
@@ -1403,6 +1436,11 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 	# Store configuration in game state for reference
 	GameState.state.meta["game_config"] = config
 	GameState.state.meta["from_menu"] = true
+
+	# Feeds the tutorial's first-launch nudge heuristic (PRP §4.1).
+	var tutorial_mgr = get_node_or_null("/root/TutorialManager")
+	if tutorial_mgr:
+		tutorial_mgr.note_real_game_started()
 
 	print("MainMenu: Game initialization complete. Total units: ", GameState.state.units.size())
 

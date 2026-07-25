@@ -1,0 +1,96 @@
+{
+  "id": "shoot_quick_assign_rejected_no_crash",
+  "covers": [
+    "shooting.quick_assign.rejected_assign",
+    "shooting.quick_assign.tree_walk_safety"
+  ],
+  "fixture": "tutorial_t4_shoot",
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Regression: a board quick-assign whose ASSIGN_TARGET actions are REJECTED must not crash the engine. _on_quick_assign_all_to_target walks live TreeItems; emitting inside that walk let a rejection handler rebuild (and free) the tree under the iterator, dereferenced on the next get_next() -> SIGSEGV. The tutorial gate is used here as a convenient always-reject source, but any rejection (multiplayer, validate/execute divergence) hits the same path. Passing means the engine survived and the assignments were correctly refused.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nvar r = pi.execute_action({\"type\": \"SELECT_SHOOTER\", \"actor_unit_id\": \"U_BOYZ_T\"})\nreturn r.get(\"success\", false)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nreturn pi.pending_assignments.size() > 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "the single-eligible-target auto-assign has run, so the tree has assigned rows to walk"
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\npi.execute_action({\"type\": \"CLEAR_ALL_ASSIGNMENTS\"})\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "clear so the quick-assign below has every weapon to (re)assign"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active = true\nTutorialManager.current_step_index = 0\nTutorialManager._steps = [{\"id\": \"reject_everything\", \"allow\": []}]\nreturn TutorialManager.is_action_allowed({\"type\": \"ASSIGN_TARGET\", \"player\": 1})",
+      "multiline": true,
+      "equals": false,
+      "comment": "arm the gate so every ASSIGN_TARGET this quick-assign emits is rejected"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_armed"
+    },
+    {
+      "act": "execute_script",
+      "script": "var sc = tree.root.get_node(\"/root/Main/ShootingController\")\nsc._on_quick_assign_all_to_target(\"U_WITCHSEEKERS_T\")\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "THE REPRO: walks every weapon TreeItem, emitting an assign per row that the gate rejects"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active = false\nTutorialManager._steps = []\nTutorialManager.current_step_index = -1\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "disarm the gate"
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nreturn pi.pending_assignments.size()",
+      "multiline": true,
+      "equals": 0,
+      "comment": "every assign was refused, so the phase holds none of them"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_survived"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.get_node_count() > 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "reaching this step at all is the real assertion: the engine did not segfault mid-walk"
+    }
+  ]
+}

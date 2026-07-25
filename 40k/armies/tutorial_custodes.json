@@ -1,0 +1,305 @@
+{
+  "faction": {
+    "name": "Adeptus Custodes",
+    "points": 220,
+    "detachment": "Shield Host",
+    "player_name": "Da Opposition",
+    "team_name": "Basic Trainin'",
+    "created_date": "2026-07-24",
+    "schema": 2,
+    "edition": 11,
+    "data_source": "40kdc-data 1.0.19 (11th edition, launch)",
+    "tutorial": true
+  },
+  "units": {
+    "U_WITCHSEEKERS_T": {
+      "id": "U_WITCHSEEKERS_T",
+      "squad_id": "U_WITCHSEEKERS_T",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Witchseekers",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "ANATHEMA PSYKANA",
+          "IMPERIUM",
+          "INFANTRY",
+          "WITCHSEEKERS"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 3,
+          "save": 3,
+          "wounds": 1,
+          "leadership": 6,
+          "objective_control": 1
+        },
+        "points": 50,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Witchseeker Sister Superior",
+          "Witchseeker"
+        ],
+        "weapons": [
+          {
+            "name": "Witchseeker flamer",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "D6",
+            "ballistic_skill": "N/A",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "ignores cover, torrent",
+            "abilities": [
+              {
+                "id": "ignores_cover"
+              },
+              {
+                "id": "torrent"
+              }
+            ]
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "2",
+            "weapon_skill": "3",
+            "strength": "3",
+            "ap": "0",
+            "damage": "1"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Martial Ka'tah",
+            "type": "Faction",
+            "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+          },
+          {
+            "name": "Sanctified Flames",
+            "type": "Datasheet",
+            "description": "During the Shooting phase, enemy units nearby must take a Battle-shock test."
+          },
+          {
+            "name": "Scouts 6\"",
+            "type": "Core",
+            "description": "Before the first battle round, the unit can make a Scout move of up to 6\"."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Witchseeker Sister Superior",
+            "line": 1
+          },
+          {
+            "description": "3-9 Witchseeker",
+            "line": 2
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_CUSTODIAN_GUARD_T": {
+      "id": "U_CUSTODIAN_GUARD_T",
+      "squad_id": "U_CUSTODIAN_GUARD_T",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Custodian Guard",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "BATTLELINE",
+          "CUSTODIAN GUARD",
+          "IMPERIUM",
+          "INFANTRY"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 3,
+          "leadership": 6,
+          "objective_control": 2,
+          "invuln": 4
+        },
+        "points": 170,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Custodian Guard",
+          "Custodian Guard (Shield), Praesidium Shield"
+        ],
+        "weapons": [
+          {
+            "name": "Guardian spear \u2013 Ranged",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "2",
+            "ballistic_skill": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "special_rules": "assault",
+            "abilities": [
+              {
+                "id": "assault"
+              }
+            ]
+          },
+          {
+            "name": "Sentinel blade \u2013 Ranged",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "2",
+            "ballistic_skill": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "special_rules": "assault, pistol",
+            "abilities": [
+              {
+                "id": "assault"
+              },
+              {
+                "id": "pistol"
+              }
+            ]
+          },
+          {
+            "name": "Guardian spear \u2013 Melee",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "weapon_skill": "2",
+            "strength": "7",
+            "ap": "-2",
+            "damage": "2"
+          },
+          {
+            "name": "Misericordia",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "weapon_skill": "2",
+            "strength": "5",
+            "ap": "-2",
+            "damage": "1"
+          },
+          {
+            "name": "Sentinel blade \u2013 Melee",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "weapon_skill": "2",
+            "strength": "6",
+            "ap": "-2",
+            "damage": "1"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Martial Ka'tah",
+            "type": "Faction",
+            "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+          },
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "The unit has the Deep Strike ability."
+          },
+          {
+            "name": "Praesidium Shield",
+            "type": "Datasheet",
+            "description": "Add 1 to this model's Wounds characteristic."
+          },
+          {
+            "name": "Sentinel Storm",
+            "type": "Datasheet",
+            "description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability."
+          },
+          {
+            "name": "Stand Vigil",
+            "type": "Datasheet",
+            "description": "You can re-roll a Wound roll of 1."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "4-5 Custodian Guard",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    }
+  }
+}

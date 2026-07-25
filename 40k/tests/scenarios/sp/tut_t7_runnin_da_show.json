@@ -1,0 +1,208 @@
+{
+  "id": "tut_t7_runnin_da_show",
+  "covers": [
+    "tutorial.t7.command",
+    "tutorial.t7.stratagem_panel",
+    "tutorial.engine.fixture_boot"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial lesson T7 (Runnin' da Show), mouse player path: boot from the tutorial_t7_round2 fixture (battle round 2, player 1 Command phase) -> dismiss the secondary mission review with Continue -> CALL DA WAAAGH! -> open the Stratagems panel -> End Command Phase into Movement -> capstone summary -> back to menu.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t7_runnin_da_show/Play_t7_runnin_da_show"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "01_intro"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "review_missions"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_mission_review"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the mission review is an embedded modal AcceptDialog on /root - emit its Continue"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "mission_choice"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_guard_prompt"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/GuardSelectionDialog/Content/Actions/KeepAutoGuards\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "Burden of Trust asks for guards when drawn - Keep Auto Picks takes the suggested assignment"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "waaagh"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_command_panel"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "stratagems"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_waaagh_called"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/StratagemPanel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "06_stratagem_panel"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_command"
+    },
+    {
+      "act": "execute_script",
+      "script": "var sp = tree.root.get_node_or_null(\"/root/Main/StratagemPanel\")\nif sp == null:\n\treturn false\nvar b = sp.get_ok_button()\nif b != null:\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the stratagem panel is a modal Window: a synthetic click on the bottom-bar toggle is swallowed, so press its own Close button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "comment": "the panel's own End Command Phase button can sit below the scroll fold; the top-right phase button is always visible"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "wrap"
+    },
+    {
+      "act": "screenshot",
+      "label": "07_moved_on"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.is_completed(\"t7_runnin_da_show\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "08_summary"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    }
+  ]
+}
