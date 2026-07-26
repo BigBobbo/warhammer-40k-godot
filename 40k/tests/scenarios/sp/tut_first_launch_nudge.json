@@ -47,6 +47,13 @@
       "comment": "both choices are offered - the nudge never forces the tutorial"
     },
     {
+      "act": "execute_script",
+      "script": "var vp = tree.root.get_visible_rect().size\nvar n = tree.root.get_node(\"/root/MainMenu/TutorialNudge\")\nvar r = n.get_global_rect()\nif r.position.x < 0.0 or r.position.y < 0.0 or r.end.x > vp.x or r.end.y > vp.y:\n\treturn \"panel off-screen: %s in %s\" % [str(r), str(vp)]\nfor bn in [\"StartTrainingButton\", \"DismissNudgeButton\"]:\n\tvar b = n.get_node(\"Margin/VBox/Footer/\" + bn).get_global_rect()\n\tif b.position.x < 0.0 or b.position.y < 0.0 or b.end.x > vp.x or b.end.y > vp.y:\n\t\treturn \"%s off-screen: %s in %s\" % [bn, str(b), str(vp)]\nreturn \"on-screen\"",
+      "multiline": true,
+      "equals": "on-screen",
+      "comment": "regression: the panel's fit_content body measured at zero width, so PRESET_MODE_MINSIZE centering baked in a 560x4324 rect at y=-1622 - is_visible_in_tree() still said true while both buttons sat far off-screen and the panel swallowed clicks on a 560px strip of the menu. Assert real geometry, not just the visibility flag."
+    },
+    {
       "act": "click_node",
       "node": "/root/MainMenu/TutorialNudge/Margin/VBox/Footer/DismissNudgeButton"
     },

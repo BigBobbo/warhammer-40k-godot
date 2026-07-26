@@ -455,6 +455,20 @@ func load_game(file_name: String, owner_id: String = "") -> bool:
 
 	return _load_game_from_path(save_path)
 
+# Load a save from an explicit path, synchronously, with none of load_game()'s
+# name-based cloud routing. For shipped res:// content (tutorial lesson
+# fixtures) that routing is actively wrong: load_game() returns true after
+# merely KICKING OFF an async cloud download — on web always, on desktop
+# whenever the user:// copy is missing and a save server is configured — and
+# the caller then proceeds on a state that was never populated. Callers that
+# already know exactly which file they want should use this instead; the
+# boolean it returns means "the state is loaded now".
+func load_game_from_file_path(file_path: String) -> bool:
+	if not FileAccess.file_exists(file_path):
+		print("SaveLoadManager: load_game_from_file_path — no such file: ", file_path)
+		return false
+	return _load_game_from_path(file_path)
+
 func save_game_to_slot(slot: int, metadata: Dictionary = {}) -> bool:
 	var save_path = save_directory + "slot_%d%s" % [slot, SAVE_EXTENSION]
 	return _save_game_to_path(save_path, metadata)

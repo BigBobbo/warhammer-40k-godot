@@ -190,25 +190,71 @@ func _await_main_ready() -> void:
 		await get_tree().process_frame
 
 
+# Load the lesson's world.
+#
+# Lesson fixtures are shipped res:// files, so they are read STRAIGHT from
+# res:// — synchronously, and without going through SaveLoadManager.load_game()'s
+# name-based routing. That routing is wrong for a shipped fixture in two ways
+# that both end with the player dropped into an empty battle (no models on the
+# board, an empty movement unit list — the "no units in the tutorial" report):
+#
+#   * load_game() returns TRUE without having loaded anything whenever it
+#     decides to go to the cloud — always on web (save_directory is
+#     "cloud://"), and on desktop whenever the user:// copy is missing while a
+#     save server is configured. The download is async and nobody waits for it,
+#     so _boot_and_arm() changes scene on a GameState that still holds the
+#     menu's unit-less state.
+#   * On web the user:// staging cannot work at all: FileAccess.open() on a
+#     "cloud://" path fails (ERR_FILE_CANT_OPEN), which used to abort the whole
+#     lesson.
+#
+# The user:// copy is still written when it can be, so the fixture shows up in
+# the load dialog like before, but it is now best-effort and never decides
+# whether the lesson can start.
 func _load_fixture(fixture: String) -> bool:
 	var fixture_file := fixture if fixture.ends_with(".w40ksave") else fixture + ".w40ksave"
 	var src_path := FIXTURES_DIR + fixture_file
-	var dst_path: String = SaveLoadManager.save_directory + fixture_file
+	var loaded := false
 	if FileAccess.file_exists(src_path):
-		for pair in [[src_path, dst_path],
-				[src_path.replace(".w40ksave", ".meta"), dst_path.replace(".w40ksave", ".meta")]]:
-			if not FileAccess.file_exists(pair[0]):
-				continue
-			var src := FileAccess.open(pair[0], FileAccess.READ)
-			var dst := FileAccess.open(pair[1], FileAccess.WRITE)
-			if src == null or dst == null:
-				print("TutorialManager: failed staging %s" % str(pair[0]))
-				return false
-			dst.store_buffer(src.get_buffer(src.get_length()))
-			dst.close()
+		_stage_fixture_to_user_saves(src_path, fixture_file)
+		loaded = SaveLoadManager.load_game_from_file_path(src_path)
+		if not loaded:
+			print("TutorialManager: shipped fixture at %s failed to load" % src_path)
 	else:
 		print("TutorialManager: fixture not shipped at %s (trying user saves)" % src_path)
-	return SaveLoadManager.load_game(fixture)
+		loaded = SaveLoadManager.load_game(fixture)
+	if not loaded:
+		return false
+	# load_game() can report success without having populated anything (see
+	# above). Booting a lesson onto a unit-less state is never recoverable by
+	# the player, so refuse it here rather than handing them an empty board.
+	var unit_count: int = GameState.state.get("units", {}).size()
+	if unit_count == 0:
+		print("TutorialManager: fixture '%s' loaded but GameState has 0 units — refusing to boot" % fixture)
+		DebugLogger.error("TutorialManager: fixture '%s' produced an empty GameState (0 units)" % fixture)
+		return false
+	print("TutorialManager: fixture '%s' loaded with %d units" % [fixture, unit_count])
+	return true
+
+
+# Best-effort copy of a shipped fixture into user://saves so it also appears in
+# the normal load dialog. A failure here is not fatal — the lesson loads from
+# res:// either way (notably on web, where save_directory is "cloud://" and
+# FileAccess cannot write it at all).
+func _stage_fixture_to_user_saves(src_path: String, fixture_file: String) -> void:
+	var dst_path: String = SaveLoadManager.save_directory + fixture_file
+	for pair in [[src_path, dst_path],
+			[src_path.replace(".w40ksave", ".meta"), dst_path.replace(".w40ksave", ".meta")]]:
+		if not FileAccess.file_exists(pair[0]):
+			continue
+		var src := FileAccess.open(pair[0], FileAccess.READ)
+		var dst := FileAccess.open(pair[1], FileAccess.WRITE)
+		if src == null or dst == null:
+			print("TutorialManager: could not stage %s to %s (non-fatal, loading from res://)" % [
+				str(pair[0]), str(pair[1])])
+			continue
+		dst.store_buffer(src.get_buffer(src.get_length()))
+		dst.close()
 
 
 # Fresh-boot path for deployment-style lessons and fixture generation.

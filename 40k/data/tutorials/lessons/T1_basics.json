@@ -49,7 +49,7 @@
       "prompt": {
         "bark": "PICK DA WAGON!",
         "kbm": "Click [b]Battlewagon[/b] in da unit list on da right — or click its token up in your deployment zone.",
-        "pad": "Tap {rb} to cycle units until da [b]Battlewagon[/b] is picked."
+        "pad": "Tap {rb} to cycle units until da [b]Battlewagon[/b] is picked — or point {ls} at its token on da board an' press {a}."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList" },
       "spotlight": "soft",
@@ -57,7 +57,7 @@
       "done": {
         "script": "var mc = main.get(\"movement_controller\")\nreturn mc != null and str(mc.active_unit_id) == \"U_BATTLEWAGON_T\""
       },
-      "hint": { "text": "Da unit list is top-right — da Battlewagon row." }
+      "hint": { "text": "Da unit list is top-right — da Battlewagon row. If dat list looks empty, point at da wagon on da board an' pick it dere instead." }
     },
     {
       "id": "open_datasheet",
