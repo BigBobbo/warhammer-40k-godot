@@ -49,6 +49,20 @@
       "equals": "welcome"
     },
     {
+      "act": "execute_script",
+      "script": "return GameState.state.get(\"units\", {}).size() > 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "the lesson fixture must actually be in GameState. It used to load via SaveLoadManager.load_game(), which returns true after merely STARTING an async cloud fetch (always on web, and on desktop whenever the user:// copy is missing while a save server is configured) - the lesson then booted onto a unit-less state: no models on the board and an empty movement unit list."
+    },
+    {
+      "act": "execute_script",
+      "script": "var tm = tree.root.get_node(\"/root/TutorialManager\")\nvar saved = GameState.state.get(\"units\", {}).duplicate(true)\nvar was_web = SaveLoadManager.is_web_platform\nGameState.state[\"units\"] = {}\nSaveLoadManager.is_web_platform = true\nvar r = tm._load_fixture(\"nonexistent_fixture\")\nSaveLoadManager.is_web_platform = was_web\nGameState.state[\"units\"] = saved\nreturn r",
+      "multiline": true,
+      "equals": false,
+      "comment": "and when a fixture cannot really be loaded, the boot is refused instead of dropping the player into an empty battle"
+    },
+    {
       "act": "screenshot",
       "label": "02_welcome"
     },

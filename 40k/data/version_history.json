@@ -4,8 +4,10 @@
     {
       "version": "1.2.1",
       "date": "2026-07-26",
-      "summary": "Fixes for the first-launch tutorial offer and for the movement unit list showing up empty.",
+      "summary": "Fixed Basic Trainin' starting with an empty army, plus the first-launch offer and the blank movement unit list.",
       "changes": [
+        "Fixed tutorial lessons booting with no units at all — no models on the table and nothing in the unit list, so 'Pick da wagon' had nothing to pick. The lesson's saved battle is now read straight from the game's own files instead of being routed through the cloud-save loader, which could report success while the download was still in flight.",
+        "A lesson that genuinely cannot load its battle now says so up front instead of dropping you into an empty board.",
         "Fixed the 'First time 'ere?' first-launch panel drawing itself thousands of pixels tall: its buttons ended up off-screen and it blocked clicks on a strip of the main menu, including part of the Tutorial button. It now sits centred and both choices are clickable.",
         "The movement phase's unit list no longer sits there as a blank black box if it comes up empty — it retries, and if there really is nothing to move it says so.",
         "'Pick da wagon' (Basic Trainin' lesson 1) now tells controller players they can also point at the Battlewagon on the board and press A, instead of only offering the right bumper."
