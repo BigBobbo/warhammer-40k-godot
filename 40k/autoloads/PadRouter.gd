@@ -355,12 +355,16 @@ func _input(event: InputEvent) -> void:
 	# Re-assert the bumper-only rule before routing: lists spawned since the
 	# last press get demoted, and any list that grabbed focus lets go.
 	_apply_list_focus_policy(true)
+	# Controller layout (Settings › Controller): route by the CANONICAL button
+	# of the role the pressed physical button carries — the match arms below
+	# stay written against the default layout.
+	var button: int = PadBindings.canonical(event.button_index)
 	# While the action bar is open it owns the pad exclusively (a lightweight
 	# modal): D-pad moves the highlight, A confirms, B cancels, and everything
 	# else is swallowed so Start can't end the phase mid-decision. The bumpers
 	# keep their one global meaning — switch units — and the menu follows.
 	if PadActionBar.is_open():
-		match event.button_index:
+		match button:
 			JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_UP:
 				PadActionBar.move_highlight(-1)
 			JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_DPAD_DOWN:
@@ -386,7 +390,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		_update_hints()
 		return
-	match event.button_index:
+	match button:
 		JOY_BUTTON_LEFT_SHOULDER:
 			if carry_active:
 				_synth_rotate(true)

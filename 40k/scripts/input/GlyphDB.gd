@@ -36,7 +36,26 @@ const GLYPHS := {
 
 
 static func glyph_text(glyph_id: String) -> String:
+	# Hint glyph ids name the CANONICAL layout ("a" = the select role, "menu" =
+	# end phase, …). When the player has remapped roles in Settings › Controller,
+	# show the button the role is ACTUALLY on now — PadBindings.display_glyph
+	# returns "" for non-role ids (dpad / sticks / triggers), which fall back to
+	# the static table below.
+	var pb := _pad_bindings()
+	if pb != null:
+		var live: String = pb.display_glyph(glyph_id)
+		if live != "":
+			return live
 	return GLYPHS.get(glyph_id, glyph_id.to_upper())
+
+
+# Autoload lookup from a static func (singleton globals are not reachable
+# here); null in bare headless harnesses that run without the autoload set.
+static func _pad_bindings() -> Node:
+	var ml := Engine.get_main_loop()
+	if ml is SceneTree:
+		return (ml as SceneTree).root.get_node_or_null("PadBindings")
+	return null
 
 
 # A single "⟨glyph⟩ label" hint chip, e.g. [RS] Pan Camera.
