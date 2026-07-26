@@ -3164,6 +3164,32 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 			return a.get("model_index", 0) < b.get("model_index", 0)
 		)
 
+		# Defender die-first preference: when the computer allocates for this
+		# defender (AI player, or the 'Computer allocates wounds' setting),
+		# rank un-wounded models by the same CasualtyPreference order the 11e
+		# overlay auto mode uses instead of raw model_index — this was the
+		# one auto path still removing lowest-index bases. Wounded-first
+		# (05.04) still wins; allocation order is the defender's choice.
+		var target_unit_for_pref = game_state_snapshot.get("units", {}).get(target_unit_id, {})
+		if not target_unit_for_pref.is_empty():
+			var pref = CasualtyPreference.engine_auto_preference(target_unit_for_pref, game_state_snapshot)
+			if not pref.is_empty():
+				var pref_rank = {}
+				for r in range(pref.size()):
+					pref_rank[int(pref[r])] = r
+				var pref_cmp = func(a, b):
+					var aw = a.get("is_wounded", false)
+					var bw = b.get("is_wounded", false)
+					if aw != bw:
+						return aw
+					var ra = pref_rank.get(int(a.get("model_index", 0)), 99999)
+					var rb = pref_rank.get(int(b.get("model_index", 0)), 99999)
+					if ra != rb:
+						return ra < rb
+					return a.get("model_index", 0) < b.get("model_index", 0)
+				allocation_order.sort_custom(pref_cmp)
+				bodyguard_profiles.sort_custom(pref_cmp)
+
 		# PRECISION (T3-4): Check if weapon has Precision and there are character models
 		var has_precision = save_data.get("has_precision", false)
 		var precision_wounds = save_data.get("precision_wounds", 0)

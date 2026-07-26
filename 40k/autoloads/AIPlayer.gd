@@ -1916,8 +1916,36 @@ func _execute_next_action(player: int) -> void:
 
 	if decision.is_empty():
 		push_warning("AIPlayer: No decision made for player %d in phase %d" % [player, phase])
-		_end_ai_thinking()
-		return
+		# SOAK-2 generic guard: an empty decision WITH actions on offer means
+		# the decision maker has no branch for the current window (e.g. an
+		# unhandled blocking ability). If the window offers a decline/cancel,
+		# take it — one action, phase unblocked — instead of waiting out the
+		# watchdog. Skips are deliberately excluded (skipping a unit forfeits
+		# real actions; declining an optional ability window does not).
+		for fa in available:
+			var ft = str(fa.get("type", ""))
+			if ft.begins_with("DECLINE_") or ft.begins_with("CANCEL_"):
+				decision = {
+					"type": ft,
+					"_ai_description": "AI declines unhandled window (%s)" % ft
+				}
+				if fa.has("actor_unit_id"):
+					decision["actor_unit_id"] = fa["actor_unit_id"]
+				if fa.has("unit_id"):
+					decision["unit_id"] = fa["unit_id"]
+				print("AIPlayer: SOAK-2 — no evaluator for this window, declining via %s" % ft)
+				break
+		if decision.is_empty():
+			# No decline on offer either. Count the attempt so
+			# MAX_ACTIONS_PER_PHASE can still fire (previously this returned
+			# without incrementing, turning every unhandled window into a
+			# permanent hang), then re-evaluate.
+			if not available.is_empty():
+				_current_phase_actions += 1
+				_request_evaluation()
+				return
+			_end_ai_thinking()
+			return
 
 	# Ensure player field is set
 	decision["player"] = player
@@ -2262,6 +2290,12 @@ func _execute_next_action(player: int) -> void:
 			var reinf_unit_name = _get_unit_name(reinf_unit_id)
 			_log_ai_event(player, "%s reinforcement failed (%s) — retrying" % [reinf_unit_name, _format_error_concise(error_msg)])
 			_handle_failed_reinforcement(player, decision)
+
+		# SOAK-2 default: any OTHER failed action type re-evaluates against
+		# fresh offers instead of stalling until the 2 s watchdog. The attempt
+		# was already counted above, so MAX_ACTIONS_PER_PHASE bounds this loop.
+		else:
+			_request_evaluation()
 	else:
 		# Any successful action means the loop is progressing — clear the
 		# consecutive SELECT_FIGHTER failure counter.

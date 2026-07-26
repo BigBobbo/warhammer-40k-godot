@@ -1,0 +1,43 @@
+{
+  "id": "ai_moment_shackle_window",
+  "covers": [
+    "scripts.AIDecisionMaker.moment_shackle",
+    "autoloads.AIPlayer.soak2_unhandled_window",
+    "phases.FightPhase.moment_shackle"
+  ],
+  "fixture": "audit_fights_last",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "AUDIT Tier 1 (softlock): a pending Moment Shackle choice used to hang an AI player forever — FightPhase.get_available_actions short-circuits to USE/DECLINE_MOMENT_SHACKLE only, and AIDecisionMaker had no branch for it, so the empty decision looped on the watchdog without ever counting toward MAX_ACTIONS_PER_PHASE. This drives the fixed path: the active player's unit is given the ability and queued, the player is flipped to AI, and within a few watchdog cycles the AI must resolve the window (use or decline — both are progress) with no dialog spawned and the pending queue drained.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.state[\"units\"][\"U_BOYZ_FL\"]\nvar meta = u.get(\"meta\", {})\nvar abilities = meta.get(\"abilities\", [])\nabilities.append({\"name\": \"Moment Shackle\"})\nmeta[\"abilities\"] = abilities\nu[\"meta\"] = meta\nif not u.has(\"flags\"):\n\tu[\"flags\"] = {}\nu[\"flags\"][\"moment_shackle_used\"] = false\nvar fp = PhaseManager.get_current_phase_instance()\nfp._moment_shackle_pending_units = [\"U_BOYZ_FL\"]\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(0)" },
+    { "act": "execute_script", "script": "AIPlayer.configure({2: \"AI\"})" },
+    { "act": "screenshot", "label": "ai_moment_shackle_pending" },
+    { "act": "wait_seconds", "seconds": 8.0 },
+    {
+      "act": "execute_script",
+      "script": "var fp = PhaseManager.get_current_phase_instance()\nif fp == null or not (\"_moment_shackle_pending_units\" in fp):\n\treturn 0\nreturn fp._moment_shackle_pending_units.size()",
+      "multiline": true,
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node_or_null(\"MomentShackleDialog\") == null",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "screenshot", "label": "ai_moment_shackle_resolved" },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})" }
+  ]
+}

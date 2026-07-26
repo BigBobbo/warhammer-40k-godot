@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.4.0",
+      "date": "2026-07-25",
+      "summary": "Smart casualty picks everywhere the computer removes models — mortal wounds, overwatch, destroyed transports and AI shooting now all use the intelligent allocation from the casualty update — plus the AI now answers ability windows (Moment Shackle, Grot Oiler, Mekaniak, Deff from Above...) instead of freezing.",
+      "changes": [
+        "Mortal wounds (Tank Shock, Explosives, Desperate Escape, Deadly Demise-style hits and a dozen more) now remove models using the smart casualty order instead of always the first base in the list.",
+        "Overwatch and AI-vs-you shooting use the same smart order — including when you have 'Computer allocates wounds' turned on, which previously only worked when YOU were the attacker.",
+        "A destroyed transport now picks its emergency-disembark casualties intelligently, and survivors are placed in properly spaced rings around the wreck instead of overlapping on a tiny circle.",
+        "The AI now answers blocking ability windows: Moment Shackle (12 attacks vs 2+ invuln, judged by the combat), Grot Oiler and Mekaniak heals (most-damaged model), Deff from Above and Quicksilver Execution (best target). Previously these froze the AI's turn.",
+        "Safety net: any future unhandled ability window is now auto-declined by the AI in one action instead of hanging the game."
+      ]
+    },
+    {
       "version": "1.3.0",
       "date": "2026-07-26",
       "summary": "Controller players can now remap their buttons — Settings has a new Controller tab, and the on-screen button hints follow your layout.",
@@ -10,6 +22,19 @@
         "The button hints at the bottom of the screen, the controller reference, and tutorial prompts all show the button each action is ACTUALLY on after remapping.",
         "Remapped layouts are saved and restored between sessions; per-row Reset and a Reset Controller Layout button restore the defaults.",
         "The controller options (text boost, invert Y, stick swap, sensitivity) moved from the Controls tab to the new Controller tab — Controls is now keyboard & mouse only."
+      ]
+    },
+    {
+      "version": "1.2.1",
+      "date": "2026-07-25",
+      "summary": "AI tune-up: the computer now values its weapons correctly. Dice-stat weapons (D6 shots, D6 damage) and who actually carries each gun are finally counted, so the AI picks far better shooting and melee targets — plus several stuck-AI safeguards.",
+      "changes": [
+        "AI now reads dice-notation weapon stats (D3/D6/2D6 attacks and damage) at their true average instead of treating them as 1 — anti-tank guns and power klaws are no longer massively undervalued.",
+        "AI damage estimates now count only the models that actually carry a weapon (loadouts, profiles or '9x Choppa'-style wargear), so one Nob's klaw no longer counts as ten.",
+        "AI fight and charge target picks now use a target's CURRENT wounds — a nearly-dead Knight is finally seen as finishable.",
+        "Fixed four dead data lookups that silently disabled AI heuristics: objective-control scores in embark/disembark/target value, the Heavy-weapon charge-intent check, the gang-up charge bonus, and multi-target charge base-size reach.",
+        "Martial Mastery and objective bookkeeping small fixes (correct average-save math, objectives matched by position).",
+        "Stuck-AI safeguards: an AI decision gap now counts toward the phase escape hatch instead of hanging the game, and any unrecognised failed action re-evaluates immediately instead of stalling."
       ]
     },
     {

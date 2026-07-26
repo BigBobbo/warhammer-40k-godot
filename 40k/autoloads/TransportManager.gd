@@ -404,16 +404,28 @@ func resolve_transport_destroyed(transport_id: String) -> Dictionary:
 		print("TransportManager: P3-32   %s (%s): %d models disembark, rolls: %s, casualties: %d" % [
 			unit_name, unit_id, alive_models.size(), str(rolls), casualties])
 
-		# Apply casualties — kill models from the end (non-leader models first per 10e)
+		# Apply casualties. When the computer allocates for this defender
+		# (AI player, or 'Computer allocates wounds'), use the same
+		# CasualtyPreference die-first order as normal wound allocation —
+		# value/proximity/objective/coherency aware. Otherwise keep the
+		# legacy back-of-array order (non-leader models first per 10e).
 		var models_killed = 0
 		if casualties > 0:
-			# Kill from back of the alive list (typically non-characters/leaders go last in list)
 			var kill_indices = []
+			var pref = CasualtyPreference.engine_auto_preference(unit, GameState.state)
+			for p in pref:
+				if models_killed >= casualties:
+					break
+				var pi = int(p)
+				if pi in alive_models and pi not in kill_indices:
+					kill_indices.append(pi)
+					models_killed += 1
 			for i in range(alive_models.size() - 1, -1, -1):
 				if models_killed >= casualties:
 					break
-				kill_indices.append(alive_models[i])
-				models_killed += 1
+				if alive_models[i] not in kill_indices:
+					kill_indices.append(alive_models[i])
+					models_killed += 1
 
 			for kill_idx in kill_indices:
 				results.diffs.append({
@@ -443,7 +455,7 @@ func resolve_transport_destroyed(transport_id: String) -> Dictionary:
 		# allocation), and the emergency-disembarked unit is battle-shocked.
 		if GameConstants.edition >= 11:
 			if hazard_mortals > 0:
-				var mw_out = Allocation.apply_mortal_wounds_11e(unit, hazard_mortals)
+				var mw_out = Allocation.apply_mortal_wounds_11e(unit, hazard_mortals, CasualtyPreference.engine_auto_preference(unit, GameState.state))
 				for idx in mw_out.remaining:
 					var mi = int(idx)
 					if mi >= 0 and mi < unit.models.size() and int(mw_out.remaining[idx]) != int(unit.models[mi].get("current_wounds", unit.models[mi].get("wounds", 1))):
@@ -469,9 +481,13 @@ func resolve_transport_destroyed(transport_id: String) -> Dictionary:
 			"value": true
 		})
 
-		# Place surviving models near the transport's last position
+		# Place surviving models near the transport's last position.
+		# Ring radius and per-model arc are derived from real base sizes so
+		# a full squad no longer lands overlapping on a fixed 50px circle;
+		# when a ring fills up, placement expands to the next ring out.
 		var transport_pos = _get_transport_center(transport)
-		var surviving_count = 0
+		var transport_radius_px = _get_transport_bounding_radius_px(transport)
+		var survivor_indices = []
 		for i in range(unit.models.size()):
 			if unit.models[i].get("alive", true):
 				# Check if this model was killed in the emergency disembark
@@ -481,16 +497,30 @@ func resolve_transport_destroyed(transport_id: String) -> Dictionary:
 						was_killed = true
 						break
 				if not was_killed:
-					# Place surviving models in a circle around the transport position
-					var angle = (surviving_count / max(float(alive_models.size()), 1.0)) * TAU
-					var offset = Vector2(cos(angle), sin(angle)) * 50.0  # ~1.5" spread
-					var pos = transport_pos + offset
+					survivor_indices.append(i)
+		if not survivor_indices.is_empty():
+			var base_mm = int(unit.models[survivor_indices[0]].get("base_mm", 32))
+			var model_radius_px = Measurement.base_radius_px(base_mm)
+			var gap_px = 4.0
+			var slot_px = model_radius_px * 2.0 + gap_px
+			var placed = 0
+			var ring = 0
+			while placed < survivor_indices.size():
+				var ring_radius = transport_radius_px + model_radius_px + gap_px + ring * slot_px
+				var circumference = TAU * ring_radius
+				var slots_this_ring = maxi(1, int(floor(circumference / slot_px)))
+				var to_place = mini(slots_this_ring, survivor_indices.size() - placed)
+				for s in range(to_place):
+					var angle = (float(s) / float(slots_this_ring)) * TAU + ring * 0.35
+					var pos = transport_pos + Vector2(cos(angle), sin(angle)) * ring_radius
+					var mi = survivor_indices[placed]
 					results.diffs.append({
 						"op": "set",
-						"path": "units.%s.models.%d.position" % [unit_id, i],
+						"path": "units.%s.models.%d.position" % [unit_id, mi],
 						"value": {"x": pos.x, "y": pos.y}
 					})
-					surviving_count += 1
+					placed += 1
+				ring += 1
 
 		results.per_unit.append({
 			"unit_id": unit_id,
@@ -513,6 +543,21 @@ func resolve_transport_destroyed(transport_id: String) -> Dictionary:
 	return results
 
 # P3-32: Get transport center position for emergency disembark placement
+## Bounding radius of the destroyed transport's footprint in px, so
+## emergency-disembark survivors ring OUTSIDE the hull instead of inside it.
+## Rectangular bases use the half-diagonal; circular use base_mm/2.
+func _get_transport_bounding_radius_px(transport: Dictionary) -> float:
+	var best := 0.0
+	for model in transport.get("models", []):
+		var dims = model.get("base_dimensions", {})
+		if dims is Dictionary and not dims.is_empty():
+			var l = Measurement.mm_to_px(float(dims.get("length", model.get("base_mm", 32))))
+			var w = Measurement.mm_to_px(float(dims.get("width", model.get("base_mm", 32))))
+			best = maxf(best, Vector2(l * 0.5, w * 0.5).length())
+		else:
+			best = maxf(best, Measurement.base_radius_px(int(model.get("base_mm", 32))))
+	return best
+
 func _get_transport_center(transport: Dictionary) -> Vector2:
 	var center = Vector2.ZERO
 	var count = 0
