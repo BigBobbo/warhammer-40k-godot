@@ -242,7 +242,10 @@ func _input(event: InputEvent) -> void:
 			return
 		if not _cursor_active:
 			return
-		match event.button_index:
+		# Controller layout (Settings › Controller): translate the physical
+		# button to the canonical button of the role it carries, so a remapped
+		# select/context button still clicks at the cursor.
+		match PadBindings.canonical(event.button_index):
 			JOY_BUTTON_A:
 				# During an M3 carry the router owns A (drop/cancel semantics);
 				# a second synthetic LMB press mid-drag would confuse the drag

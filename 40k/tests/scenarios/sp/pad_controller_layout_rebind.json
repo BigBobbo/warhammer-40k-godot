@@ -1,0 +1,248 @@
+{
+  "id": "pad_controller_layout_rebind",
+  "covers": [
+    "controller.layout.rebind_menu",
+    "autoloads.PadBindingManager",
+    "scripts.SettingsMenu.controller_tab",
+    "scripts.input.GlyphDB.live_glyphs",
+    "autoloads.PadHintBar.rebind_refresh"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "CONTROLLER LAYOUT MENU (Settings › Controller): the pause menu previously only offered keyboard keybindings — a Steam Deck / Xbox pad player had no way to reassign controller buttons. The new Controller tab lists every pad role (Select, Back, Skip, Datasheet, bumpers, Start, View, L3, R3); clicking a row then pressing a physical pad button assigns it, swapping with whichever role held that button so the layout always stays complete. The D-pad is reserved and rejected during capture. PadBindings.canonical() routes remapped presses back to the canonical layout for PadRouter/VirtualCursor/dialogs, the InputMap halves (ui_accept/ui_cancel/pad_phase_action/pad_menu_action/pad_precision) are re-pointed, the layout persists to user://pad_bindings.cfg, and GlyphDB renders every hint-bar chip with the button each role is ACTUALLY on — so the on-screen hints follow the remap immediately.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "PadBindings.reset_all()"
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.claim_pad()"
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 4
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "is_instance_valid(main._settings_menu)",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "button_text": "Controller"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._tab_containers[4].visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._pad_role_buttons.size()",
+      "equals": 10
+    },
+    {
+      "act": "screenshot",
+      "label": "pad_layout_01_controller_tab"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sm = tree.current_scene._settings_menu\nsm._pad_role_buttons[\"pad_datasheet\"].pressed.emit()\nreturn sm._pad_capturing_role",
+      "equals": "pad_datasheet"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._pad_role_buttons[\"pad_datasheet\"].text",
+      "equals": "Press a controller button..."
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._pad_capturing_role",
+      "equals": "pad_datasheet"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._pad_role_buttons[\"pad_datasheet\"].text",
+      "equals": "Reserved — press another button"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._pad_capturing_role",
+      "equals": ""
+    },
+    {
+      "act": "execute_script",
+      "script": "int(PadBindings.get_button(\"pad_datasheet\"))",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "int(PadBindings.get_button(\"pad_next_unit\"))",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return int(PadBindings.canonical(JOY_BUTTON_RIGHT_SHOULDER))",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return int(PadBindings.canonical(JOY_BUTTON_Y))",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return int(PadBindings.canonical(JOY_BUTTON_A))",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._pad_role_buttons[\"pad_datasheet\"].text",
+      "equals": "RB (Right Bumper)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._pad_role_buttons[\"pad_next_unit\"].text",
+      "equals": "Y"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._pad_role_reset_buttons[\"pad_datasheet\"].visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return FileAccess.file_exists(\"user://pad_bindings.cfg\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return load(\"res://scripts/input/GlyphDB.gd\").glyph_text(\"y\")",
+      "equals": "RB"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return load(\"res://scripts/input/GlyphDB.gd\").glyph_text(\"rb\")",
+      "equals": "Y"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return load(\"res://scripts/input/GlyphDB.gd\").glyph_text(\"a\")",
+      "equals": "A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ok = true\nfor ev in InputMap.action_get_events(\"ui_accept\"):\n\tif ev is InputEventJoypadButton and ev.button_index != JOY_BUTTON_A:\n\t\tok = false\nreturn ok",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "pad_layout_02_after_rebind"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 4
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "is_instance_valid(main._settings_menu)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PadHintBar.set_hints(PadRouter.HINTS_BOARD)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var texts = {}\nfor i in range(PadHintBar.current_hints.size()):\n\tvar chip = PadHintBar._row.get_child(i)\n\ttexts[str(PadHintBar.current_hints[i][0])] = str(chip.get_child(0).get_child(0).text)\nreturn str(texts.get(\"y\", \"?\")) + \"|\" + str(texts.get(\"rb\", \"?\"))",
+      "equals": "RB|Y"
+    },
+    {
+      "act": "screenshot",
+      "label": "pad_layout_03_hint_bar_remapped"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadBindings.reset_all()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "execute_script",
+      "script": "int(PadBindings.get_button(\"pad_datasheet\"))",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return load(\"res://scripts/input/GlyphDB.gd\").glyph_text(\"y\")",
+      "equals": "Y"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadBindings.any_modified()",
+      "equals": false
+    }
+  ]
+}

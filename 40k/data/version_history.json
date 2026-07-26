@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.3.0",
+      "date": "2026-07-26",
+      "summary": "Controller players can now remap their buttons — Settings has a new Controller tab, and the on-screen button hints follow your layout.",
+      "changes": [
+        "New Settings › Controller tab (pause menu › Settings on the Steam Deck too): click a control, press the pad button you want for it. If the button is taken, the two controls swap so nothing ever goes unbound.",
+        "The button hints at the bottom of the screen, the controller reference, and tutorial prompts all show the button each action is ACTUALLY on after remapping.",
+        "Remapped layouts are saved and restored between sessions; per-row Reset and a Reset Controller Layout button restore the defaults.",
+        "The controller options (text boost, invert Y, stick swap, sensitivity) moved from the Controls tab to the new Controller tab — Controls is now keyboard & mouse only."
+      ]
+    },
+    {
       "version": "1.2.0",
       "date": "2026-07-25",
       "summary": "New players are now offered the tutorial on first launch — once, and never again if you wave it away.",
