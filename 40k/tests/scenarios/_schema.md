@@ -106,10 +106,14 @@ Each step is a dict with an `act` field plus act-specific keys.
 
 - `click_node`: locate a node by NodePath and dispatch a real click at its
   centre. Buttons should also accept an `emit_pressed: true` shortcut that
-  emits the `pressed` signal directly.
+  emits the `pressed` signal directly. Instead of `node`, `button_text`
+  resolves the first visible enabled Button with that exact text (same
+  resolver as `pad_cursor_glide`) — for procedurally-built controls with no
+  stable NodePath, e.g. the movement-mode radios.
   ```json
   { "act": "click_node", "node": "/root/Main/UI/ChargeButton" }
   { "act": "click_node", "node": "/root/Main/UI/CO/AcceptButton", "emit_pressed": true }
+  { "act": "click_node", "button_text": "Advance" }
   ```
 
 - `click_item_list`: real-mouse-click one row of an `ItemList` (by item

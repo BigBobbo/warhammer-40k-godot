@@ -155,6 +155,11 @@ func _connect_recording_signals() -> void:
 # ============================================================================
 
 func start_recording(persist_flag: bool = false) -> void:
+	# Tutorial lessons are not recorded — they would only clutter the replay
+	# browser (PRPs/tutorial_system.md §5.2).
+	if GameState.state.get("meta", {}).get("tutorial", false):
+		print("ReplayManager: Tutorial active — recording skipped")
+		return
 	if is_recording:
 		print("ReplayManager: Already recording")
 		return

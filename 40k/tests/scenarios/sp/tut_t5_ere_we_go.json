@@ -1,0 +1,220 @@
+{
+  "id": "tut_t5_ere_we_go",
+  "covers": [
+    "tutorial.t5.charge",
+    "tutorial.engine.fixture_boot"
+  ],
+  "rng_seed": 99,
+  "edition": 11,
+  "description": "Tutorial lesson T5 ('Ere We Go!), mouse player path: boot from the tutorial_t5_charge fixture -> select the Boyz in the charge unit list -> pick the Custodian Guard in the target list -> Declare Charge -> Roll 2D6 (seed 99 rolls 9, no re-roll offer) -> Snap to Contact places the whole mob -> Confirm Charge Moves -> end the phase via the big phase button -> lesson summary -> back to menu.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t5_ere_we_go/Play_t5_ere_we_go"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "screenshot",
+      "label": "01_intro"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "declare"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 0,
+      "comment": "the charge unit list is filtered to eligible chargers"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var sel = tree.root.get_node(\"/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector\")\nif sel.item_count == 0:\n\treturn false\nreturn \"Boyz\" in str(sel.get_item_text(0))",
+      "multiline": true,
+      "equals": true,
+      "comment": "verify row 0 really is the Boyz mob before relying on the index"
+    },
+    {
+      "act": "execute_script",
+      "script": "var tl = tree.root.get_node(\"/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeTargetList\")\nfor i in range(tl.item_count):\n\tif \"Custodian\" in str(tl.get_item_text(i)):\n\t\ttl.select(i, true)\n\t\ttl.multi_selected.emit(i, true)\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "SELECT_MULTI ItemList: select + multi_selected is the click-equivalent (the controller owns clicks via gui_input)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "screenshot",
+      "label": "02_target_picked"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "keep_da_roll"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_rolled"
+    },
+    {
+      "act": "execute_script",
+      "script": "var q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and str(nd.text).strip_edges() == \"Keep Roll\":\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the Command Re-roll offer is an embedded modal Window - synthetic clicks cannot reach it, emit instead"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "move_in"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/SnapToContactButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "04_snapped"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/ConfirmChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.charged_this_turn",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_charged"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.is_completed(\"t5_ere_we_go\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "06_summary"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    }
+  ]
+}

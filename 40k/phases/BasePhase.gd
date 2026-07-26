@@ -92,6 +92,16 @@ func execute_action(action: Dictionary) -> Dictionary:
 	DebugLogger.info(str("[BasePhase] Executing action: ", action.get("type", "UNKNOWN")))
 	DebugLogger.info(str("[BasePhase] For unit: ", action.get("unit_id", "N/A")))
 
+	# Tutorial allow-list gate (PRPs/tutorial_system.md §5.2): while a lesson is
+	# active only the step's taught actions (plus AI/P2 and DECLINE_* safety
+	# actions) pass. Every input path funnels through here — mouse, keyboard,
+	# pad, dialogs, scenario dispatch — so no per-controller surgery is needed.
+	var _tutorial = get_node_or_null("/root/TutorialManager")
+	if _tutorial != null and _tutorial.active and not _tutorial.is_action_allowed(action):
+		_tutorial.on_action_blocked(action)
+		return {"success": false, "error": "Tutorial: follow da current step",
+			"errors": ["tutorial_locked"], "tutorial_blocked": true}
+
 	var validation = validate_action(action)
 	if not validation.valid:
 		DebugLogger.info(str("[BasePhase] Action validation failed: ", validation.errors))

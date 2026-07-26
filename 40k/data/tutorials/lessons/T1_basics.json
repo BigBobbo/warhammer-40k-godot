@@ -1,0 +1,179 @@
+{
+  "id": "t1_basics",
+  "order": 1,
+  "title": "Scoutin' da Field",
+  "subtitle": "Camera, selection & reading the table",
+  "est_minutes": 4,
+  "boot": { "fixture": "tutorial_postdeploy", "phase": 7, "rng_seed": 4242 },
+  "summary": {
+    "bark": "PROPPA JOB, YA GIT!",
+    "bullets": [
+      "Camera: pan an' zoom anywhere on da table.",
+      "Units: pick 'em from da list or da board, datasheet for da full stats.",
+      "Da left panel logs everyfing — Game Log an' Dice Log tabs.",
+      "Da big red button ends da phase. Da small one ends a unit's move.",
+      "Next lesson: Musterin' da Boyz — deployment, transports an' leaders."
+    ]
+  },
+  "steps": [
+    {
+      "id": "welcome",
+      "prompt": {
+        "bark": "OI, LISTEN UP!",
+        "text": "Welcome to Basic Trainin'. You know da rules of da tabletop — dis teaches how [b]da app[/b] works. Use [i]Skip Step[/i] or [i]Exit Tutorial[/i] up 'ere any time."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "done": { "ack": true }
+    },
+    {
+      "id": "camera",
+      "prompt": {
+        "bark": "EYES ON DA FIELD!",
+        "kbm": "Move da camera wiv {key:camera_pan_up} {key:camera_pan_left} {key:camera_pan_down} {key:camera_pan_right} or da arrow keys. Zoom wiv da mouse wheel. Go on — 'ave a look around.",
+        "pad": "Pan da camera wiv {rs}. Zoom wiv {lt} an' {rt}. Go on — 'ave a look around."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "capture": {
+        "off": { "script": "return str(main.view_offset)" },
+        "zoom": { "script": "return main.view_zoom" }
+      },
+      "done": {
+        "script": "return str(main.view_offset) != str(captured[\"off\"]) or abs(main.view_zoom - captured[\"zoom\"]) > 0.01"
+      },
+      "hint": { "text": "Any pan or zoom counts — just nudge da view." }
+    },
+    {
+      "id": "select_wagon",
+      "prompt": {
+        "bark": "PICK DA WAGON!",
+        "kbm": "Click [b]Battlewagon[/b] in da unit list on da right — or click its token up in your deployment zone.",
+        "pad": "Tap {rb} to cycle units until da [b]Battlewagon[/b] is picked."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList" },
+      "spotlight": "soft",
+      "allow": ["BEGIN_NORMAL_MOVE"],
+      "done": {
+        "script": "var mc = main.get(\"movement_controller\")\nreturn mc != null and str(mc.active_unit_id) == \"U_BATTLEWAGON_T\""
+      },
+      "hint": { "text": "Da unit list is top-right — da Battlewagon row." }
+    },
+    {
+      "id": "open_datasheet",
+      "prompt": {
+        "bark": "KNOW YER WAGON!",
+        "kbm": "Press {key:datasheet_modal} to open da unit's full datasheet.",
+        "pad": "Press {y} to open da unit's full datasheet."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "done": { "node_visible": "/root/Main/DatasheetModal" }
+    },
+    {
+      "id": "close_datasheet",
+      "prompt": {
+        "bark": "SEEN ENOUGH!",
+        "kbm": "Close it — press [b][Escape][/b].",
+        "pad": "Close it — press {y} again (or {b})."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "done": { "node_hidden": "/root/Main/DatasheetModal" }
+    },
+    {
+      "id": "dice_log",
+      "prompt": {
+        "bark": "DA PAPERWORK!",
+        "kbm": "Da left panel logs everyfing wot 'appens. Click da [b]Dice Log[/b] tab — every roll ends up dere.",
+        "pad": "Da left panel logs everyfing. Glide {ls} onto da [b]Dice Log[/b] tab an' press {a}."
+      },
+      "anchor": { "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog" },
+      "spotlight": "soft",
+      "allow": [],
+      "done": {
+        "script": "var glp = tree.root.get_node_or_null(\"/root/Main/GameLogPanel\")\nreturn glp != null and str(glp._active_tab) == \"dice\""
+      }
+    },
+    {
+      "id": "hint_bar",
+      "device": "pad",
+      "prompt": {
+        "bark": "READ DA BAR!",
+        "pad": "Dat strip at da bottom always shows wot each button does [i]right now[/i]. It changes wiv da situation — when in doubt, read da bar."
+      },
+      "anchor": { "node": "/root/PadHintBar" },
+      "spotlight": "soft",
+      "allow": [],
+      "done": { "ack": true }
+    },
+    {
+      "id": "hotkey_help_open",
+      "device": "kbm",
+      "prompt": {
+        "bark": "DA CHEAT SHEET!",
+        "kbm": "Press {key:hotkey_help} to see every keyboard shortcut in da game."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "done": { "node_visible": "/root/Main/HotkeyHelpOverlay" }
+    },
+    {
+      "id": "hotkey_help_close",
+      "device": "kbm",
+      "prompt": {
+        "bark": "BACK TO WORK!",
+        "kbm": "Press {key:hotkey_help} again to put da cheat sheet away."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "done": { "node_hidden": "/root/Main/HotkeyHelpOverlay" }
+    },
+    {
+      "id": "end_phase_intro",
+      "prompt": {
+        "bark": "SEE DAT BUTTON?",
+        "text": "Dat big red button ends da current phase for good. [b]Don't[/b] press it yet — first, a bit of movin'."
+      },
+      "anchor": { "node": "/root/Main/PhaseActionButton" },
+      "spotlight": "soft",
+      "allow": [],
+      "done": { "ack": true }
+    },
+    {
+      "id": "move_grots",
+      "prompt": {
+        "bark": "MOVE DA GROTS!",
+        "kbm": "Click [b]Gretchin[/b] in da unit list, den [b]drag[/b] one grot a short way forward an' drop it.",
+        "pad": "Tap {rb} until da [b]Gretchin[/b] are picked, glide {ls} onto a grot, press {a} to grab it, walk it forward an' press {a} to drop it."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList" },
+      "spotlight": "soft",
+      "allow": ["BEGIN_NORMAL_MOVE", "STAGE_MODEL_MOVE", "SET_MODEL_DEST", "LOCK_MOVEMENT_MODE", "UNDO_LAST_MODEL_MOVE"],
+      "done": { "action": { "type": "STAGE_MODEL_MOVE" } },
+      "hint": { "text": "Pick da Gretchin row first — den drag any single grot base. Keep 'im near his mates (wivin 2\") an' don't drop him on top of anyone." }
+    },
+    {
+      "id": "confirm_grots",
+      "prompt": {
+        "bark": "LOCK IT IN!",
+        "kbm": "Press [b]End This Unit's Move[/b] on da right to lock da move in.",
+        "pad": "Check da hint bar — confirm da move to lock it in."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton" },
+      "spotlight": "soft",
+      "allow": ["BEGIN_NORMAL_MOVE", "STAGE_MODEL_MOVE", "SET_MODEL_DEST", "LOCK_MOVEMENT_MODE", "UNDO_LAST_MODEL_MOVE", "CONFIRM_UNIT_MOVE"],
+      "done": { "action": { "type": "CONFIRM_UNIT_MOVE" } }
+    },
+    {
+      "id": "wrap",
+      "prompt": {
+        "bark": "DAT'S DA BASICS!",
+        "text": "Camera, pickin' units, datasheets, logs, an' yer first move order. Da next lesson covers [b]deployment, transports an' leaders[/b]. WAAAGH!"
+      },
+      "spotlight": "none",
+      "allow": [],
+      "done": { "ack": true }
+    }
+  ]
+}

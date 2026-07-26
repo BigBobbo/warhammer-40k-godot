@@ -309,6 +309,12 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 
 	# If AI should act right away (e.g., Player 1 is AI in deployment), kick off
 	if enabled:
+		# A game loaded directly into a mid-turn phase (Load Game, tutorial
+		# fixture boot) creates the phase instance BEFORE this configure() call,
+		# so the phase-changed hook never connected the reactive signal handlers
+		# for the current phase — an AI defender then never answered a reactive
+		# stratagem window opened in that first phase and the game hung waiting.
+		_connect_phase_stratagem_signals()
 		_request_evaluation()
 
 func load_player_profile(player: int, profile_name: String) -> bool:

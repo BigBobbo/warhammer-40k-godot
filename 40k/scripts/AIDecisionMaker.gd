@@ -2160,13 +2160,46 @@ static func _decide_random_shooting(snapshot: Dictionary, available_actions: Arr
 		result["_ai_description"] = "%s shoots randomly (Easy)" % unit_name
 		return result
 
-	# If SELECT_SHOOTER available, pick randomly
+	# If SELECT_SHOOTER available, shoot with a random shooter at a random
+	# eligible target. get_available_actions() never exposes a compound
+	# "SHOOT" action, so returning bare SELECT_SHOOTER here made Easy AI
+	# re-select the same unit forever (each successful select reset the
+	# SOAK-1 safety counter, so the loop never tripped MAX_ACTIONS_PER_PHASE).
+	# Build the full select+assign+confirm SHOOT action instead, mirroring
+	# _decide_shooting()'s Step 5 but with the target chosen at random.
 	if action_types.has("SELECT_SHOOTER"):
 		var shooters = action_types["SELECT_SHOOTER"]
 		var chosen = shooters[randi() % shooters.size()]
-		var result = chosen.duplicate()
-		result["_ai_description"] = "Select random shooter (Easy)"
-		return result
+		var shooter_id = chosen.get("actor_unit_id", chosen.get("unit_id", ""))
+		var shooter = snapshot.get("units", {}).get(shooter_id, {})
+		var shooter_name = _dn(shooter, shooter_id)
+		var ranged_weapons = []
+		for w in shooter.get("meta", {}).get("weapons", []):
+			if w.get("type", "").to_lower() == "ranged":
+				ranged_weapons.append(w)
+		if not ranged_weapons.is_empty():
+			var enemies = _get_shootable_enemy_units(snapshot, player)
+			var enemy_ids = enemies.keys()
+			enemy_ids.shuffle()
+			for tid in enemy_ids:
+				var single_target = {}
+				single_target[tid] = enemies[tid]
+				var assignments = _build_unit_assignments_fallback(shooter, ranged_weapons, single_target, snapshot)
+				if not assignments.is_empty():
+					var tname = _dn(enemies[tid], tid)
+					return {
+						"type": "SHOOT",
+						"actor_unit_id": shooter_id,
+						"payload": {"assignments": assignments},
+						"_ai_description": "%s shoots at %s (Easy)" % [shooter_name, tname]
+					}
+		# No ranged weapons or no target yields a valid assignment — skip the
+		# unit so the phase always makes progress.
+		return {
+			"type": "SKIP_UNIT",
+			"actor_unit_id": shooter_id,
+			"_ai_description": "Skipped %s — no valid shot (Easy)" % shooter_name
+		}
 
 	# End shooting
 	if action_types.has("END_SHOOTING"):

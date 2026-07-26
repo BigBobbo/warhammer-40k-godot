@@ -1,0 +1,98 @@
+{
+  "id": "tut_t7_runnin_da_show_pad",
+  "covers": [
+    "tutorial.t7.command.pad",
+    "tutorial.t7.stratagem_panel.pad"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial lesson T7 driven with pad input. The Command phase has no board verbs, so the virtual cursor owns A and the panel buttons are reached by cursor-glide + A (the Waaagh button is below the scroll fold and the overlay scrolls it into view). Start ends the phase. The two mission dialogs are embedded modal Windows: PadRouter stands down for native-nav modals so a real player drives them with the D-pad and A, but synthetic joypad input cannot reach an embedded Window, so the scenario emits their buttons.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "simulate_joy_button", "button_index": 9, "comment": "LB claims pad mode" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
+    { "act": "pad_cursor_glide", "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t7_runnin_da_show/Play_t7_runnin_da_show" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 8.0 },
+    { "act": "execute_script", "script": "TutorialManager.active", "equals": true },
+    { "act": "expect_phase", "equals": 6 },
+    { "act": "expect_state", "path": "meta.battle_round", "equals": 2 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "review_missions" },
+    { "act": "screenshot", "label": "01_mission_review_pad" },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "embedded modal Window - PadRouter stands down for native-nav modals (a real player uses D-pad + A); synthetic pad input cannot reach it, so emit"
+    },
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "mission_choice" },
+    { "act": "screenshot", "label": "02_guard_prompt_pad" },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/GuardSelectionDialog/Content/Actions/KeepAutoGuards\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "same native-nav modal constraint as the review card above"
+    },
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "waaagh" },
+    { "act": "screenshot", "label": "03_command_panel_pad" },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton",
+      "comment": "the Waaagh button sits below the command panel's scroll fold; the tutorial overlay scrolls an anchored control into view, so the cursor can reach it"
+    },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 2.5 },
+    {
+      "act": "execute_script",
+      "script": "var fam = tree.root.get_node(\"/root/FactionAbilityManager\")\nreturn fam.is_waaagh_active(1)",
+      "multiline": true,
+      "equals": true,
+      "comment": "the pad press really fired the army rule"
+    },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "stratagems" },
+    { "act": "screenshot", "label": "04_waaagh_called_pad" },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton"
+    },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/StratagemPanel", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "05_stratagem_panel_pad" },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "end_command" },
+    {
+      "act": "execute_script",
+      "script": "var sp = tree.root.get_node_or_null(\"/root/Main/StratagemPanel\")\nif sp == null:\n\treturn false\nvar b = sp.get_ok_button()\nif b != null:\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the stratagem panel is a modal Window - close it via its own Close button"
+    },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "simulate_joy_button", "button_index": 6, "comment": "Start = End Phase" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "simulate_joy_button", "button_index": 0, "comment": "pad confirm on the end-phase prompt" },
+    { "act": "wait_seconds", "seconds": 3.0 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "wrap" },
+    { "act": "screenshot", "label": "06_moved_on_pad" },
+    { "act": "pad_cursor_glide", "button_text": "Continue" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "TutorialManager.is_completed(\"t7_runnin_da_show\")", "equals": true },
+    { "act": "screenshot", "label": "07_summary_pad" },
+    { "act": "pad_cursor_glide", "button_text": "Back to Menu" },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/ScrollContainer", "timeout_s": 5.0 }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "id": "tut_full_course_chain",
+  "covers": [
+    "tutorial.course.chaining",
+    "tutorial.course.picker_row"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Full Course sequencing: start the course from the picker's Full Course row, skip through lesson 1's steps to its summary, press Next Lesson, and confirm lesson 2 boots in course mode with a clean transition (the outgoing Main must not error while leaving the tree). Steps are skipped rather than played — each lesson's own player path is covered by its dedicated scenario; what this proves is the lesson-to-lesson handoff.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_full_course/Play_full_course"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.active and TutorialManager.course_mode",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(TutorialManager.current_lesson.get(\"id\", \"\"))",
+      "multiline": true,
+      "equals": "t1_basics"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_lesson_one"
+    },
+    {
+      "act": "execute_script",
+      "script": "for i in range(40):\n\tif not TutorialManager.active:\n\t\tbreak\n\tif TutorialManager.current_step_id() == \"\":\n\t\tbreak\n\tTutorialManager.skip_step()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "skip to the summary - each lesson's real player path has its own scenario"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/NextLessonButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.is_completed(\"t1_basics\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_lesson_one_summary"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/NextLessonButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 12.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(TutorialManager.current_lesson.get(\"id\", \"\"))",
+      "multiline": true,
+      "equals": "t2_musterin"
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.active and TutorialManager.course_mode",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var mains = []\nfor n in tree.root.get_children():\n\tif str(n.name) == \"Main\":\n\t\tmains.append(n)\nreturn mains.size()",
+      "multiline": true,
+      "equals": 1,
+      "comment": "the outgoing Main must be gone - a leaked second Main would double-handle phase signals"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_lesson_two_booted"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.exit_tutorial()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    }
+  ]
+}

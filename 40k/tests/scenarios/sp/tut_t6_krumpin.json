@@ -1,0 +1,247 @@
+{
+  "id": "tut_t6_krumpin",
+  "covers": [
+    "tutorial.t6.fight",
+    "tutorial.engine.fixture_boot"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial lesson T6 (Krumpin'), mouse player path: boot from the tutorial_t6_fight fixture -> End Pile In -> select the Boyz in the fight list -> in the attack dialog pick a melee weapon + the Custodian Guard, Weapon to Target, Fight! -> Fast Roll the dice dock and Done -> end the phase. The attack dialog and allocation overlay are embedded modal Windows, so their controls are driven via the emit escape hatch.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t6_krumpin/Play_t6_krumpin"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "screenshot",
+      "label": "01_intro"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pile_in"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_fighter"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_pile_in_done"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_T"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "assign_attacks"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_attack_dialog"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn false\nvar want = 0\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Choppa\"):\n\t\twant = i\n\t\tbreak\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "the attack dialog is an embedded modal Window - select+emit is the click equivalent for its ItemLists"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn d.assignments.size() > 0",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_it_out"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_dice_dock"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockFastButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar prim = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton\")\nif prim != null and prim.is_visible_in_tree():\n\tprim.pressed.emit()\n\treturn true\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "clear whichever defender card or dock step is up (tolerant no-op when the activation already finished)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar prim = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton\")\nif prim != null and prim.is_visible_in_tree():\n\tprim.pressed.emit()\n\treturn true\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar prim = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton\")\nif prim != null and prim.is_visible_in_tree():\n\tprim.pressed.emit()\n\treturn true\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.has_fought",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_boyz_fought"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "06_end_fight_warning"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the Warboss has not fought, so the unfought-units warning (embedded modal AcceptDialog on /root, Main.gd:11123) needs confirming"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.is_completed(\"t6_krumpin\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "07_summary"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    }
+  ]
+}

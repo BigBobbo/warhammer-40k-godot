@@ -1,0 +1,163 @@
+{
+  "id": "t7_runnin_da_show",
+  "order": 7,
+  "title": "Runnin' da Show",
+  "subtitle": "Command phase, secondaries, stratagems & army rules",
+  "est_minutes": 5,
+  "boot": {
+    "fixture": "tutorial_t7_round2",
+    "phase": 6,
+    "rng_seed": 4242
+  },
+  "summary": {
+    "bark": "YOU'S DA BOSS NOW!",
+    "bullets": [
+      "Every battle round starts wiv da [b]Command phase[/b]: +1 CP, den yer secondary missions.",
+      "Da mission review shows what yer scorin' for — [b]Discard[/b] one for a CP, or [b]Replace[/b] it for a CP.",
+      "Army rules live in da command panel — [b]CALL DA WAAAGH![/b] is once per battle.",
+      "[b][S] Stratagems[/b] spends CP any time it's legal; [b]Missions[/b] an' [b]Roster[/b] show scorin' an' yer army.",
+      "Dat's da lot — every phase, every button. Now go krump somefin' for real."
+    ]
+  },
+  "steps": [
+    {
+      "id": "review_missions",
+      "prompt": {
+        "bark": "BATTLE ROUND TWO!",
+        "kbm": "Da Custodes had deir go — now every round opens wiv da [b]Command phase[/b]: bank a CP, sort yer secondaries, fire off army rules. Dis card lists da missions ya can score dis round an' what each pays. Ya could [b]Replace[/b] one for 1 CP — we'll keep 'em. Click [b]Continue[/b].",
+        "pad": "Every round opens wiv da [b]Command phase[/b]: a CP, yer secondaries, den army rules. Dis card lists what ya can score — {dpad} moves da highlight, {a} presses. Pick [b]Continue[/b]."
+      },
+      "anchor": {
+        "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+      },
+      "spotlight": "none",
+      "allow": [
+        "REPLACE_SECONDARY_MISSION",
+        "DISCARD_SECONDARY",
+        "DRAW_SECONDARY"
+      ],
+      "done": {
+        "script": "var pm = tree.root.get_node_or_null(\"/root/PhaseManager\")\nif pm == null or pm.current_phase_instance == null:\n\treturn false\nvar phase = pm.current_phase_instance\nif not phase.has_method(\"get_newly_drawn_missions\"):\n\treturn false\nif phase.get_newly_drawn_missions().size() > 0:\n\treturn false\nreturn tree.root.get_node_or_null(\"/root/SecondaryMissionReviewDialog\") == null",
+        "comment": "Continue clears the phase's newly-drawn list and frees the dialog; a bare node_hidden check would pass on the frame before the dialog pops"
+      },
+      "hint": {
+        "text": "Da same missions are listed down da right panel too, wiv [b]Discard (+1 CP)[/b] buttons."
+      }
+    },
+    {
+      "id": "mission_choice",
+      "prompt": {
+        "bark": "DA MISSION WANTS SOMEFIN'!",
+        "kbm": "Some missions ask ya to make a choice da moment dey're drawn. Dis one wants a guard on each objective. Ya can pick 'em yerself — or take da game's suggestion wiv [b]Keep Auto Picks[/b].",
+        "pad": "Some missions want a choice when dey're drawn — dis one wants guards on objectives. {dpad} to [b]Keep Auto Picks[/b], den {a} to take da game's suggestion."
+      },
+      "anchor": {
+        "node": "/root/GuardSelectionDialog/Content/Actions/KeepAutoGuards"
+      },
+      "spotlight": "none",
+      "allow": [
+        "ASSIGN_GUARDS",
+        "DISMISS_GUARDS",
+        "REPLACE_SECONDARY_MISSION",
+        "DISCARD_SECONDARY"
+      ],
+      "done": {
+        "script": "if tree.root.get_node_or_null(\"/root/GuardSelectionDialog\") != null:\n\treturn false\nvar smm = tree.root.get_node_or_null(\"/root/SecondaryMissionManager\")\nif smm == null:\n\treturn false\nfor m in smm._player_state.get(\"1\", {}).get(\"active\", []):\n\tif m.get(\"pending_interaction\", false):\n\t\treturn false\nreturn true",
+        "comment": "gate on the mission's own pending_interaction flag as well as the dialog node: the dialog is spawned a frame or two after this step arms, so a bare node-gone check would pass instantly"
+      },
+      "hint": {
+        "text": "[b]Pick on board[/b] next to a row lets ya click da unit on da table instead of usin' da dropdown."
+      }
+    },
+    {
+      "id": "waaagh",
+      "prompt": {
+        "bark": "WAAAAAGH!",
+        "kbm": "Army rules sit in da command panel. Da Orks get one big 'un: hit [b]CALL DA WAAAGH![/b] — once per battle, every Ork can Advance an' still charge, hits harder in melee an' gets a 5+ invuln.",
+        "pad": "Army rules sit in da command panel. Glide {ls} onto [b]CALL DA WAAAGH![/b] an' press {a} — once per battle, an' every Ork gets meaner."
+      },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton"
+      },
+      "spotlight": "soft",
+      "allow": [
+        "CALL_WAAAGH",
+        "REPLACE_SECONDARY_MISSION",
+        "DISCARD_SECONDARY"
+      ],
+      "done": {
+        "action": {
+          "type": "CALL_WAAAGH"
+        }
+      },
+      "hint": {
+        "text": "Every faction's got its own section here — dis is where army rules get fired off."
+      }
+    },
+    {
+      "id": "stratagems",
+      "prompt": {
+        "bark": "SPEND DA CP!",
+        "kbm": "CP buys [b]stratagems[/b]. Open da panel wiv [b][S] Stratagems[/b] at da bottom — it lists what ya can use right now, what it costs, an' greys out da rest wiv da reason why. Have a look, den hit [b]Close[/b].",
+        "pad": "CP buys [b]stratagems[/b]. Glide {ls} onto [b]Stratagems[/b] at da bottom an' press {a} — da panel lists what ya can use now an' greys out da rest wiv da reason why. Have a look, den [b]Close[/b]."
+      },
+      "anchor": {
+        "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton"
+      },
+      "spotlight": "soft",
+      "allow": [
+        "USE_STRATAGEM",
+        "REPLACE_SECONDARY_MISSION",
+        "DISCARD_SECONDARY"
+      ],
+      "done": {
+        "node_visible": "/root/Main/StratagemPanel"
+      },
+      "hint": {
+        "text": "Da panel greys out anyfin' ya can't afford or can't use in dis phase."
+      }
+    },
+    {
+      "id": "end_command",
+      "prompt": {
+        "bark": "ON WIV IT!",
+        "kbm": "Dat's da Command phase. [b]End Command Phase[/b] moves ya on to Movement — an' round two runs Movement, Shootin', Charge, Fight, Scorin', same as round one.",
+        "pad": "Press {menu} to end da Command phase an' move on to Movement."
+      },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/EndCommandPhaseButton"
+      },
+      "spotlight": "soft",
+      "allow": [
+        "END_COMMAND",
+        "USE_STRATAGEM",
+        "REPLACE_SECONDARY_MISSION",
+        "DISCARD_SECONDARY"
+      ],
+      "done": {
+        "any": [
+          {
+            "action": {
+              "type": "END_COMMAND"
+            }
+          },
+          {
+            "phase": 7
+          }
+        ]
+      }
+    },
+    {
+      "id": "wrap",
+      "prompt": {
+        "bark": "TRAININ' DONE!",
+        "text": "Dat's every phase an' every button: musterin', movin', shootin', chargin', krumpin' an' runnin' da show. Da rest is just playin'. [b]WAAAGH![/b]"
+      },
+      "spotlight": "none",
+      "allow": "*",
+      "done": {
+        "ack": true
+      }
+    }
+  ]
+}
