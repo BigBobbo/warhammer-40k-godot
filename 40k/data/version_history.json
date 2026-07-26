@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.2.1",
+      "date": "2026-07-26",
+      "summary": "Fixes for the first-launch tutorial offer and for the movement unit list showing up empty.",
+      "changes": [
+        "Fixed the 'First time 'ere?' first-launch panel drawing itself thousands of pixels tall: its buttons ended up off-screen and it blocked clicks on a strip of the main menu, including part of the Tutorial button. It now sits centred and both choices are clickable.",
+        "The movement phase's unit list no longer sits there as a blank black box if it comes up empty — it retries, and if there really is nothing to move it says so.",
+        "'Pick da wagon' (Basic Trainin' lesson 1) now tells controller players they can also point at the Battlewagon on the board and press A, instead of only offering the right bumper."
+      ]
+    },
+    {
       "version": "1.2.0",
       "date": "2026-07-25",
       "summary": "New players are now offered the tutorial on first launch — once, and never again if you wave it away.",

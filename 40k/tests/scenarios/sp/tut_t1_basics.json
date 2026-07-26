@@ -105,6 +105,13 @@
       "equals": "select_wagon"
     },
     {
+      "act": "execute_script",
+      "script": "var l = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList\")\nif l == null:\n\treturn false\nvar texts = []\nfor i in range(l.item_count):\n\ttexts.append(str(l.get_item_text(i)))\nreturn l.item_count > 0 and \"|\".join(texts).contains(\"Battlewagon\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "reported bug: at PICK DA WAGON the spotlighted unit list rendered as an empty black box, leaving the step unplayable. Assert the rows are really there."
+    },
+    {
       "act": "click_item_list",
       "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
       "index": 0

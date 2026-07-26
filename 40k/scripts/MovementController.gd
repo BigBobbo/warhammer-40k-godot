@@ -1013,6 +1013,49 @@ func _refresh_unit_list() -> void:
 				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 			added_units[unit_id] = true
 
+	# Reported from the tutorial ("PICK DA WAGON" — the right-hand list was a
+	# black rectangle with nothing in it): the list is populated exactly once,
+	# from set_phase(). If get_available_actions() comes back empty at that
+	# moment — the phase not finished entering, the snapshot not attached yet,
+	# the turn owner not resolved — the ItemList stays empty forever. There is
+	# no second refresh and no message, so the player just sees an unexplained
+	# black box and cannot select anything.
+	#
+	# Two-part guard: retry a couple of times on later frames (recovers the
+	# ordering race), and if it is genuinely empty say so in the list itself so
+	# an empty panel is always legible rather than blank.
+	if unit_list.get_item_count() == 0:
+		_handle_empty_unit_list()
+	else:
+		_empty_unit_list_retries = 0
+
+# How many deferred re-refreshes an empty unit list has already triggered.
+# Reset as soon as the list comes back non-empty (see _refresh_unit_list).
+var _empty_unit_list_retries: int = 0
+const EMPTY_UNIT_LIST_MAX_RETRIES := 3
+
+func _handle_empty_unit_list() -> void:
+	print("MovementController: WARNING — unit list refreshed to 0 rows (retry %d/%d)" % [
+		_empty_unit_list_retries, EMPTY_UNIT_LIST_MAX_RETRIES])
+	DebugLogger.warn("MovementController: movement unit list is empty after refresh (retry %d/%d)" % [
+		_empty_unit_list_retries, EMPTY_UNIT_LIST_MAX_RETRIES])
+	if _empty_unit_list_retries < EMPTY_UNIT_LIST_MAX_RETRIES:
+		_empty_unit_list_retries += 1
+		# Next frame: the phase may simply not have finished entering yet.
+		get_tree().process_frame.connect(_retry_empty_unit_list, CONNECT_ONE_SHOT)
+		return
+	# Out of retries — make the empty state readable instead of a black box.
+	unit_list.add_item("(no units available to move)")
+	unit_list.set_item_disabled(0, true)
+
+func _retry_empty_unit_list() -> void:
+	if not is_instance_valid(self) or not unit_list or not is_instance_valid(unit_list):
+		return
+	if not current_phase:
+		return
+	print("MovementController: retrying empty unit list refresh")
+	_refresh_unit_list()
+
 func _on_unit_selected(index: int) -> void:
 	var unit_id = unit_list.get_item_metadata(index)
 	if unit_id == null or unit_id == "":

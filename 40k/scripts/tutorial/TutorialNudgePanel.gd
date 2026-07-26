@@ -13,6 +13,8 @@ extends PanelContainer
 
 const WhiteDwarfThemeData = preload("res://scripts/WhiteDwarfTheme.gd")
 
+const PANEL_W := 560.0
+
 var _start_button: Button
 var _dismiss_button: Button
 var _body_label: RichTextLabel
@@ -22,9 +24,15 @@ func _ready() -> void:
 	name = "TutorialNudge"
 	visible = false
 	WhiteDwarfThemeData.apply_to_panel(self)
-	custom_minimum_size = Vector2(560, 0)
+	custom_minimum_size = Vector2(PANEL_W, 0)
 	z_index = 95
 	_build_ui()
+	# Belt and braces for the runaway-height case documented in _build_ui:
+	# whenever the panel's
+	# own minimum size settles (fonts finishing, the body re-wrapping, a UI
+	# scale change), re-centre off the NEW value instead of leaving stale
+	# offsets behind.
+	minimum_size_changed.connect(_on_min_size_changed)
 
 
 func _build_ui() -> void:
@@ -51,6 +59,18 @@ func _build_ui() -> void:
 	_body_label.bbcode_enabled = true
 	_body_label.fit_content = true
 	_body_label.scroll_active = false
+	# A fit_content RichTextLabel reports its minimum HEIGHT as the content
+	# height at its CURRENT width. Before the panel has ever been laid out that
+	# width is ~0, so the body wraps one character per line and the panel's
+	# combined minimum size comes back thousands of pixels tall — which
+	# _apply_center() then bakes into the centering offsets (observed: a
+	# 560x4324 panel parked at y=-1622, its buttons far off-screen, and its
+	# mouse_filter=STOP swallowing every click in a 560px-wide strip of the
+	# main menu, including part of the Tutorial button). Pinning the wrap width
+	# to the panel's content box means the very first measurement is the right
+	# one. PANEL_W minus the 18px margins on both sides.
+	_body_label.custom_minimum_size = Vector2(PANEL_W - 36, 0)
+	_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_body_label.add_theme_font_size_override("normal_font_size", 14)
 	_body_label.add_theme_font_size_override("bold_font_size", 14)
 	_body_label.add_theme_color_override("default_color", WhiteDwarfThemeData.WH_PARCHMENT)
@@ -100,6 +120,11 @@ func open() -> void:
 func _apply_center() -> void:
 	reset_size()
 	set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+
+
+func _on_min_size_changed() -> void:
+	if visible:
+		call_deferred("_apply_center")
 
 
 # Either button retires the nudge for good — being asked twice is the failure
