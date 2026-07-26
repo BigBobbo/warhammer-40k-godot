@@ -171,7 +171,9 @@ func _pad_refresh_hint() -> void:
 func _pad_handle_input(event: InputEvent) -> void:
 	if not (event is InputEventJoypadButton) or not event.pressed:
 		return
-	match event.button_index:
+	# Settings › Controller remaps: match on the canonical button of the role
+	# the pressed physical button carries.
+	match PadBindings.canonical(event.button_index):
 		JOY_BUTTON_START:
 			_pad_press("ConfirmButton")
 			set_input_as_handled()

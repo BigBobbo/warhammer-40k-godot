@@ -4200,7 +4200,7 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 			# an all-MONSTER/VEHICLE unit, via the 06.02 allocation).
 			if int(hz.get("failures", 0)) > 0:
 				var mw = int(hz.get("mortal_wounds", 0))
-				var out = Allocation.apply_mortal_wounds_11e(unit, mw)
+				var out = Allocation.apply_mortal_wounds_11e(unit, mw, CasualtyPreference.engine_auto_preference(unit, GameState.state))
 				for ridx in out.remaining:
 					var mi = int(ridx)
 					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, mi], "value": int(out.remaining[ridx])})
@@ -8451,7 +8451,7 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 			var hz = ctx.get("hazard", {})
 			log_phase_message("[11e] Combat disembark hazards for %s: %s (%d failure(s))" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
 			if int(hz.get("failures", 0)) > 0:
-				var mw_out = Allocation.apply_mortal_wounds_11e(unit_pre, int(hz.get("mortal_wounds", 0)))
+				var mw_out = Allocation.apply_mortal_wounds_11e(unit_pre, int(hz.get("mortal_wounds", 0)), CasualtyPreference.engine_auto_preference(unit_pre, GameState.state))
 				for ridx in mw_out.remaining:
 					dis_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(ridx)], "value": int(mw_out.remaining[ridx])})
 				for di in mw_out.models_destroyed:

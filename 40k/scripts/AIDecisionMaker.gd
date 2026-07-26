@@ -3034,7 +3034,7 @@ static func _score_unit_for_embarkation(unit: Dictionary, unit_id: String, model
 		score += 0.1
 
 	# Objective control value — units with good OC benefit from fast objective delivery
-	var oc = int(stats.get("oc", 1))
+	var oc = int(stats.get("objective_control", stats.get("oc", 1)))
 	if oc >= 2:
 		score += 0.1 * oc
 
@@ -5014,15 +5014,15 @@ static func _select_martial_mastery(mastery_actions: Array, snapshot: Dictionary
 				break
 		if not has_alive:
 			continue
-		var save = unit.get("meta", {}).get("stats", {}).get("save", 7)
+		var save = unit.get("meta", {}).get("stats", {}).get("save", 4)
 		total_save += save
 		count += 1
 
-	var avg_save = total_save / max(count, 1)
+	var avg_save = float(total_save) / max(count, 1)
 
 	# If enemies have good saves (3+ or better on average), AP improvement is better
 	var preferred_key = "crit_on_5"
-	if avg_save <= 3:
+	if avg_save <= 3.5:
 		preferred_key = "improve_ap"
 
 	# Find the matching action
@@ -5099,6 +5099,77 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 			"target_model_index": best_sb.get("target_model_index", -1),
 			"player": player,
 			"_ai_description": "AI uses Sawbonez healing (heal up to 3 wounds)"
+		}
+
+	# Step 0.6: Free heal windows (Grot Oiler: D3, Mekaniak: D3 + hit buff).
+	# Same shape as Sawbonez — always use, heal the most-wounded offered
+	# model. These BLOCK the whole movement phase until answered; with no
+	# branch here the AI used to hang on the watchdog (audit Tier 1).
+	for heal_type in ["USE_GROT_OILER", "USE_MEKANIAK"]:
+		if action_types.has(heal_type):
+			var best_h = action_types[heal_type][0]
+			var best_h_missing := -1.0
+			for h in action_types[heal_type]:
+				var h_tuid = h.get("target_unit_id", "")
+				var h_unit = snapshot.get("units", {}).get(h_tuid, {})
+				var h_idx = int(h.get("target_model_index", -1))
+				var h_models = h_unit.get("models", [])
+				if h_idx >= 0 and h_idx < h_models.size():
+					var hm = h_models[h_idx]
+					var missing = float(hm.get("wounds", 1)) - float(hm.get("current_wounds", 1))
+					if missing > best_h_missing:
+						best_h_missing = missing
+						best_h = h
+			return {
+				"type": heal_type,
+				"actor_unit_id": best_h.get("actor_unit_id", ""),
+				"target_unit_id": best_h.get("target_unit_id", ""),
+				"target_model_id": best_h.get("target_model_id", ""),
+				"target_model_index": best_h.get("target_model_index", -1),
+				"player": player,
+				"_ai_description": "AI uses %s (heal most-damaged model)" % heal_type
+			}
+
+	# Step 0.7: Free mortal-wound windows (Deff from Above: D6/model 4+ = 1 MW,
+	# Quicksilver Execution: D6/model 2+ = 2 MW). Free once-per-window damage —
+	# use it on the most grenade-worthy offered target.
+	for mw_type in ["USE_DEFF_FROM_ABOVE", "USE_QUICKSILVER_EXECUTION"]:
+		if action_types.has(mw_type):
+			var best_mw = action_types[mw_type][0]
+			var best_mw_score := -INF
+			for mwa in action_types[mw_type]:
+				var mw_tuid = mwa.get("target_unit_id", "")
+				var mw_unit = snapshot.get("units", {}).get(mw_tuid, {})
+				if mw_unit.is_empty():
+					continue
+				var s = _score_grenade_target(mw_unit)
+				if s > best_mw_score:
+					best_mw_score = s
+					best_mw = mwa
+			var mw_decision = {
+				"type": mw_type,
+				"player": player,
+				"target_unit_id": best_mw.get("target_unit_id", ""),
+				"_ai_description": "AI uses %s on best mortal-wound target" % mw_type
+			}
+			# The two windows key the acting unit differently (actor_unit_id
+			# vs unit_id) — pass through whichever the offer carried.
+			if best_mw.has("actor_unit_id"):
+				mw_decision["actor_unit_id"] = best_mw["actor_unit_id"]
+			if best_mw.has("unit_id"):
+				mw_decision["unit_id"] = best_mw["unit_id"]
+			return mw_decision
+
+	# Step 0.8: Kunnin' Infiltrator placement needs an interactive board
+	# click the AI has no pathway for — cancel so the phase unblocks
+	# (the unit simply stays where it deployed).
+	if action_types.has("CANCEL_KUNNIN_INFILTRATOR"):
+		var ki = action_types["CANCEL_KUNNIN_INFILTRATOR"][0]
+		return {
+			"type": "CANCEL_KUNNIN_INFILTRATOR",
+			"actor_unit_id": ki.get("actor_unit_id", ""),
+			"player": player,
+			"_ai_description": "AI declines Kunnin' Infiltrator redeployment (no placement pathway)"
 		}
 
 	# Step 1: If CONFIRM_UNIT_MOVE is available, confirm it
@@ -6577,7 +6648,7 @@ static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transpor
 
 	var unit_name = _dn(unit, unit_id)
 	var stats = unit.get("meta", {}).get("stats", {})
-	var oc = int(stats.get("oc", 1))
+	var oc = int(stats.get("objective_control", stats.get("oc", 1)))
 
 	# Factor 1: Proximity to objectives — disembark when near an objective to claim it
 	var nearest_obj_dist = INF
@@ -6985,11 +7056,20 @@ static func _evaluate_all_objectives(
 
 	for i in range(objectives.size()):
 		var obj_pos = objectives[i]
-		var obj_id = ""
+		var obj_id = "obj_%d" % i
 		var obj_zone = "no_mans_land"
-		if i < obj_data.size():
-			obj_id = obj_data[i].get("id", "obj_%d" % i)
-			obj_zone = obj_data[i].get("zone", "no_mans_land")
+		# Match by POSITION, not index — _get_objectives filters out
+		# null-position entries, so indices can diverge from obj_data
+		# (same hazard the scout objective code documents and avoids).
+		for od in obj_data:
+			var od_pos = od.get("position", null)
+			if od_pos == null:
+				continue
+			var od_vec = od_pos if od_pos is Vector2 else Vector2(float(od_pos.get("x", 0)), float(od_pos.get("y", 0)))
+			if od_vec.distance_to(obj_pos) < 1.0:  # Match within 1px
+				obj_id = od.get("id", obj_id)
+				obj_zone = od.get("zone", "no_mans_land")
+				break
 
 		# OC totals within control range (from the pre-pass)
 		var friendly_oc = oc_cache[i].f
@@ -8911,7 +8991,7 @@ static func _get_unit_heavy_weapon_data(unit: Dictionary) -> Dictionary:
 			continue
 
 		var attacks_str = w.get("attacks", "1")
-		var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+		var attacks = _parse_average_damage(str(attacks_str))
 		var bs_str = w.get("ballistic_skill", "4")
 		var bs = int(bs_str) if bs_str.is_valid_int() else 4
 
@@ -8977,7 +9057,7 @@ static func _should_hold_for_heavy_bonus(
 		return false  # High priority objective within 2 turns overrides Heavy bonus
 
 	# If the unit intends to charge, don't hold for Heavy bonus
-	var unit_id = unit.get("meta", {}).get("id", "")
+	var unit_id = unit.get("id", unit.get("meta", {}).get("id", ""))
 	if unit_id != "" and not _get_charge_intent(unit_id).is_empty():
 		return false  # Charge intent overrides Heavy bonus
 
@@ -12061,7 +12141,7 @@ static func _detect_army_archetype(snapshot: Dictionary, player: int) -> Diction
 		for w in weapons:
 			var w_type = w.get("type", "").to_lower()
 			var attacks_str = w.get("attacks", "1")
-			var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+			var attacks = _parse_average_damage(str(attacks_str))
 			var damage_str = w.get("damage", "1")
 			var avg_damage = _parse_average_damage(damage_str)
 			# Rough expected output: attacks * damage * models (ignoring to-hit/wound for archetype detection)
@@ -12350,7 +12430,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 
 	# --- Objective presence: units on/near objectives are strategically critical ---
 	var unit_centroid = _get_unit_centroid(target_unit)
-	var oc = int(stats.get("oc", 0))
+	var oc = int(stats.get("objective_control", stats.get("oc", 0)))
 	if unit_centroid != Vector2.INF:
 		var objectives = _get_objectives(snapshot)
 		var on_objective = false
@@ -12510,7 +12590,7 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	var attacks_str = weapon.get("attacks", "1")
 	if attacks_str == null: attacks_str = "1"
 	attacks_str = str(attacks_str)
-	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+	var attacks = _parse_average_damage(attacks_str)
 
 	# Use ballistic_skill for ranged, weapon_skill for melee — fallback to 4
 	var bs_str = weapon.get("ballistic_skill", weapon.get("weapon_skill", "4"))
@@ -12536,7 +12616,7 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	var damage_str = weapon.get("damage", "1")
 	if damage_str == null: damage_str = "1"
 	damage_str = str(damage_str)
-	var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
+	var damage = _parse_average_damage(damage_str)
 
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var target_save = target_unit.get("meta", {}).get("stats", {}).get("save", 4)
@@ -12585,10 +12665,11 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	if wounds_per_model > 0:
 		damage = min(damage, float(wounds_per_model))
 
-	# Scale by number of alive models that carry this weapon
-	var model_count = _get_alive_models(shooter_unit).size()
-	if model_count < 1:
-		model_count = 1
+	# Scale by number of alive models that ACTUALLY carry this weapon
+	# (loadout/profile/wargear-aware — not the whole unit's model count)
+	var model_count = 1
+	if not shooter_unit.is_empty():
+		model_count = _weapon_carrier_count(shooter_unit, weapon)
 
 	var raw_damage = attacks * p_hit * p_wound * p_unsaved * damage * model_count
 
@@ -13223,10 +13304,10 @@ static func _score_multi_target_combo(
 	# Check that target units are close enough to each other for this to be possible.
 	# A model can reach ~base_radius + 1" ER in each direction, so targets must be
 	# within about charger_diameter + 2" of each other (plus target base sizes).
-	var charger_base_mm = charger.get("meta", {}).get("base_mm", 32)
-	# `models` is an Array of model dicts — indexing it with the loop variable
-	# (a dict) crashed every multi-target combo evaluation the AI attempted.
+	# base_mm lives on the MODELS, not on meta — reading meta.base_mm silently
+	# gave every unit a 32mm reach.
 	var charger_models = charger.get("models", [])
+	var charger_base_mm = charger_models[0].get("base_mm", 32) if charger_models.size() > 0 else 32
 	var num_charger_models = 0
 	for m in charger_models:
 		if m.get("current_wounds", 1) > 0 and m.get("position") != null:
@@ -13242,8 +13323,10 @@ static func _score_multi_target_combo(
 			if t_a.is_empty() or t_b.is_empty():
 				continue
 			var pair_dist = _get_closest_model_distance_inches(t_a, t_b)
-			var t_a_base = t_a.get("meta", {}).get("base_mm", 32)
-			var t_b_base = t_b.get("meta", {}).get("base_mm", 32)
+			var t_a_models = t_a.get("models", [])
+			var t_b_models = t_b.get("models", [])
+			var t_a_base = t_a_models[0].get("base_mm", 32) if t_a_models.size() > 0 else 32
+			var t_b_base = t_b_models[0].get("base_mm", 32) if t_b_models.size() > 0 else 32
 			var max_spread = charger_reach_inches + (float(t_a_base) + float(t_b_base)) / 25.4
 			if pair_dist > max_spread:
 				return result
@@ -13442,12 +13525,12 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		var all_units_focus = snapshot.get("units", {})
 		for funit_id in all_units_focus:
 			var funit = all_units_focus[funit_id]
-			if funit.get("player") != player:
+			if funit.get("owner", -1) != player:
 				continue
 			if funit.get("id", "") == charger.get("id", ""):
 				continue  # Skip self
 			# Check if this friendly unit is engaged with the target
-			var funit_engaged = funit.get("is_engaged", false)
+			var funit_engaged = funit.get("flags", {}).get("is_engaged", false)
 			if funit_engaged:
 				var funit_centroid = _get_unit_centroid(funit)
 				var target_centroid = _get_unit_centroid(target)
@@ -13509,7 +13592,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		var num_already_charging = coord_data.charger_ids.size()
 		var dmg_already_incoming = coord_data.total_expected_dmg
 		var combined_dmg = dmg_already_incoming + melee_damage
-		var target_total_hp = float(alive_models * target_wounds)
+		var target_total_hp = _calculate_kill_threshold(target)
 
 		# T18-1: Horde factions get higher gang-up bonuses (Orks need multiple charges to kill elites)
 		var faction_agg = _get_faction_aggression(snapshot, player)
@@ -13529,7 +13612,8 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 				_dn(target, ""), num_already_charging, gang_pile_bonus * num_already_charging])
 
 	# --- Bonus for wounded targets (close to dying) ---
-	var target_remaining_wounds = float(alive_models * target_wounds)
+	# Use CURRENT wounds, not max — a wounded target is closer to dying.
+	var target_remaining_wounds = _calculate_kill_threshold(target)
 	if target_remaining_wounds > 0 and melee_damage / target_remaining_wounds >= 0.5:
 		# We can do 50%+ of remaining wounds — good chance of killing
 		score += 3.0
@@ -13759,7 +13843,7 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 			continue
 
 		var attacks_str = w.get("attacks", "1")
-		var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+		var attacks = _parse_average_damage(str(attacks_str))
 
 		var ws_str = w.get("weapon_skill", w.get("ballistic_skill", "4"))
 		var ws = int(ws_str) if ws_str.is_valid_int() else 4
@@ -13776,7 +13860,7 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 			ap = int(ap_str) if ap_str.is_valid_int() else 0
 
 		var damage_str = w.get("damage", "1")
-		var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
+		var damage = _parse_average_damage(str(damage_str))
 
 		# WAAAGH! buffs: +1 Strength, +1 Attacks per model
 		if waaagh_active:
@@ -13793,8 +13877,9 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		var p_wound = _wound_probability(strength, target_toughness)
 		var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
 
-		# Total expected damage for entire unit with this weapon
-		var weapon_damage = attacks * alive_attackers * p_hit * p_wound * p_unsaved * damage
+		# Total expected damage across the models that actually carry this weapon
+		var carriers = _weapon_carrier_count(attacker, w)
+		var weapon_damage = attacks * carriers * p_hit * p_wound * p_unsaved * damage
 		if aao_bonus:
 			weapon_damage *= _aao_attack_multiplier(ws, strength, target_toughness)
 		best_damage = max(best_damage, weapon_damage)
@@ -14457,6 +14542,43 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			action_types[t] = []
 		action_types[t].append(a)
 
+	# Moment Shackle (Trajann): once-per-battle, blocks the whole fight
+	# phase until answered — with no branch here the AI hung permanently
+	# (audit Tier 1). Choose 2+ invuln when heavy melee is incoming, 12
+	# attacks when there's real damage to deal, decline vs chaff to keep
+	# the once-per-battle use.
+	if action_types.has("USE_MOMENT_SHACKLE") or action_types.has("DECLINE_MOMENT_SHACKLE"):
+		var ms_offer = action_types.get("USE_MOMENT_SHACKLE", action_types.get("DECLINE_MOMENT_SHACKLE", [{}]))[0]
+		var ms_uid = ms_offer.get("unit_id", "")
+		var ms_unit = snapshot.get("units", {}).get(ms_uid, {})
+		var ms_enemies = _get_enemy_units(snapshot, player)
+		var ms_incoming = _estimate_incoming_melee_damage(ms_unit, ms_enemies, ms_uid) if not ms_unit.is_empty() else 0.0
+		var ms_remaining = _estimate_unit_remaining_wounds(ms_unit) if not ms_unit.is_empty() else 0.0
+		var ms_best_target_value := 0.0
+		for eng in _get_engaging_enemy_units(ms_unit, ms_uid, ms_enemies):
+			ms_best_target_value = maxf(ms_best_target_value, _estimate_unit_value(eng.get("enemy_unit", {})))
+		var ms_choice := ""
+		if ms_incoming >= ms_remaining * 0.5 and ms_incoming >= 3.0:
+			ms_choice = "invuln_2"  # likely to eat a big swing — survive it
+		elif ms_best_target_value >= 6.0:
+			ms_choice = "attacks_12"  # something worth killing is in reach
+		if ms_choice != "" and action_types.has("USE_MOMENT_SHACKLE"):
+			for msa in action_types["USE_MOMENT_SHACKLE"]:
+				if msa.get("choice", "") == ms_choice and msa.get("unit_id", "") == ms_uid:
+					return {
+						"type": "USE_MOMENT_SHACKLE",
+						"unit_id": ms_uid,
+						"choice": ms_choice,
+						"player": player,
+						"_ai_description": "AI uses Moment Shackle (%s): incoming %.1f, target value %.1f" % [ms_choice, ms_incoming, ms_best_target_value]
+					}
+		return {
+			"type": "DECLINE_MOMENT_SHACKLE",
+			"unit_id": ms_uid,
+			"player": player,
+			"_ai_description": "AI declines Moment Shackle (save the once-per-battle use)"
+		}
+
 	# P0-58: If melee saves need to be applied (should not normally happen for AI, but handle gracefully)
 	if action_types.has("APPLY_MELEE_SAVES"):
 		# DEFENDER CONTROL: an empty submission would consume the window and
@@ -14748,7 +14870,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		# Calculate Extra Attacks weapon damage for this target (constant across primary weapon choices)
 		var ea_damage = 0.0
 		for ea_w in extra_attack_weapons:
-			ea_damage += _evaluate_melee_weapon_damage(ea_w, alive_attackers, target_toughness, target_save, target_invuln, waaagh_buffs)
+			ea_damage += _evaluate_melee_weapon_damage(ea_w, _weapon_carrier_count(unit, ea_w), target_toughness, target_save, target_invuln, waaagh_buffs)
 
 		# Find the best primary weapon for this target (highest raw damage)
 		var target_best_damage = ea_damage
@@ -14756,7 +14878,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		var target_best_weapon_name = "Close combat weapon"
 
 		for w in primary_weapons:
-			var primary_damage = _evaluate_melee_weapon_damage(w, alive_attackers, target_toughness, target_save, target_invuln, waaagh_buffs)
+			var primary_damage = _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), target_toughness, target_save, target_invuln, waaagh_buffs)
 			var total = primary_damage + ea_damage
 			if total > target_best_damage:
 				target_best_damage = total
@@ -14828,7 +14950,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		var e_invuln = _get_target_invulnerable_save(enemy)
 		var e_damage = 0.0
 		for w in primary_weapons:
-			e_damage = maxf(e_damage, _evaluate_melee_weapon_damage(w, alive_attackers, e_toughness, e_save, e_invuln, waaagh_buffs))
+			e_damage = maxf(e_damage, _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), e_toughness, e_save, e_invuln, waaagh_buffs))
 		var e_hp = _calculate_kill_threshold(enemy)
 		var e_score = _score_fight_target(unit, enemy, e_damage, snapshot, player, objectives)
 		fight_candidates.append({
@@ -14890,7 +15012,8 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 		score -= 3.0
 
 	# --- Kill potential bonus: can we actually wipe the target? ---
-	var target_remaining_wounds = float(alive_models * target_wounds)
+	# Use CURRENT wounds, not max — a Knight on 5/22 wounds is finishable.
+	var target_remaining_wounds = _calculate_kill_threshold(target)
 	if expected_damage >= target_remaining_wounds and target_remaining_wounds > 0:
 		# We can likely wipe this unit — big bonus for removing it from the game
 		score += 6.0
@@ -15179,7 +15302,7 @@ static func _weapon_has_extra_attacks(weapon_data: Dictionary) -> bool:
 # T7-28: Helper — calculate expected damage for a single melee weapon against a target
 static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: int, target_toughness: int, target_save: int, target_invuln: int, waaagh_buffs: Dictionary = {}) -> float:
 	var attacks_str = str(weapon.get("attacks", "1"))
-	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+	var attacks = _parse_average_damage(attacks_str)
 
 	var ws_str = str(weapon.get("weapon_skill", weapon.get("ballistic_skill", "4")))
 	var ws = int(ws_str) if ws_str.is_valid_int() else 4
@@ -15196,7 +15319,7 @@ static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: i
 		ap = int(ap_str) if ap_str.is_valid_int() else 0
 
 	var damage_str = str(weapon.get("damage", "1"))
-	var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
+	var damage = _parse_average_damage(damage_str)
 
 	# Apply WAAAGH! buffs if active
 	if waaagh_buffs.get("active", false):
@@ -16991,7 +17114,8 @@ static func _assess_secure_nml(units: Dictionary, snapshot: Dictionary, player: 
 			continue
 		if _get_alive_models(u).is_empty():
 			continue
-		total_oc += int(u.get("meta", {}).get("stats", {}).get("oc", 1))
+		var u_stats = u.get("meta", {}).get("stats", {})
+		total_oc += int(u_stats.get("objective_control", u_stats.get("oc", 1)))
 	# Horde armies with high total OC are better at NML control
 	if total_oc >= 10:
 		return 0.70  # High OC — excellent NML control capability
@@ -17858,6 +17982,79 @@ static func _get_alive_models(unit: Dictionary) -> Array:
 			alive.append(model)
 	return alive
 
+static func _weapon_carrier_count(unit: Dictionary, weapon: Dictionary) -> int:
+	"""How many alive models actually carry this weapon (for damage estimates).
+	meta.weapons is a flat unit-level list, so multiplying by the whole unit's
+	model count scores a Nob's lone Power snappa as 10 models' worth. Sources,
+	most exact first: resolved per-model loadouts (MA-LOADOUT), model_profiles
+	menus, then 'Nx <name>' wargear counts. Conservative: only ever reduces the
+	naive alive-model count and never returns < 1, so a data-name mismatch can
+	never zero a unit's output."""
+	var alive_models = _get_alive_models(unit)
+	var alive_count = alive_models.size()
+	if alive_count <= 1:
+		return maxi(alive_count, 1)
+	var wname = str(weapon.get("name", ""))
+	if wname == "":
+		return alive_count
+	var wtype = str(weapon.get("type", "")).to_lower()
+	var loadout_key = "melee_loadout" if wtype == "melee" else "ranged_loadout"
+
+	# 1) Resolved per-model loadouts stamped by RulesEngine._ensure_loadout_resolved
+	var loadout_seen := false
+	var loadout_count := 0
+	for model in alive_models:
+		var lo = model.get(loadout_key, null)
+		if lo is Array:
+			loadout_seen = true
+			if wname in lo:
+				loadout_count += 1
+	if loadout_seen and loadout_count > 0:
+		return mini(loadout_count, alive_count)
+
+	# 2) model_profiles menus: alive models whose type may take this weapon
+	var profiles = unit.get("meta", {}).get("model_profiles", {})
+	if typeof(profiles) == TYPE_DICTIONARY and not profiles.is_empty():
+		var prof_count := 0
+		var profiled := 0
+		for model in alive_models:
+			var mt = str(model.get("model_type", ""))
+			if mt == "" or not profiles.has(mt):
+				continue
+			profiled += 1
+			if wname in profiles[mt].get("weapons", []):
+				prof_count += 1
+		if profiled == alive_count and prof_count > 0:
+			return prof_count
+
+	# 3) "Nx <name>" wargear counts (e.g. "9x Choppa", "1x Power snappa").
+	# meta.weapons names may carry a profile suffix ("Kannon – Frag",
+	# "Guardian spear – Ranged") that wargear entries don't.
+	var wargear = unit.get("meta", {}).get("wargear", [])
+	if wargear is Array and not wargear.is_empty():
+		var wname_l = wname.to_lower()
+		var wname_base = wname_l.split(" – ")[0].split(" - ")[0].strip_edges()
+		var wg_total := 0
+		var wg_counted := false
+		for entry in wargear:
+			var e = str(entry).strip_edges()
+			var xi = e.find("x ")
+			if xi <= 0 or not e.substr(0, xi).strip_edges().is_valid_int():
+				continue
+			wg_counted = true
+			var e_name = e.substr(xi + 2).strip_edges().to_lower()
+			if e_name == wname_base or e_name == wname_l:
+				wg_total += int(e.substr(0, xi).strip_edges())
+		if wg_counted and wg_total > 0:
+			# Scale down when the unit has taken casualties (carriers assumed
+			# to die in proportion; ceil keeps the last carrier alive).
+			var total_models = unit.get("models", []).size()
+			if total_models > alive_count and total_models > 0:
+				wg_total = int(ceil(float(wg_total) * float(alive_count) / float(total_models)))
+			return clampi(wg_total, 1, alive_count)
+
+	return alive_count
+
 static func _get_alive_models_with_positions(unit: Dictionary) -> Array:
 	var alive = []
 	for model in unit.get("models", []):
@@ -18691,7 +18888,7 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 	var attacks_str = weapon.get("attacks", "1")
 	if attacks_str == null: attacks_str = "1"
 	attacks_str = str(attacks_str)
-	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+	var attacks = _parse_average_damage(attacks_str)
 
 	# Use ballistic_skill for ranged, weapon_skill for melee — fallback to 4
 	var bs_str = weapon.get("ballistic_skill", weapon.get("weapon_skill", "4"))
@@ -18717,7 +18914,7 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 	var damage_str = weapon.get("damage", "1")
 	if damage_str == null: damage_str = "1"
 	damage_str = str(damage_str)
-	var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
+	var damage = _parse_average_damage(damage_str)
 
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var target_save = target_unit.get("meta", {}).get("stats", {}).get("save", 4)
@@ -18918,7 +19115,7 @@ static func _classify_weapon_role(weapon: Dictionary) -> int:
 
 	# Check attacks count: high attacks with low damage is anti-infantry
 	var attacks_str = weapon.get("attacks", "1")
-	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+	var attacks = _parse_average_damage(str(attacks_str))
 	if attacks >= 4 and damage <= 1.5:
 		anti_infantry_score += 1
 
@@ -19229,7 +19426,7 @@ static func _estimate_unit_ranged_strength(unit: Dictionary) -> float:
 		if w.get("type", "").to_lower() != "ranged":
 			continue
 		var attacks_str = w.get("attacks", "1")
-		var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+		var attacks = _parse_average_damage(str(attacks_str))
 		var damage_str = w.get("damage", "1")
 		var avg_damage = _parse_average_damage(damage_str)
 		var bs_str = w.get("bs", "4+")
@@ -20077,6 +20274,7 @@ static func evaluate_fire_overwatch(defending_player: int, eligible_units: Array
 			"type": "USE_FIRE_OVERWATCH",
 			"unit_id": best_unit_id,
 			"player": defending_player,
+			"cp_cost": _get_stratagem_cp_cost("fire_overwatch_11e" if GameConstants.edition >= 11 else "fire_overwatch", 1),
 			"_ai_description": "AI fires overwatch with %s at %s (%.1f expected hits)" % [best_unit_name, enemy_name, best_expected_hits]
 		}
 
@@ -20218,6 +20416,7 @@ static func evaluate_tank_shock(player: int, vehicle_unit_id: String, snapshot: 
 		return {
 			"type": "USE_TANK_SHOCK",
 			"actor_unit_id": vehicle_unit_id,
+			"cp_cost": _get_stratagem_cp_cost("tank_shock", 1),
 			"payload": {
 				"target_unit_id": best_target_id
 			},
@@ -21003,13 +21202,13 @@ static func _estimate_enemy_threat_level(enemy: Dictionary) -> float:
 		if w.get("type", "").to_lower() != "melee":
 			continue
 		var w_attacks_str = w.get("attacks", "1")
-		var w_attacks = float(w_attacks_str) if w_attacks_str.is_valid_float() else 1.0
+		var w_attacks = _parse_average_damage(str(w_attacks_str))
 		var w_strength_str = w.get("strength", "4")
 		var w_strength = int(w_strength_str) if w_strength_str.is_valid_int() else 4
 		var w_ap_str = w.get("ap", "0")
 		var w_ap = abs(int(w_ap_str.replace("-", ""))) if w_ap_str.replace("-", "").is_valid_int() else 0
 		var w_damage_str = w.get("damage", "1")
-		var w_damage = float(w_damage_str) if w_damage_str.is_valid_float() else 1.0
+		var w_damage = _parse_average_damage(str(w_damage_str))
 		# Simple melee quality score: attacks * strength-factor * ap-factor * damage
 		var s_factor = 1.0 + (w_strength - 4) * 0.1  # S4=1.0, S8=1.4, S12=1.8
 		var ap_factor = 1.0 + w_ap * 0.15             # AP0=1.0, AP-2=1.3, AP-4=1.6

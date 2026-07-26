@@ -130,19 +130,29 @@ static func compute_preferred_targets(unit: Dictionary, state: Dictionary, opts:
 
 ## Engine-side hook for the non-interactive resolve paths (AI vs AI, or an
 ## AI defender resolved without the overlay). Returns [] — "engine default"
-## — unless the defending player is actually AI-controlled, so human
-## defenders and headless tests keep today's lowest-index behaviour.
+## — unless the computer is allocating for this defender: an AI-controlled
+## player, or (in local play) a human who enabled "Computer allocates
+## wounds". Mirrors AllocationGroupOverlay._compute_auto_mode, so the
+## engine paths and the overlay agree on WHO gets the smart order. A
+## networked human defender never does (their client owns the choice),
+## and headless tests keep today's lowest-index behaviour.
 static func engine_auto_preference(target_unit: Dictionary, state: Dictionary) -> Array:
 	var loop = Engine.get_main_loop()
 	if loop == null or loop.root == null:
 		return []
-	var ai = loop.root.get_node_or_null("AIPlayer")
-	if ai == null or not ai.has_method("is_ai_player"):
-		return []
 	var owner: int = int(target_unit.get("owner", 0))
-	if owner <= 0 or not ai.is_ai_player(owner):
+	if owner <= 0:
 		return []
-	return compute_preferred_targets(target_unit, state, {"defender_player": owner})
+	var ai = loop.root.get_node_or_null("AIPlayer")
+	if ai != null and ai.has_method("is_ai_player") and ai.is_ai_player(owner):
+		return compute_preferred_targets(target_unit, state, {"defender_player": owner})
+	var nm = loop.root.get_node_or_null("NetworkManager")
+	if nm != null and nm.has_method("is_networked") and nm.is_networked():
+		return []
+	var ss = loop.root.get_node_or_null("SettingsService")
+	if ss != null and ss.has_method("get_auto_allocate_wounds") and ss.get_auto_allocate_wounds():
+		return compute_preferred_targets(target_unit, state, {"defender_player": owner})
+	return []
 
 
 # ── factor: model value ─────────────────────────────────────────────

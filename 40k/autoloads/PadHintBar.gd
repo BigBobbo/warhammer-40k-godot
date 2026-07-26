@@ -38,6 +38,16 @@ func _ready() -> void:
 	set_hints(M0_HINTS)
 	InputDeviceManager.device_changed.connect(_on_device_changed)
 	_on_device_changed(InputDeviceManager.input_mode)
+	# Controller layout remaps (Settings › Controller): the chips render the
+	# button each role is CURRENTLY on (GlyphDB → PadBindings), so re-render the
+	# active hint set whenever a role moves to a different physical button.
+	var pb := get_node_or_null("/root/PadBindings")
+	if pb != null and pb.has_signal("pad_binding_changed"):
+		pb.pad_binding_changed.connect(_on_pad_binding_changed)
+
+
+func _on_pad_binding_changed(_role_id: String) -> void:
+	set_hints(current_hints)
 
 
 func set_hints(hints: Array) -> void:
