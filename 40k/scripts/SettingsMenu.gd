@@ -62,6 +62,13 @@ var _capturing_button: Button = null
 var _keybinding_buttons: Dictionary = {}  # action_id -> Button
 var _keybinding_reset_buttons: Dictionary = {}  # action_id -> Button
 
+# Controller tab — pad-button capture state (Settings › Controller layout)
+var _pad_capturing_role: String = ""
+var _pad_capturing_button: Button = null
+var _pad_role_buttons: Dictionary = {}  # role_id -> Button
+var _pad_role_reset_buttons: Dictionary = {}  # role_id -> Button
+var _pad_reference_box: VBoxContainer = null
+
 # Whether to show "Return to Main Menu" button (only in-game)
 var show_return_to_menu: bool = false
 
@@ -151,11 +158,12 @@ func _build_ui() -> void:
 	tab_bar.add_theme_constant_override("separation", 5)
 	vbox.add_child(tab_bar)
 
-	var tab_names = ["Audio", "Visual", "Gameplay", "Controls"]
+	var tab_names = ["Audio", "Visual", "Gameplay", "Controls", "Controller"]
 	for i in range(tab_names.size()):
 		var tab_btn = Button.new()
 		tab_btn.text = tab_names[i]
-		tab_btn.custom_minimum_size = Vector2(120, 32)
+		tab_btn.name = "SettingsTab" + tab_names[i]
+		tab_btn.custom_minimum_size = Vector2(110, 32)
 		tab_btn.toggle_mode = true
 		tab_btn.button_pressed = (i == 0)
 		WhiteDwarfThemeData.apply_to_button(tab_btn)
@@ -246,6 +254,15 @@ func _build_ui() -> void:
 	var controls_content = controls_scroll.get_child(0) as VBoxContainer
 	_build_controls_tab(controls_content)
 
+	# ── Controller Tab (pad / Steam Deck layout) ──
+	var controller_scroll = _create_tab_scroll()
+	controller_scroll.visible = false
+	content_area.add_child(controller_scroll)
+	_tab_containers.append(controller_scroll)
+
+	var controller_content = controller_scroll.get_child(0) as VBoxContainer
+	_build_controller_tab(controller_content)
+
 	# Bottom separator
 	var sep2 = HSeparator.new()
 	sep2.add_theme_color_override("separator", WhiteDwarfThemeData.WH_GOLD)
@@ -303,9 +320,11 @@ func _create_tab_scroll() -> ScrollContainer:
 # ============================================================================
 
 func _on_tab_pressed(tab_index: int) -> void:
-	# Cancel any active key capture when switching tabs
+	# Cancel any active key / pad-button capture when switching tabs
 	if _capturing_button:
 		_cancel_capture()
+	if _pad_capturing_button:
+		_cancel_pad_capture()
 
 	_active_tab = tab_index
 	for i in range(_tab_buttons.size()):
@@ -348,32 +367,6 @@ func _build_controls_tab(parent: VBoxContainer) -> void:
 	scroll_help.add_theme_font_size_override("font_size", 12)
 	scroll_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(scroll_help)
-
-	# P0 Steam Deck legibility: opt-out for the controller text boost (larger UI
-	# while a gamepad is the active device). On by default; a desktop player on a
-	# big screen may prefer it off.
-	_add_section_header(parent, "Controller")
-	_controller_text_boost_checkbox = _add_checkbox_row(parent, "Larger UI text on controller / Steam Deck", "_on_controller_text_boost_toggled")
-	var boost_help = Label.new()
-	boost_help.text = "Boosts on-screen text and buttons while a controller is in use so they stay readable on the Steam Deck's screen. Mouse & keyboard are unaffected."
-	boost_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	boost_help.custom_minimum_size = Vector2(620, 0)
-	boost_help.add_theme_font_size_override("font_size", 12)
-	boost_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
-	parent.add_child(boost_help)
-
-	# P1 controller options — pad only; mouse & keyboard are unaffected.
-	_pad_invert_y_checkbox = _add_checkbox_row(parent, "Invert camera Y (right stick up / down)", "_on_pad_invert_y_toggled")
-	_pad_swap_sticks_checkbox = _add_checkbox_row(parent, "Swap sticks (cursor on right stick, camera on left)", "_on_pad_swap_sticks_toggled")
-	_pad_magnetism_checkbox = _add_checkbox_row(parent, "Cursor magnetism (cursor eases onto nearby models)", "_on_pad_magnetism_toggled")
-	_pad_camera_sens_slider = _add_slider_row(parent, "Camera Sensitivity:", 0.3, 2.0, 0.1, "_on_pad_camera_sens_changed")
-	_pad_camera_sens_label = _get_last_value_label()
-	_pad_cursor_sens_slider = _add_slider_row(parent, "Cursor Sensitivity:", 0.3, 2.0, 0.1, "_on_pad_cursor_sens_changed")
-	_pad_cursor_sens_label = _get_last_value_label()
-
-	# Read-only reference of the whole pad scheme, drawn with the in-game glyph chips.
-	_add_section_header(parent, "Controller Reference")
-	_add_controller_reference(parent)
 
 	# Reset All Defaults button
 	var spacer = Control.new()
@@ -482,6 +475,208 @@ func _update_keybinding_display(action_id: String) -> void:
 		_keybinding_buttons[action_id].text = KeybindingManager.get_key_display_name(action_id)
 	if _keybinding_reset_buttons.has(action_id):
 		_keybinding_reset_buttons[action_id].visible = KeybindingManager.is_modified(action_id)
+
+# ============================================================================
+# Controller Tab — pad layout rebinding (Settings › Controller)
+# ============================================================================
+
+func _pad_bindings() -> Node:
+	# Lazy autoload lookup, same reasoning as _idm(): bare headless harnesses
+	# instantiate this menu without the autoload set.
+	return get_node_or_null("/root/PadBindings")
+
+
+func _build_controller_tab(parent: VBoxContainer) -> void:
+	var pb := _pad_bindings()
+
+	_add_section_header(parent, "Controller Buttons")
+	var rebind_help = Label.new()
+	rebind_help.text = "Click a control, then press the controller button you want for it. If another control already uses that button, the two swap places. The D-pad, sticks, triggers and Steam Deck back paddles keep their jobs and cannot be reassigned."
+	rebind_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rebind_help.custom_minimum_size = Vector2(620, 0)
+	rebind_help.add_theme_font_size_override("font_size", 12)
+	rebind_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	parent.add_child(rebind_help)
+
+	if pb == null:
+		var err_label = Label.new()
+		err_label.text = "PadBindings not available"
+		err_label.add_theme_color_override("font_color", Color.RED)
+		parent.add_child(err_label)
+	else:
+		for role_id in pb.get_role_ids():
+			_add_pad_role_row(parent, role_id)
+
+		var reset_all_row = HBoxContainer.new()
+		reset_all_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		var reset_all_btn = Button.new()
+		reset_all_btn.name = "PadResetAllButton"
+		reset_all_btn.text = "Reset Controller Layout"
+		reset_all_btn.custom_minimum_size = Vector2(220, 36)
+		WhiteDwarfThemeData.apply_to_button(reset_all_btn)
+		reset_all_btn.pressed.connect(_on_pad_reset_all_pressed)
+		reset_all_row.add_child(reset_all_btn)
+		parent.add_child(reset_all_row)
+
+		if not pb.pad_binding_changed.is_connected(_on_pad_binding_changed):
+			pb.pad_binding_changed.connect(_on_pad_binding_changed)
+
+	# P0 Steam Deck legibility: opt-out for the controller text boost (larger UI
+	# while a gamepad is the active device). On by default; a desktop player on a
+	# big screen may prefer it off.
+	_add_section_header(parent, "Controller Options")
+	_controller_text_boost_checkbox = _add_checkbox_row(parent, "Larger UI text on controller / Steam Deck", "_on_controller_text_boost_toggled")
+	var boost_help = Label.new()
+	boost_help.text = "Boosts on-screen text and buttons while a controller is in use so they stay readable on the Steam Deck's screen. Mouse & keyboard are unaffected."
+	boost_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	boost_help.custom_minimum_size = Vector2(620, 0)
+	boost_help.add_theme_font_size_override("font_size", 12)
+	boost_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	parent.add_child(boost_help)
+
+	# P1 controller options — pad only; mouse & keyboard are unaffected.
+	_pad_invert_y_checkbox = _add_checkbox_row(parent, "Invert camera Y (right stick up / down)", "_on_pad_invert_y_toggled")
+	_pad_swap_sticks_checkbox = _add_checkbox_row(parent, "Swap sticks (cursor on right stick, camera on left)", "_on_pad_swap_sticks_toggled")
+	_pad_magnetism_checkbox = _add_checkbox_row(parent, "Cursor magnetism (cursor eases onto nearby models)", "_on_pad_magnetism_toggled")
+	_pad_camera_sens_slider = _add_slider_row(parent, "Camera Sensitivity:", 0.3, 2.0, 0.1, "_on_pad_camera_sens_changed")
+	_pad_camera_sens_label = _get_last_value_label()
+	_pad_cursor_sens_slider = _add_slider_row(parent, "Cursor Sensitivity:", 0.3, 2.0, 0.1, "_on_pad_cursor_sens_changed")
+	_pad_cursor_sens_label = _get_last_value_label()
+
+	# Read-only reference of the whole pad scheme, drawn with the in-game glyph
+	# chips — the chips render the button each role is CURRENTLY on, so this
+	# reference follows the player's remaps live (rebuilt on pad_binding_changed).
+	_add_section_header(parent, "Controller Reference")
+	_pad_reference_box = VBoxContainer.new()
+	_pad_reference_box.add_theme_constant_override("separation", 6)
+	parent.add_child(_pad_reference_box)
+	_add_controller_reference(_pad_reference_box)
+
+
+func _add_pad_role_row(parent: VBoxContainer, role_id: String) -> void:
+	var pb := _pad_bindings()
+	var role: Dictionary = pb.get_role(role_id)
+	if role.is_empty():
+		return
+
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	parent.add_child(row)
+
+	var name_label = Label.new()
+	name_label.text = str(role.display_name)
+	name_label.custom_minimum_size = Vector2(220, 0)
+	name_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	row.add_child(name_label)
+
+	var btn = Button.new()
+	btn.name = "PadBind_" + role_id
+	btn.text = pb.button_full_name(pb.get_button(role_id))
+	btn.custom_minimum_size = Vector2(160, 30)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	WhiteDwarfThemeData.apply_to_button(btn)
+	btn.pressed.connect(_on_pad_role_button_pressed.bind(role_id))
+	row.add_child(btn)
+	_pad_role_buttons[role_id] = btn
+
+	var reset_btn = Button.new()
+	reset_btn.text = "Reset"
+	reset_btn.custom_minimum_size = Vector2(60, 30)
+	WhiteDwarfThemeData.apply_to_button(reset_btn)
+	reset_btn.pressed.connect(_on_pad_reset_role_pressed.bind(role_id))
+	reset_btn.visible = pb.is_modified(role_id)
+	row.add_child(reset_btn)
+	_pad_role_reset_buttons[role_id] = reset_btn
+
+
+func _on_pad_role_button_pressed(role_id: String) -> void:
+	# A second click on the row being captured cancels the capture.
+	if _pad_capturing_role == role_id:
+		_cancel_pad_capture()
+		return
+	# Only one capture of either kind at a time.
+	if _capturing_button:
+		_cancel_capture()
+	if _pad_capturing_button:
+		_cancel_pad_capture()
+	_pad_capturing_role = role_id
+	_pad_capturing_button = _pad_role_buttons[role_id]
+	_pad_capturing_button.text = "Press a controller button..."
+	_pad_capturing_button.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	print("[SettingsMenu] Capturing controller button for '%s'" % role_id)
+
+
+func _cancel_pad_capture() -> void:
+	if _pad_capturing_button and _pad_capturing_role != "":
+		var pb := _pad_bindings()
+		if pb != null:
+			_pad_capturing_button.text = pb.button_full_name(pb.get_button(_pad_capturing_role))
+		_pad_capturing_button.remove_theme_color_override("font_color")
+		WhiteDwarfThemeData.apply_to_button(_pad_capturing_button)
+	_pad_capturing_role = ""
+	_pad_capturing_button = null
+
+
+func _on_pad_reset_role_pressed(role_id: String) -> void:
+	var pb := _pad_bindings()
+	if pb != null:
+		pb.reset_role(role_id)
+	print("[SettingsMenu] Reset controller binding for '%s'" % role_id)
+
+
+func _on_pad_reset_all_pressed() -> void:
+	_cancel_pad_capture()
+	var pb := _pad_bindings()
+	if pb != null:
+		pb.reset_all()
+	print("[SettingsMenu] Reset controller layout to defaults")
+
+
+func _on_pad_binding_changed(role_id: String) -> void:
+	_update_pad_role_display(role_id)
+	# The read-only reference chips render role glyphs — rebuild so they follow.
+	if _pad_reference_box != null and is_instance_valid(_pad_reference_box):
+		for child in _pad_reference_box.get_children():
+			child.queue_free()
+		_add_controller_reference(_pad_reference_box)
+
+
+func _update_pad_role_display(role_id: String) -> void:
+	var pb := _pad_bindings()
+	if pb == null:
+		return
+	if _pad_role_buttons.has(role_id) and _pad_capturing_role != role_id:
+		_pad_role_buttons[role_id].text = pb.button_full_name(pb.get_button(role_id))
+	if _pad_role_reset_buttons.has(role_id):
+		_pad_role_reset_buttons[role_id].visible = pb.is_modified(role_id)
+
+
+# Pad-button capture runs in _input (NOT _unhandled_input): the press must be
+# swallowed BEFORE the GUI focus layer sees it, or capturing A/B would activate
+# the focused control / close the menu instead of assigning the button.
+func _input(event: InputEvent) -> void:
+	if _pad_capturing_role == "" or not (event is InputEventJoypadButton) or not event.pressed:
+		return
+	var pb := _pad_bindings()
+	if pb == null:
+		_cancel_pad_capture()
+		return
+	if not pb.is_button_assignable(event.button_index):
+		# Reserved (D-pad / Guide): tell the player and keep listening.
+		if _pad_capturing_button:
+			_pad_capturing_button.text = "Reserved — press another button"
+		get_viewport().set_input_as_handled()
+		return
+	var role := _pad_capturing_role
+	var capturing_btn := _pad_capturing_button
+	_pad_capturing_role = ""
+	_pad_capturing_button = null
+	if capturing_btn:
+		capturing_btn.remove_theme_color_override("font_color")
+		WhiteDwarfThemeData.apply_to_button(capturing_btn)
+	pb.set_button(role, event.button_index)
+	_update_pad_role_display(role)
+	get_viewport().set_input_as_handled()
 
 # Track the last value label created by _add_slider_row
 var _last_value_label: Label = null
@@ -827,6 +1022,13 @@ func _on_return_to_menu_pressed() -> void:
 # ============================================================================
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Escape cancels an active controller-button capture (joypad presses are
+	# handled — and consumed — in _input above).
+	if _pad_capturing_role != "" and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_cancel_pad_capture()
+		get_viewport().set_input_as_handled()
+		return
+
 	# Key capture mode for controls tab
 	if _capturing_action_id != "" and event is InputEventKey and event.pressed:
 		# Escape cancels capture
