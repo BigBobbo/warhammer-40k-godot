@@ -1910,18 +1910,36 @@ func _execute_next_action(player: int) -> void:
 
 	if decision.is_empty():
 		push_warning("AIPlayer: No decision made for player %d in phase %d" % [player, phase])
-		# SOAK-2: an empty decision WITH actions on offer means the decision
-		# maker has no branch for the current window (e.g. an unhandled
-		# blocking ability). It must count as a non-progress attempt and
-		# re-evaluate — returning without incrementing left
-		# MAX_ACTIONS_PER_PHASE unreachable, turning every unhandled window
-		# into a permanent hang instead of tripping the tiered escape hatch.
-		if not available.is_empty():
-			_current_phase_actions += 1
-			_request_evaluation()
+		# SOAK-2 generic guard: an empty decision WITH actions on offer means
+		# the decision maker has no branch for the current window (e.g. an
+		# unhandled blocking ability). If the window offers a decline/cancel,
+		# take it — one action, phase unblocked — instead of waiting out the
+		# watchdog. Skips are deliberately excluded (skipping a unit forfeits
+		# real actions; declining an optional ability window does not).
+		for fa in available:
+			var ft = str(fa.get("type", ""))
+			if ft.begins_with("DECLINE_") or ft.begins_with("CANCEL_"):
+				decision = {
+					"type": ft,
+					"_ai_description": "AI declines unhandled window (%s)" % ft
+				}
+				if fa.has("actor_unit_id"):
+					decision["actor_unit_id"] = fa["actor_unit_id"]
+				if fa.has("unit_id"):
+					decision["unit_id"] = fa["unit_id"]
+				print("AIPlayer: SOAK-2 — no evaluator for this window, declining via %s" % ft)
+				break
+		if decision.is_empty():
+			# No decline on offer either. Count the attempt so
+			# MAX_ACTIONS_PER_PHASE can still fire (previously this returned
+			# without incrementing, turning every unhandled window into a
+			# permanent hang), then re-evaluate.
+			if not available.is_empty():
+				_current_phase_actions += 1
+				_request_evaluation()
+				return
+			_end_ai_thinking()
 			return
-		_end_ai_thinking()
-		return
 
 	# Ensure player field is set
 	decision["player"] = player

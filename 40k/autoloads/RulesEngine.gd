@@ -1527,13 +1527,13 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 					break
 
 		if not target_model:
-			for i in range(models.size()):
-				var model = models[i]
-				if model.get("alive", true):
-					target_model = model
-					target_model_index = i
-					allocation_focus_model_id = model.get("id", "m%d" % i)
-					break
+			# Fresh model: honour the defender's die-first order (AI/auto)
+			# instead of always soaking on the lowest-index base.
+			var ow_pick = _find_allocation_target_model(models, CasualtyPreference.engine_auto_preference(target_unit, board))
+			if ow_pick >= 0:
+				target_model = models[ow_pick]
+				target_model_index = ow_pick
+				allocation_focus_model_id = models[ow_pick].get("id", "m%d" % ow_pick)
 
 		if not target_model:
 			break  # No more alive models
@@ -3113,7 +3113,7 @@ static func resolve_explosives_11e(target_unit_id: String, board: Dictionary, rn
 		"mortal_wounds": mw, "casualties": 0}
 	var target = board.get("units", {}).get(target_unit_id, {})
 	if mw > 0 and not target.is_empty():
-		var out = Allocation.apply_mortal_wounds_11e(target, mw)
+		var out = Allocation.apply_mortal_wounds_11e(target, mw, CasualtyPreference.engine_auto_preference(target, board))
 		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
 		result.casualties = out.models_destroyed.size()
 	print("RulesEngine: [15.05] EXPLOSIVES vs %s — rolls %s -> %d mortal wound(s)" % [target_unit_id, str(rolls), mw])
@@ -3143,11 +3143,11 @@ static func resolve_crushing_impact_11e(unit_id: String, target_unit_id: String,
 		"self_mortals": self_mw, "enemy_mortals": enemy_mw}],
 		"self_mortals": self_mw, "enemy_mortals": enemy_mw, "casualties": 0}
 	if enemy_mw > 0 and not target.is_empty():
-		var out = Allocation.apply_mortal_wounds_11e(target, enemy_mw)
+		var out = Allocation.apply_mortal_wounds_11e(target, enemy_mw, CasualtyPreference.engine_auto_preference(target, board))
 		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
 		result.casualties += out.models_destroyed.size()
 	if self_mw > 0 and not unit.is_empty():
-		var self_out = Allocation.apply_mortal_wounds_11e(unit, self_mw)
+		var self_out = Allocation.apply_mortal_wounds_11e(unit, self_mw, CasualtyPreference.engine_auto_preference(unit, board))
 		_materialize_allocation_11e(result, unit, unit_id, self_out.remaining, self_out.models_destroyed)
 		result.casualties += self_out.models_destroyed.size()
 	print("RulesEngine: [15.06] CRUSHING IMPACT %s vs %s — T%d rolls %s -> %d enemy / %d self mortal wound(s)" % [unit_id, target_unit_id, toughness, str(rolls), enemy_mw, self_mw])
@@ -3195,7 +3195,7 @@ static func resolve_krunchin_descent(unit_id: String, target_unit_id: String, bo
 	var result = {"diffs": [], "dice": [{"context": "krunchin_descent", "rolls": rolls, "mortal_wounds": mw}],
 		"mortal_wounds": mw, "models_in_er": dice_count, "casualties": 0}
 	if mw > 0 and not target.is_empty():
-		var out = Allocation.apply_mortal_wounds_11e(target, mw)
+		var out = Allocation.apply_mortal_wounds_11e(target, mw, CasualtyPreference.engine_auto_preference(target, board))
 		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
 		result.casualties = out.models_destroyed.size()
 	print("RulesEngine: KRUNCHIN' DESCENT %s vs %s — %d model(s) in ER, rolls %s -> %d mortal wound(s)" % [unit_id, target_unit_id, dice_count, str(rolls), mw])
@@ -4622,14 +4622,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 					break
 
 		if not target_model:
-			# Find first alive model
-			for i in range(models.size()):
-				var model = models[i]
-				if model.get("alive", true):
-					target_model = model
-					target_model_index = i
-					allocation_focus_model_id = model.get("id", "m%d" % i)
-					break
+			# Fresh model: honour the defender's die-first order (AI/auto)
+			# instead of always soaking on the lowest-index base.
+			var reg_pick = _find_allocation_target_model(models, CasualtyPreference.engine_auto_preference(target_unit, board))
+			if reg_pick >= 0:
+				target_model = models[reg_pick]
+				target_model_index = reg_pick
+				allocation_focus_model_id = models[reg_pick].get("id", "m%d" % reg_pick)
 
 		if not target_model:
 			break  # No more models to allocate to
@@ -8395,7 +8394,7 @@ static func apply_mortal_wounds_to_unit(target_unit_id: String, mw: int, board: 
 	var target = board.get("units", {}).get(target_unit_id, {})
 	if mw <= 0 or target.is_empty():
 		return result
-	var out = Allocation.apply_mortal_wounds_11e(target, mw)
+	var out = Allocation.apply_mortal_wounds_11e(target, mw, CasualtyPreference.engine_auto_preference(target, board))
 	_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
 	result.casualties = out.models_destroyed.size()
 	return result
@@ -13639,7 +13638,7 @@ static func apply_save_damage(
 
 # DEVASTATING WOUNDS (PRP-012): Helper to apply damage to unit's wound pool
 # Distributes damage across models following 10e allocation rules
-static func _apply_damage_to_unit_pool(target_unit_id: String, total_damage: int, models: Array, board: Dictionary) -> Dictionary:
+static func _apply_damage_to_unit_pool(target_unit_id: String, total_damage: int, models: Array, board: Dictionary, preferred: Array = []) -> Dictionary:
 	"""Apply damage to unit, distributing across models following 10e rules"""
 	var result = {
 		"diffs": [],
@@ -13651,8 +13650,8 @@ static func _apply_damage_to_unit_pool(target_unit_id: String, total_damage: int
 
 	# Apply damage following allocation rules: wounded models first, then any model
 	while remaining_damage > 0:
-		# Find next model to apply damage to (wounded first, then any alive)
-		var target_model_index = _find_allocation_target_model(models)
+		# Find next model to apply damage to (wounded first, then preferred/any alive)
+		var target_model_index = _find_allocation_target_model(models, preferred)
 		if target_model_index < 0:
 			break  # No alive models
 
@@ -13849,8 +13848,11 @@ static func _apply_damage_to_character_models(target_unit_id: String, total_dama
 	return result
 
 # DEVASTATING WOUNDS (PRP-012): Find model to allocate damage to (wounded first)
-static func _find_allocation_target_model(models: Array) -> int:
-	"""Find next model to allocate damage to: wounded models first, then any alive"""
+static func _find_allocation_target_model(models: Array, preferred: Array = []) -> int:
+	"""Find next model to allocate damage to: wounded models first, then any alive.
+	`preferred` (optional) is a die-first order of model indices from
+	CasualtyPreference — it only picks WHICH un-wounded model soaks next
+	(the 05.04 wounded-first rule always wins)."""
 	# First, look for wounded alive models
 	for i in range(models.size()):
 		var model = models[i]
@@ -13860,7 +13862,13 @@ static func _find_allocation_target_model(models: Array) -> int:
 			if current < max_wounds:
 				return i  # Return first wounded model
 
-	# No wounded models, return first alive model
+	# No wounded models — honour the defender's die-first preference
+	for p in preferred:
+		var pi = int(p)
+		if pi >= 0 and pi < models.size() and models[pi].get("alive", true):
+			return pi
+
+	# No preference (or preference exhausted), return first alive model
 	for i in range(models.size()):
 		if models[i].get("alive", true):
 			return i
@@ -14001,8 +14009,11 @@ static func apply_mortal_wounds(target_unit_id: String, mortal_wounds: int, boar
 			"fnp_rolls": fnp_result.get("rolls", [])
 		}
 
-	# Apply damage using the standard pool method (wounded models first)
-	var damage_result = _apply_damage_to_unit_pool(target_unit_id, actual_wounds, models, board)
+	# Apply damage using the standard pool method (wounded models first);
+	# when the computer allocates for this defender, its die-first order
+	# decides which fresh model soaks next instead of lowest-index.
+	var mw_preferred = CasualtyPreference.engine_auto_preference(target_unit, board)
+	var damage_result = _apply_damage_to_unit_pool(target_unit_id, actual_wounds, models, board, mw_preferred)
 
 	return {
 		"diffs": damage_result.get("diffs", []),

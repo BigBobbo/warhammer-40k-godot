@@ -95,6 +95,17 @@ codebase already contains evaluate to constants. Highest value-per-line in the a
 
 ---
 
+> **Status update (2026-07-25, v0.95.0):** Tier 2 items 1–4, 6 (all ~14
+> mortal-wound sites via the root helpers + direct call sites), 7 (overwatch,
+> both editions) and 12 (Desperate Escape — covered by the root-helper fix) are
+> FIXED, plus Tier 3 softlock items: Moment Shackle evaluator, Grot
+> Oiler/Mekaniak/Deff from Above/Quicksilver evaluators, Kunnin' Infiltrator
+> auto-cancel, and a generic decline-unhandled-window guard in AIPlayer.
+> New windowed scenario: `ai_moment_shackle_window`. Still open in Tier 2:
+> item 5 (05.03 group ORDER choice), 8 (coherency removal value-awareness),
+> 9 (PRECISION attacker pick), 10 (HAZARDOUS within-class pick), 11
+> (attached-character auto-placement), and the firing-deck/mission-card items.
+
 ## Tier 2 — The CasualtyPreference class of problem: engine picks for the AI by index
 
 These are the direct siblings of the bug #768 fixed.

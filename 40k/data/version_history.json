@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.95.0",
+			"date": "2026-07-25",
+			"summary": "Smart casualty picks everywhere the computer removes models — mortal wounds, overwatch, destroyed transports and AI shooting now all use the intelligent allocation from 0.94.0 — plus the AI now answers ability windows (Moment Shackle, Grot Oiler, Mekaniak, Deff from Above...) instead of freezing.",
+			"changes": [
+				"Mortal wounds (Tank Shock, Explosives, Desperate Escape, Deadly Demise-style hits and a dozen more) now remove models using the smart casualty order instead of always the first base in the list.",
+				"Overwatch and AI-vs-you shooting use the same smart order — including when you have 'Computer allocates wounds' turned on, which previously only worked when YOU were the attacker.",
+				"A destroyed transport now picks its emergency-disembark casualties intelligently, and survivors are placed in properly spaced rings around the wreck instead of overlapping on a tiny circle.",
+				"The AI now answers blocking ability windows: Moment Shackle (12 attacks vs 2+ invuln, judged by the combat), Grot Oiler and Mekaniak heals (most-damaged model), Deff from Above and Quicksilver Execution (best target). Previously these froze the AI's turn.",
+				"Safety net: any future unhandled ability window is now auto-declined by the AI in one action instead of hanging the game."
+			]
+		},
+		{
 			"version": "0.94.1",
 			"date": "2026-07-25",
 			"summary": "AI tune-up: the computer now values its weapons correctly. Dice-stat weapons (D6 shots, D6 damage) and who actually carries each gun are finally counted, so the AI picks far better shooting and melee targets — plus several stuck-AI safeguards.",
