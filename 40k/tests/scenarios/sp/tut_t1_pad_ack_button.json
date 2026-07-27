@@ -1,0 +1,433 @@
+{
+  "id": "tut_t1_pad_ack_button",
+  "covers": [
+    "tutorial.t1.basics.pad",
+    "tutorial.overlay.pad_ack",
+    "pad.hint_bar.tutorial"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Reported Steam Deck trap: at T1 step 7 (READ DA BAR) a gamepad player could not press the instructor card's Continue button at all - once the left stick had been touched, VirtualCursor owns A as a click AT THE CURSOR, so the only way past an ack step was to hunt the button down with the stick. This scenario drives the lesson with the pad and NEVER glides onto Continue: A alone advances every ack step, with the cursor deliberately parked in the far corner of the screen to prove it is not a synthetic click landing on the button. Also asserts the on-screen affordances that tell the player so - the [A] badge beside Continue, the gold focus ring on the button, and the hint bar's own 'A Continue' chip (the step's whole lesson is 'read da bar', so the bar must answer it).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var mm = tree.root.get_node_or_null(\"/root/MainMenu\")\nif mm != null and mm._tutorial_nudge != null and mm._tutorial_nudge.visible:\n\tmm._tutorial_nudge._on_dismiss()\n\tvar q = [mm]\n\twhile not q.is_empty():\n\t\tvar n = q.pop_back()\n\t\tif n is Button and str(n.name) == \"StartButton\":\n\t\t\tn.grab_focus()\n\t\t\tbreak\n\t\tfor c in n.get_children():\n\t\t\tq.append(c)\nreturn TutorialManager.should_show_first_launch_nudge()",
+      "multiline": true,
+      "equals": false,
+      "comment": "retire the first-launch nudge so this scenario also runs standalone on a pristine profile (the suite otherwise relies on tut_first_launch_nudge having run first) - it would sit over the menu buttons the D-pad is about to walk"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode on the main menu"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "welcome"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"/root/TutorialOverlay\").pad_ack_state()",
+      "equals": "ack"
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nreturn f != null and str(f.name) == \"ContinueButton\"",
+      "multiline": true,
+      "equals": true,
+      "comment": "the card takes focus on a pad, so the gold PadFocusRing marks Continue"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadFocusRing.is_ring_visible()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PadHintBar.label_for(\"a\")",
+      "equals": "Continue",
+      "comment": "the bar promises exactly what A does while the card waits"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/AckGlyph\").visible",
+      "equals": true,
+      "comment": "[A] badge sits beside the button so the affordance is on the card too"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_welcome_ack_affordances"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A alone - no glide, no cursor - presses Continue"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "camera"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadHintBar.label_for(\"a\")",
+      "not_equals": "Continue",
+      "comment": "and the bar hands straight back to the board context once the card is done with A"
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 2,
+      "value": 1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 2,
+      "value": -1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 3,
+      "value": -1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 3,
+      "value": 1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 5,
+      "value": 1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 4,
+      "value": 1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "select_wagon"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "open_datasheet"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 3
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 3
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "dice_log"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Dice Log",
+      "comment": "the ONE glide in this run - the step teaches the cursor, and it is what leaves the cursor active and armed the reported trap"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "hint_bar",
+      "comment": "STEP 7 - the reported dead end"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 60.0,
+      "y": 60.0,
+      "space": "screen",
+      "comment": "shove the cursor into the far corner: whatever A does next, it is NOT a click on Continue"
+    },
+    {
+      "act": "execute_script",
+      "script": "var vc = tree.root.get_node(\"/root/VirtualCursor\")\nvar btn = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton\")\nreturn not btn.get_global_rect().grow(40.0).has_point(vc.get_cursor_pos())",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PadHintBar.label_for(\"a\")",
+      "equals": "Continue",
+      "comment": "the step tells the player to read the bar - so the bar had better say how to leave the step"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"[A]\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "and the prompt itself names the button ({a} renders as the live [A] chip)"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_read_da_bar_step7"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase_intro",
+      "comment": "THE FIX: A advanced step 7 with the cursor parked in the opposite corner"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_advanced_past_step7"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 13,
+      "comment": "D-pad down on an ack step must NOT strand focus in a HUD panel"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nreturn f != null and str(f.name) == \"ContinueButton\"",
+      "multiline": true,
+      "equals": true,
+      "comment": "focus is locked to the card while it waits, so there is always a way back"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "move_grots"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "unit_id": "U_GRETCHIN_T"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_GRETCHIN_T"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 1000.0,
+      "y": 724.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_grots"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 25
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "wrap"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "final ack, again with A only"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/BackToMenuButton",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"/root/TutorialOverlay\").pad_ack_state()",
+      "equals": "summary"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadHintBar.label_for(\"a\")",
+      "equals": "Choose",
+      "comment": "two buttons on the summary card, so the bar advertises navigate-then-choose"
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nreturn f != null and str(f.name) == \"NextLessonButton\"",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_summary_pad_focus"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "D-pad right walks WITHIN the card - Next Lesson -> Back to Menu"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nreturn f != null and str(f.name) == \"BackToMenuButton\"",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.is_completed(\"t1_basics\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05_back_at_menu"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "id": "pad_disembark_dialog_bumper_cycle",
+  "covers": [
+    "controller.bumper_cycle_through_disembark_dialog",
+    "controller.bumper_only_unit_cycling",
+    "DisembarkDialog",
+    "PadRouter.cycle_units"
+  ],
+  "fixture": "grenade_shooting_desync",
+  "edition": 11,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "LB/RB keep cycling units THROUGH the disembark popup. The fixture has Kommandos embarked in Battlewagon Alpha; selecting them in the Movement phase pops the DisembarkDialog. Previously the exclusive dialog Window swallowed the bumpers, trapping the player until they dismissed the popup. Now RB while the dialog is up acts as 'stay embarked + next unit': the dialog closes (cancel semantics, no disembark) and the selection steps to the next unit. LB from that unit cycles straight back onto the Kommandos, which reopens the dialog — proving no functionality was lost — and RB flows through it again. Kommandos stay embarked throughout.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_KOMMANDOS_A\").get(\"embarked_in\", \"\")", "equals": "U_BATTLEWAGON_A" },
+    { "act": "execute_script", "script": "str(main.movement_controller.unit_list.get_item_metadata(7))", "equals": "U_KOMMANDOS_A" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var ul = tree.current_scene.movement_controller.unit_list\nul.get_v_scroll_bar().value = ul.get_item_rect(7).position.y\nreturn ul.get_v_scroll_bar().value >= 0.0" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 7 },
+    { "act": "wait_for_tweens", "timeout_s": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/DisembarkDialog", "timeout_s": 2.0 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_KOMMANDOS_A" },
+    { "act": "screenshot", "label": "01_dialog_open_on_embarked_unit" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"DisembarkDialog\")\nreturn d == null or not is_instance_valid(d) or not d.visible or str(d.unit_id) != \"U_KOMMANDOS_A\"",
+      "equals": true },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) != \"U_KOMMANDOS_A\" and str(main.movement_controller.active_unit_id) != \"\"", "equals": true },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_KOMMANDOS_A\").get(\"embarked_in\", \"\")", "equals": "U_BATTLEWAGON_A" },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"after_rb\", str(main.movement_controller.active_unit_id))" },
+    { "act": "screenshot", "label": "02_rb_cycled_past_dialog_to_next_unit" },
+
+    { "act": "simulate_joy_button", "button_index": 9 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_node_visible", "node": "/root/DisembarkDialog", "timeout_s": 2.0 },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_KOMMANDOS_A" },
+    { "act": "screenshot", "label": "03_lb_cycled_back_dialog_reopens" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"DisembarkDialog\")\nreturn d == null or not is_instance_valid(d) or not d.visible or str(d.unit_id) != \"U_KOMMANDOS_A\"",
+      "equals": true },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id) == str(InputDeviceManager.get_meta(\"after_rb\"))", "equals": true },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_KOMMANDOS_A\").get(\"embarked_in\", \"\")", "equals": "U_BATTLEWAGON_A" },
+    { "act": "screenshot", "label": "04_rb_flows_through_again_still_embarked" }
+  ]
+}

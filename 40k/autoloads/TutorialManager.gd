@@ -392,6 +392,15 @@ func _show_current_step() -> void:
 func refresh_prompt() -> void:
 	if not active:
 		return
+	# The lesson stays active under the end-of-lesson summary card, and
+	# current_step_index still points at the last step — re-rendering it here
+	# would replace the summary with a step the player already finished (and
+	# the device re-check below would re-enter it). The overlay re-applies its
+	# own device-dependent dressing on the same signal.
+	var overlay_now := get_node_or_null("/root/TutorialOverlay")
+	if overlay_now != null and overlay_now.has_method("pad_ack_state") \
+			and str(overlay_now.pad_ack_state()) == "summary":
+		return
 	if current_step_index >= 0 and current_step_index < _steps.size():
 		# A mid-step device swap can strand the player on a step authored for the
 		# device they just put down — the Steam Deck is the live case: its right
