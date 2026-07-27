@@ -259,7 +259,7 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "hotkey_help_open"
+      "equals": "controls_reference_open"
     },
     {
       "act": "simulate_key",
@@ -272,7 +272,18 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "hotkey_help_close"
+      "equals": "controls_reference_close"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lbl = tree.root.get_node_or_null(\"/root/Main/HotkeyHelpOverlay\")\nif lbl == null:\n\treturn \"\"\nvar hit = \"\"\nvar stack = [lbl]\nwhile stack.size() > 0:\n\tvar n = stack.pop_back()\n\tfor c in n.get_children():\n\t\tstack.append(c)\n\tif n is Label and str(n.name) == \"PadRouteHint\":\n\t\thit = str(n.text)\nreturn hit",
+      "equals": "On a controller: ⧉ View (Select) (Pause Menu) → Settings → Controller lists every pad button",
+      "comment": "the keyboard-only cheat sheet also names the controller route to the same information (Steam Deck has no Shift+/)"
+    },
+    {
+      "act": "screenshot",
+      "label": "04b_hotkey_help_with_pad_route"
     },
     {
       "act": "simulate_key",

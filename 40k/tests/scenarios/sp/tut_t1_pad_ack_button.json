@@ -256,8 +256,41 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "end_phase_intro",
-      "comment": "THE FIX: A advanced step 7 with the cursor parked in the opposite corner"
+      "equals": "controls_reference_open",
+      "comment": "THE FIX: A advanced step 7 with the cursor parked in the opposite corner. Step 8 is the controls reference, which on a pad is reached with View (pause menu), not the Shift+/ chord a Deck cannot press."
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 4,
+      "comment": "View/Select opens the pause menu - the pad's route to the controls list"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/SettingsMenu",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "controls_reference_close"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1,
+      "comment": "B closes it again"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase_intro"
     },
     {
       "act": "screenshot",

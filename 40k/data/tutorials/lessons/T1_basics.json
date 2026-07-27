@@ -16,6 +16,7 @@
       "Units: pick 'em from da list or da board, datasheet for da full stats.",
       "Da left panel logs everyfing — Game Log an' Dice Log tabs.",
       "Da big red button ends da phase. Da small one ends a unit's move.",
+      "Forgot a control? Da pause menu (Escape, or View on a pad) lists every key under Controls an' every button under Controller.",
       "Next lesson: Musterin' da Boyz — deployment, transports an' leaders."
     ]
   },
@@ -180,29 +181,47 @@
       }
     },
     {
-      "id": "hotkey_help_open",
-      "device": "kbm",
+      "id": "controls_reference_open",
       "prompt": {
         "bark": "DA CHEAT SHEET!",
-        "kbm": "Press {key:hotkey_help} to see every keyboard shortcut in da game."
+        "kbm": "Press {key:hotkey_help} to see every keyboard shortcut in da game.",
+        "pad": "Press {view} for da pause menu. Da [b]Controller[/b] tab lists every button ya got — an' lets ya swap 'em about."
       },
       "spotlight": "none",
       "allow": [],
       "done": {
-        "node_visible": "/root/Main/HotkeyHelpOverlay"
+        "any": [
+          {
+            "node_visible": "/root/Main/HotkeyHelpOverlay"
+          },
+          {
+            "node_visible": "/root/Main/SettingsMenu"
+          }
+        ]
+      },
+      "hint": {
+        "kbm": "No keyboard handy (Steam Deck an' such)? Grab da pad: {view} opens da pause menu, an' da [b]Controller[/b] tab lists every button.",
+        "pad": "{view} is da ⧉ View/Select button — dat opens da pause menu. Da tab row is along da top: land on [b]Controller[/b] an' press {a}."
       }
     },
     {
-      "id": "hotkey_help_close",
-      "device": "kbm",
+      "id": "controls_reference_close",
       "prompt": {
         "bark": "BACK TO WORK!",
-        "kbm": "Press {key:hotkey_help} again to put da cheat sheet away."
+        "kbm": "Press {key:hotkey_help} again to put da cheat sheet away.",
+        "pad": "Give da [b]Controller[/b] tab a butcher's, den press {b} (or {view}) to shut da menu."
       },
       "spotlight": "none",
       "allow": [],
       "done": {
-        "node_hidden": "/root/Main/HotkeyHelpOverlay"
+        "all": [
+          {
+            "node_hidden": "/root/Main/HotkeyHelpOverlay"
+          },
+          {
+            "node_hidden": "/root/Main/SettingsMenu"
+          }
+        ]
       }
     },
     {

@@ -6,11 +6,18 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T1 driven entirely with a gamepad: LB claims pad mode on the main menu, D-pad+A opens the Tutorial picker and starts the lesson, then every step is completed with pad input only - RS camera pan, RB unit cycling, Y datasheet toggle, virtual-cursor clicks on the Dice Log tab and instructor-card buttons, the pad-only hint-bar step (skipped on kbm), and a full carry-mode grot move (A select, A menu, A pick Normal, glide, X drop) before confirming via the End This Unit's Move button. Verifies the pad-only step appears, kbm-only steps are skipped, and completion persists.",
+  "description": "Tutorial lesson T1 driven entirely with a gamepad: LB claims pad mode on the main menu, D-pad+A opens the Tutorial picker and starts the lesson, then every step is completed with pad input only - RS camera pan, RB unit cycling, Y datasheet toggle, virtual-cursor clicks on the Dice Log tab and instructor-card buttons, the pad-only hint-bar step (skipped on kbm), the controls-reference step reached with the View button (pause menu -> Controller tab) instead of the keyboard-only Shift+/ chord, and a full carry-mode grot move (A select, A menu, A pick Normal, glide, X drop) before confirming via the End This Unit's Move button. Verifies the pad-only step appears, kbm-only steps are skipped, and completion persists.",
   "steps": [
     {
       "act": "wait_seconds",
       "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mm = tree.root.get_node(\"/root/MainMenu\")\nvar n = mm.get_node_or_null(\"TutorialNudge\")\nif n != null and n.visible:\n\tn.get_node(\"Margin/VBox/Footer/DismissNudgeButton\").pressed.emit()\nreturn true",
+      "equals": true,
+      "comment": "on a genuinely fresh profile (fresh clone / container) the first-launch nudge covers the menu and swallows the D-pad, so the pad presses below landed on the Terrain Layout dropdown instead of the Tutorial button. Dismiss it first; the kbm twin never noticed because click_node emits pressed directly."
     },
     {
       "act": "simulate_joy_button",
@@ -26,8 +33,9 @@
       "equals": true
     },
     {
-      "act": "simulate_joy_button",
-      "button_index": 12
+      "act": "pad_cursor_glide",
+      "button_text": "Tutorial",
+      "comment": "virtual cursor onto the menu's Tutorial button. Was a blind D-pad-down + A, which assumed the menu's initial focus sat one row above Tutorial - it does not on a fresh profile, so the press landed on Multiplayer and the picker never opened."
     },
     {
       "act": "wait_seconds",
@@ -45,6 +53,11 @@
     {
       "act": "screenshot",
       "label": "01_picker_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Start",
+      "comment": "the cursor is still parked on the menu button behind the picker, so A there presses nothing - glide onto lesson 1's Start first"
     },
     {
       "act": "simulate_joy_button",
@@ -261,6 +274,85 @@
     {
       "act": "wait_frames",
       "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "controls_reference_open",
+      "comment": "reported bug (Steam Deck): this step used to be keyboard-only and told the pad player to press Shift+/ - a chord a Deck has no keys for. It now runs on both devices and the pad prompt teaches the pause-menu route instead."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nreturn t.contains(\"pause menu\") and t.contains(\"Controller\") and not t.contains(\"Shift\")",
+      "equals": true,
+      "comment": "the pad player is told where the controls live, not which keyboard chord to press"
+    },
+    {
+      "act": "screenshot",
+      "label": "04b_controls_reference_pad_prompt"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 4,
+      "comment": "View/Select = Pause Menu, the pad's Escape"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/SettingsMenu",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "controls_reference_close",
+      "comment": "opening the pause menu with the pad completes the step - no keyboard needed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"/root/Main/SettingsMenu\")\nvar names = []\nfor b in m._tab_buttons:\n\tnames.append(str(b.text))\nreturn names",
+      "equals": ["Audio", "Visual", "Gameplay", "Controls", "Controller"],
+      "comment": "the Controller tab the prompt points at is really there"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"/root/Main/SettingsMenu\")\nm._on_tab_pressed(4)\nreturn int(m._active_tab)",
+      "equals": 4
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"/root/Main/SettingsMenu\")\nvar rows = m._pad_role_buttons\nreturn rows.has(\"pad_pause\") and rows.has(\"pad_select\") and rows.size() >= 10",
+      "equals": true,
+      "comment": "Settings > Controller is the pad's cheat sheet: every role row, rebindable"
+    },
+    {
+      "act": "screenshot",
+      "label": "04c_controller_tab_pad"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1,
+      "comment": "B closes the pause menu (ui_cancel)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "is_instance_valid(main._settings_menu)",
+      "equals": false
     },
     {
       "act": "execute_script",
