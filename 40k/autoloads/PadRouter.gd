@@ -149,18 +149,21 @@ const HINTS_FOCUS := [
 	["a", "Press"],
 	["b", "Back To Board"],
 ]
-# A CLOSED tutorial ack step (done.ack with an empty allow-list): every board
-# action is refused and the card's Continue button is the one way on. An ack
-# step that still allows actions — T7's sign-off, allow "*" — is NOT this, and
-# keeps the normal board hints. The bar says exactly that, and deliberately advertises no
-# "Cycle Units" — cycling to another unit and pressing Ⓐ is precisely the dead
-# end that was reported ("nothing happens"). See _handle_a's ack branch.
+# The tutorial's instructor card is waiting on a button press — a "Continue"
+# step (ack) or the end-of-lesson summary. The card owns A while it is up
+# (TutorialOverlay._input), so the bar promises exactly that and nothing the
+# card would swallow. Reported trap: at T1 step 7 ("Read da Bar") a pad player
+# had no advertised way to press Continue and had to hunt for it with the
+# left-stick cursor — the bar now answers its own lesson.
 const HINTS_TUTORIAL_ACK := [
 	["a", "Continue"],
 	["ls", "Point"],
-	["lt/rt", "Zoom"],
-	["y", "Datasheet"],
 	["view", "Pause Menu"],
+]
+const HINTS_TUTORIAL_SUMMARY := [
+	["dpad", "Navigate"],
+	["a", "Choose"],
+	["ls", "Point"],
 ]
 # Charge carry (one model at a time): the plain set — no per-model advance and
 # no group grab, so neither "X Finish Model" nor "dpad Grab All". Start drops
@@ -407,13 +410,13 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_LEFT_SHOULDER:
 			if carry_active:
 				_synth_rotate(true)
-			elif not _refuse_cycle_during_tutorial_ack():
+			else:
 				_cycle(-1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_RIGHT_SHOULDER:
 			if carry_active:
 				_synth_rotate(false)
-			elif not _refuse_cycle_during_tutorial_ack():
+			else:
 				_cycle(1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_Y:
@@ -497,16 +500,6 @@ func _input(event: InputEvent) -> void:
 func _handle_a() -> bool:
 	if carry_active:
 		_drop_carry()
-		return true
-	# A closed tutorial ack step ("press Continue to go on") owns Ⓐ outright: its
-	# allow-list is empty so nothing else the router could do would be permitted
-	# anyway, and the overlay only auto-focuses Continue when the step OPENS.
-	# Reported trap (T1 step 7/13, "READ DA BAR!"): cycling to another unit
-	# released that focus, so Ⓐ fell through here — onto the Boyz + Warboss, who
-	# are embarked and have no board models, it did literally nothing. Now Ⓐ
-	# always means Continue while such a step is up, wherever the selection sits.
-	if _tutorial_ack_pending():
-		TutorialManager.ack()
 		return true
 	if _assign_highlighted_target():
 		return true
@@ -661,6 +654,17 @@ func _reopen_move_menu() -> void:
 # ============================================================================
 # Cycling
 # ============================================================================
+
+# Public bumper-cycle entry for dialogs that run in their own exclusive
+# Window (e.g. DisembarkDialog): joypad events route into the focused
+# Window's viewport, so this router's _input never sees LB/RB while such a
+# dialog is up. The dialog dismisses itself first, then forwards the press
+# here so the bumpers keep their one global meaning — switch units.
+func cycle_units(dir: int) -> void:
+	InputDeviceManager.claim_pad()
+	_cycle(dir)
+	_update_hints()
+
 
 func _cycle(dir: int) -> void:
 	# Fight phase: the bumpers cycle keyboard focus among the ACTION BUTTONS of
@@ -2157,6 +2161,16 @@ func refresh_hints() -> void:
 	_update_hints()
 
 
+# "", "ack" or "summary" — whether the tutorial instructor card is waiting on a
+# button press (TutorialOverlay.pad_ack_state). Empty outside a lesson and in
+# harnesses that run without the tutorial autoloads.
+func _tutorial_ack_state() -> String:
+	var overlay := get_node_or_null("/root/TutorialOverlay")
+	if overlay == null or not overlay.has_method("pad_ack_state"):
+		return ""
+	return str(overlay.pad_ack_state())
+
+
 # The FightController while the Fight phase is live, else null. Used by the
 # bumper button-cycle and the fight hint sets so each reads the same authority.
 func _fight_controller() -> Node:
@@ -2171,38 +2185,14 @@ func _fight_controller() -> Node:
 	return fc
 
 
-# True while a tutorial step is waiting on nothing but its Continue button.
-# Guarded so the router keeps working with the tutorial autoload absent (it is
-# always present in-game; scenario harnesses have booted without it).
-func _tutorial_ack_pending() -> bool:
-	var tm := get_node_or_null("/root/TutorialManager")
-	return tm != null and tm.has_method("is_ack_pending") and bool(tm.is_ack_pending())
-
-
-# LB/RB unit-cycling stands down on a CLOSED tutorial ack step, and says why.
-# Cycling there could never help — the step's allow-list is empty, so the
-# selection's own BEGIN_NORMAL_MOVE is refused — but it could very much hurt: landing on the
-# embarked Boyz + Warboss pops the Disembark dialog, which is a native-nav modal
-# that then OWNS Ⓐ, so the next press started a disembark placement session
-# instead of pressing Continue. That is the reported T1 step 7/13 dead end. The
-# hint bar already stops advertising "Cycle Units" for these steps (see
-# HINTS_TUTORIAL_ACK); this makes the button match the promise.
-func _refuse_cycle_during_tutorial_ack() -> bool:
-	if not _tutorial_ack_pending():
-		return false
-	var tm := get_node_or_null("/root/TutorialManager")
-	if tm != null and tm.has_method("on_action_blocked"):
-		tm.on_action_blocked({"type": "PAD_CYCLE_UNITS"})
-	return true
-
-
 func _update_hints() -> void:
-	var hints := HINTS_BOARD
-	if _tutorial_ack_pending():
-		# Checked before everything else: on an ack step no other context can
-		# offer a legal action, so no other hint set can be honest here.
-		PadHintBar.set_hints(HINTS_TUTORIAL_ACK)
+	# The tutorial card is modal-in-spirit while it waits on a press: it owns A
+	# and keeps focus, so every other promise on the bar would be a lie.
+	var tutorial_ack := _tutorial_ack_state()
+	if tutorial_ack != "":
+		PadHintBar.set_hints(HINTS_TUTORIAL_SUMMARY if tutorial_ack == "summary" else HINTS_TUTORIAL_ACK)
 		return
+	var hints := HINTS_BOARD
 	if carry_active:
 		if group_carry_active:
 			hints = HINTS_CARRY_GROUP

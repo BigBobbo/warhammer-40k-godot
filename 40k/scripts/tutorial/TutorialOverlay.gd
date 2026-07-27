@@ -4,14 +4,17 @@ extends CanvasLayer
 # spotlight ring. CanvasLayer 93 — above PadActionBar (92), below VirtualCursor
 # (95) so the pad cursor stays visible, below ToastManager (100).
 #
-# The overlay never consumes _input (the pad input chain order is load-bearing,
-# PadRouter.gd:76-80); all its controls are plain buttons the mouse or the
-# virtual cursor can click. Colors come from UIConstants / WhiteDwarfTheme —
-# no new hex literals (design guidelines §9).
+# The overlay consumes exactly ONE input (the pad input chain order is
+# load-bearing otherwise, PadRouter.gd:76-80): the pad's select button while
+# the card is waiting on a Continue / Next Lesson press — see _input(). Every
+# other control stays a plain button the mouse or the virtual cursor can click.
+# Colors come from UIConstants / WhiteDwarfTheme — no new hex literals (design
+# guidelines §9).
 
 const WhiteDwarfThemeData = preload("res://scripts/WhiteDwarfTheme.gd")
 const UIConstantsData = preload("res://autoloads/UIConstants.gd")
 const AnchorResolverLib = preload("res://scripts/tutorial/AnchorResolver.gd")
+const GlyphDB = preload("res://scripts/input/GlyphDB.gd")
 
 const CARD_TOP_OFFSET := 96.0
 const CARD_BOTTOM_OFFSET := 132.0  # keeps clear of the pad hint bar
@@ -30,6 +33,7 @@ var _skip_button: Button
 var _exit_button: Button
 var _next_button: Button
 var _menu_button: Button
+var _ack_glyph: HBoxContainer   # [A] badge shown beside Continue on a pad
 
 var _checklist_label: String = ""
 var _anchor_spec: Dictionary = {}
@@ -47,6 +51,16 @@ func _ready() -> void:
 	_build()
 	visible = false
 	set_process(false)
+	# The card's pad affordances (the [A] badge, which button holds focus, the
+	# hint-bar promise) are all device-dependent — re-apply them whenever the
+	# player swaps between pad and mouse mid-card, and re-render the badge when
+	# a controller remap moves the select role to a different button.
+	var idm := get_node_or_null("/root/InputDeviceManager")
+	if idm != null and idm.has_signal("device_changed"):
+		idm.device_changed.connect(func(_mode): _apply_pad_affordances(false))
+	var pb := get_node_or_null("/root/PadBindings")
+	if pb != null and pb.has_signal("pad_binding_changed"):
+		pb.pad_binding_changed.connect(func(_role_id): _rebuild_ack_glyph())
 
 
 func _mgr() -> Node:
@@ -189,6 +203,18 @@ func _build() -> void:
 	_progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(_progress_label)
 
+	# Pad players had no way of knowing the card's Continue was reachable at all
+	# — the reported "Read da Bar" dead end, where the only way forward was to
+	# discover the left-stick cursor and click the button with it. The badge
+	# names the button that presses it (kept OUTSIDE the Button so its text
+	# stays exactly "Continue" — windowed scenarios address it by text).
+	_ack_glyph = HBoxContainer.new()
+	_ack_glyph.name = "AckGlyph"
+	_ack_glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ack_glyph.visible = false
+	footer.add_child(_ack_glyph)
+	_rebuild_ack_glyph()
+
 	_continue_button = Button.new()
 	_continue_button.name = "ContinueButton"
 	_continue_button.text = "Continue"
@@ -238,6 +264,152 @@ func _build() -> void:
 	footer.add_child(_exit_button)
 
 	_place_card("top")
+
+
+# ------------------------------------------------------- pad affordances ----
+#
+# THE PROBLEM THIS SOLVES (reported on the Steam Deck at T1 step 7, "Read da
+# Bar"): the card's Continue button was focus-grabbed on pad, but the moment
+# the player had touched the left stick — which every earlier step asks them to
+# do — VirtualCursor is in CURSOR mode and consumes A as a synthetic click AT
+# THE CURSOR (VirtualCursor.gd:248-256). So A did nothing unless the cursor
+# happened to be parked on top of Continue, and the ONLY way past an ack step
+# was to hunt the button down with the stick. Three fixes, together:
+#   1. _input() below: while the card waits on a press, the pad's select button
+#      presses it — cursor mode or not, focus or not.
+#   2. the [A] badge beside the button + the hint bar's "Ⓐ Continue" chip
+#      (PadRouter.HINTS_TUTORIAL_ACK) say so on screen.
+#   3. focus is parked on the card and kept there (_wire_card_focus +
+#      the _process re-grab), so the gold PadFocusRing marks the button and no
+#      D-pad press can strand the player in a HUD panel with no way back.
+
+
+# "" (nothing pending), "ack" (a Continue step) or "summary" (the end-of-lesson
+# card). Read by PadRouter for the hint bar, and by windowed scenarios.
+func pad_ack_state() -> String:
+	if not visible:
+		return ""
+	if _continue_button != null and _continue_button.visible:
+		return "ack"
+	if (_next_button != null and _next_button.visible) or (_menu_button != null and _menu_button.visible):
+		return "summary"
+	return ""
+
+
+# The card button the pad's select button should press: whichever of them holds
+# focus, else the leading one (Continue on a step, Next Lesson on a summary).
+func _pad_ack_button() -> Button:
+	if not visible:
+		return null
+	var focused := get_viewport().gui_get_focus_owner()
+	var candidates: Array = []
+	for b in [_continue_button, _next_button, _menu_button]:
+		if b != null and b.visible and not b.disabled:
+			candidates.append(b)
+	for b in candidates:
+		if b == focused:
+			return b
+	return candidates[0] if not candidates.is_empty() else null
+
+
+func _rebuild_ack_glyph() -> void:
+	if _ack_glyph == null:
+		return
+	for child in _ack_glyph.get_children():
+		child.queue_free()
+	# Label-less chip: the button text next to it already says "Continue".
+	_ack_glyph.add_child(GlyphDB.make_chip("a", ""))
+
+
+# Keep D-pad focus navigation INSIDE the card while it is waiting on a press:
+# left/right walk the card's own buttons, up/down/tab stay put. Without this a
+# D-pad press walks focus off into the HUD and the player has no way back to
+# Continue (the reported "I can't get to the button" trap).
+func _wire_card_focus(buttons: Array) -> void:
+	for i in range(buttons.size()):
+		var b: Button = buttons[i]
+		var prev: Button = buttons[max(i - 1, 0)]
+		var nxt: Button = buttons[min(i + 1, buttons.size() - 1)]
+		b.focus_neighbor_left = b.get_path_to(prev)
+		b.focus_neighbor_right = b.get_path_to(nxt)
+		b.focus_neighbor_top = b.get_path_to(b)
+		b.focus_neighbor_bottom = b.get_path_to(b)
+		b.focus_next = b.get_path_to(nxt)
+		b.focus_previous = b.get_path_to(prev)
+
+
+# `grab` = take focus now (a freshly shown card); false only re-applies the
+# device-dependent dressing (a mid-card device swap / remap).
+func _apply_pad_affordances(grab: bool) -> void:
+	if _continue_button == null:
+		return  # _build() has not run yet
+	var idm := get_node_or_null("/root/InputDeviceManager")
+	var pad: bool = idm != null and idm.is_pad_active()
+	_ack_glyph.visible = pad and visible and _continue_button.visible
+	var buttons: Array = []
+	for b in [_continue_button, _next_button, _menu_button]:
+		if b.visible:
+			buttons.append(b)
+	if pad and visible and not buttons.is_empty():
+		_wire_card_focus(buttons)
+		# Hand the pad back to FOCUS mode: parked, A means "press the
+		# highlighted card button" (and the focus ring shows which). A live
+		# model carry owns the cursor, so never yank it out from under one.
+		var vc := get_node_or_null("/root/VirtualCursor")
+		var router := get_node_or_null("/root/PadRouter")
+		if vc != null and (router == null or not router.is_carrying()):
+			vc.park()
+		if grab or get_viewport().gui_get_focus_owner() == null:
+			buttons[0].grab_focus()
+	_refresh_pad_hints()
+
+
+# The hint bar reads pad_ack_state() itself; poke it so the promise flips the
+# moment the card appears or clears, rather than on the next button press.
+func _refresh_pad_hints() -> void:
+	var router := get_node_or_null("/root/PadRouter")
+	if router != null and router.has_method("refresh_hints"):
+		router.refresh_hints()
+
+
+# The one consumed input (see the header + the block comment above): the pad's
+# select button presses the card's pending button. Runs BEFORE VirtualCursor in
+# the _input chain (autoload order: … PadRouter, VirtualCursor, … ,
+# TutorialOverlay, TutorialManager, Main — _input walks the tree in reverse),
+# so it wins over the cursor's synthetic click.
+func _input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if not (event is InputEventJoypadButton) or not event.pressed:
+		return
+	var idm := get_node_or_null("/root/InputDeviceManager")
+	if idm == null or not idm.is_pad_active():
+		return  # first press of a session claims pad mode (PadRouter); act on the next
+	var pb := get_node_or_null("/root/PadBindings")
+	var button: int = pb.canonical(event.button_index) if pb != null else event.button_index
+	if button != JOY_BUTTON_A:
+		return
+	# An embedded game dialog and the pad action bar are each modal over the
+	# card — they own A while they are up.
+	if _any_game_window_open():
+		return
+	var bar := get_node_or_null("/root/PadActionBar")
+	if bar != null and bar.has_method("is_open") and bar.is_open():
+		return
+	# Cursor mode with the pointer resting ON the card: the aim is explicit, so
+	# let the cursor's own click pick the button. Gliding onto "Back to Menu"
+	# must not press the focused "Next Lesson", and Skip Step / Exit Tutorial
+	# stay clickable. Anywhere else — over the board, over a HUD panel the last
+	# step left the cursor on, or parked — A belongs to the card.
+	var vc := get_node_or_null("/root/VirtualCursor")
+	var hovered := get_viewport().gui_get_hovered_control()
+	if vc != null and vc.is_cursor_active() and hovered != null and _card.is_ancestor_of(hovered):
+		return
+	var target := _pad_ack_button()
+	if target == null:
+		return
+	get_viewport().set_input_as_handled()
+	target.emit_signal("pressed")
 
 
 # Card placement modes: "top" (default), "bottom" (dodging a board anchor),
@@ -303,9 +475,7 @@ func show_step(view: Dictionary) -> void:
 	_reresolve_accum = ANCHOR_RERESOLVE_S  # resolve on next frame
 	if _card_mode != "top":
 		_place_card("top")
-	var idm := get_node_or_null("/root/InputDeviceManager")
-	if _continue_button.visible and idm != null and idm.is_pad_active():
-		_continue_button.grab_focus()
+	_apply_pad_affordances(true)
 	_spotlight.queue_redraw()
 
 
@@ -359,12 +529,7 @@ func show_summary(view: Dictionary) -> void:
 	for strip in _dim_strips:
 		strip.visible = false
 	_place_card("top")
-	var idm := get_node_or_null("/root/InputDeviceManager")
-	if idm != null and idm.is_pad_active():
-		if _next_button.visible:
-			_next_button.grab_focus()
-		else:
-			_menu_button.grab_focus()
+	_apply_pad_affordances(true)
 	_spotlight.queue_redraw()
 
 
@@ -377,6 +542,9 @@ func hide_all() -> void:
 	_spotlight_mode = "none"
 	for strip in _dim_strips:
 		strip.visible = false
+	_ack_glyph.visible = false
+	# Hand the hint bar back to the board context — the card no longer owns A.
+	_refresh_pad_hints()
 
 
 func shake() -> void:
@@ -406,6 +574,7 @@ func current_checklist_text() -> String:
 
 func _process(delta: float) -> void:
 	_update_card_mode()
+	_keep_ack_focus()
 	if _anchor_spec.is_empty():
 		_anchor_ok = false
 		_spotlight.queue_redraw()
@@ -431,6 +600,21 @@ func _process(delta: float) -> void:
 			_scroll_anchor_into_view(res.node)
 	_update_dim_strips()
 	_spotlight.queue_redraw()
+
+
+# A B press (PadRouter._handle_back), a stray cursor click on the board or a
+# panel rebuild can all drop focus. While the card is waiting on a press the
+# ring must come back on its own, or the player is left with no visible
+# selection and no obvious way to make one.
+func _keep_ack_focus() -> void:
+	if get_viewport().gui_get_focus_owner() != null:
+		return
+	var idm := get_node_or_null("/root/InputDeviceManager")
+	if idm == null or not idm.is_pad_active():
+		return
+	var target := _pad_ack_button()
+	if target != null:
+		target.grab_focus()
 
 
 func _scroll_anchor_into_view(node: Node) -> void:
@@ -502,12 +686,3 @@ func _on_continue_pressed() -> void:
 	var m := _mgr()
 	if m:
 		m.ack()
-
-
-# True while the card is showing a step whose Continue button is the way on.
-# PadRouter asks this so Ⓐ means "Continue" for the WHOLE screen during such a
-# step — not only while the button happens to hold focus. Reported trap: on the
-# pad-only "READ DA BAR!" step the player cycled to another unit (which releases
-# the button's focus), pressed Ⓐ, and nothing at all happened.
-func continue_available() -> bool:
-	return visible and _continue_button != null and _continue_button.visible

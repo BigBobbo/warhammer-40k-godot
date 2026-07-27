@@ -1,0 +1,177 @@
+{
+  "id": "tut_blocked_toast_names_continue",
+  "covers": [
+    "tutorial.engine.gate",
+    "tutorial.engine.blocked_hint"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "The tutorial's 'blocked action' toast must say what WOULD work. It used to echo the step's bark verbatim, so poking the wrong thing on Basic Trainin' step 7 produced 'Oi! Not dat one, ya git — READ DA BAR!' — a non-sequitur that named no way forward. This drives two out-of-scope actions against T1: on the mouse+keyboard welcome step (an ack step with no per-step wording) the default names the card's Continue button with no controller glyph; on the pad-only 'READ DA BAR!' step the step's own blocked_hint is used, rendered with the pad glyph. Neither toast may fall back to shouting the bark.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t1_basics/Play_t1_basics"
+    },
+    { "act": "wait_seconds", "seconds": 8.0 },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "welcome",
+      "comment": "an ack step with NO blocked_hint of its own — exercises the default wording"
+    },
+
+    {
+      "act": "execute_script",
+      "script": "for t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tt.queue_free()\nToastManager.active_toasts.clear()\nTutorialManager._last_block_toast_ms = 0\nreturn ToastManager.active_toasts.size()",
+      "multiline": true,
+      "equals": 0
+    },
+    {
+      "act": "dispatch_action",
+      "action": { "type": "END_MOVEMENT" },
+      "comment": "out of scope for the step, so the gate refuses it and toasts"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "tutorial_blocked",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var texts = []\nfor toast in ToastManager.active_toasts:\n\tif not is_instance_valid(toast):\n\t\tcontinue\n\tfor c in toast.get_children():\n\t\tif c is Label:\n\t\t\ttexts.append(c.text)\nreturn \" | \".join(PackedStringArray(texts))",
+      "multiline": true,
+      "comment": "recorded for the run log — the asserts below pin the parts that matter"
+    },
+    {
+      "act": "execute_script",
+      "script": "var found = false\nfor toast in ToastManager.active_toasts:\n\tif not is_instance_valid(toast):\n\t\tcontinue\n\tfor c in toast.get_children():\n\t\tif c is Label and \"Continue\" in c.text:\n\t\t\tfound = true\nreturn found",
+      "multiline": true,
+      "equals": true,
+      "comment": "the default ack wording names the button that ends the step"
+    },
+    {
+      "act": "execute_script",
+      "script": "var echoed = false\nfor toast in ToastManager.active_toasts:\n\tif not is_instance_valid(toast):\n\t\tcontinue\n\tfor c in toast.get_children():\n\t\tif c is Label and \"OI, LISTEN UP\" in c.text:\n\t\t\techoed = true\nreturn echoed",
+      "multiline": true,
+      "equals": false,
+      "comment": "and never just shouts the step's bark back, which is what it used to do"
+    },
+    {
+      "act": "execute_script",
+      "script": "var clean = true\nfor toast in ToastManager.active_toasts:\n\tif not is_instance_valid(toast):\n\t\tcontinue\n\tfor c in toast.get_children():\n\t\tif c is Label and (\"{a}\" in c.text or \"  \" in c.text):\n\t\t\tclean = false\nreturn clean",
+      "multiline": true,
+      "equals": true,
+      "comment": "on mouse+keyboard a controller glyph token is stripped whole — no literal '{a}' and no double space left behind (toasts are a plain Label and cannot render BBCode)"
+    },
+
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.claim_pad()\nreturn InputDeviceManager.is_pad_active()",
+      "multiline": true,
+      "equals": true,
+      "comment": "the second half is the pad-only step; every act from here avoids the mouse, which would re-claim KBM and skip it"
+    },
+    {
+      "act": "execute_script",
+      "script": "if TutorialManager.current_step_id() != \"hint_bar\":\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id()",
+      "multiline": true,
+      "comment": "walk to the step under test with the card's own Skip Step handler (the button is FOCUS_NONE, so the pad cannot reach it). Navigation only."
+    },
+    { "act": "wait_frames", "frames": 20 },
+    {
+      "act": "execute_script",
+      "script": "if TutorialManager.current_step_id() != \"hint_bar\":\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id()",
+      "multiline": true
+    },
+    { "act": "wait_frames", "frames": 20 },
+    {
+      "act": "execute_script",
+      "script": "if TutorialManager.current_step_id() != \"hint_bar\":\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id()",
+      "multiline": true
+    },
+    { "act": "wait_frames", "frames": 20 },
+    {
+      "act": "execute_script",
+      "script": "if TutorialManager.current_step_id() != \"hint_bar\":\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id()",
+      "multiline": true
+    },
+    { "act": "wait_frames", "frames": 20 },
+    {
+      "act": "execute_script",
+      "script": "if TutorialManager.current_step_id() != \"hint_bar\":\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id()",
+      "multiline": true
+    },
+    { "act": "wait_frames", "frames": 20 },
+    {
+      "act": "execute_script",
+      "script": "if TutorialManager.current_step_id() != \"hint_bar\":\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id()",
+      "multiline": true
+    },
+    { "act": "wait_frames", "frames": 20 },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "hint_bar",
+      "comment": "step 7 of 13 on a pad (steps 8-9 are the kbm-only hotkey-help pair)"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"/root/TutorialOverlay\")._progress_label.text",
+      "multiline": true,
+      "equals": "Step 7 / 13 — Scoutin' da Field"
+    },
+
+    {
+      "act": "execute_script",
+      "script": "for t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tt.queue_free()\nToastManager.active_toasts.clear()\nTutorialManager._last_block_toast_ms = 0\nreturn ToastManager.active_toasts.size()",
+      "multiline": true,
+      "equals": 0
+    },
+    {
+      "act": "dispatch_action",
+      "action": { "type": "END_MOVEMENT" }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "tutorial_blocked",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var found = false\nfor toast in ToastManager.active_toasts:\n\tif not is_instance_valid(toast):\n\t\tcontinue\n\tfor c in toast.get_children():\n\t\tif c is Label and \"Continue\" in c.text and \"Pickin' anuvver unit\" in c.text:\n\t\t\tfound = true\nreturn found",
+      "multiline": true,
+      "equals": true,
+      "comment": "the step's own blocked_hint is used, and answers the reported confusion directly: picking another unit is not what moves you on"
+    },
+    {
+      "act": "execute_script",
+      "script": "var echoed = false\nfor toast in ToastManager.active_toasts:\n\tif not is_instance_valid(toast):\n\t\tcontinue\n\tfor c in toast.get_children():\n\t\tif c is Label and \"READ DA BAR\" in c.text:\n\t\t\techoed = true\nreturn echoed",
+      "multiline": true,
+      "equals": false,
+      "comment": "the exact reported non-sequitur — the bark must never be the whole message"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ok = false\nfor toast in ToastManager.active_toasts:\n\tif not is_instance_valid(toast):\n\t\tcontinue\n\tfor c in toast.get_children():\n\t\tif c is Label and not (\"{a}\" in c.text) and \"press \" in c.text:\n\t\t\tok = true\nreturn ok",
+      "multiline": true,
+      "equals": true,
+      "comment": "on a pad the {a} token is replaced by the real glyph, never left as literal text"
+    },
+    { "act": "screenshot", "label": "01_blocked_toast_pad" }
+  ]
+}

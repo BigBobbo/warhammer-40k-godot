@@ -396,6 +396,14 @@ func _show_current_step() -> void:
 func refresh_prompt() -> void:
 	if not active:
 		return
+	# The lesson stays active under the end-of-lesson summary card, and
+	# current_step_index still points at the last step — re-rendering it here
+	# would replace the summary with a step the player already finished. The
+	# overlay re-applies its own device-dependent dressing on the same signal.
+	var overlay_now := get_node_or_null("/root/TutorialOverlay")
+	if overlay_now != null and overlay_now.has_method("pad_ack_state") \
+			and str(overlay_now.pad_ack_state()) == "summary":
+		return
 	# Item labels (and which items apply at all) are device-dependent, so a
 	# pad<->keyboard swap mid-step has to rebuild the list — carrying the
 	# already-ticked ids across so the player never loses progress.
@@ -411,30 +419,14 @@ func _is_ack_step(step: Dictionary) -> bool:
 # A "closed" ack step: Continue is the way on AND the allow-list is empty, so
 # there is provably nothing else the player could usefully do. That second half
 # matters — T7's final step is an ack step with allow "*", which deliberately
-# hands the game back ("Da rest is just playin'"). Treating THAT as closed would
-# have the pad refuse to cycle units and steal Ⓐ from a board the lesson has
-# explicitly reopened. Only genuinely closed steps get the pad overrides.
+# hands the game back ("Da rest is just playin'"). Only a closed step may be
+# told "Continue is the only way on"; saying that on T7's sign-off would be a
+# lie about a board the lesson has explicitly reopened. See _blocked_instruction.
 func _is_closed_ack_step(step: Dictionary) -> bool:
 	if not _is_ack_step(step):
 		return false
 	var allow = step.get("allow", [])
 	return typeof(allow) == TYPE_ARRAY and (allow as Array).is_empty()
-
-
-# True while the live step is a closed ack step AND the overlay is actually
-# offering its Continue button — i.e. Continue is the one and only way forward.
-# PadRouter and VirtualCursor read this to make Ⓐ mean "Continue" everywhere on
-# screen (and to say so in the hint bar) instead of only while the button holds
-# focus. False on an open ack step, where the board keeps its normal controls.
-func is_ack_pending() -> bool:
-	if not active or current_step_index < 0 or current_step_index >= _steps.size():
-		return false
-	if not _is_closed_ack_step(_steps[current_step_index]):
-		return false
-	var overlay := get_node_or_null("/root/TutorialOverlay")
-	if overlay == null or not overlay.has_method("continue_available"):
-		return false
-	return bool(overlay.continue_available())
 
 
 # --------------------------------------------------------------- checklist ---
@@ -766,8 +758,8 @@ func is_action_allowed(action: Dictionary) -> bool:
 # echo the step's bark verbatim, which produced non-sequiturs like "Oi! Not dat
 # one, ya git — READ DA BAR!" — the player pokes a unit the step doesn't want and
 # is told to read a bar, with nothing saying what WOULD work. Now: a lesson step
-# may spell it out with "blocked_hint"; an ack step (empty allow-list) always
-# names its Continue button, because that is literally the only way on.
+# may spell it out with "blocked_hint"; failing that, a CLOSED ack step names its
+# Continue button, because that is literally the only way on.
 func _blocked_instruction() -> String:
 	if current_step_index < 0 or current_step_index >= _steps.size():
 		return "follow da current step"

@@ -24,7 +24,8 @@
       "id": "welcome",
       "prompt": {
         "bark": "OI, LISTEN UP!",
-        "text": "Welcome to Basic Trainin'. You know da rules of da tabletop — dis teaches how [b]da app[/b] works. Use [i]Skip Step[/i] or [i]Exit Tutorial[/i] up 'ere any time."
+        "kbm": "Welcome to Basic Trainin'. You know da rules of da tabletop — dis teaches how [b]da app[/b] works. Use [i]Skip Step[/i] or [i]Exit Tutorial[/i] up 'ere any time.",
+        "pad": "Welcome to Basic Trainin'. You know da rules — dis teaches how [b]da app[/b] works. Whenever dis card shows [b]Continue[/b], press {a}. [i]Skip Step[/i] an' [i]Exit Tutorial[/i] are up 'ere too."
       },
       "spotlight": "none",
       "allow": [],
@@ -161,7 +162,7 @@
       "device": "pad",
       "prompt": {
         "bark": "READ DA BAR!",
-        "pad": "Dat strip at da bottom always shows wot each button does [i]right now[/i] — when in doubt, read da bar.\n\nRead it now: it says {a} [b]Continue[/b]. Dat's da only fing dis step wants — press {a} an' we move on. No unit pickin' needed."
+        "pad": "Dat strip at da bottom always shows wot each button does [i]right now[/i]. It changes wiv da situation — when in doubt, read da bar. Right now it says {a} Continue, so squeeze {a} to carry on. No unit pickin' needed."
       },
       "anchor": {
         "node": "/root/PadHintBar"
@@ -174,9 +175,8 @@
       "done": {
         "ack": true
       },
-      "hint_after_s": 15,
       "hint": {
-        "pad": "Nuffin' on da board works while dis step's up — pickin' anuvver unit won't do it. Press {a} for [b]Continue[/b] (it's on dis card, an' in da bar at da bottom)."
+        "pad": "Da bar 'as da answer: press {a} to hit [b]Continue[/b]. Or point {ls} at da button an' press {a} — bofe work. Pickin' anuvver unit won't move ya on."
       }
     },
     {

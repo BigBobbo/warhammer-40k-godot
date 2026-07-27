@@ -2,16 +2,35 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.5.4",
+      "date": "2026-07-27",
+      "summary": "The tutorial's 'wrong button' warning now tells you what WOULD work instead of just shouting the step's title back at you.",
+      "changes": [
+        "The tutorial's warning for doing something a lesson isn't asking for used to repeat the step's own shout — poke the wrong unit on Basic Trainin' step 7 and you got 'Oi! Not dat one, ya git — READ DA BAR!', which never said what would actually move you on. It now names the way forward: 'dis step only wants [Continue] on da card — press Ⓐ'.",
+        "On a step that is only waiting for you to read it, the warning points at the Continue button by name. On the last step of the final lesson it does not — that one deliberately hands the board back to you, so everything really is allowed there.",
+        "Lessons can now carry their own wording for that warning, with separate text for a controller and for mouse+keyboard, so a step can name a pad button without that showing up on a keyboard.",
+        "Basic Trainin's 'Read da Bar' step now says outright that no unit picking is needed to get past it."
+      ]
+    },
+    {
+      "version": "1.5.3",
+      "date": "2026-07-27",
+      "summary": "On a controller, the tutorial's Continue button is now just the A button — Basic Trainin' step 7 ('Read da Bar') could leave you stuck with no obvious way to move on.",
+      "changes": [
+        "Fixed being stuck on a controller whenever a tutorial card asked you to press Continue — most obviously at Basic Trainin' step 7, 'Read da Bar'. The only way past it was to steer the pointer onto the button with the left stick and click it, which nothing told you to do. Pressing A now presses the card's button, wherever the pointer happens to be.",
+        "The card now shows an [A] badge next to Continue, and the button is outlined so you can see it is selected.",
+        "The hint bar at the bottom of the screen now reads 'A Continue' while a tutorial card is waiting — so the 'read da bar' step answers its own question. The end-of-lesson card reads 'Navigate / Choose' and the D-pad moves between Next Lesson and Back to Menu.",
+        "The D-pad can no longer wander off the tutorial card while it is waiting for you, so you can't lose the Continue button in the side panels.",
+        "Basic Trainin's opening card and the 'Read da Bar' step now say outright that A is Continue."
+      ]
+    },
+    {
       "version": "1.5.2",
       "date": "2026-07-27",
-      "summary": "Fixed the 'READ DA BAR!' step of Basic Trainin' (step 7 of 13, on a controller) being a dead end: Ⓐ now always means Continue on a step that is only waiting for you to acknowledge it, and the game says so instead of just barking at you.",
+      "summary": "Controller: LB/RB now cycle straight through the disembark pop-up instead of getting stuck on it.",
       "changes": [
-        "Fixed Basic Trainin' getting stuck on 'READ DA BAR!' on a controller. If you had cycled off the Battlewagon onto the Boyz + Warboss, pressing Ⓐ to continue did nothing at all — the bumper had quietly popped the Disembark dialog, which then owned Ⓐ, and if you had nudged the stick to look around, Ⓐ was a board click instead. Ⓐ now presses Continue on any step that is just waiting for you to read it, wherever you are on screen.",
-        "The hint bar the step tells you to read now actually says [Ⓐ] Continue while such a step is up — and stops advertising 'Cycle Units', which was the wrong turn that led into the dead end.",
-        "The bumpers no longer switch units on a step like that. They tell you what the step wants instead, so you cannot wander into a dialog mid-lesson.",
-        "The 'wrong button' warning now names what WOULD work. It used to just echo the step's shout back at you — 'Oi! Not dat one, ya git — READ DA BAR!' — which never explained anything. It now reads 'dis step only wants [Continue] on da card — press Ⓐ'.",
-        "The step's own text now names the Continue button and says no unit picking is needed.",
-        "The last step of the final lesson is the one place this does not apply — it deliberately hands the board back to you, so the controller keeps all its normal buttons there."
+        "Bumper-cycling onto a unit embarked in a transport no longer traps you in the 'Disembark Unit?' pop-up — pressing LB or RB while it is open now stays embarked, closes the pop-up, and cycles to the previous/next unit in one press.",
+        "Nothing else about the pop-up changed: A still confirms Disembark, B / Stay Embarked still declines, and cycling back onto the embarked unit reopens it."
       ]
     },
     {
