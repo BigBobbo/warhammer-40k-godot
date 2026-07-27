@@ -69,6 +69,37 @@ The export process creates:
 - **Or**: Executable + .pck data file
 - All game assets are bundled inside
 
+#### ⚠️ Non-resource data files need explicit help
+
+Every preset uses `export_filter="all_resources"`. That walks Godot's
+filesystem and **skips any file whose extension is not a recognised resource
+type**. `.json` and `.csv` behave differently from each other, and getting this
+wrong ships a build that looks fine in the editor and is broken for players:
+
+| File | How it reaches the build |
+|---|---|
+| `data/**/*.json` (lessons, 40kdc, armies) | `.json` is a resource extension — exported automatically |
+| `data/tutorials/fixtures/*.w40ksave`, `*.meta` | **`include_filter`** in every preset |
+| `data/*.csv` (Datasheets, Stratagems, Factions, …) | **committed `.import` pinning `importer="keep"`** |
+
+The CSVs need the `.import` rather than `include_filter`: a file that has
+import metadata is exported as its *generated* resource, and the editor's
+default `csv_translation` importer never generates one — so the export shipped
+`Datasheets.csv.import` and no `Datasheets.csv`. Keep mode makes the exporter
+copy the raw file instead. Those `.import` files are committed on purpose; do
+not add them back to `.gitignore`.
+
+This bit us for real (v1.4.2): the tutorial fixtures were missing from itch.io
+and Steam Deck builds, so Basic Trainin' booted onto an empty board with an
+empty movement unit list, and faction stratagems / leader pairings loaded 0
+rows. `tests/unit/test_export_data_files.gd` now fails if a preset would drop
+any of these — including a newly added preset. To check a real build by hand:
+
+```bash
+godot --headless --path 40k --export-pack Linux /tmp/out.pck   # no templates needed
+# then confirm the fixtures and CSVs are actually in /tmp/out.pck
+```
+
 ## Testing Multiplayer on Different Computers
 
 ### Scenario 1: Two Computers on Same Network (LAN)

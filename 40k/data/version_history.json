@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.4.2",
+      "date": "2026-07-27",
+      "summary": "Fixed the tutorial being unplayable in the released builds (itch.io and Steam Deck) — the lessons' saved battles were never packaged into the game. Faction stratagems and leader pairings were missing from those builds for the same reason.",
+      "changes": [
+        "Fixed Basic Trainin' booting with an empty board and an empty unit list on itch.io and the Steam Deck, which left 'Pick da wagon' with nothing to click and no way forward. The lessons' saved battles were being left out of the packaged game entirely — they only ever existed in the development build. All five lesson battles now ship.",
+        "Fixed faction stratagems in released builds: every army loaded 0 faction stratagems (only the 22 core ones showed up) because the stratagem data file was also being left out of the package. Orks and Custodes now get their detachment stratagems again.",
+        "Fixed leader attachments in released builds: the leader-pairing data was missing too, so the game had 0 known leader/bodyguard pairings to fall back on. It now loads all 918.",
+        "If a lesson ever cannot find its saved battle again, the tutorial now refuses to start and tells you the build is missing lesson data, instead of dropping you onto a broken board."
+      ]
+    },
+    {
       "version": "1.4.1",
       "date": "2026-07-26",
       "summary": "Fixed Basic Trainin' starting with an empty army, plus the first-launch offer and the blank movement unit list.",

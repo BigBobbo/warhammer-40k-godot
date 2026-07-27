@@ -150,7 +150,25 @@ func _boot_and_arm() -> void:
 
 	if boot.has("fixture"):
 		if not _load_fixture(str(boot.fixture)):
-			ToastManager.show_error("Tutorial: could not load lesson fixture")
+			# Stay on the menu rather than changing scene onto whatever GameState
+			# happens to hold — that is what produced the reported softlock on
+			# itch.io and the Steam Deck (board with no models, empty movement
+			# unit list, "PICK DA WAGON" pointing at an empty black box).
+			# The lesson is only ever unloadable when the build is missing its
+			# shipped fixture, so say that instead of a generic failure.
+			var missing := not FileAccess.file_exists(
+				FIXTURES_DIR + str(boot.fixture) + ".w40ksave")
+			if missing:
+				ToastManager.show_error(
+					"Tutorial: this build is missing its lesson data (%s) — please update the game"
+					% str(boot.fixture))
+				DebugLogger.error("TutorialManager: lesson '%s' aborted — fixture '%s' is not shipped in this build (export packaging)" % [
+					str(current_lesson.get("id", "")), str(boot.fixture)])
+			else:
+				ToastManager.show_error("Tutorial: could not load lesson fixture")
+				DebugLogger.error("TutorialManager: lesson '%s' aborted — fixture '%s' failed to load" % [
+					str(current_lesson.get("id", "")), str(boot.fixture)])
+			active = false
 			return
 		GameState.state.meta["from_save"] = true
 		GameState.state.meta.erase("from_menu")

@@ -8,6 +8,12 @@ server_config.local.json
 # Export builds
 exports/
 
-# Game data CSVs are generated from the 40kdc 11e dataset (see
-# scripts/40kdc/) and ARE committed. Only Godot's import metadata stays local.
-data/*.csv.import
+# Game data CSVs are generated from the 40kdc 11e dataset (see scripts/40kdc/)
+# and ARE committed — and so is their `.import` metadata now. It used to be
+# ignored, which is exactly how the CSVs went missing from every exported
+# build: with the editor's default `csv_translation` importer, the export
+# packs `Datasheets.csv.import` and the (never-generated) Translation, but
+# never the .csv itself, so FactionStratagemLoader/LeaderPairingsLoader read
+# 0 stratagems and 0 leader pairings on itch.io and the Steam Deck. Pinning
+# `importer="keep"` in committed .import files is what makes the exporter
+# copy the raw file. Do NOT re-ignore these.

@@ -57,6 +57,13 @@
     },
     {
       "act": "execute_script",
+      "script": "return FileAccess.file_exists(\"res://data/tutorials/fixtures/tutorial_postdeploy.w40ksave\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the lesson's saved battle must be reachable from res:// at runtime. Reported from itch.io and the Steam Deck: it was not IN the released builds at all — .w40ksave is not a Godot resource extension, so export_filter='all_resources' skipped it and include_filter was empty. The lesson then booted onto the main menu's leftover GameState: no models, empty movement unit list, 'PICK DA WAGON' unclickable. Scenarios run from source where the file always exists, so tests/unit/test_export_data_files.gd is the actual net; this step records the invariant."
+    },
+    {
+      "act": "execute_script",
       "script": "var tm = tree.root.get_node(\"/root/TutorialManager\")\nvar saved = GameState.state.get(\"units\", {}).duplicate(true)\nvar was_web = SaveLoadManager.is_web_platform\nGameState.state[\"units\"] = {}\nSaveLoadManager.is_web_platform = true\nvar r = tm._load_fixture(\"nonexistent_fixture\")\nSaveLoadManager.is_web_platform = was_web\nGameState.state[\"units\"] = saved\nreturn r",
       "multiline": true,
       "equals": false,

@@ -1,15 +1,3 @@
 [remap]
 
-importer="csv_translation"
-type="Translation"
-uid="uid://bbbvd0348gjwe"
-valid=false
-
-[deps]
-
-source_file="res://data/Factions.csv"
-
-[params]
-
-compress=1
-delimiter=0
+importer="keep"
