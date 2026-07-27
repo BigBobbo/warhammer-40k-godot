@@ -6331,10 +6331,16 @@ static func _ensure_loadout_resolved(unit: Dictionary) -> void:
 		return
 	unit["_loadout_checked"] = true
 
-	# Multi-model units only. A single-model unit (VEHICLE / MONSTER / character)
-	# legitimately fires ALL of its weapons, so we must never collapse it to one
-	# gun — its "menu" is its real arsenal, not a per-model choice.
+	# A single-model unit (VEHICLE / MONSTER / character) DOES fire all of the
+	# weapons it carries — but `meta.weapons` is the datasheet's option MENU, not
+	# its arsenal. A Battlewagon's menu offers a kannon OR a killkannon OR a zzap
+	# gun; the roster picked one. Narrow it from the roster's wargear so the
+	# Shooting/Fight phases stop offering guns the player never took. The
+	# resolver returns the menu untouched whenever it can't read the loadout, and
+	# we only stamp when it actually narrowed something — so a unit we cannot
+	# resolve keeps the original "fires everything on the datasheet" behaviour.
 	if unit.get("models", []).size() < 2:
+		_resolve_single_model_loadout(unit)
 		return
 
 	_resolve_type_loadout(unit, "Ranged", "ranged_loadout")
@@ -6344,6 +6350,50 @@ static func _ensure_loadout_resolved(unit: Dictionary) -> void:
 	# ranged, so most units fall back to the menu; those that pin it cleanly
 	# (Kommandos -> Choppa, Burna Boyz -> Cuttin' flames + CCW) are resolved.
 	_resolve_type_loadout(unit, "Melee", "melee_loadout")
+
+
+# MA-LOADOUT: single-model narrowing. Shares ONE resolution with the datasheet
+# UI (UnitLoadoutResolver) so what a player is shown and what they can fire can
+# never disagree. Stamps `ranged_loadout` / `melee_loadout` on the lone model —
+# the same keys _get_model_weapon_ids already honours — but ONLY for a type the
+# resolver genuinely narrowed. Leaving the other type unstamped preserves the
+# old menu behaviour for it exactly.
+static func _resolve_single_model_loadout(unit: Dictionary) -> void:
+	var models = unit.get("models", [])
+	if models.size() != 1:
+		return
+	var meta = unit.get("meta", {})
+	var menu = meta.get("weapons", [])
+	if typeof(menu) != TYPE_ARRAY or menu.is_empty():
+		return
+
+	var equipped = UnitLoadoutResolver.get_equipped_weapons(unit)
+	if equipped.size() >= menu.size():
+		return  # nothing was narrowed — leave the unit untouched
+
+	# Bucket both the menu and the equipped set per weapon type, so we can tell
+	# WHICH type actually lost options (a Battlewagon narrows its ranged menu
+	# 6 -> 3 while its melee list is already exact).
+	var uname = str(meta.get("name", ""))
+	for pair in [["Ranged", "ranged_loadout"], ["Melee", "melee_loadout"]]:
+		var type_filter = str(pair[0]).to_lower()
+		var menu_names := []
+		for w in menu:
+			if typeof(w) == TYPE_DICTIONARY and str(w.get("type", "")).to_lower() == type_filter:
+				var n = str(w.get("name", ""))
+				if n not in menu_names:
+					menu_names.append(n)
+		var kept := []
+		for w in equipped:
+			if typeof(w) == TYPE_DICTIONARY and str(w.get("type", "")).to_lower() == type_filter:
+				var n = str(w.get("name", ""))
+				if n not in kept:
+					kept.append(n)
+		if kept.size() >= menu_names.size():
+			continue  # this type was not narrowed
+		models[0][str(pair[1])] = kept
+		print("[MA-LOADOUT] %s (%s): single model narrowed to roster loadout %s (menu had %d)" % [
+			uname, str(pair[0]), str(kept), menu_names.size()])
 
 
 # MA-LOADOUT: cross-check guard — may this model's type actually take

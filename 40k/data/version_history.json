@@ -4,12 +4,14 @@
     {
       "version": "1.5.2",
       "date": "2026-07-27",
-      "summary": "Unit datasheets now list only the weapons a unit is actually armed with, instead of every weapon its datasheet could take.",
+      "summary": "Units now show — and fire — only the weapons they are actually armed with, instead of every weapon their datasheet could take.",
       "changes": [
         "Opening a unit's datasheet (Y on a controller, I on the keyboard) used to show the whole datasheet's weapon menu. The tutorial Battlewagon listed a killkannon, a zzap gun and a big shoota it was never armed with, alongside the kannon, lobba, deff rolla, grabbin' klaw and wreckin' ball it actually has.",
-        "Datasheets now show the roster's real loadout — including base weapons that are always fitted (the Battlewagon's tracks and wheels) and both profiles of a multi-profile weapon (Kannon – Frag and Kannon – Shell).",
+        "The Shooting and Fight phases had the same problem, which was worse: that Battlewagon could actually FIRE the killkannon and zzap gun it never bought. Single-model units — vehicles, monsters and characters — are now narrowed to their roster's real loadout everywhere, so the weapon list you are offered matches the datasheet you are shown.",
+        "Datasheets keep base weapons that are always fitted (the Battlewagon's tracks and wheels) and both profiles of a multi-profile weapon (Kannon – Frag and Kannon – Shell).",
         "Same fix for the right-click 'Unit Stats' card and the two-unit stats comparison panel.",
-        "If a unit's loadout can't be read for any reason, its datasheet still shows the full weapon list rather than showing nothing."
+        "Four units in the shipped army lists never recorded which option they took, so they showed all of them: the Caladius Grav-tank, Contemptor-Achillus Dreadnought, Telemon Heavy Dreadnought and Shield-Captain now carry their datasheet's standard loadout.",
+        "If a unit's loadout can't be read for any reason, it still shows and fires its full weapon list rather than losing weapons."
       ]
     },
     {
