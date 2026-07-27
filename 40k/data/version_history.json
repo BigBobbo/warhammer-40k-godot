@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.5.2",
+      "date": "2026-07-27",
+      "summary": "Unit datasheets now list only the weapons a unit is actually armed with, instead of every weapon its datasheet could take.",
+      "changes": [
+        "Opening a unit's datasheet (Y on a controller, I on the keyboard) used to show the whole datasheet's weapon menu. The tutorial Battlewagon listed a killkannon, a zzap gun and a big shoota it was never armed with, alongside the kannon, lobba, deff rolla, grabbin' klaw and wreckin' ball it actually has.",
+        "Datasheets now show the roster's real loadout — including base weapons that are always fitted (the Battlewagon's tracks and wheels) and both profiles of a multi-profile weapon (Kannon – Frag and Kannon – Shell).",
+        "Same fix for the right-click 'Unit Stats' card and the two-unit stats comparison panel.",
+        "If a unit's loadout can't be read for any reason, its datasheet still shows the full weapon list rather than showing nothing."
+      ]
+    },
+    {
       "version": "1.5.1",
       "date": "2026-07-27",
       "summary": "Fixed the tutorial being unplayable in the released builds (itch.io and Steam Deck) — the lessons' saved battles were never packaged into the game. Faction stratagems and leader pairings were missing from those builds for the same reason.",

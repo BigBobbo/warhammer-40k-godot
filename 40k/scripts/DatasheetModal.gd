@@ -113,7 +113,10 @@ func _render(unit: Dictionary) -> void:
 
 	var weapons_label := Label.new()
 	weapons_label.name = "Weapons"
-	weapons_label.text = _format_weapons(meta.get("weapons", unit.get("weapons", [])))
+	# Only the weapons this unit is actually equipped with — meta.weapons is the
+	# datasheet's full option MENU (a Battlewagon lists a killkannon and a zzap
+	# gun it never took).
+	weapons_label.text = _format_weapons(UnitLoadoutResolver.get_equipped_weapons(unit))
 	weapons_label.add_theme_font_size_override("font_size", 12)
 	weapons_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_vbox.add_child(weapons_label)
