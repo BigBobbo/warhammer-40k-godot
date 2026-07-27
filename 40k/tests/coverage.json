@@ -8515,6 +8515,56 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.box_select_hold_a_drag",
+      "description": "Pad box multi-select: holding A on empty board and steering with the left stick draws the selection rectangle and releasing A selects the models inside it. Declared by: pad_box_multi_select.",
+      "scenarios": [
+        "pad_box_multi_select"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.box_select_subset_then_group_drag",
+      "description": "A pad box selects a STRICT SUBSET of a unit's models (asserted by model id), and group-dragging then moves only those models. Declared by: pad_box_multi_select.",
+      "scenarios": [
+        "pad_box_multi_select"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.box_select_requires_active_cursor",
+      "description": "The pad box gesture is disarmed while the virtual cursor is parked, so A keeps its Move Menu / pick-up-model meanings. Declared by: pad_box_multi_select.",
+      "scenarios": [
+        "pad_box_multi_select"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.box_select_skips_press_on_model",
+      "description": "A pad press with the cursor over a model starts a model / group drag, never a selection box. Declared by: pad_box_multi_select.",
+      "scenarios": [
+        "pad_box_multi_select"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.box_select_hint_chip",
+      "description": "The LS hint chip advertises the gesture ('Hold A: Box Select') while it is armed, so it is discoverable. Declared by: pad_box_multi_select.",
+      "scenarios": [
+        "pad_box_multi_select"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     }
   ]
 }
