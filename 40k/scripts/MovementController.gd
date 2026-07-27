@@ -2115,8 +2115,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				# Multi-selection input handling
 				if Input.is_key_pressed(KEY_CTRL):
 					_handle_ctrl_click_selection(event.position)
-				elif Input.is_key_pressed(KEY_SHIFT) and _should_start_drag_box():
-					# Require Shift key for drag-box selection to avoid conflicts
+				elif (Input.is_key_pressed(KEY_SHIFT) or _pad_box_select_armed()) and _should_start_drag_box():
+					# Require Shift key for drag-box selection to avoid conflicts.
+					# On the pad the modifier is the A press itself — see
+					# _pad_box_select_armed() for why that button is free here.
 					_start_drag_box_selection(event.position)
 				elif _try_click_select_unit(event.position):
 					pass  # Click on a different friendly unit's model — selection/switch handled
@@ -2146,7 +2148,17 @@ func _unhandled_input(event: InputEvent) -> void:
 					_end_model_rotation(event.position)
 	elif event is InputEventMouseMotion:
 		if drag_box_active:
-			_update_drag_box_selection(event.position)
+			if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+				# Safety net: a release that landed on a HUD Control is consumed by
+				# the GUI pass and never reaches _unhandled_input, which strands the
+				# box "open" — it then keeps re-selecting on every later mouse move.
+				# If the button is no longer held, close the box where it stands.
+				# Matters most on the pad, where the hint bar and right-hand panel
+				# sit right under a Deck-sized drag.
+				print("MovementController: Drag box lost its release — completing at ", event.position)
+				_complete_drag_box_selection(event.position)
+			else:
+				_update_drag_box_selection(event.position)
 		elif group_dragging:
 			_update_group_drag(event.position)
 		elif dragging_model:
@@ -3968,9 +3980,43 @@ func _on_unit_switch_confirmed(target_unit_id: String) -> void:
 	print("MovementController: Unit switch confirmed — selecting %s" % target_unit_id)
 	_select_unit_in_list_by_id(target_unit_id)
 
+func _pad_box_select_armed() -> bool:
+	"""Controller box multi-select: hold A and drag with the left stick.
+
+	The pad needs no modifier button here because A is ALREADY a plain click in
+	exactly this state. Once the left stick is deflected the virtual cursor goes
+	active, and both of PadRouter's own A meanings stand down on that same flag
+	(_try_open_move_menu and _try_begin_carry each bail on
+	VirtualCursor.is_cursor_active()) — A is handed to VirtualCursor, which emits
+	a synthetic left press/release at the cursor. A press on EMPTY board then ran
+	_handle_single_model_selection, which cleared the selection and returned
+	immediately (no model to drag), so holding A and pushing the stick was a dead
+	gesture. That is the gesture this claims — the same one Shift+drag claims for
+	the mouse, and no spare Deck button is spent on it.
+
+	Deliberately narrow, so the states where A means something keep it:
+	  * pad active + cursor active — a parked cursor means A is still "open the
+	    move menu" / "pick up the indexed model" (see PadRouter._handle_a).
+	  * not mid-carry — the router owns A while a model or group is in hand.
+	  * a live, unfinished move session — the same gate the pad's ▲ "grab all"
+	    uses (pad_can_grab_group). Without it a box could select models before a
+	    move mode is chosen, and the follow-up group drag would have no mode to
+	    stage against. The mouse's Shift+drag is deliberately left as it was.
+	The caller pairs this with _should_start_drag_box(), which refuses when the
+	cursor is over a model — that press stays a model / group drag."""
+	if not InputDeviceManager.is_pad_active():
+		return false
+	if not VirtualCursor.is_cursor_active():
+		return false
+	if PadRouter.is_carrying():
+		return false
+	return pad_can_grab_group()
+
 func _should_start_drag_box() -> bool:
-	"""Determine if we should start drag-box selection (requires Shift key)"""
-	# Start drag box only when Shift is held and we're not clicking directly on a model
+	"""Determine if we should start drag-box selection. The caller supplies the
+	modifier (Shift on the mouse, a held A on the pad — _pad_box_select_armed);
+	this is the shared "the press is not on a model" half."""
+	# Start drag box only when the modifier is held and we're not clicking directly on a model
 	# This prevents conflicts with normal drag-to-move operations
 	# Convert screen position to board-local coords before checking model overlap
 	var board_root = SceneRefs.board_root()

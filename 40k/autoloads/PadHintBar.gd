@@ -66,7 +66,10 @@ func set_hints(hints: Array) -> void:
 func label_for(glyph_id: String) -> String:
 	for hint in current_hints:
 		if str(hint[0]) == glyph_id:
-			return str(hint[1])
+			# Expanded, not raw: a label may name a second button with a "{a}"
+			# token so it follows Settings › Controller remaps, and what the
+			# player READS is the expansion.
+			return GlyphDB.expand_label(str(hint[1]))
 	return ""
 
 

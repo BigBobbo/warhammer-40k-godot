@@ -209,11 +209,21 @@ func _input(event: InputEvent) -> void:
 			# whitelisted here — that is why "Undo Last Model" appeared dead when a
 			# player clicked it (and why "Snap to Contact" only worked via the
 			# test's emit_pressed shortcut, not a real mouse click).
-			for panel_button in [confirm_button, undo_charge_model_button, auto_path_charge_button]:
-				if is_instance_valid(panel_button) and panel_button.visible:
-					if panel_button.get_global_rect().has_point(mouse_event.global_position):
-						print("DEBUG: Click is within a charge-panel button, not handling")
-						return  # Let the button handle this click
+			# A live drag owns its own release: finishing a box / group / model drag
+			# with the cursor over a panel button must still reach
+			# _handle_mouse_release, or the gesture is stranded. Only presses (and
+			# releases with nothing in flight) are handed to the buttons.
+			# Explicitly typed: dragging_model is an untyped `null`-default var, so
+			# `:=` here cannot infer a type and fails to COMPILE — which silently
+			# nulls the whole controller (and with it the overwatch auto-decline
+			# signal), rather than erroring anywhere near this line.
+			var drag_live: bool = dragging_model != null or drag_box_active or group_dragging
+			if mouse_event.pressed or not drag_live:
+				for panel_button in [confirm_button, undo_charge_model_button, auto_path_charge_button]:
+					if is_instance_valid(panel_button) and panel_button.visible:
+						if panel_button.get_global_rect().has_point(mouse_event.global_position):
+							print("DEBUG: Click is within a charge-panel button, not handling")
+							return  # Let the button handle this click
 
 			print("DEBUG: ChargeController _input - Left mouse button, pressed: ", mouse_event.pressed)
 			if mouse_event.pressed:
@@ -254,7 +264,9 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 	# Shift+press on empty board space starts drag-box multi-selection of the
 	# charging unit's models (mirrors the Movement phase multi-select UX).
 	# Pressing ON a model with Shift held falls through to a normal drag.
-	if Input.is_key_pressed(KEY_SHIFT) and _find_draggable_charge_model_at(global_pos).is_empty():
+	# On the pad the A press itself is the modifier — see _pad_box_select_armed().
+	if (Input.is_key_pressed(KEY_SHIFT) or _pad_box_select_armed()) \
+			and _find_draggable_charge_model_at(global_pos).is_empty():
 		if board_root:
 			_start_drag_box_selection(board_root.to_local(global_pos))
 		return
@@ -389,6 +401,13 @@ func _handle_mouse_motion(global_pos: Vector2) -> void:
 	var local_pos = board_root.to_local(global_pos)
 
 	if drag_box_active:
+		if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			# Safety net (mirrors MovementController): a release swallowed by a
+			# charge-panel button never reaches _handle_mouse_release, which would
+			# strand the box open and keep re-selecting on every later move.
+			print("ChargeController: Drag box lost its release — completing at ", local_pos)
+			_complete_drag_box_selection(local_pos)
+			return
 		_update_drag_box_selection(local_pos)
 		return
 	if group_dragging:
@@ -498,6 +517,23 @@ func _update_charge_selection_visuals() -> void:
 		indicator.ring_radius = Measurement.base_radius_px(model.get("base_mm", 32))
 		board_root.add_child(indicator)
 		selection_indicators.append(indicator)
+
+func _pad_box_select_armed() -> bool:
+	"""Controller box multi-select: hold A and drag with the left stick — the pad
+	counterpart of Shift+drag. Same contract as MovementController's helper of the
+	same name (see the long note there): once the left stick deflects, the virtual
+	cursor goes active, PadRouter hands A to VirtualCursor as a plain synthetic
+	click, and an A press on EMPTY board was a dead gesture. Narrow on purpose so
+	a parked cursor and a live carry both keep their own A meanings. The caller
+	pairs this with the "no draggable model here" check, so a press ON a model
+	stays a model / group drag."""
+	if not InputDeviceManager.is_pad_active():
+		return false
+	if not VirtualCursor.is_cursor_active():
+		return false
+	if PadRouter.is_carrying():
+		return false
+	return active_unit_id != ""
 
 func _start_drag_box_selection(local_pos: Vector2) -> void:
 	drag_box_active = true
