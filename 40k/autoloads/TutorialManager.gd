@@ -15,7 +15,15 @@ extends Node
 # scenario assert vocabulary (tests/scenarios/_schema.md): state paths with
 # equals/exists/expect_min/expect_max, node_visible/node_hidden, phase,
 # action (matched against phase_action_taken payloads), multiline script
-# predicates, and ack (explicit Continue). Combinators: any / all.
+# predicates, ack (explicit Continue), and checklist (every item of the step's
+# checklist ticked). Combinators: any / all.
+#
+# A step that teaches SEVERAL inputs declares a "checklist": each item latches
+# independently the moment its predicate first goes true, the overlay renders
+# the live tick list, and `done: {"checklist": true}` fires only when every item
+# is ticked. Without it a step advances on whichever control the player happens
+# to try first and the rest are never discovered — the "look around" step used
+# to jump ahead on a single arrow-key tap.
 
 signal lesson_started(lesson_id: String)
 signal step_changed(step_index: int)
@@ -45,6 +53,8 @@ var _steps: Array = []
 var _captured: Dictionary = {}
 var _ack_done: bool = false
 var _action_hits: Dictionary = {}   # done-tree path ("0.1") -> true once seen
+var _checklist: Array = []          # device-resolved checklist items for the step
+var _checklist_done: Dictionary = {}  # checklist item id -> true once ticked
 var _step_script: GDScript = null   # compiled per-step script predicate cache
 var _script_cache: Dictionary = {}  # code -> GDScript for capture snippets
 var _bypass_gate: bool = false
@@ -120,6 +130,8 @@ func _teardown(emit_exit: bool) -> void:
 	_poll_timer.stop()
 	_hint_timer.stop()
 	_step_script = null
+	_checklist = []
+	_checklist_done = {}
 	if GameState.state.has("meta"):
 		GameState.state.meta.erase("tutorial")
 		GameState.state.meta.erase("tutorial_lesson")
@@ -338,6 +350,13 @@ func _enter_step(index: int) -> void:
 		var spec = capture[key]
 		if typeof(spec) == TYPE_DICTIONARY and spec.has("script"):
 			_captured[key] = _run_snippet(str(spec.script))
+	# on_enter runs BEFORE the checklist is built so a step can clear whatever
+	# latch its items read (e.g. camera gestures the player made during an
+	# earlier step) and start the player on a clean, all-unticked list.
+	var on_enter = step.get("on_enter", {})
+	if typeof(on_enter) == TYPE_DICTIONARY and on_enter.has("script"):
+		_run_snippet(str(on_enter.script))
+	_build_checklist(step)
 	var done: Dictionary = step.get("done", {})
 	if done.has("script"):
 		_step_script = _compile_snippet(str(done.script))
@@ -367,16 +386,109 @@ func _show_current_step() -> void:
 		"ack": _is_ack_step(step),
 		"anchor": step.get("anchor", {}),
 		"spotlight": str(step.get("spotlight", "soft" if step.has("anchor") else "none")),
+		"checklist_label": str(step.get("checklist", {}).get("label", "")),
+		"checklist": _checklist_view(),
 	})
 
 
 func refresh_prompt() -> void:
-	if active:
-		_show_current_step()
+	if not active:
+		return
+	# Item labels (and which items apply at all) are device-dependent, so a
+	# pad<->keyboard swap mid-step has to rebuild the list — carrying the
+	# already-ticked ids across so the player never loses progress.
+	if current_step_index >= 0 and current_step_index < _steps.size():
+		_build_checklist(_steps[current_step_index], _checklist_done)
+	_show_current_step()
 
 
 func _is_ack_step(step: Dictionary) -> bool:
 	return bool(step.get("done", {}).get("ack", false))
+
+
+# --------------------------------------------------------------- checklist ---
+
+# Resolve the step's checklist for the ACTIVE device. Items carry the same
+# device filter as steps do ("any"/"pad"/"kbm") and an optional pad_label, so a
+# single item can read "Pan up [W]" on keyboard and "Pan up [RS]" on a pad.
+# `preserve` re-applies ticks across a rebuild (device swap).
+func _build_checklist(step: Dictionary, preserve: Dictionary = {}) -> void:
+	_checklist = []
+	_checklist_done = {}
+	var spec = step.get("checklist", {})
+	if typeof(spec) != TYPE_DICTIONARY:
+		return
+	var items = spec.get("items", [])
+	if typeof(items) != TYPE_ARRAY:
+		return
+	var pad := InputDeviceManager.is_pad_active()
+	for raw in items:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var iid := str(raw.get("id", ""))
+		if iid == "":
+			continue
+		var dev := str(raw.get("device", "any"))
+		if (dev == "pad" and not pad) or (dev == "kbm" and pad):
+			continue
+		var label := str(raw.get("label", ""))
+		if pad and raw.has("pad_label"):
+			label = str(raw.pad_label)
+		_checklist.append({"id": iid, "label": label, "script": str(raw.get("script", ""))})
+		_checklist_done[iid] = bool(preserve.get(iid, false))
+
+
+# Evaluate every not-yet-ticked item. Returns true if anything newly ticked, so
+# the caller only repaints the overlay when the list actually changed (this runs
+# on the 0.1s poll timer).
+func _poll_checklist() -> bool:
+	var changed := false
+	for item in _checklist:
+		var iid: String = str(item.get("id", ""))
+		if bool(_checklist_done.get(iid, false)):
+			continue
+		var code: String = str(item.get("script", ""))
+		if code == "":
+			continue
+		var s := _compile_snippet(code)
+		if s == null:
+			continue
+		if bool(_call_snippet(s)):
+			_checklist_done[iid] = true
+			changed = true
+			print("TutorialManager: checklist item '%s' ticked (%d/%d)" % [
+				iid, _checklist_ticked_count(), _checklist.size()])
+	return changed
+
+
+func _checklist_ticked_count() -> int:
+	var n := 0
+	for item in _checklist:
+		if bool(_checklist_done.get(str(item.get("id", "")), false)):
+			n += 1
+	return n
+
+
+func _checklist_complete() -> bool:
+	return _checklist_ticked_count() == _checklist.size()
+
+
+func _checklist_view() -> Array:
+	var pad := InputDeviceManager.is_pad_active()
+	var out: Array = []
+	for item in _checklist:
+		var iid: String = str(item.get("id", ""))
+		out.append({
+			"id": iid,
+			"label": TutorialScriptLib.render_text(str(item.get("label", "")), pad),
+			"done": bool(_checklist_done.get(iid, false)),
+		})
+	return out
+
+
+# Exposed for windowed scenarios / the MCP bridge: which items are ticked.
+func checklist_state() -> Dictionary:
+	return _checklist_done.duplicate()
 
 
 func ack() -> void:
@@ -478,6 +590,10 @@ func _on_poll() -> void:
 func _check_done() -> void:
 	if not active or current_step_index < 0 or current_step_index >= _steps.size():
 		return
+	if not _checklist.is_empty() and _poll_checklist():
+		var overlay := get_node_or_null("/root/TutorialOverlay")
+		if overlay:
+			overlay.update_checklist(_checklist_view())
 	var done: Dictionary = _steps[current_step_index].get("done", {})
 	if _eval_condition(done, "0"):
 		_complete_step()
@@ -498,6 +614,11 @@ func _eval_condition(cond: Dictionary, path: String) -> bool:
 		return true
 	if cond.has("ack"):
 		return _ack_done
+	if cond.has("checklist"):
+		# A step declaring `done: {"checklist": true}` with no checklist items
+		# would otherwise complete instantly — treat the empty list as done, the
+		# validator flags the authoring mistake.
+		return _checklist_complete() == bool(cond.checklist)
 	if cond.has("action"):
 		return _action_hits.get(path, false)
 	if cond.has("phase"):

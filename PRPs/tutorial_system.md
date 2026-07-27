@@ -537,6 +537,22 @@ the scene swap (§3.1 gotcha).
       "anchor": { "node": "/root/PadHintBar" },
       "spotlight": "soft",
       "done": { "ack": true }                          // rare Continue-style step
+    },
+    {
+      // Multi-input step: teaches SEVERAL controls, so it must not advance on
+      // whichever one the player tries first (the shipped T1 "camera" step).
+      "id": "camera",
+      "prompt": { "bark": "EYES ON DA FIELD!", "kbm": "…", "pad": "…" },
+      "on_enter": { "script": "…" },                    // runs before the checklist is built
+      "checklist": {
+        "label": "Try each:",
+        "items": [
+          { "id": "pan_up", "label": "Up", "pad_label": "Up {rs}",
+            "script": "return main.camera_gesture_used(\"pan_up\")" }
+          // …one entry per control; optional per-item "device": any|pad|kbm
+        ]
+      },
+      "done": { "checklist": true }
     }
   ]
 }
@@ -547,9 +563,22 @@ Done-condition vocabulary (deliberately mirrors `_schema.md` asserts):
 (matched against `phase_action_taken` payloads, subset-match on listed keys),
 `node_visible` / `node_hidden`, `phase`, `signal` (autoload + signal name),
 `script` (multiline GDScript predicate — escape hatch, used sparingly),
-`ack`; combinators `any` / `all`. Glyph tokens: `{a}…{view}` (GlyphDB ids),
-`{key:<keybinding_id>}` (KeybindingManager display name), `{hint:<glyph>}`
-(live PadHintBar label).
+`ack`, `checklist`; combinators `any` / `all`. Glyph tokens: `{a}…{view}`
+(GlyphDB ids), `{key:<keybinding_id>}` (KeybindingManager display name),
+`{hint:<glyph>}` (live PadHintBar label).
+
+**`checklist` (multi-input steps).** A step that teaches more than one control
+declares `checklist.items`; each item's `script` predicate latches the moment it
+first goes true (on the 0.1s poll), the overlay renders a live tick list —
+outstanding items dim, ticked ones green — and `done: {"checklist": true}` fires
+only when every item is ticked. Ticks are latched, not sampled, so a momentary
+input (a pan that stops) stays ticked; a device swap rebuilds the list with the
+other device's labels and carries the ticks across. Use `on_enter.script` to
+clear whatever latch the predicates read, otherwise a player who wandered ahead
+during an earlier step arrives with boxes already ticked. `Skip Step` still
+bypasses the whole thing — a checklist can never trap a player. Rationale: the
+camera step used to advance on the first nudge of the view, so a player who
+tapped one key never discovered the other three pan directions or the zoom.
 
 ### 5.4 Determinism & the opponent
 

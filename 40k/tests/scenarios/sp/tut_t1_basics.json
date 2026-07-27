@@ -123,7 +123,75 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "select_wagon"
+      "equals": "camera",
+      "comment": "reported bug: the camera step advanced on the FIRST input, so a player who only rolled the wheel never learned pan exists. One gesture must NOT complete the step."
+    },
+    {
+      "act": "execute_script",
+      "script": "var s = TutorialManager.checklist_state()\nreturn bool(s.get(\"zoom_in\", false)) and not bool(s.get(\"pan_up\", false)) and s.size() == 6",
+      "multiline": true,
+      "equals": true,
+      "comment": "the wheel ticked zoom_in only; the other five are still outstanding"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_checklist_text().contains(\"Zoom in\") and o.current_checklist_text().contains(\"Up\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "and the player can SEE what is left — the tick list is on the instructor card"
+    },
+    {
+      "act": "screenshot",
+      "label": "02b_camera_checklist_partial"
+    },
+    {
+      "act": "simulate_wheel",
+      "direction": "down",
+      "count": 2
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Up",
+      "hold_s": 0.25,
+      "comment": "arrow keys, not WASD: S also toggles the Stratagems panel and A the aura rings (pre-existing default-keybind collision with camera_pan_down/left), which swallows the next click"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Down",
+      "hold_s": 0.25,
+      "comment": "arrow keys, not WASD: S also toggles the Stratagems panel and A the aura rings (pre-existing default-keybind collision with camera_pan_down/left), which swallows the next click"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Left",
+      "hold_s": 0.25,
+      "comment": "arrow keys, not WASD: S also toggles the Stratagems panel and A the aura rings (pre-existing default-keybind collision with camera_pan_down/left), which swallows the next click"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "camera",
+      "comment": "five of six ticked — still waiting on Pan Right"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Right",
+      "hold_s": 0.25,
+      "comment": "arrow keys, not WASD: S also toggles the Stratagems panel and A the aura rings (pre-existing default-keybind collision with camera_pan_down/left), which swallows the next click"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "select_wagon",
+      "comment": "all six suggested camera controls used -> and only now does the step advance"
     },
     {
       "act": "execute_script",

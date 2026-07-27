@@ -186,8 +186,12 @@ Each step is a dict with an `act` field plus act-specific keys.
   `OS.find_keycode_from_string`, so use the human-readable key name
   (`"Escape"`, `"Equal"`, `"2"`), NOT the `KEY_*` enum constant name —
   `"KEY_ESCAPE"` does not resolve and fails the step.
+  Optional `hold_s` keeps the key down for that long before releasing — needed
+  for POLLED consumers (camera pan/zoom read `is_action_pressed()` from
+  `_process`), which a press/release straddling one frame may miss.
   ```json
   { "act": "simulate_key", "keycode": "Escape" }
+  { "act": "simulate_key", "keycode": "W", "hold_s": 0.25 }
   ```
 
 - `simulate_joy_button`: dispatch a joypad button press+release through the

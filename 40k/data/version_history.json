@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.4.2",
+      "version": "1.5.1",
       "date": "2026-07-27",
       "summary": "Fixed the tutorial being unplayable in the released builds (itch.io and Steam Deck) — the lessons' saved battles were never packaged into the game. Faction stratagems and leader pairings were missing from those builds for the same reason.",
       "changes": [
@@ -10,6 +10,18 @@
         "Fixed faction stratagems in released builds: every army loaded 0 faction stratagems (only the 22 core ones showed up) because the stratagem data file was also being left out of the package. Orks and Custodes now get their detachment stratagems again.",
         "Fixed leader attachments in released builds: the leader-pairing data was missing too, so the game had 0 known leader/bodyguard pairings to fall back on. It now loads all 918.",
         "If a lesson ever cannot find its saved battle again, the tutorial now refuses to start and tells you the build is missing lesson data, instead of dropping you onto a broken board."
+      ]
+    },
+    {
+      "version": "1.5.0",
+      "date": "2026-07-27",
+      "summary": "Basic Trainin's 'ave a look around' step now waits until you've tried every camera control instead of jumping ahead on the first button you press.",
+      "changes": [
+        "The first camera step of Basic Trainin' used to skip to the next step the moment you nudged the view even once — so if you tapped one key you never found out about panning the other three ways, or about zooming. It now waits until you have used all of them at least once. Same on Steam Deck and in the browser version.",
+        "That step now shows a live tick list — Up, Down, Left, Right, Zoom in, Zoom out — so you can see at a glance which controls you have not tried yet. Each one goes green as you use it.",
+        "The tick list shows the right prompts for whatever you are playing on: keyboard directions on mouse+keyboard, right-stick and trigger glyphs on a controller — and it swaps live if you put the pad down mid-step.",
+        "The keyboard version of the step now points at the arrow keys first, which pan the camera without also opening the Stratagems panel.",
+        "Stuck on one control? The Skip Step button still moves you on — no lesson can trap you."
       ]
     },
     {
