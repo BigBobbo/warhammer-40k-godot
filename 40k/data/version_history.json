@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.5.4",
+      "date": "2026-07-27",
+      "summary": "The tutorial's 'wrong button' warning now tells you what WOULD work instead of just shouting the step's title back at you.",
+      "changes": [
+        "The tutorial's warning for doing something a lesson isn't asking for used to repeat the step's own shout — poke the wrong unit on Basic Trainin' step 7 and you got 'Oi! Not dat one, ya git — READ DA BAR!', which never said what would actually move you on. It now names the way forward: 'dis step only wants [Continue] on da card — press Ⓐ'.",
+        "On a step that is only waiting for you to read it, the warning points at the Continue button by name. On the last step of the final lesson it does not — that one deliberately hands the board back to you, so everything really is allowed there.",
+        "Lessons can now carry their own wording for that warning, with separate text for a controller and for mouse+keyboard, so a step can name a pad button without that showing up on a keyboard.",
+        "Basic Trainin's 'Read da Bar' step now says outright that no unit picking is needed to get past it."
+      ]
+    },
+    {
       "version": "1.5.3",
       "date": "2026-07-27",
       "summary": "On a controller, the tutorial's Continue button is now just the A button — Basic Trainin' step 7 ('Read da Bar') could leave you stuck with no obvious way to move on.",
