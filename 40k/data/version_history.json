@@ -2,13 +2,24 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.5.4",
+      "version": "1.5.5",
       "date": "2026-07-27",
       "summary": "Basic Trainin' no longer tells controller and Steam Deck players to press Shift+/ — the shortcuts step now teaches the pause menu's Controller tab, and the tutorial follows you when you switch between pad and trackpad mid-step.",
       "changes": [
         "The 'DA CHEAT SHEET!' step of Basic Trainin' used to be keyboard-only: on a Steam Deck it told you to press Shift+/ to list the shortcuts, a key combination a Deck has no keys for, and the step could not be finished. On a controller it now says to press View/Select for the pause menu and read the Controller tab, which lists every pad button and lets you remap them.",
         "Pick up the controller mid-step and the tutorial now moves on from steps written for the other device instead of leaving you stuck on one you cannot complete. This bit Steam Deck players in particular, because the Deck's right trackpad counts as a mouse and quietly flips the game into keyboard mode.",
         "The keyboard shortcut list (Shift+/) now also points controller players at Pause Menu → Settings → Controller for the pad layout."
+      ]
+    },
+    {
+      "version": "1.5.4",
+      "date": "2026-07-27",
+      "summary": "The tutorial's 'wrong button' warning now tells you what WOULD work instead of just shouting the step's title back at you.",
+      "changes": [
+        "The tutorial's warning for doing something a lesson isn't asking for used to repeat the step's own shout — poke the wrong unit on Basic Trainin' step 7 and you got 'Oi! Not dat one, ya git — READ DA BAR!', which never said what would actually move you on. It now names the way forward: 'dis step only wants [Continue] on da card — press Ⓐ'.",
+        "On a step that is only waiting for you to read it, the warning points at the Continue button by name. On the last step of the final lesson it does not — that one deliberately hands the board back to you, so everything really is allowed there.",
+        "Lessons can now carry their own wording for that warning, with separate text for a controller and for mouse+keyboard, so a step can name a pad button without that showing up on a keyboard.",
+        "Basic Trainin's 'Read da Bar' step now says outright that no unit picking is needed to get past it."
       ]
     },
     {
