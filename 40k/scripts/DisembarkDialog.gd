@@ -31,6 +31,14 @@ func _ready() -> void:
 	get_cancel_button().text = "Stay Embarked"
 	get_cancel_button().pressed.connect(_on_cancel_pressed)
 
+	# Pad: LB/RB keep their one global meaning — switch units — even while
+	# this dialog is up. An exclusive dialog Window routes joypad events into
+	# its own viewport, so PadRouter's _input never sees the bumpers here;
+	# without this handler, bumper-cycling onto an embarked unit trapped the
+	# player in the popup until they dismissed it. Handled on the dialog's own
+	# window_input (mirrors PileInDialog / AttackAssignmentDialog).
+	window_input.connect(_pad_handle_input)
+
 	print("DisembarkDialog initialized")
 
 func setup(p_unit_id: String) -> void:
@@ -170,6 +178,33 @@ func _combat_disembark_could_apply() -> bool:
 					print("DisembarkDialog: Combat Disembark offered — enemy %s within %.1f\" of transport" % [enemy_id, threshold_inches])
 					return true
 	return false
+
+# A bumper press means "stay embarked and keep browsing": close exactly like
+# the Stay Embarked button, then forward the cycle to PadRouter once the
+# dialog is out of the way — so cycling flows straight through embarked units
+# instead of stopping dead at the popup. Cycling back onto this unit simply
+# reopens the dialog, so no functionality is lost.
+func _pad_handle_input(event: InputEvent) -> void:
+	if not (event is InputEventJoypadButton) or not event.pressed:
+		return
+	var dir := 0
+	# Settings › Controller remaps: match on the canonical button of the role
+	# the pressed physical button carries.
+	match PadBindings.canonical(event.button_index):
+		JOY_BUTTON_LEFT_SHOULDER:
+			dir = -1
+		JOY_BUTTON_RIGHT_SHOULDER:
+			dir = 1
+		_:
+			return
+	set_input_as_handled()
+	print("DisembarkDialog: bumper press — staying embarked, cycling units (dir=%d)" % dir)
+	emit_signal("disembark_canceled")
+	hide()
+	queue_free()
+	# Deferred so the cancel handlers (selection clear, dialog teardown)
+	# settle before the cycle re-selects a row in the unit list.
+	PadRouter.call_deferred("cycle_units", dir)
 
 func _on_ok_pressed() -> void:
 	var combat_mode: bool = combat_checkbox != null and combat_checkbox.button_pressed

@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.5.3",
+      "version": "1.5.5",
       "date": "2026-07-27",
       "summary": "Basic Trainin's grot steps now explain what happens when a squad won't all fit where you drop it, and the 'Move da grots' step no longer skips ahead the moment you pick the mob up on a controller.",
       "changes": [
@@ -11,13 +11,34 @@
       ]
     },
     {
-      "version": "1.5.2",
+      "version": "1.5.4",
       "date": "2026-07-27",
       "summary": "Basic Trainin' now teaches the move-the-whole-squad shortcut on the grot step, instead of leaving you to drag eleven bases one at a time.",
       "changes": [
         "The 'Move da grots' step (step 11) now tells you how to move all eleven models at once — Ctrl+A on mouse and keyboard, D-pad ▲ on a controller — and says to use it because it is much faster. Previously it just said to drag one grot, and with a mob that size it was not obvious there was any other way.",
         "The 'Lock it in' step (step 12) repeats the shortcut for any grots you left behind, so a half-moved mob can be caught up in one go before you confirm.",
         "The step hint now explains the shortcut too, including the controller detail that the whole-squad grab only works once the move has actually started."
+      ]
+    },
+    {
+      "version": "1.5.3",
+      "date": "2026-07-27",
+      "summary": "On a controller, the tutorial's Continue button is now just the A button — Basic Trainin' step 7 ('Read da Bar') could leave you stuck with no obvious way to move on.",
+      "changes": [
+        "Fixed being stuck on a controller whenever a tutorial card asked you to press Continue — most obviously at Basic Trainin' step 7, 'Read da Bar'. The only way past it was to steer the pointer onto the button with the left stick and click it, which nothing told you to do. Pressing A now presses the card's button, wherever the pointer happens to be.",
+        "The card now shows an [A] badge next to Continue, and the button is outlined so you can see it is selected.",
+        "The hint bar at the bottom of the screen now reads 'A Continue' while a tutorial card is waiting — so the 'read da bar' step answers its own question. The end-of-lesson card reads 'Navigate / Choose' and the D-pad moves between Next Lesson and Back to Menu.",
+        "The D-pad can no longer wander off the tutorial card while it is waiting for you, so you can't lose the Continue button in the side panels.",
+        "Basic Trainin's opening card and the 'Read da Bar' step now say outright that A is Continue."
+      ]
+    },
+    {
+      "version": "1.5.2",
+      "date": "2026-07-27",
+      "summary": "Controller: LB/RB now cycle straight through the disembark pop-up instead of getting stuck on it.",
+      "changes": [
+        "Bumper-cycling onto a unit embarked in a transport no longer traps you in the 'Disembark Unit?' pop-up — pressing LB or RB while it is open now stays embarked, closes the pop-up, and cycles to the previous/next unit in one press.",
+        "Nothing else about the pop-up changed: A still confirms Disembark, B / Stay Embarked still declines, and cycling back onto the embarked unit reopens it."
       ]
     },
     {
