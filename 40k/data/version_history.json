@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.0",
+      "date": "2026-07-27",
+      "summary": "Controller players can now box-select several models at once — hold A on empty board and steer with the left stick, the pad version of the mouse's Shift+click-drag.",
+      "changes": [
+        "Added box multi-select on the controller. While a unit is mid-move (Movement phase) or making its charge move, hold A with the cursor over empty board and push the left stick: a selection rectangle follows the cursor, and letting go of A selects every one of that unit's models inside it. Press A on one of them to drag the whole group together, exactly as with a mouse.",
+        "No button changed meaning to make room for this. Holding A on empty board previously did nothing at all, and A only becomes a plain click once you have moved the stick — so A still opens the Move Menu and picks models up exactly as before, and pressing A on a model still drags just that model.",
+        "The hint bar now advertises the gesture ('Hold A: Box Select') whenever it is available, and follows a remapped Select button if you have changed the controller layout in Settings.",
+        "Fixed a selection box getting stuck 'open' if you released the button over the HUD panels instead of the board — it would keep re-selecting models as you moved afterwards. It now closes where you let go. This affected the mouse's Shift+drag too."
+      ]
+    },
+    {
       "version": "1.5.1",
       "date": "2026-07-27",
       "summary": "Fixed the tutorial being unplayable in the released builds (itch.io and Steam Deck) — the lessons' saved battles were never packaged into the game. Faction stratagems and leader pairings were missing from those builds for the same reason.",

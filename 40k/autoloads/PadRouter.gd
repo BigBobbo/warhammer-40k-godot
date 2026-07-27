@@ -263,6 +263,11 @@ const HINTS_FIGHT := [
 	["view", "Pause Menu"],
 ]
 
+# LS chip label for the board box multi-select gesture. "{a}" expands to the
+# button the select role currently sits on (GlyphDB.expand_label), so a layout
+# remapped in Settings › Controller is reflected in the promise.
+const BOX_SELECT_HINT := "Hold {a}: Box Select"
+
 # The target currently highlighted by LB/RB in shooting TARGET_SELECT mode
 # (empty when none). Windowed scenarios assert this.
 var target_highlight_id: String = ""
@@ -2195,7 +2200,48 @@ func _update_hints() -> void:
 				# its focus lives in the modal's own viewport, so the main-viewport
 				# focus check above stays false and this set still shows behind it.
 				hints = HINTS_FIGHT
-	PadHintBar.set_hints(hints)
+	PadHintBar.set_hints(_with_box_select_hint(hints))
+
+
+# Board box multi-select (hold A + left stick) — the pad counterpart of the
+# mouse's Shift+drag. Offered from the RESTING mid-move states, one step before
+# the controllers' own _pad_box_select_armed() will accept the press: that adds
+# "cursor already active", and the player has to read the chip BEFORE deflecting
+# the stick for the gesture to be discoverable at all.
+func _box_select_offered() -> bool:
+	if carry_active:
+		return false
+	# The action bar and any focused panel own the pad exclusively while up.
+	if PadActionBar.is_open() or get_viewport().gui_get_focus_owner() != null:
+		return false
+	var mc := _movement_controller()
+	if mc != null and mc.has_method("pad_can_grab_group"):
+		return bool(mc.pad_can_grab_group())
+	var cc := _charge_controller_any()
+	if cc != null and ("awaiting_movement" in cc) and ("active_unit_id" in cc):
+		return bool(cc.awaiting_movement) and str(cc.active_unit_id) != ""
+	return false
+
+
+# Point the LS chip at the box-select promise while the gesture is live (adding
+# one when the set has no LS chip). Applied here rather than baked into the const
+# sets because one gesture spans several of them — HINTS_MOVE while the mode
+# decision is still re-openable, HINTS_MOVE_STAGED / _LOCKED mid-move, and
+# HINTS_CHARGE_MOVE — and only the router can see which are actually armed.
+func _with_box_select_hint(hints: Array) -> Array:
+	if not _box_select_offered():
+		return hints
+	var out: Array = []
+	var replaced := false
+	for hint in hints:
+		if str(hint[0]) == "ls":
+			out.append(["ls", BOX_SELECT_HINT])
+			replaced = true
+		else:
+			out.append(hint)
+	if not replaced:
+		out.append(["ls", BOX_SELECT_HINT])
+	return out
 
 
 # The MovementController while the Movement phase is live, else null. Used by the
