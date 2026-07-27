@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.5.2",
+      "date": "2026-07-27",
+      "summary": "Basic Trainin' no longer tells controller and Steam Deck players to press Shift+/ — the shortcuts step now teaches the pause menu's Controller tab, and the tutorial follows you when you switch between pad and trackpad mid-step.",
+      "changes": [
+        "The 'DA CHEAT SHEET!' step of Basic Trainin' used to be keyboard-only: on a Steam Deck it told you to press Shift+/ to list the shortcuts, a key combination a Deck has no keys for, and the step could not be finished. On a controller it now says to press View/Select for the pause menu and read the Controller tab, which lists every pad button and lets you remap them.",
+        "Pick up the controller mid-step and the tutorial now moves on from steps written for the other device instead of leaving you stuck on one you cannot complete. This bit Steam Deck players in particular, because the Deck's right trackpad counts as a mouse and quietly flips the game into keyboard mode.",
+        "The keyboard shortcut list (Shift+/) now also points controller players at Pause Menu → Settings → Controller for the pad layout."
+      ]
+    },
+    {
       "version": "1.5.1",
       "date": "2026-07-27",
       "summary": "Fixed the tutorial being unplayable in the released builds (itch.io and Steam Deck) — the lessons' saved battles were never packaged into the game. Faction stratagems and leader pairings were missing from those builds for the same reason.",

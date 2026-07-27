@@ -334,10 +334,8 @@ func _enter_step(index: int) -> void:
 	var step: Dictionary = _steps[index]
 
 	# Device-filtered steps (PRP §4.4) are skipped silently on the other device.
-	var dev := str(step.get("device", "any"))
-	if (dev == "pad" and not InputDeviceManager.is_pad_active()) \
-			or (dev == "kbm" and InputDeviceManager.is_pad_active()):
-		print("TutorialManager: skipping step '%s' (device=%s)" % [str(step.get("id", "")), dev])
+	if not _step_matches_device(step):
+		print("TutorialManager: skipping step '%s' (device=%s)" % [str(step.get("id", "")), str(step.get("device", "any"))])
 		_enter_step(index + 1)
 		return
 
@@ -394,12 +392,32 @@ func _show_current_step() -> void:
 func refresh_prompt() -> void:
 	if not active:
 		return
-	# Item labels (and which items apply at all) are device-dependent, so a
-	# pad<->keyboard swap mid-step has to rebuild the list — carrying the
-	# already-ticked ids across so the player never loses progress.
 	if current_step_index >= 0 and current_step_index < _steps.size():
+		# A mid-step device swap can strand the player on a step authored for the
+		# device they just put down — the Steam Deck is the live case: its right
+		# trackpad emits real mouse motion, so KBM gets claimed, a keyboard-only
+		# step is entered, and the pad can then never satisfy it (the player is
+		# told to press Shift+/ on a machine with no keyboard). Re-entering the
+		# step runs the same device filter _enter_step applies, which skips it
+		# forward to the variant that matches the device now in the player's hands.
+		if not _step_matches_device(_steps[current_step_index]):
+			_enter_step(current_step_index)
+			return
+		# Item labels (and which items apply at all) are device-dependent, so a
+		# pad<->keyboard swap mid-step has to rebuild the list — carrying the
+		# already-ticked ids across so the player never loses progress.
 		_build_checklist(_steps[current_step_index], _checklist_done)
 	_show_current_step()
+
+
+# "any" steps run on both devices; "pad"/"kbm" steps only on theirs.
+func _step_matches_device(step: Dictionary) -> bool:
+	var dev := str(step.get("device", "any"))
+	if dev == "pad":
+		return InputDeviceManager.is_pad_active()
+	if dev == "kbm":
+		return not InputDeviceManager.is_pad_active()
+	return true
 
 
 func _is_ack_step(step: Dictionary) -> bool:
