@@ -161,15 +161,22 @@
       "device": "pad",
       "prompt": {
         "bark": "READ DA BAR!",
-        "pad": "Dat strip at da bottom always shows wot each button does [i]right now[/i]. It changes wiv da situation — when in doubt, read da bar."
+        "pad": "Dat strip at da bottom always shows wot each button does [i]right now[/i] — when in doubt, read da bar.\n\nRead it now: it says {a} [b]Continue[/b]. Dat's da only fing dis step wants — press {a} an' we move on. No unit pickin' needed."
       },
       "anchor": {
         "node": "/root/PadHintBar"
       },
       "spotlight": "soft",
       "allow": [],
+      "blocked_hint": {
+        "pad": "dis step only wants [Continue] on da card — press {a}. Pickin' anuvver unit won't move ya on."
+      },
       "done": {
         "ack": true
+      },
+      "hint_after_s": 15,
+      "hint": {
+        "pad": "Nuffin' on da board works while dis step's up — pickin' anuvver unit won't do it. Press {a} for [b]Continue[/b] (it's on dis card, an' in da bar at da bottom)."
       }
     },
     {

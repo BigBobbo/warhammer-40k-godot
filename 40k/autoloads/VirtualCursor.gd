@@ -252,6 +252,15 @@ func _input(event: InputEvent) -> void:
 				# handlers.
 				if PadRouter.is_carrying():
 					return
+				# A tutorial step waiting on nothing but its Continue button owns
+				# Ⓐ outright (PadRouter._handle_a). Reported trap on T1 step 7/13
+				# ("READ DA BAR!"): the player pushes the stick to look around,
+				# the cursor wakes, and from then on Ⓐ was a synthetic board
+				# CLICK — on empty ground, or on the embarked Boyz + Warboss who
+				# have no models on the table, so absolutely nothing happened and
+				# nothing said why. Stand down and let the router continue.
+				if _tutorial_ack_pending():
+					return
 				_emit_button(MOUSE_BUTTON_LEFT, event.pressed)
 				get_viewport().set_input_as_handled()
 			JOY_BUTTON_X:
@@ -272,6 +281,15 @@ func _input(event: InputEvent) -> void:
 					return
 				_emit_button(MOUSE_BUTTON_RIGHT, event.pressed)
 				get_viewport().set_input_as_handled()
+
+
+# True while a tutorial step is waiting on nothing but its Continue button —
+# an ack step's allow-list is empty, so no click this cursor could synthesise
+# would be honoured anyway. Guarded so the cursor keeps working with the
+# tutorial autoload absent.
+func _tutorial_ack_pending() -> bool:
+	var tm := get_node_or_null("/root/TutorialManager")
+	return tm != null and tm.has_method("is_ack_pending") and bool(tm.is_ack_pending())
 
 
 func _emit_button(button: MouseButton, pressed: bool) -> void:

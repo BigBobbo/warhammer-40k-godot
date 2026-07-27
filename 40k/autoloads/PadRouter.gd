@@ -149,6 +149,18 @@ const HINTS_FOCUS := [
 	["a", "Press"],
 	["b", "Back To Board"],
 ]
+# A tutorial step that only wants an acknowledgement (done.ack): its allow-list
+# is empty, so EVERY board action is refused and the card's Continue button is
+# the one way on. The bar says exactly that, and deliberately advertises no
+# "Cycle Units" — cycling to another unit and pressing Ⓐ is precisely the dead
+# end that was reported ("nothing happens"). See _handle_a's ack branch.
+const HINTS_TUTORIAL_ACK := [
+	["a", "Continue"],
+	["ls", "Point"],
+	["lt/rt", "Zoom"],
+	["y", "Datasheet"],
+	["view", "Pause Menu"],
+]
 # Charge carry (one model at a time): the plain set — no per-model advance and
 # no group grab, so neither "X Finish Model" nor "dpad Grab All". Start drops
 # the held model and confirms the charge when every declared target is reached.
@@ -394,13 +406,13 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_LEFT_SHOULDER:
 			if carry_active:
 				_synth_rotate(true)
-			else:
+			elif not _refuse_cycle_during_tutorial_ack():
 				_cycle(-1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_RIGHT_SHOULDER:
 			if carry_active:
 				_synth_rotate(false)
-			else:
+			elif not _refuse_cycle_during_tutorial_ack():
 				_cycle(1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_Y:
@@ -484,6 +496,16 @@ func _input(event: InputEvent) -> void:
 func _handle_a() -> bool:
 	if carry_active:
 		_drop_carry()
+		return true
+	# A tutorial ack step ("press Continue to go on") owns Ⓐ outright: its
+	# allow-list is empty so nothing else the router could do would be permitted
+	# anyway, and the overlay only auto-focuses Continue when the step OPENS.
+	# Reported trap (T1 step 7/13, "READ DA BAR!"): cycling to another unit
+	# released that focus, so Ⓐ fell through here — onto the Boyz + Warboss, who
+	# are embarked and have no board models, it did literally nothing. Now Ⓐ
+	# always means Continue while such a step is up, wherever the selection sits.
+	if _tutorial_ack_pending():
+		TutorialManager.ack()
 		return true
 	if _assign_highlighted_target():
 		return true
@@ -2148,8 +2170,38 @@ func _fight_controller() -> Node:
 	return fc
 
 
+# True while a tutorial step is waiting on nothing but its Continue button.
+# Guarded so the router keeps working with the tutorial autoload absent (it is
+# always present in-game; scenario harnesses have booted without it).
+func _tutorial_ack_pending() -> bool:
+	var tm := get_node_or_null("/root/TutorialManager")
+	return tm != null and tm.has_method("is_ack_pending") and bool(tm.is_ack_pending())
+
+
+# LB/RB unit-cycling stands down on a tutorial ack step, and says why. Cycling
+# there could never help — the step's allow-list is empty, so the selection's
+# own BEGIN_NORMAL_MOVE is refused — but it could very much hurt: landing on the
+# embarked Boyz + Warboss pops the Disembark dialog, which is a native-nav modal
+# that then OWNS Ⓐ, so the next press started a disembark placement session
+# instead of pressing Continue. That is the reported T1 step 7/13 dead end. The
+# hint bar already stops advertising "Cycle Units" for these steps (see
+# HINTS_TUTORIAL_ACK); this makes the button match the promise.
+func _refuse_cycle_during_tutorial_ack() -> bool:
+	if not _tutorial_ack_pending():
+		return false
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm != null and tm.has_method("on_action_blocked"):
+		tm.on_action_blocked({"type": "PAD_CYCLE_UNITS"})
+	return true
+
+
 func _update_hints() -> void:
 	var hints := HINTS_BOARD
+	if _tutorial_ack_pending():
+		# Checked before everything else: on an ack step no other context can
+		# offer a legal action, so no other hint set can be honest here.
+		PadHintBar.set_hints(HINTS_TUTORIAL_ACK)
+		return
 	if carry_active:
 		if group_carry_active:
 			hints = HINTS_CARRY_GROUP

@@ -502,3 +502,12 @@ func _on_continue_pressed() -> void:
 	var m := _mgr()
 	if m:
 		m.ack()
+
+
+# True while the card is showing a step whose Continue button is the way on.
+# PadRouter asks this so Ⓐ means "Continue" for the WHOLE screen during such a
+# step — not only while the button happens to hold focus. Reported trap: on the
+# pad-only "READ DA BAR!" step the player cycled to another unit (which releases
+# the button's focus), pressed Ⓐ, and nothing at all happened.
+func continue_available() -> bool:
+	return visible and _continue_button != null and _continue_button.visible
