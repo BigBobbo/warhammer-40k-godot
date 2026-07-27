@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.5.3",
+      "date": "2026-07-27",
+      "summary": "Basic Trainin's grot steps now explain what happens when a squad won't all fit where you drop it, and the 'Move da grots' step no longer skips ahead the moment you pick the mob up on a controller.",
+      "changes": [
+        "The grot steps now spell out partial placement: drop the whole mob somewhere they can't all fit and only the ones that fit are placed. On mouse and keyboard the ones that couldn't be placed stay selected, so one more drag takes exactly those somewhere else; on a controller another D-pad ▲ picks up every model that still hasn't moved. The game already worked this way — the tutorial just never said so, which made a half-placed squad look like a bug.",
+        "Fixed 'Move da grots' jumping to 'Lock it in!' on a controller the instant you pressed D-pad ▲ to grab the squad, before a single grot had actually moved. The step now waits until a model has really covered ground."
+      ]
+    },
+    {
       "version": "1.5.2",
       "date": "2026-07-27",
       "summary": "Basic Trainin' now teaches the move-the-whole-squad shortcut on the grot step, instead of leaving you to drag eleven bases one at a time.",
