@@ -408,15 +408,28 @@ func _is_ack_step(step: Dictionary) -> bool:
 	return bool(step.get("done", {}).get("ack", false))
 
 
-# True while the live step is an ack step AND the overlay is actually offering
-# its Continue button. An ack step's allow-list is empty — no board action can
-# ever succeed — so Continue is the one and only way forward. PadRouter reads
-# this to make Ⓐ mean "Continue" everywhere on screen (and to say so in the
-# hint bar) instead of only while the button holds focus.
+# A "closed" ack step: Continue is the way on AND the allow-list is empty, so
+# there is provably nothing else the player could usefully do. That second half
+# matters — T7's final step is an ack step with allow "*", which deliberately
+# hands the game back ("Da rest is just playin'"). Treating THAT as closed would
+# have the pad refuse to cycle units and steal Ⓐ from a board the lesson has
+# explicitly reopened. Only genuinely closed steps get the pad overrides.
+func _is_closed_ack_step(step: Dictionary) -> bool:
+	if not _is_ack_step(step):
+		return false
+	var allow = step.get("allow", [])
+	return typeof(allow) == TYPE_ARRAY and (allow as Array).is_empty()
+
+
+# True while the live step is a closed ack step AND the overlay is actually
+# offering its Continue button — i.e. Continue is the one and only way forward.
+# PadRouter and VirtualCursor read this to make Ⓐ mean "Continue" everywhere on
+# screen (and to say so in the hint bar) instead of only while the button holds
+# focus. False on an open ack step, where the board keeps its normal controls.
 func is_ack_pending() -> bool:
 	if not active or current_step_index < 0 or current_step_index >= _steps.size():
 		return false
-	if not _is_ack_step(_steps[current_step_index]):
+	if not _is_closed_ack_step(_steps[current_step_index]):
 		return false
 	var overlay := get_node_or_null("/root/TutorialOverlay")
 	if overlay == null or not overlay.has_method("continue_available"):
@@ -768,7 +781,9 @@ func _blocked_instruction() -> String:
 		custom = TutorialScriptLib.body_for_device({"prompt": custom}, pad)
 	if str(custom) != "":
 		return _plain_glyphs(str(custom))
-	if _is_ack_step(step):
+	# Only a CLOSED ack step can honestly claim Continue is the sole way on; an
+	# ack step with a live allow-list falls through to the bark-based message.
+	if _is_closed_ack_step(step):
 		if pad:
 			return _plain_glyphs("dis step only wants [Continue] on da tutorial card — press {a}.")
 		return "dis step only wants [Continue] on da tutorial card."

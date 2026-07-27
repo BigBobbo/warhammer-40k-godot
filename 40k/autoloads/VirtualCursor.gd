@@ -284,8 +284,8 @@ func _input(event: InputEvent) -> void:
 
 
 # True while a tutorial step is waiting on nothing but its Continue button —
-# an ack step's allow-list is empty, so no click this cursor could synthesise
-# would be honoured anyway. Guarded so the cursor keeps working with the
+# a closed ack step's allow-list is empty, so no click this cursor could
+# synthesise would be honoured anyway. Guarded so the cursor keeps working with the
 # tutorial autoload absent.
 func _tutorial_ack_pending() -> bool:
 	var tm := get_node_or_null("/root/TutorialManager")

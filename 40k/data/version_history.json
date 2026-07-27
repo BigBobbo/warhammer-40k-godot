@@ -10,7 +10,8 @@
         "The hint bar the step tells you to read now actually says [Ⓐ] Continue while such a step is up — and stops advertising 'Cycle Units', which was the wrong turn that led into the dead end.",
         "The bumpers no longer switch units on a step like that. They tell you what the step wants instead, so you cannot wander into a dialog mid-lesson.",
         "The 'wrong button' warning now names what WOULD work. It used to just echo the step's shout back at you — 'Oi! Not dat one, ya git — READ DA BAR!' — which never explained anything. It now reads 'dis step only wants [Continue] on da card — press Ⓐ'.",
-        "The step's own text now names the Continue button and says no unit picking is needed."
+        "The step's own text now names the Continue button and says no unit picking is needed.",
+        "The last step of the final lesson is the one place this does not apply — it deliberately hands the board back to you, so the controller keeps all its normal buttons there."
       ]
     },
     {

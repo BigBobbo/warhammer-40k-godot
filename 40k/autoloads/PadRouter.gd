@@ -149,9 +149,10 @@ const HINTS_FOCUS := [
 	["a", "Press"],
 	["b", "Back To Board"],
 ]
-# A tutorial step that only wants an acknowledgement (done.ack): its allow-list
-# is empty, so EVERY board action is refused and the card's Continue button is
-# the one way on. The bar says exactly that, and deliberately advertises no
+# A CLOSED tutorial ack step (done.ack with an empty allow-list): every board
+# action is refused and the card's Continue button is the one way on. An ack
+# step that still allows actions — T7's sign-off, allow "*" — is NOT this, and
+# keeps the normal board hints. The bar says exactly that, and deliberately advertises no
 # "Cycle Units" — cycling to another unit and pressing Ⓐ is precisely the dead
 # end that was reported ("nothing happens"). See _handle_a's ack branch.
 const HINTS_TUTORIAL_ACK := [
@@ -497,7 +498,7 @@ func _handle_a() -> bool:
 	if carry_active:
 		_drop_carry()
 		return true
-	# A tutorial ack step ("press Continue to go on") owns Ⓐ outright: its
+	# A closed tutorial ack step ("press Continue to go on") owns Ⓐ outright: its
 	# allow-list is empty so nothing else the router could do would be permitted
 	# anyway, and the overlay only auto-focuses Continue when the step OPENS.
 	# Reported trap (T1 step 7/13, "READ DA BAR!"): cycling to another unit
@@ -2178,9 +2179,9 @@ func _tutorial_ack_pending() -> bool:
 	return tm != null and tm.has_method("is_ack_pending") and bool(tm.is_ack_pending())
 
 
-# LB/RB unit-cycling stands down on a tutorial ack step, and says why. Cycling
-# there could never help — the step's allow-list is empty, so the selection's
-# own BEGIN_NORMAL_MOVE is refused — but it could very much hurt: landing on the
+# LB/RB unit-cycling stands down on a CLOSED tutorial ack step, and says why.
+# Cycling there could never help — the step's allow-list is empty, so the
+# selection's own BEGIN_NORMAL_MOVE is refused — but it could very much hurt: landing on the
 # embarked Boyz + Warboss pops the Disembark dialog, which is a native-nav modal
 # that then OWNS Ⓐ, so the next press started a disembark placement session
 # instead of pressing Continue. That is the reported T1 step 7/13 dead end. The
