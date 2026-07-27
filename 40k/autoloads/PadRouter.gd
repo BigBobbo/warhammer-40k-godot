@@ -655,6 +655,17 @@ func _reopen_move_menu() -> void:
 # Cycling
 # ============================================================================
 
+# Public bumper-cycle entry for dialogs that run in their own exclusive
+# Window (e.g. DisembarkDialog): joypad events route into the focused
+# Window's viewport, so this router's _input never sees LB/RB while such a
+# dialog is up. The dialog dismisses itself first, then forwards the press
+# here so the bumpers keep their one global meaning — switch units.
+func cycle_units(dir: int) -> void:
+	InputDeviceManager.claim_pad()
+	_cycle(dir)
+	_update_hints()
+
+
 func _cycle(dir: int) -> void:
 	# Fight phase: the bumpers cycle keyboard focus among the ACTION BUTTONS of
 	# the visible fight-panel section (fighter picks, pile-in / consolidate unit
