@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.5.2",
+      "date": "2026-07-27",
+      "summary": "Controller: LB/RB now cycle straight through the disembark pop-up instead of getting stuck on it.",
+      "changes": [
+        "Bumper-cycling onto a unit embarked in a transport no longer traps you in the 'Disembark Unit?' pop-up — pressing LB or RB while it is open now stays embarked, closes the pop-up, and cycles to the previous/next unit in one press.",
+        "Nothing else about the pop-up changed: A still confirms Disembark, B / Stay Embarked still declines, and cycling back onto the embarked unit reopens it."
+      ]
+    },
+    {
       "version": "1.5.1",
       "date": "2026-07-27",
       "summary": "Fixed the tutorial being unplayable in the released builds (itch.io and Steam Deck) — the lessons' saved battles were never packaged into the game. Faction stratagems and leader pairings were missing from those builds for the same reason.",
