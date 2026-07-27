@@ -3017,6 +3017,51 @@
       "status": "covered"
     },
     {
+      "id": "controller.input_mode.policy_lock",
+      "description": "The active input device is resolved ONCE at launch and locked, instead of following whatever was touched last (on a Steam Deck the trackpads/paddles arrive as mouse or keyboard input and used to flip the UI — and the canvas content scale — mid-game). 'auto' resolves from the platform (Steam Deck -> controller, PC/browser -> mouse & keyboard), 'pad'/'kbm' pin a choice, 'dynamic' restores the legacy follow-last-input behaviour. Under a locked policy no key press, mouse motion or joypad button changes the mode. The switch is Settings › Controller › Input Mode, and the main menu shows the mode in force.",
+      "scenarios": [
+        "input_mode_policy_lock"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.InputDeviceManager.mode_policy",
+      "description": "InputDeviceManager.apply_mode_policy / resolve_policy_mode / detect_platform_mode: policy validation, Steam Deck detection signals (SteamDeck=1, gamescope session, SteamOS, Deck APU), the --input-mode= override and the automated-harness pin to 'dynamic' that keeps the pad_* scenarios driving the pad by synthesised events.",
+      "scenarios": [
+        "input_mode_policy_lock"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.SettingsService.input_mode_policy",
+      "description": "SettingsService.input_mode_policy persists the player's Input Mode choice to user://settings.cfg (defaulting to 'auto'), rejects unknown values, drives InputDeviceManager.apply_mode_policy and re-applies the pad text boost so the canvas scale follows the resolved device.",
+      "scenarios": [
+        "input_mode_policy_lock"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.SettingsMenu.input_mode_section",
+      "description": "Settings › Controller › Input Mode: a pad-navigable dropdown (Auto-detect / Controller / Mouse & Keyboard / Follow last input) plus a live 'Currently using: …' readout that names the mode in force and how it was chosen.",
+      "scenarios": [
+        "input_mode_policy_lock"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.MainMenu.input_mode_status",
+      "description": "The main menu's top-right InputModeStatus label reports the locked input mode and its origin (auto-detected platform / locked by you / following last input) and points at Settings › Controller › Input Mode, so a player whose auto-detection is wrong can find the override.",
+      "scenarios": [
+        "input_mode_policy_lock"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "controller.end_phase.discoverability",
       "description": "A controller player can discover how to end a phase without the touchscreen: the button they reach for names the Menu (☰) button bound to pad_phase_action, matching the '☰ End Phase' hint-bar chip, and pressing Menu (Start) pops the confirm dialog whose OK ends the phase.",
       "scenarios": [

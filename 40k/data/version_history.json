@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.0",
+      "date": "2026-07-27",
+      "summary": "The game no longer flips between the controller and mouse & keyboard layouts while you play. It now picks one at launch — controller on a Steam Deck, mouse & keyboard on a PC or in the browser — and sticks to it, with a new Settings › Controller › Input Mode setting to override the choice.",
+      "changes": [
+        "Fixed the screen resizing and the on-screen prompts swapping mid-game on the Steam Deck: the trackpads, back paddles and gyro can register as mouse or keyboard input, and every stray touch used to switch the whole interface (including the larger controller text) back and forth.",
+        "The game now detects where it is running and picks the layout once: a Steam Deck gets the controller layout, a PC or the itch.io browser build gets mouse & keyboard. It does not change again on its own.",
+        "New setting: Settings › Controller › Input Mode — choose Auto-detect, Controller / Steam Deck, Mouse & Keyboard, or 'Follow last input used' if you preferred the old behaviour. It is fully navigable with the controller and remembers your choice.",
+        "The main menu now shows which layout is in force (and how it was chosen) in the top-right corner, next to the controller status."
+      ]
+    },
+    {
       "version": "1.5.1",
       "date": "2026-07-27",
       "summary": "Fixed the tutorial being unplayable in the released builds (itch.io and Steam Deck) — the lessons' saved battles were never packaged into the game. Faction stratagems and leader pairings were missing from those builds for the same reason.",

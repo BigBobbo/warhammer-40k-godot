@@ -96,7 +96,8 @@ SECTIONS = [
             ],
             "rp": ("na", "N/A — no in-game panels yet"),
             "notes": ["Start Game is the default-focused control (grab_focus on load).",
-                      "The top-right 'Controller: not detected / ACTIVE' label is a live diagnostic."],
+                      "The top-right 'Controller: not detected / ACTIVE' label is a live diagnostic.",
+                      "Below it, the 'Input: …' label names the layout in force (and how it was chosen) and points at Settings > Controller > Input Mode."],
         }],
     },
     {
@@ -108,14 +109,13 @@ SECTIONS = [
             "when": "After pressing View (⧉) with nothing else open.",
             "custom": [
                 ("view", "Open the menu (and closes the top overlay if one is up)"),
-                ("dpad", "Move between tabs (Audio / Visual / Gameplay / Controls) and controls"),
+                ("dpad", "Move between tabs (Audio / Visual / Gameplay / Controls / Controller) and controls"),
                 ("a", "Activate the focused tab / slider / checkbox / button"),
                 ("b", "Close the menu (ui_cancel)"),
             ],
             "rp": ("dialog", "The menu is modal and traps pad focus until closed"),
             "notes": ["Full controller navigation; Close is default-focused.",
-                      "The Controls tab shows a read-only controller reference.",
-                      "GAP: keybinding remap only captures keyboard keys — you cannot rebind actions to gamepad buttons.",
+                      "The Controller tab opens with Input Mode — Auto-detect / Controller / Mouse & Keyboard / Follow last input — which is how you override the layout the game picked at launch. It also hosts the pad-button remapping and a read-only controller reference.",
                       "Save/Load dialog: the saves list is walkable with the D-pad; A loads, B closes."],
         }],
     },
@@ -715,7 +715,7 @@ footer code{{font-family:var(--mono);background:var(--panel-2);padding:1px 6px;b
       <h2>How to read this</h2>
       <p class="sub">The controls are contextual: the same button means different things in different states.</p>
       <ul class="notes" style="font-size:14px">
-        <li><strong>The pad only drives the game while it is the active device.</strong> Any joypad press claims control (the on-screen hint bar appears); any mouse move or key press hands control back to keyboard &amp; mouse.</li>
+        <li><strong>The pad only drives the game while the controller layout is the active one — and that is now chosen once, at launch.</strong> Auto-detect picks the controller layout on a Steam Deck and mouse &amp; keyboard on a PC or in the browser, then <em>sticks</em>: a mouse move, a key press or a joypad press no longer swaps the layout mid-game (on a Deck the trackpads/paddles register as mouse/keyboard input, which used to flip the UI — and the controller text boost's canvas scale — back and forth). Change it in <em>Settings &rsaquo; Controller &rsaquo; Input Mode</em>: Auto-detect, Controller / Steam Deck, Mouse &amp; Keyboard, or "Follow last input used" for the old behaviour.</li>
         <li><strong>LB / RB are the only unit-switcher.</strong> They cycle the acting unit in every phase. Unit lists on the right are deliberately NOT walkable with the D-pad or stick — cycling is the bumpers' job alone.</li>
         <li><strong>The D-pad is context-dependent.</strong> With nothing selected it enters panel focus; with a phase sub-menu open (targets, weapons, move mode, deploy rows) it drives that instead; and while you are moving a unit it switches models (◀▶), grabs all (▲), or drops back to one (▼).</li>
         <li><strong>Each state below lists its buttons, whether the right-hand panel can be driven on the pad, and any gaps.</strong> The "Right panel on pad?" badge is the answer to "can I control the menu on the right here?"</li>

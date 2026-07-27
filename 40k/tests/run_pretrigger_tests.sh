@@ -2,6 +2,8 @@
 # Runs the audit-suite of headless GDScript regression tests:
 #   - tutorial multi-input checklist ("'ave a look around" waits for every
 #     suggested camera control instead of the first one pressed)
+#   - input-mode policy (device resolved + locked at launch instead of
+#     following the last input; Steam Deck / PC auto-detection)
 #   - 3 pretrigger fixture tests (deferred-action stratagems CO/HI/RI)
 #   - audit-fix verification (#329, #336, #338, #356, #359)
 #   - T2.M6 base-touching regression (#321/#327)
@@ -42,6 +44,7 @@ cp -n tests/saves/*.meta saves/ 2>/dev/null || true
 
 TESTS=(
     "tests/test_tutorial_checklist.gd"
+    "tests/test_input_mode_policy.gd"
     "tests/test_controller_controls_doc_sync.gd"
     "tests/test_hi_pretrigger.gd"
     "tests/test_ai_reactive_window_guard.gd"
