@@ -13207,6 +13207,18 @@ func _refresh_vp_timeline_panel() -> void:
 	totals.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_vp_timeline_list.add_child(totals)
 
+func _pause_button_glyph() -> String:
+	# "⧉ View" by default; follows a Settings › Controller remap of the Pause
+	# Menu role. Autoload fetched by path so the bare headless harness (which
+	# runs without PadBindings) still gets a sensible label.
+	var pb := get_node_or_null("/root/PadBindings")
+	if pb != null and pb.has_method("button_full_name") and pb.has_method("get_button"):
+		var g: String = str(pb.button_full_name(pb.get_button("pad_pause")))
+		if g != "":
+			return g
+	return "⧉ View (Select)"
+
+
 func _toggle_hotkey_help_overlay() -> void:
 	if _hotkey_help_overlay and is_instance_valid(_hotkey_help_overlay):
 		_hotkey_help_overlay.queue_free()
@@ -13276,6 +13288,17 @@ func _toggle_hotkey_help_overlay() -> void:
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(hint)
+	# Controller route to the same information. This help screen is keyboard-only
+	# by nature (and Shift+/ is unpressable on a Steam Deck in Game Mode), so
+	# always point pad players at the Controller tab, which lists every pad
+	# button and lets them remap it. Glyph comes from PadBindings so a remapped
+	# Pause Menu role shows the button it is actually on now.
+	var pad_hint := Label.new()
+	pad_hint.name = "PadRouteHint"
+	pad_hint.text = "On a controller: %s (Pause Menu) → Settings → Controller lists every pad button" % _pause_button_glyph()
+	pad_hint.add_theme_font_size_override("font_size", 12)
+	pad_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(pad_hint)
 	add_child(_hotkey_help_overlay)
 	_hotkey_help_overlay.z_index = UI_OVERLAY_Z
 	print("Main: Hotkey help overlay opened")

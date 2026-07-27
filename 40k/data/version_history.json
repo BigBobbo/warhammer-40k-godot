@@ -13,6 +13,48 @@
       ]
     },
     {
+      "version": "1.5.5",
+      "date": "2026-07-27",
+      "summary": "Basic Trainin' no longer tells controller and Steam Deck players to press Shift+/ — the shortcuts step now teaches the pause menu's Controller tab, and the tutorial follows you when you switch between pad and trackpad mid-step.",
+      "changes": [
+        "The 'DA CHEAT SHEET!' step of Basic Trainin' used to be keyboard-only: on a Steam Deck it told you to press Shift+/ to list the shortcuts, a key combination a Deck has no keys for, and the step could not be finished. On a controller it now says to press View/Select for the pause menu and read the Controller tab, which lists every pad button and lets you remap them.",
+        "Pick up the controller mid-step and the tutorial now moves on from steps written for the other device instead of leaving you stuck on one you cannot complete. This bit Steam Deck players in particular, because the Deck's right trackpad counts as a mouse and quietly flips the game into keyboard mode.",
+        "The keyboard shortcut list (Shift+/) now also points controller players at Pause Menu → Settings → Controller for the pad layout."
+      ]
+    },
+    {
+      "version": "1.5.4",
+      "date": "2026-07-27",
+      "summary": "The tutorial's 'wrong button' warning now tells you what WOULD work instead of just shouting the step's title back at you.",
+      "changes": [
+        "The tutorial's warning for doing something a lesson isn't asking for used to repeat the step's own shout — poke the wrong unit on Basic Trainin' step 7 and you got 'Oi! Not dat one, ya git — READ DA BAR!', which never said what would actually move you on. It now names the way forward: 'dis step only wants [Continue] on da card — press Ⓐ'.",
+        "On a step that is only waiting for you to read it, the warning points at the Continue button by name. On the last step of the final lesson it does not — that one deliberately hands the board back to you, so everything really is allowed there.",
+        "Lessons can now carry their own wording for that warning, with separate text for a controller and for mouse+keyboard, so a step can name a pad button without that showing up on a keyboard.",
+        "Basic Trainin's 'Read da Bar' step now says outright that no unit picking is needed to get past it."
+      ]
+    },
+    {
+      "version": "1.5.3",
+      "date": "2026-07-27",
+      "summary": "On a controller, the tutorial's Continue button is now just the A button — Basic Trainin' step 7 ('Read da Bar') could leave you stuck with no obvious way to move on.",
+      "changes": [
+        "Fixed being stuck on a controller whenever a tutorial card asked you to press Continue — most obviously at Basic Trainin' step 7, 'Read da Bar'. The only way past it was to steer the pointer onto the button with the left stick and click it, which nothing told you to do. Pressing A now presses the card's button, wherever the pointer happens to be.",
+        "The card now shows an [A] badge next to Continue, and the button is outlined so you can see it is selected.",
+        "The hint bar at the bottom of the screen now reads 'A Continue' while a tutorial card is waiting — so the 'read da bar' step answers its own question. The end-of-lesson card reads 'Navigate / Choose' and the D-pad moves between Next Lesson and Back to Menu.",
+        "The D-pad can no longer wander off the tutorial card while it is waiting for you, so you can't lose the Continue button in the side panels.",
+        "Basic Trainin's opening card and the 'Read da Bar' step now say outright that A is Continue."
+      ]
+    },
+    {
+      "version": "1.5.2",
+      "date": "2026-07-27",
+      "summary": "Controller: LB/RB now cycle straight through the disembark pop-up instead of getting stuck on it.",
+      "changes": [
+        "Bumper-cycling onto a unit embarked in a transport no longer traps you in the 'Disembark Unit?' pop-up — pressing LB or RB while it is open now stays embarked, closes the pop-up, and cycles to the previous/next unit in one press.",
+        "Nothing else about the pop-up changed: A still confirms Disembark, B / Stay Embarked still declines, and cycling back onto the embarked unit reopens it."
+      ]
+    },
+    {
       "version": "1.5.1",
       "date": "2026-07-27",
       "summary": "Fixed the tutorial being unplayable in the released builds (itch.io and Steam Deck) — the lessons' saved battles were never packaged into the game. Faction stratagems and leader pairings were missing from those builds for the same reason.",
