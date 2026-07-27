@@ -217,8 +217,8 @@
       "id": "move_grots",
       "prompt": {
         "bark": "MOVE DA GROTS!",
-        "kbm": "Click [b]Gretchin[/b] in da unit list, den [b]drag[/b] one grot a short way forward an' drop it.",
-        "pad": "Tap {rb} until da [b]Gretchin[/b] are picked, glide {ls} onto a grot, press {a} to grab it, walk it forward an' press {a} to drop it."
+        "kbm": "Click [b]Gretchin[/b] in da unit list. Loads of 'em, so press {key:select_all} — dat grabs [b]every[/b] grot at once. Now drag any one of 'em forward an' da whole mob shifts togevver. Much faster.",
+        "pad": "Tap {rb} until da [b]Gretchin[/b] are picked an' start da move wiv {a}. Loads of 'em, so press {dpad} ▲ — dat lifts [b]every[/b] grot at once. Glide {ls} forward an' {a} drops da lot. Much faster."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList"
@@ -237,15 +237,16 @@
         }
       },
       "hint": {
-        "text": "Pick da Gretchin row first — den drag any single grot base. Keep 'im near his mates (wivin 2\") an' don't drop him on top of anyone."
+        "kbm": "Pick da Gretchin row first, den {key:select_all} to select 'em all — one drag moves da lot an' keeps da mob togevver. Draggin' a single base works too, but it's slow.",
+        "pad": "Pick da Gretchin an' start da move first — {dpad} ▲ only grabs da whole mob once dey're movin'. One grot at a time works too, but it's slow."
       }
     },
     {
       "id": "confirm_grots",
       "prompt": {
         "bark": "LOCK IT IN!",
-        "kbm": "Press [b]End This Unit's Move[/b] on da right to lock da move in.",
-        "pad": "Check da hint bar — confirm da move to lock it in."
+        "kbm": "Grots left behind? {key:select_all} grabs 'em all an' one drag brings 'em along. When yer happy, press [b]End This Unit's Move[/b] on da right to lock it in.",
+        "pad": "Grots left behind? {dpad} ▲ grabs every one dat ain't moved yet, so {a} places 'em in one go. When yer happy, check da hint bar an' confirm da move."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton"

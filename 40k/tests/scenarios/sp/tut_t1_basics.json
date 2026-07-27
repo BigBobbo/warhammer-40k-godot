@@ -305,6 +305,13 @@
       "equals": "move_grots"
     },
     {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"Ctrl+A\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the grot step must TELL the player about select-all: the unit is 11 models and dragging them one at a time is the slow path players were falling into. {key:select_all} renders through KeybindingManager, so this also proves the token resolved (an unresolved token would read '{key:select_all}')."
+    },
+    {
       "act": "click_item_list",
       "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
       "index": 2
@@ -312,6 +319,27 @@
     {
       "act": "wait_frames",
       "frames": 15
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "A",
+      "ctrl": true,
+      "comment": "the shortcut the instructor card now advertises — Ctrl+A selects every model of the active unit"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "var mc = tree.current_scene.movement_controller\nvar models = GameState.get_unit(\"U_GRETCHIN_T\").get(\"models\", [])\nvar alive = 0\nfor m in models:\n\tif m.get(\"alive\", true):\n\t\talive += 1\nreturn alive > 1 and mc.selected_models.size() == alive and str(mc.selection_mode) == \"MULTI\"",
+      "multiline": true,
+      "equals": true,
+      "comment": "Ctrl+A really did grab EVERY alive grot, not just the one under the cursor — the card's advice has to be true"
+    },
+    {
+      "act": "screenshot",
+      "label": "06a_grots_all_selected"
     },
     {
       "act": "drag_board",
@@ -330,8 +358,22 @@
       "equals": "confirm_grots"
     },
     {
+      "act": "execute_script",
+      "script": "var md = PhaseManager.current_phase_instance.get_active_move_data(\"U_GRETCHIN_T\")\nvar staged := {}\nfor sm in md.get(\"staged_moves\", []):\n\tstaged[str(sm.get(\"model_id\", \"\"))] = true\nvar models = GameState.get_unit(\"U_GRETCHIN_T\").get(\"models\", [])\nvar alive = 0\nfor m in models:\n\tif m.get(\"alive\", true):\n\t\talive += 1\nreturn alive > 1 and staged.size() == alive",
+      "multiline": true,
+      "equals": true,
+      "comment": "one drag after Ctrl+A staged the WHOLE mob — the speed-up the step promises actually happens (previously this drag staged exactly one grot)"
+    },
+    {
       "act": "screenshot",
       "label": "06_grot_staged"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"Ctrl+A\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the confirm step repeats the shortcut for any grots left behind"
     },
     {
       "act": "click_node",

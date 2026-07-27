@@ -285,6 +285,13 @@
       "equals": "move_grots"
     },
     {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"▲\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the grot step must TELL the pad player about D-pad up: the unit is 11 models and carrying them one at a time is the slow path players were falling into"
+    },
+    {
       "act": "pad_cursor_glide",
       "unit_id": "U_GRETCHIN_T"
     },
@@ -303,11 +310,47 @@
     },
     {
       "act": "simulate_joy_button",
-      "button_index": 0
+      "button_index": 11,
+      "comment": "D-pad up with the mode decision still open opens the move menu (PadRouter._try_open_move_menu runs ahead of _try_grab_all_remaining)"
     },
     {
       "act": "wait_seconds",
-      "seconds": 0.4
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return PadActionBar.is_open()",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A takes the highlighted chip - 'Move' - which starts the move session and puts one grot in hand"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "the shortcut the instructor card now advertises: D-pad up mid-move grabs EVERY grot still to be moved as one group carry"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var pr = tree.root.get_node(\"/root/PadRouter\")\nvar mc = tree.current_scene.movement_controller\nvar models = GameState.get_unit(\"U_GRETCHIN_T\").get(\"models\", [])\nvar alive = 0\nfor m in models:\n\tif m.get(\"alive\", true):\n\t\talive += 1\nreturn alive > 1 and pr.group_carry_active and mc.selected_models.size() == alive",
+      "multiline": true,
+      "equals": true,
+      "comment": "D-pad up really did lift EVERY alive grot, not just the one in hand - the card's advice has to be true"
+    },
+    {
+      "act": "screenshot",
+      "label": "05a_grots_group_carry_pad"
     },
     {
       "act": "pad_cursor_glide",
@@ -328,8 +371,43 @@
       "equals": "confirm_grots"
     },
     {
+      "act": "execute_script",
+      "script": "var md = PhaseManager.current_phase_instance.get_active_move_data(\"U_GRETCHIN_T\")\nvar staged := {}\nfor sm in md.get(\"staged_moves\", []):\n\tstaged[str(sm.get(\"model_id\", \"\"))] = true\nreturn staged.size() > 1",
+      "multiline": true,
+      "equals": true,
+      "comment": "the ONE A press after the group grab staged MANY grots, not one - that is the speed-up the step promises. Not asserted as all 11: a group drop places the models that fit and hands the rest back as a smaller carry (v0.83.0 partial placement), and how many fit at this exact spot varies with the camera framing."
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 1060.0,
+      "y": 760.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "place the handful handed back by the partial drop"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var md = PhaseManager.current_phase_instance.get_active_move_data(\"U_GRETCHIN_T\")\nvar staged := {}\nfor sm in md.get(\"staged_moves\", []):\n\tstaged[str(sm.get(\"model_id\", \"\"))] = true\nvar models = GameState.get_unit(\"U_GRETCHIN_T\").get(\"models\", [])\nvar alive = 0\nfor m in models:\n\tif m.get(\"alive\", true):\n\t\talive += 1\nreturn alive > 1 and staged.size() == alive",
+      "multiline": true,
+      "equals": true,
+      "comment": "two A presses moved the entire 11-model mob - versus eleven pick-up/drop cycles the old wording led players into"
+    },
+    {
       "act": "screenshot",
       "label": "05_grot_carried_pad"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"▲\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the confirm step repeats the shortcut for any grots left behind"
     },
     {
       "act": "pad_cursor_glide",
