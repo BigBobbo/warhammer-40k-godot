@@ -1,5 +1,7 @@
 #!/bin/bash
 # Runs the audit-suite of headless GDScript regression tests:
+#   - tutorial multi-input checklist ("'ave a look around" waits for every
+#     suggested camera control instead of the first one pressed)
 #   - 3 pretrigger fixture tests (deferred-action stratagems CO/HI/RI)
 #   - audit-fix verification (#329, #336, #338, #356, #359)
 #   - T2.M6 base-touching regression (#321/#327)
@@ -39,6 +41,7 @@ cp -n tests/saves/*.w40ksave saves/ 2>/dev/null || true
 cp -n tests/saves/*.meta saves/ 2>/dev/null || true
 
 TESTS=(
+    "tests/test_tutorial_checklist.gd"
     "tests/test_controller_controls_doc_sync.gd"
     "tests/test_hi_pretrigger.gd"
     "tests/test_ai_reactive_window_guard.gd"

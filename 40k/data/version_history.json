@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.5.0",
+      "date": "2026-07-27",
+      "summary": "Basic Trainin's 'ave a look around' step now waits until you've tried every camera control instead of jumping ahead on the first button you press.",
+      "changes": [
+        "The first camera step of Basic Trainin' used to skip to the next step the moment you nudged the view even once — so if you tapped one key you never found out about panning the other three ways, or about zooming. It now waits until you have used all of them at least once. Same on Steam Deck and in the browser version.",
+        "That step now shows a live tick list — Up, Down, Left, Right, Zoom in, Zoom out — so you can see at a glance which controls you have not tried yet. Each one goes green as you use it.",
+        "The tick list shows the right prompts for whatever you are playing on: keyboard directions on mouse+keyboard, right-stick and trigger glyphs on a controller — and it swaps live if you put the pad down mid-step.",
+        "The keyboard version of the step now points at the arrow keys first, which pan the camera without also opening the Stratagems panel.",
+        "Stuck on one control? The Skip Step button still moves you on — no lesson can trap you."
+      ]
+    },
+    {
       "version": "1.4.1",
       "date": "2026-07-26",
       "summary": "Fixed Basic Trainin' starting with an empty army, plus the first-launch offer and the blank movement unit list.",

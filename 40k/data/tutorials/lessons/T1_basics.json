@@ -4,7 +4,11 @@
   "title": "Scoutin' da Field",
   "subtitle": "Camera, selection & reading the table",
   "est_minutes": 4,
-  "boot": { "fixture": "tutorial_postdeploy", "phase": 7, "rng_seed": 4242 },
+  "boot": {
+    "fixture": "tutorial_postdeploy",
+    "phase": 7,
+    "rng_seed": 4242
+  },
   "summary": {
     "bark": "PROPPA JOB, YA GIT!",
     "bullets": [
@@ -24,25 +28,70 @@
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "ack": true }
+      "done": {
+        "ack": true
+      }
     },
     {
       "id": "camera",
       "prompt": {
         "bark": "EYES ON DA FIELD!",
-        "kbm": "Move da camera wiv {key:camera_pan_up} {key:camera_pan_left} {key:camera_pan_down} {key:camera_pan_right} or da arrow keys. Zoom wiv da mouse wheel. Go on — 'ave a look around.",
-        "pad": "Pan da camera wiv {rs}. Zoom wiv {lt} an' {rt}. Go on — 'ave a look around."
+        "kbm": "Look over da whole table: pan wiv da arrow keys (or {key:camera_pan_up} {key:camera_pan_left} {key:camera_pan_down} {key:camera_pan_right}), an' zoom in an' out wiv da mouse wheel. Try 'em all.",
+        "pad": "Look over da whole table: shove {rs} every way to pan, den zoom in wiv {rt} an' out wiv {lt}. Try 'em all."
       },
       "spotlight": "none",
       "allow": [],
-      "capture": {
-        "off": { "script": "return str(main.view_offset)" },
-        "zoom": { "script": "return main.view_zoom" }
+      "on_enter": {
+        "script": "if main != null and main.has_method(\"reset_camera_gestures\"):\n\tmain.reset_camera_gestures()"
+      },
+      "checklist": {
+        "label": "Try each:",
+        "items": [
+          {
+            "id": "pan_up",
+            "label": "Up",
+            "pad_label": "Up {rs}",
+            "script": "return main != null and main.has_method(\"camera_gesture_used\") and main.camera_gesture_used(\"pan_up\")"
+          },
+          {
+            "id": "pan_down",
+            "label": "Down",
+            "pad_label": "Down {rs}",
+            "script": "return main != null and main.has_method(\"camera_gesture_used\") and main.camera_gesture_used(\"pan_down\")"
+          },
+          {
+            "id": "pan_left",
+            "label": "Left",
+            "pad_label": "Left {rs}",
+            "script": "return main != null and main.has_method(\"camera_gesture_used\") and main.camera_gesture_used(\"pan_left\")"
+          },
+          {
+            "id": "pan_right",
+            "label": "Right",
+            "pad_label": "Right {rs}",
+            "script": "return main != null and main.has_method(\"camera_gesture_used\") and main.camera_gesture_used(\"pan_right\")"
+          },
+          {
+            "id": "zoom_in",
+            "label": "Zoom in",
+            "pad_label": "Zoom in {rt}",
+            "script": "return main != null and main.has_method(\"camera_gesture_used\") and main.camera_gesture_used(\"zoom_in\")"
+          },
+          {
+            "id": "zoom_out",
+            "label": "Zoom out",
+            "pad_label": "Zoom out {lt}",
+            "script": "return main != null and main.has_method(\"camera_gesture_used\") and main.camera_gesture_used(\"zoom_out\")"
+          }
+        ]
       },
       "done": {
-        "script": "return str(main.view_offset) != str(captured[\"off\"]) or abs(main.view_zoom - captured[\"zoom\"]) > 0.01"
+        "checklist": true
       },
-      "hint": { "text": "Any pan or zoom counts — just nudge da view." }
+      "hint": {
+        "kbm": "Tick every box: pan all four ways wiv da arrow keys, den roll da wheel forward an' back. Stuck on one? [i]Skip Step[/i] up 'ere moves on.",
+        "pad": "Tick every box: push {rs} all four ways, den squeeze {rt} an' {lt}. Stuck on one? [i]Skip Step[/i] up 'ere moves on."
+      }
     },
     {
       "id": "select_wagon",
@@ -51,13 +100,19 @@
         "kbm": "Click [b]Battlewagon[/b] in da unit list on da right — or click its token up in your deployment zone.",
         "pad": "Tap {rb} to cycle units until da [b]Battlewagon[/b] is picked — or point {ls} at its token on da board an' press {a}."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList"
+      },
       "spotlight": "soft",
-      "allow": ["BEGIN_NORMAL_MOVE"],
+      "allow": [
+        "BEGIN_NORMAL_MOVE"
+      ],
       "done": {
         "script": "var mc = main.get(\"movement_controller\")\nreturn mc != null and str(mc.active_unit_id) == \"U_BATTLEWAGON_T\""
       },
-      "hint": { "text": "Da unit list is top-right — da Battlewagon row. If dat list looks empty, point at da wagon on da board an' pick it dere instead." }
+      "hint": {
+        "text": "Da unit list is top-right — da Battlewagon row. If dat list looks empty, point at da wagon on da board an' pick it dere instead."
+      }
     },
     {
       "id": "open_datasheet",
@@ -68,7 +123,9 @@
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "node_visible": "/root/Main/DatasheetModal" }
+      "done": {
+        "node_visible": "/root/Main/DatasheetModal"
+      }
     },
     {
       "id": "close_datasheet",
@@ -79,7 +136,9 @@
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "node_hidden": "/root/Main/DatasheetModal" }
+      "done": {
+        "node_hidden": "/root/Main/DatasheetModal"
+      }
     },
     {
       "id": "dice_log",
@@ -88,7 +147,9 @@
         "kbm": "Da left panel logs everyfing wot 'appens. Click da [b]Dice Log[/b] tab — every roll ends up dere.",
         "pad": "Da left panel logs everyfing. Glide {ls} onto da [b]Dice Log[/b] tab an' press {a}."
       },
-      "anchor": { "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog" },
+      "anchor": {
+        "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog"
+      },
       "spotlight": "soft",
       "allow": [],
       "done": {
@@ -102,10 +163,14 @@
         "bark": "READ DA BAR!",
         "pad": "Dat strip at da bottom always shows wot each button does [i]right now[/i]. It changes wiv da situation — when in doubt, read da bar."
       },
-      "anchor": { "node": "/root/PadHintBar" },
+      "anchor": {
+        "node": "/root/PadHintBar"
+      },
       "spotlight": "soft",
       "allow": [],
-      "done": { "ack": true }
+      "done": {
+        "ack": true
+      }
     },
     {
       "id": "hotkey_help_open",
@@ -116,7 +181,9 @@
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "node_visible": "/root/Main/HotkeyHelpOverlay" }
+      "done": {
+        "node_visible": "/root/Main/HotkeyHelpOverlay"
+      }
     },
     {
       "id": "hotkey_help_close",
@@ -127,7 +194,9 @@
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "node_hidden": "/root/Main/HotkeyHelpOverlay" }
+      "done": {
+        "node_hidden": "/root/Main/HotkeyHelpOverlay"
+      }
     },
     {
       "id": "end_phase_intro",
@@ -135,10 +204,14 @@
         "bark": "SEE DAT BUTTON?",
         "text": "Dat big red button ends da current phase for good. [b]Don't[/b] press it yet — first, a bit of movin'."
       },
-      "anchor": { "node": "/root/Main/PhaseActionButton" },
+      "anchor": {
+        "node": "/root/Main/PhaseActionButton"
+      },
       "spotlight": "soft",
       "allow": [],
-      "done": { "ack": true }
+      "done": {
+        "ack": true
+      }
     },
     {
       "id": "move_grots",
@@ -147,11 +220,25 @@
         "kbm": "Click [b]Gretchin[/b] in da unit list, den [b]drag[/b] one grot a short way forward an' drop it.",
         "pad": "Tap {rb} until da [b]Gretchin[/b] are picked, glide {ls} onto a grot, press {a} to grab it, walk it forward an' press {a} to drop it."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList"
+      },
       "spotlight": "soft",
-      "allow": ["BEGIN_NORMAL_MOVE", "STAGE_MODEL_MOVE", "SET_MODEL_DEST", "LOCK_MOVEMENT_MODE", "UNDO_LAST_MODEL_MOVE"],
-      "done": { "action": { "type": "STAGE_MODEL_MOVE" } },
-      "hint": { "text": "Pick da Gretchin row first — den drag any single grot base. Keep 'im near his mates (wivin 2\") an' don't drop him on top of anyone." }
+      "allow": [
+        "BEGIN_NORMAL_MOVE",
+        "STAGE_MODEL_MOVE",
+        "SET_MODEL_DEST",
+        "LOCK_MOVEMENT_MODE",
+        "UNDO_LAST_MODEL_MOVE"
+      ],
+      "done": {
+        "action": {
+          "type": "STAGE_MODEL_MOVE"
+        }
+      },
+      "hint": {
+        "text": "Pick da Gretchin row first — den drag any single grot base. Keep 'im near his mates (wivin 2\") an' don't drop him on top of anyone."
+      }
     },
     {
       "id": "confirm_grots",
@@ -160,10 +247,23 @@
         "kbm": "Press [b]End This Unit's Move[/b] on da right to lock da move in.",
         "pad": "Check da hint bar — confirm da move to lock it in."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton"
+      },
       "spotlight": "soft",
-      "allow": ["BEGIN_NORMAL_MOVE", "STAGE_MODEL_MOVE", "SET_MODEL_DEST", "LOCK_MOVEMENT_MODE", "UNDO_LAST_MODEL_MOVE", "CONFIRM_UNIT_MOVE"],
-      "done": { "action": { "type": "CONFIRM_UNIT_MOVE" } }
+      "allow": [
+        "BEGIN_NORMAL_MOVE",
+        "STAGE_MODEL_MOVE",
+        "SET_MODEL_DEST",
+        "LOCK_MOVEMENT_MODE",
+        "UNDO_LAST_MODEL_MOVE",
+        "CONFIRM_UNIT_MOVE"
+      ],
+      "done": {
+        "action": {
+          "type": "CONFIRM_UNIT_MOVE"
+        }
+      }
     },
     {
       "id": "wrap",
@@ -173,7 +273,9 @@
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "ack": true }
+      "done": {
+        "ack": true
+      }
     }
   ]
 }

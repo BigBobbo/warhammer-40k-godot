@@ -89,7 +89,8 @@
       "act": "simulate_joy_axis",
       "axis": 2,
       "value": 1.0,
-      "hold_s": 0.6
+      "hold_s": 0.4,
+      "comment": "right stick right -> Pan Right"
     },
     {
       "act": "wait_frames",
@@ -98,7 +99,81 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "select_wagon"
+      "equals": "camera",
+      "comment": "reported bug (Steam Deck + itch.io alike): the camera step advanced on the FIRST input, so a player who only nudged the stick one way never learned about the other directions or the trigger zoom. One gesture must NOT complete the step."
+    },
+    {
+      "act": "execute_script",
+      "script": "var s = TutorialManager.checklist_state()\nreturn bool(s.get(\"pan_right\", false)) and not bool(s.get(\"zoom_in\", false)) and s.size() == 6",
+      "multiline": true,
+      "equals": true,
+      "comment": "one stick push ticks one box; five are still outstanding"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_checklist_text().contains(\"Zoom in\") and o.current_checklist_text().contains(\"Right\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "and the pad player can SEE what is left on the instructor card"
+    },
+    {
+      "act": "screenshot",
+      "label": "02b_camera_checklist_partial_pad"
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 2,
+      "value": -1.0,
+      "hold_s": 0.4,
+      "comment": "right stick left -> Pan Left"
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 3,
+      "value": -1.0,
+      "hold_s": 0.4,
+      "comment": "right stick up -> Pan Up"
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 3,
+      "value": 1.0,
+      "hold_s": 0.4,
+      "comment": "right stick down -> Pan Down"
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 5,
+      "value": 1.0,
+      "hold_s": 0.4,
+      "comment": "right trigger -> Zoom In"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "camera",
+      "comment": "five of six ticked - still waiting on the left trigger (Zoom Out)"
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 4,
+      "value": 1.0,
+      "hold_s": 0.4,
+      "comment": "left trigger -> Zoom Out"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "select_wagon",
+      "comment": "all six suggested pad camera controls used -> and only now does the step advance"
     },
     {
       "act": "execute_script",
