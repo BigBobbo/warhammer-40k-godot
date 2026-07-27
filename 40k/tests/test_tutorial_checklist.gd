@@ -68,6 +68,7 @@ func _run_tests():
 
 	_test_validation()
 	_test_shipped_t1_lesson()
+	_test_closed_ack_steps()
 	_test_latching()
 	_test_main_gesture_latch()
 
@@ -138,6 +139,60 @@ func _test_shipped_t1_lesson():
 	# step, or a wanderer arrives with boxes pre-ticked and skips the lesson.
 	_check("camera step resets the gesture latch on entry",
 		str(camera.get("on_enter", {}).get("script", "")).contains("reset_camera_gestures"))
+
+
+# B2: which ack steps may take the pad's buttons over -------------------------
+#
+# On a CLOSED ack step (done.ack + an empty allow-list) Ⓐ is rerouted to the
+# card's Continue button and LB/RB stop cycling units — the whole point being
+# that no board action could succeed there anyway (T1 step 7/13 "READ DA BAR!"
+# was an unexplained dead end without it). That reasoning collapses the moment
+# a step still allows actions: T7's sign-off is an ack step with allow "*",
+# deliberately handing the board back, and taking Ⓐ there would break a step
+# whose whole point is that the player is free again. This pins the
+# distinction across every shipped lesson.
+
+func _test_closed_ack_steps():
+	var tm = root.get_node_or_null("/root/TutorialManager")
+	if tm == null:
+		_check("TutorialManager autoload present", false)
+		return
+	_check("a closed ack step (ack + empty allow) qualifies",
+		tm._is_closed_ack_step({"done": {"ack": true}, "allow": []}))
+	_check("an ack step with allow \"*\" does NOT qualify",
+		not tm._is_closed_ack_step({"done": {"ack": true}, "allow": "*"}))
+	_check("an ack step with a live allow-list does NOT qualify",
+		not tm._is_closed_ack_step({"done": {"ack": true}, "allow": ["END_MOVEMENT"]}))
+	_check("a non-ack step never qualifies",
+		not tm._is_closed_ack_step({"done": {"action": {"type": "X"}}, "allow": []}))
+
+	# Every shipped lesson: an ack step is claimed only when it really is closed.
+	var dir := DirAccess.open("res://data/tutorials/lessons/")
+	var files: Array = []
+	if dir != null:
+		for f in dir.get_files():
+			if f.ends_with(".json"):
+				files.append(f)
+	files.sort()
+	_check("shipped lessons found", not files.is_empty(), str(files))
+	var open_ack: Array = []
+	var closed_ack := 0
+	for f in files:
+		var out: Dictionary = TutorialScriptLib.load_lesson("res://data/tutorials/lessons/" + f)
+		if not out.ok:
+			_check("lesson %s validates" % f, false, str(out.errors))
+			continue
+		for step in out.lesson.get("steps", []):
+			if not tm._is_ack_step(step):
+				continue
+			if tm._is_closed_ack_step(step):
+				closed_ack += 1
+			else:
+				open_ack.append("%s:%s" % [f, str(step.get("id", ""))])
+	_check("the shipped lessons still have closed ack steps to protect",
+		closed_ack > 0, str(closed_ack))
+	_check("T7's sign-off is the only OPEN ack step (it re-opens the board)",
+		open_ack == ["T7_command.json:wrap"], str(open_ack))
 
 
 # C: the engine waits for every item ------------------------------------------
