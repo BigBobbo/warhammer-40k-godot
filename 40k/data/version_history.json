@@ -13,6 +13,25 @@
       ]
     },
     {
+      "version": "1.5.7",
+      "date": "2026-07-27",
+      "summary": "Basic Trainin's grot steps now explain what happens when a squad won't all fit where you drop it, and the 'Move da grots' step no longer skips ahead the moment you pick the mob up on a controller.",
+      "changes": [
+        "The grot steps now spell out partial placement: drop the whole mob somewhere they can't all fit and only the ones that fit are placed. On mouse and keyboard the ones that couldn't be placed stay selected, so one more drag takes exactly those somewhere else; on a controller another D-pad ▲ picks up every model that still hasn't moved. The game already worked this way — the tutorial just never said so, which made a half-placed squad look like a bug.",
+        "Fixed 'Move da grots' jumping to 'Lock it in!' on a controller the instant you pressed D-pad ▲ to grab the squad, before a single grot had actually moved. The step now waits until a model has really covered ground."
+      ]
+    },
+    {
+      "version": "1.5.6",
+      "date": "2026-07-27",
+      "summary": "Basic Trainin' now teaches the move-the-whole-squad shortcut on the grot step, instead of leaving you to drag eleven bases one at a time.",
+      "changes": [
+        "The 'Move da grots' step (step 11) now tells you how to move all eleven models at once — Ctrl+A on mouse and keyboard, D-pad ▲ on a controller — and says to use it because it is much faster. Previously it just said to drag one grot, and with a mob that size it was not obvious there was any other way.",
+        "The 'Lock it in' step (step 12) repeats the shortcut for any grots you left behind, so a half-moved mob can be caught up in one go before you confirm.",
+        "The step hint now explains the shortcut too, including the controller detail that the whole-squad grab only works once the move has actually started."
+      ]
+    },
+    {
       "version": "1.5.5",
       "date": "2026-07-27",
       "summary": "Basic Trainin' no longer tells controller and Steam Deck players to press Shift+/ — the shortcuts step now teaches the pause menu's Controller tab, and the tutorial follows you when you switch between pad and trackpad mid-step.",

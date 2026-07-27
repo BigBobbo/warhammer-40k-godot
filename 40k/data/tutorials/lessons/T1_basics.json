@@ -243,8 +243,8 @@
       "id": "move_grots",
       "prompt": {
         "bark": "MOVE DA GROTS!",
-        "kbm": "Click [b]Gretchin[/b] in da unit list, den [b]drag[/b] one grot a short way forward an' drop it.",
-        "pad": "Tap {rb} until da [b]Gretchin[/b] are picked, glide {ls} onto a grot, press {a} to grab it, walk it forward an' press {a} to drop it."
+        "kbm": "Click [b]Gretchin[/b] in da unit list. Loads of 'em, so press {key:select_all} — dat grabs [b]every[/b] grot at once. Now drag any one of 'em forward an' da whole mob shifts togevver. Much faster.",
+        "pad": "Tap {rb} until da [b]Gretchin[/b] are picked an' start da move wiv {a}. Loads of 'em, so press {dpad} ▲ — dat lifts [b]every[/b] grot at once. Glide {ls} forward an' {a} drops da lot. Much faster."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList"
@@ -258,20 +258,29 @@
         "UNDO_LAST_MODEL_MOVE"
       ],
       "done": {
-        "action": {
-          "type": "STAGE_MODEL_MOVE"
-        }
+        "any": [
+          {
+            "script": "var phase = PhaseManager.get_current_phase_instance()\nif phase == null or not phase.has_method(\"get_active_move_data\"):\n\treturn false\nvar am = phase.get(\"active_moves\")\nif typeof(am) != TYPE_DICTIONARY:\n\treturn false\nfor uid in am:\n\tvar dists = am[uid].get(\"model_distances\", {})\n\tfor k in dists:\n\t\tif float(dists[k]) >= 0.1:\n\t\t\treturn true\nreturn false",
+            "comment": "NOT `action: STAGE_MODEL_MOVE`. On the pad, grabbing the whole mob with D-pad up runs PadRouter._grab_all_from_carry -> _cancel_carry, which re-projects the pickup point and releases there — staging a junk move that is undone two frames later. An action leaf latches permanently, so that junk stage flipped this step to 'LOCK IT IN!' the instant the player grabbed the squad, before a single grot had moved. This polls live state for a model that actually covered ground instead. The 0.1 inch floor is not arbitrary: the junk stage was measured at 0.0000015 inches (float noise from the re-projection), four orders of magnitude below, while any real drop on a 6 inch move is inches. Below a tenth of an inch nothing has meaningfully moved, which is what this step is asking for."
+          },
+          {
+            "state": "units.U_GRETCHIN_T.flags.moved",
+            "equals": true,
+            "comment": "backstop: if the grots' move somehow gets confirmed while this step is still up, do not strand the player on a step whose goal is already met"
+          }
+        ]
       },
       "hint": {
-        "text": "Pick da Gretchin row first — den drag any single grot base. Keep 'im near his mates (wivin 2\") an' don't drop him on top of anyone."
+        "kbm": "Pick da Gretchin row first, den {key:select_all} to select 'em all — one drag moves da lot. If dey don't all fit where ya drop 'em, only da ones dat fit land; da rest stay selected, so drag 'em again somewhere else.",
+        "pad": "Pick da Gretchin an' start da move first — {dpad} ▲ only grabs da whole mob once dey're movin'. If dey don't all fit where ya drop 'em, only da ones dat fit land; another {dpad} ▲ grabs whoever's still standin' about."
       }
     },
     {
       "id": "confirm_grots",
       "prompt": {
         "bark": "LOCK IT IN!",
-        "kbm": "Press [b]End This Unit's Move[/b] on da right to lock da move in.",
-        "pad": "Check da hint bar — confirm da move to lock it in."
+        "kbm": "Grots left behind? Only da ones dat fit got placed — da rest are still selected, so drag 'em again somewhere dey fit ({key:select_all} re-grabs da lot). When every grot's down, press [b]End This Unit's Move[/b].",
+        "pad": "Grots left behind? Only da ones dat fit got placed. Press {dpad} ▲ again — it grabs every grot dat still ain't moved — den {a} drops 'em somewhere dey fit. When every grot's down, {menu} confirms da move."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton"
