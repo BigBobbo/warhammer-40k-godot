@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.5.3",
+      "date": "2026-07-27",
+      "summary": "On a controller, the tutorial's Continue button is now just the A button — Basic Trainin' step 7 ('Read da Bar') could leave you stuck with no obvious way to move on.",
+      "changes": [
+        "Fixed being stuck on a controller whenever a tutorial card asked you to press Continue — most obviously at Basic Trainin' step 7, 'Read da Bar'. The only way past it was to steer the pointer onto the button with the left stick and click it, which nothing told you to do. Pressing A now presses the card's button, wherever the pointer happens to be.",
+        "The card now shows an [A] badge next to Continue, and the button is outlined so you can see it is selected.",
+        "The hint bar at the bottom of the screen now reads 'A Continue' while a tutorial card is waiting — so the 'read da bar' step answers its own question. The end-of-lesson card reads 'Navigate / Choose' and the D-pad moves between Next Lesson and Back to Menu.",
+        "The D-pad can no longer wander off the tutorial card while it is waiting for you, so you can't lose the Continue button in the side panels.",
+        "Basic Trainin's opening card and the 'Read da Bar' step now say outright that A is Continue."
+      ]
+    },
+    {
       "version": "1.5.2",
       "date": "2026-07-27",
       "summary": "Controller: LB/RB now cycle straight through the disembark pop-up instead of getting stuck on it.",
