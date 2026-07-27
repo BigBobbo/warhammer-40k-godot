@@ -311,11 +311,30 @@
     },
     {
       "act": "simulate_joy_button",
-      "button_index": 0
+      "button_index": 11,
+      "comment": "This leg used to be A, A, glide, A - and it never moved a grot. With the virtual cursor active every A is a click at the cursor, so the second A picked the model up and dropped it on the spot (a zero-distance stage) and the third landed on empty board. move_grots completed anyway because its done condition was `action: STAGE_MODEL_MOVE`, which latches on that junk stage. Now that the step waits for real movement, the leg has to actually move the mob: D-pad up opens the move menu (the mode decision is still open)."
     },
     {
       "act": "wait_seconds",
-      "seconds": 0.4
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A takes the highlighted chip - Move - which starts the move session and puts one grot in hand"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "D-pad up mid-move grabs every grot still to be moved as one group carry"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
     },
     {
       "act": "pad_cursor_glide",
@@ -328,7 +347,14 @@
     },
     {
       "act": "wait_seconds",
-      "seconds": 0.8
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var md = PhaseManager.current_phase_instance.get_active_move_data(\"U_GRETCHIN_T\")\nvar dists = md.get(\"model_distances\", {})\nvar mx = 0.0\nfor k in dists:\n\tmx = max(mx, float(dists[k]))\nreturn mx > 1.0",
+      "multiline": true,
+      "equals": true,
+      "comment": "a grot really covered ground this time - the old leg left maxdist at 0.0000"
     },
     {
       "act": "execute_script",
