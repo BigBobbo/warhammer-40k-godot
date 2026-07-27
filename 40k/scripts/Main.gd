@@ -92,6 +92,18 @@ var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
 # "selection" = Shift+F, "decision" = auto-zoom on side panel open.
 var last_camera_fit_action: String = ""
 
+# Which camera gestures the player has actually used, keyed by screen-space id:
+# "pan_up" / "pan_down" / "pan_left" / "pan_right" / "zoom_in" / "zoom_out".
+# The tutorial's "'ave a look around" step used to advance on the FIRST nudge of
+# the view, so a player who only tapped one key never found out the other three
+# directions (or the zoom) existed. It now waits on this latch set instead, so
+# it needs to know WHICH inputs were used, not merely that the view moved.
+#
+# Latched from the INPUT, not from the resulting view change: zoom clamps at
+# 0.1x/3.0x and a pan can be a no-op at the board edge, and a player sitting at
+# a limit must still be able to tick the box off.
+var camera_gestures_used: Dictionary = {}
+
 # T32: LoS debug is now a held-key power-user mode rather than a persistent
 # top-bar toggle. los_debug_active mirrors the debug state for scenarios.
 var los_debug_active: bool = false
@@ -6187,6 +6199,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if deployment_controller and deployment_controller.has_method("is_placing") and deployment_controller.is_placing():
 		return
 	var factor: float = WHEEL_ZOOM_FACTOR if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / WHEEL_ZOOM_FACTOR
+	note_camera_gesture("zoom_in" if mb.button_index == MOUSE_BUTTON_WHEEL_UP else "zoom_out")
 	if _zoom_about(view_zoom * factor, get_viewport().get_mouse_position()):
 		update_view_transform()
 	# We acted on the scroll — stop it here so nothing else treats the same
@@ -6212,6 +6225,7 @@ func _process(delta: float) -> void:
 	if not _text_focused and KeybindingManager.is_action_pressed("camera_pan_right"):
 		pan_dir.x += 1.0
 	if pan_dir != Vector2.ZERO:
+		note_camera_pan_gesture(pan_dir)
 		# Counter-rotate the pan direction so WASD always maps to screen directions
 		view_offset += pan_dir.rotated(-view_rotation) * pan_speed
 		view_changed = true
@@ -6220,9 +6234,11 @@ func _process(delta: float) -> void:
 	# cursor stays put while zooming (instead of the view drifting toward the
 	# viewport's top-left corner).
 	if not _text_focused and KeybindingManager.is_action_pressed("zoom_in"):
+		note_camera_gesture("zoom_in")
 		if _zoom_about(view_zoom * 1.03, get_viewport().get_mouse_position()):
 			view_changed = true
 	if not _text_focused and KeybindingManager.is_action_pressed("zoom_out"):
+		note_camera_gesture("zoom_out")
 		if _zoom_about(view_zoom * 0.97, get_viewport().get_mouse_position()):
 			view_changed = true
 
@@ -6239,8 +6255,17 @@ func _process(delta: float) -> void:
 		if SettingsService.pad_invert_camera_y:
 			pad_pan.y = -pad_pan.y
 		if pad_pan != Vector2.ZERO:
+			# Latched AFTER the invert-Y fix-up so the tick list matches the
+			# direction the player sees the view travel, not the raw stick axis.
+			note_camera_pan_gesture(pad_pan)
 			view_offset += pad_pan.rotated(-view_rotation) * pan_speed * SettingsService.pad_camera_sensitivity
 			view_changed = true
+		# Latched per trigger rather than from the combined delta: squeezing both
+		# triggers together cancels out to zero, but the player has still used both.
+		if Input.get_action_strength("pad_zoom_in") > 0.0:
+			note_camera_gesture("zoom_in")
+		if Input.get_action_strength("pad_zoom_out") > 0.0:
+			note_camera_gesture("zoom_out")
 		var pad_zoom = Input.get_action_strength("pad_zoom_in") - Input.get_action_strength("pad_zoom_out")
 		if pad_zoom != 0.0:
 			# Same per-frame multiplicative step as the keyboard zoom above,
@@ -6554,6 +6579,38 @@ func _zoom_about(new_zoom: float, screen_anchor: Vector2) -> bool:
 	view_offset += screen_anchor * (1.0 / view_zoom - 1.0 / new_zoom)
 	view_zoom = new_zoom
 	return true
+
+# ---------------------------------------------------------- camera gestures --
+# Used by the tutorial (TutorialManager step checklists) to tell a player who
+# has genuinely tried every camera control from one who nudged the view once.
+# Programmatic camera moves (focus_on_*, camera fit, the LB/RB unit glide) do
+# NOT latch anything — only real player input runs through the callers below.
+
+func note_camera_gesture(id: String) -> void:
+	if not camera_gestures_used.has(id):
+		camera_gestures_used[id] = true
+
+
+# Screen-space pan vector -> the direction ids it covers. A diagonal (mouse-free
+# stick push, or W+D held together) legitimately ticks two boxes at once.
+func note_camera_pan_gesture(dir: Vector2) -> void:
+	if dir.y < 0.0:
+		note_camera_gesture("pan_up")
+	if dir.y > 0.0:
+		note_camera_gesture("pan_down")
+	if dir.x < 0.0:
+		note_camera_gesture("pan_left")
+	if dir.x > 0.0:
+		note_camera_gesture("pan_right")
+
+
+func camera_gesture_used(id: String) -> bool:
+	return bool(camera_gestures_used.get(id, false))
+
+
+func reset_camera_gestures() -> void:
+	camera_gestures_used.clear()
+
 
 func focus_on_player2_zone() -> void:
 	var zone2 = BoardState.get_deployment_zone_for_player(2)

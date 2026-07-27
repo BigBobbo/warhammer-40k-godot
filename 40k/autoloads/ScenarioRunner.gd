@@ -804,6 +804,11 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	# the built-in ui_* actions (ui_cancel = dialog close-on-escape, ui_accept,
 	# focus navigation) are bound to PHYSICAL keys, so an event carrying only
 	# `keycode` never matches them and e.g. ESC silently fails to close dialogs.
+	# Optional `hold_s`: keep the key down for that long before releasing. Needed
+	# for the POLLED consumers (camera pan/zoom read KeybindingManager
+	# .is_action_pressed() from _process, not from an event) — a press/release
+	# straddling a single process_frame await is not reliably observed by them.
+	var hold_s: float = float(step.get("hold_s", 0.0))
 	var press := InputEventKey.new()
 	press.keycode = kc
 	press.physical_keycode = kc
@@ -811,6 +816,8 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	press.pressed = true
 	Input.parse_input_event(press)
 	await get_tree().process_frame
+	if hold_s > 0.0:
+		await get_tree().create_timer(hold_s).timeout
 	var release := InputEventKey.new()
 	release.keycode = kc
 	release.physical_keycode = kc
@@ -818,7 +825,7 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	release.pressed = false
 	Input.parse_input_event(release)
 	await get_tree().process_frame
-	return {"pass": true}
+	return {"pass": true, "hold_s": hold_s}
 
 
 func _do_simulate_wheel(step: Dictionary) -> Dictionary:

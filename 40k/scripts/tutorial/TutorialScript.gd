@@ -86,6 +86,7 @@ static func validate(lesson: Dictionary) -> Array:
 		var allow = step.get("allow", [])
 		if typeof(allow) != TYPE_ARRAY and str(allow) != "*":
 			errors.append("%s (%s): 'allow' must be an array or \"*\"" % [tag, sid])
+		errors.append_array(_validate_checklist(step, tag, sid))
 		# Soft guidance: keep instructions short (warning only, never fatal).
 		var prompt = step.get("prompt", {})
 		if typeof(prompt) == TYPE_DICTIONARY:
@@ -93,6 +94,48 @@ static func validate(lesson: Dictionary) -> Array:
 				if prompt.has(k) and str(prompt[k]).length() > BODY_LENGTH_WARN:
 					print("TutorialScript: WARNING %s (%s) '%s' body is %d chars (> %d guideline)" % [
 						tag, sid, k, str(prompt[k]).length(), BODY_LENGTH_WARN])
+	return errors
+
+
+# Multi-input steps: `checklist.items` is a list of {id, label, script} the
+# player must satisfy one by one before the step advances. A `done.checklist`
+# with no items would complete the step instantly, and an item with no predicate
+# could never tick, so both are hard errors — a mis-authored checklist soft-locks
+# or trivialises the lesson rather than failing loudly at runtime.
+static func _validate_checklist(step: Dictionary, tag: String, sid: String) -> Array:
+	var errors: Array = []
+	var has_done_checklist: bool = bool(step.get("done", {}).get("checklist", false))
+	if not step.has("checklist"):
+		if has_done_checklist:
+			errors.append("%s (%s): done.checklist set but step has no 'checklist'" % [tag, sid])
+		return errors
+	var spec = step.get("checklist")
+	if typeof(spec) != TYPE_DICTIONARY:
+		errors.append("%s (%s): 'checklist' must be an object" % [tag, sid])
+		return errors
+	var items = spec.get("items", [])
+	if typeof(items) != TYPE_ARRAY or (items as Array).is_empty():
+		errors.append("%s (%s): 'checklist.items' must be a non-empty array" % [tag, sid])
+		return errors
+	var seen := {}
+	for j in range((items as Array).size()):
+		var item = items[j]
+		if typeof(item) != TYPE_DICTIONARY:
+			errors.append("%s (%s): checklist item %d is not an object" % [tag, sid, j])
+			continue
+		var iid := str(item.get("id", ""))
+		if iid == "":
+			errors.append("%s (%s): checklist item %d missing 'id'" % [tag, sid, j])
+		elif seen.has(iid):
+			errors.append("%s (%s): duplicate checklist item id '%s'" % [tag, sid, iid])
+		seen[iid] = true
+		if str(item.get("script", "")) == "":
+			errors.append("%s (%s): checklist item '%s' missing 'script'" % [tag, sid, iid])
+		if str(item.get("label", "")) == "":
+			errors.append("%s (%s): checklist item '%s' missing 'label'" % [tag, sid, iid])
+		var idev := str(item.get("device", "any"))
+		if not idev in VALID_DEVICE:
+			errors.append("%s (%s): checklist item '%s' bad device '%s'" % [tag, sid, iid, idev])
 	return errors
 
 

@@ -22,6 +22,7 @@ var _card: PanelContainer
 var _instructor_chip: Label
 var _bark_label: Label
 var _body_text: RichTextLabel
+var _checklist_text: RichTextLabel
 var _hint_label: Label
 var _progress_label: Label
 var _continue_button: Button
@@ -30,6 +31,7 @@ var _exit_button: Button
 var _next_button: Button
 var _menu_button: Button
 
+var _checklist_label: String = ""
 var _anchor_spec: Dictionary = {}
 var _anchor_node: Node = null
 var _anchor_rect: Rect2 = Rect2()
@@ -145,6 +147,25 @@ func _build() -> void:
 	_body_text.add_theme_color_override("default_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	_body_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(_body_text)
+
+	# Live tick list for multi-input steps ("try every camera control"). Hidden
+	# on steps with no checklist. One RichTextLabel rather than a row of child
+	# controls so the chip BBCode from the prompt vocabulary ({key:...}, {rs})
+	# renders the same way here as in the body, and so scenarios can assert the
+	# whole list with a single node read.
+	_checklist_text = RichTextLabel.new()
+	_checklist_text.name = "ChecklistText"
+	_checklist_text.bbcode_enabled = true
+	_checklist_text.fit_content = true
+	_checklist_text.scroll_active = false
+	_checklist_text.custom_minimum_size = Vector2(560, 0)
+	_checklist_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_checklist_text.add_theme_font_size_override("normal_font_size", 14)
+	_checklist_text.add_theme_font_size_override("bold_font_size", 14)
+	_checklist_text.add_theme_color_override("default_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	_checklist_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_checklist_text.visible = false
+	vbox.add_child(_checklist_text)
 
 	_hint_label = Label.new()
 	_hint_label.name = "HintLabel"
@@ -265,6 +286,8 @@ func show_step(view: Dictionary) -> void:
 	set_process(true)
 	_bark_label.text = str(view.get("bark", ""))
 	_body_text.text = str(view.get("body", ""))
+	_checklist_label = str(view.get("checklist_label", ""))
+	update_checklist(view.get("checklist", []))
 	_hint_label.visible = false
 	_hint_label.text = ""
 	_progress_label.text = str(view.get("progress", ""))
@@ -291,11 +314,37 @@ func show_hint(text: String) -> void:
 	_hint_label.visible = true
 
 
+# Repaint the multi-input tick list. `items` is [{id, label (BBCode), done}];
+# an empty array hides the row. Ticked entries go green, outstanding ones stay
+# dim — the whole point of the row is that the player can see, at a glance,
+# which controls they have NOT tried yet.
+func update_checklist(items) -> void:
+	if typeof(items) != TYPE_ARRAY or (items as Array).is_empty():
+		_checklist_text.visible = false
+		_checklist_text.text = ""
+		return
+	var parts: Array = []
+	for it in items:
+		if typeof(it) != TYPE_DICTIONARY:
+			continue
+		var done: bool = bool(it.get("done", false))
+		var color: Color = UIConstantsData.CONFIRMED_GREEN if done else Color(WhiteDwarfThemeData.WH_PARCHMENT, 0.55)
+		parts.append("[color=#%s]%s %s[/color]" % [
+			color.to_html(false), "[b]✔[/b]" if done else "○", str(it.get("label", ""))])
+	var prefix := ""
+	if _checklist_label != "":
+		prefix = "%s  " % _checklist_label
+	_checklist_text.text = prefix + "    ".join(parts)
+	_checklist_text.visible = true
+
+
 func show_summary(view: Dictionary) -> void:
 	visible = true
 	set_process(true)
 	_bark_label.text = str(view.get("bark", "PROPPA JOB!"))
 	_body_text.text = str(view.get("body", ""))
+	_checklist_label = ""
+	update_checklist([])
 	_hint_label.visible = false
 	_progress_label.text = str(view.get("progress", ""))
 	_continue_button.visible = false
@@ -347,6 +396,10 @@ func current_body_text() -> String:
 
 func current_progress_text() -> String:
 	return _progress_label.text
+
+
+func current_checklist_text() -> String:
+	return _checklist_text.text if _checklist_text.visible else ""
 
 
 # --------------------------------------------------------------- process ----
