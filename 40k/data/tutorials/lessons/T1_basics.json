@@ -134,7 +134,7 @@
       "prompt": {
         "bark": "SEEN ENOUGH!",
         "kbm": "Close it — press [b][Escape][/b].",
-        "pad": "Close it — press {y} again (or {b})."
+        "pad": "Close it — press {y} again."
       },
       "spotlight": "none",
       "allow": [],
