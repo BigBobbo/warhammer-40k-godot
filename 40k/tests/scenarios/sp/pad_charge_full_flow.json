@@ -47,6 +47,8 @@
     { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 0 },
     { "act": "execute_script", "script": "PadRouter.carry_active", "equals": false },
     { "act": "execute_script", "multiline": true, "script": "var labels = []\nfor chip in PadHintBar._row.get_children():\n\tfor l in chip.find_children(\"*\", \"Label\", true, false):\n\t\tlabels.append(l.text)\nreturn \"Declare Charge\" in labels", "equals": true },
+    { "act": "execute_script", "script": "str(main.phase_action_button.text)", "equals": "End Charge Phase", "comment": "the ☰ chip says Declare Charge, so the top-right button must NOT also read '[☰] End Charge Phase' - same one-glyph-two-promises trap the tutorial's LOCK IT IN step hit in the Movement phase" },
+    { "act": "execute_script", "script": "PadRouter.start_owns_phase_action()", "equals": false },
 
     { "act": "simulate_joy_button", "button_index": 14 },
     { "act": "wait_seconds", "seconds": 0.3 },

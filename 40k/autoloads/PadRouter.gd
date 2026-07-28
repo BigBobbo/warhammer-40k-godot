@@ -288,6 +288,33 @@ const BOX_SELECT_HINT := "Hold {a}: Box Select"
 # (empty when none). Windowed scenarios assert this.
 var target_highlight_id: String = ""
 
+# What the pad's ☰ (Start) button means in the CURRENT board state, read straight
+# off the ☰ chip of the hint set the bar is showing — so the chip, the tutorial
+# prompts and the top-right phase-action button all quote one authority and can
+# never contradict each other. "End Phase" (the value when a set advertises no ☰
+# chip at all, e.g. the action-bar / panel-focus / tutorial-card sets) means Start
+# still presses the phase-action button; anything else ("Confirm Move",
+# "Confirm Targets", "Roll 2D6", "Confirm / End", …) means a context action owns
+# Start right now and the End-Phase button must stop advertising "[☰]".
+#
+# The reported trap: T1 step 12 ("LOCK IT IN!") tells the player ☰ confirms the
+# grots' move — which is true, Main._input routes Start to
+# MovementController.pad_confirm_move() while a move is staged — but the button in
+# the top-right corner simultaneously read "[☰] End Movement Phase". Two different
+# promises for one button. Main listens to start_action_changed and re-stamps the
+# button's glyph so only the true one is on screen.
+signal start_action_changed(label: String)
+const START_ACTION_PHASE := "End Phase"
+var start_action_label: String = START_ACTION_PHASE
+
+
+# True while ☰ still means "press the top-right phase-action button". False while
+# a context action (confirm move / targets / charge, place-and-confirm from a
+# carry, …) has claimed it. Read by Main to decide whether that button may carry
+# the "[☰] " prefix.
+func start_owns_phase_action() -> bool:
+	return start_action_label == START_ACTION_PHASE
+
 # M3 model-carry state: the model currently "picked up" rides the virtual
 # cursor (warp + held synthetic LMB — the real drag code runs underneath).
 # carry_model_index is which of the selected unit's alive models D-pad ◀ ▶
@@ -2195,7 +2222,9 @@ func _update_hints() -> void:
 	# and keeps focus, so every other promise on the bar would be a lie.
 	var tutorial_ack := _tutorial_ack_state()
 	if tutorial_ack != "":
-		PadHintBar.set_hints(HINTS_TUTORIAL_SUMMARY if tutorial_ack == "summary" else HINTS_TUTORIAL_ACK)
+		var ack_hints: Array = HINTS_TUTORIAL_SUMMARY if tutorial_ack == "summary" else HINTS_TUTORIAL_ACK
+		PadHintBar.set_hints(ack_hints)
+		_set_start_action(_start_chip_label(ack_hints))
 		return
 	var hints := HINTS_BOARD
 	if carry_active:
@@ -2244,6 +2273,30 @@ func _update_hints() -> void:
 				# focus check above stays false and this set still shows behind it.
 				hints = HINTS_FIGHT
 	PadHintBar.set_hints(_with_box_select_hint(hints))
+	# Publish what ☰ means in this state so the top-right phase-action button can
+	# drop its "[☰] " prefix while a context action (Confirm Move, Confirm
+	# Targets, …) owns Start. Done from the same `hints` the bar just rendered, so
+	# chip and button are the same statement by construction.
+	_set_start_action(_start_chip_label(hints))
+
+
+# The label on a hint set's ☰ chip, or START_ACTION_PHASE when the set carries
+# none. A set without a ☰ chip (the action bar, panel focus, the tutorial card)
+# is not saying Start is dead — Main._input still routes it to the phase-action
+# button in those states — it just isn't worth a chip there, so the default is
+# the phase action.
+func _start_chip_label(hints: Array) -> String:
+	for hint in hints:
+		if hint is Array and hint.size() >= 2 and str(hint[0]) == "menu":
+			return str(hint[1])
+	return START_ACTION_PHASE
+
+
+func _set_start_action(label: String) -> void:
+	if label == start_action_label:
+		return
+	start_action_label = label
+	start_action_changed.emit(label)
 
 
 # Board box multi-select (hold A + left stick) — the pad counterpart of the

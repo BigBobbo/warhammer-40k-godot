@@ -2,11 +2,30 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.6.2",
+      "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
       "changes": [
         "Step 10 of 'Scoutin' da Field' asked 'SEE DAT BUTTON?' without saying which button, and the end-phase button sits well away from the tutorial card. It now says 'SEE DAT BUTTON IN DA TOP RIGHT-HAND CORNER?', and the body text repeats the location."
+      ]
+    },
+    {
+      "version": "1.6.3",
+      "date": "2026-07-28",
+      "summary": "The Menu (☰) button no longer promises two different things at once: the End Phase button stops advertising ☰ while ☰ is busy confirming a move.",
+      "changes": [
+        "Tutorial step 12 ('Lock it in!') tells a controller player that ☰ confirms the grots' move — which is true — but the big red button in the top-right corner read '[☰] End Movement Phase' at the same time, so the one button appeared to be tied to both. The End Phase button now drops its ☰ badge for exactly as long as ☰ belongs to something else, and gets it straight back the moment ☰ can end the phase again.",
+        "This applies everywhere ☰ is context-sensitive, not just the tutorial: confirming a unit's move, confirming shooting targets, declaring a charge, rolling 2D6, confirming a charge move, and placing the last model of a unit during deployment.",
+        "The button's badge and the hint bar's ☰ chip are now driven by the same reading of the game state, so they can no longer disagree.",
+        "Step 12 of the Basic Trainin' lesson also spells this out: ☰ only ends the phase once nothing is mid-move."
+      ]
+    },
+    {
+      "version": "1.6.2",
+      "date": "2026-07-28",
+      "summary": "Tutorial no longer tells controller players that B closes the datasheet — only Y does.",
+      "changes": [
+        "Tutorial 1, step 'Seen Enough!': the controller instruction said to press Y again (or B) to close the datasheet. B does not close it, so the tutorial could stall for anyone who took it at its word. It now just says press Y again."
       ]
     },
     {
