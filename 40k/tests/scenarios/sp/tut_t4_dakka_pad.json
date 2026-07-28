@@ -115,6 +115,17 @@
       "equals": "confirm_dakka"
     },
     {
+      "act": "execute_script",
+      "script": "str(main.phase_action_button.text)",
+      "equals": "End Shooting Phase",
+      "comment": "Start means Confirm Targets here, so the top-right button must not also advertise '[☰] End Shooting Phase' - one glyph, one promise"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.start_owns_phase_action()",
+      "equals": false
+    },
+    {
       "act": "screenshot",
       "label": "02_shooter_picked_pad"
     },
