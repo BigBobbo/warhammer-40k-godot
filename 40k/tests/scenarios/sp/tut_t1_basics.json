@@ -299,6 +299,20 @@
       "equals": "end_phase_intro"
     },
     {
+      "act": "expect_node_property",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Header/BarkLabel",
+      "property": "text",
+      "equals": "SEE DAT BUTTON IN DA TOP RIGHT-HAND CORNER?",
+      "comment": "the bark has to name where the End Phase button actually is — 'SEE DAT BUTTON?' alone left players hunting for it"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var rt = tree.root.get_node_or_null(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nif rt == null:\n\treturn \"<no BodyText>\"\nreturn rt.get_parsed_text().contains(\"top right-hand corner\")",
+      "equals": true,
+      "comment": "and the body repeats the location, so the card still points at the right control if the bark is skimmed"
+    },
+    {
       "act": "screenshot",
       "label": "05_end_phase_intro"
     },

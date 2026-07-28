@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.4",
+      "date": "2026-07-28",
+      "summary": "The tutorial now tells you where the end-phase button actually is.",
+      "changes": [
+        "Step 10 of 'Scoutin' da Field' asked 'SEE DAT BUTTON?' without saying which button, and the end-phase button sits well away from the tutorial card. It now says 'SEE DAT BUTTON IN DA TOP RIGHT-HAND CORNER?', and the body text repeats the location."
+      ]
+    },
+    {
       "version": "1.6.3",
       "date": "2026-07-28",
       "summary": "The Menu (☰) button no longer promises two different things at once: the End Phase button stops advertising ☰ while ☰ is busy confirming a move.",
