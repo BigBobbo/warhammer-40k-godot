@@ -149,6 +149,22 @@ const HINTS_FOCUS := [
 	["a", "Press"],
 	["b", "Back To Board"],
 ]
+# The tutorial's instructor card is waiting on a button press — a "Continue"
+# step (ack) or the end-of-lesson summary. The card owns A while it is up
+# (TutorialOverlay._input), so the bar promises exactly that and nothing the
+# card would swallow. Reported trap: at T1 step 7 ("Read da Bar") a pad player
+# had no advertised way to press Continue and had to hunt for it with the
+# left-stick cursor — the bar now answers its own lesson.
+const HINTS_TUTORIAL_ACK := [
+	["a", "Continue"],
+	["ls", "Point"],
+	["view", "Pause Menu"],
+]
+const HINTS_TUTORIAL_SUMMARY := [
+	["dpad", "Navigate"],
+	["a", "Choose"],
+	["ls", "Point"],
+]
 # Charge carry (one model at a time): the plain set — no per-model advance and
 # no group grab, so neither "X Finish Model" nor "dpad Grab All". Start drops
 # the held model and confirms the charge when every declared target is reached.
@@ -262,6 +278,11 @@ const HINTS_FIGHT := [
 	["menu", "End Phase"],
 	["view", "Pause Menu"],
 ]
+
+# LS chip label for the board box multi-select gesture. "{a}" expands to the
+# button the select role currently sits on (GlyphDB.expand_label), so a layout
+# remapped in Settings › Controller is reflected in the promise.
+const BOX_SELECT_HINT := "Hold {a}: Box Select"
 
 # The target currently highlighted by LB/RB in shooting TARGET_SELECT mode
 # (empty when none). Windowed scenarios assert this.
@@ -638,6 +659,17 @@ func _reopen_move_menu() -> void:
 # ============================================================================
 # Cycling
 # ============================================================================
+
+# Public bumper-cycle entry for dialogs that run in their own exclusive
+# Window (e.g. DisembarkDialog): joypad events route into the focused
+# Window's viewport, so this router's _input never sees LB/RB while such a
+# dialog is up. The dialog dismisses itself first, then forwards the press
+# here so the bumpers keep their one global meaning — switch units.
+func cycle_units(dir: int) -> void:
+	InputDeviceManager.claim_pad()
+	_cycle(dir)
+	_update_hints()
+
 
 func _cycle(dir: int) -> void:
 	# Fight phase: the bumpers cycle keyboard focus among the ACTION BUTTONS of
@@ -2134,6 +2166,16 @@ func refresh_hints() -> void:
 	_update_hints()
 
 
+# "", "ack" or "summary" — whether the tutorial instructor card is waiting on a
+# button press (TutorialOverlay.pad_ack_state). Empty outside a lesson and in
+# harnesses that run without the tutorial autoloads.
+func _tutorial_ack_state() -> String:
+	var overlay := get_node_or_null("/root/TutorialOverlay")
+	if overlay == null or not overlay.has_method("pad_ack_state"):
+		return ""
+	return str(overlay.pad_ack_state())
+
+
 # The FightController while the Fight phase is live, else null. Used by the
 # bumper button-cycle and the fight hint sets so each reads the same authority.
 func _fight_controller() -> Node:
@@ -2149,6 +2191,12 @@ func _fight_controller() -> Node:
 
 
 func _update_hints() -> void:
+	# The tutorial card is modal-in-spirit while it waits on a press: it owns A
+	# and keeps focus, so every other promise on the bar would be a lie.
+	var tutorial_ack := _tutorial_ack_state()
+	if tutorial_ack != "":
+		PadHintBar.set_hints(HINTS_TUTORIAL_SUMMARY if tutorial_ack == "summary" else HINTS_TUTORIAL_ACK)
+		return
 	var hints := HINTS_BOARD
 	if carry_active:
 		if group_carry_active:
@@ -2195,7 +2243,48 @@ func _update_hints() -> void:
 				# its focus lives in the modal's own viewport, so the main-viewport
 				# focus check above stays false and this set still shows behind it.
 				hints = HINTS_FIGHT
-	PadHintBar.set_hints(hints)
+	PadHintBar.set_hints(_with_box_select_hint(hints))
+
+
+# Board box multi-select (hold A + left stick) — the pad counterpart of the
+# mouse's Shift+drag. Offered from the RESTING mid-move states, one step before
+# the controllers' own _pad_box_select_armed() will accept the press: that adds
+# "cursor already active", and the player has to read the chip BEFORE deflecting
+# the stick for the gesture to be discoverable at all.
+func _box_select_offered() -> bool:
+	if carry_active:
+		return false
+	# The action bar and any focused panel own the pad exclusively while up.
+	if PadActionBar.is_open() or get_viewport().gui_get_focus_owner() != null:
+		return false
+	var mc := _movement_controller()
+	if mc != null and mc.has_method("pad_can_grab_group"):
+		return bool(mc.pad_can_grab_group())
+	var cc := _charge_controller_any()
+	if cc != null and ("awaiting_movement" in cc) and ("active_unit_id" in cc):
+		return bool(cc.awaiting_movement) and str(cc.active_unit_id) != ""
+	return false
+
+
+# Point the LS chip at the box-select promise while the gesture is live (adding
+# one when the set has no LS chip). Applied here rather than baked into the const
+# sets because one gesture spans several of them — HINTS_MOVE while the mode
+# decision is still re-openable, HINTS_MOVE_STAGED / _LOCKED mid-move, and
+# HINTS_CHARGE_MOVE — and only the router can see which are actually armed.
+func _with_box_select_hint(hints: Array) -> Array:
+	if not _box_select_offered():
+		return hints
+	var out: Array = []
+	var replaced := false
+	for hint in hints:
+		if str(hint[0]) == "ls":
+			out.append(["ls", BOX_SELECT_HINT])
+			replaced = true
+		else:
+			out.append(hint)
+	if not replaced:
+		out.append(["ls", BOX_SELECT_HINT])
+	return out
 
 
 # The MovementController while the Movement phase is live, else null. Used by the

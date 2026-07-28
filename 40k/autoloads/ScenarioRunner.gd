@@ -809,10 +809,21 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	# .is_action_pressed() from _process, not from an event) — a press/release
 	# straddling a single process_frame await is not reliably observed by them.
 	var hold_s: float = float(step.get("hold_s", 0.0))
+	# Optional modifier flags: KeybindingManager.matches_action() compares
+	# ctrl/shift/alt/meta on the event, so a chord binding (Ctrl+A = select_all)
+	# is unreachable without them — a bare "A" event matches no chord action.
+	var ctrl: bool = bool(step.get("ctrl", false))
+	var shift: bool = bool(step.get("shift", false))
+	var alt: bool = bool(step.get("alt", false))
+	var meta: bool = bool(step.get("meta", false))
 	var press := InputEventKey.new()
 	press.keycode = kc
 	press.physical_keycode = kc
 	press.unicode = uni
+	press.ctrl_pressed = ctrl
+	press.shift_pressed = shift
+	press.alt_pressed = alt
+	press.meta_pressed = meta
 	press.pressed = true
 	Input.parse_input_event(press)
 	await get_tree().process_frame
@@ -822,10 +833,14 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	release.keycode = kc
 	release.physical_keycode = kc
 	release.unicode = uni
+	release.ctrl_pressed = ctrl
+	release.shift_pressed = shift
+	release.alt_pressed = alt
+	release.meta_pressed = meta
 	release.pressed = false
 	Input.parse_input_event(release)
 	await get_tree().process_frame
-	return {"pass": true, "hold_s": hold_s}
+	return {"pass": true, "hold_s": hold_s, "ctrl": ctrl, "shift": shift, "alt": alt, "meta": meta}
 
 
 func _do_simulate_wheel(step: Dictionary) -> Dictionary:

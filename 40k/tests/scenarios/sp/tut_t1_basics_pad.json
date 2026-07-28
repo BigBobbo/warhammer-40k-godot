@@ -6,11 +6,18 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T1 driven entirely with a gamepad: LB claims pad mode on the main menu, D-pad+A opens the Tutorial picker and starts the lesson, then every step is completed with pad input only - RS camera pan, RB unit cycling, Y datasheet toggle, virtual-cursor clicks on the Dice Log tab and instructor-card buttons, the pad-only hint-bar step (skipped on kbm), and a full carry-mode grot move (A select, A menu, A pick Normal, glide, X drop) before confirming via the End This Unit's Move button. Verifies the pad-only step appears, kbm-only steps are skipped, and completion persists.",
+  "description": "Tutorial lesson T1 driven entirely with a gamepad: LB claims pad mode on the main menu, D-pad+A opens the Tutorial picker and starts the lesson, then every step is completed with pad input only - RS camera pan, RB unit cycling, Y datasheet toggle, virtual-cursor clicks on the Dice Log tab and instructor-card buttons, the pad-only hint-bar step (skipped on kbm), the controls-reference step reached with the View button (pause menu -> Controller tab) instead of the keyboard-only Shift+/ chord, and a full carry-mode grot move (A select, A menu, A pick Normal, glide, X drop) before confirming via the End This Unit's Move button. Verifies the pad-only step appears, kbm-only steps are skipped, and completion persists.",
   "steps": [
     {
       "act": "wait_seconds",
       "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mm = tree.root.get_node(\"/root/MainMenu\")\nvar n = mm.get_node_or_null(\"TutorialNudge\")\nif n != null and n.visible:\n\tn.get_node(\"Margin/VBox/Footer/DismissNudgeButton\").pressed.emit()\nreturn true",
+      "equals": true,
+      "comment": "on a genuinely fresh profile (fresh clone / container) the first-launch nudge covers the menu and swallows the D-pad, so the pad presses below landed on the Terrain Layout dropdown instead of the Tutorial button. Dismiss it first; the kbm twin never noticed because click_node emits pressed directly."
     },
     {
       "act": "simulate_joy_button",
@@ -26,8 +33,9 @@
       "equals": true
     },
     {
-      "act": "simulate_joy_button",
-      "button_index": 12
+      "act": "pad_cursor_glide",
+      "button_text": "Tutorial",
+      "comment": "virtual cursor onto the menu's Tutorial button. Was a blind D-pad-down + A, which assumed the menu's initial focus sat one row above Tutorial - it does not on a fresh profile, so the press landed on Multiplayer and the picker never opened."
     },
     {
       "act": "wait_seconds",
@@ -45,6 +53,11 @@
     {
       "act": "screenshot",
       "label": "01_picker_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Start",
+      "comment": "the cursor is still parked on the menu button behind the picker, so A there presses nothing - glide onto lesson 1's Start first"
     },
     {
       "act": "simulate_joy_button",
@@ -265,6 +278,85 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
+      "equals": "controls_reference_open",
+      "comment": "reported bug (Steam Deck): this step used to be keyboard-only and told the pad player to press Shift+/ - a chord a Deck has no keys for. It now runs on both devices and the pad prompt teaches the pause-menu route instead."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nreturn t.contains(\"pause menu\") and t.contains(\"Controller\") and not t.contains(\"Shift\")",
+      "equals": true,
+      "comment": "the pad player is told where the controls live, not which keyboard chord to press"
+    },
+    {
+      "act": "screenshot",
+      "label": "04b_controls_reference_pad_prompt"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 4,
+      "comment": "View/Select = Pause Menu, the pad's Escape"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/SettingsMenu",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "controls_reference_close",
+      "comment": "opening the pause menu with the pad completes the step - no keyboard needed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"/root/Main/SettingsMenu\")\nvar names = []\nfor b in m._tab_buttons:\n\tnames.append(str(b.text))\nreturn names",
+      "equals": ["Audio", "Visual", "Gameplay", "Controls", "Controller"],
+      "comment": "the Controller tab the prompt points at is really there"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"/root/Main/SettingsMenu\")\nm._on_tab_pressed(4)\nreturn int(m._active_tab)",
+      "equals": 4
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"/root/Main/SettingsMenu\")\nvar rows = m._pad_role_buttons\nreturn rows.has(\"pad_pause\") and rows.has(\"pad_select\") and rows.size() >= 10",
+      "equals": true,
+      "comment": "Settings > Controller is the pad's cheat sheet: every role row, rebindable"
+    },
+    {
+      "act": "screenshot",
+      "label": "04c_controller_tab_pad"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1,
+      "comment": "B closes the pause menu (ui_cancel)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "is_instance_valid(main._settings_menu)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
       "equals": "end_phase_intro"
     },
     {
@@ -285,6 +377,13 @@
       "equals": "move_grots"
     },
     {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"▲\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the grot step must TELL the pad player about D-pad up: the unit is 11 models and carrying them one at a time is the slow path players were falling into"
+    },
+    {
       "act": "pad_cursor_glide",
       "unit_id": "U_GRETCHIN_T"
     },
@@ -303,11 +402,53 @@
     },
     {
       "act": "simulate_joy_button",
-      "button_index": 0
+      "button_index": 11,
+      "comment": "D-pad up with the mode decision still open opens the move menu (PadRouter._try_open_move_menu runs ahead of _try_grab_all_remaining)"
     },
     {
       "act": "wait_seconds",
-      "seconds": 0.4
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return PadActionBar.is_open()",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A takes the highlighted chip - 'Move' - which starts the move session and puts one grot in hand"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "the shortcut the instructor card now advertises: D-pad up mid-move grabs EVERY grot still to be moved as one group carry"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var pr = tree.root.get_node(\"/root/PadRouter\")\nvar mc = tree.current_scene.movement_controller\nvar models = GameState.get_unit(\"U_GRETCHIN_T\").get(\"models\", [])\nvar alive = 0\nfor m in models:\n\tif m.get(\"alive\", true):\n\t\talive += 1\nreturn alive > 1 and pr.group_carry_active and mc.selected_models.size() == alive",
+      "multiline": true,
+      "equals": true,
+      "comment": "D-pad up really did lift EVERY alive grot, not just the one in hand - the card's advice has to be true"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "move_grots",
+      "comment": "REGRESSION: grabbing the squad must NOT complete the step. The grab-all cancels the single carry, whose synthetic release stages a zero-distance move and undoes it; with done as `action: STAGE_MODEL_MOVE` that junk stage latched and the card jumped to 'LOCK IT IN!' while the mob was still in the air. The done condition now polls for a staged move that actually covered ground."
+    },
+    {
+      "act": "screenshot",
+      "label": "05a_grots_group_carry_pad"
     },
     {
       "act": "pad_cursor_glide",
@@ -320,7 +461,8 @@
     },
     {
       "act": "wait_seconds",
-      "seconds": 0.8
+      "seconds": 2.5,
+      "comment": "_end_group_drag stages the members one at a time (0.01s apart), then waits 0.1s and RETRIES any that did not land, then waits 0.1s again - so the staged count is still climbing for roughly a third of a second after the drop. Sampling early reads a half-finished drop as a partial one."
     },
     {
       "act": "execute_script",
@@ -328,8 +470,46 @@
       "equals": "confirm_grots"
     },
     {
+      "act": "execute_script",
+      "script": "var md = PhaseManager.current_phase_instance.get_active_move_data(\"U_GRETCHIN_T\")\nvar staged := {}\nfor sm in md.get(\"staged_moves\", []):\n\tstaged[str(sm.get(\"model_id\", \"\"))] = true\nvar models = GameState.get_unit(\"U_GRETCHIN_T\").get(\"models\", [])\nvar alive = 0\nfor m in models:\n\tif m.get(\"alive\", true):\n\t\talive += 1\nreturn alive > 1 and staged.size() == alive",
+      "multiline": true,
+      "equals": true,
+      "comment": "ONE A press after the group grab staged the whole 11-model mob - the speed-up the step promises, versus eleven pick-up/drop cycles the old wording led players into. Everything fits at this drop spot, so this run does not exercise partial placement - the mouse half of the lesson (tut_t1_basics) drives a genuinely partial group drop instead."
+    },
+    {
       "act": "screenshot",
       "label": "05_grot_carried_pad"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"▲\") and o.current_body_text().contains(\"ain't moved\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the confirm step repeats the shortcut AND tells the player it only picks up grots that are still to be moved"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "the confirm step promises D-pad up 'grabs every grot dat still ain't moved'. With all eleven already placed there is nothing left to grab, so it must NOT re-lift the mob (pad_select_unmoved_models filters out models that already have a staged move, and _try_begin_group_carry bails on a count of 0)."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5,
+      "comment": "_grab_all_from_carry cancels, waits three frames and only then tries the group grab, so the carry flags settle a beat after the press"
+    },
+    {
+      "act": "execute_script",
+      "script": "var mc = tree.current_scene.movement_controller\nreturn mc.pad_select_unmoved_models()",
+      "multiline": true,
+      "equals": 0,
+      "comment": "the 'still to be moved' set really is empty once every grot is placed - the wording is a filter, not 'grabs everything again'"
+    },
+    {
+      "act": "execute_script",
+      "script": "var pr = tree.root.get_node(\"/root/PadRouter\")\nreturn not pr.group_carry_active and not pr.carry_active",
+      "multiline": true,
+      "equals": true,
+      "comment": "and so nothing was picked back up by that press"
     },
     {
       "act": "pad_cursor_glide",
