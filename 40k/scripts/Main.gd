@@ -306,6 +306,13 @@ func _ready() -> void:
 	# controller could end the phase at all.
 	if InputDeviceManager and not InputDeviceManager.device_changed.is_connected(_on_input_device_changed):
 		InputDeviceManager.device_changed.connect(_on_input_device_changed)
+	# ☰ is context-dependent, so the prefix has to follow the board state as well
+	# as the device: while a move is staged ☰ confirms that move (T1 step 12's
+	# "LOCK IT IN!") and this button must NOT also claim "[☰] End Movement Phase".
+	# PadRouter fires this whenever the ☰ chip's meaning flips.
+	if PadRouter and PadRouter.has_signal("start_action_changed") \
+			and not PadRouter.start_action_changed.is_connected(_on_pad_start_action_changed):
+		PadRouter.start_action_changed.connect(_on_pad_start_action_changed)
 	# Initial pass in case a pad is already the active device at startup (the
 	# phase button self-corrects via update_ui_for_phase; the stratagem button
 	# has no other refresh path, so seed it here).
@@ -5590,6 +5597,14 @@ func _pad_native_nav_modal_open() -> bool:
 # confirmation, reusing whatever the button currently does/says.
 var _pad_phase_confirm: ConfirmationDialog = null
 
+# Start-button presses are consumed here, which stops the event before
+# PadRouter._input ever sees it — so the hint bar (and, through it, this button's
+# "[☰] " prefix) would keep describing the state Start just left behind. Deferred
+# so the confirm/end it triggered has landed in state before the recompute reads it.
+func _refresh_pad_start_meaning() -> void:
+	if PadRouter and PadRouter.has_method("refresh_hints"):
+		PadRouter.call_deferred("refresh_hints")
+
 func _show_pad_phase_confirm() -> void:
 	if _pad_phase_confirm == null or not is_instance_valid(_pad_phase_confirm):
 		_pad_phase_confirm = ConfirmationDialog.new()
@@ -5629,6 +5644,7 @@ func _input(event: InputEvent) -> void:
 			# live carry and stranding the still-held cursor. State-checked here
 			# (not just consumed in PadRouter._input) so it works regardless of
 			# _input order.
+			_refresh_pad_start_meaning()
 			get_viewport().set_input_as_handled()
 			return
 		if current_phase == GameStateData.Phase.SHOOTING and shooting_controller \
@@ -5661,6 +5677,7 @@ func _input(event: InputEvent) -> void:
 			pass
 		elif phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
 			_show_pad_phase_confirm()
+		_refresh_pad_start_meaning()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -10345,9 +10362,25 @@ func _get_phase_tooltip_text(phase: GameStateData.Phase) -> String:
 func _phase_action_pad_prefix() -> String:
 	return "[%s] " % GlyphDB.glyph_text("menu")
 
+# True while the pad's ☰ (Start) button still presses THIS button. ☰ is
+# context-dependent (see _input's pad_phase_action branch): mid-move it confirms
+# the unit's move, with targets assigned it confirms targets, mid-carry it places
+# the held model and confirms, and only when none of those apply does it fall
+# through to the End-Phase confirm. PadRouter computes that meaning once, for the
+# hint bar's ☰ chip; this reads the same value so the button and the chip agree.
+func _pad_start_ends_phase() -> bool:
+	if PadRouter == null or not PadRouter.has_method("start_owns_phase_action"):
+		return true
+	return PadRouter.start_owns_phase_action()
+
 # The shortcut prefix for the current input device: pad → "[☰] ", KBM → "[Enter] ".
+# On a pad the "[☰] " is dropped while a context action owns Start — otherwise the
+# button claims "[☰] End Movement Phase" at the very moment ☰ means "confirm this
+# unit's move" (the contradiction T1 step 12, "LOCK IT IN!", walked players into).
 func _phase_action_prefix() -> String:
 	if InputDeviceManager and InputDeviceManager.is_pad_active():
+		if not _pad_start_ends_phase():
+			return ""
 		return _phase_action_pad_prefix()
 	return _PHASE_ACTION_KBM_PREFIX
 
@@ -10365,20 +10398,29 @@ func _phase_action_bare_label() -> String:
 
 # Re-stamp the button's shortcut prefix for the active device without touching
 # the label — so switching KBM ⇄ pad live swaps "[Enter] " ⇄ "[☰] " and leaves
-# any custom label (Continue, the Fight-phase step labels) intact.
+# any custom label (Continue, the Fight-phase step labels) intact. Also runs when
+# ☰ changes meaning mid-phase, which is why it must cope with the button already
+# being bare: with a context action owning Start the prefix is "", and a
+# begins_with-only version could never put the "[☰] " back once ☰ came free.
 func _sync_phase_action_glyph() -> void:
 	if not phase_action_button or not is_instance_valid(phase_action_button):
 		return
-	var t: String = phase_action_button.text
-	for p in [_PHASE_ACTION_KBM_PREFIX, _phase_action_pad_prefix()]:
-		if t.begins_with(p):
-			phase_action_button.text = _phase_action_prefix() + t.substr(p.length())
-			return
-	# No recognized shortcut prefix — leave the text untouched.
+	var bare: String = _phase_action_bare_label()
+	if bare == "":
+		return
+	var want: String = _phase_action_prefix() + bare
+	if phase_action_button.text != want:
+		phase_action_button.text = want
 
 func _on_input_device_changed(_mode: int) -> void:
 	_sync_phase_action_glyph()
 	_sync_stratagem_button_glyph()
+
+# PadRouter re-derived what ☰ does in the current board state (mid-move →
+# "Confirm Move", targets assigned → "Confirm Targets", …). Re-stamp the
+# phase-action button so it only advertises "[☰]" while ☰ would actually press it.
+func _on_pad_start_action_changed(_label: String) -> void:
+	_sync_phase_action_glyph()
 
 # Drop / restore the Stratagems button's "[S] " keyboard hint for the active
 # device: pad → "Stratagems" (reached via D-pad panel focus + A, no key), KBM →

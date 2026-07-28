@@ -280,7 +280,7 @@
       "prompt": {
         "bark": "LOCK IT IN!",
         "kbm": "Grots left behind? Only da ones dat fit got placed — da rest are still selected, so drag 'em again somewhere dey fit ({key:select_all} re-grabs da lot). When every grot's down, press [b]End This Unit's Move[/b].",
-        "pad": "Grots left behind? Only da ones dat fit got placed. Press {dpad} ▲ again — it grabs every grot dat still ain't moved — den {a} drops 'em somewhere dey fit. When every grot's down, {menu} confirms da move."
+        "pad": "Grots left behind? Only da ones dat fit got placed. Press {dpad} ▲ again — it grabs every grot dat still ain't moved — den {a} drops 'em somewhere dey fit. When every grot's down, {menu} confirms da move \u2014 dat's why da big [b]End Phase[/b] button drops its {menu} while a move's on da go. {menu} only ends da phase once nuffin's mid-move."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton"
