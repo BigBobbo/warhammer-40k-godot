@@ -230,6 +230,29 @@
       "equals": "close_datasheet"
     },
     {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nreturn t.contains(\"[Y]\") and not t.contains(\"[B]\")",
+      "equals": true,
+      "comment": "reported bug: the SEEN ENOUGH prompt told the pad player to press Y again 'or B'. B does not close the datasheet (PadRouter routes it to _handle_back, which has no datasheet branch), so a player who took the card at its word sat on a step that would not advance. The prompt must name Y only."
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1,
+      "comment": "B - the button the prompt used to advertise. Proving it is a no-op here is what makes the wording fix load-bearing rather than cosmetic."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ds = tree.current_scene.get_node_or_null(\"DatasheetModal\")\nreturn ds != null and ds.visible and TutorialManager.current_step_id() == \"close_datasheet\"",
+      "equals": true,
+      "comment": "B left the datasheet open and the lesson parked on this step"
+    },
+    {
       "act": "simulate_joy_button",
       "button_index": 3
     },

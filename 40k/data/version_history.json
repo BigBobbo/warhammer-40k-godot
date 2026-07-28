@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.2",
+      "date": "2026-07-28",
+      "summary": "Tutorial no longer tells controller players that B closes the datasheet — only Y does.",
+      "changes": [
+        "Tutorial 1, step 'Seen Enough!': the controller instruction said to press Y again (or B) to close the datasheet. B does not close it, so the tutorial could stall for anyone who took it at its word. It now just says press Y again."
+      ]
+    },
+    {
       "version": "1.6.1",
       "date": "2026-07-27",
       "summary": "Units now show — and fire — only the weapons they are actually armed with, instead of every weapon their datasheet could take.",
