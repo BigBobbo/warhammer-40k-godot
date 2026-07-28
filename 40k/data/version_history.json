@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.1",
+      "date": "2026-07-28",
+      "summary": "Controller players can finally rotate a model while deploying it: hold R3 (click the right stick) and the bumpers turn the ghost 15° a press.",
+      "changes": [
+        "Added controller rotation during deployment. Hold R3 and LB/RB rotate the model you are placing — the pad equivalent of the keyboard's Q/E. Before this there was no way to angle an oval or rectangular base (a Battlewagon, a tank) with a controller at all; you had to reach for a mouse and keyboard.",
+        "In Spread or Tight formation the same combo rotates the whole formation, matching what the keyboard does.",
+        "Bare LB/RB still switch which unit you are deploying, exactly as before — the rotation only happens while R3 is held.",
+        "The deployment hint bar now shows the new 'R3 Hold: LB/RB Rotate' prompt so it is discoverable, and it follows your button layout if you remap the Precision control in Settings › Controller."
+      ]
+    },
+    {
       "version": "1.6.0",
       "date": "2026-07-27",
       "summary": "The game no longer flips between the controller and mouse & keyboard layouts while you play. It now picks one at launch — controller on a Steam Deck, mouse & keyboard on a PC or in the browser — and sticks to it, with a new Settings › Controller › Input Mode setting to override the choice.",

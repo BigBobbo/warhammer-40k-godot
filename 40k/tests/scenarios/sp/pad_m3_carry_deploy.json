@@ -1,13 +1,14 @@
 {
   "id": "pad_m3_carry_deploy",
   "covers": [
-    "controller.m3.carry_deployment"
+    "controller.m3.carry_deployment",
+    "controller.deploy.r3_bumper_rotate"
   ],
   "fixture": "audit_377_defender_first",
   "transition_to_phase": 1,
   "disable_ai": true,
   "rng_seed": 42,
-  "description": "M3 deployment by pad: RB cycles the undeployed-unit list (starting placement of the Battlewagon), A warps the cursor+ghost to the deployment zone, a stick nudge finds room for the huge oval base, A places it, cursor-clicking Confirm pops the transport embark dialog, 'Deploy Without Embarking' completes the unit and the deployment turn alternates to player 1; B parks the cursor. NOTE: this scenario used to press LB here to rotate the ghost. Under the bumper-only unit-cycling rule the bumpers only rotate while a movement carry is live — during deployment placement LB/RB are prev/next UNIT, so that press silently wrapped the placing unit from the Battlewagon round to the Weirdboy (the last undeployed unit), which is not a transport, and the embark dialog never appeared. The rotate step is gone and the scenario now asserts WHICH unit is being confirmed, so the same drift fails loudly instead of quietly deploying the wrong unit.",
+  "description": "M3 deployment by pad: RB cycles the undeployed-unit list (starting placement of the Battlewagon), A warps the cursor+ghost to the deployment zone, a stick nudge finds room for the huge oval base, A places it, cursor-clicking Confirm pops the transport embark dialog, 'Deploy Without Embarking' completes the unit and the deployment turn alternates to player 1; B parks the cursor. Rotation is back on the bumpers behind a HELD R3 (the Precision role): R3+LB/RB angles the ghost 15° a press while bare LB/RB keep switching units. NOTE: this scenario used to press LB *bare* to rotate the ghost. Under the bumper-only unit-cycling rule the bumpers only rotate while a movement carry is live — during deployment placement LB/RB are prev/next UNIT, so that press silently wrapped the placing unit from the Battlewagon round to the Weirdboy (the last undeployed unit), which is not a transport, and the embark dialog never appeared. The rotate step is gone and the scenario now asserts WHICH unit is being confirmed, so the same drift fails loudly instead of quietly deploying the wrong unit.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -65,6 +66,65 @@
     {
       "act": "screenshot",
       "label": "02_ghost_at_zone"
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"rot0\", float(main.deployment_controller.ghost_sprite.base_rotation))"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 8,
+      "state": "press"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var r = float(tree.current_scene.deployment_controller.ghost_sprite.base_rotation)\nreturn is_equal_approx(r, float(InputDeviceManager.get_meta(\"rot0\")) - PI/12)",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var r = float(tree.current_scene.deployment_controller.ghost_sprite.base_rotation)\nreturn is_equal_approx(r, float(InputDeviceManager.get_meta(\"rot0\")) + PI/12)",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 8,
+      "state": "release"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.deployment_controller.unit_id)",
+      "equals": "U_BATTLEWAGON_G"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_ghost_rotated_r3_bumpers"
     },
     {
       "act": "simulate_joy_axis",

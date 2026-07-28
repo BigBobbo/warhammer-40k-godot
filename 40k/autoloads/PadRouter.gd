@@ -137,6 +137,10 @@ const HINTS_DEPLOY := [
 	["ls", "Cursor"],
 	["lb", "Prev Unit"],
 	["rb", "Next Unit"],
+	# Hold R3 and the bumpers rotate the ghost instead of switching units — the
+	# only pad way to angle an oval/rectangular base while placing it. See
+	# _rotating_a_placement_ghost().
+	["r3", "Hold: LB/RB Rotate"],
 	["a", "Place Model"],
 	["dpad", "Type / Formation"],
 	["x", "Undo Model"],
@@ -392,13 +396,13 @@ func _input(event: InputEvent) -> void:
 		return
 	match button:
 		JOY_BUTTON_LEFT_SHOULDER:
-			if carry_active:
+			if carry_active or _rotating_a_placement_ghost():
 				_synth_rotate(true)
 			else:
 				_cycle(-1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_RIGHT_SHOULDER:
-			if carry_active:
+			if carry_active or _rotating_a_placement_ghost():
 				_synth_rotate(false)
 			else:
 				_cycle(1)
@@ -1842,6 +1846,28 @@ func _deployment_zone_center() -> Vector2:
 	for point in zone:
 		center += point
 	return center / zone.size()
+
+
+# Deployment-placement rotation (owner request 2026-07-28). A controller player
+# had NO way to rotate a model's ghost while placing it: the bumpers rotate only
+# during a movement carry, and every other pad control is already spoken for
+# during placement (D-pad drives the card's Deploy Formation / Model Type rows,
+# A places, X undoes a model, B undoes the unit, Start confirms). Keyboard
+# players have had Q/E all along, so oval-based vehicles could only be angled
+# with a mouse and keyboard.
+#
+# R3 — already the "Precision Cursor (hold)" role and never consumed as a press
+# — becomes the modifier: HOLD it and the bumpers rotate the ghost instead of
+# cycling units. That keeps bare LB/RB as the unit switcher (the bumper-only
+# rule, and the browse-while-placing flow pad_deploy_unit_cycling covers), costs
+# no other control, and reads as one idea: hold R3 for fine placement control —
+# the cursor slows AND the bumpers angle the model. Reading the `pad_precision`
+# action means a player who remaps the precision role in Settings › Controller
+# gets the combo on their chosen button for free.
+func _rotating_a_placement_ghost() -> bool:
+	if not is_placement_active():
+		return false
+	return InputMap.has_action("pad_precision") and Input.is_action_pressed("pad_precision")
 
 
 # Pad rotation reuses the rebindable rotate_left/rotate_right keyboard

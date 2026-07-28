@@ -3062,6 +3062,15 @@
       "status": "covered"
     },
     {
+      "id": "controller.deploy.r3_bumper_rotate",
+      "description": "Deployment placement rotation on the pad: holding R3 (the rebindable Precision role) makes LB/RB rotate the ghost 15 degrees a press via the same rotate_left/rotate_right path the keyboard Q/E uses, while bare LB/RB keep switching units. Closes the gap where a controller player could not angle an oval/rectangular base at all. The deployment hint bar advertises the combo.",
+      "scenarios": [
+        "pad_m3_carry_deploy"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "controller.end_phase.discoverability",
       "description": "A controller player can discover how to end a phase without the touchscreen: the button they reach for names the Menu (☰) button bound to pad_phase_action, matching the '☰ End Phase' hint-bar chip, and pressing Menu (Start) pops the confirm dialog whose OK ends the phase.",
       "scenarios": [
