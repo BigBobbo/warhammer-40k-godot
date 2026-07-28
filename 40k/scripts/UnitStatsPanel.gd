@@ -397,7 +397,9 @@ func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContai
 	if not unit_data.has("meta") or not unit_data["meta"].has("weapons"):
 		return
 	
-	var weapons = unit_data["meta"]["weapons"]
+	# Equipped loadout only — meta.weapons is the datasheet's full option MENU,
+	# so a Battlewagon would otherwise list a killkannon/zzap gun it never took.
+	var weapons = UnitLoadoutResolver.get_equipped_weapons(unit_data)
 	if weapons.is_empty():
 		return
 

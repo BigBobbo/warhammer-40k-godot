@@ -38,7 +38,8 @@
     "is_warlord": true,
     "enhancements": [],
     "wargear": [
-     "Shield-Captain (Shield), Praesidium Shield"
+     "Shield-Captain (Shield), Praesidium Shield",
+     "1x Guardian spear"
     ],
     "weapons": [
      {
@@ -728,7 +729,11 @@
     "points": 210,
     "is_warlord": false,
     "enhancements": [],
-    "wargear": [],
+    "wargear": [
+      "1x Twin iliastus accelerator cannon",
+      "1x Twin lastrum bolt cannon",
+      "1x Armoured hull"
+    ],
     "weapons": [
      {
       "name": "Twin arachnus heavy blaze cannon",
@@ -856,7 +861,10 @@
     "points": 155,
     "is_warlord": false,
     "enhancements": [],
-    "wargear": [],
+    "wargear": [
+      "1x Achillus dreadspear",
+      "1x Lastrum storm bolter"
+    ],
     "weapons": [
      {
       "name": "Achillus dreadspear – Achillus dreadspear",
@@ -999,7 +1007,11 @@
     "points": 225,
     "is_warlord": false,
     "enhancements": [],
-    "wargear": [],
+    "wargear": [
+      "1x Iliastus accelerator culverin",
+      "1x Spiculus bolt launcher",
+      "1x Armoured feet"
+    ],
     "weapons": [
      {
       "name": "Arachnus storm cannon",
