@@ -227,8 +227,8 @@
     {
       "id": "end_phase_intro",
       "prompt": {
-        "bark": "SEE DAT BUTTON?",
-        "text": "Dat big red button ends da current phase for good. [b]Don't[/b] press it yet — first, a bit of movin'."
+        "bark": "SEE DAT BUTTON IN DA TOP RIGHT-HAND CORNER?",
+        "text": "Dat big red button up in da top right-hand corner ends da current phase for good. [b]Don't[/b] press it yet — first, a bit of movin'."
       },
       "anchor": {
         "node": "/root/Main/PhaseActionButton"
