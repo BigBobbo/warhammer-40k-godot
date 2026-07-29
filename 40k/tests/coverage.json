@@ -8565,6 +8565,52 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "tutorial.exit.under_modal",
+      "description": "Exit Tutorial stays usable while a gameplay dialog owns the screen. An exclusive embedded Window blocks every input to the parent viewport, so the card's own button is dead; the lesson adds an Exit Tutorial button to the blocking AcceptDialog's own button bar instead, and the card's footer greys out.",
+      "scenarios": [
+        "tut_exit_under_modal"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.exit.confirm",
+      "description": "Exit Tutorial asks before it throws the lesson away: 'Leave da tutorial?' with Keep Playin' (no-op) and Leg it! (teardown + main menu, no tutorial state or stray dialog left behind).",
+      "scenarios": [
+        "tut_exit_under_modal",
+        "tut_exit_anywhere"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.exit.card_button",
+      "description": "With nothing blocking, the instructor card's own Exit Tutorial button routes through the same confirm.",
+      "scenarios": [
+        "tut_exit_anywhere"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.exit.cancel",
+      "description": "Cancelling the exit confirm leaves the lesson on exactly the step it was on.",
+      "scenarios": [
+        "tut_exit_anywhere"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.exit.float_hatch",
+      "description": "A blocking Window that is not an AcceptDialog (no button bar to add to) gets the floating always-on-top Exit Tutorial hatch instead; it is dropped when the lesson ends.",
+      "scenarios": [
+        "tut_exit_anywhere"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

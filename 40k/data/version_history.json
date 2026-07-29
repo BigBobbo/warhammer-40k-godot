@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.0",
+      "date": "2026-07-29",
+      "summary": "Exit Tutorial now works at any point of a lesson — including while a dialog is on screen — and asks before it throws the lesson away.",
+      "changes": [
+        "Exit Tutorial did nothing whenever a game dialog was open (the roll-offs, Battle Formations, command re-rolls). Those dialogs block every click to the rest of the screen, so the card's button was dead exactly when players most needed it — e.g. stranded on 'Grots in a Mob' with the 'Who takes the first turn?' pop-up up and 'Oi! Not dat one, ya git' on every attempt to roll.",
+        "Any dialog that opens during a lesson now carries its own Exit Tutorial button, so there is always a way out no matter which phase or step you are on.",
+        "Exit Tutorial now asks 'Leave da tutorial?' first — Keep Playin' puts you straight back where you were, Leg it! returns to the main menu.",
+        "While a dialog is open the card's own Skip Step and Exit Tutorial buttons are greyed out instead of silently swallowing clicks."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
