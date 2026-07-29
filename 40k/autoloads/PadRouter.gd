@@ -133,6 +133,10 @@ const HINTS_CHARGE_MOVE := [
 	["menu", "Confirm Charge"],
 	["y", "Datasheet"],
 ]
+# Placement, models still to put down. ☰ carries NO chip here: with the unit
+# half-placed Start falls through to the top-right phase-action button (which is
+# disabled until every unit is deployed), so the default START_ACTION_PHASE is
+# the honest reading and that button keeps its "[☰] " prefix.
 const HINTS_DEPLOY := [
 	["ls", "Cursor"],
 	["lb", "Prev Unit"],
@@ -142,7 +146,25 @@ const HINTS_DEPLOY := [
 	["x", "Undo Model"],
 	["b", "Undo Unit"],
 	["y", "Datasheet"],
-	["menu", "Confirm / End"],
+]
+# Every model of the unit is down, waiting on Confirm — Main._input routes Start
+# to _on_confirm_pressed() in exactly this state, so the chip names that and
+# nothing else. The old single set promised "Confirm / End" throughout, which is
+# how a player pressing ☰ to lock in the Battlewagon read it as also being the
+# button that ends the phase (reported from tutorial T2). Same stage-accuracy
+# rule the charge sets follow: the chip never advertises an action Start would
+# not actually take.
+# LB/RB are deliberately absent: _cycle refuses to switch units while
+# get_placed_count() > 0 (it warns "Undo the placed models before switching
+# units"), and this set is only ever shown with every model down — so the
+# bumpers cannot do what the plain HINTS_DEPLOY set advertises them for.
+const HINTS_DEPLOY_STAGED := [
+	["ls", "Cursor"],
+	["dpad", "Type / Formation"],
+	["x", "Undo Model"],
+	["b", "Undo Unit"],
+	["y", "Datasheet"],
+	["menu", "Confirm Unit"],
 ]
 const HINTS_FOCUS := [
 	["dpad", "Navigate"],
@@ -2279,7 +2301,11 @@ func _update_hints() -> void:
 		if sc != null and str(sc.active_shooter_id) != "":
 			hints = HINTS_TARGETS
 		elif _deployment_controller_placing() != null:
-			hints = HINTS_DEPLOY
+			# Stage-accurate, like the charge sets: ☰ only claims "Confirm Unit"
+			# in the state where Main._input actually routes Start to the confirm.
+			var dpl = _deployment_controller_placing()
+			var total := int(dpl.get_total_model_count())
+			hints = HINTS_DEPLOY_STAGED if total > 0 and int(dpl.get_placed_count()) >= total else HINTS_DEPLOY
 		else:
 			var cc = _charge_controller_any()
 			if cc != null:
