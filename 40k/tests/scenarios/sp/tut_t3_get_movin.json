@@ -3,11 +3,12 @@
   "covers": [
     "tutorial.t3.movement",
     "tutorial.t3.disembark",
+    "tutorial.t3.post_disembark_move",
     "tutorial.engine.strict_spotlight"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T3 (Get Movin'), mouse+keyboard player path: menu -> picker -> lesson boots from tutorial_postdeploy -> disembark the Boyz+Warboss from the Battlewagon via the real row-click + ConfirmationDialog + 11 placement clicks inside the 3-inch ring -> Advance the Battlewagon through the mode radio + Confirm Movement Mode gate -> drag the hull, End This Unit's Move -> End Movement Phase under a strict spotlight -> summary, completion persisted, back to menu.",
+  "description": "Tutorial lesson T3 (Get Movin'), mouse+keyboard player path: menu -> picker -> lesson boots from tutorial_postdeploy -> disembark the Boyz+Warboss from the Battlewagon via the real row-click + ConfirmationDialog + 11 placement clicks inside the 3-inch ring -> the new boyz_move_after_disembark step teaches that the disembarked unit still gets its own move because the wagon has not moved yet (drag a Boy, End This Unit's Move) -> Advance the Battlewagon through the mode radio + Confirm Movement Mode gate -> drag the hull, End This Unit's Move -> End Movement Phase under a strict spotlight -> summary, completion persisted, back to menu.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -159,7 +160,7 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "wagon_mode"
+      "equals": "boyz_move_after_disembark"
     },
     {
       "act": "expect_state",
@@ -194,6 +195,69 @@
     {
       "act": "screenshot",
       "label": "03_boyz_out"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_BOYZ_T",
+      "comment": "11e 18.04 - a tactical disembark from a transport that has NOT moved leaves the unit selected to make its own move; the new step teaches that affordance"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.cannot_move",
+      "equals": false
+    },
+    {
+      "act": "drag_board",
+      "from_x": 480.0,
+      "from_y": 500.0,
+      "to_x": 480.0,
+      "to_y": 460.0,
+      "comment": "m1 is at board (480,500) after placement - drag it 40px (1\") forward, well inside the 6\" cap and coherency"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "boyz_move_after_disembark",
+      "comment": "staging a model must NOT advance the step - it waits for the move to be locked in"
+    },
+    {
+      "act": "execute_script",
+      "script": "float(main.movement_controller.current_phase.get_active_move_data(\"U_BOYZ_T\").model_distances[\"U_BOYZ_T:m1\"]) > 0.5",
+      "equals": true,
+      "comment": "the Boy really moved - guards against a zero-distance stage passing for a move (staged moves only reach GameState on CONFIRM_UNIT_MOVE, so this reads the live move data)"
+    },
+    {
+      "act": "screenshot",
+      "label": "03b_boyz_moving_after_disembark"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(float(GameState.get_unit(\"U_BOYZ_T\").models[0].position.y) - 500.0) > 10.0",
+      "equals": true,
+      "comment": "confirming the move wrote the new position through to GameState"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "wagon_mode"
     },
     {
       "act": "click_item_list",

@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.1",
+      "version": "1.7.3",
       "date": "2026-07-29",
       "summary": "Attached leaders now ride in transports with the unit they lead — and get out with them.",
       "changes": [
@@ -12,6 +12,27 @@
         "Existing saves (and the shipped tutorial checkpoints) that stranded a leader outside its bodyguard's transport are repaired on load: the leader is put aboard with its unit.",
         "The whole attached unit is measured together for coherency and disembark range, and the attached character shares the squad's after-disembark restrictions (can't-move / can't-charge / Combat Disembark hazards and battle-shock).",
         "Fixed a related placement bug: a unit that had taken casualties before disembarking had every surviving model placed one position out of step."
+      ]
+    },
+    {
+      "version": "1.7.2",
+      "date": "2026-07-29",
+      "summary": "Deployment tutorial now has its own step for turning the Battlewagon, instead of mentioning rotation in passing.",
+      "changes": [
+        "'Musterin' da Boyz' (lesson 2) gained a step between the deployment roll-off and parking the wagon: POINT IT DA RIGHT WAY! It has you pick the Battlewagon up and actually turn it before dropping it, and spells out how — Q and E (or whatever you rebound them to), or the mouse wheel, 15° a tap.",
+        "The step will not move on until the wagon has genuinely been turned, and Confirm is held shut while it is showing — dropping the wagon flat and locking it in would have left nothing to rotate. If you drop it before turning it, the step tells you to pick it back up with Undo on the unit card.",
+        "Controller players skip the new step: rotating a model during deployment is a keyboard/mouse-wheel control only (on a pad the bumpers cycle units there), so the tutorial does not promise a button that would turn nothing. The end-of-lesson summary says the same.",
+        "The 'Park da wagon' step that follows is now just about placing and confirming."
+      ]
+    },
+    {
+      "version": "1.7.1",
+      "date": "2026-07-29",
+      "summary": "The movement tutorial now teaches that boyz who disembark can still move — as long as the transport hasn't moved yet.",
+      "changes": [
+        "'Get Movin'' used to jump straight from placing the disembarked Boyz to driving the Battlewagon, so it never mentioned that the Boyz were already selected and still had their full 6\" move to spend. A new step ('DEIR LEGS STILL WORK!') has you drag them forward and lock the move in with End This Unit's Move.",
+        "The step spells out the catch: it only works because the wagon hasn't moved yet. Disembark first, drive after — if the transport moves first, the passengers are stuck where they land.",
+        "The 'it can still move' pop-up that used to appear over the tutorial card after a disembark is now hidden during a lesson, so it stops covering the instruction it repeats."
       ]
     },
     {
