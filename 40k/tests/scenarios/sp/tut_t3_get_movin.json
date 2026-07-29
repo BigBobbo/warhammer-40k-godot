@@ -167,6 +167,31 @@
       "equals": true
     },
     {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_T.embarked_in",
+      "equals": null,
+      "comment": "19.03: the attached Warboss disembarks WITH the Boyz. Before the fix the placement only asked for the 10 Boyz, reported complete, and left the Warboss aboard."
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_T.disembarked_this_phase",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var wb = GameState.get_unit(\"U_WARBOSS_T\")\nvar m = wb.get(\"models\", [])\nif m.is_empty():\n\treturn false\nreturn m[0].get(\"position\", null) != null",
+      "multiline": true,
+      "equals": true,
+      "comment": "The Warboss model is actually ON THE BOARD at a placed position, not merely flagged as disembarked"
+    },
+    {
+      "act": "execute_script",
+      "script": "var wagon = GameState.get_unit(\"U_BATTLEWAGON_T\")\nreturn wagon.get(\"transport_data\", {}).get(\"embarked_units\", []).size()",
+      "multiline": true,
+      "equals": 0,
+      "comment": "Battlewagon is empty — neither the Boyz nor the Warboss are left inside"
+    },
+    {
       "act": "screenshot",
       "label": "03_boyz_out"
     },

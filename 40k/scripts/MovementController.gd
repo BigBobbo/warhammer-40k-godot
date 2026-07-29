@@ -2892,7 +2892,7 @@ func _cancel_active_disembark_placement() -> void:
 		_active_disembark_controller.cancel_placement()
 	_active_disembark_controller = null
 
-func _on_disembark_completed(unit_id: String, positions: Array) -> void:
+func _on_disembark_completed(unit_id: String, positions: Array, group_positions: Dictionary = {}) -> void:
 	"""Handle successful disembark - route through action system for multiplayer sync"""
 	print("MovementController: Disembark completed for unit %s with %d positions" % [unit_id, positions.size()])
 	_active_disembark_controller = null
@@ -2902,12 +2902,22 @@ func _on_disembark_completed(unit_id: String, positions: Array) -> void:
 	for pos in positions:
 		serialized_positions.append({"x": pos.x, "y": pos.y})
 
+	# 19.03: the attached unit disembarks as one, so carry EVERY member's
+	# placements — without this the attached CHARACTERs stayed in the transport.
+	var serialized_groups := {}
+	for gid in group_positions:
+		var group_serialized := []
+		for pos in group_positions[gid]:
+			group_serialized.append({"x": pos.x, "y": pos.y})
+		serialized_groups[gid] = group_serialized
+
 	# Route through action system instead of calling TransportManager directly
 	var action = {
 		"type": "CONFIRM_DISEMBARK",
 		"actor_unit_id": unit_id,
 		"payload": {
 			"positions": serialized_positions,
+			"group_positions": serialized_groups,
 			"can_setup_tactical": not _pending_combat_disembark.get(unit_id, false)
 		}
 	}

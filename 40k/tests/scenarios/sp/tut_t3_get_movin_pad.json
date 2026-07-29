@@ -224,6 +224,19 @@
       "equals": true
     },
     {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_T.embarked_in",
+      "equals": null,
+      "comment": "19.03: the attached Warboss disembarks WITH the Boyz — the pad placement asks for its base too (11 glide+A placements, not 10)."
+    },
+    {
+      "act": "execute_script",
+      "script": "var wb = GameState.get_unit(\"U_WARBOSS_T\")\nvar m = wb.get(\"models\", [])\nif m.is_empty():\n\treturn false\nreturn m[0].get(\"position\", null) != null",
+      "multiline": true,
+      "equals": true,
+      "comment": "The Warboss model is actually on the board at a placed position"
+    },
+    {
       "act": "screenshot",
       "label": "02_boyz_out_pad"
     },
