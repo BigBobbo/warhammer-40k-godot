@@ -7,7 +7,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T3 driven with pad input: LB claims pad mode, cursor-glide + A through the picker, disembark via the middle unit-list row and dialog, 11 cursor-glide placement clicks, the new boyz_move_after_disembark step driven in carry mode (A grab, glide, A drop) plus End This Unit's Move, RB to cycle to the Battlewagon, Advance radio + Confirm Movement Mode via glide+A, Keep Roll on the command re-roll, carry-mode wagon move (A grab, glide, A drop), End This Unit's Move, then Start-button End Phase with its pad confirm. Native command re-roll and disembark dialogs are confirmed via emit_pressed (embedded-Window buttons have no reliable real-click coordinates).",
+  "description": "Tutorial lesson T3 driven with pad input: LB claims pad mode, cursor-glide + A through the picker, disembark via the middle unit-list row and dialog, 11 cursor-glide placement clicks, the boyz_move_after_disembark step driven in carry mode (A grab, glide, A drop) plus End This Unit's Move, RB to cycle to the Battlewagon, Advance radio + Confirm Movement Mode via glide+A, Keep Roll on the command re-roll, then a REAL carry for the wagon: B parks the cursor so A reaches PadRouter (with the cursor active, VirtualCursor eats A as a left-click and no carry ever starts), A grabs the wagon, glide + A drops it, A picks the same model straight back up for a second leg, LB twice turns it on the 'POINT IT RIGHT!' step, A drops it again and the two legs are asserted to SUM. Then End This Unit's Move and Start-button End Phase with its pad confirm. Native command re-roll and disembark dialogs are confirmed via emit_pressed (embedded-Window buttons have no reliable real-click coordinates).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -427,25 +427,49 @@
       "equals": "wagon_move"
     },
     {
-      "act": "pad_cursor_glide",
-      "unit_id": "U_BATTLEWAGON_T"
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"grab it again\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the card must actually SAY the move can be spent over several carries - players were treating the first drop as the whole move"
     },
     {
       "act": "simulate_joy_button",
-      "button_index": 0
+      "button_index": 1,
+      "comment": "B parks the virtual cursor. This is load-bearing, not tidying: while the cursor is ACTIVE, VirtualCursor._input eats A and re-emits it as a left-click at the cursor, so A never reaches PadRouter and no carry ever begins - it press-and-releases a mouse drag in place and stages a 0.0-inch move. Parked, A routes to PadRouter._handle_a -> _try_begin_carry. Same B-then-A opening as pad_group_move_all / pad_move_dpad_model_select."
     },
     {
       "act": "wait_seconds",
-      "seconds": 0.4
-    },
-    {
-      "act": "pad_cursor_glide",
-      "x": 560.0,
-      "y": 240.0
+      "seconds": 0.3
     },
     {
       "act": "simulate_joy_button",
-      "button_index": 0
+      "button_index": 0,
+      "comment": "A with the cursor parked and the move mode already locked: pad_menu_options() is empty (mode resolved), so _try_open_move_menu declines and A falls through to _try_begin_carry"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_wagon_carried_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 600.0,
+      "y": 280.0,
+      "comment": "steer the carried wagon - the glide drives the same cursor pipeline the left stick does, and the model rides the held synthetic LMB"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A drops it. First hop only - deliberately a fraction of the 11 inch advance"
     },
     {
       "act": "wait_seconds",
@@ -454,11 +478,97 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "wagon_confirm"
+      "equals": "wagon_turn"
+    },
+    {
+      "act": "execute_script",
+      "script": "var phase = PhaseManager.get_current_phase_instance()\nvar md = phase.get_active_move_data(\"U_BATTLEWAGON_T\")\nvar dists = md.get(\"model_distances\", {})\nfor k in dists:\n\treturn float(dists[k])\nreturn -1.0",
+      "multiline": true,
+      "expect_max": 2.0,
+      "comment": "the first hop is 40x40 board px = 1.41in of an 11in advance, so most of the move is still in hand for the second leg below"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = o.current_body_text()\nreturn t.contains(\"[LB]\") and t.contains(\"[RB]\") and t.contains(\"costs no inches\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the pad body must name the bumpers - {lb}/{rb} render through PadBindingManager.display_glyph, the same role lookup PadRouter routes the press through, so a remapped pad keeps prompt and behaviour in step"
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.get_unit(\"U_BATTLEWAGON_T\")\nreturn float(u.models[0].get(\"rotation\", 0.0))",
+      "multiline": true,
+      "equals": 0.0,
+      "comment": "the wagon enters the step un-rotated"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A picks the SAME model straight back up - _drop_carry parked the cursor for exactly this, and PadRouter keeps carry_model_index so a drop is a waypoint, not a hand-off. This is the second leg the previous step's wording promises"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.carry_active",
+      "equals": true,
+      "comment": "LB/RB only rotate while a carry is live - otherwise PadRouter routes the bumpers to _cycle() (switch unit), so this guards the rotation assertion below from passing for the wrong reason"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB while carrying -> PadRouter._synth_rotate(true) -> the bound rotate_left key event -> MovementController rotates 15 degrees left"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.get_unit(\"U_BATTLEWAGON_T\")\nreturn abs(float(u.models[0].get(\"rotation\", 0.0)) + PI / 6.0) < 0.01",
+      "multiline": true,
+      "equals": true,
+      "comment": "two LB taps = -2 * PI/12 = -PI/6 rad (-30 degrees), the same 15-degrees-a-tap the keyboard prompt promises"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 600.0,
+      "y": 240.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "drop the second leg"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var phase = PhaseManager.get_current_phase_instance()\nvar md = phase.get_active_move_data(\"U_BATTLEWAGON_T\")\nvar dists = md.get(\"model_distances\", {})\nfor k in dists:\n\treturn float(dists[k])\nreturn -1.0",
+      "multiline": true,
+      "expect_min": 2.0,
+      "comment": "multi-step movement proven on the pad too: 1.41in + 1.0in reads back as ~2.4in, so the second carry ADDED to the first instead of replacing it (a replace would still read 1.41in)"
     },
     {
       "act": "screenshot",
-      "label": "03_wagon_carried_pad"
+      "label": "03b_wagon_turned_pad"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "wagon_confirm"
     },
     {
       "act": "pad_cursor_glide",
