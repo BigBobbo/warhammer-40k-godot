@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.0",
+      "date": "2026-07-29",
+      "summary": "Deployment tutorial now has its own step for turning the Battlewagon, instead of mentioning rotation in passing.",
+      "changes": [
+        "'Musterin' da Boyz' (lesson 2) gained a step between the deployment roll-off and parking the wagon: POINT IT DA RIGHT WAY! It has you pick the Battlewagon up and actually turn it before dropping it, and spells out how — Q and E (or whatever you rebound them to), or the mouse wheel, 15° a tap.",
+        "The step will not move on until the wagon has genuinely been turned, and Confirm is held shut while it is showing — dropping the wagon flat and locking it in would have left nothing to rotate. If you drop it before turning it, the step tells you to pick it back up with Undo on the unit card.",
+        "Controller players skip the new step: rotating a model during deployment is a keyboard/mouse-wheel control only (on a pad the bumpers cycle units there), so the tutorial does not promise a button that would turn nothing. The end-of-lesson summary says the same.",
+        "The 'Park da wagon' step that follows is now just about placing and confirming."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
