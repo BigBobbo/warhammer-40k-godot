@@ -20,6 +20,13 @@ const CARD_TOP_OFFSET := 96.0
 const CARD_BOTTOM_OFFSET := 132.0  # keeps clear of the pad hint bar
 const ANCHOR_RERESOLVE_S := 0.5
 
+# The two escape-hatch affordances (see "modal escape hatch" below). Both names
+# are excluded from _blocking_window() so the tutorial's own windows never read
+# as "a game dialog is open".
+const MODAL_EXIT_WINDOW_NAME := "TutorialModalExit"
+const EXIT_CONFIRM_NAME := "TutorialExitConfirm"
+const INJECTED_EXIT_META := "tutorial_exit_button"
+
 var _spotlight: Control
 var _card: PanelContainer
 var _instructor_chip: Label
@@ -44,6 +51,8 @@ var _spotlight_mode: String = "none"
 var _reresolve_accum: float = 0.0
 var _card_mode: String = "top"
 var _dim_strips: Array = []
+var _modal_exit_window: Window = null   # floating hatch, for non-AcceptDialog modals
+var _modal_exit_host: Window = null     # the dialog we added an Exit button INTO
 
 
 func _ready() -> void:
@@ -256,11 +265,10 @@ func _build() -> void:
 	_exit_button = Button.new()
 	_exit_button.name = "ExitTutorialButton"
 	_exit_button.text = "Exit Tutorial"
+	_exit_button.tooltip_text = "Leave the tutorial and go back to the main menu (asks first)."
 	WhiteDwarfThemeData.apply_secondary_button(_exit_button)
 	_exit_button.focus_mode = Control.FOCUS_NONE
-	_exit_button.pressed.connect(func():
-		var m := _mgr()
-		if m: m.exit_tutorial())
+	_exit_button.pressed.connect(_on_exit_pressed)
 	footer.add_child(_exit_button)
 
 	_place_card("top")
@@ -442,13 +450,177 @@ func card_rect() -> Rect2:
 # True while any embedded game Window (AcceptDialog family) is showing —
 # those composite above every CanvasLayer, so the card must dodge them.
 func _any_game_window_open() -> bool:
+	return _blocking_window() != null
+
+
+# The topmost visible gameplay Window, or null. The tutorial's OWN windows (the
+# escape hatch, the exit confirm) are skipped: they must not make the card dodge
+# to the left flank, and must not switch the pad's A away from the card.
+func _blocking_window() -> Window:
+	var top: Window = null
 	for scope in [get_tree().root, get_tree().root.get_node_or_null("Main")]:
 		if scope == null:
 			continue
 		for child in scope.get_children():
-			if child is Window and child != get_tree().root and (child as Window).visible:
-				return true
-	return false
+			if not (child is Window) or child == get_tree().root:
+				continue
+			if not (child as Window).visible:
+				continue
+			if child.name == MODAL_EXIT_WINDOW_NAME or child.name == EXIT_CONFIRM_NAME:
+				continue
+			top = child as Window
+	return top
+
+
+# ------------------------------------------------- modal escape hatch -------
+#
+# Godot's embedded EXCLUSIVE Windows block every input to the parent viewport,
+# so while one is open the card's own Exit Tutorial button is dead — measured,
+# not assumed: with a gameplay dialog up, a probe node in the main viewport saw
+# zero _input/_shortcut_input/_unhandled_input events and a click on Exit
+# Tutorial left the lesson running. That is precisely when a player wants out
+# (the reported softlock: the first-turn roll-off opening while the step still
+# asked for the grots to be deployed, with the step's allow-list rejecting the
+# roll). So the exit has to be re-offered somewhere the modal cannot swallow.
+#
+# Two mirrored affordances, one per kind of blocker, both verified live:
+#   * AcceptDialog (every gameplay dialog in the game) — add_button() puts
+#     "Exit Tutorial" in the dialog's OWN button bar, inside the window that
+#     holds focus, so mouse and pad both reach it.
+#   * anything else — a sibling always-on-top Window floats the button over the
+#     top. popup() would steal focus, so it is handed straight back to the
+#     blocker; the hatch stays clickable without it (verified).
+func _sync_modal_exit() -> void:
+	var host := _blocking_window()
+	# The card's own footer buttons cannot be pressed while a modal is up, so say
+	# so: a live-looking Exit Tutorial that swallows every click is what made the
+	# reported softlock feel unescapable. Greyed here, re-offered below.
+	_set_footer_enabled(host == null)
+	if host == null:
+		clear_modal_exit()
+		return
+	if host is AcceptDialog:
+		_hide_modal_exit_window()
+		if _modal_exit_host != host or not _injected_button_alive():
+			_clear_injected_button()
+			_inject_exit_button(host as AcceptDialog)
+		return
+	_clear_injected_button()
+	_show_modal_exit_window(host)
+
+
+func _set_footer_enabled(enabled: bool) -> void:
+	var blocked_tip := "A dialog is open — use its own Exit Tutorial button."
+	for b in [_skip_button, _exit_button]:
+		if b == null or b.disabled == (not enabled):
+			continue
+		b.disabled = not enabled
+		if b == _exit_button:
+			b.tooltip_text = "Leave the tutorial and go back to the main menu (asks first)." if enabled else blocked_tip
+
+
+func _injected_button_alive() -> bool:
+	if _modal_exit_host == null or not is_instance_valid(_modal_exit_host):
+		return false
+	if not _modal_exit_host.has_meta(INJECTED_EXIT_META):
+		return false
+	return is_instance_valid(_modal_exit_host.get_meta(INJECTED_EXIT_META))
+
+
+func _inject_exit_button(dialog: AcceptDialog) -> void:
+	# `right: false` keeps it on the LEFT of the button bar, away from the
+	# dialog's primary action — leaving is never a fat-finger away from rolling.
+	var btn: Button = dialog.add_button("Exit Tutorial", false, "tutorial_exit")
+	btn.name = "TutorialExitButton"
+	btn.tooltip_text = "Leave the tutorial and go back to the main menu (asks first)."
+	WhiteDwarfThemeData.apply_secondary_button(btn)
+	btn.pressed.connect(_on_exit_pressed)
+	dialog.set_meta(INJECTED_EXIT_META, btn)
+	_modal_exit_host = dialog
+	print("TutorialOverlay: added Exit Tutorial to modal '%s'" % str(dialog.name))
+
+
+func _clear_injected_button() -> void:
+	if _modal_exit_host != null and is_instance_valid(_modal_exit_host):
+		if _modal_exit_host.has_meta(INJECTED_EXIT_META):
+			var btn = _modal_exit_host.get_meta(INJECTED_EXIT_META)
+			if is_instance_valid(btn):
+				btn.queue_free()
+			_modal_exit_host.remove_meta(INJECTED_EXIT_META)
+	_modal_exit_host = null
+
+
+func _build_modal_exit_window() -> void:
+	_modal_exit_window = Window.new()
+	_modal_exit_window.name = MODAL_EXIT_WINDOW_NAME
+	_modal_exit_window.borderless = true
+	_modal_exit_window.unresizable = true
+	_modal_exit_window.transient = true
+	_modal_exit_window.always_on_top = true
+	_modal_exit_window.exclusive = false
+	# A fresh Window is ALREADY visible, so adding it to the tree would show it
+	# at the default 100x100 top-left corner — over the top HUD bar — and the
+	# "already visible, nothing to do" guard in _show_modal_exit_window would
+	# then skip the popup() that places it. Start hidden; popup() does the rest.
+	_modal_exit_window.visible = false
+
+	var panel := PanelContainer.new()
+	panel.name = "Panel"
+	WhiteDwarfThemeData.apply_to_panel(panel)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_modal_exit_window.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.name = "Margin"
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 6)
+	panel.add_child(margin)
+
+	var btn := Button.new()
+	btn.name = "ExitTutorialButton"
+	btn.text = "Exit Tutorial"
+	btn.tooltip_text = "Leave the tutorial and go back to the main menu (asks first)."
+	WhiteDwarfThemeData.apply_secondary_button(btn)
+	btn.pressed.connect(_on_exit_pressed)
+	margin.add_child(btn)
+
+	get_tree().root.add_child(_modal_exit_window)
+
+
+func _show_modal_exit_window(host: Window) -> void:
+	if _modal_exit_window == null or not is_instance_valid(_modal_exit_window):
+		_build_modal_exit_window()
+	if _modal_exit_window.visible:
+		return
+	var vp: Vector2 = get_tree().root.get_visible_rect().size
+	var win_size := Vector2i(180, 48)
+	# Top-right, below the HUD bar: clear of the card (which has dodged to the
+	# left flank) and of the centred dialogs the hatch exists to escape.
+	_modal_exit_window.popup(Rect2i(
+		Vector2i(int(vp.x) - win_size.x - 20, int(CARD_TOP_OFFSET)), win_size))
+	# popup() focuses the new window; give focus straight back so the blocking
+	# dialog keeps driving keyboard/pad. The hatch stays mouse-clickable either
+	# way — that is the whole point of it being a sibling window.
+	if is_instance_valid(host):
+		host.grab_focus()
+
+
+func _hide_modal_exit_window() -> void:
+	if _modal_exit_window != null and is_instance_valid(_modal_exit_window) and _modal_exit_window.visible:
+		_modal_exit_window.hide()
+
+
+# Public so TutorialManager's teardown can drop the hatch even if the overlay
+# has already stopped processing.
+func clear_modal_exit() -> void:
+	_hide_modal_exit_window()
+	_clear_injected_button()
+
+
+func _on_exit_pressed() -> void:
+	var m := _mgr()
+	if m:
+		m.request_exit_tutorial()
 
 
 # ------------------------------------------------------------------- API ----
@@ -543,6 +715,9 @@ func hide_all() -> void:
 	for strip in _dim_strips:
 		strip.visible = false
 	_ack_glyph.visible = false
+	# _process is off from here, so the hatch would otherwise be stranded on
+	# screen (and the injected button left in a dialog that outlives the lesson).
+	clear_modal_exit()
 	# Hand the hint bar back to the board context — the card no longer owns A.
 	_refresh_pad_hints()
 
@@ -574,6 +749,7 @@ func current_checklist_text() -> String:
 
 func _process(delta: float) -> void:
 	_update_card_mode()
+	_sync_modal_exit()
 	_keep_ack_focus()
 	if _anchor_spec.is_empty():
 		_anchor_ok = false

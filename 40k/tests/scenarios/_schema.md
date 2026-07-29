@@ -160,10 +160,23 @@ Each step is a dict with an `act` field plus act-specific keys.
   only works on a model you are currently holding (model rotation: Q/E are
   ignored once the drag ends, because `selected_model` is cleared on drop, so
   a separate `simulate_key` act afterwards can never reach it).
+  Optional `"release": false` leaves LMB **held** at `to`, so the steps that
+  follow observe the live mid-drag frame (ghost tokens, range overlays, drag
+  previews) rather than the post-drop state. Finish the drag with
+  `mouse_up_board`.
   ```json
   { "act": "drag_board", "from_x": 200, "from_y": 100, "to_x": 255, "to_y": 170 }
   { "act": "drag_board", "from_x": 1030, "from_y": 720, "to_x": 910, "to_y": 880, "shift": true }
   { "act": "drag_board", "from_x": 640, "from_y": 200, "to_x": 640, "to_y": 200, "keys": ["Q", "Q"] }
+  { "act": "drag_board", "from_x": 200, "from_y": 100, "to_x": 255, "to_y": 170, "release": false }
+  ```
+
+- `mouse_up_board`: release a held LMB (the drop half of a `drag_board` with
+  `"release": false`). `x`/`y` are board px and warp the cursor before the
+  release; omit them to release wherever the cursor currently rests.
+  ```json
+  { "act": "mouse_up_board", "x": 255.0, "y": 170.0 }
+  { "act": "mouse_up_board" }
   ```
 
 - `hover_unit`: locate the token for `unit_id` (like `click_unit`), warp the

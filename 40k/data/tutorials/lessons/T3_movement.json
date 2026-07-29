@@ -8,7 +8,7 @@
   "summary": {
     "bark": "NOW WE'S ROLLIN'!",
     "bullets": [
-      "Click a unit's [Embarked] row to get da boyz out of a transport — place each base inside da glowin' ring.",
+      "Click a unit's [Embarked] row to get da boyz out of a transport — place each base inside da glowin' ring. An attached Warboss gets out wiv 'em, so 'is base gets placed too.",
       "Boyz dat disembark can still make their own move — but only if da transport ain't moved yet. Out first, drive after.",
       "Movement modes: pick da radio, den [b]Confirm Movement Mode[/b] — it don't stick till ya confirm.",
       "Drag models (or carry 'em wiv da pad), [b]Undo Model[/b] / [b]Reset Unit[/b] fix mistakes.",
@@ -49,8 +49,8 @@
       "id": "disembark_place",
       "prompt": {
         "bark": "INSIDE DA RING!",
-        "kbm": "Click a spot inside da glowin' ring for [b]each[/b] model — keep 'em close together an' not on top of each uvver. Da move locks in after da last one.",
-        "pad": "Glide {ls} to a spot inside da ring an' press {a} for [b]each[/b] model — keep 'em close, not stacked."
+        "kbm": "Click a spot inside da glowin' ring for [b]each[/b] model — all [b]11[/b] of 'em: 10 Boyz, den da [b]Warboss[/b] last, 'cos he's part of da mob. Keep 'em close together an' not on top of each uvver. Da move locks in after da last one.",
+        "pad": "Glide {ls} to a spot inside da ring an' press {a} for [b]each[/b] model — all [b]11[/b]: 10 Boyz, den da [b]Warboss[/b] last. Keep 'em close, not stacked."
       },
       "spotlight": "none",
       "allow": ["DISEMBARK_UNIT", "CONFIRM_DISEMBARK"],
@@ -59,7 +59,7 @@
         { "state": "units.U_BOYZ_T.disembarked_this_phase", "equals": true }
       ] },
       "hint_after_s": 35,
-      "hint": { "text": "Right-click cancels if ya get stuck — den click da row again. Every base needs to be wivin 3\" of da wagon." }
+      "hint": { "text": "Da Warboss is attached to da Boyz, so he gets out wiv 'em — his base is da last one ya place. Right-click cancels if ya get stuck — den click da row again. Every base needs to be wivin 3\" of da wagon." }
     },
     {
       "id": "boyz_move_after_disembark",

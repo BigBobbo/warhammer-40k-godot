@@ -315,6 +315,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_board_at(step), true)
 		"drag_board":
 			rec.merge(await _do_drag_board(step), true)
+		"mouse_up_board":
+			rec.merge(await _do_mouse_up_board(step), true)
 		"hover_unit":
 			rec.merge(await _do_hover_unit(step), true)
 		"hover_board_at":
@@ -709,15 +711,21 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 			await get_tree().process_frame
 			tapped_keys.append(OS.get_keycode_string(kc))
 
-	var release := InputEventMouseButton.new()
-	release.button_index = MOUSE_BUTTON_LEFT
-	release.position = to_screen
-	release.global_position = to_screen
-	release.pressed = false
-	release.button_mask = 0
-	release.shift_pressed = hold_shift
-	Input.parse_input_event(release)
-	await get_tree().process_frame
+	# Optional `"release": false` — leave LMB HELD at `to`, so the following
+	# steps observe the live mid-drag frame (drag previews, ghost tokens, range
+	# overlays) instead of the post-drop state. Finish with `mouse_up_board`.
+	# Any `keys` above are still tapped mid-drag, which is the point of both.
+	var do_release: bool = bool(step.get("release", true))
+	if do_release:
+		var release := InputEventMouseButton.new()
+		release.button_index = MOUSE_BUTTON_LEFT
+		release.position = to_screen
+		release.global_position = to_screen
+		release.pressed = false
+		release.button_mask = 0
+		release.shift_pressed = hold_shift
+		Input.parse_input_event(release)
+		await get_tree().process_frame
 
 	if hold_shift:
 		var shift_release := InputEventKey.new()
@@ -727,9 +735,41 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 		Input.parse_input_event(shift_release)
 
 	await get_tree().process_frame
-	return {"pass": true, "shift": hold_shift, "keys": tapped_keys,
+	return {"pass": true, "shift": hold_shift, "keys": tapped_keys, "released": do_release,
 		"from_world": [from_world.x, from_world.y], "to_world": [to_world.x, to_world.y],
 		"from_screen": [from_screen.x, from_screen.y], "to_screen": [to_screen.x, to_screen.y]}
+
+
+func _do_mouse_up_board(step: Dictionary) -> Dictionary:
+	# Release a HELD left mouse button (see drag_board's "release": false) at a
+	# board/world position — the drop half of a drag the scenario paused in the
+	# middle of. Coordinates are board px, projected like click_board_at; omit
+	# x/y to release wherever the cursor currently rests.
+	var scene := get_tree().current_scene
+	if scene == null:
+		return {"pass": false, "error": "no current scene"}
+	var at_screen: Vector2 = get_viewport().get_mouse_position()
+	if step.has("x") and step.has("y"):
+		var world := Vector2(float(step["x"]), float(step["y"]))
+		if scene.has_method("world_to_screen_position"):
+			at_screen = scene.world_to_screen_position(world)
+		else:
+			var viewport := scene.get_viewport()
+			if viewport == null:
+				return {"pass": false, "error": "no viewport and no world_to_screen_position"}
+			at_screen = viewport.get_canvas_transform() * world
+		at_screen = at_screen.round()
+		Input.warp_mouse(at_screen)
+		await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.position = at_screen
+	release.global_position = at_screen
+	release.pressed = false
+	release.button_mask = 0
+	Input.parse_input_event(release)
+	await get_tree().process_frame
+	return {"pass": true, "screen": [at_screen.x, at_screen.y]}
 
 
 func _do_hover_unit(step: Dictionary) -> Dictionary:

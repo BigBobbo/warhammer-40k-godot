@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.9",
+      "version": "1.7.12",
       "date": "2026-07-29",
       "summary": "The deployment tutorial now teaches you how to shove an already-placed model into a better spot — and its 'turn the wagon' step is no longer skipped on a controller.",
       "changes": [
@@ -14,7 +14,7 @@
       ]
     },
     {
-      "version": "1.7.8",
+      "version": "1.7.11",
       "date": "2026-07-29",
       "summary": "Controller players can now nudge a model they already placed: press L3 to pick it up, move it, A to drop it.",
       "changes": [
@@ -25,7 +25,7 @@
       ]
     },
     {
-      "version": "1.7.7",
+      "version": "1.7.10",
       "date": "2026-07-29",
       "summary": "Controller players can finally rotate a model while deploying it: hold R3 (click the right stick) and the bumpers turn the ghost 15° a press.",
       "changes": [
@@ -33,6 +33,41 @@
         "In Spread or Tight formation the same combo rotates the whole formation, matching what the keyboard does.",
         "Bare LB/RB still switch which unit you are deploying, exactly as before — the rotation only happens while R3 is held.",
         "The deployment hint bar now shows the new 'R3 Hold: LB/RB Rotate' prompt so it is discoverable, and it follows your button layout if you remap the Precision control in Settings › Controller."
+      ]
+    },
+    {
+      "version": "1.7.9",
+      "date": "2026-07-29",
+      "summary": "Moving a squad is readable again: model ghosts now sit on top of the green range circles, and those circles are much thinner.",
+      "changes": [
+        "Dragging several models at once paints one green movement-range circle per model, and those circles used to swallow the ghosts you were trying to place. The ghosts — and the distance-moved readout that floats with them — now always draw above every movement overlay (green range circles, red engagement rings, blue coherency rings).",
+        "The green range circles are drawn much thinner, so a squad's worth of overlapping circles no longer floods the drop zone.",
+        "Movement ghosts now show the unit's colour, letter counter and model art like the tokens do, instead of rendering as blank grey discs. Deployment ghosts already did this.",
+        "Ghosts in a group drag are no longer faded harder than a single dragged model — a whole squad in hand stays as visible as one model."
+      ]
+    },
+    {
+      "version": "1.7.8",
+      "date": "2026-07-29",
+      "summary": "Exit Tutorial now works at any point of a lesson — including while a dialog is on screen — and asks before it throws the lesson away.",
+      "changes": [
+        "Exit Tutorial did nothing whenever a game dialog was open (the roll-offs, Battle Formations, command re-rolls). Those dialogs block every click to the rest of the screen, so the card's button was dead exactly when players most needed it — e.g. stranded on 'Grots in a Mob' with the 'Who takes the first turn?' pop-up up and 'Oi! Not dat one, ya git' on every attempt to roll.",
+        "Any dialog that opens during a lesson now carries its own Exit Tutorial button, so there is always a way out no matter which phase or step you are on.",
+        "Exit Tutorial now asks 'Leave da tutorial?' first — Keep Playin' puts you straight back where you were, Leg it! returns to the main menu.",
+        "While a dialog is open the card's own Skip Step and Exit Tutorial buttons are greyed out instead of silently swallowing clicks."
+      ]
+    },
+    {
+      "version": "1.7.7",
+      "date": "2026-07-29",
+      "summary": "Attached leaders now ride in transports with the unit they lead — and get out with them.",
+      "changes": [
+        "Disembarking a unit with an attached character only ever asked you to place the squad. In the tutorial's 'Get Movin'' step 3 the row said 'Boyz + Warboss', you placed all 10 Boyz, the disembark reported complete — and the Warboss was nowhere on the table. Disembarking now asks for every model in the attached unit (11 in the tutorial: 10 Boyz, then the Warboss), and the on-screen prompt names whose model you are placing when it hands over from the squad to the leader.",
+        "Embarking had the matching hole: a bodyguard boarded a transport on its own and left its attached character behind. Attaching a Warboss to the Boyz and putting the Boyz in the Battlewagon now puts both aboard, in Formations, during deployment and in the movement phase alike.",
+        "Transport capacity now counts the attached character's models, and transport pickers no longer offer an attached leader as a separate passenger — it boards with its unit.",
+        "Existing saves (and the shipped tutorial checkpoints) that stranded a leader outside its bodyguard's transport are repaired on load: the leader is put aboard with its unit.",
+        "The whole attached unit is measured together for coherency and disembark range, and the attached character shares the squad's after-disembark restrictions (can't-move / can't-charge / Combat Disembark hazards and battle-shock).",
+        "Fixed a related placement bug: a unit that had taken casualties before disembarking had every surviving model placed one position out of step."
       ]
     },
     {
