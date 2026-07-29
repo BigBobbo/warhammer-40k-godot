@@ -7,18 +7,15 @@
     "ui.layout.BattleShockConfirmationDialog_centered",
     "ui.layout.EndFightConfirmationDialog_centered"
   ],
-  "fixture": "New Game",
+  "fixture": "audit_baseline_postdeploy",
   "disable_ai": true,
-  "description": "Companion to phase_end_confirm_centered: the rest of the end-of-phase prompt family moved off the bottom edge with it, so the whole flow reads the same wherever the player is in the turn. The Deployment summary is driven through the real handler (Main._on_end_deployment_pressed, the End Deployment button's callback); the battle-shock and unfought-units warnings are popped through Main's show helpers with representative unit lists, since their trigger conditions are already covered end-to-end by pad_m1_full_turn_cursor. Each is asserted to sit on the viewport centre and to clear the bottom-anchored slot entirely.",
+  "description": "Companion to phase_end_confirm_centered: the rest of the end-of-phase prompt family moved off the bottom edge with it, so the whole flow reads the same wherever the player is in the turn. All three prompts are raised through Main's own show helpers — the call sites this change edited — with representative unit lists, and each is asserted to sit on the viewport centre and to clear the bottom-anchored slot entirely. LIMITATION, stated plainly: none of the three trigger conditions is reproduced here. The unfought-units and battle-shock warnings are driven end-to-end by pad_m1_full_turn_cursor; the Deployment summary's real trigger (Main._on_end_deployment_pressed) is now hard-gated on every unit being placed (#793) and no committed fixture sits in the Deployment phase with a legal, complete deployment, so it is not exercised from the button here.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.0 },
 
     { "act": "execute_script", "multiline": true,
-      "script": "PhaseManager.transition_to_phase(GameStateData.Phase.DEPLOYMENT)\nreturn true", "equals": true },
-    { "act": "wait_seconds", "seconds": 1.0 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
-
-    { "act": "execute_script", "script": "tree.current_scene._on_end_deployment_pressed()" },
+      "script": "var m = tree.current_scene\nvar summary = {\"player1_units\": [], \"player2_units\": [], \"player1_count\": 0, \"player2_count\": 0}\nvar dp = PhaseManager.get_current_phase_instance()\nif dp != null and dp.has_method(\"get_deployment_summary\"):\n\tsummary = dp.get_deployment_summary()\nm._show_deployment_summary_dialog(summary, GameState.get_active_player())\nreturn true",
+      "equals": true },
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "execute_script", "script": "tree.root.get_node_or_null(\"DeploymentSummaryDialog\") != null or tree.root.find_child(\"DeploymentSummaryDialog\", true, false) != null", "equals": true },
     { "act": "screenshot", "label": "01_deployment_summary_centered" },
