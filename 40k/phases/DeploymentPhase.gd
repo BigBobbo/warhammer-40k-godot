@@ -1581,6 +1581,34 @@ func _all_units_deployed() -> bool:
 
 	return true
 
+func get_undeployed_unit_names(player: int = 0) -> Array:
+	"""Display names of the units that still block END_DEPLOYMENT.
+
+	`player` filters to one side; 0 (the default) returns both. Mirrors
+	_all_units_deployed()'s skip rules exactly (embarked / attached / Strategic
+	Reserves units are NOT blockers) so the message the player sees can never
+	disagree with the validation that rejected their click. Reads live GameState
+	rather than game_state_snapshot: this feeds a UI message, and a stale
+	snapshot here would name the wrong units.
+	"""
+	var names = []
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if player > 0 and unit.get("owner", 0) != player:
+			continue
+		if unit.get("embarked_in", null) != null:
+			continue
+		if unit.get("attached_to", null) != null:
+			continue
+		if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		if unit.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
+			continue
+		var meta = unit.get("meta", {})
+		names.append(str(meta.get("display_name", meta.get("name", unit_id))))
+	return names
+
 func get_deployment_summary() -> Dictionary:
 	"""T5-UX8: Build a summary of deployment state for the confirmation dialog"""
 	var units = game_state_snapshot.get("units", {})
