@@ -94,7 +94,7 @@
       "prompt": {
         "bark": "PARK DA WAGON!",
         "kbm": "Click [b]Battlewagon[/b] in da list, den click inside yer glowin' deployment zone to place it. {key:rotate_left}/{key:rotate_right} turns it. [b]Confirm[/b] locks it in.",
-        "pad": "Pick da [b]Battlewagon[/b] row, glide {ls} into yer zone, {a} to place, den [b]Confirm[/b]."
+        "pad": "Tap {rb}/{lb} to pick da [b]Battlewagon[/b] row, glide {ls} into yer zone, {a} to place, den [b]Confirm[/b]."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel" },
       "spotlight": "soft",
@@ -107,7 +107,7 @@
       "prompt": {
         "bark": "GROTS IN A MOB!",
         "kbm": "Da enemy deploys between yer units — dat's da alternation. Now: click [b]Gretchin[/b], pick da [b]Tight[/b] formation, click open ground in yer zone to lay da whole squad out, den [b]Confirm[/b].",
-        "pad": "Pick da [b]Gretchin[/b] row, glide onto [b]Tight[/b], {a}, place 'em wiv {a}, den [b]Confirm[/b]."
+        "pad": "Tap {rb}/{lb} to pick da [b]Gretchin[/b] row, glide onto [b]Tight[/b], {a}, place 'em wiv {a}, den [b]Confirm[/b]."
       },
       "anchor": { "button_text": "Tight" },
       "spotlight": "soft",

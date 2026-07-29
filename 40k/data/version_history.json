@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "The 'Musterin' da Boyz' tutorial now tells controller players how to pick a unit before deploying it.",
+      "changes": [
+        "Steps 'PARK DA WAGON!' and 'GROTS IN A MOB!' said to 'pick da Battlewagon row' / 'pick da Gretchin row' without saying how on a controller. Both now spell out that RB/LB cycle which unit is selected for deployment."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
