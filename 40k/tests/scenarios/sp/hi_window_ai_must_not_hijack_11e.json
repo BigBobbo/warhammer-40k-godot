@@ -18,6 +18,10 @@
     { "act": "screenshot", "label": "01_p2_charge_phase_loaded" },
 
     { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_node_visible", "node": "/root/HeroicInterventionDialog", "timeout_s": 3.0 },
     { "act": "expect_phase_property", "property": "awaiting_heroic_intervention", "equals": true },
     { "act": "expect_phase_property", "property": "heroic_intervention_player", "equals": 1 },

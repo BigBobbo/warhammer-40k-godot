@@ -13,12 +13,12 @@
 
     { "act": "simulate_joy_button", "button_index": 6 },
     { "act": "wait_seconds", "seconds": 0.4 },
-    { "act": "execute_script", "script": "main._pad_phase_confirm.visible", "equals": true },
-    { "act": "execute_script", "script": "main._pad_phase_confirm.get_ok_button().has_focus()", "equals": true },
+    { "act": "execute_script", "script": "main._phase_end_confirm.visible", "equals": true },
+    { "act": "execute_script", "script": "main._phase_end_confirm.get_ok_button().has_focus()", "equals": true },
     { "act": "screenshot", "label": "02_end_phase_confirm_dialog" },
     { "act": "simulate_joy_button", "button_index": 1 },
     { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script", "script": "main._pad_phase_confirm.visible", "equals": false },
+    { "act": "execute_script", "script": "main._phase_end_confirm.visible", "equals": false },
     { "act": "expect_state", "path": "meta.phase", "equals": 6 },
 
     { "act": "simulate_joy_button", "button_index": 6 },

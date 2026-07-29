@@ -82,7 +82,7 @@
 
     { "act": "simulate_joy_button", "button_index": 6 },
     { "act": "wait_seconds", "seconds": 0.4 },
-    { "act": "execute_script", "multiline": true, "script": "var dlg = tree.current_scene._pad_phase_confirm\nreturn dlg == null or not dlg.visible", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var dlg = tree.current_scene._phase_end_confirm\nreturn dlg == null or not dlg.visible", "equals": true },
     { "act": "execute_script", "script": "main.charge_controller.awaiting_movement", "equals": true },
     { "act": "simulate_joy_button", "button_index": 12 },
     { "act": "wait_seconds", "seconds": 0.3 },
@@ -102,9 +102,9 @@
 
     { "act": "simulate_joy_button", "button_index": 6 },
     { "act": "wait_seconds", "seconds": 0.4 },
-    { "act": "execute_script", "script": "main._pad_phase_confirm != null and main._pad_phase_confirm.visible", "equals": true },
-    { "act": "execute_script", "script": "main._pad_phase_confirm.dialog_text", "equals": "End Charge Phase?" },
-    { "act": "execute_script", "script": "main._pad_phase_confirm.hide()" },
+    { "act": "execute_script", "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible", "equals": true },
+    { "act": "execute_script", "script": "main._phase_end_confirm.dialog_text", "equals": "End Charge Phase?" },
+    { "act": "execute_script", "script": "main._phase_end_confirm.hide()" },
     { "act": "wait_seconds", "seconds": 0.3 },
 
     { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar cc = m.charge_controller\ncc._refresh_ui()\nfor i in range(cc.unit_selector.item_count):\n\tif str(cc.unit_selector.get_item_metadata(i)) == \"U_BOYZ_E\":\n\t\tcc.unit_selector.select(i)\n\t\tcc.unit_selector.item_selected.emit(i)\n\t\tbreak\nreturn str(cc.active_unit_id)", "equals": "U_BOYZ_E" },

@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.8.0",
+      "date": "2026-07-29",
+      "summary": "Mouse and keyboard players now get the 'End Phase?' confirmation too — a misclick no longer ends your phase.",
+      "changes": [
+        "Clicking the End Phase button (or pressing Enter while it is focused) used to end the phase immediately, with no way back. It now opens the same centred 'End X Phase?' prompt controller players already had, with Go Back and a labelled confirm button.",
+        "The prompt only appears where the phase would otherwise end on the spot. Phases that already show you something first — the Deployment and Shooting summaries, the 'units haven't fought' and 'untested Battle-shock' warnings, the end-of-turn mission discard — are unchanged, so you are never asked twice.",
+        "Roll-offs and the Battle Formations declaration are not phase endings and are left alone.",
+        "Tutorial lessons skip the prompt: they already tell you exactly which button to press, and an extra unannounced step would interrupt the lesson."
+      ]
+    },
+    {
       "version": "1.7.0",
       "date": "2026-07-29",
       "summary": "The 'End Phase?' confirmation now opens in the middle of the screen and says what you are about to give up.",

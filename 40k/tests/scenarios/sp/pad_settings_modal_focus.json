@@ -32,7 +32,7 @@
     { "act": "wait_seconds", "seconds": 0.4 },
     { "act": "execute_script", "script": "is_instance_valid(main._settings_menu)", "equals": true },
     { "act": "execute_script", "script": "int(GameState.state.meta.phase) == InputDeviceManager.get_meta(\"phase_before\")", "equals": true },
-    { "act": "execute_script", "multiline": true, "script": "var c = tree.current_scene._pad_phase_confirm\nreturn c == null or not is_instance_valid(c) or not c.visible", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var c = tree.current_scene._phase_end_confirm\nreturn c == null or not is_instance_valid(c) or not c.visible", "equals": true },
     { "act": "screenshot", "label": "02_start_did_not_end_phase" },
 
     { "act": "execute_script", "multiline": true, "script": "var sm = tree.current_scene._settings_menu\nvar cnt = 0\nfor c in sm._pad_confined_controls:\n\tif is_instance_valid(c) and c.focus_mode == Control.FOCUS_NONE:\n\t\tcnt += 1\nreturn cnt > 0", "equals": true },
