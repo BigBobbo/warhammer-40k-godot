@@ -154,10 +154,12 @@ const HINTS_DEPLOY := [
 # button that ends the phase (reported from tutorial T2). Same stage-accuracy
 # rule the charge sets follow: the chip never advertises an action Start would
 # not actually take.
+# LB/RB are deliberately absent: _cycle refuses to switch units while
+# get_placed_count() > 0 (it warns "Undo the placed models before switching
+# units"), and this set is only ever shown with every model down — so the
+# bumpers cannot do what the plain HINTS_DEPLOY set advertises them for.
 const HINTS_DEPLOY_STAGED := [
 	["ls", "Cursor"],
-	["lb", "Prev Unit"],
-	["rb", "Next Unit"],
 	["dpad", "Type / Formation"],
 	["x", "Undo Model"],
 	["b", "Undo Unit"],

@@ -2,13 +2,24 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.2",
+      "version": "1.7.3",
       "date": "2026-07-29",
       "summary": "Deployment can no longer end while you still have units to deploy.",
       "changes": [
         "Ending the Deployment phase with units still undeployed dropped you straight into the 'Who takes the first turn?' roll-off with those units stranded off the table and no way back. Reported from tutorial 'Musterin' da Boyz', where the Gretchin were left behind. The end-phase action was correctly refused, but the game then advanced the phase anyway; it now stays in Deployment.",
         "Trying to end Deployment early now tells you what is blocking it — 'Cannot end deployment — still to deploy: Gretchin' — instead of doing nothing, or says which player the phase is waiting on when your own army is already set up.",
         "Controller: with every model of a unit placed, the ☰ hint now reads 'Confirm Unit' instead of the ambiguous 'Confirm / End', so pressing it to lock a unit in can no longer be mistaken for the button that ends the phase."
+      ]
+    },
+    {
+      "version": "1.7.2",
+      "date": "2026-07-29",
+      "summary": "Deployment tutorial now has its own step for turning the Battlewagon, instead of mentioning rotation in passing.",
+      "changes": [
+        "'Musterin' da Boyz' (lesson 2) gained a step between the deployment roll-off and parking the wagon: POINT IT DA RIGHT WAY! It has you pick the Battlewagon up and actually turn it before dropping it, and spells out how — Q and E (or whatever you rebound them to), or the mouse wheel, 15° a tap.",
+        "The step will not move on until the wagon has genuinely been turned, and Confirm is held shut while it is showing — dropping the wagon flat and locking it in would have left nothing to rotate. If you drop it before turning it, the step tells you to pick it back up with Undo on the unit card.",
+        "Controller players skip the new step: rotating a model during deployment is a keyboard/mouse-wheel control only (on a pad the bumpers cycle units there), so the tutorial does not promise a button that would turn nothing. The end-of-lesson summary says the same.",
+        "The 'Park da wagon' step that follows is now just about placing and confirming."
       ]
     },
     {
