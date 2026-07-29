@@ -18,8 +18,14 @@
       "ai_speed": 0,
       "player1_secondary_mode": "fixed",
       "player2_secondary_mode": "fixed",
-      "player1_fixed_missions": ["assassination", "engage_on_all_fronts"],
-      "player2_fixed_missions": ["assassination", "engage_on_all_fronts"],
+      "player1_fixed_missions": [
+        "assassination",
+        "engage_on_all_fronts"
+      ],
+      "player2_fixed_missions": [
+        "assassination",
+        "engage_on_all_fronts"
+      ],
       "player1_disposition": "take_and_hold",
       "player2_disposition": "take_and_hold"
     },
@@ -31,6 +37,7 @@
       "Battle Formations lock in leaders, transport cargo an' reserves BEFORE anyone deploys.",
       "Da roll-off dialog: roll, read da result, winner picks who deploys first.",
       "Deploy: pick a unit row, click da board to place, [b]Confirm[/b] locks it. Q/E turns a vehicle.",
+      "Placed a model wonky? Shift+click it (pad: L3) to pick it up an' shove it about before yer Confirm.",
       "Formation buttons (Single / Spread / Tight) place a whole squad quick.",
       "You an' da enemy take turns deployin'. Next lesson: Get Movin'."
     ]
@@ -43,13 +50,17 @@
         "kbm": "Before deployin', dis panel locks in yer [b]Battle Formations[/b]. First: under [b]LEADER ATTACHMENTS[/b], set da 'Warboss →' dropdown to [b]Boyz[/b] — now he fights wiv his mob.",
         "pad": "Dis panel locks in yer [b]Battle Formations[/b]. Glide {ls} onto da 'Warboss →' dropdown, {a}, an' pick [b]Boyz[/b]."
       },
-      "anchor": { "node": "/root/Main/FormationsDialog" },
+      "anchor": {
+        "node": "/root/Main/FormationsDialog"
+      },
       "spotlight": "none",
       "allow": [],
       "done": {
         "script": "var fd = tree.root.get_node_or_null(\"/root/Main/FormationsDialog\")\nif fd == null:\n\treturn false\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\treturn nd.selected == 1\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false"
       },
-      "hint": { "text": "Top section of da panel — da dropdown next to 'Warboss →'." }
+      "hint": {
+        "text": "Top section of da panel — da dropdown next to 'Warboss →'."
+      }
     },
     {
       "id": "embark_boyz",
@@ -58,7 +69,9 @@
         "kbm": "Under [b]TRANSPORT EMBARKATION[/b], tick [b]Boyz[/b] — da mob (an' da Boss wiv 'em) starts da battle inside da Battlewagon.",
         "pad": "Glide {ls} onto da [b]Boyz[/b] tickbox under TRANSPORT EMBARKATION an' press {a}."
       },
-      "anchor": { "button_text": "Boyz (10 models)" },
+      "anchor": {
+        "button_text": "Boyz (10 models)"
+      },
       "spotlight": "soft",
       "allow": [],
       "done": {
@@ -72,10 +85,23 @@
         "kbm": "Hit [b]Confirm Formations[/b] — dat sends all yer declarations at once. Da enemy declares deirs after.",
         "pad": "Glide onto [b]Confirm Formations[/b] an' press {a}."
       },
-      "anchor": { "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton" },
+      "anchor": {
+        "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton"
+      },
       "spotlight": "soft",
-      "allow": ["DECLARE_LEADER_ATTACHMENT", "DECLARE_TRANSPORT_EMBARKATION", "DESIGNATE_WARLORD", "DECLARE_RESERVES", "CONFIRM_FORMATIONS", "END_FORMATIONS"],
-      "done": { "action": { "type": "CONFIRM_FORMATIONS" } }
+      "allow": [
+        "DECLARE_LEADER_ATTACHMENT",
+        "DECLARE_TRANSPORT_EMBARKATION",
+        "DESIGNATE_WARLORD",
+        "DECLARE_RESERVES",
+        "CONFIRM_FORMATIONS",
+        "END_FORMATIONS"
+      ],
+      "done": {
+        "action": {
+          "type": "CONFIRM_FORMATIONS"
+        }
+      }
     },
     {
       "id": "roll_off",
@@ -85,22 +111,92 @@
         "pad": "Press {a} on da dialog's Roll button. Re-roll ties, den Continue."
       },
       "spotlight": "none",
-      "allow": ["ROLL_OFF_DEPLOYMENT", "CHOOSE_DEPLOYMENT"],
-      "done": { "phase": 1 },
-      "hint": { "text": "Da dialog's Roll button works too — same fing." }
+      "allow": [
+        "ROLL_OFF_DEPLOYMENT",
+        "CHOOSE_DEPLOYMENT"
+      ],
+      "done": {
+        "phase": 1
+      },
+      "hint": {
+        "text": "Da dialog's Roll button works too — same fing."
+      }
     },
     {
       "id": "deploy_wagon",
       "prompt": {
         "bark": "PARK DA WAGON!",
-        "kbm": "Click [b]Battlewagon[/b] in da list, den click inside yer glowin' deployment zone to place it. {key:rotate_left}/{key:rotate_right} turns it. [b]Confirm[/b] locks it in.",
-        "pad": "Pick da [b]Battlewagon[/b] row, glide {ls} into yer zone, {a} to place, den [b]Confirm[/b]."
+        "kbm": "Click [b]Battlewagon[/b] in da list, den click inside yer glowin' deployment zone to drop it in. {key:rotate_left}/{key:rotate_right} turns it.",
+        "pad": "Pick da [b]Battlewagon[/b] row, glide {ls} into yer zone an' {a} to place it. Hold {r3} an' {lb}/{rb} turns it."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel"
+      },
       "spotlight": "soft",
-      "allow": ["DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT"],
-      "done": { "state": "units.U_BATTLEWAGON_T.status", "equals": 2 },
-      "hint": { "text": "Yer zone is da highlighted band at da top of da board. Undo an' Reset Unit are on da unit card." }
+      "allow": [],
+      "done": {
+        "script": "var m = main\nif m == null or not (\"deployment_controller\" in m):\n\treturn false\nvar dc = m.deployment_controller\nif dc == null:\n\treturn false\n# Already locked in (a fast player) counts too — never strand the step.\nif int(GameState.state.units.U_BATTLEWAGON_T.get(\"status\", 0)) == 2:\n\treturn true\nreturn str(dc.unit_id) == \"U_BATTLEWAGON_T\" and dc.get_placed_count() >= 1"
+      },
+      "hint": {
+        "text": "Yer zone is da highlighted band at da top of da board. Don't worry about gettin' it perfect — next step shows yer how to shove it about."
+      }
+    },
+    {
+      "id": "nudge_wagon",
+      "prompt": {
+        "bark": "SHOVE IT OVER!",
+        "kbm": "Parked a bit wonky? Yer can shift a model dat's already down: hold [b]Shift[/b] an' click da wagon to pick it up again, move da mouse, den click to drop it. Right-click puts it back.",
+        "pad": "Parked a bit wonky? Point {ls} at da wagon an' press {l3} to pick it up again, move it, den {a} to drop it. {b} puts it back where it was."
+      },
+      "spotlight": "none",
+      "allow": [],
+      "checklist": {
+        "label": "Shove da wagon about:",
+        "items": [
+          {
+            "id": "lift_model",
+            "label": "Pick da wagon back up",
+            "script": "var m = main\nif m == null or not (\"deployment_controller\" in m):\n\treturn false\nvar dc = m.deployment_controller\nif dc == null:\n\treturn false\nreturn bool(dc.is_repositioning())"
+          },
+          {
+            "id": "drop_model",
+            "label": "Drop it in its new spot",
+            "script": "var m = main\nif m == null or not (\"deployment_controller\" in m):\n\treturn false\nvar dc = m.deployment_controller\nif dc == null:\n\treturn false\nreturn int(dc.reposition_commits) >= 1"
+          }
+        ]
+      },
+      "on_enter": {
+        "script": "var m = main\nif m != null and (\"deployment_controller\" in m) and m.deployment_controller != null:\n\tm.deployment_controller.reposition_commits = 0"
+      },
+      "done": {
+        "checklist": true
+      },
+      "hint": {
+        "text": "Yer can only shove models of da unit yer placin' right now, an' only before yer Confirm it. A spot dat ain't legal gets refused — try a bit over."
+      }
+    },
+    {
+      "id": "confirm_wagon",
+      "prompt": {
+        "bark": "LOCK IT IN!",
+        "kbm": "Happy wiv where it sits? Hit [b]Confirm[/b] on da unit card to lock da wagon in.",
+        "pad": "Happy wiv where it sits? Glide onto [b]Confirm[/b] an' press {a}."
+      },
+      "anchor": {
+        "button_text": "Confirm"
+      },
+      "spotlight": "soft",
+      "allow": [
+        "DEPLOY_UNIT",
+        "EMBARK_UNITS_DEPLOYMENT"
+      ],
+      "done": {
+        "state": "units.U_BATTLEWAGON_T.status",
+        "equals": 2
+      },
+      "hint": {
+        "text": "Confirm sits on da unit card, bottom right. Undo an' Reset Unit are next to it."
+      }
     },
     {
       "id": "deploy_grots",
@@ -109,11 +205,21 @@
         "kbm": "Da enemy deploys between yer units — dat's da alternation. Now: click [b]Gretchin[/b], pick da [b]Tight[/b] formation, click open ground in yer zone to lay da whole squad out, den [b]Confirm[/b].",
         "pad": "Pick da [b]Gretchin[/b] row, glide onto [b]Tight[/b], {a}, place 'em wiv {a}, den [b]Confirm[/b]."
       },
-      "anchor": { "button_text": "Tight" },
+      "anchor": {
+        "button_text": "Tight"
+      },
       "spotlight": "soft",
-      "allow": ["DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT"],
-      "done": { "state": "units.U_GRETCHIN_T.status", "equals": 2 },
-      "hint": { "text": "Formation buttons sit on da unit card — Single / Spread / Tight change how a click lays da mob down. Keep da whole blob inside da glowin' zone." }
+      "allow": [
+        "DEPLOY_UNIT",
+        "EMBARK_UNITS_DEPLOYMENT"
+      ],
+      "done": {
+        "state": "units.U_GRETCHIN_T.status",
+        "equals": 2
+      },
+      "hint": {
+        "text": "Formation buttons sit on da unit card — Single / Spread / Tight change how a click lays da mob down. Keep da whole blob inside da glowin' zone."
+      }
     },
     {
       "id": "first_turn_roll",
@@ -123,11 +229,17 @@
         "pad": "Press {a} on da dialog's Roll button — again on a tie — den Continue."
       },
       "spotlight": "none",
-      "allow": ["ROLL_OFF_FIRST_TURN", "CONFIRM_FIRST_TURN", "END_DEPLOYMENT"],
+      "allow": [
+        "ROLL_OFF_FIRST_TURN",
+        "CONFIRM_FIRST_TURN",
+        "END_DEPLOYMENT"
+      ],
       "done": {
         "script": "var p = int(GameState.state.meta.get(\"phase\", -1))\nreturn p != 1 and p != 2 and p != 13 and p != 3"
       },
-      "hint": { "text": "Keep pressin' on ties — da dice settle eventually." }
+      "hint": {
+        "text": "Keep pressin' on ties — da dice settle eventually."
+      }
     },
     {
       "id": "wrap",
@@ -137,7 +249,9 @@
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "ack": true }
+      "done": {
+        "ack": true
+      }
     }
   ]
 }

@@ -3080,6 +3080,15 @@
       "status": "covered"
     },
     {
+      "id": "tutorial.t2.reposition_nudge",
+      "description": "T2 (Musterin' da Boyz) teaches repositioning an already-placed model. The wagon step splits into place -> nudge -> confirm: the nudge step's two-item checklist ticks on lifting a placed model and on a drop that actually commits (DeploymentController.reposition_commits), and it lists no allowed actions so Confirm is gated off until the player has done it — the lesson cannot be walked past the new teaching, and equally cannot soft-lock by confirming the unit before the reposition it needs. Prompt teaches shift+click for mouse and L3 for pad.",
+      "scenarios": [
+        "tut_t2_musterin"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "controller.end_phase.discoverability",
       "description": "A controller player can discover how to end a phase without the touchscreen: the button they reach for names the Menu (☰) button bound to pad_phase_action, matching the '☰ End Phase' hint-bar chip, and pressing Menu (Start) pops the confirm dialog whose OK ends the phase.",
       "scenarios": [

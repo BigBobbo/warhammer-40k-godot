@@ -3,11 +3,12 @@
   "covers": [
     "tutorial.t2.formations",
     "tutorial.t2.deployment",
-    "tutorial.engine.config_boot"
+    "tutorial.engine.config_boot",
+    "tutorial.t2.reposition_nudge"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T2 (Musterin' da Boyz), mouse+keyboard player path: fresh tutorial game booted from the lesson's config (no fixture) -> Formations panel: attach Warboss to Boyz via the dropdown, tick Boyz into the Battlewagon, Confirm Formations (batch declares incl. DECLARE_TRANSPORT_EMBARKATION) -> deployment roll-off via the dialog Roll/Continue buttons -> deploy the Battlewagon (click board + Confirm) with the AI alternating -> deploy Gretchin with the Spread formation -> first-turn roll-off -> lesson complete. The Formations panel and roll-off dialog are embedded modal Windows: their buttons are driven via the emit escape hatch and the tie-tolerant roll steps emit only if the button is still present.",
+  "description": "Tutorial lesson T2 (Musterin' da Boyz), mouse+keyboard player path: fresh tutorial game booted from the lesson's config (no fixture) -> Formations panel: attach Warboss to Boyz via the dropdown, tick Boyz into the Battlewagon, Confirm Formations (batch declares incl. DECLARE_TRANSPORT_EMBARKATION) -> deployment roll-off via the dialog Roll/Continue buttons -> deploy the Battlewagon: place it, then the nudge step (shift+click it back up, click a new spot to drop it — asserting Confirm is gated off until that is done, so the new teaching cannot be walked past), then Confirm, with the AI alternating -> deploy Gretchin with the Spread formation -> first-turn roll-off -> lesson complete. The Formations panel and roll-off dialog are embedded modal Windows: their buttons are driven via the emit escape hatch and the tie-tolerant roll steps emit only if the button is still present.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -163,6 +164,95 @@
     {
       "act": "wait_frames",
       "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "nudge_wagon"
+    },
+    {
+      "act": "screenshot",
+      "label": "03b_nudge_step"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var TS = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar step = {}\nfor s in TutorialManager._steps:\n\tif str(s.get(\"id\", \"\")) == \"nudge_wagon\":\n\t\tstep = s\nvar txt = TS.render_text(str(step.get(\"prompt\", {}).get(\"pad\", \"\")), true)\nreturn txt.contains(\"[L3]\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var TS = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar step = {}\nfor s in TutorialManager._steps:\n\tif str(s.get(\"id\", \"\")) == \"deploy_wagon\":\n\t\tstep = s\nvar txt = TS.render_text(str(step.get(\"prompt\", {}).get(\"pad\", \"\")), true)\nreturn txt.contains(\"[R3]\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return TutorialManager.is_action_allowed({\"type\": \"DEPLOY_UNIT\", \"player\": 1})",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"wp\", main.deployment_controller.temp_positions[0])"
+    },
+    {
+      "act": "click_board_at",
+      "x": 640.0,
+      "y": 320.0,
+      "shift": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_repositioning()",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03c_wagon_lifted"
+    },
+    {
+      "act": "click_board_at",
+      "x": 700.0,
+      "y": 320.0,
+      "comment": "nudge sideways: the zone's y<=12in edge is close below, and the wagon's oval is long-axis vertical"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_repositioning()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.reposition_commits",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var wp = InputDeviceManager.get_meta(\"wp\")\nvar np = tree.current_scene.deployment_controller.temp_positions[0]\nreturn float(wp.distance_to(np))",
+      "expect_min": 5.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_wagon"
+    },
+    {
+      "act": "screenshot",
+      "label": "03d_wagon_nudged"
     },
     {
       "act": "click_node",

@@ -34,6 +34,12 @@ var formation_rotation: float = 0.0  # Rotation angle for formation (radians)
 
 # Model repositioning state
 var repositioning_model: bool = false
+# Count of repositions that actually COMMITTED (a lift that passed validation and
+# landed). Lets an observer distinguish "picked a model up" from "moved it and
+# dropped it somewhere legal" — the T2 tutorial's nudge step ticks its two
+# checklist boxes off exactly that difference. A cancelled or rejected drop does
+# not count.
+var reposition_commits: int = 0
 var reposition_model_index: int = -1
 var reposition_start_pos: Vector2
 var reposition_ghost: Node2D = null
@@ -2554,6 +2560,7 @@ func _end_model_repositioning(mouse_pos: Vector2) -> void:
 				circle.position = world_pos
 
 		print("Model ", reposition_model_index, " repositioned to ", world_pos)
+		reposition_commits += 1
 		emit_signal("models_placed_changed")
 		_check_coherency_warning()
 	else:

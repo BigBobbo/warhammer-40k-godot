@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.3",
+      "date": "2026-07-29",
+      "summary": "The deployment tutorial now teaches you how to shove an already-placed model into a better spot.",
+      "changes": [
+        "Added a step to 'Musterin' da Boyz' covering model repositioning: after you park the Battlewagon, the lesson walks you through picking it back up and dropping it somewhere better — Shift+click on mouse, L3 on controller.",
+        "The step ticks off as you go: one box for picking the model up, one for dropping it in its new spot.",
+        "Parking the wagon and locking it in are now separate steps, so you get a chance to adjust it before you Confirm.",
+        "The lesson recap mentions repositioning too, and the deployment step now points controller players at R3 + bumpers for turning a vehicle."
+      ]
+    },
+    {
       "version": "1.6.2",
       "date": "2026-07-29",
       "summary": "Controller players can now nudge a model they already placed: press L3 to pick it up, move it, A to drop it.",
