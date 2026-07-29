@@ -6,7 +6,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Exit Tutorial has to work at ANY point of a lesson, including while a gameplay dialog owns the screen. Reproduces the reported T2 softlock — parked on step 6 'GROTS IN A MOB!' with the FIRST_TURN_ROLLOFF dialog open, so the step's allow-list rejects the roll — and proves the escape hatch: the card's own Exit Tutorial greys out (it is unreachable under an exclusive embedded Window, which blocks every input to the parent viewport), an Exit Tutorial button is offered inside the dialog itself, it opens a confirm, and confirming lands the player back on the main menu with no tutorial state left behind.",
+  "description": "Exit Tutorial has to work at ANY point of a lesson, including while a gameplay dialog owns the screen. Reproduces the reported T2 softlock — parked on 'GROTS IN A MOB!' (deploy_grots) with the FIRST_TURN_ROLLOFF dialog open, so the step's allow-list rejects the roll — and proves the escape hatch: the card's own Exit Tutorial greys out (it is unreachable under an exclusive embedded Window, which blocks every input to the parent viewport), an Exit Tutorial button is offered inside the dialog itself, it opens a confirm, and confirming lands the player back on the main menu with no tutorial state left behind.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.5 },
     { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton" },
@@ -15,7 +15,7 @@
     { "act": "wait_seconds", "seconds": 10.0 },
     { "act": "execute_script", "script": "return str(TutorialManager.current_lesson.get(\"id\", \"\"))", "multiline": true, "equals": "t2_musterin" },
 
-    { "act": "execute_script", "script": "for i in range(5):\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id()", "multiline": true, "equals": "deploy_grots", "comment": "park on the step the player was stranded on - its allow-list is DEPLOY_UNIT / EMBARK_UNITS_DEPLOYMENT only" },
+    { "act": "execute_script", "script": "for i in range(20):\n\tif TutorialManager.current_step_id() == \"deploy_grots\":\n\t\tbreak\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id()", "multiline": true, "equals": "deploy_grots", "comment": "park on the step the player was stranded on - its allow-list is DEPLOY_UNIT / EMBARK_UNITS_DEPLOYMENT only. Skips BY ID, not by count, so inserting a step into T2 does not silently retarget this scenario." },
     { "act": "wait_seconds", "seconds": 1.0 },
     { "act": "execute_script", "script": "PhaseManager.transition_to_phase(GameState.Phase.FIRST_TURN_ROLLOFF)\nreturn true", "multiline": true, "equals": true, "comment": "the softlock state: the first-turn roll-off dialog opens while the step still wants the grots deployed" },
     { "act": "wait_seconds", "seconds": 3.0 },

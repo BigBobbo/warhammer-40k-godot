@@ -9,6 +9,7 @@
     "bark": "NOW WE'S ROLLIN'!",
     "bullets": [
       "Click a unit's [Embarked] row to get da boyz out of a transport — place each base inside da glowin' ring.",
+      "Boyz dat disembark can still make their own move — but only if da transport ain't moved yet. Out first, drive after.",
       "Movement modes: pick da radio, den [b]Confirm Movement Mode[/b] — it don't stick till ya confirm.",
       "Drag models (or carry 'em wiv da pad), [b]Undo Model[/b] / [b]Reset Unit[/b] fix mistakes.",
       "[b]End This Unit's Move[/b] locks one unit. Da big red button ends da whole phase.",
@@ -57,6 +58,25 @@
       ] },
       "hint_after_s": 35,
       "hint": { "text": "Right-click cancels if ya get stuck — den click da row again. Every base needs to be wivin 3\" of da wagon." }
+    },
+    {
+      "id": "boyz_move_after_disembark",
+      "prompt": {
+        "bark": "DEIR LEGS STILL WORK!",
+        "kbm": "Da wagon ain't moved yet, so da Boyz get their own move too. Dey're already picked — drag one forward, den hit [b]End This Unit's Move[/b].",
+        "pad": "Da wagon ain't moved yet, so da Boyz get their own move too. Press {a} on a boy, glide 'im forward, {a} to drop — den [b]End This Unit's Move[/b]."
+      },
+      "anchor": { "unit": "U_BOYZ_T" },
+      "spotlight": "soft",
+      "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "LOCK_MOVEMENT_MODE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE", "RESET_UNIT_MOVE", "CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY"],
+      "done": { "any": [
+        { "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_BOYZ_T" } },
+        { "action": { "type": "REMAIN_STATIONARY", "actor_unit_id": "U_BOYZ_T" } },
+        { "state": "units.U_BOYZ_T.flags.moved", "equals": true }
+      ] },
+      "hint_after_s": 30,
+      "hint": { "text": "Only works 'cos da wagon ain't shifted yet — get out FIRST, drive after. If da transport moves first, da lads are stuck where dey landed." },
+      "blocked_hint": "move da [b]Boyz[/b] first — drag one, den [b]End This Unit's Move[/b]."
     },
     {
       "id": "wagon_mode",
