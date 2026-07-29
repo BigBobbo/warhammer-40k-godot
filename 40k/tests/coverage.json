@@ -3046,10 +3046,11 @@
     },
     {
       "id": "ChargeController",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_charge_full_flow, pad_charge_target_toggle.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_charge_full_flow, pad_charge_target_toggle, pad_charge_snap_cursor_active.",
       "scenarios": [
         "pad_charge_full_flow",
-        "pad_charge_target_toggle"
+        "pad_charge_target_toggle",
+        "pad_charge_snap_cursor_active"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -3197,7 +3198,7 @@
     },
     {
       "id": "PadRouter",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_bumper_only_unit_cycling, pad_charge_full_flow, pad_charge_target_toggle, pad_deploy_model_type_rows, pad_deploy_unit_cycling, pad_fight_attack_reticle, pad_fight_pilein_auto, pad_fight_selection_bumper, pad_move_dpad_menu_no_panel_trap, pad_rapid_ingress_no_move_menu, pad_reinforcement_formation_row, pad_reinforcement_no_move_menu, pad_reinforcement_undo, pad_shoot_cycle_all_eligible, pad_shoot_target_reticle, pad_shoot_weapon_step, pad_split_fire_spin.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_bumper_only_unit_cycling, pad_charge_full_flow, pad_charge_target_toggle, pad_deploy_model_type_rows, pad_deploy_unit_cycling, pad_fight_attack_reticle, pad_fight_pilein_auto, pad_fight_selection_bumper, pad_move_dpad_menu_no_panel_trap, pad_rapid_ingress_no_move_menu, pad_reinforcement_formation_row, pad_reinforcement_no_move_menu, pad_reinforcement_undo, pad_shoot_cycle_all_eligible, pad_shoot_target_reticle, pad_shoot_weapon_step, pad_split_fire_spin, pad_charge_snap_cursor_active.",
       "scenarios": [
         "pad_bumper_only_unit_cycling",
         "pad_charge_full_flow",
@@ -3215,7 +3216,8 @@
         "pad_shoot_cycle_all_eligible",
         "pad_shoot_target_reticle",
         "pad_shoot_weapon_step",
-        "pad_split_fire_spin"
+        "pad_split_fire_spin",
+        "pad_charge_snap_cursor_active"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -3307,9 +3309,10 @@
     },
     {
       "id": "VirtualCursor",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_reinforcement_undo.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_reinforcement_undo, pad_charge_snap_cursor_active.",
       "scenarios": [
-        "pad_reinforcement_undo"
+        "pad_reinforcement_undo",
+        "pad_charge_snap_cursor_active"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -4168,9 +4171,20 @@
     },
     {
       "id": "controller.charge.x_snap_to_contact",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_charge_full_flow.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_charge_full_flow, pad_charge_snap_cursor_active.",
       "scenarios": [
-        "pad_charge_full_flow"
+        "pad_charge_full_flow",
+        "pad_charge_snap_cursor_active"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.charge.x_snap_with_cursor_active",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_charge_snap_cursor_active.",
+      "scenarios": [
+        "pad_charge_snap_cursor_active"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
