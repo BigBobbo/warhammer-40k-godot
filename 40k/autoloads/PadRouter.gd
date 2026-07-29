@@ -133,16 +133,60 @@ const HINTS_CHARGE_MOVE := [
 	["menu", "Confirm Charge"],
 	["y", "Datasheet"],
 ]
+# Placement, models still to put down. ☰ carries NO chip here: with the unit
+# half-placed Start falls through to the top-right phase-action button (which is
+# disabled until every unit is deployed), so the default START_ACTION_PHASE is
+# the honest reading and that button keeps its "[☰] " prefix.
 const HINTS_DEPLOY := [
 	["ls", "Cursor"],
 	["lb", "Prev Unit"],
 	["rb", "Next Unit"],
+	# Hold R3 and the bumpers rotate the ghost instead of switching units — the
+	# only pad way to angle an oval/rectangular base while placing it. See
+	# _rotating_a_placement_ghost().
+	["r3", "Hold: LB/RB Rotate"],
+	# L3 lifts an already-placed model of this unit so it can be nudged — the pad
+	# counterpart to mouse shift+click. See _try_pad_reposition().
+	["l3", "Move Placed Model"],
 	["a", "Place Model"],
 	["dpad", "Type / Formation"],
 	["x", "Undo Model"],
 	["b", "Undo Unit"],
 	["y", "Datasheet"],
-	["menu", "Confirm / End"],
+]
+# Every model of the unit is down, waiting on Confirm — Main._input routes Start
+# to _on_confirm_pressed() in exactly this state, so the chip names that and
+# nothing else. The old single set promised "Confirm / End" throughout, which is
+# how a player pressing ☰ to lock in the Battlewagon read it as also being the
+# button that ends the phase (reported from tutorial T2). Same stage-accuracy
+# rule the charge sets follow: the chip never advertises an action Start would
+# not actually take.
+# LB/RB are deliberately absent: _cycle refuses to switch units while
+# get_placed_count() > 0 (it warns "Undo the placed models before switching
+# units"), and this set is only ever shown with every model down — so the
+# bumpers cannot do what the plain HINTS_DEPLOY set advertises them for.
+const HINTS_DEPLOY_STAGED := [
+	["ls", "Cursor"],
+	# Every model is down and the player is eyeing the placement before locking
+	# it in — the state L3's nudge is most useful in, so it is advertised here
+	# too. (No r3 rotate chip: with every model placed there is no ghost left to
+	# rotate.)
+	["l3", "Move Placed Model"],
+	["dpad", "Type / Formation"],
+	["x", "Undo Model"],
+	["b", "Undo Unit"],
+	["y", "Datasheet"],
+	["menu", "Confirm Unit"],
+]
+
+# A placed model is in hand (L3 lift). Deliberately short: this is a modal
+# sub-state where the bumpers, X and the D-pad rows all stand down, so the bar
+# promises only what actually works — aim, drop, cancel.
+const HINTS_DEPLOY_REPOSITION := [
+	["ls", "Move Model"],
+	["a", "Drop Here"],
+	["b", "Cancel"],
+	["r3", "Hold: Precision"],
 ]
 const HINTS_FOCUS := [
 	["dpad", "Navigate"],
@@ -375,6 +419,37 @@ func is_placement_active() -> bool:
 	return _deployment_controller_placing() != null
 
 
+# True while the charge move stage has a live "Snap to Contact" button and no
+# model is in hand — i.e. while X means Snap to Contact. Drives the X hint chip
+# as well as the cursor stand-down below.
+func is_charge_snap_active() -> bool:
+	if carry_active:
+		return false
+	var cc := _charge_controller_any()
+	return cc != null and cc.has_method("pad_snap_available") and bool(cc.pad_snap_available())
+
+
+# True while X carries a charge-phase meaning with the backing button actually
+# live: Snap to Contact during the move stage, Skip Charge before it (the two
+# are mutually exclusive — skip stands down once the move begins).
+# VirtualCursor queries this for the same reason it queries
+# is_placement_active(): the left stick is the aiming tool all through the
+# charge phase (A = Grab Model / select clicks at the cursor), so the cursor is
+# active for most of it, and consuming X there as a synthetic right-click is
+# exactly what made the hint bar's "[X] Snap to Contact" and "[X] Skip Charge"
+# dead buttons. A right-click on the board opens the unit colour/label context
+# menu — not a controller affordance and not worth the phase's X.
+func is_charge_x_action_active() -> bool:
+	if carry_active:
+		return false
+	var cc := _charge_controller_any()
+	if cc == null:
+		return false
+	if cc.has_method("pad_snap_available") and bool(cc.pad_snap_available()):
+		return true
+	return cc.has_method("pad_skip_available") and bool(cc.pad_skip_available())
+
+
 func _ready() -> void:
 	InputDeviceManager.device_changed.connect(_on_device_changed)
 
@@ -467,29 +542,40 @@ func _input(event: InputEvent) -> void:
 		return
 	match button:
 		JOY_BUTTON_LEFT_SHOULDER:
-			if carry_active:
+			if carry_active or _rotating_a_placement_ghost():
 				_synth_rotate(true)
-			else:
+			elif _repositioning_placement() == null:
+				# Swallowed while a model is lifted: cycling to another unit
+				# mid-lift would abandon the model in limbo (its token is still
+				# faded at the old spot and the session it belongs to is gone).
 				_cycle(-1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_RIGHT_SHOULDER:
-			if carry_active:
+			if carry_active or _rotating_a_placement_ghost():
 				_synth_rotate(false)
-			else:
+			elif _repositioning_placement() == null:
 				_cycle(1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_Y:
 			if _toggle_datasheet():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_LEFT_STICK:
-			# L3 (press the left thumbstick in) is THE model-cycle button — the one
-			# free, reliable controller button, so it means "next model" identically
-			# in every phase that positions a unit's individual models (Movement +
-			# Charge, via _hop_model). Reliable where the Steam Deck L4/R4 paddles are
-			# not (those reach the game as JOY_BUTTON_PADDLE* only when Steam Input is
-			# configured to forward them). _hop_model returns false elsewhere, so L3
-			# is a harmless no-op in phases without per-model positioning.
-			if _hop_model(1):
+			# During a placement session L3 takes its second meaning: pick up the
+			# already-placed model under the cursor to nudge it (the pad
+			# counterpart to mouse Shift+click). _hop_model is a no-op in the
+			# Deployment phase, so this claims a button that was otherwise dead
+			# here, and it stays consistent with L3's board meaning — both are
+			# "act on an individual model of this unit".
+			#
+			# Otherwise L3 (press the left thumbstick in) is THE model-cycle button
+			# — the one free, reliable controller button, so it means "next model"
+			# identically in every phase that positions a unit's individual models
+			# (Movement + Charge, via _hop_model). Reliable where the Steam Deck
+			# L4/R4 paddles are not (those reach the game as JOY_BUTTON_PADDLE* only
+			# when Steam Input is configured to forward them). _hop_model returns
+			# false elsewhere, so L3 stays a harmless no-op in phases without
+			# per-model positioning.
+			if _try_pad_reposition() or _hop_model(1):
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_X:
 			if _context_action():
@@ -1139,17 +1225,41 @@ func _context_action() -> bool:
 	# entire placement flow (the reported Deep Strike / reinforcement bug: X did
 	# nothing). VirtualCursor cooperates by NOT consuming X while a placement
 	# session is live (see its JOY_BUTTON_X guard + is_placement_active()), so
-	# the press reaches this router regardless of cursor state. A controller
-	# right-click has no reachable use while placing (model repositioning is a
-	# mouse shift+click affordance), so X is free to mean undo here. Undoing
-	# every model re-enables LB/RB unit switching; undo_last_model emits
-	# models_placed_changed, so Main refreshes the card/buttons itself.
+	# the press reaches this router regardless of cursor state. X means undo here
+	# rather than a controller right-click, which has no reachable use while
+	# placing. Undoing every model re-enables LB/RB unit switching;
+	# undo_last_model emits models_placed_changed, so Main refreshes the
+	# card/buttons itself.
 	var dc = _deployment_controller_placing()
 	if dc != null:
+		# ...except while a model is lifted for repositioning (L3): undoing the
+		# LAST placed model there is almost never what the player means — the
+		# model in hand may be a different one, and its faded token would be left
+		# behind. Swallow X; B cancels the lift, A drops it.
+		if _repositioning_placement() != null:
+			return true
 		if dc.get_placed_count() > 0 and dc.has_method("undo_last_model"):
 			return dc.undo_last_model()
 		# In a placement session but nothing staged yet — swallow X so it can't
 		# fall through to a shooter-skip / stray action in the same frame.
+		return true
+	# The charge phase owns X throughout, and — like the placement block above —
+	# is checked BEFORE the cursor-active bail. The left stick is the aiming tool
+	# for the whole phase (it is how you point at a model for A), so the cursor is
+	# active most of the time; gating these on a parked cursor left X dead for the
+	# exact players the hint bar was promising it to ("[X] Snap to Contact does
+	# nothing; only the on-screen button works"). VirtualCursor cooperates by NOT
+	# consuming X while is_charge_x_action_active(), so the press reaches this
+	# router regardless of cursor state.
+	#   - moving models into engagement (no model in hand): X = Snap to Contact,
+	#     the one-press "place every unmoved model base-to-base with its nearest
+	#     declared target" helper — the pad's answer to per-model dragging;
+	#   - before the move (declare / roll): X = skip the selected unit's charge,
+	#     same as the Skip Charge button.
+	var cc := _charge_controller_any()
+	if cc != null and cc.has_method("pad_snap_to_contact") and cc.pad_snap_to_contact():
+		return true
+	if cc != null and cc.has_method("pad_skip") and cc.pad_skip():
 		return true
 	if VirtualCursor.is_cursor_active():
 		return false  # cursor mode owns X (right-click); VC consumed it anyway
@@ -1158,26 +1268,40 @@ func _context_action() -> bool:
 		sc._keyboard_skip_unit()
 		target_highlight_id = ""
 		return true
-	# Charge, moving models into engagement (no model in hand): X = Snap to
-	# Contact — the one-press "place every unmoved model base-to-base with its
-	# nearest declared target" helper, the pad's answer to per-model dragging.
-	# (The placement-undo block above already handled deployment / reinforcement /
-	# scout X-undo before the cursor-active bail, so it is intentionally not
-	# repeated here.)
-	var cc := _charge_controller_any()
-	if cc != null and cc.has_method("pad_snap_to_contact") and cc.pad_snap_to_contact():
-		return true
-	# Charge: X = skip the selected unit's charge (same as the Skip Charge
-	# button; only enabled while no charge move is being resolved).
-	if cc != null and cc.has_method("pad_skip") and cc.pad_skip():
-		return true
 	# Movement, parked after an A-drop (the multi-step state): X = "this model
 	# is finished" — advance to the unit's next un-placed model. The undo that
 	# used to live here moved to B (_handle_back).
 	return _finish_model_and_advance()
 
 
+# L3 during a placement session: lift the already-placed model under the cursor
+# so the stick can nudge it, then A drops it and B puts it back. The drop needs
+# no wiring — VirtualCursor turns A into a real left-click at the cursor, and
+# DeploymentController._unhandled_input already routes a click to
+# _end_model_repositioning (with its zone / overlap validation) whenever a lift
+# is live, exactly as it does for the mouse.
+func _try_pad_reposition() -> bool:
+	var dc := _deployment_controller_placing()
+	if dc == null or not dc.has_method("pad_begin_reposition_at_cursor"):
+		return false
+	if not VirtualCursor.is_cursor_active():
+		# No cursor on screen means no aim point: _get_world_mouse_position would
+		# hit-test wherever the OS pointer happens to sit, which on a pad is
+		# wherever it was parked. Let L3 fall through instead of lifting a model
+		# the player is not pointing at.
+		return false
+	return dc.pad_begin_reposition_at_cursor()
+
+
 func _handle_back() -> bool:
+	# A lifted model is put back before B means anything else — matching the
+	# mouse right-click cancel, and matching the carry rule below it. Without
+	# this, B mid-lift fell through to "Undo Unit" and wiped the whole unit's
+	# placement while one of its models was in hand.
+	var repositioning := _repositioning_placement()
+	if repositioning != null:
+		repositioning.pad_cancel_reposition()
+		return true
 	if carry_active:
 		_cancel_carry()
 		return true
@@ -1930,6 +2054,40 @@ func _deployment_zone_center() -> Vector2:
 	return center / zone.size()
 
 
+# Deployment-placement rotation (owner request 2026-07-28). A controller player
+# had NO way to rotate a model's ghost while placing it: the bumpers rotate only
+# during a movement carry, and every other pad control is already spoken for
+# during placement (D-pad drives the card's Deploy Formation / Model Type rows,
+# A places, X undoes a model, B undoes the unit, Start confirms). Keyboard
+# players have had Q/E all along, so oval-based vehicles could only be angled
+# with a mouse and keyboard.
+#
+# R3 — already the "Precision Cursor (hold)" role and never consumed as a press
+# — becomes the modifier: HOLD it and the bumpers rotate the ghost instead of
+# cycling units. That keeps bare LB/RB as the unit switcher (the bumper-only
+# rule, and the browse-while-placing flow pad_deploy_unit_cycling covers), costs
+# no other control, and reads as one idea: hold R3 for fine placement control —
+# the cursor slows AND the bumpers angle the model. Reading the `pad_precision`
+# action means a player who remaps the precision role in Settings › Controller
+# gets the combo on their chosen button for free.
+func _rotating_a_placement_ghost() -> bool:
+	if not is_placement_active():
+		return false
+	return InputMap.has_action("pad_precision") and Input.is_action_pressed("pad_precision")
+
+
+# The DeploymentController while a placed model is lifted for repositioning
+# (pad L3 / mouse shift+click), else null. A lift is a modal sub-state of the
+# placement session: the model is out of its slot and the ONLY sane next inputs
+# are drop (A) and cancel (B), so several board bindings stand down while it is
+# live — see _handle_back, _context_action and the bumper arms.
+func _repositioning_placement() -> Node:
+	var dc := _deployment_controller_placing()
+	if dc == null or not dc.has_method("is_repositioning"):
+		return null
+	return dc if dc.is_repositioning() else null
+
+
 # Pad rotation reuses the rebindable rotate_left/rotate_right keyboard
 # semantics: synthesize the currently-bound key event so MovementController /
 # DeploymentController / ChargeController react exactly as they do to Q/E,
@@ -2294,7 +2452,18 @@ func _update_hints() -> void:
 		if sc != null and str(sc.active_shooter_id) != "":
 			hints = HINTS_TARGETS
 		elif _deployment_controller_placing() != null:
-			hints = HINTS_DEPLOY
+			# Stage-accurate, like the charge sets: ☰ only claims "Confirm Unit"
+			# in the state where Main._input actually routes Start to the confirm.
+			# A lifted model outranks both — it is a modal sub-state in which most
+			# of what those sets advertise is standing down.
+			var dpl = _deployment_controller_placing()
+			var total := int(dpl.get_total_model_count())
+			if _repositioning_placement() != null:
+				hints = HINTS_DEPLOY_REPOSITION
+			elif total > 0 and int(dpl.get_placed_count()) >= total:
+				hints = HINTS_DEPLOY_STAGED
+			else:
+				hints = HINTS_DEPLOY
 		else:
 			var cc = _charge_controller_any()
 			if cc != null:
@@ -2303,7 +2472,12 @@ func _update_hints() -> void:
 				# Charge / Roll 2D6 / Confirm Charge), so the promise can never
 				# diverge from the action again.
 				if bool(cc.awaiting_movement):
-					hints = HINTS_CHARGE_MOVE
+					# Same honesty rule for the X chip: once every model is
+					# placed the Snap to Contact button greys out, so the bar
+					# must stop promising it — otherwise the last press of the
+					# stage is a dead button again, the very symptom this set
+					# was reported for.
+					hints = HINTS_CHARGE_MOVE if is_charge_snap_active() else _without_hint(HINTS_CHARGE_MOVE, "x")
 				elif bool(cc.awaiting_roll):
 					hints = HINTS_CHARGE_ROLL
 				elif cc.selected_targets.size() > 0:
@@ -2336,6 +2510,18 @@ func _update_hints() -> void:
 	# Targets, …) owns Start. Done from the same `hints` the bar just rendered, so
 	# chip and button are the same statement by construction.
 	_set_start_action(_start_chip_label(hints))
+
+
+# A copy of `hints` with the chip for `glyph` dropped — for states where a set
+# is right except that one of its buttons is currently dead. Never mutates the
+# const source array.
+func _without_hint(hints: Array, glyph: String) -> Array:
+	var out: Array = []
+	for hint in hints:
+		if hint is Array and hint.size() >= 1 and str(hint[0]) == glyph:
+			continue
+		out.append(hint)
+	return out
 
 
 # The label on a hint set's ☰ chip, or START_ACTION_PHASE when the set carries

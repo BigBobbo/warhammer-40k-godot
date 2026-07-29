@@ -53,13 +53,13 @@ with open(os.path.join(DOCS, "controller_hint_sets.json")) as f:
 # Physical button map (always-on meanings). glyph -> (name, meaning)
 PHYSICAL = [
     ("ls",  "Left stick",        "Virtual cursor — point at the board, drag models, aim placement"),
-    ("l3",  "L3 (click LS)",     "Next model — cycle the active unit's individual models (Movement / Charge; in Movement the D-pad ◀▶ do this too)"),
+    ("l3",  "L3 (click LS)",     "Next model — cycle the active unit's individual models (Movement / Charge; in Movement the D-pad ◀▶ do this too). While deploying, it instead picks up the already-placed model under the cursor to move it"),
     ("rs",  "Right stick",       "Pan the camera"),
-    ("r3",  "R3 (hold RS)",      "Precision modifier — hold to slow the cursor for fine placement"),
+    ("r3",  "R3 (hold RS)",      "Precision modifier — hold to slow the cursor for fine placement; while deploying, hold it and LB/RB rotate the ghost instead of switching units"),
     ("lt",  "Left trigger",      "Zoom out"),
     ("rt",  "Right trigger",     "Zoom in"),
-    ("lb",  "Left bumper",       "Previous unit (cycle the acting unit) · rotate ⟲ while carrying a model"),
-    ("rb",  "Right bumper",      "Next unit (cycle the acting unit) · rotate ⟳ while carrying a model"),
+    ("lb",  "Left bumper",       "Previous unit (cycle the acting unit) · rotate ⟲ while carrying a model, or while deploying with R3 held"),
+    ("rb",  "Right bumper",      "Next unit (cycle the acting unit) · rotate ⟳ while carrying a model, or while deploying with R3 held"),
     ("a",   "A",                 "Context confirm — select / assign / place / pick-up / drop / press"),
     ("b",   "B",                 "Back — deselect / cancel / undo / release panel focus"),
     ("x",   "X",                 "Context action — skip unit / undo model / finish model / snap to contact"),
@@ -96,7 +96,8 @@ SECTIONS = [
             ],
             "rp": ("na", "N/A — no in-game panels yet"),
             "notes": ["Start Game is the default-focused control (grab_focus on load).",
-                      "The top-right 'Controller: not detected / ACTIVE' label is a live diagnostic."],
+                      "The top-right 'Controller: not detected / ACTIVE' label is a live diagnostic.",
+                      "Below it, the 'Input: …' label names the layout in force (and how it was chosen) and points at Settings > Controller > Input Mode."],
         }],
     },
     {
@@ -108,14 +109,13 @@ SECTIONS = [
             "when": "After pressing View (⧉) with nothing else open.",
             "custom": [
                 ("view", "Open the menu (and closes the top overlay if one is up)"),
-                ("dpad", "Move between tabs (Audio / Visual / Gameplay / Controls) and controls"),
+                ("dpad", "Move between tabs (Audio / Visual / Gameplay / Controls / Controller) and controls"),
                 ("a", "Activate the focused tab / slider / checkbox / button"),
                 ("b", "Close the menu (ui_cancel)"),
             ],
             "rp": ("dialog", "The menu is modal and traps pad focus until closed"),
             "notes": ["Full controller navigation; Close is default-focused.",
-                      "The Controls tab shows a read-only controller reference.",
-                      "GAP: keybinding remap only captures keyboard keys — you cannot rebind actions to gamepad buttons.",
+                      "The Controller tab opens with Input Mode — Auto-detect / Controller / Mouse & Keyboard / Follow last input — which is how you override the layout the game picked at launch. It also hosts the pad-button remapping and a read-only controller reference.",
                       "Save/Load dialog: the saves list is walkable with the D-pad; A loads, B closes."],
         }],
     },
@@ -159,9 +159,29 @@ SECTIONS = [
             "hint_set": "HINTS_DEPLOY",
             "rp": RP_SELECTORS,
             "notes": ["LB/RB switch which unit is being deployed — but lock once any model is placed (undo to unlock).",
+                      "HOLD R3 and LB/RB rotate the ghost (15° a press) instead of switching units — the pad equivalent of the keyboard Q/E, and the only way to angle an oval or rectangular base while placing it. In Spread/Tight formation it rotates the whole formation.",
                       "D-pad ▲▼ moves the ▶ between the Model-type and Formation rows; ◀▶ changes the highlighted row's value.",
                       "X undoes the last placed model; B undoes the whole unit; Start confirms once every model is placed.",
-                      "GAP: repositioning an already-placed model (mouse Shift+click) has no pad equivalent — undo and re-place."],
+                      "L3 picks up an already-placed model of this unit so the stick can nudge it — the pad equivalent of mouse Shift+click. See the next state."],
+        }, {
+            "name": "Every model placed, waiting on Confirm",
+            "when": "Once the last model of the unit is down and nothing is in hand.",
+            "hint_set": "HINTS_DEPLOY_STAGED",
+            "rp": RP_SELECTORS,
+            "notes": ["Start (☰) means Confirm Unit here and nothing else — it does NOT end the phase in this state.",
+                      "LB/RB are absent because deployment refuses to switch units once a model is on the table (undo them all to unlock).",
+                      "L3 still lifts a placed model, which is exactly the state you want it in — reviewing the placement before locking it in."],
+        }, {
+            "name": "Moving an already-placed model",
+            "when": "After pressing L3 with the cursor over a model you already placed for this unit.",
+            "hint_set": "HINTS_DEPLOY_REPOSITION",
+            "rp": RP_NO_STANDDOWN,
+            "custom_after": [],
+            "notes": ["The lifted model's token fades in place and a ghost follows the cursor, red where the drop would be illegal.",
+                      "A drops it at the cursor (same zone / overlap validation as the original placement — an illegal spot is refused with a toast and the model stays put). B puts it back where it was.",
+                      "Only models of the unit you are currently deploying can be lifted, and only before you confirm the unit.",
+                      "LB/RB, X and the D-pad rows stand down while a model is in hand, so nothing can strand it — drop or cancel first.",
+                      "GAP: the lifted model cannot be rotated mid-lift (R3+LB/RB rotates the placement ghost, not the lifted one) — same as the mouse, where the wheel does nothing during a reposition."],
         }],
     },
     {
@@ -732,7 +752,7 @@ footer code{{font-family:var(--mono);background:var(--panel-2);padding:1px 6px;b
       <h2>How to read this</h2>
       <p class="sub">The controls are contextual: the same button means different things in different states.</p>
       <ul class="notes" style="font-size:14px">
-        <li><strong>The pad only drives the game while it is the active device.</strong> Any joypad press claims control (the on-screen hint bar appears); any mouse move or key press hands control back to keyboard &amp; mouse.</li>
+        <li><strong>The pad only drives the game while the controller layout is the active one — and that is now chosen once, at launch.</strong> Auto-detect picks the controller layout on a Steam Deck and mouse &amp; keyboard on a PC or in the browser, then <em>sticks</em>: a mouse move, a key press or a joypad press no longer swaps the layout mid-game (on a Deck the trackpads/paddles register as mouse/keyboard input, which used to flip the UI — and the controller text boost's canvas scale — back and forth). Change it in <em>Settings &rsaquo; Controller &rsaquo; Input Mode</em>: Auto-detect, Controller / Steam Deck, Mouse &amp; Keyboard, or "Follow last input used" for the old behaviour.</li>
         <li><strong>LB / RB are the only unit-switcher.</strong> They cycle the acting unit in every phase. Unit lists on the right are deliberately NOT walkable with the D-pad or stick — cycling is the bumpers' job alone.</li>
         <li><strong>The D-pad is context-dependent.</strong> With nothing selected it enters panel focus; with a phase sub-menu open (targets, weapons, move mode, deploy rows) it drives that instead; and while you are moving a unit it switches models (◀▶), grabs all (▲), or drops back to one (▼).</li>
         <li><strong>Each state below lists its buttons, whether the right-hand panel can be driven on the pad, and any gaps.</strong> The "Right panel on pad?" badge is the answer to "can I control the menu on the right here?"</li>

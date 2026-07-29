@@ -3,11 +3,14 @@
   "covers": [
     "tutorial.t2.formations",
     "tutorial.t2.deployment",
-    "tutorial.engine.config_boot"
+    "tutorial.t2.rotate_wagon",
+    "deployment.rotation",
+    "tutorial.engine.config_boot",
+    "tutorial.t2.reposition_nudge"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T2 (Musterin' da Boyz), mouse+keyboard player path: fresh tutorial game booted from the lesson's config (no fixture) -> Formations panel: attach Warboss to Boyz via the dropdown, tick Boyz into the Battlewagon, Confirm Formations (batch declares incl. DECLARE_TRANSPORT_EMBARKATION) -> deployment roll-off via the dialog Roll/Continue buttons -> deploy the Battlewagon (click board + Confirm) with the AI alternating -> deploy Gretchin with the Spread formation -> first-turn roll-off -> lesson complete. The Formations panel and roll-off dialog are embedded modal Windows: their buttons are driven via the emit escape hatch and the tie-tolerant roll steps emit only if the button is still present.",
+  "description": "Tutorial lesson T2 (Musterin' da Boyz), mouse+keyboard player path: fresh tutorial game booted from the lesson's config (no fixture) -> Formations panel: attach Warboss to Boyz via the dropdown, tick Boyz into the Battlewagon, Confirm Formations (batch declares incl. DECLARE_TRANSPORT_EMBARKATION) -> deployment roll-off via the dialog Roll/Continue buttons -> the 'rotate_wagon' step: pick the Battlewagon up, prove the step does NOT advance on selection alone and that Confirm is gated shut, turn the ghost a quarter turn with six real 'E' presses, and watch the step advance on the turn -> deploy the Battlewagon: place it, nudge it (shift+click back up, drop it elsewhere, asserting Confirm is gated until that is done), Confirm (click board + Confirm) with the AI alternating, asserting the taught rotation actually lands on the deployed model -> deploy Gretchin with the Tight formation -> first-turn roll-off -> lesson complete. The Formations panel and roll-off dialog are embedded modal Windows: their buttons are driven via the emit escape hatch and the tie-tolerant roll steps emit only if the button is still present.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -140,7 +143,7 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "deploy_wagon"
+      "equals": "rotate_wagon"
     },
     {
       "act": "screenshot",
@@ -156,6 +159,90 @@
       "frames": 10
     },
     {
+      "act": "hover_board_at",
+      "x": 640.0,
+      "y": 320.0,
+      "comment": "park the pointer where the wagon will go so the ghost renders on the board - the rotation has to be VISIBLE in the screenshots below, not just readable off the controller"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nif dc.ghost_sprite == null:\n\treturn \"NO_GHOST\"\nreturn abs(wrapf(dc.ghost_sprite.get_base_rotation() - BoardState.get_default_facing_for_player(1), -PI, PI)) < 0.001",
+      "multiline": true,
+      "equals": true,
+      "comment": "the wagon ghost starts at the default enemy-facing, so the rotate step cannot be already-done on entry"
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id()",
+      "multiline": true,
+      "equals": "rotate_wagon",
+      "comment": "picking the wagon up is NOT enough - the step still waits for a real turn"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_wagon_ghost_default_facing"
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.is_action_allowed({\"type\": \"DEPLOY_UNIT\", \"unit_id\": \"U_BATTLEWAGON_T\", \"player\": 1})",
+      "multiline": true,
+      "equals": false,
+      "comment": "Confirm is gated until the wagon is turned - otherwise a player could deploy it flat and strand the step with no ghost left to rotate"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E",
+      "comment": "rotate_right = +15 degrees a tap, so six taps is a quarter turn"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nvar want = BoardState.get_default_facing_for_player(1) + PI / 2.0\nreturn abs(wrapf(dc.ghost_sprite.get_base_rotation() - want, -PI, PI)) < 0.02",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05_wagon_ghost_rotated_90"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "deploy_wagon",
+      "comment": "turning the ghost is what advances the step"
+    },
+    {
       "act": "click_board_at",
       "x": 640.0,
       "y": 320.0
@@ -163,6 +250,97 @@
     {
       "act": "wait_frames",
       "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "nudge_wagon",
+      "comment": "placing the wagon now advances to the nudge step, not straight to Confirm"
+    },
+    {
+      "act": "screenshot",
+      "label": "05b_nudge_step"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return TutorialManager.is_action_allowed({\"type\": \"DEPLOY_UNIT\", \"unit_id\": \"U_BATTLEWAGON_T\", \"player\": 1})",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"wp\", main.deployment_controller.temp_positions[0])"
+    },
+    {
+      "act": "click_board_at",
+      "x": 640.0,
+      "y": 320.0,
+      "shift": true,
+      "comment": "shift+click the placed wagon to pick it back up - the gesture this step teaches"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_repositioning()",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05c_wagon_lifted"
+    },
+    {
+      "act": "click_board_at",
+      "x": 700.0,
+      "y": 320.0,
+      "comment": "drop 1.5in sideways: the wagon was turned 90deg so its long axis is horizontal, and the zone's y<=12in step sits just below"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_repositioning()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.reposition_commits",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var wp = InputDeviceManager.get_meta(\"wp\")\nvar np = tree.current_scene.deployment_controller.temp_positions[0]\nreturn float(wp.distance_to(np))",
+      "expect_min": 5.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_wagon"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var TS = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar step = {}\nfor s in TutorialManager._steps:\n\tif str(s.get(\"id\", \"\")) == \"nudge_wagon\":\n\t\tstep = s\nvar txt = TS.render_text(str(step.get(\"prompt\", {}).get(\"pad\", \"\")), true)\nreturn txt.contains(\"[L3]\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var TS = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar step = {}\nfor s in TutorialManager._steps:\n\tif str(s.get(\"id\", \"\")) == \"rotate_wagon\":\n\t\tstep = s\nvar txt = TS.render_text(str(step.get(\"prompt\", {}).get(\"pad\", \"\")), true)\nreturn txt.contains(\"[R3]\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05d_wagon_nudged"
     },
     {
       "act": "click_node",
@@ -179,12 +357,19 @@
     },
     {
       "act": "execute_script",
+      "script": "var m = GameState.get_unit(\"U_BATTLEWAGON_T\").models[0]\nvar want = BoardState.get_default_facing_for_player(1) + PI / 2.0\nreturn abs(wrapf(float(m.get(\"rotation\", 0.0)) - want, -PI, PI)) < 0.02",
+      "multiline": true,
+      "equals": true,
+      "comment": "the turn the tutorial taught actually lands on the deployed wagon, not just on the ghost"
+    },
+    {
+      "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
       "equals": "deploy_grots"
     },
     {
       "act": "screenshot",
-      "label": "04_wagon_down_ai_alternated"
+      "label": "06_wagon_down_rotated_ai_alternated"
     },
     {
       "act": "click_item_list",
@@ -252,7 +437,7 @@
     },
     {
       "act": "screenshot",
-      "label": "05_all_deployed"
+      "label": "07_all_deployed"
     },
     {
       "act": "execute_script",
@@ -303,7 +488,7 @@
     },
     {
       "act": "screenshot",
-      "label": "06_muster_done"
+      "label": "08_muster_done"
     },
     {
       "act": "click_node",
@@ -325,7 +510,7 @@
     },
     {
       "act": "screenshot",
-      "label": "07_summary"
+      "label": "09_summary"
     },
     {
       "act": "click_node",

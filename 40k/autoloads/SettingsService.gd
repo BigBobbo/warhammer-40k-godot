@@ -54,6 +54,15 @@ var animation_speed: float = 1.0 # 0.25 to 3.0
 var controller_text_boost: bool = true
 const PAD_UI_SCALE_BOOST: float = 1.2
 
+# Input-mode policy — which device the UI presents itself for. Resolved and
+# LOCKED at launch by InputDeviceManager instead of following whatever was
+# touched last (see the policy block in InputDeviceManager.gd):
+#   "auto" (default) — Steam Deck -> controller, desktop/web -> mouse & keyboard
+#   "pad" / "kbm"    — locked to that device
+#   "dynamic"        — legacy: follow the last input used
+# Changed from Settings › Controller › Input Mode.
+var input_mode_policy: String = "auto"
+
 # P1 Steam Deck controller options (Settings › Controls › Controller). All are
 # pad-only; mouse/keyboard is unaffected. Consumed by Main._process (camera pan),
 # VirtualCursor (cursor speed + magnetism) and InputDeviceManager (stick swap).
@@ -156,6 +165,7 @@ signal terrain_debug_labels_changed(enabled: bool)
 signal terrain_scatter_changed(enabled: bool)
 signal terrain_cover_labels_changed(enabled: bool)
 signal shooting_show_all_units_changed(show_all: bool)
+signal input_mode_policy_changed(policy: String)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -403,6 +413,22 @@ func set_pad_cursor_magnetism(enabled: bool) -> void:
 	pad_cursor_magnetism = enabled
 	_save_settings()
 
+func set_input_mode_policy(policy: String) -> void:
+	# "auto" | "pad" | "kbm" | "dynamic" — see input_mode_policy above.
+	if policy not in ["auto", "pad", "kbm", "dynamic"]:
+		print("[SettingsService] Invalid input mode policy: %s" % policy)
+		return
+	input_mode_policy = policy
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm != null and idm.has_method("apply_mode_policy"):
+		idm.apply_mode_policy(policy)
+	# The pad text boost keys off the active device, which the policy just
+	# re-resolved — re-apply so the canvas scale follows immediately.
+	_apply_ui_scale()
+	input_mode_policy_changed.emit(policy)
+	_save_settings()
+	print("[SettingsService] input_mode_policy set to %s" % policy)
+
 func set_pad_swap_sticks(enabled: bool) -> void:
 	pad_swap_sticks = enabled
 	_apply_pad_stick_swap()
@@ -594,6 +620,7 @@ func _save_settings() -> void:
 	# Controls
 	config.set_value("controls", "menu_scroll_speed", menu_scroll_speed)
 	config.set_value("controls", "controller_text_boost", controller_text_boost)
+	config.set_value("controls", "input_mode_policy", input_mode_policy)
 	config.set_value("controls", "pad_invert_camera_y", pad_invert_camera_y)
 	config.set_value("controls", "pad_swap_sticks", pad_swap_sticks)
 	config.set_value("controls", "pad_camera_sensitivity", pad_camera_sensitivity)
@@ -659,6 +686,9 @@ func _load_settings() -> void:
 	# Controls
 	menu_scroll_speed = clampf(config.get_value("controls", "menu_scroll_speed", 0.4), 0.1, 1.0)
 	controller_text_boost = bool(config.get_value("controls", "controller_text_boost", true))
+	input_mode_policy = str(config.get_value("controls", "input_mode_policy", "auto"))
+	if input_mode_policy not in ["auto", "pad", "kbm", "dynamic"]:
+		input_mode_policy = "auto"
 	pad_invert_camera_y = bool(config.get_value("controls", "pad_invert_camera_y", false))
 	pad_swap_sticks = bool(config.get_value("controls", "pad_swap_sticks", false))
 	pad_camera_sensitivity = clampf(config.get_value("controls", "pad_camera_sensitivity", 1.0), 0.3, 2.0)
