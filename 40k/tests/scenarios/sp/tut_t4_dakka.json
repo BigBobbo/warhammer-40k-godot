@@ -76,6 +76,13 @@
       "equals": "confirm_dakka"
     },
     {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nvar confirm_at = t.find(\"Confirm\")\nvar fallback_at = t.find(\"Click to Select\")\nreturn confirm_at != -1 and fallback_at != -1 and confirm_at < fallback_at",
+      "multiline": true,
+      "equals": true,
+      "comment": "step 3 must NAME the Confirm button as the thing to press, and say it BEFORE the re-aim fallback - the old copy buried 'Den hit Confirm' at the end and players did not know what was wanted"
+    },
+    {
       "act": "screenshot",
       "label": "02_targets_assigned"
     },
