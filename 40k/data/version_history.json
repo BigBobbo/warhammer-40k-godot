@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "Deployment can no longer end while you still have units to deploy.",
+      "changes": [
+        "Ending the Deployment phase with units still undeployed dropped you straight into the 'Who takes the first turn?' roll-off with those units stranded off the table and no way back. Reported from tutorial 'Musterin' da Boyz', where the Gretchin were left behind. The end-phase action was correctly refused, but the game then advanced the phase anyway; it now stays in Deployment.",
+        "Trying to end Deployment early now tells you what is blocking it — 'Cannot end deployment — still to deploy: Gretchin' — instead of doing nothing, or says which player the phase is waiting on when your own army is already set up.",
+        "Controller: with every model of a unit placed, the ☰ hint now reads 'Confirm Unit' instead of the ambiguous 'Confirm / End', so pressing it to lock a unit in can no longer be mistaken for the button that ends the phase."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
