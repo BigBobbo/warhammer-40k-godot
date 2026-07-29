@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.0",
+      "date": "2026-07-29",
+      "summary": "The unit datasheet is now an actual datasheet: proper weapon tables, stat boxes, and a card that fits on screen.",
+      "changes": [
+        "Weapons are laid out as RANGED and MELEE tables with real columns (Range, A, BS/WS, S, AP, D) instead of one run-on line per weapon, with each weapon's special rules listed under its name.",
+        "M / T / Sv / W / Ld / OC are shown as labelled stat boxes, and an Invulnerable Save or Feel No Pain box appears when the unit has one.",
+        "Stats read as whole numbers again — a Move of 6\" no longer shows as 6.0\".",
+        "The card sizes itself to the unit and sits in the middle of the screen instead of filling its full height; a datasheet longer than the card now scrolls inside it rather than running off the bottom.",
+        "Points, Warlord and any Enhancement are called out in the header; keywords, model/wound count and the close hint sit in a footer bar.",
+        "The board hover tooltip no longer shows through the open datasheet."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
