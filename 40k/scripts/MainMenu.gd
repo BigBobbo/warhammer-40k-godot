@@ -1379,7 +1379,15 @@ func _on_cloud_army_fetch_failed(army_name: String, error: String) -> void:
 
 func _initialize_game_with_config(config: Dictionary) -> void:
 	print("MainMenu: Initializing game state with configuration")
-	
+
+	# Belt and braces: a lesson may have stood down a controller convenience
+	# (T4 clears ShootingController.auto_assign_single_target so the player
+	# performs the assign step it teaches). TutorialManager._teardown restores
+	# it, but teardown only runs on the overlay's Exit/Back-to-Menu buttons —
+	# quitting a lesson any other way would leak the suppression into every
+	# real game for the rest of the session. A real game always starts here.
+	ShootingController.auto_assign_single_target = true
+
 	# Clear any existing state first
 	GameState.state.clear()
 

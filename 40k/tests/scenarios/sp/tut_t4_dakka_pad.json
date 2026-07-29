@@ -121,7 +121,129 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
+      "equals": "aim_first_gun",
+      "comment": "the lesson clears boot.auto_assign_single_target, so picking the shooter leaves every gun unaimed and the player has an assign step to do"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_shooter_picked_pad"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "D-pad parks the virtual cursor (VirtualCursor._input park() on any D-pad press). The picker/Continue glides above left it live, and PadRouter._assign_highlighted_target bails while the cursor owns A. Only one target is eligible, so the ring does not move."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return VirtualCursor.is_cursor_active()",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "D-pad ▼ walks the weapon rows onto the Slugga"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "slugga_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A aims the current gun at the highlighted target"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "aim_da_rest"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "▼ to the Warboss's kombi-weapon (attached character - its bearer id is the composite \"U_WARBOSS_T:m1\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "kombi_weapon_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"/root/AbilityChoiceDialog\")\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the kombi-weapon has DEVASTATING WOUNDS, so assigning it opens the attacker-choices dialog - confirm it to commit the assignment"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "▼ to the Warboss's twin sluggas"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "twin_sluggas_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor a in PhaseManager.current_phase_instance.pending_assignments:\n\tn += 1\nreturn n",
+      "multiline": true,
+      "equals": 3,
+      "comment": "all three weapons aimed by hand on the pad, including both of the attached Warboss's guns"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
       "equals": "confirm_dakka"
+    },
+    {
+      "act": "screenshot",
+      "label": "02b_all_aimed_pad"
     },
     {
       "act": "execute_script",
@@ -133,10 +255,6 @@
       "act": "execute_script",
       "script": "PadRouter.start_owns_phase_action()",
       "equals": false
-    },
-    {
-      "act": "screenshot",
-      "label": "02_shooter_picked_pad"
     },
     {
       "act": "simulate_joy_button",

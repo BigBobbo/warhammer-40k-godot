@@ -309,6 +309,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_node(step), true)
 		"click_item_list":
 			rec.merge(await _do_click_item_list(step), true)
+		"click_tree_item":
+			rec.merge(await _do_click_tree_item(step), true)
 		"click_if_visible":
 			rec.merge(await _do_click_if_visible(step), true)
 		"click_board_at":
@@ -575,6 +577,71 @@ func _do_click_if_visible(step: Dictionary) -> Dictionary:
 	var result := await _do_click_node(step)
 	result["via"] = str(result.get("via", "clicked"))
 	return result
+
+# Real-mouse-click one TOP-LEVEL row of a Tree, addressed by the metadata its
+# owner stamped on column 0 (weapon rows carry their weapon_id). Mirrors
+# _do_click_item_list: warp the cursor onto the row's rect centre and inject
+# press+release, so the Tree's own input handling runs (selection, item_selected
+# -> the controller's weapon-selected path) exactly as for a player.
+#
+# Needed because the shooting weapon list is a Tree, not an ItemList, and the
+# tutorial's "click da Slugga row, den click da Witchseekers" step has no other
+# honest drive path.
+#
+#   { "act": "click_tree_item", "node": "/root/...WeaponTree", "metadata": "slugga_ranged" }
+#   { "act": "click_tree_item", "node": "...", "index": 0, "column": 1 }
+func _do_click_tree_item(step: Dictionary) -> Dictionary:
+	var node_path: String = str(step.get("node", ""))
+	if node_path == "":
+		return {"pass": false, "error": "click_tree_item needs node"}
+	var node: Node = get_node_or_null(node_path)
+	if node == null:
+		return {"pass": false, "error": "no node at path %s" % node_path}
+	if not (node is Tree):
+		return {"pass": false, "error": "node is not a Tree: %s" % node_path}
+	var tree_ctl := node as Tree
+	if not tree_ctl.is_visible_in_tree():
+		return {"pass": false, "error": "tree is not visible: %s" % node_path}
+	var root: TreeItem = tree_ctl.get_root()
+	if root == null:
+		return {"pass": false, "error": "tree has no root (no rows built yet)"}
+
+	var want_meta: String = str(step.get("metadata", ""))
+	var want_index: int = int(step.get("index", -1))
+	if want_meta == "" and want_index < 0:
+		return {"pass": false, "error": "click_tree_item needs metadata or index"}
+
+	var target_item: TreeItem = null
+	var seen: Array = []
+	var i := 0
+	var child: TreeItem = root.get_first_child()
+	while child != null:
+		var meta := str(child.get_metadata(0))
+		seen.append(meta)
+		if (want_meta != "" and meta == want_meta) or (want_meta == "" and i == want_index):
+			target_item = child
+			break
+		i += 1
+		child = child.get_next()
+	if target_item == null:
+		return {"pass": false, "error": "no top-level row matching %s%s (rows: %s)" % [
+			want_meta, ("" if want_index < 0 else " / index %d" % want_index), str(seen)]}
+
+	var column: int = int(step.get("column", 0))
+	# get_item_area_rect is CONTENT-space (same caveat as ItemList.get_item_rect):
+	# it does not subtract the scroll offset, so a scrolled row would project
+	# below the control and silently click whatever sits underneath.
+	var rect: Rect2 = tree_ctl.get_item_area_rect(target_item, column)
+	var local_pos: Vector2 = rect.get_center()
+	local_pos.y -= tree_ctl.get_scroll().y
+	if local_pos.y < 0.0 or local_pos.y > tree_ctl.size.y:
+		return {"pass": false, "error": "row %s is scrolled out of view (local y %.1f, tree height %.1f)" % [
+			want_meta, local_pos.y, tree_ctl.size.y]}
+
+	var screen_pos: Vector2 = tree_ctl.get_global_transform() * local_pos
+	await _send_click(screen_pos)
+	return {"pass": true, "row": want_meta, "screen_position": [screen_pos.x, screen_pos.y]}
+
 
 func _do_click_board_at(step: Dictionary) -> Dictionary:
 	# Click an arbitrary BOARD/WORLD position (board px, the coordinate system

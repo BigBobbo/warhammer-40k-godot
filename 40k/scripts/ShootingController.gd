@@ -33,6 +33,19 @@ var weapon_assignments: Dictionary = {}  # weapon_id -> target_unit_id
 var assignment_history: Array = []  # T5-UX4: Stack of weapon_ids in assignment order for undo
 var selected_weapon_id: String = ""  # Currently selected weapon (drives damage preview)
 var _auto_assign_logged: bool = false  # Prevent duplicate auto-assign log messages
+# When exactly ONE enemy unit is eligible, every usable weapon is assigned to it
+# automatically the moment the shooter is selected (see _refresh_weapon_tree).
+# That is unconditional shipped behaviour in normal play — there is no setting
+# for it and the engine never does it server-side; it is purely this controller.
+#
+# The tutorial turns it OFF, because the shooting lesson exists to teach the
+# assign step and a board with one eligible enemy would otherwise perform that
+# step for the player before they touch a button. TutorialManager sets this from
+# the lesson's `boot.auto_assign_single_target` and restores it on teardown.
+#
+# static (not per-instance) on purpose: the controller is rebuilt with the phase,
+# so an instance property set at lesson boot would be lost on the next refresh.
+static var auto_assign_single_target: bool = true
 # True once the player has EXPLICITLY staged a target assignment for the
 # current shooter (weapon click / split-fire commit). Auto-assignments made on
 # selection (single eligible target) do NOT set it — the click-to-switch
@@ -587,6 +600,9 @@ func _setup_right_panel() -> void:
 	declaration_box.add_child(auto_target_button_container)
 
 	weapon_tree = Tree.new()
+	# Named so tutorial anchors / scenarios can address it by path (it was an
+	# auto-named "@Tree@N" before, which no NodePath could target reliably).
+	weapon_tree.name = "WeaponTree"
 	weapon_tree.custom_minimum_size = Vector2(230, 180)
 	weapon_tree.columns = 2
 	weapon_tree.set_column_title(0, "Weapon")
@@ -1345,7 +1361,11 @@ func _refresh_weapon_tree() -> void:
 
 		# Add target selector in second column
 		if eligible_targets.size() > 0:
-			if eligible_targets.size() == 1:
+			# Sole eligible target: aim every gun at it up front. Suppressed while
+			# a lesson clears auto_assign_single_target, so the tutorial's assign
+			# steps have something left for the player to do — the row then reads
+			# "(Click to Select)" exactly as it does with two or more targets.
+			if eligible_targets.size() == 1 and auto_assign_single_target:
 				var only_target_id = eligible_targets.keys()[0]
 				var only_target_name = eligible_targets[only_target_id].unit_name
 				weapon_item.set_text(1, "→ " + only_target_name)
@@ -5558,10 +5578,16 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 	var bearers: Array = []
 	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
 	var shooter_unit = GameState.get_unit(active_shooter_id)
+	var bearer_board: Dictionary = current_phase.game_state_snapshot if current_phase else GameState.create_snapshot(false)
 	for model_id in unit_weapons:
 		if not (weapon_id in unit_weapons[model_id]):
 			continue
-		var m = RulesEngine.get_model_by_id(shooter_unit, model_id)
+		# resolve_bearer_model, not get_model_by_id: an attached character's
+		# models come back from get_unit_weapons as "<char_unit_id>:<model_id>"
+		# and are NOT in shooter_unit.models, so the plain lookup returned {} and
+		# left `bearers` empty — the Warboss's guns could never be assigned by
+		# hand (the empty bearer list fell through to "can't fire (range/LoS)").
+		var m = RulesEngine.resolve_bearer_model(shooter_unit, model_id, bearer_board)
 		if m.is_empty() or not m.get("alive", true):
 			continue
 		bearers.append(model_id)
@@ -6100,6 +6126,7 @@ func _count_unassigned_weapons() -> int:
 	if active_shooter_id != "":
 		unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
 		shooter_unit = GameState.get_unit(active_shooter_id)
+	var bearer_board: Dictionary = current_phase.game_state_snapshot if current_phase else GameState.create_snapshot(false)
 
 	while child:
 		var weapon_id = child.get_metadata(0)
@@ -6109,7 +6136,15 @@ func _count_unassigned_weapons() -> int:
 			for model_id in unit_weapons:
 				if not (weapon_id in unit_weapons[model_id]):
 					continue
-				var m = RulesEngine.get_model_by_id(shooter_unit, model_id)
+				# resolve_bearer_model: an attached character's bearers are
+				# "<char_unit_id>:<model_id>" and are NOT in shooter_unit.models,
+				# so get_model_by_id returned {} and counted them as 0 living —
+				# i.e. a character's guns could never be "unassigned". That hid
+				# the quick-assign button while they were still unaimed AND made
+				# Confirm read "Confirm (1 weapons)" instead of
+				# "Confirm (1 weapons, 2 unassigned)", so a player could lock in
+				# targets never noticing their Warboss wasn't firing.
+				var m = RulesEngine.resolve_bearer_model(shooter_unit, model_id, bearer_board)
 				if m.is_empty() or not m.get("alive", true):
 					continue
 				living += 1
@@ -6221,9 +6256,13 @@ func _refresh_quick_assign_buttons() -> void:
 		quick_assign_container.remove_child(child)
 		child.queue_free()
 
-	# Only show when we have eligible targets and more than one target
-	# (single target is already auto-assigned by existing logic)
-	if eligible_targets.size() < 2:
+	# Normally only worth showing with a choice to make: a sole eligible target
+	# is already auto-assigned by _refresh_weapon_tree, so "All → X" would be a
+	# button that does nothing. With auto-assign suppressed (tutorial) the sole
+	# target is NOT pre-assigned, and this is the one-click "point everything at
+	# it" affordance — so show it down to a single target in that mode.
+	var min_targets: int = 2 if auto_assign_single_target else 1
+	if eligible_targets.size() < min_targets:
 		quick_assign_container.visible = false
 		return
 
@@ -6253,6 +6292,9 @@ func _refresh_quick_assign_buttons() -> void:
 			expected_total += float(fc.get("expected_damage", 0.0))
 
 		var btn = Button.new()
+		# Stable name: the label carries live range/damage numbers, so it is not
+		# addressable by text from a scenario (or a tutorial anchor).
+		btn.name = "QuickAssign_%s" % target_id
 		btn.text = "All → %s  [%s %s]  ~%.1f dmg" % [target_name, range_str, stat_suffix, expected_total]
 		btn.custom_minimum_size = Vector2(230, 28)
 		btn.tooltip_text = "Assign all usable weapons to %s (%.1f\" away, %d models, T%d, Sv%d+).\nExpected total damage after saves: ~%.1f" % [target_name, max(range_inches, 0.0), alive, t_val, sv_val, expected_total]
@@ -6298,14 +6340,29 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 
 		# Only assign weapons that are selectable (not disabled) and are top-level items (not stat sub-lines)
 		if weapon_id and child.is_selectable(0):
-			# Check Pistol/non-Pistol conflict before assigning
+			# Check Pistol/non-Pistol conflict before assigning.
+			#
+			# This local pre-check is only a nicer error message — the engine's
+			# validator (_assign_payload_is_valid, below) is the authority. It
+			# must therefore not be STRICTER than the engine, and it was: this
+			# guard is unit-wide and edition-blind, while ShootingPhase gates the
+			# whole rule on `GameConstants.edition < 11` and then applies it
+			# PER MODEL (MA-25). On 11e — the shipped edition — pistol
+			# exclusivity does not apply at all, so "All → X" was silently
+			# dropping legal weapons: aim a mob's Sluggas (Pistol) by hand, then
+			# press the button, and the attached Warboss's non-Pistol
+			# kombi-weapon was skipped as a "conflict" the rules do not have.
+			# Match the engine's gate; per-model divergence still surfaces
+			# through the validator below.
+			var pistol_rule_applies: bool = GameConstants.edition < 11 \
+				and not RulesEngine.is_monster_or_vehicle(GameState.get_unit(active_shooter_id))
 			var is_pistol = RulesEngine.is_pistol_weapon(weapon_id)
-			if is_pistol and has_assigned_non_pistol:
+			if pistol_rule_applies and is_pistol and has_assigned_non_pistol:
 				var wp = RulesEngine.get_weapon_profile(weapon_id)
 				skipped_pistol_names.append(wp.get("name", weapon_id) + " (Pistol)")
 				child = child.get_next()
 				continue
-			if not is_pistol and has_assigned_pistol:
+			if pistol_rule_applies and not is_pistol and has_assigned_pistol:
 				var wp = RulesEngine.get_weapon_profile(weapon_id)
 				skipped_pistol_names.append(wp.get("name", weapon_id))
 				child = child.get_next()

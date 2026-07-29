@@ -129,6 +129,10 @@ func exit_tutorial() -> void:
 func _teardown(emit_exit: bool) -> void:
 	active = false
 	_bypass_gate = false
+	# Restore any controller convenience a lesson stood down (see _boot_and_arm).
+	# Unconditional: leaking a lesson's suppression into a real game would strip
+	# the single-target auto-assign from every shooting phase after the tutorial.
+	ShootingController.auto_assign_single_target = true
 	_poll_timer.stop()
 	_hint_timer.stop()
 	_step_script = null
@@ -154,6 +158,14 @@ func _boot_and_arm() -> void:
 	# GO TO GROUND stratagem pausing T4's shooting confirm for a defender
 	# window that never appears in a real player launch).
 	GameConstants.edition = 11
+	# Controller conveniences a lesson may need to stand down so the player
+	# actually performs the step being taught. ShootingController aims every gun
+	# at the sole eligible enemy the instant a shooter is selected — great in
+	# play, but it completes T4's assign step before the player touches anything.
+	# Static on the class, so it survives the controller being rebuilt with the
+	# phase; _teardown puts it back.
+	ShootingController.auto_assign_single_target = bool(
+		boot.get("auto_assign_single_target", true))
 	# Deterministic dice for taught rolls (PRP §5.4).
 	var seed_val := int(boot.get("rng_seed", -1))
 	if seed_val >= 0:

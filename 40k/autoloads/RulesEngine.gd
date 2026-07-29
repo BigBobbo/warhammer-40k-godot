@@ -6151,6 +6151,35 @@ static func _get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
 			return model
 	return {}
 
+## Resolve a BEARER id produced by get_unit_weapons() to its real model dict.
+##
+## get_unit_weapons emits three id shapes for a single "unit":
+##   "m3"                     — a model of the unit itself
+##   "U_WARBOSS_T:m1"         — a model of an ATTACHED CHARACTER (composite, so
+##                              damage routes back to the character's own unit)
+##   "m1@fd2"                 — a firing-deck loan, bound to the transport hull
+## _get_model_by_id only understands the first and third: a composite id has no
+## match in actor_unit.models, so it returned {}. Every caller that walks
+## get_unit_weapons and then looks the bearer up therefore skipped attached
+## characters' guns entirely — including per-model range/LoS eligibility, which
+## made a Warboss's kombi-weapon unassignable through the click/pad path
+## ("can't fire on X (range / line of sight)" with an EMPTY reasons dict, since
+## the bearer was dropped before any range test ran). Pass the board so the
+## character's own unit can be reached.
+static func resolve_bearer_model(actor_unit: Dictionary, bearer_id: String, board: Dictionary) -> Dictionary:
+	# "@fd" is stripped by _get_model_by_id itself and never carries a ":".
+	var sep := bearer_id.find(":")
+	if sep > 0:
+		var owner_unit_id := bearer_id.substr(0, sep)
+		var inner_model_id := bearer_id.substr(sep + 1)
+		var owner_unit: Dictionary = board.get("units", {}).get(owner_unit_id, {})
+		if owner_unit.is_empty() and board.is_empty():
+			owner_unit = GameState.state.get("units", {}).get(owner_unit_id, {})
+		if owner_unit.is_empty():
+			return {}
+		return _get_model_by_id(owner_unit, inner_model_id)
+	return _get_model_by_id(actor_unit, bearer_id)
+
 # MA-22: Get display label for a model, including model type if available.
 # Returns e.g. "Spanner (m11)" for profiled models, or "m3" for units without profiles.
 # Used in death logging and casualty reporting.
@@ -9461,8 +9490,14 @@ static func get_eligible_shooter_models(
 		if not (weapon_id in unit_weapons[model_id]):
 			continue
 
-		var actor_model = _get_model_by_id(actor_unit, model_id)
+		# Composite "<char_unit_id>:<model_id>" bearers (attached characters) live
+		# in a DIFFERENT unit dict — resolve through the board, not actor_unit.
+		var actor_model = resolve_bearer_model(actor_unit, model_id, board)
 		if actor_model.is_empty():
+			# Still silent (no reason recorded): _filter_eligible_model_ids keys
+			# its "unparseable weapon-carrier data, trust the caller" fallback on
+			# eligible AND reasons both being empty, and headless fixtures without
+			# meta.weapons depend on that fallback to fire at all.
 			continue
 		if not actor_model.get("alive", true):
 			result.reasons[model_id] = "dead"

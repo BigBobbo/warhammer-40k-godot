@@ -2,11 +2,12 @@
   "id": "tut_t4_dakka",
   "covers": [
     "tutorial.t4.shooting",
-    "tutorial.engine.fixture_boot"
+    "tutorial.engine.fixture_boot",
+    "shootingcontroller.auto_assign_single_target"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T4 (Dakka Time), mouse player path: boot from the tutorial_t4_shoot fixture -> select the Boyz as shooter by clicking their token on the board (weapons auto-assign to the only visible target) -> Confirm (3 weapons) -> Fast Roll All in the resolution dock -> Done on each defender save results card (tolerant: pressed only while visible) -> Complete Shooting -> end the phase with the big phase button -> lesson summary -> back to menu.",
+  "description": "Tutorial lesson T4 (Dakka Time), mouse player path: boot from the tutorial_t4_shoot fixture -> select the Boyz as shooter by clicking their token on the board -> aim the Slugga by clicking its weapon row then the Witchseekers -> aim the rest with the 'All -> Witchseekers' quick-assign button (the lesson clears boot.auto_assign_single_target, so the player performs the assignment the lesson teaches) -> Confirm (3 weapons) -> Fast Roll All in the resolution dock -> Done on each defender save results card (tolerant: pressed only while visible) -> Complete Shooting -> end the phase with the big phase button -> lesson summary -> back to menu.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -73,16 +74,89 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
+      "equals": "aim_first_gun",
+      "comment": "the lesson clears boot.auto_assign_single_target, so picking the shooter leaves every gun unaimed and the player has an assign step to do"
+    },
+    {
+      "act": "execute_script",
+      "script": "var sc = tree.current_scene.shooting_controller\nvar out: Array = []\nvar root = sc.weapon_tree.get_root()\nvar c = root.get_first_child() if root != null else null\nwhile c != null:\n\tout.append(str(c.get_text(1)))\n\tc = c.get_next()\nreturn \"|\".join(out)",
+      "multiline": true,
+      "equals": "(Click to Select)|(Click to Select)|(Click to Select)",
+      "comment": "nothing auto-assigned"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_nothing_aimed_yet"
+    },
+    {
+      "act": "click_tree_item",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree",
+      "metadata": "slugga_ranged",
+      "comment": "real click on the Slugga row - step 'aim_first_gun' teaches pick-a-gun-then-click-the-enemy"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "slugga_ranged"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_WITCHSEEKERS_T",
+      "comment": "click the target on the board - assigns the selected weapon"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "aim_da_rest"
+    },
+    {
+      "act": "execute_script",
+      "script": "var sc = tree.current_scene.shooting_controller\nreturn str(sc.weapon_assignments.get(\"slugga_ranged\", \"\"))",
+      "multiline": true,
+      "equals": "U_WITCHSEEKERS_T"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_first_gun_aimed"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_WITCHSEEKERS_T",
+      "comment": "the 'All → Witchseekers' quick-assign button the 'aim_da_rest' prompt points at. Addressed by node name because the label carries live range/damage numbers. With auto-assign suppressed this button is shown down to a single eligible target (it is hidden at <2 in normal play, where the sole target is already auto-assigned)."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor a in PhaseManager.current_phase_instance.pending_assignments:\n\tn += 1\nreturn n",
+      "multiline": true,
+      "equals": 3,
+      "comment": "all three weapons (Sluggas + the attached Warboss's kombi-weapon and twin sluggas) are now aimed"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
       "equals": "confirm_dakka"
     },
     {
       "act": "screenshot",
-      "label": "02_targets_assigned"
+      "label": "04_all_aimed"
     },
     {
       "act": "click_node",
       "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton",
-      "comment": "auto-assign count is timing-dependent (2 or 3 weapons) so the label text is not stable - use the named node"
+      "comment": "label text carries a live weapon count - use the named node"
     },
     {
       "act": "wait_seconds",
@@ -227,6 +301,13 @@
       "act": "expect_node_visible",
       "node": "/root/MainMenu/ScrollContainer",
       "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return ShootingController.auto_assign_single_target",
+      "multiline": true,
+      "equals": true,
+      "comment": "the lesson cleared this at boot; TutorialManager._teardown must put it back or every real game after a tutorial run loses the single-target auto-assign"
     }
   ]
 }

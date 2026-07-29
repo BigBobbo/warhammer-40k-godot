@@ -2,13 +2,15 @@
   "id": "t4_dakka",
   "order": 4,
   "title": "Dakka Time",
-  "subtitle": "Shooting phase: pick a shooter, confirm targets, roll da dice",
-  "est_minutes": 4,
-  "boot": { "fixture": "tutorial_t4_shoot", "phase": 8, "rng_seed": 4242 },
+  "subtitle": "Shooting phase: pick a shooter, aim yer guns, roll da dice",
+  "est_minutes": 5,
+  "boot": { "fixture": "tutorial_t4_shoot", "phase": 8, "rng_seed": 4242, "auto_assign_single_target": false },
   "summary": {
     "bark": "DAKKA DAKKA DAKKA!",
     "bullets": [
-      "Click a unit (board or list) to make it da shooter — weapons wiv one target in sight aim demselves.",
+      "Click a unit (board or list) to make it da shooter, den point each gun at somefin'.",
+      "Pick a gun in da weapon list, den click da enemy — dat gun's now aimed. [b]All → <enemy>[/b] does every gun left in one go.",
+      "In a real game, if only ONE enemy is in range an' sight, da guns aim demselves — we switched dat off 'ere so ya get da practice.",
       "[b]Confirm (N weapons)[/b] locks da targets in and opens da dice dock.",
       "[b]Fast Roll All ⏩[/b] rolls everyfin'; [b]Roll to Hit ▶[/b] goes step by step. [b]Done[/b] closes each save card.",
       "[b]Complete Shooting[/b] finishes da unit — den pick da next shooter or end da phase.",
@@ -31,8 +33,8 @@
       "id": "pick_da_boyz",
       "prompt": {
         "bark": "OI, YOU LOT!",
-        "kbm": "Click yer [b]Boyz[/b] mob — on da board or in da unit list on da right. Wiv only one enemy in sight, deir weapons aim at da Witchseekers all by demselves.",
-        "pad": "Tap {rb} till da [b]Boyz[/b] are da active shooter — {rb} cycles yer units, dat's da only control dat does. Deir weapons aim at da only target demselves."
+        "kbm": "Click yer [b]Boyz[/b] mob — on da board or in da unit list on da right. Da weapon list on da right fills up wiv every gun dey've got, all sayin' [b](Click to Select)[/b] — nuffin's aimed yet.",
+        "pad": "Tap {rb} till da [b]Boyz[/b] are da active shooter — {rb} cycles yer units, dat's da only control dat does. Da weapon list on da right shows every gun dey've got, none of 'em aimed yet."
       },
       "anchor": { "unit": "U_BOYZ_T" },
       "spotlight": "soft",
@@ -41,11 +43,44 @@
       "hint": { "text": "Da mob of ten south of da wagon. Da Warboss shoots wiv 'em — he's attached." }
     },
     {
+      "id": "aim_first_gun",
+      "prompt": {
+        "bark": "POINT ONE GUN!",
+        "kbm": "Time to aim. Click da [b]Slugga[/b] row in da weapon list on da right to pick dat gun, den click da [b]Witchseekers[/b] on da board. Da row swaps from [b](Click to Select)[/b] to [b]→ Witchseekers[/b] — dat's one gun aimed.",
+        "pad": "Time to aim. {dpad} ▲▼ walks yer guns — stop on da [b]Slugga[/b]. {dpad} ◀▶ walks da enemy targets. Wiv da Slugga picked an' da Witchseekers highlighted, press {a} to aim it. Da row swaps to [b]→ Witchseekers[/b]."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree" },
+      "spotlight": "soft",
+      "allow": ["SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS", "SKIP_UNIT"],
+      "done": {
+        "script": "var pi = PhaseManager.current_phase_instance\nif pi == null or not (\"pending_assignments\" in pi):\n\treturn 0\nvar seen := {}\nfor a in pi.pending_assignments:\n\tseen[str(a.get(\"weapon_id\", \"\"))] = true\nreturn seen.size()",
+        "expect_min": 1
+      },
+      "hint": { "text": "Da Witchseekers are da only mob in range an' sight — every other row in da target list is greyed out for a reason." }
+    },
+    {
+      "id": "aim_da_rest",
+      "prompt": {
+        "bark": "NOW DA REST!",
+        "kbm": "Da Warboss is attached, so he's got guns too — an' any row still readin' [b](Click to Select)[/b] ain't firin'. Point da lot at da same mob: hit [b]All → Witchseekers[/b] under da weapon list, or click each row an' den da Witchseekers.",
+        "pad": "Da Warboss is attached, so he's got guns too — any row still readin' [b](Click to Select)[/b] ain't firin'. {dpad} ▲▼ to da next gun, {a} to aim it at da Witchseekers, an' again till every row says [b]→ Witchseekers[/b]."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree" },
+      "spotlight": "soft",
+      "allow": ["SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS", "SKIP_UNIT"],
+      "done": {
+        "script": "var sc = main.shooting_controller if \"shooting_controller\" in main else null\nif sc == null or sc.weapon_tree == null:\n\treturn false\nvar root = sc.weapon_tree.get_root()\nif root == null:\n\treturn false\nvar usable := 0\nvar child = root.get_first_child()\nwhile child != null:\n\tif child.is_selectable(0):\n\t\tusable += 1\n\tchild = child.get_next()\nvar pi = PhaseManager.current_phase_instance\nif pi == null or not (\"pending_assignments\" in pi):\n\treturn false\nvar seen := {}\nfor a in pi.pending_assignments:\n\tseen[str(a.get(\"weapon_id\", \"\"))] = true\nreturn usable > 0 and seen.size() >= usable",
+        "equals": true
+      },
+      "hint_after_s": 30,
+      "hint": { "text": "Aimin' a gun dat's already aimed at dat mob just tells ya so — it don't double up." }
+    },
+    {
       "id": "confirm_dakka",
       "prompt": {
         "bark": "LOCK DA TARGETS!",
-        "kbm": "Only one mob's in sight, so every gun already points at da Witchseekers — da weapon list on da right shows who's aimin' at what, an' da button counts how many is locked. Nuffin' to assign here: just hit [b]Confirm[/b]. (Wiv more den one enemy about, rows say [b](Click to Select)[/b] — click da row, den click da target.)",
-        "pad": "Only one mob's in sight, so yer guns already point at da Witchseekers — check da list on da right. Nuffin' to assign: press {menu} for [b]Confirm Targets[/b]. (Wiv more enemies about, {dpad} ◀▶ walks da targets an' ▲▼ walks yer guns, an' {a} aims da current gun at da highlighted one.)"
+        "kbm": "Every gun's pointed. Da weapon list shows who's aimin' at what, an' da button counts how many is locked. Hit [b]Confirm[/b] to lock 'em in an' open da dice.",
+        "pad": "Every gun's pointed. Da list on da right shows who's aimin' at what. Press {menu} — dat's [b]Confirm Targets[/b] on da pad."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton" },
       "spotlight": "soft",

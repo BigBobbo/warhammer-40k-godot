@@ -7,7 +7,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Bug repro (player report): in tutorial T4 step 3 'Lock da Targets' every gun is ALREADY aimed at the Witchseekers -- the controller auto-assigns when only one enemy is eligible -- yet pressing A on that same target reported 'Slugga can't fire on Witchseekers (range / line of sight)'. _compute_split_fire_options had put all 10 bearers in already_allocated and none in movable (they are committed to THIS target), so eligible_remaining came back empty and the code fell into the range/LoS branch. This scenario presses A on the already-aimed target and asserts the toast now says 'already aimed', then drives a GENUINE out-of-range case (Battlewagon Killkannon, 24\", at the Custodian Guard) and asserts that one still gets the range/LoS warning, so the fix cannot swallow real rejections.",
+  "description": "Bug repro (player report): pressing A to aim a weapon at a target every one of its bearers is ALREADY aimed at reported \"Slugga can't fire on Witchseekers (range / line of sight)\". _compute_split_fire_options had put all 10 bearers in already_allocated and none in movable (they are committed to THIS target), so eligible_remaining came back empty and the code fell into the range/LoS branch. Here the player aims the Sluggas by hand first (tutorial T4 clears boot.auto_assign_single_target so the assign steps are the player's to do), then presses A on the same target again and asserts the toast now says 'already aimed'. Then drives a GENUINE out-of-range case (Battlewagon Killkannon, 24\", at the Custodian Guard) and asserts that one still gets the range/LoS warning, so the fix cannot swallow real rejections.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -96,14 +96,7 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "confirm_dakka"
-    },
-    {
-      "act": "execute_script",
-      "script": "var sc = tree.current_scene.shooting_controller\nreturn str(sc.weapon_assignments.get(\"slugga_ranged\", \"\"))",
-      "multiline": true,
-      "equals": "U_WITCHSEEKERS_T",
-      "comment": "precondition: only one enemy is eligible, so the Sluggas auto-assigned themselves - this is the state the player sees when the step tells them to lock targets"
+      "equals": "aim_first_gun"
     },
     {
       "act": "execute_script",
@@ -125,6 +118,37 @@
       "script": "return VirtualCursor.is_cursor_active()",
       "multiline": true,
       "equals": false
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "▼ onto the Slugga row"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "slugga_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "aim the Sluggas at the Witchseekers - the assignment the repro below then re-issues"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var sc = tree.current_scene.shooting_controller\nreturn str(sc.weapon_assignments.get(\"slugga_ranged\", \"\"))",
+      "multiline": true,
+      "equals": "U_WITCHSEEKERS_T",
+      "comment": "precondition for the repro: all ten Sluggas are now aimed at the Witchseekers"
     },
     {
       "act": "execute_script",

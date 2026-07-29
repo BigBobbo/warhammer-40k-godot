@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.6",
+      "date": "2026-07-29",
+      "summary": "You can finally aim an attached character's guns by hand — and 'Dakka Time' now teaches aiming instead of doing it for you.",
+      "changes": [
+        "Attached characters' weapons could not be assigned manually at all. Picking a Warboss's kombi-weapon and clicking an enemy answered \"can't fire (range / line of sight)\" no matter how close he stood, because the eligibility check couldn't find the character's models inside the unit it was searching. They only ever fired when the game auto-assigned them for you.",
+        "The Confirm button under-counted for the same reason: with a character's guns still unaimed it read \"Confirm (1 weapons)\" instead of \"Confirm (1 weapons, 2 unassigned)\", so you could lock in targets without noticing your character wasn't shooting.",
+        "\"All → <enemy>\" silently skipped legal weapons. It was applying a Pistol/non-Pistol restriction across the whole unit and in every edition; the rule is per-model and does not apply in 11th at all. Aim a mob's Sluggas by hand, press the button, and the attached character's non-Pistol gun was dropped as a \"conflict\" that doesn't exist.",
+        "Tutorial 4 ('Dakka Time') now teaches aiming: with only one enemy in sight the game normally aims every gun for you, so the lesson turns that off. New step 'POINT ONE GUN!' has you pick the Slugga and click the Witchseekers; new step 'NOW DA REST!' has you point everything else at the same mob (the \"All → Witchseekers\" button, or one gun at a time). Confirm is now its own step. Normal play is unchanged — guns still aim themselves when there's only one target."
+      ]
+    },
+    {
       "version": "1.6.5",
       "date": "2026-07-29",
       "summary": "Aiming a gun that is already aimed at that target no longer claims it is out of range.",
