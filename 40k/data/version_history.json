@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.2",
+      "version": "1.7.3",
       "date": "2026-07-29",
       "summary": "'Dakka Time' step 4 now explains what the dice dock is actually doing — and tells you that you can choose the order your weapons fire in.",
       "changes": [
@@ -10,6 +10,17 @@
         "It also tells you the firing order is yours to pick — the ▲ / ▼ buttons on the right-hand side of each queue row move a weapon up or down before the first shot — and why that matters: models killed by the first gun aren't there to soak up the second.",
         "Controller players are told how to get there: the D-pad walks the highlight up from the dock's main button into the queue and onto the ▲ / ▼ buttons, and A presses them.",
         "On a controller the highlight now stays in the queue after each nudge, so a weapon can be moved several slots without walking back up from the main button every time."
+      ]
+    },
+    {
+      "version": "1.7.2",
+      "date": "2026-07-29",
+      "summary": "Deployment tutorial now has its own step for turning the Battlewagon, instead of mentioning rotation in passing.",
+      "changes": [
+        "'Musterin' da Boyz' (lesson 2) gained a step between the deployment roll-off and parking the wagon: POINT IT DA RIGHT WAY! It has you pick the Battlewagon up and actually turn it before dropping it, and spells out how — Q and E (or whatever you rebound them to), or the mouse wheel, 15° a tap.",
+        "The step will not move on until the wagon has genuinely been turned, and Confirm is held shut while it is showing — dropping the wagon flat and locking it in would have left nothing to rotate. If you drop it before turning it, the step tells you to pick it back up with Undo on the unit card.",
+        "Controller players skip the new step: rotating a model during deployment is a keyboard/mouse-wheel control only (on a pad the bumpers cycle units there), so the tutorial does not promise a button that would turn nothing. The end-of-lesson summary says the same.",
+        "The 'Park da wagon' step that follows is now just about placing and confirming."
       ]
     },
     {
