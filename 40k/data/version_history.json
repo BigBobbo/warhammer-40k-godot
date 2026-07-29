@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.0",
+      "date": "2026-07-29",
+      "summary": "Moving a squad is readable again: model ghosts now sit on top of the green range circles, and those circles are much thinner.",
+      "changes": [
+        "Dragging several models at once paints one green movement-range circle per model, and those circles used to swallow the ghosts you were trying to place. The ghosts — and the distance-moved readout that floats with them — now always draw above every movement overlay (green range circles, red engagement rings, blue coherency rings).",
+        "The green range circles are drawn much thinner, so a squad's worth of overlapping circles no longer floods the drop zone.",
+        "Movement ghosts now show the unit's colour, letter counter and model art like the tokens do, instead of rendering as blank grey discs. Deployment ghosts already did this.",
+        "Ghosts in a group drag are no longer faded harder than a single dragged model — a whole squad in hand stays as visible as one model."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
