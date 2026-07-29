@@ -2995,6 +2995,16 @@ func _announce_post_disembark_move(unit: Dictionary) -> void:
 	if PadRouter and PadRouter.has_method("refresh_hints"):
 		PadRouter.refresh_hints()
 
+	# During a tutorial lesson the instructor card teaches this same thing
+	# (T3's 'boyz_move_after_disembark' step) and both surfaces are drawn at
+	# top-centre — the 6s toast lands squarely over the card's bark line and
+	# hides the instruction it duplicates. The card wins; the hint-bar refresh
+	# above still runs because that one is functional, not cosmetic.
+	var tut = get_node_or_null("/root/TutorialManager")
+	if tut != null and tut.active:
+		print("MovementController: post-disembark move toast suppressed (tutorial card covers it)")
+		return
+
 	var msg: String
 	if InputDeviceManager.is_pad_active():
 		msg = "%s disembarked — it can still move. Press A or the D-pad to open the Move menu (Move / Advance / Stay Still)." % unit_name
