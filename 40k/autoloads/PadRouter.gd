@@ -322,6 +322,33 @@ const HINTS_FIGHT := [
 	["menu", "End Phase"],
 	["view", "Pause Menu"],
 ]
+# Fight phase, 11e global PILE IN step (12.02) with the right panel's step
+# section live: identical to HINTS_FIGHT except ☰ names the step it actually
+# ends. The reported trap: the bar promised "End Phase" for ☰ during the Pile
+# In step while the top-right button (the one ☰ pressed) read "Finish Pile Ins"
+# — two promises for one button, and the "End Phase" one read as "this ends my
+# whole Fight phase". ☰ now presses the section's own End Pile In button
+# (Main._input → FightController.pad_end_step), so the chip is the action.
+const HINTS_FIGHT_PILE_IN := [
+	["rb", "Cycle Units"],
+	["dpad", "Navigate Panel"],
+	["a", "Select"],
+	["ls", "Point"],
+	["y", "Datasheet"],
+	["menu", "End Pile In"],
+	["view", "Pause Menu"],
+]
+# Fight phase, 11e global CONSOLIDATE step (12.07) — the mirror of the Pile In
+# set above for the step that closes the phase.
+const HINTS_FIGHT_CONSOLIDATE := [
+	["rb", "Cycle Units"],
+	["dpad", "Navigate Panel"],
+	["a", "Select"],
+	["ls", "Point"],
+	["y", "Datasheet"],
+	["menu", "End Consolidation"],
+	["view", "Pause Menu"],
+]
 
 # LS chip label for the board box multi-select gesture. "{a}" expands to the
 # button the select role currently sits on (GlyphDB.expand_label), so a layout
@@ -2375,6 +2402,19 @@ func _fight_controller() -> Node:
 	return fc
 
 
+# {} unless the Fight phase's 11e global Pile In (12.02) / Consolidate (12.07)
+# step section is live AND interactive on the right panel, in which case it
+# carries {step, label, button} for that section's end button — the one ☰ now
+# presses. Single authority: the hint chip below and Main._input's Start
+# routing both read FightController.get_pad_step_end(), so the promise and the
+# action can never drift apart.
+func _fight_step_end() -> Dictionary:
+	var fc := _fight_controller()
+	if fc == null or not fc.has_method("get_pad_step_end"):
+		return {}
+	return fc.get_pad_step_end()
+
+
 func _update_hints() -> void:
 	# The tutorial card is modal-in-spirit while it waits on a press: it owns A
 	# and keeps focus, so every other promise on the bar would be a lie.
@@ -2384,6 +2424,10 @@ func _update_hints() -> void:
 		PadHintBar.set_hints(ack_hints)
 		_set_start_action(_start_chip_label(ack_hints))
 		return
+	# Read once per recompute: the Fight-phase step sections re-label ☰ from BOTH
+	# the board context and panel focus, so the chip stays truthful whether the
+	# player is pointing at the board or walking the section's buttons.
+	var fight_step := _fight_step_end()
 	var hints := HINTS_BOARD
 	if carry_active:
 		if group_carry_active:
@@ -2395,7 +2439,14 @@ func _update_hints() -> void:
 	elif PadActionBar.is_open():
 		hints = HINTS_MENU
 	elif get_viewport().gui_get_focus_owner() != null:
-		hints = HINTS_FOCUS
+		# Panel focus owns D-pad/A/B, but ☰ is never swallowed by it — so while a
+		# Fight-phase step section is live, say what ☰ does from in here too.
+		# Without this the bar dropped the ☰ chip entirely the moment the pad
+		# focused the step section (the state a pad player lands in first), and
+		# the top-right button would have kept advertising "[☰]" for a Start that
+		# no longer presses it.
+		hints = HINTS_FOCUS if fight_step.is_empty() \
+			else HINTS_FOCUS + [["menu", str(fight_step.get("label", ""))]]
 	else:
 		var sc = _shooting_controller_in_shooting_phase()
 		if sc != null and str(sc.active_shooter_id) != "":
@@ -2445,7 +2496,14 @@ func _update_hints() -> void:
 				# The attack dialog carries its own on-dialog hint row while open;
 				# its focus lives in the modal's own viewport, so the main-viewport
 				# focus check above stays false and this set still shows behind it.
-				hints = HINTS_FIGHT
+				# During the two 11e global steps ☰ ends THAT step, not the phase.
+				match str(fight_step.get("step", "")):
+					"PILE_IN":
+						hints = HINTS_FIGHT_PILE_IN
+					"CONSOLIDATE":
+						hints = HINTS_FIGHT_CONSOLIDATE
+					_:
+						hints = HINTS_FIGHT
 	PadHintBar.set_hints(_with_box_select_hint(hints))
 	# Publish what ☰ means in this state so the top-right phase-action button can
 	# drop its "[☰] " prefix while a context action (Confirm Move, Confirm

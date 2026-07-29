@@ -4376,7 +4376,8 @@
       "id": "controller.fight.pilein_step_pad",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_fight_pilein_auto.",
       "scenarios": [
-        "pad_fight_pilein_auto"
+        "pad_fight_pilein_auto",
+        "pad_fight_step_end_qrx689"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -8647,6 +8648,26 @@
       "description": "The LS hint chip advertises the gesture ('Hold A: Box Select') while it is armed, so it is discoverable. Declared by: pad_box_multi_select.",
       "scenarios": [
         "pad_box_multi_select"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.fight.step_end_start_button",
+      "description": "Controller: the pad's ☰ (Start) ends the 11e Fight-phase GLOBAL STEP it is standing in — Pile In (12.02) / Consolidate (12.07) — by pressing that step section's own End button on the right panel, and the hint bar's ☰ chip names it ('End Pile In' / 'End Consolidation') instead of the generic 'End Phase'. The top-right phase-action button drops its '[☰] ' prefix while the step owns Start, and both revert once the global steps are done.",
+      "scenarios": [
+        "pad_fight_step_end_qrx689"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.fight.consolidate_step_pad",
+      "description": "Controller: the 11e global Consolidate step (12.07) is reachable and endable from a pad — the step section's End Consolidation button is what ☰ presses.",
+      "scenarios": [
+        "pad_fight_step_end_qrx689"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",

@@ -648,10 +648,10 @@ footer code{font-family:var(--mono);background:var(--panel-2);padding:1px 6px;bo
     
     <article class="state">
       <div class="state-head">
-        <h4>Fight board</h4>
+        <h4>Fight board — Fight step (12.04)</h4>
         <span class="rp-badge rp-yes" title="Can you drive the right-hand panel with the pad here?">Right panel: Yes</span>
       </div>
-      <p class="when"><strong>When:</strong> Pile-in, fighter selection and consolidate steps. <span class="src">Source: <code>PadRouter.HINTS_FIGHT</code></span></p>
+      <p class="when"><strong>When:</strong> The alternating fighter-selection step; no global step running. <span class="src">Source: <code>PadRouter.HINTS_FIGHT</code></span></p>
       <div class="state-body">
         <table class="controls">
           <thead><tr><th>Button</th><th>Does</th></tr></thead>
@@ -660,7 +660,39 @@ footer code{font-family:var(--mono);background:var(--panel-2);padding:1px 6px;bo
         <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
       </div>
       <p class="rp-note"><strong>Right panel on pad:</strong> Yes — bumpers cycle the fight-panel buttons, D-pad navigates the panel</p>
-      <ul class="notes"><li>Bumpers cycle the panel&#x27;s action buttons; A commits the focused one; D-pad navigates the panel.</li><li>Pile-in / consolidate model moves use the LS cursor.</li><li>The attack-assignment dialog carries its own on-dialog hint row (▲▼ Weapon · ◀▶ Target · A Assign · ☰ Fight!).</li><li>GAP (not pad-specific): per-model weapon choice, splitting attacks across targets, and SELECT_MELEE_WEAPON have no human UI.</li></ul>
+      <ul class="notes"><li>Bumpers cycle the panel&#x27;s action buttons; A commits the focused one; D-pad navigates the panel.</li><li>Pile-in / consolidate model moves use the LS cursor.</li><li>The attack-assignment dialog carries its own on-dialog hint row (▲▼ Weapon · ◀▶ Target · A Assign · ☰ Fight!).</li><li>Start = End Fight Phase (the only Fight-phase step whose end actually ends the phase).</li><li>GAP (not pad-specific): per-model weapon choice, splitting attacks across targets, and SELECT_MELEE_WEAPON have no human UI.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Global Pile In step (12.02)</h4>
+        <span class="rp-badge rp-yes" title="Can you drive the right-hand panel with the pad here?">Right panel: Yes</span>
+      </div>
+      <p class="when"><strong>When:</strong> The PILE IN STEP section is live on the right panel (the phase opens here). <span class="src">Source: <code>PadRouter.HINTS_FIGHT_PILE_IN</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Navigate Panel</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Select</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Point</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">End Pile In</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">⧉</span></span></td><td class="c-act">Pause Menu</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> Yes — bumpers cycle the fight-panel buttons, D-pad navigates the panel</p>
+      <ul class="notes"><li>Start presses the section&#x27;s own &#x27;End Pile In (Player N)&#x27; button — the same button the mouse clicks — so it ends YOUR pile-in half, not the phase.</li><li>The top-right phase-action button drops its &#x27;[☰] &#x27; prefix while this step owns Start, so only one thing on screen claims ☰.</li><li>Same chip from panel focus: the ☰ label is appended to HINTS_FOCUS while a step section is live, because focus never swallows Start.</li><li>While a chosen unit&#x27;s pile-in move is on the board the section is greyed out and Start goes back to the phase action — the PileInDialog owns ☰ (Confirm Move) via its own on-dialog hint row.</li></ul>
+    </article>
+    <article class="state">
+      <div class="state-head">
+        <h4>Global Consolidate step (12.07)</h4>
+        <span class="rp-badge rp-yes" title="Can you drive the right-hand panel with the pad here?">Right panel: Yes</span>
+      </div>
+      <p class="when"><strong>When:</strong> The CONSOLIDATE STEP section is live on the right panel (after all fighting). <span class="src">Source: <code>PadRouter.HINTS_FIGHT_CONSOLIDATE</code></span></p>
+      <div class="state-body">
+        <table class="controls">
+          <thead><tr><th>Button</th><th>Does</th></tr></thead>
+          <tbody><tr><td class="c-glyph"><span class="chip"><span class="chip-g">RB</span></span></td><td class="c-act">Cycle Units</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">✚</span></span></td><td class="c-act">Navigate Panel</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">A</span></span></td><td class="c-act">Select</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">LS</span></span></td><td class="c-act">Point</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">Y</span></span></td><td class="c-act">Datasheet</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">☰</span></span></td><td class="c-act">End Consolidation</td></tr><tr><td class="c-glyph"><span class="chip"><span class="chip-g">⧉</span></span></td><td class="c-act">Pause Menu</td></tr></tbody>
+        </table>
+        <div class="shot noshot"><span>No live screenshot</span><p>Controls documented from the code constants; this state needs a contrived tactical setup to stage on screen.</p></div>
+      </div>
+      <p class="rp-note"><strong>Right panel on pad:</strong> Yes — bumpers cycle the fight-panel buttons, D-pad navigates the panel</p>
+      <ul class="notes"><li>Start presses the section&#x27;s own &#x27;End Consolidation (Player N)&#x27; button — ends your consolidation half, not the phase.</li><li>Mirrors the Pile In step in every respect; the phase completes once both halves are done.</li></ul>
     </article>
   </section>
   <section id="scoring" class="doc-section">
