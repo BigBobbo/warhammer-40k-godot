@@ -7554,6 +7554,12 @@ func _resolve_token_meta_node(token: Node) -> Node2D:
 func _check_token_hover(mouse_pos: Vector2) -> void:
 	if not token_layer or not is_instance_valid(token_layer):
 		return
+	# The datasheet card is a read-the-rules overlay covering the middle of the
+	# screen; a board tooltip peeking out from behind it is pure noise.
+	var _ds = get_node_or_null("DatasheetModal")
+	if _ds != null and _ds.visible:
+		_hide_token_hover()
+		return
 	# Suppress the tooltip while the mouse is over a HUD panel — the board
 	# position under the HUD is not what the player is pointing at.
 	for hud_name in ["HUD_Right", "HUD_Bottom", "HUD_Left"]:
