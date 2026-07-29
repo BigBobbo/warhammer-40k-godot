@@ -1,0 +1,101 @@
+{
+  "id": "tut_t2_card_clears_formations_dialog",
+  "covers": [
+    "tutorial.t2.formations",
+    "tutorial.overlay.dialog_dodge"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial lesson T2 (Musterin' da Boyz) step 1 of 8: the instructor card must stay FULLY readable beside the 'Declare Battle Formations' window, not disappear behind it. Embedded Windows composite above every CanvasLayer, so anything the dialog covers is simply lost. The card used to park on the left flank at a fixed 588px and assume a centered 600px dialog left room for it — true only while the logical viewport is ~1800px+ wide. This scenario shrinks the viewport by raising content_scale_factor (exactly what the UI Scale slider and the pad text boost do) while the lesson is booting, so the dialog pops into the small viewport, then asserts the card still clears the dialog, still fits on screen, and still has room for its own footer buttons.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.3\nreturn tree.root.get_visible_rect().size.x < 1600.0",
+      "multiline": true,
+      "equals": true,
+      "comment": "content_scale_factor is what SettingsService.set_ui_scale drives; set it directly so the scenario never writes the player's settings file. It has to happen BEFORE the Formations dialog pops - the dialog re-fits on its own visibility, not on a viewport resize - so it goes first, on the main menu."
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton",
+      "emit_pressed": true,
+      "comment": "signal rather than a synthetic click: the injected pointer position is in physical window px and the rescale above has moved every node's logical rect out from under it. The real click path through these two menu buttons is covered by tut_t2_musterin at the default scale; what this scenario is about starts once the lesson is up."
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 12.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "attach_warboss"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node_or_null(\"/root/Main/FormationsDialog\")\nif fd == null or not fd.visible:\n\treturn \"no dialog\"\nvar vp = tree.root.get_visible_rect().size\nvar expected_x = (vp.x - float(fd.size.x)) * 0.5\nif absf(float(fd.position.x) - expected_x) > 4.0:\n\treturn \"dialog at %d, not centred for viewport %s (expected %.0f) - it popped before the rescale\" % [fd.position.x, str(vp), expected_x]\nreturn \"centred\"",
+      "multiline": true,
+      "equals": "centred",
+      "comment": "proves the rescale really landed before the dialog popped, so the assertions below are testing the cramped layout and not the roomy one"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"/root/TutorialOverlay\").card_placement()",
+      "multiline": true,
+      "equals": "left",
+      "comment": "a centred dialog leaves matching gutters - the card takes the left one, over the game log"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar card = ov.card_rect()\nvar dlg = Rect2(Vector2(fd.position), Vector2(fd.size))\nif card.intersects(dlg):\n\treturn \"card %s runs under dialog %s\" % [str(card), str(dlg)]\nreturn \"clear\"",
+      "multiline": true,
+      "equals": "clear",
+      "comment": "THE regression: the card's right-hand third (instruction tail + Skip Step / Exit Tutorial) used to sit behind the dialog"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar card = ov.card_rect()\nvar vp = tree.root.get_visible_rect().size\nif card.position.x < -0.5 or card.position.y < -0.5 or card.end.x > vp.x + 0.5 or card.end.y > vp.y + 0.5:\n\treturn \"card %s off-screen in viewport %s\" % [str(card), str(vp)]\nreturn \"onscreen\"",
+      "multiline": true,
+      "equals": "onscreen",
+      "comment": "shrinking the card must not push it off the edge instead - it re-wraps and stays centred vertically"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar footer = ov.get_node(\"InstructorCard/Margin/VBox/Footer\")\nvar card = ov.card_rect()\nif footer.get_combined_minimum_size().x > card.size.x:\n\treturn \"footer needs %.0fpx, card is %.0fpx\" % [footer.get_combined_minimum_size().x, card.size.x]\nreturn \"fits\"",
+      "multiline": true,
+      "equals": "fits",
+      "comment": "Skip Step / Exit Tutorial must still fit on the narrowed card, not overflow off its edge"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/SkipStepButton\")\nvar fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nif not b.is_visible_in_tree():\n\treturn \"Skip Step hidden\"\nif b.get_global_rect().intersects(Rect2(Vector2(fd.position), Vector2(fd.size))):\n\treturn \"Skip Step behind the dialog\"\nreturn \"clickable\"",
+      "multiline": true,
+      "equals": "clickable",
+      "comment": "the button the player has to be able to click is really outside the dialog, not just nominally visible"
+    },
+    {
+      "act": "execute_script",
+      "script": "var rt = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nreturn rt.get_parsed_text().contains(\"now he fights wiv his mob\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the tail of the instruction - the part that used to be behind the dialog - is still on the card"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_card_clears_dialog_scaled"
+    }
+  ]
+}
