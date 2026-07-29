@@ -2,15 +2,25 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.1",
+      "version": "1.7.2",
       "date": "2026-07-29",
       "summary": "'Get Movin'' now teaches that a move can be spent over several drags, and adds a step for turning models.",
       "changes": [
-        "Step 6 (moving the Battlewagon) only said 'drag da wagon's hull forward an' drop it', so players assumed the one drag was the whole move and spent all 10\"+D6 in a single go. It now says outright that you can drop the wagon, grab it again and keep going, and that the panel counts the inches as you do.",
-        "New step 7, 'POINT IT RIGHT!': the Battlewagon is on a rectangular base, so which way it faces matters — and nothing in the game told you how to turn a model. The step walks you through it and only advances once you actually turn the wagon.",
+        "The Battlewagon step only said 'drag da wagon's hull forward an' drop it', so players assumed the one drag was the whole move and spent all 10\"+D6 in a single go. It now says outright that you can drop the wagon, grab it again and keep going, and that the panel counts the inches as you do.",
+        "New step 'POINT IT RIGHT!': the Battlewagon is on a rectangular base, so which way it faces matters — and nothing in the game told you how to turn a model. The step walks you through it and only advances once you actually turn the wagon.",
         "Keyboard: grab the hull, keep the button held, and tap Q / E to turn 15° a tap (it follows a rebind). Controller: grab it with A, then LB / RB while you're carrying it.",
         "Both say what the rules say: in 11th edition turning a model is free and costs none of its move.",
         "The lesson's end-of-lesson summary picks up both points."
+      ]
+    },
+    {
+      "version": "1.7.1",
+      "date": "2026-07-29",
+      "summary": "The movement tutorial now teaches that boyz who disembark can still move — as long as the transport hasn't moved yet.",
+      "changes": [
+        "'Get Movin'' used to jump straight from placing the disembarked Boyz to driving the Battlewagon, so it never mentioned that the Boyz were already selected and still had their full 6\" move to spend. A new step ('DEIR LEGS STILL WORK!') has you drag them forward and lock the move in with End This Unit's Move.",
+        "The step spells out the catch: it only works because the wagon hasn't moved yet. Disembark first, drive after — if the transport moves first, the passengers are stuck where they land.",
+        "The 'it can still move' pop-up that used to appear over the tutorial card after a disembark is now hidden during a lesson, so it stops covering the instruction it repeats."
       ]
     },
     {
