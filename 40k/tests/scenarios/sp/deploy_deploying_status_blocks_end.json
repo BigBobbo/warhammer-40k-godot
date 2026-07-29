@@ -1,0 +1,55 @@
+{
+  "id": "deploy_deploying_status_blocks_end",
+  "covers": [
+    "deployment.all_units_deployed_excludes_deploying",
+    "deployment.pad_start_cannot_end_phase_mid_placement",
+    "GameState.all_units_deployed",
+    "DeploymentPhase._all_units_deployed"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Bug repro (player report): after confirming one unit's placement, selecting the NEXT unit to deploy (a real DeploymentController.begin_deploy() call, exactly what clicking a unit row does) sets that unit's status to DEPLOYING. Before the fix, GameState.all_units_deployed() and DeploymentPhase._all_units_deployed() only treated UNDEPLOYED as 'not done', so a merely-selected-but-not-yet-placed unit counted as deployed. With every OTHER unit for the player already confirmed DEPLOYED, that made the phase-action button light up and the pad Start (☰, hint text 'Confirm / End') button end the ENTIRE deployment phase — showing the first-turn roll-off popup — while the selected unit (here Custodian Guard) had zero models actually placed. Sets up 6-of-7 player-1 units as already DEPLOYED via direct state mutation (placement geometry is covered elsewhere, e.g. blade_champion_in_zone_deploy.json / tut_t2_musterin.json), then drives the real begin_deploy() + pad Start press for the 7th.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "screenshot", "label": "00_start" },
+
+    { "act": "execute_script",
+      "script": "var gs = GameState\nvar done_units = [\"U_BLADE_CHAMPION_A\",\"U_CALADIUS_GRAV-TANK_E\",\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\",\"U_TELEMON_HEAVY_DREADNOUGHT_I\",\"U_WITCHSEEKERS_C\",\"U_WITCHSEEKERS_D\",\"U_BATTLEWAGON_G\",\"U_BOYZ_E\",\"U_BOYZ_F\",\"U_STRIKE_FORCE_A\",\"U_WARBOSS_B\",\"U_WARBOSS_C\",\"U_WARBOSS_IN_MEGA_ARMOUR_D\"]\nfor uid in done_units:\n\tgs.state.units[uid][\"status\"] = GameStateData.UnitStatus.DEPLOYED\nvar pm = tree.root.get_node(\"PhaseManager\")\nif pm.current_phase_instance:\n\tpm.current_phase_instance.game_state_snapshot = gs.create_snapshot()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "Setup shortcut: fast-forward every OTHER unit for BOTH players straight to DEPLOYED (placement geometry is exercised by other scenarios) so only U_CUSTODIAN_GUARD_B remains anywhere on the board, isolating the DEPLOYING-status guard. all_units_deployed() scans units for both players, so player 2's units must be cleared too or they mask the regression regardless of the fix."
+    },
+
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].status", "equals": 0 },
+    { "act": "execute_script", "script": "GameState.all_units_deployed()", "equals": false },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "execute_script", "script": "main.phase_action_button.disabled", "equals": true, "comment": "still one UNDEPLOYED unit -- pre-existing guard, not the regression itself" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "execute_script", "script": "Main.deployment_controller.unit_id", "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "execute_script", "script": "int(GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].status)", "equals": 1, "comment": "DEPLOYING -- set the instant the unit is selected, before any model is placed or Confirm is pressed" },
+    { "act": "execute_script", "script": "Main.deployment_controller.get_placed_count()", "equals": 0 },
+    { "act": "screenshot", "label": "01_custodian_guard_selected_deploying_zero_placed" },
+
+    { "act": "execute_script", "script": "GameState.all_units_deployed()", "equals": false, "comment": "THE FIX: a DEPLOYING unit must not count as done" },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance._all_units_deployed()", "equals": false, "comment": "server-side gate must agree" },
+    { "act": "execute_script", "script": "main.phase_action_button.disabled", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 6, "comment": "the physical Start/☰ button the player pressed, hinted 'Confirm / End' throughout placement" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_state", "path": "meta.phase", "equals": 1, "comment": "must still be DEPLOYMENT -- this is the exact regression: phase used to end here" },
+    { "act": "execute_script", "script": "Main.deployment_controller.is_placing()", "equals": true, "comment": "placement session on Custodian Guard must not have been disturbed" },
+    { "act": "execute_script", "script": "int(GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].status)", "equals": 1 },
+    { "act": "execute_script", "script": "tree.root.find_child(\"RollOffDialog\", true, false) == null", "equals": true, "multiline": false, "comment": "the 'who takes the first turn' popup must not appear" },
+    { "act": "screenshot", "label": "02_still_in_deployment_after_start_press" },
+
+    { "act": "dispatch_action", "action": { "type": "END_DEPLOYMENT" } },
+    { "act": "expect_action_result", "path": "success", "equals": false, "comment": "server-side validator must also reject an explicit END_DEPLOYMENT while Custodian Guard is only DEPLOYING" },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 }
+  ]
+}

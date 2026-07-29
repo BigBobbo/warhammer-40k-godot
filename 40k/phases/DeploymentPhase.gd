@@ -1576,7 +1576,7 @@ func _all_units_deployed() -> bool:
 			continue
 
 		var status = unit.get("status", 0)
-		if status == GameStateData.UnitStatus.UNDEPLOYED:
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.DEPLOYING:
 			return false
 
 	return true

@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "Deployment no longer ends early while a unit is still mid-placement.",
+      "changes": [
+        "Selecting the next unit to deploy immediately marked it as 'deployed' for the purposes of the End Deployment gate, even though none of its models had been placed yet. If every other unit was already confirmed, this let 'End Deployment' light up (and a controller Start/☰ press go through it) while the selected unit still had zero models on the board — reported during the 'Mustering the Boys' tutorial, where confirming the Battlewagon and then selecting the Gretchin let deployment end before the Gretchin were ever placed.",
+        "Both the button's enabled state and the server-side End Deployment check now correctly treat a unit that's selected-but-not-yet-confirmed as still needing deployment."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",

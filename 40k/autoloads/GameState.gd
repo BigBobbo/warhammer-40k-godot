@@ -311,7 +311,7 @@ func all_units_deployed() -> bool:
 		# Skip units in reserves (they're off-table, handled during reinforcements)
 		if unit["status"] == UnitStatus.IN_RESERVES:
 			continue
-		if unit["status"] == UnitStatus.UNDEPLOYED:
+		if unit["status"] == UnitStatus.UNDEPLOYED or unit["status"] == UnitStatus.DEPLOYING:
 			undeployed_list.append(unit_id + " (player " + str(unit.get("owner", 0)) + ")")
 
 	var all_deployed = undeployed_list.size() == 0
