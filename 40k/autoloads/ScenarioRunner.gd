@@ -604,7 +604,9 @@ func _do_click_board_at(step: Dictionary) -> Dictionary:
 		if viewport == null:
 			return {"pass": false, "error": "no viewport and no world_to_screen_position"}
 		screen_pos = viewport.get_canvas_transform() * world_pos
-	await _send_click(screen_pos)
+	# Optional `"shift": true` — the shift+click gesture (deployment: pick an
+	# already-placed model back up to reposition it).
+	await _send_click(screen_pos, false, bool(step.get("shift", false)))
 	return {"pass": true, "world": [world_pos.x, world_pos.y], "screen": [screen_pos.x, screen_pos.y]}
 
 
@@ -1824,7 +1826,7 @@ func fight_dialog_button_count(unit_id: String) -> int:
 			n += 1
 	return n
 
-func _send_click(screen_pos: Vector2, ctrl: bool = false) -> void:
+func _send_click(screen_pos: Vector2, ctrl: bool = false, shift: bool = false) -> void:
 	# Warp the live cursor to the target BEFORE injecting the event. GUI Controls
 	# route by event position, but board/world handlers (e.g. DeploymentController
 	# placement, token hit-testing) read get_viewport().get_mouse_position() — the
@@ -1835,7 +1837,19 @@ func _send_click(screen_pos: Vector2, ctrl: bool = false) -> void:
 	#
 	# ctrl=true holds Ctrl (and Meta, so is_command_or_control_pressed() matches
 	# on macOS too) through the press+release — the multi-select toggle idiom.
+	#
+	# shift=true is the same idea for SHIFT, and like _do_drag_board it parses a
+	# REAL KEY_SHIFT press first: the shift+click idioms (deployment model
+	# repositioning) test Input.is_key_pressed(KEY_SHIFT), which the event's
+	# shift_pressed flag alone does not satisfy.
 	screen_pos = screen_pos.round()
+	if shift:
+		var shift_press := InputEventKey.new()
+		shift_press.keycode = KEY_SHIFT
+		shift_press.physical_keycode = KEY_SHIFT
+		shift_press.pressed = true
+		Input.parse_input_event(shift_press)
+		await get_tree().process_frame
 	Input.warp_mouse(screen_pos)
 	await get_tree().process_frame
 	var press := InputEventMouseButton.new()
@@ -1846,6 +1860,7 @@ func _send_click(screen_pos: Vector2, ctrl: bool = false) -> void:
 	press.button_mask = MOUSE_BUTTON_MASK_LEFT
 	press.ctrl_pressed = ctrl
 	press.meta_pressed = ctrl
+	press.shift_pressed = shift
 	Input.parse_input_event(press)
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -1857,9 +1872,17 @@ func _send_click(screen_pos: Vector2, ctrl: bool = false) -> void:
 	release.button_mask = 0
 	release.ctrl_pressed = ctrl
 	release.meta_pressed = ctrl
+	release.shift_pressed = shift
 	Input.parse_input_event(release)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if shift:
+		var shift_release := InputEventKey.new()
+		shift_release.keycode = KEY_SHIFT
+		shift_release.physical_keycode = KEY_SHIFT
+		shift_release.pressed = false
+		Input.parse_input_event(shift_release)
+		await get_tree().process_frame
 
 
 func _find_unit_token(unit_id: String) -> Node2D:

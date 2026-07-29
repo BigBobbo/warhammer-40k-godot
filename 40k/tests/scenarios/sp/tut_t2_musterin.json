@@ -5,11 +5,12 @@
     "tutorial.t2.deployment",
     "tutorial.t2.rotate_wagon",
     "deployment.rotation",
-    "tutorial.engine.config_boot"
+    "tutorial.engine.config_boot",
+    "tutorial.t2.reposition_nudge"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T2 (Musterin' da Boyz), mouse+keyboard player path: fresh tutorial game booted from the lesson's config (no fixture) -> Formations panel: attach Warboss to Boyz via the dropdown, tick Boyz into the Battlewagon, Confirm Formations (batch declares incl. DECLARE_TRANSPORT_EMBARKATION) -> deployment roll-off via the dialog Roll/Continue buttons -> the 'rotate_wagon' step: pick the Battlewagon up, prove the step does NOT advance on selection alone and that Confirm is gated shut, turn the ghost a quarter turn with six real 'E' presses, and watch the step advance on the turn -> deploy the Battlewagon (click board + Confirm) with the AI alternating, asserting the taught rotation actually lands on the deployed model -> deploy Gretchin with the Tight formation -> first-turn roll-off -> lesson complete. The Formations panel and roll-off dialog are embedded modal Windows: their buttons are driven via the emit escape hatch and the tie-tolerant roll steps emit only if the button is still present.",
+  "description": "Tutorial lesson T2 (Musterin' da Boyz), mouse+keyboard player path: fresh tutorial game booted from the lesson's config (no fixture) -> Formations panel: attach Warboss to Boyz via the dropdown, tick Boyz into the Battlewagon, Confirm Formations (batch declares incl. DECLARE_TRANSPORT_EMBARKATION) -> deployment roll-off via the dialog Roll/Continue buttons -> the 'rotate_wagon' step: pick the Battlewagon up, prove the step does NOT advance on selection alone and that Confirm is gated shut, turn the ghost a quarter turn with six real 'E' presses, and watch the step advance on the turn -> deploy the Battlewagon: place it, nudge it (shift+click back up, drop it elsewhere, asserting Confirm is gated until that is done), Confirm (click board + Confirm) with the AI alternating, asserting the taught rotation actually lands on the deployed model -> deploy Gretchin with the Tight formation -> first-turn roll-off -> lesson complete. The Formations panel and roll-off dialog are embedded modal Windows: their buttons are driven via the emit escape hatch and the tie-tolerant roll steps emit only if the button is still present.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -249,6 +250,97 @@
     {
       "act": "wait_frames",
       "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "nudge_wagon",
+      "comment": "placing the wagon now advances to the nudge step, not straight to Confirm"
+    },
+    {
+      "act": "screenshot",
+      "label": "05b_nudge_step"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return TutorialManager.is_action_allowed({\"type\": \"DEPLOY_UNIT\", \"unit_id\": \"U_BATTLEWAGON_T\", \"player\": 1})",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"wp\", main.deployment_controller.temp_positions[0])"
+    },
+    {
+      "act": "click_board_at",
+      "x": 640.0,
+      "y": 320.0,
+      "shift": true,
+      "comment": "shift+click the placed wagon to pick it back up - the gesture this step teaches"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_repositioning()",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05c_wagon_lifted"
+    },
+    {
+      "act": "click_board_at",
+      "x": 700.0,
+      "y": 320.0,
+      "comment": "drop 1.5in sideways: the wagon was turned 90deg so its long axis is horizontal, and the zone's y<=12in step sits just below"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_repositioning()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.reposition_commits",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var wp = InputDeviceManager.get_meta(\"wp\")\nvar np = tree.current_scene.deployment_controller.temp_positions[0]\nreturn float(wp.distance_to(np))",
+      "expect_min": 5.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_wagon"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var TS = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar step = {}\nfor s in TutorialManager._steps:\n\tif str(s.get(\"id\", \"\")) == \"nudge_wagon\":\n\t\tstep = s\nvar txt = TS.render_text(str(step.get(\"prompt\", {}).get(\"pad\", \"\")), true)\nreturn txt.contains(\"[L3]\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var TS = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar step = {}\nfor s in TutorialManager._steps:\n\tif str(s.get(\"id\", \"\")) == \"rotate_wagon\":\n\t\tstep = s\nvar txt = TS.render_text(str(step.get(\"prompt\", {}).get(\"pad\", \"\")), true)\nreturn txt.contains(\"[R3]\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05d_wagon_nudged"
     },
     {
       "act": "click_node",

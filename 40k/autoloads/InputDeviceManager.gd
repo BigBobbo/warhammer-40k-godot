@@ -21,6 +21,41 @@ enum InputMode { KBM, PAD }
 
 var input_mode: int = InputMode.KBM
 
+# ============================================================================
+# Input-mode POLICY (owner request 2026-07-27)
+#
+# The original behaviour was "follow whatever device was touched last". On a
+# Steam Deck that is actively hostile: the Deck's trackpads/gyro/back paddles
+# can surface as mouse or keyboard events, so a stray thumb flipped the game
+# out of pad mode — and because the pad text boost multiplies the canvas
+# content scale (SettingsService.PAD_UI_SCALE_BOOST) the whole UI visibly
+# resized mid-game. The device is now RESOLVED ONCE AT LAUNCH and LOCKED:
+#
+#   "auto"    (default) — detect the platform at launch, then lock.
+#                         Steam Deck  -> PAD
+#                         desktop/web -> KBM   (itch.io web build included)
+#                         unknown     -> PAD   (owner's requested fallback)
+#   "pad"              — always controller / Steam Deck
+#   "kbm"              — always mouse & keyboard
+#   "dynamic"          — the legacy follow-last-input behaviour
+#
+# Players change it in Settings › Controller › Input Mode (persisted by
+# SettingsService.input_mode_policy). `--input-mode=<policy>` on the command
+# line overrides the saved value for one run (used by the windowed scenarios
+# and for live validation).
+# ============================================================================
+const POLICY_AUTO := "auto"
+const POLICY_PAD := "pad"
+const POLICY_KBM := "kbm"
+const POLICY_DYNAMIC := "dynamic"
+const POLICIES: Array[String] = [POLICY_AUTO, POLICY_PAD, POLICY_KBM, POLICY_DYNAMIC]
+
+var mode_policy: String = POLICY_AUTO
+
+# Human-readable "why" for the auto-detection, surfaced in the settings menu
+# and the main-menu status label (e.g. "Steam Deck (SteamOS)", "Windows").
+var detected_platform: String = ""
+
 # Actions this manager registered at runtime (asserted by windowed scenarios).
 var registered_actions: Array[String] = []
 
@@ -61,11 +96,177 @@ func _ready() -> void:
 	var pads := Input.get_connected_joypads()
 	if not pads.is_empty():
 		print("[InputDeviceManager] Joypad(s) present at startup: %s" % str(pads))
-	print("[InputDeviceManager] Ready — %d pad actions registered, mode=KBM" % registered_actions.size())
+	_apply_startup_policy()
+	print("[InputDeviceManager] Ready — %d pad actions registered, policy=%s, mode=%s" % [
+		registered_actions.size(), mode_policy, mode_name(input_mode)])
 
 
 func note_synthetic_mouse(window_ms: int = 150) -> void:
 	_ignore_mouse_until_ms = Time.get_ticks_msec() + window_ms
+
+
+# ============================================================================
+# Input-mode policy (see the block near the top)
+# ============================================================================
+
+func _apply_startup_policy() -> void:
+	var policy := POLICY_AUTO
+	var cli := _cmdline_policy()
+	if cli != "":
+		policy = cli
+		print("[InputDeviceManager] Input-mode policy from command line: %s" % policy)
+	elif _is_automated_harness():
+		# The windowed-scenario runner and the headless suites drive the pad by
+		# synthesising joypad events and expect the legacy follow-last-input
+		# behaviour (~30 pad_* scenarios call claim_pad() / simulate_joy_button
+		# and then assert is_pad_active()). Locking the mode at launch would
+		# silently neuter all of them, so the harness keeps the dynamic default.
+		# A scenario that WANTS to test the lock sets the policy explicitly via
+		# SettingsService.set_input_mode_policy() / --input-mode=.
+		policy = POLICY_DYNAMIC
+		print("[InputDeviceManager] Automated harness — input-mode policy pinned to '%s'" % policy)
+	else:
+		var svc = get_node_or_null("/root/SettingsService")
+		if svc != null and str(svc.get("input_mode_policy")) in POLICIES:
+			policy = str(svc.get("input_mode_policy"))
+	apply_mode_policy(policy)
+
+
+func _cmdline_policy() -> String:
+	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if typeof(a) != TYPE_STRING:
+			continue
+		if a.begins_with("--input-mode="):
+			var v := a.split("=", true, 1)[1].strip_edges().to_lower()
+			if v in POLICIES:
+				return v
+			print("[InputDeviceManager] Ignoring unknown --input-mode=%s" % v)
+	return ""
+
+
+func _is_automated_harness() -> bool:
+	# Mirrors SettingsService._is_automated_harness(): the windowed scenario
+	# runner (--scenario-file=…), the GUT suite (gut_cmdln) and direct script
+	# runs (-s/--script). A normal player launch never passes these.
+	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if typeof(a) != TYPE_STRING:
+			continue
+		if a.begins_with("--scenario-file=") or a.find("gut_cmdln") != -1:
+			return true
+		if a == "-s" or a == "--script":
+			return true
+	return false
+
+
+# Set the policy and immediately resolve/lock the active device. Called at
+# startup and whenever the player changes Settings › Controller › Input Mode.
+func apply_mode_policy(policy: String) -> void:
+	if policy not in POLICIES:
+		print("[InputDeviceManager] Ignoring unknown input-mode policy '%s'" % policy)
+		return
+	mode_policy = policy
+	var resolved := resolve_policy_mode(policy)
+	print("[InputDeviceManager] Input-mode policy '%s' -> %s%s" % [
+		policy,
+		("follow last input" if resolved < 0 else mode_name(resolved)),
+		("" if detected_platform == "" or policy != POLICY_AUTO else " (detected: %s)" % detected_platform)])
+	if resolved >= 0:
+		_force_mode(resolved)
+
+
+# The mode a policy pins the game to, or -1 for "dynamic" (no lock).
+func resolve_policy_mode(policy: String) -> int:
+	match policy:
+		POLICY_PAD:
+			return InputMode.PAD
+		POLICY_KBM:
+			return InputMode.KBM
+		POLICY_AUTO:
+			return detect_platform_mode()
+		_:
+			return -1
+
+
+func is_mode_locked() -> bool:
+	return mode_policy != POLICY_DYNAMIC
+
+
+# ----------------------------------------------------------------------------
+# Platform detection. Also sets `detected_platform` (the reason string shown in
+# the UI) so a player can see WHY the game picked a mode.
+# ----------------------------------------------------------------------------
+
+func detect_platform_mode() -> int:
+	var deck := steam_deck_reason()
+	if deck != "":
+		detected_platform = "Steam Deck (%s)" % deck
+		return InputMode.PAD
+	if OS.has_feature("web"):
+		# itch.io / any browser build: keyboard + mouse by definition.
+		detected_platform = "Web browser (itch.io)"
+		return InputMode.KBM
+	var os_name := OS.get_name()
+	if os_name in ["Windows", "macOS", "Linux", "FreeBSD", "NetBSD", "OpenBSD", "BSD", "Android", "iOS"]:
+		detected_platform = os_name
+		return InputMode.KBM
+	# Unknown platform — the owner's requested fallback is the Steam Deck build.
+	detected_platform = "unknown platform '%s'" % os_name
+	return InputMode.PAD
+
+
+# Non-empty when this machine looks like a Steam Deck; the string says which
+# signal fired (shown in the settings menu so a mis-detection is diagnosable).
+func steam_deck_reason() -> String:
+	# 1. Steam exports SteamDeck=1 into the game's environment on Deck hardware.
+	if OS.get_environment("SteamDeck") == "1":
+		return "SteamDeck=1"
+	# 2. Gaming Mode runs every game under the gamescope compositor.
+	var xdg := OS.get_environment("XDG_CURRENT_DESKTOP").to_lower()
+	if xdg.find("gamescope") != -1:
+		return "gamescope session"
+	# 3. Desktop Mode / a SteamOS install: the distro name.
+	if OS.has_method("get_distribution_name"):
+		var distro := str(OS.get_distribution_name()).to_lower()
+		if distro.find("steamos") != -1 or distro.find("steam deck") != -1 or distro.find("holo") != -1:
+			return "SteamOS"
+	# 4. The Deck's semi-custom APU — 0405 is the LCD model, 0932 the OLED.
+	var cpu := OS.get_processor_name().to_lower()
+	if cpu.find("amd custom apu 0405") != -1 or cpu.find("amd custom apu 0932") != -1:
+		return "Deck APU"
+	return ""
+
+
+# Discoverability for the one case the lock makes worse: a desktop player who
+# picks up a gamepad. The mode deliberately does NOT follow the press (that is
+# the bug being fixed), so say once per session where the switch lives instead
+# of leaving the pad silently doing nothing.
+var _controller_hint_shown := false
+
+func _hint_controller_available() -> void:
+	if _controller_hint_shown:
+		return
+	_controller_hint_shown = true
+	var toast = get_node_or_null("/root/ToastManager")
+	if toast != null and toast.has_method("show_toast"):
+		toast.show_toast("Controller detected — switch the layout in Settings › Controller › Input Mode", Color(1.0, 0.85, 0.4), 6.0)
+	print("[InputDeviceManager] Pad press while locked to KBM — pointed the player at Settings › Controller › Input Mode")
+
+
+func mode_name(mode: int) -> String:
+	return "PAD" if mode == InputMode.PAD else "KBM"
+
+
+# Player-facing description of the mode currently in force, e.g.
+# "Controller / Steam Deck (auto-detected: Steam Deck (SteamOS))".
+func mode_status_text() -> String:
+	var label := "Controller / Steam Deck" if input_mode == InputMode.PAD else "Mouse & Keyboard"
+	match mode_policy:
+		POLICY_AUTO:
+			return "%s (auto-detected: %s)" % [label, detected_platform if detected_platform != "" else OS.get_name()]
+		POLICY_DYNAMIC:
+			return "%s (following last input used)" % label
+		_:
+			return "%s (locked by you)" % label
 
 
 # For handlers that RECEIVE a joypad event before the _process poll has run
@@ -243,6 +444,10 @@ func _process(_delta: float) -> void:
 			_dialog_watch_accum = 0.0
 			_watch_dialog_focus()
 		return
+	# Locked to KBM by policy: nothing the player does with a pad may change the
+	# mode, so skip the probe polling entirely.
+	if is_mode_locked():
+		return
 	if not InputMap.has_action("pad_probe_buttons"):
 		return
 	if Input.is_action_just_pressed("pad_probe_buttons") or Input.is_action_pressed("pad_probe_buttons"):
@@ -260,6 +465,13 @@ func _process(_delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	# Observe only — never consumes. Runs before scene handlers (autoload order).
+	# Under a locked policy the active device never follows the input, which is
+	# the whole point: the Deck's trackpads/paddles emitting mouse or key events
+	# must not yank the UI (and the canvas scale) into KBM mid-game.
+	if is_mode_locked():
+		if input_mode == InputMode.KBM and event is InputEventJoypadButton and event.pressed:
+			_hint_controller_available()
+		return
 	if event is InputEventJoypadButton and event.pressed:
 		_claim(InputMode.PAD)
 	elif event is InputEventJoypadMotion and absf(event.axis_value) >= PAD_AXIS_CLAIM:
@@ -281,16 +493,33 @@ func _input(event: InputEvent) -> void:
 
 func _claim(mode: int) -> void:
 	_mouse_travel = 0.0
+	# Device-driven claims are ignored while a policy pins the mode.
+	if is_mode_locked():
+		return
+	_set_mode(mode)
+
+
+# Policy-driven mode change — bypasses the lock (it IS the lock being applied).
+func _force_mode(mode: int) -> void:
+	_mouse_travel = 0.0
+	_set_mode(mode)
+
+
+func _set_mode(mode: int) -> void:
 	if mode == input_mode:
 		return
 	input_mode = mode
-	print("[InputDeviceManager] Input mode -> %s" % ("PAD" if mode == InputMode.PAD else "KBM"))
+	print("[InputDeviceManager] Input mode -> %s" % mode_name(mode))
 	device_changed.emit(mode)
 
 
 func _on_joy_connection_changed(device: int, connected: bool) -> void:
 	print("[InputDeviceManager] Joypad %d %s" % [device, "connected" if connected else "disconnected"])
 	pad_connection_changed.emit(connected)
+	# Only the legacy dynamic policy falls back to KBM when the last pad goes
+	# away; a locked choice survives a controller unplug/replug.
+	if is_mode_locked():
+		return
 	if not connected and Input.get_connected_joypads().is_empty() and input_mode == InputMode.PAD:
 		_claim(InputMode.KBM)
 

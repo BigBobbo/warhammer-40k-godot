@@ -2,6 +2,40 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.12",
+      "date": "2026-07-29",
+      "summary": "The deployment tutorial now teaches you how to shove an already-placed model into a better spot — and its 'turn the wagon' step is no longer skipped on a controller.",
+      "changes": [
+        "Added a step to 'Musterin' da Boyz' covering model repositioning: after you park the Battlewagon, the lesson walks you through picking it back up and dropping it somewhere better — Shift+click on mouse, L3 on controller.",
+        "The step ticks off as you go: one box for picking the model up, one for dropping it in its new spot.",
+        "Parking the wagon and locking it in are now separate steps, so you get a chance to adjust it before you Confirm.",
+        "The 'POINT IT DA RIGHT WAY!' rotation step used to be skipped entirely for controller players, because turning a model during deployment was mouse-and-keyboard only. It now runs for everyone and teaches the controller combo.",
+        "The lesson recap covers both: turning a vehicle on either device, and nudging a model you already placed."
+      ]
+    },
+    {
+      "version": "1.7.11",
+      "date": "2026-07-29",
+      "summary": "Controller players can now nudge a model they already placed: press L3 to pick it up, move it, A to drop it.",
+      "changes": [
+        "Added model repositioning on the controller during deployment. Point at a model you already placed and click the left stick (L3) to pick it up, move it with the stick, then A to drop it — the controller equivalent of the mouse's Shift+click. Previously the only way to fix a slightly misplaced model on a pad was to undo it (or the whole unit) and start again.",
+        "B puts a picked-up model straight back where it was, and an illegal drop spot is refused with the same warning the mouse gives.",
+        "While a model is in hand the bumpers, Undo Model and the card's selector rows pause, so a lifted model can't be left stranded — drop it or cancel first.",
+        "The deployment hint bar advertises the new 'L3 Move Placed Model' prompt, and swaps to Move / Drop / Cancel while you are holding a model."
+      ]
+    },
+    {
+      "version": "1.7.10",
+      "date": "2026-07-29",
+      "summary": "Controller players can finally rotate a model while deploying it: hold R3 (click the right stick) and the bumpers turn the ghost 15° a press.",
+      "changes": [
+        "Added controller rotation during deployment. Hold R3 and LB/RB rotate the model you are placing — the pad equivalent of the keyboard's Q/E. Before this there was no way to angle an oval or rectangular base (a Battlewagon, a tank) with a controller at all; you had to reach for a mouse and keyboard.",
+        "In Spread or Tight formation the same combo rotates the whole formation, matching what the keyboard does.",
+        "Bare LB/RB still switch which unit you are deploying, exactly as before — the rotation only happens while R3 is held.",
+        "The deployment hint bar now shows the new 'R3 Hold: LB/RB Rotate' prompt so it is discoverable, and it follows your button layout if you remap the Precision control in Settings › Controller."
+      ]
+    },
+    {
       "version": "1.7.9",
       "date": "2026-07-29",
       "summary": "Moving a squad is readable again: model ghosts now sit on top of the green range circles, and those circles are much thinner.",
