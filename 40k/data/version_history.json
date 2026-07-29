@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.13",
+      "date": "2026-07-29",
+      "summary": "Da Krumpin' lesson finally looks like a real scrap: Boyz in base contact, no Custodes standing inside each other, and da Warboss is actually on da table.",
+      "changes": [
+        "Step 2 of 'Krumpin'' says 'Yer Boyz are already in contact' — but they weren't. The Boyz sat a hair short of the Custodian Guard, and the two rear Boyz were more than 2\" away, so they couldn't fight at all. The mob is now laid out properly: five Boyz and the Warboss in base-to-base contact with the Custodes, the rest packed in right behind them. All eleven models can swing.",
+        "The four Custodian Guard were spaced closer together than their own 40mm bases, so their bases visibly overlapped. They now sit on a clean, legal line.",
+        "The Warboss was never drawn on the board in any lesson — it was attached to the Boyz but still flagged as undeployed, so the game skipped its token. Da boss now shows up on the table in the shooting, charge, fight and second-round lessons.",
+        "The charge lesson's Custodian Guard line matches the fight lesson's, so the enemy no longer shuffles between checkpoints."
+      ]
+    },
+    {
       "version": "1.7.12",
       "date": "2026-07-29",
       "summary": "The deployment tutorial now teaches you how to shove an already-placed model into a better spot — and its 'turn the wagon' step is no longer skipped on a controller.",
