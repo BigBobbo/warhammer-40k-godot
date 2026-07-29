@@ -972,7 +972,18 @@ func _build_formation_changes() -> Array:
 		# Transport embarkations
 		for transport_id in formations["transport_embarkations"]:
 			var unit_ids = formations["transport_embarkations"][transport_id]
+			# 19.03: an attached unit boards as ONE unit. The leader attachments
+			# above are applied in this same change set, so expand each passenger
+			# to its whole attached unit here — otherwise the bodyguard embarks
+			# and its CHARACTER is stranded UNDEPLOYED off the battlefield (the
+			# reported "Boyz + Warboss disembark leaves no Warboss" bug).
+			var embark_ids: Array = []
 			for unit_id in unit_ids:
+				for gid in _attached_unit_group_for_embark(unit_id, bodyguard_chars):
+					if not gid in embark_ids:
+						embark_ids.append(gid)
+
+			for unit_id in embark_ids:
 				changes.append({
 					"op": "set",
 					"path": "units.%s.embarked_in" % unit_id,
@@ -987,7 +998,9 @@ func _build_formation_changes() -> Array:
 			# Update transport's embarked_units list
 			var transport = get_unit(transport_id)
 			var current_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
-			current_embarked.append_array(unit_ids)
+			for unit_id in embark_ids:
+				if not unit_id in current_embarked:
+					current_embarked.append(unit_id)
 			changes.append({
 				"op": "set",
 				"path": "units.%s.transport_data.embarked_units" % transport_id,
@@ -995,7 +1008,7 @@ func _build_formation_changes() -> Array:
 			})
 
 			var transport_name = get_unit(transport_id).get("meta", {}).get("name", transport_id)
-			log_phase_message("Applied: %d units embarked in %s" % [unit_ids.size(), transport_name])
+			log_phase_message("Applied: %d units embarked in %s" % [embark_ids.size(), transport_name])
 
 		# Reserves declarations
 		for entry in formations["reserves"]:
@@ -1070,6 +1083,27 @@ func _build_formation_changes() -> Array:
 	DebugLogger.info(str("[FormationsPhase] _build_formation_changes — P1 leader_attachments: %d, P2 leader_attachments: %d" % [leader_count_p1, leader_count_p2]))
 	log_phase_message("All formations changes built successfully (%d diffs)" % changes.size())
 	return changes
+
+## The units that board together when `unit_id` embarks: the bodyguard plus every
+## CHARACTER attached to it (19.03 — an attached unit is a single unit).
+## `pending_attachments` carries the leader attachments declared in THIS change
+## set, which are not in GameState yet, so a Warboss attached and embarked in the
+## same Formations confirmation still rides along.
+func _attached_unit_group_for_embark(unit_id: String, pending_attachments: Dictionary) -> Array:
+	# Resolve to the bodyguard first, so picking either half of an attached unit
+	# as the passenger boards the whole thing.
+	var root_id := unit_id
+	for bg_id in pending_attachments:
+		if unit_id in pending_attachments[bg_id]:
+			root_id = str(bg_id)
+			break
+
+	var group := TransportManager.get_attached_unit_group(root_id)
+	for char_id in pending_attachments.get(root_id, []):
+		var cid := str(char_id)
+		if not cid in group:
+			group.append(cid)
+	return group
 
 func get_available_actions() -> Array:
 	var actions = []

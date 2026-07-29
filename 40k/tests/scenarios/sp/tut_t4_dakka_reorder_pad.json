@@ -1,0 +1,316 @@
+{
+  "id": "tut_t4_dakka_reorder_pad",
+  "covers": [
+    "tutorial.t4.reorder.pad",
+    "tutorial.t4.resolution_dock.reorder"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial lesson T4 step 4 ('LET 'EM RIP!') now explains the hit -> wound -> save sequence AND tells the player they can re-order the firing queue with the up/down arrows on the right-hand side, reached with the D-pad. This scenario proves that promise on the SHIPPED pad scheme: boot T4, arm the Boyz (RB) and Confirm Targets (Start), then -- from the dock's primary button where the pad focus lands -- one D-pad UP walks the highlight into the queue's last-row up-arrow, and A actually swaps that weapon up the order. It also asserts the arrows exist on every queue row, that the instructor card carries the new copy, and that focus STAYS in the queue after the swap (ShootingResolutionDock._refocus_move_button) so a player can nudge a weapon more than one slot per trip.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton",
+      "comment": "the lesson is opened with the mouse on purpose - pad entry from the main menu is tut_t4_dakka_pad's job, this scenario is about the dock"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t4_dakka/Play_t4_dakka"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode - from here every input is real pad input and the card re-renders with the pad copy"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Continue"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_da_boyz"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10,
+      "comment": "RB cycles the acting unit - the only unit-selection control on the pad"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nif str(pi.active_shooter_id) == \"U_BOYZ_T\":\n\treturn \"ok\"\nvar press = InputEventJoypadButton.new()\npress.device = 0\npress.button_index = JOY_BUTTON_RIGHT_SHOULDER\npress.pressed = true\nInput.parse_input_event(press)\nvar rel = InputEventJoypadButton.new()\nrel.device = 0\nrel.button_index = JOY_BUTTON_RIGHT_SHOULDER\nrel.pressed = false\nInput.parse_input_event(rel)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "RB again, but only while the Boyz aren't armed yet - which unit RB lands on first depends on the list's starting selection, and this scenario is about the dock, not the cycle order. Same InputEventJoypadButton the runner's simulate_joy_button sends."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nif str(pi.active_shooter_id) == \"U_BOYZ_T\":\n\treturn \"ok\"\nvar press = InputEventJoypadButton.new()\npress.device = 0\npress.button_index = JOY_BUTTON_RIGHT_SHOULDER\npress.pressed = true\nInput.parse_input_event(press)\nvar rel = InputEventJoypadButton.new()\nrel.device = 0\nrel.button_index = JOY_BUTTON_RIGHT_SHOULDER\nrel.pressed = false\nInput.parse_input_event(rel)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nreturn str(pi.active_shooter_id)",
+      "multiline": true,
+      "equals": "U_BOYZ_T"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_dakka"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start = Confirm Targets on the pad (HINTS_TARGETS)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_da_dice"
+    },
+    {
+      "act": "execute_script",
+      "script": "if not InputDeviceManager.is_pad_active():\n\treturn \"pad is not the active device - the card would be showing the mouse copy\"\nvar t = tree.root.get_node_or_null(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nif t == null:\n\treturn \"no card\"\nvar s: String = str(t.text)\nfor needle in [\"▲\", \"▼\", \"right-hand side\", \"savin' throws\", \"walk da highlight up into da queue\"]:\n\tif not s.contains(needle):\n\t\treturn \"card never mentions '%s'\" % needle\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the PAD copy for step 4 must explain the roll sequence, name the ▲▼ arrows AND say the D-pad is how you reach them"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock\")\nif d == null or not d.visible:\n\treturn \"dock not up\"\nif str(d.state) != \"queued\":\n\treturn \"dock state is %s, arrows only exist while queued\" % str(d.state)\nvar n: int = d.assignments.size()\nif n < 2:\n\treturn \"only %d weapon(s) queued - nothing to re-order\" % n\nfor i in range(n):\n\tvar row = d.queue_box.get_node_or_null(\"QueueRow%d\" % i)\n\tif row == null:\n\t\treturn \"no QueueRow%d\" % i\n\tif row.get_node_or_null(\"Up%d\" % i) == null or row.get_node_or_null(\"Down%d\" % i) == null:\n\t\treturn \"row %d is missing its ▲▼ buttons\" % i\nvar ids: Array = []\nfor a in d.assignments:\n\tids.append(str(a.get(\"weapon_id\", \"?\")))\ntree.root.set_meta(\"t4_order_before\", ids)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "every queue row carries ▲▼ on its right-hand side; stash the firing order to diff after the swap"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_dock_queue_with_arrows"
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nreturn \"DockPrimaryButton\" if f != null and str(f.name) == \"DockPrimaryButton\" else (\"NULL\" if f == null else str(f.name))",
+      "multiline": true,
+      "equals": "DockPrimaryButton",
+      "comment": "pad focus starts on the dock's primary button - the D-pad walk begins here"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "D-pad UP: nothing in PadRouter claims it while a HUD control holds focus, so Godot's ui_up walks the highlight into the queue"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock\")\nvar f = tree.root.get_viewport().gui_get_focus_owner()\nif f == null:\n\treturn \"focus lost\"\nvar want = \"Up%d\" % (d.assignments.size() - 1)\nreturn \"ok\" if str(f.name) == want else \"focus is on %s, expected %s\" % [str(f.name), want]",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "one D-pad UP lands on the LAST row's ▲ - deterministic however many weapons auto-assigned"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A presses the focused ▲ - the last weapon moves one slot up the firing order"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock\")\nvar before: Array = tree.root.get_meta(\"t4_order_before\", [])\nvar after: Array = []\nfor a in d.assignments:\n\tafter.append(str(a.get(\"weapon_id\", \"?\")))\nif before.size() != after.size():\n\treturn \"queue length changed\"\nvar n = after.size()\nif after[n - 1] != before[n - 2] or after[n - 2] != before[n - 1]:\n\treturn \"order unchanged: %s -> %s\" % [str(before), str(after)]\nfor i in range(n - 2):\n\tif after[i] != before[i]:\n\t\treturn \"row %d moved too: %s -> %s\" % [i, str(before), str(after)]\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "exactly the last two weapons swapped - the D-pad + A re-order the tutorial now advertises really works"
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nif f == null:\n\treturn \"focus dropped after the swap\"\nreturn \"ok\" if str(f.get_path()).contains(\"DockQueue\") else \"focus escaped to %s\" % str(f.get_path())",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "_refocus_move_button keeps the highlight in the queue so a weapon can be nudged more than one slot per trip"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_queue_reordered_by_dpad"
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nif f != null and str(f.name) == \"DockFastButton\":\n\treturn \"ok\"\nvar press = InputEventJoypadButton.new()\npress.device = 0\npress.button_index = JOY_BUTTON_DPAD_DOWN\npress.pressed = true\nInput.parse_input_event(press)\nvar rel = InputEventJoypadButton.new()\nrel.device = 0\nrel.button_index = JOY_BUTTON_DPAD_DOWN\nrel.pressed = false\nInput.parse_input_event(rel)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "walk back DOWN out of the queue with real D-pad input until Fast Roll All holds the highlight - repeated because the number of queue rows depends on how many weapons auto-assigned"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nif f != null and str(f.name) == \"DockFastButton\":\n\treturn \"ok\"\nvar press = InputEventJoypadButton.new()\npress.device = 0\npress.button_index = JOY_BUTTON_DPAD_DOWN\npress.pressed = true\nInput.parse_input_event(press)\nvar rel = InputEventJoypadButton.new()\nrel.device = 0\nrel.button_index = JOY_BUTTON_DPAD_DOWN\nrel.pressed = false\nInput.parse_input_event(rel)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nif f != null and str(f.name) == \"DockFastButton\":\n\treturn \"ok\"\nvar press = InputEventJoypadButton.new()\npress.device = 0\npress.button_index = JOY_BUTTON_DPAD_DOWN\npress.pressed = true\nInput.parse_input_event(press)\nvar rel = InputEventJoypadButton.new()\nrel.device = 0\nrel.button_index = JOY_BUTTON_DPAD_DOWN\nrel.pressed = false\nInput.parse_input_event(rel)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nif f != null and str(f.name) == \"DockFastButton\":\n\treturn \"ok\"\nvar press = InputEventJoypadButton.new()\npress.device = 0\npress.button_index = JOY_BUTTON_DPAD_DOWN\npress.pressed = true\nInput.parse_input_event(press)\nvar rel = InputEventJoypadButton.new()\nrel.device = 0\nrel.button_index = JOY_BUTTON_DPAD_DOWN\nrel.pressed = false\nInput.parse_input_event(rel)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nreturn str(f.name) if f != null else \"NULL\"",
+      "multiline": true,
+      "equals": "DockFastButton",
+      "comment": "the D-pad really does walk from the queue back down to Fast Roll All"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A on Fast Roll All - the re-ordered queue resolves normally"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "defender save cards are seed-dependent - press only if one is up"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton\")\nif b != null and b.is_visible_in_tree() and not b.disabled:\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "Complete Shooting (or the next staged step) - tolerant of the pause policy"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton\")\nif b != null and b.is_visible_in_tree() and not b.disabled:\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.has_shot",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_boyz_shot_after_reorder"
+    }
+  ]
+}
