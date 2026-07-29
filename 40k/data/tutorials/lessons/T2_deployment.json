@@ -57,7 +57,7 @@
       "prompt": {
         "bark": "GET IN DA WAGON!",
         "kbm": "Under [b]TRANSPORT EMBARKATION[/b], tick [b]Boyz[/b] — da mob (an' da Boss wiv 'em) starts da battle inside da Battlewagon.",
-        "pad": "Glide {ls} onto da [b]Boyz[/b] tickbox under TRANSPORT EMBARKATION an' press {a}."
+        "pad": "{dpad} ▼ walks down onto da [b]Boyz[/b] tickbox under TRANSPORT EMBARKATION — or glide {ls} onto it — den press {a}."
       },
       "anchor": { "button_text": "Boyz (10 models)" },
       "spotlight": "soft",
@@ -71,7 +71,7 @@
       "prompt": {
         "bark": "LOCK DA MUSTER!",
         "kbm": "Hit [b]Confirm Formations[/b] — dat sends all yer declarations at once. Da enemy declares deirs after.",
-        "pad": "Glide onto [b]Confirm Formations[/b] an' press {a}."
+        "pad": "{dpad} ▼ walks down past da tickboxes to da button row — dat lands ya on [b]Skip[/b] first, so tap ▶ to swap onto [b]Confirm Formations[/b] — or glide {ls} onto it — den press {a}."
       },
       "anchor": { "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton" },
       "spotlight": "soft",

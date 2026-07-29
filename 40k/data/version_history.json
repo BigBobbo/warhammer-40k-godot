@@ -13,6 +13,14 @@
       ]
     },
     {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "'Dakka Time' step 3 now says up front that you have to press Confirm.",
+      "changes": [
+        "Step 3 of the shooting lesson opened with two sentences describing the weapon list and a 'if a row still says (Click to Select)' fix-up, and only mentioned hitting Confirm in the last three words — so players who had nothing to fix did not know what the step wanted. Both the mouse and controller prompts now lead with the action: lock the targets in with Confirm (mouse) or ☰ (pad), with the re-aiming instructions moved after it."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
