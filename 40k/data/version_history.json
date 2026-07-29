@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.8",
+      "version": "1.7.9",
       "date": "2026-07-29",
       "summary": "Moving a squad is readable again: model ghosts now sit on top of the green range circles, and those circles are much thinner.",
       "changes": [
@@ -10,6 +10,17 @@
         "The green range circles are drawn much thinner, so a squad's worth of overlapping circles no longer floods the drop zone.",
         "Movement ghosts now show the unit's colour, letter counter and model art like the tokens do, instead of rendering as blank grey discs. Deployment ghosts already did this.",
         "Ghosts in a group drag are no longer faded harder than a single dragged model — a whole squad in hand stays as visible as one model."
+      ]
+    },
+    {
+      "version": "1.7.8",
+      "date": "2026-07-29",
+      "summary": "Exit Tutorial now works at any point of a lesson — including while a dialog is on screen — and asks before it throws the lesson away.",
+      "changes": [
+        "Exit Tutorial did nothing whenever a game dialog was open (the roll-offs, Battle Formations, command re-rolls). Those dialogs block every click to the rest of the screen, so the card's button was dead exactly when players most needed it — e.g. stranded on 'Grots in a Mob' with the 'Who takes the first turn?' pop-up up and 'Oi! Not dat one, ya git' on every attempt to roll.",
+        "Any dialog that opens during a lesson now carries its own Exit Tutorial button, so there is always a way out no matter which phase or step you are on.",
+        "Exit Tutorial now asks 'Leave da tutorial?' first — Keep Playin' puts you straight back where you were, Leg it! returns to the main menu.",
+        "While a dialog is open the card's own Skip Step and Exit Tutorial buttons are greyed out instead of silently swallowing clicks."
       ]
     },
     {

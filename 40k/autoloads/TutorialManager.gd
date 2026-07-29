@@ -33,6 +33,12 @@ signal tutorial_exited()
 const TutorialScriptLib = preload("res://scripts/tutorial/TutorialScript.gd")
 # Bare glyph text for the plain-Label toasts (no BBCode) — see _plain_glyphs.
 const GlyphDB := preload("res://scripts/input/GlyphDB.gd")
+const WhiteDwarfThemeData = preload("res://scripts/WhiteDwarfTheme.gd")
+
+# Node name of the confirm-before-leaving dialog. TutorialOverlay skips windows
+# with this name when it looks for a "game dialog is open" — the tutorial's own
+# windows must not make the card dodge or disable its pad ack.
+const EXIT_CONFIRM_NAME := "TutorialExitConfirm"
 
 const LESSONS_DIR := "res://data/tutorials/lessons/"
 const FIXTURES_DIR := "res://data/tutorials/fixtures/"
@@ -65,6 +71,8 @@ var _poll_timer: Timer = null
 var _hint_timer: Timer = null
 var _progress: ConfigFile = ConfigFile.new()
 var _lessons_cache: Array = []
+var _exit_confirm: ConfirmationDialog = null
+var _exiting: bool = false
 
 
 func _ready() -> void:
@@ -120,10 +128,113 @@ func next_lesson() -> void:
 	start_lesson(nid, course_mode)
 
 
+# ------------------------------------------------------------ leaving -------
+#
+# Exit is the ONE affordance that has to work at every point of every lesson:
+# it is the player's way out of any state the lesson script did not anticipate.
+# Reported softlock (T2 "GROTS IN A MOB!"): the first-turn roll-off dialog
+# opened while the step still wanted the grots deployed, so the step's
+# allow-list rejected ROLL_OFF_FIRST_TURN ("Oi! Not dat one, ya git — …") AND
+# the card's Exit Tutorial button could not be pressed at all.
+#
+# Root cause, measured live against the running game rather than assumed: an
+# EXCLUSIVE embedded Window (every gameplay AcceptDialog — formations, both
+# roll-offs, command re-rolls) blocks ALL input to the parent viewport. With
+# one open, a probe node in the main viewport recorded zero _input,
+# _shortcut_input and _unhandled_input events, and a click on the card's Exit
+# Tutorial button left TutorialManager.active true. Hiding the dialog restored
+# every one of them. So the card (CanvasLayer 93) is simply unreachable while a
+# dialog is up — no layer number can change that.
+#
+# Two things also measured, which the escape hatch is built on:
+#   * a SIBLING always-on-top Window (child of /root, non-exclusive) still
+#     receives clicks while the exclusive dialog is open, and
+#   * AcceptDialog.add_button() puts a control INSIDE the blocking dialog,
+#     where the pad's focus already is.
+# TutorialOverlay uses both; they call request_exit_tutorial() below.
+
+
+# Player-facing exit: confirm first, because a mis-click here throws away the
+# lesson. Safe to call from anywhere, at any step, including while a modal
+# gameplay dialog owns the screen.
+func request_exit_tutorial() -> void:
+	print("TutorialManager: exit requested at step %d (%s)" % [
+		current_step_index, str(current_lesson.get("id", ""))])
+	if _exiting:
+		return
+	if not active:
+		# The card outlives `active` in a couple of transitions (teardown between
+		# course lessons, a failed boot). Never leave the button dead — just go.
+		exit_tutorial()
+		return
+	_show_exit_confirm()
+
+
+func _show_exit_confirm() -> void:
+	if _exit_confirm == null or not is_instance_valid(_exit_confirm):
+		_exit_confirm = ConfirmationDialog.new()
+		_exit_confirm.name = EXIT_CONFIRM_NAME
+		_exit_confirm.title = "Leave da tutorial?"
+		_exit_confirm.dialog_text = "Pack it in an' go back to da main menu?\n\nDis lesson won't be saved — ya can start it again any time from Tutorial on da main menu."
+		# NOT "Exit Tutorial": the button that opened this is still on screen
+		# behind it, and two live buttons with the same label are ambiguous to
+		# read and to address (windowed scenarios resolve buttons by text).
+		_exit_confirm.ok_button_text = "Leg it!"
+		_exit_confirm.cancel_button_text = "Keep Playin'"
+		# Sibling of the blocking gameplay dialog, NOT a child of it: an
+		# exclusive dialog blocks its parent viewport, so the confirm has to
+		# live at the root and float over everything. Non-exclusive so two
+		# exclusive windows can never deadlock each other.
+		_exit_confirm.exclusive = false
+		_exit_confirm.always_on_top = true
+		_exit_confirm.confirmed.connect(exit_tutorial)
+		WhiteDwarfThemeData.apply_to_dialog(_exit_confirm)
+		# The shared dialog chrome is 97% opaque, which is fine over the board but
+		# leaves the gameplay dialog UNDERNEATH this one legible through it — the
+		# confirm is the only dialog in the game that routinely stacks on another.
+		# Opaque background, same palette entry, no new colour.
+		var solid := StyleBoxFlat.new()
+		solid.bg_color = WhiteDwarfThemeData.WH_BLACK
+		solid.border_color = WhiteDwarfThemeData.WH_GOLD
+		solid.set_border_width_all(2)
+		solid.set_corner_radius_all(4)
+		solid.set_content_margin_all(10)
+		_exit_confirm.add_theme_stylebox_override("embedded_border", solid)
+		get_tree().root.add_child(_exit_confirm)
+	_exit_confirm.popup_centered(Vector2i(520, 200))
+	# The confirm is the topmost window now, so it may keep focus: whichever
+	# device the player is on, Enter / {a} answers it.
+	_exit_confirm.grab_focus()
+	var ok := _exit_confirm.get_ok_button()
+	if ok != null:
+		ok.grab_focus()
+
+
 func exit_tutorial() -> void:
-	print("TutorialManager: exit tutorial")
+	if _exiting:
+		return
+	_exiting = true
+	print("TutorialManager: exit tutorial (step %d)" % current_step_index)
+	if _exit_confirm != null and is_instance_valid(_exit_confirm):
+		_exit_confirm.hide()
+		_exit_confirm.queue_free()
+	_exit_confirm = null
+	_close_open_game_dialogs()
 	_teardown(true)
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+	_exiting = false
+
+
+# Hide any gameplay Window still up on the way out. change_scene_to_file frees
+# the Main scene's dialogs with it, but the swap is deferred by a frame or two —
+# and until it happens an exclusive dialog is still eating every input event.
+func _close_open_game_dialogs() -> void:
+	for scope in [get_tree().root, get_tree().root.get_node_or_null("Main")]:
+		if scope == null:
+			continue
+		for child in scope.get_children():
+			if child is Window and child != get_tree().root and (child as Window).visible:
+				(child as Window).hide()
 
 
 func _teardown(emit_exit: bool) -> void:
