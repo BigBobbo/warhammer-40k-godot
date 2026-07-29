@@ -1,0 +1,307 @@
+{
+  "id": "tut_t4_dakka_reassign_pad",
+  "covers": [
+    "tutorial.t4.shooting.pad",
+    "shootingcontroller.split_fire.already_assigned",
+    "shootingcontroller.split_fire.range_los_warning"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Bug repro (player report): in tutorial T4 step 3 'Lock da Targets' every gun is ALREADY aimed at the Witchseekers -- the controller auto-assigns when only one enemy is eligible -- yet pressing A on that same target reported 'Slugga can't fire on Witchseekers (range / line of sight)'. _compute_split_fire_options had put all 10 bearers in already_allocated and none in movable (they are committed to THIS target), so eligible_remaining came back empty and the code fell into the range/LoS branch. This scenario presses A on the already-aimed target and asserts the toast now says 'already aimed', then drives a GENUINE out-of-range case (Battlewagon Killkannon, 24\", at the Custodian Guard) and asserts that one still gets the range/LoS warning, so the fix cannot swallow real rejections.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/MainMenu/TutorialNudge/Margin/VBox/Footer/DismissNudgeButton",
+      "comment": "fresh container / fresh user:// = the first-launch 'First time 'ere?' nudge is up and swallows the pad menu navigation below. Dismiss it if present."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode so the tutorial renders pad copy and the virtual cursor arms"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Tutorial",
+      "comment": "glide the virtual cursor onto the main-menu Tutorial button (D-pad focus stepping depends on which control the menu happened to focus first, which is not what this scenario is testing)"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t4_dakka/Play_t4_dakka"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Continue"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_da_boyz"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10,
+      "comment": "RB cycles the acting unit to the Boyz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_dakka"
+    },
+    {
+      "act": "execute_script",
+      "script": "var sc = tree.current_scene.shooting_controller\nreturn str(sc.weapon_assignments.get(\"slugga_ranged\", \"\"))",
+      "multiline": true,
+      "equals": "U_WITCHSEEKERS_T",
+      "comment": "precondition: only one enemy is eligible, so the Sluggas auto-assigned themselves - this is the state the player sees when the step tells them to lock targets"
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(PadRouter.target_highlight_id)",
+      "multiline": true,
+      "equals": "U_WITCHSEEKERS_T"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "D-pad parks the virtual cursor (VirtualCursor._input calls park() on any D-pad press). The picker/Continue glides above left the cursor live, and PadRouter._assign_highlighted_target bails while the cursor owns A -- so without this the A below becomes a synthetic left-click instead of Assign Target. Only one target is eligible, so the ring does not move."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return VirtualCursor.is_cursor_active()",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "for t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tt.queue_free()\nToastManager.active_toasts.clear()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "clear any leftover toasts so the next assertion reads only the A-press result"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "THE REPRO: A = Assign Target on a target every Slugga is already aimed at"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "var out: Array = []\nfor t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tfor c in t.get_children():\n\t\t\tif c is Label:\n\t\t\t\tout.append(str(c.text))\nreturn \"|\".join(out)",
+      "multiline": true,
+      "equals": "Slugga is already aimed at Witchseekers (10 of 10)",
+      "comment": "REGRESSION GUARD: this used to read \"Slugga can't fire on Witchseekers (range / line of sight)\" while the weapon row visibly read \"10 -> Witchseekers\". Asserted BEFORE the screenshot act, which costs ~1.5s and would push us past the toast's 3s lifetime."
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor a in PhaseManager.current_phase_instance.pending_assignments:\n\tif str(a.get(\"weapon_id\", \"\")) == \"slugga_ranged\":\n\t\tn += (a.get(\"model_ids\", []) as Array).size()\nreturn n",
+      "multiline": true,
+      "equals": 10,
+      "comment": "the no-op A must not duplicate or drop bearers"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_already_aimed_toast"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10,
+      "comment": "negative control - RB on to the Gretchin..."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10,
+      "comment": "...and on to the Battlewagon, which has two eligible targets so nothing auto-assigns"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.active_shooter_id)",
+      "multiline": true,
+      "equals": "U_BATTLEWAGON_T"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "D-pad right walks the target ring to the Custodian Guard"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(PadRouter.target_highlight_id)",
+      "multiline": true,
+      "equals": "U_CUSTODIAN_GUARD_T"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "killkannon_ranged",
+      "comment": "D-pad down walks the weapon rows: big shoota -> kannon frag -> kannon shell -> killkannon (24\", genuinely short of the Custodian Guard)"
+    },
+    {
+      "act": "execute_script",
+      "script": "for t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tt.queue_free()\nToastManager.active_toasts.clear()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "var out: Array = []\nfor t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tfor c in t.get_children():\n\t\t\tif c is Label:\n\t\t\t\tout.append(str(c.text))\nreturn \"|\".join(out)",
+      "multiline": true,
+      "equals": "Killkannon can't fire on Custodian Guard (range / line of sight)",
+      "comment": "a GENUINE rejection must still say range/LoS - the fix must not swallow real ones"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_real_range_warning"
+    },
+    {
+      "act": "execute_script",
+      "script": "for t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tt.queue_free()\nToastManager.active_toasts.clear()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "positive control - one more row down is the Lobba (48\"), which CAN reach the Custodian Guard"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "lobba_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var hit := false\nfor a in PhaseManager.current_phase_instance.pending_assignments:\n\tif str(a.get(\"weapon_id\", \"\")) == \"lobba_ranged\" and str(a.get(\"target_unit_id\", \"\")) == \"U_CUSTODIAN_GUARD_T\":\n\t\thit = true\nreturn hit",
+      "multiline": true,
+      "equals": true,
+      "comment": "a legal A-press still assigns - the empty-eligible_remaining rework did not break the normal path"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_legal_assign_still_works"
+    }
+  ]
+}

@@ -13,6 +13,15 @@
       "seconds": 1.5
     },
     {
+      "act": "click_if_visible",
+      "node": "/root/MainMenu/TutorialNudge/Margin/VBox/Footer/DismissNudgeButton",
+      "comment": "fresh container / fresh user:// = the first-launch 'First time 'ere?' nudge is up and swallows the pad menu navigation below. Dismiss it if present."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
       "act": "simulate_joy_button",
       "button_index": 9,
       "comment": "LB claims pad mode so the tutorial renders pad copy and the virtual cursor arms"

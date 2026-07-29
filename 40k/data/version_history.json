@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "Aiming a gun that is already aimed at that target no longer claims it is out of range.",
+      "changes": [
+        "Assigning a weapon to a target every one of its bearers already points at reported \"Slugga can't fire on Witchseekers (range / line of sight)\" — even though the weapon row read \"10 → Witchseekers\" and the forecast panel showed real damage. It now says \"Slugga is already aimed at Witchseekers (10 of 10)\", and mentions separately if some bearers genuinely can't reach.",
+        "This hit hardest on a controller in tutorial 4 ('Dakka Time'), where the step tells you to aim your guns: with only one enemy in sight every gun aims itself, so the first A-press always landed on an already-aimed weapon.",
+        "Genuine out-of-range / no-line-of-sight rejections still say range / line of sight, unchanged.",
+        "'Dakka Time' step 3 now says up front that yer guns already point at da Witchseekers and there's nothing to assign — just Confirm."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",

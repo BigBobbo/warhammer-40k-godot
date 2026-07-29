@@ -5474,6 +5474,43 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 			return
 		var weapon_name_for_log = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		var target_name_for_log = eligible_targets.get(target_id, {}).get("unit_name", target_id)
+		# "No bearers remaining" has TWO very different causes and they must not
+		# share a message. Bearers already pointed at THIS target are the single
+		# most common case — the controller auto-assigns every weapon when only
+		# one enemy is eligible (see _refresh_weapon_tree), so the tutorial's
+		# "press A to aim" lands on a weapon that is already aimed. Reporting
+		# that as "can't fire (range / line of sight)" is factually wrong and was
+		# reported as a bug: the weapon row visibly reads "→ Witchseekers", the
+		# forecast panel shows real damage, yet the toast claims it's out of
+		# range. Say what actually happened instead.
+		var already_here: Array = []
+		for mid in split.already_allocated:
+			if str(split.committed_target_by_model.get(mid, "")) == target_id:
+				already_here.append(mid)
+		# Live bearers that are NOT committed anywhere and genuinely can't shoot
+		# this target (out of range / no LoS). "dead" reasons aren't a player
+		# problem, so they don't count towards the blocked tally.
+		var blocked_count := 0
+		for mid in split.reasons.keys():
+			if mid in split.already_allocated:
+				continue
+			if str(split.reasons[mid]) == "dead":
+				continue
+			blocked_count += 1
+		if not already_here.is_empty():
+			var total_live: int = (split.bearers as Array).size()
+			var msg := "%s is already aimed at %s (%d of %d)" % [
+				weapon_name_for_log, target_name_for_log, already_here.size(), max(total_live, already_here.size())
+			]
+			if blocked_count > 0:
+				msg += " — the other %d can't reach it (range / line of sight)" % blocked_count
+			if dice_log_display:
+				dice_log_display.append_text("[color=#88CCAA]• %s[/color]\n" % msg)
+			# Info-coloured, not a warning: nothing went wrong, the assignment the
+			# player is asking for is already in place.
+			ToastManager.show_toast(msg, Color(0.6, 0.85, 1.0))
+			print("ShootingController: [SPLIT-FIRE] %s already fully assigned to %s (already_here=%d, blocked=%d)" % [weapon_id, target_id, already_here.size(), blocked_count])
+			return
 		if dice_log_display:
 			dice_log_display.append_text("[color=red]✗ No %s bearers can fire on %s (range/LoS).[/color]\n" % [weapon_name_for_log, target_name_for_log])
 		# Pad players are looking at the board, not the dice log — surface the
@@ -5505,6 +5542,7 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictionary:
 	var result := {
 		"total_bearers": 0,
+		"bearers": [],           # every LIVING model carrying this weapon
 		"already_allocated": [],
 		"eligible_remaining": [],
 		"movable": [],
@@ -5528,6 +5566,7 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 			continue
 		bearers.append(model_id)
 	result.total_bearers = bearers.size()
+	result.bearers = bearers
 
 	# Bearers already committed to other (or same) targets in pending_assignments
 	var already: Array = []
