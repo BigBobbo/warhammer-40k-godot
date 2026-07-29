@@ -24,6 +24,10 @@
     { "act": "execute_script", "script": "MissionManager.on_turn_start_11e(2)" },
 
     { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_node_visible", "node": "/root/CardActionDialog", "timeout_s": 3.0 },
     { "act": "click_node", "node": "/root/CardActionDialog/Content/Pick_obj_nml_2", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 1.0 },

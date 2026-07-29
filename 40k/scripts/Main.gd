@@ -5593,9 +5593,17 @@ func _pad_native_nav_modal_open() -> bool:
 	return false
 
 
-# M1 controller support: Menu/Start presses the phase action button behind a
-# confirmation, reusing whatever the button currently does/says.
-var _pad_phase_confirm: ConfirmationDialog = null
+# The "End X Phase?" prompt, shared by BOTH input devices: the pad's Menu/Start
+# press routes through it (M1 controller support), and so does a mouse click or
+# Enter on the phase-action button — see the confirm gate in
+# _on_phase_action_pressed. Either way it reuses whatever the button currently
+# does/says, so it never has to know which phase it is ending.
+var _phase_end_confirm: ConfirmationDialog = null
+
+# Set by _on_phase_end_confirmed for exactly one re-entry into
+# _on_phase_action_pressed, so the press it replays sails past the confirm gate
+# instead of re-opening the dialog it just answered.
+var _phase_end_confirm_answered: bool = false
 
 # Start-button presses are consumed here, which stops the event before
 # PadRouter._input ever sees it — so the hint bar (and, through it, this button's
@@ -5605,18 +5613,205 @@ func _refresh_pad_start_meaning() -> void:
 	if PadRouter and PadRouter.has_method("refresh_hints"):
 		PadRouter.call_deferred("refresh_hints")
 
-func _show_pad_phase_confirm() -> void:
-	if _pad_phase_confirm == null or not is_instance_valid(_pad_phase_confirm):
-		_pad_phase_confirm = ConfirmationDialog.new()
-		_pad_phase_confirm.title = "Confirm"
-		_pad_phase_confirm.confirmed.connect(_on_pad_phase_confirmed)
-		add_child(_pad_phase_confirm)
-	_pad_phase_confirm.dialog_text = _phase_action_bare_label().strip_edges() + "?"
-	DialogUtils.popup_at_bottom(_pad_phase_confirm)
+## The headline ("End Shooting Phase?") and the plain-English consequence line
+## under it. Built once with the dialog; their TEXT is refreshed on every popup
+## because the action the button performs changes with the phase.
+var _phase_end_confirm_headline: Label = null
+var _phase_end_confirm_hint: Label = null
 
-func _on_pad_phase_confirmed() -> void:
+func _show_phase_end_confirm() -> void:
+	if _phase_end_confirm == null or not is_instance_valid(_phase_end_confirm):
+		_phase_end_confirm = ConfirmationDialog.new()
+		_phase_end_confirm.name = "PhaseEndConfirmDialog"
+		_phase_end_confirm.title = "Confirm"
+		_phase_end_confirm.confirmed.connect(_on_phase_end_confirmed)
+		add_child(_phase_end_confirm)
+		_build_phase_end_confirm_content()
+	var bare: String = _phase_action_bare_label().strip_edges()
+	# dialog_text stays the single-line question even though the built-in Label
+	# is hidden: it is the queryable "what is this dialog asking" string (scenario
+	# assertions, accessibility) and the headline below mirrors it verbatim.
+	_phase_end_confirm.dialog_text = bare + "?"
+	if _phase_end_confirm_headline:
+		_phase_end_confirm_headline.text = bare + "?"
+	if _phase_end_confirm_hint:
+		_phase_end_confirm_hint.text = _phase_end_hint_text()
+		_phase_end_confirm_hint.visible = _phase_end_confirm_hint.text != ""
+	# The action button repeats the headline so the player commits to a labelled
+	# action, not a bare "OK" — same reason the summary dialogs say
+	# "End Shooting Phase" instead of "Confirm".
+	_phase_end_confirm.ok_button_text = bare
+	_phase_end_confirm.cancel_button_text = "Go Back"
+	# Centered, not docked at the bottom: ending a phase is a point of no return
+	# and the bottom-edge version was being missed entirely (see
+	# DialogUtils.popup_phase_end_prompt).
+	DialogUtils.popup_phase_end_prompt(_phase_end_confirm, DialogConstants.SMALL)
+
+## Build the confirm's visible content once. The dialog stays a
+## ConfirmationDialog so the pad keeps its A = OK / B = Cancel focus handling
+## (InputDeviceManager's watcher focuses get_ok_button()).
+##
+## AcceptDialog lays EVERY content child into the same rect, so the built-in
+## dialog_text Label is hidden rather than removed — otherwise it would render
+## on top of this VBox. dialog_text itself is still set (see above).
+func _build_phase_end_confirm_content() -> void:
+	_WhiteDwarfTheme.apply_to_dialog(_phase_end_confirm)
+	# apply_to_dialog only restyles the window chrome (border + title); the
+	# content background still comes from AcceptDialog's own "panel" stylebox,
+	# which in the stock theme is the flat grey slab a player reported as "a
+	# grey box". Override it here so the prompt reads as deliberate White Dwarf
+	# chrome — opaque warm black with a gold edge — instead of engine default.
+	var panel_style := _WhiteDwarfTheme.create_panel_style()
+	panel_style.set_content_margin_all(18)
+	_phase_end_confirm.add_theme_stylebox_override("panel", panel_style)
+	# Hidden, but AcceptDialog still folds it into the window's minimum size —
+	# left on autowrap it reports a one-character-per-line height and stretches
+	# the window down the whole screen (see DialogUtils.popup_centered_capped).
+	var builtin_label := _phase_end_confirm.get_label()
+	if builtin_label:
+		builtin_label.visible = false
+		builtin_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		builtin_label.custom_minimum_size = Vector2.ZERO
+
+	var content := VBoxContainer.new()
+	content.name = "Content"
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_theme_constant_override("separation", 10)
+
+	_phase_end_confirm_headline = Label.new()
+	_phase_end_confirm_headline.name = "Headline"
+	_phase_end_confirm_headline.add_theme_font_size_override("font_size", 24)
+	_phase_end_confirm_headline.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	_phase_end_confirm_headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# One short line ("End Shooting Phase?") — no wrapping, so it can't inflate
+	# the window's minimum height the way an autowrap Label does.
+	_phase_end_confirm_headline.autowrap_mode = TextServer.AUTOWRAP_OFF
+	content.add_child(_phase_end_confirm_headline)
+
+	_WhiteDwarfTheme.add_gold_separator(content)
+
+	_phase_end_confirm_hint = Label.new()
+	_phase_end_confirm_hint.name = "Hint"
+	_phase_end_confirm_hint.add_theme_font_size_override("font_size", 14)
+	_phase_end_confirm_hint.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	_phase_end_confirm_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_phase_end_confirm_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Without a width to wrap against, an autowrap Label reports a towering
+	# minimum height and balloons the window (see DialogUtils.popup_centered_capped).
+	_phase_end_confirm_hint.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 60, 0)
+	content.add_child(_phase_end_confirm_hint)
+
+	_phase_end_confirm.add_child(content)
+
+## Plain-English "what am I giving up, and what comes next" line for the
+## End-Phase confirm — the bit a player who doesn't know 40k needs. Returns ""
+## for actions that are not a plain "end this phase" (roll-offs, "Continue",
+## the Fight phase's Pile In / Consolidate steps), where a next-phase promise
+## would be wrong.
+func _phase_end_hint_text() -> String:
+	match current_phase:
+		GameStateData.Phase.COMMAND:
+			return "You won't be able to spend Command points on this phase's abilities again. Next: the Movement phase."
+		GameStateData.Phase.MOVEMENT:
+			return "Any unit you haven't moved stays where it is for this turn. Next: the Shooting phase."
+		GameStateData.Phase.SHOOTING:
+			return "Any unit you haven't shot with won't get to shoot this turn. Next: the Charge phase."
+		GameStateData.Phase.CHARGE:
+			return "Any unit you haven't charged with won't get to charge this turn. Next: the Fight phase."
+		GameStateData.Phase.FIGHT:
+			# Only the Fight step ends the phase — during the global Pile In /
+			# Consolidate steps this button just finishes that step.
+			var fp = PhaseManager.get_current_phase_instance()
+			if fp and fp.has_method("get_fight_step_11e") and fp.get_fight_step_11e() != "FIGHT":
+				return ""
+			return "Any unit you haven't fought with won't get to fight this turn. Next: scoring your objectives."
+		GameStateData.Phase.SCORING:
+			return "This ends your whole turn and hands over to your opponent."
+		GameStateData.Phase.DEPLOYMENT:
+			return "Once deployment is over you can't reposition your army."
+		_:
+			return ""
+
+## Should pressing the phase-action button ask "End X Phase?" first?
+##
+## Only where the press would otherwise end the phase IMMEDIATELY, with nothing
+## else to catch a misclick. The phases that open an end-of-phase dialog of
+## their own — the Deployment and Shooting summaries, the "units haven't fought"
+## and "untested Battle-shock" warnings, the end-of-turn mission discard — each
+## already offer a Go Back button, so stacking this prompt in front of them
+## would just be two clicks to do one thing. Roll-offs and the Formations
+## declaration aren't phase-end commitments at all.
+##
+## Mirrors the early-returning branches of _on_phase_action_pressed; the two
+## must be kept in step.
+func _phase_action_needs_confirm() -> bool:
+	match current_phase:
+		GameStateData.Phase.FORMATIONS, GameStateData.Phase.ROLL_OFF, \
+		GameStateData.Phase.FIRST_TURN_ROLLOFF:
+			return false
+		GameStateData.Phase.DEPLOYMENT:
+			# _on_end_deployment_pressed always raises the deployment summary.
+			return false
+		GameStateData.Phase.SHOOTING:
+			# The shooting summary stands in as the confirmation. It is skipped
+			# for an AI player, but an AI never reaches the gate at all (it does
+			# not press this button, and the gate guards on _is_active_player_ai).
+			return false
+		GameStateData.Phase.COMMAND:
+			var cp = PhaseManager.get_current_phase_instance()
+			if cp and cp.has_method("get_untested_battle_shock_units"):
+				return cp.get_untested_battle_shock_units().is_empty()
+			return true
+		GameStateData.Phase.FIGHT:
+			# Only the Fight step (12.04) ends the phase. During the global Pile
+			# In (12.02) and Consolidate (12.07) steps the button reads "Finish
+			# Pile Ins" / "Finish Consolidations" and merely closes that step —
+			# nothing is forfeited, so there is nothing to confirm. (Same reason
+			# _phase_end_hint_text has no consequence line for those steps.)
+			var fp = PhaseManager.get_current_phase_instance()
+			if fp and fp.has_method("get_fight_step_11e") and fp.get_fight_step_11e() != "FIGHT":
+				return false
+			# In the Fight step proper, the "units haven't fought" warning is
+			# the confirmation whenever it fires.
+			if fp and fp.has_method("get_unfought_eligible_units"):
+				return fp.get_unfought_eligible_units(GameState.get_active_player()).is_empty()
+			return true
+		GameStateData.Phase.SCORING:
+			if GameState.is_game_complete():
+				return false
+			var sm = get_node_or_null("/root/SecondaryMissionManager")
+			var ap := GameState.get_active_player()
+			if sm and sm.is_initialized(ap):
+				return sm.get_active_missions(ap).is_empty()
+			return true
+		_:
+			return true
+
+func _is_active_player_ai() -> bool:
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	return ai_player_node != null and ai_player_node.is_ai_player(GameState.get_active_player())
+
+## True while a tutorial lesson is walking the player through a turn.
+##
+## The confirm exists to catch an UNINTENDED phase end. Inside a lesson the
+## player has just been told, in as many words, to press this button — the press
+## is the instruction, not a slip — and the lesson's own text ("Hit da big red
+## button…") does not account for an extra prompt in front of it. The tutorials
+## that DO have a dialog in the way say so in their script; this one would be
+## an unannounced step that stalls the lesson.
+func _tutorial_is_running() -> bool:
+	var tm = get_node_or_null("/root/TutorialManager")
+	return tm != null and bool(tm.active)
+
+func _on_phase_end_confirmed() -> void:
 	if phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
+		# Let the replayed press through the confirm gate — it IS the answer.
+		_phase_end_confirm_answered = true
 		phase_action_button.emit_signal("pressed")
+		# Belt and braces: if the press bailed out early (multiplayer turn check,
+		# a phase that changed underneath the open dialog) the flag never got
+		# consumed, and a stale true would let the NEXT press skip its confirm.
+		_phase_end_confirm_answered = false
 
 func _input(event: InputEvent) -> void:
 	# Pad Menu/Start button (M1): the phase action ("End X Phase") behind a
@@ -5694,7 +5889,7 @@ func _input(event: InputEvent) -> void:
 			# Falls through to the End-Phase confirm when no move is pending.
 			pass
 		elif phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
-			_show_pad_phase_confirm()
+			_show_phase_end_confirm()
 		_refresh_pad_start_meaning()
 		get_viewport().set_input_as_handled()
 		return
@@ -9012,7 +9207,7 @@ func _on_end_deployment_pressed() -> void:
 			# attached or in Strategic Reserves) — unlike the other phases, whose
 			# END_* is always legal and whose dialogs are pure courtesy prompts.
 			# Gate it HERE, at the single entry point every input funnels through
-			# (mouse click, pad ☰ via _show_pad_phase_confirm, keyboard), instead
+			# (mouse click, pad ☰ via _show_phase_end_confirm, keyboard), instead
 			# of relying on phase_action_button.disabled alone: the reported bug
 			# was a player reaching the summary dialog with the Gretchin still
 			# undeployed, confirming it, and the failed END_DEPLOYMENT then being
@@ -10613,6 +10808,29 @@ func _on_phase_action_pressed() -> void:
 			print("Main: Phase action button blocked — not local player's turn")
 			return
 
+	# Confirm gate. A mouse click or Enter on this button used to end the phase
+	# outright — no way back from a misclick, and nothing telling a new player
+	# what they were giving up. Both devices now go through the same centred
+	# "End X Phase?" prompt: the pad reaches it from Menu/Start (which sets
+	# _phase_end_confirm_answered and replays the press), keyboard and mouse
+	# reach it right here.
+	#
+	# Placed AFTER the multiplayer turn check so the non-active player is told
+	# whose turn it is instead of being asked to confirm something the host
+	# would reject anyway, and BEFORE the match below because several of its
+	# arms commit real state first (the Movement arm auto-confirms staged moves,
+	# the Scout arm runs its cleanup) — asking afterwards would mean "Go Back"
+	# could not actually take the player back.
+	if _phase_end_confirm_answered:
+		_phase_end_confirm_answered = false
+	elif _phase_action_needs_confirm() and not _is_active_player_ai() \
+			and not _tutorial_is_running():
+		if _phase_end_confirm != null and is_instance_valid(_phase_end_confirm) \
+				and _phase_end_confirm.visible:
+			return  # already asking — a second press must not stack a second prompt
+		_show_phase_end_confirm()
+		return
+
 	# For multiplayer sync, we need to route phase end actions through the network system
 	var action = {}
 	var active_player = GameState.get_active_player()
@@ -11313,7 +11531,8 @@ func _show_end_fight_confirmation_dialog(unfought_units: Array, active_player: i
 	dialog.end_fight_confirmed.connect(_on_end_fight_confirmed.bind(active_player))
 	dialog.end_fight_cancelled.connect(_on_end_fight_cancelled)
 	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
+	# Centered: a phase-end commitment the player must not walk past.
+	DialogUtils.popup_phase_end_prompt(dialog)
 	print("Main: T5-UX7: End fight confirmation dialog shown")
 
 func _on_end_fight_confirmed(active_player: int) -> void:
@@ -11351,11 +11570,15 @@ func _show_battle_shock_confirmation_dialog(untested_units: Array, active_player
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	# Named like its siblings (EndFightConfirmationDialog, ShootingPhaseSummaryDialog)
+	# so scenarios can address it by path instead of an auto-generated @AcceptDialog@N.
+	dialog.name = "BattleShockConfirmationDialog"
 	dialog.setup(untested_units)
 	dialog.end_command_confirmed.connect(_on_end_command_confirmed.bind(active_player))
 	dialog.end_command_cancelled.connect(_on_end_command_cancelled)
 	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
+	# Centered: a phase-end commitment the player must not walk past.
+	DialogUtils.popup_phase_end_prompt(dialog)
 	print("Main: P3-94: Battle-shock confirmation dialog shown")
 
 func _on_end_command_confirmed(active_player: int) -> void:
@@ -11395,7 +11618,8 @@ func _show_mission_discard_dialog(active_missions: Array, active_player: int) ->
 	dialog.mission_discard_requested.connect(_on_mission_discard_from_dialog.bind(active_player))
 	dialog.end_turn_without_discard.connect(_on_end_scoring_without_discard.bind(active_player))
 	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
+	# Centered: this is the last stop before the turn passes to the opponent.
+	DialogUtils.popup_phase_end_prompt(dialog, DialogConstants.MEDIUM)
 	print("Main: Mission discard dialog shown for player %d" % active_player)
 
 func _on_mission_discard_from_dialog(mission_index: int, active_player: int) -> void:
@@ -11451,11 +11675,15 @@ func _show_deployment_summary_dialog(deployment_data: Dictionary, active_player:
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	# Named like its siblings (EndFightConfirmationDialog, ShootingPhaseSummaryDialog)
+	# so scenarios can address it by path instead of an auto-generated @AcceptDialog@N.
+	dialog.name = "DeploymentSummaryDialog"
 	dialog.setup(deployment_data)
 	dialog.deployment_confirmed.connect(_on_deployment_confirmed.bind(active_player))
 	dialog.deployment_cancelled.connect(_on_deployment_cancelled)
 	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
+	# Centered: a phase-end commitment the player must not walk past.
+	DialogUtils.popup_phase_end_prompt(dialog, DialogConstants.MEDIUM)
 	print("Main: T5-UX8: Deployment summary dialog shown")
 
 func _on_deployment_confirmed(active_player: int) -> void:
@@ -11517,7 +11745,8 @@ func _show_shooting_phase_summary_dialog(end_action: Dictionary, active_player: 
 	dialog.shooting_confirmed.connect(_on_shooting_summary_confirmed.bind(end_action))
 	dialog.shooting_cancelled.connect(_on_shooting_summary_cancelled)
 	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
+	# Centered: a phase-end commitment the player must not walk past.
+	DialogUtils.popup_phase_end_prompt(dialog, DialogConstants.MEDIUM)
 	print("Main: T5-UX9: Shooting phase summary dialog shown for player %d" % active_player)
 
 func _on_shooting_summary_confirmed(end_action: Dictionary) -> void:
