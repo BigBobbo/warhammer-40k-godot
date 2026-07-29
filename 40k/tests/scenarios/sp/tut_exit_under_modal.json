@@ -1,0 +1,54 @@
+{
+  "id": "tut_exit_under_modal",
+  "covers": [
+    "tutorial.exit.under_modal",
+    "tutorial.exit.confirm"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Exit Tutorial has to work at ANY point of a lesson, including while a gameplay dialog owns the screen. Reproduces the reported T2 softlock — parked on 'GROTS IN A MOB!' (deploy_grots) with the FIRST_TURN_ROLLOFF dialog open, so the step's allow-list rejects the roll — and proves the escape hatch: the card's own Exit Tutorial greys out (it is unreachable under an exclusive embedded Window, which blocks every input to the parent viewport), an Exit Tutorial button is offered inside the dialog itself, it opens a confirm, and confirming lands the player back on the main menu with no tutorial state left behind.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton" },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
+    { "act": "click_node", "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin" },
+    { "act": "wait_seconds", "seconds": 10.0 },
+    { "act": "execute_script", "script": "return str(TutorialManager.current_lesson.get(\"id\", \"\"))", "multiline": true, "equals": "t2_musterin" },
+
+    { "act": "execute_script", "script": "for i in range(20):\n\tif TutorialManager.current_step_id() == \"deploy_grots\":\n\t\tbreak\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id()", "multiline": true, "equals": "deploy_grots", "comment": "park on the step the player was stranded on - its allow-list is DEPLOY_UNIT / EMBARK_UNITS_DEPLOYMENT only. Skips BY ID, not by count, so inserting a step into T2 does not silently retarget this scenario." },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(GameState.Phase.FIRST_TURN_ROLLOFF)\nreturn true", "multiline": true, "equals": true, "comment": "the softlock state: the first-turn roll-off dialog opens while the step still wants the grots deployed" },
+    { "act": "wait_seconds", "seconds": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/RollOffDialog", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "01_softlocked" },
+
+    { "act": "execute_script", "script": "return TutorialManager.is_action_allowed({\"type\": \"ROLL_OFF_FIRST_TURN\", \"player\": 1})", "multiline": true, "equals": false, "comment": "this is what produced 'Oi! Not dat one, ya git' - the player cannot roll and cannot go back" },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node_or_null(\"Main/RollOffDialog\")\nreturn rd.exclusive", "multiline": true, "equals": true, "comment": "exclusive embedded Windows block ALL input to the parent viewport - that is why the card's button was dead" },
+
+    { "act": "expect_node_property", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ExitTutorialButton", "property": "disabled", "equals": true, "comment": "the card's Exit Tutorial is unreachable under the modal, so it must not look pressable" },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node_or_null(\"Main/RollOffDialog\")\nif not rd.has_meta(\"tutorial_exit_button\"):\n\treturn \"missing\"\nvar b = rd.get_meta(\"tutorial_exit_button\")\nreturn \"%s|%s\" % [str(b.text), str(b.is_visible_in_tree())]", "multiline": true, "equals": "Exit Tutorial|true", "comment": "the escape hatch: Exit Tutorial offered INSIDE the blocking dialog" },
+
+    { "act": "click_node", "button_text": "Exit Tutorial", "comment": "resolves to the injected button - the card's is disabled" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_node_visible", "node": "/root/TutorialExitConfirm", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "02_confirm" },
+    { "act": "execute_script", "script": "return TutorialManager.active", "multiline": true, "equals": true, "comment": "asking first - nothing has been thrown away yet" },
+
+    { "act": "click_node", "button_text": "Keep Playin'" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "return TutorialManager.active and TutorialManager.current_step_id() == \"deploy_grots\"", "multiline": true, "equals": true, "comment": "cancelling leaves the lesson exactly where it was" },
+
+    { "act": "click_node", "button_text": "Exit Tutorial" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_node_visible", "node": "/root/TutorialExitConfirm", "timeout_s": 3.0 },
+    { "act": "click_node", "button_text": "Leg it!" },
+    { "act": "wait_seconds", "seconds": 4.0 },
+
+    { "act": "expect_node_visible", "node": "/root/MainMenu/ScrollContainer", "timeout_s": 6.0 },
+    { "act": "execute_script", "script": "return TutorialManager.active", "multiline": true, "equals": false },
+    { "act": "execute_script", "script": "return GameState.state.get(\"meta\", {}).has(\"tutorial\")", "multiline": true, "equals": false },
+    { "act": "execute_script", "script": "var stray = []\nfor c in tree.root.get_children():\n\tif c is Window and c != tree.root and c.visible:\n\t\tstray.append(str(c.name))\nreturn stray.size()", "multiline": true, "equals": 0, "comment": "no dialog left floating over the menu" },
+    { "act": "execute_script", "script": "return tree.root.get_node_or_null(\"TutorialOverlay\").visible", "multiline": true, "equals": false },
+    { "act": "screenshot", "label": "03_back_on_menu" }
+  ]
+}
