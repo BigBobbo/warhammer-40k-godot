@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "Controller: X really works in the charge phase now — Snap to Contact and Skip Charge were both dead buttons the hint bar kept promising.",
+      "changes": [
+        "During a charge move the hint bar says '[X] Snap to Contact', but pressing X did nothing and only the on-screen Snap to Contact button worked. The cause: as soon as you nudge the left stick — which is how you aim at a model to grab it with A — the virtual cursor turns on, and while it was on it swallowed X as a right-click. X now reaches Snap to Contact whether the cursor is up or parked.",
+        "'[X] Skip Charge' in the declare and roll stages was dead for exactly the same reason, and is fixed alongside it — X now skips the selected unit's charge with the cursor live.",
+        "Once every model has been snapped there is nothing left to snap, so the Snap to Contact button now correctly greys out (it used to stay lit and do nothing on a second press) and the hint bar drops its X chip instead of advertising a button that can't fire."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
