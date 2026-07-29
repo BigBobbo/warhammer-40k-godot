@@ -439,6 +439,20 @@ func card_rect() -> Rect2:
 	return _card.get_global_rect()
 
 
+# show_step()/show_summary() reset placement to "top" as the baseline for a
+# fresh anchor evaluation. But show_step() is not only called on a step
+# advance — TutorialManager.refresh_prompt() re-invokes it on every
+# InputDeviceManager.device_changed (a mouse/pad swap, which also fires a
+# couple of times while the device settles right after boot). Landing on
+# "top" there — even for one frame, corrected on the next _process() tick —
+# flashes the card behind an already-open game dialog (e.g. Declare Battle
+# Formations at T2 step 1) before _update_card_mode() dodges it back to
+# "left". Checking here means the very first placement is already correct,
+# so a dialog that is open never sees the card land on top of it at all.
+func _top_or_dodge_dialog() -> String:
+	return "left" if _any_game_window_open() else "top"
+
+
 # True while any embedded game Window (AcceptDialog family) is showing —
 # those composite above every CanvasLayer, so the card must dodge them.
 func _any_game_window_open() -> bool:
@@ -473,8 +487,7 @@ func show_step(view: Dictionary) -> void:
 	_anchor_node = null
 	_anchor_ok = false
 	_reresolve_accum = ANCHOR_RERESOLVE_S  # resolve on next frame
-	if _card_mode != "top":
-		_place_card("top")
+	_place_card(_top_or_dodge_dialog())
 	_apply_pad_affordances(true)
 	_spotlight.queue_redraw()
 
@@ -528,7 +541,7 @@ func show_summary(view: Dictionary) -> void:
 	_spotlight_mode = "none"
 	for strip in _dim_strips:
 		strip.visible = false
-	_place_card("top")
+	_place_card(_top_or_dodge_dialog())
 	_apply_pad_affordances(true)
 	_spotlight.queue_redraw()
 

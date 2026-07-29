@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "'Musterin' da Boyz' step 1's instructor card no longer flashes behind the Declare Battle Formations pop-up.",
+      "changes": [
+        "The card already dodges to the left of an open game dialog, but re-showing the same step (which also happens automatically as the mouse/pad input device settles right after the tutorial boots) reset it to its default top-of-screen spot first and only dodged again on the next frame — so the card visibly popped up behind the Formations window before sliding clear. It now checks whether a dialog is open before it ever renders, so it starts in the right spot instead of flashing into the wrong one."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
