@@ -1,0 +1,554 @@
+{
+  "id": "tut_t2_musterin_pad_formation",
+  "covers": [
+    "tutorial.t2.deployment",
+    "tutorial.t2.pad_formation",
+    "controller.deployment.formation_row",
+    "PadRouter",
+    "Main"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial lesson T2 (Musterin' da Boyz), the deploy_grots step ('GROTS IN A MOB!') on a GAMEPAD: proves the lesson's pad prompt teaches the D-pad route to the Tight formation instead of telling the player to glide the virtual cursor onto the Tight button. The boot up to deploy_grots is mirrored from tut_t2_musterin (which owns that path, including the rotate_wagon / nudge_wagon / confirm_wagon steps) and is driven mouse+keyboard; LB then claims pad mode and starts placing the Gretchin. Pins WHY the D-pad up press is needed: the Gretchin have two model profiles (Runtherd + Grots), so the card carries two selector rows and the marker starts on Select Model Type - left/right there would cycle the model type, not the formation. D-pad up moves the marker to Deploy Formation (the label gains its marker), then D-pad right twice steps Single -> Spread -> Tight and the Tight toggle syncs. Finishes the step exactly as the prompt says: A warps the cursor, glide + A lays each Tight rank, Menu confirms -> Gretchin DEPLOYED and the lesson advances to first_turn_roll.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "attach_warboss"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\tnd.select(1)\n\t\tnd.item_selected.emit(1)\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "OptionButton popup menus are native Windows - select+emit is the dropdown escape hatch"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "embark_boyz"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is CheckBox and str(nd.text).begins_with(\"Boyz\") and not (\"Reserves\" in str(nd.text)):\n\t\tnd.button_pressed = true\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the Formations panel is a modal embedded Window - synthetic root-viewport clicks cannot reach its controls; setting button_pressed emits toggled exactly like a click"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_formations"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_off"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and \"Re-roll\" in str(nd.text):\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "tie tolerance: press the roll button if still up, else the A DEAD HEAT re-roll button; no-op when neither exists"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "rotate_wagon"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+      "index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "hover_board_at",
+      "x": 640.0,
+      "y": 320.0,
+      "comment": "park the pointer where the wagon will go so the ghost renders on the board - the rotation has to be VISIBLE in the screenshots below, not just readable off the controller"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nif dc.ghost_sprite == null:\n\treturn \"NO_GHOST\"\nreturn abs(wrapf(dc.ghost_sprite.get_base_rotation() - BoardState.get_default_facing_for_player(1), -PI, PI)) < 0.001",
+      "multiline": true,
+      "equals": true,
+      "comment": "the wagon ghost starts at the default enemy-facing, so the rotate step cannot be already-done on entry"
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id()",
+      "multiline": true,
+      "equals": "rotate_wagon",
+      "comment": "picking the wagon up is NOT enough - the step still waits for a real turn"
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.is_action_allowed({\"type\": \"DEPLOY_UNIT\", \"unit_id\": \"U_BATTLEWAGON_T\", \"player\": 1})",
+      "multiline": true,
+      "equals": false,
+      "comment": "Confirm is gated until the wagon is turned - otherwise a player could deploy it flat and strand the step with no ghost left to rotate"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E",
+      "comment": "rotate_right = +15 degrees a tap, so six taps is a quarter turn"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nvar want = BoardState.get_default_facing_for_player(1) + PI / 2.0\nreturn abs(wrapf(dc.ghost_sprite.get_base_rotation() - want, -PI, PI)) < 0.02",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "deploy_wagon",
+      "comment": "turning the ghost is what advances the step"
+    },
+    {
+      "act": "click_board_at",
+      "x": 640.0,
+      "y": 320.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "nudge_wagon",
+      "comment": "placing the wagon now advances to the nudge step, not straight to Confirm"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return TutorialManager.is_action_allowed({\"type\": \"DEPLOY_UNIT\", \"unit_id\": \"U_BATTLEWAGON_T\", \"player\": 1})",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.set_meta(\"wp\", main.deployment_controller.temp_positions[0])"
+    },
+    {
+      "act": "click_board_at",
+      "x": 640.0,
+      "y": 320.0,
+      "shift": true,
+      "comment": "shift+click the placed wagon to pick it back up - the gesture this step teaches"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_repositioning()",
+      "equals": true
+    },
+    {
+      "act": "click_board_at",
+      "x": 700.0,
+      "y": 320.0,
+      "comment": "drop 1.5in sideways: the wagon was turned 90deg so its long axis is horizontal, and the zone's y<=12in step sits just below"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_repositioning()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.reposition_commits",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var wp = InputDeviceManager.get_meta(\"wp\")\nvar np = tree.current_scene.deployment_controller.temp_positions[0]\nreturn float(wp.distance_to(np))",
+      "expect_min": 5.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_wagon"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var TS = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar step = {}\nfor s in TutorialManager._steps:\n\tif str(s.get(\"id\", \"\")) == \"nudge_wagon\":\n\t\tstep = s\nvar txt = TS.render_text(str(step.get(\"prompt\", {}).get(\"pad\", \"\")), true)\nreturn txt.contains(\"[L3]\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var TS = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar step = {}\nfor s in TutorialManager._steps:\n\tif str(s.get(\"id\", \"\")) == \"rotate_wagon\":\n\t\tstep = s\nvar txt = TS.render_text(str(step.get(\"prompt\", {}).get(\"pad\", \"\")), true)\nreturn txt.contains(\"[R3]\")",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BATTLEWAGON_T.status",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = GameState.get_unit(\"U_BATTLEWAGON_T\").models[0]\nvar want = BoardState.get_default_facing_for_player(1) + PI / 2.0\nreturn abs(wrapf(float(m.get(\"rotation\", 0.0)) - want, -PI, PI)) < 0.02",
+      "multiline": true,
+      "equals": true,
+      "comment": "the turn the tutorial taught actually lands on the deployed wagon, not just on the ghost"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "deploy_grots"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode AND is the deployment hint bar's Prev Unit - the Gretchin are the only unit left, so this both flips the card to its pad prompt and starts their placement"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.get_current_unit()",
+      "equals": "U_GRETCHIN_T"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._pad_placement_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nvar t = str(b.text)\nreturn (\"✚\" in t) and (\"Deploy Formation\" in t) and not (\"glide\" in t)",
+      "multiline": true,
+      "equals": true,
+      "comment": "the rendered pad prompt teaches the D-pad ({dpad} -> the ✚ chip) and no longer tells the player to glide the cursor onto the Tight button"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._deploy_pad_rows()",
+      "equals": [
+        "formation",
+        "model_type"
+      ],
+      "comment": "the Gretchin carry two model profiles (Runtherd + Grots), so the card has two selector rows"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._deploy_active_pad_row()",
+      "equals": "model_type",
+      "comment": "WHY the prompt starts with D-pad ▲: the marker starts on Select Model Type, so ◀ ▶ here would cycle the model type, not the formation"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.formation_mode",
+      "equals": "SINGLE"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_grots_placement_pad_prompt"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "D-pad ▲ - slide the ▶ marker onto the Deploy Formation row"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._deploy_active_pad_row()",
+      "equals": "formation"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.unit_card.get_node(\"FormationControls/FormationLabel\").text",
+      "equals": "▶ Deploy Formation:",
+      "comment": "the on-card marker the prompt names is really there"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_formation_row_marked"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "D-pad ▶ (1 of 2) - Single -> Spread"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.formation_mode",
+      "equals": "SPREAD"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "D-pad ▶ (2 of 2) - Spread -> Tight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.formation_mode",
+      "equals": "TIGHT"
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.current_scene\nvar controls = m.unit_card.get_node(\"FormationControls\")\nfor c in controls.get_children():\n\tif c is Button and str(c.text) == \"Tight\":\n\t\treturn c.button_pressed\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the D-pad drove the on-screen toggle row too, not just the controller's internal mode"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_tight_selected_by_dpad"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A warps the virtual cursor over the placement area"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "VirtualCursor.is_cursor_active()",
+      "equals": true
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 1320.0,
+      "y": 700.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.get_placed_count()",
+      "equals": 5,
+      "comment": "Tight lays a whole rank of 5 per press - the payoff the step is teaching"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 1320.0,
+      "y": 760.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.get_placed_count()",
+      "equals": 10
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 1250.0,
+      "y": 640.0,
+      "comment": "the Runtherd"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.get_placed_count()",
+      "equals": 11
+    },
+    {
+      "act": "screenshot",
+      "label": "04_mob_laid_out_tight"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Menu = Confirm, exactly as the prompt now says"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_GRETCHIN_T.status",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "first_turn_roll",
+      "comment": "step 6 completed end-to-end on pad input only"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_step_complete"
+    }
+  ]
+}

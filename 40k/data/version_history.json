@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.15",
+      "date": "2026-07-29",
+      "summary": "Musterin' da Boyz now teaches the D-pad route to the Tight formation instead of telling controller players to glide the cursor onto the button.",
+      "changes": [
+        "The 'GROTS IN A MOB!' step of 'Musterin' da Boyz' told a controller player to glide the virtual cursor onto the Tight button — but the D-pad already changes the formation, and the D-pad is the quicker, more direct way to do it.",
+        "The controller instruction now spells out the real route: D-pad ▲ slides the ▶ marker onto Deploy Formation, then D-pad ▶ twice steps Single → Spread → Tight. The ▲ press matters because the Gretchin have two model profiles, so the marker starts on Select Model Type — ◀ ▶ there would change the model type instead.",
+        "It also names the button that finishes the step: ☰ Confirm."
+      ]
+    },
+    {
       "version": "1.7.14",
       "date": "2026-07-29",
       "summary": "On a controller, ☰ now says (and does) 'End Pile In' / 'End Consolidation' during those Fight-phase steps instead of the alarming 'End Phase'.",
