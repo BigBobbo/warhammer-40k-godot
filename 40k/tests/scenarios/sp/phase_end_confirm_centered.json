@@ -1,0 +1,69 @@
+{
+  "id": "phase_end_confirm_centered",
+  "covers": [
+    "ui.phase_end_confirm.centered",
+    "ui.phase_end_confirm.readable",
+    "ui.dialogutils.popup_phase_end_prompt",
+    "controller.end_phase.discoverability"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "The End-Phase confirmation must land in the MIDDLE of the screen, not docked at the bottom edge where players walked past it. Drives the real player path in the Shooting phase (pad Start -> confirm), then asserts: (a) the window's centre sits on the viewport centre and its bottom edge is nowhere near the bottom-anchored slot, (b) it stays a compact box rather than ballooning to full height (the autowrap-Label minimum-size trap), (c) it spells the action out — gold headline, a plain-English consequence line naming the next phase, and named 'Go Back' / 'End Shooting Phase' buttons instead of Cancel/OK. Confirming then proves the follow-on Shooting Phase Summary is centred too, so the whole end-of-phase flow reads the same.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "simulate_joy_button", "button_index": 6 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "script": "main._pad_phase_confirm != null and main._pad_phase_confirm.visible", "equals": true },
+    { "act": "screenshot", "label": "01_end_shooting_confirm_centered" },
+
+    { "act": "execute_script", "script": "main._pad_phase_confirm.dialog_text", "equals": "End Shooting Phase?" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.current_scene._pad_phase_confirm\nvar vp = tree.root.get_visible_rect().size\nreturn abs((d.position.x + d.size.x / 2.0) - vp.x / 2.0)",
+      "expect_max": 40 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.current_scene._pad_phase_confirm\nvar vp = tree.root.get_visible_rect().size\nreturn abs((d.position.y + d.size.y / 2.0) - vp.y / 2.0)",
+      "expect_max": 40 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.current_scene._pad_phase_confirm\nvar vp = tree.root.get_visible_rect().size\nreturn vp.y - (d.position.y + d.size.y)",
+      "expect_min": 250 },
+
+    { "act": "execute_script", "script": "main._pad_phase_confirm.size.y", "expect_max": 460 },
+    { "act": "execute_script", "script": "main._pad_phase_confirm.size.y", "expect_min": 140 },
+
+    { "act": "execute_script", "script": "main._pad_phase_confirm.get_node(\"Content/Headline\").text", "equals": "End Shooting Phase?" },
+    { "act": "execute_script", "script": "main._pad_phase_confirm.get_node(\"Content/Headline\").is_visible_in_tree()", "equals": true },
+    { "act": "execute_script", "script": "main._pad_phase_confirm.get_node(\"Content/Hint\").text.contains(\"Charge phase\")", "equals": true },
+    { "act": "execute_script", "script": "main._pad_phase_confirm.get_node(\"Content/Hint\").is_visible_in_tree()", "equals": true },
+
+    { "act": "execute_script", "script": "main._pad_phase_confirm.ok_button_text", "equals": "End Shooting Phase" },
+    { "act": "execute_script", "script": "main._pad_phase_confirm.cancel_button_text", "equals": "Go Back" },
+    { "act": "execute_script", "script": "main._pad_phase_confirm.get_ok_button().has_focus()", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 1 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main._pad_phase_confirm.visible", "equals": false },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "simulate_joy_button", "button_index": 6 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"ShootingPhaseSummaryDialog\") != null", "equals": true },
+    { "act": "screenshot", "label": "02_shooting_summary_centered" },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.get_node(\"ShootingPhaseSummaryDialog\")\nvar vp = tree.root.get_visible_rect().size\nreturn abs((d.position.y + d.size.y / 2.0) - vp.y / 2.0)",
+      "expect_max": 40 },
+
+    { "act": "execute_script", "script": "tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/Actions/ConfirmEndShooting\").pressed.emit()" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 }
+  ]
+}

@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.0",
+      "date": "2026-07-29",
+      "summary": "The 'End Phase?' confirmation now opens in the middle of the screen and says what you are about to give up.",
+      "changes": [
+        "Ending a phase used to pop a small grey box hugging the bottom edge of the screen, which was easy to walk straight past. Every end-of-phase prompt now opens in the centre of the screen.",
+        "The confirmation itself has been rewritten: a large gold headline naming the phase you are ending, and a plain-English line telling you what it costs and which phase comes next — e.g. 'Any unit you haven't shot with won't get to shoot this turn. Next: the Charge phase.'",
+        "Its buttons now say what they do — 'Go Back' and 'End Shooting Phase' — instead of a generic Cancel / OK.",
+        "The prompt is drawn in the game's own dark-and-gold panel style rather than the plain engine grey.",
+        "The other end-of-phase prompts moved with it: the Deployment and Shooting summaries, the 'units haven't fought' and 'units haven't taken Battle-shock' warnings, and the end-of-turn 'discard a secondary mission?' prompt."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",

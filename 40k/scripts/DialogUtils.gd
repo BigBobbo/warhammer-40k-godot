@@ -77,7 +77,8 @@ static func _refit_to_viewport(dialog: Window) -> void:
 ## stay OUT of the way of the battlefield, hugging the bottom edge like a
 ## docked control bar — the same slot as the armour-save allocation bar —
 ## rather than sitting on top of the action. Centered popups are reserved for
-## menu/meta contexts (main menu, save manager, game over, disconnects).
+## menu/meta contexts (main menu, save manager, game over, disconnects) and for
+## end-of-phase commitments (see popup_phase_end_prompt below).
 ##
 ## `base_size` defaults to Vector2.ZERO which means "derive from the dialog's
 ## own min_size (at least the SMALL tier)" so call sites don't restate a size
@@ -167,6 +168,37 @@ static func _bottom_position(vp_size: Vector2, w: int, h: int, margin_bottom: in
 	var x: int = int((vp_size.x - w) / 2.0)
 	var y: int = int(vp_size.y - h - margin_bottom)
 	return Vector2i(max(x, 0), max(y, 0))
+
+
+## Show a PHASE-COMMIT prompt CENTERED on the screen — the deliberate exception
+## to the bottom-anchored rule above.
+##
+## "End Shooting Phase?", the shooting/deployment summaries, the "units haven't
+## fought / haven't taken battle-shock" warnings: these are points of no return,
+## not board-referencing decisions. Docked at the bottom edge they read as
+## incidental chrome and players walked straight past them ("often I miss it"),
+## which is exactly the mistake that costs a newcomer a whole phase. Centering
+## them puts the commitment where the eye already is and forces a deliberate
+## answer; the board underneath is momentarily irrelevant because the choice is
+## "advance the game or go back", not "look at a model and decide".
+##
+## Everything else in battle keeps using popup_at_bottom.
+static func popup_phase_end_prompt(dialog: Window, base_size: Vector2 = Vector2.ZERO, desired_height: float = -1.0) -> void:
+	if dialog == null:
+		return
+	if base_size == Vector2.ZERO:
+		base_size = Vector2(
+			max(float(dialog.min_size.x), DialogConstants.SMALL.x),
+			max(float(dialog.min_size.y), DialogConstants.SMALL.y))
+	# Clear any bottom anchor left by an earlier popup_at_bottom() on this same
+	# dialog: the shared overflow guard reads that meta and would drag the window
+	# back down to the bottom edge, and the resize re-pin would keep doing it.
+	# Without the meta the guard falls through to its re-center branch.
+	if dialog.has_meta("wd_bottom_anchored"):
+		dialog.remove_meta("wd_bottom_anchored")
+	if dialog.size_changed.is_connected(DialogUtils._repin_bottom_on_resize.bind(dialog)):
+		dialog.size_changed.disconnect(DialogUtils._repin_bottom_on_resize.bind(dialog))
+	popup_centered_capped(dialog, base_size, desired_height)
 
 
 ## Show `dialog` centered horizontally and stretched to almost the FULL HEIGHT

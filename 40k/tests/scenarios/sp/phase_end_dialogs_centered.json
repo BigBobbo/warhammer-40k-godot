@@ -1,0 +1,59 @@
+{
+  "id": "phase_end_dialogs_centered",
+  "covers": [
+    "ui.phase_end_confirm.centered",
+    "ui.dialogutils.popup_phase_end_prompt",
+    "ui.layout.DeploymentSummaryDialog_centered",
+    "ui.layout.BattleShockConfirmationDialog_centered",
+    "ui.layout.EndFightConfirmationDialog_centered"
+  ],
+  "fixture": "New Game",
+  "disable_ai": true,
+  "description": "Companion to phase_end_confirm_centered: the rest of the end-of-phase prompt family moved off the bottom edge with it, so the whole flow reads the same wherever the player is in the turn. The Deployment summary is driven through the real handler (Main._on_end_deployment_pressed, the End Deployment button's callback); the battle-shock and unfought-units warnings are popped through Main's show helpers with representative unit lists, since their trigger conditions are already covered end-to-end by pad_m1_full_turn_cursor. Each is asserted to sit on the viewport centre and to clear the bottom-anchored slot entirely.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "PhaseManager.transition_to_phase(GameStateData.Phase.DEPLOYMENT)\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+
+    { "act": "execute_script", "script": "tree.current_scene._on_end_deployment_pressed()" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"DeploymentSummaryDialog\") != null or tree.root.find_child(\"DeploymentSummaryDialog\", true, false) != null", "equals": true },
+    { "act": "screenshot", "label": "01_deployment_summary_centered" },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.find_child(\"DeploymentSummaryDialog\", true, false)\nvar vp = tree.root.get_visible_rect().size\nreturn abs((d.position.y + d.size.y / 2.0) - vp.y / 2.0)",
+      "expect_max": 40 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.find_child(\"DeploymentSummaryDialog\", true, false)\nvar vp = tree.root.get_visible_rect().size\nreturn vp.y - (d.position.y + d.size.y)",
+      "expect_min": 150 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.find_child(\"DeploymentSummaryDialog\", true, false)\nd.hide()\nd.queue_free()\nreturn true", "equals": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var m = tree.current_scene\nvar units = []\nfor uid in GameState.state.units.keys():\n\tunits.append({\"unit_id\": uid, \"name\": str(GameState.state.units[uid].get(\"meta\", {}).get(\"name\", uid))})\n\tif units.size() >= 2:\n\t\tbreak\nm._show_battle_shock_confirmation_dialog(units, GameState.get_active_player())\nreturn units.size()",
+      "expect_min": 1 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "screenshot", "label": "02_battle_shock_confirm_centered" },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.find_child(\"BattleShockConfirmationDialog\", true, false)\nvar vp = tree.root.get_visible_rect().size\nreturn abs((d.position.y + d.size.y / 2.0) - vp.y / 2.0)",
+      "expect_max": 40 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.find_child(\"BattleShockConfirmationDialog\", true, false)\nd.hide()\nd.queue_free()\nreturn true", "equals": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var m = tree.current_scene\nvar units = []\nfor uid in GameState.state.units.keys():\n\tunits.append({\"unit_id\": uid, \"name\": str(GameState.state.units[uid].get(\"meta\", {}).get(\"name\", uid))})\n\tif units.size() >= 2:\n\t\tbreak\nm._show_end_fight_confirmation_dialog(units, GameState.get_active_player())\nreturn units.size()",
+      "expect_min": 1 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "screenshot", "label": "03_end_fight_confirm_centered" },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.get_node(\"EndFightConfirmationDialog\")\nvar vp = tree.root.get_visible_rect().size\nreturn abs((d.position.y + d.size.y / 2.0) - vp.y / 2.0)",
+      "expect_max": 40 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.get_node(\"EndFightConfirmationDialog\")\nvar vp = tree.root.get_visible_rect().size\nreturn vp.y - (d.position.y + d.size.y)",
+      "expect_min": 150 }
+  ]
+}
