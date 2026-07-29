@@ -614,6 +614,7 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 	# LMB release at `to`. This is the player path for drag-to-move flows
 	# (fight-phase pile-in/consolidate model movement, etc.) — no controller
 	# state is poked. Coordinates are board px, projected like click_board_at.
+	# Optional `"keys": ["Q"]` taps those keys mid-drag (see below).
 	for k in ["from_x", "from_y", "to_x", "to_y"]:
 		if not step.has(k):
 			return {"pass": false, "error": "drag_board needs from_x/from_y/to_x/to_y (world/board px)"}
@@ -677,6 +678,37 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 		prev = p
 		await get_tree().process_frame
 
+	# Optional `keys`: keycode names tapped WHILE the button is still down, after
+	# the motion and before the release. Model rotation is the case that needs it
+	# — MovementController._rotate_model_by_angle only acts on a model that is
+	# currently held (selected_model is cleared the moment the drag ends), so a
+	# separate simulate_key act after drag_board can never reach it. Same reason
+	# the shift flag above lives inside this act rather than around it.
+	var tapped_keys: Array = []
+	var keys_spec = step.get("keys", [])
+	if typeof(keys_spec) == TYPE_ARRAY:
+		for entry in keys_spec:
+			var kc: int = 0
+			if typeof(entry) == TYPE_STRING:
+				kc = OS.find_keycode_from_string(entry)
+			elif typeof(entry) == TYPE_INT or typeof(entry) == TYPE_FLOAT:
+				kc = int(entry)
+			if kc == 0:
+				return {"pass": false, "error": "drag_board: could not resolve keycode: %s" % str(entry)}
+			var key_press := InputEventKey.new()
+			key_press.keycode = kc
+			key_press.physical_keycode = kc
+			key_press.pressed = true
+			Input.parse_input_event(key_press)
+			await get_tree().process_frame
+			var key_release := InputEventKey.new()
+			key_release.keycode = kc
+			key_release.physical_keycode = kc
+			key_release.pressed = false
+			Input.parse_input_event(key_release)
+			await get_tree().process_frame
+			tapped_keys.append(OS.get_keycode_string(kc))
+
 	var release := InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.position = to_screen
@@ -695,7 +727,7 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 		Input.parse_input_event(shift_release)
 
 	await get_tree().process_frame
-	return {"pass": true, "shift": hold_shift,
+	return {"pass": true, "shift": hold_shift, "keys": tapped_keys,
 		"from_world": [from_world.x, from_world.y], "to_world": [to_world.x, to_world.y],
 		"from_screen": [from_screen.x, from_screen.y], "to_screen": [to_screen.x, to_screen.y]}
 
@@ -811,10 +843,21 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	# .is_action_pressed() from _process, not from an event) — a press/release
 	# straddling a single process_frame await is not reliably observed by them.
 	var hold_s: float = float(step.get("hold_s", 0.0))
+	# Optional modifier flags: KeybindingManager.matches_action() compares
+	# ctrl/shift/alt/meta on the event, so a chord binding (Ctrl+A = select_all)
+	# is unreachable without them — a bare "A" event matches no chord action.
+	var ctrl: bool = bool(step.get("ctrl", false))
+	var shift: bool = bool(step.get("shift", false))
+	var alt: bool = bool(step.get("alt", false))
+	var meta: bool = bool(step.get("meta", false))
 	var press := InputEventKey.new()
 	press.keycode = kc
 	press.physical_keycode = kc
 	press.unicode = uni
+	press.ctrl_pressed = ctrl
+	press.shift_pressed = shift
+	press.alt_pressed = alt
+	press.meta_pressed = meta
 	press.pressed = true
 	Input.parse_input_event(press)
 	await get_tree().process_frame
@@ -824,10 +867,14 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	release.keycode = kc
 	release.physical_keycode = kc
 	release.unicode = uni
+	release.ctrl_pressed = ctrl
+	release.shift_pressed = shift
+	release.alt_pressed = alt
+	release.meta_pressed = meta
 	release.pressed = false
 	Input.parse_input_event(release)
 	await get_tree().process_frame
-	return {"pass": true, "hold_s": hold_s}
+	return {"pass": true, "hold_s": hold_s, "ctrl": ctrl, "shift": shift, "alt": alt, "meta": meta}
 
 
 func _do_simulate_wheel(step: Dictionary) -> Dictionary:

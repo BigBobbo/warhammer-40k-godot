@@ -1,0 +1,147 @@
+{
+  "id": "tut_device_swap_midstep",
+  "covers": [
+    "tutorial.engine.device_adaptive",
+    "tutorial.engine.device_swap"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Reported on Steam Deck: the tutorial's controls-reference step told a controller player to press Shift+/ - a chord the Deck has no keys for - and the step could not be completed. Root cause: the Deck's right trackpad emits REAL mouse motion, so the device tracker claims KBM, a keyboard-only step is entered, and picking the pad back up left the player stranded on it (the device filter only ran on step ENTRY). This scenario reproduces the swap with a genuine buttonless mouse-motion event: on the pad-only hint-bar step it moves the 'trackpad', asserts the tutorial leaves the step that no longer matches the device instead of stranding, and then asserts the controls-reference prompt itself re-renders per device - pad wording (pause menu -> Controller tab) with a pad in hand, keyboard wording after the trackpad claims KBM.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mm = tree.root.get_node(\"/root/MainMenu\")\nvar n = mm.get_node_or_null(\"TutorialNudge\")\nif n != null and n.visible:\n\tn.get_node(\"Margin/VBox/Footer/DismissNudgeButton\").pressed.emit()\nreturn true",
+      "equals": true,
+      "comment": "fresh profile: clear the first-launch nudge off the menu"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "TutorialManager.start_lesson(\"t1_basics\")\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for i in range(20):\n\tif TutorialManager.current_step_id() == \"hint_bar\":\n\t\tbreak\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id()",
+      "equals": "hint_bar",
+      "comment": "walk to the pad-only step with the overlay's own Skip Step path (no state stubbing)"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_pad_only_step_with_pad"
+    },
+    {
+      "act": "hover_board_at",
+      "x": 1400.0,
+      "y": 900.0,
+      "comment": "the Steam Deck trackpad: a real buttonless mouse-motion event, far enough to pass the 12px hysteresis and claim KBM"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": false,
+      "comment": "trackpad motion claimed KBM mid-step, exactly as on the Deck"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "controls_reference_open",
+      "comment": "THE FIX: the pad-only step no longer matches the device in the player's hands, so the tutorial moves on instead of leaving them on a step they can no longer satisfy"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nreturn t.contains(\"Shift\") and not t.contains(\"pause menu\")",
+      "equals": true,
+      "comment": "on keyboard the step reads as the keyboard cheat sheet"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_after_trackpad_claimed_kbm"
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 2,
+      "value": 1.0,
+      "hold_s": 0.4,
+      "comment": "player picks the pad back up - a right-stick camera nudge, the most side-effect-free pad input there is (LB here cycles units and can pop the disembark dialog)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "controls_reference_open",
+      "comment": "the controls-reference step runs on BOTH devices now, so picking the pad back up keeps the player on it"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nreturn t.contains(\"pause menu\") and t.contains(\"Controller\") and not t.contains(\"Shift\")",
+      "equals": true,
+      "comment": "and the wording swapped live: pad players are pointed at the pause menu's Controller tab, never at Shift+/"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_pad_prompt_after_swap_back"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 4
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/SettingsMenu",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "controls_reference_close",
+      "comment": "and the pad route completes the step"
+    }
+  ]
+}

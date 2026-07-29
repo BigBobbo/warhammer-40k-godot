@@ -133,6 +133,10 @@ const HINTS_CHARGE_MOVE := [
 	["menu", "Confirm Charge"],
 	["y", "Datasheet"],
 ]
+# Placement, models still to put down. ☰ carries NO chip here: with the unit
+# half-placed Start falls through to the top-right phase-action button (which is
+# disabled until every unit is deployed), so the default START_ACTION_PHASE is
+# the honest reading and that button keeps its "[☰] " prefix.
 const HINTS_DEPLOY := [
 	["ls", "Cursor"],
 	["lb", "Prev Unit"],
@@ -149,7 +153,30 @@ const HINTS_DEPLOY := [
 	["x", "Undo Model"],
 	["b", "Undo Unit"],
 	["y", "Datasheet"],
-	["menu", "Confirm / End"],
+]
+# Every model of the unit is down, waiting on Confirm — Main._input routes Start
+# to _on_confirm_pressed() in exactly this state, so the chip names that and
+# nothing else. The old single set promised "Confirm / End" throughout, which is
+# how a player pressing ☰ to lock in the Battlewagon read it as also being the
+# button that ends the phase (reported from tutorial T2). Same stage-accuracy
+# rule the charge sets follow: the chip never advertises an action Start would
+# not actually take.
+# LB/RB are deliberately absent: _cycle refuses to switch units while
+# get_placed_count() > 0 (it warns "Undo the placed models before switching
+# units"), and this set is only ever shown with every model down — so the
+# bumpers cannot do what the plain HINTS_DEPLOY set advertises them for.
+const HINTS_DEPLOY_STAGED := [
+	["ls", "Cursor"],
+	# Every model is down and the player is eyeing the placement before locking
+	# it in — the state L3's nudge is most useful in, so it is advertised here
+	# too. (No r3 rotate chip: with every model placed there is no ghost left to
+	# rotate.)
+	["l3", "Move Placed Model"],
+	["dpad", "Type / Formation"],
+	["x", "Undo Model"],
+	["b", "Undo Unit"],
+	["y", "Datasheet"],
+	["menu", "Confirm Unit"],
 ]
 
 # A placed model is in hand (L3 lift). Deliberately short: this is a modal
@@ -165,6 +192,22 @@ const HINTS_FOCUS := [
 	["dpad", "Navigate"],
 	["a", "Press"],
 	["b", "Back To Board"],
+]
+# The tutorial's instructor card is waiting on a button press — a "Continue"
+# step (ack) or the end-of-lesson summary. The card owns A while it is up
+# (TutorialOverlay._input), so the bar promises exactly that and nothing the
+# card would swallow. Reported trap: at T1 step 7 ("Read da Bar") a pad player
+# had no advertised way to press Continue and had to hunt for it with the
+# left-stick cursor — the bar now answers its own lesson.
+const HINTS_TUTORIAL_ACK := [
+	["a", "Continue"],
+	["ls", "Point"],
+	["view", "Pause Menu"],
+]
+const HINTS_TUTORIAL_SUMMARY := [
+	["dpad", "Navigate"],
+	["a", "Choose"],
+	["ls", "Point"],
 ]
 # Charge carry (one model at a time): the plain set — no per-model advance and
 # no group grab, so neither "X Finish Model" nor "dpad Grab All". Start drops
@@ -280,9 +323,41 @@ const HINTS_FIGHT := [
 	["view", "Pause Menu"],
 ]
 
+# LS chip label for the board box multi-select gesture. "{a}" expands to the
+# button the select role currently sits on (GlyphDB.expand_label), so a layout
+# remapped in Settings › Controller is reflected in the promise.
+const BOX_SELECT_HINT := "Hold {a}: Box Select"
+
 # The target currently highlighted by LB/RB in shooting TARGET_SELECT mode
 # (empty when none). Windowed scenarios assert this.
 var target_highlight_id: String = ""
+
+# What the pad's ☰ (Start) button means in the CURRENT board state, read straight
+# off the ☰ chip of the hint set the bar is showing — so the chip, the tutorial
+# prompts and the top-right phase-action button all quote one authority and can
+# never contradict each other. "End Phase" (the value when a set advertises no ☰
+# chip at all, e.g. the action-bar / panel-focus / tutorial-card sets) means Start
+# still presses the phase-action button; anything else ("Confirm Move",
+# "Confirm Targets", "Roll 2D6", "Confirm / End", …) means a context action owns
+# Start right now and the End-Phase button must stop advertising "[☰]".
+#
+# The reported trap: T1 step 12 ("LOCK IT IN!") tells the player ☰ confirms the
+# grots' move — which is true, Main._input routes Start to
+# MovementController.pad_confirm_move() while a move is staged — but the button in
+# the top-right corner simultaneously read "[☰] End Movement Phase". Two different
+# promises for one button. Main listens to start_action_changed and re-stamps the
+# button's glyph so only the true one is on screen.
+signal start_action_changed(label: String)
+const START_ACTION_PHASE := "End Phase"
+var start_action_label: String = START_ACTION_PHASE
+
+
+# True while ☰ still means "press the top-right phase-action button". False while
+# a context action (confirm move / targets / charge, place-and-confirm from a
+# carry, …) has claimed it. Read by Main to decide whether that button may carry
+# the "[☰] " prefix.
+func start_owns_phase_action() -> bool:
+	return start_action_label == START_ACTION_PHASE
 
 # M3 model-carry state: the model currently "picked up" rides the virtual
 # cursor (warp + held synthetic LMB — the real drag code runs underneath).
@@ -315,6 +390,37 @@ func is_carrying() -> bool:
 # placement X means "undo the last placed model", not a synthetic right-click.
 func is_placement_active() -> bool:
 	return _deployment_controller_placing() != null
+
+
+# True while the charge move stage has a live "Snap to Contact" button and no
+# model is in hand — i.e. while X means Snap to Contact. Drives the X hint chip
+# as well as the cursor stand-down below.
+func is_charge_snap_active() -> bool:
+	if carry_active:
+		return false
+	var cc := _charge_controller_any()
+	return cc != null and cc.has_method("pad_snap_available") and bool(cc.pad_snap_available())
+
+
+# True while X carries a charge-phase meaning with the backing button actually
+# live: Snap to Contact during the move stage, Skip Charge before it (the two
+# are mutually exclusive — skip stands down once the move begins).
+# VirtualCursor queries this for the same reason it queries
+# is_placement_active(): the left stick is the aiming tool all through the
+# charge phase (A = Grab Model / select clicks at the cursor), so the cursor is
+# active for most of it, and consuming X there as a synthetic right-click is
+# exactly what made the hint bar's "[X] Snap to Contact" and "[X] Skip Charge"
+# dead buttons. A right-click on the board opens the unit colour/label context
+# menu — not a controller affordance and not worth the phase's X.
+func is_charge_x_action_active() -> bool:
+	if carry_active:
+		return false
+	var cc := _charge_controller_any()
+	if cc == null:
+		return false
+	if cc.has_method("pad_snap_available") and bool(cc.pad_snap_available()):
+		return true
+	return cc.has_method("pad_skip_available") and bool(cc.pad_skip_available())
 
 
 func _ready() -> void:
@@ -666,6 +772,17 @@ func _reopen_move_menu() -> void:
 # ============================================================================
 # Cycling
 # ============================================================================
+
+# Public bumper-cycle entry for dialogs that run in their own exclusive
+# Window (e.g. DisembarkDialog): joypad events route into the focused
+# Window's viewport, so this router's _input never sees LB/RB while such a
+# dialog is up. The dialog dismisses itself first, then forwards the press
+# here so the bumpers keep their one global meaning — switch units.
+func cycle_units(dir: int) -> void:
+	InputDeviceManager.claim_pad()
+	_cycle(dir)
+	_update_hints()
+
 
 func _cycle(dir: int) -> void:
 	# Fight phase: the bumpers cycle keyboard focus among the ACTION BUTTONS of
@@ -1099,25 +1216,30 @@ func _context_action() -> bool:
 		# In a placement session but nothing staged yet — swallow X so it can't
 		# fall through to a shooter-skip / stray action in the same frame.
 		return true
+	# The charge phase owns X throughout, and — like the placement block above —
+	# is checked BEFORE the cursor-active bail. The left stick is the aiming tool
+	# for the whole phase (it is how you point at a model for A), so the cursor is
+	# active most of the time; gating these on a parked cursor left X dead for the
+	# exact players the hint bar was promising it to ("[X] Snap to Contact does
+	# nothing; only the on-screen button works"). VirtualCursor cooperates by NOT
+	# consuming X while is_charge_x_action_active(), so the press reaches this
+	# router regardless of cursor state.
+	#   - moving models into engagement (no model in hand): X = Snap to Contact,
+	#     the one-press "place every unmoved model base-to-base with its nearest
+	#     declared target" helper — the pad's answer to per-model dragging;
+	#   - before the move (declare / roll): X = skip the selected unit's charge,
+	#     same as the Skip Charge button.
+	var cc := _charge_controller_any()
+	if cc != null and cc.has_method("pad_snap_to_contact") and cc.pad_snap_to_contact():
+		return true
+	if cc != null and cc.has_method("pad_skip") and cc.pad_skip():
+		return true
 	if VirtualCursor.is_cursor_active():
 		return false  # cursor mode owns X (right-click); VC consumed it anyway
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null and str(sc.active_shooter_id) != "":
 		sc._keyboard_skip_unit()
 		target_highlight_id = ""
-		return true
-	# Charge, moving models into engagement (no model in hand): X = Snap to
-	# Contact — the one-press "place every unmoved model base-to-base with its
-	# nearest declared target" helper, the pad's answer to per-model dragging.
-	# (The placement-undo block above already handled deployment / reinforcement /
-	# scout X-undo before the cursor-active bail, so it is intentionally not
-	# repeated here.)
-	var cc := _charge_controller_any()
-	if cc != null and cc.has_method("pad_snap_to_contact") and cc.pad_snap_to_contact():
-		return true
-	# Charge: X = skip the selected unit's charge (same as the Skip Charge
-	# button; only enabled while no charge move is being resolved).
-	if cc != null and cc.has_method("pad_skip") and cc.pad_skip():
 		return true
 	# Movement, parked after an A-drop (the multi-step state): X = "this model
 	# is finished" — advance to the unit's next un-placed model. The undo that
@@ -2229,6 +2351,16 @@ func refresh_hints() -> void:
 	_update_hints()
 
 
+# "", "ack" or "summary" — whether the tutorial instructor card is waiting on a
+# button press (TutorialOverlay.pad_ack_state). Empty outside a lesson and in
+# harnesses that run without the tutorial autoloads.
+func _tutorial_ack_state() -> String:
+	var overlay := get_node_or_null("/root/TutorialOverlay")
+	if overlay == null or not overlay.has_method("pad_ack_state"):
+		return ""
+	return str(overlay.pad_ack_state())
+
+
 # The FightController while the Fight phase is live, else null. Used by the
 # bumper button-cycle and the fight hint sets so each reads the same authority.
 func _fight_controller() -> Node:
@@ -2244,6 +2376,14 @@ func _fight_controller() -> Node:
 
 
 func _update_hints() -> void:
+	# The tutorial card is modal-in-spirit while it waits on a press: it owns A
+	# and keeps focus, so every other promise on the bar would be a lie.
+	var tutorial_ack := _tutorial_ack_state()
+	if tutorial_ack != "":
+		var ack_hints: Array = HINTS_TUTORIAL_SUMMARY if tutorial_ack == "summary" else HINTS_TUTORIAL_ACK
+		PadHintBar.set_hints(ack_hints)
+		_set_start_action(_start_chip_label(ack_hints))
+		return
 	var hints := HINTS_BOARD
 	if carry_active:
 		if group_carry_active:
@@ -2261,7 +2401,18 @@ func _update_hints() -> void:
 		if sc != null and str(sc.active_shooter_id) != "":
 			hints = HINTS_TARGETS
 		elif _deployment_controller_placing() != null:
-			hints = HINTS_DEPLOY_REPOSITION if _repositioning_placement() != null else HINTS_DEPLOY
+			# Stage-accurate, like the charge sets: ☰ only claims "Confirm Unit"
+			# in the state where Main._input actually routes Start to the confirm.
+			# A lifted model outranks both — it is a modal sub-state in which most
+			# of what those sets advertise is standing down.
+			var dpl = _deployment_controller_placing()
+			var total := int(dpl.get_total_model_count())
+			if _repositioning_placement() != null:
+				hints = HINTS_DEPLOY_REPOSITION
+			elif total > 0 and int(dpl.get_placed_count()) >= total:
+				hints = HINTS_DEPLOY_STAGED
+			else:
+				hints = HINTS_DEPLOY
 		else:
 			var cc = _charge_controller_any()
 			if cc != null:
@@ -2270,7 +2421,12 @@ func _update_hints() -> void:
 				# Charge / Roll 2D6 / Confirm Charge), so the promise can never
 				# diverge from the action again.
 				if bool(cc.awaiting_movement):
-					hints = HINTS_CHARGE_MOVE
+					# Same honesty rule for the X chip: once every model is
+					# placed the Snap to Contact button greys out, so the bar
+					# must stop promising it — otherwise the last press of the
+					# stage is a dead button again, the very symptom this set
+					# was reported for.
+					hints = HINTS_CHARGE_MOVE if is_charge_snap_active() else _without_hint(HINTS_CHARGE_MOVE, "x")
 				elif bool(cc.awaiting_roll):
 					hints = HINTS_CHARGE_ROLL
 				elif cc.selected_targets.size() > 0:
@@ -2290,7 +2446,84 @@ func _update_hints() -> void:
 				# its focus lives in the modal's own viewport, so the main-viewport
 				# focus check above stays false and this set still shows behind it.
 				hints = HINTS_FIGHT
-	PadHintBar.set_hints(hints)
+	PadHintBar.set_hints(_with_box_select_hint(hints))
+	# Publish what ☰ means in this state so the top-right phase-action button can
+	# drop its "[☰] " prefix while a context action (Confirm Move, Confirm
+	# Targets, …) owns Start. Done from the same `hints` the bar just rendered, so
+	# chip and button are the same statement by construction.
+	_set_start_action(_start_chip_label(hints))
+
+
+# A copy of `hints` with the chip for `glyph` dropped — for states where a set
+# is right except that one of its buttons is currently dead. Never mutates the
+# const source array.
+func _without_hint(hints: Array, glyph: String) -> Array:
+	var out: Array = []
+	for hint in hints:
+		if hint is Array and hint.size() >= 1 and str(hint[0]) == glyph:
+			continue
+		out.append(hint)
+	return out
+
+
+# The label on a hint set's ☰ chip, or START_ACTION_PHASE when the set carries
+# none. A set without a ☰ chip (the action bar, panel focus, the tutorial card)
+# is not saying Start is dead — Main._input still routes it to the phase-action
+# button in those states — it just isn't worth a chip there, so the default is
+# the phase action.
+func _start_chip_label(hints: Array) -> String:
+	for hint in hints:
+		if hint is Array and hint.size() >= 2 and str(hint[0]) == "menu":
+			return str(hint[1])
+	return START_ACTION_PHASE
+
+
+func _set_start_action(label: String) -> void:
+	if label == start_action_label:
+		return
+	start_action_label = label
+	start_action_changed.emit(label)
+
+
+# Board box multi-select (hold A + left stick) — the pad counterpart of the
+# mouse's Shift+drag. Offered from the RESTING mid-move states, one step before
+# the controllers' own _pad_box_select_armed() will accept the press: that adds
+# "cursor already active", and the player has to read the chip BEFORE deflecting
+# the stick for the gesture to be discoverable at all.
+func _box_select_offered() -> bool:
+	if carry_active:
+		return false
+	# The action bar and any focused panel own the pad exclusively while up.
+	if PadActionBar.is_open() or get_viewport().gui_get_focus_owner() != null:
+		return false
+	var mc := _movement_controller()
+	if mc != null and mc.has_method("pad_can_grab_group"):
+		return bool(mc.pad_can_grab_group())
+	var cc := _charge_controller_any()
+	if cc != null and ("awaiting_movement" in cc) and ("active_unit_id" in cc):
+		return bool(cc.awaiting_movement) and str(cc.active_unit_id) != ""
+	return false
+
+
+# Point the LS chip at the box-select promise while the gesture is live (adding
+# one when the set has no LS chip). Applied here rather than baked into the const
+# sets because one gesture spans several of them — HINTS_MOVE while the mode
+# decision is still re-openable, HINTS_MOVE_STAGED / _LOCKED mid-move, and
+# HINTS_CHARGE_MOVE — and only the router can see which are actually armed.
+func _with_box_select_hint(hints: Array) -> Array:
+	if not _box_select_offered():
+		return hints
+	var out: Array = []
+	var replaced := false
+	for hint in hints:
+		if str(hint[0]) == "ls":
+			out.append(["ls", BOX_SELECT_HINT])
+			replaced = true
+		else:
+			out.append(hint)
+	if not replaced:
+		out.append(["ls", BOX_SELECT_HINT])
+	return out
 
 
 # The MovementController while the Movement phase is live, else null. Used by the

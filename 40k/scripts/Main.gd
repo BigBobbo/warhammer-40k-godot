@@ -306,6 +306,13 @@ func _ready() -> void:
 	# controller could end the phase at all.
 	if InputDeviceManager and not InputDeviceManager.device_changed.is_connected(_on_input_device_changed):
 		InputDeviceManager.device_changed.connect(_on_input_device_changed)
+	# ☰ is context-dependent, so the prefix has to follow the board state as well
+	# as the device: while a move is staged ☰ confirms that move (T1 step 12's
+	# "LOCK IT IN!") and this button must NOT also claim "[☰] End Movement Phase".
+	# PadRouter fires this whenever the ☰ chip's meaning flips.
+	if PadRouter and PadRouter.has_signal("start_action_changed") \
+			and not PadRouter.start_action_changed.is_connected(_on_pad_start_action_changed):
+		PadRouter.start_action_changed.connect(_on_pad_start_action_changed)
 	# Initial pass in case a pad is already the active device at startup (the
 	# phase button self-corrects via update_ui_for_phase; the stratagem button
 	# has no other refresh path, so seed it here).
@@ -5590,6 +5597,14 @@ func _pad_native_nav_modal_open() -> bool:
 # confirmation, reusing whatever the button currently does/says.
 var _pad_phase_confirm: ConfirmationDialog = null
 
+# Start-button presses are consumed here, which stops the event before
+# PadRouter._input ever sees it — so the hint bar (and, through it, this button's
+# "[☰] " prefix) would keep describing the state Start just left behind. Deferred
+# so the confirm/end it triggered has landed in state before the recompute reads it.
+func _refresh_pad_start_meaning() -> void:
+	if PadRouter and PadRouter.has_method("refresh_hints"):
+		PadRouter.call_deferred("refresh_hints")
+
 func _show_pad_phase_confirm() -> void:
 	if _pad_phase_confirm == null or not is_instance_valid(_pad_phase_confirm):
 		_pad_phase_confirm = ConfirmationDialog.new()
@@ -5629,6 +5644,7 @@ func _input(event: InputEvent) -> void:
 			# live carry and stranding the still-held cursor. State-checked here
 			# (not just consumed in PadRouter._input) so it works regardless of
 			# _input order.
+			_refresh_pad_start_meaning()
 			get_viewport().set_input_as_handled()
 			return
 		if current_phase == GameStateData.Phase.SHOOTING and shooting_controller \
@@ -5661,6 +5677,7 @@ func _input(event: InputEvent) -> void:
 			pass
 		elif phase_action_button and phase_action_button.visible and not phase_action_button.disabled:
 			_show_pad_phase_confirm()
+		_refresh_pad_start_meaning()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -7537,6 +7554,12 @@ func _resolve_token_meta_node(token: Node) -> Node2D:
 func _check_token_hover(mouse_pos: Vector2) -> void:
 	if not token_layer or not is_instance_valid(token_layer):
 		return
+	# The datasheet card is a read-the-rules overlay covering the middle of the
+	# screen; a board tooltip peeking out from behind it is pure noise.
+	var _ds = get_node_or_null("DatasheetModal")
+	if _ds != null and _ds.visible:
+		_hide_token_hover()
+		return
 	# Suppress the tooltip while the mouse is over a HUD panel — the board
 	# position under the HUD is not what the player is pointing at.
 	for hud_name in ["HUD_Right", "HUD_Bottom", "HUD_Left"]:
@@ -8350,6 +8373,9 @@ func _on_unit_confirmed() -> void:
 	unit_list.visible = true
 	refresh_unit_list()
 	update_ui()
+	# The placement session just ended, so the ☰ chip must stop promising
+	# "Confirm Unit" (see PadRouter.HINTS_DEPLOY_STAGED).
+	_refresh_pad_start_meaning()
 
 func _on_models_placed_changed() -> void:
 	print("Main: ⚠️ _on_models_placed_changed() called")
@@ -8359,6 +8385,12 @@ func _on_models_placed_changed() -> void:
 
 	print("Main: Calling update_ui() after models_placed_changed")
 	update_ui()
+
+	# Placing the LAST model is what flips ☰ from "no chip" to "Confirm Unit".
+	# Driven off the signal rather than PadRouter's own input tail so a mouse
+	# placement updates the pad hint bar too (the reported confusion came from
+	# the chip and the button disagreeing about what ☰ does).
+	_refresh_pad_start_meaning()
 
 	# Check if all units are deployed now
 	var all_units_deployed = GameState.all_units_deployed()
@@ -8958,8 +8990,55 @@ func _on_end_deployment_pressed() -> void:
 
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
-			# T5-UX8: Show deployment summary dialog before ending phase
+			# Deployment has a HARD precondition (every unit deployed, embarked,
+			# attached or in Strategic Reserves) — unlike the other phases, whose
+			# END_* is always legal and whose dialogs are pure courtesy prompts.
+			# Gate it HERE, at the single entry point every input funnels through
+			# (mouse click, pad ☰ via _show_pad_phase_confirm, keyboard), instead
+			# of relying on phase_action_button.disabled alone: the reported bug
+			# was a player reaching the summary dialog with the Gretchin still
+			# undeployed, confirming it, and the failed END_DEPLOYMENT then being
+			# "recovered" by a blind local phase advance (see
+			# _on_deployment_confirmed). Refusing here means the dialog never
+			# opens for a state that cannot legally end.
 			var deploy_phase_instance = PhaseManager.get_current_phase_instance()
+			if deploy_phase_instance and deploy_phase_instance.has_method("validate_action"):
+				var gate = deploy_phase_instance.validate_action({"type": "END_DEPLOYMENT", "player": active_player})
+				if not gate.get("valid", true):
+					var blockers = []
+					var opponent_blockers = []
+					if deploy_phase_instance.has_method("get_undeployed_unit_names"):
+						blockers = deploy_phase_instance.get_undeployed_unit_names(active_player)
+						opponent_blockers = deploy_phase_instance.get_undeployed_unit_names(3 - active_player)
+					var gate_errors = gate.get("errors", [])
+					var msg = "Cannot end deployment yet"
+					if not blockers.is_empty():
+						# Name the units so the player knows what to go and place,
+						# rather than a bare "Not all units have been deployed".
+						# Capped: mashing this at the START of deployment would
+						# otherwise list a whole army and overflow the toast.
+						var shown = blockers.slice(0, min(3, blockers.size()))
+						var listed = ", ".join(shown)
+						if blockers.size() > shown.size():
+							listed += " and %d more" % (blockers.size() - shown.size())
+						msg = "Cannot end deployment — still to deploy: %s" % listed
+					elif not opponent_blockers.is_empty():
+						# Your side is done; deployment alternates, so the phase is
+						# waiting on the other army rather than on anything you can do.
+						msg = "Cannot end deployment — Player %d still has units to deploy" % (3 - active_player)
+					elif not gate_errors.is_empty():
+						msg = str(gate_errors[0])
+					print("Main: END_DEPLOYMENT refused — ", msg)
+					DebugLogger.info("END_DEPLOYMENT refused at UI gate", {
+						"errors": gate_errors,
+						"undeployed": blockers,
+						"undeployed_opponent": opponent_blockers
+					})
+					show_error_toast(msg)
+					update_ui()  # re-assert the disabled button if it had drifted
+					return
+
+			# T5-UX8: Show deployment summary dialog before ending phase
 			if deploy_phase_instance and deploy_phase_instance.has_method("get_deployment_summary"):
 				var summary = deploy_phase_instance.get_deployment_summary()
 				print("Main: T5-UX8: Showing deployment summary dialog")
@@ -10345,9 +10424,25 @@ func _get_phase_tooltip_text(phase: GameStateData.Phase) -> String:
 func _phase_action_pad_prefix() -> String:
 	return "[%s] " % GlyphDB.glyph_text("menu")
 
+# True while the pad's ☰ (Start) button still presses THIS button. ☰ is
+# context-dependent (see _input's pad_phase_action branch): mid-move it confirms
+# the unit's move, with targets assigned it confirms targets, mid-carry it places
+# the held model and confirms, and only when none of those apply does it fall
+# through to the End-Phase confirm. PadRouter computes that meaning once, for the
+# hint bar's ☰ chip; this reads the same value so the button and the chip agree.
+func _pad_start_ends_phase() -> bool:
+	if PadRouter == null or not PadRouter.has_method("start_owns_phase_action"):
+		return true
+	return PadRouter.start_owns_phase_action()
+
 # The shortcut prefix for the current input device: pad → "[☰] ", KBM → "[Enter] ".
+# On a pad the "[☰] " is dropped while a context action owns Start — otherwise the
+# button claims "[☰] End Movement Phase" at the very moment ☰ means "confirm this
+# unit's move" (the contradiction T1 step 12, "LOCK IT IN!", walked players into).
 func _phase_action_prefix() -> String:
 	if InputDeviceManager and InputDeviceManager.is_pad_active():
+		if not _pad_start_ends_phase():
+			return ""
 		return _phase_action_pad_prefix()
 	return _PHASE_ACTION_KBM_PREFIX
 
@@ -10365,20 +10460,29 @@ func _phase_action_bare_label() -> String:
 
 # Re-stamp the button's shortcut prefix for the active device without touching
 # the label — so switching KBM ⇄ pad live swaps "[Enter] " ⇄ "[☰] " and leaves
-# any custom label (Continue, the Fight-phase step labels) intact.
+# any custom label (Continue, the Fight-phase step labels) intact. Also runs when
+# ☰ changes meaning mid-phase, which is why it must cope with the button already
+# being bare: with a context action owning Start the prefix is "", and a
+# begins_with-only version could never put the "[☰] " back once ☰ came free.
 func _sync_phase_action_glyph() -> void:
 	if not phase_action_button or not is_instance_valid(phase_action_button):
 		return
-	var t: String = phase_action_button.text
-	for p in [_PHASE_ACTION_KBM_PREFIX, _phase_action_pad_prefix()]:
-		if t.begins_with(p):
-			phase_action_button.text = _phase_action_prefix() + t.substr(p.length())
-			return
-	# No recognized shortcut prefix — leave the text untouched.
+	var bare: String = _phase_action_bare_label()
+	if bare == "":
+		return
+	var want: String = _phase_action_prefix() + bare
+	if phase_action_button.text != want:
+		phase_action_button.text = want
 
 func _on_input_device_changed(_mode: int) -> void:
 	_sync_phase_action_glyph()
 	_sync_stratagem_button_glyph()
+
+# PadRouter re-derived what ☰ does in the current board state (mid-move →
+# "Confirm Move", targets assigned → "Confirm Targets", …). Re-stamp the
+# phase-action button so it only advertises "[☰]" while ☰ would actually press it.
+func _on_pad_start_action_changed(_label: String) -> void:
+	_sync_phase_action_glyph()
 
 # Drop / restore the Stratagems button's "[S] " keyboard hint for the active
 # device: pad → "Stratagems" (reached via D-pad panel focus + A, no key), KBM →
@@ -11341,11 +11445,20 @@ func _on_deployment_confirmed(active_player: int) -> void:
 	print("Main: T5-UX8: Player confirmed end deployment phase")
 	var action = {"type": "END_DEPLOYMENT", "player": active_player}
 	var result = NetworkIntegration.route_action(action)
-	if not result.get("success", false):
-		print("Main: T5-UX8: Failed to end deployment phase: ", result.get("error", "Unknown error"))
-		if not NetworkManager.is_networked():
-			print("Main: T5-UX8: Falling back to local phase advance")
-			PhaseManager.advance_to_next_phase()
+	if result.get("pending", false) or result.get("success", false):
+		return
+	# A rejected END_DEPLOYMENT used to fall back to PhaseManager.advance_to_next_phase(),
+	# which walked straight past the very check that had just refused. That is how
+	# a game left Deployment with units still undeployed (reported from tutorial
+	# T2 "Musterin' da Boyz": the Battlewagon confirmed, the Gretchin still in the
+	# list, and the first-turn roll-off popup already on screen with no way back).
+	# The refusal is the answer — surface it and stay in Deployment.
+	var errors = result.get("errors", [result.get("error", "Cannot end deployment yet")])
+	var err_text = str(errors[0]) if not errors.is_empty() else "Cannot end deployment yet"
+	print("Main: T5-UX8: Failed to end deployment phase: ", err_text)
+	DebugLogger.info("END_DEPLOYMENT rejected — staying in Deployment", {"errors": errors})
+	show_error_toast(err_text)
+	update_ui()
 
 func _on_deployment_cancelled() -> void:
 	"""T5-UX8: Player cancelled ending deployment phase"""
@@ -13207,6 +13320,18 @@ func _refresh_vp_timeline_panel() -> void:
 	totals.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_vp_timeline_list.add_child(totals)
 
+func _pause_button_glyph() -> String:
+	# "⧉ View" by default; follows a Settings › Controller remap of the Pause
+	# Menu role. Autoload fetched by path so the bare headless harness (which
+	# runs without PadBindings) still gets a sensible label.
+	var pb := get_node_or_null("/root/PadBindings")
+	if pb != null and pb.has_method("button_full_name") and pb.has_method("get_button"):
+		var g: String = str(pb.button_full_name(pb.get_button("pad_pause")))
+		if g != "":
+			return g
+	return "⧉ View (Select)"
+
+
 func _toggle_hotkey_help_overlay() -> void:
 	if _hotkey_help_overlay and is_instance_valid(_hotkey_help_overlay):
 		_hotkey_help_overlay.queue_free()
@@ -13276,6 +13401,17 @@ func _toggle_hotkey_help_overlay() -> void:
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(hint)
+	# Controller route to the same information. This help screen is keyboard-only
+	# by nature (and Shift+/ is unpressable on a Steam Deck in Game Mode), so
+	# always point pad players at the Controller tab, which lists every pad
+	# button and lets them remap it. Glyph comes from PadBindings so a remapped
+	# Pause Menu role shows the button it is actually on now.
+	var pad_hint := Label.new()
+	pad_hint.name = "PadRouteHint"
+	pad_hint.text = "On a controller: %s (Pause Menu) → Settings → Controller lists every pad button" % _pause_button_glyph()
+	pad_hint.add_theme_font_size_override("font_size", 12)
+	pad_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(pad_hint)
 	add_child(_hotkey_help_overlay)
 	_hotkey_help_overlay.z_index = UI_OVERLAY_Z
 	print("Main: Hotkey help overlay opened")

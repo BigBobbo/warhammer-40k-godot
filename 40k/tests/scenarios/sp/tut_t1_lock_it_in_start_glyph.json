@@ -1,0 +1,417 @@
+{
+  "id": "tut_t1_lock_it_in_start_glyph",
+  "covers": [
+    "tutorial.t1.basics.pad",
+    "pad.hint_bar.start_chip",
+    "pad.phase_action_button.glyph",
+    "Main.gd",
+    "PadRouter.gd",
+    "T1_basics.json"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Reported contradiction at T1 step 12 (LOCK IT IN!): the card tells a pad player that the Menu button (the one with three lines) confirms da grots' move, while the button in the top-right corner of the screen simultaneously read '[☰] End Movement Phase'. One glyph, two promises. ☰ really is context-dependent - Main._input routes it to MovementController.pad_confirm_move() whenever a move is staged - so the End-Phase button is the one that was lying. This scenario drives T1 on a pad to step 12 and asserts the button drops its '[☰] ' prefix for exactly as long as ☰ belongs to the move, that the hint bar's ☰ chip and PadRouter.start_action_label say the same thing, that ☰ does in fact confirm the move from that state, and that the prefix comes straight back once ☰ is free again.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var mm = tree.root.get_node_or_null(\"/root/MainMenu\")\nif mm != null and mm._tutorial_nudge != null and mm._tutorial_nudge.visible:\n\tmm._tutorial_nudge._on_dismiss()\n\tvar q = [mm]\n\twhile not q.is_empty():\n\t\tvar n = q.pop_back()\n\t\tif n is Button and str(n.name) == \"StartButton\":\n\t\t\tn.grab_focus()\n\t\t\tbreak\n\t\tfor c in n.get_children():\n\t\t\tq.append(c)\nreturn TutorialManager.should_show_first_launch_nudge()",
+      "multiline": true,
+      "equals": false,
+      "comment": "retire the first-launch nudge so this scenario runs standalone on a pristine profile"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode on the main menu - every glyph assertion below is pad-only"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "welcome"
+    },
+    {
+      "act": "execute_script",
+      "script": "int(main.current_phase)",
+      "equals": 7,
+      "comment": "T1 boots straight into the Movement phase (lesson boot.phase 7), so the top-right button is the End-Movement-Phase button throughout"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.phase_action_button.text)",
+      "equals": "[☰] End Movement Phase",
+      "comment": "BASELINE: nothing is staged, ☰ really does press this button, so it may advertise itself"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadHintBar.label_for(\"menu\")",
+      "equals": "",
+      "comment": "the instructor card owns the bar while it waits on Continue, so there is no ☰ chip yet - a set with no chip is not a set that disowns Start, which is why PadRouter still defaults to the phase action below (asserted on the board proper at move_grots)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.start_owns_phase_action()",
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "camera"
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 2,
+      "value": 1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 2,
+      "value": -1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 3,
+      "value": -1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 3,
+      "value": 1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 5,
+      "value": 1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 4,
+      "value": 1.0,
+      "hold_s": 0.4
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "select_wagon"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "open_datasheet"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 3
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 3
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "dice_log"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Dice Log"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "hint_bar"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "controls_reference_open"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 4
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/SettingsMenu",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase_intro"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.phase_action_button.text)",
+      "equals": "[☰] End Movement Phase",
+      "comment": "step 10 spotlights this very button and calls it the end-phase button - with nothing staged that is still true"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "move_grots"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadHintBar.label_for(\"menu\")",
+      "equals": "End Phase",
+      "comment": "board context with nothing staged: the ☰ chip and the top-right button make the same promise"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.phase_action_button.text)",
+      "equals": "[☰] End Movement Phase"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "unit_id": "U_GRETCHIN_T"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_GRETCHIN_T"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "D-pad up opens the move menu (the mode decision is still open)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A takes the highlighted chip - Move - which starts the move session and puts one grot in hand"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "D-pad up mid-move grabs every grot still to be moved as one group carry"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 1000.0,
+      "y": 724.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var md = PhaseManager.current_phase_instance.get_active_move_data(\"U_GRETCHIN_T\")\nvar dists = md.get(\"model_distances\", {})\nvar mx = 0.0\nfor k in dists:\n\tmx = max(mx, float(dists[k]))\nreturn mx > 1.0",
+      "multiline": true,
+      "equals": true,
+      "comment": "grots really covered ground, so there is a move to lock in"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_grots",
+      "comment": "STEP 12 - LOCK IT IN! - the reported contradiction"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_GRETCHIN_T\")",
+      "equals": true,
+      "comment": "☰ in this state routes to pad_confirm_move(), NOT to the end-phase confirm - the card's claim is the true one"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.start_owns_phase_action()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.phase_action_button.text)",
+      "equals": "End Movement Phase",
+      "comment": "THE FIX: the top-right button no longer claims '[☰] End Movement Phase' while ☰ belongs to the move. Label intact, glyph withdrawn."
+    },
+    {
+      "act": "execute_script",
+      "script": "not str(main.phase_action_button.text).begins_with(main._phase_action_pad_prefix())",
+      "equals": true,
+      "comment": "glyph-agnostic restatement, so a remap in Settings > Controller cannot sneak the contradiction back"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PadRouter.start_action_label) == str(PadHintBar.label_for(\"menu\"))",
+      "equals": true,
+      "comment": "the button and the hint bar read one authority - PadRouter derives start_action_label from the very hint set the bar rendered"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadHintBar.label_for(\"menu\")",
+      "not_equals": "End Phase",
+      "comment": "whichever mid-move set is up (staged / locked / carry), the ☰ chip names a confirm, never the phase end"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_step12_lock_it_in_no_menu_glyph_on_end_phase"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "☰ (Start) - the button with three lines. Per the card this confirms the move; per the old top-right label it would have ended the phase."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "int(main.current_phase)",
+      "equals": 7,
+      "comment": "☰ did NOT end the phase"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_GRETCHIN_T\").get(\"flags\", {}).get(\"moved\", false)",
+      "equals": true,
+      "comment": "☰ DID confirm the grots' move - exactly what the card promised"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "wrap"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.phase_action_button.text)",
+      "equals": "[☰] End Movement Phase",
+      "comment": "and the prefix comes straight back the moment ☰ is free again - the withdrawal is state-scoped, not a one-way strip"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_after_lock_in_menu_glyph_restored"
+    }
+  ]
+}

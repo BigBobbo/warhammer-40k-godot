@@ -31,6 +31,8 @@ signal lesson_completed(lesson_id: String)
 signal tutorial_exited()
 
 const TutorialScriptLib = preload("res://scripts/tutorial/TutorialScript.gd")
+# Bare glyph text for the plain-Label toasts (no BBCode) — see _plain_glyphs.
+const GlyphDB := preload("res://scripts/input/GlyphDB.gd")
 
 const LESSONS_DIR := "res://data/tutorials/lessons/"
 const FIXTURES_DIR := "res://data/tutorials/fixtures/"
@@ -334,10 +336,8 @@ func _enter_step(index: int) -> void:
 	var step: Dictionary = _steps[index]
 
 	# Device-filtered steps (PRP §4.4) are skipped silently on the other device.
-	var dev := str(step.get("device", "any"))
-	if (dev == "pad" and not InputDeviceManager.is_pad_active()) \
-			or (dev == "kbm" and InputDeviceManager.is_pad_active()):
-		print("TutorialManager: skipping step '%s' (device=%s)" % [str(step.get("id", "")), dev])
+	if not _step_matches_device(step):
+		print("TutorialManager: skipping step '%s' (device=%s)" % [str(step.get("id", "")), str(step.get("device", "any"))])
 		_enter_step(index + 1)
 		return
 
@@ -394,16 +394,58 @@ func _show_current_step() -> void:
 func refresh_prompt() -> void:
 	if not active:
 		return
-	# Item labels (and which items apply at all) are device-dependent, so a
-	# pad<->keyboard swap mid-step has to rebuild the list — carrying the
-	# already-ticked ids across so the player never loses progress.
+	# The lesson stays active under the end-of-lesson summary card, and
+	# current_step_index still points at the last step — re-rendering it here
+	# would replace the summary with a step the player already finished (and
+	# the device re-check below would re-enter it). The overlay re-applies its
+	# own device-dependent dressing on the same signal.
+	var overlay_now := get_node_or_null("/root/TutorialOverlay")
+	if overlay_now != null and overlay_now.has_method("pad_ack_state") \
+			and str(overlay_now.pad_ack_state()) == "summary":
+		return
 	if current_step_index >= 0 and current_step_index < _steps.size():
+		# A mid-step device swap can strand the player on a step authored for the
+		# device they just put down — the Steam Deck is the live case: its right
+		# trackpad emits real mouse motion, so KBM gets claimed, a keyboard-only
+		# step is entered, and the pad can then never satisfy it (the player is
+		# told to press Shift+/ on a machine with no keyboard). Re-entering the
+		# step runs the same device filter _enter_step applies, which skips it
+		# forward to the variant that matches the device now in the player's hands.
+		if not _step_matches_device(_steps[current_step_index]):
+			_enter_step(current_step_index)
+			return
+		# Item labels (and which items apply at all) are device-dependent, so a
+		# pad<->keyboard swap mid-step has to rebuild the list — carrying the
+		# already-ticked ids across so the player never loses progress.
 		_build_checklist(_steps[current_step_index], _checklist_done)
 	_show_current_step()
 
 
+# "any" steps run on both devices; "pad"/"kbm" steps only on theirs.
+func _step_matches_device(step: Dictionary) -> bool:
+	var dev := str(step.get("device", "any"))
+	if dev == "pad":
+		return InputDeviceManager.is_pad_active()
+	if dev == "kbm":
+		return not InputDeviceManager.is_pad_active()
+	return true
+
+
 func _is_ack_step(step: Dictionary) -> bool:
 	return bool(step.get("done", {}).get("ack", false))
+
+
+# A "closed" ack step: Continue is the way on AND the allow-list is empty, so
+# there is provably nothing else the player could usefully do. That second half
+# matters — T7's final step is an ack step with allow "*", which deliberately
+# hands the game back ("Da rest is just playin'"). Only a closed step may be
+# told "Continue is the only way on"; saying that on T7's sign-off would be a
+# lie about a board the lesson has explicitly reopened. See _blocked_instruction.
+func _is_closed_ack_step(step: Dictionary) -> bool:
+	if not _is_ack_step(step):
+		return false
+	var allow = step.get("allow", [])
+	return typeof(allow) == TYPE_ARRAY and (allow as Array).is_empty()
 
 
 # --------------------------------------------------------------- checklist ---
@@ -731,17 +773,62 @@ func is_action_allowed(action: Dictionary) -> bool:
 	return false
 
 
+# What the "blocked" toast should tell the player to do INSTEAD. This used to
+# echo the step's bark verbatim, which produced non-sequiturs like "Oi! Not dat
+# one, ya git — READ DA BAR!" — the player pokes a unit the step doesn't want and
+# is told to read a bar, with nothing saying what WOULD work. Now: a lesson step
+# may spell it out with "blocked_hint"; failing that, a CLOSED ack step names its
+# Continue button, because that is literally the only way on.
+func _blocked_instruction() -> String:
+	if current_step_index < 0 or current_step_index >= _steps.size():
+		return "follow da current step"
+	var step: Dictionary = _steps[current_step_index]
+	var pad := InputDeviceManager.is_pad_active()
+	# "blocked_hint" takes either a plain string or the same {pad, kbm, text}
+	# shape prompts use, so a step can name the pad button without that token
+	# landing in a keyboard player's toast.
+	var custom = step.get("blocked_hint", "")
+	if typeof(custom) == TYPE_DICTIONARY:
+		custom = TutorialScriptLib.body_for_device({"prompt": custom}, pad)
+	if str(custom) != "":
+		return _plain_glyphs(str(custom))
+	# Only a CLOSED ack step can honestly claim Continue is the sole way on; an
+	# ack step with a live allow-list falls through to the bark-based message.
+	if _is_closed_ack_step(step):
+		if pad:
+			return _plain_glyphs("dis step only wants [Continue] on da tutorial card — press {a}.")
+		return "dis step only wants [Continue] on da tutorial card."
+	var bark := str(step.get("prompt", {}).get("bark", ""))
+	if bark == "":
+		return "follow da current step"
+	return "finish da step on da card first — %s" % bark
+
+
+# Toasts are a plain Label, so the BBCode-emitting TutorialScriptLib.render_text
+# can't be used on them. Substitute the same {glyph} tokens with bare glyph text
+# on a pad, and strip them (with any whitespace that led up to them) on
+# mouse+keyboard, so a stripped token never leaves a double space behind.
+func _plain_glyphs(text: String) -> String:
+	var pad := InputDeviceManager.is_pad_active()
+	var re := RegEx.new()
+	re.compile("(\\s*)\\{([a-zA-Z0-9_]+)\\}")
+	var out := ""
+	var last := 0
+	for m in re.search_all(text):
+		out += text.substr(last, m.get_start() - last)
+		if pad:
+			out += m.get_string(1) + GlyphDB.glyph_text(m.get_string(2))
+		last = m.get_end()
+	out += text.substr(last)
+	return out
+
+
 func on_action_blocked(action: Dictionary) -> void:
 	var now := Time.get_ticks_msec()
 	if now - _last_block_toast_ms < BLOCK_TOAST_COOLDOWN_MS:
 		return
 	_last_block_toast_ms = now
-	var step_title := ""
-	if current_step_index >= 0 and current_step_index < _steps.size():
-		step_title = str(_steps[current_step_index].get("prompt", {}).get("bark", ""))
-	if step_title == "":
-		step_title = "follow da current step"
-	ToastManager.show_warning("Oi! Not dat one, ya git — %s" % step_title)
+	ToastManager.show_warning("Oi! Not dat one, ya git — %s" % _blocked_instruction())
 	print("TutorialManager: blocked action '%s' at step %d" % [str(action.get("type", "")), current_step_index])
 	var overlay := get_node_or_null("/root/TutorialOverlay")
 	if overlay:

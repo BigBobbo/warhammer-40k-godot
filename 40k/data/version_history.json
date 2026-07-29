@@ -2,18 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.6.3",
+      "version": "1.7.9",
       "date": "2026-07-29",
-      "summary": "The deployment tutorial now teaches you how to shove an already-placed model into a better spot.",
+      "summary": "The deployment tutorial now teaches you how to shove an already-placed model into a better spot — and its 'turn the wagon' step is no longer skipped on a controller.",
       "changes": [
         "Added a step to 'Musterin' da Boyz' covering model repositioning: after you park the Battlewagon, the lesson walks you through picking it back up and dropping it somewhere better — Shift+click on mouse, L3 on controller.",
         "The step ticks off as you go: one box for picking the model up, one for dropping it in its new spot.",
         "Parking the wagon and locking it in are now separate steps, so you get a chance to adjust it before you Confirm.",
-        "The lesson recap mentions repositioning too, and the deployment step now points controller players at R3 + bumpers for turning a vehicle."
+        "The 'POINT IT DA RIGHT WAY!' rotation step used to be skipped entirely for controller players, because turning a model during deployment was mouse-and-keyboard only. It now runs for everyone and teaches the controller combo.",
+        "The lesson recap covers both: turning a vehicle on either device, and nudging a model you already placed."
       ]
     },
     {
-      "version": "1.6.2",
+      "version": "1.7.8",
       "date": "2026-07-29",
       "summary": "Controller players can now nudge a model they already placed: press L3 to pick it up, move it, A to drop it.",
       "changes": [
@@ -24,8 +25,8 @@
       ]
     },
     {
-      "version": "1.6.1",
-      "date": "2026-07-28",
+      "version": "1.7.7",
+      "date": "2026-07-29",
       "summary": "Controller players can finally rotate a model while deploying it: hold R3 (click the right stick) and the bumpers turn the ghost 15° a press.",
       "changes": [
         "Added controller rotation during deployment. Hold R3 and LB/RB rotate the model you are placing — the pad equivalent of the keyboard's Q/E. Before this there was no way to angle an oval or rectangular base (a Battlewagon, a tank) with a controller at all; you had to reach for a mouse and keyboard.",
@@ -35,14 +36,200 @@
       ]
     },
     {
+      "version": "1.7.6",
+      "date": "2026-07-29",
+      "summary": "Deployment can no longer end while you still have units to deploy.",
+      "changes": [
+        "Ending the Deployment phase with units still undeployed dropped you straight into the 'Who takes the first turn?' roll-off with those units stranded off the table and no way back. Reported from tutorial 'Musterin' da Boyz', where the Gretchin were left behind. The end-phase action was correctly refused, but the game then advanced the phase anyway; it now stays in Deployment.",
+        "Trying to end Deployment early now tells you what is blocking it — 'Cannot end deployment — still to deploy: Gretchin' — instead of doing nothing, or says which player the phase is waiting on when your own army is already set up.",
+        "Controller: with every model of a unit placed, the ☰ hint now reads 'Confirm Unit' instead of the ambiguous 'Confirm / End', so pressing it to lock a unit in can no longer be mistaken for the button that ends the phase. The bumpers also stop offering Prev/Next Unit there, since deployment refuses to switch units once a model is on the table."
+      ]
+    },
+    {
+      "version": "1.7.5",
+      "date": "2026-07-29",
+      "summary": "Controller: X really works in the charge phase now — Snap to Contact and Skip Charge were both dead buttons the hint bar kept promising.",
+      "changes": [
+        "During a charge move the hint bar says '[X] Snap to Contact', but pressing X did nothing and only the on-screen Snap to Contact button worked. The cause: as soon as you nudge the left stick — which is how you aim at a model to grab it with A — the virtual cursor turns on, and while it was on it swallowed X as a right-click. X now reaches Snap to Contact whether the cursor is up or parked.",
+        "'[X] Skip Charge' in the declare and roll stages was dead for exactly the same reason, and is fixed alongside it — X now skips the selected unit's charge with the cursor live.",
+        "Once every model has been snapped there is nothing left to snap, so the Snap to Contact button now correctly greys out (it used to stay lit and do nothing on a second press) and the hint bar drops its X chip instead of advertising a button that can't fire."
+      ]
+    },
+    {
+      "version": "1.7.4",
+      "date": "2026-07-29",
+      "summary": "'Dakka Time' step 4 now explains what the dice dock is actually doing — and tells you that you can choose the order your weapons fire in.",
+      "changes": [
+        "Step 4 of the shooting lesson ('LET 'EM RIP!') used to jump straight to 'press Fast Roll All'. It now explains the WEAPON RESOLUTION dock: each row is one gun aimed at one mob, they fire top to bottom, and every gun rolls to hit, then to wound, then the defender takes saving throws before the damage lands.",
+        "It also tells you the firing order is yours to pick — the ▲ / ▼ buttons on the right-hand side of each queue row move a weapon up or down before the first shot — and why that matters: models killed by the first gun aren't there to soak up the second.",
+        "Controller players are told how to get there: the D-pad walks the highlight up from the dock's main button into the queue and onto the ▲ / ▼ buttons, and A presses them.",
+        "On a controller the highlight now stays in the queue after each nudge, so a weapon can be moved several slots without walking back up from the main button every time."
+      ]
+    },
+    {
+      "version": "1.7.3",
+      "date": "2026-07-29",
+      "summary": "'Get Movin'' now teaches that a move can be spent over several drags, and adds a step for turning models.",
+      "changes": [
+        "The Battlewagon step only said 'drag da wagon's hull forward an' drop it', so players assumed the one drag was the whole move and spent all 10\"+D6 in a single go. It now says outright that you can drop the wagon, grab it again and keep going, and that the panel counts the inches as you do.",
+        "New step 'POINT IT RIGHT!': the Battlewagon is on a rectangular base, so which way it faces matters. Lesson 2 teaches turning during deployment; this teaches it during the Movement phase, where the controls differ — the step only advances once you actually turn the wagon.",
+        "Keyboard: grab the hull, keep the button held, and tap Q / E to turn 15° a tap (it follows a rebind). Controller: grab it with A, then LB / RB while you're carrying it — unlike deployment, the pad can turn a model mid-move.",
+        "Both say what the rules say: in 11th edition turning a model is free and costs none of its move.",
+        "The lesson's end-of-lesson summary picks up both points."
+      ]
+    },
+    {
+      "version": "1.7.2",
+      "date": "2026-07-29",
+      "summary": "Deployment tutorial now has its own step for turning the Battlewagon, instead of mentioning rotation in passing.",
+      "changes": [
+        "'Musterin' da Boyz' (lesson 2) gained a step between the deployment roll-off and parking the wagon: POINT IT DA RIGHT WAY! It has you pick the Battlewagon up and actually turn it before dropping it, and spells out how — Q and E (or whatever you rebound them to), or the mouse wheel, 15° a tap.",
+        "The step will not move on until the wagon has genuinely been turned, and Confirm is held shut while it is showing — dropping the wagon flat and locking it in would have left nothing to rotate. If you drop it before turning it, the step tells you to pick it back up with Undo on the unit card.",
+        "Controller players skip the new step: rotating a model during deployment is a keyboard/mouse-wheel control only (on a pad the bumpers cycle units there), so the tutorial does not promise a button that would turn nothing. The end-of-lesson summary says the same.",
+        "The 'Park da wagon' step that follows is now just about placing and confirming."
+      ]
+    },
+    {
+      "version": "1.7.1",
+      "date": "2026-07-29",
+      "summary": "The movement tutorial now teaches that boyz who disembark can still move — as long as the transport hasn't moved yet.",
+      "changes": [
+        "'Get Movin'' used to jump straight from placing the disembarked Boyz to driving the Battlewagon, so it never mentioned that the Boyz were already selected and still had their full 6\" move to spend. A new step ('DEIR LEGS STILL WORK!') has you drag them forward and lock the move in with End This Unit's Move.",
+        "The step spells out the catch: it only works because the wagon hasn't moved yet. Disembark first, drive after — if the transport moves first, the passengers are stuck where they land.",
+        "The 'it can still move' pop-up that used to appear over the tutorial card after a disembark is now hidden during a lesson, so it stops covering the instruction it repeats."
+      ]
+    },
+    {
+      "version": "1.7.0",
+      "date": "2026-07-29",
+      "summary": "The unit datasheet is now an actual datasheet: proper weapon tables, stat boxes, and a card that fits on screen.",
+      "changes": [
+        "Weapons are laid out as RANGED and MELEE tables with real columns (Range, A, BS/WS, S, AP, D) instead of one run-on line per weapon, with each weapon's special rules listed under its name.",
+        "M / T / Sv / W / Ld / OC are shown as labelled stat boxes, and an Invulnerable Save or Feel No Pain box appears when the unit has one.",
+        "Stats read as whole numbers again — a Move of 6\" no longer shows as 6.0\".",
+        "The card sizes itself to the unit and sits in the middle of the screen instead of filling its full height; a datasheet longer than the card now scrolls inside it rather than running off the bottom.",
+        "Points, Warlord and any Enhancement are called out in the header; keywords, model/wound count and the close hint sit in a footer bar.",
+        "The board hover tooltip no longer shows through the open datasheet."
+      ]
+    },
+    {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "'Dakka Time' step 3 now says up front that you have to press Confirm.",
+      "changes": [
+        "Step 3 of the shooting lesson opened with two sentences describing the weapon list and a 'if a row still says (Click to Select)' fix-up, and only mentioned hitting Confirm in the last three words — so players who had nothing to fix did not know what the step wanted. Both the mouse and controller prompts now lead with the action: lock the targets in with Confirm (mouse) or ☰ (pad), with the re-aiming instructions moved after it."
+      ]
+    },
+    {
+      "version": "1.6.4",
+      "date": "2026-07-28",
+      "summary": "The tutorial now tells you where the end-phase button actually is.",
+      "changes": [
+        "Step 10 of 'Scoutin' da Field' asked 'SEE DAT BUTTON?' without saying which button, and the end-phase button sits well away from the tutorial card. It now says 'SEE DAT BUTTON IN DA TOP RIGHT-HAND CORNER?', and the body text repeats the location."
+      ]
+    },
+    {
+      "version": "1.6.3",
+      "date": "2026-07-28",
+      "summary": "The Menu (☰) button no longer promises two different things at once: the End Phase button stops advertising ☰ while ☰ is busy confirming a move.",
+      "changes": [
+        "Tutorial step 12 ('Lock it in!') tells a controller player that ☰ confirms the grots' move — which is true — but the big red button in the top-right corner read '[☰] End Movement Phase' at the same time, so the one button appeared to be tied to both. The End Phase button now drops its ☰ badge for exactly as long as ☰ belongs to something else, and gets it straight back the moment ☰ can end the phase again.",
+        "This applies everywhere ☰ is context-sensitive, not just the tutorial: confirming a unit's move, confirming shooting targets, declaring a charge, rolling 2D6, confirming a charge move, and placing the last model of a unit during deployment.",
+        "The button's badge and the hint bar's ☰ chip are now driven by the same reading of the game state, so they can no longer disagree.",
+        "Step 12 of the Basic Trainin' lesson also spells this out: ☰ only ends the phase once nothing is mid-move."
+      ]
+    },
+    {
+      "version": "1.6.2",
+      "date": "2026-07-28",
+      "summary": "Tutorial no longer tells controller players that B closes the datasheet — only Y does.",
+      "changes": [
+        "Tutorial 1, step 'Seen Enough!': the controller instruction said to press Y again (or B) to close the datasheet. B does not close it, so the tutorial could stall for anyone who took it at its word. It now just says press Y again."
+      ]
+    },
+    {
+      "version": "1.6.1",
+      "date": "2026-07-27",
+      "summary": "Units now show — and fire — only the weapons they are actually armed with, instead of every weapon their datasheet could take.",
+      "changes": [
+        "Opening a unit's datasheet (Y on a controller, I on the keyboard) used to show the whole datasheet's weapon menu. The tutorial Battlewagon listed a killkannon, a zzap gun and a big shoota it was never armed with, alongside the kannon, lobba, deff rolla, grabbin' klaw and wreckin' ball it actually has.",
+        "The Shooting and Fight phases had the same problem, which was worse: that Battlewagon could actually FIRE the killkannon and zzap gun it never bought. Single-model units — vehicles, monsters and characters — are now narrowed to their roster's real loadout everywhere, so the weapon list you are offered matches the datasheet you are shown.",
+        "Datasheets keep base weapons that are always fitted (the Battlewagon's tracks and wheels) and both profiles of a multi-profile weapon (Kannon – Frag and Kannon – Shell).",
+        "Same fix for the right-click 'Unit Stats' card and the two-unit stats comparison panel.",
+        "Four units in the shipped army lists never recorded which option they took, so they showed all of them: the Caladius Grav-tank, Contemptor-Achillus Dreadnought, Telemon Heavy Dreadnought and Shield-Captain now carry their datasheet's standard loadout.",
+        "If a unit's loadout can't be read for any reason, it still shows and fires its full weapon list rather than losing weapons."
+      ]
+    },
+    {
       "version": "1.6.0",
       "date": "2026-07-27",
-      "summary": "The game no longer flips between the controller and mouse & keyboard layouts while you play. It now picks one at launch — controller on a Steam Deck, mouse & keyboard on a PC or in the browser — and sticks to it, with a new Settings › Controller › Input Mode setting to override the choice.",
+      "summary": "Controller players can now box-select several models at once — hold A on empty board and steer with the left stick, the pad version of the mouse's Shift+click-drag.",
       "changes": [
-        "Fixed the screen resizing and the on-screen prompts swapping mid-game on the Steam Deck: the trackpads, back paddles and gyro can register as mouse or keyboard input, and every stray touch used to switch the whole interface (including the larger controller text) back and forth.",
-        "The game now detects where it is running and picks the layout once: a Steam Deck gets the controller layout, a PC or the itch.io browser build gets mouse & keyboard. It does not change again on its own.",
-        "New setting: Settings › Controller › Input Mode — choose Auto-detect, Controller / Steam Deck, Mouse & Keyboard, or 'Follow last input used' if you preferred the old behaviour. It is fully navigable with the controller and remembers your choice.",
-        "The main menu now shows which layout is in force (and how it was chosen) in the top-right corner, next to the controller status."
+        "Added box multi-select on the controller. While a unit is mid-move (Movement phase) or making its charge move, hold A with the cursor over empty board and push the left stick: a selection rectangle follows the cursor, and letting go of A selects every one of that unit's models inside it. Press A on one of them to drag the whole group together, exactly as with a mouse.",
+        "No button changed meaning to make room for this. Holding A on empty board previously did nothing at all, and A only becomes a plain click once you have moved the stick — so A still opens the Move Menu and picks models up exactly as before, and pressing A on a model still drags just that model.",
+        "The hint bar now advertises the gesture ('Hold A: Box Select') whenever it is available, and follows a remapped Select button if you have changed the controller layout in Settings.",
+        "Fixed a selection box getting stuck 'open' if you released the button over the HUD panels instead of the board — it would keep re-selecting models as you moved afterwards. It now closes where you let go. This affected the mouse's Shift+drag too."
+      ]
+    },
+    {
+      "version": "1.5.7",
+      "date": "2026-07-27",
+      "summary": "Basic Trainin's grot steps now explain what happens when a squad won't all fit where you drop it, and the 'Move da grots' step no longer skips ahead the moment you pick the mob up on a controller.",
+      "changes": [
+        "The grot steps now spell out partial placement: drop the whole mob somewhere they can't all fit and only the ones that fit are placed. On mouse and keyboard the ones that couldn't be placed stay selected, so one more drag takes exactly those somewhere else; on a controller another D-pad ▲ picks up every model that still hasn't moved. The game already worked this way — the tutorial just never said so, which made a half-placed squad look like a bug.",
+        "Fixed 'Move da grots' jumping to 'Lock it in!' on a controller the instant you pressed D-pad ▲ to grab the squad, before a single grot had actually moved. The step now waits until a model has really covered ground."
+      ]
+    },
+    {
+      "version": "1.5.6",
+      "date": "2026-07-27",
+      "summary": "Basic Trainin' now teaches the move-the-whole-squad shortcut on the grot step, instead of leaving you to drag eleven bases one at a time.",
+      "changes": [
+        "The 'Move da grots' step (step 11) now tells you how to move all eleven models at once — Ctrl+A on mouse and keyboard, D-pad ▲ on a controller — and says to use it because it is much faster. Previously it just said to drag one grot, and with a mob that size it was not obvious there was any other way.",
+        "The 'Lock it in' step (step 12) repeats the shortcut for any grots you left behind, so a half-moved mob can be caught up in one go before you confirm.",
+        "The step hint now explains the shortcut too, including the controller detail that the whole-squad grab only works once the move has actually started."
+      ]
+    },
+    {
+      "version": "1.5.5",
+      "date": "2026-07-27",
+      "summary": "Basic Trainin' no longer tells controller and Steam Deck players to press Shift+/ — the shortcuts step now teaches the pause menu's Controller tab, and the tutorial follows you when you switch between pad and trackpad mid-step.",
+      "changes": [
+        "The 'DA CHEAT SHEET!' step of Basic Trainin' used to be keyboard-only: on a Steam Deck it told you to press Shift+/ to list the shortcuts, a key combination a Deck has no keys for, and the step could not be finished. On a controller it now says to press View/Select for the pause menu and read the Controller tab, which lists every pad button and lets you remap them.",
+        "Pick up the controller mid-step and the tutorial now moves on from steps written for the other device instead of leaving you stuck on one you cannot complete. This bit Steam Deck players in particular, because the Deck's right trackpad counts as a mouse and quietly flips the game into keyboard mode.",
+        "The keyboard shortcut list (Shift+/) now also points controller players at Pause Menu → Settings → Controller for the pad layout."
+      ]
+    },
+    {
+      "version": "1.5.4",
+      "date": "2026-07-27",
+      "summary": "The tutorial's 'wrong button' warning now tells you what WOULD work instead of just shouting the step's title back at you.",
+      "changes": [
+        "The tutorial's warning for doing something a lesson isn't asking for used to repeat the step's own shout — poke the wrong unit on Basic Trainin' step 7 and you got 'Oi! Not dat one, ya git — READ DA BAR!', which never said what would actually move you on. It now names the way forward: 'dis step only wants [Continue] on da card — press Ⓐ'.",
+        "On a step that is only waiting for you to read it, the warning points at the Continue button by name. On the last step of the final lesson it does not — that one deliberately hands the board back to you, so everything really is allowed there.",
+        "Lessons can now carry their own wording for that warning, with separate text for a controller and for mouse+keyboard, so a step can name a pad button without that showing up on a keyboard.",
+        "Basic Trainin's 'Read da Bar' step now says outright that no unit picking is needed to get past it."
+      ]
+    },
+    {
+      "version": "1.5.3",
+      "date": "2026-07-27",
+      "summary": "On a controller, the tutorial's Continue button is now just the A button — Basic Trainin' step 7 ('Read da Bar') could leave you stuck with no obvious way to move on.",
+      "changes": [
+        "Fixed being stuck on a controller whenever a tutorial card asked you to press Continue — most obviously at Basic Trainin' step 7, 'Read da Bar'. The only way past it was to steer the pointer onto the button with the left stick and click it, which nothing told you to do. Pressing A now presses the card's button, wherever the pointer happens to be.",
+        "The card now shows an [A] badge next to Continue, and the button is outlined so you can see it is selected.",
+        "The hint bar at the bottom of the screen now reads 'A Continue' while a tutorial card is waiting — so the 'read da bar' step answers its own question. The end-of-lesson card reads 'Navigate / Choose' and the D-pad moves between Next Lesson and Back to Menu.",
+        "The D-pad can no longer wander off the tutorial card while it is waiting for you, so you can't lose the Continue button in the side panels.",
+        "Basic Trainin's opening card and the 'Read da Bar' step now say outright that A is Continue."
+      ]
+    },
+    {
+      "version": "1.5.2",
+      "date": "2026-07-27",
+      "summary": "Controller: LB/RB now cycle straight through the disembark pop-up instead of getting stuck on it.",
+      "changes": [
+        "Bumper-cycling onto a unit embarked in a transport no longer traps you in the 'Disembark Unit?' pop-up — pressing LB or RB while it is open now stays embarked, closes the pop-up, and cycles to the previous/next unit in one press.",
+        "Nothing else about the pop-up changed: A still confirms Disembark, B / Stay Embarked still declines, and cycling back onto the embarked unit reopens it."
       ]
     },
     {

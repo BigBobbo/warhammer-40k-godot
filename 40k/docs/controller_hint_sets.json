@@ -263,10 +263,6 @@
     [
       "y",
       "Datasheet"
-    ],
-    [
-      "menu",
-      "Confirm / End"
     ]
   ],
   "HINTS_DEPLOY_REPOSITION": [
@@ -285,6 +281,36 @@
     [
       "r3",
       "Hold: Precision"
+    ]
+  ],
+  "HINTS_DEPLOY_STAGED": [
+    [
+      "ls",
+      "Cursor"
+    ],
+    [
+      "l3",
+      "Move Placed Model"
+    ],
+    [
+      "dpad",
+      "Type / Formation"
+    ],
+    [
+      "x",
+      "Undo Model"
+    ],
+    [
+      "b",
+      "Undo Unit"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ],
+    [
+      "menu",
+      "Confirm Unit"
     ]
   ],
   "HINTS_FIGHT": [

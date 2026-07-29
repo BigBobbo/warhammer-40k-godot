@@ -1,0 +1,33 @@
+{
+  "id": "shooting_offers_equipped_weapons_only",
+  "covers": [
+    "shooting.weapon_tree.equipped_weapons_only",
+    "autoloads.RulesEngine._resolve_single_model_loadout",
+    "autoloads.RulesEngine.get_unit_weapons",
+    "scripts.UnitLoadoutResolver.get_equipped_weapons"
+  ],
+  "fixture": "fullauto_pretrigger",
+  "transition_to_phase": 8,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "A single-model VEHICLE must only be able to FIRE the guns its roster took. meta.weapons is the Battlewagon datasheet's option menu (big shoota / kannon / killkannon / lobba / zzap gun), but this roster's wargear is 1x Kannon + 1x Lobba. Selecting the Battlewagon as the shooter with a real token click must populate the weapon tree with the kannon (both profiles) and the lobba ONLY — the killkannon, zzap gun and big shoota it never bought must not be offered.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 8 },
+    { "act": "expect_token_visible", "unit_id": "U_BATTLEWAGON_G" },
+
+    { "act": "execute_script", "script": "var w = RulesEngine.get_unit_weapons(\"U_BATTLEWAGON_G\", GameState.state)\nvar ids = []\nfor mid in w:\n\tfor i in w[mid]:\n\t\tif i not in ids: ids.append(i)\nids.sort()\nreturn \",\".join(ids)", "multiline": true, "equals": "kannon___frag_ranged,kannon___shell_ranged,lobba_ranged" },
+
+    { "act": "click_unit", "unit_id": "U_BATTLEWAGON_G" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.shooting_controller.active_shooter_id", "equals": "U_BATTLEWAGON_G" },
+
+    { "act": "execute_script", "script": "var wt = tree.current_scene.get_node(\"ShootingController\").weapon_tree\nvar c = wt.get_root().get_first_child()\nvar names = []\nwhile c:\n\tnames.append(c.get_text(0))\n\tc = c.get_next()\nreturn \" | \".join(names)", "multiline": true, "exists": true },
+    { "act": "execute_script", "script": "var wt = tree.current_scene.get_node(\"ShootingController\").weapon_tree\nvar c = wt.get_root().get_first_child()\nvar txt = \"\"\nwhile c:\n\ttxt += c.get_text(0) + \" \"\n\tc = c.get_next()\nreturn txt.to_lower().contains(\"kannon\") and txt.to_lower().contains(\"lobba\")", "multiline": true, "equals": true },
+    { "act": "execute_script", "script": "var wt = tree.current_scene.get_node(\"ShootingController\").weapon_tree\nvar c = wt.get_root().get_first_child()\nvar txt = \"\"\nwhile c:\n\ttxt += c.get_text(0) + \" \"\n\tc = c.get_next()\nreturn txt.to_lower().contains(\"killkannon\")", "multiline": true, "equals": false },
+    { "act": "execute_script", "script": "var wt = tree.current_scene.get_node(\"ShootingController\").weapon_tree\nvar c = wt.get_root().get_first_child()\nvar txt = \"\"\nwhile c:\n\ttxt += c.get_text(0) + \" \"\n\tc = c.get_next()\nreturn txt.to_lower().contains(\"zzap\")", "multiline": true, "equals": false },
+    { "act": "execute_script", "script": "var wt = tree.current_scene.get_node(\"ShootingController\").weapon_tree\nvar c = wt.get_root().get_first_child()\nvar txt = \"\"\nwhile c:\n\ttxt += c.get_text(0) + \" \"\n\tc = c.get_next()\nreturn txt.to_lower().contains(\"big shoota\")", "multiline": true, "equals": false },
+
+    { "act": "screenshot", "label": "01_battlewagon_weapon_tree_equipped_only" }
+  ]
+}

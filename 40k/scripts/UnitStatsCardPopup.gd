@@ -47,7 +47,7 @@ func setup(uid: String, popup_position: Vector2) -> void:
 	_build_stats_row(content, meta)
 
 	# ── Weapons Tables ──
-	_build_weapons_section(content, meta)
+	_build_weapons_section(content, unit)
 
 	# ── Abilities ──
 	_build_abilities_section(content, unit)
@@ -212,8 +212,9 @@ func _build_stats_row(parent: VBoxContainer, meta: Dictionary) -> void:
 
 # ── Weapons ─────────────────────────────────────────────────────
 
-func _build_weapons_section(parent: VBoxContainer, meta: Dictionary) -> void:
-	var weapons = meta.get("weapons", [])
+func _build_weapons_section(parent: VBoxContainer, unit: Dictionary) -> void:
+	# Equipped loadout only — meta.weapons is the datasheet's full option menu.
+	var weapons = UnitLoadoutResolver.get_equipped_weapons(unit)
 	if weapons.is_empty():
 		return
 

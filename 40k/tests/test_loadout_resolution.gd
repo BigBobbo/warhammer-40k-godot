@@ -117,13 +117,20 @@ func _run():
 				if m.has("ranged_loadout"):
 					got_resolved = true
 					break
-			# INVARIANT 4: single-model units (VEHICLE/MONSTER/character) fire ALL
-			# their guns — they must NEVER be resolved/collapsed, and their weapon
-			# count must be untouched.
+			# INVARIANT 4 (revised 2026-07-27): a single-model unit (VEHICLE /
+			# MONSTER / character) DOES fire everything it carries — but
+			# meta.weapons is the datasheet's option MENU, not its arsenal. A
+			# Battlewagon whose roster took a kannon must not be offered the
+			# killkannon and zzap gun it never bought, so single-model units are
+			# now narrowed from wargear too (see _resolve_single_model_loadout).
+			# The pin is therefore "only ever REMOVES, and only menu weapons"
+			# rather than "never touched".
 			if models.size() < 2:
-				_check("single-model-untouched %s/%s" % [fname, uid],
-					not got_resolved and new_total == raw_total,
-					"resolved=%s raw=%d new=%d" % [str(got_resolved), raw_total, new_total])
+				_check("single-model-no-increase %s/%s" % [fname, uid],
+					new_total <= raw_total, "raw=%d new=%d" % [raw_total, new_total])
+				if got_resolved:
+					_check("single-model-ranged-subset %s/%s" % [fname, uid],
+						_loadout_is_menu_subset(unit, models[0], "Ranged", "ranged_loadout"), "")
 			if got_resolved:
 				resolved_units += 1
 				# INVARIANT 2 (generalized for Task C): every resolved model reports
@@ -195,9 +202,15 @@ func _run():
 				if m.has("melee_loadout"):
 					got_melee_resolved = true
 					break
-			# INVARIANT: single-model units never get a resolved melee loadout.
+			# INVARIANT (revised 2026-07-27, mirrors ranged): a single-model unit's
+			# melee list may now be narrowed from wargear too, but only ever by
+			# REMOVING weapons that were on the datasheet menu.
 			if models.size() < 2:
-				_check("single-model-melee-untouched %s/%s" % [fname, uid], not got_melee_resolved, "")
+				_check("single-model-melee-no-increase %s/%s" % [fname, uid],
+					new_melee <= raw_melee, "raw=%d new=%d" % [raw_melee, new_melee])
+				if got_melee_resolved:
+					_check("single-model-melee-subset %s/%s" % [fname, uid],
+						_loadout_is_menu_subset(unit, models[0], "Melee", "melee_loadout"), "")
 			if got_melee_resolved:
 				melee_resolved_units += 1
 				var kmin_m := 999999
@@ -354,6 +367,22 @@ func _spot_check_special_weapons():
 
 # Count melee instances a unit reports WITHOUT resolution (menu-based), mirroring
 # the pre-change get_unit_melee_weapons so we can prove melee totals only go down.
+# Single-model narrowing may only pick weapons that were already on the unit's
+# datasheet menu for that type — it must never invent a profile.
+func _loadout_is_menu_subset(unit: Dictionary, model: Dictionary, weapon_type: String, loadout_key: String) -> bool:
+	var menu := {}
+	for w in unit.get("meta", {}).get("weapons", []):
+		if str(w.get("type", "")).to_lower() == weapon_type.to_lower():
+			menu[str(w.get("name", ""))] = true
+	var resolved = model.get(loadout_key, [])
+	if typeof(resolved) != TYPE_ARRAY:
+		return false
+	for n in resolved:
+		if not menu.has(str(n)):
+			return false
+	return true
+
+
 func _raw_melee_total(unit: Dictionary) -> int:
 	var meta = unit.get("meta", {})
 	var mp = meta.get("model_profiles", {})

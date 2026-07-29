@@ -296,7 +296,11 @@
     "points": 210,
     "is_warlord": false,
     "enhancements": [],
-    "wargear": [],
+    "wargear": [
+      "1x Twin iliastus accelerator cannon",
+      "1x Twin lastrum bolt cannon",
+      "1x Armoured hull"
+    ],
     "weapons": [
      {
       "name": "Twin arachnus heavy blaze cannon",

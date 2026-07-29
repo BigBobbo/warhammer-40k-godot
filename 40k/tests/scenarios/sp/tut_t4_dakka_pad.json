@@ -115,6 +115,24 @@
       "equals": "confirm_dakka"
     },
     {
+      "act": "execute_script",
+      "script": "str(main.phase_action_button.text)",
+      "equals": "End Shooting Phase",
+      "comment": "Start means Confirm Targets here, so the top-right button must not also advertise '[☰] End Shooting Phase' - one glyph, one promise"
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.start_owns_phase_action()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nvar confirm_at = t.find(\"Confirm Targets\")\nvar reaim_at = t.find(\"walks da targets\")\nreturn confirm_at != -1 and reaim_at != -1 and confirm_at < reaim_at",
+      "multiline": true,
+      "equals": true,
+      "comment": "step 3 pad copy must lead with the Confirm Targets press, not with the re-aim stick controls - the old copy taught the D-pad first and left players unsure what actually advances the step"
+    },
+    {
       "act": "screenshot",
       "label": "02_shooter_picked_pad"
     },

@@ -58,6 +58,22 @@ static func _pad_bindings() -> Node:
 	return null
 
 
+# Expand "{id}" tokens in a hint label to the button that glyph id currently
+# sits on: "Hold {a}: Box Select" -> "Hold A: Box Select", and "Hold Y: Box
+# Select" once the select role has been rebound onto Y in Settings › Controller.
+# Lets a chip name a SECOND button in its label without hardcoding a layout —
+# the hint sets stay const arrays and still follow a remap.
+static func expand_label(label_text: String) -> String:
+	if not label_text.contains("{"):
+		return label_text
+	var out := label_text
+	for glyph_id in GLYPHS:
+		var token := "{%s}" % glyph_id
+		if out.contains(token):
+			out = out.replace(token, glyph_text(glyph_id))
+	return out
+
+
 # A single "⟨glyph⟩ label" hint chip, e.g. [RS] Pan Camera.
 static func make_chip(glyph_id: String, label_text: String) -> Control:
 	var row := HBoxContainer.new()
@@ -85,7 +101,7 @@ static func make_chip(glyph_id: String, label_text: String) -> Control:
 	row.add_child(badge)
 
 	var text_label := Label.new()
-	text_label.text = label_text
+	text_label.text = expand_label(label_text)
 	text_label.add_theme_font_size_override("font_size", 13)
 	text_label.add_theme_color_override("font_color", Color(_UIConstants.NEUTRAL_UI_PALE_WHITE, 0.8))
 	row.add_child(text_label)

@@ -3118,10 +3118,11 @@
     },
     {
       "id": "ChargeController",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_charge_full_flow, pad_charge_target_toggle.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_charge_full_flow, pad_charge_target_toggle, pad_charge_snap_cursor_active.",
       "scenarios": [
         "pad_charge_full_flow",
-        "pad_charge_target_toggle"
+        "pad_charge_target_toggle",
+        "pad_charge_snap_cursor_active"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -3269,7 +3270,7 @@
     },
     {
       "id": "PadRouter",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_bumper_only_unit_cycling, pad_charge_full_flow, pad_charge_target_toggle, pad_deploy_model_type_rows, pad_deploy_unit_cycling, pad_fight_attack_reticle, pad_fight_pilein_auto, pad_fight_selection_bumper, pad_move_dpad_menu_no_panel_trap, pad_rapid_ingress_no_move_menu, pad_reinforcement_formation_row, pad_reinforcement_no_move_menu, pad_reinforcement_undo, pad_shoot_cycle_all_eligible, pad_shoot_target_reticle, pad_shoot_weapon_step, pad_split_fire_spin.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_bumper_only_unit_cycling, pad_charge_full_flow, pad_charge_target_toggle, pad_deploy_model_type_rows, pad_deploy_unit_cycling, pad_fight_attack_reticle, pad_fight_pilein_auto, pad_fight_selection_bumper, pad_move_dpad_menu_no_panel_trap, pad_rapid_ingress_no_move_menu, pad_reinforcement_formation_row, pad_reinforcement_no_move_menu, pad_reinforcement_undo, pad_shoot_cycle_all_eligible, pad_shoot_target_reticle, pad_shoot_weapon_step, pad_split_fire_spin, pad_charge_snap_cursor_active.",
       "scenarios": [
         "pad_bumper_only_unit_cycling",
         "pad_charge_full_flow",
@@ -3287,7 +3288,8 @@
         "pad_shoot_cycle_all_eligible",
         "pad_shoot_target_reticle",
         "pad_shoot_weapon_step",
-        "pad_split_fire_spin"
+        "pad_split_fire_spin",
+        "pad_charge_snap_cursor_active"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -3379,9 +3381,10 @@
     },
     {
       "id": "VirtualCursor",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_reinforcement_undo.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_reinforcement_undo, pad_charge_snap_cursor_active.",
       "scenarios": [
-        "pad_reinforcement_undo"
+        "pad_reinforcement_undo",
+        "pad_charge_snap_cursor_active"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -4240,9 +4243,20 @@
     },
     {
       "id": "controller.charge.x_snap_to_contact",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_charge_full_flow.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_charge_full_flow, pad_charge_snap_cursor_active.",
       "scenarios": [
-        "pad_charge_full_flow"
+        "pad_charge_full_flow",
+        "pad_charge_snap_cursor_active"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.charge.x_snap_with_cursor_active",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_charge_snap_cursor_active.",
+      "scenarios": [
+        "pad_charge_snap_cursor_active"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -8583,6 +8597,56 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: shooting_distraction_grot_ui.",
       "scenarios": [
         "shooting_distraction_grot_ui"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.box_select_hold_a_drag",
+      "description": "Pad box multi-select: holding A on empty board and steering with the left stick draws the selection rectangle and releasing A selects the models inside it. Declared by: pad_box_multi_select.",
+      "scenarios": [
+        "pad_box_multi_select"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.box_select_subset_then_group_drag",
+      "description": "A pad box selects a STRICT SUBSET of a unit's models (asserted by model id), and group-dragging then moves only those models. Declared by: pad_box_multi_select.",
+      "scenarios": [
+        "pad_box_multi_select"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.box_select_requires_active_cursor",
+      "description": "The pad box gesture is disarmed while the virtual cursor is parked, so A keeps its Move Menu / pick-up-model meanings. Declared by: pad_box_multi_select.",
+      "scenarios": [
+        "pad_box_multi_select"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.box_select_skips_press_on_model",
+      "description": "A pad press with the cursor over a model starts a model / group drag, never a selection box. Declared by: pad_box_multi_select.",
+      "scenarios": [
+        "pad_box_multi_select"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.box_select_hint_chip",
+      "description": "The LS hint chip advertises the gesture ('Hold A: Box Select') while it is armed, so it is discoverable. Declared by: pad_box_multi_select.",
+      "scenarios": [
+        "pad_box_multi_select"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
