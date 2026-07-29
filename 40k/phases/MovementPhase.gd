@@ -7330,6 +7330,13 @@ func get_available_actions() -> Array:
 		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED and not is_embarked:
 			continue
 
+		# 19.03: an attached CHARACTER disembarks with the unit it leads, so it
+		# gets no row of its own — the bodyguard's "Boyz + Warboss" row covers
+		# both. (This guard must sit above the embarked branch: without it the
+		# leader showed up as a second, separately-disembarkable unit.)
+		if unit.get("attached_to", null) != null:
+			continue
+
 		# P3-32: Embarked units get disembark option instead of normal movement
 		if is_embarked:
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
@@ -7360,11 +7367,6 @@ func get_available_actions() -> Array:
 		# Skip if already moved
 		if unit.get("flags", {}).get("moved", false):
 			continue
-
-		# Skip attached characters — they move with their bodyguard unit
-		if unit.get("attached_to", null) != null:
-			continue
-
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		var is_engaged = _is_unit_engaged(unit_id)
@@ -8082,9 +8084,29 @@ func _validate_disembark_unit(action: Dictionary) -> Dictionary:
 
 	return {"valid": true, "errors": []}
 
+## The per-unit placements a CONFIRM_DISEMBARK carries, keyed by unit id.
+## `payload.group_positions` is the 19.03-aware form (bodyguard + attached
+## CHARACTERs); `payload.positions` is the legacy bodyguard-only form that AI,
+## network and scripted callers still send, so fall back to it.
+func _resolve_disembark_group_positions(action: Dictionary) -> Dictionary:
+	var unit_id = str(action.get("actor_unit_id", ""))
+	var payload = action.get("payload", {})
+	var raw = payload.get("group_positions", {})
+	var out := {}
+	if raw is Dictionary and not raw.is_empty():
+		for gid in raw:
+			out[str(gid)] = raw[gid]
+		# Belt-and-braces: `positions` stays authoritative for the acting unit.
+		if payload.get("positions", []).size() > 0:
+			out[unit_id] = payload.get("positions", [])
+	else:
+		out[unit_id] = payload.get("positions", [])
+	return out
+
 func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var positions = action.get("payload", {}).get("positions", [])
+	var group_positions = _resolve_disembark_group_positions(action)
 
 	if positions.size() == 0:
 		return {"valid": false, "errors": ["No positions provided for disembark"]}
@@ -8118,58 +8140,65 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 		setup_range_inches = dis_tmpl.setup_distance_inches({"mode": dis_sel.mode})
 		log_phase_message("[11e] Disembark mode for %s: %s (set-up %0.0f\")" % [unit_id, dis_sel.mode, setup_range_inches])
 
-	for i in range(positions.size()):
-		if i >= unit.models.size():
-			break
+	# 19.03: validate every member of the attached unit, not just the bodyguard.
+	# `final_models` collects them all so coherency and overlap are measured over
+	# the unit as a whole (a leader 2" from the nearest Boy IS coherent).
+	var final_models = []
+	for gid in group_positions:
+		var g_unit = get_unit(str(gid))
+		if g_unit.is_empty():
+			return {"valid": false, "errors": ["Disembarking unit not found: %s" % str(gid)]}
+		var g_positions = group_positions[gid]
+		var g_alive_count := 0
+		for mi in range(g_unit.models.size()):
+			if g_unit.models[mi].get("alive", true):
+				g_alive_count += 1
+		# Model-indexed or alive-order — TransportManager resolves the shape, and
+		# the same map drives the apply step so validation and application can
+		# never disagree about which model goes where.
+		var g_aligned = TransportManager.align_disembark_positions(g_unit, g_positions)
+		if g_aligned.size() < g_alive_count:
+			return {"valid": false, "errors": ["Disembark needs a position for every model in %s (%d of %d placed)" % [
+				str(g_unit.get("meta", {}).get("name", gid)), g_aligned.size(), g_alive_count]]}
 
-		if not unit.models[i].alive:
-			continue
+		for i in g_aligned:
+			var pos = g_aligned[i]
+			DebugLogger.info(str("DEBUG MovementPhase: Model position: ", pos))
 
-		var pos = positions[i]
-		DebugLogger.info(str("DEBUG MovementPhase: Model position: ", pos))
+			# P3-95: Use centralized shape-aware distance check from TransportManager
+			var pos_vec = pos
+			if pos is Array:
+				pos_vec = Vector2(pos[0], pos[1])
+			elif pos is Dictionary:
+				pos_vec = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+			var range_result = TransportManager.is_position_within_disembark_range(pos_vec, g_unit.models[i], transport, setup_range_inches)
+			DebugLogger.info(str("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches))
 
-		# P3-95: Use centralized shape-aware distance check from TransportManager
-		var pos_vec = pos
-		if pos is Array:
-			pos_vec = Vector2(pos[0], pos[1])
-		elif pos is Dictionary:
-			pos_vec = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
-		var range_result = TransportManager.is_position_within_disembark_range(pos_vec, unit.models[i], transport, setup_range_inches)
-		DebugLogger.info(str("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches))
+			if not range_result.within_range:
+				return {"valid": false, "errors": ["Model must be placed within %0.0f\" of transport (%.1f\" from edge)" % [setup_range_inches, range_result.distance_inches]]}
 
-		if not range_result.within_range:
-			return {"valid": false, "errors": ["Model must be placed within %0.0f\" of transport (%.1f\" from edge)" % [setup_range_inches, range_result.distance_inches]]}
+			# Build model_at_pos for engagement range and board edge checks
+			var model_at_pos = g_unit.models[i].duplicate()
+			model_at_pos["position"] = pos
 
-		# Build model_at_pos for engagement range and board edge checks
-		var model_at_pos = unit.models[i].duplicate()
-		model_at_pos["position"] = pos
+			# Check engagement range using shape-aware distance.
+			# 18.04 Combat Disembark: each model CAN be set up engaged, but only
+			# with enemy units the TRANSPORT itself is engaged with.
+			if GameConstants.edition >= 11 and dis_mode == "combat":
+				for engaged_enemy_id in _model_engaged_enemy_ids(model_at_pos, g_unit.owner):
+					var engaged_enemy = game_state_snapshot.units[engaged_enemy_id]
+					if not RulesEngine.check_units_in_engagement_range(transport, engaged_enemy, game_state_snapshot):
+						return {"valid": false, "errors": ["Combat Disembark: models may only be set up engaged with enemy units the transport is engaged with (18.04); %s is not engaged with the transport" % engaged_enemy_id]}
+			elif _model_in_engagement_range(model_at_pos, g_unit.owner):
+				return {"valid": false, "errors": ["Cannot disembark within Engagement Range of enemy"]}
 
-		# Check engagement range using shape-aware distance.
-		# 18.04 Combat Disembark: each model CAN be set up engaged, but only
-		# with enemy units the TRANSPORT itself is engaged with.
-		if GameConstants.edition >= 11 and dis_mode == "combat":
-			for engaged_enemy_id in _model_engaged_enemy_ids(model_at_pos, unit.owner):
-				var engaged_enemy = game_state_snapshot.units[engaged_enemy_id]
-				if not RulesEngine.check_units_in_engagement_range(transport, engaged_enemy, game_state_snapshot):
-					return {"valid": false, "errors": ["Combat Disembark: models may only be set up engaged with enemy units the transport is engaged with (18.04); %s is not engaged with the transport" % engaged_enemy_id]}
-		elif _model_in_engagement_range(model_at_pos, unit.owner):
-			return {"valid": false, "errors": ["Cannot disembark within Engagement Range of enemy"]}
+			# Check board edge - no part of model base can extend beyond the battlefield
+			if _position_outside_board_bounds(pos_vec, model_at_pos):
+				return {"valid": false, "errors": ["Cannot disembark beyond the board edge"]}
 
-		# Check board edge - no part of model base can extend beyond the battlefield
-		if _position_outside_board_bounds(pos_vec, model_at_pos):
-			return {"valid": false, "errors": ["Cannot disembark beyond the board edge"]}
+			final_models.append(model_at_pos)
 
 	# Check unit coherency: disembarked models must maintain 2" horizontal and 5" vertical coherency
-	var final_models = []
-	for i in range(positions.size()):
-		if i >= unit.models.size():
-			break
-		if not unit.models[i].get("alive", true):
-			continue
-		var model_at_pos = unit.models[i].duplicate()
-		model_at_pos["position"] = positions[i]
-		final_models.append(model_at_pos)
-
 	var coherency_result = _check_models_coherency(final_models)
 	if not coherency_result.valid:
 		return {"valid": false, "errors": coherency_result.errors}
@@ -8183,7 +8212,7 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 			if Measurement.models_overlap(final_models[i], final_models[j]):
 				return {"valid": false, "errors": ["Disembark positions overlap each other"]}
 	for other_id in game_state_snapshot.units:
-		if other_id == unit_id:
+		if other_id in group_positions:
 			continue
 		var other_unit = game_state_snapshot.units[other_id]
 		if other_unit.get("embarked_in", null) != null:
@@ -8320,13 +8349,16 @@ func _on_disembark_canceled(unit_id: String) -> void:
 	"""Handle disembark cancellation"""
 	log_phase_message("Disembark cancelled for %s" % get_unit(unit_id).meta.get("name", unit_id))
 
-func _on_disembark_placement_completed(unit_id: String, positions: Array) -> void:
+func _on_disembark_placement_completed(unit_id: String, positions: Array, group_positions: Dictionary = {}) -> void:
 	"""Handle completed disembark placement - routes through CONFIRM_DISEMBARK action"""
 	var action = {
 		"type": "CONFIRM_DISEMBARK",
 		"actor_unit_id": unit_id,
 		"payload": {
 			"positions": positions,
+			# 19.03: every member of the attached unit's placements, so attached
+			# CHARACTERs leave the transport with their squad.
+			"group_positions": group_positions,
 			"can_setup_tactical": not _pending_combat_disembark.get(unit_id, false)
 		}
 	}
@@ -8426,9 +8458,167 @@ func _on_transport_manager_disembark_completed(_unit_id: String) -> void:
 	Kept as a no-op safety net; all logic lives in _process_confirm_disembark()."""
 	pass
 
+## Positions for an attached CHARACTER whose disembark payload carries none —
+## the AI, network and scripted callers only ever build the bodyguard's array.
+## Rings out from the already-placed models, keeping each base within the set-up
+## distance of the transport, in coherency (2") with a placed model, clear of
+## every other base, outside Engagement Range and on the board. Returns [] when
+## no legal spot exists, which fails validation rather than dropping the leader.
+func _auto_disembark_positions(char_unit: Dictionary, transport: Dictionary, placed_models: Array, setup_range_inches: float) -> Array:
+	var out: Array = []
+	var anchors: Array = placed_models.duplicate()
+	var coherency_px := Measurement.inches_to_px(2.0)
+
+	for mi in range(char_unit.get("models", []).size()):
+		var model = char_unit.models[mi]
+		if not model.get("alive", true):
+			continue
+
+		var found: Vector2 = Vector2.INF
+		var radius_px := Measurement.base_radius_px(int(model.get("base_mm", 32)))
+		# Search outward from each already-placed model so the leader lands beside
+		# the squad it leads rather than at some arbitrary point on the ring.
+		for anchor in anchors:
+			var a_pos = anchor.get("position", null)
+			if a_pos == null:
+				continue
+			var anchor_vec := Vector2(float(a_pos.get("x", 0)), float(a_pos.get("y", 0))) if a_pos is Dictionary else Vector2(a_pos.x, a_pos.y)
+			var anchor_radius_px := Measurement.base_radius_px(int(anchor.get("base_mm", 32)))
+			for ring in range(6):
+				var dist := anchor_radius_px + radius_px + 2.0 + ring * (radius_px * 0.5)
+				for step in range(24):
+					var angle := (float(step) / 24.0) * TAU
+					var candidate := anchor_vec + Vector2(cos(angle), sin(angle)) * dist
+					var test_model = model.duplicate()
+					test_model["position"] = {"x": candidate.x, "y": candidate.y}
+
+					if not TransportManager.is_position_within_disembark_range(candidate, model, transport, setup_range_inches).within_range:
+						continue
+					if _position_outside_board_bounds(candidate, test_model):
+						continue
+					if _model_in_engagement_range(test_model, int(char_unit.get("owner", 1))):
+						continue
+
+					var overlaps := false
+					for other in anchors:
+						if Measurement.models_overlap(test_model, other):
+							overlaps = true
+							break
+					if overlaps:
+						continue
+					for other_id in game_state_snapshot.units:
+						var other_unit = game_state_snapshot.units[other_id]
+						if other_unit.get("embarked_in", null) != null:
+							continue
+						for other_model in other_unit.get("models", []):
+							if not other_model.get("alive", true) or other_model.get("position") == null:
+								continue
+							if Measurement.models_overlap(test_model, other_model):
+								overlaps = true
+								break
+						if overlaps:
+							break
+					if overlaps:
+						continue
+
+					# Must be in coherency with something already placed.
+					var coherent := false
+					for other in anchors:
+						if Measurement.model_to_model_distance_px(test_model, other) <= coherency_px:
+							coherent = true
+							break
+					if not coherent:
+						continue
+
+					found = candidate
+					break
+				if found != Vector2.INF:
+					break
+			if found != Vector2.INF:
+				break
+
+		if found == Vector2.INF:
+			log_phase_message("WARNING: no legal auto-disembark position for %s model %d" % [str(char_unit.get("meta", {}).get("name", "?")), mi])
+			return []
+
+		out.append({"x": found.x, "y": found.y})
+		var placed = model.duplicate()
+		placed["position"] = {"x": found.x, "y": found.y}
+		anchors.append(placed)
+
+	return out
+
+## Fill in placements for any attached CHARACTER the caller did not place, so an
+## engine-side disembark (AI, network, scripted action) never strands a leader
+## inside the transport. Returns the action with a complete `group_positions`.
+func _complete_disembark_group_payload(action: Dictionary) -> Dictionary:
+	var unit_id = str(action.get("actor_unit_id", ""))
+	var group_positions = _resolve_disembark_group_positions(action)
+	var group = TransportManager.get_disembark_group(unit_id, game_state_snapshot)
+	var missing := []
+	for gid in group:
+		if not group_positions.has(gid) or group_positions[gid].size() == 0:
+			missing.append(gid)
+	if missing.is_empty():
+		var filled = action.duplicate(true)
+		filled["payload"] = action.get("payload", {}).duplicate(true)
+		filled["payload"]["group_positions"] = group_positions
+		return filled
+
+	var unit = get_unit(unit_id)
+	var transport = get_unit(str(unit.get("embarked_in", "")))
+	var setup_range_inches := 3.0
+	if GameConstants.edition >= 11:
+		var dis_tmpl = MoveTypes.get_type("disembark")
+		var dis_sel = dis_tmpl.select_mode(unit_id, GameState.state,
+			{"can_setup_tactical": action.get("payload", {}).get("can_setup_tactical", true)})
+		setup_range_inches = dis_tmpl.setup_distance_inches({"mode": dis_sel.mode})
+
+	# Anchors: every model already placed by this disembark.
+	var placed_models: Array = []
+	for gid in group_positions:
+		var g_unit = get_unit(str(gid))
+		var pi := 0
+		for mi in range(g_unit.get("models", []).size()):
+			if not g_unit.models[mi].get("alive", true):
+				continue
+			if pi >= group_positions[gid].size():
+				break
+			var m = g_unit.models[mi].duplicate()
+			m["position"] = group_positions[gid][pi]
+			placed_models.append(m)
+			pi += 1
+
+	for gid in missing:
+		var char_unit = get_unit(gid)
+		var auto_positions = _auto_disembark_positions(char_unit, transport, placed_models, setup_range_inches)
+		log_phase_message("Auto-placed %d model(s) for attached character %s disembarking with %s" % [
+			auto_positions.size(), gid, unit_id])
+		group_positions[gid] = auto_positions
+		var api := 0
+		for mi in range(char_unit.get("models", []).size()):
+			if not char_unit.models[mi].get("alive", true):
+				continue
+			if api >= auto_positions.size():
+				break
+			var m = char_unit.models[mi].duplicate()
+			m["position"] = auto_positions[api]
+			placed_models.append(m)
+			api += 1
+
+	var out = action.duplicate(true)
+	out["payload"] = action.get("payload", {}).duplicate(true)
+	out["payload"]["group_positions"] = group_positions
+	return out
+
 func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 	"""Process confirmation of disembark positions — single authoritative disembark path"""
 	var unit_id = action.get("actor_unit_id", "")
+
+	# 19.03: an attached unit disembarks as ONE unit. Fill in any attached
+	# CHARACTER the caller did not place, then validate the complete set.
+	action = _complete_disembark_group_payload(action)
+	var group_positions = action.get("payload", {}).get("group_positions", {})
 	var positions = action.get("payload", {}).get("positions", [])
 
 	# Validate positions
@@ -8445,21 +8635,30 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 		var dis_sel = dis_tmpl.select_mode(unit_id, GameState.state,
 			{"can_setup_tactical": action.get("payload", {}).get("can_setup_tactical", true)})
 		dis_mode = str(dis_sel.mode)
-		if dis_mode == "combat":
-			var unit_pre = GameState.get_unit(unit_id)
-			var ctx = dis_tmpl.before_moving(unit_id, GameState.state, RulesEngine.make_rng(), {"mode": "combat"})
-			var hz = ctx.get("hazard", {})
-			log_phase_message("[11e] Combat disembark hazards for %s: %s (%d failure(s))" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
-			if int(hz.get("failures", 0)) > 0:
-				var mw_out = Allocation.apply_mortal_wounds_11e(unit_pre, int(hz.get("mortal_wounds", 0)), CasualtyPreference.engine_auto_preference(unit_pre, GameState.state))
-				for ridx in mw_out.remaining:
-					dis_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(ridx)], "value": int(mw_out.remaining[ridx])})
-				for di in mw_out.models_destroyed:
-					dis_changes.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, int(di)], "value": false})
-		dis_changes.append_array(dis_tmpl.after_moving_effects(unit_id, {"mode": dis_mode}))
+		# 19.03: the hazard roll and the after-move flags apply to the whole
+		# attached unit — the leader takes the same risk and the same
+		# battle-shocked / cannot-charge consequences as the squad it rides with.
+		for gid in group_positions:
+			if dis_mode == "combat":
+				var unit_pre = GameState.get_unit(str(gid))
+				var ctx = dis_tmpl.before_moving(str(gid), GameState.state, RulesEngine.make_rng(), {"mode": "combat"})
+				var hz = ctx.get("hazard", {})
+				log_phase_message("[11e] Combat disembark hazards for %s: %s (%d failure(s))" % [str(gid), str(hz.get("rolls", [])), int(hz.get("failures", 0))])
+				if int(hz.get("failures", 0)) > 0:
+					var mw_out = Allocation.apply_mortal_wounds_11e(unit_pre, int(hz.get("mortal_wounds", 0)), CasualtyPreference.engine_auto_preference(unit_pre, GameState.state))
+					for ridx in mw_out.remaining:
+						dis_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [str(gid), int(ridx)], "value": int(mw_out.remaining[ridx])})
+					for di in mw_out.models_destroyed:
+						dis_changes.append({"op": "set", "path": "units.%s.models.%d.alive" % [str(gid), int(di)], "value": false})
+			dis_changes.append_array(dis_tmpl.after_moving_effects(str(gid), {"mode": dis_mode}))
 
-	# Execute disembark through TransportManager (single call site)
-	TransportManager.disembark_unit(unit_id, positions)
+	# Execute disembark through TransportManager (single call site per unit —
+	# the bodyguard and every attached CHARACTER leave the hull together).
+	for gid in group_positions:
+		var g_positions = group_positions[gid]
+		TransportManager.disembark_unit(str(gid), g_positions)
+		if str(gid) != unit_id:
+			log_phase_message("Attached character %s disembarked with %s (%d model(s))" % [str(gid), unit_id, g_positions.size()])
 
 	# Refresh local snapshot so subsequent logic sees the updated state
 	game_state_snapshot = GameState.state.duplicate(true)
@@ -8536,35 +8735,42 @@ func _process_embark_unit(action: Dictionary) -> Dictionary:
 
 	# Build state changes following the same pattern as DeploymentPhase embark
 	var changes = []
+	var current_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
 
-	# Set the unit's embarked_in field
-	changes.append({
-		"op": "set",
-		"path": "units.%s.embarked_in" % unit_id,
-		"value": transport_id
-	})
+	# 19.03: an attached unit — bodyguard plus every CHARACTER attached to it —
+	# boards as a single unit. Embarking only the bodyguard stranded the leader
+	# on the battlefield with the unit it belongs to inside the hull.
+	for gid in TransportManager.get_attached_unit_group(unit_id, game_state_snapshot):
+		changes.append({
+			"op": "set",
+			"path": "units.%s.embarked_in" % gid,
+			"value": transport_id
+		})
+
+		if gid not in current_embarked:
+			current_embarked.append(gid)
+
+		# Embarked models are off the battlefield: clear their positions. Leaving
+		# the old positions in place made embarked units targetable by shooting,
+		# count as "on the battlefield" for charges, and block placement (they kept
+		# phantom footprints at their pre-embark spots).
+		var g_models = get_unit(gid).get("models", [])
+		for i in range(g_models.size()):
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.position" % [gid, i],
+				"value": null
+			})
+
+		if gid != unit_id:
+			log_phase_message("Attached character %s embarked with %s" % [gid, unit_name])
 
 	# Update transport's embarked_units list
-	var current_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
-	if unit_id not in current_embarked:
-		current_embarked.append(unit_id)
 	changes.append({
 		"op": "set",
 		"path": "units.%s.transport_data.embarked_units" % transport_id,
 		"value": current_embarked
 	})
-
-	# Embarked models are off the battlefield: clear their positions. Leaving
-	# the old positions in place made embarked units targetable by shooting,
-	# count as "on the battlefield" for charges, and block placement (they kept
-	# phantom footprints at their pre-embark spots).
-	var unit_models = unit.get("models", [])
-	for i in range(unit_models.size()):
-		changes.append({
-			"op": "set",
-			"path": "units.%s.models.%d.position" % [unit_id, i],
-			"value": null
-		})
 
 	log_phase_message("Unit %s embarked in transport %s" % [unit_name, transport_name])
 
