@@ -2,15 +2,26 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.2",
+      "version": "1.7.3",
       "date": "2026-07-29",
       "summary": "'Get Movin'' now teaches that a move can be spent over several drags, and adds a step for turning models.",
       "changes": [
         "The Battlewagon step only said 'drag da wagon's hull forward an' drop it', so players assumed the one drag was the whole move and spent all 10\"+D6 in a single go. It now says outright that you can drop the wagon, grab it again and keep going, and that the panel counts the inches as you do.",
-        "New step 'POINT IT RIGHT!': the Battlewagon is on a rectangular base, so which way it faces matters — and nothing in the game told you how to turn a model. The step walks you through it and only advances once you actually turn the wagon.",
-        "Keyboard: grab the hull, keep the button held, and tap Q / E to turn 15° a tap (it follows a rebind). Controller: grab it with A, then LB / RB while you're carrying it.",
+        "New step 'POINT IT RIGHT!': the Battlewagon is on a rectangular base, so which way it faces matters. Lesson 2 teaches turning during deployment; this teaches it during the Movement phase, where the controls differ — the step only advances once you actually turn the wagon.",
+        "Keyboard: grab the hull, keep the button held, and tap Q / E to turn 15° a tap (it follows a rebind). Controller: grab it with A, then LB / RB while you're carrying it — unlike deployment, the pad can turn a model mid-move.",
         "Both say what the rules say: in 11th edition turning a model is free and costs none of its move.",
         "The lesson's end-of-lesson summary picks up both points."
+      ]
+    },
+    {
+      "version": "1.7.2",
+      "date": "2026-07-29",
+      "summary": "Deployment tutorial now has its own step for turning the Battlewagon, instead of mentioning rotation in passing.",
+      "changes": [
+        "'Musterin' da Boyz' (lesson 2) gained a step between the deployment roll-off and parking the wagon: POINT IT DA RIGHT WAY! It has you pick the Battlewagon up and actually turn it before dropping it, and spells out how — Q and E (or whatever you rebound them to), or the mouse wheel, 15° a tap.",
+        "The step will not move on until the wagon has genuinely been turned, and Confirm is held shut while it is showing — dropping the wagon flat and locking it in would have left nothing to rotate. If you drop it before turning it, the step tells you to pick it back up with Undo on the unit card.",
+        "Controller players skip the new step: rotating a model during deployment is a keyboard/mouse-wheel control only (on a pad the bumpers cycle units there), so the tutorial does not promise a button that would turn nothing. The end-of-lesson summary says the same.",
+        "The 'Park da wagon' step that follows is now just about placing and confirming."
       ]
     },
     {
