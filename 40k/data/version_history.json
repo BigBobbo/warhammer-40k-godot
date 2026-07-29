@@ -2,15 +2,36 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.0",
+      "version": "1.7.1",
       "date": "2026-07-29",
       "summary": "'Get Movin'' now teaches that a move can be spent over several drags, and adds a step for turning models.",
       "changes": [
-        "Step 6 (moving the Battlewagon) only said 'drag da wagon's hull forward an' drop it', so players assumed the one drag was the whole move and spent all 12\"+D6 in a single go. It now says outright that you can drop the wagon, grab it again and keep going, and that the panel counts the inches as you do.",
+        "Step 6 (moving the Battlewagon) only said 'drag da wagon's hull forward an' drop it', so players assumed the one drag was the whole move and spent all 10\"+D6 in a single go. It now says outright that you can drop the wagon, grab it again and keep going, and that the panel counts the inches as you do.",
         "New step 7, 'POINT IT RIGHT!': the Battlewagon is on a rectangular base, so which way it faces matters — and nothing in the game told you how to turn a model. The step walks you through it and only advances once you actually turn the wagon.",
         "Keyboard: grab the hull, keep the button held, and tap Q / E to turn 15° a tap (it follows a rebind). Controller: grab it with A, then LB / RB while you're carrying it.",
         "Both say what the rules say: in 11th edition turning a model is free and costs none of its move.",
         "The lesson's end-of-lesson summary picks up both points."
+      ]
+    },
+    {
+      "version": "1.7.0",
+      "date": "2026-07-29",
+      "summary": "The unit datasheet is now an actual datasheet: proper weapon tables, stat boxes, and a card that fits on screen.",
+      "changes": [
+        "Weapons are laid out as RANGED and MELEE tables with real columns (Range, A, BS/WS, S, AP, D) instead of one run-on line per weapon, with each weapon's special rules listed under its name.",
+        "M / T / Sv / W / Ld / OC are shown as labelled stat boxes, and an Invulnerable Save or Feel No Pain box appears when the unit has one.",
+        "Stats read as whole numbers again — a Move of 6\" no longer shows as 6.0\".",
+        "The card sizes itself to the unit and sits in the middle of the screen instead of filling its full height; a datasheet longer than the card now scrolls inside it rather than running off the bottom.",
+        "Points, Warlord and any Enhancement are called out in the header; keywords, model/wound count and the close hint sit in a footer bar.",
+        "The board hover tooltip no longer shows through the open datasheet."
+      ]
+    },
+    {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "'Dakka Time' step 3 now says up front that you have to press Confirm.",
+      "changes": [
+        "Step 3 of the shooting lesson opened with two sentences describing the weapon list and a 'if a row still says (Click to Select)' fix-up, and only mentioned hitting Confirm in the last three words — so players who had nothing to fix did not know what the step wanted. Both the mouse and controller prompts now lead with the action: lock the targets in with Confirm (mouse) or ☰ (pad), with the re-aiming instructions moved after it."
       ]
     },
     {
