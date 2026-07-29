@@ -44,8 +44,8 @@
       "id": "confirm_dakka",
       "prompt": {
         "bark": "LOCK DA TARGETS!",
-        "kbm": "Da weapon list shows every gun an' who it's pointin' at — da button counts how many is locked. If a row still says [b](Click to Select)[/b], click da row, den click da Witchseekers. Den hit [b]Confirm[/b].",
-        "pad": "Wiv a shooter armed, {dpad} ◀▶ walks da targets an' ▲▼ walks yer guns; {a} aims da current gun at da highlighted target. When yer happy, press {menu} — dat's [b]Confirm Targets[/b] on da pad."
+        "kbm": "Yer guns are aimed already — now lock 'em in: click da glowin' [b]Confirm[/b] button on da right (it counts yer guns). If a row still says [b](Click to Select)[/b], click da row, den da Witchseekers, first.",
+        "pad": "Yer guns are aimed already — now lock 'em in: press {menu}, dat's [b]Confirm Targets[/b] on da pad. Want to re-aim first? {dpad} ◀▶ walks da targets, ▲▼ walks yer guns, {a} aims da current gun."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton" },
       "spotlight": "soft",
