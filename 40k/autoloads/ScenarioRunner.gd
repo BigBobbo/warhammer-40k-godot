@@ -1007,6 +1007,14 @@ func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
 	#     that exact text (procedurally-built panels have no stable NodePath)
 	#   { "x": .., "y": .. }          — board/world px (like click_board_at)
 	#   { "x": .., "y": .., "space": "screen" } — raw screen px
+	#
+	# `optional: true` turns "the target isn't there" into a clean skip instead
+	# of a failure. For genuinely seed-dependent UI — a defender save-results
+	# card only exists when that seed's dice actually wounded something — the
+	# alternative is a scenario that breaks whenever a rules fix legitimately
+	# shifts the RNG stream. Use it ONLY where absence is a valid outcome; a
+	# missing button you expect every run must still fail loudly.
+	var optional: bool = bool(step.get("optional", false))
 	var vc = get_node_or_null("/root/VirtualCursor")
 	if vc == null:
 		return {"pass": false, "error": "no VirtualCursor autoload"}
@@ -1015,6 +1023,8 @@ func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
 		var wanted := str(step["button_text"])
 		var btn := _find_visible_button_by_text(wanted)
 		if btn == null:
+			if optional:
+				return {"pass": true, "via": "skipped_absent", "target": wanted}
 			return {"pass": false, "error": "no visible enabled Button with text '%s'" % wanted}
 		target = btn.get_global_rect().get_center()
 	elif step.has("unit_id"):
@@ -1027,7 +1037,11 @@ func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
 	elif step.has("node"):
 		var node: Node = get_node_or_null(NodePath(str(step["node"])))
 		if node == null or not (node is Control):
+			if optional:
+				return {"pass": true, "via": "skipped_absent", "target": str(step.get("node"))}
 			return {"pass": false, "error": "no Control at path %s" % str(step.get("node"))}
+		if optional and not (node as Control).is_visible_in_tree():
+			return {"pass": true, "via": "skipped_hidden", "target": str(step.get("node"))}
 		target = (node as Control).get_global_rect().get_center()
 	elif step.has("x") and step.has("y"):
 		var p := Vector2(float(step["x"]), float(step["y"]))
@@ -1044,19 +1058,33 @@ func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
 	# which moves the target's SCREEN position while the glide is in flight —
 	# so re-resolve and re-glide until the cursor rests on the current target.
 	var rounds := 0
+	var stalls := 0
 	while rounds < 8:
 		rounds += 1
 		var resolved = _resolve_glide_target(step)
 		if resolved == null:
+			if optional:
+				return {"pass": true, "via": "skipped_absent"}
 			return {"pass": false, "error": "glide target vanished while re-resolving"}
 		target = resolved
 		if (vc.get_cursor_pos() - target).length() <= 4.0:
-			return {"pass": true, "target": [target.x, target.y], "rounds": rounds}
+			return {"pass": true, "target": [target.x, target.y], "rounds": rounds,
+					"stalls": stalls}
 		var ok: bool = await vc.glide_to_screen(target, float(step.get("timeout_s", 4.0)))
 		if not ok:
-			return {"pass": false, "target": [target.x, target.y],
-					"error": "glide did not arrive within timeout (round %d)" % rounds}
-	return {"pass": false, "error": "glide target never stabilised after %d rounds" % rounds}
+			# A non-arrival is NOT necessarily a dead target. VirtualCursor._process
+			# only advances the glide while InputDeviceManager reports pad mode, and
+			# the cursor's own warp synthesises mouse motion — so under a loaded
+			# software renderer a round can stall with the cursor part-way there.
+			# Observed as an intermittent "did not arrive (round 1)" on the tutorial
+			# instructor card, ~50% of runs, on BOTH sides of an unrelated change
+			# (measured: it reproduces with the change reverted too). Retry within
+			# the existing round budget instead of failing on the first stall — a
+			# genuinely unreachable target still exhausts all 8 rounds and fails.
+			stalls += 1
+			continue
+	return {"pass": false, "target": [target.x, target.y],
+			"error": "glide never arrived after %d rounds (%d stalled)" % [rounds, stalls]}
 
 
 func _resolve_glide_target(step: Dictionary):

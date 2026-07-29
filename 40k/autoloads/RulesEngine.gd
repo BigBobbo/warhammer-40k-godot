@@ -1797,8 +1797,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	var spt_attacks_bonus = 1 if actor_unit.get("flags", {}).get("effect_shooty_power_trip_attacks", false) else 0
 
 	for model_id in model_ids:
-		var model = _get_model_by_id(actor_unit, model_id)
-		var model_bs = _get_model_effective_bs(model, actor_unit, weapon_profile)
+		# ATTACHED CHARACTERS: model_ids can carry composite "<char_unit>:<model>"
+		# bearers. Resolve BOTH the model and the unit its stat overrides live on
+		# — reading a character's model_type out of the bodyguard unit's
+		# model_profiles silently misses and falls back to the weapon's base BS.
+		var model = resolve_bearer_model(actor_unit, model_id, board)
+		var model_bs = _get_model_effective_bs(model, resolve_bearer_unit(actor_unit, model_id, board), weapon_profile)
 		if model_bs != weapon_profile.get("bs", 4):
 			has_bs_override = true
 
@@ -1870,7 +1874,11 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		var weapon_range = weapon_profile.get("range", 24)
 		var half_range_inches = weapon_range / 2.0
 		for model_id in model_ids:
-			var rf_model = _get_model_by_id(actor_unit, model_id)
+			# ATTACHED CHARACTERS: a composite "<char_unit>:<model>" bearer is not
+			# in actor_unit.models, so _get_model_by_id returned {} and the model
+			# was skipped — a character's gun could never count as within half
+			# range, silently losing its RAPID FIRE bonus attacks.
+			var rf_model = resolve_bearer_model(actor_unit, model_id, board)
 			if rf_model.is_empty() or not rf_model.get("alive", true):
 				continue
 			var closest_distance_inches = INF
@@ -1921,8 +1929,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			total_attacks += ability_attack_bonus
 			# Add BS entries for the bonus attacks (use per-model BS)
 			for ab_model_id in model_ids:
-				var bonus_model = _get_model_by_id(actor_unit, ab_model_id)
-				var bonus_bs = _get_model_effective_bs(bonus_model, actor_unit, weapon_profile)
+				var bonus_model = resolve_bearer_model(actor_unit, ab_model_id, board)
+				var bonus_bs = _get_model_effective_bs(bonus_model, resolve_bearer_unit(actor_unit, ab_model_id, board), weapon_profile)
 				for _j in range(bonus_value):
 					bs_per_attack.append(bonus_bs)
 			print("RulesEngine: [MA-29] Ability +%d Attacks for '%s' → +%d total (%d models × %d)" % [bonus_value, weapon_name, ability_attack_bonus, model_ids.size(), bonus_value])
@@ -2181,7 +2189,11 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if GameConstants.edition >= 11 and not is_overwatch:
 			var ms_firing_models: Array = []
 			for ms_mid in model_ids:
-				var ms_m = _get_model_by_id(actor_unit, ms_mid)
+				# ATTACHED CHARACTERS: composite bearers resolved through the board.
+				# Without this a character-only assignment produced an EMPTY
+				# attacker_models list, so cover / STEALTH / plunging fire were
+				# evaluated with no firing model to measure from.
+				var ms_m = resolve_bearer_model(actor_unit, ms_mid, board)
 				if not ms_m.is_empty() and ms_m.get("alive", true):
 					ms_firing_models.append(ms_m)
 			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models, "per_attack_cover": true})
@@ -3532,8 +3544,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var ar_spt_attacks_bonus = 1 if actor_unit.get("flags", {}).get("effect_shooty_power_trip_attacks", false) else 0
 
 	for model_id in model_ids:
-		var model = _get_model_by_id(actor_unit, model_id)
-		var model_bs = _get_model_effective_bs(model, actor_unit, weapon_profile)
+		# ATTACHED CHARACTERS: see the same block in _resolve_assignment_hits.
+		var model = resolve_bearer_model(actor_unit, model_id, board)
+		var model_bs = _get_model_effective_bs(model, resolve_bearer_unit(actor_unit, model_id, board), weapon_profile)
 		if model_bs != weapon_profile.get("bs", 4):
 			has_bs_override = true
 
@@ -3605,7 +3618,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var weapon_range = weapon_profile.get("range", 24)
 		var half_range_inches = weapon_range / 2.0
 		for model_id in model_ids:
-			var rf_model = _get_model_by_id(actor_unit, model_id)
+			# ATTACHED CHARACTERS: a composite "<char_unit>:<model>" bearer is not
+			# in actor_unit.models, so _get_model_by_id returned {} and the model
+			# was skipped — a character's gun could never count as within half
+			# range, silently losing its RAPID FIRE bonus attacks.
+			var rf_model = resolve_bearer_model(actor_unit, model_id, board)
 			if rf_model.is_empty() or not rf_model.get("alive", true):
 				continue
 			var closest_distance_inches = INF
@@ -3657,8 +3674,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			total_attacks += ar_ability_attack_bonus
 			# Add BS entries for the bonus attacks (use per-model BS)
 			for ar_model_id in model_ids:
-				var ar_bonus_model = _get_model_by_id(actor_unit, ar_model_id)
-				var ar_bonus_bs = _get_model_effective_bs(ar_bonus_model, actor_unit, weapon_profile)
+				var ar_bonus_model = resolve_bearer_model(actor_unit, ar_model_id, board)
+				var ar_bonus_bs = _get_model_effective_bs(ar_bonus_model, resolve_bearer_unit(actor_unit, ar_model_id, board), weapon_profile)
 				for _j in range(ar_bonus_value):
 					bs_per_attack.append(ar_bonus_bs)
 			print("RulesEngine: [MA-29][auto-resolve] Ability +%d Attacks for '%s' → +%d total (%d models × %d)" % [ar_bonus_value, ar_weapon_name, ar_ability_attack_bonus, model_ids.size(), ar_bonus_value])
@@ -3897,7 +3914,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if GameConstants.edition >= 11 and not is_overwatch:
 			var ms_firing_models: Array = []
 			for ms_mid in model_ids:
-				var ms_m = _get_model_by_id(actor_unit, ms_mid)
+				# ATTACHED CHARACTERS: composite bearers resolved through the board.
+				# Without this a character-only assignment produced an EMPTY
+				# attacker_models list, so cover / STEALTH / plunging fire were
+				# evaluated with no firing model to measure from.
+				var ms_m = resolve_bearer_model(actor_unit, ms_mid, board)
 				if not ms_m.is_empty() and ms_m.get("alive", true):
 					ms_firing_models.append(ms_m)
 			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models, "per_attack_cover": true})
@@ -5917,7 +5938,12 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first
 		# the first bearer of each weapon triggers the (expensive) visibility scan.
 		var checked_weapons := {}
 		for model_id in unit_weapons:
-			var model = _get_model_by_id(actor_unit, model_id)
+			# ATTACHED CHARACTERS: get_unit_weapons emits composite
+			# "<char_unit>:<model>" bearers. Dropping them here meant an attached
+			# character's guns never contributed to target eligibility — a unit
+			# whose ONLY in-range weapon was the character's read as having no
+			# eligible targets at all.
+			var model = resolve_bearer_model(actor_unit, model_id, board)
 			if not model or not model.get("alive", true):
 				continue
 
@@ -6038,7 +6064,10 @@ static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_i
 	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
 
 	for model_id in unit_weapons:
-		var actor_model = _get_model_by_id(actor_unit, model_id)
+		# ATTACHED CHARACTERS: composite bearers resolved through the board, so a
+		# character's weapons are considered when explaining WHY a target is
+		# ineligible (they were skipped entirely before).
+		var actor_model = resolve_bearer_model(actor_unit, model_id, board)
 		if actor_model.is_empty() or not actor_model.get("alive", true):
 			continue
 
@@ -6179,6 +6208,21 @@ static func resolve_bearer_model(actor_unit: Dictionary, bearer_id: String, boar
 			return {}
 		return _get_model_by_id(owner_unit, inner_model_id)
 	return _get_model_by_id(actor_unit, bearer_id)
+
+## The unit dict that OWNS a bearer id — actor_unit for a normal id, the
+## attached character's own unit for a composite one. Needed wherever a
+## PER-MODEL STAT OVERRIDE is read: model_profiles / stats_override live on the
+## owning unit's meta, so looking a character's model_type up in the bodyguard
+## unit's profiles silently misses and falls back to the weapon's base stat.
+static func resolve_bearer_unit(actor_unit: Dictionary, bearer_id: String, board: Dictionary) -> Dictionary:
+	var sep := bearer_id.find(":")
+	if sep <= 0:
+		return actor_unit
+	var owner_unit_id := bearer_id.substr(0, sep)
+	var owner_unit: Dictionary = board.get("units", {}).get(owner_unit_id, {})
+	if owner_unit.is_empty() and board.is_empty():
+		owner_unit = GameState.state.get("units", {}).get(owner_unit_id, {})
+	return owner_unit if not owner_unit.is_empty() else actor_unit
 
 # MA-22: Get display label for a model, including model type if available.
 # Returns e.g. "Spanner (m11)" for profiled models, or "m3" for units without profiles.
@@ -8781,7 +8825,7 @@ static func get_critical_hit_threshold(weapon_id: String, actor_unit: Dictionary
 	if conversion_threshold > 0:
 		# Check distance: Conversion only applies at 12"+ from target
 		# Use the closest attacking model's distance to the closest target model
-		var min_distance_inches = _get_min_distance_to_target(actor_unit, target_unit, model_ids)
+		var min_distance_inches = _get_min_distance_to_target(actor_unit, target_unit, model_ids, board)
 		if min_distance_inches >= 12.0:
 			print("RulesEngine: CONVERSION %d+ active — closest model is %.1f\" from target (>= 12\")" % [conversion_threshold, min_distance_inches])
 			threshold = conversion_threshold
@@ -8795,11 +8839,15 @@ static func get_critical_hit_threshold(weapon_id: String, actor_unit: Dictionary
 	return threshold
 
 # Get the minimum distance (in inches) from any attacking model to the closest target model
-static func _get_min_distance_to_target(actor_unit: Dictionary, target_unit: Dictionary, model_ids: Array) -> float:
+static func _get_min_distance_to_target(actor_unit: Dictionary, target_unit: Dictionary, model_ids: Array, board: Dictionary = {}) -> float:
 	var min_distance = INF
 
 	for model_id in model_ids:
-		var model = _get_model_by_id(actor_unit, model_id)
+		# ATTACHED CHARACTERS: composite bearers resolved through the board. When
+		# EVERY bearer was a character's model this returned INF, and the caller
+		# (CONVERSION X+, "12\" or more from the target") read INF >= 12.0 as
+		# true — handing out a critical-hit bonus regardless of real distance.
+		var model = resolve_bearer_model(actor_unit, model_id, board)
 		if not model or not model.get("alive", true):
 			continue
 
@@ -9415,7 +9463,9 @@ static func count_models_in_half_range(
 	var models_in_half_range = 0
 
 	for model_id in model_ids:
-		var model = _get_model_by_id(actor_unit, model_id)
+		# ATTACHED CHARACTERS: composite bearers live in another unit dict.
+		# Skipping them lost MELTA's half-range damage bonus for a character's gun.
+		var model = resolve_bearer_model(actor_unit, model_id, board)
 		if not model or not model.get("alive", true):
 			continue
 

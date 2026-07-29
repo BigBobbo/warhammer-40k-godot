@@ -5528,7 +5528,7 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 				dice_log_display.append_text("[color=#88CCAA]• %s[/color]\n" % msg)
 			# Info-coloured, not a warning: nothing went wrong, the assignment the
 			# player is asking for is already in place.
-			ToastManager.show_toast(msg, Color(0.6, 0.85, 1.0))
+			ToastManager.show_info(msg)
 			print("ShootingController: [SPLIT-FIRE] %s already fully assigned to %s (already_here=%d, blocked=%d)" % [weapon_id, target_id, already_here.size(), blocked_count])
 			return
 		if dice_log_display:

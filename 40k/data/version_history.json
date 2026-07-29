@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.7",
+      "date": "2026-07-29",
+      "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",
+      "changes": [
+        "The same blind spot that stopped you aiming a character's weapons by hand was also quietly changing their shooting. An attached character's models never counted as being within half range, so their RAPID FIRE bonus attacks and MELTA damage bonus were silently lost.",
+        "A weapon fired only by an attached character got its critical-hit threshold from a distance the game measured as infinite — so a CONVERSION weapon switched its bonus on no matter how close the character actually stood.",
+        "Cover, STEALTH and plunging fire were worked out with no firing model at all when only the character was shooting, so those hit modifiers could come out wrong in either direction.",
+        "A unit whose only in-range weapon belonged to its attached character showed as having no eligible targets, and the \"why can't I shoot this?\" explanation never mentioned the character's guns.",
+        "Per-model Ballistic Skill overrides are now read from the character's own datasheet rather than the squad it joined.",
+        "Two notifications called a toast style that did not exist and would have errored the moment they fired: the \"this character will arrive with <squad>\" reinforcement note, and the \"continuing in single-player — Player N is now AI\" notice after a multiplayer disconnect."
+      ]
+    },
+    {
       "version": "1.6.6",
       "date": "2026-07-29",
       "summary": "You can finally aim an attached character's guns by hand — and 'Dakka Time' now teaches aiming instead of doing it for you.",

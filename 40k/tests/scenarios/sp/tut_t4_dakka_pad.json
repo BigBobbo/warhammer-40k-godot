@@ -84,7 +84,8 @@
     },
     {
       "act": "pad_cursor_glide",
-      "button_text": "Continue"
+      "button_text": "Continue",
+      "comment": "instructor-card Continue. This glide stalls intermittently under llvmpipe (VirtualCursor advances the glide only while pad mode is held, and the cursor's own warp synthesises mouse motion). The runner now retries a stalled round instead of failing on the first one, so no per-step timeout override is needed."
     },
     {
       "act": "simulate_joy_button",
@@ -292,7 +293,9 @@
     },
     {
       "act": "pad_cursor_glide",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "optional": true,
+      "comment": "defender save-results card. Whether ANY card appears is seed-dependent: the card only exists when that seed's dice actually wounded something, and a rules fix that changes how many dice are rolled (e.g. RAPID FIRE now correctly counting an attached character within half range) shifts the stream. Driven with real pad input when a card IS up; skipped cleanly when it is not. The later Done presses are already tolerant for the same reason, and step 'has_shot' below is the real gate."
     },
     {
       "act": "simulate_joy_button",
