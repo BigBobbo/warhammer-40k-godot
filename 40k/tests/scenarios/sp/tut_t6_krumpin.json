@@ -56,6 +56,45 @@
       "equals": "pile_in"
     },
     {
+      "act": "execute_script",
+      "script": "var b = GameState.create_snapshot()\nvar all = []\nfor uid in b.units:\n\tfor m in b.units[uid].get(\"models\", []):\n\t\tif m.get(\"alive\", true) and m.get(\"position\") != null:\n\t\t\tall.append(m)\nfor i in range(all.size()):\n\tfor j in range(i + 1, all.size()):\n\t\tif Measurement.models_overlap(all[i], all[j]):\n\t\t\treturn false\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "the SHUFFLE UP! step claims the Boyz are already in contact - no model base anywhere on the board may overlap another (the Custodian Guard used to sit on a 60px pitch, 3px inside each other's 40mm bases)"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = GameState.create_snapshot()\nvar cust = b.units[\"U_CUSTODIAN_GUARD_T\"].models\nvar n = 0\nfor uid in [\"U_BOYZ_T\", \"U_WARBOSS_T\"]:\n\tfor m in b.units[uid].models:\n\t\tfor c in cust:\n\t\t\tif Measurement.model_to_model_distance_inches(m, c) <= RulesEngine.BASE_CONTACT_TOLERANCE_INCHES:\n\t\t\t\tn += 1\n\t\t\t\tbreak\nreturn n",
+      "multiline": true,
+      "equals": 6,
+      "comment": "5 front-rank Boyz + the Warboss are in real base-to-base contact with the Custodian Guard"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = GameState.create_snapshot()\nreturn RulesEngine.get_eligible_melee_model_indices(b.units[\"U_BOYZ_T\"], b).size()",
+      "multiline": true,
+      "equals": 10,
+      "comment": "every Boy can actually swing - two used to sit >2\" from the Custodes and could not fight at all"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = GameState.create_snapshot()\nreturn RulesEngine.get_eligible_melee_model_indices(b.units[\"U_WARBOSS_T\"], b).size()",
+      "multiline": true,
+      "equals": 1,
+      "comment": "da boss is in engagement range too"
+    },
+    {
+      "act": "execute_script",
+      "script": "var wb = GameState.get_unit(\"U_WARBOSS_T\")\nvar p = wb.models[0].position\nvar want = Vector2(p.x, p.y) if p is Dictionary else p\nvar layer = tree.root.get_node(\"/root/Main/BoardRoot/TokenLayer\")\nvar n = 0\nfor c in layer.get_children():\n\tif c.position.distance_to(want) < 1.0:\n\t\tn += 1\nreturn n",
+      "multiline": true,
+      "equals": 1,
+      "comment": "the Warboss token is actually drawn - the fixture used to leave the attached character at UNDEPLOYED, so Main._recreate_unit_visuals() skipped it and da boss was invisible on the board"
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_pile_in_contact"
+    },
+    {
       "act": "click_node",
       "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton"
     },

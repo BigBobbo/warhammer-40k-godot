@@ -1,0 +1,77 @@
+{
+  "id": "pad_fight_step_end_qrx689",
+  "covers": [
+    "controller.fight.step_end_start_button",
+    "controller.fight.pilein_step_pad",
+    "controller.fight.consolidate_step_pad",
+    "PadRouter",
+    "PadHintBar",
+    "FightController",
+    "Main"
+  ],
+  "fixture": "stompa_fight_11e",
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "edition": 11,
+  "description": "Controller: ☰ (Start) ends the 11e Fight-phase GLOBAL STEP it is standing in, and says so. Reported trap — during the Pile In step (12.02) the pad hint bar's ☰ chip read the generic 'End Phase' while the top-right button ☰ actually pressed read 'Finish Pile Ins', so ☰ looked like it would end the whole Fight phase and the pad advertised no 'End Pile In' at all. Now the chip reads 'End Pile In' / 'End Consolidation' (from the board AND from panel focus), the top-right button drops its '[☰]' prefix while the step owns Start, and ☰ presses the step section's own end button — the same one the mouse clicks. Once the global steps are done the chip goes back to 'End Phase' and the top-right button re-claims '[☰]'.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_fight_step_11e()", "equals": "PILE_IN" },
+
+    { "act": "simulate_joy_button", "button_index": 10, "comment": "RB claims pad mode and focuses the step section's buttons" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_step_panel.visible", "equals": true },
+
+    { "act": "execute_script", "script": "str(PadHintBar.label_for(\"menu\"))", "equals": "End Pile In", "comment": "panel focus no longer drops the ☰ chip: ☰ is never swallowed by focus, so it still names the step it ends" },
+    { "act": "execute_script", "script": "str(PadRouter.start_action_label)", "equals": "End Pile In" },
+    { "act": "execute_script", "script": "PadRouter.start_owns_phase_action()", "equals": false },
+    { "act": "execute_script", "script": "str(main.phase_action_button.text)", "equals": "Finish Pile Ins", "comment": "the top-right button drops '[☰] ' while the Pile In step owns Start — one promise on screen, not two" },
+
+    { "act": "execute_script", "multiline": true, "script": "var f = tree.root.gui_get_focus_owner()\nif f != null:\n\tf.release_focus()\nPadRouter.refresh_hints()\nreturn \"released\"", "equals": "released" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(PadHintBar.label_for(\"menu\"))", "equals": "End Pile In", "comment": "board context (HINTS_FIGHT_PILE_IN) — this is the state that used to read 'End Phase'" },
+    { "act": "screenshot", "label": "01_pilein_step_start_says_end_pile_in" },
+
+    { "act": "execute_script", "script": "str(main.fight_controller.get_pad_step_end().get(\"button\").name)", "equals": "EndPileInButton", "comment": "☰ routes to the SAME button the mouse clicks" },
+    { "act": "simulate_joy_button", "button_index": 6, "comment": "☰ ends the active player's pile-in half" },
+    { "act": "wait_seconds", "seconds": 1.5 },
+
+    { "act": "expect_state", "path": "meta.phase", "equals": 10, "comment": "the FIGHT PHASE did not end — only the half did" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_fight_step_11e()", "equals": "PILE_IN", "comment": "handed over to the other player's pile-in half" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().pile_in_done_players_11e.size()", "equals": 1 },
+    { "act": "execute_script", "script": "str(PadHintBar.label_for(\"menu\"))", "equals": "End Pile In" },
+    { "act": "screenshot", "label": "02_second_half_still_pile_in" },
+
+    { "act": "simulate_joy_button", "button_index": 6, "comment": "☰ ends the second player's pile-in half — the global step is now done" },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_fight_step_11e()", "equals": "FIGHT" },
+    { "act": "execute_script", "script": "main.fight_controller.get_pad_step_end().is_empty()", "equals": true, "comment": "no global step running: ☰ hands Start back to the phase action" },
+    { "act": "execute_script", "multiline": true, "script": "var f = tree.root.gui_get_focus_owner()\nif f != null:\n\tf.release_focus()\nPadRouter.refresh_hints()\nreturn \"released\"", "equals": "released" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(PadHintBar.label_for(\"menu\"))", "equals": "End Phase", "comment": "back to the generic promise — and it is true again" },
+    { "act": "execute_script", "script": "PadRouter.start_owns_phase_action()", "equals": true },
+    { "act": "execute_script", "script": "main.phase_action_button.text.begins_with(\"[\")", "equals": true, "comment": "the top-right button re-claims its '[☰] ' prefix" },
+    { "act": "screenshot", "label": "03_fight_step_start_is_end_phase_again" },
+
+    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 2 } },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 1 } },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_fight_step_11e()", "equals": "CONSOLIDATE", "comment": "both players stopped fighting -> the global Consolidate step (12.07) opens" },
+    { "act": "execute_script", "script": "main.fight_controller.consolidation_step_panel.visible", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var f = tree.root.gui_get_focus_owner()\nif f != null:\n\tf.release_focus()\nPadRouter.refresh_hints()\nreturn \"released\"", "equals": "released" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "str(PadHintBar.label_for(\"menu\"))", "equals": "End Consolidation" },
+    { "act": "execute_script", "script": "str(main.fight_controller.get_pad_step_end().get(\"button\").name)", "equals": "EndConsolidationButton" },
+    { "act": "screenshot", "label": "04_consolidate_step_start_says_end_consolidation" },
+
+    { "act": "simulate_joy_button", "button_index": 6, "comment": "☰ ends this player's consolidation half" },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().consolidation_done_players_11e.size()", "expect_min": 1 },
+    { "act": "screenshot", "label": "05_consolidation_half_ended" }
+  ]
+}

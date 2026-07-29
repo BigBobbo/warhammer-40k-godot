@@ -15,6 +15,94 @@ signal transport_destroyed(transport_id: String, embarked_unit_ids: Array, resul
 func _ready() -> void:
 	print("TransportManager initialized")
 
+## 11e 19.03: an Attached unit — a bodyguard plus the CHARACTER units attached
+## to it — is a SINGLE unit, so it embarks and disembarks as one. Returns the
+## bodyguard id first, then its attached character ids. A unit with no
+## attachments returns just [unit_id]; handing in an attached CHARACTER returns
+## its whole attached unit (bodyguard first), so either id resolves to the same
+## group.
+##
+## Reported bug: the tutorial's "Boyz + Warboss" embarked in the Battlewagon and
+## disembarking placed only the 10 Boyz — the Warboss was never asked for, never
+## placed, and stayed off the battlefield while the disembark reported complete.
+func get_attached_unit_group(unit_id: String, state: Dictionary = {}) -> Array:
+	var src = state if not state.is_empty() else GameState.state
+	var units = src.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return [unit_id]
+
+	# Resolve to the bodyguard when handed a leader.
+	var root_id = unit_id
+	var attached_to = unit.get("attached_to", null)
+	if attached_to != null and str(attached_to) != "" and units.has(str(attached_to)):
+		root_id = str(attached_to)
+
+	var group := [root_id]
+	for char_id in units.get(root_id, {}).get("attachment_data", {}).get("attached_characters", []):
+		var cid = str(char_id)
+		if cid != root_id and not cid in group and units.has(cid):
+			group.append(cid)
+	return group
+
+## The subset of get_attached_unit_group() that is actually embarked in the SAME
+## transport as `unit_id` — the units a disembark must place. Order matches the
+## group (bodyguard first). Units whose embark state drifted (a leader left
+## behind by a pre-fix save) are excluded here; StateSerializer repairs those on
+## load instead.
+func get_disembark_group(unit_id: String, state: Dictionary = {}) -> Array:
+	var src = state if not state.is_empty() else GameState.state
+	var units = src.get("units", {})
+	var transport_id = units.get(unit_id, {}).get("embarked_in", null)
+	if transport_id == null:
+		return [unit_id]
+	var out := []
+	for gid in get_attached_unit_group(unit_id, src):
+		if units.get(gid, {}).get("embarked_in", null) == transport_id:
+			out.append(gid)
+	if out.is_empty():
+		out.append(unit_id)
+	return out
+
+## A disembark's position array arrives in one of TWO shapes, and both are in the
+## wild — they only differ once the unit has taken casualties:
+##   * model-indexed — one entry per model SLOT, dead slots padded with a
+##     placeholder (AIDecisionMaker._compute_disembark_positions, saved scenario
+##     payloads, network actions)
+##   * alive-order   — one entry per ALIVE model (the placement UI, which only
+##     ever asks the player for living models)
+## Reading an alive-order array as model-indexed shifts every survivor onto the
+## wrong spot, so resolve the shape once, here, instead of at each call site.
+## Returns { model_index: position } covering every alive model it has a
+## position for.
+func align_disembark_positions(unit: Dictionary, positions: Array) -> Dictionary:
+	var models = unit.get("models", [])
+	var alive_indices := []
+	for i in range(models.size()):
+		if models[i].get("alive", true):
+			alive_indices.append(i)
+
+	var out := {}
+	# A full-length array on a unit WITH casualties is the padded, model-indexed
+	# shape. Everything else (including the no-casualties case, where the two
+	# shapes are identical) is read in alive order.
+	if positions.size() == models.size() and alive_indices.size() != models.size():
+		for i in alive_indices:
+			out[i] = positions[i]
+	else:
+		for k in range(min(positions.size(), alive_indices.size())):
+			out[alive_indices[k]] = positions[k]
+	return out
+
+## True when this unit rides along with a bodyguard rather than embarking in its
+## own right (an attached CHARACTER). Transport pickers must not offer these as
+## separate passengers — they board with the unit they lead.
+func is_attached_passenger(unit_id: String, state: Dictionary = {}) -> bool:
+	var src = state if not state.is_empty() else GameState.state
+	var units = src.get("units", {})
+	var attached_to = units.get(unit_id, {}).get("attached_to", null)
+	return attached_to != null and str(attached_to) != "" and units.has(str(attached_to))
+
 # Check if a unit can embark into a transport
 func can_embark(unit_id: String, transport_id: String) -> Dictionary:
 	var unit = GameState.get_unit(unit_id)
@@ -41,8 +129,13 @@ func can_embark(unit_id: String, transport_id: String) -> Dictionary:
 		return {"valid": false, "reason": "Unit has excluded keyword (%s cannot be transported)" % str(excluded_keywords)}
 
 	# Check capacity (P3-32: now uses capacity multipliers for MEGA ARMOUR etc.)
+	# 19.03: an attached unit boards as one, so its leaders' models count too.
 	var current_count = _get_embarked_model_count(transport_id)
-	var unit_model_count = _get_unit_capacity_cost(unit, transport)
+	var unit_model_count = 0
+	for gid in get_attached_unit_group(unit_id):
+		var g_unit = GameState.get_unit(gid)
+		if not g_unit.is_empty():
+			unit_model_count += _get_unit_capacity_cost(g_unit, transport)
 
 	if current_count + unit_model_count > transport.transport_data.capacity:
 		return {"valid": false, "reason": "Insufficient capacity (%d/%d)" % [current_count + unit_model_count, transport.transport_data.capacity]}
@@ -104,19 +197,32 @@ func embark_unit(unit_id: String, transport_id: String) -> void:
 		return
 
 	# Directly modify GameState since we're an autoload
-	var unit = GameState.get_unit(unit_id)
 	var transport = GameState.get_unit(transport_id)
 
-	# Set embarked status on unit
-	unit["embarked_in"] = transport_id
-
-	# Add unit to transport's embarked list
 	if not transport.transport_data.has("embarked_units"):
 		transport.transport_data["embarked_units"] = []
-	transport.transport_data.embarked_units.append(unit_id)
 
-	# Update GameState directly
-	GameState.state.units[unit_id] = unit
+	# 19.03: the bodyguard and every CHARACTER attached to it board together —
+	# a leader left behind ends up stranded off the battlefield with no way back.
+	for gid in get_attached_unit_group(unit_id):
+		var g_unit = GameState.get_unit(gid)
+		if g_unit.is_empty() or g_unit.get("embarked_in", null) != null:
+			continue
+
+		g_unit["embarked_in"] = transport_id
+		g_unit["status"] = GameStateData.UnitStatus.DEPLOYED
+		# Embarked models are off the battlefield — clear their positions so they
+		# leave no phantom footprint behind.
+		for model in g_unit.get("models", []):
+			model["position"] = null
+
+		if not gid in transport.transport_data.embarked_units:
+			transport.transport_data.embarked_units.append(gid)
+
+		GameState.state.units[gid] = g_unit
+		if gid != unit_id:
+			print("Attached character %s embarked in transport %s with %s" % [gid, transport_id, unit_id])
+
 	GameState.state.units[transport_id] = transport
 
 	emit_signal("embark_completed", transport_id, unit_id)
@@ -135,10 +241,13 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 		print("Cannot disembark: transport not found")
 		return
 
-	# Update positions for all models
-	for i in range(min(positions.size(), unit.models.size())):
-		if unit.models[i].alive:
-			unit.models[i].position = {"x": positions[i].x, "y": positions[i].y}
+	# Update positions for all models. The array may be model-indexed or
+	# alive-order (see align_disembark_positions) — reading an alive-order array
+	# as model-indexed put every survivor of a unit with casualties on the wrong
+	# spot, so resolve the shape rather than assuming one.
+	var aligned = align_disembark_positions(unit, positions)
+	for i in aligned:
+		unit.models[i].position = {"x": aligned[i].x, "y": aligned[i].y}
 
 	# Clear embark status
 	unit["embarked_in"] = null
@@ -302,6 +411,12 @@ func get_embarkable_units(transport_id: String, player: int) -> Array:
 
 		# Skip already embarked units
 		if unit.get("embarked_in", null) != null:
+			continue
+
+		# 19.03: an attached CHARACTER is part of its bodyguard's unit — it boards
+		# with them, so offering it as its own passenger would double-book capacity
+		# and let the player split an attached unit across transports.
+		if is_attached_passenger(unit_id):
 			continue
 
 		# Check if this unit can embark

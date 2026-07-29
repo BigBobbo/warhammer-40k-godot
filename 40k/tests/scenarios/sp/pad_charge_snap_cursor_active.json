@@ -1,0 +1,74 @@
+{
+  "id": "pad_charge_snap_cursor_active",
+  "covers": [
+    "controller.charge.x_snap_to_contact",
+    "controller.charge.x_snap_with_cursor_active",
+    "PadRouter",
+    "VirtualCursor",
+    "ChargeController"
+  ],
+  "fixture": "audit_372_charge_modifier",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Reported bug: in the charge move stage the hint bar promises '[X] Snap to Contact' but X does nothing — only the on-screen Snap to Contact button works. Root cause: a real pad player has the VIRTUAL CURSOR live (the left stick is how you aim at a model for A = Grab Model), and with the cursor active VirtualCursor turned X into a synthetic right-click while PadRouter._context_action bailed on `VirtualCursor.is_cursor_active()` BEFORE its charge snap check. pad_charge_full_flow never moved the stick, so X routed through a parked cursor and the dead button never showed up. This scenario drives the stick first — the cursor ring is up when X is pressed — and asserts the snap still fires.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "GameState.state.units[\"U_BATTLEWAGON_G\"].models[0].merge({\"position\": {\"x\": 700.0, \"y\": 2150.0}, \"rotation\": 0.0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"position\": {\"x\": 973.0, \"y\": 2150.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].merge({\"position\": {\"x\": 1240.0, \"y\": 2150.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "main.charge_controller._refresh_ui()" },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar cc = m.charge_controller\nif str(cc.active_unit_id) != \"U_BATTLEWAGON_G\":\n\tfor i in range(cc.unit_selector.item_count):\n\t\tif str(cc.unit_selector.get_item_metadata(i)) == \"U_BATTLEWAGON_G\":\n\t\t\tcc.unit_selector.select(i)\n\t\t\tcc.unit_selector.item_selected.emit(i)\n\t\t\tbreak\nreturn str(cc.active_unit_id)", "equals": "U_BATTLEWAGON_G" },
+
+    { "act": "simulate_joy_button", "button_index": 0, "comment": "A toggles the first eligible target into the declaration" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 1 },
+
+    { "act": "simulate_joy_button", "button_index": 6, "comment": "Start = Declare Charge" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.charge_controller.awaiting_roll", "equals": true },
+
+    { "act": "simulate_joy_button", "button_index": 6, "comment": "Start = Roll 2D6" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "main.charge_controller.awaiting_movement", "equals": true },
+    { "act": "execute_script", "script": "main.charge_controller.models_to_move.size()", "expect_min": 1 },
+    { "act": "execute_script", "multiline": true, "script": "var labels = []\nfor chip in PadHintBar._row.get_children():\n\tfor l in chip.find_children(\"*\", \"Label\", true, false):\n\t\tlabels.append(l.text)\nreturn \"Snap to Contact\" in labels", "equals": true, "comment": "the bar makes the promise X has to keep" },
+
+    { "act": "simulate_joy_axis", "axis": 0, "value": 0.85, "hold_s": 0.35, "comment": "the player aims with the left stick — exactly what A = Grab Model needs — which raises the virtual cursor ring" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": true, "comment": "the state a real pad player is in when they read '[X] Snap to Contact'" },
+    { "act": "screenshot", "label": "01_cursor_live_before_x" },
+
+    { "act": "simulate_joy_button", "button_index": 2, "comment": "X = Snap to Contact" },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "main.charge_controller.models_to_move.size()", "equals": 0, "comment": "THE BUG: before the fix the cursor ate X as a synthetic right-click and this stayed non-zero" },
+    { "act": "execute_script", "script": "main.charge_controller.moved_models.size()", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.charge_controller.confirm_button.disabled", "equals": false },
+    { "act": "execute_script", "script": "main.charge_controller.auto_path_charge_button.disabled", "equals": true, "comment": "nothing left to snap, so the button greys out..." },
+    { "act": "execute_script", "multiline": true, "script": "var labels = []\nfor chip in PadHintBar._row.get_children():\n\tfor l in chip.find_children(\"*\", \"Label\", true, false):\n\t\tlabels.append(l.text)\nreturn \"Snap to Contact\" in labels", "equals": false, "comment": "...and the bar stops promising X, instead of leaving a dead button for the last press of the stage" },
+    { "act": "screenshot", "label": "02_x_snapped_with_cursor_active" },
+
+    { "act": "simulate_joy_button", "button_index": 6, "comment": "Start = Confirm Charge Moves — the snapped placement is a real, confirmable charge" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_completed_charges().has(\"U_BATTLEWAGON_G\")", "equals": true },
+    { "act": "screenshot", "label": "03_charge_confirmed" },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar cc = m.charge_controller\ncc._refresh_ui()\nfor i in range(cc.unit_selector.item_count):\n\tif str(cc.unit_selector.get_item_metadata(i)) == \"U_BOYZ_E\":\n\t\tcc.unit_selector.select(i)\n\t\tcc.unit_selector.item_selected.emit(i)\n\t\tbreak\nreturn str(cc.active_unit_id)", "equals": "U_BOYZ_E", "comment": "a fresh unit at the declare stage — the OTHER thing the bar promises X in this phase" },
+    { "act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": true, "comment": "cursor still live from the stick nudge above" },
+    { "act": "execute_script", "script": "main.charge_controller.skip_button.disabled", "equals": false },
+    { "act": "execute_script", "multiline": true, "script": "var labels = []\nfor chip in PadHintBar._row.get_children():\n\tfor l in chip.find_children(\"*\", \"Label\", true, false):\n\t\tlabels.append(l.text)\nreturn \"Skip Charge\" in labels", "equals": true },
+    { "act": "simulate_joy_button", "button_index": 2, "comment": "X = Skip Charge — dead the same way before the fix, since the cursor ate it" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "str(main.charge_controller.active_unit_id)", "equals": "", "comment": "the skip fired instead of being swallowed as a right-click" },
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.current_scene.charge_controller\nvar ids = []\nfor i in range(cc.unit_selector.item_count):\n\tids.append(str(cc.unit_selector.get_item_metadata(i)))\nreturn \"U_BOYZ_E\" in ids", "equals": false, "comment": "and the phase really recorded it — the unit has left UNITS THAT CAN CHARGE" },
+    { "act": "screenshot", "label": "04_x_skipped_charge_with_cursor_active" }
+  ]
+}
