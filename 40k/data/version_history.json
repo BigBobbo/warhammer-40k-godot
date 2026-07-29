@@ -2,13 +2,24 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.2",
+      "version": "1.7.3",
       "date": "2026-07-29",
       "summary": "Controller: X really works in the charge phase now — Snap to Contact and Skip Charge were both dead buttons the hint bar kept promising.",
       "changes": [
         "During a charge move the hint bar says '[X] Snap to Contact', but pressing X did nothing and only the on-screen Snap to Contact button worked. The cause: as soon as you nudge the left stick — which is how you aim at a model to grab it with A — the virtual cursor turns on, and while it was on it swallowed X as a right-click. X now reaches Snap to Contact whether the cursor is up or parked.",
         "'[X] Skip Charge' in the declare and roll stages was dead for exactly the same reason, and is fixed alongside it — X now skips the selected unit's charge with the cursor live.",
         "Once every model has been snapped there is nothing left to snap, so the Snap to Contact button now correctly greys out (it used to stay lit and do nothing on a second press) and the hint bar drops its X chip instead of advertising a button that can't fire."
+      ]
+    },
+    {
+      "version": "1.7.2",
+      "date": "2026-07-29",
+      "summary": "Deployment tutorial now has its own step for turning the Battlewagon, instead of mentioning rotation in passing.",
+      "changes": [
+        "'Musterin' da Boyz' (lesson 2) gained a step between the deployment roll-off and parking the wagon: POINT IT DA RIGHT WAY! It has you pick the Battlewagon up and actually turn it before dropping it, and spells out how — Q and E (or whatever you rebound them to), or the mouse wheel, 15° a tap.",
+        "The step will not move on until the wagon has genuinely been turned, and Confirm is held shut while it is showing — dropping the wagon flat and locking it in would have left nothing to rotate. If you drop it before turning it, the step tells you to pick it back up with Undo on the unit card.",
+        "Controller players skip the new step: rotating a model during deployment is a keyboard/mouse-wheel control only (on a pad the bumpers cycle units there), so the tutorial does not promise a button that would turn nothing. The end-of-lesson summary says the same.",
+        "The 'Park da wagon' step that follows is now just about placing and confirming."
       ]
     },
     {
