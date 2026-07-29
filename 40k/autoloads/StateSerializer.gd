@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # StateSerializer - Handles serialization and deserialization of game state
 # Provides JSON conversion with versioning, validation, and optimization
@@ -914,6 +915,50 @@ func _validate_unit_data(data: Dictionary) -> Dictionary:
 						validation.repairs.append("%s: removed invalid embarked unit '%s'" % [prefix, str(e_id)])
 				if valid_embarked.size() != embarked_units.size():
 					transport_data["embarked_units"] = valid_embarked
+
+	# --- Cross-reference repair: attached CHARACTERs ride with their bodyguard ---
+	# 11e 19.03: an attached unit is a SINGLE unit, so a leader cannot be outside
+	# the transport its bodyguard is inside. Saves written before the embark paths
+	# expanded to the whole attached unit (including the shipped tutorial
+	# checkpoints) left the leader UNDEPLOYED with embarked_in null — the reported
+	# "Boyz + Warboss disembark, no Warboss appears" bug. Board them here so the
+	# disembark places every model.
+	for unit_id in units:
+		var unit = units[unit_id]
+		if not unit is Dictionary:
+			continue
+		var bodyguard_id = unit.get("attached_to", null)
+		if bodyguard_id == null or not bodyguard_id is String or bodyguard_id == "":
+			continue
+		if not units.has(bodyguard_id):
+			continue
+
+		var bg_transport = units[bodyguard_id].get("embarked_in", null)
+		if bg_transport == null or not bg_transport is String or bg_transport == "":
+			continue
+		if unit.get("embarked_in", null) == bg_transport:
+			continue  # already aboard with its bodyguard
+		if not units.has(bg_transport):
+			continue
+
+		var repair_prefix = "Unit '%s'" % unit_id
+		validation.warnings.append("%s: attached to embarked '%s' but not aboard '%s' — embarking it with its bodyguard (19.03)" % [
+			repair_prefix, bodyguard_id, bg_transport])
+		unit["embarked_in"] = bg_transport
+		# Embarked units count as deployed (they deploy inside the transport).
+		unit["status"] = GameStateData.UnitStatus.DEPLOYED
+		# Embarked models are off the battlefield.
+		for model in unit.get("models", []):
+			if model is Dictionary:
+				model["position"] = null
+
+		var bg_transport_data = units[bg_transport].get("transport_data", {})
+		if bg_transport_data is Dictionary:
+			var bg_embarked = bg_transport_data.get("embarked_units", [])
+			if bg_embarked is Array and not unit_id in bg_embarked:
+				bg_embarked.append(unit_id)
+				bg_transport_data["embarked_units"] = bg_embarked
+		validation.repairs.append("%s: embarked in '%s' with bodyguard '%s'" % [repair_prefix, bg_transport, bodyguard_id])
 
 	# --- Player data validation ---
 	if data.has("players") and data["players"] is Dictionary:

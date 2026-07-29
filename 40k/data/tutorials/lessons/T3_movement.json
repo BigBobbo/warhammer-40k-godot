@@ -3,15 +3,17 @@
   "order": 3,
   "title": "Get Movin'",
   "subtitle": "Movement phase: disembark, move modes & the confirm gate",
-  "est_minutes": 5,
+  "est_minutes": 7,
   "boot": { "fixture": "tutorial_postdeploy", "phase": 7, "rng_seed": 4242 },
   "summary": {
     "bark": "NOW WE'S ROLLIN'!",
     "bullets": [
-      "Click a unit's [Embarked] row to get da boyz out of a transport — place each base inside da glowin' ring.",
+      "Click a unit's [Embarked] row to get da boyz out of a transport — place each base inside da glowin' ring. An attached Warboss gets out wiv 'em, so 'is base gets placed too.",
       "Boyz dat disembark can still make their own move — but only if da transport ain't moved yet. Out first, drive after.",
       "Movement modes: pick da radio, den [b]Confirm Movement Mode[/b] — it don't stick till ya confirm.",
       "Drag models (or carry 'em wiv da pad), [b]Undo Model[/b] / [b]Reset Unit[/b] fix mistakes.",
+      "Ya don't gotta spend a move in one drag — drop, grab again, da inches add up till dey're gone.",
+      "Turnin' a model is free in 11th — it don't cost a single inch of da move.",
       "[b]End This Unit's Move[/b] locks one unit. Da big red button ends da whole phase.",
       "Next lesson: Dakka Time — shootin'."
     ]
@@ -47,8 +49,8 @@
       "id": "disembark_place",
       "prompt": {
         "bark": "INSIDE DA RING!",
-        "kbm": "Click a spot inside da glowin' ring for [b]each[/b] model — keep 'em close together an' not on top of each uvver. Da move locks in after da last one.",
-        "pad": "Glide {ls} to a spot inside da ring an' press {a} for [b]each[/b] model — keep 'em close, not stacked."
+        "kbm": "Click a spot inside da glowin' ring for [b]each[/b] model — all [b]11[/b] of 'em: 10 Boyz, den da [b]Warboss[/b] last, 'cos he's part of da mob. Keep 'em close together an' not on top of each uvver. Da move locks in after da last one.",
+        "pad": "Glide {ls} to a spot inside da ring an' press {a} for [b]each[/b] model — all [b]11[/b]: 10 Boyz, den da [b]Warboss[/b] last. Keep 'em close, not stacked."
       },
       "spotlight": "none",
       "allow": ["DISEMBARK_UNIT", "CONFIRM_DISEMBARK"],
@@ -57,7 +59,7 @@
         { "state": "units.U_BOYZ_T.disembarked_this_phase", "equals": true }
       ] },
       "hint_after_s": 35,
-      "hint": { "text": "Right-click cancels if ya get stuck — den click da row again. Every base needs to be wivin 3\" of da wagon." }
+      "hint": { "text": "Da Warboss is attached to da Boyz, so he gets out wiv 'em — his base is da last one ya place. Right-click cancels if ya get stuck — den click da row again. Every base needs to be wivin 3\" of da wagon." }
     },
     {
       "id": "boyz_move_after_disembark",
@@ -108,14 +110,39 @@
       "id": "wagon_move",
       "prompt": {
         "bark": "SHIFT IT!",
-        "kbm": "Drag da wagon's hull forward an' drop it — da panel shows how many inches ya used.",
-        "pad": "Press {a} on da wagon to grab it, glide {ls} where ya want it, {a} to drop."
+        "kbm": "Drag da wagon's hull forward an' drop it. Ya don't gotta spend da whole move in one drag — drop it, grab it again, keep goin'. Da panel counts every inch as ya go.",
+        "pad": "Press {a} on da wagon to grab it, glide {ls} where ya want it, {a} to drop. Ya don't gotta spend it all at once — grab it again an' keep goin'. Da panel counts da inches."
       },
       "anchor": { "unit": "U_BATTLEWAGON_T" },
       "spotlight": "soft",
       "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE"],
       "done": { "action": { "type": "STAGE_MODEL_MOVE", "actor_unit_id": "U_BATTLEWAGON_T" } },
-      "hint": { "text": "Grab da middle of da hull. [b]Undo Model[/b] takes da last drop back." }
+      "hint": { "text": "Grab da middle of da hull. Little hops is fine — every drop adds to da total till da move's spent. [b]Undo Model[/b] takes da last drop back." }
+    },
+    {
+      "id": "wagon_turn",
+      "prompt": {
+        "bark": "POINT IT RIGHT!",
+        "kbm": "Da wagon ain't on a round base, so which way it points matters. Grab da hull an' [b]keep holdin'[/b] it, den tap {key:rotate_left} or {key:rotate_right} — 15° a tap. Turnin' costs no inches.",
+        "pad": "Da wagon ain't on a round base, so which way it points matters. Grab it wiv {a}, den {lb} or {rb} spins it 15° a tap while yer carryin' it. Turnin' costs no inches."
+      },
+      "anchor": { "unit": "U_BATTLEWAGON_T" },
+      "spotlight": "soft",
+      "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE"],
+      "capture": {
+        "rot0": {
+          "script": "var u = GameState.get_unit(\"U_BATTLEWAGON_T\")\nvar ms = u.get(\"models\", [])\nif ms.is_empty():\n\treturn 0.0\nreturn float(ms[0].get(\"rotation\", 0.0))",
+          "comment": "baseline facing on step entry — the wagon may already carry a rotation from deployment, so the done leaf compares against THIS, not against zero"
+        }
+      },
+      "done": {
+        "script": "var u = GameState.get_unit(\"U_BATTLEWAGON_T\")\nvar ms = u.get(\"models\", [])\nif ms.is_empty():\n\treturn false\nreturn abs(float(ms[0].get(\"rotation\", 0.0)) - float(captured.get(\"rot0\", 0.0))) > 0.05",
+        "comment": "MovementController._apply_rotation_to_model writes the new facing straight into GameState (both Q/E and the pad's LB/RB, which PadRouter._synth_rotate turns into the same key events), so polling live state catches the turn the moment it happens — no action is dispatched for a rotation. 0.05 rad is a fifth of one 15-degree (PI/12 = 0.262 rad) tap, so a single press clears it and float noise cannot."
+      },
+      "hint": {
+        "kbm": "Ya have to be holdin' da model — {key:rotate_left}/{key:rotate_right} do nuffin' when nuffin's grabbed. Press an' hold on da hull first, den tap 'em, den let go to drop it.",
+        "pad": "Ya have to be carryin' da model — press {a} on da hull first, den {lb}/{rb} turn it. {a} again drops it where it's pointin'."
+      }
     },
     {
       "id": "wagon_confirm",

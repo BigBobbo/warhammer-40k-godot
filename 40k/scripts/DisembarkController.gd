@@ -4,7 +4,7 @@ extends Node2D
 # DisembarkController - Handles model placement when disembarking from transports
 # Similar to DeploymentController but with 3" range restriction from transport
 
-signal disembark_completed(unit_id: String, positions: Array)
+signal disembark_completed(unit_id: String, positions: Array, group_positions: Dictionary)
 signal disembark_canceled(unit_id: String)
 signal model_placed(index: int)
 
@@ -12,6 +12,14 @@ var unit_id: String
 var transport_id: String
 var unit_data: Dictionary = {}
 var transport_data: Dictionary = {}
+# 11e 19.03: an Attached unit (bodyguard + its attached CHARACTERs) disembarks as
+# ONE unit, so placement must ask for every model in the group. Before this, only
+# the bodyguard's models got a ghost — a "Boyz + Warboss" disembark placed the 10
+# Boyz, reported complete, and left the Warboss inside the hull forever.
+# group_unit_ids is bodyguard-first; placement_slots is the flat placement order
+# ({unit_id, model_idx} per alive model) that model_positions/rotations index.
+var group_unit_ids: Array = []
+var placement_slots: Array = []
 var model_positions: Array = []
 var model_rotations: Array = []
 var ghost_visuals: Array = []
@@ -106,13 +114,22 @@ func start_disembark(p_unit_id: String) -> void:
 		# Fallback to circular base
 		transport_base_shape = CircularBase.new(Measurement.base_radius_px(32))
 
-	# Initialize positions array
+	# Build the placement order across the whole attached unit: the bodyguard's
+	# alive models first, then each attached CHARACTER's.
+	group_unit_ids = TransportManager.get_disembark_group(unit_id)
+	placement_slots.clear()
 	model_positions.clear()
 	model_rotations.clear()
-	for i in range(unit_data.models.size()):
-		if unit_data.models[i].alive:
-			model_positions.append(null)
-			model_rotations.append(0.0)
+	for gid in group_unit_ids:
+		var g_unit = GameState.get_unit(gid)
+		var g_models = g_unit.get("models", [])
+		for i in range(g_models.size()):
+			if g_models[i].get("alive", true):
+				placement_slots.append({"unit_id": gid, "model_idx": i})
+				model_positions.append(null)
+				model_rotations.append(0.0)
+	print("DisembarkController: placing %d model(s) across %d unit(s): %s" % [
+		placement_slots.size(), group_unit_ids.size(), str(group_unit_ids)])
 
 	# 11e 18.04: resolve the mandatory disembark mode (rapid/tactical/combat)
 	# the same way the phase validator does, so the UI's range ring and
@@ -267,14 +284,12 @@ func _draw_oval_offset_range(range_visual: Node2D, semi_length: float, semi_widt
 	_add_range_polyline(range_visual, points)
 
 func _create_ghost_for_model(idx: int) -> void:
-	# Find the actual model index (skip dead models)
-	var actual_idx = _get_actual_model_index(idx)
-	if actual_idx == -1:
+	if idx < 0 or idx >= placement_slots.size():
 		print("ERROR: No more alive models to place")
 		_complete_disembark()
 		return
 
-	var model = unit_data.models[actual_idx]
+	var model = _slot_model(idx)
 
 	var ghost = preload("res://scripts/GhostVisual.gd").new()
 	ghost.owner_player = unit_data.owner
@@ -288,17 +303,28 @@ func _create_ghost_for_model(idx: int) -> void:
 	var screen_pos = get_viewport().get_mouse_position()
 	ghost.position = _get_world_position_from_screen(screen_pos)
 
-func _get_actual_model_index(placement_idx: int) -> int:
-	var alive_count = 0
-	for i in range(unit_data.models.size()):
-		if unit_data.models[i].alive:
-			if alive_count == placement_idx:
-				return i
-			alive_count += 1
-	return -1
+## The model data behind placement slot `idx` — it may belong to the bodyguard or
+## to any CHARACTER attached to it, so never index unit_data.models directly.
+func _slot_model(idx: int) -> Dictionary:
+	if idx < 0 or idx >= placement_slots.size():
+		return {}
+	var slot = placement_slots[idx]
+	var g_unit = GameState.get_unit(str(slot.unit_id))
+	var models = g_unit.get("models", [])
+	var mi = int(slot.model_idx)
+	if mi < 0 or mi >= models.size():
+		return {}
+	return models[mi]
 
-func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
-	var model = unit_data.models[model_idx]
+func _slot_unit_id(idx: int) -> String:
+	if idx < 0 or idx >= placement_slots.size():
+		return unit_id
+	return str(placement_slots[idx].unit_id)
+
+func _validate_disembark_position(pos: Vector2, slot_idx: int) -> Dictionary:
+	var model = _slot_model(slot_idx)
+	if model.is_empty():
+		return {"valid": false, "reason": "No model to place"}
 
 	# P3-95: Use centralized shape-aware distance check from TransportManager
 	var range_result = TransportManager.is_position_within_disembark_range(pos, model, transport_data, setup_range_inches)
@@ -338,13 +364,13 @@ func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
 				return {"valid": false, "reason": "Cannot disembark within Engagement Range"}
 
 	# Check for model overlaps
-	if _check_model_overlap(pos, model_idx):
+	if _check_model_overlap(pos, slot_idx):
 		return {"valid": false, "reason": "Model would overlap"}
 
 	# Check wall overlaps, honoring the disembarking unit's traversal keywords.
 	var test_model = model.duplicate()
 	test_model["position"] = {"x": pos.x, "y": pos.y}
-	var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
+	var unit_keywords = GameState.get_unit(_slot_unit_id(slot_idx)).get("meta", {}).get("keywords", [])
 	if Measurement.model_overlaps_any_wall(test_model, unit_keywords):
 		return {"valid": false, "reason": "Model cannot overlap with walls this unit can't cross"}
 
@@ -355,15 +381,15 @@ func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
 
 func _check_model_overlap(pos: Vector2, exclude_idx: int) -> bool:
 	# Get the current model's data for proper shape checking
-	var current_model = unit_data.models[exclude_idx].duplicate()
+	var current_model = _slot_model(exclude_idx).duplicate()
 	current_model["position"] = {"x": pos.x, "y": pos.y}
 
-	# Check against already placed models from this unit
+	# Check against models already placed this disembark (across the whole
+	# attached unit, not just the bodyguard).
 	for i in range(model_positions.size()):
 		if i != exclude_idx and model_positions[i] != null:
 			var other_pos = model_positions[i]
-			var other_idx = _get_actual_model_index(i)
-			var other_model = unit_data.models[other_idx].duplicate()
+			var other_model = _slot_model(i).duplicate()
 			other_model["position"] = {"x": other_pos.x, "y": other_pos.y}
 
 			# Use proper shape-aware overlap detection
@@ -374,8 +400,9 @@ func _check_model_overlap(pos: Vector2, exclude_idx: int) -> bool:
 	for check_unit_id in GameState.state.units:
 		var check_unit = GameState.state.units[check_unit_id]
 
-		# Skip our own unit (we're checking that separately above)
-		if check_unit_id == unit_id:
+		# Skip every unit in the disembarking group — their models are handled by
+		# the placement pass above (and are still embarked in live state anyway).
+		if check_unit_id in group_unit_ids:
 			continue
 
 		# Skip embarked units
@@ -411,8 +438,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_click(screen_pos: Vector2) -> void:
 	var world_pos = _get_world_position_from_screen(screen_pos)
-	var actual_idx = _get_actual_model_index(current_model_idx)
-	var validation = _validate_disembark_position(world_pos, actual_idx)
+	var validation = _validate_disembark_position(world_pos, current_model_idx)
 
 	if validation.valid:
 		# Place the model
@@ -420,7 +446,7 @@ func _on_click(screen_pos: Vector2) -> void:
 		model_rotations[current_model_idx] = 0.0  # Default rotation
 
 		# Create visual token
-		_spawn_preview_token(actual_idx, world_pos)
+		_spawn_preview_token(current_model_idx, world_pos)
 
 		# Remove current ghost
 		if ghost_visuals.size() > 0:
@@ -431,8 +457,9 @@ func _on_click(screen_pos: Vector2) -> void:
 		current_model_idx += 1
 		emit_signal("model_placed", current_model_idx)
 
-		# Check if all models are placed
-		if current_model_idx >= _count_alive_models():
+		# Check if all models are placed — the whole attached unit, not just the
+		# bodyguard (a short count here is what left the Warboss behind).
+		if current_model_idx >= placement_slots.size():
 			_complete_disembark()
 		else:
 			_create_ghost_for_model(current_model_idx)
@@ -468,15 +495,15 @@ func _on_mouse_move(screen_pos: Vector2) -> void:
 		ghost.position = world_pos
 
 		# Update validity color
-		var actual_idx = _get_actual_model_index(current_model_idx)
-		var validation = _validate_disembark_position(world_pos, actual_idx)
+		var validation = _validate_disembark_position(world_pos, current_model_idx)
 		if ghost.has_method("set_validity"):
 			ghost.set_validity(validation.valid)
 		else:
 			ghost.modulate = VALID_COLOR if validation.valid else INVALID_COLOR
 
-func _spawn_preview_token(model_idx: int, pos: Vector2) -> void:
-	var model = unit_data.models[model_idx]
+func _spawn_preview_token(slot_idx: int, pos: Vector2) -> void:
+	var model = _slot_model(slot_idx)
+	var slot_unit_id = _slot_unit_id(slot_idx)
 	var token = preload("res://scripts/TokenVisual.gd").new()
 
 	token.owner_player = unit_data.owner
@@ -484,9 +511,11 @@ func _spawn_preview_token(model_idx: int, pos: Vector2) -> void:
 	token.z_index = 1
 	token.set_model_data(model)  # Use the setter method instead of direct assignment
 
-	# Set metadata for enhanced visual overlays (sprites, wound pips, etc.)
-	var model_id_str = model.get("id", "m%d" % (model_idx + 1))
-	token.set_meta("unit_id", unit_id)
+	# Set metadata for enhanced visual overlays (sprites, wound pips, etc.).
+	# The token may belong to an attached CHARACTER, so tag it with ITS unit id —
+	# a bodyguard tag would draw the leader with the squad's sprite/wound pips.
+	var model_id_str = model.get("id", "m%d" % (int(placement_slots[slot_idx].model_idx) + 1))
+	token.set_meta("unit_id", slot_unit_id)
 	token.set_meta("model_id", model_id_str)
 	token.queue_redraw()
 
@@ -496,60 +525,57 @@ func _spawn_preview_token(model_idx: int, pos: Vector2) -> void:
 	token.scale = Vector2.ZERO
 	var tween = token.create_tween()
 	tween.tween_property(token, "scale", Vector2.ONE, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	print("[DisembarkController] Drop-in animation started for token model %d" % model_idx)
+	print("[DisembarkController] Drop-in animation started for %s token model %s" % [slot_unit_id, model_id_str])
 
 func _count_alive_models() -> int:
-	var count = 0
-	for model in unit_data.models:
-		if model.alive:
-			count += 1
-	return count
+	return placement_slots.size()
 
 func _complete_disembark() -> void:
 	print("Disembark placement complete for unit: ", unit_id)
 
-	# Convert null positions to actual positions for TransportManager
-	var final_positions = []
-	for i in range(unit_data.models.size()):
-		if unit_data.models[i].alive:
-			var placement_idx = _get_placement_index(i)
-			if placement_idx != -1 and model_positions[placement_idx] != null:
-				final_positions.append(model_positions[placement_idx])
-			else:
-				# This shouldn't happen if placement was successful
-				print("WARNING: Missing position for model ", i)
+	# Split the flat placement order back out per unit: the action carries the
+	# bodyguard's positions in `positions` (unchanged contract) and every unit's
+	# in `group_positions`, so attached CHARACTERs land where the player put them.
+	var group_positions := {}
+	for gid in group_unit_ids:
+		group_positions[gid] = []
+	for i in range(placement_slots.size()):
+		if model_positions[i] == null:
+			# This shouldn't happen if placement was successful
+			print("WARNING: Missing position for placement slot ", i)
+			continue
+		group_positions[_slot_unit_id(i)].append(model_positions[i])
+	var final_positions: Array = group_positions.get(unit_id, [])
 
 	# Coherency pre-check: CONFIRM_DISEMBARK rejects incoherent set-ups, and a
 	# rejection after cleanup used to silently discard every placement (tokens
 	# vanish, unit still embarked, no way to see why). Catch it here instead —
 	# keep the placement UI alive, undo the last model, and let the player
 	# re-place it.
-	if not _placements_coherent(final_positions):
+	if not _placements_coherent():
 		_show_error("Unit coherency broken — every model must be within 2\" of another model in the unit. Re-place the last model (right-click undoes).")
 		_on_right_click()  # undo last placement so the player can fix it
 		return
 
 	# Just emit the completion signal - MovementPhase will handle offering movement
 	_finished = true
-	emit_signal("disembark_completed", unit_id, final_positions)
+	emit_signal("disembark_completed", unit_id, final_positions, group_positions)
 	_cleanup()
 
 
 # Mirror of MovementPhase coherency (2" chain) over the proposed placements.
-func _placements_coherent(final_positions: Array) -> bool:
-	if final_positions.size() <= 1:
-		return true
+# 19.03: coherency is measured across the WHOLE attached unit, so an attached
+# CHARACTER counts as a coherency mate for the bodyguard's models and vice versa.
+func _placements_coherent() -> bool:
 	var placed_models := []
-	var pos_i := 0
-	for i in range(unit_data.models.size()):
-		if not unit_data.models[i].alive:
+	for i in range(placement_slots.size()):
+		if model_positions[i] == null:
 			continue
-		if pos_i >= final_positions.size():
-			break
-		var m = unit_data.models[i].duplicate()
-		m["position"] = {"x": final_positions[pos_i].x, "y": final_positions[pos_i].y}
+		var m = _slot_model(i).duplicate()
+		m["position"] = {"x": model_positions[i].x, "y": model_positions[i].y}
 		placed_models.append(m)
-		pos_i += 1
+	if placed_models.size() <= 1:
+		return true
 	var coherency_px := Measurement.inches_to_px(2.0)
 	var spread_px := Measurement.inches_to_px(9.0)
 	for i in range(placed_models.size()):
@@ -566,16 +592,6 @@ func _placements_coherent(final_positions: Array) -> bool:
 			return false
 	return true
 
-
-func _get_placement_index(model_idx: int) -> int:
-	# Convert model index to placement index (counting only alive models)
-	var alive_count = 0
-	for i in range(model_idx + 1):
-		if unit_data.models[i].alive:
-			if i == model_idx:
-				return alive_count
-			alive_count += 1
-	return -1
 
 ## Public cancel used by MovementController when the player switches to another
 ## unit (or leaves the phase) while this placement is still open. Without this,
@@ -614,15 +630,32 @@ func _cleanup() -> void:
 func _show_instructions() -> void:
 	var remaining = _count_alive_models() - current_model_idx
 	var mode_note = " [Combat Disembark: may set up engaged with the transport's foes]" if disembark_mode == "combat" else ""
-	var msg = "Place model %d of %d within %0.0f\" of transport%s (ESC to cancel, right-click to undo)" % [
+	# Name the model's own unit when the attached unit spans several — otherwise
+	# "place model 11 of 11" gives no clue that the last base is the Warboss.
+	var who := ""
+	if group_unit_ids.size() > 1:
+		var slot_unit = GameState.get_unit(_slot_unit_id(current_model_idx))
+		var slot_meta = slot_unit.get("meta", {})
+		who = " (%s)" % str(slot_meta.get("display_name", slot_meta.get("name", _slot_unit_id(current_model_idx))))
+	var msg = "Place model %d of %d%s within %0.0f\" of transport%s (ESC to cancel, right-click to undo)" % [
 		current_model_idx + 1,
 		_count_alive_models(),
+		who,
 		setup_range_inches,
 		mode_note
 	]
 
 	# This would normally show in a UI element - for now just print
 	print(msg)
+
+	# Handing over from the squad to an attached CHARACTER (or between leaders) is
+	# the one moment the player must be told about — otherwise the extra base at
+	# the end of a "Boyz + Warboss" disembark comes out of nowhere.
+	if group_unit_ids.size() > 1 and current_model_idx > 0 \
+			and _slot_unit_id(current_model_idx) != _slot_unit_id(current_model_idx - 1):
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_toast"):
+			toast_mgr.show_toast("Now place%s — %d model(s) left" % [who, remaining])
 
 func _show_error(reason: String) -> void:
 	print("Cannot place model: ", reason)

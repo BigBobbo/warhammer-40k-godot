@@ -5647,6 +5647,24 @@ func _input(event: InputEvent) -> void:
 			_refresh_pad_start_meaning()
 			get_viewport().set_input_as_handled()
 			return
+		if current_phase == GameStateData.Phase.FIGHT and fight_controller \
+				and is_instance_valid(fight_controller) \
+				and fight_controller.has_method("pad_end_step") \
+				and fight_controller.pad_end_step():
+			# 11e Fight phase: while a global step is running — Pile In (12.02) at
+			# the top of the phase, Consolidate (12.07) at the end — ☰ presses THAT
+			# step section's own "End Pile In" / "End Consolidation" button on the
+			# right panel, the same button the mouse clicks. Reported trap: the hint
+			# bar's ☰ chip read the generic "End Phase" during the Pile In step, so
+			# ☰ looked like it would end the whole Fight phase (it never did —
+			# END_FIGHT there only ends that half — but the promise on screen said
+			# otherwise, and the pad advertised no "End Pile In" at all).
+			# pad_end_step() returns false whenever no step section is interactive
+			# (mid-move, AI half, MP waiting note), so ☰ then falls through to the
+			# normal phase-action confirm below.
+			_refresh_pad_start_meaning()
+			get_viewport().set_input_as_handled()
+			return
 		if current_phase == GameStateData.Phase.SHOOTING and shooting_controller \
 				and is_instance_valid(shooting_controller) \
 				and str(shooting_controller.active_shooter_id) != "" \
@@ -8373,6 +8391,9 @@ func _on_unit_confirmed() -> void:
 	unit_list.visible = true
 	refresh_unit_list()
 	update_ui()
+	# The placement session just ended, so the ☰ chip must stop promising
+	# "Confirm Unit" (see PadRouter.HINTS_DEPLOY_STAGED).
+	_refresh_pad_start_meaning()
 
 func _on_models_placed_changed() -> void:
 	print("Main: ⚠️ _on_models_placed_changed() called")
@@ -8382,6 +8403,12 @@ func _on_models_placed_changed() -> void:
 
 	print("Main: Calling update_ui() after models_placed_changed")
 	update_ui()
+
+	# Placing the LAST model is what flips ☰ from "no chip" to "Confirm Unit".
+	# Driven off the signal rather than PadRouter's own input tail so a mouse
+	# placement updates the pad hint bar too (the reported confusion came from
+	# the chip and the button disagreeing about what ☰ does).
+	_refresh_pad_start_meaning()
 
 	# Check if all units are deployed now
 	var all_units_deployed = GameState.all_units_deployed()
@@ -8981,8 +9008,55 @@ func _on_end_deployment_pressed() -> void:
 
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
-			# T5-UX8: Show deployment summary dialog before ending phase
+			# Deployment has a HARD precondition (every unit deployed, embarked,
+			# attached or in Strategic Reserves) — unlike the other phases, whose
+			# END_* is always legal and whose dialogs are pure courtesy prompts.
+			# Gate it HERE, at the single entry point every input funnels through
+			# (mouse click, pad ☰ via _show_pad_phase_confirm, keyboard), instead
+			# of relying on phase_action_button.disabled alone: the reported bug
+			# was a player reaching the summary dialog with the Gretchin still
+			# undeployed, confirming it, and the failed END_DEPLOYMENT then being
+			# "recovered" by a blind local phase advance (see
+			# _on_deployment_confirmed). Refusing here means the dialog never
+			# opens for a state that cannot legally end.
 			var deploy_phase_instance = PhaseManager.get_current_phase_instance()
+			if deploy_phase_instance and deploy_phase_instance.has_method("validate_action"):
+				var gate = deploy_phase_instance.validate_action({"type": "END_DEPLOYMENT", "player": active_player})
+				if not gate.get("valid", true):
+					var blockers = []
+					var opponent_blockers = []
+					if deploy_phase_instance.has_method("get_undeployed_unit_names"):
+						blockers = deploy_phase_instance.get_undeployed_unit_names(active_player)
+						opponent_blockers = deploy_phase_instance.get_undeployed_unit_names(3 - active_player)
+					var gate_errors = gate.get("errors", [])
+					var msg = "Cannot end deployment yet"
+					if not blockers.is_empty():
+						# Name the units so the player knows what to go and place,
+						# rather than a bare "Not all units have been deployed".
+						# Capped: mashing this at the START of deployment would
+						# otherwise list a whole army and overflow the toast.
+						var shown = blockers.slice(0, min(3, blockers.size()))
+						var listed = ", ".join(shown)
+						if blockers.size() > shown.size():
+							listed += " and %d more" % (blockers.size() - shown.size())
+						msg = "Cannot end deployment — still to deploy: %s" % listed
+					elif not opponent_blockers.is_empty():
+						# Your side is done; deployment alternates, so the phase is
+						# waiting on the other army rather than on anything you can do.
+						msg = "Cannot end deployment — Player %d still has units to deploy" % (3 - active_player)
+					elif not gate_errors.is_empty():
+						msg = str(gate_errors[0])
+					print("Main: END_DEPLOYMENT refused — ", msg)
+					DebugLogger.info("END_DEPLOYMENT refused at UI gate", {
+						"errors": gate_errors,
+						"undeployed": blockers,
+						"undeployed_opponent": opponent_blockers
+					})
+					show_error_toast(msg)
+					update_ui()  # re-assert the disabled button if it had drifted
+					return
+
+			# T5-UX8: Show deployment summary dialog before ending phase
 			if deploy_phase_instance and deploy_phase_instance.has_method("get_deployment_summary"):
 				var summary = deploy_phase_instance.get_deployment_summary()
 				print("Main: T5-UX8: Showing deployment summary dialog")
@@ -11389,11 +11463,20 @@ func _on_deployment_confirmed(active_player: int) -> void:
 	print("Main: T5-UX8: Player confirmed end deployment phase")
 	var action = {"type": "END_DEPLOYMENT", "player": active_player}
 	var result = NetworkIntegration.route_action(action)
-	if not result.get("success", false):
-		print("Main: T5-UX8: Failed to end deployment phase: ", result.get("error", "Unknown error"))
-		if not NetworkManager.is_networked():
-			print("Main: T5-UX8: Falling back to local phase advance")
-			PhaseManager.advance_to_next_phase()
+	if result.get("pending", false) or result.get("success", false):
+		return
+	# A rejected END_DEPLOYMENT used to fall back to PhaseManager.advance_to_next_phase(),
+	# which walked straight past the very check that had just refused. That is how
+	# a game left Deployment with units still undeployed (reported from tutorial
+	# T2 "Musterin' da Boyz": the Battlewagon confirmed, the Gretchin still in the
+	# list, and the first-turn roll-off popup already on screen with no way back).
+	# The refusal is the answer — surface it and stay in Deployment.
+	var errors = result.get("errors", [result.get("error", "Cannot end deployment yet")])
+	var err_text = str(errors[0]) if not errors.is_empty() else "Cannot end deployment yet"
+	print("Main: T5-UX8: Failed to end deployment phase: ", err_text)
+	DebugLogger.info("END_DEPLOYMENT rejected — staying in Deployment", {"errors": errors})
+	show_error_toast(err_text)
+	update_ui()
 
 func _on_deployment_cancelled() -> void:
 	"""T5-UX8: Player cancelled ending deployment phase"""

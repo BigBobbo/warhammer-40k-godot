@@ -148,6 +148,28 @@ func _on_move_row(index: int, delta: int) -> void:
 	assignments[index] = assignments[j]
 	assignments[j] = tmp
 	_rebuild_queue()
+	_refocus_move_button(j, delta)
+
+# Pad: _rebuild_queue frees the very arrow that was just pressed, so focus would
+# drop to null and the base watchdog would yank it back down to the primary
+# button after EVERY nudge — a controller player could only move a weapon one
+# slot per trip up the queue. Follow the moved weapon to its new row instead.
+# No-op on keyboard/mouse (focus is never stolen there) — the player is clicking
+# the arrow that's already under the pointer.
+func _refocus_move_button(new_index: int, delta: int) -> void:
+	if not _pad_active():
+		return
+	var row := queue_box.get_node_or_null("QueueRow%d" % new_index)
+	if row == null:
+		return
+	# Prefer the arrow that keeps moving the weapon the same way; if it landed at
+	# an end of the queue that arrow is now disabled, so take the live one beside
+	# it rather than dropping focus.
+	for want in ([["Down", "Up"], ["Up", "Down"]][0 if delta > 0 else 1]):
+		var btn := row.get_node_or_null("%s%d" % [want, new_index])
+		if btn is Button and not btn.disabled:
+			btn.call_deferred("grab_focus")
+			return
 
 # ---------------------------------------------------------------------------
 # State transitions (driven by the controller from phase signals)

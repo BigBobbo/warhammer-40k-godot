@@ -268,7 +268,15 @@ func _input(event: InputEvent) -> void:
 				# on the pad during Deep Strike / reinforcement placement.
 				# Right-click has no controller-reachable use while placing, so
 				# fall through and let PadRouter._context_action handle the undo.
-				if PadRouter.is_carrying() or PadRouter.is_placement_active():
+				#
+				# The charge phase is the same story: there X = "Snap to Contact"
+				# during the move stage and "Skip Charge" before it (the hint bar
+				# says so), and the cursor is active for nearly all of it because
+				# the left stick is how you aim at a model for A. Swallowing X
+				# here as a right-click is what made both a dead button on the
+				# pad while the on-screen buttons still worked.
+				if PadRouter.is_carrying() or PadRouter.is_placement_active() \
+						or PadRouter.is_charge_x_action_active():
 					return
 				_emit_button(MOUSE_BUTTON_RIGHT, event.pressed)
 				get_viewport().set_input_as_handled()

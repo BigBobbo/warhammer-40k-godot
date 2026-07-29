@@ -37,7 +37,7 @@
       "prompt": {
         "bark": "SHUFFLE UP!",
         "kbm": "Pile In lets every engaged unit move 3\" closer to da enemy. Yer Boyz are already in contact, so just hit [b]End Pile In[/b].",
-        "pad": "Yer Boyz are already in contact — glide {ls} onto [b]End Pile In[/b] an' press {a}."
+        "pad": "Yer Boyz are already in contact — just press {menu}, da bar calls it [b]End Pile In[/b]. Or glide {ls} onto da button an' press {a}."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton"
