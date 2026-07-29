@@ -60,6 +60,7 @@ var _checklist_done: Dictionary = {}  # checklist item id -> true once ticked
 var _step_script: GDScript = null   # compiled per-step script predicate cache
 var _script_cache: Dictionary = {}  # code -> GDScript for capture snippets
 var _bypass_gate: bool = false
+var _exit_confirm_dialog: Window = null
 var _last_block_toast_ms: int = 0
 var _poll_timer: Timer = null
 var _hint_timer: Timer = null
@@ -122,8 +123,54 @@ func next_lesson() -> void:
 
 func exit_tutorial() -> void:
 	print("TutorialManager: exit tutorial")
+	if _exit_confirm_dialog != null and is_instance_valid(_exit_confirm_dialog):
+		_exit_confirm_dialog.queue_free()
+		_exit_confirm_dialog = null
 	_teardown(true)
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+
+
+# User-initiated exit — the one button PRP §1 promises always works, "at any
+# phase or point of the tutorial" (including mid-dialog: T2 step 6's reported
+# softlock was the roll-off dialog for "who takes the first turn?"). Confirms
+# first so a stray press doesn't scrap an in-progress lesson by accident; it's
+# reachable there because it's freshly popped (and raised) on TOP of whatever
+# game dialog is already showing (see TutorialOverlay._sync_forced_exit_buttons).
+func request_exit_tutorial() -> void:
+	if not active:
+		return
+	if _exit_confirm_dialog != null and is_instance_valid(_exit_confirm_dialog):
+		_exit_confirm_dialog.popup_centered()
+		return
+	var dlg := ConfirmationDialog.new()
+	dlg.name = "TutorialExitConfirmDialog"
+	# ConfirmationDialog defaults exclusive=true, which has to be turned OFF
+	# here: Godot allows only ONE exclusive child window per embedder at a time,
+	# and the very dialog this is meant to escape (the roll-off, a scripted
+	# "ignore close attempts" modal) is usually already exclusive — leaving this
+	# one exclusive too logs "parent window already has another exclusive
+	# child" and fails the project's no-ERROR-in-log gate. Popping it after
+	# already-open dialogs and raising it (below) is what makes it reachable;
+	# exclusivity isn't needed for that.
+	dlg.exclusive = false
+	dlg.dialog_text = "Leave Basic Trainin' now? Yer progress on dis lesson gets scrapped."
+	dlg.ok_button_text = "Exit Tutorial"
+	dlg.cancel_button_text = "Keep Goin'"
+	WhiteDwarfTheme.apply_to_dialog(dlg)
+	var host := get_tree().root.get_node_or_null("Main")
+	if host == null:
+		host = get_tree().root
+	host.add_child(dlg)
+	dlg.confirmed.connect(exit_tutorial)
+	dlg.canceled.connect(func():
+		if is_instance_valid(dlg):
+			dlg.queue_free())
+	dlg.tree_exited.connect(func():
+		if _exit_confirm_dialog == dlg:
+			_exit_confirm_dialog = null)
+	_exit_confirm_dialog = dlg
+	dlg.popup_centered()
+	dlg.move_to_foreground()
 
 
 func _teardown(emit_exit: bool) -> void:

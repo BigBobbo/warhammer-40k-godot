@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "Exit Tutorial now works even when a game dialog (like the deployment or first-turn roll-off) is up, and it asks you to confirm first.",
+      "changes": [
+        "Players got stuck on lessons like 'Musterin' da Boyz' when a roll-off dialog (e.g. 'who takes the first turn?') was showing: clicking Exit Tutorial did nothing, because that dialog silently ate clicks aimed anywhere else on screen, even the tutorial card's own button.",
+        "Exit Tutorial now always works, at any step and with any dialog open — a small Exit Tutorial button appears over the top of whatever's blocking the normal one whenever it's needed.",
+        "Exit Tutorial now asks 'Leave Basic Trainin' now?' before actually leaving, so a stray click doesn't scrap an in-progress lesson."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",

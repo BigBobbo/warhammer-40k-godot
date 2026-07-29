@@ -44,6 +44,7 @@ var _spotlight_mode: String = "none"
 var _reresolve_accum: float = 0.0
 var _card_mode: String = "top"
 var _dim_strips: Array = []
+var _forced_exit_window: Window = null
 
 
 func _ready() -> void:
@@ -260,7 +261,7 @@ func _build() -> void:
 	_exit_button.focus_mode = Control.FOCUS_NONE
 	_exit_button.pressed.connect(func():
 		var m := _mgr()
-		if m: m.exit_tutorial())
+		if m: m.request_exit_tutorial())
 	footer.add_child(_exit_button)
 
 	_place_card("top")
@@ -442,13 +443,90 @@ func card_rect() -> Rect2:
 # True while any embedded game Window (AcceptDialog family) is showing —
 # those composite above every CanvasLayer, so the card must dodge them.
 func _any_game_window_open() -> bool:
+	return not _open_game_windows().is_empty()
+
+
+func _open_game_windows() -> Array:
+	var out: Array = []
 	for scope in [get_tree().root, get_tree().root.get_node_or_null("Main")]:
 		if scope == null:
 			continue
 		for child in scope.get_children():
-			if child is Window and child != get_tree().root and (child as Window).visible:
-				return true
-	return false
+			# Excludes our OWN escape-hatch windows (below) — otherwise the card
+			# would dodge for its own confirm popup, and re-detecting it as "a
+			# game window open" every frame would repeatedly steal window focus
+			# BACK from that popup via _sync_forced_exit_buttons' raise call,
+			# leaving its buttons visually present but unable to receive a click
+			# (reproduced live: the confirm dialog's own OK button highlighted on
+			# click but never fired — has_focus() was false on it and true on
+			# the corner window that kept re-raising itself over it).
+			if child is Window and child != get_tree().root and (child as Window).visible \
+					and not str(child.name).begins_with("Tutorial"):
+				out.append(child)
+	return out
+
+
+# Godot's embedded Windows are input-exclusive over their WHOLE embedder while
+# visible, not just their own rect — a click aimed at the card's own Exit
+# Tutorial button (or anything else outside the window) is silently swallowed
+# even when it doesn't visually overlap (reproduced live: a click on the card
+# went nowhere while a Formations/roll-off dialog was open). An exclusive game
+# dialog with a scripted "ignore close attempts" (the roll-off) can otherwise
+# strand the player exactly as reported (T2 step 6, softlocked on "who takes
+# the first turn?"). Fix: keep a tiny always-on-top floating Window of our
+# own, raised in front of whatever game dialog is open, so its button lives in
+# a Window that can never be buried under an exclusive one. It is deliberately
+# its own Window rather than a Control parented ON the game dialog — an
+# AcceptDialog force-resizes every Control child it owns to fill its content
+# area (reproduced: a plain child button set to an 80x34 corner rect was
+# silently stretched to 534x350 and would have covered the dialog's own UI).
+# Non-exclusive, so it only claims clicks inside its own small rect and
+# everything else still reaches the dialog underneath.
+func _sync_forced_exit_buttons() -> void:
+	var want := visible and _exit_button != null and _exit_button.visible and _any_game_window_open()
+	if not want:
+		if _forced_exit_window != null and is_instance_valid(_forced_exit_window):
+			_forced_exit_window.visible = false
+		return
+	var was_visible := _forced_exit_window != null and is_instance_valid(_forced_exit_window) \
+		and _forced_exit_window.visible
+	_ensure_forced_exit_window()
+	if was_visible:
+		return
+	_forced_exit_window.visible = true
+	# Raise only on the visible->visible transition (a NEW game dialog just
+	# appeared) — raising every tick would fight our OWN exit-confirm popup for
+	# window focus and leave it unable to receive clicks (see _open_game_windows).
+	_forced_exit_window.move_to_foreground()
+
+
+func _ensure_forced_exit_window() -> void:
+	if _forced_exit_window != null and is_instance_valid(_forced_exit_window):
+		return
+	var win := Window.new()
+	win.name = "TutorialForcedExitWindow"
+	win.borderless = true
+	win.exclusive = false
+	win.unresizable = true
+	win.always_on_top = true
+	win.size = Vector2i(150, 46)
+	var vp_size := get_viewport().get_visible_rect().size
+	win.position = Vector2i(int(vp_size.x) - 166, 16)
+
+	var btn := Button.new()
+	btn.name = "ForcedExitButton"
+	btn.text = "Exit Tutorial"
+	WhiteDwarfThemeData.apply_secondary_button(btn)
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	btn.tooltip_text = "Stuck on dis dialog? Leave da tutorial from 'ere — works at any point."
+	btn.pressed.connect(func():
+		var m := _mgr()
+		if m: m.request_exit_tutorial())
+	win.add_child(btn)
+
+	get_tree().root.add_child(win)
+	_forced_exit_window = win
 
 
 # ------------------------------------------------------------------- API ----
@@ -543,6 +621,8 @@ func hide_all() -> void:
 	for strip in _dim_strips:
 		strip.visible = false
 	_ack_glyph.visible = false
+	if _forced_exit_window != null and is_instance_valid(_forced_exit_window):
+		_forced_exit_window.visible = false
 	# Hand the hint bar back to the board context — the card no longer owns A.
 	_refresh_pad_hints()
 
@@ -574,6 +654,7 @@ func current_checklist_text() -> String:
 
 func _process(delta: float) -> void:
 	_update_card_mode()
+	_sync_forced_exit_buttons()
 	_keep_ack_focus()
 	if _anchor_spec.is_empty():
 		_anchor_ok = false

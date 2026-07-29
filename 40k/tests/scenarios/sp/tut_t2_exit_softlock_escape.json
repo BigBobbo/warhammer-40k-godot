@@ -1,0 +1,187 @@
+{
+  "id": "tut_t2_exit_softlock_escape",
+  "covers": [
+    "tutorial.engine.exit_tutorial",
+    "tutorial.t2.formations"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Regression for the reported T2 softlock: a player stuck on the deployment roll-off dialog (an exclusive embedded Window) could not click Exit Tutorial because that Window silently swallows clicks aimed at anything outside it, even when they don't visually overlap. Drives T2 up to the roll-off dialog, verifies the escape-hatch button TutorialOverlay injects while a game dialog is blocking, real-clicks it (not emit_pressed - the whole point is proving the CLICK reaches it), verifies the confirm prompt, checks Cancel keeps the lesson running, then confirms Exit actually returns to the main menu with the tutorial deactivated.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "attach_warboss"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\tnd.select(1)\n\t\tnd.item_selected.emit(1)\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "OptionButton popup menus are native Windows - select+emit is the dropdown escape hatch"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "embark_boyz"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is CheckBox and str(nd.text).begins_with(\"Boyz\") and not (\"Reserves\" in str(nd.text)):\n\t\tnd.button_pressed = true\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the Formations panel is a modal embedded Window - synthetic root-viewport clicks cannot reach its controls; setting button_pressed emits toggled exactly like a click"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_formations"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_off"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/RollOffDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_rolloff_dialog_blocking"
+    },
+    {
+      "act": "execute_script",
+      "script": "var overlay = tree.root.get_node(\"/root/TutorialOverlay\")\nvar w = overlay.get(\"_forced_exit_window\")\nreturn w != null and is_instance_valid(w) and w.visible",
+      "multiline": true,
+      "comment": "TutorialOverlay must have raised its own escape-hatch Window because a game dialog is currently blocking the card's normal Exit Tutorial button",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialForcedExitWindow/ForcedExitButton",
+      "comment": "REAL synthetic click (not emit_pressed) - this is the exact click a player makes, and is what the RollOffDialog's exclusivity used to swallow when aimed at the card's own Exit Tutorial button instead"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/TutorialExitConfirmDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_exit_confirm_shown"
+    },
+    {
+      "act": "execute_script",
+      "script": "var dlg = tree.root.get_node(\"/root/Main/TutorialExitConfirmDialog\")\nvar q = [dlg]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and str(nd.text).strip_edges() == \"Keep Goin'\":\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children(true):\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "Cancel path: dismiss without exiting. get_children(true) - AcceptDialog's OK/Cancel buttons are internal children, invisible to a plain get_children()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"/root/Main/TutorialExitConfirmDialog\") == null",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active and TutorialManager.current_step_id() == \"roll_off\"",
+      "comment": "Cancel must leave the lesson running exactly where it was",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialForcedExitWindow/ForcedExitButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/TutorialExitConfirmDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var dlg = tree.root.get_node(\"/root/Main/TutorialExitConfirmDialog\")\nvar q = [dlg]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and str(nd.text).strip_edges() == \"Exit Tutorial\":\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children(true):\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "Confirm path: actually leave"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "03_back_at_menu"
+    }
+  ]
+}
