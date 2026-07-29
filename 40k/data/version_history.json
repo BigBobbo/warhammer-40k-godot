@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.3",
+      "date": "2026-07-29",
+      "summary": "'Get Movin'' now teaches that a move can be spent over several drags, and adds a step for turning models.",
+      "changes": [
+        "The Battlewagon step only said 'drag da wagon's hull forward an' drop it', so players assumed the one drag was the whole move and spent all 10\"+D6 in a single go. It now says outright that you can drop the wagon, grab it again and keep going, and that the panel counts the inches as you do.",
+        "New step 'POINT IT RIGHT!': the Battlewagon is on a rectangular base, so which way it faces matters. Lesson 2 teaches turning during deployment; this teaches it during the Movement phase, where the controls differ — the step only advances once you actually turn the wagon.",
+        "Keyboard: grab the hull, keep the button held, and tap Q / E to turn 15° a tap (it follows a rebind). Controller: grab it with A, then LB / RB while you're carrying it — unlike deployment, the pad can turn a model mid-move.",
+        "Both say what the rules say: in 11th edition turning a model is free and costs none of its move.",
+        "The lesson's end-of-lesson summary picks up both points."
+      ]
+    },
+    {
       "version": "1.7.2",
       "date": "2026-07-29",
       "summary": "Deployment tutorial now has its own step for turning the Battlewagon, instead of mentioning rotation in passing.",
