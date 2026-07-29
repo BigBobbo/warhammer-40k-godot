@@ -339,6 +339,11 @@ func _create_path_visuals() -> void:
 	# Create ghost visual in BoardRoot space (same as tokens)
 	ghost_visual = Node2D.new()
 	ghost_visual.name = "MovementGhostVisual"
+	# The ghosts (and the distance-moved readout parented to them) are the thing
+	# the player is aiming, so they must sit above EVERY movement overlay — a 6"
+	# reach circle drawn over the ghost it belongs to is exactly what makes a
+	# multi-model drag unreadable. See MOVE_GHOST_Z / MOVE_OVERLAY_Z.
+	ghost_visual.z_index = MOVE_GHOST_Z
 	board_root.add_child(ghost_visual)
 
 	# P3-125: Create movement path preview visual (dashed lines with arrowheads)
@@ -357,16 +362,19 @@ func _create_path_visuals() -> void:
 	# T-094: Movement range overlay (circle showing unit's move cap around active unit)
 	move_range_visual = Node2D.new()
 	move_range_visual.name = "MoveRangeVisual"
+	move_range_visual.z_index = MOVE_OVERLAY_Z
 	board_root.add_child(move_range_visual)
 
 	# T-094: ER overlay container (engagement-range rings around enemy models during movement)
 	er_overlay_visual = Node2D.new()
 	er_overlay_visual.name = "MovementERVisual"
+	er_overlay_visual.z_index = MOVE_OVERLAY_Z
 	board_root.add_child(er_overlay_visual)
 
 	# T-094: Coherency dots container (2" rings around friendly staged positions)
 	coherency_dots_visual = Node2D.new()
 	coherency_dots_visual.name = "MovementCoherencyVisual"
+	coherency_dots_visual.z_index = MOVE_OVERLAY_Z
 	board_root.add_child(coherency_dots_visual)
 
 func _setup_bottom_hud() -> void:
@@ -3183,6 +3191,11 @@ func _show_ghost_visual(model: Dictionary) -> void:
 	var ghost_token = preload("res://scripts/GhostVisual.gd").new()
 	ghost_token.owner_player = GameState.get_active_player()
 	ghost_token.is_valid_position = true  # Start as valid
+	# GhostVisual resolves the unit colour, letter counter and sprite art from this
+	# meta (same as the deployment ghosts). Without it the preview draws as an
+	# anonymous grey disc, which is the hardest possible thing to spot against the
+	# movement overlays — the ghost should read like the model it stands in for.
+	ghost_token.set_meta("unit_id", model.get("unit_id", active_unit_id))
 	# Set the complete model data for shape handling (this sets up the base shape)
 	ghost_token.set_model_data(model)
 
@@ -5015,9 +5028,12 @@ func _create_group_ghost_visuals() -> void:
 	if selected_models.is_empty():
 		return
 
-	# Make ghost_visual visible and slightly transparent
+	# Make ghost_visual visible and slightly transparent. Group drags used to fade
+	# harder than a single-model drag (0.6), which is backwards: a group drag is
+	# exactly when the board is busiest and the ghosts hardest to pick out. Match
+	# the single-model alpha so a squad in hand stays readable.
 	ghost_visual.visible = true
-	ghost_visual.modulate = Color(1, 1, 1, 0.6)  # More transparent for group
+	ghost_visual.modulate = Color(1, 1, 1, 0.8)
 
 	# Create a ghost for each selected model
 	for model_data in selected_models:
@@ -5028,10 +5044,11 @@ func _create_group_ghost_visuals() -> void:
 		# Set up the ghost properties
 		ghost_token.owner_player = GameState.get_active_player() if GameState else 1
 		ghost_token.is_valid_position = true  # Start as valid, update during drag
+		# Unit identity drives GhostVisual's colour / letter counter / sprite art —
+		# see _show_ghost_visual. It matters most here: a group drag paints several
+		# ghosts at once, and identical grey discs are unreadable.
+		ghost_token.set_meta("unit_id", model_data.get("unit_id", active_unit_id))
 		# Set model data to configure base shape
-		ghost_token.set_model_data(model_data)
-
-		# Initialize the ghost with the model's data
 		ghost_token.set_model_data(model_data)
 
 		# Position ghost at model's current position
@@ -5963,9 +5980,20 @@ func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 					if grandchild.has_method("play_animation"):
 						grandchild.play_animation(anim_name)
 
+# Movement overlay layering. Every guide the movement phase paints onto the
+# board (green reach circles, red engagement rings, cyan coherency rings) shares
+# MOVE_OVERLAY_Z, and the ghosts sit far above it at MOVE_GHOST_Z. Dragging a
+# whole unit paints one reach circle PER model, so without this split the green
+# arcs of models 2..N cover the ghosts the player is trying to place — the
+# ghosts and their distance-moved readout must always win.
+const MOVE_OVERLAY_Z: int = 4
+const MOVE_GHOST_Z: int = 70
+
 # T-094: Movement range overlay helpers
 const MOVE_RANGE_OVERLAY_COLOR: Color = Color(0.3, 0.85, 0.4, 0.55)
-const MOVE_RANGE_OVERLAY_WIDTH: float = 12.0  # Width in board-space px (board scale ~0.3)
+# Width in board-space px. Kept thin: with a group drag there is one circle per
+# model, so a heavy stroke turns the drop zone into a wall of green.
+const MOVE_RANGE_OVERLAY_WIDTH: float = 5.0
 
 func _draw_dashed_range_circle(center: Vector2, radius_px: float, label_text: String) -> void:
 	# Draws a dashed circle (with optional distance label) into move_range_visual.
@@ -5996,7 +6024,9 @@ func _draw_dashed_range_circle(center: Vector2, radius_px: float, label_text: St
 		dash.begin_cap_mode = Line2D.LINE_CAP_ROUND
 		dash.end_cap_mode = Line2D.LINE_CAP_ROUND
 		if pad_carry:
-			dash.z_index = 50  # above board tokens (z 0); below the label's 55
+			# Relative to move_range_visual (MOVE_OVERLAY_Z), so this lifts the ring
+			# above board tokens while still passing under the ghosts at MOVE_GHOST_Z.
+			dash.z_index = 50
 		var pts: int = 8
 		for i in range(pts + 1):
 			var theta: float = arc_start + (arc_dash_end - arc_start) * float(i) / float(pts)
