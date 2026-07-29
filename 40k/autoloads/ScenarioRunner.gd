@@ -612,6 +612,7 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 	# LMB release at `to`. This is the player path for drag-to-move flows
 	# (fight-phase pile-in/consolidate model movement, etc.) — no controller
 	# state is poked. Coordinates are board px, projected like click_board_at.
+	# Optional `"keys": ["Q"]` taps those keys mid-drag (see below).
 	for k in ["from_x", "from_y", "to_x", "to_y"]:
 		if not step.has(k):
 			return {"pass": false, "error": "drag_board needs from_x/from_y/to_x/to_y (world/board px)"}
@@ -675,6 +676,37 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 		prev = p
 		await get_tree().process_frame
 
+	# Optional `keys`: keycode names tapped WHILE the button is still down, after
+	# the motion and before the release. Model rotation is the case that needs it
+	# — MovementController._rotate_model_by_angle only acts on a model that is
+	# currently held (selected_model is cleared the moment the drag ends), so a
+	# separate simulate_key act after drag_board can never reach it. Same reason
+	# the shift flag above lives inside this act rather than around it.
+	var tapped_keys: Array = []
+	var keys_spec = step.get("keys", [])
+	if typeof(keys_spec) == TYPE_ARRAY:
+		for entry in keys_spec:
+			var kc: int = 0
+			if typeof(entry) == TYPE_STRING:
+				kc = OS.find_keycode_from_string(entry)
+			elif typeof(entry) == TYPE_INT or typeof(entry) == TYPE_FLOAT:
+				kc = int(entry)
+			if kc == 0:
+				return {"pass": false, "error": "drag_board: could not resolve keycode: %s" % str(entry)}
+			var key_press := InputEventKey.new()
+			key_press.keycode = kc
+			key_press.physical_keycode = kc
+			key_press.pressed = true
+			Input.parse_input_event(key_press)
+			await get_tree().process_frame
+			var key_release := InputEventKey.new()
+			key_release.keycode = kc
+			key_release.physical_keycode = kc
+			key_release.pressed = false
+			Input.parse_input_event(key_release)
+			await get_tree().process_frame
+			tapped_keys.append(OS.get_keycode_string(kc))
+
 	var release := InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.position = to_screen
@@ -693,7 +725,7 @@ func _do_drag_board(step: Dictionary) -> Dictionary:
 		Input.parse_input_event(shift_release)
 
 	await get_tree().process_frame
-	return {"pass": true, "shift": hold_shift,
+	return {"pass": true, "shift": hold_shift, "keys": tapped_keys,
 		"from_world": [from_world.x, from_world.y], "to_world": [to_world.x, to_world.y],
 		"from_screen": [from_screen.x, from_screen.y], "to_screen": [to_screen.x, to_screen.y]}
 

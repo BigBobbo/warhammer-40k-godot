@@ -8,7 +8,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T3 (Get Movin'), mouse+keyboard player path: menu -> picker -> lesson boots from tutorial_postdeploy -> disembark the Boyz+Warboss from the Battlewagon via the real row-click + ConfirmationDialog + 11 placement clicks inside the 3-inch ring -> the new boyz_move_after_disembark step teaches that the disembarked unit still gets its own move because the wagon has not moved yet (drag a Boy, End This Unit's Move) -> Advance the Battlewagon through the mode radio + Confirm Movement Mode gate -> drag the hull, End This Unit's Move -> End Movement Phase under a strict spotlight -> summary, completion persisted, back to menu.",
+  "description": "Tutorial lesson T3 (Get Movin'), mouse+keyboard player path: menu -> picker -> lesson boots from tutorial_postdeploy -> disembark the Boyz+Warboss from the Battlewagon via the real row-click + ConfirmationDialog + 11 placement clicks inside the 3-inch ring -> the boyz_move_after_disembark step teaches that the disembarked unit still gets its own move because the wagon has not moved yet (drag a Boy, End This Unit's Move) -> Advance the Battlewagon through the mode radio + Confirm Movement Mode gate -> move the hull in TWO drags (asserting the second adds to the first, which is what the step now tells the player) -> turn it with Q held mid-drag on the 'POINT IT RIGHT!' step -> End This Unit's Move -> End Movement Phase under a strict spotlight -> summary, completion persisted, back to menu.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -288,15 +288,84 @@
       "label": "04_advance_confirmed"
     },
     {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"grab it again\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the card must actually SAY the move can be spent over several drags - players were treating the drag as one-shot and burning the whole move by accident"
+    },
+    {
       "act": "drag_board",
       "from_x": 640.0,
       "from_y": 320.0,
       "to_x": 640.0,
-      "to_y": 200.0
+      "to_y": 260.0,
+      "comment": "first hop - deliberately only part of the way, the second drag below proves the rest of the move is still there"
     },
     {
       "act": "wait_frames",
       "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "wagon_turn"
+    },
+    {
+      "act": "execute_script",
+      "script": "var phase = PhaseManager.get_current_phase_instance()\nvar md = phase.get_active_move_data(\"U_BATTLEWAGON_T\")\nvar dists = md.get(\"model_distances\", {})\nfor k in dists:\n\treturn float(dists[k])\nreturn -1.0",
+      "multiline": true,
+      "expect_max": 2.0,
+      "comment": "the first hop is 60 board px = 1.5in of a 12in+D6 advance, i.e. a small fraction of the move - the second drag below is shown to ADD to this rather than replace it"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = o.current_body_text()\nreturn t.contains(\"[Q]\") and t.contains(\"[E]\") and t.contains(\"costs no inches\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the turn step must name the actual rotate keys - {key:rotate_left}/{key:rotate_right} render through KeybindingManager, so an unresolved token would read '{key:rotate_left}' and fail this"
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.get_unit(\"U_BATTLEWAGON_T\")\nreturn float(u.models[0].get(\"rotation\", 0.0))",
+      "multiline": true,
+      "equals": 0.0,
+      "comment": "the wagon enters the step un-rotated, so the delta the step's done-leaf watches for is unambiguous"
+    },
+    {
+      "act": "screenshot",
+      "label": "04b_turn_step_card"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 640.0,
+      "from_y": 260.0,
+      "to_x": 640.0,
+      "to_y": 200.0,
+      "keys": ["Q", "Q"],
+      "comment": "second hop AND the rotation in one grab: Q only rotates a model that is currently held (MovementController clears selected_model on drop), which is exactly what the step tells the player to do - grab, hold, tap Q/E, let go"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.get_unit(\"U_BATTLEWAGON_T\")\nreturn abs(float(u.models[0].get(\"rotation\", 0.0)) + PI / 6.0) < 0.01",
+      "multiline": true,
+      "equals": true,
+      "comment": "two Q taps = -2 * PI/12 = -PI/6 rad (-30 degrees), i.e. the 15-degrees-a-tap the prompt promises"
+    },
+    {
+      "act": "execute_script",
+      "script": "var phase = PhaseManager.get_current_phase_instance()\nvar md = phase.get_active_move_data(\"U_BATTLEWAGON_T\")\nvar dists = md.get(\"model_distances\", {})\nfor k in dists:\n\treturn float(dists[k])\nreturn -1.0",
+      "multiline": true,
+      "expect_min": 2.5,
+      "comment": "multi-step movement proven: two 1.5in hops read back as 3.0in, so the second drag ADDED to the first instead of replacing it - a replace would still read 1.5in here. This is exactly what step 6's new wording claims"
+    },
+    {
+      "act": "screenshot",
+      "label": "04c_wagon_turned"
     },
     {
       "act": "execute_script",

@@ -370,6 +370,37 @@ func is_placement_active() -> bool:
 	return _deployment_controller_placing() != null
 
 
+# True while the charge move stage has a live "Snap to Contact" button and no
+# model is in hand — i.e. while X means Snap to Contact. Drives the X hint chip
+# as well as the cursor stand-down below.
+func is_charge_snap_active() -> bool:
+	if carry_active:
+		return false
+	var cc := _charge_controller_any()
+	return cc != null and cc.has_method("pad_snap_available") and bool(cc.pad_snap_available())
+
+
+# True while X carries a charge-phase meaning with the backing button actually
+# live: Snap to Contact during the move stage, Skip Charge before it (the two
+# are mutually exclusive — skip stands down once the move begins).
+# VirtualCursor queries this for the same reason it queries
+# is_placement_active(): the left stick is the aiming tool all through the
+# charge phase (A = Grab Model / select clicks at the cursor), so the cursor is
+# active for most of it, and consuming X there as a synthetic right-click is
+# exactly what made the hint bar's "[X] Snap to Contact" and "[X] Skip Charge"
+# dead buttons. A right-click on the board opens the unit colour/label context
+# menu — not a controller affordance and not worth the phase's X.
+func is_charge_x_action_active() -> bool:
+	if carry_active:
+		return false
+	var cc := _charge_controller_any()
+	if cc == null:
+		return false
+	if cc.has_method("pad_snap_available") and bool(cc.pad_snap_available()):
+		return true
+	return cc.has_method("pad_skip_available") and bool(cc.pad_skip_available())
+
+
 func _ready() -> void:
 	InputDeviceManager.device_changed.connect(_on_device_changed)
 
@@ -1146,25 +1177,30 @@ func _context_action() -> bool:
 		# In a placement session but nothing staged yet — swallow X so it can't
 		# fall through to a shooter-skip / stray action in the same frame.
 		return true
+	# The charge phase owns X throughout, and — like the placement block above —
+	# is checked BEFORE the cursor-active bail. The left stick is the aiming tool
+	# for the whole phase (it is how you point at a model for A), so the cursor is
+	# active most of the time; gating these on a parked cursor left X dead for the
+	# exact players the hint bar was promising it to ("[X] Snap to Contact does
+	# nothing; only the on-screen button works"). VirtualCursor cooperates by NOT
+	# consuming X while is_charge_x_action_active(), so the press reaches this
+	# router regardless of cursor state.
+	#   - moving models into engagement (no model in hand): X = Snap to Contact,
+	#     the one-press "place every unmoved model base-to-base with its nearest
+	#     declared target" helper — the pad's answer to per-model dragging;
+	#   - before the move (declare / roll): X = skip the selected unit's charge,
+	#     same as the Skip Charge button.
+	var cc := _charge_controller_any()
+	if cc != null and cc.has_method("pad_snap_to_contact") and cc.pad_snap_to_contact():
+		return true
+	if cc != null and cc.has_method("pad_skip") and cc.pad_skip():
+		return true
 	if VirtualCursor.is_cursor_active():
 		return false  # cursor mode owns X (right-click); VC consumed it anyway
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null and str(sc.active_shooter_id) != "":
 		sc._keyboard_skip_unit()
 		target_highlight_id = ""
-		return true
-	# Charge, moving models into engagement (no model in hand): X = Snap to
-	# Contact — the one-press "place every unmoved model base-to-base with its
-	# nearest declared target" helper, the pad's answer to per-model dragging.
-	# (The placement-undo block above already handled deployment / reinforcement /
-	# scout X-undo before the cursor-active bail, so it is intentionally not
-	# repeated here.)
-	var cc := _charge_controller_any()
-	if cc != null and cc.has_method("pad_snap_to_contact") and cc.pad_snap_to_contact():
-		return true
-	# Charge: X = skip the selected unit's charge (same as the Skip Charge
-	# button; only enabled while no charge move is being resolved).
-	if cc != null and cc.has_method("pad_skip") and cc.pad_skip():
 		return true
 	# Movement, parked after an A-drop (the multi-step state): X = "this model
 	# is finished" — advance to the unit's next un-placed model. The undo that
@@ -2278,7 +2314,12 @@ func _update_hints() -> void:
 				# Charge / Roll 2D6 / Confirm Charge), so the promise can never
 				# diverge from the action again.
 				if bool(cc.awaiting_movement):
-					hints = HINTS_CHARGE_MOVE
+					# Same honesty rule for the X chip: once every model is
+					# placed the Snap to Contact button greys out, so the bar
+					# must stop promising it — otherwise the last press of the
+					# stage is a dead button again, the very symptom this set
+					# was reported for.
+					hints = HINTS_CHARGE_MOVE if is_charge_snap_active() else _without_hint(HINTS_CHARGE_MOVE, "x")
 				elif bool(cc.awaiting_roll):
 					hints = HINTS_CHARGE_ROLL
 				elif cc.selected_targets.size() > 0:
@@ -2304,6 +2345,18 @@ func _update_hints() -> void:
 	# Targets, …) owns Start. Done from the same `hints` the bar just rendered, so
 	# chip and button are the same statement by construction.
 	_set_start_action(_start_chip_label(hints))
+
+
+# A copy of `hints` with the chip for `glyph` dropped — for states where a set
+# is right except that one of its buttons is currently dead. Never mutates the
+# const source array.
+func _without_hint(hints: Array, glyph: String) -> Array:
+	var out: Array = []
+	for hint in hints:
+		if hint is Array and hint.size() >= 1 and str(hint[0]) == glyph:
+			continue
+		out.append(hint)
+	return out
 
 
 # The label on a hint set's ☰ chip, or START_ACTION_PHASE when the set carries

@@ -2,13 +2,46 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.3",
+      "version": "1.7.6",
       "date": "2026-07-29",
       "summary": "Deployment can no longer end while you still have units to deploy.",
       "changes": [
         "Ending the Deployment phase with units still undeployed dropped you straight into the 'Who takes the first turn?' roll-off with those units stranded off the table and no way back. Reported from tutorial 'Musterin' da Boyz', where the Gretchin were left behind. The end-phase action was correctly refused, but the game then advanced the phase anyway; it now stays in Deployment.",
         "Trying to end Deployment early now tells you what is blocking it — 'Cannot end deployment — still to deploy: Gretchin' — instead of doing nothing, or says which player the phase is waiting on when your own army is already set up.",
-        "Controller: with every model of a unit placed, the ☰ hint now reads 'Confirm Unit' instead of the ambiguous 'Confirm / End', so pressing it to lock a unit in can no longer be mistaken for the button that ends the phase."
+        "Controller: with every model of a unit placed, the ☰ hint now reads 'Confirm Unit' instead of the ambiguous 'Confirm / End', so pressing it to lock a unit in can no longer be mistaken for the button that ends the phase. The bumpers also stop offering Prev/Next Unit there, since deployment refuses to switch units once a model is on the table."
+      ]
+    },
+    {
+      "version": "1.7.5",
+      "date": "2026-07-29",
+      "summary": "Controller: X really works in the charge phase now — Snap to Contact and Skip Charge were both dead buttons the hint bar kept promising.",
+      "changes": [
+        "During a charge move the hint bar says '[X] Snap to Contact', but pressing X did nothing and only the on-screen Snap to Contact button worked. The cause: as soon as you nudge the left stick — which is how you aim at a model to grab it with A — the virtual cursor turns on, and while it was on it swallowed X as a right-click. X now reaches Snap to Contact whether the cursor is up or parked.",
+        "'[X] Skip Charge' in the declare and roll stages was dead for exactly the same reason, and is fixed alongside it — X now skips the selected unit's charge with the cursor live.",
+        "Once every model has been snapped there is nothing left to snap, so the Snap to Contact button now correctly greys out (it used to stay lit and do nothing on a second press) and the hint bar drops its X chip instead of advertising a button that can't fire."
+      ]
+    },
+    {
+      "version": "1.7.4",
+      "date": "2026-07-29",
+      "summary": "'Dakka Time' step 4 now explains what the dice dock is actually doing — and tells you that you can choose the order your weapons fire in.",
+      "changes": [
+        "Step 4 of the shooting lesson ('LET 'EM RIP!') used to jump straight to 'press Fast Roll All'. It now explains the WEAPON RESOLUTION dock: each row is one gun aimed at one mob, they fire top to bottom, and every gun rolls to hit, then to wound, then the defender takes saving throws before the damage lands.",
+        "It also tells you the firing order is yours to pick — the ▲ / ▼ buttons on the right-hand side of each queue row move a weapon up or down before the first shot — and why that matters: models killed by the first gun aren't there to soak up the second.",
+        "Controller players are told how to get there: the D-pad walks the highlight up from the dock's main button into the queue and onto the ▲ / ▼ buttons, and A presses them.",
+        "On a controller the highlight now stays in the queue after each nudge, so a weapon can be moved several slots without walking back up from the main button every time."
+      ]
+    },
+    {
+      "version": "1.7.3",
+      "date": "2026-07-29",
+      "summary": "'Get Movin'' now teaches that a move can be spent over several drags, and adds a step for turning models.",
+      "changes": [
+        "The Battlewagon step only said 'drag da wagon's hull forward an' drop it', so players assumed the one drag was the whole move and spent all 10\"+D6 in a single go. It now says outright that you can drop the wagon, grab it again and keep going, and that the panel counts the inches as you do.",
+        "New step 'POINT IT RIGHT!': the Battlewagon is on a rectangular base, so which way it faces matters. Lesson 2 teaches turning during deployment; this teaches it during the Movement phase, where the controls differ — the step only advances once you actually turn the wagon.",
+        "Keyboard: grab the hull, keep the button held, and tap Q / E to turn 15° a tap (it follows a rebind). Controller: grab it with A, then LB / RB while you're carrying it — unlike deployment, the pad can turn a model mid-move.",
+        "Both say what the rules say: in 11th edition turning a model is free and costs none of its move.",
+        "The lesson's end-of-lesson summary picks up both points."
       ]
     },
     {
