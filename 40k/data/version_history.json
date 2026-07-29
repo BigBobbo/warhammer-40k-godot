@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.7",
+      "date": "2026-07-29",
+      "summary": "Attached leaders now ride in transports with the unit they lead — and get out with them.",
+      "changes": [
+        "Disembarking a unit with an attached character only ever asked you to place the squad. In the tutorial's 'Get Movin'' step 3 the row said 'Boyz + Warboss', you placed all 10 Boyz, the disembark reported complete — and the Warboss was nowhere on the table. Disembarking now asks for every model in the attached unit (11 in the tutorial: 10 Boyz, then the Warboss), and the on-screen prompt names whose model you are placing when it hands over from the squad to the leader.",
+        "Embarking had the matching hole: a bodyguard boarded a transport on its own and left its attached character behind. Attaching a Warboss to the Boyz and putting the Boyz in the Battlewagon now puts both aboard, in Formations, during deployment and in the movement phase alike.",
+        "Transport capacity now counts the attached character's models, and transport pickers no longer offer an attached leader as a separate passenger — it boards with its unit.",
+        "Existing saves (and the shipped tutorial checkpoints) that stranded a leader outside its bodyguard's transport are repaired on load: the leader is put aboard with its unit.",
+        "The whole attached unit is measured together for coherency and disembark range, and the attached character shares the squad's after-disembark restrictions (can't-move / can't-charge / Combat Disembark hazards and battle-shock).",
+        "Fixed a related placement bug: a unit that had taken casualties before disembarking had every surviving model placed one position out of step."
+      ]
+    },
+    {
       "version": "1.7.6",
       "date": "2026-07-29",
       "summary": "Deployment can no longer end while you still have units to deploy.",
