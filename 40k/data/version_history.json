@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.13",
+      "version": "1.7.14",
       "date": "2026-07-29",
       "summary": "On a controller, ☰ now says (and does) 'End Pile In' / 'End Consolidation' during those Fight-phase steps instead of the alarming 'End Phase'.",
       "changes": [
@@ -11,6 +11,17 @@
         "The chip shows up whether you're pointing at the board or navigating the panel with the D-pad, so it's there in the state you land in first.",
         "The big button in the top-right corner drops its ☰ badge while a step owns ☰, so only one thing on screen ever claims that button.",
         "Da Krumpin' tutorial's controller prompt now points at ☰ for the pile-in step instead of only telling you to drive the cursor onto the button."
+      ]
+    },
+    {
+      "version": "1.7.13",
+      "date": "2026-07-29",
+      "summary": "Da Krumpin' lesson finally looks like a real scrap: Boyz in base contact, no Custodes standing inside each other, and da Warboss is actually on da table.",
+      "changes": [
+        "Step 2 of 'Krumpin'' says 'Yer Boyz are already in contact' — but they weren't. The Boyz sat a hair short of the Custodian Guard, and the two rear Boyz were more than 2\" away, so they couldn't fight at all. The mob is now laid out properly: five Boyz and the Warboss in base-to-base contact with the Custodes, the rest packed in right behind them. All eleven models can swing.",
+        "The four Custodian Guard were spaced closer together than their own 40mm bases, so their bases visibly overlapped. They now sit on a clean, legal line.",
+        "The Warboss was never drawn on the board in any lesson — it was attached to the Boyz but still flagged as undeployed, so the game skipped its token. Da boss now shows up on the table in the shooting, charge, fight and second-round lessons.",
+        "The charge lesson's Custodian Guard line matches the fight lesson's, so the enemy no longer shuffles between checkpoints."
       ]
     },
     {
