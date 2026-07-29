@@ -3071,6 +3071,15 @@
       "status": "covered"
     },
     {
+      "id": "controller.deploy.pad_reposition_placed_model",
+      "description": "Pad repositioning of an already-placed model during deployment — the counterpart to mouse Shift+click, which was pad-unreachable (the player had to undo the model or the unit and re-place). L3 with the cursor over a placed model of the unit being deployed lifts it (DeploymentController.pad_begin_reposition_at_cursor), the stick moves it, A drops it through the existing validated mouse path and B cancels (pad_cancel_reposition). While a model is lifted the bumpers, X and Undo Unit stand down so it cannot be stranded, and the hint bar swaps to HINTS_DEPLOY_REPOSITION.",
+      "scenarios": [
+        "pad_deploy_reposition_placed_model"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "controller.end_phase.discoverability",
       "description": "A controller player can discover how to end a phase without the touchscreen: the button they reach for names the Menu (☰) button bound to pad_phase_action, matching the '☰ End Phase' hint-bar chip, and pressing Menu (Start) pops the confirm dialog whose OK ends the phase.",
       "scenarios": [

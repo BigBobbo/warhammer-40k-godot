@@ -2579,6 +2579,49 @@ func _cancel_model_repositioning() -> void:
 
 	_cleanup_repositioning()
 
+# --- Pad entry points for model repositioning -------------------------------
+# Repositioning an already-placed model was a mouse-only affordance: Shift+click
+# picks the model up, mouse-move drags it, click drops it, right-click cancels.
+# A controller has no Shift and no right-click while placing, so a pad player who
+# put a model a few millimetres off had to undo the model (X) — or the whole unit
+# (B) — and re-place. These wrap the existing mouse flow so PadRouter can drive
+# the identical state machine from L3 / A / B; the drop and cancel paths are the
+# mouse ones untouched (A already arrives as a synthesized left-click through
+# VirtualCursor, which _unhandled_input routes to _end_model_repositioning).
+
+func is_repositioning() -> bool:
+	return repositioning_model
+
+
+func pad_begin_reposition_at_cursor() -> bool:
+	"""Pick up the already-placed model under the virtual cursor (pad L3 — the
+	counterpart to mouse Shift+click). Returns false when the press was not
+	spent, so the caller can fall through to L3's other meanings.
+
+	Only models of the unit currently being placed are eligible: the hit-test
+	walks temp_positions, which is this session's staged placement, so a
+	confirmed unit's models are never picked up by mistake."""
+	if not is_placing() or repositioning_model:
+		return false
+	var deployed_model = _get_deployed_model_at_position(_get_world_mouse_position())
+	if deployed_model.is_empty():
+		# Nothing under the cursor. Say so rather than failing silently — L3 is
+		# a no-op in this phase otherwise, so a bare press would look broken.
+		if get_placed_count() > 0:
+			_show_toast("Point at a placed model to move it", Color.YELLOW)
+		return false
+	_start_model_repositioning(deployed_model)
+	return true
+
+
+func pad_cancel_reposition() -> bool:
+	"""Drop the lifted model back where it came from (pad B — the counterpart to
+	the mouse right-click cancel)."""
+	if not repositioning_model:
+		return false
+	_cancel_model_repositioning()
+	return true
+
 func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary, rotation: float, silent: bool = false) -> bool:
 	"""Validate a reinforcement placement position (Deep Strike / Strategic Reserves).
 	silent=true suppresses the failure toasts — the per-frame ghost-colour check

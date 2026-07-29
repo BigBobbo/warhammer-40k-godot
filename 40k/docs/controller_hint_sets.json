@@ -241,6 +241,10 @@
       "Hold: LB/RB Rotate"
     ],
     [
+      "l3",
+      "Move Placed Model"
+    ],
+    [
       "a",
       "Place Model"
     ],
@@ -263,6 +267,24 @@
     [
       "menu",
       "Confirm / End"
+    ]
+  ],
+  "HINTS_DEPLOY_REPOSITION": [
+    [
+      "ls",
+      "Move Model"
+    ],
+    [
+      "a",
+      "Drop Here"
+    ],
+    [
+      "b",
+      "Cancel"
+    ],
+    [
+      "r3",
+      "Hold: Precision"
     ]
   ],
   "HINTS_FIGHT": [

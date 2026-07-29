@@ -141,12 +141,25 @@ const HINTS_DEPLOY := [
 	# only pad way to angle an oval/rectangular base while placing it. See
 	# _rotating_a_placement_ghost().
 	["r3", "Hold: LB/RB Rotate"],
+	# L3 lifts an already-placed model of this unit so it can be nudged — the pad
+	# counterpart to mouse shift+click. See _try_pad_reposition().
+	["l3", "Move Placed Model"],
 	["a", "Place Model"],
 	["dpad", "Type / Formation"],
 	["x", "Undo Model"],
 	["b", "Undo Unit"],
 	["y", "Datasheet"],
 	["menu", "Confirm / End"],
+]
+
+# A placed model is in hand (L3 lift). Deliberately short: this is a modal
+# sub-state where the bumpers, X and the D-pad rows all stand down, so the bar
+# promises only what actually works — aim, drop, cancel.
+const HINTS_DEPLOY_REPOSITION := [
+	["ls", "Move Model"],
+	["a", "Drop Here"],
+	["b", "Cancel"],
+	["r3", "Hold: Precision"],
 ]
 const HINTS_FOCUS := [
 	["dpad", "Navigate"],
@@ -398,27 +411,38 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_LEFT_SHOULDER:
 			if carry_active or _rotating_a_placement_ghost():
 				_synth_rotate(true)
-			else:
+			elif _repositioning_placement() == null:
+				# Swallowed while a model is lifted: cycling to another unit
+				# mid-lift would abandon the model in limbo (its token is still
+				# faded at the old spot and the session it belongs to is gone).
 				_cycle(-1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_RIGHT_SHOULDER:
 			if carry_active or _rotating_a_placement_ghost():
 				_synth_rotate(false)
-			else:
+			elif _repositioning_placement() == null:
 				_cycle(1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_Y:
 			if _toggle_datasheet():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_LEFT_STICK:
-			# L3 (press the left thumbstick in) is THE model-cycle button — the one
-			# free, reliable controller button, so it means "next model" identically
-			# in every phase that positions a unit's individual models (Movement +
-			# Charge, via _hop_model). Reliable where the Steam Deck L4/R4 paddles are
-			# not (those reach the game as JOY_BUTTON_PADDLE* only when Steam Input is
-			# configured to forward them). _hop_model returns false elsewhere, so L3
-			# is a harmless no-op in phases without per-model positioning.
-			if _hop_model(1):
+			# During a placement session L3 takes its second meaning: pick up the
+			# already-placed model under the cursor to nudge it (the pad
+			# counterpart to mouse Shift+click). _hop_model is a no-op in the
+			# Deployment phase, so this claims a button that was otherwise dead
+			# here, and it stays consistent with L3's board meaning — both are
+			# "act on an individual model of this unit".
+			#
+			# Otherwise L3 (press the left thumbstick in) is THE model-cycle button
+			# — the one free, reliable controller button, so it means "next model"
+			# identically in every phase that positions a unit's individual models
+			# (Movement + Charge, via _hop_model). Reliable where the Steam Deck
+			# L4/R4 paddles are not (those reach the game as JOY_BUTTON_PADDLE* only
+			# when Steam Input is configured to forward them). _hop_model returns
+			# false elsewhere, so L3 stays a harmless no-op in phases without
+			# per-model positioning.
+			if _try_pad_reposition() or _hop_model(1):
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_X:
 			if _context_action():
@@ -1057,13 +1081,19 @@ func _context_action() -> bool:
 	# entire placement flow (the reported Deep Strike / reinforcement bug: X did
 	# nothing). VirtualCursor cooperates by NOT consuming X while a placement
 	# session is live (see its JOY_BUTTON_X guard + is_placement_active()), so
-	# the press reaches this router regardless of cursor state. A controller
-	# right-click has no reachable use while placing (model repositioning is a
-	# mouse shift+click affordance), so X is free to mean undo here. Undoing
-	# every model re-enables LB/RB unit switching; undo_last_model emits
-	# models_placed_changed, so Main refreshes the card/buttons itself.
+	# the press reaches this router regardless of cursor state. X means undo here
+	# rather than a controller right-click, which has no reachable use while
+	# placing. Undoing every model re-enables LB/RB unit switching;
+	# undo_last_model emits models_placed_changed, so Main refreshes the
+	# card/buttons itself.
 	var dc = _deployment_controller_placing()
 	if dc != null:
+		# ...except while a model is lifted for repositioning (L3): undoing the
+		# LAST placed model there is almost never what the player means — the
+		# model in hand may be a different one, and its faded token would be left
+		# behind. Swallow X; B cancels the lift, A drops it.
+		if _repositioning_placement() != null:
+			return true
 		if dc.get_placed_count() > 0 and dc.has_method("undo_last_model"):
 			return dc.undo_last_model()
 		# In a placement session but nothing staged yet — swallow X so it can't
@@ -1095,7 +1125,34 @@ func _context_action() -> bool:
 	return _finish_model_and_advance()
 
 
+# L3 during a placement session: lift the already-placed model under the cursor
+# so the stick can nudge it, then A drops it and B puts it back. The drop needs
+# no wiring — VirtualCursor turns A into a real left-click at the cursor, and
+# DeploymentController._unhandled_input already routes a click to
+# _end_model_repositioning (with its zone / overlap validation) whenever a lift
+# is live, exactly as it does for the mouse.
+func _try_pad_reposition() -> bool:
+	var dc := _deployment_controller_placing()
+	if dc == null or not dc.has_method("pad_begin_reposition_at_cursor"):
+		return false
+	if not VirtualCursor.is_cursor_active():
+		# No cursor on screen means no aim point: _get_world_mouse_position would
+		# hit-test wherever the OS pointer happens to sit, which on a pad is
+		# wherever it was parked. Let L3 fall through instead of lifting a model
+		# the player is not pointing at.
+		return false
+	return dc.pad_begin_reposition_at_cursor()
+
+
 func _handle_back() -> bool:
+	# A lifted model is put back before B means anything else — matching the
+	# mouse right-click cancel, and matching the carry rule below it. Without
+	# this, B mid-lift fell through to "Undo Unit" and wiped the whole unit's
+	# placement while one of its models was in hand.
+	var repositioning := _repositioning_placement()
+	if repositioning != null:
+		repositioning.pad_cancel_reposition()
+		return true
 	if carry_active:
 		_cancel_carry()
 		return true
@@ -1870,6 +1927,18 @@ func _rotating_a_placement_ghost() -> bool:
 	return InputMap.has_action("pad_precision") and Input.is_action_pressed("pad_precision")
 
 
+# The DeploymentController while a placed model is lifted for repositioning
+# (pad L3 / mouse shift+click), else null. A lift is a modal sub-state of the
+# placement session: the model is out of its slot and the ONLY sane next inputs
+# are drop (A) and cancel (B), so several board bindings stand down while it is
+# live — see _handle_back, _context_action and the bumper arms.
+func _repositioning_placement() -> Node:
+	var dc := _deployment_controller_placing()
+	if dc == null or not dc.has_method("is_repositioning"):
+		return null
+	return dc if dc.is_repositioning() else null
+
+
 # Pad rotation reuses the rebindable rotate_left/rotate_right keyboard
 # semantics: synthesize the currently-bound key event so MovementController /
 # DeploymentController / ChargeController react exactly as they do to Q/E,
@@ -2192,7 +2261,7 @@ func _update_hints() -> void:
 		if sc != null and str(sc.active_shooter_id) != "":
 			hints = HINTS_TARGETS
 		elif _deployment_controller_placing() != null:
-			hints = HINTS_DEPLOY
+			hints = HINTS_DEPLOY_REPOSITION if _repositioning_placement() != null else HINTS_DEPLOY
 		else:
 			var cc = _charge_controller_any()
 			if cc != null:

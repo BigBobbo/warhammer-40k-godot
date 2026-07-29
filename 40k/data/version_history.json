@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.2",
+      "date": "2026-07-29",
+      "summary": "Controller players can now nudge a model they already placed: press L3 to pick it up, move it, A to drop it.",
+      "changes": [
+        "Added model repositioning on the controller during deployment. Point at a model you already placed and click the left stick (L3) to pick it up, move it with the stick, then A to drop it — the controller equivalent of the mouse's Shift+click. Previously the only way to fix a slightly misplaced model on a pad was to undo it (or the whole unit) and start again.",
+        "B puts a picked-up model straight back where it was, and an illegal drop spot is refused with the same warning the mouse gives.",
+        "While a model is in hand the bumpers, Undo Model and the card's selector rows pause, so a lifted model can't be left stranded — drop it or cancel first.",
+        "The deployment hint bar advertises the new 'L3 Move Placed Model' prompt, and swaps to Move / Drop / Cancel while you are holding a model."
+      ]
+    },
+    {
       "version": "1.6.1",
       "date": "2026-07-28",
       "summary": "Controller players can finally rotate a model while deploying it: hold R3 (click the right stick) and the bumpers turn the ghost 15° a press.",

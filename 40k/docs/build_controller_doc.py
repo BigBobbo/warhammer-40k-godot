@@ -53,7 +53,7 @@ with open(os.path.join(DOCS, "controller_hint_sets.json")) as f:
 # Physical button map (always-on meanings). glyph -> (name, meaning)
 PHYSICAL = [
     ("ls",  "Left stick",        "Virtual cursor — point at the board, drag models, aim placement"),
-    ("l3",  "L3 (click LS)",     "Next model — cycle the active unit's individual models (Movement / Charge; in Movement the D-pad ◀▶ do this too)"),
+    ("l3",  "L3 (click LS)",     "Next model — cycle the active unit's individual models (Movement / Charge; in Movement the D-pad ◀▶ do this too). While deploying, it instead picks up the already-placed model under the cursor to move it"),
     ("rs",  "Right stick",       "Pan the camera"),
     ("r3",  "R3 (hold RS)",      "Precision modifier — hold to slow the cursor for fine placement; while deploying, hold it and LB/RB rotate the ghost instead of switching units"),
     ("lt",  "Left trigger",      "Zoom out"),
@@ -162,7 +162,18 @@ SECTIONS = [
                       "HOLD R3 and LB/RB rotate the ghost (15° a press) instead of switching units — the pad equivalent of the keyboard Q/E, and the only way to angle an oval or rectangular base while placing it. In Spread/Tight formation it rotates the whole formation.",
                       "D-pad ▲▼ moves the ▶ between the Model-type and Formation rows; ◀▶ changes the highlighted row's value.",
                       "X undoes the last placed model; B undoes the whole unit; Start confirms once every model is placed.",
-                      "GAP: repositioning an already-placed model (mouse Shift+click) has no pad equivalent — undo and re-place."],
+                      "L3 picks up an already-placed model of this unit so the stick can nudge it — the pad equivalent of mouse Shift+click. See the next state."],
+        }, {
+            "name": "Moving an already-placed model",
+            "when": "After pressing L3 with the cursor over a model you already placed for this unit.",
+            "hint_set": "HINTS_DEPLOY_REPOSITION",
+            "rp": RP_NO_STANDDOWN,
+            "custom_after": [],
+            "notes": ["The lifted model's token fades in place and a ghost follows the cursor, red where the drop would be illegal.",
+                      "A drops it at the cursor (same zone / overlap validation as the original placement — an illegal spot is refused with a toast and the model stays put). B puts it back where it was.",
+                      "Only models of the unit you are currently deploying can be lifted, and only before you confirm the unit.",
+                      "LB/RB, X and the D-pad rows stand down while a model is in hand, so nothing can strand it — drop or cancel first.",
+                      "GAP: the lifted model cannot be rotated mid-lift (R3+LB/RB rotates the placement ghost, not the lifted one) — same as the mouse, where the wheel does nothing during a reposition."],
         }],
     },
     {
