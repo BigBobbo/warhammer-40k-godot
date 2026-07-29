@@ -116,7 +116,7 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "deploy_wagon"
+      "equals": "rotate_wagon"
     },
     {
       "act": "click_item_list",
@@ -126,6 +126,50 @@
     {
       "act": "wait_frames",
       "frames": 10
+    },
+    {
+      "act": "hover_board_at",
+      "x": 640.0,
+      "y": 320.0,
+      "comment": "rotate_wagon is kbm-only and gates Confirm until the ghost is turned - park the pointer so the ghost renders, then turn it. This scenario is still on mouse+keyboard here; pad mode is claimed later, at deploy_grots."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E",
+      "comment": "rotate_right = +15 degrees a tap, so six taps is a quarter turn"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "deploy_wagon"
     },
     {
       "act": "click_board_at",

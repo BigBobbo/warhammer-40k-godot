@@ -30,7 +30,8 @@
     "bullets": [
       "Battle Formations lock in leaders, transport cargo an' reserves BEFORE anyone deploys.",
       "Da roll-off dialog: roll, read da result, winner picks who deploys first.",
-      "Deploy: pick a unit row, click da board to place, [b]Confirm[/b] locks it. Q/E turns a vehicle.",
+      "Deploy: pick a unit row, click da board to place, [b]Confirm[/b] locks it.",
+      "Turn a vehicle wiv Q/E or da mouse wheel BEFORE ya drop it — 15° a tap (keyboard an' mouse only).",
       "Formation buttons (Single / Spread / Tight) place a whole squad quick.",
       "You an' da enemy take turns deployin'. Next lesson: Get Movin'."
     ]
@@ -56,7 +57,7 @@
       "prompt": {
         "bark": "GET IN DA WAGON!",
         "kbm": "Under [b]TRANSPORT EMBARKATION[/b], tick [b]Boyz[/b] — da mob (an' da Boss wiv 'em) starts da battle inside da Battlewagon.",
-        "pad": "Glide {ls} onto da [b]Boyz[/b] tickbox under TRANSPORT EMBARKATION an' press {a}."
+        "pad": "{dpad} ▼ walks down onto da [b]Boyz[/b] tickbox under TRANSPORT EMBARKATION — or glide {ls} onto it — den press {a}."
       },
       "anchor": { "button_text": "Boyz (10 models)" },
       "spotlight": "soft",
@@ -70,7 +71,7 @@
       "prompt": {
         "bark": "LOCK DA MUSTER!",
         "kbm": "Hit [b]Confirm Formations[/b] — dat sends all yer declarations at once. Da enemy declares deirs after.",
-        "pad": "Glide onto [b]Confirm Formations[/b] an' press {a}."
+        "pad": "{dpad} ▼ walks down past da tickboxes to da button row — dat lands ya on [b]Skip[/b] first, so tap ▶ to swap onto [b]Confirm Formations[/b] — or glide {ls} onto it — den press {a}."
       },
       "anchor": { "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton" },
       "spotlight": "soft",
@@ -90,17 +91,37 @@
       "hint": { "text": "Da dialog's Roll button works too — same fing." }
     },
     {
+      "id": "rotate_wagon",
+      "_comment": "device: kbm — model rotation during deployment is keyboard/mouse-wheel only. PadRouter reaches _synth_rotate solely from carry_active, which _try_begin_carry sets in MOVEMENT and CHARGE but NOT in a deployment placement session, so LB/RB stay Prev/Next Unit here (HINTS_DEPLOY). A pad player cannot satisfy this step, so it is skipped for them (and re-skipped on a mid-step device swap) rather than promising a button that turns nothing.",
+      "device": "kbm",
+      "prompt": {
+        "bark": "POINT IT DA RIGHT WAY!",
+        "kbm": "Click [b]Battlewagon[/b] in da list — a ghost follows yer mouse. It's a long ol' fing, so aim it BEFORE ya drop it: {key:rotate_left}/{key:rotate_right} (or roll da mouse wheel) turn it 15° a tap. Give it a few taps."
+      },
+      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel" },
+      "spotlight": "soft",
+      "allow": [],
+      "blocked_hint": "turn da wagon first — da rotate keys (Q an' E out da box), or da mouse wheel — den drop it an' Confirm.",
+      "done": {
+        "script": "var dc = main.get(\"deployment_controller\") if main != null else null\nif dc == null or str(dc.unit_id) != \"U_BATTLEWAGON_T\":\n\treturn false\nvar wagon = GameState.get_unit(\"U_BATTLEWAGON_T\")\nvar base_face = BoardState.get_default_facing_for_player(int(wagon.get(\"owner\", 1)))\nvar rot = null\nif dc.temp_positions.size() > 0 and dc.temp_positions[0] != null and dc.temp_rotations.size() > 0:\n\trot = float(dc.temp_rotations[0])\nelif dc.ghost_sprite != null and dc.ghost_sprite.has_method(\"get_base_rotation\"):\n\trot = dc.ghost_sprite.get_base_rotation()\nif rot == null:\n\treturn false\nreturn abs(wrapf(float(rot) - base_face, -PI, PI)) > 0.5"
+      },
+      "hint": { "text": "Da ghost only turns while da wagon's in yer hand an' not yet dropped. Dropped it already? Undo on da unit card picks it back up, den turn it." }
+    },
+    {
       "id": "deploy_wagon",
       "prompt": {
         "bark": "PARK DA WAGON!",
-        "kbm": "Click [b]Battlewagon[/b] in da list, den click inside yer glowin' deployment zone to place it. {key:rotate_left}/{key:rotate_right} turns it. [b]Confirm[/b] locks it in.",
+        "kbm": "Wagon's aimed — now click inside yer glowin' deployment zone to drop it, den hit [b]Confirm[/b] to lock it in. Nuffin' in yer hand? Click da [b]Battlewagon[/b] row first.",
         "pad": "Pick da [b]Battlewagon[/b] row, glide {ls} into yer zone, {a} to place, den [b]Confirm[/b]."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel" },
       "spotlight": "soft",
       "allow": ["DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT"],
       "done": { "state": "units.U_BATTLEWAGON_T.status", "equals": 2 },
-      "hint": { "text": "Yer zone is da highlighted band at da top of da board. Undo an' Reset Unit are on da unit card." }
+      "hint": {
+        "kbm": "Yer zone is da highlighted band at da top of da board. Undo an' Reset Unit are on da unit card — an' da rotate keys keep turnin' it right up 'til ya drop it.",
+        "pad": "Yer zone is da highlighted band at da top of da board. Undo an' Reset Unit are on da unit card."
+      }
     },
     {
       "id": "deploy_grots",
