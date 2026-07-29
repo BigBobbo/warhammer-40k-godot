@@ -5647,6 +5647,24 @@ func _input(event: InputEvent) -> void:
 			_refresh_pad_start_meaning()
 			get_viewport().set_input_as_handled()
 			return
+		if current_phase == GameStateData.Phase.FIGHT and fight_controller \
+				and is_instance_valid(fight_controller) \
+				and fight_controller.has_method("pad_end_step") \
+				and fight_controller.pad_end_step():
+			# 11e Fight phase: while a global step is running — Pile In (12.02) at
+			# the top of the phase, Consolidate (12.07) at the end — ☰ presses THAT
+			# step section's own "End Pile In" / "End Consolidation" button on the
+			# right panel, the same button the mouse clicks. Reported trap: the hint
+			# bar's ☰ chip read the generic "End Phase" during the Pile In step, so
+			# ☰ looked like it would end the whole Fight phase (it never did —
+			# END_FIGHT there only ends that half — but the promise on screen said
+			# otherwise, and the pad advertised no "End Pile In" at all).
+			# pad_end_step() returns false whenever no step section is interactive
+			# (mid-move, AI half, MP waiting note), so ☰ then falls through to the
+			# normal phase-action confirm below.
+			_refresh_pad_start_meaning()
+			get_viewport().set_input_as_handled()
+			return
 		if current_phase == GameStateData.Phase.SHOOTING and shooting_controller \
 				and is_instance_valid(shooting_controller) \
 				and str(shooting_controller.active_shooter_id) != "" \

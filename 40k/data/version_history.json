@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "On a controller, ☰ now says (and does) 'End Pile In' / 'End Consolidation' during those Fight-phase steps instead of the alarming 'End Phase'.",
+      "changes": [
+        "The Fight phase opens with the Pile In step and closes with the Consolidate step. The right-hand panel has always had an 'End Pile In' / 'End Consolidation' button for those, but on a controller the hint bar at the bottom of the screen only ever offered '☰ End Phase' — so ending your pile-in looked like it would end your whole Fight phase. The ☰ chip now reads 'End Pile In' or 'End Consolidation' while those steps are running, and goes back to 'End Phase' once they're done.",
+        "☰ now presses that step's own End button — the same one a mouse player clicks — so it ends only your half of the step. (It already only ended the step, never the phase; the label was the part that lied.)",
+        "The chip shows up whether you're pointing at the board or navigating the panel with the D-pad, so it's there in the state you land in first.",
+        "The big button in the top-right corner drops its ☰ badge while a step owns ☰, so only one thing on screen ever claims that button.",
+        "Da Krumpin' tutorial's controller prompt now points at ☰ for the pile-in step instead of only telling you to drive the cursor onto the button."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-07-28",
       "summary": "The tutorial now tells you where the end-phase button actually is.",
