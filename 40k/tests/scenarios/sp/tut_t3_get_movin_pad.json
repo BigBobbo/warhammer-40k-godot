@@ -3,11 +3,12 @@
   "covers": [
     "tutorial.t3.movement.pad",
     "tutorial.t3.disembark.pad",
-    "tutorial.t3.post_disembark_move.pad"
+    "tutorial.t3.post_disembark_move.pad",
+    "tutorial.t3.post_disembark_select_all.pad"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T3 driven with pad input: LB claims pad mode, cursor-glide + A through the picker, disembark via the middle unit-list row and dialog, 11 cursor-glide placement clicks, the boyz_move_after_disembark step driven in carry mode (A grab, glide, A drop) plus End This Unit's Move, RB to cycle to the Battlewagon, Advance radio + Confirm Movement Mode via glide+A, Keep Roll on the command re-roll, then a REAL carry for the wagon: B parks the cursor so A reaches PadRouter (with the cursor active, VirtualCursor eats A as a left-click and no carry ever starts), A grabs the wagon, glide + A drops it, A picks the same model straight back up for a second leg, LB twice turns it on the 'POINT IT RIGHT!' step, A drops it again and the two legs are asserted to SUM. Then End This Unit's Move and Start-button End Phase with its pad confirm. Native command re-roll and disembark dialogs are confirmed via emit_pressed (embedded-Window buttons have no reliable real-click coordinates).",
+  "description": "Tutorial lesson T3 driven with pad input: LB claims pad mode, cursor-glide + A through the picker, disembark via the middle unit-list row and dialog, 11 cursor-glide placement clicks, the boyz_move_after_disembark step driven in carry mode (A grab) where the card is asserted to advertise the ✚ ▲ 'lifts all 11' reminder and a real D-pad ▲ press is asserted to put every alive Boy plus the attached Warboss in one hand, glide + A drops the lot (more than one model asserted staged), plus End This Unit's Move, RB to cycle to the Battlewagon, Advance radio + Confirm Movement Mode via glide+A, Keep Roll on the command re-roll, then a REAL carry for the wagon: B parks the cursor so A reaches PadRouter (with the cursor active, VirtualCursor eats A as a left-click and no carry ever starts), A grabs the wagon, glide + A drops it, A picks the same model straight back up for a second leg, LB twice turns it on the 'POINT IT RIGHT!' step, A drops it again and the two legs are asserted to SUM. Then End This Unit's Move and Start-button End Phase with its pad confirm. Native command re-roll and disembark dialogs are confirmed via emit_pressed (embedded-Window buttons have no reliable real-click coordinates).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -295,14 +296,54 @@
       "comment": "the model is genuinely in hand (cursor warped onto it with LMB held) - not a click"
     },
     {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = o.current_body_text()\nreturn t.contains(\"[✚]\") and t.contains(\"▲\") and t.contains(\"all 11\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the step must REMIND the pad player that ▲ lifts the whole mob - 11 models carried one at a time is the slow path players fall into right after a disembark. The {dpad} chip renders through GlyphDB, so this also proves the token resolved (an unresolved token would read '{dpad}')."
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.group_carry_active",
+      "equals": false,
+      "comment": "one model in hand before the ▲ press, so the assertion below cannot pass for the wrong reason"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "D-pad ▲ = the 'press up' the card now advertises -> PadRouter._try_grab_all_remaining. The move menu closed when NORMAL was picked, so _try_open_move_menu declines and the press reaches the group grab."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var mc = tree.current_scene.movement_controller\nvar want := 0\nfor uid in [\"U_BOYZ_T\", \"U_WARBOSS_T\"]:\n\tfor m in GameState.get_unit(uid).get(\"models\", []):\n\t\tif m.get(\"alive\", true):\n\t\t\twant += 1\nif not PadRouter.group_carry_active:\n\treturn \"group carry not active\"\nif not mc.group_dragging:\n\treturn \"controller not group dragging\"\nif mc.selected_models.size() != want:\n\treturn \"carrying %d of %d\" % [mc.selected_models.size(), want]\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the card's claim driven for real: ▲ put every alive Boy AND the attached Warboss in one hand (MovementController.pad_select_unmoved_models walks the bodyguard plus attached characters), which is the 'all 11' the prompt promises"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "boyz_move_after_disembark",
+      "comment": "grabbing the mob is not moving it - the step must not advance on a group grab"
+    },
+    {
+      "act": "screenshot",
+      "label": "02b2_boyz_whole_mob_in_hand_via_dpad_up"
+    },
+    {
       "act": "pad_cursor_glide",
-      "x": 480.0,
-      "y": 460.0
+      "x": 640.0,
+      "y": 596.0,
+      "comment": "The group carry warps the cursor onto the member nearest the formation centroid (MovementController.pad_group_anchor_world_pos) - m9 at board (640, 555.8) - so gliding to (640, 596) translates the WHOLE formation 40px (1\") away from the wagon. Away, not towards: the Battlewagon hull spans board x 561-719 / y 178-462, so a 1\" step towards it puts the middle of the front rank inside the hull and only the two outer Boyz can be placed."
     },
     {
       "act": "simulate_joy_button",
       "button_index": 0,
-      "comment": "A drops him 40px (1\") forward"
+      "comment": "A drops da lot - one press places the whole mob"
     },
     {
       "act": "wait_seconds",
@@ -318,6 +359,13 @@
       "script": "float(main.movement_controller.current_phase.get_active_move_data(\"U_BOYZ_T\").model_distances[\"U_BOYZ_T:m1\"]) > 0.5",
       "equals": true,
       "comment": "the Boy really moved - the drop staged a non-zero distance (staged moves only reach GameState on CONFIRM_UNIT_MOVE, so this reads the live move data)"
+    },
+    {
+      "act": "execute_script",
+      "script": "var md = tree.current_scene.movement_controller.current_phase.get_active_move_data(\"U_BOYZ_T\")\nvar dists = md.get(\"model_distances\", {})\nvar missed := []\nfor uid in [\"U_BOYZ_T\", \"U_WARBOSS_T\"]:\n\tvar models = GameState.get_unit(uid).get(\"models\", [])\n\tfor i in range(models.size()):\n\t\tif not models[i].get(\"alive\", true):\n\t\t\tcontinue\n\t\tvar key = \"%s:%s\" % [uid, str(models[i].get(\"id\", \"m%d\" % (i + 1)))]\n\t\tif float(dists.get(key, 0.0)) <= 0.5:\n\t\t\tmissed.append(key)\nif not missed.is_empty():\n\treturn \"did not move: %s\" % str(missed)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "'{a} drops da lot' proven end to end: ONE A press staged real distance for EVERY alive Boy and the attached Warboss. This is also the regression pin for the attached-character group-move collision - a character shares the bodyguard's model ids, and three separate lookups keyed on the bodyguard instead of the character's own unit (group_drag_start_positions, _update_model_selection_visuals' token match, and MovementPhase._position_overlaps_other_models' skip-self) left the Warboss unable to stage at all, blocking the two Boyz standing where he still was: 8 of 11 placed instead of 11."
     },
     {
       "act": "execute_script",

@@ -56,8 +56,14 @@ var drag_box_end: Vector2
 var selection_visual: Node2D  # Custom drawn selection box
 var selection_indicators: Array = []  # Visual indicators for selected models
 var group_dragging: bool = false
-var group_drag_start_positions: Dictionary = {}  # model_id -> Vector2
-var group_formation_offsets: Dictionary = {}  # model_id -> Vector2 (relative to group center)
+# Both keyed by _group_model_key() ("<unit_id>:<model_id>"), NOT bare model_id:
+# a group selection spans the bodyguard unit AND its attached characters, and
+# those reuse the same model ids (a Warboss joined to a mob of Boyz is "m1",
+# exactly like the first Boy). Keyed by model_id alone the character overwrote
+# the Boy's entry, so the drop sent the character to the BOY's destination and
+# the phase rejected it as "exceeds cap" — the character silently never moved.
+var group_drag_start_positions: Dictionary = {}  # "unit_id:model_id" -> Vector2
+var group_formation_offsets: Dictionary = {}  # "unit_id:model_id" -> Vector2 (relative to group center)
 # True while _end_group_drag's staging pipeline (dispatch + verify/retry) is in
 # flight. The pad router waits on this before auto-regrabbing leftovers or
 # confirming a Start-pressed move, so it never reads a half-staged unit.
@@ -4387,6 +4393,14 @@ func _update_model_selection_visuals() -> void:
 
 	for model_data in selected_models:
 		var model_id = model_data.get("model_id", "")
+		# Match tokens/staged moves against the model's OWN unit, not the active
+		# one: a selection spans the bodyguard AND its attached characters, and
+		# those reuse the bodyguard's model ids. Keyed on active_unit_id alone the
+		# Warboss ("m1") picked up the FIRST BOY's token and had his position
+		# overwritten with the Boy's — which then became his group-drag start
+		# position, so the drop sent him to the Boy's destination and the phase
+		# rejected it as "exceeds cap". He silently never moved.
+		var model_unit_id = str(model_data.get("unit_id", active_unit_id))
 		var visual_pos = model_data.get("position", Vector2.ZERO)
 		var base_radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
 		var found_token = false
@@ -4395,7 +4409,7 @@ func _update_model_selection_visuals() -> void:
 		var token_layer = SceneRefs.token_layer()
 		if token_layer:
 			for child in token_layer.get_children():
-				if child.has_meta("unit_id") and child.get_meta("unit_id") == active_unit_id and \
+				if child.has_meta("unit_id") and str(child.get_meta("unit_id")) == model_unit_id and \
 				   child.has_meta("model_id") and child.get_meta("model_id") == model_id:
 					visual_pos = child.position
 					model_data.position = visual_pos
@@ -4413,7 +4427,8 @@ func _update_model_selection_visuals() -> void:
 				move_data = current_phase.get_active_move_data(active_unit_id)
 			if move_data.has("staged_moves"):
 				for staged_move in move_data.staged_moves:
-					if staged_move.get("model_id") == model_id:
+					if staged_move.get("model_id") == model_id and \
+					   str(staged_move.get("model_source_unit_id", active_unit_id)) == model_unit_id:
 						visual_pos = staged_move.get("dest", visual_pos)
 						model_data.position = visual_pos
 						break
@@ -4452,7 +4467,7 @@ func _start_group_movement(mouse_pos: Vector2) -> void:
 	# Store starting positions for each model
 	group_drag_start_positions.clear()
 	for model_data in selected_models:
-		group_drag_start_positions[model_data.model_id] = model_data.position
+		group_drag_start_positions[_group_model_key(model_data)] = model_data.position
 
 	# Set drag start position to the clicked point
 	drag_start_pos = world_pos
@@ -4474,6 +4489,17 @@ func _start_group_movement(mouse_pos: Vector2) -> void:
 	# Update display - this should show initial "Group Max Used" values
 	_update_group_movement_display()
 
+func _group_model_key(model_data) -> String:
+	"""Bookkeeping key for one member of a group drag. A group selection spans
+	the active unit AND its attached characters, which reuse the bodyguard's
+	model ids ("m1", "m2", …) — so every per-model group dictionary must be
+	scoped by owning unit or the character silently clobbers a bodyguard entry
+	(see group_drag_start_positions)."""
+	return "%s:%s" % [
+		str(model_data.get("unit_id", active_unit_id)),
+		str(model_data.get("model_id", ""))
+	]
+
 func _calculate_formation_offsets(models: Array) -> Dictionary:
 	"""Calculate relative positions within the group formation"""
 	if models.is_empty():
@@ -4484,7 +4510,7 @@ func _calculate_formation_offsets(models: Array) -> Dictionary:
 
 	for model_data in models:
 		var offset = model_data.position - formation_center
-		offsets[model_data.model_id] = offset
+		offsets[_group_model_key(model_data)] = offset
 
 	return offsets
 
@@ -4593,8 +4619,8 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 
 	# Update ghost positions to show preview
 	for child in ghost_visual.get_children():
-		var model_id = child.get_meta("model_id", "")
-		var start_pos = group_drag_start_positions.get(model_id, Vector2.ZERO)
+		var group_key = child.get_meta("group_key", "")
+		var start_pos = group_drag_start_positions.get(group_key, Vector2.ZERO)
 
 		# Update ghost position maintaining formation
 		child.position = start_pos + drag_vector
@@ -4614,7 +4640,7 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 			var model_id = model_data.model_id
 			var model_source = model_data.get("unit_id", active_unit_id)
 			var mk = "%s:%s" % [model_source, model_id]
-			var start_pos = group_drag_start_positions.get(model_id, model_data.position)
+			var start_pos = group_drag_start_positions.get(mk, model_data.position)
 			var new_pos = start_pos + drag_vector
 
 			# Calculate distance for this drag
@@ -4645,8 +4671,9 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 		var first_reason := ""
 		var rejection_by_model := {}
 		for model_data in selected_models:
-			var reason := _group_move_rejection_for(model_data, group_drag_start_positions.get(model_data.model_id, model_data.position) + drag_vector, drag_len_inches, selected_models)
-			rejection_by_model[model_data.model_id] = reason
+			var member_key := _group_model_key(model_data)
+			var reason := _group_move_rejection_for(model_data, group_drag_start_positions.get(member_key, model_data.position) + drag_vector, drag_len_inches, selected_models)
+			rejection_by_model[member_key] = reason
 			if reason == "":
 				placeable_count += 1
 			elif first_reason == "":
@@ -4665,7 +4692,7 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 		for child in ghost_visual.get_children():
 			if child is Label:
 				continue
-			var ghost_ok: bool = str(rejection_by_model.get(child.get_meta("model_id", ""), "")) == ""
+			var ghost_ok: bool = str(rejection_by_model.get(child.get_meta("group_key", ""), "")) == ""
 			if child.has_method("set_validity"):
 				child.set_validity(ghost_ok)
 			elif child.has_method("queue_redraw"):
@@ -4728,7 +4755,7 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 	var first_reason := ""
 	var drag_len_inches: float = Measurement.px_to_inches(drag_vector.length())
 	for model_data in members:
-		var start_pos = starts.get(model_data.model_id, model_data.position)
+		var start_pos = starts.get(_group_model_key(model_data), model_data.position)
 		var reason := _group_move_rejection_for(model_data, start_pos + drag_vector, drag_len_inches, members)
 		if reason == "":
 			placeable.append(model_data)
@@ -4736,7 +4763,7 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 			blocked.append(model_data)
 			if first_reason == "":
 				first_reason = reason
-			print("Group drop: model %s blocked — %s" % [str(model_data.model_id), reason])
+			print("Group drop: model %s blocked — %s" % [_group_model_key(model_data), reason])
 
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if placeable.is_empty():
@@ -4760,15 +4787,15 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 	if drag_vector.length() > 0.001:
 		var dir := drag_vector.normalized()
 		placeable.sort_custom(func(a, b):
-			var pa: Vector2 = starts.get(a.model_id, a.position)
-			var pb: Vector2 = starts.get(b.model_id, b.position)
+			var pa: Vector2 = starts.get(_group_model_key(a), a.position)
+			var pb: Vector2 = starts.get(_group_model_key(b), b.position)
 			return pa.dot(dir) > pb.dot(dir))
 
 	group_drop_in_flight = true
 	var batch_moves = []
 	for model_data in placeable:
 		var model_id = model_data.model_id
-		var start_pos = starts.get(model_id, model_data.position)
+		var start_pos = starts.get(_group_model_key(model_data), model_data.position)
 		var new_pos = start_pos + drag_vector
 		batch_moves.append({
 			"model_id": model_id,
@@ -4777,7 +4804,7 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 			"rotation": model_data.get("rotation", 0.0),
 			"start_pos": start_pos
 		})
-		print("  Preparing move for model ", model_id, " from ", start_pos, " to ", new_pos)
+		print("  Preparing move for model ", _group_model_key(model_data), " from ", start_pos, " to ", new_pos)
 
 	for move in batch_moves:
 		emit_signal("move_action_requested", _build_group_stage_action(move))
@@ -5039,7 +5066,13 @@ func _create_group_ghost_visuals() -> void:
 	for model_data in selected_models:
 		# Create a ghost visual using the GhostVisual script
 		var ghost_token = preload("res://scripts/GhostVisual.gd").new()
-		ghost_token.name = "GhostModel_" + model_data.get("model_id", "")
+		# Name carries the unit too: an attached character shares the bodyguard's
+		# model ids, so "GhostModel_m1" would collide and Godot would silently
+		# rename one of them.
+		ghost_token.name = "GhostModel_%s_%s" % [
+			str(model_data.get("unit_id", active_unit_id)),
+			str(model_data.get("model_id", ""))
+		]
 
 		# Set up the ghost properties
 		ghost_token.owner_player = GameState.get_active_player() if GameState else 1
@@ -5054,9 +5087,12 @@ func _create_group_ghost_visuals() -> void:
 		# Position ghost at model's current position
 		ghost_token.position = model_data.get("position", Vector2.ZERO)
 
-		# Store metadata for tracking
+		# Store metadata for tracking. "group_key" is what the drag/validity
+		# loops index the group dictionaries with — "model_id" stays for the
+		# generic token lookups that scan the board by model id.
 		ghost_token.set_meta("model_id", model_data.get("model_id", ""))
-		ghost_token.set_meta("formation_offset", group_formation_offsets.get(model_data.get("model_id", ""), Vector2.ZERO))
+		ghost_token.set_meta("group_key", _group_model_key(model_data))
+		ghost_token.set_meta("formation_offset", group_formation_offsets.get(_group_model_key(model_data), Vector2.ZERO))
 		ghost_token.set_meta("start_position", model_data.get("position", Vector2.ZERO))
 
 		ghost_visual.add_child(ghost_token)
@@ -5712,7 +5748,7 @@ func pad_group_drop_rejection(screen_pos: Vector2) -> String:
 	var drag_len_inches: float = Measurement.px_to_inches(drag_vector.length())
 	var first_reason := ""
 	for model_data in selected_models:
-		var start_pos = group_drag_start_positions.get(model_data.model_id, model_data.position)
+		var start_pos = group_drag_start_positions.get(_group_model_key(model_data), model_data.position)
 		var reason := _group_move_rejection_for(model_data, start_pos + drag_vector, drag_len_inches, selected_models)
 		if reason == "":
 			return ""
@@ -6070,7 +6106,7 @@ func _show_group_range_overlay() -> void:
 	_clear_move_range_overlay()
 	var cap: float = _get_effective_move_cap()
 	for model_data in selected_models:
-		var start_pos = group_drag_start_positions.get(model_data.get("model_id", ""), model_data.get("position", Vector2.ZERO))
+		var start_pos = group_drag_start_positions.get(_group_model_key(model_data), model_data.get("position", Vector2.ZERO))
 		if start_pos is Dictionary:
 			start_pos = Vector2(start_pos.get("x", 0), start_pos.get("y", 0))
 		var remaining: float = cap - _get_accumulated_distance_for_model(model_data)

@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "Tutorial 3 ('Get Movin'') now reminds you that you can grab the whole mob in one go — and an attached character finally moves when you do.",
+      "changes": [
+        "Step 4 of 'Get Movin'' — the one where the freshly disembarked Boyz make their own move — used to say \"drag one forward\". With 10 Boyz plus an attached Warboss to shift, players were moving all 11 bases individually. The step now points out the select-all shortcut up front: Ctrl+A on mouse and keyboard, D-pad ▲ on a controller, grabs every model in the mob so one drag moves the lot.",
+        "Fixed: moving a mob as a group always left its attached character behind. Grab a squad with select-all or ▲, drag, and the leader stayed exactly where he was — and so did any squadmate standing where he needed to go. On the tutorial's Boyz that meant 8 of the 11 bases moved and three refused, with no message explaining why. An attached character shares model ids with the squad it joined (both have an \"m1\"), and four separate lookups matched on the squad instead of the character's own unit: the leader inherited the first Boy's start position, was sent to the Boy's destination, was measured against the wrong origin, and was even checked for overlap against himself — which no move could ever pass. All four now key off the model's real unit.",
+        "The step's stuck-hint now covers the follow-up too: on a controller ▲ only grabs the mob once the move has actually started, and if the whole mob doesn't fit where you drop it, only the models that fit land — the rest stay in hand for another go.",
+        "The end-of-lesson recap picked up a matching bullet."
+      ]
+    },
+    {
       "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",

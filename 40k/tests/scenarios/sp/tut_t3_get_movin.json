@@ -4,11 +4,12 @@
     "tutorial.t3.movement",
     "tutorial.t3.disembark",
     "tutorial.t3.post_disembark_move",
+    "tutorial.t3.post_disembark_select_all",
     "tutorial.engine.strict_spotlight"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T3 (Get Movin'), mouse+keyboard player path: menu -> picker -> lesson boots from tutorial_postdeploy -> disembark the Boyz+Warboss from the Battlewagon via the real row-click + ConfirmationDialog + 11 placement clicks inside the 3-inch ring -> the boyz_move_after_disembark step teaches that the disembarked unit still gets its own move because the wagon has not moved yet (drag a Boy, End This Unit's Move) -> Advance the Battlewagon through the mode radio + Confirm Movement Mode gate -> move the hull in TWO drags (asserting the second adds to the first, which is what the step now tells the player) -> turn it with Q held mid-drag on the 'POINT IT RIGHT!' step -> End This Unit's Move -> End Movement Phase under a strict spotlight -> summary, completion persisted, back to menu.",
+  "description": "Tutorial lesson T3 (Get Movin'), mouse+keyboard player path: menu -> picker -> lesson boots from tutorial_postdeploy -> disembark the Boyz+Warboss from the Battlewagon via the real row-click + ConfirmationDialog + 11 placement clicks inside the 3-inch ring -> the boyz_move_after_disembark step teaches that the disembarked unit still gets its own move because the wagon has not moved yet, AND reminds the player they can grab all 11 at once: the card is asserted to name Ctrl+A, the shortcut is pressed for real, every alive Boy plus the attached Warboss is asserted selected in MULTI mode, and the drag off one selected model is asserted to stage more than one model (End This Unit's Move) -> Advance the Battlewagon through the mode radio + Confirm Movement Mode gate -> move the hull in TWO drags (asserting the second adds to the first, which is what the step now tells the player) -> turn it with Q held mid-drag on the 'POINT IT RIGHT!' step -> End This Unit's Move -> End Movement Phase under a strict spotlight -> summary, completion persisted, back to menu.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -208,12 +209,46 @@
       "equals": false
     },
     {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"Ctrl+A\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the step must REMIND the player they can grab the whole mob at once - 11 models dragged one at a time is the slow path players fall into right after a disembark. {key:select_all} renders through KeybindingManager, so this also proves the token resolved (an unresolved token would read '{key:select_all}')."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "A",
+      "ctrl": true,
+      "comment": "the shortcut the card now advertises"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "var mc = tree.current_scene.movement_controller\nvar want := 0\nfor uid in [\"U_BOYZ_T\", \"U_WARBOSS_T\"]:\n\tfor m in GameState.get_unit(uid).get(\"models\", []):\n\t\tif m.get(\"alive\", true):\n\t\t\twant += 1\nif mc.selected_models.size() != want:\n\treturn \"selected %d of %d\" % [mc.selected_models.size(), want]\nif str(mc.selection_mode) != \"MULTI\":\n\treturn \"selection_mode %s\" % str(mc.selection_mode)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the card's claim driven for real: Ctrl+A grabbed every alive Boy AND the attached Warboss (MovementController._select_all_unit_models walks the bodyguard plus attached characters), which is the 'all 11' the prompt promises"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "boyz_move_after_disembark",
+      "comment": "selecting the mob is not moving it - the step must not advance on a selection"
+    },
+    {
+      "act": "screenshot",
+      "label": "03a_boyz_all_selected_ctrl_a"
+    },
+    {
       "act": "drag_board",
       "from_x": 480.0,
       "from_y": 500.0,
       "to_x": 480.0,
-      "to_y": 460.0,
-      "comment": "m1 is at board (480,500) after placement - drag it 40px (1\") forward, well inside the 6\" cap and coherency"
+      "to_y": 540.0,
+      "comment": "m1 is at board (480,500) after placement - dragging a SELECTED model shifts the WHOLE formation 40px (1\") (MovementController._start_group_movement), well inside the 6\" cap and coherency. Away from the wagon, not towards it: the Battlewagon hull spans board x 561-719 / y 178-462, so a 1\" step towards it puts the middle of the front rank inside the hull and only the two outer Boyz can be placed."
     },
     {
       "act": "wait_frames",
@@ -230,6 +265,13 @@
       "script": "float(main.movement_controller.current_phase.get_active_move_data(\"U_BOYZ_T\").model_distances[\"U_BOYZ_T:m1\"]) > 0.5",
       "equals": true,
       "comment": "the Boy really moved - guards against a zero-distance stage passing for a move (staged moves only reach GameState on CONFIRM_UNIT_MOVE, so this reads the live move data)"
+    },
+    {
+      "act": "execute_script",
+      "script": "var md = tree.current_scene.movement_controller.current_phase.get_active_move_data(\"U_BOYZ_T\")\nvar dists = md.get(\"model_distances\", {})\nvar missed := []\nfor uid in [\"U_BOYZ_T\", \"U_WARBOSS_T\"]:\n\tvar models = GameState.get_unit(uid).get(\"models\", [])\n\tfor i in range(models.size()):\n\t\tif not models[i].get(\"alive\", true):\n\t\t\tcontinue\n\t\tvar key = \"%s:%s\" % [uid, str(models[i].get(\"id\", \"m%d\" % (i + 1)))]\n\t\tif float(dists.get(key, 0.0)) <= 0.5:\n\t\t\tmissed.append(key)\nif not missed.is_empty():\n\treturn \"did not move: %s\" % str(missed)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "'one drag shifts da whole mob' proven end to end: ONE drag off ONE selected model staged real distance for EVERY alive Boy and the attached Warboss. This is also the regression pin for the group-drag key collision - group_drag_start_positions used to be keyed by bare model_id, so the Warboss ('m1') inherited the first Boy's start position, was sent to the BOY's destination, and the phase rejected it as 'Distance 7.5\" exceeds cap 6.0\"'. He never moved, and the two Boyz whose destinations he was still standing in were blocked behind him - 8 of 11 placed instead of 11."
     },
     {
       "act": "screenshot",
