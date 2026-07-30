@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.22",
+      "date": "2026-07-30",
+      "summary": "The coherency circle is back — but only one, on the model you are actually holding.",
+      "changes": [
+        "Pick a model up during the Movement phase and you now get a single 2\" coherency circle around it, centred on where the model would land rather than on where it started. Drop it so that a squadmate's base sits inside the circle and the unit stays coherent.",
+        "It follows the model as you drag and changes colour with the verdict: cyan while the drop keeps the unit coherent, amber when it would break coherency. It matches the \"Coherent\" readout and the green/red lines to your squadmates, because all three are driven by the same check.",
+        "The circle appears only while you are holding a model and disappears the moment you drop it, so the board is never covered in circles the way it was when every model in the unit had its own. Dragging a whole squad at once shows no circle — the models keep their spacing, so coherency cannot change.",
+        "Amber, not red, is used for a broken drop on purpose: red circles already mean \"enemy engagement range — do not end your move here\"."
+      ]
+    },
+    {
       "version": "1.7.21",
       "date": "2026-07-30",
       "summary": "The cluster of unexplained cyan circles around a unit you are moving is gone — the board is readable again when a big mob is on the move.",
