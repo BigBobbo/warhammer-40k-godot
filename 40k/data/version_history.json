@@ -2,13 +2,26 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.21",
+      "version": "1.7.22",
       "date": "2026-07-30",
       "summary": "The tutorial's instruction card no longer hides behind the Declare Battle Formations panel — it now shrinks to fit the space beside whatever dialog is open.",
       "changes": [
         "Step 1 of \"Musterin' da Boyz\" (MUSTER UP!) opens with the Declare Battle Formations panel already up, and the instructions card that tells you what to do sat partly underneath it: the end of every line was cut off mid-sentence and the Skip Step button was buried. Only players on the default UI Scale were spared — the card was a fixed width, but the panel is centred on screen, and raising UI Scale (or plugging in a controller, which boosts text size) moves the panel left until it swallows the card's right-hand side.",
         "The card now measures the gap to the open dialog every frame and narrows its text to fit, leaving a clear margin. It springs back to full width the moment the dialog closes, and it never squeezes so far that the prompt turns into a column of single words.",
         "This applies to every tutorial step that talks to you over a dialog, not just formations — the deployment and first-turn roll-offs get the same treatment."
+      ]
+    },
+    {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "Nudging an already-placed model during deployment now behaves like placing it: you can turn it, and the old spot actually empties.",
+      "changes": [
+        "You could not rotate a model you had picked back up. Every rotate input — Q/E, the mouse wheel, and the controller's hold-R3 + LB/RB — was hard-wired to the ghost waiting for the NEXT model, so the model in your hand went down at whatever angle it started at.",
+        "That misdirected rotation is also what you saw spinning: the ghost it was turning sat parked over the model's old position, so it looked like the original was rotating instead of the one you were moving.",
+        "The old position no longer stays occupied. Once the last model of a unit was placed, its leftover ghost was never cleared and froze there for the rest of the deployment — picking a model up and putting it somewhere else left that ghost behind, looking like the model had been duplicated. The pending ghost is now also hidden for as long as you are holding a model.",
+        "A model is picked up at the facing it is currently sitting at, and dropped at whatever facing you turned it to — the drop checks the deployment zone and overlaps against that real angle, so a turned oval or rectangular base can't be dropped somewhere its actual footprint doesn't fit.",
+        "Repositioning a model of a unit deployed together with an attached character now moves the right token. It was looked up under the wrong name, so that model's marker was left behind at its old spot.",
+        "The controller hint bar while a model is in hand now shows \"R3 Hold: LB/RB Rotate\" so the turn combo is actually discoverable."
       ]
     },
     {
