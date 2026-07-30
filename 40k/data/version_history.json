@@ -2,11 +2,31 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.8.3",
+      "version": "1.8.5",
       "date": "2026-07-30",
       "summary": "Tutorial 2's 'Grots in a Mob' step now names BOTH bumpers as the way to switch onto the Gretchin, not just RB.",
       "changes": [
         "Step 9 of 'Musterin' da Boyz' told you to tap RB until the Gretchin row was picked. Either bumper switches unit — LB steps back through the list, RB steps forward — and with the Gretchin the only unit left to deploy, a player reaching for LB was doing exactly the right thing with no confirmation from the card that it would work. The step now reads \"Tap [RB] (or [LB]) till da Gretchin row is picked.\" The rest of the step is unchanged."
+      ]
+    },
+    {
+      "version": "1.8.4",
+      "date": "2026-07-30",
+      "summary": "Controller: grabbing your own model with A now works while you're steering with the stick, and LB/RB turn a vehicle mid-move instead of refusing to switch units.",
+      "changes": [
+        "Tutorial 3 (\"Get Movin'\") step 8 tells you to grab the Battlewagon with A and spin it with LB/RB, but the grab silently did nothing and the bumpers answered \"Confirm or reset this unit's move before switching\". With the on-screen cursor live — which it is the moment you touch the left stick — A was a plain click that picked the model up and set it straight back down, so nothing was ever in your hand for the bumpers to turn. Now, once a unit's move is under way, tapping A on one of its models really picks it up: the stick steers it, LB/RB turn it, A drops it. (Holding A and steering still works as a drag that drops when you let go.) This was never just a tutorial problem — it broke re-grabbing a model to spend the rest of its move anywhere in the Movement phase.",
+        "LB/RB now turn the model 15° a tap from the moment a unit's move is under way until it is confirmed — whether the model is in your hand or parked where you dropped it. The bumpers cannot switch units in that state anyway, so instead of only warning you about that they do the thing you were reaching for. The hint bar shows the new Rotate chips, turning costs no movement, and the new facing now survives \"End This Unit's Move\" (a turn made after dropping the model used to be quietly reverted when the move was confirmed).",
+        "Models on round bases are unchanged: they have no facing to turn, so there the bumpers still explain why they can't switch units mid-move."
+      ]
+    },
+    {
+      "version": "1.8.3",
+      "date": "2026-07-30",
+      "summary": "The tutorial's instruction card no longer hides behind the Declare Battle Formations window.",
+      "changes": [
+        "Step 1 of 8 in 'Musterin' da Boyz' put the instruction card on the left flank at a fixed width and assumed the Battle Formations window left room for it. On anything but a very wide screen it didn't — the end of the instruction, the step counter and the Skip Step / Exit Tutorial buttons all sat behind the window. Anyone who had nudged the UI Scale slider up, or was playing on a controller (which enlarges the UI), lost part of every card that shares the screen with a pop-up.",
+        "The card now measures the space actually left beside an open window and re-wraps itself to fit it, so the whole card stays readable and clickable. If there is more room on the other side of the window, it moves there instead.",
+        "When a pop-up doesn't reach the card's usual spot at the top of the screen, the card now simply stays there at full width instead of jumping to the side."
       ]
     },
     {
