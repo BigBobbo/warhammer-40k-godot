@@ -398,6 +398,14 @@ var carry_active: bool = false
 var carry_model_index: int = 0
 var _carry_pickup_screen := Vector2.ZERO
 var _carry_unit_id: String = ""  # resets carry_model_index when the unit changes
+# True between the cursor-mode Ⓐ press whose drag was adopted as a carry
+# (adopt_cursor_drag_as_carry) and its release, which decides whether that press
+# was a tap or a drag — see on_cursor_a_released.
+var _cursor_grab_press_open: bool = false
+# How far (screen px) the cursor must travel with Ⓐ held for the release to read
+# as a DRAG rather than a tap. Mouse UIs use a few px; the pad needs more slack
+# because the stick can still be drifting through a quick tap.
+const CURSOR_GRAB_DRAG_PX := 24.0
 # Group carry: EVERY unmoved model of the unit rides the cursor as one
 # formation (MovementController's mouse group-drag machinery runs underneath).
 # Entered by any D-pad press while a model is in hand / the unit is mid-move —
@@ -548,7 +556,7 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_LEFT_SHOULDER:
 			if carry_active or _rotating_a_placement_ghost():
 				_synth_rotate(true)
-			elif _repositioning_placement() == null:
+			elif _repositioning_placement() == null and not _try_rotate_parked_model(-1):
 				# Swallowed while a model is lifted: cycling to another unit
 				# mid-lift would abandon the model in limbo (its token is still
 				# faded at the old spot and the session it belongs to is gone).
@@ -557,7 +565,7 @@ func _input(event: InputEvent) -> void:
 		JOY_BUTTON_RIGHT_SHOULDER:
 			if carry_active or _rotating_a_placement_ghost():
 				_synth_rotate(false)
-			elif _repositioning_placement() == null:
+			elif _repositioning_placement() == null and not _try_rotate_parked_model(1):
 				_cycle(1)
 			get_viewport().set_input_as_handled()
 		JOY_BUTTON_Y:
@@ -1370,6 +1378,94 @@ func _handle_back() -> bool:
 # M3 model carry — pickup/drop/cancel/hop/rotate
 # ============================================================================
 
+# A cursor-mode Ⓐ press that MovementController just turned into a single-model
+# drag becomes a real M3 carry. Called from _start_model_drag — i.e. after the
+# mouse pipeline has already decided this press is a model pickup (GUI clicks
+# never reach it, group / box-select presses take other branches), so this adds
+# no second opinion about what the press meant, only about what happens next.
+#
+# Why: with the virtual cursor ACTIVE — which it is the moment the player touches
+# the left stick — Ⓐ is re-emitted as a plain left click, and a click on your own
+# model started a drag and ended it in the same gesture: a 0" re-stage with
+# nothing in hand. The bumpers only rotate while a carry is live, so they fell
+# through to _cycle()'s unit switch, which is the reported tutorial T3 step-8 dead
+# end: "grab it wiv Ⓐ, den LB/RB spins it" answered with "Confirm or reset this
+# unit's move before switching". Adopting the drag means the model is genuinely in
+# hand: the stick steers it, LB/RB turn it, X finishes it, B cancels, Ⓐ drops it.
+# The synthetic left button is ALREADY held by VirtualCursor (that is what started
+# the drag), so nothing is emitted here — only the router's bookkeeping.
+func adopt_cursor_drag_as_carry(source_unit_id: String, model_id: String) -> bool:
+	if carry_active or group_carry_active:
+		return false
+	if not InputDeviceManager.is_pad_active() or not VirtualCursor.is_cursor_active():
+		return false
+	if PadActionBar.is_open():
+		return false
+	var mc := _movement_controller()
+	if mc == null:
+		return false
+	# ONLY once the move is committed — mode locked, or a model already staged.
+	# active_mode is "Normal Move (Default)" from the moment a unit is selected, so
+	# without this the very first click on your own model would take the model
+	# hostage while the player is still choosing HOW to move: the next glide+Ⓐ
+	# (onto the Advance radio, or Confirm Movement Mode — the tutorial's own
+	# preceding step) would drag the model to the button instead of pressing it.
+	# Committed is also exactly the state where the bumpers stop switching units,
+	# so "the board controls are about the models" starts and ends together.
+	if not mc.has_method("pad_is_move_session_locked") or not mc.pad_is_move_session_locked():
+		return false
+	var unit_id := str(mc.active_unit_id)
+	var roster_index := _roster_index_of(unit_id, source_unit_id, model_id)
+	if roster_index < 0:
+		return false
+	# Any focus a cursor click left on a HUD control is released: with the model in
+	# hand the D-pad means "swap / grab all", and the focus guards would keep those
+	# standing down. Safe because in cursor mode a focus owner is always residue —
+	# deliberate D-pad panel work parks the cursor before it navigates.
+	_release_panel_focus()
+	_carry_unit_id = unit_id
+	carry_model_index = roster_index
+	_carry_pickup_screen = VirtualCursor.get_cursor_pos()
+	carry_active = true
+	_cursor_grab_press_open = true
+	_update_hints()
+	return true
+
+
+# The RELEASE of the Ⓐ press whose drag was adopted above, from VirtualCursor.
+# Mouse parity, told apart exactly the way a mouse tells a click from a drag —
+# by how far the pointer travelled while the button was down:
+#   * held and steered (the M1 "hold Ⓐ and glide" drag) → the release DROPS the
+#     model where it now stands, same as letting go of the left button;
+#   * a TAP → the model stays in hand and the M3 carry flow owns it: the stick
+#     steers, LB/RB turn it, the next Ⓐ drops it. This is the half tutorial T3
+#     step 8 asks for ("grab it wiv Ⓐ, den LB/RB spins it").
+# Returns true when the release was consumed here. Only ever answers for a carry
+# THIS press started (_cursor_grab_press_open) — a rejected illegal drop leaves
+# an unrelated carry live, and that release must not yank the model down again.
+func on_cursor_a_released() -> bool:
+	if not _cursor_grab_press_open:
+		return false
+	_cursor_grab_press_open = false
+	if not carry_active or group_carry_active:
+		return false
+	if (VirtualCursor.get_cursor_pos() - _carry_pickup_screen).length() < CURSOR_GRAB_DRAG_PX:
+		return true  # a tap: the carry flow keeps it
+	_drop_carry()
+	return true
+
+
+# Where a model sits in the unit's alive-model roster (the index D-pad ◀ ▶ / L3
+# hop through and carry_model_index tracks), or -1 when it isn't in it.
+func _roster_index_of(active_unit: String, source_unit_id: String, model_id: String) -> int:
+	var roster := _unit_move_roster(active_unit)
+	for i in range(roster.size()):
+		if str(roster[i].get("source_unit_id", active_unit)) == source_unit_id \
+				and str(roster[i].get("model_id", "")) == model_id:
+			return i
+	return -1
+
+
 func _try_begin_carry() -> bool:
 	if VirtualCursor.is_cursor_active():
 		return false  # cursor mode: A is a click (VirtualCursor consumed it)
@@ -1448,6 +1544,7 @@ func _drop_carry(regrab_group := true) -> bool:
 	VirtualCursor.set_left_button(false)
 	carry_active = false
 	group_carry_active = false
+	_cursor_grab_press_open = false  # this carry is over; its Ⓐ release decides nothing
 	# Park so the cursor can't consume the next A as a stray click; with it
 	# parked, A routes back through the router (pick the model up again / confirm).
 	VirtualCursor.park()
@@ -1832,6 +1929,7 @@ func _await_group_drop_settled() -> void:
 
 
 func _cancel_carry() -> void:
+	_cursor_grab_press_open = false  # this carry is over; its Ⓐ release decides nothing
 	# Group carry cancel: nothing has moved yet (only ghosts ride the cursor),
 	# so tear the drag down WITHOUT releasing over the board — releasing would
 	# stage a zero/short move for every member. Abort first (group_dragging goes
@@ -2110,6 +2208,68 @@ func _synth_rotate(left: bool) -> void:
 	release.keycode = binding.key as Key
 	release.pressed = false
 	Input.parse_input_event(release)
+
+
+# Movement, move session locked (mode locked or a model staged) with NOTHING in
+# hand: the bumpers cannot switch units in this state — _cycle refuses and warns
+# "Confirm or reset this unit's move before switching" — so they are free to mean
+# the thing the player was reaching for. Turn the model the pad is focused on,
+# 15° a tap, exactly as they do mid-carry. Reported from tutorial T3 step 8: the
+# bumpers were "switch unit" even where switching is impossible, so a player
+# trying to point the Battlewagon got the switch warning instead of a facing.
+#
+# Returns false — leaving _cycle (and its warning, which is the honest answer
+# there) to run — when the session isn't locked or the model has a circular base
+# with no facing to turn.
+func _try_rotate_parked_model(dir: int) -> bool:
+	if not _movement_can_rotate_parked():
+		return false
+	var mc := _movement_controller()
+	if mc == null or not mc.has_method("pad_rotate_model_in_place"):
+		return false
+	var target := _parked_rotation_target()
+	if target.is_empty():
+		return false
+	# Bumpers are a BOARD action (same rule as _cycle): a side-panel control
+	# holding focus — mouse-click residue, or deliberate D-pad panel work — lets
+	# go first, so the pad lands back in the model flow rather than needing a
+	# throw-away press to shake the focus loose.
+	_release_panel_focus()
+	var angle := (-PI / 12.0) if dir < 0 else (PI / 12.0)
+	return bool(mc.pad_rotate_model_in_place(angle, str(target.get("source_unit_id", "")), str(target.get("model_id", ""))))
+
+
+# Which model a parked bumper-rotate turns: the one the pad is focused on
+# (carry_model_index — the same model A picks up and D-pad ◀ ▶ / L3 hop through),
+# falling back to the unit's first alive model.
+func _parked_rotation_target() -> Dictionary:
+	var mc := _movement_controller()
+	if mc == null:
+		return {}
+	var unit_id := str(mc.active_unit_id)
+	if unit_id == "":
+		return {}
+	var roster := _unit_move_roster(unit_id)
+	if roster.is_empty():
+		return {}
+	var idx := 0
+	if _carry_unit_id == unit_id and carry_model_index >= 0 and carry_model_index < roster.size():
+		idx = carry_model_index
+	return roster[idx]
+
+
+# True when the parked bumper-rotate above would actually turn something — the
+# gate for advertising the LB/RB "Rotate" chips in the staged / locked hint sets.
+func _movement_can_rotate_parked() -> bool:
+	if not _movement_session_locked():
+		return false
+	var mc := _movement_controller()
+	if mc == null or not mc.has_method("pad_can_rotate_in_place"):
+		return false
+	var target := _parked_rotation_target()
+	if target.is_empty():
+		return false
+	return bool(mc.pad_can_rotate_in_place(str(target.get("source_unit_id", "")), str(target.get("model_id", ""))))
 
 
 # ============================================================================
@@ -2493,8 +2653,11 @@ func _update_hints() -> void:
 			elif _movement_session_locked():
 				# Mid-move with models still to place = the multi-step state
 				# (A re-picks the dropped model, X advances); all placed = the
-				# locked state waiting on Start.
-				hints = HINTS_MOVE_STAGED if _movement_has_unplaced_models() else HINTS_MOVE_LOCKED
+				# locked state waiting on Start. Both sets gain the LB/RB rotate
+				# chips when the focused model has a facing to turn: the bumpers
+				# can't switch units while the session is locked, so there they
+				# mean rotation (see _try_rotate_parked_model).
+				hints = _with_parked_rotate_hints(HINTS_MOVE_STAGED if _movement_has_unplaced_models() else HINTS_MOVE_LOCKED)
 			elif _fight_controller() != null:
 				# Fight board context (fighter selection / pile-in / consolidate).
 				# The attack dialog carries its own on-dialog hint row while open;
@@ -2514,6 +2677,26 @@ func _update_hints() -> void:
 	# Targets, …) owns Start. Done from the same `hints` the bar just rendered, so
 	# chip and button are the same statement by construction.
 	_set_start_action(_start_chip_label(hints))
+
+
+# A copy of `hints` with the LB/RB rotate chips added, for the parked mid-move
+# states where the bumpers turn the focused model instead of refusing to switch
+# units. Inserted ahead of the B (undo) chip so the bar reads in the same order
+# as the carry set — …model controls, rotate, undo — rather than opening on a
+# pair of chips the player only needs once the move is placed.
+func _with_parked_rotate_hints(hints: Array) -> Array:
+	if not _movement_can_rotate_parked():
+		return hints
+	var rotate: Array = [["lb", "Rotate ⟲"], ["rb", "Rotate ⟳"]]
+	var head: Array = []
+	var tail: Array = []
+	for hint in hints:
+		var glyph := str(hint[0]) if (hint is Array and hint.size() >= 1) else ""
+		if tail.is_empty() and glyph != "b":
+			head.append(hint)
+		else:
+			tail.append(hint)
+	return head + rotate + tail
 
 
 # A copy of `hints` with the chip for `glyph` dropped — for states where a set

@@ -9,7 +9,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T3 driven with pad input: LB claims pad mode, cursor-glide + A through the picker, disembark via the middle unit-list row and dialog, 11 cursor-glide placement clicks, the boyz_move_after_disembark step driven in carry mode (A grab) where the card is asserted to advertise the ✚ ▲ 'lifts all 11' reminder and a real D-pad ▲ press is asserted to put every alive Boy plus the attached Warboss in one hand, glide + A drops the lot (more than one model asserted staged), plus End This Unit's Move, RB to cycle to the Battlewagon, Advance radio + Confirm Movement Mode via glide+A, Keep Roll on the command re-roll, then a REAL carry for the wagon: B parks the cursor so A reaches PadRouter (with the cursor active, VirtualCursor eats A as a left-click and no carry ever starts), A grabs the wagon, glide + A drops it, A picks the same model straight back up for a second leg, LB twice turns it on the 'POINT IT RIGHT!' step, A drops it again and the two legs are asserted to SUM. Then End This Unit's Move and Start-button End Phase with its pad confirm. Native command re-roll and disembark dialogs are confirmed via emit_pressed (embedded-Window buttons have no reliable real-click coordinates).",
+  "description": "Tutorial lesson T3 driven with pad input: LB claims pad mode, cursor-glide + A through the picker, disembark via the middle unit-list row and dialog, 11 cursor-glide placement clicks, the boyz_move_after_disembark step driven in carry mode (A grab) where the card is asserted to advertise the ✚ ▲ 'lifts all 11' reminder and a real D-pad ▲ press is asserted to put every alive Boy plus the attached Warboss in one hand, glide + A drops the lot (more than one model asserted staged), plus End This Unit's Move, RB to cycle to the Battlewagon, Advance radio + Confirm Movement Mode via glide+A, Keep Roll on the command re-roll, then a REAL carry for the wagon: B parks the cursor so the first grab goes through PadRouter's indexed pickup, A grabs the wagon, glide + A drops it, then the REPORTED path - glide off the hull and back onto it so the cursor is ACTIVE, and A picks the same model straight back up for a second leg (the click's drag is adopted as a carry), LB twice turns it on the 'POINT IT RIGHT!' step, A drops it again and the two legs are asserted to SUM. Then End This Unit's Move and Start-button End Phase with its pad confirm. Native command re-roll and disembark dialogs are confirmed via emit_pressed (embedded-Window buttons have no reliable real-click coordinates).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -502,7 +502,7 @@
     {
       "act": "simulate_joy_button",
       "button_index": 1,
-      "comment": "B parks the virtual cursor. This is load-bearing, not tidying: while the cursor is ACTIVE, VirtualCursor._input eats A and re-emits it as a left-click at the cursor, so A never reaches PadRouter and no carry ever begins - it press-and-releases a mouse drag in place and stages a 0.0-inch move. Parked, A routes to PadRouter._handle_a -> _try_begin_carry. Same B-then-A opening as pad_group_move_all / pad_move_dpad_model_select."
+      "comment": "B parks the virtual cursor so this first grab goes through PadRouter._handle_a -> _try_begin_carry (the indexed-model pickup that warps the cursor onto the hull). Same B-then-A opening as pad_group_move_all / pad_move_dpad_model_select. The cursor-ACTIVE grab - A on the hull the player has steered onto, which used to be eaten as a plain left click and never started a carry - is driven on the wagon_turn step below and in pad_move_grab_own_model_cursor_active."
     },
     {
       "act": "wait_seconds",
@@ -568,9 +568,25 @@
       "comment": "the wagon enters the step un-rotated"
     },
     {
+      "act": "pad_cursor_glide",
+      "x": 900.0,
+      "y": 600.0,
+      "comment": "THE REPORTED PATH: the drop parked the cursor, but a real player is steering the stick when they read 'grab it wiv A' - so glide clear of the hull (the runner's already-there early-out would skip re-activating the cursor otherwise) and then back onto it below"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "unit_id": "U_BATTLEWAGON_T"
+    },
+    {
+      "act": "execute_script",
+      "script": "VirtualCursor.is_cursor_active()",
+      "equals": true,
+      "comment": "cursor ACTIVE on the hull - the exact state in which A used to be re-emitted as a left click, staging a 0-inch move and leaving nothing in hand"
+    },
+    {
       "act": "simulate_joy_button",
       "button_index": 0,
-      "comment": "A picks the SAME model straight back up - _drop_carry parked the cursor for exactly this, and PadRouter keeps carry_model_index so a drop is a waypoint, not a hand-off. This is the second leg the previous step's wording promises"
+      "comment": "A picks the SAME model straight back up - the click's drag is adopted as a real carry (MovementController._start_model_drag -> PadRouter.adopt_cursor_drag_as_carry) and the tap's release leaves it in hand, so a drop is a waypoint, not a hand-off. This is the second leg the previous step's wording promises"
     },
     {
       "act": "wait_seconds",
@@ -580,7 +596,7 @@
       "act": "execute_script",
       "script": "PadRouter.carry_active",
       "equals": true,
-      "comment": "LB/RB only rotate while a carry is live - otherwise PadRouter routes the bumpers to _cycle() (switch unit), so this guards the rotation assertion below from passing for the wrong reason"
+      "comment": "the grab really took: LB/RB rotate the model in hand here, so this guards the rotation assertion below from passing for the wrong reason"
     },
     {
       "act": "simulate_joy_button",

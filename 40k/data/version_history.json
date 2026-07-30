@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.8.5",
+      "version": "1.8.8",
       "date": "2026-07-30",
       "summary": "The coherency circle is back — but only one, on the model you are actually holding.",
       "changes": [
@@ -13,13 +13,40 @@
       ]
     },
     {
-      "version": "1.8.4",
+      "version": "1.8.7",
       "date": "2026-07-30",
       "summary": "The cluster of unexplained cyan circles around a unit you are moving is gone — the board is readable again when a big mob is on the move.",
       "changes": [
         "Selecting a unit to move used to draw a cyan 2\" unit-coherency circle around EVERY model in it. For a 10-model mob of Boyz piling out of a Battlewagon that meant ten overlapping circles roughly 5\" across stacked on top of each other — a wall of cyan that hid the models, the terrain and the objectives, and that read as some unexplained \"engagement range\" bubble. Those rings have been removed.",
         "Nothing about coherency was lost. Pick a model up and you still get the live check: a line from the model you are carrying to each of its mates, green when that mate is close enough and red when it is not, plus a \"Coherent\" / \"N/M coherent\" readout on the model itself. Ending a move that breaks coherency is still refused with a message saying so.",
         "The two guides that were actually doing a job are untouched: the green dashed circle showing how far the model you picked up can still go, and the red circles around enemy models marking where you may not end up."
+      ]
+    },
+    {
+      "version": "1.8.6",
+      "date": "2026-07-30",
+      "summary": "The tutorial card now also steps aside for the pop-ups it could not previously see at all.",
+      "changes": [
+        "The card only ever looked for open dialogs in two places, so any dialog opened by the phase controller that raises it — the shooting phase's grenade and split-fire target pickers, the movement phase's right-click menu — was invisible to it. The card did not move out of the way for those, and worse, the tutorial did not realise it was underneath a modal at all: its Exit Tutorial button stayed looking live while the dialog swallowed every click, leaving no way out. Those dialogs are now found wherever they sit, the card steps aside for them, and the modal gets its own working Exit Tutorial button.",
+        "Opening a dropdown list no longer counts as a pop-up to hide from, so the card stays put instead of darting to the side of the screen for as long as the list is open."
+      ]
+    },
+    {
+      "version": "1.8.5",
+      "date": "2026-07-30",
+      "summary": "Tutorial 2's 'Grots in a Mob' step now names BOTH bumpers as the way to switch onto the Gretchin, not just RB.",
+      "changes": [
+        "Step 9 of 'Musterin' da Boyz' told you to tap RB until the Gretchin row was picked. Either bumper switches unit — LB steps back through the list, RB steps forward — and with the Gretchin the only unit left to deploy, a player reaching for LB was doing exactly the right thing with no confirmation from the card that it would work. The step now reads \"Tap [RB] (or [LB]) till da Gretchin row is picked.\" The rest of the step is unchanged."
+      ]
+    },
+    {
+      "version": "1.8.4",
+      "date": "2026-07-30",
+      "summary": "Controller: grabbing your own model with A now works while you're steering with the stick, and LB/RB turn a vehicle mid-move instead of refusing to switch units.",
+      "changes": [
+        "Tutorial 3 (\"Get Movin'\") step 8 tells you to grab the Battlewagon with A and spin it with LB/RB, but the grab silently did nothing and the bumpers answered \"Confirm or reset this unit's move before switching\". With the on-screen cursor live — which it is the moment you touch the left stick — A was a plain click that picked the model up and set it straight back down, so nothing was ever in your hand for the bumpers to turn. Now, once a unit's move is under way, tapping A on one of its models really picks it up: the stick steers it, LB/RB turn it, A drops it. (Holding A and steering still works as a drag that drops when you let go.) This was never just a tutorial problem — it broke re-grabbing a model to spend the rest of its move anywhere in the Movement phase.",
+        "LB/RB now turn the model 15° a tap from the moment a unit's move is under way until it is confirmed — whether the model is in your hand or parked where you dropped it. The bumpers cannot switch units in that state anyway, so instead of only warning you about that they do the thing you were reaching for. The hint bar shows the new Rotate chips, turning costs no movement, and the new facing now survives \"End This Unit's Move\" (a turn made after dropping the model used to be quietly reverted when the move was confirmed).",
+        "Models on round bases are unchanged: they have no facing to turn, so there the bumpers still explain why they can't switch units mid-move."
       ]
     },
     {

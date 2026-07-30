@@ -1,0 +1,129 @@
+{
+  "id": "tut_card_dodges_deep_dialog",
+  "covers": [
+    "tutorial.overlay.dialog_dodge_deep",
+    "scripts.tutorial.TutorialOverlay"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "The card dodges dialogs wherever they are parented, not just the ones on /root and /root/Main. Some dialogs belong to the phase controller that raises them -- the shooting phase's grenade and split-fire target pickers on /root/Main/ShootingController, the movement phase's menu -- and sit one level deeper than the two-level scan reached. Those were invisible to the overlay: the card never stepped aside AND _sync_modal_exit never fired, so its Exit Tutorial stayed live-looking while an exclusive modal swallowed every click. Companion to tut_t2_card_clears_formations_dialog, which covers the card fitting beside a dialog it CAN see; this one covers the ones it could not.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var n = tree.root.get_node_or_null(\"/root/MainMenu/TutorialNudge\")\nif n == null or not n.visible:\n\treturn \"absent\"\nvar b = n.get_node_or_null(\"Margin/VBox/Footer/DismissNudgeButton\")\nif b == null:\n\treturn \"no dismiss button\"\nb.pressed.emit()\nreturn \"dismissed\"",
+      "multiline": true,
+      "comment": "on a genuinely fresh profile the first-launch 'First time 'ere?' nudge is up, and its mouse_filter=STOP panel swallows clicks aimed at the menu behind it"
+    },
+    {
+      "act": "execute_script",
+      "script": "var sc = tree.root.get_node_or_null(\"/root/MainMenu/ScrollContainer\")\nvar b = tree.root.get_node_or_null(\"/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton\")\nif sc == null or b == null:\n\treturn false\nsc.ensure_control_visible(b)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "ButtonSection sits below the menu's scroll fold at 1080p, and a click at an unscrolled control's coordinates lands on whatever is actually drawn there"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t7_runnin_da_show/Play_t7_runnin_da_show"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "review_missions"
+    },
+    {
+      "act": "execute_script",
+      "script": "var host = null\nfor c in tree.root.get_node(\"/root/Main\").get_children():\n\tif \"Controller\" in str(c.name):\n\t\thost = c\n\t\tbreak\nif host == null:\n\treturn \"no controller node under Main to parent onto\"\nvar d = AcceptDialog.new()\nd.name = \"ProbeControllerDialog\"\nd.min_size = Vector2i(700, 500)\nd.exclusive = true\nhost.add_child(d)\nDialogUtils.popup_at_bottom(d)\nif d.get_parent() == tree.root or d.get_parent() == tree.root.get_node(\"/root/Main\"):\n\treturn \"probe landed at a depth the two-level scan already covered - proves nothing\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "stand-in for ShootingController's grenade / split-fire pickers, which need a board state this lesson cannot reach but sit at exactly this depth"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0,
+      "comment": "the deep scan is throttled to 0.15s, so give discovery a moment"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar seen = []\nfor w in ov._open_game_windows():\n\tseen.append(str(w.name))\nif not seen.has(\"ProbeControllerDialog\"):\n\treturn \"a dialog parented below /root/Main is still invisible to the overlay - it sees only %s\" % str(seen)\nif ov.card_blocker_overlap() > 0.0:\n\treturn \"card buried %.0fpx under an open dialog (card %s)\" % [ov.card_blocker_overlap(), str(ov.card_rect())]\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the delta this scenario exists for: the overlay now sees a dialog parented to a controller, and the card is clear of everything open. Placement itself is not asserted -- the card only moves when a dialog actually reaches it, which is tut_t2_card_clears_formations_dialog's territory"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar b = ov.get_node(\"InstructorCard/Margin/VBox/Footer/ExitTutorialButton\")\nif not b.disabled:\n\treturn \"card's Exit Tutorial still looks live under a modal that swallows every click\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the other half: _sync_modal_exit now fires for these dialogs too, so the dead button is greyed instead of silently eating clicks"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_deep_dialog_dodged"
+    },
+    {
+      "act": "execute_script",
+      "script": "var pm = PopupMenu.new()\npm.name = \"ProbeDropdown\"\npm.add_item(\"Tactical\")\nvar d = tree.root.get_node(\"/root/Main\").find_child(\"ProbeControllerDialog\", true, false)\nif d == null:\n\treturn false\nd.get_parent().add_child(pm)\npm.popup(Rect2i(400, 400, 200, 80))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main\").find_child(\"ProbeControllerDialog\", true, false)\nif d != null:\n\td.queue_free()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar pm = tree.root.get_node(\"/root/Main\").find_child(\"ProbeDropdown\", true, false)\nif pm == null or not pm.visible:\n\treturn \"the dropdown closed on its own - this check proves nothing\"\nvar seen = []\nfor w in ov._open_game_windows():\n\tseen.append(str(w.name))\nif seen.has(\"ProbeDropdown\"):\n\treturn \"an open dropdown counts as a modal - the card would dart to the gutter, and its footer grey, whenever a list is opened\"\nif seen.has(\"ProbeControllerDialog\"):\n\treturn \"the freed probe dialog is still being counted\"\nif ov.card_blocker_overlap() > 0.0:\n\treturn \"card overlaps something after the probe dialog closed\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "PopupMenu is a Window too, so the deep scan reaches dropdowns and context menus - they must not count. The lesson's own review dialog may still be open here, so this checks what is counted rather than that nothing is"
+    },
+    {
+      "act": "execute_script",
+      "script": "var pm = tree.root.get_node(\"/root/Main\").find_child(\"ProbeDropdown\", true, false)\nif pm != null:\n\tpm.queue_free()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.exit_tutorial()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": false
+    }
+  ]
+}

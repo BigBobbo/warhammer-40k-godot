@@ -19,6 +19,9 @@ const GlyphDB = preload("res://scripts/input/GlyphDB.gd")
 const CARD_TOP_OFFSET := 96.0
 const CARD_BOTTOM_OFFSET := 132.0  # keeps clear of the pad hint bar
 const ANCHOR_RERESOLVE_S := 0.5
+# How often the full-tree hunt for controller-parented dialogs runs — see
+# _refresh_deep_windows for why it is not every frame.
+const DEEP_SCAN_INTERVAL_S := 0.15
 
 # --- card sizing (see _dodge_dialog) ---
 # Width of the card's text column when nothing is crowding it. The card itself
@@ -79,6 +82,8 @@ var _card_mode: String = ""
 var _card_content_w: float = -1.0
 var _last_cramped_log_ms: int = 0
 var _dim_strips: Array = []
+var _deep_windows: Array = []   # dialogs parented below /root/Main, see _refresh_deep_windows
+var _deep_scan_accum: float = DEEP_SCAN_INTERVAL_S
 # Kept so _min_content_width() can ask them how much room they need.
 var _header: HBoxContainer = null
 var _footer: HBoxContainer = null
@@ -534,6 +539,28 @@ func card_placement() -> String:
 	return _card_mode
 
 
+# Exposed for windowed scenarios: the width the card's text column is wrapped
+# at. CARD_CONTENT_WIDTH unless it has been narrowed to fit beside a dialog.
+func card_content_width() -> float:
+	return _card_content_w
+
+
+# Exposed for windowed scenarios: the bounds the card must keep off, or a zero
+# rect when no dialog is open.
+func card_blocker_rect() -> Rect2:
+	return _dialog_bounds()
+
+
+# Exposed for windowed scenarios: how far an open dialog eats into the card, in
+# px. <= 0 means the card is fully clear of it.
+func card_blocker_overlap() -> float:
+	var blocker := _dialog_bounds()
+	if blocker.size == Vector2.ZERO:
+		return 0.0
+	var inter := blocker.intersection(card_rect())
+	return minf(inter.size.x, inter.size.y)
+
+
 # The narrowest the text column may get: whatever this step's own buttons need
 # to sit on one row, plus whatever the header needs. Measured rather than
 # pinned, because a font-size change moves it (the Steam Deck legibility pass
@@ -569,14 +596,55 @@ func _open_game_windows() -> Array:
 		if scope == null:
 			continue
 		for child in scope.get_children():
-			if not (child is Window) or child == get_tree().root:
-				continue
-			if not (child as Window).visible:
-				continue
-			if child.name == MODAL_EXIT_WINDOW_NAME or child.name == EXIT_CONFIRM_NAME:
-				continue
-			out.append(child as Window)
+			if _is_game_window(child):
+				out.append(child as Window)
+	# Dialogs parented deeper than those two levels — see _refresh_deep_windows.
+	for w in _deep_windows:
+		if is_instance_valid(w) and _is_game_window(w) and not out.has(w):
+			out.append(w)
 	return out
+
+
+func _is_game_window(node: Node) -> bool:
+	if not (node is Window) or node == get_tree().root:
+		return false
+	if not (node as Window).visible:
+		return false
+	# Popup (PopupMenu, PopupPanel) is a Window too, so an OptionButton dropdown
+	# or a right-click menu would otherwise read as a modal — sending the card
+	# into the gutter, and greying its footer, for as long as a list is open.
+	# Those are transient and small; they are not what the card dodges. (The
+	# two-level scan above can already reach one, e.g. Main's own PopupMenu.)
+	if node is Popup:
+		return false
+	return node.name != MODAL_EXIT_WINDOW_NAME and node.name != EXIT_CONFIRM_NAME
+
+
+# Most dialogs are parented to /root or /root/Main, and _open_game_windows
+# rescans those two levels every frame — it costs ~31us and the card dodges them
+# on the frame they open. But some are parented to the CONTROLLER that raises
+# them: the shooting phase's grenade and split-fire target pickers live on
+# /root/Main/ShootingController, and the movement phase's menu likewise. Those
+# sit a level deeper than that scan reaches, so before this they were invisible
+# to the overlay. Verified live with a dialog parented there: _dialog_bounds()
+# came back empty and the card sat in "top" as though nothing were open, AND
+# _sync_modal_exit never fired — leaving a dead-but-live-looking Exit Tutorial
+# under a modal that swallows every click, the softlock the hatch exists for.
+#
+# A full-tree walk finds them but measured 1.12ms over the ~1800 nodes of a live
+# lesson, and _process consults this more than once a frame — too dear at 60Hz
+# on a Deck. So the deep walk is throttled and its hits cached. Only DISCOVERY
+# is delayed (up to DEEP_SCAN_INTERVAL_S); the cache is revalidated on every
+# read, so a dialog closing un-dodges the card immediately.
+func _refresh_deep_windows() -> void:
+	_deep_windows.clear()
+	var stack: Array = [get_tree().root]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		for child in node.get_children():
+			if _is_game_window(child):
+				_deep_windows.append(child)
+			stack.append(child)
 
 
 # True while any embedded game Window (AcceptDialog family) is showing.
@@ -1018,6 +1086,10 @@ func current_checklist_text() -> String:
 # --------------------------------------------------------------- process ----
 
 func _process(delta: float) -> void:
+	_deep_scan_accum += delta
+	if _deep_scan_accum >= DEEP_SCAN_INTERVAL_S:
+		_deep_scan_accum = 0.0
+		_refresh_deep_windows()
 	_update_card_mode()
 	_sync_modal_exit()
 	_keep_ack_focus()
