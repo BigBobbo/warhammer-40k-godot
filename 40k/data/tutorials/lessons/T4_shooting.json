@@ -2,13 +2,20 @@
   "id": "t4_dakka",
   "order": 4,
   "title": "Dakka Time",
-  "subtitle": "Shooting phase: pick a shooter, confirm targets, roll da dice",
-  "est_minutes": 4,
-  "boot": { "fixture": "tutorial_t4_shoot", "phase": 8, "rng_seed": 4242 },
+  "subtitle": "Shooting phase: pick a shooter, aim yer guns, roll da dice",
+  "est_minutes": 5,
+  "boot": {
+    "fixture": "tutorial_t4_shoot",
+    "phase": 8,
+    "rng_seed": 4242,
+    "auto_assign_single_target": false
+  },
   "summary": {
     "bark": "DAKKA DAKKA DAKKA!",
     "bullets": [
-      "Click a unit (board or list) to make it da shooter — weapons wiv one target in sight aim demselves.",
+      "Click a unit (board or list) to make it da shooter, den point each gun at somefin'.",
+      "Pick a gun in da weapon list, den click da enemy — dat gun's now aimed. [b]All → <enemy>[/b] does every gun left in one go.",
+      "In a real game, if only ONE enemy is in range an' sight, da guns aim demselves — we switched dat off 'ere so ya get da practice.",
       "[b]Confirm (N weapons)[/b] locks da targets in and opens da dice dock.",
       "Guns fire top-to-bottom down da dock queue — [b]▲[/b] / [b]▼[/b] on da right of each row re-orders 'em before da first shot.",
       "Each gun rolls to hit, den to wound, den da defender saves — kills from one gun are gone before da next fires.",
@@ -27,33 +34,117 @@
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "ack": true }
+      "done": {
+        "ack": true
+      }
     },
     {
       "id": "pick_da_boyz",
       "prompt": {
         "bark": "OI, YOU LOT!",
-        "kbm": "Click yer [b]Boyz[/b] mob — on da board or in da unit list on da right. Wiv only one enemy in sight, deir weapons aim at da Witchseekers all by demselves.",
-        "pad": "Tap {rb} till da [b]Boyz[/b] are da active shooter — {rb} cycles yer units, dat's da only control dat does. Deir weapons aim at da only target demselves."
+        "kbm": "Click yer [b]Boyz[/b] mob — on da board or in da unit list on da right. Da weapon list on da right fills up wiv every gun dey've got, all sayin' [b](Click to Select)[/b] — nuffin's aimed yet.",
+        "pad": "Tap {rb} till da [b]Boyz[/b] are da active shooter — {rb} cycles yer units, dat's da only control dat does. Da weapon list on da right shows every gun dey've got, none of 'em aimed yet."
       },
-      "anchor": { "unit": "U_BOYZ_T" },
+      "anchor": {
+        "unit": "U_BOYZ_T"
+      },
       "spotlight": "soft",
-      "allow": ["SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS", "SKIP_UNIT"],
-      "done": { "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_BOYZ_T" } },
-      "hint": { "text": "Da mob of ten south of da wagon. Da Warboss shoots wiv 'em — he's attached." }
+      "allow": [
+        "SELECT_SHOOTER",
+        "ASSIGN_TARGET",
+        "CLEAR_ASSIGNMENT",
+        "CLEAR_ALL_ASSIGNMENTS",
+        "SKIP_UNIT"
+      ],
+      "done": {
+        "action": {
+          "type": "SELECT_SHOOTER",
+          "actor_unit_id": "U_BOYZ_T"
+        }
+      },
+      "hint": {
+        "text": "Da mob of ten south of da wagon. Da Warboss shoots wiv 'em — he's attached."
+      }
+    },
+    {
+      "id": "aim_first_gun",
+      "prompt": {
+        "bark": "POINT ONE GUN!",
+        "kbm": "Time to aim. Click da [b]Slugga[/b] row in da weapon list on da right to pick dat gun, den click da [b]Witchseekers[/b] on da board. Da row swaps from [b](Click to Select)[/b] to [b]→ Witchseekers[/b] — dat's one gun aimed.",
+        "pad": "Time to aim. {dpad} ▲▼ walks yer guns — stop on da [b]Slugga[/b]. {dpad} ◀▶ walks da enemy targets. Wiv da Slugga picked an' da Witchseekers highlighted, press {a} to aim it. Da row swaps to [b]→ Witchseekers[/b]."
+      },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree"
+      },
+      "spotlight": "soft",
+      "allow": [
+        "SELECT_SHOOTER",
+        "ASSIGN_TARGET",
+        "CLEAR_ASSIGNMENT",
+        "CLEAR_ALL_ASSIGNMENTS",
+        "SKIP_UNIT"
+      ],
+      "done": {
+        "script": "var pi = PhaseManager.current_phase_instance\nif pi == null or not (\"pending_assignments\" in pi):\n\treturn 0\nvar seen := {}\nfor a in pi.pending_assignments:\n\tseen[str(a.get(\"weapon_id\", \"\"))] = true\nreturn seen.size()",
+        "expect_min": 1
+      },
+      "hint": {
+        "text": "Da Witchseekers are da only mob in range an' sight — every other row in da target list is greyed out for a reason."
+      }
+    },
+    {
+      "id": "aim_da_rest",
+      "prompt": {
+        "bark": "NOW DA REST!",
+        "kbm": "Da Warboss is attached, so he's got guns too — an' any row still readin' [b](Click to Select)[/b] ain't firin'. Point da lot at da same mob: hit [b]All → Witchseekers[/b] under da weapon list, or click each row an' den da Witchseekers.",
+        "pad": "Da Warboss is attached, so he's got guns too — any row still readin' [b](Click to Select)[/b] ain't firin'. {dpad} ▲▼ to da next gun, {a} to aim it at da Witchseekers, an' again till every row says [b]→ Witchseekers[/b]."
+      },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree"
+      },
+      "spotlight": "soft",
+      "allow": [
+        "SELECT_SHOOTER",
+        "ASSIGN_TARGET",
+        "CLEAR_ASSIGNMENT",
+        "CLEAR_ALL_ASSIGNMENTS",
+        "SKIP_UNIT"
+      ],
+      "done": {
+        "script": "var sc = main.shooting_controller if \"shooting_controller\" in main else null\nif sc == null or sc.weapon_tree == null:\n\treturn false\nvar root = sc.weapon_tree.get_root()\nif root == null:\n\treturn false\nvar usable := 0\nvar child = root.get_first_child()\nwhile child != null:\n\tif child.is_selectable(0):\n\t\tusable += 1\n\tchild = child.get_next()\nvar pi = PhaseManager.current_phase_instance\nif pi == null or not (\"pending_assignments\" in pi):\n\treturn false\nvar seen := {}\nfor a in pi.pending_assignments:\n\tseen[str(a.get(\"weapon_id\", \"\"))] = true\nreturn usable > 0 and seen.size() >= usable",
+        "equals": true
+      },
+      "hint_after_s": 30,
+      "hint": {
+        "text": "Aimin' a gun dat's already aimed at dat mob just tells ya so — it don't double up."
+      }
     },
     {
       "id": "confirm_dakka",
       "prompt": {
         "bark": "LOCK DA TARGETS!",
-        "kbm": "Yer guns are aimed already — now lock 'em in: click da glowin' [b]Confirm[/b] button on da right (it counts yer guns). If a row still says [b](Click to Select)[/b], click da row, den da Witchseekers, first.",
-        "pad": "Yer guns are aimed already — now lock 'em in: press {menu}, dat's [b]Confirm Targets[/b] on da pad. Want to re-aim first? {dpad} ◀▶ walks da targets, ▲▼ walks yer guns, {a} aims da current gun."
+        "kbm": "Every gun's pointed — now lock 'em in: click da glowin' [b]Confirm[/b] button on da right (it counts yer guns).",
+        "pad": "Every gun's pointed — now lock 'em in: press {menu}, dat's [b]Confirm Targets[/b] on da pad. Want to re-aim first? {dpad} ◀▶ walks da targets, ▲▼ walks yer guns, {a} aims da current gun."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+      },
       "spotlight": "soft",
-      "allow": ["SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS", "CONFIRM_TARGETS"],
-      "done": { "action": { "type": "CONFIRM_TARGETS" } },
-      "hint": { "text": "Ya don't have to fire every gun — Confirm locks whatever's assigned." }
+      "allow": [
+        "SELECT_SHOOTER",
+        "ASSIGN_TARGET",
+        "CLEAR_ASSIGNMENT",
+        "CLEAR_ALL_ASSIGNMENTS",
+        "CONFIRM_TARGETS"
+      ],
+      "done": {
+        "action": {
+          "type": "CONFIRM_TARGETS"
+        }
+      },
+      "hint": {
+        "text": "Ya don't have to fire every gun — Confirm locks whatever's assigned."
+      }
     },
     {
       "id": "roll_da_dice",
@@ -62,12 +153,30 @@
         "kbm": "Da declarin' panel's gone an' da [b]WEAPON RESOLUTION[/b] dock's took its place on da right. Each row is one gun pointed at one mob, wiv da damage we reckon it'll do, an' dey fire [b]top to bottom[/b] — one gun goes all da way frough before da next one starts.\nEvery gun rolls da same three steps: [b]hit rolls[/b] against its Ballistic Skill, den [b]wound rolls[/b] (yer Strength against deir Toughness), den da defender makes [b]savin' throws[/b] an' whatever gets frough does damage an' takes models off.\n[b]Da firin' order is yours to pick.[/b] Da [b]▲[/b] an' [b]▼[/b] buttons on da right-hand side of each row shove dat gun up or down da queue — only while it's still waitin', so sort it now. It matters: boyz killed by da first gun ain't dere to soak up da second.\nWhen yer happy: [b]Fast Roll All ⏩[/b] rolls everyfin' at once, or [b]Roll to Hit ▶[/b] walks it step by step. Enemy saves pop up a results card — click [b]Done[/b] on each. When da big button says [b]Complete Shooting[/b], click it to finish da mob's go.",
         "pad": "Dat's da [b]WEAPON RESOLUTION[/b] dock on da right. Each row is one gun pointed at one mob, an' dey fire [b]top to bottom[/b] — one gun all da way frough ([b]hit rolls[/b] on its Ballistic Skill, den [b]wound rolls[/b] Strength against Toughness, den da defender's [b]savin' throws[/b] an' da damage) before da next one starts.\n[b]Da firin' order is yours to pick.[/b] Press {dpad} to walk da highlight up into da queue an' onto da [b]▲[/b] / [b]▼[/b] buttons on da right-hand side of each row, den {a} to shove dat gun up or down. Only works before da first shot — an' it matters: boyz killed by da first gun ain't dere to soak up da second.\nDen {dpad} back down to [b]Fast Roll All ⏩[/b] an' press {a}, {a} on each [b]Done[/b] card, den {a} on [b]Complete Shooting[/b]."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock"
+      },
       "spotlight": "soft",
-      "allow": ["RESOLVE_WEAPON_SEQUENCE", "CONTINUE_SEQUENCE", "CONTINUE_TO_WOUNDS", "CONTINUE_TO_SAVES", "APPLY_SAVES", "FAST_FINISH_SHOOTING", "COMPLETE_SHOOTING_FOR_UNIT", "USE_SHOOTING_REROLL", "RESOLVE_SHOOTING", "CONFIRM_TARGETS"],
-      "done": { "state": "units.U_BOYZ_T.flags.has_shot", "equals": true },
+      "allow": [
+        "RESOLVE_WEAPON_SEQUENCE",
+        "CONTINUE_SEQUENCE",
+        "CONTINUE_TO_WOUNDS",
+        "CONTINUE_TO_SAVES",
+        "APPLY_SAVES",
+        "FAST_FINISH_SHOOTING",
+        "COMPLETE_SHOOTING_FOR_UNIT",
+        "USE_SHOOTING_REROLL",
+        "RESOLVE_SHOOTING",
+        "CONFIRM_TARGETS"
+      ],
+      "done": {
+        "state": "units.U_BOYZ_T.flags.has_shot",
+        "equals": true
+      },
       "hint_after_s": 35,
-      "hint": { "text": "Da 'Every step' dropdown picks how often da rollin' pauses. Stuck? Da big dock button always shows da next step." }
+      "hint": {
+        "text": "Da 'Every step' dropdown picks how often da rollin' pauses. Stuck? Da big dock button always shows da next step."
+      }
     },
     {
       "id": "end_phase",
@@ -76,11 +185,28 @@
         "kbm": "Da wagon an' da grots could shoot too — ([b]Shoot All Remaining[/b] does 'em all in one go) — but we're savin' da ammo. Hit da big red button, check da phase summary, den [b]End Shooting Phase[/b].",
         "pad": "Da wagon an' grots could shoot too — we're savin' ammo. Press {menu}, den confirm [b]End Shooting Phase[/b] on da summary."
       },
-      "anchor": { "node": "/root/Main/PhaseActionButton" },
+      "anchor": {
+        "node": "/root/Main/PhaseActionButton"
+      },
       "spotlight": "strict",
-      "allow": ["END_SHOOTING"],
-      "done": { "any": [ { "action": { "type": "END_SHOOTING" } }, { "phase": 9 } ] },
-      "hint": { "text": "Da summary counts yer hits an' casualties — Go Back if ya forgot someone." }
+      "allow": [
+        "END_SHOOTING"
+      ],
+      "done": {
+        "any": [
+          {
+            "action": {
+              "type": "END_SHOOTING"
+            }
+          },
+          {
+            "phase": 9
+          }
+        ]
+      },
+      "hint": {
+        "text": "Da summary counts yer hits an' casualties — Go Back if ya forgot someone."
+      }
     }
   ]
 }

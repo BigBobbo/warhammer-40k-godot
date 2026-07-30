@@ -2,6 +2,41 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.20",
+      "date": "2026-07-29",
+      "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",
+      "changes": [
+        "The same blind spot that stopped you aiming a character's weapons by hand was also quietly changing their shooting. An attached character's models never counted as being within half range, so their RAPID FIRE bonus attacks and MELTA damage bonus were silently lost.",
+        "A weapon fired only by an attached character got its critical-hit threshold from a distance the game measured as infinite — so a CONVERSION weapon switched its bonus on no matter how close the character actually stood.",
+        "Cover, STEALTH and plunging fire were worked out with no firing model at all when only the character was shooting, so those hit modifiers could come out wrong in either direction.",
+        "A unit whose only in-range weapon belonged to its attached character showed as having no eligible targets, and the \"why can't I shoot this?\" explanation never mentioned the character's guns.",
+        "Per-model Ballistic Skill overrides are now read from the character's own datasheet rather than the squad it joined.",
+        "Two notifications called a toast style that did not exist and would have errored the moment they fired: the \"this character will arrive with <squad>\" reinforcement note, and the \"continuing in single-player — Player N is now AI\" notice after a multiplayer disconnect."
+      ]
+    },
+    {
+      "version": "1.7.19",
+      "date": "2026-07-29",
+      "summary": "You can finally aim an attached character's guns by hand — and 'Dakka Time' now teaches aiming instead of doing it for you.",
+      "changes": [
+        "Attached characters' weapons could not be assigned manually at all. Picking a Warboss's kombi-weapon and clicking an enemy answered \"can't fire (range / line of sight)\" no matter how close he stood, because the eligibility check couldn't find the character's models inside the unit it was searching. They only ever fired when the game auto-assigned them for you.",
+        "The Confirm button under-counted for the same reason: with a character's guns still unaimed it read \"Confirm (1 weapons)\" instead of \"Confirm (1 weapons, 2 unassigned)\", so you could lock in targets without noticing your character wasn't shooting.",
+        "\"All → <enemy>\" silently skipped legal weapons. It was applying a Pistol/non-Pistol restriction across the whole unit and in every edition; the rule is per-model and does not apply in 11th at all. Aim a mob's Sluggas by hand, press the button, and the attached character's non-Pistol gun was dropped as a \"conflict\" that doesn't exist.",
+        "Tutorial 4 ('Dakka Time') now teaches aiming: with only one enemy in sight the game normally aims every gun for you, so the lesson turns that off. New step 'POINT ONE GUN!' has you pick the Slugga and click the Witchseekers; new step 'NOW DA REST!' has you point everything else at the same mob (the \"All → Witchseekers\" button, or one gun at a time). Confirm is now its own step. Normal play is unchanged — guns still aim themselves when there's only one target."
+      ]
+    },
+    {
+      "version": "1.7.18",
+      "date": "2026-07-29",
+      "summary": "Aiming a gun that is already aimed at that target no longer claims it is out of range.",
+      "changes": [
+        "Assigning a weapon to a target every one of its bearers already points at reported \"Slugga can't fire on Witchseekers (range / line of sight)\" — even though the weapon row read \"10 → Witchseekers\" and the forecast panel showed real damage. It now says \"Slugga is already aimed at Witchseekers (10 of 10)\", and mentions separately if some bearers genuinely can't reach.",
+        "This hit hardest on a controller in tutorial 4 ('Dakka Time'), where the step tells you to aim your guns: with only one enemy in sight every gun aims itself, so the first A-press always landed on an already-aimed weapon.",
+        "Genuine out-of-range / no-line-of-sight rejections still say range / line of sight, unchanged.",
+        "'Dakka Time' step 3 now says up front that yer guns already point at da Witchseekers and there's nothing to assign — just Confirm."
+      ]
+    },
+    {
       "version": "1.7.17",
       "date": "2026-07-29",
       "summary": "Mouse and keyboard players now get the 'End Phase?' confirmation too — a misclick no longer ends your phase.",

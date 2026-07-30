@@ -309,6 +309,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_node(step), true)
 		"click_item_list":
 			rec.merge(await _do_click_item_list(step), true)
+		"click_tree_item":
+			rec.merge(await _do_click_tree_item(step), true)
 		"click_if_visible":
 			rec.merge(await _do_click_if_visible(step), true)
 		"click_board_at":
@@ -577,6 +579,71 @@ func _do_click_if_visible(step: Dictionary) -> Dictionary:
 	var result := await _do_click_node(step)
 	result["via"] = str(result.get("via", "clicked"))
 	return result
+
+# Real-mouse-click one TOP-LEVEL row of a Tree, addressed by the metadata its
+# owner stamped on column 0 (weapon rows carry their weapon_id). Mirrors
+# _do_click_item_list: warp the cursor onto the row's rect centre and inject
+# press+release, so the Tree's own input handling runs (selection, item_selected
+# -> the controller's weapon-selected path) exactly as for a player.
+#
+# Needed because the shooting weapon list is a Tree, not an ItemList, and the
+# tutorial's "click da Slugga row, den click da Witchseekers" step has no other
+# honest drive path.
+#
+#   { "act": "click_tree_item", "node": "/root/...WeaponTree", "metadata": "slugga_ranged" }
+#   { "act": "click_tree_item", "node": "...", "index": 0, "column": 1 }
+func _do_click_tree_item(step: Dictionary) -> Dictionary:
+	var node_path: String = str(step.get("node", ""))
+	if node_path == "":
+		return {"pass": false, "error": "click_tree_item needs node"}
+	var node: Node = get_node_or_null(node_path)
+	if node == null:
+		return {"pass": false, "error": "no node at path %s" % node_path}
+	if not (node is Tree):
+		return {"pass": false, "error": "node is not a Tree: %s" % node_path}
+	var tree_ctl := node as Tree
+	if not tree_ctl.is_visible_in_tree():
+		return {"pass": false, "error": "tree is not visible: %s" % node_path}
+	var root: TreeItem = tree_ctl.get_root()
+	if root == null:
+		return {"pass": false, "error": "tree has no root (no rows built yet)"}
+
+	var want_meta: String = str(step.get("metadata", ""))
+	var want_index: int = int(step.get("index", -1))
+	if want_meta == "" and want_index < 0:
+		return {"pass": false, "error": "click_tree_item needs metadata or index"}
+
+	var target_item: TreeItem = null
+	var seen: Array = []
+	var i := 0
+	var child: TreeItem = root.get_first_child()
+	while child != null:
+		var meta := str(child.get_metadata(0))
+		seen.append(meta)
+		if (want_meta != "" and meta == want_meta) or (want_meta == "" and i == want_index):
+			target_item = child
+			break
+		i += 1
+		child = child.get_next()
+	if target_item == null:
+		return {"pass": false, "error": "no top-level row matching %s%s (rows: %s)" % [
+			want_meta, ("" if want_index < 0 else " / index %d" % want_index), str(seen)]}
+
+	var column: int = int(step.get("column", 0))
+	# get_item_area_rect is CONTENT-space (same caveat as ItemList.get_item_rect):
+	# it does not subtract the scroll offset, so a scrolled row would project
+	# below the control and silently click whatever sits underneath.
+	var rect: Rect2 = tree_ctl.get_item_area_rect(target_item, column)
+	var local_pos: Vector2 = rect.get_center()
+	local_pos.y -= tree_ctl.get_scroll().y
+	if local_pos.y < 0.0 or local_pos.y > tree_ctl.size.y:
+		return {"pass": false, "error": "row %s is scrolled out of view (local y %.1f, tree height %.1f)" % [
+			want_meta, local_pos.y, tree_ctl.size.y]}
+
+	var screen_pos: Vector2 = tree_ctl.get_global_transform() * local_pos
+	await _send_click(screen_pos)
+	return {"pass": true, "row": want_meta, "screen_position": [screen_pos.x, screen_pos.y]}
+
 
 func _do_click_board_at(step: Dictionary) -> Dictionary:
 	# Click an arbitrary BOARD/WORLD position (board px, the coordinate system
@@ -1014,6 +1081,14 @@ func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
 	#     that exact text (procedurally-built panels have no stable NodePath)
 	#   { "x": .., "y": .. }          — board/world px (like click_board_at)
 	#   { "x": .., "y": .., "space": "screen" } — raw screen px
+	#
+	# `optional: true` turns "the target isn't there" into a clean skip instead
+	# of a failure. For genuinely seed-dependent UI — a defender save-results
+	# card only exists when that seed's dice actually wounded something — the
+	# alternative is a scenario that breaks whenever a rules fix legitimately
+	# shifts the RNG stream. Use it ONLY where absence is a valid outcome; a
+	# missing button you expect every run must still fail loudly.
+	var optional: bool = bool(step.get("optional", false))
 	var vc = get_node_or_null("/root/VirtualCursor")
 	if vc == null:
 		return {"pass": false, "error": "no VirtualCursor autoload"}
@@ -1022,6 +1097,8 @@ func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
 		var wanted := str(step["button_text"])
 		var btn := _find_visible_button_by_text(wanted)
 		if btn == null:
+			if optional:
+				return {"pass": true, "via": "skipped_absent", "target": wanted}
 			return {"pass": false, "error": "no visible enabled Button with text '%s'" % wanted}
 		target = btn.get_global_rect().get_center()
 	elif step.has("unit_id"):
@@ -1034,7 +1111,11 @@ func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
 	elif step.has("node"):
 		var node: Node = get_node_or_null(NodePath(str(step["node"])))
 		if node == null or not (node is Control):
+			if optional:
+				return {"pass": true, "via": "skipped_absent", "target": str(step.get("node"))}
 			return {"pass": false, "error": "no Control at path %s" % str(step.get("node"))}
+		if optional and not (node as Control).is_visible_in_tree():
+			return {"pass": true, "via": "skipped_hidden", "target": str(step.get("node"))}
 		target = (node as Control).get_global_rect().get_center()
 	elif step.has("x") and step.has("y"):
 		var p := Vector2(float(step["x"]), float(step["y"]))
@@ -1051,19 +1132,33 @@ func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
 	# which moves the target's SCREEN position while the glide is in flight —
 	# so re-resolve and re-glide until the cursor rests on the current target.
 	var rounds := 0
+	var stalls := 0
 	while rounds < 8:
 		rounds += 1
 		var resolved = _resolve_glide_target(step)
 		if resolved == null:
+			if optional:
+				return {"pass": true, "via": "skipped_absent"}
 			return {"pass": false, "error": "glide target vanished while re-resolving"}
 		target = resolved
 		if (vc.get_cursor_pos() - target).length() <= 4.0:
-			return {"pass": true, "target": [target.x, target.y], "rounds": rounds}
+			return {"pass": true, "target": [target.x, target.y], "rounds": rounds,
+					"stalls": stalls}
 		var ok: bool = await vc.glide_to_screen(target, float(step.get("timeout_s", 4.0)))
 		if not ok:
-			return {"pass": false, "target": [target.x, target.y],
-					"error": "glide did not arrive within timeout (round %d)" % rounds}
-	return {"pass": false, "error": "glide target never stabilised after %d rounds" % rounds}
+			# A non-arrival is NOT necessarily a dead target. VirtualCursor._process
+			# only advances the glide while InputDeviceManager reports pad mode, and
+			# the cursor's own warp synthesises mouse motion — so under a loaded
+			# software renderer a round can stall with the cursor part-way there.
+			# Observed as an intermittent "did not arrive (round 1)" on the tutorial
+			# instructor card, ~50% of runs, on BOTH sides of an unrelated change
+			# (measured: it reproduces with the change reverted too). Retry within
+			# the existing round budget instead of failing on the first stall — a
+			# genuinely unreachable target still exhausts all 8 rounds and fails.
+			stalls += 1
+			continue
+	return {"pass": false, "target": [target.x, target.y],
+			"error": "glide never arrived after %d rounds (%d stalled)" % [rounds, stalls]}
 
 
 func _resolve_glide_target(step: Dictionary):

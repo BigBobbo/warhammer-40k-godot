@@ -53,6 +53,18 @@ func show_success(message: String, duration: float = DEFAULT_DURATION) -> void:
 	print("[Toast SUCCESS] %s" % message)
 	_add_toast(message, Color(0.3, 1.0, 0.5), duration)
 
+# Neutral information — nothing went wrong, the player just needs to know
+# something. Distinct from show_warning (amber) so a purely informational
+# message doesn't read as a problem.
+#
+# This existed only as call sites: Main.gd used ToastManager.show_info() in two
+# places (the attached-character reinforcement note, and the "Player N is now
+# AI" notice after a multiplayer disconnect) without the method ever being
+# defined — both would have thrown at runtime the moment they fired.
+func show_info(message: String, duration: float = DEFAULT_DURATION) -> void:
+	print("[Toast INFO] %s" % message)
+	_add_toast(message, Color(0.6, 0.85, 1.0), duration)
+
 func _add_toast(message: String, color: Color, duration: float) -> void:
 	# Limit active toasts
 	if active_toasts.size() >= MAX_TOASTS:
