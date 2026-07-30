@@ -176,7 +176,7 @@
       "prompt": {
         "bark": "GROTS IN A MOB!",
         "kbm": "Da enemy deploys between yer units — dat's da alternation. Now: click [b]Gretchin[/b], pick da [b]Tight[/b] formation, click open ground in yer zone to lay da whole squad out, den [b]Confirm[/b].",
-        "pad": "Pick da [b]Gretchin[/b] row. {dpad} ▲ slides da ▶ marker onto [b]Deploy Formation[/b], den {dpad} ▶ twice steps Single, Spread, [b]Tight[/b]. Place 'em wiv {a}, den {menu} to Confirm."
+        "pad": "Pick da [b]Gretchin[/b] first — press {rb} or {lb} to switch unit. {dpad} ▲ slides da ▶ marker onto [b]Deploy Formation[/b], {dpad} ▶ twice steps Single, Spread, [b]Tight[/b]. Place 'em wiv {a}, den {menu} to Confirm."
       },
       "anchor": { "button_text": "Tight" },
       "spotlight": "soft",

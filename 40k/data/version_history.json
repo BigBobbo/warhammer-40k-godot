@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "Tutorial 2's 'Grots in a Mob' step now tells controller players HOW to pick the Gretchin — press RB or LB.",
+      "changes": [
+        "On a controller, step 9 of 'Musterin' da Boyz' opened with \"Pick da Gretchin row\" and then went straight into the D-pad formation instructions — but never said which button actually switches unit. With the Battlewagon just confirmed and nothing in hand, there was no on-card way to work out that the bumpers are the unit switcher, so the step could stall. It now reads \"Pick da Gretchin first — press [RB] or [LB] to switch unit.\" The rest of the step is unchanged."
+      ]
+    },
+    {
       "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",
