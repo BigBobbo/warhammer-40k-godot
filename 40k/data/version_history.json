@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.8.6",
+      "date": "2026-07-30",
+      "summary": "The tutorial card now also steps aside for the pop-ups it could not previously see at all.",
+      "changes": [
+        "The card only ever looked for open dialogs in two places, so any dialog opened by the phase controller that raises it — the shooting phase's grenade and split-fire target pickers, the movement phase's right-click menu — was invisible to it. The card did not move out of the way for those, and worse, the tutorial did not realise it was underneath a modal at all: its Exit Tutorial button stayed looking live while the dialog swallowed every click, leaving no way out. Those dialogs are now found wherever they sit, the card steps aside for them, and the modal gets its own working Exit Tutorial button.",
+        "Opening a dropdown list no longer counts as a pop-up to hide from, so the card stays put instead of darting to the side of the screen for as long as the list is open."
+      ]
+    },
+    {
       "version": "1.8.5",
       "date": "2026-07-30",
       "summary": "Tutorial 2's 'Grots in a Mob' step now names BOTH bumpers as the way to switch onto the Gretchin, not just RB.",
