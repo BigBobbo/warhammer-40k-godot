@@ -75,7 +75,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "DISCARD FOR CP?"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -88,7 +88,7 @@ func _build_ui() -> void:
 		explain_label.text = "You may discard one Secondary Mission to gain +1 CP.\nSelect a mission to discard, or end your turn without discarding."
 	else:
 		explain_label.text = "You may discard one Secondary Mission (bonus CP cap reached — no CP gained).\nSelect a mission to discard, or end your turn without discarding."
-	explain_label.add_theme_font_size_override("font_size", 13)
+	explain_label.add_theme_font_size_override("font_size", 17)
 	explain_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explain_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	# Constrain the wrapped label's width so it reports a correct minimum HEIGHT.
@@ -175,12 +175,12 @@ func _add_mission_option(parent: VBoxContainer, mission: Dictionary, index: int)
 	var name_label = Label.new()
 	name_label.text = mission.get("name", "Unknown Mission")
 	name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
-	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_font_size_override("font_size", 17)
 	info_vbox.add_child(name_label)
 
 	var cat_label = Label.new()
 	cat_label.text = mission.get("category", "").capitalize()
-	cat_label.add_theme_font_size_override("font_size", 10)
+	cat_label.add_theme_font_size_override("font_size", 16)
 	cat_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	info_vbox.add_child(cat_label)
 
@@ -191,7 +191,7 @@ func _add_mission_option(parent: VBoxContainer, mission: Dictionary, index: int)
 	var cp_label = "+1 CP" if can_gain_cp else "+0 CP (cap)"
 	discard_btn.text = "Discard (%s)" % cp_label
 	discard_btn.custom_minimum_size = Vector2(130, 36)
-	discard_btn.add_theme_font_size_override("font_size", 12)
+	discard_btn.add_theme_font_size_override("font_size", 16)
 	discard_btn.add_theme_color_override("font_color", Color.GOLD)
 	discard_btn.pressed.connect(_on_discard_pressed.bind(index))
 	hbox.add_child(discard_btn)

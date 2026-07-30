@@ -76,20 +76,20 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "MARKED FOR DEATH"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.ORANGE)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
 
 	# Player indicator — shows which player should be selecting
 	player_indicator = Label.new()
-	player_indicator.add_theme_font_size_override("font_size", 14)
+	player_indicator.add_theme_font_size_override("font_size", 18)
 	player_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(player_indicator)
 
 	# Flavour text
 	flavour_label = Label.new()
-	flavour_label.add_theme_font_size_override("font_size", 12)
+	flavour_label.add_theme_font_size_override("font_size", 16)
 	flavour_label.add_theme_color_override("font_color", Color.GRAY)
 	flavour_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	flavour_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -99,13 +99,13 @@ func _build_ui() -> void:
 
 	# Step indicator
 	step_label = Label.new()
-	step_label.add_theme_font_size_override("font_size", 14)
+	step_label.add_theme_font_size_override("font_size", 18)
 	step_label.add_theme_color_override("font_color", Color.CYAN)
 	main_container.add_child(step_label)
 
 	# Info label (shows selection count etc.)
 	info_label = Label.new()
-	info_label.add_theme_font_size_override("font_size", 12)
+	info_label.add_theme_font_size_override("font_size", 16)
 	info_label.add_theme_color_override("font_color", Color.LIGHT_GREEN)
 	main_container.add_child(info_label)
 

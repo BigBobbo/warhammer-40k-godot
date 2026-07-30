@@ -14,11 +14,47 @@ covering:
 - **Ask**: one line on what was requested.
 - **Issue**: what was wrong / the root cause (if applicable).
 - **Change**: what you actually did.
+- **Screenshot**: the in-game screenshot proving the change (see below).
 - **Flags**: anything else worth calling out — risks, follow-ups,
   things not validated, assumptions made.
 
 Keep it tight — a few bullets, not paragraphs. This applies to
 implementation work, not to short Q&A replies.
+
+### Screenshot in the TLDR (mandatory whenever the change is visible)
+
+**If the change can be validated with a screenshot, you MUST capture one and
+share it in the TLDR.** "Can be validated with a screenshot" means anything the
+player can see or interact with: UI panels, buttons, dialogs, tooltips, token
+positions, board/measurement visuals, HUD/phase text, menus, version display,
+highlights, log/chat output rendered on screen.
+
+Rules:
+
+1. **Take it live, from the running game.** Launch the game (see "You CAN run
+   the game AND screenshot the UI" below — this works in the headless/remote
+   container too) and use the MCP bridge `capture_screenshot`. Never reuse an
+   old screenshot, never hand-draw a mock-up, never describe what it "would"
+   look like.
+2. **It must show the feature's EFFECT, not just the game running.** Drive the
+   path first (`simulate_click` / `dispatch_action` / `execute_script`), THEN
+   capture. A default main-menu or unchanged-board shot is a marker, not
+   evidence — see "Anti-pattern: pin tests are NOT validation".
+3. **Share it in the reply, not just on disk.** Display the image inline
+   (the `capture_screenshot` inline image, or `Read` the PNG path so it renders)
+   and include the absolute path under `user://test_screenshots/` in the
+   **Screenshot** bullet, plus one line saying what to look at
+   (e.g. "Screenshot: `…/charge_dialog_open.png` — the charge dialog now lists
+   both eligible targets with 2D6 distances").
+4. **Before/after when the change alters existing visuals.** For layout, colour,
+   wording, or positioning fixes, capture both and say which is which.
+5. **When a screenshot does NOT apply**, say so explicitly in the bullet rather
+   than dropping it — e.g. "Screenshot: n/a — pure RulesEngine math, verified by
+   headless test output above". Docs/tooling/refactor-only changes are the
+   normal n/a cases.
+6. **If you tried and could not capture one, the bullet says exactly that** —
+   what you ran, how it failed — and the work is reported as UNVERIFIED. Do not
+   quietly omit the bullet.
 
 ## Version / changelog (update on EVERY player-facing change)
 
@@ -145,7 +181,8 @@ evidence.
      **no ERROR / SCRIPT ERROR fired** while exercising the path
 3. Capture a screenshot showing the **feature's effect** — the dialog
    rendered, the token at the new position, the panel listing real rows.
-   The default game screen does not count.
+   The default game screen does not count. **Share that screenshot in the
+   end-of-task TLDR's `Screenshot` bullet** (see "Screenshot in the TLDR").
 4. Run `verify_delivery` with the relevant `expected_phase` / `assertions` as a
    final gate; it should return `verdict: PASS`. Optionally run `chain_verify`
    and answer its questions before declaring done.

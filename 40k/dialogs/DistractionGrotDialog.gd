@@ -43,14 +43,14 @@ func _build_ui() -> void:
 
 	var header = Label.new()
 	header.text = "DISTRACTION GROT"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
 
 	var subheader = Label.new()
 	subheader.text = "Orks — free reactive (once per battle)"
-	subheader.add_theme_font_size_override("font_size", 12)
+	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(subheader)
@@ -60,7 +60,7 @@ func _build_ui() -> void:
 	var desc_label = Label.new()
 	desc_label.text = "Until the end of the phase, this unit has a 5+ invulnerable save against the incoming shooting."
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc_label.add_theme_font_size_override("font_size", 13)
+	desc_label.add_theme_font_size_override("font_size", 17)
 	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(desc_label)
 
@@ -70,7 +70,7 @@ func _build_ui() -> void:
 
 	var unit_label = Label.new()
 	unit_label.text = "%s is being shot at. Activate Distraction Grot for a 5+ invulnerable save?" % unit_name
-	unit_label.add_theme_font_size_override("font_size", 14)
+	unit_label.add_theme_font_size_override("font_size", 18)
 	unit_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	unit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(unit_label)

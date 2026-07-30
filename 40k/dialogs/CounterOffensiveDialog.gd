@@ -43,7 +43,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "COUNTER-OFFENSIVE"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.ORANGE_RED)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -51,7 +51,7 @@ func _build_ui() -> void:
 	# Subheader
 	var subheader = Label.new()
 	subheader.text = "Core - Strategic Ploy Stratagem"
-	subheader.add_theme_font_size_override("font_size", 12)
+	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(subheader)
@@ -62,7 +62,7 @@ func _build_ui() -> void:
 	var cp_label = Label.new()
 	var current_cp = StratagemManager.get_player_cp(player)
 	cp_label.text = "Cost: 2 CP (You have %d CP)" % current_cp
-	cp_label.add_theme_font_size_override("font_size", 14)
+	cp_label.add_theme_font_size_override("font_size", 18)
 	cp_label.add_theme_color_override("font_color", Color.CYAN)
 	cp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(cp_label)
@@ -73,7 +73,7 @@ func _build_ui() -> void:
 	var effect_label = Label.new()
 	effect_label.text = "An enemy unit has just fought. You may select one of your eligible units to fight next, overriding the normal alternation."
 	effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	effect_label.add_theme_font_size_override("font_size", 13)
+	effect_label.add_theme_font_size_override("font_size", 17)
 	main_container.add_child(effect_label)
 
 	main_container.add_child(HSeparator.new())
@@ -81,7 +81,7 @@ func _build_ui() -> void:
 	# Eligible units section
 	var units_label = Label.new()
 	units_label.text = "Select a unit to fight next:"
-	units_label.add_theme_font_size_override("font_size", 14)
+	units_label.add_theme_font_size_override("font_size", 18)
 	main_container.add_child(units_label)
 
 	# Scrollable container for eligible units
@@ -94,7 +94,7 @@ func _build_ui() -> void:
 
 		var name_label = Label.new()
 		name_label.text = unit_info.unit_name
-		name_label.add_theme_font_size_override("font_size", 13)
+		name_label.add_theme_font_size_override("font_size", 17)
 		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		unit_container.add_child(name_label)
 
@@ -127,7 +127,7 @@ func _build_ui() -> void:
 	_countdown_label = Label.new()
 	_countdown_label.text = "Auto-declining in %d seconds..." % int(AUTO_DECLINE_SECONDS)
 	_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_countdown_label.add_theme_font_size_override("font_size", 13)
+	_countdown_label.add_theme_font_size_override("font_size", 17)
 	_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	main_container.add_child(_countdown_label)
 

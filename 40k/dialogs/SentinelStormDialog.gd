@@ -36,7 +36,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "SENTINEL STORM"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -44,7 +44,7 @@ func _build_ui() -> void:
 	# Subheader
 	var subheader = Label.new()
 	subheader.text = "Adeptus Custodes — Custodian Guard"
-	subheader.add_theme_font_size_override("font_size", 12)
+	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(subheader)
@@ -55,7 +55,7 @@ func _build_ui() -> void:
 	var desc_label = Label.new()
 	desc_label.text = "Once per battle, after this unit has shot, it can shoot again."
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc_label.add_theme_font_size_override("font_size", 13)
+	desc_label.add_theme_font_size_override("font_size", 17)
 	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(desc_label)
 
@@ -66,7 +66,7 @@ func _build_ui() -> void:
 	# Unit info
 	var unit_label = Label.new()
 	unit_label.text = "%s has finished shooting. Activate Sentinel Storm to shoot again?" % unit_name
-	unit_label.add_theme_font_size_override("font_size", 14)
+	unit_label.add_theme_font_size_override("font_size", 18)
 	unit_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	unit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(unit_label)

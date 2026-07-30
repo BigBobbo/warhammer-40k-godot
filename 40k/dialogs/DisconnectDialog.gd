@@ -45,7 +45,7 @@ func _build_ui() -> void:
 	# Warning header
 	var header = Label.new()
 	header.text = "CONNECTION LOST"
-	header.add_theme_font_size_override("font_size", 22)
+	header.add_theme_font_size_override("font_size", 24)
 	header.add_theme_color_override("font_color", Color.ORANGE)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -55,14 +55,14 @@ func _build_ui() -> void:
 	# Status message
 	var status_label = Label.new()
 	status_label.text = "Player %d has disconnected." % disconnected_player
-	status_label.add_theme_font_size_override("font_size", 14)
+	status_label.add_theme_font_size_override("font_size", 18)
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(status_label)
 
 	# Countdown label
 	countdown_label = Label.new()
 	countdown_label.text = "Waiting for reconnection... %ds remaining" % int(seconds_remaining)
-	countdown_label.add_theme_font_size_override("font_size", 13)
+	countdown_label.add_theme_font_size_override("font_size", 17)
 	countdown_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
 	countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(countdown_label)
@@ -72,7 +72,7 @@ func _build_ui() -> void:
 	# Options label
 	var options_label = Label.new()
 	options_label.text = "Choose an action:"
-	options_label.add_theme_font_size_override("font_size", 13)
+	options_label.add_theme_font_size_override("font_size", 17)
 	options_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
 	options_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(options_label)

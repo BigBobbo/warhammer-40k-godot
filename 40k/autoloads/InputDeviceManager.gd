@@ -619,20 +619,62 @@ func _focus_dialog_deferred(dialog: Node) -> void:
 # button would make A cancel. Falls back to the first focusable button.
 const _CONFIRM_WORDS := ["ok", "confirm", "end", "continue", "yes", "accept", "done", "close", "roll", "finish", "next", "apply"]
 
+# Buttons carrying this meta are LAST-RESORT focus targets: they are bolted on
+# top of a dialog rather than being one of its own actions, so auto-focusing
+# them makes A do something the player never asked for. The tutorial's injected
+# "Exit Tutorial" button is the live case — it sorted first in the BFS of the
+# roll-off / command-reroll dialogs, so a pad player following "press A on da
+# dialog's Roll button" got the leave-the-tutorial confirm instead, and the
+# D-pad could not walk off it (the injected button sits in the AcceptDialog's
+# own button bar, geometrically detached from the dialog's custom action row).
+const PAD_FOCUS_LAST_META := "pad_focus_last"
+
 func _find_confirm_button(root: Node) -> Button:
 	var candidates: Array = []
+	# A bolted-on button (the tutorial's injected "Exit Tutorial" hatch) is a LAST
+	# resort: it lives in the AcceptDialog's own button bar, so a breadth-first
+	# scan reaches it before the dialog's content — which is how a pad player
+	# opened the deployment roll-off already parked on "Exit Tutorial" instead of
+	# "Roll the dice".
+	var deprioritised: Array = []
 	var queue: Array = [root]
 	while not queue.is_empty():
 		var n: Node = queue.pop_front()
 		if n is Button and n.visible and n.focus_mode != Control.FOCUS_NONE and not n.disabled:
-			candidates.append(n)
+			if n.has_meta(PAD_FOCUS_LAST_META):
+				deprioritised.append(n)
+			else:
+				candidates.append(n)
 		for child in n.get_children(true):
 			queue.append(child)
 	if candidates.is_empty():
+		# Nothing but bolted-on buttons: leave focus alone rather than arm A with
+		# them. This is the transient window a dialog passes through between its
+		# own actions (roll-off: the Roll button hides, Continue is not built
+		# yet) — focusing Exit Tutorial there is how a pad player rolled the
+		# dice and then got booted out of the tutorial by the very next A. The
+		# watchdog re-polls every DIALOG_WATCH_INTERVAL and grabs the real
+		# button the moment it exists.
 		return null
 	for b in candidates:
-		var t := str(b.text).to_lower()
+		# Leading decoration ("⚄  Roll the dice", "⟳  Re-roll", "▶ Next") must not
+		# hide the verb — begins_with() against the raw text missed every one of
+		# them and silently fell through to "first button found".
+		var t := _confirm_match_text(str(b.text))
 		for w in _CONFIRM_WORDS:
 			if t.begins_with(w):
 				return b
 	return candidates[0]
+
+
+# Lower-cased button text with any leading non-alphanumeric decoration (dice
+# glyphs, arrows, spaces) trimmed off.
+func _confirm_match_text(text: String) -> String:
+	var t := text.to_lower().strip_edges()
+	var start := 0
+	while start < t.length():
+		var c := t[start]
+		if (c >= "a" and c <= "z") or (c >= "0" and c <= "9"):
+			break
+		start += 1
+	return t.substr(start).strip_edges()

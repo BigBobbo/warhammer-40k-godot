@@ -118,13 +118,13 @@ func _build_ui() -> void:
 	_heading_label = Label.new()
 	_heading_label.text = "WHO SEIZES THE INITIATIVE?"
 	_heading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_heading_label.add_theme_font_size_override("font_size", 22)
+	_heading_label.add_theme_font_size_override("font_size", 24)
 	_heading_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	_content_vbox.add_child(_heading_label)
 
 	_status_label = Label.new()
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status_label.add_theme_font_size_override("font_size", 14)
+	_status_label.add_theme_font_size_override("font_size", 18)
 	_status_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_content_vbox.add_child(_status_label)
@@ -178,7 +178,7 @@ func _make_die_column(player: int) -> Control:
 	var name_label := Label.new()
 	name_label.text = "Player %d" % player
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.add_theme_font_size_override("font_size", 16)
+	name_label.add_theme_font_size_override("font_size", 20)
 	name_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	col.add_child(name_label)
 

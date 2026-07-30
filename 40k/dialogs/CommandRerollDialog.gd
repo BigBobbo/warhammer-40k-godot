@@ -76,7 +76,7 @@ func _build_ui() -> void:
 	var header = Label.new()
 	header.name = "HeaderLabel"
 	header.text = ("%s — FREE RE-ROLL" % free_ability_name.to_upper()) if free_ability_name != "" else "COMMAND RE-ROLL"
-	header.add_theme_font_size_override("font_size", 22)
+	header.add_theme_font_size_override("font_size", 24)
 	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -85,7 +85,7 @@ func _build_ui() -> void:
 	var subheader = Label.new()
 	subheader.name = "SubheaderLabel"
 	subheader.text = "Unit Ability — Free Re-roll" if free_ability_name != "" else "Core — Battle Tactic Stratagem (1 CP)"
-	subheader.add_theme_font_size_override("font_size", 12)
+	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(subheader)
@@ -96,7 +96,7 @@ func _build_ui() -> void:
 	var roll_label = Label.new()
 	var roll_type_display = _get_roll_type_display()
 	roll_label.text = "%s — %s" % [unit_name, roll_type_display]
-	roll_label.add_theme_font_size_override("font_size", 14)
+	roll_label.add_theme_font_size_override("font_size", 18)
 	roll_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	roll_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(roll_label)
@@ -123,7 +123,7 @@ func _build_ui() -> void:
 
 	var total_label = Label.new()
 	total_label.text = "= %d" % roll_total
-	total_label.add_theme_font_size_override("font_size", 20)
+	total_label.add_theme_font_size_override("font_size", 23)
 	total_label.add_theme_color_override("font_color", Color.WHITE)
 	dice_container.add_child(total_label)
 
@@ -133,7 +133,7 @@ func _build_ui() -> void:
 	if roll_context_text != "":
 		var context_label = Label.new()
 		context_label.text = roll_context_text
-		context_label.add_theme_font_size_override("font_size", 13)
+		context_label.add_theme_font_size_override("font_size", 17)
 		context_label.add_theme_color_override("font_color", Color(0.8, 0.5, 0.5))
 		context_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_container.add_child(context_label)
@@ -148,7 +148,7 @@ func _build_ui() -> void:
 	else:
 		cp_label.text = "You have %d CP" % StratagemManager.get_player_cp(player)
 		cp_label.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
-	cp_label.add_theme_font_size_override("font_size", 11)
+	cp_label.add_theme_font_size_override("font_size", 16)
 	cp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(cp_label)
 

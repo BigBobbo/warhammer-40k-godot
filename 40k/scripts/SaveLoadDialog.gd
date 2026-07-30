@@ -135,7 +135,7 @@ func _build_ui() -> void:
 	var title = Label.new()
 	title.text = "SAVE & LOAD GAME"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_font_size_override("font_size", 26)
 	title.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(title)
 
@@ -147,7 +147,7 @@ func _build_ui() -> void:
 	# ── Save Section ──
 	var save_header = Label.new()
 	save_header.text = "Create New Save"
-	save_header.add_theme_font_size_override("font_size", 16)
+	save_header.add_theme_font_size_override("font_size", 20)
 	save_header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(save_header)
 
@@ -199,7 +199,7 @@ func _build_ui() -> void:
 	# ── SAVE-16: Save Slots Section ──
 	var slots_header = Label.new()
 	slots_header.text = "Save Slots (Ctrl+1..5 save, Shift+1..5 load)"
-	slots_header.add_theme_font_size_override("font_size", 16)
+	slots_header.add_theme_font_size_override("font_size", 20)
 	slots_header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(slots_header)
 
@@ -220,14 +220,14 @@ func _build_ui() -> void:
 		var slot_num_label = Label.new()
 		slot_num_label.text = "Slot %d:" % i
 		slot_num_label.custom_minimum_size = Vector2(50, 0)
-		slot_num_label.add_theme_font_size_override("font_size", 13)
+		slot_num_label.add_theme_font_size_override("font_size", 17)
 		slot_num_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 		slot_row.add_child(slot_num_label)
 
 		var slot_info = Label.new()
 		slot_info.text = "[Empty]"
 		slot_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		slot_info.add_theme_font_size_override("font_size", 13)
+		slot_info.add_theme_font_size_override("font_size", 17)
 		slot_info.add_theme_color_override("font_color", Color(0.6, 0.55, 0.45))
 		slot_labels.append(slot_info)
 		slot_row.add_child(slot_info)
@@ -266,7 +266,7 @@ func _build_ui() -> void:
 	# ── Load Section ──
 	var load_header = Label.new()
 	load_header.text = "Existing Saves"
-	load_header.add_theme_font_size_override("font_size", 16)
+	load_header.add_theme_font_size_override("font_size", 20)
 	load_header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(load_header)
 
@@ -278,7 +278,7 @@ func _build_ui() -> void:
 	# Filter input
 	var filter_label = Label.new()
 	filter_label.text = "Filter:"
-	filter_label.add_theme_font_size_override("font_size", 13)
+	filter_label.add_theme_font_size_override("font_size", 17)
 	filter_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	sort_filter_row.add_child(filter_label)
 
@@ -311,7 +311,7 @@ func _build_ui() -> void:
 	# Sort dropdown
 	var sort_label = Label.new()
 	sort_label.text = "Sort:"
-	sort_label.add_theme_font_size_override("font_size", 13)
+	sort_label.add_theme_font_size_override("font_size", 17)
 	sort_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	sort_filter_row.add_child(sort_label)
 
@@ -416,7 +416,7 @@ func _build_ui() -> void:
 	preview_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	preview_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	preview_label.add_theme_color_override("default_color", WhiteDwarfThemeData.WH_PARCHMENT)
-	preview_label.add_theme_font_size_override("normal_font_size", 13)
+	preview_label.add_theme_font_size_override("normal_font_size", 17)
 	preview_label.text = ""
 	_set_preview_placeholder()
 	preview_container.add_child(preview_label)

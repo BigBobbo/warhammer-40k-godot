@@ -37,7 +37,7 @@
       "prompt": {
         "bark": "SHUFFLE UP!",
         "kbm": "Pile In lets every engaged unit move 3\" closer to da enemy. Yer Boyz are already in contact, so just hit [b]End Pile In[/b].",
-        "pad": "Yer Boyz are already in contact — just press {menu}, da bar calls it [b]End Pile In[/b]. Or glide {ls} onto da button an' press {a}."
+        "pad": "Yer Boyz are already in contact — just press {menu}, da bar calls it [b]End Pile In[/b]. Or {dpad} ▼ lands right on da button, den {a}."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton"
@@ -61,7 +61,7 @@
       "prompt": {
         "bark": "BOYZ FIRST!",
         "kbm": "Click [b]Boyz[/b] under UNITS THAT CAN FIGHT. Dey charged, so dey swing before da Custodes do.",
-        "pad": "Da fight panel takes {dpad} to move da highlight an' {a} to press — or glide {ls} onto da [b]Boyz[/b] row an' press {a}. Dey charged, so dey swing first."
+        "pad": "{dpad} ▼ walks da fight panel onto da [b]Boyz[/b] row — {a} presses it. Dey charged, so dey swing first."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList"
@@ -116,7 +116,7 @@
       "prompt": {
         "bark": "KRUMP 'EM!",
         "kbm": "Same dice dock as shootin': [b]Fast Roll ⏩[/b] rolls hits, wounds an' saves in one go (or step frough wiv da big button). Finish wiv [b]Done ✔[/b].",
-        "pad": "Glide {ls} onto [b]Fast Roll ⏩[/b] an' press {a}, clear any save cards, den [b]Done ✔[/b]."
+        "pad": "Da dock starts on [b]Roll to Wound ▶[/b] — {dpad} ▼ drops onto [b]Fast Roll ⏩[/b], den {a}. Clear any save cards, den [b]Done ✔[/b]."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock"

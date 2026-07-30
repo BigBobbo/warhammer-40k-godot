@@ -2,7 +2,8 @@
   "id": "tut_t5_ere_we_go_pad",
   "covers": [
     "tutorial.t5.charge.pad",
-    "tutorial.t5.snap_to_contact.pad"
+    "tutorial.t5.snap_to_contact.pad",
+    "tutorial.exit.hatch_armed"
   ],
   "rng_seed": 99,
   "edition": 11,
@@ -185,6 +186,13 @@
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
       "equals": "keep_da_roll"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = null\nfor c in tree.root.get_children():\n\tif c is Window and c.visible and str(c.name).to_lower().contains(\"reroll\"):\n\t\td = c\nif d == null:\n\treturn \"NO REROLL DIALOG\"\nvar f = d.gui_get_focus_owner()\nreturn \"%s|%s\" % [str(d.has_meta(\"tutorial_exit_button\")), str(f.text).strip_edges() if f is Button else \"NONE\"]",
+      "multiline": true,
+      "equals": "false|Keep Roll",
+      "comment": "REPORTED ON A PAD ('on the charge roll, the exit tutorial button is blocking my control of the actual buttons'): the tutorial used to inject an 'Exit Tutorial' into every gameplay dialog, and AcceptDialog.add_button() puts it in the dialog's own button bar - a separate focus root from the content, which no D-pad direction can leave. InputDeviceManager's dialog watcher then focused it on popup, so A pressed Exit Tutorial instead of Keep Roll. The hatch is now armed only by a real gate rejection, and pad focus lands on the dialog's own action."
     },
     {
       "act": "screenshot",

@@ -155,7 +155,7 @@ func _create_weapon_checkboxes() -> void:
 		# Unit header
 		var unit_header = Label.new()
 		unit_header.text = "\n%s:" % unit_weapons[0].unit_name
-		unit_header.add_theme_font_size_override("font_size", 14)
+		unit_header.add_theme_font_size_override("font_size", 18)
 		unit_header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 		weapons_container.add_child(unit_header)
 
