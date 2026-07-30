@@ -180,13 +180,17 @@ const HINTS_DEPLOY_STAGED := [
 ]
 
 # A placed model is in hand (L3 lift). Deliberately short: this is a modal
-# sub-state where the bumpers, X and the D-pad rows all stand down, so the bar
-# promises only what actually works — aim, drop, cancel.
+# sub-state where the bumpers (unmodified), X and the D-pad rows all stand down,
+# so the bar promises only what actually works — aim, rotate, drop, cancel.
+# The r3 chip names the rotate combo rather than bare "Hold: Precision" (which it
+# also still is) for the same reason HINTS_DEPLOY does: holding R3 is the ONLY
+# way a pad player can angle the model in hand, and an unadvertised combo is an
+# unusable one.
 const HINTS_DEPLOY_REPOSITION := [
 	["ls", "Move Model"],
+	["r3", "Hold: LB/RB Rotate"],
 	["a", "Drop Here"],
 	["b", "Cancel"],
-	["r3", "Hold: Precision"],
 ]
 const HINTS_FOCUS := [
 	["dpad", "Navigate"],

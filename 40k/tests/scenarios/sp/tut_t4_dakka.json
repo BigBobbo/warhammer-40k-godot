@@ -7,7 +7,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T4 (Dakka Time), mouse player path: boot from the tutorial_t4_shoot fixture -> select the Boyz as shooter by clicking their token on the board -> aim the Slugga by clicking its weapon row then the Witchseekers -> aim the rest with the 'All -> Witchseekers' quick-assign button (the lesson clears boot.auto_assign_single_target, so the player performs the assignment the lesson teaches) -> Confirm (3 weapons) -> Fast Roll All in the resolution dock -> Done on each defender save results card (tolerant: pressed only while visible) -> Complete Shooting -> end the phase with the big phase button -> lesson summary -> back to menu.",
+  "description": "Tutorial lesson T4 (Dakka Time), mouse player path: boot from the tutorial_t4_shoot fixture -> select the Boyz as shooter by clicking their token on the board -> aim the Slugga by clicking its weapon row then the Witchseekers -> aim the rest with the 'All -> Witchseekers' quick-assign button (the lesson clears boot.auto_assign_single_target, so the player performs the assignment the lesson teaches) -> Confirm (3 weapons) -> Fast Roll All in the resolution dock -> Done on each defender save results card (tolerant: pressed only while visible) -> Complete Shooting -> open the Dice Log tab on the left panel and read the rolls that were just made (this step moved here from T1, where it fired before any dice existed) -> end the phase with the big phase button -> lesson summary -> back to menu.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -283,11 +283,67 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "end_phase"
+      "equals": "dice_log",
+      "comment": "the Dice Log step moved here from T1, where it fired before anything had been rolled and opened a blank panel"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.current_scene.game_log_panel.get_dice_log_display().get_total_character_count()",
+      "expect_min": 1,
+      "multiline": true,
+      "comment": "THE POINT OF THE MOVE: by the time this step is up the shooting rolls are really in the left panel's Dice Log, so the player is being sent to read something that exists. This caught a real bug rather than just passing: Main._ready() built the GameLogPanel AFTER setup_phase_controllers(), so a lesson booting straight into the shooting phase created the ShootingController first and resolve_shared_dice_log() fell back to a throwaway 'DiceLogFallback' label in the right-hand panel — every roll of the lesson went there while this tab stayed empty. The panel is now built before the controllers."
+    },
+    {
+      "act": "execute_script",
+      "script": "var glp = tree.current_scene.game_log_panel\nvar sc = tree.current_scene.shooting_controller\nreturn sc.dice_log_display == glp.get_dice_log_display()",
+      "multiline": true,
+      "equals": true,
+      "comment": "THE POINT OF THE MOVE: by the time this step is up the shooting rolls are really in the left panel's Dice Log, so the player is being sent to read something that exists. This caught a real bug rather than just passing: Main._ready() built the GameLogPanel AFTER setup_phase_controllers(), so a lesson booting straight into the shooting phase created the ShootingController first and resolve_shared_dice_log() fell back to a throwaway 'DiceLogFallback' label in the right-hand panel — every roll of the lesson went there while this tab stayed empty. The panel is now built before the controllers."
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.current_scene.game_log_panel.get_active_tab() == \"game\" and tree.current_scene.game_log_panel.is_dice_tab_unread()",
+      "multiline": true,
+      "equals": true,
+      "comment": "the tab is wearing the unread ● the step's hint mentions — the player has not been yanked onto it"
     },
     {
       "act": "screenshot",
       "label": "04_boyz_shot"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.current_scene.game_log_panel.get_active_tab()",
+      "multiline": true,
+      "equals": "dice"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/GameLogPanel/VBox/DiceLogDisplay",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "04b_dice_log_with_rolls",
+      "region": [
+        0,
+        100,
+        360,
+        760
+      ]
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase"
     },
     {
       "act": "click_node",
