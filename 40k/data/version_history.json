@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "The Dice Log lesson moved out of 'Scoutin' da Field' and into 'Dakka Time', where there are actually some rolls to read.",
+      "changes": [
+        "Step 6 of Tutorial 1 ('Scoutin' da Field') used to tell you to click the Dice Log tab — before a single die had been rolled, so you switched to a blank panel and learned nothing from it. That step is gone.",
+        "In its place, Tutorial 1 just points at the log panel down the left: Game Log for the story so far, Dice Log for every roll once they start. No click into an empty log, and it says outright that Dakka Time is where you'll use it.",
+        "Tutorial 4 ('Dakka Time') now has that step, straight after the shooting rolls: new step 'CHECK DA NUMBERS!' sends you to the Dice Log tab (wearing its unread dot) to read the hits, wounds and saves you just made.",
+        "Fixed while moving it: the Dice Log tab stayed empty for the whole phase whenever a battle STARTED in the shooting, charge or fight phase — every tutorial lesson from 'Dakka Time' on, and any save you loaded mid-combat. The phase's controls are built before the left-hand log panel exists, so the dice output went to a throwaway label instead of the tab you can actually read. Normal play never showed it because a battle begins in deployment."
+      ]
+    },
+    {
       "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",
