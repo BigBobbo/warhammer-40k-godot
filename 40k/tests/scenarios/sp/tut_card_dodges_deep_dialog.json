@@ -65,10 +65,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nif ov.card_blocker_rect().size == Vector2.ZERO:\n\treturn \"a dialog parented below /root/Main is still invisible to the overlay\"\nif ov.card_blocker_overlap() > 0.0:\n\treturn \"card buried %.0fpx under the controller-parented dialog (card %s)\" % [ov.card_blocker_overlap(), str(ov.card_rect())]\nif ov.card_placement() != \"left\" and ov.card_placement() != \"right\":\n\treturn \"card never moved to a gutter - placement is %s\" % ov.card_placement()\nreturn \"ok\"",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar seen = []\nfor w in ov._open_game_windows():\n\tseen.append(str(w.name))\nif not seen.has(\"ProbeControllerDialog\"):\n\treturn \"a dialog parented below /root/Main is still invisible to the overlay - it sees only %s\" % str(seen)\nif ov.card_blocker_overlap() > 0.0:\n\treturn \"card buried %.0fpx under an open dialog (card %s)\" % [ov.card_blocker_overlap(), str(ov.card_rect())]\nreturn \"ok\"",
       "multiline": true,
       "equals": "ok",
-      "comment": "the card sees it and gets clear of it"
+      "comment": "the delta this scenario exists for: the overlay now sees a dialog parented to a controller, and the card is clear of everything open. Placement itself is not asserted -- the card only moves when a dialog actually reaches it, which is tut_t2_card_clears_formations_dialog's territory"
     },
     {
       "act": "execute_script",
@@ -99,10 +99,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar pm = tree.root.get_node(\"/root/Main\").find_child(\"ProbeDropdown\", true, false)\nif pm == null or not pm.visible:\n\treturn \"the dropdown closed on its own - this check proves nothing\"\nif ov.card_blocker_rect().size != Vector2.ZERO:\n\treturn \"an open dropdown is being treated as a modal - the card would dart to the gutter whenever a list is opened\"\nif ov.card_placement() == \"left\" or ov.card_placement() == \"right\":\n\treturn \"card stayed in the gutter with only a dropdown open\"\nreturn \"ok\"",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar pm = tree.root.get_node(\"/root/Main\").find_child(\"ProbeDropdown\", true, false)\nif pm == null or not pm.visible:\n\treturn \"the dropdown closed on its own - this check proves nothing\"\nvar seen = []\nfor w in ov._open_game_windows():\n\tseen.append(str(w.name))\nif seen.has(\"ProbeDropdown\"):\n\treturn \"an open dropdown counts as a modal - the card would dart to the gutter, and its footer grey, whenever a list is opened\"\nif seen.has(\"ProbeControllerDialog\"):\n\treturn \"the freed probe dialog is still being counted\"\nif ov.card_blocker_overlap() > 0.0:\n\treturn \"card overlaps something after the probe dialog closed\"\nreturn \"ok\"",
       "multiline": true,
       "equals": "ok",
-      "comment": "PopupMenu is a Window too, so the deep scan reaches dropdowns and context menus - they must NOT count, and the card must have come back now the real dialog has gone"
+      "comment": "PopupMenu is a Window too, so the deep scan reaches dropdowns and context menus - they must not count. The lesson's own review dialog may still be open here, so this checks what is counted rather than that nothing is"
     },
     {
       "act": "execute_script",
