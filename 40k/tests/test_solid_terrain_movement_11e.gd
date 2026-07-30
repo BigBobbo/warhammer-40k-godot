@@ -191,6 +191,39 @@ func _run_tests():
 	_check("charge endpoint overlapping the wall is INVALID (keyword-aware)",
 		not c3.get("valid", true), str(c3))
 
+	print("\n-- T12: step-over features charge NO distance penalty (as if not there) --")
+	# Pre-fix, ending on generator-38 (3", inside difficult_ground area-medium-36)
+	# charged +2" difficult ground +3.5" climb = +5.5", so the REAL Stompa (M10)
+	# could not make this 5.6" hop — the ability was over-taxed. The 4" step-over
+	# now waives both charges for features ≤4" (rule: "as if they were not there").
+	var t12_start := Vector2(31.5, 30.5) * ppi
+	var t12_over_gen := Vector2(34.0, 25.5) * ppi
+	_seed_unit(gs, STOMPA_KW, 180, t12_start, 10, stompa_abilities, "Stompa")  # real M10
+	phase = _begin_move(pm, gs)
+	_check("Stompin' Forward pays 0.0\" penalty onto the 3\" generator",
+		phase._get_movement_terrain_penalty(t12_start, t12_over_gen, "U_TEST") == 0.0,
+		str(phase._get_movement_terrain_penalty(t12_start, t12_over_gen, "U_TEST")))
+	var v12 = _stage(phase, t12_over_gen)
+	_check("real M10 Stompa stages the 5.6\" hop onto the generator (was blocked by +5.5\" tax)",
+		v12.get("valid", false), str(v12))
+	_seed_unit(gs, ["ORKS", "VEHICLE"], 180, t12_start, 10, [], "Big Trukk")
+	phase = _begin_move(pm, gs)
+	_check("plain VEHICLE still pays the full penalty (no step-over allowance)",
+		phase._get_movement_terrain_penalty(t12_start, t12_over_gen, "U_TEST") > 0.0,
+		str(phase._get_movement_terrain_penalty(t12_start, t12_over_gen, "U_TEST")))
+	_seed_unit(gs, ["ORKS", "VEHICLE", "SUPER-HEAVY WALKER"], 180, t12_start, 10, [], "Kill Tank")
+	phase = _begin_move(pm, gs)
+	_check("SUPER-HEAVY WALKER keyword alone also gets the waiver",
+		phase._get_movement_terrain_penalty(t12_start, t12_over_gen, "U_TEST") == 0.0,
+		str(phase._get_movement_terrain_penalty(t12_start, t12_over_gen, "U_TEST")))
+	# The allowance is height-capped: entering the 5"-tall difficult_ground
+	# footprint (area-trapezoid-44) still charges the Stompa the 2" tax.
+	_seed_unit(gs, STOMPA_KW, 180, Vector2(21.5, 23.0) * ppi, 10, stompa_abilities, "Stompa")
+	phase = _begin_move(pm, gs)
+	var t12_tall_pen: float = phase._get_movement_terrain_penalty(Vector2(21.5, 23.0) * ppi, Vector2(21.5, 27.5) * ppi, "U_TEST")
+	_check("5\" difficult_ground footprint still charges the Stompa (cap respected)",
+		t12_tall_pen > 0.0, str(t12_tall_pen))
+
 	print("\n-- T11: AI screening predicates --")
 	_check("AI _dest_overlaps_wall flags a wall destination for the Stompa",
 		AIDecisionMaker._dest_overlaps_wall(in_wall, 180, "circular", {}, STOMPA_KW) == true)

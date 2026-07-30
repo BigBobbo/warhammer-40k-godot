@@ -2351,7 +2351,7 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 			# Check which type of overlap it is
 			var test_model = selected_model.duplicate()
 			test_model["position"] = world_pos
-			if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
+			if Measurement.model_overlaps_any_wall(test_model, _get_terrain_rule_keywords()):
 				overlap_reason = "Cannot overlap with walls"
 			else:
 				overlap_reason = "Cannot overlap other models"
@@ -2403,7 +2403,7 @@ func _compute_move_rejection(world_pos: Vector2) -> String:
 		# to find a different lane or just nudge sideways.
 		var test_model = selected_model.duplicate()
 		test_model["position"] = world_pos
-		if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
+		if Measurement.model_overlaps_any_wall(test_model, _get_terrain_rule_keywords()):
 			return "Cannot place model overlapping a wall this unit can't cross"
 		return "Cannot place model overlapping another model"
 	return ""
@@ -3803,6 +3803,23 @@ func _get_active_unit_keywords() -> Array:
 	var unit = GameState.get_unit(active_unit_id)
 	return unit.get("meta", {}).get("keywords", [])
 
+## Keywords for wall / dense-terrain endpoint checks: the unit's own keywords
+## plus per-move grants (SUPER-HEAVY WALKER for OA-28/29 Stompin'/Clankin'
+## Forward, MOBILE for the 24.35 SHW gamble). Delegates to
+## MovementPhase._terrain_rule_keywords so the client-side drop gate can
+## never drift from the engine rule — pre-fix the drag UI refused "ending on"
+## a ≤4" feature that STAGE_MODEL_MOVE would have accepted, making the
+## Stompa's step-over unusable by a real player.
+func _get_terrain_rule_keywords() -> Array:
+	if active_unit_id == "":
+		return []
+	if current_phase and current_phase.has_method("_terrain_rule_keywords"):
+		var move_data = {}
+		if "active_moves" in current_phase and current_phase.active_moves.has(active_unit_id):
+			move_data = current_phase.active_moves[active_unit_id]
+		return current_phase._terrain_rule_keywords(active_unit_id, move_data)
+	return _get_active_unit_keywords()
+
 func _get_terrain_penalty_for_move(from_pos: Vector2, to_pos: Vector2) -> float:
 	"""Calculate terrain penalty via TerrainManager.
 	Units always stay on ground floor — no height penalty. Only difficult ground applies."""
@@ -3815,7 +3832,16 @@ func _get_terrain_penalty_for_move(from_pos: Vector2, to_pos: Vector2) -> float:
 	# each frame, so an infantry model dragged onto then away from a ruin shows 0.
 	var keywords = _get_active_unit_keywords()
 	var has_fly = "FLY" in keywords
-	return terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly, keywords)
+	# OA-28/29 + SUPER-HEAVY WALKER: features ≤4" are crossed "as if not
+	# there" — the ruler preview must waive their penalty like the engine does.
+	var step_over := 0.0
+	if "SUPER-HEAVY WALKER" in keywords:
+		step_over = 4.0
+	elif active_unit_id != "":
+		var uam = get_node_or_null("/root/UnitAbilityManager")
+		if uam and (uam.has_stompin_forward(active_unit_id) or uam.has_clankin_forward(active_unit_id)):
+			step_over = 4.0
+	return terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly, keywords, step_over)
 
 func _check_position_would_overlap(position: Vector2) -> bool:
 	# Check if placing the selected model at the given position would overlap
@@ -3837,7 +3863,7 @@ func _check_position_would_overlap(position: Vector2) -> bool:
 	if selected_model:
 		var test_model = selected_model.duplicate()
 		test_model["position"] = position
-		if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
+		if Measurement.model_overlaps_any_wall(test_model, _get_terrain_rule_keywords()):
 			return true
 
 	return false
@@ -4902,7 +4928,7 @@ func _group_move_rejection_for(model_data: Dictionary, dest: Vector2, drag_len_i
 		return "Cannot place model beyond the board edge"
 	var test_model = full_model.duplicate()
 	test_model["position"] = dest
-	if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
+	if Measurement.model_overlaps_any_wall(test_model, _get_terrain_rule_keywords()):
 		return "Cannot place model overlapping a wall this unit can't cross"
 	if _group_dest_overlaps_non_member(test_model, source_unit_id, str(model_data.model_id), members):
 		return "Cannot place model overlapping another model"

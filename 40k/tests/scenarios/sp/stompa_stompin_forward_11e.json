@@ -1,0 +1,54 @@
+{
+  "id": "stompa_stompin_forward_11e",
+  "covers": [
+    "abilities.stompin_forward.step_over_4in",
+    "abilities.stompin_forward.blocked_by_tall_walls",
+    "movement.terrain.step_over_no_distance_penalty",
+    "phases.MovementPhase.STAGE_MODEL_MOVE.dense_terrain_gate"
+  ],
+  "fixture": "stompa_fight_11e",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 42,
+  "description": "OA-29 Stompin' Forward, player path with the REAL Stompa datasheet (fixture built from armies/recon_stomps.json): on take_and_hold_mirror_1 the Stompa (M10, 180mm) is teleported to open ground south-east of the corner ruin. Asserts: (a) the ability is detected from the unit's real meta.abilities; (b) a drag INTO the 5\" wall corner-ruin-balanced-left-46 is refused (>4\" blocks even Stompin' Forward) — no staged move, model stays put; (c) the 3\" generator-38 charges NO movement-distance penalty (pre-fix the +2\" difficult-ground +3.5\" climb tax made this 5.6\" hop illegal for M10); (d) a real drag onto the generator stages, confirms, and the model legally ends on the 3\" feature — legal ONLY via the 4\" step-over (a plain VEHICLE keyword-set is still blocked there).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "UnitAbilityManager.has_stompin_forward(\"U_STOMPA_A\")", "equals": true },
+
+    { "act": "execute_script", "script": "TerrainManager.load_terrain_layout(\"take_and_hold_mirror_1\")" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_STOMPA_A\"][\"models\"][0].merge({\"position\": {\"x\": 1260.0, \"y\": 1220.0}}, true)" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_STOMPA_A\"][\"models\"][0].merge({\"position\": {\"x\": 1260.0, \"y\": 1220.0}}, true)" },
+    { "act": "execute_script", "script": "main._recreate_unit_visuals()" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "01_stompa_between_wall_and_generator" },
+
+    { "act": "click_unit", "unit_id": "U_STOMPA_A" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_STOMPA_A" },
+
+    { "act": "drag_board", "from_x": 1260, "from_y": 1220, "to_x": 1083, "to_y": 1120 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_STOMPA_A\")", "equals": false },
+    { "act": "execute_script", "script": "abs(GameState.get_unit(\"U_STOMPA_A\").get(\"models\")[0].get(\"position\").get(\"x\") - 1260.0) < 0.5", "equals": true },
+    { "act": "screenshot", "label": "02_drag_into_5in_wall_refused" },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._get_movement_terrain_penalty(Vector2(1260, 1220), Vector2(1310, 1075), \"U_STOMPA_A\")", "equals": 0.0 },
+
+    { "act": "drag_board", "from_x": 1260, "from_y": 1220, "to_x": 1310, "to_y": 1075 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_STOMPA_A\")", "equals": true },
+    { "act": "screenshot", "label": "03_drag_onto_3in_generator_staged" },
+
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_STOMPA_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_STOMPA_A.flags.moved", "equals": true },
+    { "act": "execute_script", "script": "abs(GameState.get_unit(\"U_STOMPA_A\").get(\"models\")[0].get(\"position\").get(\"y\") - 1075.0) < 8.0", "equals": true },
+    { "act": "execute_script", "script": "TerrainManager.solid_terrain_endpoint_blocker_11e(GameState.get_unit(\"U_STOMPA_A\").get(\"models\")[0], [\"VEHICLE\"])", "equals": "generator-38" },
+    { "act": "execute_script", "script": "TerrainManager.solid_terrain_endpoint_blocker_11e(GameState.get_unit(\"U_STOMPA_A\").get(\"models\")[0], [\"VEHICLE\", \"SUPER-HEAVY WALKER\"])", "equals": "" },
+    { "act": "screenshot", "label": "04_stompa_standing_on_generator" }
+  ]
+}

@@ -570,7 +570,7 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 ## callers that omit it (legacy/tests) get the pre-fix "everyone pays" behaviour.
 ##
 ## Returns the extra distance in inches that must be added to the movement distance.
-func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool, unit_keywords: Array = []) -> float:
+func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool, unit_keywords: Array = [], step_over_limit_inches: float = 0.0) -> float:
 	# FLY units ignore difficult ground entirely during movement
 	if has_fly:
 		print("[TerrainManager] FLY unit ignores difficult ground during movement")
@@ -586,6 +586,14 @@ func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_
 
 		# Skip terrain that the path doesn't interact with at all
 		if not crosses_edge and not starts_inside and not ends_inside:
+			continue
+
+		# OA-28/29 + SUPER-HEAVY WALKER (24.35): features at or below the
+		# mover's step-over height are crossed "as if they were not there" —
+		# they charge no movement-distance penalty either.
+		if step_over_limit_inches > 0.0 and height_inches_of(terrain) <= step_over_limit_inches:
+			print("[TerrainManager] %s (%.1f\") is within the %.1f\" step-over — no movement penalty (as if not there)" % [
+				terrain.get("id", "unknown"), height_inches_of(terrain), step_over_limit_inches])
 			continue
 
 		# No height/climbing penalty — units stay on the ground floor.

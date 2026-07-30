@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.18",
+      "date": "2026-07-30",
+      "summary": "The Stompa's Stompin' Forward now works for real players: you can drop it onto walls and terrain up to 4\" tall, and crossing them no longer eats your movement.",
+      "changes": [
+        "Fixed: the drag-and-drop UI refused to let the Stompa (and the Morkanaut/Gorkanaut with Clankin' Forward) END a move on terrain 4\" or less in height — the engine allowed it but the drop was rejected with 'Cannot place model overlapping a wall', so the ability was effectively unusable. The UI drop gate now uses the same step-over allowance as the engine.",
+        "Fixed: crossing or standing on a feature 4\" or less no longer charges Stompin'/Clankin' Forward units (or SUPER-HEAVY WALKERs) movement-distance penalties (+2\" difficult ground, +3.5\" climb). The rule says such terrain is treated 'as if it were not there' — pre-fix the hidden tax meant the M10 Stompa often couldn't reach a spot the rules allow.",
+        "Walls taller than 4\" (e.g. the 5\" ruin walls on tournament layouts) still block the Stompa as before, and TITANIC models still cannot be moved through.",
+        "The move ruler now shows the true distance for step-over units (no phantom terrain penalty)."
+      ]
+    },
+    {
       "version": "1.7.17",
       "date": "2026-07-29",
       "summary": "Mouse and keyboard players now get the 'End Phase?' confirmation too — a misclick no longer ends your phase.",

@@ -6909,12 +6909,27 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 		# move through walls/floors freely. FLY is already handled above.
 		var _mv_unit = get_unit(unit_id) if unit_id != "" else {}
 		var _mv_keywords = _mv_unit.get("meta", {}).get("keywords", []) if not _mv_unit.is_empty() else []
-		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false, _mv_keywords))
+		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false, _mv_keywords, _step_over_height_limit(unit_id)))
 	# T-103: multi-floor vertical climb cost.
 	penalty += _get_vertical_climb_cost(from_pos, to_pos, unit_id)
 	if penalty > 0.0:
 		log_phase_message("  Terrain penalty: %.1f\" (incl vertical, FLY=false)" % penalty)
 	return penalty
+
+## OA-28/29 + the SUPER-HEAVY WALKER keyword (24.35): these movers cross
+## terrain features that are 4" or less in height "as if they were not
+## there" during Normal, Advance and Fall Back moves. Distance penalties
+## must honour the same allowance the 13.06 gate gives them: such features
+## charge neither the difficult-ground tax nor a vertical climb. Returns
+## the height (inches) at or below which features are free; 0.0 = no allowance.
+func _step_over_height_limit(unit_id: String) -> float:
+	if unit_id == "":
+		return 0.0
+	if _unit_has_stompin_forward(unit_id) or _unit_has_clankin_forward(unit_id):
+		return 4.0
+	if "SUPER-HEAVY WALKER" in get_unit(unit_id).get("meta", {}).get("keywords", []):
+		return 4.0
+	return 0.0
 
 
 func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2, unit_id: String = "") -> float:
@@ -6938,6 +6953,12 @@ func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2, unit_id: Strin
 		var unit = get_unit(unit_id)
 		var keywords = unit.get("meta", {}).get("keywords", []) if not unit.is_empty() else []
 		if tm.can_unit_move_through_terrain(keywords, to_t):
+			return 0.0
+	# OA-28/29 + SUPER-HEAVY WALKER: a destination feature at or below the
+	# mover's step-over height is treated as not there — no climb charge.
+	if unit_id != "" and not to_t.is_empty():
+		var _so_limit := _step_over_height_limit(unit_id)
+		if _so_limit > 0.0 and float(tm.height_inches_of(to_t)) <= _so_limit:
 			return 0.0
 	var from_h = 0.0
 	var to_h = 0.0
