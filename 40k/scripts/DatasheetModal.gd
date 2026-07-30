@@ -232,7 +232,7 @@ func _build_header(unit: Dictionary, meta: Dictionary) -> void:
 	var title := Label.new()
 	title.name = "Title"
 	title.text = str(meta.get("name", unit.get("name", current_unit_id))).to_upper()
-	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -250,7 +250,7 @@ func _build_header(unit: Dictionary, meta: Dictionary) -> void:
 		var enh := Label.new()
 		enh.name = "Enhancements"
 		enh.text = "Enhancement: " + ", ".join(enhancements)
-		enh.add_theme_font_size_override("font_size", 11)
+		enh.add_theme_font_size_override("font_size", 16)
 		enh.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
 		enh.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		col.add_child(enh)
@@ -272,7 +272,7 @@ func _badge(text: String, color: Color) -> Control:
 
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", color)
 	badge.add_child(label)
 	return badge
@@ -348,14 +348,14 @@ func _stat_box(label_text: String, value_text: String, value_color: Color) -> Co
 	var caption := Label.new()
 	caption.text = label_text.to_upper()
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	caption.add_theme_font_size_override("font_size", 10)
+	caption.add_theme_font_size_override("font_size", 16)
 	caption.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	col.add_child(caption)
 
 	var value := Label.new()
 	value.text = value_text
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	value.add_theme_font_size_override("font_size", 19)
+	value.add_theme_font_size_override("font_size", 22)
 	value.add_theme_color_override("font_color", value_color)
 	col.add_child(value)
 
@@ -385,7 +385,7 @@ func _build_weapons(unit: Dictionary) -> void:
 		var none := Label.new()
 		none.name = "NoWeapons"
 		none.text = "No weapons"
-		none.add_theme_font_size_override("font_size", 12)
+		none.add_theme_font_size_override("font_size", 16)
 		none.add_theme_color_override("font_color", COL_DIM)
 		var pad := _padded(none, 12, 6)
 		pad.name = "Weapons"
@@ -439,7 +439,7 @@ func _build_weapon_table(title: String, skill_label: String, weapons: Array, hea
 		name_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var wname := Label.new()
 		wname.text = str(w.get("name", "?"))
-		wname.add_theme_font_size_override("font_size", 13)
+		wname.add_theme_font_size_override("font_size", 17)
 		wname.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 		wname.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		name_box.add_child(wname)
@@ -447,7 +447,7 @@ func _build_weapon_table(title: String, skill_label: String, weapons: Array, hea
 		if rules != "":
 			var rules_label := Label.new()
 			rules_label.text = "[%s]" % rules
-			rules_label.add_theme_font_size_override("font_size", 10)
+			rules_label.add_theme_font_size_override("font_size", 16)
 			rules_label.add_theme_color_override("font_color", COL_RULES)
 			rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			name_box.add_child(rules_label)
@@ -624,7 +624,7 @@ func _build_abilities(meta: Dictionary, unit: Dictionary) -> void:
 
 		var name_label := Label.new()
 		name_label.text = aname
-		name_label.add_theme_font_size_override("font_size", 12)
+		name_label.add_theme_font_size_override("font_size", 16)
 		name_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(name_label)
@@ -634,7 +634,7 @@ func _build_abilities(meta: Dictionary, unit: Dictionary) -> void:
 		if desc != "":
 			var desc_label := Label.new()
 			desc_label.text = desc
-			desc_label.add_theme_font_size_override("font_size", 11)
+			desc_label.add_theme_font_size_override("font_size", 16)
 			desc_label.add_theme_color_override("font_color", COL_DIM)
 			desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			entry.add_child(desc_label)
@@ -657,13 +657,13 @@ func _kv_line(key: String, value: String) -> Control:
 
 	var key_label := Label.new()
 	key_label.text = key + ":"
-	key_label.add_theme_font_size_override("font_size", 11)
+	key_label.add_theme_font_size_override("font_size", 16)
 	key_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	row.add_child(key_label)
 
 	var value_label := Label.new()
 	value_label.text = value
-	value_label.add_theme_font_size_override("font_size", 11)
+	value_label.add_theme_font_size_override("font_size", 16)
 	value_label.add_theme_color_override("font_color", COL_DIM)
 	value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -731,7 +731,7 @@ func _close_hint() -> String:
 func _status_label(text: String, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", color)
 	return label
 
@@ -743,7 +743,7 @@ func _section_header(title: String, bg: Color) -> Control:
 	panel.add_theme_stylebox_override("panel", _bar_style(bg, 12, 4))
 	var label := Label.new()
 	label.text = title
-	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	panel.add_child(label)
 	return panel

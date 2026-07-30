@@ -2,13 +2,50 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.24",
+      "version": "1.8.3",
       "date": "2026-07-30",
       "summary": "Controller: grabbing your own model with A now works while you're steering with the stick, and LB/RB turn a vehicle mid-move instead of refusing to switch units.",
       "changes": [
         "Tutorial 3 (\"Get Movin'\") step 8 tells you to grab the Battlewagon with A and spin it with LB/RB, but the grab silently did nothing and the bumpers answered \"Confirm or reset this unit's move before switching\". With the on-screen cursor live — which it is the moment you touch the left stick — A was a plain click that picked the model up and set it straight back down, so nothing was ever in your hand for the bumpers to turn. Now, once a unit's move is under way, tapping A on one of its models really picks it up: the stick steers it, LB/RB turn it, A drops it. (Holding A and steering still works as a drag that drops when you let go.) This was never just a tutorial problem — it broke re-grabbing a model to spend the rest of its move anywhere in the Movement phase.",
         "LB/RB now turn the model 15° a tap from the moment a unit's move is under way until it is confirmed — whether the model is in your hand or parked where you dropped it. The bumpers cannot switch units in that state anyway, so instead of only warning you about that they do the thing you were reaching for. The hint bar shows the new Rotate chips, turning costs no movement, and the new facing now survives \"End This Unit's Move\" (a turn made after dropping the model used to be quietly reverted when the move was confirmed).",
         "Models on round bases are unchanged: they have no facing to turn, so there the bumpers still explain why they can't switch units mid-move."
+      ]
+    },
+    {
+      "version": "1.8.2",
+      "date": "2026-07-30",
+      "summary": "Tutorial 3 ('Get Movin'') now reminds you that you can grab the whole mob in one go — and an attached character finally moves when you do.",
+      "changes": [
+        "Step 4 of 'Get Movin'' — the one where the freshly disembarked Boyz make their own move — used to say \"drag one forward\". With 10 Boyz plus an attached Warboss to shift, players were moving all 11 bases individually. The step now points out the select-all shortcut up front: Ctrl+A on mouse and keyboard, D-pad ▲ on a controller, grabs every model in the mob so one drag moves the lot.",
+        "Fixed: moving a mob as a group always left its attached character behind. Grab a squad with select-all or ▲, drag, and the leader stayed exactly where he was — and so did any squadmate standing where he needed to go. On the tutorial's Boyz that meant 8 of the 11 bases moved and three refused, with no message explaining why. An attached character shares model ids with the squad it joined (both have an \"m1\"), and four separate lookups matched on the squad instead of the character's own unit: the leader inherited the first Boy's start position, was sent to the Boy's destination, was measured against the wrong origin, and was even checked for overlap against himself — which no move could ever pass. All four now key off the model's real unit.",
+        "The step's stuck-hint now covers the follow-up too: on a controller ▲ only grabs the mob once the move has actually started, and if the whole mob doesn't fit where you drop it, only the models that fit land — the rest stay in hand for another go.",
+        "The end-of-lesson recap picked up a matching bullet."
+      ]
+    },
+    {
+      "version": "1.8.1",
+      "date": "2026-07-30",
+      "summary": "Tutorial dice pop-ups are fully yours again on a controller — the 'Exit Tutorial' button is gone from them unless you actually need it — and confirming an Advance in 'Get Movin'' stops throwing a bogus error.",
+      "changes": [
+        "1.7.23 stopped A landing on \"Exit Tutorial\" when a tutorial dialog opened. It was still there though, and still unreachable-and-unleavable: the D-pad could not move onto it, and if you did land on it no direction could get you off. It is no longer added to a dialog at all unless a lesson has actually refused something you tried — the case it exists for. Rolling for deployment, choosing who deploys first, rolling for first turn, the Advance re-roll offer and the charge re-roll offer now carry only their own buttons.",
+        "When it does appear, it is no longer a dead end: the D-pad now walks back off it onto the dialog's own button.",
+        "The roll-off's \"Roll the dice\" is now recognised as the button A should press — its dice symbol was hiding the word from the controller's focus picker, so it fell back to whatever button it happened to find first.",
+        "The greyed-out Exit Tutorial on the tutorial card now says why — \"finish the dialog first\" when you can simply close it, rather than pointing at a button that isn't there.",
+        "'Get Movin'' step 5: confirming the Battlewagon's Advance threw \"tutorial_locked\" and the movement mode never actually locked in. One click sends two things (start the Advance, then lock the mode) and the lesson had already moved on to the re-roll step, which refused the second half."
+      ]
+    },
+    {
+      "version": "1.8.0",
+      "date": "2026-07-30",
+      "summary": "Steam Deck legibility overhaul: every piece of UI text is now readable on a handheld screen.",
+      "changes": [
+        "All in-game text has been rebuilt around a handheld-readable minimum. Over 800 labels, buttons, log entries, dialogs and panels that used tiny 7-14px fonts now start at 16px and scale up from there, meeting Valve's Steam Deck legibility guidelines (9px minimum / 12px recommended character height at 1280x800) when combined with the existing controller text boost.",
+        "The top bar no longer overflows on a Deck-sized screen: the AI Suggestion button and AI speed selector moved into the right-hand panel, the scoreboard's CP chips dropped the (color-coded, tooltipped) faction names, the round chip shows 'P1/P2' instead of the full faction, and the status message trims with an ellipsis (hover it for the full text) instead of pushing buttons underneath the End Phase button.",
+        "While playing with a controller, the bottom glyph strip no longer covers the newest game-log entry, the unit card's buttons, the phase progress strip or the Unit Stats sheet - the side panels now reserve that strip's height.",
+        "Movement mode options (Normal Move / Advance / Fall Back / Remain Still) wrap into a 2x2 grid instead of clipping off the panel edge.",
+        "The Stratagems panel is wider, and long 'why can't I use this' explanations wrap onto extra lines instead of running off the panel behind a horizontal scrollbar.",
+        "Dice value badges in the game log and the secondary-missions placeholder text were still microscopic; both now respect the new floor.",
+        "A global theme raises the default font size for anything not explicitly styled (tooltips, popup menus, list rows)."
       ]
     },
     {

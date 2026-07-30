@@ -286,7 +286,7 @@ func _build_ui() -> void:
 	main_vbox.add_child(header_hbox)
 
 	attack_info_label = Label.new()
-	attack_info_label.add_theme_font_size_override("font_size", 14)
+	attack_info_label.add_theme_font_size_override("font_size", 18)
 	attack_info_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header_hbox.add_child(attack_info_label)
 
@@ -298,13 +298,13 @@ func _build_ui() -> void:
 
 	# Status
 	status_label = Label.new()
-	status_label.add_theme_font_size_override("font_size", 12)
+	status_label.add_theme_font_size_override("font_size", 16)
 	status_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	main_vbox.add_child(status_label)
 
 	# Target Info
 	target_info_label = Label.new()
-	target_info_label.add_theme_font_size_override("font_size", 11)
+	target_info_label.add_theme_font_size_override("font_size", 16)
 	target_info_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	main_vbox.add_child(target_info_label)
 
@@ -349,7 +349,7 @@ func _build_ui() -> void:
 	dice_result_panel.add_child(dice_vbox)
 
 	result_label = Label.new()
-	result_label.add_theme_font_size_override("font_size", 16)
+	result_label.add_theme_font_size_override("font_size", 20)
 	result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dice_vbox.add_child(result_label)
 

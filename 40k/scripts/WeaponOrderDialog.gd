@@ -72,7 +72,7 @@ func _ready() -> void:
 	instruction_label = Label.new()
 	instruction_label.text = "Drag or use arrows to set weapon firing order.\nHigher damage weapons are prioritized by default."
 	instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	instruction_label.add_theme_font_size_override("font_size", 12)
+	instruction_label.add_theme_font_size_override("font_size", 16)
 	instruction_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	vbox.add_child(instruction_label)
 
@@ -82,7 +82,7 @@ func _ready() -> void:
 	firing_order_label = Label.new()
 	firing_order_label.name = "FiringOrderLabel"
 	firing_order_label.text = "FIRING ORDER"
-	firing_order_label.add_theme_font_size_override("font_size", 13)
+	firing_order_label.add_theme_font_size_override("font_size", 17)
 	firing_order_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	vbox.add_child(firing_order_label)
 
@@ -170,7 +170,7 @@ func _ready() -> void:
 	# attacker can click to re-roll a single hit/wound die with Command Re-roll.
 	reroll_label = Label.new()
 	reroll_label.name = "RerollLabel"
-	reroll_label.add_theme_font_size_override("font_size", 12)
+	reroll_label.add_theme_font_size_override("font_size", 16)
 	reroll_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	reroll_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	reroll_label.visible = false
@@ -187,7 +187,7 @@ func _ready() -> void:
 	# Dice log section
 	var log_label = Label.new()
 	log_label.text = "Resolution Log:"
-	log_label.add_theme_font_size_override("font_size", 12)
+	log_label.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(log_label)
 
 	dice_log_rich_text = RichTextLabel.new()
@@ -406,7 +406,7 @@ func _rebuild_weapon_list() -> void:
 			var position_label = Label.new()
 			position_label.text = str(i + 1) + "."
 			position_label.custom_minimum_size = Vector2(30, 0)
-			position_label.add_theme_font_size_override("font_size", 16)
+			position_label.add_theme_font_size_override("font_size", 20)
 			hbox.add_child(position_label)
 
 		# Weapon info
@@ -416,14 +416,14 @@ func _rebuild_weapon_list() -> void:
 
 		var name_label = Label.new()
 		name_label.text = "%s (x%d)" % [data.name, data.count]
-		name_label.add_theme_font_size_override("font_size", 14)
+		name_label.add_theme_font_size_override("font_size", 18)
 		info_vbox.add_child(name_label)
 
 		# WHO THIS WEAPON IS SHOOTING AT — the key fact when ordering a
 		# multi-target volley. A split weapon lists every slice ("2× Ork Boyz | 1× Nobz").
 		var target_label = Label.new()
 		target_label.text = "→ " + _describe_assignment_targets(data.assignments)
-		target_label.add_theme_font_size_override("font_size", 11)
+		target_label.add_theme_font_size_override("font_size", 16)
 		target_label.add_theme_color_override("font_color", Color(0.45, 0.95, 0.45))
 		info_vbox.add_child(target_label)
 
@@ -433,7 +433,7 @@ func _rebuild_weapon_list() -> void:
 			data.attacks,
 			data.total_damage
 		]
-		stats_label.add_theme_font_size_override("font_size", 10)
+		stats_label.add_theme_font_size_override("font_size", 16)
 		stats_label.modulate = Color(0.8, 0.8, 0.8)
 		info_vbox.add_child(stats_label)
 

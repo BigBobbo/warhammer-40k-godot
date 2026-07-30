@@ -47,7 +47,7 @@ func _create_ui() -> void:
 
 	# Last weapon header
 	weapon_name_label = Label.new()
-	weapon_name_label.add_theme_font_size_override("font_size", 16)
+	weapon_name_label.add_theme_font_size_override("font_size", 20)
 	weapon_name_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	weapon_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(weapon_name_label)
@@ -57,7 +57,7 @@ func _create_ui() -> void:
 	# Attack Summary Section
 	var summary_label = Label.new()
 	summary_label.text = "ATTACK SUMMARY"
-	summary_label.add_theme_font_size_override("font_size", 14)
+	summary_label.add_theme_font_size_override("font_size", 18)
 	main_vbox.add_child(summary_label)
 
 	attack_summary_panel = PanelContainer.new()
@@ -91,7 +91,7 @@ func _create_ui() -> void:
 	# Remaining Weapons Section
 	var remaining_label = Label.new()
 	remaining_label.text = "Remaining Weapons:"
-	remaining_label.add_theme_font_size_override("font_size", 14)
+	remaining_label.add_theme_font_size_override("font_size", 18)
 	main_vbox.add_child(remaining_label)
 
 	remaining_weapons_list = ItemList.new()
@@ -158,12 +158,12 @@ func _populate_last_weapon_summary() -> void:
 func _add_summary_row(label_text: String, value_text: String, color: Color) -> void:
 	var label = Label.new()
 	label.text = label_text
-	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_font_size_override("font_size", 18)
 	summary_grid.add_child(label)
 
 	var value = Label.new()
 	value.text = value_text
-	value.add_theme_font_size_override("font_size", 14)
+	value.add_theme_font_size_override("font_size", 18)
 	value.add_theme_color_override("font_color", color)
 	summary_grid.add_child(value)
 
@@ -175,7 +175,7 @@ func _show_skipped_message(reason: String) -> void:
 
 	var message = Label.new()
 	message.text = "⚠️ Weapon Skipped: %s" % reason
-	message.add_theme_font_size_override("font_size", 14)
+	message.add_theme_font_size_override("font_size", 18)
 	message.add_theme_color_override("font_color", Color.YELLOW)
 	summary_grid.add_child(message)
 
@@ -219,7 +219,7 @@ func _populate_dice_details() -> void:
 			header.text = "%s — need %s → %d successes" % [display_context, threshold_text, successes]
 		else:
 			header.text = "%s → %d successes" % [display_context, successes]
-		header.add_theme_font_size_override("font_size", 13)
+		header.add_theme_font_size_override("font_size", 17)
 		header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT if successes > 0 else Color(0.7, 0.65, 0.6))
 		dice_details_vbox.add_child(header)
 
@@ -230,7 +230,7 @@ func _populate_dice_details() -> void:
 				reroll_parts.append("%d→%d" % [reroll.original, reroll.rerolled_to])
 			var reroll_label = Label.new()
 			reroll_label.text = "  Re-rolled: %s" % ", ".join(reroll_parts)
-			reroll_label.add_theme_font_size_override("font_size", 12)
+			reroll_label.add_theme_font_size_override("font_size", 16)
 			reroll_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.4))
 			dice_details_vbox.add_child(reroll_label)
 

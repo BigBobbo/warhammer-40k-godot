@@ -46,7 +46,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "GRENADE"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.ORANGE)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -54,7 +54,7 @@ func _build_ui() -> void:
 	# Type label
 	var type_label = Label.new()
 	type_label.text = "Core – Wargear Stratagem (1 CP)"
-	type_label.add_theme_font_size_override("font_size", 12)
+	type_label.add_theme_font_size_override("font_size", 16)
 	type_label.add_theme_color_override("font_color", Color.GRAY)
 	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(type_label)
@@ -62,7 +62,7 @@ func _build_ui() -> void:
 	# CP display
 	cp_label = Label.new()
 	cp_label.text = "CP Available: %d" % StratagemManager.get_player_cp(player)
-	cp_label.add_theme_font_size_override("font_size", 14)
+	cp_label.add_theme_font_size_override("font_size", 18)
 	cp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(cp_label)
 
@@ -70,7 +70,7 @@ func _build_ui() -> void:
 	var desc = Label.new()
 	desc.text = "Select a GRENADES unit, then an enemy within 8\". Roll 6D6: each 4+ = 1 mortal wound."
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.add_theme_font_size_override("font_size", 12)
+	desc.add_theme_font_size_override("font_size", 16)
 	main_container.add_child(desc)
 
 	main_container.add_child(HSeparator.new())
@@ -78,7 +78,7 @@ func _build_ui() -> void:
 	# Step indicator
 	step_label = Label.new()
 	step_label.text = "Step 1: Select GRENADES unit"
-	step_label.add_theme_font_size_override("font_size", 14)
+	step_label.add_theme_font_size_override("font_size", 18)
 	step_label.add_theme_color_override("font_color", Color.CYAN)
 	main_container.add_child(step_label)
 
@@ -196,7 +196,7 @@ func _show_target_selection() -> void:
 
 	var info = Label.new()
 	info.text = "Throwing with: %s" % grenade_name
-	info.add_theme_font_size_override("font_size", 12)
+	info.add_theme_font_size_override("font_size", 16)
 	info.add_theme_color_override("font_color", Color.LIGHT_GREEN)
 	target_list_container.add_child(info)
 

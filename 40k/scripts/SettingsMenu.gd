@@ -153,7 +153,7 @@ func _build_ui() -> void:
 	var title = Label.new()
 	title.text = "SETTINGS"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_font_size_override("font_size", 26)
 	title.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(title)
 
@@ -236,7 +236,7 @@ func _build_ui() -> void:
 	auto_alloc_help.text = "When enabled, the computer chooses which wounded models are removed instead of asking you to click each one. The defending player normally makes this choice."
 	auto_alloc_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	auto_alloc_help.custom_minimum_size = Vector2(620, 0)
-	auto_alloc_help.add_theme_font_size_override("font_size", 12)
+	auto_alloc_help.add_theme_font_size_override("font_size", 16)
 	auto_alloc_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	gameplay_content.add_child(auto_alloc_help)
 
@@ -246,7 +246,7 @@ func _build_ui() -> void:
 	autosave_help.text = "On by default. Saves the game automatically at the start of every phase, named after the two armies and the phase that is starting (e.g. \"Space Marines vs Orks - Movement\"). Works in the browser build on itch.io too."
 	autosave_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	autosave_help.custom_minimum_size = Vector2(620, 0)
-	autosave_help.add_theme_font_size_override("font_size", 12)
+	autosave_help.add_theme_font_size_override("font_size", 16)
 	autosave_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	gameplay_content.add_child(autosave_help)
 
@@ -369,7 +369,7 @@ func _build_controls_tab(parent: VBoxContainer) -> void:
 	scroll_help.text = "Speed of mouse-wheel / trackpad scrolling in menus, lists and panels (100% = default). Does not affect board zoom."
 	scroll_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	scroll_help.custom_minimum_size = Vector2(620, 0)
-	scroll_help.add_theme_font_size_override("font_size", 12)
+	scroll_help.add_theme_font_size_override("font_size", 16)
 	scroll_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(scroll_help)
 
@@ -515,7 +515,7 @@ func _build_input_mode_section(parent: VBoxContainer) -> void:
 	help.text = "The game no longer switches between the controller and mouse/keyboard layouts while you play — pick one here and it sticks. Auto-detect chooses the controller layout on a Steam Deck and the mouse & keyboard layout on a PC or in the browser (itch.io)."
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.custom_minimum_size = Vector2(620, 0)
-	help.add_theme_font_size_override("font_size", 12)
+	help.add_theme_font_size_override("font_size", 16)
 	help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(help)
 
@@ -525,7 +525,7 @@ func _build_input_mode_section(parent: VBoxContainer) -> void:
 	_input_mode_status_label.name = "InputModeStatusLabel"
 	_input_mode_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_input_mode_status_label.custom_minimum_size = Vector2(620, 0)
-	_input_mode_status_label.add_theme_font_size_override("font_size", 12)
+	_input_mode_status_label.add_theme_font_size_override("font_size", 16)
 	_input_mode_status_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	parent.add_child(_input_mode_status_label)
 	_update_input_mode_status()
@@ -560,7 +560,7 @@ func _build_controller_tab(parent: VBoxContainer) -> void:
 	rebind_help.text = "Click a control, then press the controller button you want for it. If another control already uses that button, the two swap places. The D-pad, sticks, triggers and Steam Deck back paddles keep their jobs and cannot be reassigned."
 	rebind_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rebind_help.custom_minimum_size = Vector2(620, 0)
-	rebind_help.add_theme_font_size_override("font_size", 12)
+	rebind_help.add_theme_font_size_override("font_size", 16)
 	rebind_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(rebind_help)
 
@@ -596,7 +596,7 @@ func _build_controller_tab(parent: VBoxContainer) -> void:
 	boost_help.text = "Boosts on-screen text and buttons while a controller is in use so they stay readable on the Steam Deck's screen. Mouse & keyboard are unaffected."
 	boost_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	boost_help.custom_minimum_size = Vector2(620, 0)
-	boost_help.add_theme_font_size_override("font_size", 12)
+	boost_help.add_theme_font_size_override("font_size", 16)
 	boost_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(boost_help)
 
@@ -757,7 +757,7 @@ func _get_last_value_label() -> Label:
 func _add_section_header(parent: VBoxContainer, text: String) -> void:
 	var header = Label.new()
 	header.text = text
-	header.add_theme_font_size_override("font_size", 16)
+	header.add_theme_font_size_override("font_size", 20)
 	header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	parent.add_child(header)
 
