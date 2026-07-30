@@ -20,6 +20,9 @@ const CARD_TOP_OFFSET := 96.0
 const CARD_BOTTOM_OFFSET := 132.0  # keeps clear of the pad hint bar
 const CARD_SIDE_OFFSET := 10.0     # flank inset, left or right
 const ANCHOR_RERESOLVE_S := 0.5
+# How often the full-tree hunt for controller-parented dialogs runs — see
+# _visible_blocking_windows for why it is not every frame.
+const DEEP_SCAN_INTERVAL_S := 0.15
 
 # The card has no width of its own: it is as wide as the widest of BodyText /
 # ChecklistText / HintLabel plus the Margin insets and the panel border. So
@@ -73,6 +76,8 @@ var _card_content_w: float = CARD_CONTENT_W
 var _dim_strips: Array = []
 var _modal_exit_window: Window = null   # floating hatch, for non-AcceptDialog modals
 var _modal_exit_host: Window = null     # the dialog we added an Exit button INTO
+var _deep_blockers: Array = []          # controller-parented dialogs, see _visible_blocking_windows
+var _deep_scan_accum: float = DEEP_SCAN_INTERVAL_S
 
 
 func _ready() -> void:
@@ -509,14 +514,19 @@ func _card_chrome_w() -> float:
 	return measured if measured > 0.0 and measured < 200.0 else 24.0
 
 
-# The rect the card must keep off: the blocking Window grown by its decorations.
-# Empty when nothing is blocking.
+# The rect the card must keep off, grown by the border and title bar embedded
+# Windows draw outside position/size. Empty when nothing is blocking.
+#
+# The UNION of every open dialog, not just the topmost: with two up at once
+# (a controller-parented picker over a root-level modal, say) dodging only one
+# of them can park the card straight under the other.
 func card_blocker_rect() -> Rect2:
-	var win := _blocking_window()
-	if win == null:
-		return Rect2()
-	return Rect2(Vector2(win.position), Vector2(win.size)).grow_individual(
-		WINDOW_DECOR_PAD.x, WINDOW_DECOR_PAD.y, WINDOW_DECOR_PAD.x, WINDOW_DECOR_PAD.y)
+	var merged := Rect2()
+	for win in _visible_blocking_windows():
+		var r := Rect2(Vector2(win.position), Vector2(win.size)).grow_individual(
+			WINDOW_DECOR_PAD.x, WINDOW_DECOR_PAD.y, WINDOW_DECOR_PAD.x, WINDOW_DECOR_PAD.y)
+		merged = r if merged.size == Vector2.ZERO else merged.merge(r)
+	return merged
 
 
 # Where to stand while `blocker` is up, and how wide to be. The dialogs the card
@@ -580,23 +590,72 @@ func _any_game_window_open() -> bool:
 	return _blocking_window() != null
 
 
-# The topmost visible gameplay Window, or null. The tutorial's OWN windows (the
-# escape hatch, the exit confirm) are skipped: they must not make the card dodge
-# to the left flank, and must not switch the pad's A away from the card.
-func _blocking_window() -> Window:
-	var top: Window = null
+# The tutorial's OWN windows (the escape hatch, the exit confirm) are never
+# blockers: they must not make the card dodge, and must not switch the pad's A
+# away from the card.
+func _is_blocker(node: Node) -> bool:
+	if not (node is Window) or node == get_tree().root:
+		return false
+	if not (node as Window).visible:
+		return false
+	# The AcceptDialog family and bare Windows only. Popup (PopupMenu,
+	# PopupPanel) is also a Window, so without this an OptionButton dropdown or
+	# a right-click menu — which the deep scan below now reaches — would count
+	# as a modal and send the card flying to the flank for as long as the list
+	# is open. Those are transient and small; they are not what the card dodges.
+	if node is Popup:
+		return false
+	return node.name != MODAL_EXIT_WINDOW_NAME and node.name != EXIT_CONFIRM_NAME
+
+
+# Every visible gameplay Window, topmost last.
+#
+# Most dialogs are parented to /root or to /root/Main, and those two levels are
+# rescanned every frame — it costs nothing and the card dodges them the frame
+# they open. But some are parented to the CONTROLLER that raises them, e.g. the
+# shooting phase's grenade / split-fire target pickers on
+# /root/Main/ShootingController and the movement phase's PopupMenu. Those sit a
+# level deeper than the cheap scan reaches, so before this they were invisible
+# to the overlay: the card never dodged them AND _sync_modal_exit never fired,
+# leaving a dead-but-live-looking Exit Tutorial under a modal that swallows
+# every click — the softlock the escape hatch exists to prevent.
+#
+# A full-tree walk finds them, but measured 1.12ms over the ~1800 nodes of a
+# live lesson, and _process consults this twice a frame — too dear to repeat at
+# 60Hz on a Deck. So the deep walk is throttled to DEEP_SCAN_INTERVAL_S and its
+# hits are cached. Only DISCOVERY is delayed (~1 frame in the common case, up to
+# 150ms for a deep one); the cache is revalidated on every read, so a dialog
+# closing un-dodges the card immediately.
+func _visible_blocking_windows() -> Array:
+	var found: Array = []
 	for scope in [get_tree().root, get_tree().root.get_node_or_null("Main")]:
 		if scope == null:
 			continue
 		for child in scope.get_children():
-			if not (child is Window) or child == get_tree().root:
-				continue
-			if not (child as Window).visible:
-				continue
-			if child.name == MODAL_EXIT_WINDOW_NAME or child.name == EXIT_CONFIRM_NAME:
-				continue
-			top = child as Window
-	return top
+			if _is_blocker(child):
+				found.append(child)
+	for w in _deep_blockers:
+		if is_instance_valid(w) and _is_blocker(w) and not found.has(w):
+			found.append(w)
+	return found
+
+
+func _refresh_deep_blockers() -> void:
+	_deep_blockers.clear()
+	var stack: Array = [get_tree().root]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		for child in node.get_children():
+			if _is_blocker(child):
+				_deep_blockers.append(child)
+			stack.append(child)
+
+
+# The topmost visible gameplay Window, or null. Used by the escape hatch, which
+# needs a concrete Window to inject its Exit Tutorial button into.
+func _blocking_window() -> Window:
+	var wins := _visible_blocking_windows()
+	return wins[-1] if not wins.is_empty() else null
 
 
 # ------------------------------------------------- modal escape hatch -------
@@ -879,6 +938,10 @@ func current_checklist_text() -> String:
 # --------------------------------------------------------------- process ----
 
 func _process(delta: float) -> void:
+	_deep_scan_accum += delta
+	if _deep_scan_accum >= DEEP_SCAN_INTERVAL_S:
+		_deep_scan_accum = 0.0
+		_refresh_deep_blockers()
 	_update_card_mode()
 	_sync_modal_exit()
 	_keep_ack_focus()

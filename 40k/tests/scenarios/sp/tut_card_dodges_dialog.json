@@ -254,6 +254,61 @@
     },
     {
       "act": "execute_script",
+      "script": "var host = null\nfor c in tree.root.get_node(\"/root/Main\").get_children():\n\tif \"Controller\" in str(c.name):\n\t\thost = c\n\t\tbreak\nif host == null:\n\treturn \"no controller node under Main to parent onto\"\nvar d = AcceptDialog.new()\nd.name = \"ProbeControllerDialog\"\nd.min_size = Vector2i(700, 500)\nd.exclusive = true\nhost.add_child(d)\nDialogUtils.popup_at_bottom(d)\nif d.get_parent() == tree.root or d.get_parent() == tree.root.get_node(\"/root/Main\"):\n\treturn \"probe landed at a depth the cheap scan already covered - proves nothing\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "stand-in for the dialogs parented to the controller that raises them rather than to /root or /root/Main - the shooting phase's grenade and split-fire target pickers (ShootingController.gd) and the movement phase's PopupMenu. Those need a board state this lesson has no way to reach, but they sit at exactly this tree depth, which is what the overlay used to be blind to"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0,
+      "comment": "the deep scan is throttled to 0.15s, so give discovery a moment"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nif ov.card_blocker_rect().size == Vector2.ZERO:\n\treturn \"a dialog parented below /root/Main is still invisible to the overlay\"\nif ov.card_blocker_overlap() > 0.0:\n\treturn \"card buried %.0fpx under the controller-parented dialog\" % ov.card_blocker_overlap()\nvar exit_btn = ov.get_node(\"InstructorCard/Margin/VBox/Footer/ExitTutorialButton\")\nif not exit_btn.disabled:\n\treturn \"card's Exit Tutorial still looks live under a modal that swallows clicks\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "both halves: the card dodges it, AND the escape hatch fires so the dead footer button is greyed rather than silently swallowing clicks"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main\").find_child(\"ProbeControllerDialog\", true, false)\nif d == null:\n\treturn false\nvar b = d.get_meta(\"tutorial_exit_button\", null)\nreturn b != null and is_instance_valid(b) and b.is_visible_in_tree()",
+      "multiline": true,
+      "equals": true,
+      "comment": "and the modal gets its own Exit Tutorial in its button bar, which is the only reachable way out while it is up"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main\").find_child(\"ProbeControllerDialog\", true, false)\nif d == null:\n\treturn false\nvar pm = PopupMenu.new()\npm.name = \"ProbeDropdown\"\npm.add_item(\"Tactical\")\nd.get_parent().add_child(pm)\npm.popup(Rect2i(400, 400, 200, 80))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main\").find_child(\"ProbeControllerDialog\", true, false)\nif d != null:\n\td.queue_free()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar pm = tree.root.get_node(\"/root/Main\").find_child(\"ProbeDropdown\", true, false)\nif pm == null or not pm.visible:\n\treturn \"the dropdown closed on its own - this check proves nothing\"\nif ov.card_blocker_rect().size != Vector2.ZERO:\n\treturn \"an open dropdown is being treated as a modal - the card would fly to the flank whenever a list is opened\"\nif not is_equal_approx(ov.card_content_width(), 560.0):\n\treturn \"card stayed narrow at %.0f with only a dropdown open\" % ov.card_content_width()\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "PopupMenu is a Window too, so the deep scan reaches dropdowns and context menus - they must NOT count as blockers, and the card must be back to full width now the real dialog has gone"
+    },
+    {
+      "act": "execute_script",
+      "script": "var pm = tree.root.get_node(\"/root/Main\").find_child(\"ProbeDropdown\", true, false)\nif pm != null:\n\tpm.queue_free()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "TutorialManager.exit_tutorial()\nreturn true",
       "multiline": true,
       "equals": true,

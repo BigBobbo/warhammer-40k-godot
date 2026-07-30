@@ -8,7 +8,8 @@
       "changes": [
         "When a lesson step opens a dialog, the instructor card steps aside to the left of the screen — but it always did so at a fixed width, so on any UI Scale above 1.0 (and on a controller, where the game boosts the scale to 1.2 for legibility) the dialog reached into that strip and buried the right-hand side of the card. In 'Runnin' da Show' that cut the instructions mid-sentence and hid the Skip Step and Exit Tutorial buttons on step 1 (the secondary-mission review), step 2 (the guard prompt) and step 5 (the stratagem panel).",
         "The card now measures the space actually left beside the dialog and narrows itself to fit, so the whole card and the whole dialog are readable at the same time. It widens back out the moment the dialog closes.",
-        "If a flank is too narrow to hold a readable column, the card looks for room above or below the dialog instead. It never covers the dialog — you can always still read the missions, guards or stratagems the step is asking about."
+        "If a flank is too narrow to hold a readable column, the card looks for room above or below the dialog instead. It never covers the dialog — you can always still read the missions, guards or stratagems the step is asking about.",
+        "Found while checking where else this could bite: the card only ever looked for dialogs in two places, so any dialog opened by the phase controller that raises it — the shooting phase's grenade and split-fire target pickers, the movement phase's right-click menu — was invisible to it. The card did not step aside for those at all, and worse, the tutorial did not notice it was under a modal: its Exit Tutorial button stayed looking live while the dialog swallowed every click, with no way out. Those dialogs are now found wherever they are, the card steps aside for them, and the modal gets its own working Exit Tutorial button."
       ]
     },
     {
