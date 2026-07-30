@@ -53,6 +53,11 @@ var _card_mode: String = "top"
 var _dim_strips: Array = []
 var _modal_exit_window: Window = null   # floating hatch, for non-AcceptDialog modals
 var _modal_exit_host: Window = null     # the dialog we added an Exit button INTO
+# The in-dialog hatch is ARMED, not always-on — see "modal escape hatch" below.
+# Set by note_action_blocked() (the lesson gate really did reject something while
+# this dialog was up), cleared when the blocker closes or the step changes.
+var _hatch_armed: bool = false
+var _hatch_armed_host: Window = null
 
 
 func _ready() -> void:
@@ -490,18 +495,48 @@ func _blocking_window() -> Window:
 #   * anything else — a sibling always-on-top Window floats the button over the
 #     top. popup() would steal focus, so it is handed straight back to the
 #     blocker; the hatch stays clickable without it (verified).
+#
+# WHY THE IN-DIALOG BUTTON IS ARMED, NOT ALWAYS-ON (reported on a pad, T2 and
+# T5): offering it on EVERY dialog cost the player control of the dialog itself.
+# Measured live on the T2 deployment roll-off with the pad active:
+#   * AcceptDialog.add_button() lands the button in the dialog's own button bar,
+#     which is a SEPARATE FOCUS ROOT from the dialog's content (both are
+#     children of the Window, so Control.find_valid_focus_neighbor stops at
+#     whichever of the two the focused button lives under). Focus that starts in
+#     the button bar can NEVER reach "⚄ Roll the dice" — all four D-pad
+#     directions left the focus on TutorialExitButton, verified by probing
+#     RollOffDialog.gui_get_focus_owner() after each press.
+#   * and focus DID start there: InputDeviceManager's dialog watcher focuses the
+#     dialog's confirm button on popup, and its scan found the injected button
+#     first — so a pad player opened the roll-off already parked on "Exit
+#     Tutorial", with no way off it. Both roll-offs, the command re-roll offered
+#     on an Advance and the charge roll all behaved the same way.
+# A dice popup is not a place anyone needs to quit from — you press its button,
+# it closes, and the card's own Exit Tutorial is live again. So the in-dialog
+# button now appears only once the lesson gate has actually REJECTED something
+# while this dialog was up (note_action_blocked), which is exactly the reported
+# softlock it was built for: the roll-off that opened on a step whose allow-list
+# refused the roll. Until then the dialog keeps every one of its own buttons.
 func _sync_modal_exit() -> void:
 	var host := _blocking_window()
+	if host != _hatch_armed_host:
+		# A different blocker (or none): whatever the player was blocked on is
+		# gone, so the hatch has to re-earn its place.
+		_hatch_armed = false
+		_hatch_armed_host = host
 	# The card's own footer buttons cannot be pressed while a modal is up, so say
 	# so: a live-looking Exit Tutorial that swallows every click is what made the
 	# reported softlock feel unescapable. Greyed here, re-offered below.
-	_set_footer_enabled(host == null)
+	_set_footer_enabled(host == null, host != null and host is AcceptDialog and not _hatch_armed)
 	if host == null:
 		clear_modal_exit()
 		return
 	if host is AcceptDialog:
 		_hide_modal_exit_window()
-		if _modal_exit_host != host or not _injected_button_alive():
+		if not _hatch_armed:
+			_clear_injected_button()
+			return
+		if _modal_exit_host != host or not _injected_button_alive() or not _focus_link_alive():
 			_clear_injected_button()
 			_inject_exit_button(host as AcceptDialog)
 		return
@@ -509,14 +544,53 @@ func _sync_modal_exit() -> void:
 	_show_modal_exit_window(host)
 
 
-func _set_footer_enabled(enabled: bool) -> void:
+# Called by TutorialManager.on_action_blocked: the step's allow-list just refused
+# something. If a dialog is what the player is stuck behind, that is the signal
+# to offer the escape hatch inside it (see the block comment above).
+func note_action_blocked() -> void:
+	var host := _blocking_window()
+	if host == null:
+		return
+	_hatch_armed = true
+	_hatch_armed_host = host
+	_sync_modal_exit()
+
+
+# `dismissible` = a dialog is up but the player is not stuck behind it (no hatch
+# offered), so the tooltip must point at the dialog instead of at a button that
+# is not there.
+func _set_footer_enabled(enabled: bool, dismissible: bool = false) -> void:
 	var blocked_tip := "A dialog is open — use its own Exit Tutorial button."
+	if dismissible:
+		blocked_tip = "A dialog is open — finish it first, then you can leave."
+	var tip := "Leave the tutorial and go back to the main menu (asks first)." if enabled else blocked_tip
+	# Called every frame from _process, so bail once both the state AND the reason
+	# already match — the tooltip flips between the two blocked wordings when the
+	# hatch arms, which a disabled-only check would miss.
+	if _exit_button != null and _exit_button.disabled == (not enabled) and _exit_button.tooltip_text == tip:
+		return
 	for b in [_skip_button, _exit_button]:
-		if b == null or b.disabled == (not enabled):
+		if b == null:
 			continue
 		b.disabled = not enabled
 		if b == _exit_button:
-			b.tooltip_text = "Leave the tutorial and go back to the main menu (asks first)." if enabled else blocked_tip
+			b.tooltip_text = tip
+
+
+# A dialog may rebuild its button row while the hatch is up (RollOffDialog goes
+# Roll → Re-roll → Deploy First/Second → Continue), freeing the control the
+# hatch's focus neighbours point at. Re-inject when that happens, so the way
+# back out of the hatch always lands on the button the dialog wants pressed NOW.
+func _focus_link_alive() -> bool:
+	if _modal_exit_host == null or not _modal_exit_host.has_meta(INJECTED_EXIT_META):
+		return false
+	var btn = _modal_exit_host.get_meta(INJECTED_EXIT_META)
+	if not is_instance_valid(btn) or not btn.has_meta(_LINKED_PRIMARY_META):
+		return false
+	var primary = btn.get_meta(_LINKED_PRIMARY_META)
+	if primary == null:
+		return true  # the dialog had nothing to link to; re-injecting would just spin
+	return is_instance_valid(primary) and primary.is_visible_in_tree()
 
 
 func _injected_button_alive() -> bool:
@@ -543,7 +617,50 @@ func _inject_exit_button(dialog: AcceptDialog) -> void:
 	btn.pressed.connect(_on_exit_pressed)
 	dialog.set_meta(INJECTED_EXIT_META, btn)
 	_modal_exit_host = dialog
+	_link_exit_button_focus(dialog, btn)
 	print("TutorialOverlay: added Exit Tutorial to modal '%s'" % str(dialog.name))
+
+
+# The button bar and the dialog's content are separate focus roots (see the
+# block comment above), so without explicit neighbours a D-pad player who lands
+# on the hatch can never walk back to the dialog's own action. Explicit
+# focus_neighbor NodePaths are honoured across roots — wire both directions.
+const _PRIMARY_NEIGHBOR_META := "tutorial_saved_focus_bottom"
+const _LINKED_PRIMARY_META := "tutorial_linked_primary"
+
+func _link_exit_button_focus(dialog: AcceptDialog, btn: Button) -> void:
+	var primary := _dialog_primary_button(dialog, btn)
+	# Always stamp the meta, even with nothing to link — _focus_link_alive() reads
+	# it to decide whether to re-inject, and a missing stamp would spin.
+	btn.set_meta(_LINKED_PRIMARY_META, primary)
+	if primary == null:
+		return
+	btn.focus_neighbor_top = btn.get_path_to(primary)
+	btn.focus_neighbor_bottom = btn.get_path_to(primary)
+	btn.focus_neighbor_left = btn.get_path_to(primary)
+	btn.focus_neighbor_right = btn.get_path_to(primary)
+	# Give the dialog's own button a way back, restoring whatever it had when the
+	# hatch goes away (most dialogs leave these empty and rely on geometry).
+	# Remember WHICH button we touched — a dialog that rebuilds its button row
+	# mid-life (RollOffDialog: Roll → Deploy First/Second) must not have the
+	# restore land on a different, untouched control.
+	primary.set_meta(_PRIMARY_NEIGHBOR_META, primary.focus_neighbor_bottom)
+	primary.focus_neighbor_bottom = primary.get_path_to(btn)
+
+
+# The button the dialog wants pressed: the first visible, focusable Button that
+# is NOT in the dialog's own button bar (where the hatch and the hidden OK live).
+func _dialog_primary_button(dialog: AcceptDialog, exclude: Button) -> Button:
+	var bar: Node = exclude.get_parent()
+	var queue: Array = [dialog]
+	while not queue.is_empty():
+		var n: Node = queue.pop_front()
+		if n is Button and n != exclude and n.visible and not n.disabled \
+				and n.focus_mode != Control.FOCUS_NONE and n.get_parent() != bar:
+			return n
+		for c in n.get_children(true):
+			queue.append(c)
+	return null
 
 
 func _clear_injected_button() -> void:
@@ -551,6 +668,11 @@ func _clear_injected_button() -> void:
 		if _modal_exit_host.has_meta(INJECTED_EXIT_META):
 			var btn = _modal_exit_host.get_meta(INJECTED_EXIT_META)
 			if is_instance_valid(btn):
+				if btn.has_meta(_LINKED_PRIMARY_META):
+					var primary = btn.get_meta(_LINKED_PRIMARY_META)
+					if is_instance_valid(primary) and primary.has_meta(_PRIMARY_NEIGHBOR_META):
+						primary.focus_neighbor_bottom = primary.get_meta(_PRIMARY_NEIGHBOR_META)
+						primary.remove_meta(_PRIMARY_NEIGHBOR_META)
 				btn.queue_free()
 			_modal_exit_host.remove_meta(INJECTED_EXIT_META)
 	_modal_exit_host = null
@@ -650,6 +772,9 @@ func show_step(view: Dictionary) -> void:
 	_spotlight_mode = str(view.get("spotlight", "none"))
 	_anchor_node = null
 	_anchor_ok = false
+	# A new step has a new allow-list, so an earlier step's rejection says nothing
+	# about this one — the in-dialog hatch has to be re-armed by a fresh block.
+	_hatch_armed = false
 	_reresolve_accum = ANCHOR_RERESOLVE_S  # resolve on next frame
 	if _card_mode != "top":
 		_place_card("top")

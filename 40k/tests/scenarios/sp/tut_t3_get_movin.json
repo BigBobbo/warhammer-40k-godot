@@ -5,7 +5,9 @@
     "tutorial.t3.disembark",
     "tutorial.t3.post_disembark_move",
     "tutorial.t3.post_disembark_select_all",
-    "tutorial.engine.strict_spotlight"
+    "tutorial.engine.strict_spotlight",
+    "tutorial.t3.advance_lock_not_blocked",
+    "tutorial.exit.hatch_armed"
   ],
   "rng_seed": 4242,
   "edition": 11,
@@ -343,6 +345,27 @@
       "equals": "keep_da_roll"
     },
     {
+      "act": "execute_script",
+      "script": "var pi = PhaseManager.current_phase_instance\nvar am = pi.active_moves.get(\"U_BATTLEWAGON_T\", {})\nreturn bool(am.get(\"mode_locked\", false))",
+      "multiline": true,
+      "equals": true,
+      "comment": "REPORTED BUG ('it says tutorial_locked when I select Advance'): MovementController._on_confirm_mode_pressed emits BEGIN_ADVANCE and then LOCK_MOVEMENT_MODE from ONE click, and BEGIN_ADVANCE completes wagon_mode synchronously (phase_action_taken -> _check_done -> _advance_step). So the second half of that click is gated by keep_da_roll's allow-list, which was empty - the mode never locked and the player got a red 'tutorial_locked'. mode_locked is the observable proof the lock landed."
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.is_action_allowed({\"type\": \"LOCK_MOVEMENT_MODE\", \"actor_unit_id\": \"U_BATTLEWAGON_T\", \"player\": 1})",
+      "multiline": true,
+      "equals": true,
+      "comment": "and the gate itself allows it - so a re-confirm cannot resurrect the toast"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = null\nfor c in tree.root.get_children():\n\tif c is Window and c.visible and str(c.name).to_lower().contains(\"reroll\"):\n\t\td = c\nif d == null:\n\treturn \"NO REROLL DIALOG\"\nreturn \"%s|%s\" % [str(d.name), str(d.has_meta(\"tutorial_exit_button\"))]",
+      "multiline": true,
+      "equals": "CommandRerollDialog|false",
+      "comment": "the dice popups must be entirely the player's — an injected 'Exit Tutorial' lands in the AcceptDialog's own button bar, which is a separate focus root from its content, and on a pad that took Keep Roll / Re-roll away from the D-pad entirely. Same dialog class the charge roll uses."
+    },
+    {
       "act": "screenshot",
       "label": "04a_command_reroll_offer"
     },
@@ -420,7 +443,10 @@
       "from_y": 260.0,
       "to_x": 640.0,
       "to_y": 200.0,
-      "keys": ["Q", "Q"],
+      "keys": [
+        "Q",
+        "Q"
+      ],
       "comment": "second hop AND the rotation in one grab: Q only rotates a model that is currently held (MovementController clears selected_model on drop), which is exactly what the step tells the player to do - grab, hold, tap Q/E, let go"
     },
     {

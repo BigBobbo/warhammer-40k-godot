@@ -2,11 +2,12 @@
   "id": "tut_exit_under_modal",
   "covers": [
     "tutorial.exit.under_modal",
-    "tutorial.exit.confirm"
+    "tutorial.exit.confirm",
+    "tutorial.exit.hatch_armed"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Exit Tutorial has to work at ANY point of a lesson, including while a gameplay dialog owns the screen. Reproduces the reported T2 softlock — parked on 'GROTS IN A MOB!' (deploy_grots) with the FIRST_TURN_ROLLOFF dialog open, so the step's allow-list rejects the roll — and proves the escape hatch: the card's own Exit Tutorial greys out (it is unreachable under an exclusive embedded Window, which blocks every input to the parent viewport), an Exit Tutorial button is offered inside the dialog itself, it opens a confirm, and confirming lands the player back on the main menu with no tutorial state left behind.",
+  "description": "Exit Tutorial has to work at ANY point of a lesson, including while a gameplay dialog owns the screen. Reproduces the reported T2 softlock — parked on 'GROTS IN A MOB!' (deploy_grots) with the FIRST_TURN_ROLLOFF dialog open, so the step's allow-list rejects the roll — and proves the escape hatch: the card's own Exit Tutorial greys out (it is unreachable under an exclusive embedded Window, which blocks every input to the parent viewport), an Exit Tutorial button is offered inside the dialog itself, it opens a confirm, and confirming lands the player back on the main menu with no tutorial state left behind. The hatch is ARMED, not always-on: it appears only once the lesson gate has actually refused something while this dialog was up, because offering it on every dialog cost pad players control of the dialog itself (tut_rolloff_pad_no_exit_hatch owns that half). So this scenario presses the blocked Roll button first — which is exactly what the stranded player did.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.5 },
     { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton" },
@@ -26,7 +27,12 @@
     { "act": "execute_script", "script": "var rd = tree.root.get_node_or_null(\"Main/RollOffDialog\")\nreturn rd.exclusive", "multiline": true, "equals": true, "comment": "exclusive embedded Windows block ALL input to the parent viewport - that is why the card's button was dead" },
 
     { "act": "expect_node_property", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ExitTutorialButton", "property": "disabled", "equals": true, "comment": "the card's Exit Tutorial is unreachable under the modal, so it must not look pressable" },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node_or_null(\"Main/RollOffDialog\")\nreturn rd.has_meta(\"tutorial_exit_button\")", "multiline": true, "equals": false, "comment": "not yet: nothing has been refused, so the dialog is still entirely the player's — this is what stops the hatch hijacking pad focus on an ordinary dice roll" },
+
+    { "act": "execute_script", "script": "var b = tree.root.get_node_or_null(\"Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b == null:\n\treturn \"no roll button\"\nb.pressed.emit()\nreturn \"pressed\"", "multiline": true, "equals": "pressed", "comment": "press the blocked Roll — what the stranded player actually did. The gate refuses it, and THAT is what arms the escape hatch." },
+    { "act": "wait_seconds", "seconds": 1.0 },
     { "act": "execute_script", "script": "var rd = tree.root.get_node_or_null(\"Main/RollOffDialog\")\nif not rd.has_meta(\"tutorial_exit_button\"):\n\treturn \"missing\"\nvar b = rd.get_meta(\"tutorial_exit_button\")\nreturn \"%s|%s\" % [str(b.text), str(b.is_visible_in_tree())]", "multiline": true, "equals": "Exit Tutorial|true", "comment": "the escape hatch: Exit Tutorial offered INSIDE the blocking dialog" },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node_or_null(\"Main/RollOffDialog\")\nvar b = rd.get_meta(\"tutorial_exit_button\")\nvar roll = tree.root.get_node_or_null(\"Main/RollOffDialog/Content/ButtonBar/RollButton\")\nb.grab_focus()\nvar on_hatch = rd.gui_get_focus_owner() == b\nvar back = b.find_valid_focus_neighbor(SIDE_TOP)\nroll.grab_focus()\nreturn \"%s|%s\" % [str(on_hatch), str(back == roll)]", "multiline": true, "equals": "true|true", "comment": "and it is not a one-way trap: the dialog's button bar is a separate focus root from its content, so the hatch is wired with explicit focus neighbours back onto the dialog's own action. Without them no D-pad direction could leave the hatch." },
 
     { "act": "click_node", "button_text": "Exit Tutorial", "comment": "resolves to the injected button - the card's is disabled" },
     { "act": "wait_seconds", "seconds": 1.0 },

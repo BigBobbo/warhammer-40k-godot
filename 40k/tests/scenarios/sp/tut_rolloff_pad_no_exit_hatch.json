@@ -1,0 +1,65 @@
+{
+  "id": "tut_rolloff_pad_no_exit_hatch",
+  "covers": [
+    "tutorial.exit.hatch_armed",
+    "tutorial.t2.rolloff_pad",
+    "controller.dialog.focus",
+    "InputDeviceManager",
+    "TutorialOverlay"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Reported on a pad in T2 (and again on the first-turn roll-off, the Advance command re-roll and the charge roll): the tutorial's 'Exit Tutorial' escape hatch was injected into EVERY gameplay dialog, and on a controller it took the dialog away from the player. AcceptDialog.add_button() lands the button in the dialog's own button bar, which is a SEPARATE focus root from the dialog's content — so once focus was there, no D-pad direction could reach 'Roll the dice' — and InputDeviceManager's dialog watcher put focus there on popup, because its breadth-first scan hit the injected button before the content and '⚄  Roll the dice' did not match a confirm word through its leading glyph. This scenario pins the fix on the real deployment roll-off with the pad active: the dialog carries ONLY its own Roll button, pad focus lands on Roll, A rolls the dice, and the winner's Deploy First / Deploy Second screen walks under the D-pad. tut_exit_under_modal owns the other half — the hatch still appears once the lesson gate actually blocks the player.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+
+    { "act": "simulate_joy_button", "button_index": 9, "comment": "pick up the pad on the MAIN MENU, before any dialog: an embedded Window is its own viewport, and SceneTree._call_input_pause filters _input by viewport, so once one is open no joypad event reaches PadRouter/InputDeviceManager at all. Claiming here is the only player path into a modal with the pad already active." },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton", "emit_pressed": true, "comment": "emit_pressed, not a real click: a real mouse event would hand the device back to KBM and the bug under test is pad-only" },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
+    { "act": "click_node", "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 10.0 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "attach_warboss" },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true, "comment": "the boot must not have flipped the device back" },
+
+    { "act": "execute_script", "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\tnd.select(1)\n\t\tnd.item_selected.emit(1)\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false", "multiline": true, "equals": true, "comment": "the Formations panel is a modal embedded Window - synthetic root-viewport clicks cannot reach its controls (same escape hatch tut_t2_musterin_pad_formation uses)" },
+    { "act": "wait_frames", "frames": 15 },
+    { "act": "execute_script", "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is CheckBox and str(nd.text).begins_with(\"Boyz\") and not (\"Reserves\" in str(nd.text)):\n\t\tnd.button_pressed = true\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false", "multiline": true, "equals": true },
+    { "act": "wait_frames", "frames": 15 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "confirm_formations" },
+    { "act": "click_node", "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 3.5 },
+
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "roll_off" },
+    { "act": "expect_node_visible", "node": "/root/Main/RollOffDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "execute_script", "script": "var rd = tree.root.get_node(\"Main/RollOffDialog\")\nreturn rd.has_meta(\"tutorial_exit_button\")", "multiline": true, "equals": false, "comment": "THE FIX: nothing blocked the player, so no Exit Tutorial is injected into the roll-off" },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node(\"Main/RollOffDialog\")\nvar names = []\nvar q = [rd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree():\n\t\tnames.append(str(nd.name))\n\tfor c in nd.get_children(true):\n\t\tq.append(c)\nreturn names", "multiline": true, "equals": ["RollButton"], "comment": "the dialog offers exactly its own action - no second, tutorial-owned button competing for the pad" },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node(\"Main/RollOffDialog\")\nvar f = rd.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"NONE\"", "multiline": true, "equals": "RollButton", "comment": "pad focus lands on the dialog's action. Before the fix this read TutorialExitButton, because '⚄  Roll the dice' never matched the confirm words through its leading glyph" },
+    { "act": "expect_node_property", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ExitTutorialButton", "property": "disabled", "equals": true, "comment": "the card's own Exit is still genuinely unreachable under an exclusive modal, so it must not look pressable" },
+    { "act": "execute_script", "script": "var e = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ExitTutorialButton\")\nreturn str(e.tooltip_text)", "multiline": true, "equals": "A dialog is open — finish it first, then you can leave.", "comment": "and the tooltip must not point at an in-dialog button that is not there" },
+    { "act": "screenshot", "label": "01_rolloff_pad_focus_on_roll" },
+
+    { "act": "simulate_joy_button", "button_index": 0, "comment": "A on the pad = the focused Roll button. This is the press that used to hit Exit Tutorial." },
+    { "act": "wait_seconds", "seconds": 2.5 },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node_or_null(\"Main/RollOffDialog\")\nif rd == null:\n\treturn \"DIALOG GONE\"\nvar names = []\nvar q = [rd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree():\n\t\tnames.append(str(nd.name))\n\tfor c in nd.get_children(true):\n\t\tq.append(c)\nnames.sort()\nreturn names", "multiline": true, "not_equals": ["RollButton"], "comment": "the dice were actually rolled - the button bar has moved off the Roll screen (Continue / Deploy First+Second / Re-roll, depending on the roll)" },
+    { "act": "screenshot", "label": "02_rolled_on_pad" },
+
+    { "act": "execute_script", "script": "var rd = tree.root.get_node(\"Main/RollOffDialog\")\nrd.show_result(5, 2, 1, \"choose\")\nreturn true", "multiline": true, "equals": true, "comment": "seed 4242 hands this roll-off to the AI, so re-render the WINNER's screen directly to cover the second dialog the report named ('deploy first or deploy second'). Forced UI state, not a played-through one - the assertions below are about focus routing, which does not depend on how the screen was reached." },
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node(\"Main/RollOffDialog\")\nreturn rd.has_meta(\"tutorial_exit_button\")", "multiline": true, "equals": false },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node(\"Main/RollOffDialog\")\nvar f = rd.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"NONE\"", "multiline": true, "equals": "DeployFirstButton" },
+    { "act": "screenshot", "label": "03_choose_screen_no_hatch" },
+
+    { "act": "simulate_joy_button", "button_index": 14, "comment": "D-pad right — the press that used to do nothing at all, because focus was stuck in the dialog's button bar" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node(\"Main/RollOffDialog\")\nvar f = rd.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"NONE\"", "multiline": true, "equals": "DeploySecondButton" },
+    { "act": "simulate_joy_button", "button_index": 13, "comment": "D-pad left — and back again, so the player is not stranded on either choice" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "var rd = tree.root.get_node(\"Main/RollOffDialog\")\nvar f = rd.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"NONE\"", "multiline": true, "equals": "DeployFirstButton" },
+    { "act": "screenshot", "label": "04_dpad_walks_the_choices" }
+  ]
+}
