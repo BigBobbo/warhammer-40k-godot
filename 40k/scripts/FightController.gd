@@ -2571,6 +2571,55 @@ func _on_pile_in_step_unit_chosen(unit_id: String) -> void:
 		pile_in_step_panel.get_node("StepInstructions").text = STEP_MOVE_IN_PROGRESS_INSTRUCTIONS
 	_on_pile_in_required(unit_id, 3.0)
 
+# ----------------------------------------------------------------------------
+# Pad: the live 11e global-step END button (12.02 Pile In / 12.07 Consolidate)
+# ----------------------------------------------------------------------------
+# Each global step section on the right panel carries its own end button —
+# "End Pile In (Player N)" / "End Consolidation (Player N)". A mouse player
+# clicks it. On a pad there was no advertised way to press it: the hint bar's ☰
+# chip read the generic "End Phase" while the top-right button ☰ actually
+# pressed read "Finish Pile Ins", so ☰ looked like it would end the WHOLE Fight
+# phase (the reported confusion — it never did; END_FIGHT during the Pile In
+# step only ends that half, see FightPhase._process_end_fight). PadRouter now
+# labels the ☰ chip from this and Main._input presses the button it hands back,
+# so the chip, the button and the action are one statement.
+#
+# Returns {} when neither section is interactive — no global step running, the
+# section greyed out while a chosen unit's move is on the board
+# (_set_step_panel_busy), an AI half (panels hidden), or the multiplayer
+# waiting note (end button hidden). In those states ☰ falls back to its normal
+# phase-action meaning.
+func get_pad_step_end() -> Dictionary:
+	var sections := [
+		[pile_in_step_panel, "EndPileInButton", "PILE_IN", "End Pile In"],
+		[consolidation_step_panel, "EndConsolidationButton", "CONSOLIDATE", "End Consolidation"],
+	]
+	for section in sections:
+		var panel = section[0]
+		if panel == null or not is_instance_valid(panel) or not panel.is_visible_in_tree():
+			continue
+		var btn = panel.get_node_or_null(section[1])
+		if btn is Button and btn.visible and not btn.disabled:
+			return {"button": btn, "step": section[2], "label": section[3]}
+	return {}
+
+# Press the live step-end button on behalf of the pad's ☰ (Start). Returns
+# false — leaving ☰ to its normal phase-action meaning — when no step section
+# is interactive. Routes through the SAME button the mouse clicks, so the pad
+# submits the scoped END_PILE_IN / END_CONSOLIDATION action (validated against
+# the player whose half it is) rather than the blunter END_FIGHT.
+func pad_end_step() -> bool:
+	var step_end := get_pad_step_end()
+	if step_end.is_empty():
+		return false
+	print("[FightController] Pad ☰ → %s (%s step)" % [step_end["label"], step_end["step"]])
+	DebugLogger.info("Pad Start ends fight step", {
+		"step": step_end["step"],
+		"label": step_end["label"]
+	})
+	step_end["button"].emit_signal("pressed")
+	return true
+
 func _on_end_pile_in_button_pressed() -> void:
 	_on_end_pile_in(_pile_in_step_player)
 

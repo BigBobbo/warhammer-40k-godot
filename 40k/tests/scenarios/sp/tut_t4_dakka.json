@@ -1,9 +1,9 @@
 {
   "id": "tut_t4_dakka",
   "covers": [
-    "tutorial.t4.shooting",
+    "shootingcontroller.auto_assign_single_target",
     "tutorial.engine.fixture_boot",
-    "shootingcontroller.auto_assign_single_target"
+    "tutorial.t4.shooting"
   ],
   "rng_seed": 4242,
   "edition": 11,
@@ -150,6 +150,13 @@
       "equals": "confirm_dakka"
     },
     {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nreturn t.find(\"Confirm\") != -1 and t.find(\"lock 'em in\") != -1",
+      "multiline": true,
+      "equals": true,
+      "comment": "step 5 must NAME the Confirm button as the thing to press. Main's version of this assertion also required '(Click to Select)' to appear AFTER it, as a re-aim fallback; that clause belongs to the auto-assign flow and this lesson now has the player aim every gun by hand in the two steps above, so the confirm step no longer carries it."
+    },
+    {
       "act": "screenshot",
       "label": "04_all_aimed"
     },
@@ -170,6 +177,40 @@
     {
       "act": "screenshot",
       "label": "03_dice_dock"
+    },
+    {
+      "act": "execute_script",
+      "script": "var t = tree.root.get_node_or_null(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nif t == null:\n\treturn \"no card\"\nvar s: String = str(t.text)\nfor needle in [\"▲\", \"▼\", \"right-hand side\", \"savin' throws\"]:\n\tif not s.contains(needle):\n\t\treturn \"card never mentions '%s'\" % needle\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "step 4 explains the hit/wound/save sequence AND points at the ▲▼ re-order arrows"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock\")\nif d == null or str(d.state) != \"queued\":\n\treturn \"dock not queued\"\nvar n: int = d.assignments.size()\nif n < 2:\n\treturn \"only %d weapon(s) queued\" % n\nfor i in range(n):\n\tvar row = d.queue_box.get_node_or_null(\"QueueRow%d\" % i)\n\tif row == null or row.get_node_or_null(\"Up%d\" % i) == null or row.get_node_or_null(\"Down%d\" % i) == null:\n\t\treturn \"row %d is missing its ▲▼ buttons\" % i\nvar ids: Array = []\nfor a in d.assignments:\n\tids.append(str(a.get(\"weapon_id\", \"?\")))\ntree.root.set_meta(\"t4_order_before\", ids)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "every queue row carries ▲▼ on its right-hand side; stash the firing order to diff after the click"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockQueue/QueueRow0/Down0",
+      "comment": "mouse path: ▼ on the first row pushes that weapon one slot later in the firing order"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock\")\nvar before: Array = tree.root.get_meta(\"t4_order_before\", [])\nvar after: Array = []\nfor a in d.assignments:\n\tafter.append(str(a.get(\"weapon_id\", \"?\")))\nif before.size() != after.size():\n\treturn \"queue length changed\"\nif after[0] != before[1] or after[1] != before[0]:\n\treturn \"order unchanged: %s -> %s\" % [str(before), str(after)]\nfor i in range(2, after.size()):\n\tif after[i] != before[i]:\n\t\treturn \"row %d moved too\" % i\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "exactly the first two weapons swapped"
+    },
+    {
+      "act": "screenshot",
+      "label": "03b_queue_reordered"
     },
     {
       "act": "click_node",

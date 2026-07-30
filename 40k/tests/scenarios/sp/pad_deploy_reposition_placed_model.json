@@ -1,0 +1,64 @@
+{
+  "id": "pad_deploy_reposition_placed_model",
+  "covers": [
+    "controller.deploy.pad_reposition_placed_model"
+  ],
+  "fixture": "audit_377_defender_first",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Repositioning an already-placed model with a controller — the pad counterpart to mouse Shift+click, which had no pad equivalent (the player had to undo the model and re-place it). RB starts placing the Battlewagon, A warps the cursor to the zone, a stick nudge finds room and A places the model. Then L3 with the cursor over that placed model LIFTS it (is_repositioning goes true and the hint bar swaps to Move Model / Drop Here / Cancel), a stick nudge moves it and A DROPS it at the new spot — asserted by temp_positions[0] actually moving, so a lift that silently did nothing fails here. A second lift is then cancelled with B, asserting both that the model snaps back to where it was AND that the unit's placement survived: before the guard in _handle_back, B mid-lift fell through to pad Undo Unit and wiped the whole unit while one of its models was in hand.",
+  "steps": [
+    {"act": "wait_seconds", "seconds": 1.5},
+    {"act": "expect_state", "path": "meta.phase", "equals": 1},
+    {"act": "expect_state", "path": "meta.active_player", "equals": 2},
+
+    {"act": "simulate_joy_button", "button_index": 10},
+    {"act": "wait_seconds", "seconds": 0.5},
+    {"act": "execute_script", "script": "str(main.deployment_controller.unit_id)", "equals": "U_BATTLEWAGON_G"},
+    {"act": "simulate_joy_button", "button_index": 0},
+    {"act": "wait_seconds", "seconds": 0.3},
+    {"act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": true},
+    {"act": "simulate_joy_axis", "axis": 0, "value": 0.5, "hold_s": 0.25},
+    {"act": "simulate_joy_button", "button_index": 0},
+    {"act": "wait_seconds", "seconds": 0.4},
+    {"act": "execute_script", "script": "main.deployment_controller.placed_tokens.size()", "expect_min": 1},
+    {"act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 1},
+    {"act": "screenshot", "label": "01_model_placed"},
+
+    {"act": "execute_script", "script": "InputDeviceManager.set_meta(\"p0\", main.deployment_controller.temp_positions[0])"},
+
+    {"act": "execute_script", "script": "main.deployment_controller.is_repositioning()", "equals": false},
+    {"act": "simulate_joy_button", "button_index": 7},
+    {"act": "wait_seconds", "seconds": 0.3},
+    {"act": "execute_script", "script": "main.deployment_controller.is_repositioning()", "equals": true},
+    {"act": "execute_script", "script": "is_instance_valid(main.deployment_controller.reposition_ghost)", "equals": true},
+    {"act": "screenshot", "label": "02_model_lifted_by_l3"},
+
+    {"act": "simulate_joy_axis", "axis": 1, "value": 0.45, "hold_s": 0.25},
+    {"act": "simulate_joy_button", "button_index": 0},
+    {"act": "wait_seconds", "seconds": 0.4},
+    {"act": "execute_script", "script": "main.deployment_controller.is_repositioning()", "equals": false},
+    {"act": "execute_script", "multiline": true,
+     "script": "var p0 = InputDeviceManager.get_meta(\"p0\")\nvar p1 = tree.current_scene.deployment_controller.temp_positions[0]\nreturn float(p0.distance_to(p1))",
+     "expect_min": 5.0},
+    {"act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 1},
+    {"act": "screenshot", "label": "03_model_dropped_at_new_spot"},
+
+    {"act": "execute_script", "script": "InputDeviceManager.set_meta(\"p1\", main.deployment_controller.temp_positions[0])"},
+    {"act": "simulate_joy_button", "button_index": 7},
+    {"act": "wait_seconds", "seconds": 0.3},
+    {"act": "execute_script", "script": "main.deployment_controller.is_repositioning()", "equals": true},
+    {"act": "simulate_joy_axis", "axis": 0, "value": -0.45, "hold_s": 0.25},
+    {"act": "simulate_joy_button", "button_index": 1},
+    {"act": "wait_seconds", "seconds": 0.4},
+    {"act": "execute_script", "script": "main.deployment_controller.is_repositioning()", "equals": false},
+    {"act": "execute_script", "multiline": true,
+     "script": "var p1 = InputDeviceManager.get_meta(\"p1\")\nvar p2 = tree.current_scene.deployment_controller.temp_positions[0]\nreturn float(p1.distance_to(p2))",
+     "expect_max": 0.001},
+    {"act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": true},
+    {"act": "execute_script", "script": "str(main.deployment_controller.unit_id)", "equals": "U_BATTLEWAGON_G"},
+    {"act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 1},
+    {"act": "screenshot", "label": "04_cancel_restored_model_unit_intact"}
+  ]
+}

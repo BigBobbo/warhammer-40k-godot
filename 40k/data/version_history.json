@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.6.7",
+      "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",
       "changes": [
@@ -15,7 +15,7 @@
       ]
     },
     {
-      "version": "1.6.6",
+      "version": "1.7.19",
       "date": "2026-07-29",
       "summary": "You can finally aim an attached character's guns by hand — and 'Dakka Time' now teaches aiming instead of doing it for you.",
       "changes": [
@@ -26,7 +26,7 @@
       ]
     },
     {
-      "version": "1.6.5",
+      "version": "1.7.18",
       "date": "2026-07-29",
       "summary": "Aiming a gun that is already aimed at that target no longer claims it is out of range.",
       "changes": [
@@ -34,6 +34,216 @@
         "This hit hardest on a controller in tutorial 4 ('Dakka Time'), where the step tells you to aim your guns: with only one enemy in sight every gun aims itself, so the first A-press always landed on an already-aimed weapon.",
         "Genuine out-of-range / no-line-of-sight rejections still say range / line of sight, unchanged.",
         "'Dakka Time' step 3 now says up front that yer guns already point at da Witchseekers and there's nothing to assign — just Confirm."
+      ]
+    },
+    {
+      "version": "1.7.17",
+      "date": "2026-07-29",
+      "summary": "Mouse and keyboard players now get the 'End Phase?' confirmation too — a misclick no longer ends your phase.",
+      "changes": [
+        "Clicking the End Phase button (or pressing Enter while it is focused) used to end the phase immediately, with no way back. It now opens the same centred 'End X Phase?' prompt controller players already had, with Go Back and a labelled confirm button.",
+        "The prompt only appears where the phase would otherwise end on the spot. Phases that already show you something first — the Deployment and Shooting summaries, the 'units haven't fought' and 'untested Battle-shock' warnings, the end-of-turn mission discard — are unchanged, so you are never asked twice.",
+        "Roll-offs, the Battle Formations declaration and the Fight phase's Pile In / Consolidate steps are not phase endings and are left alone.",
+        "Tutorial lessons skip the prompt: they already tell you exactly which button to press, and an extra unannounced step would interrupt the lesson."
+      ]
+    },
+    {
+      "version": "1.7.16",
+      "date": "2026-07-29",
+      "summary": "The 'End Phase?' confirmation now opens in the middle of the screen and says what you are about to give up.",
+      "changes": [
+        "Ending a phase used to pop a small grey box hugging the bottom edge of the screen, which was easy to walk straight past. Every end-of-phase prompt now opens in the centre of the screen.",
+        "The confirmation itself has been rewritten: a large gold headline naming the phase you are ending, and a plain-English line telling you what it costs and which phase comes next — e.g. 'Any unit you haven't shot with won't get to shoot this turn. Next: the Charge phase.'",
+        "Its buttons now say what they do — 'Go Back' and 'End Shooting Phase' — instead of a generic Cancel / OK.",
+        "The prompt is drawn in the game's own dark-and-gold panel style rather than the plain engine grey.",
+        "The other end-of-phase prompts moved with it: the Deployment and Shooting summaries, the 'units haven't fought' and 'units haven't taken Battle-shock' warnings, and the end-of-turn 'discard a secondary mission?' prompt."
+      ]
+    },
+    {
+      "version": "1.7.15",
+      "date": "2026-07-29",
+      "summary": "Musterin' da Boyz now teaches the D-pad route to the Tight formation instead of telling controller players to glide the cursor onto the button.",
+      "changes": [
+        "The 'GROTS IN A MOB!' step of 'Musterin' da Boyz' told a controller player to glide the virtual cursor onto the Tight button — but the D-pad already changes the formation, and the D-pad is the quicker, more direct way to do it.",
+        "The controller instruction now spells out the real route: D-pad ▲ slides the ▶ marker onto Deploy Formation, then D-pad ▶ twice steps Single → Spread → Tight. The ▲ press matters because the Gretchin have two model profiles, so the marker starts on Select Model Type — ◀ ▶ there would change the model type instead.",
+        "It also names the button that finishes the step: ☰ Confirm."
+      ]
+    },
+    {
+      "version": "1.7.14",
+      "date": "2026-07-29",
+      "summary": "On a controller, ☰ now says (and does) 'End Pile In' / 'End Consolidation' during those Fight-phase steps instead of the alarming 'End Phase'.",
+      "changes": [
+        "The Fight phase opens with the Pile In step and closes with the Consolidate step. The right-hand panel has always had an 'End Pile In' / 'End Consolidation' button for those, but on a controller the hint bar at the bottom of the screen only ever offered '☰ End Phase' — so ending your pile-in looked like it would end your whole Fight phase. The ☰ chip now reads 'End Pile In' or 'End Consolidation' while those steps are running, and goes back to 'End Phase' once they're done.",
+        "☰ now presses that step's own End button — the same one a mouse player clicks — so it ends only your half of the step. (It already only ended the step, never the phase; the label was the part that lied.)",
+        "The chip shows up whether you're pointing at the board or navigating the panel with the D-pad, so it's there in the state you land in first.",
+        "The big button in the top-right corner drops its ☰ badge while a step owns ☰, so only one thing on screen ever claims that button.",
+        "Da Krumpin' tutorial's controller prompt now points at ☰ for the pile-in step instead of only telling you to drive the cursor onto the button."
+      ]
+    },
+    {
+      "version": "1.7.13",
+      "date": "2026-07-29",
+      "summary": "Da Krumpin' lesson finally looks like a real scrap: Boyz in base contact, no Custodes standing inside each other, and da Warboss is actually on da table.",
+      "changes": [
+        "Step 2 of 'Krumpin'' says 'Yer Boyz are already in contact' — but they weren't. The Boyz sat a hair short of the Custodian Guard, and the two rear Boyz were more than 2\" away, so they couldn't fight at all. The mob is now laid out properly: five Boyz and the Warboss in base-to-base contact with the Custodes, the rest packed in right behind them. All eleven models can swing.",
+        "The four Custodian Guard were spaced closer together than their own 40mm bases, so their bases visibly overlapped. They now sit on a clean, legal line.",
+        "The Warboss was never drawn on the board in any lesson — it was attached to the Boyz but still flagged as undeployed, so the game skipped its token. Da boss now shows up on the table in the shooting, charge, fight and second-round lessons.",
+        "The charge lesson's Custodian Guard line matches the fight lesson's, so the enemy no longer shuffles between checkpoints."
+      ]
+    },
+    {
+      "version": "1.7.12",
+      "date": "2026-07-29",
+      "summary": "The deployment tutorial now teaches you how to shove an already-placed model into a better spot — and its 'turn the wagon' step is no longer skipped on a controller.",
+      "changes": [
+        "Added a step to 'Musterin' da Boyz' covering model repositioning: after you park the Battlewagon, the lesson walks you through picking it back up and dropping it somewhere better — Shift+click on mouse, L3 on controller.",
+        "The step ticks off as you go: one box for picking the model up, one for dropping it in its new spot.",
+        "Parking the wagon and locking it in are now separate steps, so you get a chance to adjust it before you Confirm.",
+        "The 'POINT IT DA RIGHT WAY!' rotation step used to be skipped entirely for controller players, because turning a model during deployment was mouse-and-keyboard only. It now runs for everyone and teaches the controller combo.",
+        "The lesson recap covers both: turning a vehicle on either device, and nudging a model you already placed."
+      ]
+    },
+    {
+      "version": "1.7.11",
+      "date": "2026-07-29",
+      "summary": "Controller players can now nudge a model they already placed: press L3 to pick it up, move it, A to drop it.",
+      "changes": [
+        "Added model repositioning on the controller during deployment. Point at a model you already placed and click the left stick (L3) to pick it up, move it with the stick, then A to drop it — the controller equivalent of the mouse's Shift+click. Previously the only way to fix a slightly misplaced model on a pad was to undo it (or the whole unit) and start again.",
+        "B puts a picked-up model straight back where it was, and an illegal drop spot is refused with the same warning the mouse gives.",
+        "While a model is in hand the bumpers, Undo Model and the card's selector rows pause, so a lifted model can't be left stranded — drop it or cancel first.",
+        "The deployment hint bar advertises the new 'L3 Move Placed Model' prompt, and swaps to Move / Drop / Cancel while you are holding a model."
+      ]
+    },
+    {
+      "version": "1.7.10",
+      "date": "2026-07-29",
+      "summary": "Controller players can finally rotate a model while deploying it: hold R3 (click the right stick) and the bumpers turn the ghost 15° a press.",
+      "changes": [
+        "Added controller rotation during deployment. Hold R3 and LB/RB rotate the model you are placing — the pad equivalent of the keyboard's Q/E. Before this there was no way to angle an oval or rectangular base (a Battlewagon, a tank) with a controller at all; you had to reach for a mouse and keyboard.",
+        "In Spread or Tight formation the same combo rotates the whole formation, matching what the keyboard does.",
+        "Bare LB/RB still switch which unit you are deploying, exactly as before — the rotation only happens while R3 is held.",
+        "The deployment hint bar now shows the new 'R3 Hold: LB/RB Rotate' prompt so it is discoverable, and it follows your button layout if you remap the Precision control in Settings › Controller."
+      ]
+    },
+    {
+      "version": "1.7.9",
+      "date": "2026-07-29",
+      "summary": "Moving a squad is readable again: model ghosts now sit on top of the green range circles, and those circles are much thinner.",
+      "changes": [
+        "Dragging several models at once paints one green movement-range circle per model, and those circles used to swallow the ghosts you were trying to place. The ghosts — and the distance-moved readout that floats with them — now always draw above every movement overlay (green range circles, red engagement rings, blue coherency rings).",
+        "The green range circles are drawn much thinner, so a squad's worth of overlapping circles no longer floods the drop zone.",
+        "Movement ghosts now show the unit's colour, letter counter and model art like the tokens do, instead of rendering as blank grey discs. Deployment ghosts already did this.",
+        "Ghosts in a group drag are no longer faded harder than a single dragged model — a whole squad in hand stays as visible as one model."
+      ]
+    },
+    {
+      "version": "1.7.8",
+      "date": "2026-07-29",
+      "summary": "Exit Tutorial now works at any point of a lesson — including while a dialog is on screen — and asks before it throws the lesson away.",
+      "changes": [
+        "Exit Tutorial did nothing whenever a game dialog was open (the roll-offs, Battle Formations, command re-rolls). Those dialogs block every click to the rest of the screen, so the card's button was dead exactly when players most needed it — e.g. stranded on 'Grots in a Mob' with the 'Who takes the first turn?' pop-up up and 'Oi! Not dat one, ya git' on every attempt to roll.",
+        "Any dialog that opens during a lesson now carries its own Exit Tutorial button, so there is always a way out no matter which phase or step you are on.",
+        "Exit Tutorial now asks 'Leave da tutorial?' first — Keep Playin' puts you straight back where you were, Leg it! returns to the main menu.",
+        "While a dialog is open the card's own Skip Step and Exit Tutorial buttons are greyed out instead of silently swallowing clicks."
+      ]
+    },
+    {
+      "version": "1.7.7",
+      "date": "2026-07-29",
+      "summary": "Attached leaders now ride in transports with the unit they lead — and get out with them.",
+      "changes": [
+        "Disembarking a unit with an attached character only ever asked you to place the squad. In the tutorial's 'Get Movin'' step 3 the row said 'Boyz + Warboss', you placed all 10 Boyz, the disembark reported complete — and the Warboss was nowhere on the table. Disembarking now asks for every model in the attached unit (11 in the tutorial: 10 Boyz, then the Warboss), and the on-screen prompt names whose model you are placing when it hands over from the squad to the leader.",
+        "Embarking had the matching hole: a bodyguard boarded a transport on its own and left its attached character behind. Attaching a Warboss to the Boyz and putting the Boyz in the Battlewagon now puts both aboard, in Formations, during deployment and in the movement phase alike.",
+        "Transport capacity now counts the attached character's models, and transport pickers no longer offer an attached leader as a separate passenger — it boards with its unit.",
+        "Existing saves (and the shipped tutorial checkpoints) that stranded a leader outside its bodyguard's transport are repaired on load: the leader is put aboard with its unit.",
+        "The whole attached unit is measured together for coherency and disembark range, and the attached character shares the squad's after-disembark restrictions (can't-move / can't-charge / Combat Disembark hazards and battle-shock).",
+        "Fixed a related placement bug: a unit that had taken casualties before disembarking had every surviving model placed one position out of step."
+      ]
+    },
+    {
+      "version": "1.7.6",
+      "date": "2026-07-29",
+      "summary": "Deployment can no longer end while you still have units to deploy.",
+      "changes": [
+        "Ending the Deployment phase with units still undeployed dropped you straight into the 'Who takes the first turn?' roll-off with those units stranded off the table and no way back. Reported from tutorial 'Musterin' da Boyz', where the Gretchin were left behind. The end-phase action was correctly refused, but the game then advanced the phase anyway; it now stays in Deployment.",
+        "Trying to end Deployment early now tells you what is blocking it — 'Cannot end deployment — still to deploy: Gretchin' — instead of doing nothing, or says which player the phase is waiting on when your own army is already set up.",
+        "Controller: with every model of a unit placed, the ☰ hint now reads 'Confirm Unit' instead of the ambiguous 'Confirm / End', so pressing it to lock a unit in can no longer be mistaken for the button that ends the phase. The bumpers also stop offering Prev/Next Unit there, since deployment refuses to switch units once a model is on the table."
+      ]
+    },
+    {
+      "version": "1.7.5",
+      "date": "2026-07-29",
+      "summary": "Controller: X really works in the charge phase now — Snap to Contact and Skip Charge were both dead buttons the hint bar kept promising.",
+      "changes": [
+        "During a charge move the hint bar says '[X] Snap to Contact', but pressing X did nothing and only the on-screen Snap to Contact button worked. The cause: as soon as you nudge the left stick — which is how you aim at a model to grab it with A — the virtual cursor turns on, and while it was on it swallowed X as a right-click. X now reaches Snap to Contact whether the cursor is up or parked.",
+        "'[X] Skip Charge' in the declare and roll stages was dead for exactly the same reason, and is fixed alongside it — X now skips the selected unit's charge with the cursor live.",
+        "Once every model has been snapped there is nothing left to snap, so the Snap to Contact button now correctly greys out (it used to stay lit and do nothing on a second press) and the hint bar drops its X chip instead of advertising a button that can't fire."
+      ]
+    },
+    {
+      "version": "1.7.4",
+      "date": "2026-07-29",
+      "summary": "'Dakka Time' step 4 now explains what the dice dock is actually doing — and tells you that you can choose the order your weapons fire in.",
+      "changes": [
+        "Step 4 of the shooting lesson ('LET 'EM RIP!') used to jump straight to 'press Fast Roll All'. It now explains the WEAPON RESOLUTION dock: each row is one gun aimed at one mob, they fire top to bottom, and every gun rolls to hit, then to wound, then the defender takes saving throws before the damage lands.",
+        "It also tells you the firing order is yours to pick — the ▲ / ▼ buttons on the right-hand side of each queue row move a weapon up or down before the first shot — and why that matters: models killed by the first gun aren't there to soak up the second.",
+        "Controller players are told how to get there: the D-pad walks the highlight up from the dock's main button into the queue and onto the ▲ / ▼ buttons, and A presses them.",
+        "On a controller the highlight now stays in the queue after each nudge, so a weapon can be moved several slots without walking back up from the main button every time."
+      ]
+    },
+    {
+      "version": "1.7.3",
+      "date": "2026-07-29",
+      "summary": "'Get Movin'' now teaches that a move can be spent over several drags, and adds a step for turning models.",
+      "changes": [
+        "The Battlewagon step only said 'drag da wagon's hull forward an' drop it', so players assumed the one drag was the whole move and spent all 10\"+D6 in a single go. It now says outright that you can drop the wagon, grab it again and keep going, and that the panel counts the inches as you do.",
+        "New step 'POINT IT RIGHT!': the Battlewagon is on a rectangular base, so which way it faces matters. Lesson 2 teaches turning during deployment; this teaches it during the Movement phase, where the controls differ — the step only advances once you actually turn the wagon.",
+        "Keyboard: grab the hull, keep the button held, and tap Q / E to turn 15° a tap (it follows a rebind). Controller: grab it with A, then LB / RB while you're carrying it — unlike deployment, the pad can turn a model mid-move.",
+        "Both say what the rules say: in 11th edition turning a model is free and costs none of its move.",
+        "The lesson's end-of-lesson summary picks up both points."
+      ]
+    },
+    {
+      "version": "1.7.2",
+      "date": "2026-07-29",
+      "summary": "Deployment tutorial now has its own step for turning the Battlewagon, instead of mentioning rotation in passing.",
+      "changes": [
+        "'Musterin' da Boyz' (lesson 2) gained a step between the deployment roll-off and parking the wagon: POINT IT DA RIGHT WAY! It has you pick the Battlewagon up and actually turn it before dropping it, and spells out how — Q and E (or whatever you rebound them to), or the mouse wheel, 15° a tap.",
+        "The step will not move on until the wagon has genuinely been turned, and Confirm is held shut while it is showing — dropping the wagon flat and locking it in would have left nothing to rotate. If you drop it before turning it, the step tells you to pick it back up with Undo on the unit card.",
+        "Controller players skip the new step: rotating a model during deployment is a keyboard/mouse-wheel control only (on a pad the bumpers cycle units there), so the tutorial does not promise a button that would turn nothing. The end-of-lesson summary says the same.",
+        "The 'Park da wagon' step that follows is now just about placing and confirming."
+      ]
+    },
+    {
+      "version": "1.7.1",
+      "date": "2026-07-29",
+      "summary": "The movement tutorial now teaches that boyz who disembark can still move — as long as the transport hasn't moved yet.",
+      "changes": [
+        "'Get Movin'' used to jump straight from placing the disembarked Boyz to driving the Battlewagon, so it never mentioned that the Boyz were already selected and still had their full 6\" move to spend. A new step ('DEIR LEGS STILL WORK!') has you drag them forward and lock the move in with End This Unit's Move.",
+        "The step spells out the catch: it only works because the wagon hasn't moved yet. Disembark first, drive after — if the transport moves first, the passengers are stuck where they land.",
+        "The 'it can still move' pop-up that used to appear over the tutorial card after a disembark is now hidden during a lesson, so it stops covering the instruction it repeats."
+      ]
+    },
+    {
+      "version": "1.7.0",
+      "date": "2026-07-29",
+      "summary": "The unit datasheet is now an actual datasheet: proper weapon tables, stat boxes, and a card that fits on screen.",
+      "changes": [
+        "Weapons are laid out as RANGED and MELEE tables with real columns (Range, A, BS/WS, S, AP, D) instead of one run-on line per weapon, with each weapon's special rules listed under its name.",
+        "M / T / Sv / W / Ld / OC are shown as labelled stat boxes, and an Invulnerable Save or Feel No Pain box appears when the unit has one.",
+        "Stats read as whole numbers again — a Move of 6\" no longer shows as 6.0\".",
+        "The card sizes itself to the unit and sits in the middle of the screen instead of filling its full height; a datasheet longer than the card now scrolls inside it rather than running off the bottom.",
+        "Points, Warlord and any Enhancement are called out in the header; keywords, model/wound count and the close hint sit in a footer bar.",
+        "The board hover tooltip no longer shows through the open datasheet."
+      ]
+    },
+    {
+      "version": "1.6.5",
+      "date": "2026-07-29",
+      "summary": "'Dakka Time' step 3 now says up front that you have to press Confirm.",
+      "changes": [
+        "Step 3 of the shooting lesson opened with two sentences describing the weapon list and a 'if a row still says (Click to Select)' fix-up, and only mentioned hitting Confirm in the last three words — so players who had nothing to fix did not know what the step wanted. Both the mouse and controller prompts now lead with the action: lock the targets in with Confirm (mouse) or ☰ (pad), with the re-aiming instructions moved after it."
       ]
     },
     {

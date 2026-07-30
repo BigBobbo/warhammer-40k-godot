@@ -1,0 +1,64 @@
+{
+  "id": "input_mode_policy_lock",
+  "covers": [
+    "controller.input_mode.policy_lock",
+    "autoloads.InputDeviceManager.mode_policy",
+    "autoloads.SettingsService.input_mode_policy",
+    "scripts.SettingsMenu.input_mode_section",
+    "scripts.MainMenu.input_mode_status"
+  ],
+  "description": "INPUT MODE LOCK (owner report 2026-07-27): the game used to follow whatever device was touched LAST, so on a Steam Deck a trackpad/back-paddle press (which arrives as mouse or keyboard input) flipped the whole UI between the controller and mouse/keyboard presentations mid-game — and because the pad text boost multiplies the canvas content scale, the screen visibly resized. This scenario first reproduces that flip-flop under the legacy 'dynamic' policy, then proves the new locked policies: with 'pad' selected a key press and a mouse motion no longer steal the mode, with 'kbm' selected a joypad button no longer steals it, and 'auto' resolves the mode from the platform (Steam Deck -> controller, PC/browser -> mouse & keyboard). The switch itself is the player-facing Settings › Controller › Input Mode dropdown, driven here through the real menu.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "InputDeviceManager.mode_policy", "equals": "dynamic" },
+    { "act": "execute_script", "script": "InputDeviceManager.is_mode_locked()", "equals": false },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "simulate_key", "keycode": "F13" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": false },
+
+    { "act": "execute_script", "script": "SettingsService.set_input_mode_policy(\"pad\")" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.is_mode_locked()", "equals": true },
+
+    { "act": "simulate_key", "keycode": "F13" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var ev = InputEventMouseMotion.new()\nev.relative = Vector2(400, 400)\nev.position = Vector2(900, 500)\nInput.parse_input_event(ev)\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+    { "act": "execute_script", "script": "str(main.get_node(\"InputModeStatus\").text).contains(\"Controller / Steam Deck (locked by you)\")", "equals": true },
+    { "act": "screenshot", "label": "01_locked_to_controller" },
+
+    { "act": "execute_script", "multiline": true, "script": "for b in tree.current_scene.find_children(\"*\", \"Button\", true, false):\n\tif str(b.name) == \"SettingsButton\":\n\t\tb.pressed.emit()\n\t\treturn \"clicked\"\nreturn \"not found\"", "equals": "clicked" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.root.find_children(\"SettingsMenu\", \"\", true, false)\nif m.is_empty():\n\treturn \"missing\"\nm[0]._on_tab_pressed(4)\nreturn \"ok\"", "equals": "ok" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.root.find_children(\"SettingsMenu\", \"\", true, false)[0]\nreturn [m._tab_containers[4].visible, str(m._input_mode_dropdown.selected), m._input_mode_dropdown.get_item_text(1), m._input_mode_status_label.text]", "equals": [true, "1", "Controller / Steam Deck", "Currently using: Controller / Steam Deck (locked by you)"] },
+    { "act": "screenshot", "label": "02_settings_input_mode_section" },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.root.find_children(\"SettingsMenu\", \"\", true, false)[0]\nm._input_mode_dropdown.select(2)\nm._input_mode_dropdown.item_selected.emit(2)\nreturn [SettingsService.input_mode_policy, InputDeviceManager.mode_policy, InputDeviceManager.is_pad_active(), m._input_mode_status_label.text]", "equals": ["kbm", "kbm", false, "Currently using: Mouse & Keyboard (locked by you)"] },
+
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": false },
+    { "act": "execute_script", "script": "InputDeviceManager._controller_hint_shown", "equals": true },
+    { "act": "screenshot", "label": "03_locked_to_mouse_keyboard" },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.root.find_children(\"SettingsMenu\", \"\", true, false)[0]\nm._input_mode_dropdown.select(0)\nm._input_mode_dropdown.item_selected.emit(0)\nreturn [SettingsService.input_mode_policy, InputDeviceManager.mode_policy, InputDeviceManager.detected_platform != \"\"]", "equals": ["auto", "auto", true] },
+    { "act": "execute_script", "script": "InputDeviceManager.input_mode == InputDeviceManager.detect_platform_mode()", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.is_mode_locked()", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.root.find_children(\"SettingsMenu\", \"\", true, false)[0]\nm._input_mode_dropdown.select(3)\nm._input_mode_dropdown.item_selected.emit(3)\nreturn [InputDeviceManager.mode_policy, InputDeviceManager.is_mode_locked()]", "equals": ["dynamic", false] },
+    { "act": "simulate_joy_button", "button_index": 10 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "execute_script", "script": "SettingsService.set_input_mode_policy(\"auto\")" }
+  ]
+}

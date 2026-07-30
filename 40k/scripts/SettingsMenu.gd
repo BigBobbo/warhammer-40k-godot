@@ -38,6 +38,11 @@ var _terrain_cover_checkbox: CheckBox
 var _auto_allocate_checkbox: CheckBox
 var _autosave_phase_start_checkbox: CheckBox
 var _controller_text_boost_checkbox: CheckBox
+var _input_mode_dropdown: OptionButton
+var _input_mode_status_label: Label
+# Dropdown index -> SettingsService.input_mode_policy value (see the Input Mode
+# section of the Controller tab).
+const INPUT_MODE_POLICIES: Array[String] = ["auto", "pad", "kbm", "dynamic"]
 var _pad_invert_y_checkbox: CheckBox
 var _pad_swap_sticks_checkbox: CheckBox
 var _pad_magnetism_checkbox: CheckBox
@@ -486,8 +491,69 @@ func _pad_bindings() -> Node:
 	return get_node_or_null("/root/PadBindings")
 
 
+# Input Mode (owner request 2026-07-27). The game used to flip between the
+# controller and the mouse/keyboard presentation on every input — on a Steam
+# Deck a trackpad or back-paddle press reads as mouse/keyboard, so the UI (and
+# with the controller text boost, the whole canvas scale) jumped around
+# mid-game. The device is now resolved once at launch and locked; this section
+# is where a player overrides that choice. Lives at the TOP of the Controller
+# tab so it is the first thing a Deck player finds, and it is fully operable
+# with the pad (focusable dropdown, D-pad + A).
+func _build_input_mode_section(parent: VBoxContainer) -> void:
+	_add_section_header(parent, "Input Mode")
+
+	_input_mode_dropdown = _add_dropdown_row(parent, "Input Mode:", [
+		"Auto-detect (Steam Deck / PC)",
+		"Controller / Steam Deck",
+		"Mouse & Keyboard",
+		"Follow last input used",
+	], "_on_input_mode_policy_selected")
+	_input_mode_dropdown.name = "InputModeDropdown"
+	WhiteDwarfThemeData.apply_to_button(_input_mode_dropdown)
+
+	var help = Label.new()
+	help.text = "The game no longer switches between the controller and mouse/keyboard layouts while you play — pick one here and it sticks. Auto-detect chooses the controller layout on a Steam Deck and the mouse & keyboard layout on a PC or in the browser (itch.io)."
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	help.custom_minimum_size = Vector2(620, 0)
+	help.add_theme_font_size_override("font_size", 12)
+	help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	parent.add_child(help)
+
+	_input_mode_status_label = Label.new()
+	# Distinct from MainMenu's own "InputModeStatus" label so a scenario/selector
+	# naming either one is unambiguous.
+	_input_mode_status_label.name = "InputModeStatusLabel"
+	_input_mode_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_input_mode_status_label.custom_minimum_size = Vector2(620, 0)
+	_input_mode_status_label.add_theme_font_size_override("font_size", 12)
+	_input_mode_status_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	parent.add_child(_input_mode_status_label)
+	_update_input_mode_status()
+
+
+func _update_input_mode_status() -> void:
+	if _input_mode_status_label == null or not is_instance_valid(_input_mode_status_label):
+		return
+	var idm := _idm()
+	if idm == null or not idm.has_method("mode_status_text"):
+		_input_mode_status_label.text = ""
+		return
+	_input_mode_status_label.text = "Currently using: %s" % idm.mode_status_text()
+
+
+func _on_input_mode_policy_selected(index: int) -> void:
+	if index < 0 or index >= INPUT_MODE_POLICIES.size():
+		return
+	if SettingsService:
+		SettingsService.set_input_mode_policy(INPUT_MODE_POLICIES[index])
+	_update_input_mode_status()
+	print("[SettingsMenu] Input mode policy set to %s" % INPUT_MODE_POLICIES[index])
+
+
 func _build_controller_tab(parent: VBoxContainer) -> void:
 	var pb := _pad_bindings()
+
+	_build_input_mode_section(parent)
 
 	_add_section_header(parent, "Controller Buttons")
 	var rebind_help = Label.new()
@@ -817,6 +883,16 @@ func _load_current_settings() -> void:
 	if _menu_scroll_speed_slider:
 		_menu_scroll_speed_slider.value = SettingsService.menu_scroll_speed
 		_update_scroll_speed_label(_menu_scroll_speed_label, SettingsService.menu_scroll_speed)
+	if _input_mode_dropdown:
+		var policy_index := INPUT_MODE_POLICIES.find(str(SettingsService.input_mode_policy))
+		# A run whose policy came from --input-mode= (or the harness pin) can be
+		# out of step with the saved value — show what is actually in force.
+		var idm := _idm()
+		if idm != null and str(idm.get("mode_policy")) in INPUT_MODE_POLICIES:
+			policy_index = INPUT_MODE_POLICIES.find(str(idm.get("mode_policy")))
+		if policy_index >= 0:
+			_input_mode_dropdown.selected = policy_index
+		_update_input_mode_status()
 	if _controller_text_boost_checkbox:
 		_controller_text_boost_checkbox.button_pressed = SettingsService.controller_text_boost
 	if _pad_invert_y_checkbox:
@@ -1097,6 +1173,8 @@ func _on_pad_device_changed(_mode: int) -> void:
 	# trapped.
 	if not is_inside_tree():
 		return
+	# Keep the Input Mode readout ("Currently using: …") truthful while open.
+	_update_input_mode_status()
 	if _pad_active():
 		if not _pad_focus_confined:
 			_confine_pad_focus()

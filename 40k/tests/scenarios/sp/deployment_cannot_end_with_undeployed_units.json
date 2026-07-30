@@ -1,0 +1,74 @@
+{
+  "id": "deployment_cannot_end_with_undeployed_units",
+  "covers": [
+    "deployment.end_phase.blocked_while_units_undeployed",
+    "ui.deployment_summary_dialog.refuses_illegal_end",
+    "controller.deployment.start_chip_is_stage_accurate"
+  ],
+  "fixture": "audit_377_defender_first",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Reported from tutorial T2 'Musterin' da Boyz': pressing the phase-action button (pad ☰ or mouse) ended the Deployment phase outright while the Gretchin were still undeployed, dropping the player into the 'Who takes the first turn?' roll-off with no way back. Root cause was Main._on_deployment_confirmed falling back to PhaseManager.advance_to_next_phase() whenever the END_DEPLOYMENT action was REJECTED — walking straight past the very check that had just refused it. This scenario proves the whole player path now holds the phase: the button is disabled, the entry point refuses to open the summary dialog and names the blocking units, the dialog's own confirm callback no longer force-advances, and the pad ☰ chip promises 'Confirm Unit' (not 'Confirm / End') while a fully-placed unit awaits confirmation.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_BATTLEWAGON_G.status", "equals": 0 },
+    { "act": "screenshot", "label": "01_deployment_phase_units_undeployed" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nreturn pi.validate_action({\"type\": \"END_DEPLOYMENT\", \"player\": GameState.get_active_player()}).get(\"valid\")",
+      "equals": false },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nreturn pi.get_undeployed_unit_names().size() > 0",
+      "equals": true },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "node.update_ui()\nreturn node.phase_action_button.disabled",
+      "equals": true },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "node._on_end_deployment_pressed()\nreturn \"pressed\"",
+      "equals": "pressed" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and str(nd.text).begins_with(\"Confirm and Start\"):\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "equals": false },
+    { "act": "expect_phase", "equals": 1 },
+    { "act": "screenshot", "label": "02_end_deployment_refused_toast" },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "node._on_deployment_confirmed(GameState.get_active_player())\nreturn \"confirmed\"",
+      "equals": "confirmed" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 1 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_BATTLEWAGON_G.status", "equals": 0 },
+    { "act": "screenshot", "label": "03_still_in_deployment_after_dialog_confirm" },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "InputDeviceManager.claim_pad()\nvar dc = node.deployment_controller\ndc.begin_deploy(\"U_WAZBOM_BLASTAJET\")\nvar poly = BoardState.get_deployment_zone_for_player(GameState.get_active_player())\nvar cx = 0.0\nvar cy = 0.0\nfor p in poly:\n\tcx += p.x\n\tcy += p.y\ncx /= max(1, poly.size())\ncy /= max(1, poly.size())\nvar guard = 0\nwhile dc.is_placing() and dc.get_placed_count() < dc.get_total_model_count() and guard < 12:\n\tdc.try_place_at(Vector2(cx, cy - guard * 70.0))\n\tguard += 1\nreturn dc.get_placed_count() >= dc.get_total_model_count() and dc.get_total_model_count() > 0",
+      "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "PadRouter.start_action_label",
+      "equals": "Confirm Unit" },
+    { "act": "screenshot", "label": "04_pad_start_chip_says_confirm_unit" },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "node._on_confirm_pressed()\nreturn \"ok\"",
+      "equals": "ok" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "units.U_WAZBOM_BLASTAJET.status", "equals": 2 },
+    { "act": "expect_phase", "equals": 1 },
+
+    { "act": "execute_script", "multiline": true, "node": "/root/Main",
+      "script": "node._on_end_deployment_pressed()\nreturn \"pressed\"",
+      "equals": "pressed" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 1 },
+    { "act": "screenshot", "label": "05_one_unit_down_phase_still_held" }
+  ]
+}

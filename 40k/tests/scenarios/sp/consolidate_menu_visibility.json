@@ -78,6 +78,10 @@
 
     { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 0 },
     { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "wait_seconds", "seconds": 0.6 },
 
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel", "timeout_s": 5.0 },

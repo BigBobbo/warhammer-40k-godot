@@ -1,8 +1,8 @@
 {
   "id": "tut_t4_dakka_pad",
   "covers": [
-    "tutorial.t4.shooting.pad",
-    "tutorial.t4.resolution_dock.pad"
+    "tutorial.t4.resolution_dock.pad",
+    "tutorial.t4.shooting.pad"
   ],
   "rng_seed": 4242,
   "edition": 11,
@@ -241,6 +241,13 @@
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
       "equals": "confirm_dakka"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nvar confirm_at = t.find(\"Confirm Targets\")\nvar reaim_at = t.find(\"walks da targets\")\nreturn confirm_at != -1 and reaim_at != -1 and confirm_at < reaim_at",
+      "multiline": true,
+      "equals": true,
+      "comment": "step 5 pad copy must lead with the Confirm Targets press, not with the re-aim stick controls (main's assertion, kept verbatim - the confirm step still ends with the re-aim hint so the ordering check is still meaningful)"
     },
     {
       "act": "screenshot",

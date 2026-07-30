@@ -1,0 +1,46 @@
+{
+  "id": "tut_exit_anywhere",
+  "covers": [
+    "tutorial.exit.card_button",
+    "tutorial.exit.cancel",
+    "tutorial.exit.float_hatch"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "The other two Exit Tutorial routes. (a) Nothing blocking: the card's own Exit Tutorial button asks first, Keep Playin' leaves the lesson untouched, Leg it! returns to the menu. (b) A blocking Window that is NOT an AcceptDialog (so no button bar to add to): the floating always-on-top hatch appears instead and exits the same way. The blocker in (b) is a bare exclusive Window created for the test — every gameplay dialog in the game today is an AcceptDialog, covered by tut_exit_under_modal — but the code path it drives is the shipped one.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton" },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
+    { "act": "click_node", "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t1_basics/Play_t1_basics" },
+    { "act": "wait_seconds", "seconds": 10.0 },
+    { "act": "execute_script", "script": "return TutorialManager.active", "multiline": true, "equals": true },
+
+    { "act": "expect_node_property", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ExitTutorialButton", "property": "disabled", "equals": false, "comment": "nothing blocking - the card's own button is live" },
+    { "act": "click_node", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ExitTutorialButton" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_node_visible", "node": "/root/TutorialExitConfirm", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "01_card_confirm" },
+    { "act": "click_node", "button_text": "Keep Playin'" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "return TutorialManager.active and TutorialManager.current_step_id() == \"welcome\"", "multiline": true, "equals": true, "comment": "cancel is a true no-op" },
+
+    { "act": "execute_script", "script": "var w = Window.new()\nw.name = \"FakeBlockingWindow\"\nw.transient = true\nw.exclusive = true\ntree.root.get_node(\"Main\").add_child(w)\nw.popup(Rect2i(200, 200, 320, 160))\nreturn true", "multiline": true, "equals": true, "comment": "a blocking Window with no AcceptDialog button bar - forces the floating hatch" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_node_visible", "node": "/root/TutorialModalExit", "timeout_s": 3.0 },
+    { "act": "expect_node_property", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ExitTutorialButton", "property": "disabled", "equals": true },
+    { "act": "screenshot", "label": "02_float_hatch" },
+
+    { "act": "click_node", "node": "/root/TutorialModalExit/Panel/Margin/ExitTutorialButton" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_node_visible", "node": "/root/TutorialExitConfirm", "timeout_s": 3.0 },
+    { "act": "click_node", "button_text": "Leg it!" },
+    { "act": "wait_seconds", "seconds": 4.0 },
+
+    { "act": "expect_node_visible", "node": "/root/MainMenu/ScrollContainer", "timeout_s": 6.0 },
+    { "act": "execute_script", "script": "return TutorialManager.active", "multiline": true, "equals": false },
+    { "act": "execute_script", "script": "var h = tree.root.get_node_or_null(\"TutorialModalExit\")\nreturn h == null or not h.visible", "multiline": true, "equals": true, "comment": "the hatch must not outlive the lesson" },
+    { "act": "execute_script", "script": "var stray = []\nfor c in tree.root.get_children():\n\tif c is Window and c != tree.root and c.visible:\n\t\tstray.append(str(c.name))\nreturn stray.size()", "multiline": true, "equals": 0 },
+    { "act": "screenshot", "label": "03_back_on_menu" }
+  ]
+}

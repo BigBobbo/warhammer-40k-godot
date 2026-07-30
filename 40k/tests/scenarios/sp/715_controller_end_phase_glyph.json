@@ -24,7 +24,7 @@
     { "act": "screenshot", "label": "01_pad_end_movement_button_glyph" },
 
     { "act": "execute_script", "multiline": true, "node": "/root/Main",
-      "script": "InputDeviceManager.claim_pad()\nnode.current_phase = GameStateData.Phase.MOVEMENT\nnode.update_ui_for_phase()\nnode._show_pad_phase_confirm()\nreturn node._pad_phase_confirm.dialog_text",
+      "script": "InputDeviceManager.claim_pad()\nnode.current_phase = GameStateData.Phase.MOVEMENT\nnode.update_ui_for_phase()\nnode._show_phase_end_confirm()\nreturn node._phase_end_confirm.dialog_text",
       "equals": "End Movement Phase?" },
 
     { "act": "screenshot", "label": "02_pad_end_movement_confirm" },

@@ -237,8 +237,60 @@
       "Next Unit"
     ],
     [
+      "r3",
+      "Hold: LB/RB Rotate"
+    ],
+    [
+      "l3",
+      "Move Placed Model"
+    ],
+    [
       "a",
       "Place Model"
+    ],
+    [
+      "dpad",
+      "Type / Formation"
+    ],
+    [
+      "x",
+      "Undo Model"
+    ],
+    [
+      "b",
+      "Undo Unit"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ]
+  ],
+  "HINTS_DEPLOY_REPOSITION": [
+    [
+      "ls",
+      "Move Model"
+    ],
+    [
+      "a",
+      "Drop Here"
+    ],
+    [
+      "b",
+      "Cancel"
+    ],
+    [
+      "r3",
+      "Hold: Precision"
+    ]
+  ],
+  "HINTS_DEPLOY_STAGED": [
+    [
+      "ls",
+      "Cursor"
+    ],
+    [
+      "l3",
+      "Move Placed Model"
     ],
     [
       "dpad",
@@ -258,7 +310,7 @@
     ],
     [
       "menu",
-      "Confirm / End"
+      "Confirm Unit"
     ]
   ],
   "HINTS_FIGHT": [
@@ -285,6 +337,66 @@
     [
       "menu",
       "End Phase"
+    ],
+    [
+      "view",
+      "Pause Menu"
+    ]
+  ],
+  "HINTS_FIGHT_CONSOLIDATE": [
+    [
+      "rb",
+      "Cycle Units"
+    ],
+    [
+      "dpad",
+      "Navigate Panel"
+    ],
+    [
+      "a",
+      "Select"
+    ],
+    [
+      "ls",
+      "Point"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ],
+    [
+      "menu",
+      "End Consolidation"
+    ],
+    [
+      "view",
+      "Pause Menu"
+    ]
+  ],
+  "HINTS_FIGHT_PILE_IN": [
+    [
+      "rb",
+      "Cycle Units"
+    ],
+    [
+      "dpad",
+      "Navigate Panel"
+    ],
+    [
+      "a",
+      "Select"
+    ],
+    [
+      "ls",
+      "Point"
+    ],
+    [
+      "y",
+      "Datasheet"
+    ],
+    [
+      "menu",
+      "End Pile In"
     ],
     [
       "view",
