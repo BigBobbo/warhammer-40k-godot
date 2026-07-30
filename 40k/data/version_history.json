@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.8.5",
+      "date": "2026-07-30",
+      "summary": "Tutorial 2's 'Grots in a Mob' step now names BOTH bumpers as the way to switch onto the Gretchin, not just RB.",
+      "changes": [
+        "Step 9 of 'Musterin' da Boyz' told you to tap RB until the Gretchin row was picked. Either bumper switches unit — LB steps back through the list, RB steps forward — and with the Gretchin the only unit left to deploy, a player reaching for LB was doing exactly the right thing with no confirmation from the card that it would work. The step now reads \"Tap [RB] (or [LB]) till da Gretchin row is picked.\" The rest of the step is unchanged."
+      ]
+    },
+    {
       "version": "1.8.4",
       "date": "2026-07-30",
       "summary": "Controller: grabbing your own model with A now works while you're steering with the stick, and LB/RB turn a vehicle mid-move instead of refusing to switch units.",
