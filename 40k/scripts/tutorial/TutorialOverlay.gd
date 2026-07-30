@@ -28,10 +28,13 @@ const CARD_CONTENT_WIDTH := 560.0
 const CARD_CHROME_W := 28.0
 const CARD_EDGE_MARGIN := 10.0   # gap between the card and the screen edge
 const CARD_DIALOG_GAP := 12.0    # gap between the card and a dialog it dodges
-# Floor for the text column. Below ~300 the footer's buttons no longer fit on
-# one row, so shrinking further would push them off the card instead of
-# wrapping them — clamp here and log the (very cramped) viewport instead.
-const CARD_MIN_CONTENT_WIDTH := 300.0
+# Absolute backstop for the text column. The REAL floor is whatever the card's
+# own buttons need on one row, measured live by _min_content_width() — a fixed
+# number here would be silently invalidated by any font change (the Steam Deck
+# legibility pass moved the footer's worst case from ~278px to ~339px, which is
+# exactly the kind of drift a constant cannot notice).
+const CARD_MIN_CONTENT_WIDTH := 200.0
+const FOOTER_SEPARATION := 8.0
 # Narrower than this and the footer's buttons need the whole row; the step
 # counter is the one thing on the card a player can lose without losing the
 # instruction, so it goes first.
@@ -76,6 +79,9 @@ var _card_mode: String = ""
 var _card_content_w: float = -1.0
 var _last_cramped_log_ms: int = 0
 var _dim_strips: Array = []
+# Kept so _min_content_width() can ask them how much room they need.
+var _header: HBoxContainer = null
+var _footer: HBoxContainer = null
 var _modal_exit_window: Window = null   # floating hatch, for non-AcceptDialog modals
 var _modal_exit_host: Window = null     # the dialog we added an Exit button INTO
 
@@ -151,6 +157,7 @@ func _build() -> void:
 	margin.add_child(vbox)
 
 	var header := HBoxContainer.new()
+	_header = header
 	header.name = "Header"
 	header.add_theme_constant_override("separation", 10)
 	vbox.add_child(header)
@@ -158,7 +165,7 @@ func _build() -> void:
 	_instructor_chip = Label.new()
 	_instructor_chip.name = "InstructorChip"
 	_instructor_chip.text = "DA BOSS"
-	_instructor_chip.add_theme_font_size_override("font_size", 12)
+	_instructor_chip.add_theme_font_size_override("font_size", 16)
 	_instructor_chip.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_BLACK)
 	var chip_style := StyleBoxFlat.new()
 	chip_style.bg_color = WhiteDwarfThemeData.WH_GOLD
@@ -179,7 +186,7 @@ func _build() -> void:
 	# gutter _dodge_dialog sized it for (a Label without it reports its whole
 	# single-line width as a hard minimum).
 	_bark_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_bark_label.add_theme_font_size_override("font_size", 17)
+	_bark_label.add_theme_font_size_override("font_size", 21)
 	_bark_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	_bark_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_bark_label)
@@ -194,8 +201,8 @@ func _build() -> void:
 	# >= 12px effective at 1280x800 (Steam Deck recommendation; PRP §4.3):
 	# 15px at 1920x1080 canvas-items scaling ~= 10px physical on Deck before the
 	# pad UI-scale boost (x1.2) SettingsService applies in pad mode.
-	_body_text.add_theme_font_size_override("normal_font_size", 15)
-	_body_text.add_theme_font_size_override("bold_font_size", 15)
+	_body_text.add_theme_font_size_override("normal_font_size", 19)
+	_body_text.add_theme_font_size_override("bold_font_size", 19)
 	_body_text.add_theme_color_override("default_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	_body_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(_body_text)
@@ -212,8 +219,8 @@ func _build() -> void:
 	_checklist_text.scroll_active = false
 	_checklist_text.custom_minimum_size = Vector2(CARD_CONTENT_WIDTH, 0)
 	_checklist_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_checklist_text.add_theme_font_size_override("normal_font_size", 14)
-	_checklist_text.add_theme_font_size_override("bold_font_size", 14)
+	_checklist_text.add_theme_font_size_override("normal_font_size", 18)
+	_checklist_text.add_theme_font_size_override("bold_font_size", 18)
 	_checklist_text.add_theme_color_override("default_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	_checklist_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_checklist_text.visible = false
@@ -223,12 +230,13 @@ func _build() -> void:
 	_hint_label.name = "HintLabel"
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_label.custom_minimum_size = Vector2(CARD_CONTENT_WIDTH, 0)
-	_hint_label.add_theme_font_size_override("font_size", 13)
+	_hint_label.add_theme_font_size_override("font_size", 17)
 	_hint_label.add_theme_color_override("font_color", UIConstantsData.MARGINAL_YELLOW)
 	_hint_label.visible = false
 	vbox.add_child(_hint_label)
 
 	var footer := HBoxContainer.new()
+	_footer = footer
 	footer.name = "Footer"
 	footer.add_theme_constant_override("separation", 8)
 	vbox.add_child(footer)
@@ -239,7 +247,7 @@ func _build() -> void:
 	# than the whole "Step 1 / 8 — Musterin' da Boyz" string, so a narrow card
 	# keeps room for the buttons beside it.
 	_progress_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_progress_label.add_theme_font_size_override("font_size", 12)
+	_progress_label.add_theme_font_size_override("font_size", 16)
 	_progress_label.add_theme_color_override("font_color",
 		Color(WhiteDwarfThemeData.WH_PARCHMENT, 0.6))
 	_progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -458,7 +466,7 @@ func _input(event: InputEvent) -> void:
 # `content_w` is the width of the text column — the side modes shrink it to fit
 # the gutter, everything else uses the roomy default.
 func _place_card(mode: String, content_w: float = CARD_CONTENT_WIDTH) -> void:
-	content_w = clampf(content_w, CARD_MIN_CONTENT_WIDTH, CARD_CONTENT_WIDTH)
+	content_w = clampf(content_w, _min_content_width(), CARD_CONTENT_WIDTH)
 	if mode == _card_mode and is_equal_approx(content_w, _card_content_w):
 		return  # nothing to re-apply — leave shake()'s tween alone
 	_card_mode = mode
@@ -519,6 +527,28 @@ func card_rect() -> Rect2:
 # Exposed for windowed scenarios: which dodge the card is currently using.
 func card_placement() -> String:
 	return _card_mode
+
+
+# The narrowest the text column may get: whatever this step's own buttons need
+# to sit on one row, plus whatever the header needs. Measured rather than
+# pinned, because a font-size change moves it (the Steam Deck legibility pass
+# took the footer's worst case from ~278px to ~339px) and a stale constant
+# would quietly start letting the buttons overflow the card.
+#
+# The progress label is deliberately NOT counted: it autowraps, so its own
+# minimum is ~1px, and including it would couple the floor to a visibility this
+# very function decides — a 9px oscillation waiting to happen.
+func _min_content_width() -> float:
+	var buttons := 0.0
+	var shown := 0
+	for c in [_ack_glyph, _continue_button, _next_button, _menu_button, _skip_button, _exit_button]:
+		if c != null and c.visible:
+			buttons += c.get_combined_minimum_size().x
+			shown += 1
+	if shown > 1:
+		buttons += FOOTER_SEPARATION * float(shown - 1)
+	var need: float = maxf(buttons, _header.get_combined_minimum_size().x if _header != null else 0.0)
+	return clampf(need, CARD_MIN_CONTENT_WIDTH, CARD_CONTENT_WIDTH)
 
 
 # Every visible gameplay Window, in tree order (so the last is the topmost).
@@ -981,8 +1011,9 @@ func _dodge_dialog(dlg: Rect2) -> void:
 		side = "left"
 	var room: float = right_room if side == "right" else left_room
 	var content: float = room - CARD_EDGE_MARGIN - CARD_DIALOG_GAP - CARD_CHROME_W
-	if content < CARD_MIN_CONTENT_WIDTH:
-		_log_cramped(vp, dlg, content)
+	var floor_w := _min_content_width()
+	if content < floor_w:
+		_log_cramped(vp, dlg, content, floor_w)
 	_place_card(side, content)
 
 
@@ -990,13 +1021,13 @@ func _dodge_dialog(dlg: Rect2) -> void:
 # genuinely too narrow for both (e.g. UI Scale 2.0 beside a 600px dialog).
 # Say so in the log rather than failing silently — throttled, this runs in
 # _process.
-func _log_cramped(vp: Vector2, dlg: Rect2, content: float) -> void:
+func _log_cramped(vp: Vector2, dlg: Rect2, content: float, floor_w: float) -> void:
 	var now := Time.get_ticks_msec()
 	if now - _last_cramped_log_ms < CRAMPED_LOG_INTERVAL_MS:
 		return
 	_last_cramped_log_ms = now
 	var msg := "[TutorialOverlay] card gutter too narrow: viewport=%s dialog=%s fits %.0fpx of text (floor %.0f) — card may overlap the dialog" % [
-		str(vp), str(dlg), content, CARD_MIN_CONTENT_WIDTH]
+		str(vp), str(dlg), content, floor_w]
 	print(msg)
 	var dl := get_node_or_null("/root/DebugLogger")
 	if dl != null:

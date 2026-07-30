@@ -48,7 +48,7 @@ func _build_ui() -> void:
 	instruction.name = "Instruction"
 	instruction.text = "Drag models to pile in — or hit \"Auto Pile In\"\nUp to %.1f\" toward the closest enemy" % max_distance
 	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	instruction.add_theme_font_size_override("font_size", 15)
+	instruction.add_theme_font_size_override("font_size", 19)
 	instruction.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	container.add_child(instruction)
 
@@ -57,7 +57,7 @@ func _build_ui() -> void:
 	status_label.name = "Status"
 	status_label.text = "Ready — click and drag models to move them"
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status_label.add_theme_font_size_override("font_size", 12)
+	status_label.add_theme_font_size_override("font_size", 16)
 	status_label.add_theme_color_override("font_color", _NEUTRAL_STATUS)
 	container.add_child(status_label)
 
@@ -116,7 +116,7 @@ func _build_ui() -> void:
 	var info = Label.new()
 	info.name = "Legend"
 	info.text = "• Green arrow = valid (closer to enemy, within 3\")\n• Red arrow = invalid (too far or wrong direction)\n• Dashed line = movement path with distance\n• Green dots = unit coherency maintained\n• Red X (B2B) = model in base contact, cannot move"
-	info.add_theme_font_size_override("font_size", 11)
+	info.add_theme_font_size_override("font_size", 16)
 	info.add_theme_color_override("font_color", _LEGEND_COLOR)
 	container.add_child(info)
 
@@ -128,7 +128,7 @@ func _build_ui() -> void:
 	pad_hint.name = "PadHintLabel"
 	pad_hint.text = "Ⓨ Auto Pile In   ·   ☰ Confirm   ·   Ⓑ Skip"
 	pad_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pad_hint.add_theme_font_size_override("font_size", 12)
+	pad_hint.add_theme_font_size_override("font_size", 16)
 	pad_hint.modulate = Color(1, 1, 1, 0.8)
 	pad_hint.visible = InputDeviceManager.is_pad_active()
 	container.add_child(pad_hint)

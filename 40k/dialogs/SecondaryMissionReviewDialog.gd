@@ -82,7 +82,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "NEW SECONDARY MISSIONS"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
@@ -92,7 +92,7 @@ func _build_ui() -> void:
 	# Subheader
 	var subheader = Label.new()
 	subheader.text = "Your secondary objectives for this turn"
-	subheader.add_theme_font_size_override("font_size", 12)
+	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
@@ -127,7 +127,7 @@ func _build_ui() -> void:
 		else:
 			_replace_info_label.text = "Cannot replace missions at this time"
 		_replace_info_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-	_replace_info_label.add_theme_font_size_override("font_size", 11)
+	_replace_info_label.add_theme_font_size_override("font_size", 16)
 	_replace_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_replace_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(_replace_info_label)
@@ -171,7 +171,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	# Mission name
 	var name_label = Label.new()
 	name_label.text = mission.get("name", "Unknown Mission")
-	name_label.add_theme_font_size_override("font_size", 16)
+	name_label.add_theme_font_size_override("font_size", 20)
 	name_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		name_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -180,7 +180,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	# Category
 	var cat_label = Label.new()
 	cat_label.text = mission.get("category", "")
-	cat_label.add_theme_font_size_override("font_size", 11)
+	cat_label.add_theme_font_size_override("font_size", 16)
 	cat_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	card_vbox.add_child(cat_label)
 
@@ -190,7 +190,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	if instructions != "":
 		var instructions_label = Label.new()
 		instructions_label.text = instructions
-		instructions_label.add_theme_font_size_override("font_size", 12)
+		instructions_label.add_theme_font_size_override("font_size", 16)
 		instructions_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
 		instructions_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		instructions_label.custom_minimum_size = Vector2(0, 0)
@@ -204,7 +204,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 
 	var scoring_header = Label.new()
 	scoring_header.text = "SCORING:"
-	scoring_header.add_theme_font_size_override("font_size", 11)
+	scoring_header.add_theme_font_size_override("font_size", 16)
 	scoring_header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		scoring_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -217,7 +217,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 		var readable_text = SecondaryMissionData.get_human_readable_condition(check, params, vp)
 		var condition_label = Label.new()
 		condition_label.text = "  %d VP - %s" % [vp, readable_text]
-		condition_label.add_theme_font_size_override("font_size", 11)
+		condition_label.add_theme_font_size_override("font_size", 16)
 		condition_label.add_theme_color_override("font_color", Color(0.4, 0.85, 0.4))
 		condition_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		card_vbox.add_child(condition_label)
@@ -226,7 +226,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	var when_text = _get_timing_display(scoring.get("when", ""))
 	var timing_label = Label.new()
 	timing_label.text = "Scored: %s" % when_text
-	timing_label.add_theme_font_size_override("font_size", 10)
+	timing_label.add_theme_font_size_override("font_size", 16)
 	timing_label.add_theme_color_override("font_color", Color(0.5, 0.7, 0.9))
 	card_vbox.add_child(timing_label)
 
@@ -238,7 +238,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 			action_info.get("name", "Unknown"),
 			action_info.get("phase", "unknown").capitalize()
 		]
-		action_label.add_theme_font_size_override("font_size", 10)
+		action_label.add_theme_font_size_override("font_size", 16)
 		action_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.4))
 		card_vbox.add_child(action_label)
 
@@ -246,7 +246,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	if mission.get("pending_interaction", false):
 		var pending_label = Label.new()
 		pending_label.text = "AWAITING OPPONENT INTERACTION"
-		pending_label.add_theme_font_size_override("font_size", 11)
+		pending_label.add_theme_font_size_override("font_size", 16)
 		pending_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 		card_vbox.add_child(pending_label)
 
@@ -256,7 +256,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 		replace_btn.name = "ReplaceButton_%d" % index
 		replace_btn.text = "Replace this mission (1 CP)"
 		replace_btn.custom_minimum_size = Vector2(0, 30)
-		replace_btn.add_theme_font_size_override("font_size", 12)
+		replace_btn.add_theme_font_size_override("font_size", 16)
 		replace_btn.tooltip_text = "Spend 1 CP to put this mission back in your deck and draw a different one"
 		replace_btn.pressed.connect(_on_replace_pressed.bind(mission_id))
 		WhiteDwarfTheme.apply_secondary_button(replace_btn)

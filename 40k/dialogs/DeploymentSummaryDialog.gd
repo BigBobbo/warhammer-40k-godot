@@ -30,7 +30,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "DEPLOYMENT SUMMARY"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.CORNFLOWER_BLUE)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -47,7 +47,7 @@ func _build_ui() -> void:
 
 	var overview = Label.new()
 	overview.text = "Player 1: %d units  |  Player 2: %d units" % [p1_units.size(), p2_units.size()]
-	overview.add_theme_font_size_override("font_size", 14)
+	overview.add_theme_font_size_override("font_size", 18)
 	overview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(overview)
 
@@ -64,13 +64,13 @@ func _build_ui() -> void:
 	if p1_units.size() > 0:
 		var p1_header = Label.new()
 		p1_header.text = "Player 1 - Deployed Units:"
-		p1_header.add_theme_font_size_override("font_size", 13)
+		p1_header.add_theme_font_size_override("font_size", 17)
 		p1_header.add_theme_color_override("font_color", Color.CORNFLOWER_BLUE)
 		content_list.add_child(p1_header)
 		for unit_info in p1_units:
 			var label = Label.new()
 			label.text = "  %s" % unit_info.display_text
-			label.add_theme_font_size_override("font_size", 12)
+			label.add_theme_font_size_override("font_size", 16)
 			label.add_theme_color_override("font_color", Color.CORNFLOWER_BLUE)
 			content_list.add_child(label)
 
@@ -78,13 +78,13 @@ func _build_ui() -> void:
 	if p2_units.size() > 0:
 		var p2_header = Label.new()
 		p2_header.text = "Player 2 - Deployed Units:"
-		p2_header.add_theme_font_size_override("font_size", 13)
+		p2_header.add_theme_font_size_override("font_size", 17)
 		p2_header.add_theme_color_override("font_color", Color.INDIAN_RED)
 		content_list.add_child(p2_header)
 		for unit_info in p2_units:
 			var label = Label.new()
 			label.text = "  %s" % unit_info.display_text
-			label.add_theme_font_size_override("font_size", 12)
+			label.add_theme_font_size_override("font_size", 16)
 			label.add_theme_color_override("font_color", Color.INDIAN_RED)
 			content_list.add_child(label)
 
@@ -93,7 +93,7 @@ func _build_ui() -> void:
 		content_list.add_child(HSeparator.new())
 		var emb_header = Label.new()
 		emb_header.text = "Units in Transports:"
-		emb_header.add_theme_font_size_override("font_size", 13)
+		emb_header.add_theme_font_size_override("font_size", 17)
 		emb_header.add_theme_color_override("font_color", Color.YELLOW)
 		content_list.add_child(emb_header)
 		# Group embarked units by their transport
@@ -111,13 +111,13 @@ func _build_ui() -> void:
 		for transport_name in by_transport:
 			var t_label = Label.new()
 			t_label.text = "  %s:" % transport_name
-			t_label.add_theme_font_size_override("font_size", 12)
+			t_label.add_theme_font_size_override("font_size", 16)
 			t_label.add_theme_color_override("font_color", Color.YELLOW)
 			content_list.add_child(t_label)
 			for unit_info in by_transport[transport_name]:
 				var label = Label.new()
 				label.text = "    - %s" % unit_info.get("unit_name", "Unknown")
-				label.add_theme_font_size_override("font_size", 12)
+				label.add_theme_font_size_override("font_size", 16)
 				content_list.add_child(label)
 
 	# Attached characters
@@ -125,13 +125,13 @@ func _build_ui() -> void:
 		content_list.add_child(HSeparator.new())
 		var att_header = Label.new()
 		att_header.text = "Attached Characters:"
-		att_header.add_theme_font_size_override("font_size", 13)
+		att_header.add_theme_font_size_override("font_size", 17)
 		att_header.add_theme_color_override("font_color", Color.YELLOW)
 		content_list.add_child(att_header)
 		for unit_info in attached_units:
 			var label = Label.new()
 			label.text = "  %s" % unit_info.display_text
-			label.add_theme_font_size_override("font_size", 12)
+			label.add_theme_font_size_override("font_size", 16)
 			content_list.add_child(label)
 
 	# Reserves
@@ -139,13 +139,13 @@ func _build_ui() -> void:
 		content_list.add_child(HSeparator.new())
 		var res_header = Label.new()
 		res_header.text = "Units in Reserves:"
-		res_header.add_theme_font_size_override("font_size", 13)
+		res_header.add_theme_font_size_override("font_size", 17)
 		res_header.add_theme_color_override("font_color", Color.MEDIUM_PURPLE)
 		content_list.add_child(res_header)
 		for unit_info in reserves_units:
 			var label = Label.new()
 			label.text = "  %s" % unit_info.display_text
-			label.add_theme_font_size_override("font_size", 12)
+			label.add_theme_font_size_override("font_size", 16)
 			label.add_theme_color_override("font_color", Color.MEDIUM_PURPLE)
 			content_list.add_child(label)
 
@@ -154,13 +154,13 @@ func _build_ui() -> void:
 		content_list.add_child(HSeparator.new())
 		var warn_header = Label.new()
 		warn_header.text = "Warnings:"
-		warn_header.add_theme_font_size_override("font_size", 13)
+		warn_header.add_theme_font_size_override("font_size", 17)
 		warn_header.add_theme_color_override("font_color", Color.ORANGE)
 		content_list.add_child(warn_header)
 		for warning_text in warnings:
 			var label = Label.new()
 			label.text = "  ⚠ %s" % warning_text
-			label.add_theme_font_size_override("font_size", 12)
+			label.add_theme_font_size_override("font_size", 16)
 			label.add_theme_color_override("font_color", Color.ORANGE)
 			content_list.add_child(label)
 

@@ -25,13 +25,13 @@
     { "act": "execute_script", "script": "main.refresh_ai_suggestion_button()" },
     { "act": "wait_frames", "frames": 3 },
 
-    { "act": "expect_node_visible", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISuggestionButton", "timeout_s": 2.0 },
-    { "act": "expect_node_property", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISuggestionButton", "property": "disabled", "equals": false },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton", "timeout_s": 2.0 },
+    { "act": "expect_node_property", "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton", "property": "disabled", "equals": false },
 
     { "act": "execute_script", "script": "GameEventLog.clear()" },
     { "act": "execute_script", "script": "AIPlayer.get_action_log().size()", "equals": 0 },
 
-    { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/AISuggestionButton" },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton" },
     { "act": "wait_frames", "frames": 3 },
 
     { "act": "screenshot", "label": "01_suggestion_in_left_log", "region": [0, 105, 400, 720] },

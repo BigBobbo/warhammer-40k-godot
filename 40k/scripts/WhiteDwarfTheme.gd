@@ -123,7 +123,7 @@ static func apply_to_label(label: Label, is_header: bool = false) -> void:
 		return
 	if is_header:
 		label.add_theme_color_override("font_color", WH_GOLD)
-		label.add_theme_font_size_override("font_size", 16)
+		label.add_theme_font_size_override("font_size", 20)
 	else:
 		label.add_theme_color_override("font_color", WH_PARCHMENT)
 
@@ -273,13 +273,13 @@ static func apply_primary_button(button: Button) -> void:
 	button.add_theme_color_override("font_hover_color", Color.WHITE)
 	button.add_theme_color_override("font_pressed_color", WH_GOLD)
 	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.45, 0.35, 0.6))
-	button.add_theme_font_size_override("font_size", 16)
+	button.add_theme_font_size_override("font_size", 20)
 
 static func apply_secondary_button(button: Button) -> void:
 	if not button:
 		return
 	apply_to_button(button)
-	button.add_theme_font_size_override("font_size", 13)
+	button.add_theme_font_size_override("font_size", 17)
 
 static func create_tab_button_inactive() -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()
@@ -328,7 +328,7 @@ static func apply_tab_button(button: Button, is_active: bool = false) -> void:
 		button.add_theme_color_override("font_hover_color", WH_PARCHMENT)
 	button.add_theme_stylebox_override("pressed", create_tab_button_active())
 	button.add_theme_color_override("font_pressed_color", WH_GOLD)
-	button.add_theme_font_size_override("font_size", 12)
+	button.add_theme_font_size_override("font_size", 16)
 
 static func create_player_panel_style(player: int) -> StyleBoxFlat:
 	var style = create_panel_style()
@@ -346,23 +346,23 @@ static func parchment_hex() -> String:
 	return WH_PARCHMENT.to_html(false)
 
 static func apply_section_header(label: Label) -> void:
-	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", WH_GOLD)
 	if FactionPalettes:
 		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 
 static func apply_subsection_header(label: Label) -> void:
-	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", WH_PARCHMENT)
 	if FactionPalettes:
 		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 
 static func apply_body_text(label: Label) -> void:
-	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
 
 static func apply_caption_text(label: Label) -> void:
-	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 
 static func bone_hex() -> String:

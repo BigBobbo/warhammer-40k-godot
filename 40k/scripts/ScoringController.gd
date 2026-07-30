@@ -83,7 +83,7 @@ func _setup_bottom_hud() -> void:
 	battle_round_label = Label.new()
 	battle_round_label.text = "Round " + str(GameState.get_battle_round()) + "/5"
 	battle_round_label.name = "BattleRoundLabel"
-	battle_round_label.add_theme_font_size_override("font_size", 13)
+	battle_round_label.add_theme_font_size_override("font_size", 17)
 	battle_round_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		battle_round_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -100,7 +100,7 @@ func _setup_bottom_hud() -> void:
 		faction = "Player %d" % current_player
 	turn_info_label.text = "%s Turn" % faction
 	turn_info_label.name = "TurnInfoLabel"
-	turn_info_label.add_theme_font_size_override("font_size", 13)
+	turn_info_label.add_theme_font_size_override("font_size", 17)
 	var player_color = FactionPalettes.get_player_border_color(current_player) if FactionPalettes else WhiteDwarfTheme.WH_PARCHMENT
 	turn_info_label.add_theme_color_override("font_color", player_color)
 	if FactionPalettes:
@@ -130,7 +130,7 @@ func _setup_right_panel() -> void:
 	# Title — uppercase gold gothic header
 	var title = Label.new()
 	title.text = "SCORING PHASE"
-	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_font_size_override("font_size", 19)
 	title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -146,7 +146,7 @@ func _setup_right_panel() -> void:
 	# Round indicator
 	var round_label = Label.new()
 	round_label.text = "BATTLE ROUND %d/%d" % [battle_round, total_rounds]
-	round_label.add_theme_font_size_override("font_size", 13)
+	round_label.add_theme_font_size_override("font_size", 17)
 	round_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		round_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -177,7 +177,7 @@ func _setup_right_panel() -> void:
 			for l in marker_lines:
 				line_strs.append(str(l))
 			marker_label.text = "P%d markers — %s" % [p, " | ".join(PackedStringArray(line_strs))]
-			marker_label.add_theme_font_size_override("font_size", 11)
+			marker_label.add_theme_font_size_override("font_size", 16)
 			marker_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
 			marker_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			scoring_panel.add_child(marker_label)
@@ -189,7 +189,7 @@ func _setup_right_panel() -> void:
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		var missions_title = Label.new()
 		missions_title.text = "ACTIVE SECONDARY MISSIONS"
-		missions_title.add_theme_font_size_override("font_size", 13)
+		missions_title.add_theme_font_size_override("font_size", 17)
 		missions_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 		if FactionPalettes:
 			missions_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -217,7 +217,7 @@ func _setup_right_panel() -> void:
 		deck_label.text = "Deck: %d remaining | Discarded: %d" % [
 			secondary_mgr.get_deck_size(current_player),
 			secondary_mgr.get_discard_size(current_player)]
-		deck_label.add_theme_font_size_override("font_size", 11)
+		deck_label.add_theme_font_size_override("font_size", 16)
 		deck_label.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 		scoring_panel.add_child(deck_label)
 
@@ -227,7 +227,7 @@ func _setup_right_panel() -> void:
 	if GameState.get_battle_round() > 5:
 		var game_end_label = Label.new()
 		game_end_label.text = "GAME COMPLETE!"
-		game_end_label.add_theme_font_size_override("font_size", 18)
+		game_end_label.add_theme_font_size_override("font_size", 21)
 		game_end_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 		if FactionPalettes:
 			game_end_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -236,7 +236,7 @@ func _setup_right_panel() -> void:
 		scoring_panel.add_child(game_end_label)
 		var sub_label = Label.new()
 		sub_label.text = "5 Battle Rounds finished"
-		sub_label.add_theme_font_size_override("font_size", 12)
+		sub_label.add_theme_font_size_override("font_size", 16)
 		sub_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 		sub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		scoring_panel.add_child(sub_label)
@@ -244,7 +244,7 @@ func _setup_right_panel() -> void:
 		var instruction_label = Label.new()
 		var cp_note = "+1 CP" if GameState.can_gain_bonus_cp(GameState.get_active_player()) else "+0 CP (cap reached)"
 		instruction_label.text = "Discard a secondary for %s, or End Turn." % cp_note
-		instruction_label.add_theme_font_size_override("font_size", 11)
+		instruction_label.add_theme_font_size_override("font_size", 16)
 		instruction_label.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 		instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		scoring_panel.add_child(instruction_label)
@@ -252,7 +252,7 @@ func _setup_right_panel() -> void:
 func _build_objective_control_section(panel: VBoxContainer, _current_player: int) -> void:
 	var obj_title = Label.new()
 	obj_title.text = "OBJECTIVE CONTROL"
-	obj_title.add_theme_font_size_override("font_size", 13)
+	obj_title.add_theme_font_size_override("font_size", 17)
 	obj_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		obj_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -264,7 +264,7 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 	if objectives.size() == 0:
 		var no_obj = Label.new()
 		no_obj.text = "No objectives on the board"
-		no_obj.add_theme_font_size_override("font_size", 11)
+		no_obj.add_theme_font_size_override("font_size", 16)
 		no_obj.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 		panel.add_child(no_obj)
 		return
@@ -307,7 +307,7 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 		var display_id = obj_id.replace("obj_", "").to_upper().replace("_", " ")
 		var obj_label = Label.new()
 		obj_label.text = "%s [%s]: %s" % [display_id, zone_text, controller_text]
-		obj_label.add_theme_font_size_override("font_size", 11)
+		obj_label.add_theme_font_size_override("font_size", 16)
 		obj_label.add_theme_color_override("font_color", obj_color)
 		panel.add_child(obj_label)
 
@@ -317,14 +317,14 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 	summary_hbox.add_theme_constant_override("separation", 8)
 	var p1_sum = Label.new()
 	p1_sum.text = "P1: %d" % p1_controlled
-	p1_sum.add_theme_font_size_override("font_size", 12)
+	p1_sum.add_theme_font_size_override("font_size", 16)
 	p1_sum.add_theme_color_override("font_color", p1_color)
 	if FactionPalettes:
 		p1_sum.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	summary_hbox.add_child(p1_sum)
 	var p2_sum = Label.new()
 	p2_sum.text = "P2: %d" % p2_controlled
-	p2_sum.add_theme_font_size_override("font_size", 12)
+	p2_sum.add_theme_font_size_override("font_size", 16)
 	p2_sum.add_theme_color_override("font_color", p2_color)
 	if FactionPalettes:
 		p2_sum.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -332,7 +332,7 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 	if contested > 0:
 		var cont_sum = Label.new()
 		cont_sum.text = "Contested: %d" % contested
-		cont_sum.add_theme_font_size_override("font_size", 12)
+		cont_sum.add_theme_font_size_override("font_size", 16)
 		cont_sum.add_theme_color_override("font_color", Color(0.8, 0.8, 0.3))
 		summary_hbox.add_child(cont_sum)
 	panel.add_child(summary_hbox)
@@ -345,7 +345,7 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 	if GameConstants.edition >= 11 and not MissionManager.player_primary_missions.is_empty():
 		var primary_title = Label.new()
 		primary_title.text = "PRIMARY MISSIONS"
-		primary_title.add_theme_font_size_override("font_size", 13)
+		primary_title.add_theme_font_size_override("font_size", 17)
 		primary_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 		if FactionPalettes:
 			primary_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -365,7 +365,7 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 				p, card.get("name", "?"),
 				" ~" if card.get("approximate", false) else "",
 				PrimaryMissionData11e.get_disposition_name(disp)]
-			card_label.add_theme_font_size_override("font_size", 12)
+			card_label.add_theme_font_size_override("font_size", 16)
 			card_label.add_theme_color_override("font_color", p_color)
 			if FactionPalettes:
 				card_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -378,7 +378,7 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 				var text_label = Label.new()
 				text_label.name = "P%dPrimaryTextLabel" % p
 				text_label.text = blurb
-				text_label.add_theme_font_size_override("font_size", 10)
+				text_label.add_theme_font_size_override("font_size", 16)
 				text_label.add_theme_color_override("font_color", Color(0.62, 0.6, 0.52))
 				text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				panel.add_child(text_label)
@@ -392,7 +392,7 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 				for l in lines:
 					strs.append("• " + str(l))
 				rules_label.text = "\n".join(strs)
-				rules_label.add_theme_font_size_override("font_size", 10)
+				rules_label.add_theme_font_size_override("font_size", 16)
 				rules_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
 				rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				panel.add_child(rules_label)
@@ -400,7 +400,7 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 		var mission_name = MissionManager.get_current_mission_name()
 		var mission_info = Label.new()
 		mission_info.text = "Mission: %s" % mission_name
-		mission_info.add_theme_font_size_override("font_size", 11)
+		mission_info.add_theme_font_size_override("font_size", 16)
 		mission_info.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 		panel.add_child(mission_info)
 
@@ -433,7 +433,7 @@ func _build_vp_scoreboard(parent: VBoxContainer, vp_summary: Dictionary) -> void
 
 	var vp_title = Label.new()
 	vp_title.text = "VP SUMMARY"
-	vp_title.add_theme_font_size_override("font_size", 12)
+	vp_title.add_theme_font_size_override("font_size", 16)
 	vp_title.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_GOLD, 0.7))
 	if FactionPalettes:
 		vp_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -463,7 +463,7 @@ func _add_vp_player_row(parent: VBoxContainer, faction: String, total: int, prim
 
 	var name_label = Label.new()
 	name_label.text = faction
-	name_label.add_theme_font_size_override("font_size", 12)
+	name_label.add_theme_font_size_override("font_size", 16)
 	name_label.add_theme_color_override("font_color", color)
 	if FactionPalettes:
 		name_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -472,7 +472,7 @@ func _add_vp_player_row(parent: VBoxContainer, faction: String, total: int, prim
 
 	var vp_label = Label.new()
 	vp_label.text = "%d VP" % total
-	vp_label.add_theme_font_size_override("font_size", 16)
+	vp_label.add_theme_font_size_override("font_size", 20)
 	vp_label.add_theme_color_override("font_color", color)
 	if FactionPalettes:
 		vp_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -481,7 +481,7 @@ func _add_vp_player_row(parent: VBoxContainer, faction: String, total: int, prim
 	# VP breakdown below the main row
 	var breakdown = Label.new()
 	breakdown.text = "Primary: %d | Secondary: %d" % [primary, secondary]
-	breakdown.add_theme_font_size_override("font_size", 10)
+	breakdown.add_theme_font_size_override("font_size", 16)
 	breakdown.add_theme_color_override("font_color", Color(color.r, color.g, color.b, 0.6))
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 0)
@@ -513,13 +513,13 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, p
 	else:
 		name_label.text = mission.get("name", "Unknown Mission")
 		name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
-	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_font_size_override("font_size", 17)
 	card_vbox.add_child(name_label)
 
 	# Category
 	var cat_label = Label.new()
 	cat_label.text = mission.get("category", "").capitalize()
-	cat_label.add_theme_font_size_override("font_size", 10)
+	cat_label.add_theme_font_size_override("font_size", 16)
 	cat_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	card_vbox.add_child(cat_label)
 
@@ -533,7 +533,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, p
 		max_vp = max(max_vp, c.get("vp", 0))
 	var scoring_label = Label.new()
 	scoring_label.text = "Up to %d VP | %s" % [max_vp, timing_text]
-	scoring_label.add_theme_font_size_override("font_size", 10)
+	scoring_label.add_theme_font_size_override("font_size", 16)
 	scoring_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
 	card_vbox.add_child(scoring_label)
 
@@ -542,7 +542,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, p
 	if vp_scored > 0:
 		var scored_label = Label.new()
 		scored_label.text = "Scored: %d VP" % vp_scored
-		scored_label.add_theme_font_size_override("font_size", 10)
+		scored_label.add_theme_font_size_override("font_size", 16)
 		scored_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 		card_vbox.add_child(scored_label)
 
@@ -560,7 +560,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, p
 			else:
 				cond_label.text = "  [---] %d VP - %s" % [vp, desc]
 				cond_label.add_theme_color_override("font_color", Color(0.6, 0.4, 0.4))
-			cond_label.add_theme_font_size_override("font_size", 10)
+			cond_label.add_theme_font_size_override("font_size", 16)
 			cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			card_vbox.add_child(cond_label)
 
@@ -568,7 +568,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, p
 	if mission.get("pending_interaction", false):
 		var pending_label = Label.new()
 		pending_label.text = "AWAITING INTERACTION"
-		pending_label.add_theme_font_size_override("font_size", 10)
+		pending_label.add_theme_font_size_override("font_size", 16)
 		pending_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 		card_vbox.add_child(pending_label)
 
@@ -578,7 +578,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, p
 	var cp_label_text = "+1 CP" if can_gain_cp else "+0 CP (cap)"
 	discard_btn.text = "Discard (%s)" % cp_label_text
 	discard_btn.custom_minimum_size = Vector2(0, 26)
-	discard_btn.add_theme_font_size_override("font_size", 11)
+	discard_btn.add_theme_font_size_override("font_size", 16)
 	WhiteDwarfTheme.apply_secondary_button(discard_btn)
 	var tooltip = "Voluntarily discard this mission and gain 1 CP." if can_gain_cp else "Voluntarily discard this mission (bonus CP cap reached this round — no CP gained)."
 	discard_btn.tooltip_text = tooltip
@@ -734,7 +734,7 @@ func _show_coherency_removal_dialog(pending: Array) -> void:
 
 	var header = Label.new()
 	header.text = "REGAINING COHERENCY"
-	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_font_size_override("font_size", 21)
 	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(header)
@@ -842,7 +842,7 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 
 	var header = Label.new()
 	header.text = str(pending.get("action_name", "CARD ACTION")).to_upper()
-	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_font_size_override("font_size", 21)
 	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(header)
@@ -1002,7 +1002,7 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 
 	var header = Label.new()
 	header.text = "ACROBATIC ESCAPE"
-	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_font_size_override("font_size", 21)
 	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(header)
@@ -1019,7 +1019,7 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 	var timer_label = Label.new()
 	timer_label.text = "Auto-declining in 15 seconds..."
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	timer_label.add_theme_font_size_override("font_size", 12)
+	timer_label.add_theme_font_size_override("font_size", 16)
 	timer_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
 	content.add_child(timer_label)
 
@@ -1126,7 +1126,7 @@ func _on_end_turn_redeploy_available(unit_id: String, unit_name: String, player:
 
 	var header = Label.new()
 	header.text = ability_name.to_upper()
-	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_font_size_override("font_size", 21)
 	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(header)
@@ -1143,7 +1143,7 @@ func _on_end_turn_redeploy_available(unit_id: String, unit_name: String, player:
 	var timer_label = Label.new()
 	timer_label.text = "Auto-declining in 15 seconds..."
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	timer_label.add_theme_font_size_override("font_size", 12)
+	timer_label.add_theme_font_size_override("font_size", 16)
 	timer_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
 	content.add_child(timer_label)
 

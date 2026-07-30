@@ -42,7 +42,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "SHOOTING PHASE SUMMARY"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -59,7 +59,7 @@ func _build_ui() -> void:
 	if weapon_entries == 0 or targets_count == 0:
 		var empty_label = Label.new()
 		empty_label.text = "No shooting was resolved this phase."
-		empty_label.add_theme_font_size_override("font_size", 14)
+		empty_label.add_theme_font_size_override("font_size", 18)
 		empty_label.add_theme_color_override("font_color", Color.GRAY)
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_container.add_child(empty_label)
@@ -68,7 +68,7 @@ func _build_ui() -> void:
 		var overview = Label.new()
 		overview.text = "%d shooter(s) → %d target unit(s)  |  %d weapon resolution(s)" % [
 			shooters_count, targets_count, weapon_entries]
-		overview.add_theme_font_size_override("font_size", 13)
+		overview.add_theme_font_size_override("font_size", 17)
 		overview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_container.add_child(overview)
 
@@ -79,7 +79,7 @@ func _build_ui() -> void:
 			int(totals.get("saves_failed", 0)),
 			int(totals.get("casualties", 0))
 		]
-		totals_line.add_theme_font_size_override("font_size", 13)
+		totals_line.add_theme_font_size_override("font_size", 17)
 		totals_line.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 		totals_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_container.add_child(totals_line)
@@ -89,7 +89,7 @@ func _build_ui() -> void:
 		# Per-target breakdown header
 		var per_target_label = Label.new()
 		per_target_label.text = "Per-target breakdown:"
-		per_target_label.add_theme_font_size_override("font_size", 14)
+		per_target_label.add_theme_font_size_override("font_size", 18)
 		per_target_label.add_theme_color_override("font_color", Color.GOLD)
 		main_container.add_child(per_target_label)
 
@@ -124,7 +124,7 @@ func _build_ui() -> void:
 			# Target header line
 			var target_label = Label.new()
 			target_label.text = "  %s" % target_name
-			target_label.add_theme_font_size_override("font_size", 14)
+			target_label.add_theme_font_size_override("font_size", 18)
 			target_label.add_theme_color_override("font_color", Color.WHITE)
 			content_list.add_child(target_label)
 
@@ -132,7 +132,7 @@ func _build_ui() -> void:
 			var stat_label = Label.new()
 			stat_label.text = "    %d hits  |  %d wounds  |  %d failed saves  |  %d casualties" % [
 				hits, wounds, saves_failed, casualties]
-			stat_label.add_theme_font_size_override("font_size", 12)
+			stat_label.add_theme_font_size_override("font_size", 16)
 			# Color casualty count to draw the eye
 			if casualties > 0:
 				stat_label.add_theme_color_override("font_color", Color.LIGHT_CORAL)
@@ -161,14 +161,14 @@ func _build_ui() -> void:
 					tw_text += ": %dH / %dW / %dK" % [tw_hits, tw_wounds, tw_cas]
 					var tw_label = Label.new()
 					tw_label.text = tw_text
-					tw_label.add_theme_font_size_override("font_size", 11)
+					tw_label.add_theme_font_size_override("font_size", 16)
 					tw_label.add_theme_color_override("font_color", Color.DARK_GRAY)
 					content_list.add_child(tw_label)
 			elif shooters.size() > 0:
 				var shooters_text = "    Shot by: %s" % ", ".join(shooters)
 				var shooters_label = Label.new()
 				shooters_label.text = shooters_text
-				shooters_label.add_theme_font_size_override("font_size", 11)
+				shooters_label.add_theme_font_size_override("font_size", 16)
 				shooters_label.add_theme_color_override("font_color", Color.DIM_GRAY)
 				content_list.add_child(shooters_label)
 
