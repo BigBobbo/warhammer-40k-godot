@@ -1,0 +1,67 @@
+{
+  "id": "deploy_reposition_rotate_mouse",
+  "covers": [
+    "deployment.reposition_rotate_lifted_model"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Mouse counterpart to pad_deploy_reposition_rotate_model: Shift+click lifts an already-placed model and Q/E must rotate THAT model, not the ghost waiting for the next one. Drives the real player path on a 3-model unit — two models placed with real board clicks (so one model is still pending and ghost_sprite is alive), Shift+click on model 0 to lift it, four 'E' taps, then a plain click to drop. Asserts the three halves of the 2026-07-30 report: (1) the lifted model's ghost takes the rotation and ghost_sprite's facing is untouched — before the fix every rotate input went to ghost_sprite, so the player watched the wrong model spin; (2) ghost_sprite is HIDDEN while a model is in hand — _process stops tracking it during a lift, so it used to sit frozen at the pick-up point, which is what read as 'the old position is still visible'; (3) the drop commits the new facing into temp_rotations, not just the new position.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.status", "equals": 0 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "click_board_at", "x": 700, "y": 360 },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "click_board_at", "x": 800, "y": 360 },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 2 },
+
+    { "act": "execute_script", "script": "main.deployment_controller.ghost_sprite != null", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.ghost_sprite.visible", "equals": true },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"r0\", main.deployment_controller.temp_rotations[0])" },
+    { "act": "execute_script", "script": "InputDeviceManager.set_meta(\"gr0\", main.deployment_controller.ghost_sprite.get_base_rotation())" },
+    { "act": "screenshot", "label": "01_two_models_placed" },
+
+    { "act": "click_board_at", "x": 700, "y": 360, "shift": true },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.deployment_controller.is_repositioning()", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.reposition_model_index", "equals": 0 },
+
+    { "act": "execute_script", "script": "main.deployment_controller.ghost_sprite.visible", "equals": false },
+    { "act": "execute_script", "multiline": true,
+      "script": "var dc = tree.current_scene.deployment_controller\nvar r0 = float(InputDeviceManager.get_meta(\"r0\"))\nreturn absf(dc.reposition_ghost.get_base_rotation() - r0)",
+      "expect_max": 0.001 },
+
+    { "act": "simulate_key", "keycode": "E" },
+    { "act": "simulate_key", "keycode": "E" },
+    { "act": "simulate_key", "keycode": "E" },
+    { "act": "simulate_key", "keycode": "E" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var dc = tree.current_scene.deployment_controller\nvar r0 = float(InputDeviceManager.get_meta(\"r0\"))\nreturn absf((dc.reposition_ghost.get_base_rotation() - r0) - (PI / 3.0))",
+      "expect_max": 0.001 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var dc = tree.current_scene.deployment_controller\nvar gr0 = float(InputDeviceManager.get_meta(\"gr0\"))\nreturn absf(dc.ghost_sprite.get_base_rotation() - gr0)",
+      "expect_max": 0.001 },
+    { "act": "screenshot", "label": "02_lifted_and_rotated" },
+
+    { "act": "click_board_at", "x": 700, "y": 460 },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "main.deployment_controller.is_repositioning()", "equals": false },
+    { "act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 2 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var dc = tree.current_scene.deployment_controller\nvar r0 = float(InputDeviceManager.get_meta(\"r0\"))\nreturn absf((dc.temp_rotations[0] - r0) - (PI / 3.0))",
+      "expect_max": 0.001 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var dc = tree.current_scene.deployment_controller\nreturn float(dc.temp_positions[0].distance_to(Vector2(700, 460)))",
+      "expect_max": 3.0 },
+    { "act": "execute_script", "script": "main.deployment_controller.ghost_sprite.visible", "equals": true },
+    { "act": "screenshot", "label": "03_dropped_rotated_pending_ghost_back" }
+  ]
+}
