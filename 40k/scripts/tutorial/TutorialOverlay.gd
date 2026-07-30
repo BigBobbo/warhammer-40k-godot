@@ -532,6 +532,12 @@ func _inject_exit_button(dialog: AcceptDialog) -> void:
 	# dialog's primary action — leaving is never a fat-finger away from rolling.
 	var btn: Button = dialog.add_button("Exit Tutorial", false, "tutorial_exit")
 	btn.name = "TutorialExitButton"
+	# Never the pad's auto-focus pick: this button is bolted onto someone else's
+	# dialog, so focusing it makes A mean "leave the tutorial" while the step is
+	# telling the player to press A on the dialog's own action (the reported
+	# roll-off / command-reroll trap). InputDeviceManager keeps it as a
+	# last-resort target only.
+	btn.set_meta(InputDeviceManager.PAD_FOCUS_LAST_META, true)
 	btn.tooltip_text = "Leave the tutorial and go back to the main menu (asks first)."
 	WhiteDwarfThemeData.apply_secondary_button(btn)
 	btn.pressed.connect(_on_exit_pressed)

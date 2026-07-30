@@ -486,6 +486,20 @@ func _ready() -> void:
 	# Hide left panel (Mathhammer) by default — toggle with hotkey
 	_hide_left_panel()
 
+	# Game Event Log panel — MUST be built before setup_phase_controllers().
+	# It owns the shared "Dice Log" tab that the shooting/charge/fight
+	# controllers resolve at UI-build time (PhaseControllerBase
+	# .resolve_shared_dice_log). This used to run ~60 lines further down, so a
+	# controller built for the STARTING phase resolved its dice log before the
+	# panel existed and fell back to a throwaway label in the right-hand panel:
+	# every roll went there and the left panel's Dice Log tab stayed empty for
+	# the whole phase. Normal play begins in deployment and never noticed —
+	# but booting a tutorial fixture straight into shooting/charge/fight, or
+	# loading a save taken there, hit it every time. Building the panel first
+	# also means those paths lay the right-hand panel out exactly the way
+	# normal play does, with no dice-log label in it to remove later.
+	_setup_game_log_panel()
+
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
 	await setup_phase_controllers()
@@ -543,8 +557,8 @@ func _ready() -> void:
 	# Aura range rings layer
 	_setup_aura_rings_layer()
 
-	# Setup Game Event Log panel
-	_setup_game_log_panel()
+	# (Game Event Log panel is built earlier — above setup_phase_controllers()
+	# — because the phase controllers resolve its shared Dice Log tab.)
 
 	# P3-117: Setup Dice Roll History panel
 	_setup_dice_history_panel()
@@ -12285,6 +12299,27 @@ func _setup_game_log_panel() -> void:
 	# bottom inset here or its newest entry hides behind the pad hint strip.
 	_connect_pad_bottom_inset()
 	print("Main: Game Event Log panel created (card-based)")
+	_rebind_controller_dice_logs()
+
+func _rebind_controller_dice_logs() -> void:
+	# Safety net for the ordering above: any controller that built its UI before
+	# this panel existed resolved its dice log to a throwaway DiceLogFallback
+	# label instead of the shared "Dice Log" tab, and every roll it writes goes
+	# there where no one can read it (PhaseControllerBase.resolve_shared_dice_log
+	# / rebind_shared_dice_log). _ready() now builds the panel before
+	# setup_phase_controllers() so the battle-start path no longer needs this,
+	# but the replay-mode init also creates the panel late, and re-pointing is a
+	# cheap no-op for controllers that already share the label.
+	#
+	# Prefer keeping the panel FIRST over relying on this: rebinding frees the
+	# fallback label out of a right-hand panel that has already been laid out,
+	# and that reflow was measured to leave ChargePanel/DistanceTracking
+	# overlapping the "Confirm Charge Moves" button — visible and enabled, but
+	# swallowing real mouse clicks (caught by tests/scenarios/sp/tut_t5_ere_we_go
+	# .json).
+	for c in [shooting_controller, charge_controller, fight_controller, movement_controller]:
+		if c != null and is_instance_valid(c) and c.has_method("rebind_shared_dice_log"):
+			c.rebind_shared_dice_log()
 
 func _prune_old_log_entries() -> void:
 	"""Pruning is handled internally by GameLogPanel._trim_old_cards()."""

@@ -74,7 +74,7 @@
       "prompt": {
         "bark": "WAAAAAGH!",
         "kbm": "Army rules sit in da command panel. Da Orks get one big 'un: hit [b]CALL DA WAAAGH![/b] — once per battle, every Ork can Advance an' still charge, hits harder in melee an' gets a 5+ invuln.",
-        "pad": "Army rules sit in da command panel. Glide {ls} onto [b]CALL DA WAAAGH![/b] an' press {a} — once per battle, an' every Ork gets meaner."
+        "pad": "Army rules sit in da command panel. {dpad} ▼ hops in, ▼ again lands on [b]CALL DA WAAAGH![/b] — {a} calls it. Once per battle, an' every Ork gets meaner."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton"
@@ -99,7 +99,7 @@
       "prompt": {
         "bark": "SPEND DA CP!",
         "kbm": "CP buys [b]stratagems[/b]. Open da panel wiv [b][S] Stratagems[/b] at da bottom — it lists what ya can use right now, what it costs, an' greys out da rest wiv da reason why. Have a look, den hit [b]Close[/b].",
-        "pad": "CP buys [b]stratagems[/b]. Glide {ls} onto [b]Stratagems[/b] at da bottom an' press {a} — da panel lists what ya can use now an' greys out da rest wiv da reason why. Have a look, den [b]Close[/b]."
+        "pad": "CP buys [b]stratagems[/b]. Da bottom bar ain't on da {dpad} route, so glide {ls} onto [b]Stratagems[/b] an' press {a} — da panel lists what ya can use now an' greys out da rest wiv da reason why. Have a look, den [b]Close[/b]."
       },
       "anchor": {
         "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton"
