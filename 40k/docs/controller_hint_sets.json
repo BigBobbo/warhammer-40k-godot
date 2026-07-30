@@ -271,16 +271,16 @@
       "Move Model"
     ],
     [
+      "r3",
+      "Hold: LB/RB Rotate"
+    ],
+    [
       "a",
       "Drop Here"
     ],
     [
       "b",
       "Cancel"
-    ],
-    [
-      "r3",
-      "Hold: Precision"
     ]
   ],
   "HINTS_DEPLOY_STAGED": [
