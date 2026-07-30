@@ -52,7 +52,7 @@ func setup(uid: String, popup_position: Vector2) -> void:
 	var title = Label.new()
 	title.text = "Choose Color"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 13)
+	title.add_theme_font_size_override("font_size", 17)
 	title.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(title)
 

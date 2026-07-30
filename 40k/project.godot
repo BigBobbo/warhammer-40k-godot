@@ -456,6 +456,7 @@ global_script_class_52={
 
 [gui]
 
+theme/custom="res://themes/main_theme.tres"
 theme/custom_font="res://fonts/Rajdhani-SemiBold.ttf"
 
 [input]

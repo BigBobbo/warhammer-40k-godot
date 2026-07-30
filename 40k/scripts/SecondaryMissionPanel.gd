@@ -60,7 +60,7 @@ func _build_ui() -> void:
 	header_button = Button.new()
 	header_button.text = "▶ Secondary Missions [M]"
 	header_button.custom_minimum_size = Vector2(0, HEADER_HEIGHT)
-	header_button.add_theme_font_size_override("font_size", 12)
+	header_button.add_theme_font_size_override("font_size", 16)
 	header_button.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	_WhiteDwarfTheme.apply_to_button(header_button)
 	header_button.pressed.connect(_on_header_pressed)
@@ -180,7 +180,7 @@ func refresh() -> void:
 
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if not secondary_mgr:
-		_add_label(content_container, "Secondary mission system not available", 11, Color(0.5, 0.5, 0.5))
+		_add_label(content_container, "Secondary mission system not available", 16, Color(0.5, 0.5, 0.5))
 		return
 
 	# Reconnect signals if needed (handles late autoload)
@@ -189,7 +189,7 @@ func refresh() -> void:
 	var current_player = GameState.get_active_player()
 
 	if not secondary_mgr.is_initialized(current_player):
-		_add_label(content_container, "Missions not yet initialized\n(set up in Command Phase or pre-game)", 11, Color(0.5, 0.5, 0.5))
+		_add_label(content_container, "Missions not yet initialized\n(set up in Command Phase or pre-game)", 16, Color(0.5, 0.5, 0.5))
 		return
 
 	# Summary bar
@@ -208,14 +208,14 @@ func refresh() -> void:
 		_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		content_container.add_child(_gsep1)
 		_add_label(content_container, "Player %d — %d Secondary VP" % [
-			opponent, secondary_mgr.get_secondary_vp(opponent)], 11, Color(0.6, 0.6, 0.6))
+			opponent, secondary_mgr.get_secondary_vp(opponent)], 16, Color(0.6, 0.6, 0.6))
 		var opp_active = secondary_mgr.get_active_missions(opponent)
 		if opp_active.size() > 0:
 			for m in opp_active:
 				_add_label(content_container, "  - %s (%s)" % [
-					m.get("name", "?"), m.get("category", "")], 10, Color(0.55, 0.55, 0.55))
+					m.get("name", "?"), m.get("category", "")], 16, Color(0.55, 0.55, 0.55))
 		else:
-			_add_label(content_container, "  No active missions", 10, Color(0.45, 0.45, 0.45))
+			_add_label(content_container, "  No active missions", 16, Color(0.45, 0.45, 0.45))
 
 func _build_summary(parent: VBoxContainer, mgr, player: int) -> void:
 	var secondary_vp = mgr.get_secondary_vp(player)
@@ -228,7 +228,7 @@ func _build_summary(parent: VBoxContainer, mgr, player: int) -> void:
 		var deck_size = mgr.get_deck_size(player)
 		var discard_size = mgr.get_discard_size(player)
 		summary.text = "Deck: %d  |  Discard: %d  |  VP: %d/40" % [deck_size, discard_size, secondary_vp]
-	summary.add_theme_font_size_override("font_size", 11)
+	summary.add_theme_font_size_override("font_size", 16)
 	summary.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	parent.add_child(summary)
 	var _gsep2 = ColorRect.new()
@@ -241,7 +241,7 @@ func _build_player_missions(parent: VBoxContainer, mgr, player: int) -> void:
 	var active_missions = mgr.get_active_missions(player)
 
 	if active_missions.size() == 0:
-		_add_label(parent, "No active missions — draw in Command Phase", 11, Color(0.5, 0.5, 0.5))
+		_add_label(parent, "No active missions — draw in Command Phase", 16, Color(0.5, 0.5, 0.5))
 		return
 
 	# Get live progress data for all active missions
@@ -286,7 +286,7 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 	var cat_icon = Label.new()
 	var category = mission.get("category", "")
 	cat_icon.text = _get_category_icon(category)
-	cat_icon.add_theme_font_size_override("font_size", 16)
+	cat_icon.add_theme_font_size_override("font_size", 20)
 	cat_icon.add_theme_color_override("font_color", _get_category_color(category))
 	cat_icon.custom_minimum_size = Vector2(20, 0)
 	top_row.add_child(cat_icon)
@@ -294,7 +294,7 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 	var name_label = Label.new()
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.text = mission.get("name", "Unknown Mission")
-	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_font_size_override("font_size", 17)
 	if FactionPalettes:
 		name_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	if best_vp > 0:
@@ -306,7 +306,7 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 	if best_vp > 0:
 		var vp_badge = Label.new()
 		vp_badge.text = "+%dVP" % best_vp
-		vp_badge.add_theme_font_size_override("font_size", 13)
+		vp_badge.add_theme_font_size_override("font_size", 17)
 		vp_badge.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
 		if FactionPalettes:
 			vp_badge.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -317,7 +317,7 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 	var timing_text = _get_timing_display(scoring.get("when", ""))
 	var cat_label = Label.new()
 	cat_label.text = "%s  |  %s" % [category, timing_text]
-	cat_label.add_theme_font_size_override("font_size", 10)
+	cat_label.add_theme_font_size_override("font_size", 16)
 	cat_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.65))
 	vbox.add_child(cat_label)
 
@@ -332,7 +332,7 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 			cond_row.add_theme_constant_override("separation", 4)
 			var icon_lbl = Label.new()
 			icon_lbl.custom_minimum_size = Vector2(16, 0)
-			icon_lbl.add_theme_font_size_override("font_size", 12)
+			icon_lbl.add_theme_font_size_override("font_size", 16)
 			if met:
 				icon_lbl.text = "+"
 				icon_lbl.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
@@ -347,7 +347,7 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 			else:
 				cond_label.text = "%dVP  %s" % [vp, desc]
 				cond_label.add_theme_color_override("font_color", Color(0.5, 0.4, 0.4))
-			cond_label.add_theme_font_size_override("font_size", 11)
+			cond_label.add_theme_font_size_override("font_size", 16)
 			cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			cond_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			cond_row.add_child(cond_label)
@@ -362,12 +362,12 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 			var icon_lbl = Label.new()
 			icon_lbl.text = "-"
 			icon_lbl.custom_minimum_size = Vector2(16, 0)
-			icon_lbl.add_theme_font_size_override("font_size", 12)
+			icon_lbl.add_theme_font_size_override("font_size", 16)
 			icon_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 			cond_row.add_child(icon_lbl)
 			var cond_label = Label.new()
 			cond_label.text = "%dVP  %s" % [vp, _humanize_check(check)]
-			cond_label.add_theme_font_size_override("font_size", 11)
+			cond_label.add_theme_font_size_override("font_size", 16)
 			cond_label.add_theme_color_override("font_color", Color(0.5, 0.75, 0.5))
 			cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			cond_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -385,7 +385,7 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 			scored_label.text = "Scored: %d/20 VP" % vp_scored
 		else:
 			scored_label.text = "Scored: %d VP" % vp_scored
-		scored_label.add_theme_font_size_override("font_size", 10)
+		scored_label.add_theme_font_size_override("font_size", 16)
 		scored_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 		vbox.add_child(scored_label)
 
@@ -393,7 +393,7 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 	if mission.get("pending_interaction", false):
 		var pending = Label.new()
 		pending.text = "AWAITING INTERACTION"
-		pending.add_theme_font_size_override("font_size", 10)
+		pending.add_theme_font_size_override("font_size", 16)
 		pending.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 		vbox.add_child(pending)
 	else:
@@ -413,7 +413,7 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 			targets_label.text = "Alpha: %s" % ", ".join(alpha_names)
 			if gamma_name != "":
 				targets_label.text += "\nGamma: %s" % gamma_name
-			targets_label.add_theme_font_size_override("font_size", 9)
+			targets_label.add_theme_font_size_override("font_size", 16)
 			targets_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
 			targets_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			vbox.add_child(targets_label)
@@ -422,7 +422,7 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 			var obj_label = Label.new()
 			var obj_id = mission_data.get("tempting_target_id", "")
 			obj_label.text = "Target: %s" % obj_id.replace("obj_", "Objective ").to_upper()
-			obj_label.add_theme_font_size_override("font_size", 9)
+			obj_label.add_theme_font_size_override("font_size", 16)
 			obj_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
 			vbox.add_child(obj_label)
 
@@ -459,7 +459,9 @@ func _flash_header() -> void:
 func _add_label(parent: Control, text: String, font_size: int, color: Color) -> Label:
 	var label = Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", font_size)
+	# Steam Deck legibility floor: 16px logical is the smallest size that stays
+	# readable on the Deck panel (Valve's 9px physical minimum at our scale).
+	label.add_theme_font_size_override("font_size", max(font_size, 16))
 	label.add_theme_color_override("font_color", color)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(label)

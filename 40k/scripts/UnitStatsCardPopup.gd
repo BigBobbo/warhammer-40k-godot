@@ -90,7 +90,7 @@ func _build_header(parent: VBoxContainer, unit: Dictionary, meta: Dictionary) ->
 
 	var name_label = Label.new()
 	name_label.text = meta.get("name", "Unknown Unit").to_upper()
-	name_label.add_theme_font_size_override("font_size", 18)
+	name_label.add_theme_font_size_override("font_size", 21)
 	name_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(name_label)
@@ -99,7 +99,7 @@ func _build_header(parent: VBoxContainer, unit: Dictionary, meta: Dictionary) ->
 	if meta.get("is_warlord", false):
 		var wl_label = Label.new()
 		wl_label.text = "WARLORD"
-		wl_label.add_theme_font_size_override("font_size", 10)
+		wl_label.add_theme_font_size_override("font_size", 16)
 		wl_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 		title_row.add_child(wl_label)
 
@@ -107,7 +107,7 @@ func _build_header(parent: VBoxContainer, unit: Dictionary, meta: Dictionary) ->
 	if points > 0:
 		var pts_label = Label.new()
 		pts_label.text = "%dpts" % points
-		pts_label.add_theme_font_size_override("font_size", 11)
+		pts_label.add_theme_font_size_override("font_size", 16)
 		pts_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_BONE)
 		title_row.add_child(pts_label)
 
@@ -116,7 +116,7 @@ func _build_header(parent: VBoxContainer, unit: Dictionary, meta: Dictionary) ->
 	if not keywords.is_empty():
 		var kw_label = Label.new()
 		kw_label.text = ", ".join(keywords)
-		kw_label.add_theme_font_size_override("font_size", 10)
+		kw_label.add_theme_font_size_override("font_size", 16)
 		kw_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_BONE)
 		kw_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		header_vbox.add_child(kw_label)
@@ -126,7 +126,7 @@ func _build_header(parent: VBoxContainer, unit: Dictionary, meta: Dictionary) ->
 	if not enhancements.is_empty():
 		var enh_label = Label.new()
 		enh_label.text = "Enhancements: " + ", ".join(enhancements)
-		enh_label.add_theme_font_size_override("font_size", 10)
+		enh_label.add_theme_font_size_override("font_size", 16)
 		enh_label.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
 		enh_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		header_vbox.add_child(enh_label)
@@ -171,7 +171,7 @@ func _build_stats_row(parent: VBoxContainer, meta: Dictionary) -> void:
 		var header = Label.new()
 		header.text = def[1]
 		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		header.add_theme_font_size_override("font_size", 11)
+		header.add_theme_font_size_override("font_size", 16)
 		header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 		header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(header)
@@ -182,7 +182,7 @@ func _build_stats_row(parent: VBoxContainer, meta: Dictionary) -> void:
 		var val = stats.get(def[0], "-")
 		value_label.text = str(val) + def[2] if val != null and str(val) != "" else "-"
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		value_label.add_theme_font_size_override("font_size", 16)
+		value_label.add_theme_font_size_override("font_size", 20)
 		value_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 		value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(value_label)
@@ -198,13 +198,13 @@ func _build_stats_row(parent: VBoxContainer, meta: Dictionary) -> void:
 		if invuln > 0:
 			var inv_label = Label.new()
 			inv_label.text = "Invulnerable Save: %d+" % invuln
-			inv_label.add_theme_font_size_override("font_size", 11)
+			inv_label.add_theme_font_size_override("font_size", 16)
 			inv_label.add_theme_color_override("font_color", Color(0.5, 0.7, 1.0))
 			special_row.add_child(inv_label)
 		if fnp > 0:
 			var fnp_label = Label.new()
 			fnp_label.text = "Feel No Pain: %d+" % fnp
-			fnp_label.add_theme_font_size_override("font_size", 11)
+			fnp_label.add_theme_font_size_override("font_size", 16)
 			fnp_label.add_theme_color_override("font_color", Color(0.5, 1.0, 0.5))
 			special_row.add_child(fnp_label)
 		parent.add_child(special_row)
@@ -255,7 +255,7 @@ func _build_weapon_table(parent: VBoxContainer, title: String, weapons: Array, i
 
 	var title_label = Label.new()
 	title_label.text = title
-	title_label.add_theme_font_size_override("font_size", 12)
+	title_label.add_theme_font_size_override("font_size", 16)
 	if is_ranged:
 		title_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	else:
@@ -292,7 +292,7 @@ func _build_weapon_row(parent: VBoxContainer, weapon: Dictionary, is_ranged: boo
 	# Weapon name
 	var name_label = Label.new()
 	name_label.text = weapon.get("name", "Unknown")
-	name_label.add_theme_font_size_override("font_size", 11)
+	name_label.add_theme_font_size_override("font_size", 16)
 	name_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	row_vbox.add_child(name_label)
 
@@ -318,7 +318,7 @@ func _build_weapon_row(parent: VBoxContainer, weapon: Dictionary, is_ranged: boo
 
 	var stats_label = Label.new()
 	stats_label.text = stats_line
-	stats_label.add_theme_font_size_override("font_size", 10)
+	stats_label.add_theme_font_size_override("font_size", 16)
 	stats_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_BONE)
 	row_vbox.add_child(stats_label)
 
@@ -327,7 +327,7 @@ func _build_weapon_row(parent: VBoxContainer, weapon: Dictionary, is_ranged: boo
 	if special != "":
 		var special_label = Label.new()
 		special_label.text = "[%s]" % special
-		special_label.add_theme_font_size_override("font_size", 9)
+		special_label.add_theme_font_size_override("font_size", 16)
 		special_label.add_theme_color_override("font_color", Color(0.7, 0.8, 1.0))
 		special_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row_vbox.add_child(special_label)
@@ -366,7 +366,7 @@ func _build_abilities_section(parent: VBoxContainer, unit: Dictionary) -> void:
 
 	var title_label = Label.new()
 	title_label.text = "ABILITIES"
-	title_label.add_theme_font_size_override("font_size", 12)
+	title_label.add_theme_font_size_override("font_size", 16)
 	title_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	header_panel.add_child(title_label)
 
@@ -415,7 +415,7 @@ func _build_abilities_section(parent: VBoxContainer, unit: Dictionary) -> void:
 		if not core_names.is_empty():
 			var core_label = Label.new()
 			core_label.text = "Core: " + ", ".join(core_names)
-			core_label.add_theme_font_size_override("font_size", 10)
+			core_label.add_theme_font_size_override("font_size", 16)
 			core_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_BONE)
 			core_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			abilities_vbox.add_child(core_label)
@@ -444,7 +444,7 @@ func _build_ability_entry(parent: VBoxContainer, ability: Dictionary, name_color
 	if ability_type != "":
 		display_name += " [%s]" % ability_type
 	name_label.text = display_name
-	name_label.add_theme_font_size_override("font_size", 11)
+	name_label.add_theme_font_size_override("font_size", 16)
 	name_label.add_theme_color_override("font_color", name_color)
 	entry.add_child(name_label)
 
@@ -452,7 +452,7 @@ func _build_ability_entry(parent: VBoxContainer, ability: Dictionary, name_color
 	if desc != "":
 		var desc_label = Label.new()
 		desc_label.text = desc
-		desc_label.add_theme_font_size_override("font_size", 9)
+		desc_label.add_theme_font_size_override("font_size", 16)
 		desc_label.add_theme_color_override("font_color", Color(_WhiteDwarfTheme.WH_PARCHMENT, 0.7))
 		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(desc_label)
@@ -494,7 +494,7 @@ func _build_footer(parent: VBoxContainer, unit: Dictionary) -> void:
 
 	var models_label = Label.new()
 	models_label.text = "Models: %d/%d" % [alive_count, total_count]
-	models_label.add_theme_font_size_override("font_size", 11)
+	models_label.add_theme_font_size_override("font_size", 16)
 	if alive_count == total_count:
 		models_label.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
 	else:
@@ -504,7 +504,7 @@ func _build_footer(parent: VBoxContainer, unit: Dictionary) -> void:
 	# Total wounds
 	var wounds_label = Label.new()
 	wounds_label.text = "Wounds: %d/%d" % [current_wounds, total_wounds]
-	wounds_label.add_theme_font_size_override("font_size", 11)
+	wounds_label.add_theme_font_size_override("font_size", 16)
 	if current_wounds == total_wounds:
 		wounds_label.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
 	else:
@@ -530,7 +530,7 @@ func _build_footer(parent: VBoxContainer, unit: Dictionary) -> void:
 	if not status_parts.is_empty():
 		var status_label = Label.new()
 		status_label.text = "[" + ", ".join(status_parts) + "]"
-		status_label.add_theme_font_size_override("font_size", 10)
+		status_label.add_theme_font_size_override("font_size", 16)
 		status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 		footer_row.add_child(status_label)
 

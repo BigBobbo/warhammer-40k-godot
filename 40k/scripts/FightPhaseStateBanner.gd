@@ -123,7 +123,7 @@ func _ready() -> void:
 	_subphase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_subphase_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_subphase_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	_subphase_label.add_theme_font_size_override("font_size", 20)
+	_subphase_label.add_theme_font_size_override("font_size", 23)
 	_subphase_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	_subphase_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_subphase_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -142,7 +142,7 @@ func _ready() -> void:
 	_player_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_player_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_player_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
-	_player_label.add_theme_font_size_override("font_size", 15)
+	_player_label.add_theme_font_size_override("font_size", 19)
 	_player_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	_player_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_player_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -161,7 +161,7 @@ func _ready() -> void:
 	_units_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_units_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_units_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
-	_units_label.add_theme_font_size_override("font_size", 14)
+	_units_label.add_theme_font_size_override("font_size", 18)
 	_units_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	_units_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_units_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -188,7 +188,7 @@ func _ready() -> void:
 	_transition_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_transition_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_transition_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	_transition_label.add_theme_font_size_override("font_size", 22)
+	_transition_label.add_theme_font_size_override("font_size", 24)
 	_transition_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	_transition_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_transition_label.mouse_filter = Control.MOUSE_FILTER_IGNORE

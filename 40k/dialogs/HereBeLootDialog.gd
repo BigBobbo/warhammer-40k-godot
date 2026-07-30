@@ -34,7 +34,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "HERE BE LOOT"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color(0.0, 1.0, 0.2, 1.0))  # Orky green
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -42,7 +42,7 @@ func _build_ui() -> void:
 	# Flavour text
 	var flavour = Label.new()
 	flavour.text = "Da Kaptin's spotted sumfing shiny!\nSelect one objective marker as the Loot Objective.\nOrks near it get Sustained Hits 1, and attacks targeting units near it also get Sustained Hits 1."
-	flavour.add_theme_font_size_override("font_size", 12)
+	flavour.add_theme_font_size_override("font_size", 16)
 	flavour.add_theme_color_override("font_color", Color.GRAY)
 	flavour.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	flavour.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -53,7 +53,7 @@ func _build_ui() -> void:
 	# Instruction
 	var instruction = Label.new()
 	instruction.text = "Select a Loot Objective:"
-	instruction.add_theme_font_size_override("font_size", 14)
+	instruction.add_theme_font_size_override("font_size", 18)
 	instruction.add_theme_color_override("font_color", Color.CYAN)
 	main_container.add_child(instruction)
 

@@ -53,7 +53,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "HEROIC INTERVENTION"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -61,7 +61,7 @@ func _build_ui() -> void:
 	# Subheader
 	var subheader = Label.new()
 	subheader.text = "Core - Strategic Ploy Stratagem"
-	subheader.add_theme_font_size_override("font_size", 12)
+	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(subheader)
@@ -73,7 +73,7 @@ func _build_ui() -> void:
 	var current_cp = StratagemManager.get_player_cp(player)
 	var hi_cost := 1 if GameConstants.edition >= 11 else 2
 	cp_label.text = "Cost: %d CP (You have %d CP)" % [hi_cost, current_cp]
-	cp_label.add_theme_font_size_override("font_size", 14)
+	cp_label.add_theme_font_size_override("font_size", 18)
 	cp_label.add_theme_color_override("font_color", Color.CYAN)
 	cp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(cp_label)
@@ -86,7 +86,7 @@ func _build_ui() -> void:
 		target_label.text = "Enemy unit that charged: %s" % charging_unit_name
 	else:
 		target_label.text = "End of the enemy Charge phase"
-	target_label.add_theme_font_size_override("font_size", 14)
+	target_label.add_theme_font_size_override("font_size", 18)
 	target_label.add_theme_color_override("font_color", Color.RED)
 	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(target_label)
@@ -98,7 +98,7 @@ func _build_ui() -> void:
 	else:
 		trigger_label.text = "All enemy charges are resolved. One of your eligible units may resolve a Heroic Intervention charge (15.11)."
 	trigger_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	trigger_label.add_theme_font_size_override("font_size", 13)
+	trigger_label.add_theme_font_size_override("font_size", 17)
 	main_container.add_child(trigger_label)
 
 	# Effect description
@@ -108,7 +108,7 @@ func _build_ui() -> void:
 	else:
 		effect_label.text = "Your unit will declare a charge targeting only that enemy unit and make a 2D6 charge roll. Note: The unit does NOT gain Fights First."
 	effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	effect_label.add_theme_font_size_override("font_size", 12)
+	effect_label.add_theme_font_size_override("font_size", 16)
 	effect_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
 	main_container.add_child(effect_label)
 
@@ -117,7 +117,7 @@ func _build_ui() -> void:
 	# Eligible units section
 	var units_label = Label.new()
 	units_label.text = "Select a unit to counter-charge:"
-	units_label.add_theme_font_size_override("font_size", 14)
+	units_label.add_theme_font_size_override("font_size", 18)
 	main_container.add_child(units_label)
 
 	# Scrollable container for eligible units (stable names so windowed
@@ -134,7 +134,7 @@ func _build_ui() -> void:
 
 		var name_label = Label.new()
 		name_label.text = unit_info.unit_name
-		name_label.add_theme_font_size_override("font_size", 13)
+		name_label.add_theme_font_size_override("font_size", 17)
 		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		unit_container.add_child(name_label)
 
@@ -186,7 +186,7 @@ func _build_ui() -> void:
 	_countdown_label = Label.new()
 	_countdown_label.text = "Auto-declining in %d seconds..." % int(AUTO_DECLINE_SECONDS)
 	_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_countdown_label.add_theme_font_size_override("font_size", 13)
+	_countdown_label.add_theme_font_size_override("font_size", 17)
 	_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	main_container.add_child(_countdown_label)
 
