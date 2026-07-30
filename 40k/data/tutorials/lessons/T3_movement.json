@@ -99,9 +99,10 @@
         "bark": "DA DICE SPOKE!",
         "text": "Advance adds a D6 to da move — an' when a roll's dis important, da game offers a [b]Command Re-roll[/b] (costs 1 CP). We're keepin' it: click [b]Keep Roll[/b]."
       },
+      "_comment": "LOCK_MOVEMENT_MODE is allowed here even though this step is about the re-roll offer: MovementController._on_confirm_mode_pressed emits BEGIN_ADVANCE and then LOCK_MOVEMENT_MODE from the SAME click, and BEGIN_ADVANCE is what completes the previous step (wagon_mode) — synchronously, via PhaseManager.phase_action_taken -> _check_done. So by the time the second half of that one click reaches the gate, THIS step's allow-list is the one being consulted, and an empty list rejected it with 'tutorial_locked' the instant the player confirmed Advance.",
       "anchor": { "button_text": "Keep Roll" },
       "spotlight": "soft",
-      "allow": [],
+      "allow": ["LOCK_MOVEMENT_MODE"],
       "done": { "action": { "type": "DECLINE_COMMAND_REROLL" } },
       "skip_fallback": { "dispatch": { "type": "DECLINE_COMMAND_REROLL" } },
       "hint": { "text": "Keep Roll — save da CP for somefin' bigger." }

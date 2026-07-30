@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.8.1",
+      "date": "2026-07-30",
+      "summary": "Tutorial dice pop-ups are fully yours again on a controller — the 'Exit Tutorial' button is gone from them unless you actually need it — and confirming an Advance in 'Get Movin'' stops throwing a bogus error.",
+      "changes": [
+        "1.7.23 stopped A landing on \"Exit Tutorial\" when a tutorial dialog opened. It was still there though, and still unreachable-and-unleavable: the D-pad could not move onto it, and if you did land on it no direction could get you off. It is no longer added to a dialog at all unless a lesson has actually refused something you tried — the case it exists for. Rolling for deployment, choosing who deploys first, rolling for first turn, the Advance re-roll offer and the charge re-roll offer now carry only their own buttons.",
+        "When it does appear, it is no longer a dead end: the D-pad now walks back off it onto the dialog's own button.",
+        "The roll-off's \"Roll the dice\" is now recognised as the button A should press — its dice symbol was hiding the word from the controller's focus picker, so it fell back to whatever button it happened to find first.",
+        "The greyed-out Exit Tutorial on the tutorial card now says why — \"finish the dialog first\" when you can simply close it, rather than pointing at a button that isn't there.",
+        "'Get Movin'' step 5: confirming the Battlewagon's Advance threw \"tutorial_locked\" and the movement mode never actually locked in. One click sends two things (start the Advance, then lock the mode) and the lesson had already moved on to the re-roll step, which refused the second half."
+      ]
+    },
+    {
       "version": "1.8.0",
       "date": "2026-07-30",
       "summary": "Steam Deck legibility overhaul: every piece of UI text is now readable on a handheld screen.",
