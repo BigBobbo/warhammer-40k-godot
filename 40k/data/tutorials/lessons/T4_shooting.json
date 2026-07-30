@@ -184,7 +184,7 @@
       "prompt": {
         "bark": "CHECK DA NUMBERS!",
         "kbm": "Every one of dem rolls got written down. Click da [b]Dice Log[/b] tab on da panel down da left — hits, wounds an' saves, da lot of it.",
-        "pad": "Every roll got written down. Glide {ls} onto da [b]Dice Log[/b] tab on da panel down da left an' press {a} — hits, wounds an' saves, da lot of it."
+        "pad": "Every roll got written down. Da left panel ain't on da {dpad} route, so dis is cursor work: glide {ls} onto da [b]Dice Log[/b] tab an' press {a} — hits, wounds an' saves, da lot of it."
       },
       "anchor": {
         "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog"

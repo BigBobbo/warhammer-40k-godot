@@ -2,13 +2,25 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.23",
+      "version": "1.7.24",
       "date": "2026-07-30",
       "summary": "The tutorial's instruction card no longer hides behind the Declare Battle Formations panel — it now shrinks to fit the space beside whatever dialog is open.",
       "changes": [
         "Step 1 of \"Musterin' da Boyz\" (MUSTER UP!) opens with the Declare Battle Formations panel already up, and the instructions card that tells you what to do sat partly underneath it: the end of every line was cut off mid-sentence and the Skip Step button was buried. Only players on the default UI Scale were spared — the card was a fixed width, but the panel is centred on screen, and raising UI Scale (or plugging in a controller, which boosts text size) moves the panel left until it swallows the card's right-hand side.",
         "The card now measures the gap to the open dialog every frame and narrows its text to fit, leaving a clear margin. It springs back to full width the moment the dialog closes, and it never squeezes so far that the prompt turns into a column of single words.",
         "This applies to every tutorial step that talks to you over a dialog, not just formations — the deployment and first-turn roll-offs get the same treatment."
+      ]
+    },
+    {
+      "version": "1.7.23",
+      "date": "2026-07-30",
+      "summary": "Tutorial instructions on a controller now point at the D-pad wherever the D-pad can get there — and A on a tutorial dialog no longer presses 'Exit Tutorial'.",
+      "changes": [
+        "On a controller or Steam Deck the tutorial kept telling you to glide the left stick onto things the D-pad already walks — starting with step 1 of Musterin' da Boyz, which sent you hunting for the 'Warboss →' dropdown. Every pad prompt now leads with the D-pad where the D-pad works.",
+        "Where the D-pad genuinely cannot reach — the Dice Log tab in Dakka Time, the Stratagems button on the bottom bar, and anything you place on the board — the step says so instead of pretending, so you know when to reach for the stick.",
+        "Picking a unit row is the bumpers' job, not the D-pad's, so the steps that need a row (deployment rows, the embarked Boyz + Warboss row in Get Movin') now say to tap RB. Cycling onto the embarked mob pops the disembark dialog on its own.",
+        "Get Movin' told pad players to click an Advance radio and a Confirm Movement Mode button they never see: the D-pad opens the on-screen move menu and A takes the mode. The step now teaches that, and 'End This Unit's Move' is named as the ☰ button it actually is on a pad.",
+        "The tutorial's 'Exit Tutorial' button, which is added into game dialogs so you can always leave, was stealing the controller's starting focus on the roll-off and re-roll dialogs. Following the step and pressing A opened the leave-the-tutorial confirm instead of rolling the dice. It is now a last-resort focus target, so A lands on the dialog's own button."
       ]
     },
     {
