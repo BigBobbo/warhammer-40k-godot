@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.8.0",
+      "date": "2026-07-30",
+      "summary": "'Krumpin'' now takes da boss's swing before da enemy gets one, an' da enemy's swing back rolls out dice by dice instead of landing as a finished bill.",
+      "changes": [
+        "When an enemy unit fights you, its hit and wound rolls now step through the same resolution dock your own attacks use. Before, an enemy melee resolved everything at once and dropped a finished \"20 wound(s) to save\" prompt on you with the dice already dumped into the log. The buttons read \"Show Wound Roll\" and \"Show Saving Throws\" (they're not your dice to re-roll) and no Command Re-roll is offered on them — yours still comes on your own saves, in the allocation window.",
+        "Tutorial 6 ('Krumpin'') had you end the phase while your Warboss was still owed a swing. He charged, so he has FIGHTS FIRST like the Boyz — the Custodes don't get to swing until both of your units have. New step 'DA BOSS AIN'T SWUNG YET!' takes his activation (including declining the Epic Challenge offer a character gets), and only then does the enemy swing back.",
+        "The enemy's swing back is now a taught step of its own ('NOW DEY KRUMP BACK!') instead of something that happened behind the lesson-complete card.",
+        "The Boyz could wipe the Custodian Guard outright, which left nobody to swing back and broke the lesson — all 10 Boyz swinging the Boss Nob's Power klaw destroyed the squad about 38% of the time. The lesson now fields 5 Boyz (the rest of the mob came in as casualties) against a 5-strong Custodian Guard, so no weapon choice can clear them out.",
+        "The end-of-turn \"Discard for CP?\" prompt no longer pops during a tutorial lesson. It is an exclusive pop-up, so it appeared over the lesson-complete card and swallowed the Next Lesson and Back to Menu buttons."
+      ]
+    },
+    {
       "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",

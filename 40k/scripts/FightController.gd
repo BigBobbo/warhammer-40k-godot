@@ -2383,30 +2383,39 @@ func _on_attacks_confirmed(assignments: Array) -> void:
 # =============================================================================
 
 func _on_fighting_begun_staged(unit_id: String) -> void:
-	# The staged sequence only runs in non-networked play for human attackers —
-	# mirror FightPhase._should_stage_fight so we never activate a dock that
-	# will get no pause events.
+	# Only put the dock up when this activation will actually stage — the phase
+	# owns that decision (FightPhase.fight_activation_will_stage), so a dock is
+	# never activated that would get no pause events.
 	if NetworkManager.is_networked():
 		return
-	var fighter_owner = GameState.get_unit(unit_id).get("owner", -1)
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.get("enabled") and ai_player_node.is_ai_player(fighter_owner):
+	if current_phase == null:
+		return
+	if current_phase.has_method("fight_activation_will_stage") \
+			and not current_phase.fight_activation_will_stage():
 		return
 	if fight_resolution_dock == null:
 		push_error("FightController: fight_resolution_dock missing — right panel not built")
 		return
+
+	# ENEMY SWING BACK: an AI attacker stages against a human defender, so the
+	# dock doubles as the reveal of the enemy's rolls — same rhythm, but the
+	# player is watching someone else's dice, not rolling their own.
+	var fighter_owner = GameState.get_unit(unit_id).get("owner", -1)
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	var spectating: bool = ai_player_node != null and ai_player_node.get("enabled") \
+			and ai_player_node.is_ai_player(fighter_owner)
 
 	# fighting_begun fires during CONFIRM processing, before ROLL_DICE runs in
 	# the same batch — activating here means the dock catches every
 	# fight_stage_paused emission. confirmed_attacks holds this activation's
 	# ordered weapon assignments.
 	var assignments: Array = []
-	if current_phase != null:
-		var ca = current_phase.get("confirmed_attacks")
-		if ca is Array:
-			assignments = ca
-	fight_resolution_dock.activate(assignments, current_phase, self, unit_id)
-	print("[FightController] FightResolutionDock activated for %s (%d assignment(s))" % [unit_id, assignments.size()])
+	var ca = current_phase.get("confirmed_attacks")
+	if ca is Array:
+		assignments = ca
+	fight_resolution_dock.activate(assignments, current_phase, self, unit_id, spectating)
+	print("[FightController] FightResolutionDock activated for %s (%d assignment(s), spectating=%s)" % [
+		unit_id, assignments.size(), str(spectating)])
 
 func _on_fight_dock_action_requested(action: Dictionary) -> void:
 	# Dock emits complete action dicts (CONTINUE_TO_WOUNDS / CONTINUE_TO_SAVES /

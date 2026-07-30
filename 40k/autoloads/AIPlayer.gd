@@ -540,9 +540,35 @@ func _human_defender_window_pending() -> int:
 	elif "awaiting_melee_saves" in phase and phase.awaiting_melee_saves \
 			and "pending_melee_save_data" in phase and not phase.pending_melee_save_data.is_empty():
 		window_owner = _save_data_defender(phase.pending_melee_save_data)
+	else:
+		window_owner = _staged_melee_reveal_defender(phase)
 	if window_owner > 0 and not is_ai_player(window_owner):
 		return window_owner
 	return 0
+
+func _staged_melee_reveal_defender(phase) -> int:
+	"""ENEMY SWING BACK: owner of the unit being struck while the AI's own melee
+	is parked at a staged hit/wound pause. FightPhase stages an AI attacker's
+	attacks when the human defender rolls their own saves, so the enemy's dice
+	are revealed a step at a time in the resolution dock — and it is the HUMAN
+	who presses "Roll to Wound ▶" / "Continue to Saving Throws ▶". Reported as
+	part of the T6 tutorial: without this the AI would keep evaluating and
+	re-enter its activation while the player was still reading the roll."""
+	if not "staged_fight_state" in phase:
+		return 0
+	var staged = phase.staged_fight_state
+	if typeof(staged) != TYPE_DICTIONARY:
+		return 0
+	if not str(staged.get("stage", "")) in ["hits_pending", "wounds_pending"]:
+		return 0
+	var assignments = staged.get("assignments", [])
+	var idx := int(staged.get("current_index", 0))
+	if idx < 0 or idx >= assignments.size():
+		return 0
+	var target = GameState.get_unit(str(assignments[idx].get("target", "")))
+	if target.is_empty():
+		return 0
+	return int(target.get("owner", 0))
 
 func _save_data_defender(save_data_list: Array) -> int:
 	for sd in save_data_list:

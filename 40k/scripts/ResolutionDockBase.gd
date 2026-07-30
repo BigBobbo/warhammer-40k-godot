@@ -302,6 +302,12 @@ func _on_policy_selected(index: int) -> void:
 	if ss and ss.has_method("set_shooting_pause_policy"):
 		ss.set_shooting_pause_policy(policy)
 
+# Label for the primary button at a staged pause. Overridden when the dock is
+# revealing an opponent's dice (the enemy's melee swing back) — "Roll to Wound"
+# would claim the player is the one rolling.
+func _stage_primary_text(stage: String) -> String:
+	return "Roll to Wound ▶" if stage == "hits" else "Continue to Saving Throws ▶"
+
 # Should this staged pause actually stop, per the policy? "decisions" pauses
 # only when a Command Re-roll is genuinely usable (available AND at least one
 # die failed — nothing to re-roll otherwise). A live fast-finish skips all.
@@ -355,11 +361,11 @@ func _on_stage_paused(stage: String, info: Dictionary) -> void:
 		return
 	if stage == "hits":
 		state = "staged_hits"
-		primary_button.text = "Roll to Wound ▶"
+		primary_button.text = _stage_primary_text("hits")
 		status_label.text = "%s hit roll: %d hit(s)." % [str(info.get("weapon_name", "Weapon")), int(info.get("hits", 0))]
 	else:
 		state = "staged_wounds"
-		primary_button.text = "Continue to Saving Throws ▶"
+		primary_button.text = _stage_primary_text("wounds")
 		status_label.text = "%d wound(s) caused — %s will make saves." % [int(info.get("wounds", 0)), str(info.get("target_name", "the target"))]
 	primary_button.disabled = false
 	fast_button.visible = true

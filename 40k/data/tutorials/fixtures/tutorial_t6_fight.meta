@@ -16,7 +16,7 @@
 		"battle_round": 1,
 		"players": {
 			"1": {
-				"alive_models": 23,
+				"alive_models": 18,
 				"alive_units": 4,
 				"cp": 1.0,
 				"detachment": "War Horde",
@@ -35,7 +35,7 @@
 				"vp": 0.0
 			},
 			"2": {
-				"alive_models": 8,
+				"alive_models": 9,
 				"alive_units": 2,
 				"cp": 1.0,
 				"detachment": "Shield Host",
@@ -43,7 +43,7 @@
 				"points": 220.0,
 				"primary_vp": 0.0,
 				"secondary_vp": 0.0,
-				"total_models": 8,
+				"total_models": 9,
 				"total_units": 2,
 				"unit_names": [
 					"Custodian Guard",
