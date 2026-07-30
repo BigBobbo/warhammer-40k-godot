@@ -8718,6 +8718,27 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "controller.move.grab_own_model_cursor_active",
+      "description": "Pad: A with the virtual cursor ACTIVE over one of the active unit's own models mid-move GRABS it (a carry) instead of being re-emitted as a left click that started and ended a drag in place. This is what made tutorial T3 step 8 ('grab it wiv A, den LB/RB spins it') a dead end for anyone who had steered the stick first. Declared by: pad_move_grab_own_model_cursor_active.",
+      "scenarios": [
+        "pad_move_grab_own_model_cursor_active",
+        "tut_t3_get_movin_pad"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.bumper_rotate_locked_session",
+      "description": "Pad: with the move session locked (bumpers cannot switch units) LB/RB turn the focused model 15 degrees a tap instead of only warning 'Confirm or reset this unit's move before switching' — in hand or parked after a drop — the hint bar advertises the chips, the turn costs no travel inches, and it survives CONFIRM_UNIT_MOVE (the staged move is re-staged with the new facing). Declared by: pad_move_grab_own_model_cursor_active.",
+      "scenarios": [
+        "pad_move_grab_own_model_cursor_active"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     }
   ]
 }

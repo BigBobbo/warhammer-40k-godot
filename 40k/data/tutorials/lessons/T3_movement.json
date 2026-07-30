@@ -124,7 +124,7 @@
       "prompt": {
         "bark": "POINT IT RIGHT!",
         "kbm": "Da wagon ain't on a round base, so which way it points matters. Grab da hull an' [b]keep holdin'[/b] it, den tap {key:rotate_left} or {key:rotate_right} — 15° a tap. Turnin' costs no inches.",
-        "pad": "Da wagon ain't on a round base, so which way it points matters. Grab it wiv {a}, den {lb} or {rb} spins it 15° a tap while yer carryin' it. Turnin' costs no inches."
+        "pad": "Da wagon ain't on a round base, so which way it points matters. {lb} or {rb} spins it 15° a tap — in yer hand ({a} grabs it) or sittin' where ya dropped it. Turnin' costs no inches."
       },
       "anchor": { "unit": "U_BATTLEWAGON_T" },
       "spotlight": "soft",
@@ -141,7 +141,7 @@
       },
       "hint": {
         "kbm": "Ya have to be holdin' da model — {key:rotate_left}/{key:rotate_right} do nuffin' when nuffin's grabbed. Press an' hold on da hull first, den tap 'em, den let go to drop it.",
-        "pad": "Ya have to be carryin' da model — press {a} on da hull first, den {lb}/{rb} turn it. {a} again drops it where it's pointin'."
+        "pad": "{lb}/{rb} turn da wagon any time its move ain't locked in yet — whether it's in yer hand or parked where ya dropped it. {a} on da hull picks it back up, {a} again drops it where it's pointin'."
       }
     },
     {

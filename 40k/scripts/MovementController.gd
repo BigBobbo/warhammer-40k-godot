@@ -2273,6 +2273,20 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 	# T-094 (revised): show this model's movement-reach circle anchored at its
 	# pickup position (reflects Advance distance and any remaining staged budget).
 	_show_model_range_overlay(model, drag_start_pos)
+	# Pad, virtual cursor ACTIVE: this press came in as a plain left click (that is
+	# what A means with the cursor live), so the drag it just started would end in
+	# the same gesture — a 0" re-stage with nothing in hand. Hand it to the router
+	# as a real M3 carry instead, so the model is genuinely picked up: the stick
+	# steers it, LB/RB turn it, X finishes it, B cancels and A drops it. This is
+	# the tutorial T3 step-8 report ("grab it wiv A, den LB/RB spins it" answered
+	# with "Confirm or reset this unit's move before switching"). Placed here — at
+	# the tail of the pipeline's own single-model pickup — so it can never claim a
+	# press the GUI consumed (those never reach _unhandled_input) or one the group /
+	# box-select branches took. No-ops on the mouse and for the pad's parked pickup,
+	# which is already carrying by the time this press lands.
+	if InputDeviceManager.is_pad_active() and VirtualCursor.is_cursor_active() \
+			and not PadRouter.is_carrying():
+		PadRouter.adopt_cursor_drag_as_carry(str(model.get("unit_id", active_unit_id)), str(model.get("model_id", model.get("id", ""))))
 
 # P0 Steam Deck smoothness: clamp a tentative drag position to the model's
 # remaining movement budget, so an over-range pad carry stops exactly on the
@@ -3595,6 +3609,16 @@ func _update_dice_log_display(dice_log: Array) -> void:
 		dice_log_display.append_text(text)
 
 # Rotation functions
+func _model_can_pivot(model: Dictionary) -> bool:
+	"""Whether a model's base has a facing worth turning: any non-circular base,
+	plus Vehicles on round bases >32mm with a flying stem (they pivot at a cost).
+	One rule for every rotation entry point — right-click drag, Q/E, and the pad's
+	LB/RB (carried or parked)."""
+	var base_type = model.get("base_type", "circular")
+	if base_type != "circular":
+		return true
+	return int(model.get("base_mm", 32)) > 32 and bool(model.get("flying_stem", false))
+
 func _start_model_rotation(mouse_pos: Vector2) -> void:
 	if selected_model.is_empty():
 		return
@@ -3602,12 +3626,9 @@ func _start_model_rotation(mouse_pos: Vector2) -> void:
 	# Check if model has a non-circular base, or is a Vehicle with flying stem on round base >32mm
 	var base_type = selected_model.get("base_type", "circular")
 	var base_mm = selected_model.get("base_mm", 32)
-	var has_flying_stem = selected_model.get("flying_stem", false)
 
-	if base_type == "circular":
-		# Vehicles on round bases >32mm with flying stem can still pivot (with cost)
-		if not (base_mm > 32 and has_flying_stem):
-			return  # No rotation needed for standard circular bases
+	if not _model_can_pivot(selected_model):
+		return  # No rotation needed for standard circular bases
 
 	rotating_model = true
 	var model_pos = selected_model.get("position", Vector2.ZERO)
@@ -3645,11 +3666,7 @@ func _rotate_model_by_angle(angle: float) -> void:
 	if selected_model.is_empty():
 		return
 
-	var base_type = selected_model.get("base_type", "circular")
-	var base_mm = selected_model.get("base_mm", 32)
-	var has_flying_stem = selected_model.get("flying_stem", false)
-
-	if base_type == "circular" and not (base_mm > 32 and has_flying_stem):
+	if not _model_can_pivot(selected_model):
 		return
 
 	var current_rotation = selected_model.get("rotation", 0.0)
@@ -5621,6 +5638,137 @@ func pad_carry_drop_rejection(screen_pos: Vector2) -> String:
 	if InputDeviceManager.is_pad_active():
 		world_pos = _clamp_move_to_budget(world_pos)
 	return _compute_move_rejection(world_pos)
+
+
+# ── Pad "turn it without picking it up" seam ────────────────────────────────
+# Second half of the same report: with the move session locked (mode locked or a
+# model staged) the bumpers CANNOT switch units — _cycle refuses and warns — so
+# in that state they are free to mean what the player was reaching for anyway,
+# rotation. Q/E already work only while a model is selected/held, so the parked
+# state needs its own entry point: rotate the model the pad is focused on, then
+# re-stage it at the SAME destination with the new facing, because
+# CONFIRM_UNIT_MOVE writes the staged rotation back over the model (without the
+# re-stage the turn is silently reverted on confirm).
+
+func pad_can_rotate_in_place(source_unit_id: String, model_id: String) -> bool:
+	"""True when pad_rotate_model_in_place would turn this model — used by the
+	hint bar so the LB/RB "Rotate" chips only appear where they do something
+	(a circular base cannot pivot at all)."""
+	if active_unit_id == "" or active_mode == "":
+		return false
+	if dragging_model or group_dragging:
+		return false  # a live drag already routes the bumpers through _rotate_model_by_angle
+	var model := _pad_find_model(source_unit_id, model_id)
+	return not model.is_empty() and _model_can_pivot(model)
+
+
+func pad_rotate_model_in_place(angle: float, source_unit_id: String, model_id: String) -> bool:
+	"""Turn a parked (not-in-hand) model by `angle` radians. Returns false when
+	the model can't pivot, so the caller can fall back to its old behaviour."""
+	if not pad_can_rotate_in_place(source_unit_id, model_id):
+		return false
+	var model := _pad_find_model(source_unit_id, model_id)
+	var staged = _pad_staged_dest(source_unit_id, model_id)
+	model["unit_id"] = source_unit_id
+	model["model_id"] = model_id
+	model["id"] = model_id
+	if staged != null:
+		model["position"] = staged
+	# _rotate_model_by_angle / _apply_rotation_to_model / _store_original_rotation
+	# all read `selected_model`; borrow it for the write and hand it straight back
+	# so a parked rotation cannot leave a phantom selection behind (a stale
+	# selected_model changes what the next click does).
+	var previous_selection := selected_model
+	selected_model = model
+	_rotate_model_by_angle(angle)
+	var new_rotation := float(selected_model.get("rotation", 0.0))
+	selected_model = previous_selection
+	if staged != null:
+		# Re-stage at the same spot with the new facing: _process_stage_model_move
+		# replaces the model's staged entry (distance 0 — dest == current staged
+		# dest, so the budget is untouched) and re-emits model_drop_committed,
+		# which is what turns the token on screen.
+		var payload := {
+			"model_id": model_id,
+			"dest": [staged.x, staged.y],
+			"rotation": new_rotation,
+		}
+		if source_unit_id != active_unit_id:
+			payload["model_source_unit_id"] = source_unit_id
+		emit_signal("move_action_requested", {
+			"type": "STAGE_MODEL_MOVE",
+			"actor_unit_id": active_unit_id,
+			"payload": payload,
+		})
+	# Un-staged models have no drop to re-emit (the rotation lives in GameState
+	# and move_data.original_rotations, which is what the undo path reads), so
+	# turn their token here. Harmless for the staged case — same value.
+	_pad_refresh_token_rotation(source_unit_id, model_id, new_rotation)
+	_update_movement_display()
+	return true
+
+
+func _pad_find_model(source_unit_id: String, model_id: String) -> Dictionary:
+	"""A copy of source_unit_id's alive model_id (empty when missing/dead)."""
+	if source_unit_id == "" or model_id == "":
+		return {}
+	var models = GameState.get_unit(source_unit_id).get("models", [])
+	for i in range(models.size()):
+		if str(models[i].get("id", "m%d" % (i + 1))) != model_id:
+			continue
+		if not models[i].get("alive", true):
+			return {}
+		return models[i].duplicate(true)
+	return {}
+
+
+func _pad_staged_dest(source_unit_id: String, model_id: String):
+	"""The model's staged destination this move (Vector2), or null when it has
+	not been dropped yet."""
+	if not current_phase or not current_phase.has_method("get_active_move_data"):
+		return null
+	var move_data = current_phase.get_active_move_data(active_unit_id)
+	if move_data.is_empty():
+		return null
+	for staged_move in move_data.get("staged_moves", []):
+		if str(staged_move.get("model_id", "")) != model_id:
+			continue
+		if str(staged_move.get("model_source_unit_id", active_unit_id)) != source_unit_id:
+			continue
+		var dest = staged_move.get("dest", null)
+		if dest is Vector2:
+			return dest
+		if dest is Dictionary and dest.has("x"):
+			return Vector2(float(dest.x), float(dest.y))
+	return null
+
+
+func _pad_refresh_token_rotation(source_unit_id: String, model_id: String, new_rotation: float) -> void:
+	"""Redraw one model's board token at a new facing (the same job
+	Main._update_token_rotations_from_state does for undo)."""
+	var token_layer = SceneRefs.token_layer()
+	if token_layer == null:
+		return
+	for child in token_layer.get_children():
+		if child.has_meta("unit_id") and str(child.get_meta("unit_id")) == source_unit_id \
+				and child.has_meta("model_id") and str(child.get_meta("model_id")) == model_id:
+			_pad_apply_token_rotation(child, new_rotation)
+			return
+		# Deployment-built tokens carry their meta on an inner node.
+		for grandchild in child.get_children():
+			if grandchild.has_meta("unit_id") and str(grandchild.get_meta("unit_id")) == source_unit_id \
+					and grandchild.has_meta("model_id") and str(grandchild.get_meta("model_id")) == model_id:
+				_pad_apply_token_rotation(grandchild, new_rotation)
+				return
+
+
+func _pad_apply_token_rotation(token: Node, new_rotation: float) -> void:
+	if token.has_method("set_base_rotation"):
+		token.set_base_rotation(new_rotation)
+		return
+	if "model_data" in token and token.model_data is Dictionary:
+		token.model_data["rotation"] = new_rotation
+		token.queue_redraw()
 
 
 # ── Pad group carry ("grab all unmoved models") seams ───────────────────────

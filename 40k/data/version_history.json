@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "Controller: grabbing your own model with A now works while you're steering with the stick, and LB/RB turn a vehicle mid-move instead of refusing to switch units.",
+      "changes": [
+        "Tutorial 3 (\"Get Movin'\") step 8 tells you to grab the Battlewagon with A and spin it with LB/RB, but the grab silently did nothing and the bumpers answered \"Confirm or reset this unit's move before switching\". With the on-screen cursor live — which it is the moment you touch the left stick — A was a plain click that picked the model up and set it straight back down, so nothing was ever in your hand for the bumpers to turn. Now, once a unit's move is under way, tapping A on one of its models really picks it up: the stick steers it, LB/RB turn it, A drops it. (Holding A and steering still works as a drag that drops when you let go.) This was never just a tutorial problem — it broke re-grabbing a model to spend the rest of its move anywhere in the Movement phase.",
+        "LB/RB now turn the model 15° a tap while its move is under way but not yet locked in — whether it is in your hand or parked where you dropped it. The bumpers cannot switch units in that state anyway, so instead of only warning you about that they do the thing you were reaching for. The hint bar shows the new Rotate chips, turning costs no movement, and the new facing now survives \"End This Unit's Move\" (a turn made after dropping the model used to be quietly reverted when the move was confirmed).",
+        "Models on round bases are unchanged: they have no facing to turn, so there the bumpers still explain why they can't switch units mid-move."
+      ]
+    },
+    {
       "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",
