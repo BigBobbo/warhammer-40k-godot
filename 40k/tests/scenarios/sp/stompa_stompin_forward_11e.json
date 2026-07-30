@@ -38,9 +38,13 @@
 
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._get_movement_terrain_penalty(Vector2(1260, 1220), Vector2(1310, 1075), \"U_STOMPA_A\")", "equals": 0.0 },
 
+    { "act": "wait_seconds", "seconds": 5.6 },
+    { "act": "execute_script", "script": "ToastManager.toast_container.get_child_count()", "equals": 0 },
+
     { "act": "drag_board", "from_x": 1260, "from_y": 1220, "to_x": 1310, "to_y": 1075 },
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "execute_script", "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_STOMPA_A\")", "equals": true },
+    { "act": "execute_script", "script": "ToastManager.toast_container.get_child_count()", "equals": 0 },
     { "act": "screenshot", "label": "03_drag_onto_3in_generator_staged" },
 
     { "act": "dispatch_action", "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_STOMPA_A" } },
@@ -49,6 +53,8 @@
     { "act": "execute_script", "script": "abs(GameState.get_unit(\"U_STOMPA_A\").get(\"models\")[0].get(\"position\").get(\"y\") - 1075.0) < 8.0", "equals": true },
     { "act": "execute_script", "script": "TerrainManager.solid_terrain_endpoint_blocker_11e(GameState.get_unit(\"U_STOMPA_A\").get(\"models\")[0], [\"VEHICLE\"])", "equals": "generator-38" },
     { "act": "execute_script", "script": "TerrainManager.solid_terrain_endpoint_blocker_11e(GameState.get_unit(\"U_STOMPA_A\").get(\"models\")[0], [\"VEHICLE\", \"SUPER-HEAVY WALKER\"])", "equals": "" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "ToastManager.toast_container.get_child_count()", "equals": 0 },
     { "act": "screenshot", "label": "04_stompa_standing_on_generator" }
   ]
 }
