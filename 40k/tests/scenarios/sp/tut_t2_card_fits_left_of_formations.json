@@ -1,0 +1,155 @@
+{
+  "id": "tut_t2_card_fits_left_of_formations",
+  "covers": [
+    "tutorial.t2.formations",
+    "tutorial.overlay.card_dodge",
+    "tutorial.overlay.card_width"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial T2 step 1 (attach_warboss) opens with the Declare Battle Formations dialog already up, so the instructor card dodges to the left flank. At ui_scale > 1.0 the logical viewport shrinks, the CENTERED dialog moves left, and the fixed-width card used to run underneath it — the reported bug: the MUSTER UP! prompt was clipped mid-sentence and Skip Step was buried. This drives the real player path at ui_scale 1.25 and asserts (a) the card's right edge clears the dialog's left edge, (b) the card is genuinely narrower than its default 588px (i.e. it was squeezed, not merely lucky), (c) the prompt text is still the full step text, and (d) the card springs back to full width once Confirm Formations closes the dialog. ui_scale is restored to 1.0 in the last step (the runner keeps executing steps after a failure, so the restore always runs).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set_ui_scale(1.25)\nreturn true",
+      "equals": true,
+      "comment": "the real UI Scale path — this is what shrinks the logical viewport and drags the centered dialog left"
+    },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor",
+      "expect_min": 1.24
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton",
+      "emit_pressed": true,
+      "comment": "emit_pressed: real mouse warps are computed in logical coords, which no longer line up once content_scale_factor != 1"
+    },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin",
+      "emit_pressed": true
+    },
+    { "act": "wait_seconds", "seconds": 9.0 },
+    { "act": "execute_script", "script": "TutorialManager.active", "equals": true },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "attach_warboss" },
+    { "act": "expect_node_visible", "node": "/root/Main/FormationsDialog", "timeout_s": 3.0 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.get(\"_card_mode\")",
+      "equals": "left",
+      "comment": "an open dialog must still send the card to the left flank"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar gap = float(fd.position.x) - ov.card_rect().end.x\nprint(\"[T2CARD] card=\", ov.card_rect(), \" dialog_x=\", fd.position.x, \" gap=\", gap)\nreturn gap",
+      "expect_min": 8.0,
+      "comment": "THE REGRESSION: this was -130 before the fix (the card overran the dialog's left edge by 130px)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.card_rect().size.x",
+      "expect_max": 587.0,
+      "comment": "proves the card was actually narrowed — the unsqueezed card is 560 body + 28 chrome = 588 wide"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.card_rect().size.x",
+      "expect_min": 320.0,
+      "comment": "and not squeezed past the readability floor"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(ov.current_body_text())\nreturn t.contains(\"LEADER\") and t.contains(\"now he fights wiv his mob\")",
+      "equals": true,
+      "comment": "narrowing re-wraps the prompt, it must not truncate it"
+    },
+    { "act": "screenshot", "label": "01_card_clears_formations_at_scale_125" },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\tnd.select(1)\n\t\tnd.item_selected.emit(1)\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "equals": true,
+      "comment": "OptionButton popups are native Windows — select+emit is the dropdown escape hatch"
+    },
+    { "act": "wait_frames", "frames": 15 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "embark_boyz" },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nreturn float(fd.position.x) - ov.card_rect().end.x",
+      "expect_min": 8.0,
+      "comment": "the squeeze survives a step change (show_step resets the width, then re-dodges in the same call)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is CheckBox and str(nd.text).begins_with(\"Boyz\") and not (\"Reserves\" in str(nd.text)):\n\t\tnd.button_pressed = true\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "equals": true,
+      "comment": "the panel is a modal embedded Window — setting button_pressed emits toggled exactly like a click"
+    },
+    { "act": "wait_frames", "frames": 15 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "confirm_formations" },
+    {
+      "act": "click_node",
+      "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton",
+      "emit_pressed": true
+    },
+    { "act": "wait_seconds", "seconds": 3.0 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "roll_off" },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar rd = tree.root.get_node_or_null(\"/root/Main/RollOffDialog\")\nif rd == null or not rd.visible:\n\treturn 999.0\nprint(\"[T2CARD] rolloff card=\", ov.card_rect(), \" dialog_x=\", rd.position.x)\nreturn float(rd.position.x) - ov.card_rect().end.x",
+      "expect_min": 8.0,
+      "comment": "the squeeze is measured off whichever dialog is up — the roll-off dialog is a different width, so this proves it is not tuned to the Formations panel"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "equals": true
+    },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and \"Re-roll\" in str(nd.text):\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn true",
+      "equals": true,
+      "comment": "tie tolerance: roll again if the button is still up, else press the A DEAD HEAT re-roll"
+    },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "equals": true
+    },
+    { "act": "wait_seconds", "seconds": 2.5 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar c = ov.get_node(\"InstructorCard\")\nprint(\"[T2CARD] no-dialog card=\", ov.card_rect(), \" mode=\", ov.get(\"_card_mode\"), \" anchors=\", c.anchor_left, \"/\", c.anchor_right, \" offsets=\", c.offset_left, \"/\", c.offset_right, \" minsize=\", c.get_combined_minimum_size())\nreturn ov.card_rect().size.x",
+      "expect_min": 588.0,
+      "comment": "with every dialog closed the card springs back to its roomy default width"
+    },
+    { "act": "screenshot", "label": "02_card_back_to_full_width" },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set_ui_scale(1.0)\nreturn true",
+      "equals": true,
+      "comment": "ui_scale is persisted to user://settings.cfg — restore it so the rest of the suite runs at the base scale"
+    }
+  ]
+}

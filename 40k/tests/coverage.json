@@ -8718,6 +8718,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "tutorial.overlay.card_dodge",
+      "description": "With a gameplay dialog open the instructor card dodges to the left flank, and its right edge stays clear of the dialog's left edge. Verified at ui_scale 1.25 (where the shrinking logical viewport drags the centred dialog left) against both the full-height Formations panel and the narrower roll-off dialog.",
+      "scenarios": [
+        "tut_t2_card_fits_left_of_formations"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.overlay.card_width",
+      "description": "The dodged card's text column is squeezed to the free strip beside the open dialog rather than being a fixed 560px (which overran the dialog by 130px at ui_scale 1.25, clipping the prompt and burying Skip Step), never narrows past the CARD_BODY_WIDTH_MIN readability floor, keeps the prompt text intact while re-wrapping, and springs back to full width once every dialog closes.",
+      "scenarios": [
+        "tut_t2_card_fits_left_of_formations"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

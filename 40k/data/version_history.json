@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "The tutorial's instruction card no longer hides behind the Declare Battle Formations panel — it now shrinks to fit the space beside whatever dialog is open.",
+      "changes": [
+        "Step 1 of \"Musterin' da Boyz\" (MUSTER UP!) opens with the Declare Battle Formations panel already up, and the instructions card that tells you what to do sat partly underneath it: the end of every line was cut off mid-sentence and the Skip Step button was buried. Only players on the default UI Scale were spared — the card was a fixed width, but the panel is centred on screen, and raising UI Scale (or plugging in a controller, which boosts text size) moves the panel left until it swallows the card's right-hand side.",
+        "The card now measures the gap to the open dialog every frame and narrows its text to fit, leaving a clear margin. It springs back to full width the moment the dialog closes, and it never squeezes so far that the prompt turns into a column of single words.",
+        "This applies to every tutorial step that talks to you over a dialog, not just formations — the deployment and first-turn roll-offs get the same treatment."
+      ]
+    },
+    {
       "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",

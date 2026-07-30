@@ -20,6 +20,17 @@ const CARD_TOP_OFFSET := 96.0
 const CARD_BOTTOM_OFFSET := 132.0  # keeps clear of the pad hint bar
 const ANCHOR_RERESOLVE_S := 0.5
 
+# Card width, as the width of its TEXT COLUMN (the card adds _card_chrome_width()
+# on top). CARD_BODY_WIDTH is the roomy default used by "top"/"bottom" placement.
+# In "left" placement the column is squeezed to whatever strip is actually free
+# to the left of the open dialog — see _wanted_body_width(). CARD_BODY_WIDTH_MIN
+# is the floor: below it the prompt turns into a column of single words, so a
+# narrow strip keeps a slight overlap rather than becoming unreadable.
+const CARD_BODY_WIDTH := 560.0
+const CARD_BODY_WIDTH_MIN := 320.0
+const CARD_LEFT_OFFSET := 10.0
+const CARD_DODGE_GAP := 16.0  # breathing room between the card and the dialog
+
 # The two escape-hatch affordances (see "modal escape hatch" below). Both names
 # are excluded from _blocking_window() so the tutorial's own windows never read
 # as "a game dialog is open".
@@ -50,6 +61,7 @@ var _anchor_ok: bool = false
 var _spotlight_mode: String = "none"
 var _reresolve_accum: float = 0.0
 var _card_mode: String = "top"
+var _card_body_width: float = CARD_BODY_WIDTH
 var _dim_strips: Array = []
 var _modal_exit_window: Window = null   # floating hatch, for non-AcceptDialog modals
 var _modal_exit_host: Window = null     # the dialog we added an Exit button INTO
@@ -160,7 +172,7 @@ func _build() -> void:
 	_body_text.bbcode_enabled = true
 	_body_text.fit_content = true
 	_body_text.scroll_active = false
-	_body_text.custom_minimum_size = Vector2(560, 0)
+	_body_text.custom_minimum_size = Vector2(CARD_BODY_WIDTH, 0)
 	_body_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# >= 12px effective at 1280x800 (Steam Deck recommendation; PRP §4.3):
 	# 15px at 1920x1080 canvas-items scaling ~= 10px physical on Deck before the
@@ -181,7 +193,7 @@ func _build() -> void:
 	_checklist_text.bbcode_enabled = true
 	_checklist_text.fit_content = true
 	_checklist_text.scroll_active = false
-	_checklist_text.custom_minimum_size = Vector2(560, 0)
+	_checklist_text.custom_minimum_size = Vector2(CARD_BODY_WIDTH, 0)
 	_checklist_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_checklist_text.add_theme_font_size_override("normal_font_size", 14)
 	_checklist_text.add_theme_font_size_override("bold_font_size", 14)
@@ -193,7 +205,7 @@ func _build() -> void:
 	_hint_label = Label.new()
 	_hint_label.name = "HintLabel"
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint_label.custom_minimum_size = Vector2(560, 0)
+	_hint_label.custom_minimum_size = Vector2(CARD_BODY_WIDTH, 0)
 	_hint_label.add_theme_font_size_override("font_size", 13)
 	_hint_label.add_theme_color_override("font_color", UIConstantsData.MARGINAL_YELLOW)
 	_hint_label.visible = false
@@ -433,7 +445,7 @@ func _place_card(mode: String) -> void:
 			_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		"left":
 			_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_MINSIZE)
-			_card.offset_left = 10
+			_card.offset_left = CARD_LEFT_OFFSET
 			_card.grow_vertical = Control.GROW_DIRECTION_BOTH
 			_card.grow_horizontal = Control.GROW_DIRECTION_END
 		_:
@@ -441,6 +453,59 @@ func _place_card(mode: String) -> void:
 			_card.offset_top = CARD_TOP_OFFSET
 			_card.grow_vertical = Control.GROW_DIRECTION_END
 			_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+
+
+# Horizontal chrome the card wraps around its text column: the Margin
+# container's insets plus the panel stylebox's own content margin (== the 2px
+# gold border). Measured rather than hardcoded so re-theming the card cannot
+# silently push the dodged card back under the dialog.
+func _card_chrome_width() -> float:
+	var chrome := 0.0
+	var margin := _card.get_node_or_null("Margin") as MarginContainer
+	if margin != null:
+		chrome += float(margin.get_theme_constant("margin_left")) \
+			+ float(margin.get_theme_constant("margin_right"))
+	var sb: StyleBox = _card.get_theme_stylebox("panel")
+	if sb != null:
+		chrome += sb.get_margin(SIDE_LEFT) + sb.get_margin(SIDE_RIGHT)
+	return chrome
+
+
+# How wide the text column may be for `mode`. "top"/"bottom" get the full
+# CARD_BODY_WIDTH; "left" gets only the strip between the viewport edge and the
+# open dialog's left edge.
+#
+# WHY THIS IS NOT A CONSTANT (reported on T2 step 1, "Musterin' da Boyz": the
+# MUSTER UP! prompt sat half-buried under the Declare Battle Formations panel,
+# with the end of every line and the Skip Step button hidden). The dodge only
+# ever worked at ui_scale 1.0: the card is a fixed 560+chrome wide, while the
+# dialog is CENTERED in the logical viewport — and the logical viewport SHRINKS
+# as the UI Scale slider (or the pad's x1.2 text boost) raises
+# content_scale_factor. At 1920 logical the dialog starts at x=660 and the
+# 588-wide card clears it by 62px; at ui_scale 1.25 the viewport is 1536 logical,
+# the dialog starts at x=468, and the card overruns it by 130px. Measuring the
+# dialog every frame fixes every scale and every dialog width at once.
+func _wanted_body_width(mode: String, blocker: Window) -> float:
+	if mode != "left" or blocker == null:
+		return CARD_BODY_WIDTH
+	var strip: float = float(blocker.position.x) - CARD_LEFT_OFFSET - CARD_DODGE_GAP
+	return clampf(strip - _card_chrome_width(), CARD_BODY_WIDTH_MIN, CARD_BODY_WIDTH)
+
+
+# Re-wrap the card's text to `w`. Returns true when the width actually changed,
+# so the caller knows the MINSIZE placement preset has to be re-applied (its
+# offsets are baked from the minimum size at the time it was set).
+func _set_card_body_width(w: float) -> bool:
+	if is_equal_approx(w, _card_body_width):
+		return false
+	_card_body_width = w
+	for c in [_body_text, _checklist_text, _hint_label]:
+		if c != null:
+			(c as Control).custom_minimum_size = Vector2(w, (c as Control).custom_minimum_size.y)
+	# A PanelContainer never shrinks below the size it is already at, so drop
+	# back to the (now narrower) combined minimum before the preset re-measures.
+	_card.reset_size()
+	return true
 
 
 func card_rect() -> Rect2:
@@ -645,8 +710,12 @@ func show_step(view: Dictionary) -> void:
 	_anchor_node = null
 	_anchor_ok = false
 	_reresolve_accum = ANCHOR_RERESOLVE_S  # resolve on next frame
-	if _card_mode != "top":
-		_place_card("top")
+	# Back to the roomy default, then dodge/squeeze on the spot: a card shown
+	# while a dialog is ALREADY up (T2 opens on the Formations panel) would
+	# otherwise render one frame full-width and centered — straight under it.
+	_set_card_body_width(CARD_BODY_WIDTH)
+	_place_card("top")
+	_update_card_mode()
 	_apply_pad_affordances(true)
 	_spotlight.queue_redraw()
 
@@ -700,7 +769,9 @@ func show_summary(view: Dictionary) -> void:
 	_spotlight_mode = "none"
 	for strip in _dim_strips:
 		strip.visible = false
+	_set_card_body_width(CARD_BODY_WIDTH)
 	_place_card("top")
+	_update_card_mode()
 	_apply_pad_affordances(true)
 	_spotlight.queue_redraw()
 
@@ -808,7 +879,8 @@ func _scroll_anchor_into_view(node: Node) -> void:
 # the spotlighted anchor (bottom), else top-center (PRP §4.3).
 func _update_card_mode() -> void:
 	var wanted := "top"
-	if _any_game_window_open():
+	var blocker := _blocking_window()
+	if blocker != null:
 		wanted = "left"
 	elif _anchor_ok:
 		var cr := card_rect()
@@ -818,7 +890,11 @@ func _update_card_mode() -> void:
 		else:
 			var top_rect := Rect2(cr.position.x, CARD_TOP_OFFSET, cr.size.x, cr.size.y)
 			wanted = "top" if not top_rect.grow(8).intersects(_anchor_rect) else "bottom"
-	if wanted != _card_mode:
+	# The dialog can move/resize under a standing "left" card (a UI Scale change,
+	# a taller roster widening the window), so re-measure the strip every frame —
+	# _set_card_body_width no-ops unless the answer actually changed.
+	var resized := _set_card_body_width(_wanted_body_width(wanted, blocker))
+	if wanted != _card_mode or resized:
 		_place_card(wanted)
 
 
