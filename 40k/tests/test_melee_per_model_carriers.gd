@@ -23,6 +23,12 @@ extends SceneTree
 #   4. FightPhase gap-fills the Boss Nob's big choppa when a whole-unit pick
 #      leaves him out, so both weapons swing in the one activation
 #   5. an assignment that DOES name its models (the dialog path) is untouched
+#   6. PAIRED wargear options: a roster records the ranged half of a swap
+#      ("9x Shoota") and nothing about melee, and the datasheet's option list is
+#      what says those Boyz hold a CLOSE COMBAT WEAPON rather than the choppa
+#      they started with
+#   7. a swap the roster names without a count is left unresolved rather than
+#      answered with the default kit (which would drop the weapon entirely)
 #
 # Usage: godot --headless --path . -s tests/test_melee_per_model_carriers.gd
 
@@ -234,7 +240,93 @@ func _run():
 		explicit_weapons == ["choppa_melee"], str(explicit_weapons))
 
 	phase.queue_free()
+
+	_check_paired_wargear_options()
 	_finish()
+
+
+# A histogram of the melee weapons a unit's models actually carry.
+func _melee_hist(uid: String, unit: Dictionary) -> Dictionary:
+	var mm = RE.get_unit_melee_weapons(uid, {"units": {uid: unit}})
+	var hist := {}
+	for mid in mm:
+		for wn in mm[mid]:
+			hist[str(wn)] = int(hist.get(str(wn), 0)) + 1
+	return hist
+
+
+func _fresh_boyz(wargear: Array) -> Dictionary:
+	var ork = _load_json("res://armies/orks.json")
+	if typeof(ork) != TYPE_DICTIONARY:
+		return {}
+	var u = ork["units"].get("U_BOYZ_K", {})
+	if u.is_empty():
+		return {}
+	u = u.duplicate(true)
+	u["meta"]["wargear"] = wargear
+	u.erase("_loadout_checked")
+	u.erase("_loadout_version")
+	for m in u.get("models", []):
+		m.erase("ranged_loadout")
+		m.erase("melee_loadout")
+	return u
+
+
+# The pairing problem: a roster's wargear string almost never records the MELEE
+# half of a swap. "Any number of Boyz can each have their slugga AND choppa
+# replaced with 1 shoota AND 1 close combat weapon" is the only thing that says
+# a Boy holding a shoota is holding a close combat weapon — the datasheet's
+# default kit alone would wrongly hand him the choppa he traded away.
+func _check_paired_wargear_options() -> void:
+	print("\n--- paired wargear options ---")
+
+	# Whole mob on shootas: 9 Boyz swapped, the Boss Nob keeps his big choppa.
+	var shoota_mob = _fresh_boyz(["9x Shoota", "1x Slugga"])
+	if not shoota_mob.is_empty():
+		var h = _melee_hist("U_BOYZ_SHOOTA", shoota_mob)
+		_check("shoota Boyz carry a Close combat weapon, not a Choppa",
+			int(h.get("Close combat weapon", 0)) == 9 and not h.has("Choppa"), str(h))
+		_check("the Boss Nob keeps his Big choppa", int(h.get("Big choppa", 0)) == 1, str(h))
+
+	# Partial swap: 3 Boyz took shootas, 6 kept slugga + choppa.
+	var mixed = _fresh_boyz(["3x Shoota", "7x Slugga"])
+	if not mixed.is_empty():
+		var h2 = _melee_hist("U_BOYZ_MIXED", mixed)
+		_check("3 shoota Boyz -> 3 Close combat weapons", int(h2.get("Close combat weapon", 0)) == 3, str(h2))
+		_check("6 unchanged Boyz keep their Choppas", int(h2.get("Choppa", 0)) == 6, str(h2))
+		_check("still exactly 10 melee weapons across 10 models",
+			int(h2.get("Close combat weapon", 0)) + int(h2.get("Choppa", 0)) + int(h2.get("Big choppa", 0)) == 10, str(h2))
+
+	# Ambiguous alternatives: shoota and big shoota swaps BOTH grant a close
+	# combat weapon, so the shared weapon proves nothing — each swap is counted
+	# from the gun that is unique to it.
+	var two_swaps = _fresh_boyz(["8x Shoota", "1x Big shoota", "1x Slugga", "9x Close combat weapon"])
+	if not two_swaps.is_empty():
+		var h3 = _melee_hist("U_BOYZ_TWO_SWAPS", two_swaps)
+		_check("two different swaps still leave 9 Close combat weapons",
+			int(h3.get("Close combat weapon", 0)) == 9, str(h3))
+		_check("no Choppa survives when every Boy swapped", not h3.has("Choppa"), str(h3))
+
+	# A swap the roster names with NO count, on a datasheet that allows any
+	# number, cannot be sized — answering with the default kit would silently
+	# drop the sentinel blades this roster paid for.
+	var cust = _load_json("res://armies/Adeptus_Custodes_1995_Mar_7.json")
+	if typeof(cust) == TYPE_DICTIONARY:
+		var g = cust["units"].get("U_CUSTODIAN_GUARD_A", {})
+		if not g.is_empty():
+			g = g.duplicate(true)
+			g.erase("_loadout_checked")
+			g.erase("_loadout_version")
+			for m in g.get("models", []):
+				m.erase("melee_loadout")
+			RE.get_unit_melee_weapons("U_CUSTODIAN_GUARD_A", {"units": {"U_CUSTODIAN_GUARD_A": g}})
+			var stamped := false
+			for m in g.get("models", []):
+				if m.has("melee_loadout"):
+					stamped = true
+					break
+			_check("count-less 'Sentinel blade' swap -> left unresolved, blade not dropped",
+				not stamped, str(g["meta"].get("wargear", [])))
 
 
 func _finish():

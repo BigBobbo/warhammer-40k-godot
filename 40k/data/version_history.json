@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.8.1",
+      "date": "2026-07-30",
+      "summary": "Weapon swaps now carry their whole bundle — a Boy who traded his choppa for a shoota fights with a close combat weapon — and a swap the army list can't size is admitted rather than guessed.",
+      "changes": [
+        "A wargear swap usually trades two weapons for two: \"any number of Boyz can each have their slugga AND choppa replaced with 1 shoota AND 1 close combat weapon\". Army lists almost never write down the melee half, so shoota Boyz were being handed the choppa they traded away. The game now reads the datasheet's option list and gives them the close combat weapon they actually hold.",
+        "A partial swap works the same way: 3 Boyz on shootas now show 3 close combat weapons and 6 choppas, not 9 of one or the other.",
+        "Fixed the opposite failure. A Custodian Guard squad whose list says \"Guardian Spear, Sentinel blade, Praesidium Shield\" — with no numbers — was being shown as five guardian spears, silently dropping the sentinel blade. Same for Allarus Custodians and their castellan axes. When the list names a weapon but not how many, the game now says so in the log and leaves the unit alone instead of answering wrongly.",
+        "Squads whose list records per-role subtotals (\"9x Close combat weapon\" for nine Boyz plus a Boss Nob with a big choppa) now resolve properly instead of giving up.",
+        "Every unit the game still cannot read now logs exactly which weapon it could not place, so a bad import is visible rather than silent."
+      ]
+    },
+    {
       "version": "1.8.0",
       "date": "2026-07-30",
       "summary": "Melee weapons are now per-model: a mob is offered only the weapons it actually carries, and the Boss Nob can swing his big choppa while the Boyz swing choppas.",

@@ -37,6 +37,7 @@ class_name UnitLoadoutResolver
 # separate (engine-side) fix and is intentionally not changed here.
 
 const COMPOSITIONS_PATH := "res://data/40kdc/unitCompositions.json"
+const WARGEAR_OPTIONS_PATH := "res://data/40kdc/wargearOptions.json"
 
 # Profile-split separators used in weapon names ("Kannon – Frag", "Guardian
 # spear – Melee"). The wargear entry only ever names the base weapon.
@@ -54,6 +55,16 @@ static var _defaults_by_unit_model: Dictionary = {}
 # a model plays from its POSITION when the unit carries no model_profiles.
 static var _roles_by_unit: Dictionary = {}
 static var _compositions_loaded: bool = false
+
+# 40kdc unit_id -> Array of normalised wargear options (see _ensure_options_loaded).
+# This is the datasheet's "•" option list — "The Boss Nob's big choppa can be
+# replaced with 1 power klaw", "Any number of Boyz can each have their slugga
+# AND choppa replaced with 1 shoota AND 1 close combat weapon". Crucially it
+# records what each swap REPLACES and the whole BUNDLE it grants, which is the
+# only way to know that a Boy holding a shoota holds a close combat weapon
+# rather than the choppa he started with.
+static var _options_by_unit: Dictionary = {}
+static var _options_loaded: bool = false
 
 
 ## The subset of the unit's datasheet weapons it is actually equipped with.
@@ -105,63 +116,68 @@ static func get_equipped_weapons(unit: Dictionary) -> Array:
 	return out
 
 
-## The datasheet's DEFAULT kit for one model role, intersected with `weapon_names`.
-##
-## `unit_name`  — the datasheet name ("Boyz").
-## `role_names` — candidate names for the model's role, most specific first
-##                (its `model_type` key "boss_nob" AND its model_profiles label
-##                "Boss Nob" — both slugify to the composition's "Boss Nob").
-## `weapon_names` — the datasheet weapon names to filter (already narrowed to one
-##                type by the caller, e.g. every Melee weapon on the datasheet).
-##
-## Returns the subset of `weapon_names` the role is equipped with by default, in
-## the order given. Empty when the composition doesn't know this datasheet, the
-## role can't be matched, or the role's kit has nothing of this weapon type — all
-## of which the caller must treat as "cannot resolve", never as "no weapons".
-##
-## This is the answer to "what does a model of this role ACTUALLY carry?" when
-## the roster's wargear string is silent — which it usually is for melee.
-static func get_model_default_weapon_names(unit_name: String, role_names: Array, weapon_names: Array) -> Array:
+## Which composition role a model plays, as a slug, or "" when it can't be told.
+## `role_names` are candidates most specific first (a unit's `model_type` key
+## "boss_nob" and its model_profiles label "Boss Nob" both slugify to the
+## composition's "Boss Nob"). A single-role datasheet needs no match at all.
+static func match_model_role(unit_name: String, role_names: Array) -> String:
 	var unit_slug := _slug(unit_name)
 	if unit_slug == "":
-		return []
+		return ""
 	_ensure_compositions_loaded()
 	var per_model = _defaults_by_unit_model.get(unit_slug, {})
 	if typeof(per_model) != TYPE_DICTIONARY or per_model.is_empty():
-		return []
-
-	# Match the model to a composition role. A single-role datasheet needs no
-	# match at all (there is only one thing a model can be).
-	var role_key := ""
+		return ""
 	for candidate in role_names:
 		var s := _slug(str(candidate))
 		if s != "" and per_model.has(s):
-			role_key = s
-			break
-	if role_key == "" and per_model.size() == 1:
-		role_key = str(per_model.keys()[0])
-	if role_key == "":
+			return s
+	if per_model.size() == 1:
+		return str(per_model.keys()[0])
+	return ""
+
+
+## The weapon-id slugs a role is equipped with by default, unit-suffix stripped
+## ("choppa-tankbustas" -> "choppa"). Empty when the role is unknown.
+static func get_role_default_weapon_slugs(unit_name: String, role_slug: String) -> Array:
+	var unit_slug := _slug(unit_name)
+	if unit_slug == "" or role_slug == "":
 		return []
-
-	# 40kdc disambiguates ids that clash across datasheets by appending the unit
-	# slug ("choppa-tankbustas"); strip it back off, as _base_kit_slugs does.
-	var default_slugs := {}
-	for id in per_model[role_key]:
-		var s := str(id)
-		if s.ends_with("-" + unit_slug):
-			s = s.substr(0, s.length() - unit_slug.length() - 1)
-		if s != "":
-			default_slugs[s] = true
-
+	_ensure_compositions_loaded()
+	var per_model = _defaults_by_unit_model.get(unit_slug, {})
+	if typeof(per_model) != TYPE_DICTIONARY or not per_model.has(role_slug):
+		return []
 	var out: Array = []
-	for wname in weapon_names:
-		var n := str(wname)
-		# Match the full name AND the base name, so the id "guardian-spear"
-		# matches the profile-split weapon "Guardian spear – Melee".
-		if default_slugs.has(_slug(n)) or default_slugs.has(_slug(_base_name(n))):
-			if n not in out:
-				out.append(n)
+	for id in per_model[role_slug]:
+		var s := _strip_unit_suffix(str(id), unit_slug)
+		if s != "" and s not in out:
+			out.append(s)
 	return out
+
+
+## The datasheet's wargear OPTIONS for a unit, normalised:
+##   {replaces: [slug], bundles: [[slug], ...], role: slug ("" = any model),
+##    max_count: int (-1 = unset), any_number: bool, per_n_models: int (-1)}
+## `bundles` are the alternative swaps — pick ONE, and take ALL of its weapons.
+## Empty when the option data doesn't cover this datasheet.
+static func get_wargear_options(unit_name: String) -> Array:
+	var unit_slug := _slug(unit_name)
+	if unit_slug == "":
+		return []
+	_ensure_options_loaded()
+	var out = _options_by_unit.get(unit_slug, [])
+	return out if typeof(out) == TYPE_ARRAY else []
+
+
+## Slug form of a weapon/role name — exposed so callers can key their own maps
+## the same way this resolver does.
+static func slugify(s: String) -> String:
+	return _slug(s)
+
+
+## "Guardian spear – Melee" -> "Guardian spear". Exposed for the same reason.
+static func base_weapon_name(n: String) -> String:
+	return _base_name(n)
 
 
 ## The datasheet's unit composition as an ordered [{name, min, max}] — leader
@@ -227,13 +243,9 @@ static func _base_kit_slugs(unit: Dictionary, meta: Dictionary, weapons: Array, 
 	if typeof(raw) != TYPE_ARRAY or raw.is_empty():
 		return []
 
-	# 40kdc disambiguates weapon ids that clash across datasheets by appending
-	# the unit slug ("big-shoota-warboss-in-mega-armour"). Strip it back off.
 	var defaults: Array = []
 	for id in raw:
-		var s := str(id)
-		if s.ends_with("-" + unit_slug):
-			s = s.substr(0, s.length() - unit_slug.length() - 1)
+		var s := _strip_unit_suffix(str(id), unit_slug)
 		if s != "" and s not in defaults:
 			defaults.append(s)
 
@@ -353,7 +365,85 @@ static func _ensure_compositions_loaded() -> void:
 		_defaults_by_unit.size(), _defaults_by_unit_model.size()])
 
 
+static func _ensure_options_loaded() -> void:
+	if _options_loaded:
+		return
+	_options_loaded = true
+	if not FileAccess.file_exists(WARGEAR_OPTIONS_PATH):
+		print("[LOADOUT-UI] %s not found — wargear options unavailable" % WARGEAR_OPTIONS_PATH)
+		return
+	var f := FileAccess.open(WARGEAR_OPTIONS_PATH, FileAccess.READ)
+	if f == null:
+		print("[LOADOUT-UI] cannot open %s (err %d)" % [WARGEAR_OPTIONS_PATH, FileAccess.get_open_error()])
+		return
+	var text := f.get_as_text()
+	f.close()
+	var parsed = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_ARRAY:
+		print("[LOADOUT-UI] %s did not parse to an array — wargear options unavailable" % WARGEAR_OPTIONS_PATH)
+		return
+
+	for entry in parsed:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var uid := str(entry.get("unit_id", ""))
+		if uid == "":
+			continue
+
+		# A swap grants EITHER a single fixed bundle ("replacement") or one of
+		# several ("replacement_choice"). Normalise both to a list of bundles so
+		# callers only handle one shape.
+		var bundles: Array = []
+		var fixed = entry.get("replacement", null)
+		if typeof(fixed) == TYPE_ARRAY and not fixed.is_empty():
+			bundles.append(_slug_list(fixed, uid))
+		var choices = entry.get("replacement_choice", null)
+		if typeof(choices) == TYPE_ARRAY:
+			for choice in choices:
+				if typeof(choice) == TYPE_ARRAY and not choice.is_empty():
+					bundles.append(_slug_list(choice, uid))
+		if bundles.is_empty():
+			continue
+
+		var constraint = entry.get("model_constraint", {})
+		if typeof(constraint) != TYPE_DICTIONARY:
+			constraint = {}
+		var options: Array = _options_by_unit.get(uid, [])
+		options.append({
+			"replaces": _slug_list(entry.get("replaces", []), uid),
+			"bundles": bundles,
+			"role": _slug(str(constraint.get("model_name", ""))),
+			"max_count": int(constraint.get("max_count", -1)),
+			"any_number": bool(constraint.get("any_number", false)),
+			"per_n_models": int(constraint.get("per_n_models", -1)),
+		})
+		_options_by_unit[uid] = options
+	print("[LOADOUT-UI] wargear options loaded for %d datasheets" % _options_by_unit.size())
+
+
+# 40kdc weapon ids, slugified and stripped of the disambiguating unit suffix.
+static func _slug_list(ids, unit_slug: String) -> Array:
+	var out: Array = []
+	if typeof(ids) != TYPE_ARRAY:
+		return out
+	for id in ids:
+		var s := _strip_unit_suffix(_slug(str(id)), unit_slug)
+		if s != "" and s not in out:
+			out.append(s)
+	return out
+
+
 # ── name normalisation ──────────────────────────────────────────────
+
+## 40kdc disambiguates weapon ids that clash across datasheets by appending the
+## unit slug ("choppa-tankbustas", "big-shoota-warboss-in-mega-armour"). Strip it
+## back off so the id matches the datasheet's plain weapon name.
+static func _strip_unit_suffix(id: String, unit_slug: String) -> String:
+	if unit_slug != "" and id.ends_with("-" + unit_slug):
+		return id.substr(0, id.length() - unit_slug.length() - 1)
+	return id
+
+
 
 ## "Kannon – Frag" -> "Kannon". Leaves names without a profile suffix alone.
 static func _base_name(n: String) -> String:
