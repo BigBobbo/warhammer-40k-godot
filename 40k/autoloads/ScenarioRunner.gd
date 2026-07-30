@@ -438,6 +438,31 @@ func _do_click_unit(step: Dictionary) -> Dictionary:
 	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
 
 
+## Walk up from `node` and ask every ScrollContainer ancestor to bring it into
+## view, so a click aimed at its centre lands on the control rather than on the
+## clipped dead space past the container's edge. No-op when nothing above it
+## scrolls, which is the overwhelmingly common case.
+##
+## ensure_control_visible() only scrolls the MINIMUM needed, so a control that is
+## already fully visible does not move and scenarios that depend on the current
+## scroll offset are unaffected.
+func _scroll_control_into_view(node: Node) -> void:
+	if not (node is Control):
+		return
+	var scrolled := false
+	var cur: Node = node.get_parent()
+	while cur != null:
+		if cur is ScrollContainer:
+			(cur as ScrollContainer).ensure_control_visible(node as Control)
+			scrolled = true
+		cur = cur.get_parent()
+	if scrolled:
+		# One frame for the container to apply the new offset, a second so the
+		# child's global_rect reflects it before we measure the click point.
+		await get_tree().process_frame
+		await get_tree().process_frame
+
+
 func _do_click_node(step: Dictionary) -> Dictionary:
 	var node_path: String = str(step.get("node", ""))
 	var button_text: String = str(step.get("button_text", ""))
@@ -458,6 +483,16 @@ func _do_click_node(step: Dictionary) -> Dictionary:
 		node.emit_signal("pressed")
 		await get_tree().process_frame
 		return {"pass": true, "via": "emit_pressed"}
+
+	# A target parked below the fold of a ScrollContainer is only PARTLY inside
+	# the container's clip rect, so its centre — the point we are about to click —
+	# can sit outside it entirely and the click lands on the container instead of
+	# the control. Not hypothetical: on a 1920x1080 viewport the main menu's
+	# Tutorial button reports a global rect of y 1045..1083 inside a
+	# ScrollContainer clipping at y 1060, so every tutorial scenario clicked dead
+	# space and silently never opened the picker. A player scrolls to it first;
+	# do the same before measuring.
+	await _scroll_control_into_view(node)
 
 	var screen_pos: Vector2
 	if node is Control:

@@ -7,11 +7,14 @@
     "tutorial.t3.post_disembark_select_all",
     "tutorial.engine.strict_spotlight",
     "tutorial.t3.advance_lock_not_blocked",
-    "tutorial.exit.hatch_armed"
+    "tutorial.exit.hatch_armed",
+    "movementcontroller.no_per_model_coherency_rings",
+    "movementcontroller.drag_coherency_preview_retained",
+    "movementcontroller.carried_model_coherency_ring"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T3 (Get Movin'), mouse+keyboard player path: menu -> picker -> lesson boots from tutorial_postdeploy -> disembark the Boyz+Warboss from the Battlewagon via the real row-click + ConfirmationDialog + 11 placement clicks inside the 3-inch ring -> the boyz_move_after_disembark step teaches that the disembarked unit still gets its own move because the wagon has not moved yet, AND reminds the player they can grab all 11 at once: the card is asserted to name Ctrl+A, the shortcut is pressed for real, every alive Boy plus the attached Warboss is asserted selected in MULTI mode, and the drag off one selected model is asserted to stage more than one model (End This Unit's Move) -> Advance the Battlewagon through the mode radio + Confirm Movement Mode gate -> move the hull in TWO drags (asserting the second adds to the first, which is what the step now tells the player) -> turn it with Q held mid-drag on the 'POINT IT RIGHT!' step -> End This Unit's Move -> End Movement Phase under a strict spotlight -> summary, completion persisted, back to menu.",
+  "description": "Tutorial lesson T3 (Get Movin'), mouse+keyboard player path: menu -> picker -> lesson boots from tutorial_postdeploy -> disembark the Boyz+Warboss from the Battlewagon via the real row-click + ConfirmationDialog + 11 placement clicks inside the 3-inch ring -> the boyz_move_after_disembark step teaches that the disembarked unit still gets its own move because the wagon has not moved yet, AND reminds the player they can grab all 11 at once: the card is asserted to name Ctrl+A, the shortcut is pressed for real, every alive Boy plus the attached Warboss is asserted selected in MULTI mode, and the drag off one selected model is asserted to stage more than one model (End This Unit's Move) -> at that step the movement overlays are checked too: the T-094 per-model 2\" coherency rings are NOT drawn (a player reported the 10 overlapping cyan circles around the just-disembarked mob as an unexplained busy 'engagement range' bubble), a single-model carry instead shows exactly ONE CarriedCoherencyRing that tracks the ghost, is sized base radius + the edition's coherency distance, and flips amber out of coherency / cyan back in, the all-11 group carry paints no rings at all, and the ring is gone after the drop, while the red enemy ER rings and the green reach circle container keep working -> Advance the Battlewagon through the mode radio + Confirm Movement Mode gate -> move the hull in TWO drags (asserting the second adds to the first, which is what the step now tells the player) -> turn it with Q held mid-drag on the 'POINT IT RIGHT!' step -> End This Unit's Move -> End Movement Phase under a strict spotlight -> summary, completion persisted, back to menu.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -212,6 +215,98 @@
     },
     {
       "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementCoherencyVisual\").get_child_count()",
+      "equals": 0,
+      "comment": "PLAYER REPORT (Get Movin' step 4): beginning the disembarked Boyz' move used to paint one cyan 2\" coherency ring PER model - 10 overlapping ~5.3\"-wide circles on a tightly-packed mob, which players read as an unexplained engagement-range bubble. The rings are gone; the container stays (empty) so this assertion is meaningful rather than vacuous."
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar br = m.get_node(\"BoardRoot\")\nvar out = []\nfor nm in [\"MoveRangeVisual\", \"MovementERVisual\", \"MovementCoherencyVisual\"]:\n\tvar n = br.get_node_or_null(nm)\n\tout.append(-1 if n == null else n.get_child_count())\nm.set_meta(\"overlay_counts\", str(out))\nreturn out[2] == 0 and out[0] >= 0 and out[1] > 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "The OTHER two movement guides must survive the removal: the red enemy engagement-range rings (MovementERVisual) are still populated on move-begin, and the per-model green reach circle container (MoveRangeVisual, filled on pickup) still exists. Only the coherency rings are zeroed."
+    },
+    {
+      "act": "screenshot",
+      "label": "03a0_no_per_model_rings_on_disembarked_mob"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 480.0,
+      "from_y": 500.0,
+      "to_x": 480.0,
+      "to_y": 380.0,
+      "release": false,
+      "comment": "Carry m1 (board 480,500) 120px (3\") straight up and HOLD it there - far enough that its nearest mate m2 at (544,500) is 136px away centre-to-centre, i.e. out of coherency once both 32mm bases are taken off. Paused with release:false so the carried-model ring can be inspected in both states, then walked back to the pickup point and dropped with zero distance so the Ctrl+A group drag below is the move that actually counts."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "# Carried out of coherency: the single ring must wear its AMBER warning colour\n# and agree with the label. Amber, not red - red circles are the enemy\n# engagement-range rings and must keep meaning only that.\nvar m = tree.root.get_node(\"Main\")\nvar coh = m.get_node(\"BoardRoot/MovementCoherencyVisual\")\nif coh.get_child_count() != 1:\n\treturn \"expected exactly 1 ring while carrying, got %d\" % coh.get_child_count()\nvar ring = coh.get_node_or_null(\"CarriedCoherencyRing\")\nif ring == null:\n\treturn \"ring is not named CarriedCoherencyRing\"\nvar lbl = m.get_node_or_null(\"BoardRoot/MovementGhostVisual/CoherencyStatusLabel\")\nif lbl == null or not lbl.text.begins_with(\"Out of coherency\"):\n\treturn \"expected a broken drop, label said '%s'\" % (\"<none>\" if lbl == null else lbl.text)\nvar c = ring.default_color\nm.set_meta(\"ring_broken_probe\", str(c))\n# Amber is high red, mid green, near-zero blue. Cyan (the OK colour) is the\n# opposite: low red, high blue. This separates them without pinning exact values.\nif c.b > 0.4:\n\treturn \"broken drop but ring is still wearing the cyan OK colour: %s\" % str(c)\nif c.r < 0.7 or c.g < 0.4:\n\treturn \"broken-coherency ring is not amber: %s\" % str(c)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "Proves the ring is live, not a static decoration: it recolours as the carry crosses out of coherency, from the same verdict that drives the label and the ghost lines."
+    },
+    {
+      "act": "screenshot",
+      "label": "03a1_carried_ring_amber_out_of_coherency"
+    },
+    {
+      "act": "hover_board_at",
+      "x": 480.0,
+      "y": 500.0,
+      "comment": "Walk the carry back to the pickup point WITHOUT releasing - MovementController._unhandled_input routes any motion to _update_model_drag while dragging_model holds, so a buttonless hover moves the live carry. The ring must follow and flip back to cyan."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "# Nothing was LOST by deleting the static rings: the P3-116 drag preview is\n# the live coherency affordance - a line from the carried ghost to every other\n# model in the unit, green when that mate is inside coherency and red when it\n# is not, plus a status label riding on the ghost.\nvar m = tree.root.get_node(\"Main\")\nvar gv = m.get_node_or_null(\"BoardRoot/MovementGhostVisual\")\nif gv == null or gv.get_child_count() == 0:\n\treturn \"no ghost\"\nvar ghost = gv.get_child(0)\nif not (\"coherency_lines_data\" in ghost):\n\treturn \"ghost has no coherency_lines_data\"\nvar lines = ghost.coherency_lines_data\nvar lbl = gv.get_node_or_null(\"CoherencyStatusLabel\")\nm.set_meta(\"coh_probe\", \"lines=%d status=%s label=%s\" % [lines.size(), str(ghost.coherency_status_text), \"<none>\" if lbl == null else lbl.text])\nif lines.size() < 9:\n\treturn \"only %d coherency lines for a 10-model mob\" % lines.size()\nvar in_range := 0\nfor l in lines:\n\tif bool(l.get(\"in_coherency\", false)):\n\t\tin_range += 1\nif in_range < 1:\n\treturn \"no mate reported in coherency\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "10-model mob -> 9 lines from the carried Boy to his mates, at least one of them green. This is the affordance that replaces the rings, so it is asserted in the same breath as their absence."
+    },
+    {
+      "act": "execute_script",
+      "script": "# The ONE carried-model coherency ring: it exists only while a model is in\n# hand, there is exactly one of it (not one per model), it is centred on the\n# ghost rather than on the pickup spot, and its radius is the carried base\n# radius + the 2\" coherency distance.\nvar m = tree.root.get_node(\"Main\")\nvar coh = m.get_node(\"BoardRoot/MovementCoherencyVisual\")\nif coh.get_child_count() != 1:\n\treturn \"expected exactly 1 ring, got %d\" % coh.get_child_count()\nvar ring = coh.get_node_or_null(\"CarriedCoherencyRing\")\nif ring == null:\n\treturn \"ring is not named CarriedCoherencyRing\"\nvar gv = m.get_node_or_null(\"BoardRoot/MovementGhostVisual\")\nif gv == null:\n\treturn \"no ghost layer\"\nif ring.position.distance_to(gv.position) > 1.0:\n\treturn \"ring at %s does not track ghost at %s\" % [str(ring.position), str(gv.position)]\n# Radius back out of the generated points (they are built around the origin).\nvar r := 0.0\nfor i in range(ring.get_point_count()):\n\tr = max(r, ring.get_point_position(i).length())\nvar want := Measurement.base_radius_px(32) + Measurement.inches_to_px(GameConstants.coherency_distance_inches())\nif abs(r - want) > 1.0:\n\treturn \"radius %.1f px, expected %.1f px (32mm base + %.1f\\\") \" % [r, want, GameConstants.coherency_distance_inches()]\nm.set_meta(\"ring_probe\", \"r=%.1f px width=%.1f colour=%s\" % [r, ring.width, str(ring.default_color)])\n# Thin, and under the ghosts (MOVE_GHOST_Z) so it cannot bury what it guides.\nif ring.width > 4.0:\n\treturn \"ring stroke %.1f px is too heavy\" % ring.width\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "Follow-up to the ring removal: coherency came back as ONE ring on the model actually being carried, instead of T-094's one-per-model. This pins the count at 1, the anchor to the ghost, and the radius to base + coherency distance so an edition change to the 2\" distance moves the ring with it."
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar ring = m.get_node(\"BoardRoot/MovementCoherencyVisual/CarriedCoherencyRing\")\nvar lbl = m.get_node_or_null(\"BoardRoot/MovementGhostVisual/CoherencyStatusLabel\")\nvar coherent: bool = lbl != null and lbl.text.begins_with(\"Coherent\")\n# The drop here keeps the mob coherent, so the ring must be wearing its OK\n# colour. Ring, lines and label all read off the same verdict.\nif not coherent:\n\treturn \"expected a coherent drop, label said '%s'\" % (\"<none>\" if lbl == null else lbl.text)\nif ring.default_color.b < 0.5:\n\treturn \"coherent drop but ring is not wearing the cyan OK colour: %s\" % str(ring.default_color)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "The ring recolours from the same verdict as the label (cyan = coherent, amber = broken). Amber deliberately, not red - red is the enemy engagement-range rings."
+    },
+    {
+      "act": "screenshot",
+      "label": "03a2_carried_ring_cyan_in_coherency"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 480.0,
+      "y": 500.0,
+      "comment": "Drop m1 back where it started - a zero-distance stage, so the 1\" group drag below is still the whole of this unit's move and the downstream distance assertions are untouched."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementCoherencyVisual\").get_child_count()",
+      "equals": 0,
+      "comment": "and still no rings after the drop - the drag path must not re-introduce them either"
+    },
+    {
+      "act": "execute_script",
       "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"Ctrl+A\")",
       "multiline": true,
       "equals": true,
@@ -250,7 +345,23 @@
       "from_y": 500.0,
       "to_x": 480.0,
       "to_y": 540.0,
-      "comment": "m1 is at board (480,500) after placement - dragging a SELECTED model shifts the WHOLE formation 40px (1\") (MovementController._start_group_movement), well inside the 6\" cap and coherency. Away from the wagon, not towards it: the Battlewagon hull spans board x 561-719 / y 178-462, so a 1\" step towards it puts the middle of the front rank inside the hull and only the two outer Boyz can be placed."
+      "comment": "m1 is at board (480,500) after placement - dragging a SELECTED model shifts the WHOLE formation 40px (1\") (MovementController._start_group_movement), well inside the 6\" cap and coherency. Away from the wagon, not towards it: the Battlewagon hull spans board x 561-719 / y 178-462, so a 1\" step towards it puts the middle of the front rank inside the hull and only the two outer Boyz can be placed. PAUSED here (release:false) purely so the group carry can be inspected mid-flight for coherency rings; mouse_up_board below completes the identical drop.",
+      "release": false
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementCoherencyVisual\").get_child_count()",
+      "equals": 0,
+      "comment": "The original regression, pinned at its worst case: a GROUP carry of all 11 models must paint NO coherency rings. A group carry translates every selected model rigidly so the distances between them cannot change, and one ring per carried model is exactly the wall of cyan a player reported after disembarking the mob."
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 480.0,
+      "y": 540.0
     },
     {
       "act": "wait_frames",
