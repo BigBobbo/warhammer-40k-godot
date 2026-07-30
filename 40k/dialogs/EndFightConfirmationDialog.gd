@@ -31,7 +31,7 @@ func _build_ui() -> void:
 	# Warning header
 	var header = Label.new()
 	header.text = "WARNING"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.ORANGE)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -41,7 +41,7 @@ func _build_ui() -> void:
 	# Warning message
 	var warning_label = Label.new()
 	warning_label.text = "%d unit(s) have not yet fought. Are you sure you want to end the Fight Phase?" % unfought_units.size()
-	warning_label.add_theme_font_size_override("font_size", 14)
+	warning_label.add_theme_font_size_override("font_size", 18)
 	warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(warning_label)
@@ -51,7 +51,7 @@ func _build_ui() -> void:
 	# Unfought units list (scrollable)
 	var units_header = Label.new()
 	units_header.text = "Units that haven't fought:"
-	units_header.add_theme_font_size_override("font_size", 13)
+	units_header.add_theme_font_size_override("font_size", 17)
 	units_header.add_theme_color_override("font_color", Color.YELLOW)
 	main_container.add_child(units_header)
 
@@ -62,7 +62,7 @@ func _build_ui() -> void:
 	for unit_info in unfought_units:
 		var unit_label = Label.new()
 		unit_label.text = "  P%d - %s (%s)" % [unit_info.player, unit_info.unit_name, unit_info.subphase]
-		unit_label.add_theme_font_size_override("font_size", 12)
+		unit_label.add_theme_font_size_override("font_size", 16)
 		var player_color = Color.CORNFLOWER_BLUE if unit_info.player == 1 else Color.INDIAN_RED
 		unit_label.add_theme_color_override("font_color", player_color)
 		unit_list.add_child(unit_label)

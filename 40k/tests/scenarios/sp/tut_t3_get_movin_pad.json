@@ -259,8 +259,8 @@
     },
     {
       "act": "simulate_joy_button",
-      "button_index": 0,
-      "comment": "A with the cursor parked opens the PadActionBar move menu (PadRouter._try_open_move_menu)"
+      "button_index": 11,
+      "comment": "D-pad ▲ with the cursor parked opens the PadActionBar move menu — PadRouter's DPAD_UP chain tries _try_open_move_menu BEFORE _try_grab_all_remaining, so while the mode decision is still open ▲ is the menu. This is the D-pad-first phrasing the card uses (matching the convention #812 gave the rest of the lesson); the same press becomes Grab All once a move is under way, which is what the step teaches next."
     },
     {
       "act": "wait_seconds",

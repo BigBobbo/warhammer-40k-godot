@@ -95,14 +95,14 @@ static func make_chip(glyph_id: String, label_text: String) -> Control:
 
 	var glyph_label := Label.new()
 	glyph_label.text = glyph_text(glyph_id)
-	glyph_label.add_theme_font_size_override("font_size", 13)
+	glyph_label.add_theme_font_size_override("font_size", 17)
 	glyph_label.add_theme_color_override("font_color", _UIConstants.NEUTRAL_UI_PALE_WHITE)
 	badge.add_child(glyph_label)
 	row.add_child(badge)
 
 	var text_label := Label.new()
 	text_label.text = expand_label(label_text)
-	text_label.add_theme_font_size_override("font_size", 13)
+	text_label.add_theme_font_size_override("font_size", 17)
 	text_label.add_theme_color_override("font_color", Color(_UIConstants.NEUTRAL_UI_PALE_WHITE, 0.8))
 	row.add_child(text_label)
 

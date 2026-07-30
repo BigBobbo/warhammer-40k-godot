@@ -593,7 +593,7 @@ func _show_thievin_scavengers_notification(text: String, success: bool) -> void:
 	var label = Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_font_size_override("font_size", 20)
 	label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.75))
 	panel.add_child(label)
 

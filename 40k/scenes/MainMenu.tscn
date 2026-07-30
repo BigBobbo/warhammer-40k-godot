@@ -34,7 +34,6 @@ layout_mode = 2
 text = "Warhammer 40,000 Battle Simulator"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 32
-
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/MenuContainer"]
 layout_mode = 2
 
@@ -45,8 +44,7 @@ theme_override_constants/separation = 10
 [node name="ArmyLabel" type="Label" parent="ScrollContainer/MenuContainer/ArmySection"]
 layout_mode = 2
 text = "Army Selection"
-theme_override_font_sizes/font_size = 20
-
+theme_override_font_sizes/font_size = 23
 [node name="Player1TypeContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/ArmySection"]
 layout_mode = 2
 
@@ -105,8 +103,7 @@ theme_override_constants/separation = 10
 [node name="MissionLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection"]
 layout_mode = 2
 text = "Mission Settings"
-theme_override_font_sizes/font_size = 20
-
+theme_override_font_sizes/font_size = 23
 [node name="TerrainContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/MissionSection"]
 layout_mode = 2
 

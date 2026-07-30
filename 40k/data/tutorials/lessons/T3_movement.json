@@ -35,7 +35,7 @@
       "prompt": {
         "bark": "EVERYBODY OUT!",
         "kbm": "Click da [b]Boyz + Warboss [Embarked][/b] row in da list, den click [b]OK[/b] to start da disembark.",
-        "pad": "Glide {ls} onto da [b]Boyz + Warboss [Embarked][/b] row, press {a}, den {a} again on da dialog."
+        "pad": "Tap {rb} till da [b]Boyz + Warboss [Embarked][/b] row is picked — dat pops da disembark dialog on its own — den press {a}. Unit rows are bumper work; da {dpad} drives da panels."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList" },
       "spotlight": "soft",
@@ -67,7 +67,7 @@
       "prompt": {
         "bark": "DEIR LEGS STILL WORK!",
         "kbm": "Da wagon ain't moved yet, so da Boyz get their own move too. Dey're already picked — press {key:select_all} to grab [b]all 11[/b] at once, den one drag shifts da whole mob. [b]End This Unit's Move[/b] locks it in.",
-        "pad": "Da wagon ain't moved yet, so da Boyz get their own move too. Press {a} to start da move, den {dpad} ▲ — dat lifts [b]all 11[/b] at once. Glide {ls} where dey fit, {a} drops da lot, den [b]End This Unit's Move[/b]."
+        "pad": "Da wagon ain't moved yet, so da Boyz get their own move too. {dpad} ▲ opens da move menu — {a} takes [b]Move[/b]. Now ▲ again lifts [b]all 11[/b] at once: glide {ls} where dey fit an' {a} drops da lot."
       },
       "anchor": { "unit": "U_BOYZ_T" },
       "spotlight": "soft",
@@ -89,7 +89,7 @@
       "prompt": {
         "bark": "PUT YER FOOT DOWN!",
         "kbm": "Now da wagon: click [b]Battlewagon[/b] in da list, pick da [b]Advance[/b] radio, den hit [b]Confirm Movement Mode[/b] — da mode don't stick till ya confirm it!",
-        "pad": "Tap {rb} till da [b]Battlewagon[/b]'s picked, glide onto [b]Advance[/b], {a}, den [b]Confirm Movement Mode[/b] an' {a}."
+        "pad": "Tap {rb} till da [b]Battlewagon[/b]'s picked, den {dpad} ▲ opens da move menu. ▼ onto [b]Advance[/b] an' {a} — dat locks da mode in, no Confirm button needed."
       },
       "anchor": { "button_text": "Confirm Movement Mode" },
       "spotlight": "soft",
@@ -153,7 +153,7 @@
       "prompt": {
         "bark": "LOCK IT IN!",
         "kbm": "Happy? [b]End This Unit's Move[/b] locks da wagon in. ([b]Undo Model[/b] an' [b]Reset Unit[/b] are right next to it if ya ain't.)",
-        "pad": "Glide onto [b]End This Unit's Move[/b] an' press {a}."
+        "pad": "Press {menu} — once da models are down da bar calls it [b]Confirm Move[/b], an' dat IS [b]End This Unit's Move[/b]. (Mid-move da {dpad}'s on models, not panels.)"
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton" },
       "spotlight": "soft",

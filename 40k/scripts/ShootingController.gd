@@ -496,7 +496,7 @@ func _setup_right_panel() -> void:
 	# Title
 	var title = Label.new()
 	title.text = "SHOOTING CONTROLS"
-	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_font_size_override("font_size", 19)
 	title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -524,7 +524,7 @@ func _setup_right_panel() -> void:
 	# Unit selector
 	var unit_label = Label.new()
 	unit_label.text = "SELECT SHOOTER"
-	unit_label.add_theme_font_size_override("font_size", 12)
+	unit_label.add_theme_font_size_override("font_size", 16)
 	unit_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		unit_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -537,7 +537,7 @@ func _setup_right_panel() -> void:
 	show_all_units_checkbox.name = "ShowAllUnitsCheckbox"
 	show_all_units_checkbox.text = "Show all units"
 	show_all_units_checkbox.tooltip_text = "Off: list only units that can shoot at an eligible target (or perform a mission action). On: show every unit that could shoot, even with no target in range / line of sight."
-	show_all_units_checkbox.add_theme_font_size_override("font_size", 11)
+	show_all_units_checkbox.add_theme_font_size_override("font_size", 16)
 	show_all_units_checkbox.set_pressed_no_signal(SettingsService.get_shooting_show_all_units() if SettingsService else false)
 	show_all_units_checkbox.toggled.connect(_on_show_all_units_toggled)
 	declaration_box.add_child(show_all_units_checkbox)
@@ -559,7 +559,7 @@ func _setup_right_panel() -> void:
 	shooter_status_label.fit_content = true
 	shooter_status_label.scroll_active = false
 	shooter_status_label.custom_minimum_size = Vector2(230, 0)
-	shooter_status_label.add_theme_font_size_override("normal_font_size", 12)
+	shooter_status_label.add_theme_font_size_override("normal_font_size", 16)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		shooter_status_label.add_theme_font_override("normal_font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	shooter_status_label.visible = false
@@ -570,7 +570,7 @@ func _setup_right_panel() -> void:
 	# Weapon assignments section header
 	var weapon_label = Label.new()
 	weapon_label.text = "WEAPON ASSIGNMENTS"
-	weapon_label.add_theme_font_size_override("font_size", 13)
+	weapon_label.add_theme_font_size_override("font_size", 17)
 	weapon_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		weapon_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -583,7 +583,7 @@ func _setup_right_panel() -> void:
 
 	var auto_target_label = Label.new()
 	auto_target_label.text = "Same target for all:"
-	auto_target_label.add_theme_font_size_override("font_size", 11)
+	auto_target_label.add_theme_font_size_override("font_size", 16)
 	auto_target_label.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		auto_target_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -627,7 +627,7 @@ func _setup_right_panel() -> void:
 	weapon_tree.add_theme_stylebox_override("selected_focus", tree_selected_style)
 	weapon_tree.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	weapon_tree.add_theme_color_override("font_selected_color", Color.WHITE)
-	weapon_tree.add_theme_font_size_override("font_size", 14)
+	weapon_tree.add_theme_font_size_override("font_size", 18)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		weapon_tree.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	declaration_box.add_child(weapon_tree)
@@ -649,7 +649,7 @@ func _setup_right_panel() -> void:
 	damage_preview_label.fit_content = true
 	damage_preview_label.scroll_active = false
 	damage_preview_label.custom_minimum_size = Vector2(218, 0)
-	damage_preview_label.add_theme_font_size_override("normal_font_size", 11)
+	damage_preview_label.add_theme_font_size_override("normal_font_size", 16)
 	damage_preview_panel.add_child(damage_preview_label)
 	declaration_box.add_child(damage_preview_panel)
 
@@ -670,7 +670,7 @@ func _setup_right_panel() -> void:
 	aggregate_preview_label.fit_content = true
 	aggregate_preview_label.scroll_active = false
 	aggregate_preview_label.custom_minimum_size = Vector2(218, 0)
-	aggregate_preview_label.add_theme_font_size_override("normal_font_size", 11)
+	aggregate_preview_label.add_theme_font_size_override("normal_font_size", 16)
 	aggregate_preview_panel.add_child(aggregate_preview_label)
 	declaration_box.add_child(aggregate_preview_panel)
 
@@ -680,7 +680,7 @@ func _setup_right_panel() -> void:
 	quick_assign_container.visible = false  # Hidden until eligible targets are available
 	var quick_assign_label = Label.new()
 	quick_assign_label.text = "QUICK ASSIGN"
-	quick_assign_label.add_theme_font_size_override("font_size", 11)
+	quick_assign_label.add_theme_font_size_override("font_size", 16)
 	quick_assign_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		quick_assign_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -705,7 +705,7 @@ func _setup_right_panel() -> void:
 	# Target basket
 	var basket_label = Label.new()
 	basket_label.text = "CURRENT TARGETS"
-	basket_label.add_theme_font_size_override("font_size", 12)
+	basket_label.add_theme_font_size_override("font_size", 16)
 	basket_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		basket_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -1681,7 +1681,7 @@ func _refresh_target_chips() -> void:
 		chip.add_theme_stylebox_override("panel", style)
 		var lbl := Label.new()
 		lbl.text = _chip_letter(tid)
-		lbl.add_theme_font_size_override("font_size", 16)
+		lbl.add_theme_font_size_override("font_size", 20)
 		lbl.add_theme_color_override("font_color", Color(0.08, 0.08, 0.08))
 		chip.add_child(lbl)
 		chip.position = anchor + Vector2(20, -74)
@@ -2004,7 +2004,7 @@ func _show_range_label_for_target(enemy_unit: Dictionary, min_distance_px: float
 	var label := Label.new()
 	label.text = "%.1f\"" % dist_inches
 	label.position = anchor_pos + Vector2(-20, -55)
-	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_font_size_override("font_size", 17)
 	if is_in_range:
 		label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.5, 1.0))
 	else:
@@ -4629,7 +4629,7 @@ func _show_action_choice_dialog(options: Array) -> void:
 
 	var header = Label.new()
 	header.text = "CHOOSE AN ACTION (16.01)"
-	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_font_size_override("font_size", 21)
 	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(header)
@@ -5778,7 +5778,7 @@ func _pad_wire_spin_dialog(dialog: AcceptDialog, spin: SpinBox, vbox: VBoxContai
 		var hint := Label.new()
 		hint.name = "PadSpinHint"
 		hint.text = "◀ ▶  adjust   ·   Ⓐ confirm   ·   Ⓑ cancel"
-		hint.add_theme_font_size_override("font_size", 12)
+		hint.add_theme_font_size_override("font_size", 16)
 		hint.modulate = Color(1, 1, 1, 0.75)
 		vbox.add_child(hint)
 	# AcceptDialog is a Window with its own viewport: PadRouter never sees
@@ -6299,7 +6299,7 @@ func _refresh_quick_assign_buttons() -> void:
 		btn.custom_minimum_size = Vector2(230, 28)
 		btn.tooltip_text = "Assign all usable weapons to %s (%.1f\" away, %d models, T%d, Sv%d+).\nExpected total damage after saves: ~%.1f" % [target_name, max(range_inches, 0.0), alive, t_val, sv_val, expected_total]
 		_WhiteDwarfTheme.apply_secondary_button(btn)
-		btn.add_theme_font_size_override("font_size", 12)
+		btn.add_theme_font_size_override("font_size", 16)
 		btn.pressed.connect(_on_quick_assign_all_to_target.bind(target_id))
 		quick_assign_container.add_child(btn)
 

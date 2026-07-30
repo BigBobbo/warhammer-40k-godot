@@ -51,7 +51,7 @@ func _build_ui() -> void:
 	# Ability header with golden styling
 	var header = Label.new()
 	header.text = "SWEEPING ADVANCE"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color(1.0, 0.84, 0.0))  # Gold
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -59,7 +59,7 @@ func _build_ui() -> void:
 	# "Once per battle" badge
 	var badge = Label.new()
 	badge.text = "[ ONCE PER BATTLE ]"
-	badge.add_theme_font_size_override("font_size", 11)
+	badge.add_theme_font_size_override("font_size", 16)
 	badge.add_theme_color_override("font_color", Color.ORANGE)
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(badge)
@@ -72,7 +72,7 @@ func _build_ui() -> void:
 		move_type_label.text = "%s is within Engagement Range of enemy units.\nThis unit may make a Fall Back move (up to %.0f\")." % [unit_name, move_distance]
 	else:
 		move_type_label.text = "%s is not within Engagement Range of any enemy.\nThis unit may make a Normal Move (up to %.0f\")." % [unit_name, move_distance]
-	move_type_label.add_theme_font_size_override("font_size", 14)
+	move_type_label.add_theme_font_size_override("font_size", 18)
 	move_type_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	move_type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(move_type_label)
@@ -83,7 +83,7 @@ func _build_ui() -> void:
 	status_label = Label.new()
 	status_label.text = "Drag models on the battlefield to move them"
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status_label.add_theme_font_size_override("font_size", 12)
+	status_label.add_theme_font_size_override("font_size", 16)
 	status_label.add_theme_color_override("font_color", Color.GRAY)
 	main_container.add_child(status_label)
 
@@ -123,7 +123,7 @@ func _build_ui() -> void:
 		info.text = "Fall Back: Move up to %.0f\" — must end outside Engagement Range" % move_distance
 	else:
 		info.text = "Normal Move: Move up to %.0f\" — cannot move within Engagement Range of enemies" % move_distance
-	info.add_theme_font_size_override("font_size", 11)
+	info.add_theme_font_size_override("font_size", 16)
 	info.add_theme_color_override("font_color", Color.DARK_GRAY)
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	main_container.add_child(info)

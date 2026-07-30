@@ -329,7 +329,7 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 	_filter_button.text = "Filters"
 	_filter_button.tooltip_text = "Show/hide the event-type filter chips"
 	_filter_button.custom_minimum_size = Vector2(54, 24)
-	_filter_button.add_theme_font_size_override("font_size", 10)
+	_filter_button.add_theme_font_size_override("font_size", 16)
 	_filter_button.pressed.connect(_on_filter_button_pressed)
 	header.add_child(_filter_button)
 
@@ -338,7 +338,7 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 	_ai_filter_button.text = "AI"
 	_ai_filter_button.tooltip_text = "Toggle AI thinking entries"
 	_ai_filter_button.custom_minimum_size = Vector2(36, 24)
-	_ai_filter_button.add_theme_font_size_override("font_size", 10)
+	_ai_filter_button.add_theme_font_size_override("font_size", 16)
 	_ai_filter_button.pressed.connect(_on_ai_filter_pressed)
 	header.add_child(_ai_filter_button)
 	_update_ai_filter_button()
@@ -347,7 +347,7 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 	_collapse_button = Button.new()
 	_collapse_button.text = "X"
 	_collapse_button.custom_minimum_size = Vector2(28, 24)
-	_collapse_button.add_theme_font_size_override("font_size", 12)
+	_collapse_button.add_theme_font_size_override("font_size", 16)
 	_collapse_button.pressed.connect(_on_collapse_pressed)
 	header.add_child(_collapse_button)
 
@@ -826,8 +826,8 @@ func _start_combat_card(header_text: String, animate: bool) -> void:
 	header_label.fit_content = true
 	header_label.scroll_active = false
 	header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_label.add_theme_font_size_override("normal_font_size", 11)
-	header_label.add_theme_font_size_override("bold_font_size", 12)
+	header_label.add_theme_font_size_override("normal_font_size", 16)
+	header_label.add_theme_font_size_override("bold_font_size", 16)
 	header_label.append_text("[b][color=#E8C477]%s[/color][/b]" % header_text)
 	header_hbox.add_child(header_label)
 
@@ -841,7 +841,7 @@ func _start_combat_card(header_text: String, animate: bool) -> void:
 
 	# Summary label (shown after combat resolves)
 	_current_combat_summary_label = Label.new()
-	_current_combat_summary_label.add_theme_font_size_override("font_size", 10)
+	_current_combat_summary_label.add_theme_font_size_override("font_size", 16)
 	_current_combat_summary_label.add_theme_color_override("font_color", Color(0.47, 0.8, 0.47))
 	_current_combat_summary_label.visible = false
 	_current_combat_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -850,7 +850,7 @@ func _start_combat_card(header_text: String, animate: bool) -> void:
 	# Toggle button for details
 	_current_combat_toggle_button = Button.new()
 	_current_combat_toggle_button.text = "  Show details"
-	_current_combat_toggle_button.add_theme_font_size_override("font_size", 9)
+	_current_combat_toggle_button.add_theme_font_size_override("font_size", 16)
 	_current_combat_toggle_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_current_combat_toggle_button.flat = true
 	_current_combat_toggle_button.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
@@ -1172,8 +1172,8 @@ func _make_phase_card(text: String) -> PanelContainer:
 	label.fit_content = true
 	label.scroll_active = false
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("normal_font_size", 13)
-	label.add_theme_font_size_override("bold_font_size", 13)
+	label.add_theme_font_size_override("normal_font_size", 17)
+	label.add_theme_font_size_override("bold_font_size", 17)
 	var color_hex = phase_border.to_html(false)
 	label.append_text("[b][color=#%s]%s[/color][/b]" % [color_hex, clean_text])
 	hbox.add_child(label)
@@ -1234,8 +1234,8 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 	label.fit_content = true
 	label.scroll_active = false
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("normal_font_size", 11)
-	label.add_theme_font_size_override("bold_font_size", 12)
+	label.add_theme_font_size_override("normal_font_size", 16)
+	label.add_theme_font_size_override("bold_font_size", 16)
 	label.append_text(_format_entry_text(preview_text, entry_type))
 
 	if not is_truncated:
@@ -1251,7 +1251,7 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 
 	var toggle_btn = Button.new()
 	toggle_btn.text = "  show more"
-	toggle_btn.add_theme_font_size_override("font_size", 9)
+	toggle_btn.add_theme_font_size_override("font_size", 16)
 	toggle_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	toggle_btn.flat = true
 	toggle_btn.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
@@ -1347,8 +1347,8 @@ func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}, t
 	header_label.fit_content = true
 	header_label.scroll_active = false
 	header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_label.add_theme_font_size_override("normal_font_size", 11)
-	header_label.add_theme_font_size_override("bold_font_size", 12)
+	header_label.add_theme_font_size_override("normal_font_size", 16)
+	header_label.add_theme_font_size_override("bold_font_size", 16)
 	header_label.append_text(header_format % header_text)
 	# Let the card itself receive hover/click for the board-link interaction
 	header_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1359,7 +1359,7 @@ func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}, t
 
 	var toggle_btn = Button.new()
 	toggle_btn.text = ("  hide %s" % toggle_noun) if start_expanded else ("  %d %s…" % [detail_lines.size(), toggle_noun])
-	toggle_btn.add_theme_font_size_override("font_size", 9)
+	toggle_btn.add_theme_font_size_override("font_size", 16)
 	toggle_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	toggle_btn.flat = true
 	toggle_btn.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
@@ -1371,7 +1371,7 @@ func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}, t
 	details.fit_content = true
 	details.scroll_active = false
 	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	details.add_theme_font_size_override("normal_font_size", 10)
+	details.add_theme_font_size_override("normal_font_size", 16)
 	details.visible = start_expanded
 	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for line in detail_lines:
@@ -1409,8 +1409,8 @@ func _make_combat_result_card(text: String) -> PanelContainer:
 	label.fit_content = true
 	label.scroll_active = false
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("normal_font_size", 11)
-	label.add_theme_font_size_override("bold_font_size", 12)
+	label.add_theme_font_size_override("normal_font_size", 16)
+	label.add_theme_font_size_override("bold_font_size", 16)
 	label.append_text("[b][color=%s]%s[/color][/b]" % [text_color, text.strip_edges()])
 	card.add_child(label)
 
@@ -1439,7 +1439,7 @@ func _create_icon(category: int) -> PanelContainer:
 
 	var icon_label = Label.new()
 	icon_label.text = ICON_CHARS.get(category, "?")
-	icon_label.add_theme_font_size_override("font_size", 9)
+	icon_label.add_theme_font_size_override("font_size", 16)
 	icon_label.add_theme_color_override("font_color", border_color)
 	icon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	icon_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1682,8 +1682,8 @@ func _make_die_badge(value: int, threshold: int) -> String:
 		bg_color = "#1A3A4A"
 		text_color = "#66CCEE"
 
-	# Compact dice badge with single-space padding
-	return "[font_size=10][bgcolor=%s][color=%s] %d [/color][/bgcolor][/font_size] " % [bg_color, text_color, value]
+	# Compact dice badge with single-space padding (16px = Steam Deck floor)
+	return "[font_size=16][bgcolor=%s][color=%s] %d [/color][/bgcolor][/font_size] " % [bg_color, text_color, value]
 
 # ==========================================================================
 # Card trimming
@@ -1725,7 +1725,7 @@ func _build_filter_bar(parent: VBoxContainer) -> void:
 	all_btn.text = "All"
 	all_btn.tooltip_text = "Show every event type"
 	all_btn.custom_minimum_size = Vector2(30, 22)
-	all_btn.add_theme_font_size_override("font_size", 9)
+	all_btn.add_theme_font_size_override("font_size", 16)
 	all_btn.pressed.connect(func(): _set_all_categories_visible(true))
 	_filter_bar.add_child(all_btn)
 
@@ -1733,7 +1733,7 @@ func _build_filter_bar(parent: VBoxContainer) -> void:
 	none_btn.text = "None"
 	none_btn.tooltip_text = "Hide every event type"
 	none_btn.custom_minimum_size = Vector2(38, 22)
-	none_btn.add_theme_font_size_override("font_size", 9)
+	none_btn.add_theme_font_size_override("font_size", 16)
 	none_btn.pressed.connect(func(): _set_all_categories_visible(false))
 	_filter_bar.add_child(none_btn)
 
@@ -1749,7 +1749,7 @@ func _make_filter_chip(category: int) -> Button:
 	chip.text = FILTER_LABELS.get(category, "?")
 	chip.toggle_mode = false  # we drive the on/off look ourselves via modulate
 	chip.custom_minimum_size = Vector2(0, 22)
-	chip.add_theme_font_size_override("font_size", 9)
+	chip.add_theme_font_size_override("font_size", 16)
 	chip.tooltip_text = "Toggle %s events" % FILTER_LABELS.get(category, "")
 	# Tint the chip with the category's accent so it reads like the cards it controls.
 	var accent = BORDER_COLORS.get(category, Color.GRAY)

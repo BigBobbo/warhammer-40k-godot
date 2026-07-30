@@ -62,7 +62,7 @@ func _build_ui() -> void:
 	# Reason
 	var reason_label = Label.new()
 	reason_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	reason_label.add_theme_font_size_override("font_size", 14)
+	reason_label.add_theme_font_size_override("font_size", 18)
 	reason_label.text = _get_reason_text()
 	reason_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
 	main_vbox.add_child(reason_label)
@@ -86,7 +86,7 @@ func _build_vp_summary(parent: VBoxContainer) -> void:
 	var vp_title = Label.new()
 	vp_title.text = "FINAL SCORE"
 	vp_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vp_title.add_theme_font_size_override("font_size", 16)
+	vp_title.add_theme_font_size_override("font_size", 20)
 	vp_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	parent.add_child(vp_title)
 
@@ -108,7 +108,7 @@ func _build_vp_summary(parent: VBoxContainer) -> void:
 		vp_summary["player1"]["secondary"],
 	]
 	p1_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	p1_label.add_theme_font_size_override("font_size", 15)
+	p1_label.add_theme_font_size_override("font_size", 19)
 	p1_label.add_theme_color_override("font_color", p1_color)
 	parent.add_child(p1_label)
 
@@ -121,7 +121,7 @@ func _build_vp_summary(parent: VBoxContainer) -> void:
 		vp_summary["player2"]["secondary"],
 	]
 	p2_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	p2_label.add_theme_font_size_override("font_size", 15)
+	p2_label.add_theme_font_size_override("font_size", 19)
 	p2_label.add_theme_color_override("font_color", p2_color)
 	parent.add_child(p2_label)
 
@@ -132,7 +132,7 @@ func _build_vp_summary(parent: VBoxContainer) -> void:
 	var display_round = mini(battle_round, 5)
 	rounds_label.text = "Battle Rounds: %d / 5" % display_round
 	rounds_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rounds_label.add_theme_font_size_override("font_size", 12)
+	rounds_label.add_theme_font_size_override("font_size", 16)
 	rounds_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	parent.add_child(rounds_label)
 
@@ -154,7 +154,7 @@ func _build_vp_timeline_chart(parent: VBoxContainer) -> void:
 	var chart_title = Label.new()
 	chart_title.text = "VP Progression"
 	chart_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	chart_title.add_theme_font_size_override("font_size", 14)
+	chart_title.add_theme_font_size_override("font_size", 18)
 	chart_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	parent.add_child(chart_title)
 
@@ -201,13 +201,13 @@ func _build_vp_timeline_chart(parent: VBoxContainer) -> void:
 
 	var p1_legend = Label.new()
 	p1_legend.text = "— Player 1"
-	p1_legend.add_theme_font_size_override("font_size", 11)
+	p1_legend.add_theme_font_size_override("font_size", 16)
 	p1_legend.add_theme_color_override("font_color", WhiteDwarfTheme.P1_BORDER)
 	legend_hbox.add_child(p1_legend)
 
 	var p2_legend = Label.new()
 	p2_legend.text = "— Player 2"
-	p2_legend.add_theme_font_size_override("font_size", 11)
+	p2_legend.add_theme_font_size_override("font_size", 16)
 	p2_legend.add_theme_color_override("font_color", WhiteDwarfTheme.P2_BORDER)
 	legend_hbox.add_child(p2_legend)
 
@@ -315,7 +315,7 @@ func _build_ai_performance_summary(parent: VBoxContainer, ai_summary: Dictionary
 	var section_title = Label.new()
 	section_title.text = "AI Performance Analysis"
 	section_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	section_title.add_theme_font_size_override("font_size", 16)
+	section_title.add_theme_font_size_override("font_size", 20)
 	section_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	parent.add_child(section_title)
 
@@ -348,7 +348,7 @@ func _build_player_ai_card(parent: VBoxContainer, player: int, data: Dictionary)
 	var faction = data.get("faction", "Player %d" % player)
 	var difficulty = data.get("difficulty", "Normal")
 	header.text = "Player %d — %s (AI: %s)" % [player, faction, difficulty]
-	header.add_theme_font_size_override("font_size", 14)
+	header.add_theme_font_size_override("font_size", 18)
 	header.add_theme_color_override("font_color", player_color)
 	parent.add_child(header)
 
@@ -395,7 +395,7 @@ func _build_player_ai_card(parent: VBoxContainer, player: int, data: Dictionary)
 		_add_game_over_gold_separator(parent)
 		var moments_label = Label.new()
 		moments_label.text = "Key Moments:"
-		moments_label.add_theme_font_size_override("font_size", 12)
+		moments_label.add_theme_font_size_override("font_size", 16)
 		moments_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 		parent.add_child(moments_label)
 
@@ -405,7 +405,7 @@ func _build_player_ai_card(parent: VBoxContainer, player: int, data: Dictionary)
 			var moment = key_moments[i]
 			var moment_label = Label.new()
 			moment_label.text = "  R%d: %s" % [moment.get("round", 0), moment.get("text", "")]
-			moment_label.add_theme_font_size_override("font_size", 11)
+			moment_label.add_theme_font_size_override("font_size", 16)
 			moment_label.add_theme_color_override("font_color", dim_color)
 			moment_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			parent.add_child(moment_label)
@@ -413,7 +413,7 @@ func _build_player_ai_card(parent: VBoxContainer, player: int, data: Dictionary)
 		if key_moments.size() > max_moments:
 			var more_label = Label.new()
 			more_label.text = "  ... and %d more" % (key_moments.size() - max_moments)
-			more_label.add_theme_font_size_override("font_size", 11)
+			more_label.add_theme_font_size_override("font_size", 16)
 			more_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 			parent.add_child(more_label)
 
@@ -430,13 +430,13 @@ func _add_game_over_gold_separator(parent: Control) -> void:
 func _add_stat_row(grid: GridContainer, label_text: String, value_text: String, value_color: Color) -> void:
 	var label = Label.new()
 	label.text = label_text
-	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	grid.add_child(label)
 
 	var value = Label.new()
 	value.text = value_text
-	value.add_theme_font_size_override("font_size", 12)
+	value.add_theme_font_size_override("font_size", 16)
 	value.add_theme_color_override("font_color", value_color)
 	grid.add_child(value)
 
