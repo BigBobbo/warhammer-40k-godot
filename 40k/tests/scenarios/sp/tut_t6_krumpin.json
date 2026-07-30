@@ -135,6 +135,45 @@
     },
     {
       "act": "execute_script",
+      "script": "var card = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard\").get_global_rect()\nvar d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar dlg = Rect2(Vector2(d.position), Vector2(d.size))\nprint(\"[T6] card=%s dialog=%s\" % [str(card), str(dlg)])\nreturn card.end.x <= dlg.position.x",
+      "multiline": true,
+      "equals": true,
+      "comment": "the instructor card dodges to the left flank here (the attack dialog is an embedded Window that composites above every CanvasLayer) - it must sit ENTIRELY left of the dialog, not half-hidden behind it"
+    },
+    {
+      "act": "execute_script",
+      "script": "var w = tree.root\nw.set_meta(\"t6_scale_probe\", w.content_scale_factor)\nw.content_scale_factor = 1.4\nvar d = w.get_node(\"/root/AttackAssignmentDialog\")\nDialogUtils._repin_bottom_on_resize(d)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "reproduce the reported case: a pad player (PAD_UI_SCALE_BOOST) or a raised UI Scale shrinks the viewport in UI units, so the centred dialog moves LEFT over the card - the re-pin is what popup_at_bottom's own size_changed hook does, i.e. where the dialog would have opened at this scale"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "var card = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard\").get_global_rect()\nvar d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar dlg = Rect2(Vector2(d.position), Vector2(d.size))\nprint(\"[T6] scaled card=%s dialog=%s vp=%s\" % [str(card), str(dlg), str(tree.root.get_visible_rect().size)])\nreturn card.end.x <= dlg.position.x",
+      "multiline": true,
+      "equals": true,
+      "comment": "still fully clear of the dialog once the canvas is scaled up and the strip narrows"
+    },
+    {
+      "act": "screenshot",
+      "label": "03b_attack_dialog_scaled"
+    },
+    {
+      "act": "execute_script",
+      "script": "var w = tree.root\nw.content_scale_factor = float(w.get_meta(\"t6_scale_probe\", 1.0))\nw.remove_meta(\"t6_scale_probe\")\nvar d = w.get_node(\"/root/AttackAssignmentDialog\")\nDialogUtils._repin_bottom_on_resize(d)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn false\nvar want = 0\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Choppa\"):\n\t\twant = i\n\t\tbreak\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn true",
       "multiline": true,
       "equals": true,

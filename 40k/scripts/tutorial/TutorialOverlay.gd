@@ -20,6 +20,21 @@ const CARD_TOP_OFFSET := 96.0
 const CARD_BOTTOM_OFFSET := 132.0  # keeps clear of the pad hint bar
 const ANCHOR_RERESOLVE_S := 0.5
 
+# Card text-column widths. "top"/"bottom" keep the full-width reading column;
+# the LEFT flank only has the strip between the screen edge and the centred
+# game dialog the card is dodging, so it narrows to fit inside it (reported on
+# T6 step 4 "PICK YER CHOPPA!": the 560px card ran under the Assign Attacks
+# window, which composites above every CanvasLayer, and half the instruction
+# was unreadable). _left_text_width() measures the real strip every frame, because
+# how wide it is depends on the dialog AND on the canvas content scale (a pad
+# player gets PAD_UI_SCALE_BOOST, which shrinks the viewport in UI units).
+const CARD_TEXT_W := 560.0
+const CARD_TEXT_W_LEFT := 380.0
+const CARD_TEXT_W_LEFT_MIN := 240.0
+const CARD_LEFT_OFFSET := 10.0      # gap from the screen edge (see _place_card)
+const CARD_LEFT_GAP := 14.0         # breathing room between card and dialog
+const CARD_CHROME_W := 28.0         # Margin 12+12 + the panel border's content margin
+
 # The two escape-hatch affordances (see "modal escape hatch" below). Both names
 # are excluded from _blocking_window() so the tutorial's own windows never read
 # as "a game dialog is open".
@@ -50,6 +65,7 @@ var _anchor_ok: bool = false
 var _spotlight_mode: String = "none"
 var _reresolve_accum: float = 0.0
 var _card_mode: String = "top"
+var _card_text_w: float = CARD_TEXT_W
 var _dim_strips: Array = []
 var _modal_exit_window: Window = null   # floating hatch, for non-AcceptDialog modals
 var _modal_exit_host: Window = null     # the dialog we added an Exit button INTO
@@ -160,7 +176,7 @@ func _build() -> void:
 	_body_text.bbcode_enabled = true
 	_body_text.fit_content = true
 	_body_text.scroll_active = false
-	_body_text.custom_minimum_size = Vector2(560, 0)
+	_body_text.custom_minimum_size = Vector2(CARD_TEXT_W, 0)
 	_body_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# >= 12px effective at 1280x800 (Steam Deck recommendation; PRP §4.3):
 	# 15px at 1920x1080 canvas-items scaling ~= 10px physical on Deck before the
@@ -181,7 +197,7 @@ func _build() -> void:
 	_checklist_text.bbcode_enabled = true
 	_checklist_text.fit_content = true
 	_checklist_text.scroll_active = false
-	_checklist_text.custom_minimum_size = Vector2(560, 0)
+	_checklist_text.custom_minimum_size = Vector2(CARD_TEXT_W, 0)
 	_checklist_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_checklist_text.add_theme_font_size_override("normal_font_size", 14)
 	_checklist_text.add_theme_font_size_override("bold_font_size", 14)
@@ -193,7 +209,7 @@ func _build() -> void:
 	_hint_label = Label.new()
 	_hint_label.name = "HintLabel"
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint_label.custom_minimum_size = Vector2(560, 0)
+	_hint_label.custom_minimum_size = Vector2(CARD_TEXT_W, 0)
 	_hint_label.add_theme_font_size_override("font_size", 13)
 	_hint_label.add_theme_color_override("font_color", UIConstantsData.MARGINAL_YELLOW)
 	_hint_label.visible = false
@@ -209,6 +225,12 @@ func _build() -> void:
 	_progress_label.add_theme_font_size_override("font_size", 12)
 	_progress_label.add_theme_color_override("font_color",
 		Color(WhiteDwarfThemeData.WH_PARCHMENT, 0.6))
+	# Wrapping (rather than a fixed one-line label) is what lets the card get
+	# genuinely narrow on the left flank: an un-wrapped Label reports its full
+	# text width as a minimum, and "Step 4 / 6 — Krumpin'" plus the footer
+	# buttons then floor the card at ~420px no matter how narrow the strip is.
+	# At the normal width it still renders on one line.
+	_progress_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(_progress_label)
 
@@ -425,6 +447,14 @@ func _input(event: InputEvent) -> void:
 # the game-log panel stays clear).
 func _place_card(mode: String) -> void:
 	_card_mode = mode
+	# Width first: the presets below bake the card's CURRENT minimum size into
+	# its offsets (PRESET_MODE_MINSIZE), so a later width change needs the
+	# preset re-applied — which _set_card_text_width() does itself.
+	_set_card_text_width(_left_text_width(_blocking_window()) if mode == "left" else CARD_TEXT_W)
+	_apply_card_preset(mode)
+
+
+func _apply_card_preset(mode: String) -> void:
 	match mode:
 		"bottom":
 			_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
@@ -433,7 +463,7 @@ func _place_card(mode: String) -> void:
 			_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		"left":
 			_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_MINSIZE)
-			_card.offset_left = 10
+			_card.offset_left = CARD_LEFT_OFFSET
 			_card.grow_vertical = Control.GROW_DIRECTION_BOTH
 			_card.grow_horizontal = Control.GROW_DIRECTION_END
 		_:
@@ -441,6 +471,41 @@ func _place_card(mode: String) -> void:
 			_card.offset_top = CARD_TOP_OFFSET
 			_card.grow_vertical = Control.GROW_DIRECTION_END
 			_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+
+
+# Re-wrap the card's text columns to `w` and re-run the current placement preset
+# (see the note in _place_card). Cheap no-op when the width has not moved, so
+# _update_card_mode() can call it every frame while the card is on the flank.
+func _set_card_text_width(w: float) -> void:
+	if is_equal_approx(_card_text_w, w):
+		return
+	_card_text_w = w
+	for c in [_body_text, _checklist_text, _hint_label]:
+		if c != null:
+			(c as Control).custom_minimum_size = Vector2(w, 0)
+	_apply_card_preset(_card_mode)
+	# A fit_content RichTextLabel measures its height at its CURRENT width, so
+	# the pass above can still be carrying the pre-re-wrap height. Re-apply once
+	# the new wrap has landed, or the panel keeps the old (taller/shorter) box.
+	call_deferred("_reapply_card_preset")
+
+
+func _reapply_card_preset() -> void:
+	if _card != null and is_instance_valid(_card):
+		_apply_card_preset(_card_mode)
+
+
+# How wide the card's text column may be while it sits on the left flank: the
+# strip between the screen edge and `blocker`'s left edge, never wider than
+# CARD_TEXT_W_LEFT. Embedded Windows report their position in the same
+# coordinate space as the card's Controls (the offset AnchorResolver applies in
+# rect_for_node), so this is a straight comparison.
+func _left_text_width(blocker: Window) -> float:
+	var wanted := CARD_TEXT_W_LEFT
+	if blocker != null and is_instance_valid(blocker) and blocker.size.x > 0:
+		var room: float = float(blocker.position.x) - CARD_LEFT_OFFSET - CARD_LEFT_GAP - CARD_CHROME_W
+		wanted = min(wanted, room)
+	return clampf(wanted, CARD_TEXT_W_LEFT_MIN, CARD_TEXT_W)
 
 
 func card_rect() -> Rect2:
@@ -807,8 +872,9 @@ func _scroll_anchor_into_view(node: Node) -> void:
 # Card placement priority: dodge open game dialogs (left flank), then dodge
 # the spotlighted anchor (bottom), else top-center (PRP §4.3).
 func _update_card_mode() -> void:
+	var blocker := _blocking_window()
 	var wanted := "top"
-	if _any_game_window_open():
+	if blocker != null:
 		wanted = "left"
 	elif _anchor_ok:
 		var cr := card_rect()
@@ -820,6 +886,11 @@ func _update_card_mode() -> void:
 			wanted = "top" if not top_rect.grow(8).intersects(_anchor_rect) else "bottom"
 	if wanted != _card_mode:
 		_place_card(wanted)
+	elif _card_mode == "left":
+		# The dialog is resized and re-pinned a frame or two AFTER it pops
+		# (DialogUtils._reanchor_bottom), and a device swap can rescale the whole
+		# canvas mid-card — so keep re-measuring the strip we have to fit in.
+		_set_card_text_width(_left_text_width(blocker))
 
 
 func _update_dim_strips() -> void:

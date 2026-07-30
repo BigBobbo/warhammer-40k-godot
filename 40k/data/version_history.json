@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "The tutorial's instructor card no longer hides behind a game dialog — it now shrinks to fit the space beside it.",
+      "changes": [
+        "When a dialog opens mid-lesson (the clearest case being 'PICK YER CHOPPA!' in Tutorial 6, where the Assign Attacks window pops up), the tutorial card steps aside to the left of the screen. It kept its full width there, so on smaller screens — and for anyone on a controller or a raised UI Scale, where everything is bigger and the dialog sits further left — the right-hand half of the instructions was hidden underneath the dialog and could not be read.",
+        "The card now measures the gap between the screen edge and the dialog and narrows itself to fit inside it, so the whole instruction, the step counter and the Skip Step / Exit Tutorial buttons stay visible. It goes back to its normal width as soon as the dialog closes."
+      ]
+    },
+    {
       "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",
