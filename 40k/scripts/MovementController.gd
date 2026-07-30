@@ -72,7 +72,13 @@ var model_path_visuals: Dictionary = {}  # Dictionary of model_id -> Line2D for 
 var movement_path_preview: Node2D = null  # P3-125: HumanMovementPathVisual for drag-to-plan preview
 var move_range_visual: Node2D = null  # T-094: Container for movement range circle overlay
 var er_overlay_visual: Node2D = null  # T-094: Container for enemy engagement-range rings during move
-var coherency_dots_visual: Node2D = null  # T-094: Container for friendly coherency dots during move
+# T-094's per-model 2" coherency rings are GONE — full rationale in the block
+# above _clear_coherency_dots(). Coherency is communicated by the P3-116 drag
+# preview (green/red lines from the carried ghost to its mates, plus the
+# CoherencyStatusLabel) instead of a static ring per model. The container is
+# still created (empty) so the movement overlay z-order and phase-cleanup
+# scenarios keep a stable node to assert on.
+var coherency_dots_visual: Node2D = null  # T-094: legacy container, intentionally left empty
 var ui_setup_complete: bool = false  # Flag to prevent duplicate UI creation
 
 # Floating movement indicator (shown near model during drag)
@@ -237,7 +243,8 @@ func _exit_tree() -> void:
 	# the Movement phase ended survived into the Shooting phase. The enemy
 	# engagement-range overlay (the red "don't move here" circles) was the most
 	# visible offender and cluttered the board once movement was over. Free all
-	# three so no movement-only overlay outlives the phase.
+	# three so no movement-only overlay outlives the phase. (The coherency
+	# container is empty by design now, but still freed for the same reason.)
 	if move_range_visual and is_instance_valid(move_range_visual):
 		move_range_visual.queue_free()
 		move_range_visual = null
@@ -371,7 +378,10 @@ func _create_path_visuals() -> void:
 	er_overlay_visual.z_index = MOVE_OVERLAY_Z
 	board_root.add_child(er_overlay_visual)
 
-	# T-094: Coherency dots container (2" rings around friendly staged positions)
+	# T-094: legacy coherency-ring container. Deliberately never populated any
+	# more (see the block above _clear_coherency_dots) — kept so the movement
+	# overlay z-order / phase-cleanup scenarios still have a node to assert on,
+	# and so a stray ring from any path can still be swept up.
 	coherency_dots_visual = Node2D.new()
 	coherency_dots_visual.name = "MovementCoherencyVisual"
 	coherency_dots_visual.z_index = MOVE_OVERLAY_Z
@@ -1861,8 +1871,12 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	# unit-wide bubble centred on the unit's centre of mass.
 	# T-094: Show engagement-range rings around enemy units (edition-aware ER)
 	_show_er_overlay(unit_id)
-	# T-094: Show 2" coherency rings around friendly models in this unit
-	_show_coherency_dots(unit_id)
+	# The 2" coherency rings that used to be drawn here (one per model of the
+	# moving unit) are deliberately NOT shown any more — a 10-20 model mob
+	# painted 10-20 overlapping ~5" circles over itself and buried the board.
+	# _clear_coherency_dots() still runs on confirm/exit so any ring left over
+	# from an older session's state cannot survive.
+	_clear_coherency_dots()
 
 	# Get move cap from unit
 	if current_phase:
@@ -5981,7 +5995,8 @@ func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 						grandchild.play_animation(anim_name)
 
 # Movement overlay layering. Every guide the movement phase paints onto the
-# board (green reach circles, red engagement rings, cyan coherency rings) shares
+# board (green reach circles, red enemy engagement rings — the cyan coherency
+# rings that also lived at this depth have since been removed) shares
 # MOVE_OVERLAY_Z, and the ghosts sit far above it at MOVE_GHOST_Z. Dragging a
 # whole unit paints one reach circle PER model, so without this split the green
 # arcs of models 2..N cover the ghosts the player is trying to place — the
@@ -6139,41 +6154,31 @@ func _clear_er_overlay() -> void:
 		child.queue_free()
 
 
-# T-094: 2" coherency rings around the moving unit's models
-const MOVE_COHERENCY_COLOR: Color = Color(0.3, 0.9, 1.0, 0.4)
-const MOVE_COHERENCY_WIDTH: float = 5.0
-# ISS-002: coherency distance comes from GameConstants.coherency_distance_inches().
-
-func _show_coherency_dots(unit_id: String) -> void:
-	if not is_instance_valid(coherency_dots_visual):
-		return
-	_clear_coherency_dots()
-	var unit = GameState.get_unit(unit_id) if GameState else {}
-	if unit.is_empty():
-		return
-	for m in unit.get("models", []):
-		if not m.get("alive", true):
-			continue
-		var pos_data = m.get("position")
-		if pos_data == null:
-			continue
-		var pos: Vector2
-		if pos_data is Dictionary:
-			pos = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
-		else:
-			pos = pos_data
-		var base_radius = Measurement.base_radius_px(m.get("base_mm", 32))
-		var ring_radius = base_radius + Measurement.inches_to_px(GameConstants.coherency_distance_inches())
-		var ring = Line2D.new()
-		ring.width = MOVE_COHERENCY_WIDTH
-		ring.default_color = MOVE_COHERENCY_COLOR
-		ring.closed = true
-		var segments: int = 32
-		for i in range(segments):
-			var theta = TAU * float(i) / float(segments)
-			ring.add_point(pos + Vector2(cos(theta), sin(theta)) * ring_radius)
-		coherency_dots_visual.add_child(ring)
-
+# T-094's per-model 2" coherency rings: REMOVED (player report, Get Movin' step 4).
+#
+# What they were: one cyan Line2D circle per model of the moving unit, radius =
+# that model's base radius + GameConstants.coherency_distance_inches() (2" at
+# 11e), i.e. ~2.6" radius / ~5.3" across for a 32mm base. Intent was to show the
+# 2" unit-coherency distance while placing models.
+#
+# Why they are gone: the ring count is the model count, so a 10-model mob of
+# Boyz disembarking a Battlewagon painted 10 overlapping 5"-wide circles on top
+# of a tightly-packed cluster — a wall of cyan with no readable per-model signal.
+# Players read it as an unexplained "engagement range" bubble.
+#
+# What still communicates coherency (nothing was lost):
+#   * P3-116 drag preview — _update_coherency_preview() draws a line from the
+#     carried ghost to every other model in the unit, GREEN when that mate is
+#     within coherency and RED when it is not, plus _update_coherency_status_label()
+#     on the ghost itself. Live, per-drop, and only on screen while it matters.
+#   * The rules check itself — CONFIRM_UNIT_MOVE / CONFIRM_DISEMBARK reject a
+#     placement that breaks coherency with an explicit message, so the constraint
+#     is enforced whether or not a ring is drawn.
+#
+# _clear_coherency_dots() is kept (and still called on move-begin, confirm and
+# phase exit) so the now-always-empty container can never accumulate strays. If
+# a coherency overlay is ever wanted again, prefer ONE ring around the model
+# being carried over N rings around the whole unit.
 
 func _clear_coherency_dots() -> void:
 	if not is_instance_valid(coherency_dots_visual):

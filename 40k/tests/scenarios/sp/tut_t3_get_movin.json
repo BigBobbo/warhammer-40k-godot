@@ -4,11 +4,13 @@
     "tutorial.t3.movement",
     "tutorial.t3.disembark",
     "tutorial.t3.post_disembark_move",
-    "tutorial.engine.strict_spotlight"
+    "tutorial.engine.strict_spotlight",
+    "movementcontroller.no_per_model_coherency_rings",
+    "movementcontroller.drag_coherency_preview_retained"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T3 (Get Movin'), mouse+keyboard player path: menu -> picker -> lesson boots from tutorial_postdeploy -> disembark the Boyz+Warboss from the Battlewagon via the real row-click + ConfirmationDialog + 11 placement clicks inside the 3-inch ring -> the boyz_move_after_disembark step teaches that the disembarked unit still gets its own move because the wagon has not moved yet (drag a Boy, End This Unit's Move) -> Advance the Battlewagon through the mode radio + Confirm Movement Mode gate -> move the hull in TWO drags (asserting the second adds to the first, which is what the step now tells the player) -> turn it with Q held mid-drag on the 'POINT IT RIGHT!' step -> End This Unit's Move -> End Movement Phase under a strict spotlight -> summary, completion persisted, back to menu.",
+  "description": "Tutorial lesson T3 (Get Movin'), mouse+keyboard player path: menu -> picker -> lesson boots from tutorial_postdeploy -> disembark the Boyz+Warboss from the Battlewagon via the real row-click + ConfirmationDialog + 11 placement clicks inside the 3-inch ring -> the boyz_move_after_disembark step teaches that the disembarked unit still gets its own move because the wagon has not moved yet (drag a Boy, End This Unit's Move) -> at that step, asserts the T-094 per-model 2\" coherency rings are NOT drawn (a player reported the 10 overlapping cyan circles around the just-disembarked mob as an unexplained busy 'engagement range' bubble) while the red enemy ER rings, the green reach circle container and the live P3-116 ghost coherency preview all still work -> Advance the Battlewagon through the mode radio + Confirm Movement Mode gate -> move the hull in TWO drags (asserting the second adds to the first, which is what the step now tells the player) -> turn it with Q held mid-drag on the 'POINT IT RIGHT!' step -> End This Unit's Move -> End Movement Phase under a strict spotlight -> summary, completion persisted, back to menu.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -208,16 +210,60 @@
       "equals": false
     },
     {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementCoherencyVisual\").get_child_count()",
+      "equals": 0,
+      "comment": "PLAYER REPORT (Get Movin' step 4): beginning the disembarked Boyz' move used to paint one cyan 2\" coherency ring PER model - 10 overlapping ~5.3\"-wide circles on a tightly-packed mob, which players read as an unexplained engagement-range bubble. The rings are gone; the container stays (empty) so this assertion is meaningful rather than vacuous."
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar br = m.get_node(\"BoardRoot\")\nvar out = []\nfor nm in [\"MoveRangeVisual\", \"MovementERVisual\", \"MovementCoherencyVisual\"]:\n\tvar n = br.get_node_or_null(nm)\n\tout.append(-1 if n == null else n.get_child_count())\nm.set_meta(\"overlay_counts\", str(out))\nreturn out[2] == 0 and out[0] >= 0 and out[1] > 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "The OTHER two movement guides must survive the removal: the red enemy engagement-range rings (MovementERVisual) are still populated on move-begin, and the per-model green reach circle container (MoveRangeVisual, filled on pickup) still exists. Only the coherency rings are zeroed."
+    },
+    {
+      "act": "screenshot",
+      "label": "03a_no_coherency_rings_on_disembarked_mob"
+    },
+    {
       "act": "drag_board",
       "from_x": 480.0,
       "from_y": 500.0,
       "to_x": 480.0,
       "to_y": 460.0,
-      "comment": "m1 is at board (480,500) after placement - drag it 40px (1\") forward, well inside the 6\" cap and coherency"
+      "release": false,
+      "comment": "m1 is at board (480,500) after placement - drag it 40px (1\") forward, well inside the 6\" cap and coherency. PAUSED mid-flight (release:false) so the live drag frame can be inspected before mouse_up_board drops it."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "# Nothing was LOST by deleting the static rings: the P3-116 drag preview is\n# the live coherency affordance - a line from the carried ghost to every other\n# model in the unit, green when that mate is inside coherency and red when it\n# is not, plus a status label riding on the ghost.\nvar m = tree.root.get_node(\"Main\")\nvar gv = m.get_node_or_null(\"BoardRoot/MovementGhostVisual\")\nif gv == null or gv.get_child_count() == 0:\n\treturn \"no ghost\"\nvar ghost = gv.get_child(0)\nif not (\"coherency_lines_data\" in ghost):\n\treturn \"ghost has no coherency_lines_data\"\nvar lines = ghost.coherency_lines_data\nvar lbl = gv.get_node_or_null(\"CoherencyStatusLabel\")\nm.set_meta(\"coh_probe\", \"lines=%d status=%s label=%s\" % [lines.size(), str(ghost.coherency_status_text), \"<none>\" if lbl == null else lbl.text])\nif lines.size() < 9:\n\treturn \"only %d coherency lines for a 10-model mob\" % lines.size()\nvar in_range := 0\nfor l in lines:\n\tif bool(l.get(\"in_coherency\", false)):\n\t\tin_range += 1\nif in_range < 1:\n\treturn \"no mate reported in coherency\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "10-model mob -> 9 lines from the carried Boy to his mates, at least one of them green. This is the affordance that replaces the rings, so it is asserted in the same breath as their absence."
+    },
+    {
+      "act": "screenshot",
+      "label": "03a2_live_coherency_preview_replaces_rings"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 480.0,
+      "y": 460.0
     },
     {
       "act": "wait_frames",
       "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementCoherencyVisual\").get_child_count()",
+      "equals": 0,
+      "comment": "and still no rings after the drop - the drag path must not re-introduce them either"
     },
     {
       "act": "execute_script",

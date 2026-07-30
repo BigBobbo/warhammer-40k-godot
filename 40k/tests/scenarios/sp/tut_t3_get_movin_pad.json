@@ -3,7 +3,8 @@
   "covers": [
     "tutorial.t3.movement.pad",
     "tutorial.t3.disembark.pad",
-    "tutorial.t3.post_disembark_move.pad"
+    "tutorial.t3.post_disembark_move.pad",
+    "movementcontroller.no_per_model_coherency_rings.pad"
   ],
   "rng_seed": 4242,
   "edition": 11,
@@ -246,6 +247,12 @@
       "script": "str(main.movement_controller.active_unit_id)",
       "equals": "U_BOYZ_T",
       "comment": "the wagon has not moved, so 18.04 leaves the disembarked Boyz selected for their own move - the new step teaches it"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementCoherencyVisual\").get_child_count()",
+      "equals": 0,
+      "comment": "Same player report as the mouse variant: beginning the disembarked Boyz' move must not paint one cyan 2\" coherency ring per model. Checked on the pad path too because the pad carry LIFTS the reach ring (dash.z_index = 50), so a re-introduced coherency ring would be even louder here."
     },
     {
       "act": "simulate_joy_button",

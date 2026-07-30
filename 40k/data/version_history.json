@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "The cluster of unexplained cyan circles around a unit you are moving is gone — the board is readable again when a big mob is on the move.",
+      "changes": [
+        "Selecting a unit to move used to draw a cyan 2\" unit-coherency circle around EVERY model in it. For a 10-model mob of Boyz piling out of a Battlewagon that meant ten overlapping circles roughly 5\" across stacked on top of each other — a wall of cyan that hid the models, the terrain and the objectives, and that read as some unexplained \"engagement range\" bubble. Those rings have been removed.",
+        "Nothing about coherency was lost. Pick a model up and you still get the live check: a line from the model you are carrying to each of its mates, green when that mate is close enough and red when it is not, plus a \"Coherent\" / \"N/M coherent\" readout on the model itself. Ending a move that breaks coherency is still refused with a message saying so.",
+        "The two guides that were actually doing a job are untouched: the green dashed circle showing how far the model you picked up can still go, and the red circles around enemy models marking where you may not end up."
+      ]
+    },
+    {
       "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",
