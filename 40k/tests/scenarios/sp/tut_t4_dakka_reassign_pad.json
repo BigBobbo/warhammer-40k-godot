@@ -185,22 +185,48 @@
       "label": "01_already_aimed_toast"
     },
     {
-      "act": "simulate_joy_button",
-      "button_index": 10,
-      "comment": "negative control - RB on to the Gretchin..."
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nif str(pi.active_shooter_id) == \"U_BATTLEWAGON_T\":\n\treturn \"ok\"\nvar press = InputEventJoypadButton.new()\npress.device = 0\npress.button_index = JOY_BUTTON_RIGHT_SHOULDER\npress.pressed = true\nInput.parse_input_event(press)\nvar rel = InputEventJoypadButton.new()\nrel.device = 0\nrel.button_index = JOY_BUTTON_RIGHT_SHOULDER\nrel.pressed = false\nInput.parse_input_event(rel)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "RB again, but only while the Battlewagon isn't armed yet (pass 1). Which unit RB lands on depends on how many of the player's units are shootable — the Warboss now disembarks with the Boyz, which changed that order — and this section only needs the Battlewagon (two eligible targets, so nothing auto-assigns). Same InputEventJoypadButton the runner's simulate_joy_button sends; mirrors the pattern in tut_t4_dakka_reorder_pad."
     },
     {
       "act": "wait_seconds",
-      "seconds": 1.5
+      "seconds": 1.2
     },
     {
-      "act": "simulate_joy_button",
-      "button_index": 10,
-      "comment": "...and on to the Battlewagon, which has two eligible targets so nothing auto-assigns"
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nif str(pi.active_shooter_id) == \"U_BATTLEWAGON_T\":\n\treturn \"ok\"\nvar press = InputEventJoypadButton.new()\npress.device = 0\npress.button_index = JOY_BUTTON_RIGHT_SHOULDER\npress.pressed = true\nInput.parse_input_event(press)\nvar rel = InputEventJoypadButton.new()\nrel.device = 0\nrel.button_index = JOY_BUTTON_RIGHT_SHOULDER\nrel.pressed = false\nInput.parse_input_event(rel)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "RB again, but only while the Battlewagon isn't armed yet (pass 2). Which unit RB lands on depends on how many of the player's units are shootable — the Warboss now disembarks with the Boyz, which changed that order — and this section only needs the Battlewagon (two eligible targets, so nothing auto-assigns). Same InputEventJoypadButton the runner's simulate_joy_button sends; mirrors the pattern in tut_t4_dakka_reorder_pad."
     },
     {
       "act": "wait_seconds",
-      "seconds": 2.0
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nif str(pi.active_shooter_id) == \"U_BATTLEWAGON_T\":\n\treturn \"ok\"\nvar press = InputEventJoypadButton.new()\npress.device = 0\npress.button_index = JOY_BUTTON_RIGHT_SHOULDER\npress.pressed = true\nInput.parse_input_event(press)\nvar rel = InputEventJoypadButton.new()\nrel.device = 0\nrel.button_index = JOY_BUTTON_RIGHT_SHOULDER\nrel.pressed = false\nInput.parse_input_event(rel)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "RB again, but only while the Battlewagon isn't armed yet (pass 3). Which unit RB lands on depends on how many of the player's units are shootable — the Warboss now disembarks with the Boyz, which changed that order — and this section only needs the Battlewagon (two eligible targets, so nothing auto-assigns). Same InputEventJoypadButton the runner's simulate_joy_button sends; mirrors the pattern in tut_t4_dakka_reorder_pad."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nif str(pi.active_shooter_id) == \"U_BATTLEWAGON_T\":\n\treturn \"ok\"\nvar press = InputEventJoypadButton.new()\npress.device = 0\npress.button_index = JOY_BUTTON_RIGHT_SHOULDER\npress.pressed = true\nInput.parse_input_event(press)\nvar rel = InputEventJoypadButton.new()\nrel.device = 0\nrel.button_index = JOY_BUTTON_RIGHT_SHOULDER\nrel.pressed = false\nInput.parse_input_event(rel)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "RB again, but only while the Battlewagon isn't armed yet (pass 4). Which unit RB lands on depends on how many of the player's units are shootable — the Warboss now disembarks with the Boyz, which changed that order — and this section only needs the Battlewagon (two eligible targets, so nothing auto-assigns). Same InputEventJoypadButton the runner's simulate_joy_button sends; mirrors the pattern in tut_t4_dakka_reorder_pad."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
     },
     {
       "act": "execute_script",
