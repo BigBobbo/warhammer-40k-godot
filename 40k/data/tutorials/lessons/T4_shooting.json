@@ -21,6 +21,7 @@
       "Each gun rolls to hit, den to wound, den da defender saves — kills from one gun are gone before da next fires.",
       "[b]Fast Roll All ⏩[/b] rolls everyfin'; [b]Roll to Hit ▶[/b] goes step by step. [b]Done[/b] closes each save card.",
       "[b]Complete Shooting[/b] finishes da unit — den pick da next shooter or end da phase.",
+      "Da [b]Dice Log[/b] tab on da left panel keeps every roll — check it when a result looks fishy.",
       "[b]Shoot All Remaining[/b] auto-fires every unit ya ain't bothered aimin' yerself.",
       "Next lesson: 'Ere We Go! — chargin'."
     ]
@@ -177,6 +178,26 @@
       "hint": {
         "text": "Da 'Every step' dropdown picks how often da rollin' pauses. Stuck? Da big dock button always shows da next step."
       }
+    },
+    {
+      "id": "dice_log",
+      "prompt": {
+        "bark": "CHECK DA NUMBERS!",
+        "kbm": "Every one of dem rolls got written down. Click da [b]Dice Log[/b] tab on da panel down da left — hits, wounds an' saves, da lot of it.",
+        "pad": "Every roll got written down. Da left panel ain't on da {dpad} route, so dis is cursor work: glide {ls} onto da [b]Dice Log[/b] tab an' press {a} — hits, wounds an' saves, da lot of it."
+      },
+      "anchor": {
+        "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog"
+      },
+      "spotlight": "soft",
+      "allow": [],
+      "done": {
+        "script": "var glp = tree.root.get_node_or_null(\"/root/Main/GameLogPanel\")\nreturn glp != null and str(glp.get_active_tab()) == \"dice\""
+      },
+      "hint": {
+        "text": "Da tab's up top of da left panel, next to [b]Game Log[/b] — it's wearin' a ● 'cos dere's rolls ya ain't read yet."
+      },
+      "comment": "This lived in T1 (Scoutin' da Field) between the datasheet steps, where it asked the player to open the Dice Log before anything had been rolled — an empty panel. It sits here instead: 'roll_da_dice' above it only completes once U_BOYZ_T.flags.has_shot is true, so by the time this step is up the shooting phase has written its hit/wound/save blocks into the shared dice log (see tests/scenarios/sp/dice_log_left_tab_shooting.json) and the tab is carrying its unread ● nudge."
     },
     {
       "id": "end_phase",

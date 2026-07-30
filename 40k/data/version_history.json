@@ -2,13 +2,49 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.21",
+      "version": "1.7.24",
       "date": "2026-07-30",
       "summary": "The tutorial's instruction card no longer hides behind the Declare Battle Formations window.",
       "changes": [
         "Step 1 of 8 in 'Musterin' da Boyz' put the instruction card on the left flank at a fixed width and assumed the Battle Formations window left room for it. On anything but a very wide screen it didn't — the end of the instruction, the step counter and the Skip Step / Exit Tutorial buttons all sat behind the window. Anyone who had nudged the UI Scale slider up, or was playing on a controller (which enlarges the UI), lost part of every card that shares the screen with a pop-up.",
         "The card now measures the space actually left beside an open window and re-wraps itself to fit it, so the whole card stays readable and clickable. If there is more room on the other side of the window, it moves there instead.",
         "When a pop-up doesn't reach the card's usual spot at the top of the screen, the card now simply stays there at full width instead of jumping to the side."
+      ]
+    },
+    {
+      "version": "1.7.23",
+      "date": "2026-07-30",
+      "summary": "Tutorial instructions on a controller now point at the D-pad wherever the D-pad can get there — and A on a tutorial dialog no longer presses 'Exit Tutorial'.",
+      "changes": [
+        "On a controller or Steam Deck the tutorial kept telling you to glide the left stick onto things the D-pad already walks — starting with step 1 of Musterin' da Boyz, which sent you hunting for the 'Warboss →' dropdown. Every pad prompt now leads with the D-pad where the D-pad works.",
+        "Where the D-pad genuinely cannot reach — the Dice Log tab in Dakka Time, the Stratagems button on the bottom bar, and anything you place on the board — the step says so instead of pretending, so you know when to reach for the stick.",
+        "Picking a unit row is the bumpers' job, not the D-pad's, so the steps that need a row (deployment rows, the embarked Boyz + Warboss row in Get Movin') now say to tap RB. Cycling onto the embarked mob pops the disembark dialog on its own.",
+        "Get Movin' told pad players to click an Advance radio and a Confirm Movement Mode button they never see: the D-pad opens the on-screen move menu and A takes the mode. The step now teaches that, and 'End This Unit's Move' is named as the ☰ button it actually is on a pad.",
+        "The tutorial's 'Exit Tutorial' button, which is added into game dialogs so you can always leave, was stealing the controller's starting focus on the roll-off and re-roll dialogs. Following the step and pressing A opened the leave-the-tutorial confirm instead of rolling the dice. It is now a last-resort focus target, so A lands on the dialog's own button."
+      ]
+    },
+    {
+      "version": "1.7.22",
+      "date": "2026-07-30",
+      "summary": "The Dice Log lesson moved out of 'Scoutin' da Field' and into 'Dakka Time', where there are actually some rolls to read.",
+      "changes": [
+        "Step 6 of Tutorial 1 ('Scoutin' da Field') used to tell you to click the Dice Log tab — before a single die had been rolled, so you switched to a blank panel and learned nothing from it. That step is gone.",
+        "In its place, Tutorial 1 just points at the log panel down the left: Game Log for the story so far, Dice Log for every roll once they start. No click into an empty log, and it says outright that Dakka Time is where you'll use it.",
+        "Tutorial 4 ('Dakka Time') now has that step, straight after the shooting rolls: new step 'CHECK DA NUMBERS!' sends you to the Dice Log tab (wearing its unread dot) to read the hits, wounds and saves you just made.",
+        "Fixed while moving it: the Dice Log tab stayed empty for the whole phase whenever a battle STARTED in the shooting, charge or fight phase — every tutorial lesson from 'Dakka Time' on, and any save you loaded mid-combat. The phase's controls are built before the left-hand log panel exists, so the dice output went to a throwaway label instead of the tab you can actually read. Normal play never showed it because a battle begins in deployment."
+      ]
+    },
+    {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "Nudging an already-placed model during deployment now behaves like placing it: you can turn it, and the old spot actually empties.",
+      "changes": [
+        "You could not rotate a model you had picked back up. Every rotate input — Q/E, the mouse wheel, and the controller's hold-R3 + LB/RB — was hard-wired to the ghost waiting for the NEXT model, so the model in your hand went down at whatever angle it started at.",
+        "That misdirected rotation is also what you saw spinning: the ghost it was turning sat parked over the model's old position, so it looked like the original was rotating instead of the one you were moving.",
+        "The old position no longer stays occupied. Once the last model of a unit was placed, its leftover ghost was never cleared and froze there for the rest of the deployment — picking a model up and putting it somewhere else left that ghost behind, looking like the model had been duplicated. The pending ghost is now also hidden for as long as you are holding a model.",
+        "A model is picked up at the facing it is currently sitting at, and dropped at whatever facing you turned it to — the drop checks the deployment zone and overlaps against that real angle, so a turned oval or rectangular base can't be dropped somewhere its actual footprint doesn't fit.",
+        "Repositioning a model of a unit deployed together with an attached character now moves the right token. It was looked up under the wrong name, so that model's marker was left behind at its old spot.",
+        "The controller hint bar while a model is in hand now shows \"R3 Hold: LB/RB Rotate\" so the turn combo is actually discoverable."
       ]
     },
     {

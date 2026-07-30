@@ -1,0 +1,386 @@
+{
+  "id": "tut_t2_musterin_pad_dpad",
+  "covers": [
+    "tutorial.t2.musterin.pad",
+    "tutorial.prompts.dpad_priority",
+    "pad.dialog_focus.tutorial_exit"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Reported on the controller / Steam Deck: step 1 of Musterin' da Boyz told a pad player to 'glide {ls} onto da Warboss dropdown' even though the Battle Formations dialog is an ordinary focus chain the D-pad already walks - and the same left-stick-first wording ran through the other lessons. The pad prompts now lead with the D-pad wherever the D-pad can actually get there, so this scenario drives the whole opening of T2 with the D-pad and A ONLY: there is no pad_cursor_glide anywhere in the run. It also pins the dialog-focus half of the fix - the tutorial's injected 'Exit Tutorial' button is no longer the pad's auto-focus pick, so A on the roll-off dialog rolls the dice instead of opening the leave-the-tutorial confirm, which is what a player following the step actually got.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var mm = tree.root.get_node_or_null(\"/root/MainMenu\")\nif mm != null and mm._tutorial_nudge != null and mm._tutorial_nudge.visible:\n\tmm._tutorial_nudge._on_dismiss()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "retire the first-launch nudge so this scenario also runs standalone on a pristine profile"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode - every prompt below is the 'pad' variant"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "var x = InputDeviceManager.is_pad_active()\nreturn x",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.start_lesson(\"t2_musterin\")\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 18.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var x = TutorialManager.current_step_id()\nreturn x",
+      "multiline": true,
+      "equals": "attach_warboss"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/FormationsDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nreturn t.contains(\"[✚]\") and not t.to_lower().contains(\"glide\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "THE FIX: the step's pad prompt names the D-pad and no longer sends the player hunting with the left stick"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar f = d.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"null\"",
+      "multiline": true,
+      "equals": "ConfirmButton",
+      "comment": "the dialog hands the pad a focus to walk from - which is what makes the D-pad route real"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_formations_pad_prompt"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "D-pad up walks the dialog's focus chain to its top row - the 'Warboss ->' leader dropdown (it clamps there, so extra taps are harmless)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar f = d.gui_get_focus_owner()\nreturn f is OptionButton and f.has_meta(\"character_id\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the D-pad really lands on the leader-attachment dropdown - no cursor involved"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A opens the dropdown popup"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "D-pad down walks the popup onto 'Boyz (10 models)'"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [d]\nwhile not q.is_empty():\n\tvar n = q.pop_back()\n\tif n is OptionButton and n.has_meta(\"character_id\"):\n\t\treturn n.selected\n\tfor c in n.get_children():\n\t\tq.append(c)\nreturn -1",
+      "multiline": true,
+      "equals": 1,
+      "comment": "Warboss -> Boyz, attached with the D-pad alone"
+    },
+    {
+      "act": "execute_script",
+      "script": "var x = TutorialManager.current_step_id()\nreturn x",
+      "multiline": true,
+      "equals": "embark_boyz"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_warboss_attached_via_dpad"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "back down to the TRANSPORT EMBARKATION tickboxes - Warlord, Warboss, then Boyz"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar f = d.gui_get_focus_owner()\nreturn f is CheckBox and str(f.text).begins_with(\"Boyz\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "var x = TutorialManager.current_step_id()\nreturn x",
+      "multiline": true,
+      "equals": "confirm_formations"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "down past the last tickbox lands on Skip, exactly as the step says (the chain clamps there, so extra taps are harmless)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar f = d.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"null\"",
+      "multiline": true,
+      "equals": "SkipButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "and right swaps onto Confirm Formations"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 14
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar f = d.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"null\"",
+      "multiline": true,
+      "equals": "ConfirmButton"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var x = TutorialManager.current_step_id()\nreturn x",
+      "multiline": true,
+      "equals": "roll_off"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"/root/Main/RollOffDialog\")\nif d == null:\n\treturn \"no dialog\"\nvar f = d.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"null\"",
+      "multiline": true,
+      "equals": "RollButton",
+      "comment": "THE SECOND FIX: the tutorial's injected Exit Tutorial button used to win the pad's auto-focus here, so the step's 'press A on da dialog's Roll button' opened the leave-the-tutorial confirm instead. It is a last-resort target now."
+    },
+    {
+      "act": "screenshot",
+      "label": "03_rolloff_focus_on_roll_button"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A rolls the dice"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"/root/Main/RollOffDialog\")\nif d == null or not d.visible:\n\treturn \"gone\"\nvar f = d.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"null\"",
+      "multiline": true,
+      "not_equals": "TutorialExitButton",
+      "comment": "and the post-roll refocus never falls back onto Exit Tutorial either - that is how the second A used to boot the player out"
+    },
+    {
+      "act": "execute_script",
+      "script": "var found = false\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar n = q.pop_back()\n\tif n is Window and n.visible and str(n.name) == \"TutorialExitConfirm\":\n\t\tfound = true\n\tfor c in n.get_children():\n\t\tq.append(c)\nreturn found",
+      "multiline": true,
+      "equals": false,
+      "comment": "no leave-the-tutorial confirm was ever raised during this run"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var x = TutorialManager.current_step_id()\nreturn x",
+      "multiline": true,
+      "equals": "rotate_wagon",
+      "comment": "the whole opening of the lesson, D-pad and A only - no glide anywhere in this scenario"
+    },
+    {
+      "act": "execute_script",
+      "script": "var lib = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar bad = 0\nfor f in [\"T1_basics\", \"T2_deployment\", \"T3_movement\", \"T4_shooting\", \"T5_charge\", \"T6_fight\", \"T7_command\"]:\n\tvar res = lib.load_lesson(\"res://data/tutorials/lessons/\" + f + \".json\")\n\tif not res.ok:\n\t\tbad += 1\nreturn bad",
+      "multiline": true,
+      "equals": 0,
+      "comment": "every lesson file still validates after the prompt rewrite"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_deployment_reached"
+    }
+  ]
+}
