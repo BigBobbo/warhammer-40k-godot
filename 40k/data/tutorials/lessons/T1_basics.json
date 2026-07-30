@@ -14,7 +14,7 @@
     "bullets": [
       "Camera: pan an' zoom anywhere on da table.",
       "Units: pick 'em from da list or da board, datasheet for da full stats.",
-      "Da left panel logs everyfing — Game Log an' Dice Log tabs.",
+      "Da left panel logs everyfing — Game Log for da story, Dice Log for every roll once dey start.",
       "Da big red button ends da phase. Da small one ends a unit's move.",
       "Forgot a control? Da pause menu (Escape, or View on a pad) lists every key under Controls an' every button under Controller.",
       "Next lesson: Musterin' da Boyz — deployment, transports an' leaders."
@@ -143,20 +143,20 @@
       }
     },
     {
-      "id": "dice_log",
+      "id": "log_panel",
       "prompt": {
         "bark": "DA PAPERWORK!",
-        "kbm": "Da left panel logs everyfing wot 'appens. Click da [b]Dice Log[/b] tab — every roll ends up dere.",
-        "pad": "Da left panel logs everyfing — an' it's da one bit da {dpad} can't reach, so dis is cursor work: glide {ls} onto da [b]Dice Log[/b] tab an' press {a}."
+        "text": "Da panel down da left logs everyfing wot 'appens. [b]Game Log[/b] is da story so far; da [b]Dice Log[/b] tab catches every roll — nuffin's been rolled yet, so it's empty. Dakka Time puts it to work."
       },
       "anchor": {
-        "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog"
+        "node": "/root/Main/GameLogPanel"
       },
       "spotlight": "soft",
       "allow": [],
       "done": {
-        "script": "var glp = tree.root.get_node_or_null(\"/root/Main/GameLogPanel\")\nreturn glp != null and str(glp._active_tab) == \"dice\""
-      }
+        "ack": true
+      },
+      "comment": "This step used to tell the player to CLICK the Dice Log tab, in this very slot — before a single die had been rolled, so they switched to a blank panel and learned nothing. The real 'open the Dice Log and read your rolls' step now lives in T4 (Dakka Time) immediately after the shooting rolls, where the log actually has content. This keeps the log panel on the orientation tour (it is in the lesson summary) but only points at it — no click into an empty log."
     },
     {
       "id": "hint_bar",
