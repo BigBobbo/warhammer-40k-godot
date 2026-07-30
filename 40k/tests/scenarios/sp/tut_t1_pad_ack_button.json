@@ -194,12 +194,12 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "dice_log"
+      "equals": "log_panel"
     },
     {
       "act": "pad_cursor_glide",
-      "button_text": "Dice Log",
-      "comment": "the ONE glide in this run - the step teaches the cursor, and it is what leaves the cursor active and armed the reported trap"
+      "node": "/root/Main/GameLogPanel",
+      "comment": "the ONE glide in this run - it parks the cursor on the panel this step points at, and (the load-bearing part) leaves VirtualCursor ACTIVE, which is what arms the reported trap on the next step. Not a click target: the step is ack-only, Ⓐ below goes to Continue."
     },
     {
       "act": "simulate_joy_button",

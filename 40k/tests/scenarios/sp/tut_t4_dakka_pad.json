@@ -354,11 +354,49 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "end_phase"
+      "equals": "dice_log",
+      "comment": "the Dice Log step moved here from T1, where the pad player was glided onto the tab before any dice existed"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.current_scene.game_log_panel.get_dice_log_display().get_total_character_count()",
+      "expect_min": 1,
+      "multiline": true,
+      "comment": "the rolls the step sends them to read are really in the log by now"
     },
     {
       "act": "screenshot",
       "label": "05_boyz_shot_pad"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog",
+      "comment": "glide by node, NOT button_text: the tab's label is 'Dice Log  ●' while there is unread output, and _find_visible_button_by_text matches exactly"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "no shooter is armed any more, so A falls through to the virtual cursor and clicks the tab"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.current_scene.game_log_panel.get_active_tab()",
+      "multiline": true,
+      "equals": "dice"
+    },
+    {
+      "act": "screenshot",
+      "label": "05b_dice_log_pad",
+      "region": [0, 100, 360, 760]
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_phase"
     },
     {
       "act": "simulate_joy_button",
