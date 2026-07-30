@@ -147,7 +147,7 @@
       "prompt": {
         "bark": "DA PAPERWORK!",
         "kbm": "Da left panel logs everyfing wot 'appens. Click da [b]Dice Log[/b] tab — every roll ends up dere.",
-        "pad": "Da left panel logs everyfing. Glide {ls} onto da [b]Dice Log[/b] tab an' press {a}."
+        "pad": "Da left panel logs everyfing — an' it's da one bit da {dpad} can't reach, so dis is cursor work: glide {ls} onto da [b]Dice Log[/b] tab an' press {a}."
       },
       "anchor": {
         "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog"
