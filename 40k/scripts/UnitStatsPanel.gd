@@ -97,7 +97,7 @@ func _ready() -> void:
 	# Connect the toggle button
 	if toggle_button:
 		toggle_button.pressed.connect(_on_toggle_pressed)
-		toggle_button.add_theme_font_size_override("font_size", 14)
+		toggle_button.add_theme_font_size_override("font_size", 18)
 		_WhiteDwarfTheme.apply_to_button(toggle_button)
 		print("UnitStatsPanel: Toggle button connected")
 
@@ -185,11 +185,19 @@ func set_collapsed(collapsed: bool) -> void:
 	var target_height = 40 if collapsed else 300
 	tween.tween_property(self, "custom_minimum_size:y", target_height, 0.3)
 
-	# Also update the offset to expand upward
-	var target_offset = -40 if collapsed else -300
+	# Also update the offset to expand upward. While a controller is active the
+	# PadHintBar glyph strip owns the bottom ~48px (Steam Deck) — shift the whole
+	# sheet above it so the toggle header stays visible and clickable.
+	var target_offset = (-40 if collapsed else -300) - _pad_bottom_inset()
 	tween.parallel().tween_property(self, "offset_top", target_offset, 0.3)
 
 	print("UnitStatsPanel: Target height = ", target_height, ", Target offset = ", target_offset)
+
+func _pad_bottom_inset() -> float:
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm != null and idm.has_method("is_pad_active") and idm.is_pad_active():
+		return 48.0
+	return 0.0
 
 func hide_panel() -> void:
 	"""Hide the unit stats panel completely."""
@@ -423,7 +431,7 @@ func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContai
 		var ranged_label = Label.new()
 		# Signal when the list is the resolved loadout rather than the full menu.
 		ranged_label.text = "RANGED WEAPONS (as equipped)" if ranged_resolved else "RANGED WEAPONS"
-		ranged_label.add_theme_font_size_override("font_size", 14)
+		ranged_label.add_theme_font_size_override("font_size", 18)
 		ranged_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 		weapons_container.add_child(ranged_label)
 
@@ -436,7 +444,7 @@ func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContai
 		for header in ["Weapon", "Range", "A", "BS", "S", "AP", "D", "Abilities"]:
 			var label = Label.new()
 			label.text = header
-			label.add_theme_font_size_override("font_size", 12)
+			label.add_theme_font_size_override("font_size", 16)
 			label.modulate = _WhiteDwarfTheme.WH_GOLD  # Gold tint for ranged headers
 			ranged_grid.add_child(label)
 
@@ -467,7 +475,7 @@ func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContai
 
 		var melee_label = Label.new()
 		melee_label.text = "MELEE WEAPONS (as equipped)" if melee_resolved else "MELEE WEAPONS"
-		melee_label.add_theme_font_size_override("font_size", 14)
+		melee_label.add_theme_font_size_override("font_size", 18)
 		melee_label.add_theme_color_override("font_color", Color(0.9, 0.4, 0.35))  # Lightened WH red
 		weapons_container.add_child(melee_label)
 
@@ -480,7 +488,7 @@ func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContai
 		for header in ["Weapon", "Range", "A", "WS", "S", "AP", "D", "Abilities"]:
 			var label = Label.new()
 			label.text = header
-			label.add_theme_font_size_override("font_size", 12)
+			label.add_theme_font_size_override("font_size", 16)
 			label.modulate = Color(0.9, 0.4, 0.35)  # Lightened WH red for melee headers
 			melee_grid.add_child(label)
 
@@ -569,7 +577,7 @@ func _add_weapon_row(grid: GridContainer, weapon: Dictionary, type: String, name
 	for i in range(cells.size()):
 		var label = Label.new()
 		label.text = str(cells[i])
-		label.add_theme_font_size_override("font_size", 11)
+		label.add_theme_font_size_override("font_size", 16)
 		if i == 0:
 			label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 		grid.add_child(label)
@@ -587,7 +595,7 @@ func _create_abilities_list(unit_data: Dictionary, abilities_container: VBoxCont
 	if not abilities.is_empty():
 		var abilities_label = Label.new()
 		abilities_label.text = "ABILITIES"
-		abilities_label.add_theme_font_size_override("font_size", 14)
+		abilities_label.add_theme_font_size_override("font_size", 18)
 		abilities_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 		abilities_container.add_child(abilities_label)
 
@@ -605,7 +613,7 @@ func _create_abilities_list(unit_data: Dictionary, abilities_container: VBoxCont
 				name_label.text += " (" + ability.get("type", "") + ")"
 			if state_tag != "":
 				name_label.text += "  " + state_tag
-			name_label.add_theme_font_size_override("font_size", 12)
+			name_label.add_theme_font_size_override("font_size", 16)
 			name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			if is_active:
 				name_label.modulate = _WhiteDwarfTheme.WH_PARCHMENT
@@ -617,7 +625,7 @@ func _create_abilities_list(unit_data: Dictionary, abilities_container: VBoxCont
 			if desc != "":
 				var desc_label = Label.new()
 				desc_label.text = "  " + desc
-				desc_label.add_theme_font_size_override("font_size", 10)
+				desc_label.add_theme_font_size_override("font_size", 16)
 				desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				if not is_active:
 					desc_label.modulate = Color(0.5, 0.5, 0.5, 1.0)
@@ -706,7 +714,7 @@ func _create_detachment_ability_section(unit_data: Dictionary, abilities_contain
 
 	var det_header = Label.new()
 	det_header.text = "DETACHMENT ABILITY"
-	det_header.add_theme_font_size_override("font_size", 14)
+	det_header.add_theme_font_size_override("font_size", 18)
 	det_header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	abilities_container.add_child(det_header)
 
@@ -714,7 +722,7 @@ func _create_detachment_ability_section(unit_data: Dictionary, abilities_contain
 
 	var name_label = Label.new()
 	name_label.text = "• " + ability_info.get("ability_name", detachment)
-	name_label.add_theme_font_size_override("font_size", 12)
+	name_label.add_theme_font_size_override("font_size", 16)
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# Orky green for Freebooter Krew, parchment for others
 	if detachment == "Freebooter Krew":
@@ -727,7 +735,7 @@ func _create_detachment_ability_section(unit_data: Dictionary, abilities_contain
 	if desc != "":
 		var desc_label = Label.new()
 		desc_label.text = "  " + desc
-		desc_label.add_theme_font_size_override("font_size", 10)
+		desc_label.add_theme_font_size_override("font_size", 16)
 		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		ability_container.add_child(desc_label)
 
@@ -742,7 +750,7 @@ func _create_detachment_ability_section(unit_data: Dictionary, abilities_contain
 		else:
 			loot_status_label.text = "  (No Loot Objective selected this round)"
 			loot_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 1.0))
-		loot_status_label.add_theme_font_size_override("font_size", 10)
+		loot_status_label.add_theme_font_size_override("font_size", 16)
 		ability_container.add_child(loot_status_label)
 
 	abilities_container.add_child(ability_container)
@@ -782,14 +790,14 @@ func _create_composition_list(unit_data: Dictionary, composition_container: VBox
 
 	var comp_label = Label.new()
 	comp_label.text = "UNIT COMPOSITION"
-	comp_label.add_theme_font_size_override("font_size", 14)
+	comp_label.add_theme_font_size_override("font_size", 18)
 	comp_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	composition_container.add_child(comp_label)
 
 	for comp_item in composition:
 		var item_label = Label.new()
 		item_label.text = "• " + comp_item.get("description", "Unknown")
-		item_label.add_theme_font_size_override("font_size", 11)
+		item_label.add_theme_font_size_override("font_size", 16)
 		item_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		composition_container.add_child(item_label)
 
@@ -804,7 +812,7 @@ func _create_composition_list(unit_data: Dictionary, composition_container: VBox
 
 		var model_status = Label.new()
 		model_status.text = "Models: %d/%d alive" % [alive_count, total_count]
-		model_status.add_theme_font_size_override("font_size", 11)
+		model_status.add_theme_font_size_override("font_size", 16)
 		model_status.modulate = Color(0.8, 1.0, 0.8) if alive_count == total_count else Color(1.0, 0.8, 0.8)
 		composition_container.add_child(model_status)
 
@@ -815,7 +823,7 @@ func _create_model_profiles_breakdown(container: VBoxContainer, model_profiles: 
 
 	var comp_label = Label.new()
 	comp_label.text = "MODEL COMPOSITION"
-	comp_label.add_theme_font_size_override("font_size", 14)
+	comp_label.add_theme_font_size_override("font_size", 18)
 	comp_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	container.add_child(comp_label)
 
@@ -845,7 +853,7 @@ func _create_model_profiles_breakdown(container: VBoxContainer, model_profiles: 
 
 		var type_label = Label.new()
 		type_label.text = count_text
-		type_label.add_theme_font_size_override("font_size", 12)
+		type_label.add_theme_font_size_override("font_size", 16)
 		if counts["alive"] == 0:
 			type_label.modulate = Color(0.5, 0.3, 0.3)  # Dim red for wiped out
 		elif counts["alive"] < counts["total"]:
@@ -859,7 +867,7 @@ func _create_model_profiles_breakdown(container: VBoxContainer, model_profiles: 
 		if not stats_override.is_empty():
 			var override_label = Label.new()
 			override_label.text = "  " + _format_stats_override(stats_override, unit_stats)
-			override_label.add_theme_font_size_override("font_size", 10)
+			override_label.add_theme_font_size_override("font_size", 16)
 			override_label.modulate = Color(0.9, 0.85, 0.7)  # Slightly gold tint
 			container.add_child(override_label)
 
@@ -872,7 +880,7 @@ func _create_model_profiles_breakdown(container: VBoxContainer, model_profiles: 
 		if not profile_weapons.is_empty():
 			var weapons_label = Label.new()
 			weapons_label.text = "  Weapons: " + _format_profile_weapons(models, profile_key, profile_weapons, meta)
-			weapons_label.add_theme_font_size_override("font_size", 10)
+			weapons_label.add_theme_font_size_override("font_size", 16)
 			weapons_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			container.add_child(weapons_label)
 
@@ -883,7 +891,7 @@ func _create_model_profiles_breakdown(container: VBoxContainer, model_profiles: 
 		unk_label.text = "%dx Unknown type" % unk["total"]
 		if unk["alive"] < unk["total"]:
 			unk_label.text += "  [%d/%d alive]" % [unk["alive"], unk["total"]]
-		unk_label.add_theme_font_size_override("font_size", 12)
+		unk_label.add_theme_font_size_override("font_size", 16)
 		unk_label.modulate = Color(0.7, 0.7, 0.7)
 		container.add_child(unk_label)
 
@@ -902,7 +910,7 @@ func _create_model_profiles_breakdown(container: VBoxContainer, model_profiles: 
 
 	var total_label = Label.new()
 	total_label.text = "Total: %d/%d models alive" % [total_alive, total_count]
-	total_label.add_theme_font_size_override("font_size", 11)
+	total_label.add_theme_font_size_override("font_size", 16)
 	total_label.modulate = Color(0.8, 1.0, 0.8) if total_alive == total_count else Color(1.0, 0.8, 0.8)
 	container.add_child(total_label)
 

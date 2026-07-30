@@ -105,7 +105,7 @@ func _make_option_chip(label_text: String, highlighted: bool) -> Control:
 
 	var label := Label.new()
 	label.text = label_text
-	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_font_size_override("font_size", 19)
 	var color: Color = _UIConstants.NEUTRAL_UI_PALE_WHITE
 	label.add_theme_color_override("font_color", color if highlighted else Color(color, 0.75))
 	badge.add_child(label)
@@ -138,7 +138,7 @@ func _build() -> void:
 
 	_title_label = Label.new()
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.add_theme_font_size_override("font_size", 12)
+	_title_label.add_theme_font_size_override("font_size", 16)
 	_title_label.add_theme_color_override("font_color", Color(_UIConstants.NEUTRAL_UI_PALE_WHITE, 0.6))
 	_column.add_child(_title_label)
 

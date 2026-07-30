@@ -39,7 +39,7 @@ func refresh() -> void:
 		label.name = "Badge_%s" % fid
 		label.text = " · ".join(PackedStringArray(lines))
 		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-		label.add_theme_font_size_override("font_size", 16)
+		label.add_theme_font_size_override("font_size", 20)
 		label.add_theme_constant_override("outline_size", 3)
 		label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
 		label.add_theme_color_override("font_color",

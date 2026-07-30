@@ -162,7 +162,7 @@ func _create_marker_cross_and_labels(label_offset: float) -> void:
 	control_indicator.name = "ControlIndicator"
 	control_indicator.text = "Uncontrolled"
 	control_indicator.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	control_indicator.add_theme_font_size_override("font_size", 16)
+	control_indicator.add_theme_font_size_override("font_size", 20)
 	control_indicator.add_theme_color_override("font_color", Color(1.0, 0.95, 0.7, 1.0))
 	control_indicator.add_theme_constant_override("outline_size", 3)
 	control_indicator.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.8))
@@ -177,7 +177,7 @@ func _create_marker_cross_and_labels(label_offset: float) -> void:
 	var display_id = raw_id.replace("_", " ")
 	id_label.text = display_id
 	id_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	id_label.add_theme_font_size_override("font_size", 16)
+	id_label.add_theme_font_size_override("font_size", 20)
 	id_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8, 1.0))
 	id_label.add_theme_constant_override("outline_size", 4)
 	id_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
@@ -366,7 +366,7 @@ func set_tempting_target(enabled: bool, player: int = 0) -> void:
 			tempting_target_label = Label.new()
 			tempting_target_label.name = "TemptingTargetLabel"
 			tempting_target_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-			tempting_target_label.add_theme_font_size_override("font_size", 13)
+			tempting_target_label.add_theme_font_size_override("font_size", 17)
 			tempting_target_label.add_theme_constant_override("outline_size", 3)
 			tempting_target_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
 			tempting_target_label.z_index = 10
@@ -389,7 +389,7 @@ func set_loot_objective(enabled: bool, player: int = 0) -> void:
 			loot_objective_label = Label.new()
 			loot_objective_label.name = "LootObjectiveLabel"
 			loot_objective_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-			loot_objective_label.add_theme_font_size_override("font_size", 13)
+			loot_objective_label.add_theme_font_size_override("font_size", 17)
 			loot_objective_label.add_theme_constant_override("outline_size", 3)
 			loot_objective_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
 			loot_objective_label.z_index = 10
@@ -420,7 +420,7 @@ func set_card_action_badges(badges: Array) -> void:
 		card_action_label = Label.new()
 		card_action_label.name = "CardActionBadges"
 		card_action_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-		card_action_label.add_theme_font_size_override("font_size", 16)
+		card_action_label.add_theme_font_size_override("font_size", 20)
 		card_action_label.add_theme_constant_override("outline_size", 3)
 		card_action_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
 		card_action_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0, 1.0))

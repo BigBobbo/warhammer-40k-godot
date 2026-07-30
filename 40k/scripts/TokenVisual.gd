@@ -65,7 +65,7 @@ func _ready() -> void:
 	lbl.text = str(model_number)
 	lbl.position = Vector2(-6, 12)  # under the base
 	lbl.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
-	lbl.add_theme_font_size_override("font_size", 10)
+	lbl.add_theme_font_size_override("font_size", 16)
 	add_child(lbl)
 	# T15: silhouette child (procedural). Drawn first so rings render on top.
 	var silhouette := _t15_make_silhouette()
@@ -155,7 +155,7 @@ func _t18_ensure_chip() -> void:
 	_t18_chip = Label.new()
 	_t18_chip.name = "WoundChip"
 	_t18_chip.position = Vector2(10, 22)  # base edge, lower right
-	_t18_chip.add_theme_font_size_override("font_size", 11)
+	_t18_chip.add_theme_font_size_override("font_size", 16)
 	_t18_chip.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
 	_t18_chip.visible = false
 	add_child(_t18_chip)
@@ -198,7 +198,7 @@ func _t17_ensure_status_slots() -> void:
 		var lbl := Label.new()
 		lbl.name = slot_name
 		lbl.position = positions[slot_name]
-		lbl.add_theme_font_size_override("font_size", 9)
+		lbl.add_theme_font_size_override("font_size", 16)
 		lbl.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
 		lbl.visible = false
 		add_child(lbl)

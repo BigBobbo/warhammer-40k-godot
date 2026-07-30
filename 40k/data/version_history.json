@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.24",
+      "version": "1.8.1",
       "date": "2026-07-30",
       "summary": "Tutorial dice pop-ups are fully yours again on a controller — the 'Exit Tutorial' button is gone from them unless you actually need it — and confirming an Advance in 'Get Movin'' stops throwing a bogus error.",
       "changes": [
@@ -11,6 +11,20 @@
         "The roll-off's \"Roll the dice\" is now recognised as the button A should press — its dice symbol was hiding the word from the controller's focus picker, so it fell back to whatever button it happened to find first.",
         "The greyed-out Exit Tutorial on the tutorial card now says why — \"finish the dialog first\" when you can simply close it, rather than pointing at a button that isn't there.",
         "'Get Movin'' step 5: confirming the Battlewagon's Advance threw \"tutorial_locked\" and the movement mode never actually locked in. One click sends two things (start the Advance, then lock the mode) and the lesson had already moved on to the re-roll step, which refused the second half."
+      ]
+    },
+    {
+      "version": "1.8.0",
+      "date": "2026-07-30",
+      "summary": "Steam Deck legibility overhaul: every piece of UI text is now readable on a handheld screen.",
+      "changes": [
+        "All in-game text has been rebuilt around a handheld-readable minimum. Over 800 labels, buttons, log entries, dialogs and panels that used tiny 7-14px fonts now start at 16px and scale up from there, meeting Valve's Steam Deck legibility guidelines (9px minimum / 12px recommended character height at 1280x800) when combined with the existing controller text boost.",
+        "The top bar no longer overflows on a Deck-sized screen: the AI Suggestion button and AI speed selector moved into the right-hand panel, the scoreboard's CP chips dropped the (color-coded, tooltipped) faction names, the round chip shows 'P1/P2' instead of the full faction, and the status message trims with an ellipsis (hover it for the full text) instead of pushing buttons underneath the End Phase button.",
+        "While playing with a controller, the bottom glyph strip no longer covers the newest game-log entry, the unit card's buttons, the phase progress strip or the Unit Stats sheet - the side panels now reserve that strip's height.",
+        "Movement mode options (Normal Move / Advance / Fall Back / Remain Still) wrap into a 2x2 grid instead of clipping off the panel edge.",
+        "The Stratagems panel is wider, and long 'why can't I use this' explanations wrap onto extra lines instead of running off the panel behind a horizontal scrollbar.",
+        "Dice value badges in the game log and the secondary-missions placeholder text were still microscopic; both now respect the new floor.",
+        "A global theme raises the default font size for anything not explicitly styled (tooltips, popup menus, list rows)."
       ]
     },
     {

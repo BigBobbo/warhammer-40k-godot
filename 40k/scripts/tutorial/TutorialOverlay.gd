@@ -138,7 +138,7 @@ func _build() -> void:
 	_instructor_chip = Label.new()
 	_instructor_chip.name = "InstructorChip"
 	_instructor_chip.text = "DA BOSS"
-	_instructor_chip.add_theme_font_size_override("font_size", 12)
+	_instructor_chip.add_theme_font_size_override("font_size", 16)
 	_instructor_chip.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_BLACK)
 	var chip_style := StyleBoxFlat.new()
 	chip_style.bg_color = WhiteDwarfThemeData.WH_GOLD
@@ -155,7 +155,7 @@ func _build() -> void:
 
 	_bark_label = Label.new()
 	_bark_label.name = "BarkLabel"
-	_bark_label.add_theme_font_size_override("font_size", 17)
+	_bark_label.add_theme_font_size_override("font_size", 21)
 	_bark_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	_bark_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_bark_label)
@@ -170,8 +170,8 @@ func _build() -> void:
 	# >= 12px effective at 1280x800 (Steam Deck recommendation; PRP §4.3):
 	# 15px at 1920x1080 canvas-items scaling ~= 10px physical on Deck before the
 	# pad UI-scale boost (x1.2) SettingsService applies in pad mode.
-	_body_text.add_theme_font_size_override("normal_font_size", 15)
-	_body_text.add_theme_font_size_override("bold_font_size", 15)
+	_body_text.add_theme_font_size_override("normal_font_size", 19)
+	_body_text.add_theme_font_size_override("bold_font_size", 19)
 	_body_text.add_theme_color_override("default_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	_body_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(_body_text)
@@ -188,8 +188,8 @@ func _build() -> void:
 	_checklist_text.scroll_active = false
 	_checklist_text.custom_minimum_size = Vector2(560, 0)
 	_checklist_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_checklist_text.add_theme_font_size_override("normal_font_size", 14)
-	_checklist_text.add_theme_font_size_override("bold_font_size", 14)
+	_checklist_text.add_theme_font_size_override("normal_font_size", 18)
+	_checklist_text.add_theme_font_size_override("bold_font_size", 18)
 	_checklist_text.add_theme_color_override("default_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	_checklist_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_checklist_text.visible = false
@@ -199,7 +199,7 @@ func _build() -> void:
 	_hint_label.name = "HintLabel"
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_label.custom_minimum_size = Vector2(560, 0)
-	_hint_label.add_theme_font_size_override("font_size", 13)
+	_hint_label.add_theme_font_size_override("font_size", 17)
 	_hint_label.add_theme_color_override("font_color", UIConstantsData.MARGINAL_YELLOW)
 	_hint_label.visible = false
 	vbox.add_child(_hint_label)
@@ -211,7 +211,7 @@ func _build() -> void:
 
 	_progress_label = Label.new()
 	_progress_label.name = "ProgressLabel"
-	_progress_label.add_theme_font_size_override("font_size", 12)
+	_progress_label.add_theme_font_size_override("font_size", 16)
 	_progress_label.add_theme_color_override("font_color",
 		Color(WhiteDwarfThemeData.WH_PARCHMENT, 0.6))
 	_progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -35,7 +35,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "REINFORCEMENT PLACEMENT"
-	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_font_size_override("font_size", 21)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -43,7 +43,7 @@ func _build_ui() -> void:
 	# Unit name
 	var name_label = Label.new()
 	name_label.text = unit_name
-	name_label.add_theme_font_size_override("font_size", 14)
+	name_label.add_theme_font_size_override("font_size", 18)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(name_label)
 
@@ -54,7 +54,7 @@ func _build_ui() -> void:
 	# Explanation
 	var desc = Label.new()
 	desc.text = "This unit has Deep Strike and was placed in Strategic Reserves.\nChoose which placement rules to use:"
-	desc.add_theme_font_size_override("font_size", 12)
+	desc.add_theme_font_size_override("font_size", 16)
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	main_container.add_child(desc)
@@ -67,7 +67,7 @@ func _build_ui() -> void:
 	# Deep Strike button
 	var ds_button = Button.new()
 	ds_button.text = "Deep Strike (anywhere >9\" from enemies)"
-	ds_button.add_theme_font_size_override("font_size", 14)
+	ds_button.add_theme_font_size_override("font_size", 18)
 	ds_button.custom_minimum_size = Vector2(0, 40)
 	ds_button.pressed.connect(_on_deep_strike_chosen)
 	main_container.add_child(ds_button)
@@ -75,7 +75,7 @@ func _build_ui() -> void:
 	# Strategic Reserves button
 	var sr_button = Button.new()
 	sr_button.text = "Strategic Reserves (within 6\" of board edge)"
-	sr_button.add_theme_font_size_override("font_size", 14)
+	sr_button.add_theme_font_size_override("font_size", 18)
 	sr_button.custom_minimum_size = Vector2(0, 40)
 	sr_button.pressed.connect(_on_strategic_reserves_chosen)
 	main_container.add_child(sr_button)

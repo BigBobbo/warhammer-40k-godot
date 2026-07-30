@@ -979,7 +979,7 @@ func _setup_deployment_progress_indicator() -> void:
 	p1_progress_label = Label.new()
 	p1_progress_label.text = "Player 1 (Defender): 0/0 units deployed"
 	p1_progress_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(1))
-	p1_progress_label.add_theme_font_size_override("font_size", 13)
+	p1_progress_label.add_theme_font_size_override("font_size", 17)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		p1_progress_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	p1_vbox.add_child(p1_progress_label)
@@ -1001,7 +1001,7 @@ func _setup_deployment_progress_indicator() -> void:
 	p2_progress_label = Label.new()
 	p2_progress_label.text = "Player 2 (Attacker): 0/0 units deployed"
 	p2_progress_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(2))
-	p2_progress_label.add_theme_font_size_override("font_size", 13)
+	p2_progress_label.add_theme_font_size_override("font_size", 17)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		p2_progress_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	p2_vbox.add_child(p2_progress_label)
@@ -1103,7 +1103,7 @@ func _setup_waiting_for_opponent_overlay() -> void:
 	waiting_overlay_label.text = "Waiting for opponent to deploy..."
 	waiting_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	waiting_overlay_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
-	waiting_overlay_label.add_theme_font_size_override("font_size", 20)
+	waiting_overlay_label.add_theme_font_size_override("font_size", 23)
 	vbox.add_child(waiting_overlay_label)
 
 	# Timer countdown label
@@ -1111,7 +1111,7 @@ func _setup_waiting_for_opponent_overlay() -> void:
 	waiting_overlay_timer_label.text = ""
 	waiting_overlay_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	waiting_overlay_timer_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	waiting_overlay_timer_label.add_theme_font_size_override("font_size", 14)
+	waiting_overlay_timer_label.add_theme_font_size_override("font_size", 18)
 	vbox.add_child(waiting_overlay_timer_label)
 
 	add_child(waiting_overlay)
@@ -1266,7 +1266,7 @@ func _setup_reactive_stratagem_overlay() -> void:
 	_reactive_stratagem_overlay_label.text = "Waiting for opponent's stratagem decision..."
 	_reactive_stratagem_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_reactive_stratagem_overlay_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
-	_reactive_stratagem_overlay_label.add_theme_font_size_override("font_size", 22)
+	_reactive_stratagem_overlay_label.add_theme_font_size_override("font_size", 24)
 	vbox.add_child(_reactive_stratagem_overlay_label)
 
 	# Timer label
@@ -1274,7 +1274,7 @@ func _setup_reactive_stratagem_overlay() -> void:
 	_reactive_stratagem_overlay_timer_label.text = ""
 	_reactive_stratagem_overlay_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_reactive_stratagem_overlay_timer_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	_reactive_stratagem_overlay_timer_label.add_theme_font_size_override("font_size", 16)
+	_reactive_stratagem_overlay_timer_label.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(_reactive_stratagem_overlay_timer_label)
 
 	_reactive_stratagem_overlay.add_child(_reactive_stratagem_overlay_panel)
@@ -1392,7 +1392,7 @@ func _setup_web_relay_loading_overlay() -> void:
 	subtitle_label.text = "Host is syncing game data..."
 	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	subtitle_label.add_theme_font_size_override("font_size", 16)
+	subtitle_label.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(subtitle_label)
 
 	add_child(_web_relay_loading_overlay)
@@ -1538,7 +1538,7 @@ func _show_save_load_progress(operation: String) -> void:
 	_save_load_progress_label.text = operation + "..."
 	_save_load_progress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_save_load_progress_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
-	_save_load_progress_label.add_theme_font_size_override("font_size", 18)
+	_save_load_progress_label.add_theme_font_size_override("font_size", 21)
 	vbox.add_child(_save_load_progress_label)
 
 	# Detail label: shows current stage (e.g. "Serializing game data...")
@@ -1546,7 +1546,7 @@ func _show_save_load_progress(operation: String) -> void:
 	_save_load_progress_detail.text = ""
 	_save_load_progress_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_save_load_progress_detail.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	_save_load_progress_detail.add_theme_font_size_override("font_size", 13)
+	_save_load_progress_detail.add_theme_font_size_override("font_size", 17)
 	vbox.add_child(_save_load_progress_detail)
 
 	add_child(_save_load_progress_overlay)
@@ -1624,7 +1624,7 @@ func _setup_ai_thinking_indicator() -> void:
 	ai_thinking_label.text = "AI is thinking..."
 	ai_thinking_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ai_thinking_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
-	ai_thinking_label.add_theme_font_size_override("font_size", 18)
+	ai_thinking_label.add_theme_font_size_override("font_size", 21)
 	ai_thinking_overlay.add_child(ai_thinking_label)
 
 	add_child(ai_thinking_overlay)
@@ -1728,7 +1728,7 @@ func _setup_spectator_speed_hud() -> void:
 	_spectator_speed_label.text = "Spectator: 1.0x  [<] [>]"
 	_spectator_speed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_spectator_speed_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
-	_spectator_speed_label.add_theme_font_size_override("font_size", 12)
+	_spectator_speed_label.add_theme_font_size_override("font_size", 16)
 	_spectator_speed_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_spectator_speed_panel.add_child(_spectator_speed_label)
 
@@ -1830,7 +1830,7 @@ func _setup_ai_speed_hud() -> void:
 	_ai_speed_label.text = "AI Speed: Normal  [< >]"
 	_ai_speed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ai_speed_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
-	_ai_speed_label.add_theme_font_size_override("font_size", 12)
+	_ai_speed_label.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(_ai_speed_label)
 
 	# Step-by-step continue button (hidden unless step-by-step mode is paused)
@@ -1986,7 +1986,7 @@ func _setup_phase_timer_hud() -> void:
 	phase_timer_label.text = ""
 	phase_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	phase_timer_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	phase_timer_label.add_theme_font_size_override("font_size", 14)
+	phase_timer_label.add_theme_font_size_override("font_size", 18)
 	phase_timer_label.custom_minimum_size = Vector2(100, 0)
 	phase_timer_label.size_flags_horizontal = Control.SIZE_SHRINK_END
 	phase_timer_label.visible = true
@@ -2143,23 +2143,44 @@ func _setup_reserves_button() -> void:
 
 	print("Main: Reserves button created and added to HUD_Right")
 
+func _get_or_create_ai_controls_row() -> HBoxContainer:
+	# Row at the very top of HUD_Right holding the AI Suggestion button and the
+	# AI speed dropdown (AI games only — both start hidden). Created on demand.
+	var right_vbox = get_node_or_null("HUD_Right/VBoxContainer")
+	if right_vbox == null:
+		return null
+	var row: HBoxContainer = right_vbox.get_node_or_null("AIControlsRow")
+	if row == null:
+		row = HBoxContainer.new()
+		row.name = "AIControlsRow"
+		row.add_theme_constant_override("separation", 6)
+		right_vbox.add_child(row)
+		right_vbox.move_child(row, 0)
+	return row
+
 func _setup_ai_suggestion_button() -> void:
 	"""Create the on-demand 'AI Suggestion' button in the bottom HUD. Hidden until
 	an AI game is confirmed (revealed by refresh_ai_suggestion_button). Lets a human
 	ask the AI what it would do on the current turn — surfacing its reasoning in the
 	game log for hints and for debugging the AI — without taking the action."""
-	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
+	# Steam Deck legibility: the AI controls used to live in the top bar, which
+	# has no spare width at the Deck's logical resolution (the AI speed dropdown
+	# ended up underneath the floating phase-action button). They now sit in a
+	# row at the top of the right-hand panel instead.
+	var hud_container = _get_or_create_ai_controls_row()
 	if not hud_container:
-		print("Main: HUD_Bottom/HBoxContainer not found for AI suggestion button")
+		print("Main: HUD_Right AI controls row not found for AI suggestion button")
 		return
 
 	_ai_suggestion_button = Button.new()
 	_ai_suggestion_button.name = "AISuggestionButton"
 	var _hint_key = KeybindingManager.get_key_display_name("ai_suggestion") if KeybindingManager else "K"
-	_ai_suggestion_button.text = "AI Suggestion (%s)" % _hint_key
+	# Steam Deck legibility: short label — the tooltip carries the full wording,
+	# and the top bar has no spare width at the Deck's logical resolution.
+	_ai_suggestion_button.text = "Suggest (%s)" % _hint_key
 	_ai_suggestion_button.tooltip_text = "Ask the AI what it would do on this turn. Shows its reasoning in the log — it does NOT take the action. Hotkey: %s" % _hint_key
 	_ai_suggestion_button.visible = false
-	_ai_suggestion_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_ai_suggestion_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_WhiteDwarfTheme.apply_to_button(_ai_suggestion_button)
 	# Cyan-tinted font to distinguish the advisory action from phase controls.
 	_ai_suggestion_button.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
@@ -2190,7 +2211,8 @@ func _setup_ai_speed_dropdown(hud_container: Node) -> void:
 	if ai_player:
 		preset_names = ai_player.AI_SPEED_NAMES
 	for preset in range(preset_names.size()):
-		_ai_speed_dropdown.add_item("AI Speed: %s" % preset_names.get(preset, str(preset)), preset)
+		# "AI:" not "AI Speed:" — the top bar is width-starved on Steam Deck.
+		_ai_speed_dropdown.add_item("AI: %s" % preset_names.get(preset, str(preset)), preset)
 	if ai_player:
 		var current: int = clampi(ai_player.get_ai_speed_preset(), 0, _ai_speed_dropdown.item_count - 1)
 		_ai_speed_dropdown.select(current)
@@ -2203,10 +2225,11 @@ func _setup_ai_speed_dropdown(hud_container: Node) -> void:
 			KeybindingManager.get_key_display_name("ai_speed_cycle")]
 	_ai_speed_dropdown.tooltip_text = "How fast the AI takes its actions. Step-by-step pauses before every AI action until you press Continue (Space).%s" % keys_hint
 	_ai_speed_dropdown.visible = false
-	_ai_speed_dropdown.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_ai_speed_dropdown.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_WhiteDwarfTheme.apply_to_button(_ai_speed_dropdown)
 	_ai_speed_dropdown.item_selected.connect(_on_ai_speed_dropdown_selected)
 	hud_container.add_child(_ai_speed_dropdown)
+	_keep_phase_action_reserve_last()
 	print("Main: T7-36 AI speed dropdown created in top menu")
 
 func _on_ai_speed_dropdown_selected(index: int) -> void:
@@ -3182,12 +3205,12 @@ func _setup_score_display() -> void:
 
 	_p1_cp_label = Label.new()
 	_p1_cp_label.name = "P1CPLabel"
-	_p1_cp_label.add_theme_font_size_override("font_size", 11)
+	_p1_cp_label.add_theme_font_size_override("font_size", 16)
 	sb_hbox.add_child(_p1_cp_label)
 
 	_p1_score_label = Label.new()
 	_p1_score_label.name = "P1ScoreLabel"
-	_p1_score_label.add_theme_font_size_override("font_size", 20)
+	_p1_score_label.add_theme_font_size_override("font_size", 23)
 	_p1_score_label.tooltip_text = "Victory Points (Primary + Secondary)"
 	if FactionPalettes:
 		_p1_score_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -3195,13 +3218,13 @@ func _setup_score_display() -> void:
 
 	var vs_label = Label.new()
 	vs_label.text = "vs"
-	vs_label.add_theme_font_size_override("font_size", 12)
+	vs_label.add_theme_font_size_override("font_size", 16)
 	vs_label.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_PARCHMENT, 0.5))
 	sb_hbox.add_child(vs_label)
 
 	_p2_score_label = Label.new()
 	_p2_score_label.name = "P2ScoreLabel"
-	_p2_score_label.add_theme_font_size_override("font_size", 20)
+	_p2_score_label.add_theme_font_size_override("font_size", 23)
 	_p2_score_label.tooltip_text = "Victory Points (Primary + Secondary)"
 	if FactionPalettes:
 		_p2_score_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -3209,7 +3232,7 @@ func _setup_score_display() -> void:
 
 	_p2_cp_label = Label.new()
 	_p2_cp_label.name = "P2CPLabel"
-	_p2_cp_label.add_theme_font_size_override("font_size", 11)
+	_p2_cp_label.add_theme_font_size_override("font_size", 16)
 	sb_hbox.add_child(_p2_cp_label)
 
 	_score_display_container.add_child(scoreboard_panel)
@@ -3253,12 +3276,19 @@ func _update_score_display() -> void:
 	var p1_color = FactionPalettes.get_player_border_color(1)
 	var p2_color = FactionPalettes.get_player_border_color(2)
 
-	_p1_cp_label.text = "%s CP:%d" % [p1_faction, p1_cp]
+	# Steam Deck legibility: faction names dropped from the CP chips — the
+	# player colors already identify the sides and the tooltips carry the names.
+	# Keeps the scoreboard narrow enough for the Deck's logical width.
+	_p1_cp_label.text = "CP:%d" % p1_cp
+	_p1_cp_label.tooltip_text = "%s Command Points" % p1_faction
+	_p1_cp_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	_p1_cp_label.add_theme_color_override("font_color", Color(p1_color, 0.75))
 	_p1_score_label.text = "%d" % p1_vp
 	_p1_score_label.add_theme_color_override("font_color", p1_color)
 	_p1_score_label.tooltip_text = "%s Victory Points: %d total\nPrimary: %d | Secondary: %d | CP: %d" % [p1_faction, p1_vp, p1_primary, p1_secondary, p1_cp]
-	_p2_cp_label.text = "CP:%d %s" % [p2_cp, p2_faction]
+	_p2_cp_label.text = "CP:%d" % p2_cp
+	_p2_cp_label.tooltip_text = "%s Command Points" % p2_faction
+	_p2_cp_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	_p2_cp_label.add_theme_color_override("font_color", Color(p2_color, 0.75))
 	_p2_score_label.text = "%d" % p2_vp
 	_p2_score_label.add_theme_color_override("font_color", p2_color)
@@ -3273,7 +3303,7 @@ func _spawn_cp_float(anchor: Label, delta: int, color: Color) -> void:
 	var sign_str = "+" if delta > 0 else ""
 	float_label.text = "%s%d CP" % [sign_str, delta]
 	float_label.add_theme_color_override("font_color", color)
-	float_label.add_theme_font_size_override("font_size", 16)
+	float_label.add_theme_font_size_override("font_size", 20)
 	float_label.z_index = UI_OVERLAY_Z
 	float_label.position = anchor.global_position + Vector2(0, -22)
 	add_child(float_label)
@@ -3310,7 +3340,7 @@ func _setup_round_indicator() -> void:
 	# Round number label
 	_round_indicator_label = Label.new()
 	_round_indicator_label.name = "RoundIndicator"
-	_round_indicator_label.add_theme_font_size_override("font_size", 14)
+	_round_indicator_label.add_theme_font_size_override("font_size", 18)
 	_round_indicator_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	_round_indicator_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if FactionPalettes:
@@ -3320,7 +3350,7 @@ func _setup_round_indicator() -> void:
 	# Active player/faction label
 	_round_player_label = Label.new()
 	_round_player_label.name = "RoundPlayerLabel"
-	_round_player_label.add_theme_font_size_override("font_size", 13)
+	_round_player_label.add_theme_font_size_override("font_size", 17)
 	if FactionPalettes:
 		_round_player_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	ri_hbox.add_child(_round_player_label)
@@ -3385,14 +3415,14 @@ func _setup_phase_strip() -> void:
 		if i > 0:
 			var arrow = Label.new()
 			arrow.text = "  ▸  "
-			arrow.add_theme_font_size_override("font_size", 11)
+			arrow.add_theme_font_size_override("font_size", 16)
 			arrow.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_GOLD, 0.25))
 			arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			_phase_strip_container.add_child(arrow)
 
 		var lbl = Label.new()
 		lbl.text = phase_name
-		lbl.add_theme_font_size_override("font_size", 13)
+		lbl.add_theme_font_size_override("font_size", 17)
 		lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.35, 0.5))
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -3433,13 +3463,13 @@ func _update_phase_strip() -> void:
 
 		if phase_id == current_game_phase:
 			lbl.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-			lbl.add_theme_font_size_override("font_size", 15)
+			lbl.add_theme_font_size_override("font_size", 19)
 		elif idx < current_idx:
 			lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.35, 0.4))
-			lbl.add_theme_font_size_override("font_size", 13)
+			lbl.add_theme_font_size_override("font_size", 17)
 		else:
 			lbl.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_PARCHMENT, 0.5))
-			lbl.add_theme_font_size_override("font_size", 13)
+			lbl.add_theme_font_size_override("font_size", 17)
 
 # P3-109: Update the round indicator text and player faction display
 func _update_round_indicator() -> void:
@@ -3465,10 +3495,12 @@ func _update_round_indicator() -> void:
 	else:
 		_round_indicator_label.text = "ROUND %d/5" % battle_round
 		if _round_player_label:
-			var faction_name = GameState.get_faction_name(active_player)
-			if faction_name == "":
-				faction_name = "Player %d" % active_player
-			_round_player_label.text = faction_name
+			# Steam Deck legibility: the faction name is redundant here — the
+			# ActivePlayerBadge right next to it already carries it, and the
+			# width-starved top bar needs the room. Keep the colored "P1"/"P2"
+			# chip as the at-a-glance active-player cue.
+			_round_player_label.text = "P%d" % active_player
+			_round_player_label.tooltip_text = GameState.get_faction_name(active_player)
 			_round_player_label.visible = true
 			var player_color = FactionPalettes.get_player_border_color(active_player) if FactionPalettes else _WhiteDwarfTheme.WH_PARCHMENT
 			_round_player_label.add_theme_color_override("font_color", player_color)
@@ -3549,6 +3581,83 @@ func _fix_hud_layout() -> void:
 	# narrow down by name / keyword / model count.
 	_install_unit_list_filter()
 
+	# Steam Deck legibility: at the Deck's logical width (~1600px with the pad
+	# text boost) the top bar's fixed-width children used to flow underneath the
+	# floating PhaseActionButton in the top-right corner. Two-part fix:
+	#   1. StatusLabel becomes the bar's single elastic member — it expands to
+	#      absorb spare width and trims with an ellipsis when the bar is tight,
+	#      so fixed controls (toggles, scoreboard, AI controls) never overflow.
+	#   2. A trailing spacer reserves the floating button's footprint so no
+	#      control can slide underneath it. _keep_phase_action_reserve_last()
+	#      re-pins the spacer after late additions (AI buttons, phase timer).
+	if status_label:
+		status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		status_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		status_label.custom_minimum_size = Vector2(90, 0)
+	var hud_container_for_reserve = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if hud_container_for_reserve and not hud_container_for_reserve.has_node("PhaseActionReserve"):
+		var reserve := Control.new()
+		reserve.name = "PhaseActionReserve"
+		reserve.custom_minimum_size = Vector2(265, 0)
+		reserve.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hud_container_for_reserve.add_child(reserve)
+
+	# Reserve the pad hint strip at the bottom of the side panels (pad mode only).
+	_connect_pad_bottom_inset()
+
+func _keep_phase_action_reserve_last() -> void:
+	# The PhaseActionReserve spacer must stay the top bar's LAST child so the
+	# reserved gap sits under the floating PhaseActionButton (top-right corner).
+	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if hud_container == null:
+		return
+	var reserve = hud_container.get_node_or_null("PhaseActionReserve")
+	if reserve != null:
+		hud_container.move_child(reserve, hud_container.get_child_count() - 1)
+
+# Steam Deck legibility: while the pad is the active device, PadHintBar draws a
+# ~33px-tall glyph strip across the bottom of the screen. Reserve that strip so
+# the side panels' bottom rows (unit-card buttons, the newest game-log entry)
+# are never hidden underneath it. KBM mode reclaims the space.
+const PAD_BOTTOM_INSET := 48.0
+
+# True while the expanded UnitStatsPanel reserves 300px at the bottom — the
+# hint-strip inset must stack on that, not replace it (see
+# _on_unit_stats_panel_visibility_changed).
+var _stats_panel_reserving_bottom: bool = false
+
+func _apply_pad_bottom_inset(_mode: int = -1) -> void:
+	var inset := 0.0
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm != null and idm.is_pad_active():
+		inset = PAD_BOTTOM_INSET
+	var stats_reserve := 300.0 if _stats_panel_reserving_bottom else 0.0
+	for panel_name in ["HUD_Left", "HUD_Right"]:
+		var p = get_node_or_null(panel_name)
+		if p != null and p is Control:
+			p.offset_bottom = -(inset + stats_reserve)
+	var log_panel = get_node_or_null("GameLogPanel")
+	if log_panel != null and log_panel is Control:
+		log_panel.offset_bottom = -inset
+	# The phase-progress strip hugs the bottom edge between the side panels —
+	# lift it above the pad hint strip too.
+	if _phase_strip_panel != null and is_instance_valid(_phase_strip_panel):
+		_phase_strip_panel.offset_bottom = -inset
+		_phase_strip_panel.offset_top = -30.0 - inset
+	# The unit-stats bottom sheet derives its own offset_top from the pad state
+	# (see UnitStatsPanel._pad_bottom_inset) — nudge it to re-derive on flips.
+	var stats_sheet = get_node_or_null("UnitStatsPanel")
+	if stats_sheet != null and stats_sheet is Control:
+		stats_sheet.offset_bottom = -inset
+		if stats_sheet.visible and stats_sheet.has_method("set_collapsed"):
+			stats_sheet.set_collapsed(stats_sheet.is_collapsed)
+
+func _connect_pad_bottom_inset() -> void:
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm != null and not idm.device_changed.is_connected(_apply_pad_bottom_inset):
+		idm.device_changed.connect(_apply_pad_bottom_inset)
+	_apply_pad_bottom_inset()
+
 func _ensure_ui_panels_on_top() -> void:
 	# Ensure all UI Control nodes that are direct children of Main render above board
 	# elements. Board visuals are under BoardRoot (z_index = -200). As a robust safety
@@ -3578,7 +3687,7 @@ func _apply_white_dwarf_theme() -> void:
 	# Theme labels in HUD_Bottom — phase label is the most prominent element
 	if phase_label:
 		_WhiteDwarfTheme.apply_to_label(phase_label, true)
-		phase_label.add_theme_font_size_override("font_size", 18)
+		phase_label.add_theme_font_size_override("font_size", 21)
 		phase_label.tooltip_text = "Current phase. Press ? for keyboard shortcuts."
 		phase_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	if active_player_badge:
@@ -3645,25 +3754,25 @@ func _apply_white_dwarf_theme() -> void:
 	if stratagem_panel_button:
 		_WhiteDwarfTheme.apply_tab_button(stratagem_panel_button, false)
 	if auto_decline_overwatch:
-		auto_decline_overwatch.add_theme_font_size_override("font_size", 12)
+		auto_decline_overwatch.add_theme_font_size_override("font_size", 16)
 		auto_decline_overwatch.add_theme_color_override("font_color", Color(_WhiteDwarfTheme.WH_PARCHMENT, 0.7))
 	if status_label:
-		status_label.add_theme_font_size_override("font_size", 13)
+		status_label.add_theme_font_size_override("font_size", 17)
 		status_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 		if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 			status_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	if active_player_badge:
-		active_player_badge.add_theme_font_size_override("font_size", 14)
+		active_player_badge.add_theme_font_size_override("font_size", 18)
 		if FactionPalettes.FONT_RAJDHANI_BOLD:
 			active_player_badge.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	if phase_label:
-		phase_label.add_theme_font_size_override("font_size", 13)
+		phase_label.add_theme_font_size_override("font_size", 17)
 		phase_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 		if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 			phase_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	var _terrain_lbl = get_node_or_null("HUD_Bottom/HBoxContainer/TerrainInfoLabel")
 	if _terrain_lbl:
-		_terrain_lbl.add_theme_font_size_override("font_size", 11)
+		_terrain_lbl.add_theme_font_size_override("font_size", 16)
 		_terrain_lbl.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 		if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 			_terrain_lbl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -3719,7 +3828,7 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	toggle_button.name = "ToggleButton"
 	toggle_button.text = "▲ Unit Stats"
 	toggle_button.custom_minimum_size = Vector2(120, 30)
-	toggle_button.add_theme_font_size_override("font_size", 14)
+	toggle_button.add_theme_font_size_override("font_size", 18)
 	_WhiteDwarfTheme.apply_secondary_button(toggle_button)
 	header.add_child(toggle_button)
 	
@@ -3747,7 +3856,7 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 
 	var keywords_title = Label.new()
 	keywords_title.text = "Keywords: "
-	keywords_title.add_theme_font_size_override("font_size", 12)
+	keywords_title.add_theme_font_size_override("font_size", 16)
 	keywords_title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		keywords_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -3756,7 +3865,7 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	var keywords_label = Label.new()
 	keywords_label.name = "KeywordsLabel"
 	keywords_label.text = "TEST KEYWORDS - Panel Working!"
-	keywords_label.add_theme_font_size_override("font_size", 12)
+	keywords_label.add_theme_font_size_override("font_size", 16)
 	keywords_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		keywords_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -3782,7 +3891,7 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	var stats_label = Label.new()
 	stats_label.name = "StatsLabel"
 	stats_label.text = "M6\" | T4 | Sv3+ | W2 | Ld6+ | OC2 (PROGRAMMATIC TEST)"
-	stats_label.add_theme_font_size_override("font_size", 16)
+	stats_label.add_theme_font_size_override("font_size", 20)
 	stats_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		stats_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -3807,7 +3916,7 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	
 	var weapons_test = Label.new()
 	weapons_test.text = "✓ Toggle button should be visible above\n✓ This content should be visible\n✓ Panel should be at screen bottom"
-	weapons_test.add_theme_font_size_override("font_size", 12)
+	weapons_test.add_theme_font_size_override("font_size", 16)
 	weapons_test.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		weapons_test.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -3918,7 +4027,7 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 				if not ranged_weapons.is_empty():
 					var ranged_header = Label.new()
 					ranged_header.text = "RANGED WEAPONS"
-					ranged_header.add_theme_font_size_override("font_size", 11)
+					ranged_header.add_theme_font_size_override("font_size", 16)
 					ranged_header.add_theme_color_override("font_color", Color(0.6, 0.75, 1.0))
 					if FactionPalettes.FONT_RAJDHANI_BOLD:
 						ranged_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -3926,7 +4035,7 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 					# Column header row
 					var col_header = Label.new()
 					col_header.text = "  %-20s %5s %3s %4s %3s %3s %3s" % ["Name", "Range", "A", "BS", "S", "AP", "D"]
-					col_header.add_theme_font_size_override("font_size", 9)
+					col_header.add_theme_font_size_override("font_size", 16)
 					col_header.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 					if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 						col_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -3945,7 +4054,7 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 							weapon.get("ap", "-"),
 							weapon.get("damage", "-")
 						]
-						wl.add_theme_font_size_override("font_size", 11)
+						wl.add_theme_font_size_override("font_size", 16)
 						wl.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 						if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 							wl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -3958,14 +4067,14 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 				if not melee_weapons.is_empty():
 					var melee_header = Label.new()
 					melee_header.text = "MELEE WEAPONS"
-					melee_header.add_theme_font_size_override("font_size", 11)
+					melee_header.add_theme_font_size_override("font_size", 16)
 					melee_header.add_theme_color_override("font_color", Color(1.0, 0.6, 0.5))
 					if FactionPalettes.FONT_RAJDHANI_BOLD:
 						melee_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 					weapons_container.add_child(melee_header)
 					var col_header_m = Label.new()
 					col_header_m.text = "  %-20s %5s %3s %4s %3s %3s %3s" % ["Name", "Range", "A", "WS", "S", "AP", "D"]
-					col_header_m.add_theme_font_size_override("font_size", 9)
+					col_header_m.add_theme_font_size_override("font_size", 16)
 					col_header_m.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 					if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 						col_header_m.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -3984,7 +4093,7 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 							weapon.get("ap", "-"),
 							weapon.get("damage", "-")
 						]
-						wl.add_theme_font_size_override("font_size", 11)
+						wl.add_theme_font_size_override("font_size", 16)
 						wl.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 						if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 							wl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -4272,7 +4381,7 @@ func _setup_measuring_tape() -> void:
 		tape_save_button.button_pressed = SettingsService.get_save_measurements()
 		tape_save_button.toggled.connect(_on_measuring_tape_save_toggle)
 		tape_save_button.tooltip_text = "Enable to persist measurement lines in save files"
-		tape_save_button.add_theme_font_size_override("font_size", 12)
+		tape_save_button.add_theme_font_size_override("font_size", 16)
 		tape_save_button.visible = false
 		hud_container.add_child(tape_save_button)
 		print("Added measuring tape save toggle (hidden, toggle with Shift+D)")
@@ -4320,7 +4429,7 @@ func _setup_terrain() -> void:
 		var terrain_label = Label.new()
 		terrain_label.name = "TerrainInfoLabel"
 		terrain_label.text = "Terrain: Layout 2"
-		terrain_label.add_theme_font_size_override("font_size", 12)
+		terrain_label.add_theme_font_size_override("font_size", 16)
 		terrain_label.visible = false
 		hud_container2.add_child(terrain_label)
 
@@ -4346,7 +4455,7 @@ func _update_measure_mode_hint() -> void:
 	if hint == null:
 		hint = Label.new()
 		hint.name = "MeasureModeHint"
-		hint.add_theme_font_size_override("font_size", 16)
+		hint.add_theme_font_size_override("font_size", 20)
 		hint.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8, 1.0))
 		hint.add_theme_color_override("font_outline_color", Color(0.1, 0.08, 0.05, 0.9))
 		hint.add_theme_constant_override("outline_size", 6)
@@ -4393,7 +4502,7 @@ func _setup_transport_panel() -> void:
 	var title_label = Label.new()
 	title_label.name = "TransportTitle"
 	title_label.text = "Transport Status"
-	title_label.add_theme_font_size_override("font_size", 14)
+	title_label.add_theme_font_size_override("font_size", 18)
 	title_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		title_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -4911,7 +5020,7 @@ func _setup_coherency_banner() -> void:
 
 	var icon_label = Label.new()
 	icon_label.text = "WARNING"
-	icon_label.add_theme_font_size_override("font_size", 14)
+	icon_label.add_theme_font_size_override("font_size", 18)
 	icon_label.add_theme_color_override("font_color", Color(0.3, 0.2, 0.0))
 	var bold_font = SystemFont.new()
 	bold_font.font_weight = 700
@@ -4925,7 +5034,7 @@ func _setup_coherency_banner() -> void:
 	var msg_label = Label.new()
 	msg_label.name = "MessageLabel"
 	msg_label.text = ""
-	msg_label.add_theme_font_size_override("font_size", 14)
+	msg_label.add_theme_font_size_override("font_size", 18)
 	msg_label.add_theme_color_override("font_color", Color(0.2, 0.1, 0.0))
 	hbox.add_child(msg_label)
 
@@ -5694,7 +5803,7 @@ func _build_phase_end_confirm_content() -> void:
 
 	_phase_end_confirm_headline = Label.new()
 	_phase_end_confirm_headline.name = "Headline"
-	_phase_end_confirm_headline.add_theme_font_size_override("font_size", 24)
+	_phase_end_confirm_headline.add_theme_font_size_override("font_size", 26)
 	_phase_end_confirm_headline.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	_phase_end_confirm_headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	# One short line ("End Shooting Phase?") — no wrapping, so it can't inflate
@@ -5706,7 +5815,7 @@ func _build_phase_end_confirm_content() -> void:
 
 	_phase_end_confirm_hint = Label.new()
 	_phase_end_confirm_hint.name = "Hint"
-	_phase_end_confirm_hint.add_theme_font_size_override("font_size", 14)
+	_phase_end_confirm_hint.add_theme_font_size_override("font_size", 18)
 	_phase_end_confirm_hint.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	_phase_end_confirm_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_phase_end_confirm_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -7438,6 +7547,12 @@ func update_ui() -> void:
 	var player_color = FactionPalettes.get_player_border_color(active_player)
 	active_player_badge.add_theme_color_override("font_color", player_color)
 
+	# Steam Deck legibility: the status label ellipsizes when the top bar is
+	# tight, so mirror its full text into the tooltip on every UI refresh.
+	if status_label:
+		status_label.tooltip_text = status_label.text
+		status_label.mouse_filter = Control.MOUSE_FILTER_PASS
+
 	# Update player scores and CP in top bar
 	_update_score_display()
 
@@ -7584,7 +7699,7 @@ func _setup_deploy_hover_tooltip() -> void:
 	_deploy_hover_tooltip_label.custom_minimum_size = Vector2(220, 0)
 	_deploy_hover_tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_deploy_hover_tooltip_label.add_theme_color_override("default_color", WhiteDwarfTheme.WH_PARCHMENT)
-	_deploy_hover_tooltip_label.add_theme_font_size_override("normal_font_size", 12)
+	_deploy_hover_tooltip_label.add_theme_font_size_override("normal_font_size", 16)
 	_deploy_hover_tooltip.add_child(_deploy_hover_tooltip_label)
 
 	# Add to HUD_Right so it layers on top of the unit list
@@ -7755,8 +7870,8 @@ func _setup_token_hover_tooltip() -> void:
 	_token_hover_label.fit_content = true
 	_token_hover_label.scroll_active = false
 	_token_hover_label.custom_minimum_size = Vector2(180, 0)
-	_token_hover_label.add_theme_font_size_override("normal_font_size", 11)
-	_token_hover_label.add_theme_font_size_override("bold_font_size", 12)
+	_token_hover_label.add_theme_font_size_override("normal_font_size", 16)
+	_token_hover_label.add_theme_font_size_override("bold_font_size", 16)
 	_token_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_token_hover_tooltip.add_child(_token_hover_label)
 	add_child(_token_hover_tooltip)
@@ -8345,18 +8460,12 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 	update_ui()
 
 func _on_unit_stats_panel_visibility_changed(panel_is_visible: bool) -> void:
-	# Adjust HUD_Right and HUD_Left bottom offset based on unit stats panel visibility
-	var hud_right = get_node_or_null("HUD_Right")
-	var hud_left = get_node_or_null("HUD_Left")
-	var bottom_offset = -300.0 if panel_is_visible else 0.0
-
-	if hud_right:
-		hud_right.offset_bottom = bottom_offset
-		print("Main: HUD_Right offset_bottom adjusted to ", bottom_offset, " (panel visible: ", panel_is_visible, ")")
-
-	if hud_left:
-		hud_left.offset_bottom = bottom_offset
-		print("Main: HUD_Left offset_bottom adjusted to ", bottom_offset, " (panel visible: ", panel_is_visible, ")")
+	# Adjust HUD_Right and HUD_Left bottom offset based on unit stats panel visibility.
+	# The pad-mode hint-strip inset stacks on top of the stats-panel reservation
+	# (see _apply_pad_bottom_inset).
+	_stats_panel_reserving_bottom = panel_is_visible
+	_apply_pad_bottom_inset()
+	print("Main: HUD side panels bottom offset re-applied (stats panel visible: ", panel_is_visible, ")")
 
 func show_unit_card(unit_id: String) -> void:
 	var unit_data = GameState.get_unit(unit_id)
@@ -8782,7 +8891,7 @@ func _create_deployment_log_panel() -> void:
 	# Header label
 	var header = Label.new()
 	header.text = "Deployment Log"
-	header.add_theme_font_size_override("font_size", 14)
+	header.add_theme_font_size_override("font_size", 18)
 	header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(header)
@@ -8803,7 +8912,7 @@ func _create_deployment_log_panel() -> void:
 	_deployment_log_label.bbcode_enabled = true
 	_deployment_log_label.fit_content = true
 	_deployment_log_label.scroll_active = false
-	_deployment_log_label.add_theme_font_size_override("normal_font_size", 12)
+	_deployment_log_label.add_theme_font_size_override("normal_font_size", 16)
 	_deployment_log_label.add_theme_color_override("default_color", Color(0.85, 0.85, 0.85))
 	_deployment_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_deployment_log_label)
@@ -12186,6 +12295,9 @@ func _setup_game_log_panel() -> void:
 	# History browser: clicking a log card reverts the board to that step.
 	if game_log_panel.has_signal("history_step_requested"):
 		game_log_panel.history_step_requested.connect(_on_history_step_requested)
+	# The log panel is created after _fix_hud_layout, so re-apply the pad-mode
+	# bottom inset here or its newest entry hides behind the pad hint strip.
+	_connect_pad_bottom_inset()
 	print("Main: Game Event Log panel created (card-based)")
 	_rebind_controller_dice_logs()
 
@@ -12259,7 +12371,7 @@ func _setup_dice_history_panel() -> void:
 
 	var title = Label.new()
 	title.text = "DICE HISTORY"
-	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_font_size_override("font_size", 18)
 	title.add_theme_color_override("font_color", Color(0.7, 0.5, 0.9))
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -12269,7 +12381,7 @@ func _setup_dice_history_panel() -> void:
 	var clear_btn = Button.new()
 	clear_btn.text = "Clear"
 	clear_btn.custom_minimum_size = Vector2(45, 25)
-	clear_btn.add_theme_font_size_override("font_size", 11)
+	clear_btn.add_theme_font_size_override("font_size", 16)
 	clear_btn.pressed.connect(_on_dice_history_clear_pressed)
 	_WhiteDwarfTheme.apply_secondary_button(clear_btn)
 	header.add_child(clear_btn)
@@ -12277,7 +12389,7 @@ func _setup_dice_history_panel() -> void:
 	var collapse_btn = Button.new()
 	collapse_btn.text = "X"
 	collapse_btn.custom_minimum_size = Vector2(30, 25)
-	collapse_btn.add_theme_font_size_override("font_size", 12)
+	collapse_btn.add_theme_font_size_override("font_size", 16)
 	collapse_btn.pressed.connect(_on_dice_history_collapse_pressed)
 	_WhiteDwarfTheme.apply_secondary_button(collapse_btn)
 	header.add_child(collapse_btn)
@@ -12303,8 +12415,8 @@ func _setup_dice_history_panel() -> void:
 	_dice_history_label.fit_content = true
 	_dice_history_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_dice_history_label.scroll_active = false  # We use our own scroll container
-	_dice_history_label.add_theme_font_size_override("normal_font_size", 10)
-	_dice_history_label.add_theme_font_size_override("bold_font_size", 11)
+	_dice_history_label.add_theme_font_size_override("normal_font_size", 16)
+	_dice_history_label.add_theme_font_size_override("bold_font_size", 16)
 	_dice_history_scroll.add_child(_dice_history_label)
 
 	# Connect to DiceHistoryPanel autoload signal
@@ -12320,7 +12432,7 @@ func _setup_dice_history_panel() -> void:
 	if hud_bottom:
 		_dice_history_toggle_button = Button.new()
 		_dice_history_toggle_button.name = "DiceHistoryToggle"
-		_dice_history_toggle_button.text = "Dice History"
+		_dice_history_toggle_button.text = "Dice"
 		_dice_history_toggle_button.pressed.connect(_on_dice_history_toggle_pressed)
 		_WhiteDwarfTheme.apply_tab_button(_dice_history_toggle_button, false)
 		hud_bottom.add_child(_dice_history_toggle_button)
@@ -12375,14 +12487,14 @@ func _on_dice_history_collapse_pressed() -> void:
 	if _dice_history_panel:
 		_dice_history_panel.visible = false
 	if _dice_history_toggle_button:
-		_dice_history_toggle_button.text = "Dice History"
+		_dice_history_toggle_button.text = "Dice"
 
 func _on_dice_history_toggle_pressed() -> void:
 	_is_dice_history_visible = !_is_dice_history_visible
 	if _dice_history_panel:
 		_dice_history_panel.visible = _is_dice_history_visible
 	if _dice_history_toggle_button:
-		_dice_history_toggle_button.text = "Hide Dice" if _is_dice_history_visible else "Dice History"
+		_dice_history_toggle_button.text = "Hide Dice" if _is_dice_history_visible else "Dice"
 	# MEM-10: rolls recorded while hidden weren't appended — rebuild on show.
 	if _is_dice_history_visible and _dice_history_label_stale:
 		_rebuild_dice_history_label()
@@ -12552,8 +12664,8 @@ func _build_history_overlay() -> void:
 	_history_banner_label.scroll_active = false
 	_history_banner_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_history_banner_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_history_banner_label.add_theme_font_size_override("normal_font_size", 14)
-	_history_banner_label.add_theme_font_size_override("bold_font_size", 15)
+	_history_banner_label.add_theme_font_size_override("normal_font_size", 18)
+	_history_banner_label.add_theme_font_size_override("bold_font_size", 19)
 	hbox.add_child(_history_banner_label)
 
 	var exit_btn := Button.new()
@@ -13225,7 +13337,7 @@ func _toggle_grid_overlay() -> void:
 		var tick_lbl = Label.new()
 		tick_lbl.text = "%d\"" % x
 		tick_lbl.add_theme_font_override("font", ruler_font)
-		tick_lbl.add_theme_font_size_override("font_size", 10)
+		tick_lbl.add_theme_font_size_override("font_size", 16)
 		tick_lbl.add_theme_color_override("font_color", ruler_color)
 		tick_lbl.position = Vector2(float(x) * INCH_PX + 2, 2)
 		_grid_overlay.add_child(tick_lbl)
@@ -13233,7 +13345,7 @@ func _toggle_grid_overlay() -> void:
 		var tick_lbl = Label.new()
 		tick_lbl.text = "%d\"" % y
 		tick_lbl.add_theme_font_override("font", ruler_font)
-		tick_lbl.add_theme_font_size_override("font_size", 10)
+		tick_lbl.add_theme_font_size_override("font_size", 16)
 		tick_lbl.add_theme_color_override("font_color", ruler_color)
 		tick_lbl.position = Vector2(2, float(y) * INCH_PX + 2)
 		_grid_overlay.add_child(tick_lbl)
@@ -13276,7 +13388,7 @@ func _append_chat_row(sender_player: int, text: String) -> void:
 	var row := HBoxContainer.new()
 	var who := Label.new()
 	who.text = "P%d:" % sender_player
-	who.add_theme_font_size_override("font_size", 12)
+	who.add_theme_font_size_override("font_size", 16)
 	if sender_player == 1:
 		who.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
 	else:
@@ -13287,7 +13399,7 @@ func _append_chat_row(sender_player: int, text: String) -> void:
 	msg.text = text
 	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	msg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	msg.add_theme_font_size_override("font_size", 12)
+	msg.add_theme_font_size_override("font_size", 16)
 	row.add_child(msg)
 	_chat_log_box.add_child(row)
 
@@ -13314,7 +13426,7 @@ func _toggle_chat_panel() -> void:
 	_chat_panel.add_child(vbox)
 	var title := Label.new()
 	title.text = "Chat / Feed"
-	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_font_size_override("font_size", 18)
 	vbox.add_child(title)
 	var _gsep6 = ColorRect.new()
 	_gsep6.custom_minimum_size = Vector2(0, 2)
@@ -13375,7 +13487,7 @@ func _toggle_weapon_range_comparison_panel() -> void:
 	_weapon_range_panel.add_child(vbox)
 	var title := Label.new()
 	title.text = "Weapon Range Comparison"
-	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_font_size_override("font_size", 20)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 	var _gsep7 = ColorRect.new()
@@ -13388,7 +13500,7 @@ func _toggle_weapon_range_comparison_panel() -> void:
 		var l := Label.new()
 		l.text = str(col[0])
 		l.custom_minimum_size = Vector2(int(col[1]), 0)
-		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_font_size_override("font_size", 16)
 		l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 		hdr.add_child(l)
 	vbox.add_child(hdr)
@@ -13452,17 +13564,17 @@ func _toggle_weapon_range_comparison_panel() -> void:
 			var rng_l := Label.new()
 			rng_l.text = "%d\"" % int(row.range_in)
 			rng_l.custom_minimum_size = Vector2(60, 0)
-			rng_l.add_theme_font_size_override("font_size", 12)
+			rng_l.add_theme_font_size_override("font_size", 16)
 			hb.add_child(rng_l)
 			var name_l := Label.new()
 			name_l.text = "%s ×%d" % [row.name, int(row.count)]
 			name_l.custom_minimum_size = Vector2(180, 0)
-			name_l.add_theme_font_size_override("font_size", 12)
+			name_l.add_theme_font_size_override("font_size", 16)
 			name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			hb.add_child(name_l)
 			var own_l := Label.new()
 			own_l.text = "P%d" % int(row.owner)
-			own_l.add_theme_font_size_override("font_size", 12)
+			own_l.add_theme_font_size_override("font_size", 16)
 			if int(row.owner) == 1:
 				own_l.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
 			else:
@@ -13478,7 +13590,7 @@ func _toggle_weapon_range_comparison_panel() -> void:
 		hint.text = "Bind a key in Settings › Keybindings to toggle this panel"
 	else:
 		hint.text = "Press %s to close" % _wrp_key
-	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_font_size_override("font_size", 16)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.modulate = Color(1, 1, 1, 0.6)
 	vbox.add_child(hint)
@@ -13520,7 +13632,7 @@ func _toggle_vp_timeline_panel() -> void:
 	_vp_timeline_panel.add_child(vbox)
 	var title := Label.new()
 	title.text = "VP Timeline"
-	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_font_size_override("font_size", 21)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 	var _gsep8 = ColorRect.new()
@@ -13537,7 +13649,7 @@ func _toggle_vp_timeline_panel() -> void:
 	scroll.add_child(_vp_timeline_list)
 	var hint := Label.new()
 	hint.text = "Press V to close"
-	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_font_size_override("font_size", 16)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.modulate = Color(1, 1, 1, 0.6)
 	vbox.add_child(hint)
@@ -13555,7 +13667,7 @@ func _refresh_vp_timeline_panel() -> void:
 		var empty := Label.new()
 		empty.text = "(no VP scored yet)"
 		empty.modulate = Color(1, 1, 1, 0.55)
-		empty.add_theme_font_size_override("font_size", 12)
+		empty.add_theme_font_size_override("font_size", 16)
 		_vp_timeline_list.add_child(empty)
 		return
 	# Show running totals + per-event rows
@@ -13566,12 +13678,12 @@ func _refresh_vp_timeline_panel() -> void:
 		var round_label := Label.new()
 		round_label.text = "R%d" % entry.get("round", 0)
 		round_label.custom_minimum_size = Vector2(30, 0)
-		round_label.add_theme_font_size_override("font_size", 12)
+		round_label.add_theme_font_size_override("font_size", 16)
 		row.add_child(round_label)
 		var p_label := Label.new()
 		p_label.text = "P%d" % entry.get("player", 0)
 		p_label.custom_minimum_size = Vector2(28, 0)
-		p_label.add_theme_font_size_override("font_size", 12)
+		p_label.add_theme_font_size_override("font_size", 16)
 		if entry.get("player", 0) == 1:
 			p_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
 			p1_total += int(entry.get("points", 0))
@@ -13582,11 +13694,11 @@ func _refresh_vp_timeline_panel() -> void:
 		var pts_label := Label.new()
 		pts_label.text = "+%d" % int(entry.get("points", 0))
 		pts_label.custom_minimum_size = Vector2(40, 0)
-		pts_label.add_theme_font_size_override("font_size", 12)
+		pts_label.add_theme_font_size_override("font_size", 16)
 		row.add_child(pts_label)
 		var reason_label := Label.new()
 		reason_label.text = str(entry.get("reason", ""))
-		reason_label.add_theme_font_size_override("font_size", 11)
+		reason_label.add_theme_font_size_override("font_size", 16)
 		reason_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		reason_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(reason_label)
@@ -13598,7 +13710,7 @@ func _refresh_vp_timeline_panel() -> void:
 	_vp_timeline_list.add_child(_gsep9)
 	var totals := Label.new()
 	totals.text = "Totals — P1: %d   P2: %d" % [p1_total, p2_total]
-	totals.add_theme_font_size_override("font_size", 13)
+	totals.add_theme_font_size_override("font_size", 17)
 	totals.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_vp_timeline_list.add_child(totals)
 
@@ -13633,7 +13745,7 @@ func _toggle_hotkey_help_overlay() -> void:
 	_hotkey_help_overlay.add_child(vbox)
 	var title := Label.new()
 	title.text = "Keyboard Shortcuts"
-	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_font_size_override("font_size", 21)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 	var _gsep10 = ColorRect.new()
@@ -13666,11 +13778,11 @@ func _toggle_hotkey_help_overlay() -> void:
 		var key_label := Label.new()
 		key_label.text = entry[0]
 		key_label.custom_minimum_size = Vector2(160, 0)
-		key_label.add_theme_font_size_override("font_size", 14)
+		key_label.add_theme_font_size_override("font_size", 18)
 		row.add_child(key_label)
 		var desc_label := Label.new()
 		desc_label.text = entry[1]
-		desc_label.add_theme_font_size_override("font_size", 14)
+		desc_label.add_theme_font_size_override("font_size", 18)
 		row.add_child(desc_label)
 		vbox.add_child(row)
 	var _gsep11 = ColorRect.new()
@@ -13680,7 +13792,7 @@ func _toggle_hotkey_help_overlay() -> void:
 	vbox.add_child(_gsep11)
 	var hint := Label.new()
 	hint.text = "Rebind any key in Settings (Esc) → Controls"
-	hint.add_theme_font_size_override("font_size", 12)
+	hint.add_theme_font_size_override("font_size", 16)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(hint)
 	# Controller route to the same information. This help screen is keyboard-only
@@ -13691,7 +13803,7 @@ func _toggle_hotkey_help_overlay() -> void:
 	var pad_hint := Label.new()
 	pad_hint.name = "PadRouteHint"
 	pad_hint.text = "On a controller: %s (Pause Menu) → Settings → Controller lists every pad button" % _pause_button_glyph()
-	pad_hint.add_theme_font_size_override("font_size", 12)
+	pad_hint.add_theme_font_size_override("font_size", 16)
 	pad_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(pad_hint)
 	add_child(_hotkey_help_overlay)
@@ -14123,7 +14235,7 @@ func _show_unit_label_dialog(uid: String) -> void:
 	var title_lbl = Label.new()
 	title_lbl.text = "Custom Label"
 	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_lbl.add_theme_font_size_override("font_size", 14)
+	title_lbl.add_theme_font_size_override("font_size", 18)
 	title_lbl.add_theme_color_override("font_color", Color(0.8, 0.65, 0.3))
 	vbox.add_child(title_lbl)
 
@@ -14361,7 +14473,7 @@ func _scout_show_ghost_visual(model: Dictionary) -> void:
 	_scout_movement_remaining_label = Label.new()
 	_scout_movement_remaining_label.name = "ScoutMovementRemainingLabel"
 	_scout_movement_remaining_label.text = ""
-	_scout_movement_remaining_label.add_theme_font_size_override("font_size", 16)
+	_scout_movement_remaining_label.add_theme_font_size_override("font_size", 20)
 	_scout_movement_remaining_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3, 0.9))
 	_scout_movement_remaining_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_scout_movement_remaining_label.z_index = 58
@@ -15043,7 +15155,7 @@ func _install_unit_list_filter() -> void:
 	_unit_list_filter_edit.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	_unit_list_filter_edit.add_theme_color_override("font_placeholder_color", Color(0.55, 0.52, 0.45))
 	_unit_list_filter_edit.add_theme_color_override("caret_color", WhiteDwarfTheme.WH_GOLD)
-	_unit_list_filter_edit.add_theme_font_size_override("font_size", 12)
+	_unit_list_filter_edit.add_theme_font_size_override("font_size", 16)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		_unit_list_filter_edit.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	parent.add_child(_unit_list_filter_edit)

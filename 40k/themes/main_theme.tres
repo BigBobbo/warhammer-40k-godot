@@ -1,0 +1,7 @@
+[gd_resource type="Theme" load_steps=2 format=3 uid="uid://deck0legib0theme"]
+
+[ext_resource type="FontFile" path="res://fonts/Rajdhani-SemiBold.ttf" id="1_font"]
+
+[resource]
+default_font = ExtResource("1_font")
+default_font_size = 18

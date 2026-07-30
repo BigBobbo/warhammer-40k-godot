@@ -168,7 +168,7 @@ func _build_ui() -> void:
 		"%.1f" % unit_max_attacks_best if unit_max_attacks_best != floor(unit_max_attacks_best) else "%d" % int(unit_max_attacks_best),
 		eligible_indices.size()
 	]
-	max_cap_label.add_theme_font_size_override("font_size", 12)
+	max_cap_label.add_theme_font_size_override("font_size", 16)
 	container.add_child(max_cap_label)
 
 	container.add_child(weapon_list)
@@ -264,7 +264,7 @@ func _build_ui() -> void:
 	_pad_hint_label = Label.new()
 	_pad_hint_label.name = "PadHintLabel"
 	_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   Ⓐ Assign   ·   ☰ Fight!   ·   Ⓑ Skip"
-	_pad_hint_label.add_theme_font_size_override("font_size", 12)
+	_pad_hint_label.add_theme_font_size_override("font_size", 16)
 	_pad_hint_label.modulate = Color(1, 1, 1, 0.75)
 	_pad_hint_label.visible = InputDeviceManager.is_pad_active()
 	container.add_child(_pad_hint_label)

@@ -343,7 +343,7 @@ func _build_ui() -> void:
 	var title = Label.new()
 	title.name = "Title"
 	title.text = "Allocate Attacks — %s" % str(save_data.get("target_unit_name", save_data.get("target_unit_id", "")))
-	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_font_size_override("font_size", 21)
 	title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	context_col.add_child(title)
@@ -354,7 +354,7 @@ func _build_ui() -> void:
 	attacker_line.name = "AttackerInfo"
 	attacker_line.text = _attacker_context_text()
 	attacker_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	attacker_line.add_theme_font_size_override("font_size", 15)
+	attacker_line.add_theme_font_size_override("font_size", 19)
 	attacker_line.add_theme_color_override("font_color", Color(1.0, 0.42, 0.35))
 	context_col.add_child(attacker_line)
 
@@ -368,7 +368,7 @@ func _build_ui() -> void:
 		int(save_data.get("wounds_to_save", 0)), dev_txt,
 		int(save_data.get("ap", 0)),
 		str(save_data.get("damage_raw", save_data.get("damage", 1)))]
-	info.add_theme_font_size_override("font_size", 14)
+	info.add_theme_font_size_override("font_size", 18)
 	info.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	context_col.add_child(info)
@@ -377,7 +377,7 @@ func _build_ui() -> void:
 	hint.name = "Hint"
 	hint.text = "Declare the allocation order (05.03). Damage is applied lowest save roll → highest against the current group."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.add_theme_font_size_override("font_size", 12)
+	hint.add_theme_font_size_override("font_size", 16)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	context_col.add_child(hint)
 
@@ -402,7 +402,7 @@ func _build_ui() -> void:
 		prec_label.name = "PrecisionLabel"
 		prec_label.text = "PRECISION (24.28) — attacker may make a visible CHARACTER group the current allocation group:"
 		prec_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		prec_label.add_theme_font_size_override("font_size", 13)
+		prec_label.add_theme_font_size_override("font_size", 17)
 		prec_label.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
 		decision_col.add_child(prec_label)
 		precision_picker = OptionButton.new()
@@ -418,7 +418,7 @@ func _build_ui() -> void:
 	order_label = Label.new()
 	order_label.name = "OrderLabel"
 	order_label.text = "ALLOCATION ORDER"
-	order_label.add_theme_font_size_override("font_size", 13)
+	order_label.add_theme_font_size_override("font_size", 17)
 	order_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	decision_col.add_child(order_label)
 
@@ -452,7 +452,7 @@ func _build_ui() -> void:
 	var reroll_title = Label.new()
 	reroll_title.name = "RerollTitle"
 	reroll_title.text = "SAVE ROLLS"
-	reroll_title.add_theme_font_size_override("font_size", 13)
+	reroll_title.add_theme_font_size_override("font_size", 17)
 	reroll_title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	reroll_panel.add_child(reroll_title)
 
@@ -464,7 +464,7 @@ func _build_ui() -> void:
 	reroll_hint.name = "RerollHint"
 	reroll_hint.text = "COMMAND RE-ROLL (1 CP): click a failed save die to re-roll it, or keep the rolls."
 	reroll_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	reroll_hint.add_theme_font_size_override("font_size", 13)
+	reroll_hint.add_theme_font_size_override("font_size", 17)
 	reroll_hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	reroll_panel.add_child(reroll_hint)
 
@@ -530,7 +530,7 @@ func _build_ui() -> void:
 	pick_label = Label.new()
 	pick_label.name = "PickLabel"
 	pick_label.text = "Remove casualties"
-	pick_label.add_theme_font_size_override("font_size", 16)
+	pick_label.add_theme_font_size_override("font_size", 20)
 	pick_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	pick_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pick_vbox.add_child(pick_label)
@@ -538,7 +538,7 @@ func _build_ui() -> void:
 	pick_counter = Label.new()
 	pick_counter.name = "PickCounter"
 	pick_counter.text = ""
-	pick_counter.add_theme_font_size_override("font_size", 13)
+	pick_counter.add_theme_font_size_override("font_size", 17)
 	pick_counter.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
 	pick_counter.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pick_vbox.add_child(pick_counter)
