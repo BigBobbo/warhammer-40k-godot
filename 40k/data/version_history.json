@@ -2,15 +2,38 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.22",
+      "version": "1.7.24",
       "date": "2026-07-30",
-      "summary": "Tutorial dice pop-ups are yours again on a controller — the 'Exit Tutorial' button no longer steals them — and confirming an Advance in 'Get Movin'' stops throwing a bogus error.",
+      "summary": "Tutorial dice pop-ups are fully yours again on a controller — the 'Exit Tutorial' button is gone from them unless you actually need it — and confirming an Advance in 'Get Movin'' stops throwing a bogus error.",
       "changes": [
-        "On a controller, every dice pop-up in a lesson opened with the tutorial's own \"Exit Tutorial\" button highlighted instead of the button you actually wanted, and no D-pad direction could get you off it. Rolling for deployment, choosing who deploys first, rolling for first turn, the Advance re-roll offer and the charge re-roll offer were all affected. The pop-ups now carry only their own buttons, and A presses the one that matters.",
-        "\"Exit Tutorial\" is still offered inside a dialog, but only once a lesson has actually refused something you tried — the case it was built for. Until then a dialog is entirely yours, and you leave the lesson from the tutorial card once it closes.",
+        "1.7.23 stopped A landing on \"Exit Tutorial\" when a tutorial dialog opened. It was still there though, and still unreachable-and-unleavable: the D-pad could not move onto it, and if you did land on it no direction could get you off. It is no longer added to a dialog at all unless a lesson has actually refused something you tried — the case it exists for. Rolling for deployment, choosing who deploys first, rolling for first turn, the Advance re-roll offer and the charge re-roll offer now carry only their own buttons.",
         "When it does appear, it is no longer a dead end: the D-pad now walks back off it onto the dialog's own button.",
+        "The roll-off's \"Roll the dice\" is now recognised as the button A should press — its dice symbol was hiding the word from the controller's focus picker, so it fell back to whatever button it happened to find first.",
         "The greyed-out Exit Tutorial on the tutorial card now says why — \"finish the dialog first\" when you can simply close it, rather than pointing at a button that isn't there.",
         "'Get Movin'' step 5: confirming the Battlewagon's Advance threw \"tutorial_locked\" and the movement mode never actually locked in. One click sends two things (start the Advance, then lock the mode) and the lesson had already moved on to the re-roll step, which refused the second half."
+      ]
+    },
+    {
+      "version": "1.7.23",
+      "date": "2026-07-30",
+      "summary": "Tutorial instructions on a controller now point at the D-pad wherever the D-pad can get there — and A on a tutorial dialog no longer presses 'Exit Tutorial'.",
+      "changes": [
+        "On a controller or Steam Deck the tutorial kept telling you to glide the left stick onto things the D-pad already walks — starting with step 1 of Musterin' da Boyz, which sent you hunting for the 'Warboss →' dropdown. Every pad prompt now leads with the D-pad where the D-pad works.",
+        "Where the D-pad genuinely cannot reach — the Dice Log tab in Dakka Time, the Stratagems button on the bottom bar, and anything you place on the board — the step says so instead of pretending, so you know when to reach for the stick.",
+        "Picking a unit row is the bumpers' job, not the D-pad's, so the steps that need a row (deployment rows, the embarked Boyz + Warboss row in Get Movin') now say to tap RB. Cycling onto the embarked mob pops the disembark dialog on its own.",
+        "Get Movin' told pad players to click an Advance radio and a Confirm Movement Mode button they never see: the D-pad opens the on-screen move menu and A takes the mode. The step now teaches that, and 'End This Unit's Move' is named as the ☰ button it actually is on a pad.",
+        "The tutorial's 'Exit Tutorial' button, which is added into game dialogs so you can always leave, was stealing the controller's starting focus on the roll-off and re-roll dialogs. Following the step and pressing A opened the leave-the-tutorial confirm instead of rolling the dice. It is now a last-resort focus target, so A lands on the dialog's own button."
+      ]
+    },
+    {
+      "version": "1.7.22",
+      "date": "2026-07-30",
+      "summary": "The Dice Log lesson moved out of 'Scoutin' da Field' and into 'Dakka Time', where there are actually some rolls to read.",
+      "changes": [
+        "Step 6 of Tutorial 1 ('Scoutin' da Field') used to tell you to click the Dice Log tab — before a single die had been rolled, so you switched to a blank panel and learned nothing from it. That step is gone.",
+        "In its place, Tutorial 1 just points at the log panel down the left: Game Log for the story so far, Dice Log for every roll once they start. No click into an empty log, and it says outright that Dakka Time is where you'll use it.",
+        "Tutorial 4 ('Dakka Time') now has that step, straight after the shooting rolls: new step 'CHECK DA NUMBERS!' sends you to the Dice Log tab (wearing its unread dot) to read the hits, wounds and saves you just made.",
+        "Fixed while moving it: the Dice Log tab stayed empty for the whole phase whenever a battle STARTED in the shooting, charge or fight phase — every tutorial lesson from 'Dakka Time' on, and any save you loaded mid-combat. The phase's controls are built before the left-hand log panel exists, so the dice output went to a throwaway label instead of the tab you can actually read. Normal play never showed it because a battle begins in deployment."
       ]
     },
     {
