@@ -621,18 +621,42 @@ const _CONFIRM_WORDS := ["ok", "confirm", "end", "continue", "yes", "accept", "d
 
 func _find_confirm_button(root: Node) -> Button:
 	var candidates: Array = []
+	# The tutorial's injected "Exit Tutorial" hatch is a LAST resort: it lives in
+	# the AcceptDialog's own button bar, so a breadth-first scan reaches it before
+	# the dialog's content — which is how a pad player opened the deployment
+	# roll-off already parked on "Exit Tutorial" instead of "Roll the dice".
+	var hatches: Array = []
 	var queue: Array = [root]
 	while not queue.is_empty():
 		var n: Node = queue.pop_front()
 		if n is Button and n.visible and n.focus_mode != Control.FOCUS_NONE and not n.disabled:
-			candidates.append(n)
+			if n.has_meta("tutorial_exit_hatch"):
+				hatches.append(n)
+			else:
+				candidates.append(n)
 		for child in n.get_children(true):
 			queue.append(child)
 	if candidates.is_empty():
-		return null
+		return hatches[0] if not hatches.is_empty() else null
 	for b in candidates:
-		var t := str(b.text).to_lower()
+		# Leading decoration ("⚄  Roll the dice", "⟳  Re-roll", "▶ Next") must not
+		# hide the verb — begins_with() against the raw text missed every one of
+		# them and silently fell through to "first button found".
+		var t := _confirm_match_text(str(b.text))
 		for w in _CONFIRM_WORDS:
 			if t.begins_with(w):
 				return b
 	return candidates[0]
+
+
+# Lower-cased button text with any leading non-alphanumeric decoration (dice
+# glyphs, arrows, spaces) trimmed off.
+func _confirm_match_text(text: String) -> String:
+	var t := text.to_lower().strip_edges()
+	var start := 0
+	while start < t.length():
+		var c := t[start]
+		if (c >= "a" and c <= "z") or (c >= "0" and c <= "9"):
+			break
+		start += 1
+	return t.substr(start).strip_edges()
