@@ -180,11 +180,8 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "dice_log"
-    },
-    {
-      "act": "pad_cursor_glide",
-      "button_text": "Dice Log"
+      "equals": "log_panel",
+      "comment": "the old 'dice_log' step (click the Dice Log tab) moved to T4, where dice have actually been rolled; this slot is now an ack-only look at the log panel"
     },
     {
       "act": "simulate_joy_button",

@@ -420,7 +420,8 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "end_phase"
+      "equals": "dice_log",
+      "comment": "shooting now hands off to the Dice Log step (moved here from T1) before the end-phase step this scenario used to expect"
     },
     {
       "act": "screenshot",
