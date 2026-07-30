@@ -41,7 +41,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "FIXED SECONDARY MISSIONS"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -49,7 +49,7 @@ func _build_ui() -> void:
 	# Instructions
 	var instructions = Label.new()
 	instructions.text = "Select exactly 2 secondary missions. These will remain active for the entire battle\nand can be scored multiple times (up to 20VP per mission)."
-	instructions.add_theme_font_size_override("font_size", 11)
+	instructions.add_theme_font_size_override("font_size", 16)
 	instructions.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	instructions.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -96,7 +96,7 @@ func _build_ui() -> void:
 		# Category header
 		var cat_label = Label.new()
 		cat_label.text = category
-		cat_label.add_theme_font_size_override("font_size", 14)
+		cat_label.add_theme_font_size_override("font_size", 18)
 		cat_label.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
 		mission_list.add_child(cat_label)
 
@@ -114,7 +114,7 @@ func _build_ui() -> void:
 	# Status label
 	_status_label = Label.new()
 	_status_label.text = "Select 2 missions (0/2 selected)"
-	_status_label.add_theme_font_size_override("font_size", 12)
+	_status_label.add_theme_font_size_override("font_size", 16)
 	_status_label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.2))
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(_status_label)
@@ -160,7 +160,7 @@ func _add_mission_row(parent: VBoxContainer, mission: Dictionary) -> void:
 	# Mission name
 	var name_label = Label.new()
 	name_label.text = mission.get("name", "Unknown")
-	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_font_size_override("font_size", 17)
 	name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
 	info_vbox.add_child(name_label)
 
@@ -185,7 +185,7 @@ func _add_mission_row(parent: VBoxContainer, mission: Dictionary) -> void:
 
 	var detail_label = Label.new()
 	detail_label.text = "%s  |  %s  |  %s" % [", ".join(vp_parts), timing_text, mission.get("description", "")]
-	detail_label.add_theme_font_size_override("font_size", 10)
+	detail_label.add_theme_font_size_override("font_size", 16)
 	detail_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.65))
 	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_vbox.add_child(detail_label)

@@ -141,8 +141,8 @@ func _build_simple_card(text: String, entry_type: String) -> void:
 	label.fit_content = true
 	label.scroll_active = false
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("normal_font_size", 11)
-	label.add_theme_font_size_override("bold_font_size", 12)
+	label.add_theme_font_size_override("normal_font_size", 16)
+	label.add_theme_font_size_override("bold_font_size", 16)
 	label.append_text(_format_entry_text(text, entry_type))
 	hbox.add_child(label)
 
@@ -172,14 +172,14 @@ func _build_combat_card(header_text: String) -> void:
 	_header_label.fit_content = true
 	_header_label.scroll_active = false
 	_header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_header_label.add_theme_font_size_override("normal_font_size", 11)
-	_header_label.add_theme_font_size_override("bold_font_size", 12)
+	_header_label.add_theme_font_size_override("normal_font_size", 16)
+	_header_label.add_theme_font_size_override("bold_font_size", 16)
 	_header_label.append_text("[b][color=#E8C477]%s[/color][/b]" % header_text)
 	header_hbox.add_child(_header_label)
 
 	# Summary label (shown after combat resolves, always visible)
 	_summary_label = Label.new()
-	_summary_label.add_theme_font_size_override("font_size", 10)
+	_summary_label.add_theme_font_size_override("font_size", 16)
 	_summary_label.add_theme_color_override("font_color", Color(0.47, 0.8, 0.47))
 	_summary_label.visible = false
 	_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -188,7 +188,7 @@ func _build_combat_card(header_text: String) -> void:
 	# Toggle button for details
 	_toggle_button = Button.new()
 	_toggle_button.text = "  Show details"
-	_toggle_button.add_theme_font_size_override("font_size", 9)
+	_toggle_button.add_theme_font_size_override("font_size", 16)
 	_toggle_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_toggle_button.flat = true
 	_toggle_button.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
@@ -208,8 +208,8 @@ func _build_combat_card(header_text: String) -> void:
 	_details_label.fit_content = true
 	_details_label.scroll_active = false
 	_details_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_details_label.add_theme_font_size_override("normal_font_size", 10)
-	_details_label.add_theme_font_size_override("bold_font_size", 11)
+	_details_label.add_theme_font_size_override("normal_font_size", 16)
+	_details_label.add_theme_font_size_override("bold_font_size", 16)
 	_details_container.add_child(_details_label)
 
 # ============================================================================
@@ -273,7 +273,7 @@ func _create_icon() -> PanelContainer:
 	var icon_label = Label.new()
 	var icon_char = ICON_CHARS.get(category, "?")
 	icon_label.text = icon_char
-	icon_label.add_theme_font_size_override("font_size", 9)
+	icon_label.add_theme_font_size_override("font_size", 16)
 	icon_label.add_theme_color_override("font_color", border_color)
 	icon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	icon_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

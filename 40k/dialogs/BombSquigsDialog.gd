@@ -41,14 +41,14 @@ func _build_ui() -> void:
 
 	var header = Label.new()
 	header.text = "BOMB SQUIGS"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
 
 	var subheader = Label.new()
 	subheader.text = "Orks — free (once per battle)"
-	subheader.add_theme_font_size_override("font_size", 12)
+	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(subheader)
@@ -57,7 +57,7 @@ func _build_ui() -> void:
 
 	var prompt = Label.new()
 	prompt.text = "%s can loose its Bomb Squigs — pick an enemy unit to suffer D3 mortal wounds:" % actor_name
-	prompt.add_theme_font_size_override("font_size", 14)
+	prompt.add_theme_font_size_override("font_size", 18)
 	prompt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(prompt)

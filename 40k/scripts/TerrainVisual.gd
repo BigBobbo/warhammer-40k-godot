@@ -224,7 +224,7 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 		var label = Label.new()
 		label.text = _get_label_text(terrain_data)
 		label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
-		label.add_theme_font_size_override("font_size", 11)
+		label.add_theme_font_size_override("font_size", 16)
 		label_panel.add_child(label)
 
 	# Assemble the terrain piece
@@ -316,7 +316,7 @@ func _add_los_blocker_indicator(container: Node2D, terrain_data: Dictionary) -> 
 	var label = Label.new()
 	label.text = "LoS"
 	label.position = badge_pos - Vector2(11, 9)
-	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.6, 1.0))
 	label.add_theme_color_override("font_shadow_color", Color.BLACK)
 	label.add_theme_constant_override("shadow_offset_x", 1)
@@ -542,7 +542,7 @@ func show_cover_indicator_at(position: Vector2, in_cover: bool) -> void:
 	var indicator = Label.new()
 	indicator.text = "+COVER" if in_cover else ""
 	indicator.position = position - Vector2(30, 40)
-	indicator.add_theme_font_size_override("font_size", 14)
+	indicator.add_theme_font_size_override("font_size", 18)
 	indicator.add_theme_color_override("font_color", Color.GREEN if in_cover else Color.RED)
 	indicator.add_theme_color_override("font_shadow_color", Color.BLACK)
 	indicator.add_theme_constant_override("shadow_offset_x", 1)

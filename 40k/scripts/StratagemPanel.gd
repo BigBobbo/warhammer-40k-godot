@@ -19,7 +19,9 @@ var _empty_label: Label = null
 
 func _ready() -> void:
 	title = "Stratagems"
-	min_size = Vector2(560, 480)
+	# Steam Deck legibility: wide enough that name + eligibility reason + Use
+	# button fit side by side at readable font sizes (no horizontal scrolling).
+	min_size = Vector2(720, 520)
 	WhiteDwarfTheme.apply_to_dialog(self)
 	var ok_btn = get_ok_button()
 	ok_btn.text = "Close"
@@ -33,7 +35,9 @@ func _build_ui() -> void:
 	var scroll = ScrollContainer.new()
 	# Deterministic names (windowed scenarios address rows by NodePath).
 	scroll.name = "Scroll"
-	scroll.custom_minimum_size = Vector2(540, 420)
+	scroll.custom_minimum_size = Vector2(700, 440)
+	# Rows must wrap instead of growing sideways off the panel.
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(scroll)
@@ -101,7 +105,7 @@ func populate(player: int, phase_id: int = -1) -> void:
 		var header = Label.new()
 		header.text = group_name.to_upper()
 		header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-		header.add_theme_font_size_override("font_size", 14)
+		header.add_theme_font_size_override("font_size", 18)
 		if FactionPalettes.FONT_RAJDHANI_BOLD:
 			header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -148,11 +152,11 @@ func _build_row(strat_manager: Node, sid: String, strat: Dictionary, current_cp:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		name_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
-	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_font_size_override("font_size", 17)
 	row.add_child(name_label)
 
 	var status_label = Label.new()
-	status_label.add_theme_font_size_override("font_size", 11)
+	status_label.add_theme_font_size_override("font_size", 16)
 	if can_use:
 		status_label.text = "ELIGIBLE"
 		name_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
@@ -165,6 +169,11 @@ func _build_row(strat_manager: Node, sid: String, strat: Dictionary, current_cp:
 		var grey = Color(0.45, 0.42, 0.38)
 		name_label.add_theme_color_override("font_color", grey)
 		status_label.add_theme_color_override("font_color", grey)
+	# Long ineligibility reasons wrap onto extra lines instead of stretching
+	# the row past the panel edge (Steam Deck: no horizontal scrolling).
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	status_label.size_flags_stretch_ratio = 0.9
 	status_label.custom_minimum_size = Vector2(180, 0)
 	row.add_child(status_label)
 
