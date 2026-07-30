@@ -7,7 +7,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T1 (Scoutin' da Field), mouse+keyboard player path, end to end: main menu -> Tutorial button -> lesson picker -> lesson boots from the tutorial_postdeploy fixture -> every step is completed with real input (camera wheel, unit-list clicks, datasheet key, dice-log tab, hotkey help, grot drag, confirm move) -> the action gate blocks an out-of-scope END_MOVEMENT with tutorial_blocked -> lesson completes, summary shows, completion is persisted, Back to Menu returns to the main menu.",
+  "description": "Tutorial lesson T1 (Scoutin' da Field), mouse+keyboard player path, end to end: main menu -> Tutorial button -> lesson picker -> lesson boots from the tutorial_postdeploy fixture -> every step is completed with real input (camera wheel, unit-list clicks, datasheet key, log-panel card, hotkey help, grot drag, confirm move) -> the action gate blocks an out-of-scope END_MOVEMENT with tutorial_blocked -> lesson completes, summary shows, completion is persisted, Back to Menu returns to the main menu.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -242,19 +242,41 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "dice_log"
+      "equals": "log_panel",
+      "comment": "this slot used to be a 'dice_log' step that told the player to click the Dice Log tab. Nothing has been rolled by here, so it switched them to a blank panel; the interactive version now lives in T4 after the shooting rolls (tut_t4_dakka.json)."
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.current_scene.game_log_panel.get_dice_log_display().get_total_character_count()",
+      "multiline": true,
+      "equals": 0,
+      "comment": "the reason the step moved, asserted: at this point in T1 the dice log is genuinely empty — no roll has happened — so there is nothing for a player to read there."
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nreturn t.contains(\"Game Log\") and t.contains(\"Dice Log\") and t.contains(\"empty\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the step still puts the log panel on the orientation tour — both tabs named — and is honest that the Dice Log has nothing in it yet"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.current_scene.game_log_panel.get_active_tab()",
+      "multiline": true,
+      "equals": "game",
+      "comment": "and it does not demand a tab switch to advance"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_log_panel"
     },
     {
       "act": "click_node",
-      "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog"
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton"
     },
     {
       "act": "wait_frames",
       "frames": 20
-    },
-    {
-      "act": "screenshot",
-      "label": "04_dice_log"
     },
     {
       "act": "execute_script",

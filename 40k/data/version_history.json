@@ -2,13 +2,24 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.7.22",
+      "version": "1.7.23",
       "date": "2026-07-30",
       "summary": "The tutorial's instruction card no longer hides behind the Declare Battle Formations panel — it now shrinks to fit the space beside whatever dialog is open.",
       "changes": [
         "Step 1 of \"Musterin' da Boyz\" (MUSTER UP!) opens with the Declare Battle Formations panel already up, and the instructions card that tells you what to do sat partly underneath it: the end of every line was cut off mid-sentence and the Skip Step button was buried. Only players on the default UI Scale were spared — the card was a fixed width, but the panel is centred on screen, and raising UI Scale (or plugging in a controller, which boosts text size) moves the panel left until it swallows the card's right-hand side.",
         "The card now measures the gap to the open dialog every frame and narrows its text to fit, leaving a clear margin. It springs back to full width the moment the dialog closes, and it never squeezes so far that the prompt turns into a column of single words.",
         "This applies to every tutorial step that talks to you over a dialog, not just formations — the deployment and first-turn roll-offs get the same treatment."
+      ]
+    },
+    {
+      "version": "1.7.22",
+      "date": "2026-07-30",
+      "summary": "The Dice Log lesson moved out of 'Scoutin' da Field' and into 'Dakka Time', where there are actually some rolls to read.",
+      "changes": [
+        "Step 6 of Tutorial 1 ('Scoutin' da Field') used to tell you to click the Dice Log tab — before a single die had been rolled, so you switched to a blank panel and learned nothing from it. That step is gone.",
+        "In its place, Tutorial 1 just points at the log panel down the left: Game Log for the story so far, Dice Log for every roll once they start. No click into an empty log, and it says outright that Dakka Time is where you'll use it.",
+        "Tutorial 4 ('Dakka Time') now has that step, straight after the shooting rolls: new step 'CHECK DA NUMBERS!' sends you to the Dice Log tab (wearing its unread dot) to read the hits, wounds and saves you just made.",
+        "Fixed while moving it: the Dice Log tab stayed empty for the whole phase whenever a battle STARTED in the shooting, charge or fight phase — every tutorial lesson from 'Dakka Time' on, and any save you loaded mid-combat. The phase's controls are built before the left-hand log panel exists, so the dice output went to a throwaway label instead of the tab you can actually read. Normal play never showed it because a battle begins in deployment."
       ]
     },
     {
