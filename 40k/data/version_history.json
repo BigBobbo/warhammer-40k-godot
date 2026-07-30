@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.8.0",
+      "date": "2026-07-30",
+      "summary": "Melee weapons are now per-model: a mob is offered only the weapons it actually carries, and the Boss Nob can swing his big choppa while the Boyz swing choppas.",
+      "changes": [
+        "The attack panel was listing the datasheet's whole wargear MENU, so a 10-Boy mob appeared to carry a Choppa AND a Close combat weapon AND a Big choppa AND a Power klaw — each offering \"max ≈30 attacks across 10 models\". Those are mutually-exclusive options: the mob is 9 Boyz with choppas and one Boss Nob with a big choppa. Picking the Power klaw genuinely swung ten power klaws.",
+        "The panel now lists what the models really hold — \"Choppa — 9× Boy\" and \"Big choppa — 1× Boss Nob\", with the attack count for that many models. Weapons the roster never took are gone.",
+        "Weapon choice is per MODEL, as the rules say (\"you must select one melee weapon that model has\"). Different models can now swing different weapons in the same activation — one click of \"All Weapons to Target\" sends the whole unit, each model with its own weapon. Ⓨ does the same on a controller, and a new Clear button undoes a mis-click.",
+        "A single-model character no longer offers a weapon he replaced: a Warboss whose roster reads \"1x Power klaw\" is no longer offered the big choppa that klaw swapped out.",
+        "Where the army list says nothing about melee — which is nearly always — the game now falls back to the datasheet's stated kit per model role instead of showing every option. 33 more units resolve to a real loadout, and existing saves pick the fix up on load.",
+        "Tutorial 6 (Krumpin') teaches the real rule: each model swings the weapon it carries, and the lesson now points at the two weapons the mob actually has."
+      ]
+    },
+    {
       "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",

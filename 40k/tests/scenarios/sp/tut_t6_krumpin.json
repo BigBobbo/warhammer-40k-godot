@@ -135,6 +135,20 @@
     },
     {
       "act": "execute_script",
+      "script": "var wl = tree.root.get_node(\"/root/AttackAssignmentDialog\").get_node(\"Content/WeaponList\")\nvar rows = []\nfor i in range(wl.item_count):\n\trows.append(str(wl.get_item_text(i)))\nreturn \"|\".join(PackedStringArray(rows))",
+      "multiline": true,
+      "equals": "Big choppa — 1× Boss Nob (A:3 S:7 AP:-1 D:2, max ≈3)|Choppa — 9× Boy (A:3 S:4 AP:-1 D:1, max ≈27)",
+      "comment": "MA-LOADOUT: the mob is 1 Boss Nob with a big choppa + 9 Boyz with choppas. The dialog used to render the datasheet's whole option MENU - Big choppa, Choppa, Close combat weapon AND Power klaw, each claiming 'max ≈30 across 10 models' - which are mutually-exclusive wargear options, not a shared arsenal."
+    },
+    {
+      "act": "execute_script",
+      "script": "var wl = tree.root.get_node(\"/root/AttackAssignmentDialog\").get_node(\"Content/WeaponList\")\nvar txt = \"\"\nfor i in range(wl.item_count):\n\ttxt += str(wl.get_item_text(i))\nreturn (\"Power klaw\" in txt) or (\"Close combat weapon\" in txt)",
+      "multiline": true,
+      "equals": false,
+      "comment": "the Power klaw and the Close combat weapon are OPTIONS this roster did not take - offering them let a player swing 10 power klaws"
+    },
+    {
+      "act": "execute_script",
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn false\nvar want = 0\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Choppa\"):\n\t\twant = i\n\t\tbreak\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn true",
       "multiline": true,
       "equals": true,
@@ -158,6 +172,13 @@
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn d.assignments.size() > 0",
       "multiline": true,
       "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar parts = []\nvar seen = {}\nfor a in d.assignments:\n\tparts.append(\"%s:%d\" % [str(a.get(\"weapon\", \"?\")), a.get(\"models\", []).size()])\n\tfor m in a.get(\"models\", []):\n\t\tif seen.has(str(m)):\n\t\t\treturn \"OVERLAP\"\n\t\tseen[str(m)] = true\nparts.sort()\nreturn \"|\".join(PackedStringArray(parts))",
+      "multiline": true,
+      "equals": "big_choppa_melee:1|choppa_melee:9",
+      "comment": "11e Fight - Select Weapons is PER MODEL: the Boss Nob swings his big choppa in the same activation the 9 Boyz swing choppas, and no model appears in two assignments (each model fights with exactly one melee weapon)"
     },
     {
       "act": "click_node",

@@ -14,7 +14,7 @@
     "bullets": [
       "Da Fight phase opens wiv [b]Pile In[/b] — every engaged unit may shuffle 3\" closer. Skip it wiv [b]End Pile In[/b].",
       "Click a unit in [b]UNITS THAT CAN FIGHT[/b] to activate it. Units dat charged swing first.",
-      "In da attack panel: pick [b]one[/b] melee weapon, pick da target, [b]Weapon to Target[/b], den [b]Fight![/b]",
+      "Every model swings da weapon [b]it[/b] carries — yer 9 Boyz got choppas, da Boss Nob got a big choppa. Pick a target, hit [b]All Weapons to Target[/b], den [b]Fight![/b]",
       "Da dice dock rolls it out — [b]Fast Roll ⏩[/b] does da lot, [b]Done ✔[/b] finishes da activation.",
       "You an' da enemy alternate activations till everyone's swung. Last lesson: Runnin' da Show."
     ]
@@ -90,8 +90,8 @@
       "id": "assign_attacks",
       "prompt": {
         "bark": "PICK YER CHOPPA!",
-        "kbm": "Each model fights wiv [b]one[/b] melee weapon. Pick a weapon in da list, click da [b]Custodian Guard[/b] target, hit [b]Weapon to Target[/b], den [b]Fight![/b]",
-        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon, ◀▶ picks da target, {a} assigns 'em, den {menu} for [b]Fight![/b]"
+        "kbm": "Each model swings [b]one[/b] weapon — da one it carries. Da list shows [b]Choppa — 9× Boy[/b] an' [b]Big choppa — 1× Boss Nob[/b]. Click da [b]Custodian Guard[/b] target, hit [b]All Weapons to Target[/b], den [b]Fight![/b]",
+        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks a weapon row, ◀▶ picks da target, {a} assigns dat one row, {y} sends da lot, den {menu} for [b]Fight![/b]"
       },
       "anchor": {
         "node": "/root/AttackAssignmentDialog"
@@ -108,7 +108,7 @@
         }
       },
       "hint": {
-        "text": "Da panel shows expected damage per weapon — da Power klaw hits hardest but da Choppa gets more swings."
+        "text": "Each row says how many models carry dat weapon — nine choppas is 27 swings, da boss's big choppa is 3 harder ones. Assign 'em both."
       }
     },
     {

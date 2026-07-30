@@ -44,6 +44,15 @@ const PROFILE_SEPARATORS := [" – ", " — ", " - "]
 
 # 40kdc unit_id -> Array[String] of default (base-kit) weapon ids.
 static var _defaults_by_unit: Dictionary = {}
+# 40kdc unit_id -> {model_name_slug: Array[String] of default weapon ids}. Same
+# data as above but WITHOUT flattening the per-model split, so a caller can ask
+# "what is a Boss Nob equipped with?" separately from "what is a Boy equipped
+# with?" (Boyz: Boss Nob = big choppa + slugga, Boy = slugga + choppa).
+static var _defaults_by_unit_model: Dictionary = {}
+# 40kdc unit_id -> ordered Array of {name, min, max} — the datasheet's unit
+# composition ("1 Boss Nob", then "9-19 Boy"). Lets a caller work out which role
+# a model plays from its POSITION when the unit carries no model_profiles.
+static var _roles_by_unit: Dictionary = {}
 static var _compositions_loaded: bool = false
 
 
@@ -94,6 +103,77 @@ static func get_equipped_weapons(unit: Dictionary) -> Array:
 		print("[LOADOUT-UI] %s: filter matched nothing, showing full datasheet menu" % str(meta.get("name", "?")))
 		return weapons
 	return out
+
+
+## The datasheet's DEFAULT kit for one model role, intersected with `weapon_names`.
+##
+## `unit_name`  — the datasheet name ("Boyz").
+## `role_names` — candidate names for the model's role, most specific first
+##                (its `model_type` key "boss_nob" AND its model_profiles label
+##                "Boss Nob" — both slugify to the composition's "Boss Nob").
+## `weapon_names` — the datasheet weapon names to filter (already narrowed to one
+##                type by the caller, e.g. every Melee weapon on the datasheet).
+##
+## Returns the subset of `weapon_names` the role is equipped with by default, in
+## the order given. Empty when the composition doesn't know this datasheet, the
+## role can't be matched, or the role's kit has nothing of this weapon type — all
+## of which the caller must treat as "cannot resolve", never as "no weapons".
+##
+## This is the answer to "what does a model of this role ACTUALLY carry?" when
+## the roster's wargear string is silent — which it usually is for melee.
+static func get_model_default_weapon_names(unit_name: String, role_names: Array, weapon_names: Array) -> Array:
+	var unit_slug := _slug(unit_name)
+	if unit_slug == "":
+		return []
+	_ensure_compositions_loaded()
+	var per_model = _defaults_by_unit_model.get(unit_slug, {})
+	if typeof(per_model) != TYPE_DICTIONARY or per_model.is_empty():
+		return []
+
+	# Match the model to a composition role. A single-role datasheet needs no
+	# match at all (there is only one thing a model can be).
+	var role_key := ""
+	for candidate in role_names:
+		var s := _slug(str(candidate))
+		if s != "" and per_model.has(s):
+			role_key = s
+			break
+	if role_key == "" and per_model.size() == 1:
+		role_key = str(per_model.keys()[0])
+	if role_key == "":
+		return []
+
+	# 40kdc disambiguates ids that clash across datasheets by appending the unit
+	# slug ("choppa-tankbustas"); strip it back off, as _base_kit_slugs does.
+	var default_slugs := {}
+	for id in per_model[role_key]:
+		var s := str(id)
+		if s.ends_with("-" + unit_slug):
+			s = s.substr(0, s.length() - unit_slug.length() - 1)
+		if s != "":
+			default_slugs[s] = true
+
+	var out: Array = []
+	for wname in weapon_names:
+		var n := str(wname)
+		# Match the full name AND the base name, so the id "guardian-spear"
+		# matches the profile-split weapon "Guardian spear – Melee".
+		if default_slugs.has(_slug(n)) or default_slugs.has(_slug(_base_name(n))):
+			if n not in out:
+				out.append(n)
+	return out
+
+
+## The datasheet's unit composition as an ordered [{name, min, max}] — leader
+## model first, bulk troops last, exactly as printed ("1 Boss Nob", "9-19 Boy").
+## Empty when the composition data doesn't cover this datasheet.
+static func get_model_roles(unit_name: String) -> Array:
+	var unit_slug := _slug(unit_name)
+	if unit_slug == "":
+		return []
+	_ensure_compositions_loaded()
+	var roles = _roles_by_unit.get(unit_slug, [])
+	return roles if typeof(roles) == TYPE_ARRAY else []
 
 
 ## Convenience for callers that only need names (tests, logging).
@@ -232,16 +312,45 @@ static func _ensure_compositions_loaded() -> void:
 		if uid == "":
 			continue
 		var ids: Array = _defaults_by_unit.get(uid, [])
+		# 31 unit_ids appear more than once (datasheet variants sharing a slug).
+		# The flattened base kit above merges them — that only ever widens a
+		# "which weapons might this unit have?" answer. The per-ROLE data must
+		# not: merging two variants' kits, or stacking their composition lines,
+		# would hand a model a weapon from the other variant and break the
+		# positional role maths. First entry wins.
+		var variant_seen := _roles_by_unit.has(uid) or _defaults_by_unit_model.has(uid)
+		var per_model: Dictionary = {}
+		var roles: Array = []
 		for m in entry.get("models", []):
 			if typeof(m) != TYPE_DICTIONARY:
 				continue
+			var role_slug := _slug(str(m.get("name", "")))
+			if role_slug != "":
+				roles.append({
+					"name": str(m.get("name", "")),
+					"min": int(m.get("min", 0)),
+					"max": int(m.get("max", m.get("min", 0))),
+				})
+			var role_ids: Array = per_model.get(role_slug, [])
 			for wid in m.get("default_weapon_ids", []):
 				var s := str(wid)
-				if s != "" and s not in ids:
+				if s == "":
+					continue
+				if s not in ids:
 					ids.append(s)
+				if role_slug != "" and s not in role_ids:
+					role_ids.append(s)
+			if role_slug != "" and not role_ids.is_empty():
+				per_model[role_slug] = role_ids
 		if not ids.is_empty():
 			_defaults_by_unit[uid] = ids
-	print("[LOADOUT-UI] base kits loaded for %d datasheets" % _defaults_by_unit.size())
+		if not variant_seen:
+			if not per_model.is_empty():
+				_defaults_by_unit_model[uid] = per_model
+			if not roles.is_empty():
+				_roles_by_unit[uid] = roles
+	print("[LOADOUT-UI] base kits loaded for %d datasheets (%d with per-model roles)" % [
+		_defaults_by_unit.size(), _defaults_by_unit_model.size()])
 
 
 # ── name normalisation ──────────────────────────────────────────────
