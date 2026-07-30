@@ -55,7 +55,7 @@ func _build_ui() -> void:
 	# Ability header with golden styling
 	var header = Label.new()
 	header.text = "ACROBATIC ESCAPE"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color(0.8, 0.2, 0.8))  # Purple for assassin
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -63,7 +63,7 @@ func _build_ui() -> void:
 	# D6 roll result badge
 	var badge = Label.new()
 	badge.text = "[ D6 ROLL: %d ]" % int(move_distance)
-	badge.add_theme_font_size_override("font_size", 14)
+	badge.add_theme_font_size_override("font_size", 18)
 	badge.add_theme_color_override("font_color", Color(1.0, 0.84, 0.0))  # Gold
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(badge)
@@ -73,7 +73,7 @@ func _build_ui() -> void:
 	# Move type description
 	var desc_label = Label.new()
 	desc_label.text = "%s is within Engagement Range of enemy units.\nThis model may make a Fall Back move of up to %d\"." % [unit_name, int(move_distance)]
-	desc_label.add_theme_font_size_override("font_size", 14)
+	desc_label.add_theme_font_size_override("font_size", 18)
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(desc_label)
@@ -84,7 +84,7 @@ func _build_ui() -> void:
 	_timer_label = Label.new()
 	_timer_label.text = "Auto-declining in %d seconds..." % int(DECISION_TIMEOUT)
 	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_timer_label.add_theme_font_size_override("font_size", 12)
+	_timer_label.add_theme_font_size_override("font_size", 16)
 	_timer_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))  # Orange warning
 	main_container.add_child(_timer_label)
 
@@ -92,7 +92,7 @@ func _build_ui() -> void:
 	status_label = Label.new()
 	status_label.text = "Drag the model on the battlefield to move it"
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status_label.add_theme_font_size_override("font_size", 12)
+	status_label.add_theme_font_size_override("font_size", 16)
 	status_label.add_theme_color_override("font_color", Color.GRAY)
 	main_container.add_child(status_label)
 
@@ -128,7 +128,7 @@ func _build_ui() -> void:
 	# Info text
 	var info = Label.new()
 	info.text = "Fall Back: Move up to %d\" — must end outside Engagement Range" % int(move_distance)
-	info.add_theme_font_size_override("font_size", 11)
+	info.add_theme_font_size_override("font_size", 16)
 	info.add_theme_color_override("font_color", Color.DARK_GRAY)
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	main_container.add_child(info)

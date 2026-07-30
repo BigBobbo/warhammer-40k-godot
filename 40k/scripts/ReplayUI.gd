@@ -111,7 +111,7 @@ func _build_replay_bar() -> void:
 	position_label = Label.new()
 	position_label.text = "0 / 0"
 	position_label.custom_minimum_size = Vector2(80, 0)
-	position_label.add_theme_font_size_override("font_size", 12)
+	position_label.add_theme_font_size_override("font_size", 16)
 	position_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	timeline_row.add_child(position_label)
 
@@ -130,7 +130,7 @@ func _build_replay_bar() -> void:
 	round_label = Label.new()
 	round_label.text = "Round 1"
 	round_label.custom_minimum_size = Vector2(70, 0)
-	round_label.add_theme_font_size_override("font_size", 12)
+	round_label.add_theme_font_size_override("font_size", 16)
 	round_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.3))
 	round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	timeline_row.add_child(round_label)
@@ -145,7 +145,7 @@ func _build_replay_bar() -> void:
 	phase_label = Label.new()
 	phase_label.text = "Deployment Phase"
 	phase_label.custom_minimum_size = Vector2(180, 0)
-	phase_label.add_theme_font_size_override("font_size", 13)
+	phase_label.add_theme_font_size_override("font_size", 17)
 	phase_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.3))
 	controls_row.add_child(phase_label)
 
@@ -231,7 +231,7 @@ func _build_event_description_panel() -> void:
 	event_label.bbcode_enabled = true
 	event_label.fit_content = true
 	event_label.scroll_active = false
-	event_label.add_theme_font_size_override("normal_font_size", 13)
+	event_label.add_theme_font_size_override("normal_font_size", 17)
 	event_label.text = "Game start - press > to begin replay"
 	event_description_panel.add_child(event_label)
 
@@ -269,7 +269,7 @@ func _create_button(text: String, tooltip: String, min_width: float) -> Button:
 	pressed_style.bg_color = Color(0.25, 0.25, 0.35, 1.0)
 	btn.add_theme_stylebox_override("pressed", pressed_style)
 
-	btn.add_theme_font_size_override("font_size", 13)
+	btn.add_theme_font_size_override("font_size", 17)
 	btn.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
 
 	return btn

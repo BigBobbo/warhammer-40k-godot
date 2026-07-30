@@ -867,7 +867,7 @@ func _setup_right_panel() -> void:
 	# Unit selector
 	var unit_label = Label.new()
 	unit_label.text = "UNITS THAT CAN CHARGE"
-	unit_label.add_theme_font_size_override("font_size", 13)
+	unit_label.add_theme_font_size_override("font_size", 17)
 	unit_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		unit_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -885,7 +885,7 @@ func _setup_right_panel() -> void:
 	# Target list
 	var target_label = Label.new()
 	target_label.text = "ELIGIBLE TARGETS"
-	target_label.add_theme_font_size_override("font_size", 13)
+	target_label.add_theme_font_size_override("font_size", 17)
 	target_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		target_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -929,8 +929,8 @@ func _setup_right_panel() -> void:
 	target_hint_label.fit_content = true
 	target_hint_label.scroll_active = false
 	target_hint_label.custom_minimum_size = Vector2(200, 0)
-	target_hint_label.add_theme_font_size_override("normal_font_size", 12)
-	target_hint_label.add_theme_font_size_override("bold_font_size", 12)
+	target_hint_label.add_theme_font_size_override("normal_font_size", 16)
+	target_hint_label.add_theme_font_size_override("bold_font_size", 16)
 	# Boxed background so the instruction reads as a callout, not body text.
 	var hint_box := StyleBoxFlat.new()
 	hint_box.bg_color = Color(0.16, 0.12, 0.05, 0.85)
@@ -953,7 +953,7 @@ func _setup_right_panel() -> void:
 	charge_requirement_label.fit_content = true
 	charge_requirement_label.custom_minimum_size = Vector2(200, 0)
 	charge_requirement_label.scroll_active = false
-	charge_requirement_label.add_theme_font_size_override("normal_font_size", 12)
+	charge_requirement_label.add_theme_font_size_override("normal_font_size", 16)
 	charge_panel.add_child(charge_requirement_label)
 
 	_add_charge_gold_separator(charge_panel)
@@ -974,7 +974,7 @@ func _setup_right_panel() -> void:
 	# Charge status display
 	var status_label = Label.new()
 	status_label.text = "CHARGE ACTIONS"
-	status_label.add_theme_font_size_override("font_size", 13)
+	status_label.add_theme_font_size_override("font_size", 17)
 	status_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		status_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -1057,7 +1057,7 @@ func _setup_right_panel() -> void:
 	charge_terrain_label = Label.new()
 	charge_terrain_label.text = ""
 	charge_terrain_label.visible = false
-	charge_terrain_label.add_theme_font_size_override("font_size", 11)
+	charge_terrain_label.add_theme_font_size_override("font_size", 16)
 	charge_terrain_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))  # Yellow/amber for terrain info
 	distance_container.add_child(charge_terrain_label)
 
@@ -1066,7 +1066,7 @@ func _setup_right_panel() -> void:
 	# Charge status (moved from top bar)
 	charge_status_label = Label.new()
 	charge_status_label.text = ""
-	charge_status_label.add_theme_font_size_override("font_size", 12)
+	charge_status_label.add_theme_font_size_override("font_size", 16)
 	charge_panel.add_child(charge_status_label)
 
 	_add_charge_gold_separator(charge_panel)
@@ -1074,7 +1074,7 @@ func _setup_right_panel() -> void:
 	# Failed Charges section
 	var failed_header = Label.new()
 	failed_header.text = "FAILED CHARGES"
-	failed_header.add_theme_font_size_override("font_size", 13)
+	failed_header.add_theme_font_size_override("font_size", 17)
 	failed_header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		failed_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -1088,7 +1088,7 @@ func _setup_right_panel() -> void:
 	var no_failures_label = Label.new()
 	no_failures_label.name = "NoFailuresLabel"
 	no_failures_label.text = "No failed charges yet"
-	no_failures_label.add_theme_font_size_override("font_size", 11)
+	no_failures_label.add_theme_font_size_override("font_size", 16)
 	no_failures_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 	failed_charges_container.add_child(no_failures_label)
 
@@ -3475,7 +3475,7 @@ func _refresh_failed_charges_display() -> void:
 		var no_failures_label = Label.new()
 		no_failures_label.name = "NoFailuresLabel"
 		no_failures_label.text = "No failed charges yet"
-		no_failures_label.add_theme_font_size_override("font_size", 11)
+		no_failures_label.add_theme_font_size_override("font_size", 16)
 		no_failures_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 		failed_charges_container.add_child(no_failures_label)
 		return

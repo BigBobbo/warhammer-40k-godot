@@ -178,7 +178,7 @@ func _make_card(unit_id: String, unit: Dictionary) -> PanelContainer:
 	lbl.name = "Name"
 	var unit_name: String = str(unit.get("meta", {}).get("name", unit_id))
 	lbl.text = "%s (%d)" % [unit_name, unit.get("models", []).size()]
-	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_font_size_override("font_size", 16)
 	card.add_child(lbl)
 	return card
 
