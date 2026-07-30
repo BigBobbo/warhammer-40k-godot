@@ -12,6 +12,7 @@
       "Boyz dat disembark can still make their own move — but only if da transport ain't moved yet. Out first, drive after.",
       "Movement modes: pick da radio, den [b]Confirm Movement Mode[/b] — it don't stick till ya confirm.",
       "Drag models (or carry 'em wiv da pad), [b]Undo Model[/b] / [b]Reset Unit[/b] fix mistakes.",
+      "Big mob? Grab da whole lot in one go — [b]Select All[/b] on da keyboard, D-pad [b]▲[/b] on da pad — an' one drag shifts 'em all.",
       "Ya don't gotta spend a move in one drag — drop, grab again, da inches add up till dey're gone.",
       "Turnin' a model is free in 11th — it don't cost a single inch of da move.",
       "[b]End This Unit's Move[/b] locks one unit. Da big red button ends da whole phase.",
@@ -65,8 +66,8 @@
       "id": "boyz_move_after_disembark",
       "prompt": {
         "bark": "DEIR LEGS STILL WORK!",
-        "kbm": "Da wagon ain't moved yet, so da Boyz get their own move too. Dey're already picked — drag one forward, den hit [b]End This Unit's Move[/b].",
-        "pad": "Da wagon ain't moved yet, so da Boyz get their own move too. Press {a} on a boy, glide 'im forward, {a} to drop — den [b]End This Unit's Move[/b]."
+        "kbm": "Da wagon ain't moved yet, so da Boyz get their own move too. Dey're already picked — press {key:select_all} to grab [b]all 11[/b] at once, den one drag shifts da whole mob. [b]End This Unit's Move[/b] locks it in.",
+        "pad": "Da wagon ain't moved yet, so da Boyz get their own move too. {dpad} ▲ opens da move menu — {a} takes [b]Move[/b]. Now ▲ again lifts [b]all 11[/b] at once: glide {ls} where dey fit an' {a} drops da lot."
       },
       "anchor": { "unit": "U_BOYZ_T" },
       "spotlight": "soft",
@@ -77,7 +78,10 @@
         { "state": "units.U_BOYZ_T.flags.moved", "equals": true }
       ] },
       "hint_after_s": 30,
-      "hint": { "text": "Only works 'cos da wagon ain't shifted yet — get out FIRST, drive after. If da transport moves first, da lads are stuck where dey landed." },
+      "hint": {
+        "kbm": "Only works 'cos da wagon ain't shifted yet — get out FIRST, drive after. {key:select_all} re-grabs da whole mob any time. If dey don't all fit where ya drop 'em, only da ones dat fit land an' da rest stay selected.",
+        "pad": "Only works 'cos da wagon ain't shifted yet — get out FIRST, drive after. {dpad} ▲ only grabs da whole mob once dey're movin' — start da move first. If dey don't all fit, anuvver {dpad} ▲ grabs whoever's left."
+      },
       "blocked_hint": "move da [b]Boyz[/b] first — drag one, den [b]End This Unit's Move[/b]."
     },
     {
