@@ -374,12 +374,32 @@ func _create_controller_status() -> void:
 	label.offset_top = 10
 	label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	add_child(label)
+
+	# Input-mode readout (owner request 2026-07-27). The game no longer follows
+	# whatever device was touched last — it locks the layout at launch (Steam
+	# Deck -> controller, PC/browser -> mouse & keyboard). Say which one is in
+	# force and where to change it, so a player who disagrees with the
+	# auto-detection can find the override without hunting.
+	var mode_label := Label.new()
+	mode_label.name = "InputModeStatus"
+	mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	mode_label.add_theme_font_size_override("font_size", 11)
+	mode_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	mode_label.offset_right = -14
+	mode_label.offset_top = 56
+	mode_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	mode_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	add_child(mode_label)
+
 	InputDeviceManager.device_changed.connect(func(_mode): _update_controller_status())
 	InputDeviceManager.pad_connection_changed.connect(func(_connected): _update_controller_status())
+	if SettingsService and SettingsService.has_signal("input_mode_policy_changed"):
+		SettingsService.input_mode_policy_changed.connect(func(_p): _update_controller_status())
 	_update_controller_status()
 
 
 func _update_controller_status() -> void:
+	_update_input_mode_status()
 	var label := get_node_or_null("ControllerStatus") as Label
 	if label == null:
 		return
@@ -392,6 +412,16 @@ func _update_controller_status() -> void:
 	else:
 		label.text = "Controller: connected — press any button"
 		label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+
+
+func _update_input_mode_status() -> void:
+	var mode_label := get_node_or_null("InputModeStatus") as Label
+	if mode_label == null:
+		return
+	if not InputDeviceManager.has_method("mode_status_text"):
+		mode_label.text = ""
+		return
+	mode_label.text = "Input: %s\nChange it in Settings › Controller › Input Mode" % InputDeviceManager.mode_status_text()
 
 func _apply_theme_to_dynamic_elements() -> void:
 	# Style dynamically created dropdowns and buttons
@@ -1379,7 +1409,15 @@ func _on_cloud_army_fetch_failed(army_name: String, error: String) -> void:
 
 func _initialize_game_with_config(config: Dictionary) -> void:
 	print("MainMenu: Initializing game state with configuration")
-	
+
+	# Belt and braces: a lesson may have stood down a controller convenience
+	# (T4 clears ShootingController.auto_assign_single_target so the player
+	# performs the assign step it teaches). TutorialManager._teardown restores
+	# it, but teardown only runs on the overlay's Exit/Back-to-Menu buttons —
+	# quitting a lesson any other way would leak the suppression into every
+	# real game for the rest of the session. A real game always starts here.
+	ShootingController.auto_assign_single_target = true
+
 	# Clear any existing state first
 	GameState.state.clear()
 

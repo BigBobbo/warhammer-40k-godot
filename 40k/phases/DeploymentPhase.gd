@@ -847,7 +847,9 @@ func _process_composite_deploy(action: Dictionary) -> Dictionary:
 	if action.has("embark_data"):
 		var embark_data = action.embark_data
 		var transport_id = embark_data.get("transport_id", "")
-		var embark_unit_ids = embark_data.get("unit_ids", [])
+		# 19.03: an attached unit boards as one — expand each passenger to its
+		# bodyguard + attached CHARACTERs so no leader is left off the board.
+		var embark_unit_ids = _expand_embark_ids(embark_data.get("unit_ids", []))
 
 		for embark_unit_id in embark_unit_ids:
 			all_changes.append({
@@ -867,7 +869,9 @@ func _process_composite_deploy(action: Dictionary) -> Dictionary:
 		# Update transport's embarked_units list
 		var transport = get_unit(transport_id)
 		var current_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
-		current_embarked.append_array(embark_unit_ids)
+		for embark_unit_id in embark_unit_ids:
+			if not embark_unit_id in current_embarked:
+				current_embarked.append(embark_unit_id)
 		all_changes.append({
 			"op": "set",
 			"path": "units.%s.transport_data.embarked_units" % transport_id,
@@ -1071,10 +1075,22 @@ func _process_end_deployment(action: Dictionary) -> Dictionary:
 
 	return create_result(true, [])
 
+## Expand a passenger list to the full attached units boarding (19.03): each
+## bodyguard drags its attached CHARACTERs aboard, and picking a leader boards
+## the bodyguard it leads. Order is preserved and duplicates are dropped.
+func _expand_embark_ids(unit_ids: Array) -> Array:
+	var expanded: Array = []
+	for unit_id in unit_ids:
+		for gid in TransportManager.get_attached_unit_group(str(unit_id)):
+			if not gid in expanded:
+				expanded.append(gid)
+	return expanded
+
 func _process_embark_units_deployment(action: Dictionary) -> Dictionary:
 	"""Process units embarking in a transport during deployment"""
 	var transport_id = action.transport_id
-	var unit_ids = action.unit_ids
+	# 19.03: attached CHARACTERs board with the unit they lead.
+	var unit_ids = _expand_embark_ids(action.unit_ids)
 	var changes = []
 
 	# For each unit to embark
@@ -1100,7 +1116,9 @@ func _process_embark_units_deployment(action: Dictionary) -> Dictionary:
 	# Update transport's embarked_units list
 	var transport = get_unit(transport_id)
 	var current_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
-	current_embarked.append_array(unit_ids)
+	for unit_id in unit_ids:
+		if not unit_id in current_embarked:
+			current_embarked.append(unit_id)
 
 	changes.append({
 		"op": "set",
@@ -1580,6 +1598,34 @@ func _all_units_deployed() -> bool:
 			return false
 
 	return true
+
+func get_undeployed_unit_names(player: int = 0) -> Array:
+	"""Display names of the units that still block END_DEPLOYMENT.
+
+	`player` filters to one side; 0 (the default) returns both. Mirrors
+	_all_units_deployed()'s skip rules exactly (embarked / attached / Strategic
+	Reserves units are NOT blockers) so the message the player sees can never
+	disagree with the validation that rejected their click. Reads live GameState
+	rather than game_state_snapshot: this feeds a UI message, and a stale
+	snapshot here would name the wrong units.
+	"""
+	var names = []
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if player > 0 and unit.get("owner", 0) != player:
+			continue
+		if unit.get("embarked_in", null) != null:
+			continue
+		if unit.get("attached_to", null) != null:
+			continue
+		if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		if unit.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
+			continue
+		var meta = unit.get("meta", {})
+		names.append(str(meta.get("display_name", meta.get("name", unit_id))))
+	return names
 
 func get_deployment_summary() -> Dictionary:
 	"""T5-UX8: Build a summary of deployment state for the confirmation dialog"""

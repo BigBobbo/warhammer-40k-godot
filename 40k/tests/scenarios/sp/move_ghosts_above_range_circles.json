@@ -1,0 +1,227 @@
+{
+  "id": "move_ghosts_above_range_circles",
+  "covers": [
+    "movement.ghost_z_above_range_overlay",
+    "movement.group_drag_ghost_readability",
+    "movement.per_model_move_range_circle",
+    "movement.pad_carry_reach_ring_under_ghost",
+    "phases.MovementPhase.UI.move_range_overlay"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Group-dragging a squad must not bury the ghosts under the green reach circles. Part A drives the real mouse path \u2014 click the unit, SHIFT drag-box all four Witchseekers, then a drag that is PAUSED mid-flight (drag_board release:false) so the live drag frame can be inspected before mouse_up_board drops it. Part B repeats the check on the pad carry, the one path that deliberately LIFTS the reach ring (dash.z_index = 50) so the clamp boundary reads over board tokens \u2014 it must still pass under the ghost. Asserts over effective z-index (walking the z_as_relative parent chain, i.e. the key the renderer sorts on): (1) every ghost draws above every child of MoveRangeVisual, MovementERVisual and MovementCoherencyVisual; (2) the distance-moved readout parented to the ghosts clears them too; (3) the dashed reach circles are drawn thin (<= 6 board px) so N overlapping per-model circles stay legible. Screenshots capture the mid-drag frames a player actually sees.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_WITCHSEEKERS_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_WITCHSEEKERS_C"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_zoom = 2.5\nm.view_offset = Vector2(940.0, 130.0) - Vector2(930.0, 450.0) / 2.5\nm.update_view_transform()\nreturn true"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "drag_board",
+      "from_x": 810.0,
+      "from_y": 10.0,
+      "to_x": 1070.0,
+      "to_y": 95.0,
+      "shift": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.selected_models.size()",
+      "equals": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_four_models_drag_box_selected"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 910.0,
+      "from_y": 50.0,
+      "to_x": 910.0,
+      "to_y": 200.0,
+      "release": false
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.group_dragging",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementGhostVisual\").get_child_count()",
+      "expect_min": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child_count()",
+      "expect_min": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Lowest effective z of any ghost MUST beat the highest effective z of every\n# movement board overlay. Effective z = sum of z_index up the parent chain while\n# z_as_relative holds \u2014 that is the key the renderer sorts on.\nvar m = tree.root.get_node(\"Main\")\nvar eff := func(ci: CanvasItem) -> int:\n\tvar z := 0\n\tvar cur: Node = ci\n\twhile cur is CanvasItem:\n\t\tz += (cur as CanvasItem).z_index\n\t\tif not (cur as CanvasItem).z_as_relative:\n\t\t\tbreak\n\t\tcur = cur.get_parent()\n\treturn z\nvar lowest_ghost := 1 << 30\nfor c in m.get_node(\"BoardRoot/MovementGhostVisual\").get_children():\n\tif c is CanvasItem:\n\t\tlowest_ghost = min(lowest_ghost, eff.call(c))\nvar highest_overlay := -(1 << 30)\nfor path in [\"BoardRoot/MoveRangeVisual\", \"BoardRoot/MovementERVisual\", \"BoardRoot/MovementCoherencyVisual\"]:\n\tvar layer = m.get_node_or_null(path)\n\tif layer == null:\n\t\tcontinue\n\thighest_overlay = max(highest_overlay, eff.call(layer))\n\tfor c in layer.get_children():\n\t\tif c is CanvasItem:\n\t\t\thighest_overlay = max(highest_overlay, eff.call(c))\nm.set_meta(\"z_probe\", \"ghost_min=%d overlay_max=%d\" % [lowest_ghost, highest_overlay])\nreturn lowest_ghost > highest_overlay"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"z_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The distance-moved readout rides with the ghosts, so it clears the overlays\n# too. Compared against the same effective-z the renderer sorts on, not an\n# absolute number (BoardRoot itself carries a large negative z offset).\nvar m = tree.root.get_node(\"Main\")\nvar eff := func(ci: CanvasItem) -> int:\n\tvar z := 0\n\tvar cur: Node = ci\n\twhile cur is CanvasItem:\n\t\tz += (cur as CanvasItem).z_index\n\t\tif not (cur as CanvasItem).z_as_relative:\n\t\t\tbreak\n\t\tcur = cur.get_parent()\n\treturn z\nvar lbl = m.get_node_or_null(\"BoardRoot/MovementGhostVisual/MovementRemainingLabel\")\nif lbl == null or lbl.text == \"\":\n\treturn false\nvar highest_overlay := -(1 << 30)\nfor path in [\"BoardRoot/MoveRangeVisual\", \"BoardRoot/MovementERVisual\", \"BoardRoot/MovementCoherencyVisual\"]:\n\tvar layer = m.get_node_or_null(path)\n\tif layer == null:\n\t\tcontinue\n\tfor c in layer.get_children():\n\t\tif c is CanvasItem:\n\t\t\thighest_overlay = max(highest_overlay, eff.call(c))\nm.set_meta(\"label_probe\", \"%s @z=%d overlay_max=%d\" % [lbl.text, eff.call(lbl), highest_overlay])\nreturn eff.call(lbl) > highest_overlay",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"label_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 6.0,
+      "script": "# Thin reach circles: with one circle per dragged model a heavy stroke floods\n# the drop zone. Report the widest dash actually drawn.\nvar m = tree.root.get_node(\"Main\")\nvar w := 0.0\nfor c in m.get_node(\"BoardRoot/MoveRangeVisual\").get_children():\n\tif c is Line2D:\n\t\tw = max(w, (c as Line2D).width)\nreturn w"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_mid_drag_ghosts_read_above_range_circles"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 910.0,
+      "y": 200.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_WITCHSEEKERS_C\"].staged_moves.size()",
+      "equals": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "03_group_move_staged_after_drop"
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller._select_unit_in_list_by_id(\"U_WITCHSEEKERS_D\")",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_WITCHSEEKERS_D"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "PadActionBar.highlighted_id()",
+      "equals": "NORMAL"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "PadRouter.is_carrying()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child_count()",
+      "expect_min": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Pad carry is the case that used to be strictly worse: the reach ring is\n# deliberately lifted (dash.z_index = 50) so the clamp boundary reads over the\n# board tokens. It must still pass UNDER the carried ghost.\nvar m = tree.root.get_node(\"Main\")\nvar eff := func(ci: CanvasItem) -> int:\n\tvar z := 0\n\tvar cur: Node = ci\n\twhile cur is CanvasItem:\n\t\tz += (cur as CanvasItem).z_index\n\t\tif not (cur as CanvasItem).z_as_relative:\n\t\t\tbreak\n\t\tcur = cur.get_parent()\n\treturn z\nvar lifted := 0\nvar highest_overlay := -(1 << 30)\nfor c in m.get_node(\"BoardRoot/MoveRangeVisual\").get_children():\n\tif c is CanvasItem:\n\t\thighest_overlay = max(highest_overlay, eff.call(c))\n\t\tif (c as CanvasItem).z_index == 50:\n\t\t\tlifted += 1\nvar lowest_ghost := 1 << 30\nfor c in m.get_node(\"BoardRoot/MovementGhostVisual\").get_children():\n\tif c is CanvasItem:\n\t\tlowest_ghost = min(lowest_ghost, eff.call(c))\nm.set_meta(\"pad_z_probe\", \"lifted_dashes=%d ghost_min=%d overlay_max=%d\" % [lifted, lowest_ghost, highest_overlay])\nreturn lifted > 0 and lowest_ghost > highest_overlay",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"pad_z_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_pad_carry_ghost_above_lifted_reach_ring"
+    }
+  ]
+}

@@ -1605,20 +1605,36 @@ func pad_primary_action() -> bool:
 		return true
 	return false
 
+# True when X should mean "Skip Charge" — the declare / roll stages with the
+# button live. Same split (and same reason) as pad_snap_available below: the
+# virtual cursor has to know before it turns X into a right-click.
+func pad_skip_available() -> bool:
+	return is_instance_valid(skip_button) and skip_button.visible and not skip_button.disabled
+
 # X: same as the Skip Charge button.
 func pad_skip() -> bool:
-	if not is_instance_valid(skip_button) or skip_button.disabled or not skip_button.visible:
+	if not pad_skip_available():
 		return false
 	_on_skip_charge_pressed()
 	return true
 
+# True when X should mean "Snap to Contact" — the charge move stage with the
+# button actually live. Split out of pad_snap_to_contact so VirtualCursor can
+# ask the same question BEFORE it turns X into a synthetic right-click: on the
+# pad the left stick is how you aim at a model for A = Grab Model, so the cursor
+# is up almost the whole move stage, and a cursor that swallows X made the hint
+# bar's "[X] Snap to Contact" a dead promise (reported: "X does nothing, only
+# the on-screen button works").
+func pad_snap_available() -> bool:
+	if not awaiting_movement:
+		return false
+	return is_instance_valid(auto_path_charge_button) and auto_path_charge_button.visible \
+			and not auto_path_charge_button.disabled
+
 # X while moving charge models (no model in hand): the Snap to Contact button —
 # places every unmoved model base-to-base with its nearest declared target.
 func pad_snap_to_contact() -> bool:
-	if not awaiting_movement:
-		return false
-	if not is_instance_valid(auto_path_charge_button) or auto_path_charge_button.disabled \
-			or not auto_path_charge_button.visible:
+	if not pad_snap_available():
 		return false
 	_on_auto_path_charge()
 	return true
@@ -5096,6 +5112,15 @@ func _on_auto_path_charge() -> void:
 		confirm_button.disabled = moved_models.is_empty()
 	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
 		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	# ...including Snap itself: this hand-rolled refresh (deliberately not
+	# _update_button_states, whose tail would clobber the auto-path message set
+	# below) used to skip the button it was fired from, so after a full snap the
+	# button stayed lit while a second press could only early-return — the exact
+	# "Snap to Contact doesn't do anything" reading the T-092 gating fixed
+	# everywhere else. Same rule as _update_button_states: snap-able only while
+	# models are still unplaced.
+	if auto_path_charge_button and is_instance_valid(auto_path_charge_button):
+		auto_path_charge_button.disabled = models_to_move.is_empty()
 	# Refresh info
 	if is_instance_valid(charge_info_label):
 		if models_to_move.is_empty():
@@ -5109,6 +5134,12 @@ func _on_auto_path_charge() -> void:
 			charge_info_label.text = "Snap to Contact: %d model(s) have no legal move within %d\" — drag them manually" % [unplaced.size(), charge_distance]
 		else:
 			charge_info_label.text = _remaining_models_message()
+	# The pad hint bar mirrors these buttons ("[X] Snap to Contact"), and this
+	# handler bypasses _update_button_states' own refresh — re-render from the
+	# state the snap just produced so the bar can't keep promising a button that
+	# just greyed out.
+	if PadRouter and PadRouter.has_method("refresh_hints"):
+		PadRouter.refresh_hints()
 
 
 # Stage a suggested charge position exactly like a completed drag would

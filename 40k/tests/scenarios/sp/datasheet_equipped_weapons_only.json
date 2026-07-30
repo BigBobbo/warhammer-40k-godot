@@ -21,11 +21,14 @@
     { "act": "expect_node_visible", "node": "/root/Main/DatasheetModal", "timeout_s": 2.0 },
     { "act": "execute_script", "script": "var m=tree.root.get_node_or_null(\"Main/DatasheetModal\")\nreturn m.current_unit_id", "multiline": true, "equals": "U_BATTLEWAGON_G" },
 
-    { "act": "execute_script", "script": "var l=tree.root.get_node_or_null(\"Main/DatasheetModal/Body/Weapons\")\nreturn l.text.contains(\"Kannon\") and l.text.contains(\"Lobba\") and l.text.contains(\"Deff rolla\") and l.text.contains(\"Grabbin\") and l.text.contains(\"Wreckin\")", "multiline": true, "equals": true },
-    { "act": "execute_script", "script": "var l=tree.root.get_node_or_null(\"Main/DatasheetModal/Body/Weapons\")\nreturn l.text.contains(\"Tracks and wheels\")", "multiline": true, "equals": true },
-    { "act": "execute_script", "script": "var l=tree.root.get_node_or_null(\"Main/DatasheetModal/Body/Weapons\")\nreturn l.text.contains(\"Killkannon\")", "multiline": true, "equals": false },
-    { "act": "execute_script", "script": "var l=tree.root.get_node_or_null(\"Main/DatasheetModal/Body/Weapons\")\nreturn l.text.contains(\"Zzap gun\")", "multiline": true, "equals": false },
-    { "act": "execute_script", "script": "var l=tree.root.get_node_or_null(\"Main/DatasheetModal/Body/Weapons\")\nreturn l.text.contains(\"Big shoota\")", "multiline": true, "equals": false },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"Main/DatasheetModal\")\nreturn d.weapons_text.contains(\"Kannon\") and d.weapons_text.contains(\"Lobba\") and d.weapons_text.contains(\"Deff rolla\") and d.weapons_text.contains(\"Grabbin\") and d.weapons_text.contains(\"Wreckin\")", "multiline": true, "equals": true },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"Main/DatasheetModal\")\nreturn d.weapons_text.contains(\"Tracks and wheels\")", "multiline": true, "equals": true },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"Main/DatasheetModal\")\nreturn d.weapons_text.contains(\"Killkannon\")", "multiline": true, "equals": false },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"Main/DatasheetModal\")\nreturn d.weapons_text.contains(\"Zzap gun\")", "multiline": true, "equals": false },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"Main/DatasheetModal\")\nreturn d.weapons_text.contains(\"Big shoota\")", "multiline": true, "equals": false },
+
+    { "act": "execute_script", "script": "var t=tree.root.get_node_or_null(\"Main/TokenHoverTooltip\")\nreturn t == null or not t.visible", "multiline": true, "equals": true },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"Main/DatasheetModal\")\nvar vp=d.get_viewport().get_visible_rect().size\nreturn d.size.y <= vp.y - 40.0 and abs((d.position.y + d.size.y * 0.5) - vp.y * 0.5) <= 2.0", "multiline": true, "equals": true },
 
     { "act": "screenshot", "label": "01_battlewagon_datasheet_equipped_only" },
 

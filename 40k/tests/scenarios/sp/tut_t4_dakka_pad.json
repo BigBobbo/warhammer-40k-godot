@@ -1,8 +1,8 @@
 {
   "id": "tut_t4_dakka_pad",
   "covers": [
-    "tutorial.t4.shooting.pad",
-    "tutorial.t4.resolution_dock.pad"
+    "tutorial.t4.resolution_dock.pad",
+    "tutorial.t4.shooting.pad"
   ],
   "rng_seed": 4242,
   "edition": 11,
@@ -11,6 +11,15 @@
     {
       "act": "wait_seconds",
       "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/MainMenu/TutorialNudge/Margin/VBox/Footer/DismissNudgeButton",
+      "comment": "fresh container / fresh user:// = the first-launch 'First time 'ere?' nudge is up and swallows the pad menu navigation below. Dismiss it if present."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
     },
     {
       "act": "simulate_joy_button",
@@ -75,7 +84,8 @@
     },
     {
       "act": "pad_cursor_glide",
-      "button_text": "Continue"
+      "button_text": "Continue",
+      "comment": "instructor-card Continue. This glide stalls intermittently under llvmpipe (VirtualCursor advances the glide only while pad mode is held, and the cursor's own warp synthesises mouse motion). The runner now retries a stalled round instead of failing on the first one, so no per-step timeout override is needed."
     },
     {
       "act": "simulate_joy_button",
@@ -112,7 +122,136 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
+      "equals": "aim_first_gun",
+      "comment": "the lesson clears boot.auto_assign_single_target, so picking the shooter leaves every gun unaimed and the player has an assign step to do"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_shooter_picked_pad"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "D-pad parks the virtual cursor (VirtualCursor._input park() on any D-pad press). The picker/Continue glides above left it live, and PadRouter._assign_highlighted_target bails while the cursor owns A. Only one target is eligible, so the ring does not move."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return VirtualCursor.is_cursor_active()",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "D-pad ▼ walks the weapon rows onto the Slugga"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "slugga_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A aims the current gun at the highlighted target"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "aim_da_rest"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "▼ to the Warboss's kombi-weapon (attached character - its bearer id is the composite \"U_WARBOSS_T:m1\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "kombi_weapon_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"/root/AbilityChoiceDialog\")\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the kombi-weapon has DEVASTATING WOUNDS, so assigning it opens the attacker-choices dialog - confirm it to commit the assignment"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "▼ to the Warboss's twin sluggas"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "twin_sluggas_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor a in PhaseManager.current_phase_instance.pending_assignments:\n\tn += 1\nreturn n",
+      "multiline": true,
+      "equals": 3,
+      "comment": "all three weapons aimed by hand on the pad, including both of the attached Warboss's guns"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
       "equals": "confirm_dakka"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nvar confirm_at = t.find(\"Confirm Targets\")\nvar reaim_at = t.find(\"walks da targets\")\nreturn confirm_at != -1 and reaim_at != -1 and confirm_at < reaim_at",
+      "multiline": true,
+      "equals": true,
+      "comment": "step 5 pad copy must lead with the Confirm Targets press, not with the re-aim stick controls (main's assertion, kept verbatim - the confirm step still ends with the re-aim hint so the ordering check is still meaningful)"
+    },
+    {
+      "act": "screenshot",
+      "label": "02b_all_aimed_pad"
     },
     {
       "act": "execute_script",
@@ -124,10 +263,6 @@
       "act": "execute_script",
       "script": "PadRouter.start_owns_phase_action()",
       "equals": false
-    },
-    {
-      "act": "screenshot",
-      "label": "02_shooter_picked_pad"
     },
     {
       "act": "simulate_joy_button",
@@ -165,7 +300,9 @@
     },
     {
       "act": "pad_cursor_glide",
-      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "optional": true,
+      "comment": "defender save-results card. Whether ANY card appears is seed-dependent: the card only exists when that seed's dice actually wounded something, and a rules fix that changes how many dice are rolled (e.g. RAPID FIRE now correctly counting an attached character within half range) shifts the stream. Driven with real pad input when a card IS up; skipped cleanly when it is not. The later Done presses are already tolerant for the same reason, and step 'has_shot' below is the real gate."
     },
     {
       "act": "simulate_joy_button",

@@ -84,7 +84,7 @@
       "script": "var b = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/SkipStepButton\")\nvar fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nif not b.is_visible_in_tree():\n\treturn \"Skip Step hidden\"\nif b.get_global_rect().intersects(Rect2(Vector2(fd.position), Vector2(fd.size))):\n\treturn \"Skip Step behind the dialog\"\nreturn \"clickable\"",
       "multiline": true,
       "equals": "clickable",
-      "comment": "the button the player has to be able to click is really outside the dialog, not just nominally visible"
+      "comment": "the footer buttons must be wholly outside the dialog, not clipped by it. (They are deliberately DISABLED while a modal is up - the escape hatch re-offers Exit Tutorial inside the dialog's own button bar - but the player still has to be able to read them, and they must not be the thing that overflows the narrowed card.)"
     },
     {
       "act": "execute_script",

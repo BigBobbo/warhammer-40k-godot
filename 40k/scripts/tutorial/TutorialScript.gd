@@ -6,7 +6,7 @@ class_name TutorialScript
 # res://data/tutorials/lessons/.
 #
 # Prompt token vocabulary (rendered as bold bracketed chips in BBCode):
-#   {a} {b} {x} {y} {lb} {rb} {lt} {rt} {ls} {rs} {l3} {dpad} {menu} {view}
+#   {a} {b} {x} {y} {lb} {rb} {lt} {rt} {ls} {rs} {l3} {r3} {dpad} {menu} {view}
 #       -> pad button chip text from GlyphDB (e.g. [RB])
 #   {key:<keybinding_id>} -> rebind-aware key name from KeybindingManager
 #                            (never hardcode a key: audit X5 collisions)
