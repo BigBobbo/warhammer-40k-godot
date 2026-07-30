@@ -631,6 +631,11 @@ const PAD_FOCUS_LAST_META := "pad_focus_last"
 
 func _find_confirm_button(root: Node) -> Button:
 	var candidates: Array = []
+	# A bolted-on button (the tutorial's injected "Exit Tutorial" hatch) is a LAST
+	# resort: it lives in the AcceptDialog's own button bar, so a breadth-first
+	# scan reaches it before the dialog's content — which is how a pad player
+	# opened the deployment roll-off already parked on "Exit Tutorial" instead of
+	# "Roll the dice".
 	var deprioritised: Array = []
 	var queue: Array = [root]
 	while not queue.is_empty():
@@ -652,8 +657,24 @@ func _find_confirm_button(root: Node) -> Button:
 		# button the moment it exists.
 		return null
 	for b in candidates:
-		var t := str(b.text).to_lower()
+		# Leading decoration ("⚄  Roll the dice", "⟳  Re-roll", "▶ Next") must not
+		# hide the verb — begins_with() against the raw text missed every one of
+		# them and silently fell through to "first button found".
+		var t := _confirm_match_text(str(b.text))
 		for w in _CONFIRM_WORDS:
 			if t.begins_with(w):
 				return b
 	return candidates[0]
+
+
+# Lower-cased button text with any leading non-alphanumeric decoration (dice
+# glyphs, arrows, spaces) trimmed off.
+func _confirm_match_text(text: String) -> String:
+	var t := text.to_lower().strip_edges()
+	var start := 0
+	while start < t.length():
+		var c := t[start]
+		if (c >= "a" and c <= "z") or (c >= "0" and c <= "9"):
+			break
+		start += 1
+	return t.substr(start).strip_edges()

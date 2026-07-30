@@ -2,13 +2,36 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.8.1",
+      "version": "1.8.3",
       "date": "2026-07-30",
       "summary": "The tutorial's instruction card no longer hides behind the Declare Battle Formations window.",
       "changes": [
         "Step 1 of 8 in 'Musterin' da Boyz' put the instruction card on the left flank at a fixed width and assumed the Battle Formations window left room for it. On anything but a very wide screen it didn't — the end of the instruction, the step counter and the Skip Step / Exit Tutorial buttons all sat behind the window. Anyone who had nudged the UI Scale slider up, or was playing on a controller (which enlarges the UI), lost part of every card that shares the screen with a pop-up.",
         "The card now measures the space actually left beside an open window and re-wraps itself to fit it, so the whole card stays readable and clickable. If there is more room on the other side of the window, it moves there instead.",
         "When a pop-up doesn't reach the card's usual spot at the top of the screen, the card now simply stays there at full width instead of jumping to the side."
+      ]
+    },
+    {
+      "version": "1.8.2",
+      "date": "2026-07-30",
+      "summary": "Tutorial 3 ('Get Movin'') now reminds you that you can grab the whole mob in one go — and an attached character finally moves when you do.",
+      "changes": [
+        "Step 4 of 'Get Movin'' — the one where the freshly disembarked Boyz make their own move — used to say \"drag one forward\". With 10 Boyz plus an attached Warboss to shift, players were moving all 11 bases individually. The step now points out the select-all shortcut up front: Ctrl+A on mouse and keyboard, D-pad ▲ on a controller, grabs every model in the mob so one drag moves the lot.",
+        "Fixed: moving a mob as a group always left its attached character behind. Grab a squad with select-all or ▲, drag, and the leader stayed exactly where he was — and so did any squadmate standing where he needed to go. On the tutorial's Boyz that meant 8 of the 11 bases moved and three refused, with no message explaining why. An attached character shares model ids with the squad it joined (both have an \"m1\"), and four separate lookups matched on the squad instead of the character's own unit: the leader inherited the first Boy's start position, was sent to the Boy's destination, was measured against the wrong origin, and was even checked for overlap against himself — which no move could ever pass. All four now key off the model's real unit.",
+        "The step's stuck-hint now covers the follow-up too: on a controller ▲ only grabs the mob once the move has actually started, and if the whole mob doesn't fit where you drop it, only the models that fit land — the rest stay in hand for another go.",
+        "The end-of-lesson recap picked up a matching bullet."
+      ]
+    },
+    {
+      "version": "1.8.1",
+      "date": "2026-07-30",
+      "summary": "Tutorial dice pop-ups are fully yours again on a controller — the 'Exit Tutorial' button is gone from them unless you actually need it — and confirming an Advance in 'Get Movin'' stops throwing a bogus error.",
+      "changes": [
+        "1.7.23 stopped A landing on \"Exit Tutorial\" when a tutorial dialog opened. It was still there though, and still unreachable-and-unleavable: the D-pad could not move onto it, and if you did land on it no direction could get you off. It is no longer added to a dialog at all unless a lesson has actually refused something you tried — the case it exists for. Rolling for deployment, choosing who deploys first, rolling for first turn, the Advance re-roll offer and the charge re-roll offer now carry only their own buttons.",
+        "When it does appear, it is no longer a dead end: the D-pad now walks back off it onto the dialog's own button.",
+        "The roll-off's \"Roll the dice\" is now recognised as the button A should press — its dice symbol was hiding the word from the controller's focus picker, so it fell back to whatever button it happened to find first.",
+        "The greyed-out Exit Tutorial on the tutorial card now says why — \"finish the dialog first\" when you can simply close it, rather than pointing at a button that isn't there.",
+        "'Get Movin'' step 5: confirming the Battlewagon's Advance threw \"tutorial_locked\" and the movement mode never actually locked in. One click sends two things (start the Advance, then lock the mode) and the lesson had already moved on to the re-roll step, which refused the second half."
       ]
     },
     {
