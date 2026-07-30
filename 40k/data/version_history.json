@@ -2,14 +2,55 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.8.5",
+      "date": "2026-07-30",
+      "summary": "The tutorial card now also steps aside for the pop-ups it could not previously see at all.",
+      "changes": [
+        "The card only ever looked for open dialogs in two places, so any dialog opened by the phase controller that raises it — the shooting phase's grenade and split-fire target pickers, the movement phase's right-click menu — was invisible to it. The card did not move out of the way for those, and worse, the tutorial did not realise it was underneath a modal at all: its Exit Tutorial button stayed looking live while the dialog swallowed every click, leaving no way out. Those dialogs are now found wherever they sit, the card steps aside for them, and the modal gets its own working Exit Tutorial button.",
+        "Opening a dropdown list no longer counts as a pop-up to hide from, so the card stays put instead of darting to the side of the screen for as long as the list is open."
+      ]
+    },
+    {
+      "version": "1.8.4",
+      "date": "2026-07-30",
+      "summary": "Controller: grabbing your own model with A now works while you're steering with the stick, and LB/RB turn a vehicle mid-move instead of refusing to switch units.",
+      "changes": [
+        "Tutorial 3 (\"Get Movin'\") step 8 tells you to grab the Battlewagon with A and spin it with LB/RB, but the grab silently did nothing and the bumpers answered \"Confirm or reset this unit's move before switching\". With the on-screen cursor live — which it is the moment you touch the left stick — A was a plain click that picked the model up and set it straight back down, so nothing was ever in your hand for the bumpers to turn. Now, once a unit's move is under way, tapping A on one of its models really picks it up: the stick steers it, LB/RB turn it, A drops it. (Holding A and steering still works as a drag that drops when you let go.) This was never just a tutorial problem — it broke re-grabbing a model to spend the rest of its move anywhere in the Movement phase.",
+        "LB/RB now turn the model 15° a tap from the moment a unit's move is under way until it is confirmed — whether the model is in your hand or parked where you dropped it. The bumpers cannot switch units in that state anyway, so instead of only warning you about that they do the thing you were reaching for. The hint bar shows the new Rotate chips, turning costs no movement, and the new facing now survives \"End This Unit's Move\" (a turn made after dropping the model used to be quietly reverted when the move was confirmed).",
+        "Models on round bases are unchanged: they have no facing to turn, so there the bumpers still explain why they can't switch units mid-move."
+      ]
+    },
+    {
+      "version": "1.8.3",
+      "date": "2026-07-30",
+      "summary": "The tutorial's instruction card no longer hides behind the Declare Battle Formations window.",
+      "changes": [
+        "Step 1 of 8 in 'Musterin' da Boyz' put the instruction card on the left flank at a fixed width and assumed the Battle Formations window left room for it. On anything but a very wide screen it didn't — the end of the instruction, the step counter and the Skip Step / Exit Tutorial buttons all sat behind the window. Anyone who had nudged the UI Scale slider up, or was playing on a controller (which enlarges the UI), lost part of every card that shares the screen with a pop-up.",
+        "The card now measures the space actually left beside an open window and re-wraps itself to fit it, so the whole card stays readable and clickable. If there is more room on the other side of the window, it moves there instead.",
+        "When a pop-up doesn't reach the card's usual spot at the top of the screen, the card now simply stays there at full width instead of jumping to the side."
+      ]
+    },
+    {
+      "version": "1.8.2",
+      "date": "2026-07-30",
+      "summary": "Tutorial 3 ('Get Movin'') now reminds you that you can grab the whole mob in one go — and an attached character finally moves when you do.",
+      "changes": [
+        "Step 4 of 'Get Movin'' — the one where the freshly disembarked Boyz make their own move — used to say \"drag one forward\". With 10 Boyz plus an attached Warboss to shift, players were moving all 11 bases individually. The step now points out the select-all shortcut up front: Ctrl+A on mouse and keyboard, D-pad ▲ on a controller, grabs every model in the mob so one drag moves the lot.",
+        "Fixed: moving a mob as a group always left its attached character behind. Grab a squad with select-all or ▲, drag, and the leader stayed exactly where he was — and so did any squadmate standing where he needed to go. On the tutorial's Boyz that meant 8 of the 11 bases moved and three refused, with no message explaining why. An attached character shares model ids with the squad it joined (both have an \"m1\"), and four separate lookups matched on the squad instead of the character's own unit: the leader inherited the first Boy's start position, was sent to the Boy's destination, was measured against the wrong origin, and was even checked for overlap against himself — which no move could ever pass. All four now key off the model's real unit.",
+        "The step's stuck-hint now covers the follow-up too: on a controller ▲ only grabs the mob once the move has actually started, and if the whole mob doesn't fit where you drop it, only the models that fit land — the rest stay in hand for another go.",
+        "The end-of-lesson recap picked up a matching bullet."
+      ]
+    },
+    {
       "version": "1.8.1",
       "date": "2026-07-30",
-      "summary": "The tutorial's instructor card no longer hides behind the dialog the step is telling you to use.",
+      "summary": "Tutorial dice pop-ups are fully yours again on a controller — the 'Exit Tutorial' button is gone from them unless you actually need it — and confirming an Advance in 'Get Movin'' stops throwing a bogus error.",
       "changes": [
-        "When a lesson step opens a dialog, the instructor card steps aside to the left of the screen — but it always did so at a fixed width, so on any UI Scale above 1.0 (and on a controller, where the game boosts the scale to 1.2 for legibility) the dialog reached into that strip and buried the right-hand side of the card. In 'Runnin' da Show' that cut the instructions mid-sentence and hid the Skip Step and Exit Tutorial buttons on step 1 (the secondary-mission review), step 2 (the guard prompt) and step 5 (the stratagem panel).",
-        "The card now measures the space actually left beside the dialog and narrows itself to fit, so the whole card and the whole dialog are readable at the same time. It widens back out the moment the dialog closes.",
-        "If a flank is too narrow to hold a readable column, the card looks for room above or below the dialog instead. It never covers the dialog — you can always still read the missions, guards or stratagems the step is asking about.",
-        "Found while checking where else this could bite: the card only ever looked for dialogs in two places, so any dialog opened by the phase controller that raises it — the shooting phase's grenade and split-fire target pickers, the movement phase's right-click menu — was invisible to it. The card did not step aside for those at all, and worse, the tutorial did not notice it was under a modal: its Exit Tutorial button stayed looking live while the dialog swallowed every click, with no way out. Those dialogs are now found wherever they are, the card steps aside for them, and the modal gets its own working Exit Tutorial button."
+        "1.7.23 stopped A landing on \"Exit Tutorial\" when a tutorial dialog opened. It was still there though, and still unreachable-and-unleavable: the D-pad could not move onto it, and if you did land on it no direction could get you off. It is no longer added to a dialog at all unless a lesson has actually refused something you tried — the case it exists for. Rolling for deployment, choosing who deploys first, rolling for first turn, the Advance re-roll offer and the charge re-roll offer now carry only their own buttons.",
+        "When it does appear, it is no longer a dead end: the D-pad now walks back off it onto the dialog's own button.",
+        "The roll-off's \"Roll the dice\" is now recognised as the button A should press — its dice symbol was hiding the word from the controller's focus picker, so it fell back to whatever button it happened to find first.",
+        "The greyed-out Exit Tutorial on the tutorial card now says why — \"finish the dialog first\" when you can simply close it, rather than pointing at a button that isn't there.",
+        "'Get Movin'' step 5: confirming the Battlewagon's Advance threw \"tutorial_locked\" and the movement mode never actually locked in. One click sends two things (start the Advance, then lock the mode) and the lesson had already moved on to the re-roll step, which refused the second half."
       ]
     },
     {

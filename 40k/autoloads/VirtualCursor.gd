@@ -249,8 +249,19 @@ func _input(event: InputEvent) -> void:
 			JOY_BUTTON_A:
 				# During an M3 carry the router owns A (drop/cancel semantics);
 				# a second synthetic LMB press mid-drag would confuse the drag
-				# handlers.
+				# handlers. The RELEASE of the press that STARTED the carry goes
+				# to the router too: a press that landed on one of the active
+				# unit's own models is adopted as a carry mid-flush (see
+				# MovementController._start_model_drag → adopt_cursor_drag_as_carry),
+				# and then held-and-steered is the mouse's drag gesture (the
+				# release drops the model) while a tap hands it to the M3 carry
+				# flow (it stays in hand — LB/RB turn it, Ⓐ drops it, which is
+				# what tutorial T3 step 8 asks for). on_cursor_a_released decides;
+				# either way the release must NOT be re-emitted as a mouse
+				# release, which would end the drag under the carry's feet.
 				if PadRouter.is_carrying():
+					if not event.pressed and PadRouter.on_cursor_a_released():
+						get_viewport().set_input_as_handled()
 					return
 				_emit_button(MOUSE_BUTTON_LEFT, event.pressed)
 				get_viewport().set_input_as_handled()
