@@ -18,7 +18,26 @@ const GlyphDB = preload("res://scripts/input/GlyphDB.gd")
 
 const CARD_TOP_OFFSET := 96.0
 const CARD_BOTTOM_OFFSET := 132.0  # keeps clear of the pad hint bar
+const CARD_SIDE_OFFSET := 10.0     # flank inset, left or right
 const ANCHOR_RERESOLVE_S := 0.5
+
+# The card has no width of its own: it is as wide as the widest of BodyText /
+# ChecklistText / HintLabel plus the Margin insets and the panel border. So
+# "narrow the card" means "narrow those three" — see _set_card_content_width.
+const CARD_CONTENT_W := 560.0
+# Preferred floor when narrowing to fit a flank: below this the Ork prose wraps
+# into a useless column, so we look for somewhere else to stand instead.
+const CARD_CONTENT_W_MIN := 300.0
+# Hard floor. Only reached on a canvas so small that nothing fits (UI Scale 2.0
+# on a 16:9 window leaves ~960x540 of canvas and a dialog capped at 95% of it).
+const CARD_CONTENT_W_FLOOR := 240.0
+# Clear air between the card and the dialog it is dodging.
+const CARD_DODGE_GAP := 16.0
+# Embedded Windows draw their border and title bar OUTSIDE Window.position /
+# Window.size, so the rect the card has to keep off is bigger than the reported
+# one. Measured against SecondaryMissionReviewDialog: ~4px of border each side,
+# ~40px of title bar above.
+const WINDOW_DECOR_PAD := Vector2(8.0, 44.0)
 
 # The two escape-hatch affordances (see "modal escape hatch" below). Both names
 # are excluded from _blocking_window() so the tutorial's own windows never read
@@ -50,6 +69,7 @@ var _anchor_ok: bool = false
 var _spotlight_mode: String = "none"
 var _reresolve_accum: float = 0.0
 var _card_mode: String = "top"
+var _card_content_w: float = CARD_CONTENT_W
 var _dim_strips: Array = []
 var _modal_exit_window: Window = null   # floating hatch, for non-AcceptDialog modals
 var _modal_exit_host: Window = null     # the dialog we added an Exit button INTO
@@ -70,6 +90,10 @@ func _ready() -> void:
 	var pb := get_node_or_null("/root/PadBindings")
 	if pb != null and pb.has_signal("pad_binding_changed"):
 		pb.pad_binding_changed.connect(func(_role_id): _rebuild_ack_glyph())
+	# Re-derive the placement offsets whenever the card's minimum size settles
+	# (a narrower dodge, longer step prose, a UI-scale change) — see
+	# _on_card_min_size_changed.
+	_card.minimum_size_changed.connect(_on_card_min_size_changed)
 
 
 func _mgr() -> Node:
@@ -160,7 +184,7 @@ func _build() -> void:
 	_body_text.bbcode_enabled = true
 	_body_text.fit_content = true
 	_body_text.scroll_active = false
-	_body_text.custom_minimum_size = Vector2(560, 0)
+	_body_text.custom_minimum_size = Vector2(CARD_CONTENT_W, 0)
 	_body_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# >= 12px effective at 1280x800 (Steam Deck recommendation; PRP §4.3):
 	# 15px at 1920x1080 canvas-items scaling ~= 10px physical on Deck before the
@@ -181,7 +205,7 @@ func _build() -> void:
 	_checklist_text.bbcode_enabled = true
 	_checklist_text.fit_content = true
 	_checklist_text.scroll_active = false
-	_checklist_text.custom_minimum_size = Vector2(560, 0)
+	_checklist_text.custom_minimum_size = Vector2(CARD_CONTENT_W, 0)
 	_checklist_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_checklist_text.add_theme_font_size_override("normal_font_size", 14)
 	_checklist_text.add_theme_font_size_override("bold_font_size", 14)
@@ -193,7 +217,7 @@ func _build() -> void:
 	_hint_label = Label.new()
 	_hint_label.name = "HintLabel"
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint_label.custom_minimum_size = Vector2(560, 0)
+	_hint_label.custom_minimum_size = Vector2(CARD_CONTENT_W, 0)
 	_hint_label.add_theme_font_size_override("font_size", 13)
 	_hint_label.add_theme_color_override("font_color", UIConstantsData.MARGINAL_YELLOW)
 	_hint_label.visible = false
@@ -420,9 +444,8 @@ func _input(event: InputEvent) -> void:
 	target.emit_signal("pressed")
 
 
-# Card placement modes: "top" (default), "bottom" (dodging a board anchor),
-# "left" (dodging an open game dialog — dialogs are centered, the strip over
-# the game-log panel stays clear).
+# Card placement modes: "top" (default), "bottom" (dodging a board anchor or
+# sitting under an open dialog), "left" / "right" (flanking an open game dialog).
 func _place_card(mode: String) -> void:
 	_card_mode = mode
 	match mode:
@@ -433,9 +456,14 @@ func _place_card(mode: String) -> void:
 			_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		"left":
 			_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_MINSIZE)
-			_card.offset_left = 10
+			_card.offset_left = CARD_SIDE_OFFSET
 			_card.grow_vertical = Control.GROW_DIRECTION_BOTH
 			_card.grow_horizontal = Control.GROW_DIRECTION_END
+		"right":
+			_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT, Control.PRESET_MODE_MINSIZE)
+			_card.offset_right = -CARD_SIDE_OFFSET
+			_card.grow_vertical = Control.GROW_DIRECTION_BOTH
+			_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 		_:
 			_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE)
 			_card.offset_top = CARD_TOP_OFFSET
@@ -443,8 +471,107 @@ func _place_card(mode: String) -> void:
 			_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
 
 
+# The placement presets bake the card's CURRENT minimum size into the offsets,
+# so a width change has to be followed by a re-place or the card keeps its old
+# footprint (a narrowed card would still be as wide as before, defeating the
+# whole point). Deferred because the new minimum size is only known after the
+# labels have re-wrapped. Same belt-and-braces as TutorialNudgePanel.
+func _on_card_min_size_changed() -> void:
+	if visible:
+		call_deferred("_reapply_card_placement")
+
+
+func _reapply_card_placement() -> void:
+	if visible and _card != null:
+		_place_card(_card_mode)
+
+
+# Narrow (or restore) the card by re-wrapping its text at `w`. Everything that
+# sets the card's width goes through here so _card_content_w always matches
+# what the labels are actually wrapped at (the chrome arithmetic depends on it).
+func _set_card_content_width(w: float) -> void:
+	w = clampf(w, CARD_CONTENT_W_FLOOR, CARD_CONTENT_W)
+	if is_equal_approx(w, _card_content_w):
+		return
+	_card_content_w = w
+	for c in [_body_text, _checklist_text, _hint_label]:
+		if c != null:
+			c.custom_minimum_size.x = w
+	# minimum_size_changed fires off the back of this and re-places the card.
+
+
+# Card width minus content width: the Margin container's insets plus the panel
+# border. Measured off the live card rather than hardcoded so a theme change
+# cannot desync the arithmetic; 24 (the two 12px margins) is the pre-layout
+# fallback for the frame before the card has ever been sized.
+func _card_chrome_w() -> float:
+	var measured: float = _card.size.x - _card_content_w
+	return measured if measured > 0.0 and measured < 200.0 else 24.0
+
+
+# The rect the card must keep off: the blocking Window grown by its decorations.
+# Empty when nothing is blocking.
+func card_blocker_rect() -> Rect2:
+	var win := _blocking_window()
+	if win == null:
+		return Rect2()
+	return Rect2(Vector2(win.position), Vector2(win.size)).grow_individual(
+		WINDOW_DECOR_PAD.x, WINDOW_DECOR_PAD.y, WINDOW_DECOR_PAD.x, WINDOW_DECOR_PAD.y)
+
+
+# Where to stand while `blocker` is up, and how wide to be. The dialogs the card
+# dodges are horizontally centred and bottom-anchored (DialogUtils.popup_at_bottom),
+# but their width is content-driven and capped at 95% of the canvas — and the
+# canvas itself shrinks as the UI Scale setting (and the pad text boost, which
+# multiplies it by 1.2) grows. So the left flank is NOT reliably 560px wide, and
+# the old fixed-width left dodge left the card half-buried under the dialog at
+# any scale above 1.0 (reported on T7 steps 1, 2 and 5).
+#
+# Priority: the left flank it has always used, narrowed to fit; then the right
+# flank; then the clear band above the dialog, then below it. Never over the
+# dialog — the step is asking the player to read and use that dialog.
+func _plan_dodge(blocker: Rect2) -> Dictionary:
+	var vp: Vector2 = _spotlight.get_viewport_rect().size
+	var chrome := _card_chrome_w()
+	var left_room: float = blocker.position.x - CARD_SIDE_OFFSET - CARD_DODGE_GAP
+	var right_room: float = vp.x - blocker.end.x - CARD_SIDE_OFFSET - CARD_DODGE_GAP
+	if left_room - chrome >= CARD_CONTENT_W_MIN:
+		return {"mode": "left", "content_w": minf(CARD_CONTENT_W, left_room - chrome)}
+	if right_room - chrome >= CARD_CONTENT_W_MIN:
+		return {"mode": "right", "content_w": minf(CARD_CONTENT_W, right_room - chrome)}
+	# Neither flank can hold a readable column. Fall back to the clear band
+	# above the dialog (bottom-anchored dialogs usually leave one) or below it —
+	# beside the dialog either way, never on top of it.
+	var card_h: float = _card.size.y
+	if blocker.position.y - CARD_TOP_OFFSET - CARD_DODGE_GAP >= card_h:
+		return {"mode": "top", "content_w": CARD_CONTENT_W}
+	if vp.y - CARD_BOTTOM_OFFSET - blocker.end.y - CARD_DODGE_GAP >= card_h:
+		return {"mode": "bottom", "content_w": CARD_CONTENT_W}
+	# Nothing fits at all (UI Scale 2.0 territory, where a capped dialog covers
+	# almost the whole canvas). Least-bad: the roomier flank, shrunk to whatever
+	# is actually there. _set_card_content_width's floor stops it going silly.
+	var roomier: String = "left" if left_room >= right_room else "right"
+	return {"mode": roomier, "content_w": maxf(left_room, right_room) - chrome}
+
+
 func card_rect() -> Rect2:
 	return _card.get_global_rect()
+
+
+# Exposed for windowed scenarios: the width the card's prose is wrapped at.
+# CARD_CONTENT_W unless it has been narrowed to fit beside a dialog.
+func card_content_width() -> float:
+	return _card_content_w
+
+
+# Exposed for windowed scenarios: how far the blocking dialog eats into the
+# card, in px. <= 0 means the card is fully clear of it.
+func card_blocker_overlap() -> float:
+	var blocker := card_blocker_rect()
+	if blocker.size == Vector2.ZERO:
+		return 0.0
+	var inter := blocker.intersection(card_rect())
+	return minf(inter.size.x, inter.size.y)
 
 
 # True while any embedded game Window (AcceptDialog family) is showing —
@@ -645,6 +772,9 @@ func show_step(view: Dictionary) -> void:
 	_anchor_node = null
 	_anchor_ok = false
 	_reresolve_accum = ANCHOR_RERESOLVE_S  # resolve on next frame
+	# Every step starts full width at the top; _update_card_mode narrows and
+	# re-flanks it on the next frame if a dialog is (still) up.
+	_set_card_content_width(CARD_CONTENT_W)
 	if _card_mode != "top":
 		_place_card("top")
 	_apply_pad_affordances(true)
@@ -700,6 +830,7 @@ func show_summary(view: Dictionary) -> void:
 	_spotlight_mode = "none"
 	for strip in _dim_strips:
 		strip.visible = false
+	_set_card_content_width(CARD_CONTENT_W)
 	_place_card("top")
 	_apply_pad_affordances(true)
 	_spotlight.queue_redraw()
@@ -804,13 +935,21 @@ func _scroll_anchor_into_view(node: Node) -> void:
 		parent = parent.get_parent()
 
 
-# Card placement priority: dodge open game dialogs (left flank), then dodge
-# the spotlighted anchor (bottom), else top-center (PRP §4.3).
+# Card placement priority: dodge open game dialogs (a flank, narrowed to fit —
+# see _plan_dodge), then dodge the spotlighted anchor (bottom), else top-center
+# (PRP §4.3).
 func _update_card_mode() -> void:
+	var blocker := card_blocker_rect()
+	if blocker.size != Vector2.ZERO:
+		var plan: Dictionary = _plan_dodge(blocker)
+		_set_card_content_width(float(plan["content_w"]))
+		if str(plan["mode"]) != _card_mode:
+			_place_card(str(plan["mode"]))
+		return
+	# Nothing blocking — back to full width before the anchor dodge decides.
+	_set_card_content_width(CARD_CONTENT_W)
 	var wanted := "top"
-	if _any_game_window_open():
-		wanted = "left"
-	elif _anchor_ok:
+	if _anchor_ok:
 		var cr := card_rect()
 		if _card_mode != "bottom":
 			if cr.grow(8).intersects(_anchor_rect):

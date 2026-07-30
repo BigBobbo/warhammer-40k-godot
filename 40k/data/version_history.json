@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "The tutorial's instructor card no longer hides behind the dialog the step is telling you to use.",
+      "changes": [
+        "When a lesson step opens a dialog, the instructor card steps aside to the left of the screen — but it always did so at a fixed width, so on any UI Scale above 1.0 (and on a controller, where the game boosts the scale to 1.2 for legibility) the dialog reached into that strip and buried the right-hand side of the card. In 'Runnin' da Show' that cut the instructions mid-sentence and hid the Skip Step and Exit Tutorial buttons on step 1 (the secondary-mission review), step 2 (the guard prompt) and step 5 (the stratagem panel).",
+        "The card now measures the space actually left beside the dialog and narrows itself to fit, so the whole card and the whole dialog are readable at the same time. It widens back out the moment the dialog closes.",
+        "If a flank is too narrow to hold a readable column, the card looks for room above or below the dialog instead. It never covers the dialog — you can always still read the missions, guards or stratagems the step is asking about."
+      ]
+    },
+    {
       "version": "1.7.20",
       "date": "2026-07-29",
       "summary": "An attached character's guns now count properly for Rapid Fire, Melta, cover and target eligibility — and two crash-on-use toasts are fixed.",

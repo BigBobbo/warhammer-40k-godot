@@ -1,0 +1,272 @@
+{
+  "id": "tut_card_dodges_dialog",
+  "covers": [
+    "tutorial.overlay.card_dodge",
+    "tutorial.t7.command",
+    "scripts.tutorial.TutorialOverlay"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "The instructor card must never be buried under the dialog the step is asking the player to read. Boots T7 (Runnin' da Show) and probes the three steps that put a modal on screen -- the secondary-mission review (step 1), the Burden of Trust guard prompt (step 2) and the stratagem panel (step 5) -- at the base canvas AND at content_scale_factor 1.2, which is what UI Scale 1.2 (and the pad text boost) actually does to the canvas: it shrinks it to 1599x899, so a centred 700px dialog reaches into the left flank the card used to sit in at a fixed 560px width. Each probe asserts zero overlap; the 1.2 probes additionally assert the card really did narrow rather than getting lucky.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var n = tree.root.get_node_or_null(\"/root/MainMenu/TutorialNudge\")\nif n == null or not n.visible:\n\treturn \"absent\"\nvar b = n.get_node_or_null(\"Margin/VBox/Footer/DismissNudgeButton\")\nif b == null:\n\treturn \"no dismiss button\"\nb.pressed.emit()\nreturn \"dismissed\"",
+      "multiline": true,
+      "comment": "on a genuinely fresh profile the first-launch 'First time 'ere?' nudge is up, and its mouse_filter=STOP panel swallows clicks aimed at the menu behind it"
+    },
+    {
+      "act": "execute_script",
+      "script": "var sc = tree.root.get_node_or_null(\"/root/MainMenu/ScrollContainer\")\nvar b = tree.root.get_node_or_null(\"/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton\")\nif sc == null or b == null:\n\treturn false\nsc.ensure_control_visible(b)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "ButtonSection sits below the menu's scroll fold at 1080p, and a click at an unscrolled control's coordinates lands on whatever is actually drawn there"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t7_runnin_da_show/Play_t7_runnin_da_show"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "review_missions"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nif ov == null:\n\treturn \"no TutorialOverlay\"\nvar blocker = ov.card_blocker_rect()\nif blocker.size == Vector2.ZERO:\n\treturn \"no blocking dialog open - the review modal should be up on this step\"\nvar overlap = ov.card_blocker_overlap()\nif overlap > 0.0:\n\treturn \"card buried %.0fpx under the dialog (card %s, dialog %s)\" % [overlap, str(ov.card_rect()), str(blocker)]\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "base canvas: the card dodges to a flank and must be clear of the review dialog"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_review_base_scale"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.2\nvar d = tree.root.get_node_or_null(\"/root/SecondaryMissionReviewDialog\")\nif d == null:\n\treturn \"no review dialog\"\nvar vp = tree.root.get_visible_rect().size\nd.position = DialogUtils._bottom_position(vp, int(d.size.x), int(d.size.y), DialogConstants.BOTTOM_CLEARANCE)\nreturn vp.x < 1920.0",
+      "multiline": true,
+      "equals": true,
+      "comment": "reproduce UI Scale 1.2 / the pad text boost: shrink the canvas (1920 -> ~1599 wide) and re-anchor the dialog where popup_at_bottom would have put it on that canvas"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar blocker = ov.card_blocker_rect()\nif blocker.size == Vector2.ZERO:\n\treturn \"no blocking dialog open\"\nvar overlap = ov.card_blocker_overlap()\nif overlap > 0.0:\n\treturn \"card buried %.0fpx under the dialog (card %s, dialog %s)\" % [overlap, str(ov.card_rect()), str(blocker)]\nif ov.card_content_width() >= 560.0:\n\treturn \"card never narrowed - still wrapped at %.0f\" % ov.card_content_width()\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the reported bug: at this canvas the old fixed-width left dodge left ~149px of the card under the dialog"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_review_scale_120"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.0\nvar d = tree.root.get_node_or_null(\"/root/SecondaryMissionReviewDialog\")\nif d == null:\n\treturn \"no review dialog\"\nvar vp = tree.root.get_visible_rect().size\nd.position = DialogUtils._bottom_position(vp, int(d.size.x), int(d.size.y), DialogConstants.BOTTOM_CLEARANCE)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "back to the base canvas - the remaining real clicks inject window-pixel coordinates, which only line up at scale 1.0"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar w = ov.card_content_width()\nif w <= 500.0:\n\treturn \"card stayed cramped at %.0f on the base canvas\" % w\nif ov.card_blocker_overlap() > 0.0:\n\treturn \"card overlaps the dialog again after the canvas grew\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "it widens back out as the room comes back - not all the way to 560 while the 700px review dialog is still up (the flank only holds 548 at 1920), but nowhere near the 387 it needed at 1.2"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the mission review is an embedded modal AcceptDialog on /root - emit its Continue"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "mission_choice"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.2\nvar d = tree.root.get_node_or_null(\"/root/GuardSelectionDialog\")\nif d == null:\n\treturn \"no guard dialog\"\nvar vp = tree.root.get_visible_rect().size\nd.position = DialogUtils._bottom_position(vp, int(d.size.x), int(d.size.y), DialogConstants.BOTTOM_CLEARANCE)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar blocker = ov.card_blocker_rect()\nif blocker.size == Vector2.ZERO:\n\treturn \"no blocking dialog open - the guard prompt should be up on this step\"\nvar overlap = ov.card_blocker_overlap()\nif overlap > 0.0:\n\treturn \"card buried %.0fpx under the dialog (card %s, dialog %s)\" % [overlap, str(ov.card_rect()), str(blocker)]\nif ov.card_content_width() >= 560.0:\n\treturn \"card never narrowed - still wrapped at %.0f\" % ov.card_content_width()\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "step 2 of the report: DA MISSION WANTS SOMEFIN' behind the guard prompt"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_guard_scale_120"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.0\nvar d = tree.root.get_node_or_null(\"/root/GuardSelectionDialog\")\nif d == null:\n\treturn \"no guard dialog\"\nvar vp = tree.root.get_visible_rect().size\nd.position = DialogUtils._bottom_position(vp, int(d.size.x), int(d.size.y), DialogConstants.BOTTOM_CLEARANCE)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/GuardSelectionDialog/Content/Actions/KeepAutoGuards\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "waaagh"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nif ov.card_blocker_rect().size != Vector2.ZERO:\n\treturn \"a dialog is still up on the waaagh step\"\nif not is_equal_approx(ov.card_content_width(), 560.0):\n\treturn \"card stayed narrow at %.0f with nothing to dodge\" % ov.card_content_width()\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "no dialog on this step - the card must be back to full width"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "stratagems"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/StratagemPanel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "end_command"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.2\nvar d = tree.root.get_node_or_null(\"/root/Main/StratagemPanel\")\nif d == null:\n\treturn \"no stratagem panel\"\nvar vp = tree.root.get_visible_rect().size\nd.position = DialogUtils._bottom_position(vp, int(d.size.x), int(d.size.y), DialogConstants.BOTTOM_CLEARANCE)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar blocker = ov.card_blocker_rect()\nif blocker.size == Vector2.ZERO:\n\treturn \"no blocking dialog open - the stratagem panel should be up on this step\"\nvar overlap = ov.card_blocker_overlap()\nif overlap > 0.0:\n\treturn \"card buried %.0fpx under the dialog (card %s, dialog %s)\" % [overlap, str(ov.card_rect()), str(blocker)]\nif ov.card_content_width() >= 560.0:\n\treturn \"card never narrowed - still wrapped at %.0f\" % ov.card_content_width()\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "step 5 of the report: ON WIV IT behind the stratagem panel"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_stratagems_scale_120"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.0\nvar d = tree.root.get_node_or_null(\"/root/Main/StratagemPanel\")\nif d == null:\n\treturn \"no stratagem panel\"\nvar vp = tree.root.get_visible_rect().size\nd.position = DialogUtils._bottom_position(vp, int(d.size.x), int(d.size.y), DialogConstants.BOTTOM_CLEARANCE)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var sp = tree.root.get_node_or_null(\"/root/Main/StratagemPanel\")\nif sp == null:\n\treturn false\nvar b = sp.get_ok_button()\nif b != null:\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the stratagem panel is a modal Window: a synthetic click on the bottom-bar toggle is swallowed, so press its own Close button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nreturn is_equal_approx(ov.card_content_width(), 560.0)",
+      "multiline": true,
+      "equals": true,
+      "comment": "panel closed - full width again"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.exit_tutorial()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "geometry scenario - the player-facing exit path itself is covered by tut_exit_anywhere / tut_exit_under_modal"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": false
+    }
+  ]
+}
