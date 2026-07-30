@@ -182,11 +182,11 @@ func _apply_theme() -> void:
 
 	# Section headers
 	var mission_label = $ScrollContainer/MenuContainer/MissionSection/MissionLabel as Label
-	mission_label.add_theme_font_size_override("font_size", 16)
+	mission_label.add_theme_font_size_override("font_size", 20)
 	mission_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 
 	var army_label = $ScrollContainer/MenuContainer/ArmySection/ArmyLabel as Label
-	army_label.add_theme_font_size_override("font_size", 16)
+	army_label.add_theme_font_size_override("font_size", 20)
 	army_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 
 	# Separators: gold
@@ -228,15 +228,28 @@ func _create_data_attribution_credit() -> void:
 	credit.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
 	credit.tooltip_text = "Dataset: @alpaca-software/40kdc-data (CC BY 4.0)"
 	credit.focus_mode = Control.FOCUS_NONE
-	credit.add_theme_font_size_override("font_size", 11)
+	credit.add_theme_font_size_override("font_size", 16)
 	credit.add_theme_color_override("font_color", Color(WhiteDwarfThemeData.WH_PARCHMENT, 0.55))
 	credit.add_theme_color_override("font_hover_color", WhiteDwarfThemeData.WH_GOLD)
 	credit.add_theme_color_override("font_pressed_color", WhiteDwarfThemeData.WH_GOLD)
-	# Bottom-center of the screen, 6 px above the edge
-	credit.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 6)
+	# Bottom-center of the screen. While the pad is the active device the
+	# PadHintBar glyph strip owns the bottom edge (Steam Deck) — sit above it
+	# so the license-required credit stays visible. Re-checked on device flip.
+	_position_attribution_credit(credit)
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm != null and idm.has_signal("device_changed"):
+		idm.device_changed.connect(func(_mode): _position_attribution_credit(credit))
 	credit.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(credit)
 	print("MainMenu: 40kdc data attribution credit added")
+
+func _position_attribution_credit(credit: Control) -> void:
+	if credit == null or not is_instance_valid(credit):
+		return
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	var pad_active: bool = idm != null and idm.has_method("is_pad_active") and idm.is_pad_active()
+	var inset := 52 if pad_active else 6
+	credit.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, inset)
 
 func _create_version_display() -> void:
 	"""Show the game version + a summary of the most recent changes at the bottom
@@ -251,7 +264,7 @@ func _create_version_display() -> void:
 	badge.name = "VersionBadge"
 	badge.text = VersionInfo.get_version_badge()
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.add_theme_font_size_override("font_size", 13)
+	badge.add_theme_font_size_override("font_size", 17)
 	badge.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	# add_child appends to the end of the VBox. Since _create_version_display()
 	# is the last step of _ready(), the version info lands below the
@@ -282,7 +295,7 @@ func _create_version_display() -> void:
 	var header := Label.new()
 	header.name = "WhatsNewHeader"
 	header.text = "What's New — v%s (%s)" % [VersionInfo.get_version(), VersionInfo.get_version_date()]
-	header.add_theme_font_size_override("font_size", 14)
+	header.add_theme_font_size_override("font_size", 18)
 	header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(header)
 
@@ -292,7 +305,7 @@ func _create_version_display() -> void:
 		summary_label.text = summary
 		summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		summary_label.custom_minimum_size = Vector2(560, 0)
-		summary_label.add_theme_font_size_override("font_size", 12)
+		summary_label.add_theme_font_size_override("font_size", 16)
 		summary_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 		vbox.add_child(summary_label)
 
@@ -301,7 +314,7 @@ func _create_version_display() -> void:
 		change_label.text = "•  %s" % str(change)
 		change_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		change_label.custom_minimum_size = Vector2(560, 0)
-		change_label.add_theme_font_size_override("font_size", 12)
+		change_label.add_theme_font_size_override("font_size", 16)
 		change_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 		vbox.add_child(change_label)
 
@@ -368,7 +381,7 @@ func _create_controller_status() -> void:
 	var label := Label.new()
 	label.name = "ControllerStatus"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_font_size_override("font_size", 17)
 	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	label.offset_right = -14
 	label.offset_top = 10
@@ -383,7 +396,7 @@ func _create_controller_status() -> void:
 	var mode_label := Label.new()
 	mode_label.name = "InputModeStatus"
 	mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	mode_label.add_theme_font_size_override("font_size", 11)
+	mode_label.add_theme_font_size_override("font_size", 16)
 	mode_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	mode_label.offset_right = -14
 	mode_label.offset_top = 56
@@ -1595,7 +1608,7 @@ func _show_menu_progress(operation: String) -> void:
 	_save_load_progress_label.text = operation + "..."
 	_save_load_progress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_save_load_progress_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
-	_save_load_progress_label.add_theme_font_size_override("font_size", 18)
+	_save_load_progress_label.add_theme_font_size_override("font_size", 21)
 	_save_load_progress_overlay.add_child(_save_load_progress_label)
 
 	add_child(_save_load_progress_overlay)
@@ -1720,7 +1733,7 @@ func _show_replay_browser() -> void:
 			var p2_faction = meta.get("player2_faction", "Player 2")
 			var title_label = Label.new()
 			title_label.text = "%s vs %s" % [p1_faction, p2_faction]
-			title_label.add_theme_font_size_override("font_size", 16)
+			title_label.add_theme_font_size_override("font_size", 20)
 			info_vbox.add_child(title_label)
 
 			# Subtitle: date, rounds, score
@@ -1740,7 +1753,7 @@ func _show_replay_browser() -> void:
 			var subtitle = Label.new()
 			subtitle.text = "%s %s | %s vs %s | Round %s | Score: %d-%d | %d events" % [
 				status_label, date_str, p1_type, p2_type, str(final_round), p1_vp, p2_vp, total_events]
-			subtitle.add_theme_font_size_override("font_size", 12)
+			subtitle.add_theme_font_size_override("font_size", 16)
 			var subtitle_color = Color(0.6, 0.6, 0.6) if replay_status == "complete" else Color(0.8, 0.7, 0.3)
 			subtitle.add_theme_color_override("font_color", subtitle_color)
 			info_vbox.add_child(subtitle)

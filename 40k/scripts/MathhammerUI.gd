@@ -220,7 +220,7 @@ func _create_content_sections() -> void:
 
 	var selector_label = Label.new()
 	selector_label.text = "Unit Selection"
-	selector_label.add_theme_font_size_override("font_size", 16)
+	selector_label.add_theme_font_size_override("font_size", 20)
 	selector_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		selector_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -247,7 +247,7 @@ func _create_content_sections() -> void:
 	# Multiple attacker selection with checkboxes
 	var attacker_label = Label.new()
 	attacker_label.text = "Attackers (select multiple):"
-	attacker_label.add_theme_font_size_override("font_size", 14)
+	attacker_label.add_theme_font_size_override("font_size", 18)
 	attacker_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		attacker_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -262,7 +262,7 @@ func _create_content_sections() -> void:
 	swap_attacker_defender_button = Button.new()
 	swap_attacker_defender_button.text = "⇅ Swap Attacker / Defender"
 	swap_attacker_defender_button.tooltip_text = "Swap the current attacker and defender units"
-	swap_attacker_defender_button.add_theme_font_size_override("font_size", 12)
+	swap_attacker_defender_button.add_theme_font_size_override("font_size", 16)
 	WhiteDwarfTheme.apply_secondary_button(swap_attacker_defender_button)
 	unit_selector.add_child(swap_attacker_defender_button)
 
@@ -289,7 +289,7 @@ func _create_content_sections() -> void:
 	defender_override_checkbox = CheckBox.new()
 	defender_override_checkbox.text = "Custom Defender Stats"
 	defender_override_checkbox.tooltip_text = "Override defender T/Sv/W/Invuln/FNP with custom values"
-	defender_override_checkbox.add_theme_font_size_override("font_size", 13)
+	defender_override_checkbox.add_theme_font_size_override("font_size", 17)
 	unit_selector.add_child(defender_override_checkbox)
 	defender_override_checkbox.toggled.connect(_on_defender_override_toggled)
 
@@ -310,7 +310,7 @@ func _create_content_sections() -> void:
 
 	var weapon_label = Label.new()
 	weapon_label.text = "Weapon Selection"
-	weapon_label.add_theme_font_size_override("font_size", 14)
+	weapon_label.add_theme_font_size_override("font_size", 18)
 	weapon_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		weapon_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -379,7 +379,7 @@ func _create_content_sections() -> void:
 	multi_defender_checkbox = CheckBox.new()
 	multi_defender_checkbox.text = "Select Multiple Defenders"
 	multi_defender_checkbox.tooltip_text = "Enable to select multiple defenders for target comparison"
-	multi_defender_checkbox.add_theme_font_size_override("font_size", 13)
+	multi_defender_checkbox.add_theme_font_size_override("font_size", 17)
 	unit_selector.add_child(multi_defender_checkbox)
 	multi_defender_checkbox.toggled.connect(_on_multi_defender_toggled)
 
@@ -398,7 +398,7 @@ func _create_content_sections() -> void:
 
 	_progress_label = Label.new()
 	_progress_label.text = "Simulating..."
-	_progress_label.add_theme_font_size_override("font_size", 11)
+	_progress_label.add_theme_font_size_override("font_size", 16)
 	_progress_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.4))
 	_progress_container.add_child(_progress_label)
 
@@ -422,7 +422,7 @@ func _create_content_sections() -> void:
 	
 	var rules_label = Label.new()
 	rules_label.text = "Rule Modifiers"
-	rules_label.add_theme_font_size_override("font_size", 16)
+	rules_label.add_theme_font_size_override("font_size", 20)
 	rules_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		rules_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -442,7 +442,7 @@ func _create_content_sections() -> void:
 	
 	var summary_label = Label.new()
 	summary_label.text = "Results Summary"
-	summary_label.add_theme_font_size_override("font_size", 16)
+	summary_label.add_theme_font_size_override("font_size", 20)
 	summary_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		summary_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -480,7 +480,7 @@ func _create_content_sections() -> void:
 	
 	var breakdown_label = Label.new()
 	breakdown_label.text = "Detailed Breakdown"
-	breakdown_label.add_theme_font_size_override("font_size", 16)
+	breakdown_label.add_theme_font_size_override("font_size", 20)
 	breakdown_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes.FONT_RAJDHANI_BOLD:
 		breakdown_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -607,7 +607,7 @@ func _populate_unit_selectors() -> void:
 		var unit_label = Label.new()
 		unit_label.text = display_name
 		unit_label.custom_minimum_size.x = 200
-		unit_label.add_theme_font_size_override("font_size", 12)
+		unit_label.add_theme_font_size_override("font_size", 16)
 		unit_row.add_child(unit_label)
 		
 		# Attack count spinbox
@@ -617,7 +617,7 @@ func _populate_unit_selectors() -> void:
 		attack_spinbox.value = 0
 		attack_spinbox.step = 1
 		attack_spinbox.custom_minimum_size.x = 80
-		attack_spinbox.add_theme_font_size_override("font_size", 11)
+		attack_spinbox.add_theme_font_size_override("font_size", 16)
 		
 		# Connect value change signal
 		attack_spinbox.value_changed.connect(_on_attacker_attack_count_changed.bind(unit_id))
@@ -627,7 +627,7 @@ func _populate_unit_selectors() -> void:
 		# "attacks" label
 		var attacks_label = Label.new()
 		attacks_label.text = " attacks"
-		attacks_label.add_theme_font_size_override("font_size", 11)
+		attacks_label.add_theme_font_size_override("font_size", 16)
 		unit_row.add_child(attacks_label)
 		
 		attacker_container.add_child(unit_row)
@@ -655,7 +655,7 @@ func _populate_multi_defender_panel() -> void:
 		var unit_info = available_units[unit_id]
 		var checkbox = CheckBox.new()
 		checkbox.text = unit_info.display_name
-		checkbox.add_theme_font_size_override("font_size", 12)
+		checkbox.add_theme_font_size_override("font_size", 16)
 		checkbox.set_meta("unit_id", unit_id)
 		checkbox.toggled.connect(_on_defender_checkbox_toggled.bind(unit_id))
 		multi_defender_panel.add_child(checkbox)
@@ -663,7 +663,7 @@ func _populate_multi_defender_panel() -> void:
 
 	var note = Label.new()
 	note.text = "Select 2+ defenders, then press Compare Targets"
-	note.add_theme_font_size_override("font_size", 10)
+	note.add_theme_font_size_override("font_size", 16)
 	note.add_theme_color_override("font_color", Color.GRAY)
 	multi_defender_panel.add_child(note)
 
@@ -775,7 +775,7 @@ func _update_weapon_selection() -> void:
 	if not has_selected_attackers:
 		var no_selection_label = Label.new()
 		no_selection_label.text = "Set attacker attack counts above"
-		no_selection_label.add_theme_font_size_override("font_size", 12)
+		no_selection_label.add_theme_font_size_override("font_size", 16)
 		weapon_selection_panel.add_child(no_selection_label)
 		return
 	
@@ -796,7 +796,7 @@ func _update_weapon_selection() -> void:
 		# Unit header
 		var unit_header = Label.new()
 		unit_header.text = "\n%s:" % unit_name
-		unit_header.add_theme_font_size_override("font_size", 13)
+		unit_header.add_theme_font_size_override("font_size", 17)
 		unit_header.add_theme_color_override("font_color", Color(0.8, 0.8, 1.0))
 		weapon_selection_panel.add_child(unit_header)
 
@@ -850,7 +850,7 @@ func _update_weapon_selection() -> void:
 				keyword_text = " [%s]" % special_rules
 			weapon_label.text = weapon_name + weapon_stats + keyword_text
 			weapon_label.custom_minimum_size.x = 250
-			weapon_label.add_theme_font_size_override("font_size", 11)
+			weapon_label.add_theme_font_size_override("font_size", 16)
 			if keyword_text != "":
 				weapon_label.tooltip_text = "Keywords: %s" % special_rules
 			weapon_row.add_child(weapon_label)
@@ -874,7 +874,7 @@ func _update_weapon_selection() -> void:
 			attack_spinbox.value = default_attacks
 			attack_spinbox.step = 1
 			attack_spinbox.custom_minimum_size.x = 80
-			attack_spinbox.add_theme_font_size_override("font_size", 11)
+			attack_spinbox.add_theme_font_size_override("font_size", 16)
 			
 			# Connect value change signal
 			attack_spinbox.value_changed.connect(_on_weapon_attack_count_changed.bind(weapon_key))
@@ -887,7 +887,7 @@ func _update_weapon_selection() -> void:
 				attacks_label.text = " attacks (base: %s)" % raw_attacks
 			else:
 				attacks_label.text = " attacks"
-			attacks_label.add_theme_font_size_override("font_size", 11)
+			attacks_label.add_theme_font_size_override("font_size", 16)
 			weapon_row.add_child(attacks_label)
 			
 			# Store weapon data
@@ -903,7 +903,7 @@ func _update_weapon_selection() -> void:
 			var phase_name = "ranged" if show_ranged else "melee"
 			var no_weapons_label = Label.new()
 			no_weapons_label.text = "  (no %s weapons)" % phase_name
-			no_weapons_label.add_theme_font_size_override("font_size", 11)
+			no_weapons_label.add_theme_font_size_override("font_size", 16)
 			no_weapons_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.7))
 			weapon_selection_panel.add_child(no_weapons_label)
 
@@ -1190,7 +1190,7 @@ func _create_defender_override_fields() -> void:
 		var label = Label.new()
 		label.text = field_def.label
 		label.custom_minimum_size.x = 120
-		label.add_theme_font_size_override("font_size", 12)
+		label.add_theme_font_size_override("font_size", 16)
 		row.add_child(label)
 
 		var spinbox = SpinBox.new()
@@ -1199,14 +1199,14 @@ func _create_defender_override_fields() -> void:
 		spinbox.value = field_def.default
 		spinbox.step = 1
 		spinbox.custom_minimum_size.x = 80
-		spinbox.add_theme_font_size_override("font_size", 11)
+		spinbox.add_theme_font_size_override("font_size", 16)
 		row.add_child(spinbox)
 
 		# Add hint for 0 = none fields
 		if field_def.field == "invuln" or field_def.field == "fnp":
 			var hint = Label.new()
 			hint.text = " (0 = none)"
-			hint.add_theme_font_size_override("font_size", 10)
+			hint.add_theme_font_size_override("font_size", 16)
 			hint.add_theme_color_override("font_color", Color.GRAY)
 			row.add_child(hint)
 
@@ -1230,7 +1230,7 @@ func _create_defender_override_fields() -> void:
 	# Add note about overrides
 	var note = Label.new()
 	note.text = "Overrides replace defender's unit stats for simulation"
-	note.add_theme_font_size_override("font_size", 10)
+	note.add_theme_font_size_override("font_size", 16)
 	note.add_theme_color_override("font_color", Color.GRAY)
 	defender_override_panel.add_child(note)
 
@@ -1550,14 +1550,14 @@ func _draw_visual_histogram(result: Mathhammer.SimulationResult) -> void:
 	# Title
 	var title_label = Label.new()
 	title_label.text = "Damage Distribution"
-	title_label.add_theme_font_size_override("font_size", 13)
+	title_label.add_theme_font_size_override("font_size", 17)
 	title_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.6))
 	hist_container.add_child(title_label)
 
 	# Subtitle with mean marker info
 	var subtitle_label = Label.new()
 	subtitle_label.text = "Mean: %.1f wounds  |  %d unique outcomes" % [avg_damage, sorted_damages.size()]
-	subtitle_label.add_theme_font_size_override("font_size", 10)
+	subtitle_label.add_theme_font_size_override("font_size", 16)
 	subtitle_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	hist_container.add_child(subtitle_label)
 
@@ -1623,7 +1623,7 @@ func _create_vertical_bar_chart(parent: VBoxContainer, display_data: Array, max_
 			pct_label.text = "%.1f%%" % percentage
 		else:
 			pct_label.text = ""
-		pct_label.add_theme_font_size_override("font_size", 7)
+		pct_label.add_theme_font_size_override("font_size", 16)
 		pct_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		pct_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
 		bar_column.add_child(pct_label)
@@ -1637,7 +1637,7 @@ func _create_vertical_bar_chart(parent: VBoxContainer, display_data: Array, max_
 		# Damage value label below bar
 		var dmg_label = Label.new()
 		dmg_label.text = entry.label
-		dmg_label.add_theme_font_size_override("font_size", 7)
+		dmg_label.add_theme_font_size_override("font_size", 16)
 		dmg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		dmg_label.add_theme_color_override("font_color", Color.WHITE)
 		bar_column.add_child(dmg_label)
@@ -1662,7 +1662,7 @@ func _create_horizontal_bar_chart(parent: VBoxContainer, display_data: Array, ma
 		var dmg_label = Label.new()
 		dmg_label.text = entry.label
 		dmg_label.custom_minimum_size.x = 35
-		dmg_label.add_theme_font_size_override("font_size", 8)
+		dmg_label.add_theme_font_size_override("font_size", 16)
 		dmg_label.add_theme_color_override("font_color", Color.WHITE)
 		dmg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row_hbox.add_child(dmg_label)
@@ -1676,7 +1676,7 @@ func _create_horizontal_bar_chart(parent: VBoxContainer, display_data: Array, ma
 		# Percentage label (right of bar)
 		var pct_label = Label.new()
 		pct_label.text = "%.1f%%" % percentage
-		pct_label.add_theme_font_size_override("font_size", 8)
+		pct_label.add_theme_font_size_override("font_size", 16)
 		pct_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
 		row_hbox.add_child(pct_label)
 
@@ -1740,7 +1740,7 @@ func _add_histogram_legend_item(parent: HBoxContainer, color: Color, text: Strin
 
 	var label = Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	parent.add_child(label)
 
@@ -1986,7 +1986,7 @@ func _create_cumulative_probability_panel(parent: VBoxContainer, result: Mathham
 	# Subtitle
 	var subtitle = Label.new()
 	subtitle.text = "Chance of dealing at least N wounds"
-	subtitle.add_theme_font_size_override("font_size", 10)
+	subtitle.add_theme_font_size_override("font_size", 16)
 	subtitle.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	cumul_content.add_child(subtitle)
 
@@ -2039,13 +2039,13 @@ func _create_cumulative_probability_panel(parent: VBoxContainer, result: Mathham
 	# Table header
 	var header_wounds = Label.new()
 	header_wounds.text = "At Least"
-	header_wounds.add_theme_font_size_override("font_size", 11)
+	header_wounds.add_theme_font_size_override("font_size", 16)
 	header_wounds.add_theme_color_override("font_color", Color(0.9, 0.9, 0.6))
 	table_grid.add_child(header_wounds)
 
 	var header_prob = Label.new()
 	header_prob.text = "Probability"
-	header_prob.add_theme_font_size_override("font_size", 11)
+	header_prob.add_theme_font_size_override("font_size", 16)
 	header_prob.add_theme_color_override("font_color", Color(0.9, 0.9, 0.6))
 	table_grid.add_child(header_prob)
 
@@ -2072,13 +2072,13 @@ func _create_cumulative_probability_panel(parent: VBoxContainer, result: Mathham
 			wound_label.text = "%d wound" % damage_val
 		else:
 			wound_label.text = "%d wounds" % damage_val
-		wound_label.add_theme_font_size_override("font_size", 10)
+		wound_label.add_theme_font_size_override("font_size", 16)
 		wound_label.add_theme_color_override("font_color", Color.WHITE)
 		table_grid.add_child(wound_label)
 
 		var prob_label = Label.new()
 		prob_label.text = "%.1f%%" % (prob * 100.0)
-		prob_label.add_theme_font_size_override("font_size", 10)
+		prob_label.add_theme_font_size_override("font_size", 16)
 		prob_label.add_theme_color_override("font_color", row_color)
 		table_grid.add_child(prob_label)
 
@@ -2113,7 +2113,7 @@ func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
 	# Title
 	var title_label = Label.new()
 	title_label.text = title
-	title_label.add_theme_font_size_override("font_size", 14)
+	title_label.add_theme_font_size_override("font_size", 18)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
 	content_vbox.add_child(title_label)
 
@@ -2130,7 +2130,7 @@ func create_weapon_section(weapon_num: int, weapon_name: String, stats: Dictiona
 	# Weapon header
 	var header_label = Label.new()
 	header_label.text = "[Weapon %d] %s" % [weapon_num, weapon_name]
-	header_label.add_theme_font_size_override("font_size", 12)
+	header_label.add_theme_font_size_override("font_size", 16)
 	header_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
 	weapon_vbox.add_child(header_label)
 	
@@ -2161,13 +2161,13 @@ func create_weapon_section(weapon_num: int, weapon_name: String, stats: Dictiona
 func add_stat_row(grid: GridContainer, label_text: String, value_text: String, value_color: Color = Color.WHITE) -> void:
 	var label = Label.new()
 	label.text = label_text
-	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	grid.add_child(label)
 
 	var value = Label.new()
 	value.text = value_text
-	value.add_theme_font_size_override("font_size", 10)
+	value.add_theme_font_size_override("font_size", 16)
 	value.add_theme_color_override("font_color", value_color)
 	grid.add_child(value)
 
@@ -2361,7 +2361,7 @@ func _display_comparison_results(results: Array) -> void:
 	var phase_display = "Shooting" if _get_selected_phase() == "shooting" else "Melee"
 	var subtitle = Label.new()
 	subtitle.text = "Phase: %s — Each weapon simulated independently against the same target" % phase_display
-	subtitle.add_theme_font_size_override("font_size", 10)
+	subtitle.add_theme_font_size_override("font_size", 16)
 	subtitle.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	title_content.add_child(subtitle)
 
@@ -2451,7 +2451,7 @@ func _display_comparison_results(results: Array) -> void:
 
 		var stats_label = Label.new()
 		stats_label.text = stats_text
-		stats_label.add_theme_font_size_override("font_size", 10)
+		stats_label.add_theme_font_size_override("font_size", 16)
 		stats_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.9))
 		weapon_content.add_child(stats_label)
 
@@ -2514,7 +2514,7 @@ func _create_comparison_ranking(parent: VBoxContainer, weapon_stats: Array) -> v
 		var rank_label = Label.new()
 		rank_label.text = "#%d %s — %.2f avg dmg (%.1f%% kill)" % [
 			i + 1, ws.weapon_name, ws.avg_damage, ws.kill_probability * 100]
-		rank_label.add_theme_font_size_override("font_size", 11)
+		rank_label.add_theme_font_size_override("font_size", 16)
 
 		if i == 0:
 			rank_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))  # Gold
@@ -2547,7 +2547,7 @@ func _create_comparison_ranking(parent: VBoxContainer, weapon_stats: Array) -> v
 			var eff_label = Label.new()
 			eff_label.text = "#%d %s — %.4f dmg/pt (%d pts)" % [
 				i + 1, ws.weapon_name, ws.get("damage_per_point", 0), ws.get("unit_cost", 0)]
-			eff_label.add_theme_font_size_override("font_size", 11)
+			eff_label.add_theme_font_size_override("font_size", 16)
 
 			if i == 0:
 				eff_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))  # Gold
@@ -2784,7 +2784,7 @@ func _display_target_comparison_results(results: Array) -> void:
 	var phase_display = "Shooting" if _get_selected_phase() == "shooting" else "Melee"
 	var subtitle = Label.new()
 	subtitle.text = "Phase: %s — Same attacker simulated against each defender independently" % phase_display
-	subtitle.add_theme_font_size_override("font_size", 10)
+	subtitle.add_theme_font_size_override("font_size", 16)
 	subtitle.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	title_content.add_child(subtitle)
 
@@ -2863,7 +2863,7 @@ func _display_target_comparison_results(results: Array) -> void:
 
 		var profile_label = Label.new()
 		profile_label.text = profile_text
-		profile_label.add_theme_font_size_override("font_size", 10)
+		profile_label.add_theme_font_size_override("font_size", 16)
 		profile_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.9))
 		target_content.add_child(profile_label)
 
@@ -2907,7 +2907,7 @@ func _create_target_comparison_ranking(parent: VBoxContainer, target_stats: Arra
 		var rank_label = Label.new()
 		rank_label.text = "#%d %s — %.2f avg dmg (%.1f%% kill)" % [
 			i + 1, ts.defender_name, ts.avg_damage, ts.kill_probability * 100]
-		rank_label.add_theme_font_size_override("font_size", 11)
+		rank_label.add_theme_font_size_override("font_size", 16)
 
 		if i == 0:
 			rank_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))  # Gold
@@ -2933,7 +2933,7 @@ func _create_target_comparison_ranking(parent: VBoxContainer, target_stats: Arra
 		var eff_label = Label.new()
 		eff_label.text = "#%d %s — %.1f%% efficiency (%.2f avg dmg)" % [
 			i + 1, ts.defender_name, ts.damage_efficiency * 100, ts.avg_damage]
-		eff_label.add_theme_font_size_override("font_size", 11)
+		eff_label.add_theme_font_size_override("font_size", 16)
 
 		if i == 0:
 			eff_label.add_theme_color_override("font_color", Color(0.4, 1.0, 1.0))  # Cyan

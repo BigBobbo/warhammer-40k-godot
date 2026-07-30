@@ -50,7 +50,7 @@ func _build_ui() -> void:
 	var title := Label.new()
 	title.name = "NudgeTitle"
 	title.text = "First time 'ere?"
-	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(title)
 
@@ -71,8 +71,8 @@ func _build_ui() -> void:
 	# one. PANEL_W minus the 18px margins on both sides.
 	_body_label.custom_minimum_size = Vector2(PANEL_W - 36, 0)
 	_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_body_label.add_theme_font_size_override("normal_font_size", 14)
-	_body_label.add_theme_font_size_override("bold_font_size", 14)
+	_body_label.add_theme_font_size_override("normal_font_size", 18)
+	_body_label.add_theme_font_size_override("bold_font_size", 18)
 	_body_label.add_theme_color_override("default_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	vbox.add_child(_body_label)
 

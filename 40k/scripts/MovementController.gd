@@ -450,7 +450,7 @@ func _create_section1_unit_list(parent: VBoxContainer) -> void:
 
 	var label = Label.new()
 	label.text = "UNITS (MOVE / DISEMBARK)"
-	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_font_size_override("font_size", 17)
 	label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -478,7 +478,7 @@ func _create_section2_unit_details(parent: VBoxContainer) -> void:
 
 	var label = Label.new()
 	label.text = "SELECTED UNIT"
-	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_font_size_override("font_size", 17)
 	label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -497,7 +497,7 @@ func _create_section2_unit_details(parent: VBoxContainer) -> void:
 	# Add helpful hint
 	var hint_label = Label.new()
 	hint_label.text = "Drag models to move, or select a different mode below"
-	hint_label.add_theme_font_size_override("font_size", 11)
+	hint_label.add_theme_font_size_override("font_size", 16)
 	hint_label.add_theme_color_override("font_color", Color(0.5, 0.48, 0.4))
 	section.add_child(hint_label)
 
@@ -511,7 +511,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 
 	var label = Label.new()
 	label.text = "MOVEMENT MODE"
-	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_font_size_override("font_size", 17)
 	label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -519,8 +519,11 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	
 	# Create radio button group
 	mode_button_group = ButtonGroup.new()
-	
-	var button_container = HBoxContainer.new()
+
+	# Steam Deck legibility: 2x2 grid instead of a single row — four mode
+	# checkboxes at readable font sizes don't fit the 400px panel side by side.
+	var button_container = GridContainer.new()
+	button_container.columns = 2
 	button_container.name = "ModeButtons"
 	
 	# Create radio buttons (CheckBox with ButtonGroup for radio behavior)
@@ -530,7 +533,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	normal_radio.button_group = mode_button_group
 	normal_radio.pressed.connect(_on_normal_move_pressed)
 	normal_radio.tooltip_text = "Move up to the unit's Move characteristic."
-	normal_radio.add_theme_font_size_override("font_size", 13)
+	normal_radio.add_theme_font_size_override("font_size", 17)
 	normal_radio.add_theme_color_override("font_color", Color(0.5, 0.7, 1.0))
 	normal_radio.add_theme_color_override("font_pressed_color", Color(0.6, 0.85, 1.0))
 	button_container.add_child(normal_radio)
@@ -541,7 +544,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	advance_radio.button_group = mode_button_group
 	advance_radio.pressed.connect(_on_advance_pressed)
 	advance_radio.tooltip_text = "Move + D6\". Unit cannot shoot or charge this turn."
-	advance_radio.add_theme_font_size_override("font_size", 13)
+	advance_radio.add_theme_font_size_override("font_size", 17)
 	advance_radio.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
 	advance_radio.add_theme_color_override("font_pressed_color", Color(0.5, 1.0, 0.5))
 	button_container.add_child(advance_radio)
@@ -552,7 +555,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	fall_back_radio.button_group = mode_button_group
 	fall_back_radio.pressed.connect(_on_fall_back_pressed)
 	fall_back_radio.tooltip_text = "Disengage from combat. Unit cannot shoot or charge this turn."
-	fall_back_radio.add_theme_font_size_override("font_size", 13)
+	fall_back_radio.add_theme_font_size_override("font_size", 17)
 	fall_back_radio.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4))
 	fall_back_radio.add_theme_color_override("font_pressed_color", Color(1.0, 0.6, 0.5))
 	button_container.add_child(fall_back_radio)
@@ -563,7 +566,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	stationary_radio.button_group = mode_button_group
 	stationary_radio.pressed.connect(_on_remain_stationary_pressed)
 	stationary_radio.tooltip_text = "Unit does not move this phase. Counts as having Remained Stationary."
-	stationary_radio.add_theme_font_size_override("font_size", 13)
+	stationary_radio.add_theme_font_size_override("font_size", 17)
 	stationary_radio.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 	stationary_radio.add_theme_color_override("font_pressed_color", Color(0.8, 0.8, 0.8))
 	button_container.add_child(stationary_radio)
@@ -612,7 +615,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	shw_gamble_checkbox.toggle_mode = true
 	shw_gamble_checkbox.visible = false
 	shw_gamble_checkbox.tooltip_text = "Super-Heavy Walker (24.35): grant all models MOBILE for this move to cross dense terrain. At move end roll a D6 — on a 1 the unit is battle-shocked."
-	shw_gamble_checkbox.add_theme_font_size_override("font_size", 13)
+	shw_gamble_checkbox.add_theme_font_size_override("font_size", 17)
 	shw_gamble_checkbox.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
 	shw_gamble_checkbox.add_theme_color_override("font_pressed_color", Color(1.0, 0.85, 0.4))
 	section.add_child(shw_gamble_checkbox)
@@ -626,7 +629,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	take_to_skies_checkbox.toggle_mode = true
 	take_to_skies_checkbox.visible = false
 	take_to_skies_checkbox.tooltip_text = "FLY (21.03): fly over this move — subtract 2\" from the max distance (0 with HOVER), ignore vertical distance, and move through all models and terrain."
-	take_to_skies_checkbox.add_theme_font_size_override("font_size", 13)
+	take_to_skies_checkbox.add_theme_font_size_override("font_size", 17)
 	take_to_skies_checkbox.add_theme_color_override("font_color", Color(0.55, 0.8, 1.0))
 	take_to_skies_checkbox.add_theme_color_override("font_pressed_color", Color(0.7, 0.9, 1.0))
 	# The default drag flow auto-begins a NORMAL move at unit selection, before
@@ -649,7 +652,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	turbo_boost_checkbox.toggle_mode = true
 	turbo_boost_checkbox.visible = false
 	turbo_boost_checkbox.tooltip_text = "Turbo Boostas (Speedwaaagh!): instead of rolling for this Advance, move a flat 24\". Ranged weapons gain ASSAULT until end of turn and the unit cannot declare a charge."
-	turbo_boost_checkbox.add_theme_font_size_override("font_size", 13)
+	turbo_boost_checkbox.add_theme_font_size_override("font_size", 17)
 	turbo_boost_checkbox.add_theme_color_override("font_color", Color(1.0, 0.45, 0.25))
 	turbo_boost_checkbox.add_theme_color_override("font_pressed_color", Color(1.0, 0.6, 0.35))
 	section.add_child(turbo_boost_checkbox)
@@ -664,7 +667,7 @@ func _create_section4_actions(parent: VBoxContainer) -> void:
 
 	var label = Label.new()
 	label.text = "MOVEMENT ACTIONS"
-	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_font_size_override("font_size", 17)
 	label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -677,25 +680,25 @@ func _create_section4_actions(parent: VBoxContainer) -> void:
 	move_cap_label = Label.new()
 	move_cap_label.text = "Move: 0\""
 	move_cap_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
-	move_cap_label.add_theme_font_size_override("font_size", 12)
+	move_cap_label.add_theme_font_size_override("font_size", 16)
 	distance_info.add_child(move_cap_label)
 
 	inches_used_label = Label.new()
 	inches_used_label.text = "Used: 0\""
 	inches_used_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
-	inches_used_label.add_theme_font_size_override("font_size", 12)
+	inches_used_label.add_theme_font_size_override("font_size", 16)
 	distance_info.add_child(inches_used_label)
 
 	inches_left_label = Label.new()
 	inches_left_label.text = "Left: 0\""
 	inches_left_label.add_theme_color_override("font_color", Color(0.5, 0.85, 0.5))
-	inches_left_label.add_theme_font_size_override("font_size", 12)
+	inches_left_label.add_theme_font_size_override("font_size", 16)
 	distance_info.add_child(inches_left_label)
 
 	illegal_reason_label = Label.new()
 	illegal_reason_label.text = ""
 	illegal_reason_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
-	illegal_reason_label.add_theme_font_size_override("font_size", 11)
+	illegal_reason_label.add_theme_font_size_override("font_size", 16)
 	distance_info.add_child(illegal_reason_label)
 	
 	section.add_child(distance_info)
@@ -752,7 +755,7 @@ func _create_dice_log_display(parent: VBoxContainer) -> void:
 		if not existing_dice_log:
 			var dice_label = Label.new()
 			dice_label.text = "Dice Log:"
-			dice_label.add_theme_font_size_override("font_size", 12)
+			dice_label.add_theme_font_size_override("font_size", 16)
 			dice_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 			if FactionPalettes.FONT_RAJDHANI_BOLD:
 				dice_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -3212,7 +3215,7 @@ func _show_ghost_visual(model: Dictionary) -> void:
 	movement_remaining_label = Label.new()
 	movement_remaining_label.name = "MovementRemainingLabel"
 	movement_remaining_label.text = ""
-	movement_remaining_label.add_theme_font_size_override("font_size", 16)
+	movement_remaining_label.add_theme_font_size_override("font_size", 20)
 	movement_remaining_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3, 0.9))
 	movement_remaining_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	movement_remaining_label.z_index = 58  # Above other overlays
@@ -3227,7 +3230,7 @@ func _show_ghost_visual(model: Dictionary) -> void:
 	coherency_status_label = Label.new()
 	coherency_status_label.name = "CoherencyStatusLabel"
 	coherency_status_label.text = ""
-	coherency_status_label.add_theme_font_size_override("font_size", 13)
+	coherency_status_label.add_theme_font_size_override("font_size", 17)
 	coherency_status_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.2, 0.8))
 	coherency_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	coherency_status_label.z_index = 58
@@ -5065,7 +5068,7 @@ func _create_group_ghost_visuals() -> void:
 	movement_remaining_label = Label.new()
 	movement_remaining_label.name = "MovementRemainingLabel"
 	movement_remaining_label.text = ""
-	movement_remaining_label.add_theme_font_size_override("font_size", 16)
+	movement_remaining_label.add_theme_font_size_override("font_size", 20)
 	movement_remaining_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3, 0.9))
 	movement_remaining_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	movement_remaining_label.z_index = 58

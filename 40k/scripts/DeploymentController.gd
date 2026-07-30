@@ -1387,7 +1387,7 @@ func _create_coherency_distance_label() -> void:
 	coherency_distance_label = Label.new()
 	coherency_distance_label.name = "CoherencyDistanceLabel"
 	coherency_distance_label.z_index = 25  # Above ghost (z_index 20)
-	coherency_distance_label.add_theme_font_size_override("font_size", 14)
+	coherency_distance_label.add_theme_font_size_override("font_size", 18)
 	coherency_distance_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	coherency_distance_label.add_theme_constant_override("shadow_offset_x", 1)
 	coherency_distance_label.add_theme_constant_override("shadow_offset_y", 1)
