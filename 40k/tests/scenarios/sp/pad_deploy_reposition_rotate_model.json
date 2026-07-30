@@ -1,0 +1,75 @@
+{
+  "id": "pad_deploy_reposition_rotate_model",
+  "covers": [
+    "controller.deploy.pad_reposition_rotate_lifted_model"
+  ],
+  "fixture": "audit_377_defender_first",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Rotating a model that is LIFTED for repositioning (reported 2026-07-30: 'when I reposition with L3 I can't rotate, the old position is still visible, and when I do rotate it's the ORIGINAL image that turns'). Two defects, both asserted here. (1) Every rotate input went to ghost_sprite — the ghost for the NEXT model — so R3+LB/RB spun the wrong thing and the lifted model dropped at its old facing; the reposition ghost now takes the rotation and the drop commits it into temp_rotations. (2) try_place_at never removed ghost_sprite after the last model went down, so a full-strength ghost sat frozen on the board at the pick-up point for the rest of the session (that was the 'original image' the player saw rotating, and the 'old position still visible' after the drop); it is now cleared, asserted by ghost_sprite being null both before and after the lift. The RB tap while R3 is HELD must also not cycle units — the rotate combo and the bumper-only unit switcher share LB/RB.",
+  "steps": [
+    {"act": "wait_seconds", "seconds": 1.5},
+    {"act": "expect_state", "path": "meta.phase", "equals": 1},
+    {"act": "expect_state", "path": "meta.active_player", "equals": 2},
+
+    {"act": "simulate_joy_button", "button_index": 10},
+    {"act": "wait_seconds", "seconds": 0.5},
+    {"act": "execute_script", "script": "str(main.deployment_controller.unit_id)", "equals": "U_BATTLEWAGON_G"},
+    {"act": "simulate_joy_button", "button_index": 0},
+    {"act": "wait_seconds", "seconds": 0.3},
+    {"act": "execute_script", "script": "VirtualCursor.is_cursor_active()", "equals": true},
+    {"act": "simulate_joy_axis", "axis": 0, "value": 0.5, "hold_s": 0.25},
+    {"act": "simulate_joy_button", "button_index": 0},
+    {"act": "wait_seconds", "seconds": 0.4},
+    {"act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 1},
+
+    {"act": "execute_script", "script": "main.deployment_controller.ghost_sprite == null", "equals": true},
+    {"act": "screenshot", "label": "01_placed_no_stale_ghost"},
+
+    {"act": "execute_script", "script": "InputDeviceManager.set_meta(\"p0\", main.deployment_controller.temp_positions[0])"},
+    {"act": "execute_script", "script": "InputDeviceManager.set_meta(\"r0\", main.deployment_controller.temp_rotations[0])"},
+
+    {"act": "simulate_joy_button", "button_index": 7},
+    {"act": "wait_seconds", "seconds": 0.3},
+    {"act": "execute_script", "script": "main.deployment_controller.is_repositioning()", "equals": true},
+    {"act": "execute_script", "script": "main.deployment_controller.ghost_sprite == null", "equals": true},
+
+    {"act": "execute_script", "multiline": true,
+     "script": "var dc = tree.current_scene.deployment_controller\nvar r0 = float(InputDeviceManager.get_meta(\"r0\"))\nreturn absf(dc.reposition_ghost.get_base_rotation() - r0)",
+     "expect_max": 0.001},
+
+    {"act": "simulate_joy_button", "button_index": 8, "state": "press"},
+    {"act": "simulate_joy_button", "button_index": 10},
+    {"act": "wait_seconds", "seconds": 0.2},
+    {"act": "simulate_joy_button", "button_index": 10},
+    {"act": "wait_seconds", "seconds": 0.2},
+    {"act": "simulate_joy_button", "button_index": 8, "state": "release"},
+    {"act": "wait_seconds", "seconds": 0.2},
+
+    {"act": "execute_script", "script": "str(main.deployment_controller.unit_id)", "equals": "U_BATTLEWAGON_G"},
+    {"act": "execute_script", "script": "main.deployment_controller.is_repositioning()", "equals": true},
+    {"act": "execute_script", "multiline": true,
+     "script": "var dc = tree.current_scene.deployment_controller\nvar r0 = float(InputDeviceManager.get_meta(\"r0\"))\nreturn absf((dc.reposition_ghost.get_base_rotation() - r0) - (PI / 6.0))",
+     "expect_max": 0.001},
+    {"act": "execute_script", "multiline": true,
+     "script": "var dc = tree.current_scene.deployment_controller\nvar r0 = float(InputDeviceManager.get_meta(\"r0\"))\nreturn absf(dc.temp_rotations[0] - r0)",
+     "expect_max": 0.001},
+    {"act": "screenshot", "label": "02_lifted_ghost_rotated"},
+
+    {"act": "simulate_joy_axis", "axis": 1, "value": 0.45, "hold_s": 0.25},
+    {"act": "simulate_joy_button", "button_index": 0},
+    {"act": "wait_seconds", "seconds": 0.4},
+
+    {"act": "execute_script", "script": "main.deployment_controller.is_repositioning()", "equals": false},
+    {"act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 1},
+    {"act": "execute_script", "multiline": true,
+     "script": "var dc = tree.current_scene.deployment_controller\nvar r0 = float(InputDeviceManager.get_meta(\"r0\"))\nreturn absf((dc.temp_rotations[0] - r0) - (PI / 6.0))",
+     "expect_max": 0.001},
+    {"act": "execute_script", "multiline": true,
+     "script": "var dc = tree.current_scene.deployment_controller\nvar p0 = InputDeviceManager.get_meta(\"p0\")\nreturn float(p0.distance_to(dc.temp_positions[0]))",
+     "expect_min": 5.0},
+    {"act": "execute_script", "script": "main.deployment_controller.ghost_sprite == null", "equals": true},
+    {"act": "screenshot", "label": "03_dropped_at_new_spot_and_facing"}
+  ]
+}
