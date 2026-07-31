@@ -11729,6 +11729,21 @@ func _show_mission_discard_dialog(active_missions: Array, active_player: int) ->
 		NetworkIntegration.route_action(action)
 		return
 
+	# Skip it during a tutorial lesson. This is an exclusive modal Window, so it
+	# renders above the instructor card and swallows its buttons: T6 now plays
+	# the Fight phase out to its end, which drops into Scoring while the lesson's
+	# "complete" card is up — the player got a "DISCARD FOR CP?" prompt for a
+	# mechanic no lesson teaches, on top of the Next Lesson / Back to Menu
+	# buttons they were trying to press. Unlike the AI branch this does NOT end
+	# the turn: handing the round to the opponent under the summary card would
+	# start a whole AI turn (and its own defender prompts) behind it. The Scoring
+	# phase simply waits on its End Turn button, as it would with the dialog
+	# dismissed.
+	var tutorial_node = get_node_or_null("/root/TutorialManager")
+	if tutorial_node != null and tutorial_node.active:
+		print("Main: Skipping mission discard dialog — tutorial lesson in progress")
+		return
+
 	var dialog_script = load("res://dialogs/MissionDiscardDialog.gd")
 	if not dialog_script:
 		push_error("Main: Failed to load MissionDiscardDialog.gd")

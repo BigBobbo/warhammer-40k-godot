@@ -11381,6 +11381,63 @@ static func _build_melee_stop_before_saves(result: Dictionary, hit_context: Dict
 	result.log_text = " - ".join(hw_parts)
 	print("RulesEngine: P0-58 — Melee hits/wounds resolved, %d wounds caused, returning for interactive saves" % wounds_caused)
 
+# MA-LOADOUT (melee): which models actually swing `weapon_id` this activation.
+#
+# A model must be (a) eligible to fight, (b) inside any explicit model selection
+# the caller made, and (c) EQUIPPED WITH THE WEAPON. (c) is new. The Fight phase
+# used to skip it entirely, so every eligible model swung whatever weapon was
+# picked for the unit: a 10-strong Boyz mob all swinging the Boss Nob's Power
+# klaw, 30 attacks at S9 AP-2 D2 where the datasheet gives one model three.
+# (Reported via the T6 tutorial, where that wiped the Custodian Guard the mob was
+# supposed to leave standing 38% of the time.)
+#
+# `_get_model_weapon_ids` is the same per-model lookup the Shooting phase has
+# always used: a resolved `melee_loadout` when the roster pinned one, else the
+# datasheet's model_profiles menu, else — for a unit whose data cannot tell its
+# models apart — the whole unit menu, which returns every model and leaves
+# behaviour exactly as it was. So this only narrows where the data is actually
+# there to narrow with.
+#
+# Same conservative posture on the way out: if NOTHING matches (a weapon no
+# profile lists, e.g. an unequipped datasheet option), keep the old selection
+# rather than silently deleting the unit's attacks.
+static func _melee_weapon_swingers(unit: Dictionary, weapon_id: String, eligible_indices: Array, attacking_models: Array, unit_name: String = "", weapon_name: String = "") -> Array:
+	var selected: Array = []
+	for idx in eligible_indices:
+		if attacking_models.is_empty() or str(idx) in attacking_models:
+			selected.append(idx)
+
+	var models = unit.get("models", [])
+	var carriers: Array = []
+	for idx in selected:
+		if idx < 0 or idx >= models.size():
+			continue
+		if weapon_id in _get_model_weapon_ids(unit, models[idx], "Melee"):
+			carriers.append(idx)
+
+	if carriers.is_empty():
+		if not selected.is_empty():
+			print("RulesEngine: MA-LOADOUT melee — no model of %s is equipped with '%s'; keeping all %d eligible attacker(s) (loadout data cannot resolve it)" % [
+				unit_name if unit_name != "" else unit.get("meta", {}).get("name", "unit"),
+				weapon_name if weapon_name != "" else weapon_id,
+				selected.size()])
+		return selected
+
+	if carriers.size() < selected.size():
+		print("RulesEngine: MA-LOADOUT melee — %d of %d eligible %s model(s) carry '%s'; only they swing it" % [
+			carriers.size(), selected.size(),
+			unit_name if unit_name != "" else unit.get("meta", {}).get("name", "unit"),
+			weapon_name if weapon_name != "" else weapon_id])
+	return carriers
+
+
+## Public wrapper for the melee carrier lookup (ISS-020 lint: no leading
+## underscore in cross-script calls). The attack dialog uses it to list the
+## weapons a unit can really swing, and how many models swing each.
+static func get_melee_weapon_swingers(unit: Dictionary, weapon_id: String, eligible_indices: Array, attacking_models: Array = []) -> Array:
+	return _melee_weapon_swingers(unit, weapon_id, eligible_indices, attacking_models)
+
+
 # Melee hits third: PHASES 1-4 of the original monolith (attack counting, combat
 # stats, weapon abilities, hit rolls). Returns {dice, log_text, early_exit,
 # no_hits, hit_context}. The hit_context carries per-die evals (reroll_hit_die
@@ -11467,6 +11524,9 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 
 	# Compute per-model fight eligibility based on engagement range
 	var eligible_model_indices = get_eligible_melee_model_indices(attacker_unit, board)
+	# MA-LOADOUT (melee): and of those, the ones that actually CARRY this weapon.
+	var swinging_model_indices = _melee_weapon_swingers(
+		attacker_unit, weapon_id, eligible_model_indices, attacking_models, attacker_name, weapon_name)
 	var total_alive_models = 0
 
 	for model_index in range(attacker_models.size()):
@@ -11476,12 +11536,9 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 
 		total_alive_models += 1
 
-		# If specific models assigned, check if this model is included
-		if not attacking_models.is_empty() and not str(model_index) in attacking_models:
-			continue
-
-		# Per-model fight eligibility: must be in ER or base-contact chain
-		if not model_index in eligible_model_indices:
+		# Eligible to fight (in ER or base-contact chain), inside any explicit
+		# model selection, and equipped with the weapon — see _melee_weapon_swingers.
+		if not model_index in swinging_model_indices:
 			continue
 
 		model_count += 1

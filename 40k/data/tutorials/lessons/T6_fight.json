@@ -2,8 +2,8 @@
   "id": "t6_krumpin",
   "order": 6,
   "title": "Krumpin'",
-  "subtitle": "Fight phase: pile in, pick a weapon, swing",
-  "est_minutes": 4,
+  "subtitle": "Fight phase: pile in, pick a weapon, swing, take it back",
+  "est_minutes": 5,
   "boot": {
     "fixture": "tutorial_t6_fight",
     "phase": 10,
@@ -13,9 +13,10 @@
     "bark": "GET STUCK IN!",
     "bullets": [
       "Da Fight phase opens wiv [b]Pile In[/b] — every engaged unit may shuffle 3\" closer. Skip it wiv [b]End Pile In[/b].",
-      "Click a unit in [b]UNITS THAT CAN FIGHT[/b] to activate it. Units dat charged swing first.",
+      "Click a unit in [b]UNITS THAT CAN FIGHT[/b] to activate it. Units dat charged swing first — [b]all[/b] of 'em, before da enemy gets a look in.",
       "In da attack panel: pick [b]one[/b] melee weapon, pick da target, [b]Weapon to Target[/b], den [b]Fight![/b]",
       "Da dice dock rolls it out — [b]Fast Roll ⏩[/b] does da lot, [b]Done ✔[/b] finishes da activation.",
+      "Den da enemy activates an' da dock rolls [b]deir[/b] hits an' wounds at ya — you roll da saves an' can spend a [b]Command Re-roll[/b].",
       "You an' da enemy alternate activations till everyone's swung. Last lesson: Runnin' da Show."
     ]
   },
@@ -24,7 +25,7 @@
       "id": "intro",
       "prompt": {
         "bark": "FIGHT PHASE!",
-        "text": "Da Boyz made it in — now dey get to krump. Every engaged unit fights once, an' units dat [b]charged[/b] go first. It starts wiv a [b]Pile In[/b] step for everyone."
+        "text": "Da Boyz an' da Warboss made it in — now dey get to krump. Every engaged unit fights once, an' units dat [b]charged[/b] all go before da enemy does. It starts wiv a [b]Pile In[/b] step."
       },
       "spotlight": "none",
       "allow": [],
@@ -108,7 +109,7 @@
         }
       },
       "hint": {
-        "text": "Da panel shows expected damage per weapon — da Power klaw hits hardest but da Choppa gets more swings."
+        "text": "Each weapon says how many of yer boyz actually carry it. Only da Nob's got a Power klaw, so pickin' it swings his klaw an' da rest of da mob's choppas — da panel lists both lines."
       }
     },
     {
@@ -126,6 +127,7 @@
         "CONTINUE_TO_WOUNDS",
         "CONTINUE_TO_SAVES",
         "APPLY_SAVES",
+        "APPLY_MELEE_SAVES",
         "CONTINUE_SEQUENCE",
         "FAST_FINISH_FIGHT",
         "COMPLETE_FIGHT_FOR_UNIT",
@@ -142,11 +144,98 @@
       }
     },
     {
+      "id": "boss_swings",
+      "prompt": {
+        "bark": "DA BOSS AIN'T SWUNG YET!",
+        "kbm": "Da Warboss charged an' all, so he's [b]Fights First[/b] too — da Custodes wait till he's swung. Click [b]Warboss[/b], [b]Decline[/b] da Epic Challenge offer, assign his weapon an' [b]Fight![/b]",
+        "pad": "Da Warboss charged an' all, so he's [b]Fights First[/b] too. Glide {ls} onto da [b]Warboss[/b] row, {a}, [b]Decline[/b] da Epic Challenge, assign his weapon, den {menu} for [b]Fight![/b]"
+      },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList"
+      },
+      "spotlight": "soft",
+      "allow": [
+        "SELECT_FIGHTER",
+        "USE_EPIC_CHALLENGE",
+        "BATCH_FIGHT_ACTIONS",
+        "ASSIGN_ATTACKS",
+        "CONTINUE_TO_WOUNDS",
+        "CONTINUE_TO_SAVES",
+        "APPLY_SAVES",
+        "APPLY_MELEE_SAVES",
+        "CONTINUE_SEQUENCE",
+        "FAST_FINISH_FIGHT",
+        "COMPLETE_FIGHT_FOR_UNIT",
+        "USE_FIGHT_REROLL",
+        "RESOLVE_FIGHT",
+        "SKIP_UNIT"
+      ],
+      "done": {
+        "any": [
+          {
+            "state": "units.U_WARBOSS_T.flags.has_fought",
+            "equals": true
+          },
+          {
+            "script": "var n = 0\nfor m in GameState.state.get(\"units\", {}).get(\"U_CUSTODIAN_GUARD_T\", {}).get(\"models\", []):\n\tif m.get(\"alive\", true):\n\t\tn += 1\nreturn n == 0",
+            "equals": true
+          }
+        ]
+      },
+      "hint_after_s": 30,
+      "hint": {
+        "text": "Every unit dat charged swings before da enemy picks — dat's why da boss is still on da list. Endin' da phase now would just frow his swing away."
+      }
+    },
+    {
+      "id": "enemy_swings",
+      "prompt": {
+        "bark": "NOW DEY KRUMP BACK!",
+        "kbm": "Both yer mobs have swung, so it's da Custodes' turn — dat's alternatin' activation. Da dock rolls [b]deir[/b] hits an' wounds; step frough it, den [b]Roll Saves[/b] on da card an' spend a [b]Command Re-roll[/b] if a save lets ya down.",
+        "pad": "Da Custodes swing back now. Step frough deir rolls on da dock wiv {a}, den glide {ls} onto [b]Roll Saves[/b] on da card an' press {a}."
+      },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock"
+      },
+      "spotlight": "none",
+      "allow": [
+        "CONTINUE_TO_WOUNDS",
+        "CONTINUE_TO_SAVES",
+        "APPLY_SAVES",
+        "APPLY_MELEE_SAVES",
+        "CONTINUE_SEQUENCE",
+        "FAST_FINISH_FIGHT",
+        "COMPLETE_FIGHT_FOR_UNIT",
+        "USE_FIGHT_REROLL",
+        "SELECT_FIGHTER",
+        "SKIP_UNIT"
+      ],
+      "done": {
+        "any": [
+          {
+            "state": "units.U_CUSTODIAN_GUARD_T.flags.has_fought",
+            "equals": true
+          },
+          {
+            "script": "var n = 0\nfor m in GameState.state.get(\"units\", {}).get(\"U_CUSTODIAN_GUARD_T\", {}).get(\"models\", []):\n\tif m.get(\"alive\", true):\n\t\tn += 1\nreturn n == 0",
+            "equals": true
+          },
+          {
+            "phase": 11
+          }
+        ]
+      },
+      "hint_after_s": 30,
+      "hint": {
+        "text": "Ya can't re-roll deir dice — but da saves are yours, an' so's da Command Re-roll on 'em."
+      }
+    },
+    {
       "id": "end_phase",
       "prompt": {
         "bark": "DAT'S ENOUGH KRUMPIN'!",
-        "kbm": "Da enemy gets deir swings too — dat's alternatin' activation. Hit da big red button to end da phase; if anyone ain't swung yet da game warns ya first — confirm wiv [b]End Fight Phase[/b].",
-        "pad": "Da enemy swings back — dat's alternatin' activation. Press {menu} to end da phase, den confirm [b]End Fight Phase[/b] if it warns ya."
+        "kbm": "Everyone dat could swing has swung, so da phase is done — hit da big red button to end it.",
+        "pad": "Everyone's swung, so da phase is done — press {menu} to end it."
       },
       "anchor": {
         "node": "/root/Main/PhaseActionButton"
@@ -157,7 +246,9 @@
         "SELECT_FIGHTER",
         "SKIP_UNIT",
         "END_CONSOLIDATION",
-        "CONSOLIDATE"
+        "CONSOLIDATE",
+        "APPLY_MELEE_SAVES",
+        "APPLY_SAVES"
       ],
       "done": {
         "any": [

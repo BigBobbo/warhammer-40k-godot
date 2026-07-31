@@ -24,6 +24,13 @@ extends ResolutionDockBase
 # States: idle | rolling | staged_hits | staged_wounds | awaiting_saves | complete
 var active_fighter_id: String = ""
 
+# ENEMY SWING BACK: true while the dock is revealing an AI attacker's melee
+# (FightPhase stages those too whenever the human defender rolls their own
+# saves). The rhythm is identical, but the player is stepping through someone
+# else's dice — so nothing here may imply they are rolling, and there is no
+# Command Re-roll to offer (the phase withholds it; theirs comes on the saves).
+var spectating: bool = false
+
 # Per-assignment hit/wound tallies observed at the staged pauses — stamped
 # onto queue rows as "(2H 1W)" result notes when the sequence moves on.
 var _tallies: Dictionary = {}
@@ -57,9 +64,10 @@ func _chip_rolls(_stage: String, info: Dictionary) -> Array:
 # Lifecycle
 # ---------------------------------------------------------------------------
 
-func activate(p_assignments: Array, p_phase, p_controller, fighter_id: String) -> void:
+func activate(p_assignments: Array, p_phase, p_controller, fighter_id: String, p_spectating: bool = false) -> void:
 	_activate_common(p_assignments, p_phase, p_controller)
 	active_fighter_id = fighter_id
+	spectating = p_spectating
 	_tallies = {}
 	_last_weapon_name = ""
 	_last_target_name = ""
@@ -69,22 +77,34 @@ func activate(p_assignments: Array, p_phase, p_controller, fighter_id: String) -
 	# (same clarity rule as the shooting save overlay's attacker line).
 	var fighter_name := _unit_display_name(fighter_id)
 	var target_names := _distinct_target_names()
+	var lead := "ENEMY MELEE" if spectating else "MELEE RESOLUTION"
 	if target_names.is_empty():
-		header_label.text = "MELEE RESOLUTION — %s" % fighter_name
+		header_label.text = "%s — %s" % [lead, fighter_name]
 	else:
-		header_label.text = "MELEE RESOLUTION — %s vs %s" % [fighter_name, ", ".join(target_names)]
+		header_label.text = "%s — %s vs %s" % [lead, fighter_name, ", ".join(target_names)]
 
 	primary_button.disabled = true
 	primary_button.text = "Rolling to hit…"
 	fast_button.visible = false
-	status_label.text = "Resolving melee attacks…"
+	if spectating:
+		status_label.text = "%s is attacking — step through their rolls." % fighter_name
+	else:
+		status_label.text = "Resolving melee attacks…"
 	_clear_reroll_chips()
 	_rebuild_queue()
 
 func deactivate() -> void:
 	active_fighter_id = ""
+	spectating = false
 	_tallies = {}
 	super.deactivate()
+
+# Revealing the enemy's dice: the player is not the one rolling, so the button
+# says what it shows rather than what it rolls.
+func _stage_primary_text(stage: String) -> String:
+	if not spectating:
+		return super._stage_primary_text(stage)
+	return "Show Wound Roll ▶" if stage == "hits" else "Show Saving Throws ▶"
 
 func _unit_display_name(unit_id: String) -> String:
 	if phase and phase.has_method("get_unit"):
