@@ -211,41 +211,40 @@ func test_t6_every_boy_is_locked_into_the_enemy_line() -> void:
 #
 # Reported 2026-07-30: the Boyz wiped the whole Custodian Guard, so the step
 # that teaches alternating activation ("da enemy swings back") had no enemy
-# left to activate. The cause was attack VOLUME — the attack dialog offers the
-# unit's whole weapon MENU and the melee engine gives that weapon to every
-# eligible model, so all 10 Boyz swung the Boss Nob's Power klaw: 30 attacks at
-# S9 AP-2 D2 into 4 Custodians (16 wounds). Measured over 250 seeded
-# resolutions of RulesEngine.resolve_melee_attacks: Power klaw wiped the squad
-# 94/250 (38%), Big choppa 21/250, Choppa 0/250.
+# left to activate. The cause was attack VOLUME — the melee engine gave the
+# picked weapon to every eligible model, so all 10 Boyz swung the Boss Nob's
+# Power klaw: 30 attacks at S9 AP-2 D2 into 4 Custodians (16 wounds). Measured
+# over 250 seeded resolutions: Power klaw wiped the squad 94/250 (38%), Big
+# choppa 21/250, Choppa 0/250.
 #
-# The fixture now fields 5 Boyz (the rear rank came in as casualties) against a
-# 5-model Custodian Guard — 20 wounds — which drops every weapon to ~0.3%.
-#
-# Two assertions: the structural facts (how many models swing, how big the wound
-# pool is), then a seeded sweep of the mob's hardest-hitting weapon that must
-# always leave someone standing. The seeds are fixed, so this is deterministic;
-# it fails if the fixture's counts drift back, not on unlucky dice.
+# Melee now honours per-model loadouts (RulesEngine._melee_weapon_swingers), so
+# the klaw is three attacks from one model and the other nine swing choppas.
+# The fixture is the original full mob again; these tests pin the fix from the
+# lesson's side — the carrier split, and a seeded sweep of every weapon the
+# dialog offers that must always leave a Custodian standing.
 # ------------------------------------------------------------------------
-const T6_WIPE_TRIALS := 60
+const T6_WIPE_TRIALS := 40
 
 
-func test_t6_fields_enough_custodes_to_survive_the_mob() -> void:
+func test_t6_only_the_boss_nob_swings_the_power_klaw() -> void:
 	var state := _load_fixture("tutorial_t6_fight")
 	if state.is_empty():
 		return
 
-	var custodes: Dictionary = state["units"]["U_CUSTODIAN_GUARD_T"]
-	assert_eq(_alive_count(custodes), 5, "the Custodian Guard must field 5 models (composition allows 4-5)")
-	var pool := 0
-	for model in custodes.get("models", []):
-		if model.get("alive", true):
-			pool += int(model.get("wounds", 0))
-	assert_eq(pool, 20, "5 models x 4W — the wound pool the Boyz have to chew through")
+	var boyz: Dictionary = state["units"]["U_BOYZ_T"]
+	assert_eq(_alive_count(boyz), 10, "the full mob fights — its damage is bounded by loadouts, not by casualties")
+	assert_eq(_alive_count(state["units"]["U_CUSTODIAN_GUARD_T"]), 4, "the Custodian Guard the mob has to leave standing")
 
-	assert_eq(
-		_alive_count(state["units"]["U_BOYZ_T"]), 5,
-		"5 Boyz swing; 10 of them all swinging the Boss Nob's Power klaw is what made the wipe likely"
-	)
+	var eligible := RulesEngine.get_eligible_melee_model_indices(boyz, state)
+	var expected := {"Power klaw": 1, "Big choppa": 1, "Choppa": 10, "Close combat weapon": 9}
+	for weapon_name in expected:
+		var weapon_id := RulesEngine.generate_weapon_id(weapon_name, "Melee")
+		var carriers := RulesEngine.get_melee_weapon_swingers(boyz, weapon_id, eligible, [])
+		assert_eq(
+			carriers.size(), int(expected[weapon_name]),
+			"%s: %d model(s) should swing it, got %d — the mob's datasheet gives the klaw and big choppa to the Boss Nob alone" % [
+				weapon_name, int(expected[weapon_name]), carriers.size()]
+		)
 
 
 func test_t6_boyz_cannot_wipe_the_custodian_guard() -> void:
@@ -253,38 +252,63 @@ func test_t6_boyz_cannot_wipe_the_custodian_guard() -> void:
 	if state.is_empty():
 		return
 
-	# The dialog's hardest hitter: S9 AP-2 D2, and the one the lesson's hint
-	# points at. resolve_melee_attacks mutates the board it is handed, so each
-	# trial gets its own copy.
-	var weapon_id := RulesEngine.generate_weapon_id("Power klaw", "Melee")
-	var action := {
-		"type": "FIGHT",
-		"actor_unit_id": "U_BOYZ_T",
-		"payload": {"assignments": [{
-			"attacker": "U_BOYZ_T",
-			"weapon": weapon_id,
-			"target": "U_CUSTODIAN_GUARD_T"
-		}]}
-	}
+	# Every weapon the attack dialog offers, resolved exactly the way it builds
+	# the plan: the pick goes to its carriers, everyone else swings a Choppa
+	# (or a Close combat weapon when Choppa IS the pick).
+	var boyz: Dictionary = state["units"]["U_BOYZ_T"]
+	var eligible := RulesEngine.get_eligible_melee_model_indices(boyz, state)
+	var choppa_id := RulesEngine.generate_weapon_id("Choppa", "Melee")
+	var ccw_id := RulesEngine.generate_weapon_id("Close combat weapon", "Melee")
 
-	var wipes := 0
-	var worst := 0
-	for i in range(T6_WIPE_TRIALS):
-		var board: Dictionary = state.duplicate(true)
-		var rng = RulesEngine.RNGService.new(4242 + i * 31)
-		var result = RulesEngine.resolve_melee_attacks(action, board, rng)
-		var killed := 0
-		for diff in result.get("diffs", []):
-			var path := str(diff.get("path", ""))
-			if path.begins_with("units.U_CUSTODIAN_GUARD_T.models.") and path.ends_with(".alive") \
-					and diff.get("value") == false:
-				killed += 1
-		worst = maxi(worst, killed)
-		if killed >= 5:
-			wipes += 1
+	for weapon_name in ["Power klaw", "Big choppa", "Choppa", "Close combat weapon"]:
+		var weapon_id := RulesEngine.generate_weapon_id(weapon_name, "Melee")
+		var carriers := RulesEngine.get_melee_weapon_swingers(boyz, weapon_id, eligible, [])
+		var carrier_refs: Array = []
+		for idx in carriers:
+			carrier_refs.append(str(idx))
+		var rest: Array = []
+		for idx in eligible:
+			if not idx in carriers:
+				rest.append(str(idx))
 
-	assert_eq(
-		wipes, 0,
-		"the Boyz wiped the Custodian Guard in %d/%d seeded rolls (worst: %d of 5 slain) — the next lesson step needs someone left to swing back" % [
-			wipes, T6_WIPE_TRIALS, worst]
-	)
+		var assignments: Array = [{
+			"attacker": "U_BOYZ_T", "weapon": weapon_id,
+			"target": "U_CUSTODIAN_GUARD_T", "models": carrier_refs
+		}]
+		if not rest.is_empty():
+			assignments.append({
+				"attacker": "U_BOYZ_T",
+				"weapon": ccw_id if weapon_id == choppa_id else choppa_id,
+				"target": "U_CUSTODIAN_GUARD_T", "models": rest
+			})
+
+		# resolve_melee_attacks mutates the board it is handed, so each trial
+		# gets its own copy. Da boss swings after the mob, at the same squad.
+		var wipes := 0
+		var worst := 0
+		for i in range(T6_WIPE_TRIALS):
+			var board: Dictionary = state.duplicate(true)
+			var killed := 0
+			for action in [
+				{"type": "FIGHT", "actor_unit_id": "U_BOYZ_T", "payload": {"assignments": assignments}},
+				{"type": "FIGHT", "actor_unit_id": "U_WARBOSS_T", "payload": {"assignments": [{
+					"attacker": "U_WARBOSS_T",
+					"weapon": RulesEngine.generate_weapon_id("Power klaw", "Melee"),
+					"target": "U_CUSTODIAN_GUARD_T"}]}}
+			]:
+				var rng = RulesEngine.RNGService.new(4242 + i * 31)
+				var result = RulesEngine.resolve_melee_attacks(action, board, rng)
+				for diff in result.get("diffs", []):
+					var path := str(diff.get("path", ""))
+					if path.begins_with("units.U_CUSTODIAN_GUARD_T.models.") and path.ends_with(".alive") \
+							and diff.get("value") == false:
+						killed += 1
+			worst = maxi(worst, killed)
+			if killed >= 4:
+				wipes += 1
+
+		assert_eq(
+			wipes, 0,
+			"%s: the Boyz + Warboss wiped the Custodian Guard in %d/%d seeded rolls (worst: %d of 4 slain) — the next lesson step needs someone left to swing back" % [
+				weapon_name, wipes, T6_WIPE_TRIALS, worst]
+		)

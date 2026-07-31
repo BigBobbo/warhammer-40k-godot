@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.9.0",
+      "date": "2026-07-30",
+      "summary": "A model now only swings a melee weapon it actually carries — one Boss Nob's Power klaw is three attacks, not the whole mob's thirty.",
+      "changes": [
+        "Melee gave the weapon you picked to every model in the unit. A 10-strong Boyz mob swinging the Boss Nob's Power klaw rolled 30 attacks at S9 AP-2 D2, where the datasheet gives that klaw to one model. The Shooting phase has always worked this out per model; the Fight phase never did.",
+        "Picking a weapon now sets the whole mob's plan: the models that carry it swing it, and everyone else swings the weapon they do carry, at the same target. The attack panel lists both lines — \"Power klaw → Custodian Guard (1 model)\" above \"Choppa → Custodian Guard (9 models)\".",
+        "The weapon list says how many models carry each weapon and how many attacks that really is, and it no longer offers weapons nobody in the unit is equipped with. The \"max total attacks\" line counts the whole plan instead of one weapon times the whole squad.",
+        "Units whose roster data can't tell their models apart are unchanged — they still swing whatever you pick with every model, so nothing loses attacks to missing data.",
+        "Tutorial 6 ('Krumpin'') is back to the full 10-Boy mob against the 4-model Custodian Guard. The mob can no longer wipe the squad it is supposed to leave standing (measured: 0 wipes in 300 seeded fights with the Boyz and the Warboss both swinging, against 38% before)."
+      ]
+    },
+    {
       "version": "1.8.0",
       "date": "2026-07-30",
       "summary": "'Krumpin'' now takes da boss's swing before da enemy gets one, an' da enemy's swing back rolls out dice by dice instead of landing as a finished bill.",

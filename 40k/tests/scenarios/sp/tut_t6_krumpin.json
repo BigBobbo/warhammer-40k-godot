@@ -66,15 +66,15 @@
       "act": "execute_script",
       "script": "var b = GameState.create_snapshot()\nvar cust = b.units[\"U_CUSTODIAN_GUARD_T\"].models\nvar n = 0\nfor uid in [\"U_BOYZ_T\", \"U_WARBOSS_T\"]:\n\tfor m in b.units[uid].models:\n\t\tif not m.get(\"alive\", true):\n\t\t\tcontinue\n\t\tfor c in cust:\n\t\t\tif Measurement.model_to_model_distance_inches(m, c) <= RulesEngine.BASE_CONTACT_TOLERANCE_INCHES:\n\t\t\t\tn += 1\n\t\t\t\tbreak\nreturn str(n) + \" of \" + str(cust.size())",
       "multiline": true,
-      "equals": "6 of 5",
-      "comment": "5 surviving Boyz + the Warboss are in real base-to-base contact with a 5-model Custodian Guard (composition allows 4-5; the 5th model widens the wound pool the mob has to chew through)"
+      "equals": "6 of 4",
+      "comment": "5 front-rank Boyz + the Warboss are in real base-to-base contact with the Custodian Guard line"
     },
     {
       "act": "execute_script",
       "script": "var b = GameState.create_snapshot()\nvar alive = 0\nfor m in b.units[\"U_BOYZ_T\"].models:\n\tif m.get(\"alive\", true):\n\t\talive += 1\nreturn str(RulesEngine.get_eligible_melee_model_indices(b.units[\"U_BOYZ_T\"], b).size()) + \"/\" + str(alive)",
       "multiline": true,
-      "equals": "5/5",
-      "comment": "every surviving Boy can actually swing - two used to sit >2\" from the Custodes and could not fight at all. 5, not 10: the rear rank comes in as casualties so the mob cannot wipe the Custodian Guard before it swings back"
+      "equals": "10/10",
+      "comment": "every Boy can actually swing - two used to sit >2\" from the Custodes and could not fight at all. The full mob fights: melee now honours per-model loadouts, so the Boss Nob's Power klaw is 3 attacks rather than 30"
     },
     {
       "act": "execute_script",
@@ -135,10 +135,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn false\nvar want = 0\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Choppa\"):\n\t\twant = i\n\t\tbreak\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn true",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn \"empty lists\"\nvar want = -1\nvar labels = []\nfor i in range(wl.item_count):\n\tlabels.append(str(wl.get_item_text(i)))\n\tif str(wl.get_item_text(i)).begins_with(\"Power klaw\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Power klaw offered\"\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(wl.get_item_text(want))",
       "multiline": true,
-      "equals": true,
-      "comment": "the attack dialog is an embedded modal Window - select+emit is the click equivalent for its ItemLists"
+      "equals": "Power klaw (A:3 S:9 AP:-2 D:2 — 1 model, ≈3 attacks)",
+      "comment": "MA-LOADOUT: the weapon list now names how many models actually carry each weapon. The Boss Nob is the only Boy with a Power klaw, so it reads '1 model, ≈3 attacks' — it used to offer the whole mob's 30 attacks with it."
     },
     {
       "act": "wait_frames",
@@ -158,6 +158,13 @@
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn d.assignments.size() > 0",
       "multiline": true,
       "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "power_klaw_melee:1,choppa_melee:9",
+      "comment": "picking the klaw builds the whole mob's plan: da Nob swings his klaw, the other nine Boyz swing the choppas they actually carry. Before this the dialog sent ONE assignment with no model list and the engine gave all ten models the klaw."
     },
     {
       "act": "click_node",

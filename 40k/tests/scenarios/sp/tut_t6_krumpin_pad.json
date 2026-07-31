@@ -439,27 +439,18 @@
     {
       "act": "simulate_joy_button",
       "button_index": 6,
-      "comment": "Start = End Phase (HINTS_FIGHT)"
+      "comment": "Start = End Phase (HINTS_FIGHT). Everyone has swung, so this ends the phase outright — no unfought-units warning to confirm, and no second press (a stray A here lands on the summary card and boots the next lesson)."
     },
     {
       "act": "wait_seconds",
-      "seconds": 2.0
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 0,
-      "comment": "pad confirm on the end-phase prompt (Start opens it, A accepts)"
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 1.5
+      "seconds": 2.5
     },
     {
       "act": "execute_script",
       "script": "var b = tree.root.get_node_or_null(\"/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
       "multiline": true,
       "equals": true,
-      "comment": "the unfought-units warning (Warboss has not swung) is an embedded modal Window - confirm it if the pad flow surfaced it; tolerant because the pad confirm above may already have ended the phase"
+      "comment": "tolerant: the warning should not appear any more, but confirm it if a stray fight is still owed"
     },
     {
       "act": "wait_seconds",
