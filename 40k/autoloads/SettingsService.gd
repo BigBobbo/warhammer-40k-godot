@@ -132,6 +132,13 @@ var shooting_pause_policy: String = "every_step"
 # and sessions).
 var shooting_show_all_units: bool = false
 
+# Play-and-pass: when two humans share one device, show the full-screen
+# "Pass the device to Player N" privacy screen at turn boundaries (each
+# Command phase start, the Formations secret-declaration swap, deployment
+# start). Only affects local Human-vs-Human games — networked and vs-AI
+# games never see it. See autoloads/HandoffManager.gd.
+var hotseat_handoff_enabled: bool = true
+
 # Rules edition: 10 (10th edition) or 11 (11th edition core rules, now the
 # default for players). Applied to GameConstants.edition at startup and whenever
 # changed, so the whole rules engine plays the selected edition. Players can
@@ -531,6 +538,14 @@ func set_shooting_show_all_units(show_all: bool) -> void:
 	_save_settings()
 	print("[SettingsService] shooting_show_all_units set to %s" % str(show_all))
 
+func get_hotseat_handoff_enabled() -> bool:
+	return hotseat_handoff_enabled
+
+func set_hotseat_handoff_enabled(enabled: bool) -> void:
+	hotseat_handoff_enabled = enabled
+	_save_settings()
+	print("[SettingsService] hotseat_handoff_enabled set to %s" % str(enabled))
+
 func get_auto_allocate_wounds() -> bool:
 	return auto_allocate_wounds
 
@@ -615,6 +630,7 @@ func _save_settings() -> void:
 	config.set_value("gameplay", "auto_allocate_wounds", auto_allocate_wounds)
 	config.set_value("gameplay", "shooting_pause_policy", shooting_pause_policy)
 	config.set_value("gameplay", "shooting_show_all_units", shooting_show_all_units)
+	config.set_value("gameplay", "hotseat_handoff_enabled", hotseat_handoff_enabled)
 	config.set_value("gameplay", AUTO_ALLOCATE_MIGRATION_KEY, true)
 
 	# Controls
@@ -682,6 +698,7 @@ func _load_settings() -> void:
 
 	shooting_pause_policy = str(config.get_value("gameplay", "shooting_pause_policy", "every_step"))
 	shooting_show_all_units = config.get_value("gameplay", "shooting_show_all_units", false)
+	hotseat_handoff_enabled = bool(config.get_value("gameplay", "hotseat_handoff_enabled", true))
 
 	# Controls
 	menu_scroll_speed = clampf(config.get_value("controls", "menu_scroll_speed", 0.4), 0.1, 1.0)

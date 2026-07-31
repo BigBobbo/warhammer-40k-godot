@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.10.0",
+      "date": "2026-07-31",
+      "summary": "Play and Pass: local two-player games now hand the device over properly — a privacy screen between turns so your opponent can't watch you plan.",
+      "changes": [
+        "New \"Pass the device\" screen for local Human-vs-Human games. When your turn ends, the board is hidden and the game asks the next player to take the controls — no more leaning over each other's shoulders at the seams of a turn.",
+        "Battle-formation declarations are finally secret, as the rules intend: in a local two-player game the handoff screen now sits between Player 1 confirming their leaders/reserves/embarkations and Player 2's declaration dialog opening.",
+        "The screen names the player and their faction in their colour, shows the round and phase that is starting, and clears with one click, Enter, or the gamepad accept button.",
+        "It also announces who deploys first when deployment begins. Deploying alternates unit-by-unit in the open, so no prompts there — placement is public information.",
+        "Online and vs-AI games are untouched. You can turn the ceremony off under Settings > Gameplay > Play and Pass."
+      ]
+    },
+    {
       "version": "1.9.0",
       "date": "2026-07-30",
       "summary": "A model now only swings a melee weapon it actually carries — one Boss Nob's Power klaw is three attacks, not the whole mob's thirty.",

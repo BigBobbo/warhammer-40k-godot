@@ -36,6 +36,7 @@ var _terrain_scatter_checkbox: CheckBox
 var _terrain_cover_checkbox: CheckBox
 
 var _auto_allocate_checkbox: CheckBox
+var _hotseat_handoff_checkbox: CheckBox
 var _autosave_phase_start_checkbox: CheckBox
 var _controller_text_boost_checkbox: CheckBox
 var _input_mode_dropdown: OptionButton
@@ -239,6 +240,16 @@ func _build_ui() -> void:
 	auto_alloc_help.add_theme_font_size_override("font_size", 16)
 	auto_alloc_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	gameplay_content.add_child(auto_alloc_help)
+
+	_add_section_header(gameplay_content, "Play and Pass (local 2-player)")
+	_hotseat_handoff_checkbox = _add_checkbox_row(gameplay_content, "Show \"Pass the device\" screen between player turns", "_on_hotseat_handoff_toggled")
+	var handoff_help = Label.new()
+	handoff_help.text = "On by default. In local Human-vs-Human games, hides the board and asks the next player to take the controls at each turn change (and before secret battle-formation picks). Has no effect in online or vs-AI games."
+	handoff_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	handoff_help.custom_minimum_size = Vector2(620, 0)
+	handoff_help.add_theme_font_size_override("font_size", 16)
+	handoff_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	gameplay_content.add_child(handoff_help)
 
 	_add_section_header(gameplay_content, "Auto-Save")
 	_autosave_phase_start_checkbox = _add_checkbox_row(gameplay_content, "Auto-save at the start of each phase", "_on_autosave_phase_start_toggled")
@@ -876,6 +887,8 @@ func _load_current_settings() -> void:
 	# Gameplay
 	if _auto_allocate_checkbox:
 		_auto_allocate_checkbox.button_pressed = SettingsService.auto_allocate_wounds
+	if _hotseat_handoff_checkbox:
+		_hotseat_handoff_checkbox.button_pressed = SettingsService.hotseat_handoff_enabled
 	if _autosave_phase_start_checkbox:
 		_autosave_phase_start_checkbox.button_pressed = SettingsService.autosave_on_phase_start
 
@@ -1058,6 +1071,9 @@ func _on_terrain_cover_labels_toggled(pressed: bool) -> void:
 
 func _on_auto_allocate_wounds_toggled(pressed: bool) -> void:
 	SettingsService.set_auto_allocate_wounds(pressed)
+
+func _on_hotseat_handoff_toggled(pressed: bool) -> void:
+	SettingsService.set_hotseat_handoff_enabled(pressed)
 
 func _on_autosave_phase_start_toggled(pressed: bool) -> void:
 	SettingsService.set_autosave_on_phase_start(pressed)

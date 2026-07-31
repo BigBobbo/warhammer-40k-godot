@@ -9263,7 +9263,11 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 		var phase_instance = PhaseManager.get_current_phase_instance()
 		if phase_instance and phase_instance.has_method("_is_player_confirmed") and not phase_instance._is_player_confirmed(other_player):
 			print("Main: Showing formations dialog for Player %d" % other_player)
-			_show_formations_dialog(other_player)
+			# Formations declarations are secret — hide P1's picks behind the
+			# play-and-pass handoff screen before P2's dialog opens (no-op
+			# outside local Human-vs-Human games).
+			HandoffManager.request_handoff(other_player, "Declare Battle Formations",
+				_show_formations_dialog.bind(other_player))
 		else:
 			print("Main: Both players confirmed formations — phase completing")
 
@@ -9312,7 +9316,9 @@ func _on_formations_confirm_pressed() -> void:
 
 		var phase_instance = PhaseManager.get_current_phase_instance()
 		if phase_instance and phase_instance.has_method("_is_player_confirmed") and not phase_instance._is_player_confirmed(other_player):
-			_show_formations_dialog(other_player)
+			# Secret declarations: handoff screen first in local hotseat.
+			HandoffManager.request_handoff(other_player, "Declare Battle Formations",
+				_show_formations_dialog.bind(other_player))
 
 func _on_end_deployment_pressed() -> void:
 	print("Main: ========== _on_end_deployment_pressed CALLED ==========")
