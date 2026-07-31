@@ -34,13 +34,13 @@ func _setup_ui() -> void:
 	# Title
 	var title = Label.new()
 	title.text = "Deploy Embarked"
-	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_font_size_override("font_size", 20)
 	add_child(title)
 
 	# Player indicator
 	player_label = Label.new()
 	player_label.text = "Player 1 Units"
-	player_label.add_theme_font_size_override("font_size", 14)
+	player_label.add_theme_font_size_override("font_size", 18)
 	player_label.add_theme_color_override("font_color", Color(0.8, 0.8, 1.0))
 	add_child(player_label)
 

@@ -31,7 +31,7 @@ func _build_ui() -> void:
 	_title_label.text = "DEPLOYMENT CONTROLS"
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	WhiteDwarfTheme.apply_to_label(_title_label, true)
-	_title_label.add_theme_font_size_override("font_size", 14)
+	_title_label.add_theme_font_size_override("font_size", 18)
 	var bold_font = SystemFont.new()
 	bold_font.font_weight = 700
 	_title_label.add_theme_font_override("font", bold_font)
@@ -69,7 +69,7 @@ func _build_ui() -> void:
 	formation_header.text = "Formation Modes"
 	formation_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	formation_header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-	formation_header.add_theme_font_size_override("font_size", 12)
+	formation_header.add_theme_font_size_override("font_size", 16)
 	_shortcuts_container.add_child(formation_header)
 
 	_add_shortcut("Single", "Place one model at a time")
@@ -87,7 +87,7 @@ func _build_ui() -> void:
 	general_header.text = "General"
 	general_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	general_header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-	general_header.add_theme_font_size_override("font_size", 12)
+	general_header.add_theme_font_size_override("font_size", 16)
 	_shortcuts_container.add_child(general_header)
 
 	var _dz = KeybindingManager.get_key_display_name("toggle_deploy_zones") if KeybindingManager else "Z"
@@ -122,7 +122,7 @@ func _build_ui() -> void:
 	shooting_header.text = "Shooting Phase"
 	shooting_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	shooting_header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-	shooting_header.add_theme_font_size_override("font_size", 12)
+	shooting_header.add_theme_font_size_override("font_size", 16)
 	_shortcuts_container.add_child(shooting_header)
 
 	var _sct = KeybindingManager.get_key_display_name("shoot_confirm_targets") if KeybindingManager else "Space / Enter"
@@ -146,7 +146,7 @@ func _build_ui() -> void:
 	hint_label.text = "Press ? to close"
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint_label.add_theme_color_override("font_color", Color(0.6, 0.55, 0.45, 0.7))
-	hint_label.add_theme_font_size_override("font_size", 11)
+	hint_label.add_theme_font_size_override("font_size", 16)
 	_shortcuts_container.add_child(hint_label)
 
 	add_child(vbox)
@@ -161,7 +161,7 @@ func _add_shortcut(key_text: String, description: String) -> void:
 	key_label.custom_minimum_size.x = 110
 	key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	key_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-	key_label.add_theme_font_size_override("font_size", 12)
+	key_label.add_theme_font_size_override("font_size", 16)
 	var mono_font = SystemFont.new()
 	mono_font.font_weight = 600
 	key_label.add_theme_font_override("font", mono_font)
@@ -171,7 +171,7 @@ func _add_shortcut(key_text: String, description: String) -> void:
 	var desc_label = Label.new()
 	desc_label.text = description
 	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
-	desc_label.add_theme_font_size_override("font_size", 12)
+	desc_label.add_theme_font_size_override("font_size", 16)
 	hbox.add_child(desc_label)
 
 	_shortcuts_container.add_child(hbox)

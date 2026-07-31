@@ -58,7 +58,7 @@ text = "Select a unit to deploy"
 layout_mode = 2
 button_pressed = true
 tooltip_text = "Auto-decline all Fire Overwatch opportunities"
-text = "Auto-Decline Overwatch"
+text = "Skip Overwatch"
 
 [node name="StratagemPanelButton" type="Button" parent="HUD_Bottom/HBoxContainer"]
 layout_mode = 2
@@ -162,7 +162,7 @@ layout_mode = 2
 [node name="ToggleButton" type="Button" parent="UnitStatsPanel/VBox/Header"]
 custom_minimum_size = Vector2(120, 30)
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 18
 text = "▼ Unit Stats"
 
 [node name="Spacer" type="Control" parent="UnitStatsPanel/VBox/Header"]
@@ -189,14 +189,13 @@ layout_mode = 2
 
 [node name="Label" type="Label" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerUnitsPanel/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 18
 text = "Player Units"
 
 [node name="PlayerUnitsList" type="ItemList" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerUnitsPanel/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_font_sizes/font_size = 12
-
+theme_override_font_sizes/font_size = 16
 [node name="PlayerStatsPanel" type="PanelContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -214,13 +213,12 @@ layout_mode = 2
 
 [node name="KeywordsTitle" type="Label" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent/PlayerKeywordsContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 16
 text = "Keywords: "
 
 [node name="PlayerKeywordsLabel" type="Label" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent/PlayerKeywordsContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-
+theme_override_font_sizes/font_size = 16
 [node name="HSeparator" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
 layout_mode = 2
 
@@ -229,13 +227,12 @@ layout_mode = 2
 
 [node name="StatsTitle" type="Label" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent/PlayerStatsContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 18
 text = "UNIT STATS"
 
 [node name="PlayerStatsLabel" type="Label" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent/PlayerStatsContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
-
+theme_override_font_sizes/font_size = 20
 [node name="HSeparator2" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
 layout_mode = 2
 
@@ -273,14 +270,13 @@ layout_mode = 2
 
 [node name="Label" type="Label" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyUnitsPanel/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 18
 text = "Enemy Units"
 
 [node name="EnemyUnitsList" type="ItemList" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyUnitsPanel/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_font_sizes/font_size = 12
-
+theme_override_font_sizes/font_size = 16
 [node name="EnemyStatsPanel" type="PanelContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -298,13 +294,12 @@ layout_mode = 2
 
 [node name="KeywordsTitle" type="Label" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent/EnemyKeywordsContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 16
 text = "Keywords: "
 
 [node name="EnemyKeywordsLabel" type="Label" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent/EnemyKeywordsContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-
+theme_override_font_sizes/font_size = 16
 [node name="HSeparator" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
 layout_mode = 2
 
@@ -313,13 +308,12 @@ layout_mode = 2
 
 [node name="StatsTitle" type="Label" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent/EnemyStatsContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 18
 text = "UNIT STATS"
 
 [node name="EnemyStatsLabel" type="Label" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent/EnemyStatsContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
-
+theme_override_font_sizes/font_size = 20
 [node name="HSeparator2" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
 layout_mode = 2
 

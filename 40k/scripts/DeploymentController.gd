@@ -112,8 +112,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
 		return
 
-	# Check if we have ghosts to work with (unless repositioning)
-	if not repositioning_model and not ghost_sprite and formation_preview_ghosts.is_empty():
+	# Check if we have ghosts to work with (unless repositioning).
+	# A ghost is NOT required for the session to be interactive: once every model
+	# of the unit is down there is no ghost left, but Shift+click repositioning,
+	# Ctrl+Z undo and the rotate keys must all still work while the unit sits
+	# waiting on Confirm — so only bail when nothing has been placed either.
+	if not repositioning_model and not ghost_sprite and formation_preview_ghosts.is_empty() and get_placed_count() == 0:
 		return
 
 	# Handle clicks for formation placement
@@ -161,37 +165,35 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Handle rotation controls during deployment
 	if event is InputEventKey and event.pressed:
 		if KeybindingManager.matches_action(event, "rotate_left"):
-			# Rotate left
-			if formation_mode == "SINGLE":
-				# Rotate individual model ghost
-				if ghost_sprite and ghost_sprite.has_method("rotate_by"):
-					ghost_sprite.rotate_by(-PI/12)  # 15 degrees
-			else:
-				# Rotate formation
-				formation_rotation -= PI/12  # 15 degrees counter-clockwise
+			_rotate_active_ghost(-PI/12)  # 15 degrees counter-clockwise
 		elif KeybindingManager.matches_action(event, "rotate_right"):
-			# Rotate right
-			if formation_mode == "SINGLE":
-				# Rotate individual model ghost
-				if ghost_sprite and ghost_sprite.has_method("rotate_by"):
-					ghost_sprite.rotate_by(PI/12)  # 15 degrees
-			else:
-				# Rotate formation
-				formation_rotation += PI/12  # 15 degrees clockwise
+			_rotate_active_ghost(PI/12)  # 15 degrees clockwise
 	elif event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			# Rotate with mouse wheel
-			if formation_mode == "SINGLE":
-				if ghost_sprite and ghost_sprite.has_method("rotate_by"):
-					ghost_sprite.rotate_by(PI/12)
-			else:
-				formation_rotation += PI/12
+			_rotate_active_ghost(PI/12)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
-			if formation_mode == "SINGLE":
-				if ghost_sprite and ghost_sprite.has_method("rotate_by"):
-					ghost_sprite.rotate_by(-PI/12)
-			else:
-				formation_rotation -= PI/12
+			_rotate_active_ghost(-PI/12)
+
+func _rotate_active_ghost(angle: float) -> void:
+	"""Apply one rotation step to whatever the player is actually aiming right
+	now. Before this, every rotate input (Q/E, the mouse wheel and the pad's
+	R3+LB/RB) went unconditionally to ghost_sprite — so while a placed model was
+	lifted for repositioning the player watched the NEXT model's ghost spin
+	instead of the model in hand, and the lifted model dropped at its old facing
+	(reported 2026-07-30). A lift is always a single model, whatever the
+	formation mode is, so it takes priority over the formation branch."""
+	if repositioning_model:
+		if reposition_ghost and reposition_ghost.has_method("rotate_by"):
+			reposition_ghost.rotate_by(angle)
+		return
+	if formation_mode == "SINGLE":
+		# Rotate individual model ghost
+		if ghost_sprite and ghost_sprite.has_method("rotate_by"):
+			ghost_sprite.rotate_by(angle)
+	else:
+		# Rotate formation
+		formation_rotation += angle
 
 func begin_deploy(_unit_id: String) -> void:
 	print("[DeploymentController] begin_deploy() called for unit: ", _unit_id)
@@ -588,6 +590,15 @@ func try_place_at(world_pos: Vector2) -> void:
 
 	if model_idx < temp_positions.size():
 		_update_ghost_for_next_model()
+	else:
+		# Every model is down — there is no next model to preview, so drop the
+		# ghost (the formation path at try_place_formation_at already does this).
+		# _process stops updating ghost_sprite once model_idx runs off the end, so
+		# leaving it alive froze a full-strength ghost on top of the last model
+		# placed. It then sat there for the rest of the session, and a following
+		# Shift+click / pad-L3 reposition made it obvious: the lifted model
+		# appeared to still be at its old spot, and it was the thing that rotated.
+		_remove_ghost()
 
 func try_place_formation_at(world_pos: Vector2) -> void:
 	"""Place multiple models in formation at once"""
@@ -1376,7 +1387,7 @@ func _create_coherency_distance_label() -> void:
 	coherency_distance_label = Label.new()
 	coherency_distance_label.name = "CoherencyDistanceLabel"
 	coherency_distance_label.z_index = 25  # Above ghost (z_index 20)
-	coherency_distance_label.add_theme_font_size_override("font_size", 14)
+	coherency_distance_label.add_theme_font_size_override("font_size", 18)
 	coherency_distance_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	coherency_distance_label.add_theme_constant_override("shadow_offset_x", 1)
 	coherency_distance_label.add_theme_constant_override("shadow_offset_y", 1)
@@ -1936,8 +1947,7 @@ func _process(delta: float) -> void:
 	# Handle repositioning ghost updates (highest priority)
 	if repositioning_model and reposition_ghost:
 		reposition_ghost.position = mouse_pos
-		var unit_data = GameState.get_unit(unit_id)
-		var model_data = unit_data["models"][reposition_model_index]
+		var model_data = _reposition_model_data(reposition_model_index)
 		var is_valid = _validate_reposition(mouse_pos, model_data, reposition_model_index, true)
 		reposition_ghost.set_validity(is_valid)
 		# Show coherency distance during repositioning too
@@ -2400,16 +2410,77 @@ func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: Pa
 	return true
 
 # Model Repositioning Functions
+
+func _reposition_model_data(index: int) -> Dictionary:
+	"""Model data for a staged placement slot. temp_positions is indexed over the
+	COMBINED roster during a combined deployment (bodyguard models followed by the
+	attached characters'), so unit_data["models"][index] is the wrong array —
+	and out of range past the bodyguard's own model count."""
+	var models = _get_effective_models()
+	if index < 0 or index >= models.size():
+		return {}
+	return models[index]
+
+
+func _preview_token_name_for(index: int) -> String:
+	"""Name of the preview token spawned for a staged placement slot. Combined
+	deployments spawn tokens under the OWNING unit's id and that unit's own model
+	index (see try_place_at), so "Token_<current unit>_<combined index>" misses an
+	attached character's token entirely — leaving it behind at the old spot when
+	the model was repositioned."""
+	var tok_unit_id := unit_id
+	var tok_model_idx := index
+	if is_combined_deployment and index < combined_models.size():
+		tok_unit_id = combined_models[index]["unit_id"]
+		tok_model_idx = combined_models[index]["model_idx"]
+	return "Token_%s_%d" % [tok_unit_id, tok_model_idx]
+
+
+func _find_preview_token(index: int) -> Node2D:
+	var token_name := _preview_token_name_for(index)
+	for token in placed_tokens:
+		if is_instance_valid(token) and token.name == token_name:
+			return token
+	return null
+
+
+func _apply_preview_token_rotation(token: Node2D, rot: float) -> void:
+	"""Re-face an already-spawned preview token. The rotation is baked into the
+	inner TokenVisual's model_data at spawn time (_create_token_visual), so
+	moving the wrapper Node2D is not enough — the visual has to be re-fed."""
+	if token == null or not is_instance_valid(token):
+		return
+	for child in token.get_children():
+		if child.has_method("set_model_data") and "model_data" in child:
+			var md: Dictionary = (child.model_data as Dictionary).duplicate()
+			md["rotation"] = rot
+			child.set_model_data(md)
+			child.queue_redraw()
+
+
+func _set_placement_ghosts_visible(visible_state: bool) -> void:
+	"""Show/hide the ghosts that preview the NEXT placement. _process stops
+	updating them while a model is lifted, so leaving them visible parked a
+	frozen ghost on the board at whatever point the lift began — which is
+	exactly the spot the player just picked a model up from."""
+	if ghost_sprite and is_instance_valid(ghost_sprite):
+		ghost_sprite.visible = visible_state
+	for fg in formation_preview_ghosts:
+		if fg and is_instance_valid(fg):
+			fg.visible = visible_state
+
+
 func _get_deployed_model_at_position(world_pos: Vector2) -> Dictionary:
 	"""Find deployed model from current unit at given position"""
 	if unit_id == "" or temp_positions.is_empty():
 		return {}
 
-	var unit_data = GameState.get_unit(unit_id)
 	for i in range(temp_positions.size()):
 		if temp_positions[i] != null:  # Model is placed
 			var model_pos = temp_positions[i]
-			var model_data = unit_data["models"][i]
+			var model_data = _reposition_model_data(i)
+			if model_data.is_empty():
+				continue
 			var rotation = temp_rotations[i] if i < temp_rotations.size() else 0.0
 
 			# Use shape-aware hit detection
@@ -2443,13 +2514,21 @@ func _start_model_repositioning(deployed_model: Dictionary) -> void:
 	# MA-17: Set model type label on reposition ghost
 	var repo_unit_data = GameState.get_unit(unit_id)
 	reposition_ghost.set_model_type_label(_get_model_type_label(model_data, repo_unit_data))
+	# Pick the model up at the facing it is currently sitting at, not at 0 — the
+	# lift is a nudge, so it must not silently un-rotate an angled model, and the
+	# player rotates on from here (see _rotate_active_ghost).
+	reposition_ghost.set_base_rotation(temp_rotations[reposition_model_index] if reposition_model_index < temp_rotations.size() else 0.0)
 	ghost_layer.add_child(reposition_ghost)
 
+	# The next-placement ghosts stop tracking the cursor while a model is in hand
+	# — hide them so they don't sit frozen at the pick-up point looking like the
+	# model never left.
+	_set_placement_ghosts_visible(false)
+
 	# Make the original token semi-transparent during repositioning
-	for token in placed_tokens:
-		if is_instance_valid(token) and token.name == "Token_%s_%d" % [unit_id, reposition_model_index]:
-			token.modulate.a = 0.3  # Make original semi-transparent
-			break
+	var orig_token := _find_preview_token(reposition_model_index)
+	if orig_token:
+		orig_token.modulate.a = 0.3  # Make original semi-transparent
 
 func _update_model_repositioning(mouse_pos: Vector2) -> void:
 	"""Update ghost position during repositioning"""
@@ -2462,18 +2541,30 @@ func _update_model_repositioning(mouse_pos: Vector2) -> void:
 	# Validate new position. silent=true — runs on every mouse-motion event to
 	# recolour the ghost; a failure must not stack a toast per motion (the drop
 	# in _end_model_repositioning surfaces the reason).
-	var unit_data = GameState.get_unit(unit_id)
-	var model_data = unit_data["models"][reposition_model_index]
+	var model_data = _reposition_model_data(reposition_model_index)
 	var is_valid = _validate_reposition(world_pos, model_data, reposition_model_index, true)
 
 	reposition_ghost.set_validity(is_valid)
+
+func _reposition_rotation_for(model_index: int) -> float:
+	"""The facing to validate/commit a lifted model at: the LIVE ghost rotation
+	while it is in hand (the player can rotate mid-lift), the stored staged
+	rotation otherwise. Reading temp_rotations unconditionally validated the
+	drop against the model's pre-lift facing, so a rotated oval could be dropped
+	somewhere its actual footprint does not fit."""
+	if repositioning_model and reposition_ghost and is_instance_valid(reposition_ghost) \
+			and model_index == reposition_model_index and reposition_ghost.has_method("get_base_rotation"):
+		return reposition_ghost.get_base_rotation()
+	return temp_rotations[model_index] if model_index < temp_rotations.size() else 0.0
 
 func _validate_reposition(world_pos: Vector2, model_data: Dictionary, model_index: int, silent: bool = false) -> bool:
 	"""Validate if repositioning is allowed at the given position. silent=true
 	suppresses the Infiltrators failure toasts for the per-frame reposition-ghost
 	colour check; the drop path leaves it false."""
+	if model_data.is_empty():
+		return false
 	var active_player = GameState.get_active_player()
-	var rotation = temp_rotations[model_index] if model_index < temp_rotations.size() else 0.0
+	var rotation = _reposition_rotation_for(model_index)
 
 	if is_infiltrators_mode:
 		# In Infiltrators mode, use Infiltrators validation instead of zone check
@@ -2504,12 +2595,13 @@ func _would_overlap_excluding_self(pos: Vector2, model_data: Dictionary, exclude
 		return false
 
 	# Check overlap with other models in current unit (excluding self)
-	var unit_data = GameState.get_unit(unit_id)
+	var self_rotation = _reposition_rotation_for(exclude_index)
 	for i in range(temp_positions.size()):
 		if i != exclude_index and temp_positions[i] != null:
-			var other_model_data = unit_data["models"][i]
+			var other_model_data = _reposition_model_data(i)
+			if other_model_data.is_empty():
+				continue
 			var other_rotation = temp_rotations[i] if i < temp_rotations.size() else 0.0
-			var self_rotation = temp_rotations[exclude_index] if exclude_index < temp_rotations.size() else 0.0
 			if _shapes_overlap(pos, model_data, self_rotation, temp_positions[i], other_model_data, other_rotation):
 				return true
 
@@ -2526,7 +2618,6 @@ func _would_overlap_excluding_self(pos: Vector2, model_data: Dictionary, exclude
 				if model_position:
 					var other_pos = Vector2(model_position.x, model_position.y)
 					var other_rotation = model.get("rotation", 0.0)
-					var self_rotation = temp_rotations[exclude_index] if exclude_index < temp_rotations.size() else 0.0
 					if _shapes_overlap(pos, model_data, self_rotation, other_pos, model, other_rotation):
 						return true
 
@@ -2538,20 +2629,27 @@ func _end_model_repositioning(mouse_pos: Vector2) -> void:
 		return
 
 	var world_pos = _get_world_mouse_position()
-	var unit_data = GameState.get_unit(unit_id)
-	var model_data = unit_data["models"][reposition_model_index]
+	var model_data = _reposition_model_data(reposition_model_index)
+	# The facing the player is holding the model at — rotating mid-lift is part
+	# of the nudge, so the drop has to commit it, not throw it away.
+	var drop_rotation := _reposition_rotation_for(reposition_model_index)
+	var token := _find_preview_token(reposition_model_index)
 
 	# Validate final position
 	if _validate_reposition(world_pos, model_data, reposition_model_index):
-		# Update position
+		# Update position and facing
 		temp_positions[reposition_model_index] = world_pos
+		if reposition_model_index < temp_rotations.size():
+			temp_rotations[reposition_model_index] = drop_rotation
+		# Same carry-over rule as try_place_at: the last facing the player applied
+		# becomes the default for the next model of this unit.
+		_last_deploy_rotation = drop_rotation
 
-		# Update the token position
-		for token in placed_tokens:
-			if is_instance_valid(token) and token.name == "Token_%s_%d" % [unit_id, reposition_model_index]:
-				token.position = world_pos
-				token.modulate.a = 1.0  # Restore full opacity
-				break
+		# Update the token position + facing
+		if token:
+			token.position = world_pos
+			token.modulate.a = 1.0  # Restore full opacity
+			_apply_preview_token_rotation(token, drop_rotation)
 
 		# DEPLOY-VIS-5: Update coherency circle position after repositioning
 		if reposition_model_index < coherency_circles.size():
@@ -2559,16 +2657,14 @@ func _end_model_repositioning(mouse_pos: Vector2) -> void:
 			if is_instance_valid(circle):
 				circle.position = world_pos
 
-		print("Model ", reposition_model_index, " repositioned to ", world_pos)
+		print("Model ", reposition_model_index, " repositioned to ", world_pos, " rot ", drop_rotation)
 		reposition_commits += 1
 		emit_signal("models_placed_changed")
 		_check_coherency_warning()
 	else:
 		# Revert to original position
-		for token in placed_tokens:
-			if is_instance_valid(token) and token.name == "Token_%s_%d" % [unit_id, reposition_model_index]:
-				token.modulate.a = 1.0  # Restore full opacity
-				break
+		if token:
+			token.modulate.a = 1.0  # Restore full opacity
 		_show_toast("Invalid position for repositioning")
 
 	_cleanup_repositioning()
@@ -2578,11 +2674,10 @@ func _cancel_model_repositioning() -> void:
 	if not repositioning_model:
 		return
 
-	# Restore original token opacity
-	for token in placed_tokens:
-		if is_instance_valid(token) and token.name == "Token_%s_%d" % [unit_id, reposition_model_index]:
-			token.modulate.a = 1.0
-			break
+	# Restore original token opacity (position and facing were never touched)
+	var token := _find_preview_token(reposition_model_index)
+	if token:
+		token.modulate.a = 1.0
 
 	_cleanup_repositioning()
 
@@ -2787,6 +2882,10 @@ func _cleanup_repositioning() -> void:
 	if reposition_ghost and is_instance_valid(reposition_ghost):
 		reposition_ghost.queue_free()
 		reposition_ghost = null
+
+	# The next-placement ghosts start tracking the cursor again from the next
+	# _process tick — bring them back (hidden in _start_model_repositioning).
+	_set_placement_ghosts_visible(true)
 
 # ── MA-15/MA-19: Model type picker methods ───────────────────────────
 

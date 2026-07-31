@@ -45,7 +45,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "MARTIAL KA'TAH"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -53,7 +53,7 @@ func _build_ui() -> void:
 	# Subheader
 	var subheader = Label.new()
 	subheader.text = "Adeptus Custodes — Faction Ability"
-	subheader.add_theme_font_size_override("font_size", 12)
+	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(subheader)
@@ -63,7 +63,7 @@ func _build_ui() -> void:
 	# Unit info
 	var unit_label = Label.new()
 	unit_label.text = "%s selected to fight — choose a Ka'tah Stance:" % unit_name
-	unit_label.add_theme_font_size_override("font_size", 14)
+	unit_label.add_theme_font_size_override("font_size", 18)
 	unit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(unit_label)
 
@@ -85,7 +85,7 @@ func _build_ui() -> void:
 		var both_desc = Label.new()
 		both_desc.text = "Once per battle: Both Dacatarai (Sustained Hits 1) AND Rendax (Lethal Hits) are active simultaneously for this fight."
 		both_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		both_desc.add_theme_font_size_override("font_size", 11)
+		both_desc.add_theme_font_size_override("font_size", 16)
 		both_desc.add_theme_color_override("font_color", Color.LIGHT_GOLDENROD)
 		button_container.add_child(both_desc)
 
@@ -105,7 +105,7 @@ func _build_ui() -> void:
 	var dacatarai_desc = Label.new()
 	dacatarai_desc.text = "Each time a model in this unit makes a melee attack, a successful unmodified Hit roll of 6 scores one additional hit."
 	dacatarai_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	dacatarai_desc.add_theme_font_size_override("font_size", 11)
+	dacatarai_desc.add_theme_font_size_override("font_size", 16)
 	dacatarai_desc.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	button_container.add_child(dacatarai_desc)
 
@@ -125,7 +125,7 @@ func _build_ui() -> void:
 	var rendax_desc = Label.new()
 	rendax_desc.text = "Each time a model in this unit makes a melee attack, a successful unmodified Hit roll of 6 is always a successful Wound roll (auto-wound)."
 	rendax_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rendax_desc.add_theme_font_size_override("font_size", 11)
+	rendax_desc.add_theme_font_size_override("font_size", 16)
 	rendax_desc.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	button_container.add_child(rendax_desc)
 

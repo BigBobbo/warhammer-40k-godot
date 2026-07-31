@@ -14,7 +14,7 @@
       ]
     },
     {
-      "version": "1.8.0",
+      "version": "1.8.9",
       "date": "2026-07-30",
       "summary": "'Krumpin'' now takes da boss's swing before da enemy gets one, an' da enemy's swing back rolls out dice by dice instead of landing as a finished bill.",
       "changes": [
@@ -23,6 +23,137 @@
         "The enemy's swing back is now a taught step of its own ('NOW DEY KRUMP BACK!') instead of something that happened behind the lesson-complete card.",
         "The Boyz could wipe the Custodian Guard outright, which left nobody to swing back and broke the lesson — all 10 Boyz swinging the Boss Nob's Power klaw destroyed the squad about 38% of the time. The lesson now fields 5 Boyz (the rest of the mob came in as casualties) against a 5-strong Custodian Guard, so no weapon choice can clear them out.",
         "The end-of-turn \"Discard for CP?\" prompt no longer pops during a tutorial lesson. It is an exclusive pop-up, so it appeared over the lesson-complete card and swallowed the Next Lesson and Back to Menu buttons."
+      ]
+    },
+    {
+      "version": "1.8.8",
+      "date": "2026-07-30",
+      "summary": "The coherency circle is back — but only one, on the model you are actually holding.",
+      "changes": [
+        "Pick a model up during the Movement phase and you now get a single 2\" coherency circle around it, centred on where the model would land rather than on where it started. Drop it so that a squadmate's base sits inside the circle and the unit stays coherent.",
+        "It follows the model as you drag and changes colour with the verdict: cyan while the drop keeps the unit coherent, amber when it would break coherency. It matches the \"Coherent\" readout and the green/red lines to your squadmates, because all three are driven by the same check.",
+        "The circle appears only while you are holding a model and disappears the moment you drop it, so the board is never covered in circles the way it was when every model in the unit had its own. Dragging a whole squad at once shows no circle — the models keep their spacing, so coherency cannot change.",
+        "Amber, not red, is used for a broken drop on purpose: red circles already mean \"enemy engagement range — do not end your move here\"."
+      ]
+    },
+    {
+      "version": "1.8.7",
+      "date": "2026-07-30",
+      "summary": "The cluster of unexplained cyan circles around a unit you are moving is gone — the board is readable again when a big mob is on the move.",
+      "changes": [
+        "Selecting a unit to move used to draw a cyan 2\" unit-coherency circle around EVERY model in it. For a 10-model mob of Boyz piling out of a Battlewagon that meant ten overlapping circles roughly 5\" across stacked on top of each other — a wall of cyan that hid the models, the terrain and the objectives, and that read as some unexplained \"engagement range\" bubble. Those rings have been removed.",
+        "Nothing about coherency was lost. Pick a model up and you still get the live check: a line from the model you are carrying to each of its mates, green when that mate is close enough and red when it is not, plus a \"Coherent\" / \"N/M coherent\" readout on the model itself. Ending a move that breaks coherency is still refused with a message saying so.",
+        "The two guides that were actually doing a job are untouched: the green dashed circle showing how far the model you picked up can still go, and the red circles around enemy models marking where you may not end up."
+      ]
+    },
+    {
+      "version": "1.8.6",
+      "date": "2026-07-30",
+      "summary": "The tutorial card now also steps aside for the pop-ups it could not previously see at all.",
+      "changes": [
+        "The card only ever looked for open dialogs in two places, so any dialog opened by the phase controller that raises it — the shooting phase's grenade and split-fire target pickers, the movement phase's right-click menu — was invisible to it. The card did not move out of the way for those, and worse, the tutorial did not realise it was underneath a modal at all: its Exit Tutorial button stayed looking live while the dialog swallowed every click, leaving no way out. Those dialogs are now found wherever they sit, the card steps aside for them, and the modal gets its own working Exit Tutorial button.",
+        "Opening a dropdown list no longer counts as a pop-up to hide from, so the card stays put instead of darting to the side of the screen for as long as the list is open."
+      ]
+    },
+    {
+      "version": "1.8.5",
+      "date": "2026-07-30",
+      "summary": "Tutorial 2's 'Grots in a Mob' step now names BOTH bumpers as the way to switch onto the Gretchin, not just RB.",
+      "changes": [
+        "Step 9 of 'Musterin' da Boyz' told you to tap RB until the Gretchin row was picked. Either bumper switches unit — LB steps back through the list, RB steps forward — and with the Gretchin the only unit left to deploy, a player reaching for LB was doing exactly the right thing with no confirmation from the card that it would work. The step now reads \"Tap [RB] (or [LB]) till da Gretchin row is picked.\" The rest of the step is unchanged."
+      ]
+    },
+    {
+      "version": "1.8.4",
+      "date": "2026-07-30",
+      "summary": "Controller: grabbing your own model with A now works while you're steering with the stick, and LB/RB turn a vehicle mid-move instead of refusing to switch units.",
+      "changes": [
+        "Tutorial 3 (\"Get Movin'\") step 8 tells you to grab the Battlewagon with A and spin it with LB/RB, but the grab silently did nothing and the bumpers answered \"Confirm or reset this unit's move before switching\". With the on-screen cursor live — which it is the moment you touch the left stick — A was a plain click that picked the model up and set it straight back down, so nothing was ever in your hand for the bumpers to turn. Now, once a unit's move is under way, tapping A on one of its models really picks it up: the stick steers it, LB/RB turn it, A drops it. (Holding A and steering still works as a drag that drops when you let go.) This was never just a tutorial problem — it broke re-grabbing a model to spend the rest of its move anywhere in the Movement phase.",
+        "LB/RB now turn the model 15° a tap from the moment a unit's move is under way until it is confirmed — whether the model is in your hand or parked where you dropped it. The bumpers cannot switch units in that state anyway, so instead of only warning you about that they do the thing you were reaching for. The hint bar shows the new Rotate chips, turning costs no movement, and the new facing now survives \"End This Unit's Move\" (a turn made after dropping the model used to be quietly reverted when the move was confirmed).",
+        "Models on round bases are unchanged: they have no facing to turn, so there the bumpers still explain why they can't switch units mid-move."
+      ]
+    },
+    {
+      "version": "1.8.3",
+      "date": "2026-07-30",
+      "summary": "The tutorial's instruction card no longer hides behind the Declare Battle Formations window.",
+      "changes": [
+        "Step 1 of 8 in 'Musterin' da Boyz' put the instruction card on the left flank at a fixed width and assumed the Battle Formations window left room for it. On anything but a very wide screen it didn't — the end of the instruction, the step counter and the Skip Step / Exit Tutorial buttons all sat behind the window. Anyone who had nudged the UI Scale slider up, or was playing on a controller (which enlarges the UI), lost part of every card that shares the screen with a pop-up.",
+        "The card now measures the space actually left beside an open window and re-wraps itself to fit it, so the whole card stays readable and clickable. If there is more room on the other side of the window, it moves there instead.",
+        "When a pop-up doesn't reach the card's usual spot at the top of the screen, the card now simply stays there at full width instead of jumping to the side."
+      ]
+    },
+    {
+      "version": "1.8.2",
+      "date": "2026-07-30",
+      "summary": "Tutorial 3 ('Get Movin'') now reminds you that you can grab the whole mob in one go — and an attached character finally moves when you do.",
+      "changes": [
+        "Step 4 of 'Get Movin'' — the one where the freshly disembarked Boyz make their own move — used to say \"drag one forward\". With 10 Boyz plus an attached Warboss to shift, players were moving all 11 bases individually. The step now points out the select-all shortcut up front: Ctrl+A on mouse and keyboard, D-pad ▲ on a controller, grabs every model in the mob so one drag moves the lot.",
+        "Fixed: moving a mob as a group always left its attached character behind. Grab a squad with select-all or ▲, drag, and the leader stayed exactly where he was — and so did any squadmate standing where he needed to go. On the tutorial's Boyz that meant 8 of the 11 bases moved and three refused, with no message explaining why. An attached character shares model ids with the squad it joined (both have an \"m1\"), and four separate lookups matched on the squad instead of the character's own unit: the leader inherited the first Boy's start position, was sent to the Boy's destination, was measured against the wrong origin, and was even checked for overlap against himself — which no move could ever pass. All four now key off the model's real unit.",
+        "The step's stuck-hint now covers the follow-up too: on a controller ▲ only grabs the mob once the move has actually started, and if the whole mob doesn't fit where you drop it, only the models that fit land — the rest stay in hand for another go.",
+        "The end-of-lesson recap picked up a matching bullet."
+      ]
+    },
+    {
+      "version": "1.8.1",
+      "date": "2026-07-30",
+      "summary": "Tutorial dice pop-ups are fully yours again on a controller — the 'Exit Tutorial' button is gone from them unless you actually need it — and confirming an Advance in 'Get Movin'' stops throwing a bogus error.",
+      "changes": [
+        "1.7.23 stopped A landing on \"Exit Tutorial\" when a tutorial dialog opened. It was still there though, and still unreachable-and-unleavable: the D-pad could not move onto it, and if you did land on it no direction could get you off. It is no longer added to a dialog at all unless a lesson has actually refused something you tried — the case it exists for. Rolling for deployment, choosing who deploys first, rolling for first turn, the Advance re-roll offer and the charge re-roll offer now carry only their own buttons.",
+        "When it does appear, it is no longer a dead end: the D-pad now walks back off it onto the dialog's own button.",
+        "The roll-off's \"Roll the dice\" is now recognised as the button A should press — its dice symbol was hiding the word from the controller's focus picker, so it fell back to whatever button it happened to find first.",
+        "The greyed-out Exit Tutorial on the tutorial card now says why — \"finish the dialog first\" when you can simply close it, rather than pointing at a button that isn't there.",
+        "'Get Movin'' step 5: confirming the Battlewagon's Advance threw \"tutorial_locked\" and the movement mode never actually locked in. One click sends two things (start the Advance, then lock the mode) and the lesson had already moved on to the re-roll step, which refused the second half."
+      ]
+    },
+    {
+      "version": "1.8.0",
+      "date": "2026-07-30",
+      "summary": "Steam Deck legibility overhaul: every piece of UI text is now readable on a handheld screen.",
+      "changes": [
+        "All in-game text has been rebuilt around a handheld-readable minimum. Over 800 labels, buttons, log entries, dialogs and panels that used tiny 7-14px fonts now start at 16px and scale up from there, meeting Valve's Steam Deck legibility guidelines (9px minimum / 12px recommended character height at 1280x800) when combined with the existing controller text boost.",
+        "The top bar no longer overflows on a Deck-sized screen: the AI Suggestion button and AI speed selector moved into the right-hand panel, the scoreboard's CP chips dropped the (color-coded, tooltipped) faction names, the round chip shows 'P1/P2' instead of the full faction, and the status message trims with an ellipsis (hover it for the full text) instead of pushing buttons underneath the End Phase button.",
+        "While playing with a controller, the bottom glyph strip no longer covers the newest game-log entry, the unit card's buttons, the phase progress strip or the Unit Stats sheet - the side panels now reserve that strip's height.",
+        "Movement mode options (Normal Move / Advance / Fall Back / Remain Still) wrap into a 2x2 grid instead of clipping off the panel edge.",
+        "The Stratagems panel is wider, and long 'why can't I use this' explanations wrap onto extra lines instead of running off the panel behind a horizontal scrollbar.",
+        "Dice value badges in the game log and the secondary-missions placeholder text were still microscopic; both now respect the new floor.",
+        "A global theme raises the default font size for anything not explicitly styled (tooltips, popup menus, list rows)."
+      ]
+    },
+    {
+      "version": "1.7.23",
+      "date": "2026-07-30",
+      "summary": "Tutorial instructions on a controller now point at the D-pad wherever the D-pad can get there — and A on a tutorial dialog no longer presses 'Exit Tutorial'.",
+      "changes": [
+        "On a controller or Steam Deck the tutorial kept telling you to glide the left stick onto things the D-pad already walks — starting with step 1 of Musterin' da Boyz, which sent you hunting for the 'Warboss →' dropdown. Every pad prompt now leads with the D-pad where the D-pad works.",
+        "Where the D-pad genuinely cannot reach — the Dice Log tab in Dakka Time, the Stratagems button on the bottom bar, and anything you place on the board — the step says so instead of pretending, so you know when to reach for the stick.",
+        "Picking a unit row is the bumpers' job, not the D-pad's, so the steps that need a row (deployment rows, the embarked Boyz + Warboss row in Get Movin') now say to tap RB. Cycling onto the embarked mob pops the disembark dialog on its own.",
+        "Get Movin' told pad players to click an Advance radio and a Confirm Movement Mode button they never see: the D-pad opens the on-screen move menu and A takes the mode. The step now teaches that, and 'End This Unit's Move' is named as the ☰ button it actually is on a pad.",
+        "The tutorial's 'Exit Tutorial' button, which is added into game dialogs so you can always leave, was stealing the controller's starting focus on the roll-off and re-roll dialogs. Following the step and pressing A opened the leave-the-tutorial confirm instead of rolling the dice. It is now a last-resort focus target, so A lands on the dialog's own button."
+      ]
+    },
+    {
+      "version": "1.7.22",
+      "date": "2026-07-30",
+      "summary": "The Dice Log lesson moved out of 'Scoutin' da Field' and into 'Dakka Time', where there are actually some rolls to read.",
+      "changes": [
+        "Step 6 of Tutorial 1 ('Scoutin' da Field') used to tell you to click the Dice Log tab — before a single die had been rolled, so you switched to a blank panel and learned nothing from it. That step is gone.",
+        "In its place, Tutorial 1 just points at the log panel down the left: Game Log for the story so far, Dice Log for every roll once they start. No click into an empty log, and it says outright that Dakka Time is where you'll use it.",
+        "Tutorial 4 ('Dakka Time') now has that step, straight after the shooting rolls: new step 'CHECK DA NUMBERS!' sends you to the Dice Log tab (wearing its unread dot) to read the hits, wounds and saves you just made.",
+        "Fixed while moving it: the Dice Log tab stayed empty for the whole phase whenever a battle STARTED in the shooting, charge or fight phase — every tutorial lesson from 'Dakka Time' on, and any save you loaded mid-combat. The phase's controls are built before the left-hand log panel exists, so the dice output went to a throwaway label instead of the tab you can actually read. Normal play never showed it because a battle begins in deployment."
+      ]
+    },
+    {
+      "version": "1.7.21",
+      "date": "2026-07-30",
+      "summary": "Nudging an already-placed model during deployment now behaves like placing it: you can turn it, and the old spot actually empties.",
+      "changes": [
+        "You could not rotate a model you had picked back up. Every rotate input — Q/E, the mouse wheel, and the controller's hold-R3 + LB/RB — was hard-wired to the ghost waiting for the NEXT model, so the model in your hand went down at whatever angle it started at.",
+        "That misdirected rotation is also what you saw spinning: the ghost it was turning sat parked over the model's old position, so it looked like the original was rotating instead of the one you were moving.",
+        "The old position no longer stays occupied. Once the last model of a unit was placed, its leftover ghost was never cleared and froze there for the rest of the deployment — picking a model up and putting it somewhere else left that ghost behind, looking like the model had been duplicated. The pending ghost is now also hidden for as long as you are holding a model.",
+        "A model is picked up at the facing it is currently sitting at, and dropped at whatever facing you turned it to — the drop checks the deployment zone and overlaps against that real angle, so a turned oval or rectangular base can't be dropped somewhere its actual footprint doesn't fit.",
+        "Repositioning a model of a unit deployed together with an attached character now moves the right token. It was looked up under the wrong name, so that model's marker was left behind at its old spot.",
+        "The controller hint bar while a model is in hand now shows \"R3 Hold: LB/RB Rotate\" so the turn combo is actually discoverable."
       ]
     },
     {

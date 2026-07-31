@@ -12,6 +12,7 @@
       "Boyz dat disembark can still make their own move — but only if da transport ain't moved yet. Out first, drive after.",
       "Movement modes: pick da radio, den [b]Confirm Movement Mode[/b] — it don't stick till ya confirm.",
       "Drag models (or carry 'em wiv da pad), [b]Undo Model[/b] / [b]Reset Unit[/b] fix mistakes.",
+      "Big mob? Grab da whole lot in one go — [b]Select All[/b] on da keyboard, D-pad [b]▲[/b] on da pad — an' one drag shifts 'em all.",
       "Ya don't gotta spend a move in one drag — drop, grab again, da inches add up till dey're gone.",
       "Turnin' a model is free in 11th — it don't cost a single inch of da move.",
       "[b]End This Unit's Move[/b] locks one unit. Da big red button ends da whole phase.",
@@ -34,7 +35,7 @@
       "prompt": {
         "bark": "EVERYBODY OUT!",
         "kbm": "Click da [b]Boyz + Warboss [Embarked][/b] row in da list, den click [b]OK[/b] to start da disembark.",
-        "pad": "Glide {ls} onto da [b]Boyz + Warboss [Embarked][/b] row, press {a}, den {a} again on da dialog."
+        "pad": "Tap {rb} till da [b]Boyz + Warboss [Embarked][/b] row is picked — dat pops da disembark dialog on its own — den press {a}. Unit rows are bumper work; da {dpad} drives da panels."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList" },
       "spotlight": "soft",
@@ -65,8 +66,8 @@
       "id": "boyz_move_after_disembark",
       "prompt": {
         "bark": "DEIR LEGS STILL WORK!",
-        "kbm": "Da wagon ain't moved yet, so da Boyz get their own move too. Dey're already picked — drag one forward, den hit [b]End This Unit's Move[/b].",
-        "pad": "Da wagon ain't moved yet, so da Boyz get their own move too. Press {a} on a boy, glide 'im forward, {a} to drop — den [b]End This Unit's Move[/b]."
+        "kbm": "Da wagon ain't moved yet, so da Boyz get their own move too. Dey're already picked — press {key:select_all} to grab [b]all 11[/b] at once, den one drag shifts da whole mob. [b]End This Unit's Move[/b] locks it in.",
+        "pad": "Da wagon ain't moved yet, so da Boyz get their own move too. {dpad} ▲ opens da move menu — {a} takes [b]Move[/b]. Now ▲ again lifts [b]all 11[/b] at once: glide {ls} where dey fit an' {a} drops da lot."
       },
       "anchor": { "unit": "U_BOYZ_T" },
       "spotlight": "soft",
@@ -77,7 +78,10 @@
         { "state": "units.U_BOYZ_T.flags.moved", "equals": true }
       ] },
       "hint_after_s": 30,
-      "hint": { "text": "Only works 'cos da wagon ain't shifted yet — get out FIRST, drive after. If da transport moves first, da lads are stuck where dey landed." },
+      "hint": {
+        "kbm": "Only works 'cos da wagon ain't shifted yet — get out FIRST, drive after. {key:select_all} re-grabs da whole mob any time. If dey don't all fit where ya drop 'em, only da ones dat fit land an' da rest stay selected.",
+        "pad": "Only works 'cos da wagon ain't shifted yet — get out FIRST, drive after. {dpad} ▲ only grabs da whole mob once dey're movin' — start da move first. If dey don't all fit, anuvver {dpad} ▲ grabs whoever's left."
+      },
       "blocked_hint": "move da [b]Boyz[/b] first — drag one, den [b]End This Unit's Move[/b]."
     },
     {
@@ -85,7 +89,7 @@
       "prompt": {
         "bark": "PUT YER FOOT DOWN!",
         "kbm": "Now da wagon: click [b]Battlewagon[/b] in da list, pick da [b]Advance[/b] radio, den hit [b]Confirm Movement Mode[/b] — da mode don't stick till ya confirm it!",
-        "pad": "Tap {rb} till da [b]Battlewagon[/b]'s picked, glide onto [b]Advance[/b], {a}, den [b]Confirm Movement Mode[/b] an' {a}."
+        "pad": "Tap {rb} till da [b]Battlewagon[/b]'s picked, den {dpad} ▲ opens da move menu. ▼ onto [b]Advance[/b] an' {a} — dat locks da mode in, no Confirm button needed."
       },
       "anchor": { "button_text": "Confirm Movement Mode" },
       "spotlight": "soft",
@@ -99,9 +103,10 @@
         "bark": "DA DICE SPOKE!",
         "text": "Advance adds a D6 to da move — an' when a roll's dis important, da game offers a [b]Command Re-roll[/b] (costs 1 CP). We're keepin' it: click [b]Keep Roll[/b]."
       },
+      "_comment": "LOCK_MOVEMENT_MODE is allowed here even though this step is about the re-roll offer: MovementController._on_confirm_mode_pressed emits BEGIN_ADVANCE and then LOCK_MOVEMENT_MODE from the SAME click, and BEGIN_ADVANCE is what completes the previous step (wagon_mode) — synchronously, via PhaseManager.phase_action_taken -> _check_done. So by the time the second half of that one click reaches the gate, THIS step's allow-list is the one being consulted, and an empty list rejected it with 'tutorial_locked' the instant the player confirmed Advance.",
       "anchor": { "button_text": "Keep Roll" },
       "spotlight": "soft",
-      "allow": [],
+      "allow": ["LOCK_MOVEMENT_MODE"],
       "done": { "action": { "type": "DECLINE_COMMAND_REROLL" } },
       "skip_fallback": { "dispatch": { "type": "DECLINE_COMMAND_REROLL" } },
       "hint": { "text": "Keep Roll — save da CP for somefin' bigger." }
@@ -124,7 +129,7 @@
       "prompt": {
         "bark": "POINT IT RIGHT!",
         "kbm": "Da wagon ain't on a round base, so which way it points matters. Grab da hull an' [b]keep holdin'[/b] it, den tap {key:rotate_left} or {key:rotate_right} — 15° a tap. Turnin' costs no inches.",
-        "pad": "Da wagon ain't on a round base, so which way it points matters. Grab it wiv {a}, den {lb} or {rb} spins it 15° a tap while yer carryin' it. Turnin' costs no inches."
+        "pad": "Da wagon ain't on a round base, so which way it points matters. {lb} or {rb} spins it 15° a tap — in yer hand ({a} grabs it) or sittin' where ya dropped it. Turnin' costs no inches."
       },
       "anchor": { "unit": "U_BATTLEWAGON_T" },
       "spotlight": "soft",
@@ -141,7 +146,7 @@
       },
       "hint": {
         "kbm": "Ya have to be holdin' da model — {key:rotate_left}/{key:rotate_right} do nuffin' when nuffin's grabbed. Press an' hold on da hull first, den tap 'em, den let go to drop it.",
-        "pad": "Ya have to be carryin' da model — press {a} on da hull first, den {lb}/{rb} turn it. {a} again drops it where it's pointin'."
+        "pad": "{lb}/{rb} turn da wagon any time its move ain't locked in yet — whether it's in yer hand or parked where ya dropped it. {a} on da hull picks it back up, {a} again drops it where it's pointin'."
       }
     },
     {
@@ -149,7 +154,7 @@
       "prompt": {
         "bark": "LOCK IT IN!",
         "kbm": "Happy? [b]End This Unit's Move[/b] locks da wagon in. ([b]Undo Model[/b] an' [b]Reset Unit[/b] are right next to it if ya ain't.)",
-        "pad": "Glide onto [b]End This Unit's Move[/b] an' press {a}."
+        "pad": "Press {menu} — once da models are down da bar calls it [b]Confirm Move[/b], an' dat IS [b]End This Unit's Move[/b]. (Mid-move da {dpad}'s on models, not panels.)"
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton" },
       "spotlight": "soft",

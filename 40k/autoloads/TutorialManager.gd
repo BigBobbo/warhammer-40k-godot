@@ -152,6 +152,12 @@ func next_lesson() -> void:
 #   * AcceptDialog.add_button() puts a control INSIDE the blocking dialog,
 #     where the pad's focus already is.
 # TutorialOverlay uses both; they call request_exit_tutorial() below.
+#
+# The in-dialog button is ARMED by on_action_blocked() below rather than offered
+# on every dialog: on a controller it cost the player the dialog itself (the
+# dice pop-ups reported in T2/T3/T5 — see the "modal escape hatch" comment in
+# TutorialOverlay for the measured focus-root reason). A dialog nobody is stuck
+# behind needs no escape; a rejection is what proves they are stuck.
 
 
 # Player-facing exit: confirm first, because a mis-click here throws away the
@@ -947,13 +953,18 @@ func _plain_glyphs(text: String) -> String:
 
 
 func on_action_blocked(action: Dictionary) -> void:
+	var overlay := get_node_or_null("/root/TutorialOverlay")
+	# Arm the modal escape hatch BEFORE the toast cooldown check: a player mashing
+	# a dialog button the step refuses is exactly who needs the way out, and the
+	# second press onwards is swallowed by the cooldown.
+	if overlay and overlay.has_method("note_action_blocked"):
+		overlay.note_action_blocked()
 	var now := Time.get_ticks_msec()
 	if now - _last_block_toast_ms < BLOCK_TOAST_COOLDOWN_MS:
 		return
 	_last_block_toast_ms = now
 	ToastManager.show_warning("Oi! Not dat one, ya git — %s" % _blocked_instruction())
 	print("TutorialManager: blocked action '%s' at step %d" % [str(action.get("type", "")), current_step_index])
-	var overlay := get_node_or_null("/root/TutorialOverlay")
 	if overlay:
 		overlay.shake()
 

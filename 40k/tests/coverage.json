@@ -3080,6 +3080,24 @@
       "status": "covered"
     },
     {
+      "id": "controller.deploy.pad_reposition_rotate_lifted_model",
+      "description": "Rotating a model while it is LIFTED for repositioning during deployment, on a controller: hold R3 and LB/RB angles the model in hand (DeploymentController._rotate_active_ghost routes the rotate step to reposition_ghost, not to the ghost waiting for the next model) and the A drop commits that facing into temp_rotations. Also covers the ghost-lifecycle half of the same report: try_place_at now clears ghost_sprite once the last model is down, so no frozen full-strength ghost is left sitting at the pick-up point pretending the model never moved.",
+      "scenarios": [
+        "pad_deploy_reposition_rotate_model"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.reposition_rotate_lifted_model",
+      "description": "Mouse counterpart: Shift+click lifts an already-placed model and Q/E rotates THAT model, leaving the pending next-model ghost's facing untouched. The pending ghost is also hidden for the duration of the lift (it stops tracking the cursor while a model is in hand), and the drop commits both the new position and the new facing.",
+      "scenarios": [
+        "deploy_reposition_rotate_mouse"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "tutorial.t2.reposition_nudge",
       "description": "T2 (Musterin' da Boyz) teaches repositioning an already-placed model. The wagon step splits into place -> nudge -> confirm: the nudge step's two-item checklist ticks on lifting a placed model and on a drop that actually commits (DeploymentController.reposition_commits), and it lists no allowed actions so Confirm is gated off until the player has done it — the lesson cannot be walked past the new teaching, and equally cannot soft-lock by confirming the unit before the reposition it needs. Prompt teaches shift+click for mouse and L3 for pad.",
       "scenarios": [
@@ -8675,9 +8693,39 @@
     },
     {
       "id": "tutorial.exit.under_modal",
-      "description": "Exit Tutorial stays usable while a gameplay dialog owns the screen. An exclusive embedded Window blocks every input to the parent viewport, so the card's own button is dead; the lesson adds an Exit Tutorial button to the blocking AcceptDialog's own button bar instead, and the card's footer greys out.",
+      "description": "Exit Tutorial stays usable while a gameplay dialog owns the screen. An exclusive embedded Window blocks every input to the parent viewport, so the card's own button is dead; once the lesson gate actually REJECTS something the player tried, an Exit Tutorial button is added to the blocking AcceptDialog's own button bar (with explicit focus neighbours back onto the dialog's action, since the button bar is a separate focus root) and the card's footer greys out.",
       "scenarios": [
         "tut_exit_under_modal"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.exit.hatch_armed",
+      "description": "The in-dialog Exit Tutorial hatch is armed by a real gate rejection, not offered on every dialog. An un-blocked dice pop-up (deployment roll-off, first-turn roll-off, Advance / charge command re-roll) carries only its own buttons, so a pad player keeps the D-pad and A; injecting it stole focus into the dialog's button bar, a separate focus root no direction could leave.",
+      "scenarios": [
+        "tut_rolloff_pad_no_exit_hatch",
+        "tut_exit_under_modal",
+        "tut_t3_get_movin",
+        "tut_t5_ere_we_go_pad"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.t2.rolloff_pad",
+      "description": "T2's deployment roll-off on a controller: pad focus lands on the dialog's own Roll button (its leading dice glyph no longer hides the confirm word from InputDeviceManager._find_confirm_button), A rolls, and the winner's Deploy First / Deploy Second screen walks under the D-pad.",
+      "scenarios": [
+        "tut_rolloff_pad_no_exit_hatch"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.t3.advance_lock_not_blocked",
+      "description": "T3 'Get Movin'' step 5: Confirm Movement Mode on an Advance emits BEGIN_ADVANCE and LOCK_MOVEMENT_MODE from one click, and BEGIN_ADVANCE completes the step synchronously — so the lock is gated by the NEXT step's allow-list. keep_da_roll allows it, and the mode really locks instead of raising 'tutorial_locked'.",
+      "scenarios": [
+        "tut_t3_get_movin"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -8718,6 +8766,27 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "controller.move.grab_own_model_cursor_active",
+      "description": "Pad: A with the virtual cursor ACTIVE over one of the active unit's own models mid-move GRABS it (a carry) instead of being re-emitted as a left click that started and ended a drag in place. This is what made tutorial T3 step 8 ('grab it wiv A, den LB/RB spins it') a dead end for anyone who had steered the stick first. Declared by: pad_move_grab_own_model_cursor_active.",
+      "scenarios": [
+        "pad_move_grab_own_model_cursor_active",
+        "tut_t3_get_movin_pad"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "controller.move.bumper_rotate_locked_session",
+      "description": "Pad: with the move session locked (bumpers cannot switch units) LB/RB turn the focused model 15 degrees a tap instead of only warning 'Confirm or reset this unit's move before switching' — in hand or parked after a drop — the hint bar advertises the chips, the turn costs no travel inches, and it survives CONFIRM_UNIT_MOVE (the staged move is re-staged with the new facing). Declared by: pad_move_grab_own_model_cursor_active.",
+      "scenarios": [
+        "pad_move_grab_own_model_cursor_active"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     }
   ]
 }

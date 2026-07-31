@@ -57,7 +57,7 @@ func _build_ui() -> void:
 	var title = Label.new()
 	title.text = "ARMY OVERVIEW"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(title)
 
@@ -103,7 +103,7 @@ func _build_player_section(parent: VBoxContainer, player: int) -> void:
 	# Player header
 	var header = Label.new()
 	header.text = "Player %d — %s" % [player, faction_name]
-	header.add_theme_font_size_override("font_size", 15)
+	header.add_theme_font_size_override("font_size", 19)
 	header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	parent.add_child(header)
 
@@ -157,7 +157,7 @@ func _build_unit_row(parent: VBoxContainer, uid: String, unit_data: Dictionary) 
 	name_lbl.text = unit_name
 	name_lbl.custom_minimum_size = Vector2(180, 0)
 	name_lbl.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
-	name_lbl.add_theme_font_size_override("font_size", 13)
+	name_lbl.add_theme_font_size_override("font_size", 17)
 	row.add_child(name_lbl)
 
 	# Editable label LineEdit
@@ -166,7 +166,7 @@ func _build_unit_row(parent: VBoxContainer, uid: String, unit_data: Dictionary) 
 	label_edit.placeholder_text = "auto"
 	label_edit.custom_minimum_size = Vector2(80, 24)
 	label_edit.max_length = 6
-	label_edit.add_theme_font_size_override("font_size", 12)
+	label_edit.add_theme_font_size_override("font_size", 16)
 	label_edit.text_submitted.connect(_on_label_changed.bind(uid))
 	row.add_child(label_edit)
 	_label_edits[uid] = label_edit
@@ -189,7 +189,7 @@ func _build_unit_row(parent: VBoxContainer, uid: String, unit_data: Dictionary) 
 	tag_lbl.text = type_tag
 	tag_lbl.custom_minimum_size = Vector2(40, 0)
 	tag_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tag_lbl.add_theme_font_size_override("font_size", 11)
+	tag_lbl.add_theme_font_size_override("font_size", 16)
 	tag_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 	row.add_child(tag_lbl)
 

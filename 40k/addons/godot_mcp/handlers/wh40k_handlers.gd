@@ -47,7 +47,20 @@ func verify_delivery(params: Dictionary) -> Dictionary:
 			passed = false
 
 	if params.has("expected_phase") and gs_ok:
-		var want := String(params["expected_phase"]).to_upper()
+		# `String(x)` is NOT a valid Godot 4 constructor call — it raised
+		# "Invalid call. Nonexistent 'String' constructor." and aborted the whole
+		# handler, so the bridge answered `{}` and the gate silently did nothing.
+		# Use str() instead, and accept a numeric phase id (7) as readily as the
+		# enum name ("MOVEMENT") — callers naturally reach for the number they
+		# pass everywhere else (transition_to_phase, scenario `expect_phase`).
+		var raw = params["expected_phase"]
+		var want := ""
+		if typeof(raw) == TYPE_INT or typeof(raw) == TYPE_FLOAT:
+			want = _phase_name(int(raw))
+		else:
+			want = str(raw).to_upper()
+			if want.is_valid_int():
+				want = _phase_name(want.to_int())
 		var have := _phase_name(gs.state.get("meta", {}).get("phase", -1))
 		var ph_ok: bool = have == want
 		checks.append({"name": "phase.is_%s" % want, "passed": ph_ok, "actual": have})

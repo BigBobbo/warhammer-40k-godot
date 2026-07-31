@@ -61,6 +61,12 @@ func get_board_root() -> Node:
 ## shared tab unchanged. Falls back to a local right-panel label (the historical
 ## behavior) when the panel isn't present — e.g. trimmed / headless setups — so
 ## `dice_log_display` is always a valid, writable RichTextLabel.
+##
+## The fallback is deliberately NAMED "DiceLogFallback" so a controller that had
+## to fall back can be spotted afterwards: Main._setup_game_log_panel() calls
+## rebind_shared_dice_log() (see below) on every live controller once the real
+## panel exists. Main._ready() builds the panel BEFORE the phase controllers, so
+## in a normal battle start nothing falls back in the first place.
 func resolve_shared_dice_log(fallback_parent: Node = null) -> RichTextLabel:
 	var glp = SceneRefs.game_log_panel() if SceneRefs else null
 	if glp != null and glp.has_method("get_dice_log_display"):
@@ -75,7 +81,49 @@ func resolve_shared_dice_log(fallback_parent: Node = null) -> RichTextLabel:
 	rt.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	if fallback_parent != null:
 		fallback_parent.add_child(rt)
+	print("PhaseControllerBase: no GameLogPanel yet — %s writing dice output to a local DiceLogFallback until rebind_shared_dice_log()" % name)
 	return rt
+
+
+## Re-point `dice_log_display` at the shared GameLogPanel tab if this controller
+## had to fall back earlier.
+##
+## Main._setup_game_log_panel() used to run AFTER setup_phase_controllers(), so a
+## controller built during startup resolved its dice log while the panel did not
+## exist yet. That only bit when the battle STARTED in that controller's phase —
+## normal play begins in deployment, so the shooting/charge/fight controllers are
+## created on a later phase change when the panel is already up. Booting straight
+## into a phase did hit it: the tutorial lessons T4/T5/T6 boot into
+## shooting/charge/fight from a fixture, and every roll of the lesson went into a
+## stray DiceLogFallback parented in the right-hand panel while the left panel's
+## "Dice Log" tab stayed empty for the whole lesson. Loading a save taken
+## mid-shooting/charge/fight has the same start condition.
+##
+## _ready() now builds the panel first, so this is a safety net for the paths
+## that still create it late (replay mode). A no-op for controllers already
+## sharing the label. Prefer fixing the order over relying on this: the freed
+## fallback reflows an already-laid-out right panel, which was measured to leave
+## ChargePanel/DistanceTracking on top of the "Confirm Charge Moves" button,
+## eating real mouse clicks. Nothing can have been written to the fallback at
+## startup (no dice rolled yet), so re-pointing loses no output.
+func rebind_shared_dice_log() -> void:
+	if not ("dice_log_display" in self):
+		return
+	var current = get("dice_log_display")
+	if current != null and is_instance_valid(current) and str(current.name) != "DiceLogFallback":
+		return  # already the shared label (or a purpose-built one)
+	var glp = SceneRefs.game_log_panel() if SceneRefs else null
+	if glp == null or not glp.has_method("get_dice_log_display"):
+		return
+	var shared = glp.get_dice_log_display()
+	if shared == null:
+		return
+	set("dice_log_display", shared)
+	if current != null and is_instance_valid(current):
+		if current.get_parent() != null:
+			current.get_parent().remove_child(current)
+		current.queue_free()
+	print("PhaseControllerBase: %s dice log rebound to the shared GameLogPanel tab" % name)
 
 
 # ── ISS-013: phase signal registry ──────────────────────────────────

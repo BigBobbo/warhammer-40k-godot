@@ -66,7 +66,7 @@ func _build_ui() -> void:
 		header.text = "Your units are being targeted by %s!" % attacker_name
 	else:
 		header.text = "Your units are being targeted!"
-	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_font_size_override("font_size", 21)
 	header.add_theme_color_override("font_color", Color.YELLOW)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -74,7 +74,7 @@ func _build_ui() -> void:
 
 	var cp_label = Label.new()
 	cp_label.text = "CP Available: %d" % StratagemManager.get_player_cp(defending_player)
-	cp_label.add_theme_font_size_override("font_size", 14)
+	cp_label.add_theme_font_size_override("font_size", 18)
 	cp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(cp_label)
 
@@ -115,7 +115,7 @@ func _build_ui() -> void:
 	_countdown_label.name = "WindowHint"
 	_countdown_label.text = "Your opponent is waiting on your decision."
 	_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_countdown_label.add_theme_font_size_override("font_size", 13)
+	_countdown_label.add_theme_font_size_override("font_size", 17)
 	_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	main_container.add_child(_countdown_label)
 
@@ -130,7 +130,7 @@ func _create_stratagem_card(strat: Dictionary, eligible_units: Array) -> VBoxCon
 
 	var name_label = Label.new()
 	name_label.text = strat.get("name", "Unknown")
-	name_label.add_theme_font_size_override("font_size", 16)
+	name_label.add_theme_font_size_override("font_size", 20)
 	name_label.add_theme_color_override("font_color", Color.CYAN)
 	name_hbox.add_child(name_label)
 
@@ -140,7 +140,7 @@ func _create_stratagem_card(strat: Dictionary, eligible_units: Array) -> VBoxCon
 
 	var cost_label = Label.new()
 	cost_label.text = "%d CP" % strat.get("cp_cost", 0)
-	cost_label.add_theme_font_size_override("font_size", 16)
+	cost_label.add_theme_font_size_override("font_size", 20)
 	cost_label.add_theme_color_override("font_color", Color.GOLD)
 	name_hbox.add_child(cost_label)
 
@@ -149,7 +149,7 @@ func _create_stratagem_card(strat: Dictionary, eligible_units: Array) -> VBoxCon
 	# Type
 	var type_label = Label.new()
 	type_label.text = strat.get("type", "")
-	type_label.add_theme_font_size_override("font_size", 11)
+	type_label.add_theme_font_size_override("font_size", 16)
 	type_label.add_theme_color_override("font_color", Color.GRAY)
 	card.add_child(type_label)
 
@@ -157,13 +157,13 @@ func _create_stratagem_card(strat: Dictionary, eligible_units: Array) -> VBoxCon
 	var desc_label = Label.new()
 	desc_label.text = strat.get("effect_text", strat.get("description", ""))
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc_label.add_theme_font_size_override("font_size", 12)
+	desc_label.add_theme_font_size_override("font_size", 16)
 	card.add_child(desc_label)
 
 	# Eligible unit buttons
 	var units_label = Label.new()
 	units_label.text = "Select target:"
-	units_label.add_theme_font_size_override("font_size", 12)
+	units_label.add_theme_font_size_override("font_size", 16)
 	units_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	card.add_child(units_label)
 

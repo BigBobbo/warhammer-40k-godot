@@ -264,7 +264,7 @@ func _show_debug_overlay() -> void:
 	
 	var instructions_label = Label.new()
 	instructions_label.text = "Press 9 to exit | Click and drag any model"
-	instructions_label.add_theme_font_size_override("font_size", 16)
+	instructions_label.add_theme_font_size_override("font_size", 20)
 	instructions_label.add_theme_color_override("font_color", Color.WHITE)
 	instructions_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label_container.add_child(instructions_label)

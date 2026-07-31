@@ -41,7 +41,7 @@ func _build_ui() -> void:
 	# Header
 	var header = Label.new()
 	header.text = "EPIC CHALLENGE"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -49,7 +49,7 @@ func _build_ui() -> void:
 	# Subheader
 	var subheader = Label.new()
 	subheader.text = "Core - Epic Deed Stratagem"
-	subheader.add_theme_font_size_override("font_size", 12)
+	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(subheader)
@@ -60,7 +60,7 @@ func _build_ui() -> void:
 	var cp_label = Label.new()
 	var current_cp = StratagemManager.get_player_cp(player)
 	cp_label.text = "Cost: 1 CP (You have %d CP)" % current_cp
-	cp_label.add_theme_font_size_override("font_size", 14)
+	cp_label.add_theme_font_size_override("font_size", 18)
 	cp_label.add_theme_color_override("font_color", Color.CYAN)
 	cp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(cp_label)
@@ -70,21 +70,21 @@ func _build_ui() -> void:
 	# Target info
 	var target_label = Label.new()
 	target_label.text = "Target: %s (CHARACTER)" % unit_name
-	target_label.add_theme_font_size_override("font_size", 14)
+	target_label.add_theme_font_size_override("font_size", 18)
 	main_container.add_child(target_label)
 
 	# Effect description
 	var effect_label = Label.new()
 	effect_label.text = "Until the end of the phase, all melee attacks made by that model have the [PRECISION] ability."
 	effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	effect_label.add_theme_font_size_override("font_size", 13)
+	effect_label.add_theme_font_size_override("font_size", 17)
 	main_container.add_child(effect_label)
 
 	# Precision explanation
 	var precision_label = Label.new()
 	precision_label.text = "[PRECISION]: Attacks that score a Critical Hit can be allocated to CHARACTER models in the target unit."
 	precision_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	precision_label.add_theme_font_size_override("font_size", 11)
+	precision_label.add_theme_font_size_override("font_size", 16)
 	precision_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	main_container.add_child(precision_label)
 
