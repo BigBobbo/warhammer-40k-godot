@@ -490,6 +490,11 @@ func _setup_right_panel() -> void:
 	# Make sure panel is visible
 	shooting_panel.visible = true
 	scroll_container.visible = true
+	# Steam Deck / pad: with every gun assigned the panel outgrows this
+	# viewport, and D-pad focus walking used to land on buttons below the fold
+	# with no scroll — an invisible focus ring (T4 tutorial report).
+	# follow_focus auto-scrolls the panel to whichever control has focus.
+	scroll_container.follow_focus = true
 
 	# Create UI elements (existing logic)
 	print("ShootingController: Creating shooting UI elements")
@@ -713,6 +718,11 @@ func _setup_right_panel() -> void:
 
 	target_basket = ItemList.new()
 	target_basket.custom_minimum_size = Vector2(230, 80)
+	# Grow to fit every assignment row instead of clipping at 80px: with three
+	# weapons assigned the third line was half cut off behind an internal
+	# scrollbar the pad cannot drive (Steam Deck T4 report). The basket lives
+	# inside ShootingScrollContainer, so extra height just extends the panel.
+	target_basket.auto_height = true
 	_WhiteDwarfTheme.apply_to_item_list(target_basket)
 	declaration_box.add_child(target_basket)
 	
@@ -4074,6 +4084,7 @@ func pad_step_weapon(dir: int) -> bool:
 	var row: TreeItem = rows[idx]
 	row.select(0)
 	weapon_tree.scroll_to_item(row)
+	_ensure_weapon_tree_in_panel_view()
 	# TreeItem.select() does not reliably emit item_selected for programmatic
 	# calls — run the click handler explicitly unless the signal already did.
 	if str(selected_weapon_id) != str(row.get_metadata(0)):
@@ -4156,11 +4167,29 @@ func pad_select_weapon(weapon_id: String) -> bool:
 		if str(child.get_metadata(0)) == weapon_id and child.is_selectable(0):
 			child.select(0)
 			weapon_tree.scroll_to_item(child)
+			_ensure_weapon_tree_in_panel_view()
 			if str(selected_weapon_id) != weapon_id:
 				_on_weapon_tree_item_selected()
 			return true
 		child = child.get_next()
 	return false
+
+# Keep the pad's ▲▼ weapon walk VISIBLE. scroll_to_item above only moves the
+# Tree's internal scrollbar; the tree itself sits inside ShootingScrollContainer,
+# which the tutorial's anchor-scroll (confirm step spotlights the Confirm button
+# at the panel's bottom) can have dragged down far enough that the tree — and the
+# row highlight the player is stepping — is clipped above the fold. Reported on
+# the Steam Deck in T4 step 5: ▲▼ "did nothing" because the selection moved off
+# screen. The whole tree (180px) always fits the panel viewport, so bringing it
+# back into view guarantees the selected row is on screen.
+func _ensure_weapon_tree_in_panel_view() -> void:
+	if weapon_tree == null or not is_instance_valid(weapon_tree) or not weapon_tree.is_inside_tree():
+		return
+	var n: Node = weapon_tree.get_parent()
+	while n != null and not (n is ScrollContainer):
+		n = n.get_parent()
+	if n != null:
+		(n as ScrollContainer).ensure_control_visible(weapon_tree)
 
 func _on_weapon_tree_button_clicked(item: TreeItem, column: int, id: int, mouse_button_index: int) -> void:
 	if not item or column != 1:
