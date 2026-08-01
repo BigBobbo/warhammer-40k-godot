@@ -1,0 +1,121 @@
+{
+  "id": "shooting_phase_summary_table",
+  "covers": [
+    "dialogs.ShootingPhaseSummaryDialog.table",
+    "ui.shooting.end_of_phase_summary"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "End-of-phase Shooting Summary must read as a scannable table, not a blob of indented text. Drives REAL shooting that actually kills models — the Caladius Grav-tank's twin lastrum bolt cannon into Boyz F, then the Contemptor-Achillus' twin adrathic destructor into Boyz K — each fast-rolled with auto-allocated saves. Then opens the summary through the real Main END_SHOOTING interception and asserts the structured layout: a plain-English kill headline, a four-tile KPI strip (Shots / Hits / Wounds / Slain), and a per-target GridContainer whose rows are rectangular and whose Slain column is a true column (every cell shares one x), plus a TOTAL row.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_phase", "equals": 8 },
+
+    { "act": "execute_script", "script": "SettingsService.set_auto_allocate_wounds(true)",
+      "comment": "defender-side save allocation resolves without board clicks so the scenario can drive shooting end to end" },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_CALADIUS_GRAV-TANK_E" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+        "type": "ASSIGN_TARGET", "actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+        "payload": { "weapon_id": "twin_lastrum_bolt_cannon_ranged", "target_unit_id": "U_BOYZ_F", "model_ids": ["m1"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_REACTIVE_STRATAGEM" } },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "dispatch_action", "action": { "type": "FAST_FINISH_SHOOTING" } },
+    { "act": "wait_seconds", "seconds": 5.0 },
+    { "act": "dispatch_action", "action": { "type": "COMPLETE_SHOOTING_FOR_UNIT", "actor_unit_id": "U_CALADIUS_GRAV-TANK_E" } },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H" } },
+    { "act": "dispatch_action", "action": {
+        "type": "ASSIGN_TARGET", "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+        "payload": { "weapon_id": "twin_adrathic_destructor_ranged", "target_unit_id": "U_BOYZ_K", "model_ids": ["m1"] } } },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_REACTIVE_STRATAGEM" } },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "dispatch_action", "action": { "type": "FAST_FINISH_SHOOTING" } },
+    { "act": "wait_seconds", "seconds": 5.0 },
+    { "act": "dispatch_action", "action": { "type": "COMPLETE_SHOOTING_FOR_UNIT", "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H" } },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_phase_shooting_summary().get(\"targets_count\", 0)",
+      "equals": 2,
+      "comment": "two distinct target units, so the table has two data rows" },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_phase_shooting_summary().get(\"totals\", {}).get(\"casualties\", 0)",
+      "expect_min": 1,
+      "comment": "real models died, so the kill accent styling is actually exercised" },
+
+    { "act": "execute_script",
+      "script": "main._on_shooting_action_requested({\"type\": \"END_SHOOTING\", \"player\": 1})",
+      "comment": "real end-of-phase path: Main intercepts END_SHOOTING and raises the summary" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"ShootingPhaseSummaryDialog\") != null", "equals": true },
+
+    { "act": "screenshot", "label": "01_shooting_phase_summary" },
+
+    { "act": "execute_script",
+      "script": "tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/Headline\").text.contains(\"slain\")",
+      "equals": true,
+      "comment": "headline states the kill count in plain English" },
+
+    { "act": "execute_script",
+      "script": "tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/KPIStrip\").get_child_count()",
+      "equals": 4,
+      "comment": "Shots / Hits / Wounds / Slain KPI tiles" },
+    { "act": "execute_script",
+      "script": "tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/KPIStrip/KPI_Slain/Box/Caption\").text",
+      "equals": "SLAIN" },
+    { "act": "execute_script",
+      "script": "int(tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/KPIStrip/KPI_Slain/Box/Value\").text)",
+      "expect_min": 1,
+      "comment": "the KPI strip reports the real kill count, not a placeholder" },
+
+    { "act": "execute_script",
+      "script": "tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/TargetScroll/TargetTable\").columns",
+      "equals": 6,
+      "comment": "per-target table: Target | Shots | Hits | Wounds | Failed saves | Slain" },
+
+    { "act": "execute_script",
+      "script": "tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/TargetScroll/TargetTable\").get_child_count()",
+      "equals": 24,
+      "comment": "header row + two target rows + totals row = 4 rows x 6 cells, all rectangular" },
+
+    { "act": "execute_script",
+      "script": "tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/TargetScroll/TargetTable\").get_child(1).get_child(0).text",
+      "equals": "Shots",
+      "comment": "column headers name the stat once, at the top of the column" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var t = tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/TargetScroll/TargetTable\")\nreturn t.get_child(18).get_child(0).text",
+      "equals": "TOTAL",
+      "comment": "last row is the phase totals row" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var t = tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/TargetScroll/TargetTable\")\nvar xs = []\nfor i in range(4):\n\txs.append(t.get_child(i * 6 + 5).get_child(0).global_position.x)\nreturn xs.max() - xs.min()",
+      "expect_max": 1.0,
+      "comment": "the Slain column is a real column — every cell shares one x, so the digits line up down the table" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var t = tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/TargetScroll/TargetTable\")\nreturn int(t.get_child(11).get_child(0).text)",
+      "expect_min": 1,
+      "comment": "worst-hit unit sorts to the top row, and its Slain cell carries the count" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.get_node(\"ShootingPhaseSummaryDialog\")\nvar vp = tree.root.get_visible_rect().size\nreturn abs((d.position.x + d.size.x / 2.0) - vp.x / 2.0)",
+      "expect_max": 40,
+      "comment": "still centred like the rest of the end-of-phase flow" },
+
+    { "act": "execute_script",
+      "script": "tree.root.get_node(\"ShootingPhaseSummaryDialog/Content/Actions/ConfirmEndShooting\").pressed.emit()" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_phase", "equals": 9 },
+    { "act": "screenshot", "label": "02_after_confirm" }
+  ]
+}

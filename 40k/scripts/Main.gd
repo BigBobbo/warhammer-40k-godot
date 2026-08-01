@@ -11911,8 +11911,10 @@ func _show_shooting_phase_summary_dialog(end_action: Dictionary, active_player: 
 	dialog.shooting_confirmed.connect(_on_shooting_summary_confirmed.bind(end_action))
 	dialog.shooting_cancelled.connect(_on_shooting_summary_cancelled)
 	get_tree().root.add_child(dialog)
-	# Centered: a phase-end commitment the player must not walk past.
-	DialogUtils.popup_phase_end_prompt(dialog, DialogConstants.MEDIUM)
+	# Centered: a phase-end commitment the player must not walk past. LARGE
+	# because the summary is a six-column per-target table now — MEDIUM clipped
+	# the stat columns and forced a horizontal squeeze.
+	DialogUtils.popup_phase_end_prompt(dialog, DialogConstants.LARGE)
 	print("Main: T5-UX9: Shooting phase summary dialog shown for player %d" % active_player)
 
 func _on_shooting_summary_confirmed(end_action: Dictionary) -> void:
