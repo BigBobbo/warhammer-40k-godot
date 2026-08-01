@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.2",
+      "date": "2026-08-01",
+      "summary": "The fight phase no longer freezes for several seconds between confirming your attacks and rolling the dice.",
+      "changes": [
+        "Hitting \"Fight!\" locked the game up for roughly three and a half seconds before the first dice appeared — worst on Steam Deck, and it got longer the more targets you split your attacks across. The pause was the \"expected wounds / % kill\" line: the game was secretly playing out the whole combat a thousand times per target to work it out.",
+        "That estimate is now calculated directly instead of simulated, so it takes under a millisecond. Confirming attacks is instant and the dice come straight up.",
+        "The estimate is also more accurate. It was reading whichever unit on the board happened to own a weapon of that name first, so a Warboss's Power klaw was being costed as somebody else's weaker one — it now always reads the attacking unit's own datasheet.",
+        "Weapon lookups across the whole game are faster too, which takes the edge off other small pauses (selecting a unit to shoot with, opening the attack panel)."
+      ]
+    },
+    {
       "version": "1.12.1",
       "date": "2026-07-31",
       "summary": "A unit is now offered only the weapons its army list actually bought — no more Power klaw on a mob that never took one — and a weapon swap carries its whole bundle.",

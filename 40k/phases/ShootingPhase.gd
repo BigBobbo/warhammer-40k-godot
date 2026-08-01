@@ -1255,14 +1255,29 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 
 	pending_assignments.clear()
 
+	var _perf_t0 := Time.get_ticks_usec()
+
 	# T3-3: Auto-inject Extra Attacks ranged weapons if not already assigned
 	_auto_inject_extra_attacks_weapons_shooting()
 
+	var _perf_t1 := Time.get_ticks_usec()
 	emit_signal("shooting_begun", active_shooter_id)
 	log_phase_message("Confirmed targets, ready to resolve shooting")
+	var _perf_t2 := Time.get_ticks_usec()
 
 	# P2-25: Check for Distraction Grot on targeted units
 	var distraction_grot_check = _check_distraction_grot()
+	var _perf_t3 := Time.get_ticks_usec()
+	# Measured at ~3 ms total on a 26-unit board, so this normally stays quiet;
+	# it exists because the fight phase's equivalent confirm was the source of
+	# a multi-second stall and this is the path to check first if shooting ever
+	# develops the same symptom.
+	if (_perf_t3 - _perf_t0) / 1000.0 >= 5.0:
+		DebugLogger.info("[PERF] ShootingPhase.CONFIRM_TARGETS: inject=%.1fms shooting_begun=%.1fms distraction_grot=%.1fms" % [
+			(_perf_t1 - _perf_t0) / 1000.0,
+			(_perf_t2 - _perf_t1) / 1000.0,
+			(_perf_t3 - _perf_t2) / 1000.0
+		])
 	if distraction_grot_check.get("has_opportunity", false):
 		var dg_unit_id = distraction_grot_check.unit_id
 		var dg_player = distraction_grot_check.player
@@ -1282,7 +1297,11 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 		})
 
 	# REACTIVE STRATAGEMS: Check if defending player can use Go to Ground or Smokescreen
+	var _perf_t4 := Time.get_ticks_usec()
 	var reactive_check = _check_reactive_stratagems()
+	var _perf_reactive_ms := (Time.get_ticks_usec() - _perf_t4) / 1000.0
+	if _perf_reactive_ms >= 5.0:
+		DebugLogger.info("[PERF] ShootingPhase.CONFIRM_TARGETS: reactive_stratagems=%.1fms" % [_perf_reactive_ms])
 	if reactive_check.has_opportunities:
 		# Pause for defender to decide on reactive stratagems
 		awaiting_reactive_stratagem = true
