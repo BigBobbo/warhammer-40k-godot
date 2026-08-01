@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.10.1",
+      "date": "2026-07-31",
+      "summary": "Stratagems now obey the core once-per-phase rule, and you can quit to desktop from the pause menu.",
+      "changes": [
+        "The same stratagem can no longer be used twice in one phase (core rules 15.01). Six core stratagems — Epic Challenge, Crushing Impact, Smokescreen, Heroic Intervention, Counteroffensive and Rapid Ingress — had no cap at all and could be spammed as long as you had the CP.",
+        "The once-per-phase and once-per-turn bookkeeping now knows whose turn it is: using Command Re-roll in your own Shooting phase no longer locks you out of it during your opponent's Shooting phase of the same round.",
+        "Battle-shock results now flow through the same state pipeline as every other action, so undoing or replaying a Command phase correctly includes the battle-shocked flag.",
+        "New 'Quit to Desktop' button in the pause/settings menu — no more going back to the main menu just to exit the game.",
+        "Shipped builds no longer open the developer control port or respond to the debug movement cheat key; these now require explicit developer opt-in."
+      ]
+    },
+    {
       "version": "1.10.0",
       "date": "2026-07-31",
       "summary": "Play and Pass: local two-player games now hand the device over properly — a privacy screen between turns so your opponent can't watch you plan.",

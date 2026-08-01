@@ -316,6 +316,17 @@ func _build_ui() -> void:
 	_close_button.pressed.connect(_on_close_pressed)
 	btn_row.add_child(_close_button)
 
+	# Quit to Desktop — always available; without it an in-game player has to
+	# go back to the main menu and scroll below the fold to find Quit. Not on
+	# web (browsers own the tab lifecycle; Godot quit is a no-op there).
+	if not OS.has_feature("web"):
+		var quit_button = Button.new()
+		quit_button.text = "Quit to Desktop"
+		quit_button.custom_minimum_size = Vector2(170, 40)
+		WhiteDwarfThemeData.apply_to_button(quit_button)
+		quit_button.pressed.connect(_on_quit_to_desktop_pressed)
+		btn_row.add_child(quit_button)
+
 func _create_tab_scroll() -> ScrollContainer:
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1101,6 +1112,10 @@ func _on_save_load_pressed() -> void:
 	save_load_requested.emit()
 	settings_closed.emit()
 	queue_free()
+
+func _on_quit_to_desktop_pressed() -> void:
+	print("[SettingsMenu] Quit to Desktop")
+	get_tree().quit()
 
 func _on_return_to_menu_pressed() -> void:
 	print("[SettingsMenu] Returning to main menu")

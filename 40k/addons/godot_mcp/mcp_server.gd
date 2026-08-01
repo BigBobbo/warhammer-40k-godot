@@ -34,9 +34,17 @@ func _ready() -> void:
 		set_process(false)
 		print("[GodotMCP] Disabled on web export (no TCP support)")
 		return
-	if OS.has_feature("editor") == false and OS.get_environment("GODOT_MCP_DISABLED") == "1":
+	if OS.get_environment("GODOT_MCP_DISABLED") == "1":
 		_enabled = false
 		print("[GodotMCP] Disabled via GODOT_MCP_DISABLED=1")
+		return
+	# Exported player builds must never open the control socket by default —
+	# it accepts unauthenticated script execution on localhost. Outside the
+	# editor context the listener is strictly opt-in for CI/test rigs.
+	if not OS.has_feature("editor") and OS.get_environment("GODOT_MCP_ENABLED") != "1":
+		_enabled = false
+		set_process(false)
+		print("[GodotMCP] Disabled in exported build (set GODOT_MCP_ENABLED=1 to allow)")
 		return
 
 	# Allow the port to be overridden via env or project setting for CI.

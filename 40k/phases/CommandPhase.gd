@@ -1003,28 +1003,27 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 	if unit_id not in _units_tested:
 		_units_tested.append(unit_id)
 
-	# Apply battle-shocked flag if test failed
+	# Build battle-shocked flag changes as state diffs (ISS-001): returned in
+	# the result and applied by BasePhase.execute_action, so undo, replay
+	# recording, and multiplayer sync all observe the flag change.
+	var changes: Array = []
 	if test_passed and GameConstants.edition >= 11 and unit.get("flags", {}).get("battle_shocked", false):
 		# ISS-043 (11e 08.03): a battle-shocked unit that passes RECOVERS.
-		unit["flags"]["battle_shocked"] = false
+		changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": false})
 		for char_id in GameState.get_attached_characters(unit_id):
 			var char_unit = GameState.state.get("units", {}).get(char_id, {})
 			if not char_unit.is_empty() and char_unit.has("flags"):
-				char_unit["flags"]["battle_shocked"] = false
+				changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % char_id, "value": false})
 		DebugLogger.info(str("CommandPhase: %s PASSED while battle-shocked — recovered (11e 08.03)" % unit_name))
 	if not test_passed:
-		if not unit.has("flags"):
-			unit["flags"] = {}
-		unit["flags"]["battle_shocked"] = true
+		changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": true})
 
 		# Also apply battle-shocked to attached characters (they share the test result)
 		var attached_chars = GameState.get_attached_characters(unit_id)
 		for char_id in attached_chars:
 			var char_unit = GameState.state.get("units", {}).get(char_id, {})
 			if not char_unit.is_empty():
-				if not char_unit.has("flags"):
-					char_unit["flags"] = {}
-				char_unit["flags"]["battle_shocked"] = true
+				changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % char_id, "value": true})
 				DebugLogger.info(str("CommandPhase: Attached character %s also Battle-shocked" % char_id))
 
 		if battle_shock_bonus > 0:
@@ -1047,6 +1046,7 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 
 	var result = {
 		"success": true,
+		"changes": changes,
 		"unit_id": unit_id,
 		"unit_name": unit_name,
 		"die1": die1,

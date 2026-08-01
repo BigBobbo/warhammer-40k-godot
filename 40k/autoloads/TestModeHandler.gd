@@ -42,6 +42,17 @@ const TEST_ARTIFACTS_SUBDIR := "test_results/test_artifacts"
 const TEST_SAVES_SUBDIR := "test_results/test_artifacts/saves"
 
 func _init():
+	# Exported player builds skip the whole test harness (including the
+	# args-log write, which targets read-only res:// in a pack) unless a
+	# --test* flag is explicitly present.
+	if OS.has_feature("template"):
+		var has_test_flag := false
+		for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+			if typeof(a) == TYPE_STRING and a.begins_with("--test"):
+				has_test_flag = true
+				break
+		if not has_test_flag:
+			return
 	_parse_command_line_arguments()
 
 func _gs():

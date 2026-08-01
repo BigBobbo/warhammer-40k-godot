@@ -6228,8 +6228,12 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# Debug mode toggle (rebindable: toggle_debug_mode, default 9)
+	# Debug mode toggle (rebindable: toggle_debug_mode, default 9).
+	# Dev builds only: it grants unrestricted model movement for any army in
+	# any phase — a cheat in a shipped player build.
 	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_debug_mode"):
+		if not OS.is_debug_build():
+			return
 		print("Debug mode key (9) pressed!")
 		DebugManager.toggle_debug_mode()
 		get_viewport().set_input_as_handled()
@@ -6271,8 +6275,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
-	# Objective control check debug (rebindable: objective_check, default O)
-	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "objective_check"):
+	# Objective control check debug (rebindable: objective_check, default O).
+	# Console-only diagnostic output — dev builds only.
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "objective_check") and OS.is_debug_build():
 		print("\n=== MANUAL OBJECTIVE CONTROL CHECK (O key pressed) ===")
 		if MissionManager:
 			MissionManager.check_all_objectives()
