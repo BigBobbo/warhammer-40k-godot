@@ -127,6 +127,18 @@ func _eligibility_fingerprint() -> int:
 			h = h * 1000003 + (1 if m.get("alive", true) else 0)
 		# in_engagement gates which weapons may fire, so fold it in too.
 		h = h * 1000003 + (1 if u.get("flags", {}).get("in_engagement", false) else 0)
+	# Terrain gates line of sight, so a layout swap must also drop the caches.
+	# Without this, a cache warmed against the boot-default layout survived a
+	# fixture/save load that replaced the walls — a unit could be stuck at
+	# "no eligible targets" (or the reverse) for the whole phase. Fold in each
+	# piece's identity and position; wall edits ship as layout changes so
+	# id+position is a sufficient proxy for the blocking geometry.
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm != null:
+		h = h * 1000003 + hash(tm.terrain_features.size())
+		for t in tm.terrain_features:
+			h = h * 1000003 + hash(str(t.get("id", "")))
+			h = h * 1000003 + hash(str(t.get("position", "")))
 	return h
 
 # PERF-LOS: drop both eligibility caches when the snapshot object OR its relevant
