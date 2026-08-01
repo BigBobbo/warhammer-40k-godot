@@ -164,7 +164,8 @@
     {
       "act": "execute_script",
       "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\").assignments.size()",
-      "equals": 1
+      "equals": 2,
+      "comment": "Ⓐ assigns the whole unit's plan, not one weapon: the 9 Boyz swing their choppas and the Boss Nob his big choppa, as two disjoint per-model assignments (11e Fight - Select Weapons is per model)."
     },
     {
       "act": "execute_script",

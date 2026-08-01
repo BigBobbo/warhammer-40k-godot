@@ -1,36 +1,37 @@
 extends SceneTree
 
-# MA-LOADOUT: a melee assignment is swung only by the models that CARRY the
-# weapon — even when the assignment names no models.
+# MA-LOADOUT: what each model is EQUIPPED with, read off the datasheet.
 #
-# 11e Fight — Select Weapons: "For each model in the attacking unit, select which
-# weapons that model will make attacks with … you must select one melee weapon
-# THAT MODEL HAS." An ASSIGN_ATTACKS with no `models` list (the shape the AI,
-# auto-resolve and networked paths submit) used to mean "every model in the unit
-# swings this", so a 10-model Ork Boyz mob told to use a Power klaw swung TEN
-# power klaws — a weapon exactly zero of its models own. The datasheet is
-# unambiguous: "The Boss Nob is equipped with: slugga; big choppa. Every Boy is
-# equipped with: slugga; choppa." Choppa, Close combat weapon, Big choppa and
-# Power klaw are mutually-exclusive wargear OPTIONS on that datasheet, not a
-# shared arsenal.
+# tests/test_melee_per_model_loadout.gd already pins the carrier funnel — only a
+# model equipped with the picked weapon swings it. This pins the layer beneath:
+# working out what "equipped with" means for a roster whose wargear string does
+# not say.
 #
-# Covered here (engine/phase state only — the player-facing dialog is covered by
-# tests/scenarios/sp/tut_t6_krumpin.json and fight_one_weapon_per_model_11e.json):
-#   1. the mob resolves to 9 Choppa + 1 Big choppa, one weapon per model
-#   2. a whole-unit Choppa assignment rolls 9 models' worth of attacks, not 10
-#   3. a whole-unit Power klaw assignment does NOT silently zero the unit
-#      (nobody carries it -> conservative fallback, loudly logged)
+# A Boyz mob records "9x Slugga, 1x Slugga" and not one word about melee, so the
+# funnel used to fall back to `model_profiles` — the datasheet's option MENU —
+# and count every Boy as carrying a Choppa AND a Close combat weapon, and the
+# Boss Nob as carrying a Big choppa AND a Choppa AND a Power klaw. Those are
+# mutually-exclusive options. The datasheet itself is unambiguous: "The Boss Nob
+# is equipped with: slugga; big choppa. Every Boy is equipped with: slugga;
+# choppa." Model kits are now built from that line plus whichever "•" swaps the
+# roster took, so the funnel is asked a question it can answer correctly.
+#
+# Covered here (engine/phase state only — the attack dialog is covered by the
+# windowed scenarios):
+#   1. the mob resolves to 9 Choppa + 1 Big choppa, one weapon per model, with
+#      no Power klaw or Close combat weapon the roster never bought
+#   2/3. a whole-unit assignment rolls only its carriers' attacks, and a weapon
+#      nobody carries falls back rather than zeroing the unit
 #   4. FightPhase gap-fills the Boss Nob's big choppa when a whole-unit pick
-#      leaves him out, so both weapons swing in the one activation
+#      (the AI's action shape) leaves him out, so both weapons swing at once
 #   5. an assignment that DOES name its models (the dialog path) is untouched
-#   6. PAIRED wargear options: a roster records the ranged half of a swap
-#      ("9x Shoota") and nothing about melee, and the datasheet's option list is
-#      what says those Boyz hold a CLOSE COMBAT WEAPON rather than the choppa
-#      they started with
+#   6. PAIRED swaps: a roster records the ranged half ("9x Shoota") and nothing
+#      about melee, and the datasheet's option list is what says those Boyz hold
+#      a CLOSE COMBAT WEAPON rather than the choppa they started with
 #   7. a swap the roster names without a count is left unresolved rather than
 #      answered with the default kit (which would drop the weapon entirely)
 #
-# Usage: godot --headless --path . -s tests/test_melee_per_model_carriers.gd
+# Usage: godot --headless --path . -s tests/test_melee_datasheet_kits.gd
 
 var passed := 0
 var failed := 0
@@ -130,7 +131,7 @@ func _attacks_for(assignment: Dictionary, board: Dictionary) -> int:
 func _run():
 	if passed > 0 or failed > 0:
 		return
-	print("\n=== test_melee_per_model_carriers ===\n")
+	print("\n=== test_melee_datasheet_kits ===\n")
 
 	RE = root.get_node_or_null("RulesEngine")
 	if RE == null:
@@ -330,5 +331,5 @@ func _check_paired_wargear_options() -> void:
 
 
 func _finish():
-	print("\n=== test_melee_per_model_carriers: %d passed, %d failed ===\n" % [passed, failed])
+	print("\n=== test_melee_datasheet_kits: %d passed, %d failed ===\n" % [passed, failed])
 	quit(0 if failed == 0 else 1)

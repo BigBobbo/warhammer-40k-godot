@@ -11787,6 +11787,13 @@ static func _build_melee_stop_before_saves(result: Dictionary, hit_context: Dict
 # profile lists, e.g. an unequipped datasheet option), keep the old selection
 # rather than silently deleting the unit's attacks.
 static func _melee_weapon_swingers(unit: Dictionary, weapon_id: String, eligible_indices: Array, attacking_models: Array, unit_name: String = "", weapon_name: String = "") -> Array:
+	# Resolve the per-model loadout first. _get_model_weapon_ids below answers
+	# with the datasheet's option MENU until it does — every Boy "carrying" a
+	# choppa AND a close combat weapon — so without this the narrowing keys off
+	# what a model COULD take rather than what the roster bought it. Idempotent
+	# and version-stamped, so this is a no-op after the first call per unit.
+	_ensure_loadout_resolved(unit)
+
 	var selected: Array = []
 	for idx in eligible_indices:
 		if attacking_models.is_empty() or str(idx) in attacking_models:
@@ -11814,6 +11821,28 @@ static func _melee_weapon_swingers(unit: Dictionary, weapon_id: String, eligible
 			unit_name if unit_name != "" else unit.get("meta", {}).get("name", "unit"),
 			weapon_name if weapon_name != "" else weapon_id])
 	return carriers
+
+
+## Does ANY alive model of this unit hold this melee weapon?
+##
+## The companion to get_melee_weapon_swingers, which deliberately falls back to
+## "every eligible model" when it cannot attribute a weapon — that keeps a unit
+## swinging rather than silently zeroing its attacks, but it also means an empty
+## carrier list never tells the UI that a weapon simply is not owned.
+##
+## This answers that question honestly at both ends. Before a unit's loadout
+## resolves, models report the datasheet's option MENU, so this returns true and
+## nothing is hidden. Once it resolves, a weapon the roster never bought is on no
+## model and this returns false — which is what lets the attack panel stop
+## offering an Ork mob the Power klaw it does not have.
+static func unit_has_melee_weapon(unit: Dictionary, weapon_id: String) -> bool:
+	_ensure_loadout_resolved(unit)
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		if weapon_id in _get_model_weapon_ids(unit, model, "Melee"):
+			return true
+	return false
 
 
 ## Public wrapper for the melee carrier lookup (ISS-020 lint: no leading
@@ -11909,12 +11938,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 
 	# Compute per-model fight eligibility based on engagement range
 	var eligible_model_indices = get_eligible_melee_model_indices(attacker_unit, board)
-	# MA-LOADOUT (melee): and of those, the ones that actually CARRY this weapon.
-	# Resolve the per-model loadout first — _melee_weapon_swingers asks
-	# _get_model_weapon_ids what a model holds, and without this it would answer
-	# with the datasheet's option MENU (every Boy "carrying" a choppa AND a close
-	# combat weapon) instead of the kit the roster actually took.
-	_ensure_loadout_resolved(attacker_unit)
+	# MA-LOADOUT (melee): and of those, the ones that actually CARRY this weapon
+	# (it resolves the per-model loadout on the way in).
 	var swinging_model_indices = _melee_weapon_swingers(
 		attacker_unit, weapon_id, eligible_model_indices, attacking_models, attacker_name, weapon_name)
 	var total_alive_models = 0
