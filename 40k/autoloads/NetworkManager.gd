@@ -785,6 +785,38 @@ func _broadcast_result_from_phase_manager(result: Dictionary) -> void:
 		if multiplayer and multiplayer.has_multiplayer_peer():
 			_broadcast_result.rpc(result)
 
+func broadcast_phase_enter_sync() -> void:
+	"""Push the host's authoritative post-phase-enter state to clients.
+
+	A phase's `_on_phase_enter` runs on BOTH peers (each calls
+	transition_to_phase) and produces side effects the action pipeline never
+	sees: Command-phase CP generation, secondary-mission draws (RNG — the
+	client draws DIFFERENT cards), objective snapshots. Without this, the
+	client shows stale CP and the wrong secondary hand for the WHOLE phase —
+	the active player's entire decision window — until the next action's
+	manager-sync happens to correct it. Ship the authoritative players.* CP/VP
+	as diffs plus the manager snapshot right after enter so the client is
+	correct immediately. Host-only; no-op outside networked games."""
+	if not is_networked() or not is_host():
+		return
+	var diffs: Array = []
+	for pid in ["1", "2"]:
+		var p = game_state.state.get("players", {}).get(pid, {})
+		for key in ["cp", "vp", "primary_vp", "secondary_vp"]:
+			if p.has(key):
+				diffs.append({"op": "set", "path": "players.%s.%s" % [pid, key], "value": p[key]})
+	var result := {
+		"success": true,
+		"diffs": diffs,
+		"action_type": "PHASE_ENTER_SYNC",
+	}
+	_attach_manager_sync(result)
+	result["_state_hash"] = compute_state_hash()
+	if web_relay_mode:
+		_send_via_relay({"msg_type": "action_result", "result": result})
+	elif multiplayer and multiplayer.has_multiplayer_peer():
+		_broadcast_result.rpc(result)
+
 func _send_via_relay(data: Dictionary) -> void:
 	"""Send data to the other player via WebSocketRelay."""
 	if not web_relay:
@@ -2997,6 +3029,21 @@ func get_next_rng_seed() -> int:
 
 func _on_peer_connected(peer_id: int) -> void:
 	print("NetworkManager: Peer connected - ", peer_id)
+
+	# Bound the ENet peer timeout so a dropped/closed/crashed peer is detected
+	# within seconds instead of ENet's very long default. Without this, a peer
+	# that dies while the game is idle (nobody acting) is never noticed — ENet
+	# only times out a peer when an outgoing reliable packet goes unacked, and
+	# an idle host sends nothing, so the disconnect grace dialog never appears.
+	# limit=32, min=4000ms, max=8000ms → detection within ~8s. ENet path only
+	# (web-relay peers are ENetPacketPeer-less).
+	if not web_relay_mode and multiplayer and multiplayer.has_multiplayer_peer():
+		var mp_peer = multiplayer.multiplayer_peer
+		if mp_peer is ENetMultiplayerPeer:
+			var enet_peer = mp_peer.get_peer(peer_id)
+			if enet_peer != null:
+				enet_peer.set_timeout(32, 4000, 8000)
+				print("NetworkManager: Set ENet timeout on peer %d (min 4s / max 8s)" % peer_id)
 
 	if is_host():
 		# Assign player 2 to new peer

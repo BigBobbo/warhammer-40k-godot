@@ -36,6 +36,16 @@ var _terrain_scatter_checkbox: CheckBox
 var _terrain_cover_checkbox: CheckBox
 
 var _auto_allocate_checkbox: CheckBox
+var _hotseat_handoff_checkbox: CheckBox
+var _window_mode_dropdown: OptionButton
+var _resolution_dropdown: OptionButton
+var _vsync_checkbox: CheckBox
+
+const WINDOW_MODES := ["fullscreen", "exclusive", "windowed"]
+const WINDOW_RESOLUTIONS: Array[Vector2i] = [
+	Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1600, 900),
+	Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160),
+]
 var _autosave_phase_start_checkbox: CheckBox
 var _controller_text_boost_checkbox: CheckBox
 var _input_mode_dropdown: OptionButton
@@ -209,6 +219,11 @@ func _build_ui() -> void:
 	_tab_containers.append(visual_scroll)
 
 	var visual_content = visual_scroll.get_child(0) as VBoxContainer
+	if not OS.has_feature("web"):
+		_add_section_header(visual_content, "Display")
+		_window_mode_dropdown = _add_dropdown_row(visual_content, "Window Mode:", ["Fullscreen", "Exclusive Fullscreen", "Windowed"], "_on_window_mode_changed")
+		_resolution_dropdown = _add_dropdown_row(visual_content, "Window Size:", WINDOW_RESOLUTIONS.map(func(r): return "%d x %d" % [r.x, r.y]), "_on_window_resolution_changed")
+		_vsync_checkbox = _add_checkbox_row(visual_content, "V-Sync", "_on_vsync_toggled")
 	_add_section_header(visual_content, "Visual")
 	_board_style_dropdown = _add_dropdown_row(visual_content, "Board Texture:", ["Grass", "Mud", "Desert", "Stone", "Felt", "Tilepack", "None (Solid)"], "_on_board_style_changed")
 	_ruins_style_dropdown = _add_dropdown_row(visual_content, "Ruins Texture:", ["Concrete", "Marble", "Brick", "Weathered Stone", "None (Solid)"], "_on_ruins_style_changed")
@@ -239,6 +254,16 @@ func _build_ui() -> void:
 	auto_alloc_help.add_theme_font_size_override("font_size", 16)
 	auto_alloc_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	gameplay_content.add_child(auto_alloc_help)
+
+	_add_section_header(gameplay_content, "Play and Pass (local 2-player)")
+	_hotseat_handoff_checkbox = _add_checkbox_row(gameplay_content, "Show \"Pass the device\" screen between player turns", "_on_hotseat_handoff_toggled")
+	var handoff_help = Label.new()
+	handoff_help.text = "On by default. In local Human-vs-Human games, hides the board and asks the next player to take the controls at each turn change (and before secret battle-formation picks). Has no effect in online or vs-AI games."
+	handoff_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	handoff_help.custom_minimum_size = Vector2(620, 0)
+	handoff_help.add_theme_font_size_override("font_size", 16)
+	handoff_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	gameplay_content.add_child(handoff_help)
 
 	_add_section_header(gameplay_content, "Auto-Save")
 	_autosave_phase_start_checkbox = _add_checkbox_row(gameplay_content, "Auto-save at the start of each phase", "_on_autosave_phase_start_toggled")
@@ -304,6 +329,17 @@ func _build_ui() -> void:
 	WhiteDwarfThemeData.apply_to_button(_close_button)
 	_close_button.pressed.connect(_on_close_pressed)
 	btn_row.add_child(_close_button)
+
+	# Quit to Desktop — always available; without it an in-game player has to
+	# go back to the main menu and scroll below the fold to find Quit. Not on
+	# web (browsers own the tab lifecycle; Godot quit is a no-op there).
+	if not OS.has_feature("web"):
+		var quit_button = Button.new()
+		quit_button.text = "Quit to Desktop"
+		quit_button.custom_minimum_size = Vector2(170, 40)
+		WhiteDwarfThemeData.apply_to_button(quit_button)
+		quit_button.pressed.connect(_on_quit_to_desktop_pressed)
+		btn_row.add_child(quit_button)
 
 func _create_tab_scroll() -> ScrollContainer:
 	var scroll = ScrollContainer.new()
@@ -876,6 +912,17 @@ func _load_current_settings() -> void:
 	# Gameplay
 	if _auto_allocate_checkbox:
 		_auto_allocate_checkbox.button_pressed = SettingsService.auto_allocate_wounds
+	if _hotseat_handoff_checkbox:
+		_hotseat_handoff_checkbox.button_pressed = SettingsService.hotseat_handoff_enabled
+
+	# Display
+	if _window_mode_dropdown:
+		_window_mode_dropdown.selected = maxi(0, WINDOW_MODES.find(SettingsService.window_mode))
+	if _resolution_dropdown:
+		var res_idx := WINDOW_RESOLUTIONS.find(SettingsService.window_resolution)
+		_resolution_dropdown.selected = res_idx if res_idx >= 0 else WINDOW_RESOLUTIONS.find(Vector2i(1920, 1080))
+	if _vsync_checkbox:
+		_vsync_checkbox.button_pressed = SettingsService.vsync_enabled
 	if _autosave_phase_start_checkbox:
 		_autosave_phase_start_checkbox.button_pressed = SettingsService.autosave_on_phase_start
 
@@ -1059,6 +1106,22 @@ func _on_terrain_cover_labels_toggled(pressed: bool) -> void:
 func _on_auto_allocate_wounds_toggled(pressed: bool) -> void:
 	SettingsService.set_auto_allocate_wounds(pressed)
 
+func _on_hotseat_handoff_toggled(pressed: bool) -> void:
+	SettingsService.set_hotseat_handoff_enabled(pressed)
+
+# ============================================================================
+# Display Callbacks
+# ============================================================================
+
+func _on_window_mode_changed(index: int) -> void:
+	SettingsService.set_window_mode(WINDOW_MODES[clampi(index, 0, WINDOW_MODES.size() - 1)])
+
+func _on_window_resolution_changed(index: int) -> void:
+	SettingsService.set_window_resolution(WINDOW_RESOLUTIONS[clampi(index, 0, WINDOW_RESOLUTIONS.size() - 1)])
+
+func _on_vsync_toggled(pressed: bool) -> void:
+	SettingsService.set_vsync_enabled(pressed)
+
 func _on_autosave_phase_start_toggled(pressed: bool) -> void:
 	SettingsService.set_autosave_on_phase_start(pressed)
 
@@ -1085,6 +1148,10 @@ func _on_save_load_pressed() -> void:
 	save_load_requested.emit()
 	settings_closed.emit()
 	queue_free()
+
+func _on_quit_to_desktop_pressed() -> void:
+	print("[SettingsMenu] Quit to Desktop")
+	get_tree().quit()
 
 func _on_return_to_menu_pressed() -> void:
 	print("[SettingsMenu] Returning to main menu")

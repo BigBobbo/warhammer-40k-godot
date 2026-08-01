@@ -2,6 +2,55 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.0",
+      "date": "2026-07-31",
+      "summary": "The game has sound now — an atmospheric music bed on the menu and in battle, plus UI click cues. The Music and SFX volume sliders finally do something.",
+      "changes": [
+        "Added original ambient music: a dark, slow drone bed on the main menu and a tenser one (with a low heartbeat pulse) in-game, each looping and crossfading as you move between the menu and a battle.",
+        "Menu buttons now play a soft click/hover cue.",
+        "All audio is generated from scratch by the game's own tool (40k/tools/generate_audio.py) — no third-party samples, so there's nothing to license or credit.",
+        "The Music and SFX volume sliders in Settings > Audio now control this audio (before, they adjusted empty buses). Master volume and Mute All work across everything including the existing dice sounds."
+      ]
+    },
+    {
+      "version": "1.11.0",
+      "date": "2026-07-31",
+      "summary": "Display settings at last — windowed mode, resolution and V-Sync — plus a main menu with the buttons where you can see them.",
+      "changes": [
+        "New Display section under Settings > Visual: Fullscreen / Exclusive Fullscreen / Windowed, window size presets from 1280x720 to 4K, and a V-Sync toggle. The game no longer traps multi-monitor players in fullscreen.",
+        "Main menu reorganised: Start Game sits right under the title with Tutorial, Multiplayer, Load, Replays, Settings and Quit in a compact grid beneath it. Previously Load Game was clipped by the screen edge and four buttons were hidden below the fold until you scrolled.",
+        "The dataset credit at the bottom of the menu no longer overlaps the last row of the setup form.",
+        "In local two-player games, the blocking overlay during saves, Overwatch, Heroic Intervention and Counter-Offensive now names the player whose decision it is (\"Player 2 (Adeptus Custodes) — Fire Overwatch decision\") instead of calling them \"opponent\".",
+        "Play and Pass gets seat names: optional Name fields next to each player's Human/AI picker on the main menu. The handoff screen greets the next player by name (\"Sam (Player 2) — Adeptus Custodes\"), and reactive-decision overlays use it too.",
+        "The game has its own icon now — a gold targeting reticle on a dark field — instead of the Godot engine's robot.",
+        "Fixed a rare shooting-phase bug where loading a save with a different terrain layout mid-session could leave units stuck at \"no eligible targets\" (or the reverse): the target-eligibility cache now notices terrain changes."
+      ]
+    },
+    {
+      "version": "1.10.1",
+      "date": "2026-07-31",
+      "summary": "Stratagems now obey the core once-per-phase rule, and you can quit to desktop from the pause menu.",
+      "changes": [
+        "The same stratagem can no longer be used twice in one phase (core rules 15.01). Six core stratagems — Epic Challenge, Crushing Impact, Smokescreen, Heroic Intervention, Counteroffensive and Rapid Ingress — had no cap at all and could be spammed as long as you had the CP.",
+        "The once-per-phase and once-per-turn bookkeeping now knows whose turn it is: using Command Re-roll in your own Shooting phase no longer locks you out of it during your opponent's Shooting phase of the same round.",
+        "Battle-shock results now flow through the same state pipeline as every other action, so undoing or replaying a Command phase correctly includes the battle-shocked flag.",
+        "New 'Quit to Desktop' button in the pause/settings menu — no more going back to the main menu just to exit the game.",
+        "Shipped builds no longer open the developer control port or respond to the debug movement cheat key; these now require explicit developer opt-in."
+      ]
+    },
+    {
+      "version": "1.10.0",
+      "date": "2026-07-31",
+      "summary": "Play and Pass: local two-player games now hand the device over properly — a privacy screen between turns so your opponent can't watch you plan.",
+      "changes": [
+        "New \"Pass the device\" screen for local Human-vs-Human games. When your turn ends, the board is hidden and the game asks the next player to take the controls — no more leaning over each other's shoulders at the seams of a turn.",
+        "Battle-formation declarations are finally secret, as the rules intend: in a local two-player game the handoff screen now sits between Player 1 confirming their leaders/reserves/embarkations and Player 2's declaration dialog opening.",
+        "The screen names the player and their faction in their colour, shows the round and phase that is starting, and clears with one click, Enter, or the gamepad accept button.",
+        "It also announces who deploys first when deployment begins. Deploying alternates unit-by-unit in the open, so no prompts there — placement is public information.",
+        "Online and vs-AI games are untouched. You can turn the ceremony off under Settings > Gameplay > Play and Pass."
+      ]
+    },
+    {
       "version": "1.9.0",
       "date": "2026-07-30",
       "summary": "A model now only swings a melee weapon it actually carries — one Boss Nob's Power klaw is three attacks, not the whole mob's thirty.",

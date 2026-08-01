@@ -106,10 +106,31 @@ var last_army_builder_url: String = ""
 var _waiting_for_cloud_armies: bool = false
 var _cloud_army_fetch_pending: bool = false
 var _pending_game_config: Dictionary = {}
+var _p1_name_edit: LineEdit
+var _p2_name_edit: LineEdit
+
+func _create_seat_name_edit(row: Node, placeholder: String) -> LineEdit:
+	var name_label := Label.new()
+	name_label.text = "  Name:"
+	row.add_child(name_label)
+	var edit := LineEdit.new()
+	edit.name = placeholder.replace(" ", "") + "NameEdit"
+	edit.placeholder_text = placeholder
+	edit.max_length = 20
+	edit.custom_minimum_size = Vector2(140, 0)
+	row.add_child(edit)
+	return edit
 var _cloud_fetch_count: int = 0  # How many cloud armies still need fetching
 
 func _ready() -> void:
 	print("MainMenu: Initializing main menu")
+
+	# Start the menu music bed. Called explicitly here rather than relying on
+	# MusicManager's scene-add heuristic, which races the autoload/scene boot
+	# order (current_scene is null when autoloads run _ready).
+	var _mm := get_node_or_null("/root/MusicManager")
+	if _mm:
+		_mm.play_menu_music()
 
 	# Ensure network state is clean when returning to menu (e.g. after leaving a multiplayer game)
 	if NetworkManager.is_networked():
@@ -159,6 +180,7 @@ func _ready() -> void:
 	_create_version_display()
 	_create_controller_status()
 	_create_tutorial_ui()
+	_promote_buttons_above_fold()
 
 	# M0 controller foundations: the menu must be drivable without a mouse —
 	# something has to own focus for D-pad/stick navigation to work at all,
@@ -241,6 +263,12 @@ func _create_data_attribution_credit() -> void:
 		idm.device_changed.connect(func(_mode): _position_attribution_credit(credit))
 	credit.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(credit)
+	# Reserve the credit's strip: without this the ScrollContainer's last row
+	# (Secondary Missions dropdown / Load Game before the button move) rendered
+	# underneath the credit — two interactive controls in the same pixels.
+	var scroll = get_node_or_null("ScrollContainer")
+	if scroll != null:
+		scroll.offset_bottom = -36
 	print("MainMenu: 40kdc data attribution credit added")
 
 func _position_attribution_credit(credit: Control) -> void:
@@ -367,6 +395,39 @@ func _on_tutorial_button_pressed() -> void:
 	if _tutorial_picker:
 		_tutorial_picker.open()
 
+func _promote_buttons_above_fold() -> void:
+	"""Move the action buttons to directly under the title. They used to sit
+	BELOW the whole 14-dropdown config form: at 1080p 'Load Game' was clipped
+	by the screen edge and Tutorial/Replays/Settings/Quit were entirely below
+	the fold inside the ScrollContainer. Start Game stays a full-width primary
+	button; the six secondary actions become a 3-column grid so the config
+	form is still visible without scrolling."""
+	var menu = $ScrollContainer/MenuContainer
+	var buttons = $ScrollContainer/MenuContainer/ButtonSection
+	if menu == null or buttons == null:
+		return
+	# Index 0 = TitleLabel, 1 = HSeparator — buttons land at 2.
+	menu.move_child(buttons, 2)
+
+	var grid := GridContainer.new()
+	grid.name = "SecondaryButtonGrid"
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for btn_name in ["TutorialButton", "MultiplayerButton", "LoadButton", "ReplayButton", "SettingsButton", "QuitButton"]:
+		var b = buttons.get_node_or_null(NodePath(btn_name))
+		if b != null:
+			buttons.remove_child(b)
+			b.custom_minimum_size = Vector2(185, 38)
+			grid.add_child(b)
+	buttons.add_child(grid)
+
+	var fold_sep := HSeparator.new()
+	fold_sep.name = "ButtonsFoldSeparator"
+	buttons.add_child(fold_sep)
+	print("MainMenu: action buttons promoted above the fold")
+
 func _create_controller_status() -> void:
 	"""Top-right always-visible controller diagnostic (M4). Steam Deck field
 	reports came down to 'is the game even receiving gamepad input?' — with a
@@ -484,6 +545,12 @@ func _setup_dropdowns() -> void:
 	player2_type_dropdown.add_item("Human")
 	player2_type_dropdown.add_item("AI")
 	player2_type_dropdown.selected = 1  # Default: AI (most common single-player setup)
+
+	# Play-and-pass seat names: optional per-player name fields on the type
+	# rows. Surfaced by the handoff screen, reactive-decision overlay and
+	# anywhere else that would otherwise say "Player 1/2".
+	_p1_name_edit = _create_seat_name_edit(player1_type_dropdown.get_parent(), "Player 1")
+	_p2_name_edit = _create_seat_name_edit(player2_type_dropdown.get_parent(), "Player 2")
 
 	# T7-40: Create AI difficulty dropdowns
 	_create_difficulty_dropdowns()
@@ -1295,6 +1362,13 @@ func _connect_signals() -> void:
 	settings_button.pressed.connect(_on_settings_button_pressed)
 	quit_button.pressed.connect(_on_quit_button_pressed)
 
+	# UI sound cues on the menu buttons (routed to the SFX bus).
+	var mm = get_node_or_null("/root/MusicManager")
+	if mm:
+		for b in [start_button, multiplayer_button, load_button, replay_button, settings_button, quit_button]:
+			b.pressed.connect(func(): mm.play_sfx("click"))
+			b.mouse_entered.connect(func(): mm.play_sfx("hover"))
+
 	# Hide quit button on web platform (not applicable)
 	if OS.has_feature("web"):
 		quit_button.visible = false
@@ -1364,6 +1438,8 @@ func _on_start_button_pressed() -> void:
 		"player2_fixed_missions": _p2_fixed_mission_ids.duplicate() if p2_secondary_mode == "fixed" else [],
 		"player1_disposition": _get_selected_disposition(p1_disposition_dropdown),
 		"player2_disposition": _get_selected_disposition(p2_disposition_dropdown),
+		"player1_name": _p1_name_edit.text.strip_edges() if _p1_name_edit else "",
+		"player2_name": _p2_name_edit.text.strip_edges() if _p2_name_edit else "",
 	}
 
 	print("MainMenu: Starting game with config: ", config)

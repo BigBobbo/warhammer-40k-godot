@@ -295,6 +295,11 @@ var _pre_pan_offset: Vector2 = Vector2.ZERO
 var _pre_pan_zoom: float = 1.0
 
 func _ready() -> void:
+	# Start the in-game music bed (explicit call — see MainMenu._ready note).
+	var _mm := get_node_or_null("/root/MusicManager")
+	if _mm:
+		_mm.play_battle_music()
+
 	# Design-guidelines overlays / panels (T01-T45). Factored into a helper
 	# so this _ready stays scannable.
 	_install_design_guidelines_overlays()
@@ -1295,8 +1300,20 @@ func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> vo
 	if not _reactive_stratagem_overlay:
 		return
 	_reactive_stratagem_pending = true
-	_reactive_stratagem_overlay_label.text = "Waiting for opponent's %s decision..." % stratagem_name
-	_reactive_stratagem_overlay_timer_label.text = "Your opponent is deciding — the game continues when they respond."
+	# Every reactive window (saves, Overwatch, Heroic Intervention,
+	# Counter-Offensive, Rapid Ingress) belongs to the NON-active player. In
+	# play-and-pass both players share the screen, so "opponent" is wrong —
+	# name the person whose decision it is.
+	var handoff_mgr = get_node_or_null("/root/HandoffManager")
+	if handoff_mgr and handoff_mgr.is_local_hotseat():
+		var decider: int = 3 - GameState.get_active_player()
+		var decider_name: String = GameState.get_player_display_name(decider)
+		_reactive_stratagem_overlay_label.text = "%s (%s) — %s decision" % [
+			decider_name, GameState.get_faction_name(decider), stratagem_name]
+		_reactive_stratagem_overlay_timer_label.text = "%s decides in the dialog — the game continues when they respond." % decider_name
+	else:
+		_reactive_stratagem_overlay_label.text = "Waiting for opponent's %s decision..." % stratagem_name
+		_reactive_stratagem_overlay_timer_label.text = "Your opponent is deciding — the game continues when they respond."
 	_reactive_stratagem_overlay.visible = true
 
 	# (Re)arm the safety-net auto-dismiss so a lost hide-callback can never leave
@@ -6228,8 +6245,12 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# Debug mode toggle (rebindable: toggle_debug_mode, default 9)
+	# Debug mode toggle (rebindable: toggle_debug_mode, default 9).
+	# Dev builds only: it grants unrestricted model movement for any army in
+	# any phase — a cheat in a shipped player build.
 	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_debug_mode"):
+		if not OS.is_debug_build():
+			return
 		print("Debug mode key (9) pressed!")
 		DebugManager.toggle_debug_mode()
 		get_viewport().set_input_as_handled()
@@ -6271,8 +6292,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
-	# Objective control check debug (rebindable: objective_check, default O)
-	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "objective_check"):
+	# Objective control check debug (rebindable: objective_check, default O).
+	# Console-only diagnostic output — dev builds only.
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "objective_check") and OS.is_debug_build():
 		print("\n=== MANUAL OBJECTIVE CONTROL CHECK (O key pressed) ===")
 		if MissionManager:
 			MissionManager.check_all_objectives()
@@ -9263,7 +9285,11 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 		var phase_instance = PhaseManager.get_current_phase_instance()
 		if phase_instance and phase_instance.has_method("_is_player_confirmed") and not phase_instance._is_player_confirmed(other_player):
 			print("Main: Showing formations dialog for Player %d" % other_player)
-			_show_formations_dialog(other_player)
+			# Formations declarations are secret — hide P1's picks behind the
+			# play-and-pass handoff screen before P2's dialog opens (no-op
+			# outside local Human-vs-Human games).
+			HandoffManager.request_handoff(other_player, "Declare Battle Formations",
+				_show_formations_dialog.bind(other_player))
 		else:
 			print("Main: Both players confirmed formations — phase completing")
 
@@ -9312,7 +9338,9 @@ func _on_formations_confirm_pressed() -> void:
 
 		var phase_instance = PhaseManager.get_current_phase_instance()
 		if phase_instance and phase_instance.has_method("_is_player_confirmed") and not phase_instance._is_player_confirmed(other_player):
-			_show_formations_dialog(other_player)
+			# Secret declarations: handoff screen first in local hotseat.
+			HandoffManager.request_handoff(other_player, "Declare Battle Formations",
+				_show_formations_dialog.bind(other_player))
 
 func _on_end_deployment_pressed() -> void:
 	print("Main: ========== _on_end_deployment_pressed CALLED ==========")
