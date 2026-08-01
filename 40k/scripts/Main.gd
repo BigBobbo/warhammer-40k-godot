@@ -1302,9 +1302,10 @@ func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> vo
 	var handoff_mgr = get_node_or_null("/root/HandoffManager")
 	if handoff_mgr and handoff_mgr.is_local_hotseat():
 		var decider: int = 3 - GameState.get_active_player()
-		_reactive_stratagem_overlay_label.text = "Player %d (%s) — %s decision" % [
-			decider, GameState.get_faction_name(decider), stratagem_name]
-		_reactive_stratagem_overlay_timer_label.text = "Player %d decides in the dialog — the game continues when they respond." % decider
+		var decider_name: String = GameState.get_player_display_name(decider)
+		_reactive_stratagem_overlay_label.text = "%s (%s) — %s decision" % [
+			decider_name, GameState.get_faction_name(decider), stratagem_name]
+		_reactive_stratagem_overlay_timer_label.text = "%s decides in the dialog — the game continues when they respond." % decider_name
 	else:
 		_reactive_stratagem_overlay_label.text = "Waiting for opponent's %s decision..." % stratagem_name
 		_reactive_stratagem_overlay_timer_label.text = "Your opponent is deciding — the game continues when they respond."

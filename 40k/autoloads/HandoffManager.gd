@@ -101,7 +101,11 @@ func _show_screen(player: int, context: String) -> void:
 		_build_screen()
 	var faction_name := _faction_label(player)
 	_title_label.text = "PASS THE DEVICE"
-	_seat_label.text = "Player %d — %s" % [player, faction_name]
+	var seat := GameState.get_player_display_name(player)
+	if seat == "Player %d" % player:
+		_seat_label.text = "Player %d — %s" % [player, faction_name]
+	else:
+		_seat_label.text = "%s (Player %d) — %s" % [seat, player, faction_name]
 	_seat_label.add_theme_color_override("font_color",
 		UIConstants.FRIENDLY_PLAYER_TEAL if player == 1 else UIConstants.ENEMY_PLAYER_MAGENTA)
 	_context_label.text = context

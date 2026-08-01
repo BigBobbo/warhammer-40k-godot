@@ -10,6 +10,7 @@
         "Main menu reorganised: Start Game sits right under the title with Tutorial, Multiplayer, Load, Replays, Settings and Quit in a compact grid beneath it. Previously Load Game was clipped by the screen edge and four buttons were hidden below the fold until you scrolled.",
         "The dataset credit at the bottom of the menu no longer overlaps the last row of the setup form.",
         "In local two-player games, the blocking overlay during saves, Overwatch, Heroic Intervention and Counter-Offensive now names the player whose decision it is (\"Player 2 (Adeptus Custodes) — Fire Overwatch decision\") instead of calling them \"opponent\".",
+        "Play and Pass gets seat names: optional Name fields next to each player's Human/AI picker on the main menu. The handoff screen greets the next player by name (\"Sam (Player 2) — Adeptus Custodes\"), and reactive-decision overlays use it too.",
         "The game has its own icon now — a gold targeting reticle on a dark field — instead of the Godot engine's robot.",
         "Fixed a rare shooting-phase bug where loading a save with a different terrain layout mid-session could leave units stuck at \"no eligible targets\" (or the reverse): the target-eligibility cache now notices terrain changes."
       ]

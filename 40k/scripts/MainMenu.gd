@@ -106,6 +106,20 @@ var last_army_builder_url: String = ""
 var _waiting_for_cloud_armies: bool = false
 var _cloud_army_fetch_pending: bool = false
 var _pending_game_config: Dictionary = {}
+var _p1_name_edit: LineEdit
+var _p2_name_edit: LineEdit
+
+func _create_seat_name_edit(row: Node, placeholder: String) -> LineEdit:
+	var name_label := Label.new()
+	name_label.text = "  Name:"
+	row.add_child(name_label)
+	var edit := LineEdit.new()
+	edit.name = placeholder.replace(" ", "") + "NameEdit"
+	edit.placeholder_text = placeholder
+	edit.max_length = 20
+	edit.custom_minimum_size = Vector2(140, 0)
+	row.add_child(edit)
+	return edit
 var _cloud_fetch_count: int = 0  # How many cloud armies still need fetching
 
 func _ready() -> void:
@@ -524,6 +538,12 @@ func _setup_dropdowns() -> void:
 	player2_type_dropdown.add_item("Human")
 	player2_type_dropdown.add_item("AI")
 	player2_type_dropdown.selected = 1  # Default: AI (most common single-player setup)
+
+	# Play-and-pass seat names: optional per-player name fields on the type
+	# rows. Surfaced by the handoff screen, reactive-decision overlay and
+	# anywhere else that would otherwise say "Player 1/2".
+	_p1_name_edit = _create_seat_name_edit(player1_type_dropdown.get_parent(), "Player 1")
+	_p2_name_edit = _create_seat_name_edit(player2_type_dropdown.get_parent(), "Player 2")
 
 	# T7-40: Create AI difficulty dropdowns
 	_create_difficulty_dropdowns()
@@ -1404,6 +1424,8 @@ func _on_start_button_pressed() -> void:
 		"player2_fixed_missions": _p2_fixed_mission_ids.duplicate() if p2_secondary_mode == "fixed" else [],
 		"player1_disposition": _get_selected_disposition(p1_disposition_dropdown),
 		"player2_disposition": _get_selected_disposition(p2_disposition_dropdown),
+		"player1_name": _p1_name_edit.text.strip_edges() if _p1_name_edit else "",
+		"player2_name": _p2_name_edit.text.strip_edges() if _p2_name_edit else "",
 	}
 
 	print("MainMenu: Starting game with config: ", config)

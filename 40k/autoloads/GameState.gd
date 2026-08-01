@@ -1078,6 +1078,12 @@ func get_first_turn_player() -> int:
 	var ftp = int(state["meta"].get("first_turn_player", 0))
 	return ftp if (ftp == 1 or ftp == 2) else 1
 
+func get_player_display_name(player: int) -> String:
+	# Optional seat name entered on the main menu (play-and-pass); falls back
+	# to "Player N".
+	var seat_name = str(state.get("meta", {}).get("game_config", {}).get("player%d_name" % player, "")).strip_edges()
+	return seat_name if seat_name != "" else "Player %d" % player
+
 func is_last_turn_of_round(player: int) -> bool:
 	# True when the given player takes the SECOND (final) turn of each battle
 	# round — the battle round ends when their turn ends. Callers must NOT
