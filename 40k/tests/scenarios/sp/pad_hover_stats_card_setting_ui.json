@@ -1,0 +1,68 @@
+{
+  "id": "pad_hover_stats_card_setting_ui",
+  "covers": [
+    "scripts.SettingsMenu.controller_tab",
+    "controller.settings.pad_hover_stats_card",
+    "ui.token_hover_card.r4_l4_peek",
+    "autoloads.PadBindingManager.paddle_role_wins"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "The player-facing opt-out for the controller hover card. Settings > Controller > Controller Options gains 'Always show model stats card on hover': OFF by default (the card is suppressed on the pad and R4 / L4 peek at it on demand), ON restores the old always-visible card and hands the paddles back to model switching. Driven through the real pause menu with real clicks. Also proves the 'only if the paddle isn't already used' rule: with a Settings > Controller role rebound onto R4, holding R4 no longer peeks — the role keeps the button.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+    { "act": "execute_script", "script": "PadBindings.reset_all()" },
+    { "act": "execute_script", "script": "SettingsService.set_pad_hover_stats_card(false)" },
+    { "act": "execute_script", "script": "InputDeviceManager.claim_pad()" },
+
+    { "act": "simulate_joy_button", "button_index": 4, "comment": "View = pause menu" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "click_node", "button_text": "Controller" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true,
+      "script": "var sm = tree.current_scene._settings_menu\nreturn [is_instance_valid(sm._pad_hover_card_checkbox), sm._pad_hover_card_checkbox.button_pressed]",
+      "equals": [true, false] },
+    { "act": "click_node", "button_text": "Always show model stats card on hover" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true,
+      "script": "return [SettingsService.pad_hover_stats_card, PadRouter.stats_peek_available()]",
+      "equals": [true, false] },
+    { "act": "screenshot", "label": "01_controller_options_card_on" },
+
+    { "act": "click_node", "button_text": "Always show model stats card on hover" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true,
+      "script": "return [SettingsService.pad_hover_stats_card, PadRouter.stats_peek_available()]",
+      "equals": [false, true] },
+    { "act": "screenshot", "label": "02_controller_options_card_off_default" },
+
+    { "act": "simulate_joy_button", "button_index": 4, "comment": "View closes the pause menu — a menu-level modal owns the pad while it is up" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "is_instance_valid(main._settings_menu)", "equals": false },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "PadBindings.set_button(\"pad_datasheet\", JOY_BUTTON_PADDLE1)\nreturn int(PadBindings.canonical(JOY_BUTTON_PADDLE1))", "equals": 3,
+      "comment": "R4 now carries the Datasheet role" },
+    { "act": "simulate_joy_button", "button_index": 16, "state": "press" },
+    { "act": "wait_seconds", "seconds": 0.45 },
+    { "act": "execute_script", "multiline": true, "node": "/root/PadRouter",
+      "script": "return node.stats_peek_active", "equals": false,
+      "comment": "a bound paddle is never stolen by the peek" },
+    { "act": "simulate_joy_button", "button_index": 16, "state": "release" },
+
+    { "act": "execute_script", "script": "PadBindings.reset_all()" },
+    { "act": "execute_script", "multiline": true,
+      "script": "return int(PadBindings.canonical(JOY_BUTTON_PADDLE1))", "equals": 16 },
+    { "act": "simulate_joy_button", "button_index": 16, "state": "press" },
+    { "act": "wait_seconds", "seconds": 0.45 },
+    { "act": "execute_script", "multiline": true, "node": "/root/PadRouter",
+      "script": "return node.stats_peek_active", "equals": true,
+      "comment": "free paddle again — the hold peeks" },
+    { "act": "simulate_joy_button", "button_index": 16, "state": "release" },
+    { "act": "execute_script", "multiline": true, "node": "/root/PadRouter",
+      "script": "return node.stats_peek_active", "equals": false }
+  ]
+}

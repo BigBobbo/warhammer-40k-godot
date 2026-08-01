@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.1",
+      "date": "2026-08-01",
+      "summary": "Controller: the model stats card no longer covers the spot you are dragging a model to. It is off by default on a controller — hold R4 or L4 to peek at it.",
+      "changes": [
+        "On a controller / Steam Deck the pop-up model stats card no longer appears just because the cursor is resting on a model. It was landing right on top of the position you were charging or moving to, hiding your own destination.",
+        "Hold the R4 or L4 back paddle to bring the hovered model's card up for as long as you hold it; let go and it disappears. A quick TAP of R4 / L4 still switches to the next / previous model as before.",
+        "The hint bar advertises 'R4 Hold: Model Stats' while you are placing charge or movement models.",
+        "New option in Settings > Controller > Controller Options: 'Always show model stats card on hover' brings back the old always-on behaviour (and hands R4 / L4 back to model switching).",
+        "Mouse & keyboard play is unchanged — the card still shows on hover."
+      ]
+    },
+    {
       "version": "1.12.0",
       "date": "2026-07-31",
       "summary": "The game has sound now — an atmospheric music bed on the menu and in battle, plus UI click cues. The Music and SFX volume sliders finally do something.",
