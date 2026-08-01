@@ -158,6 +158,40 @@ Shipped on `claude/40k-godot-audit-azjslb` since this audit was written:
 | #82 formation rotation, #41 click-model-select | no clear evidence | keep open |
 | #89 multiplayer, #94 master bug list, #93 testing audit | umbrella issues | keep open |
 
+## Multiplayer + Audio (2026-08-01, this branch)
+
+**Online multiplayer — validated live with two ENet instances, 3 real bugs fixed:**
+- Deploy over web-relay was fully broken: `_validate_model_position` is typed
+  `Vector2` but the relay JSON-encodes positions to `{x,y}` dicts → validation
+  crashed → blanket reject. Now coerced in place (Vector2/{x,y}/[x,y]). ENet was
+  unaffected.
+- Command-phase desync: `_on_phase_enter` CP generation + RNG secondary draws run
+  independently on each peer, so the client saw wrong CP / an empty secondary hand
+  for the whole phase. New `NetworkManager.broadcast_phase_enter_sync()` pushes the
+  host's authoritative CP/VP + manager snapshot right after enter. Verified: a
+  corrupted client CP is corrected on the next phase-enter, no desync fired.
+- Idle peer-drop detection: ENet only times out on an unacked reliable send, so a
+  peer dying while nobody acts was never noticed. Bounded the ENet peer timeout
+  (4–8s) on connect. (Clean window-close sends a DISCONNECT and is instant.)
+- State hashes stay identical across peers through formations/roll-off/deployment/
+  first-turn. Disconnect grace dialog (Save / Continue Single-Player / Claim
+  Victory) renders and recovers correctly. MP unit suite green (104 asserts).
+- **Still labeled "(Beta)"**: a full 5-round game wasn't driven end-to-end, and
+  "Online Play" depends on the fly.io relay server (ops story needed). Flip the
+  label once those are closed. LAN host/join is solid.
+
+**Audio — shipped (was completely silent):**
+- Original generated audio (`tools/generate_audio.py`, pure stdlib — no third-party
+  samples, nothing to license): ambient menu bed, tenser battle bed w/ heartbeat,
+  4 UI cues. `MusicManager` autoload loops + crossfades them on the Music bus; UI
+  cues on SFX. Menu buttons play click/hover. The Settings audio sliders now
+  control real content.
+- **Environment caveat**: the headless shim forces `--audio-driver Dummy`, which
+  starts playback but doesn't advance position, so audible/sustained playback
+  couldn't be measured here. Pipeline verified correct (streams load with data,
+  buses routed, play() succeeds, volume tracks the slider) and matches the shipped
+  DiceSoundManager. Needs a real-device listen before launch.
+
 ## Flags (things you should know)
 
 - **Issue #319 is fixed in code and verified live this session** — close it.
