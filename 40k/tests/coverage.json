@@ -3651,8 +3651,9 @@
     },
     {
       "id": "autoloads.SecondaryMissionManager.guards",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: iss065d_guard_prompt_11e, iss_trust_dropdown_all_units_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: guard_autopicks_closest_units, iss065d_guard_prompt_11e, iss_trust_dropdown_all_units_11e.",
       "scenarios": [
+        "guard_autopicks_closest_units",
         "iss065d_guard_prompt_11e",
         "iss_trust_dropdown_all_units_11e"
       ],
@@ -6582,8 +6583,9 @@
     },
     {
       "id": "rules.secondaries.burden_of_trust.guard_prompt",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: iss065d_guard_prompt_11e, iss_trust_dropdown_all_units_11e, iss_trust_guard_board_pick_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: guard_autopicks_closest_units, iss065d_guard_prompt_11e, iss_trust_dropdown_all_units_11e, iss_trust_guard_board_pick_11e.",
       "scenarios": [
+        "guard_autopicks_closest_units",
         "iss065d_guard_prompt_11e",
         "iss_trust_dropdown_all_units_11e",
         "iss_trust_guard_board_pick_11e"

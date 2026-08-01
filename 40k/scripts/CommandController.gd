@@ -1946,7 +1946,7 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 	content.add_child(header)
 
 	var desc = Label.new()
-	desc.text = "Pick any friendly unit to guard each objective (units in range now are marked). At the end of your opponent's turn you score 2 VP (max 5) for each guarded objective you control while its guard is within range of it."
+	desc.text = "Pick any friendly unit to guard each objective (units in range now are marked). Each row is pre-filled with your closest unit to that objective — Keep Auto Picks takes them as-is. At the end of your opponent's turn you score 2 VP (max 5) for each guarded objective you control while its guard is within range of it."
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.add_theme_font_size_override("font_size", 16)
 	desc.add_theme_color_override("font_color", Color.GRAY)
@@ -2071,6 +2071,7 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 	var skip_btn = Button.new()
 	skip_btn.name = "KeepAutoGuards"
 	skip_btn.text = "Keep Auto Picks"
+	skip_btn.tooltip_text = "Keep the suggested guards shown above — the unit already holding each objective, or otherwise your closest unit to it."
 	skip_btn.custom_minimum_size = Vector2(150, 36)
 	skip_btn.pressed.connect(func():
 		if resolved[0]:
