@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.0",
+      "date": "2026-07-31",
+      "summary": "The game has sound now — an atmospheric music bed on the menu and in battle, plus UI click cues. The Music and SFX volume sliders finally do something.",
+      "changes": [
+        "Added original ambient music: a dark, slow drone bed on the main menu and a tenser one (with a low heartbeat pulse) in-game, each looping and crossfading as you move between the menu and a battle.",
+        "Menu buttons now play a soft click/hover cue.",
+        "All audio is generated from scratch by the game's own tool (40k/tools/generate_audio.py) — no third-party samples, so there's nothing to license or credit.",
+        "The Music and SFX volume sliders in Settings > Audio now control this audio (before, they adjusted empty buses). Master volume and Mute All work across everything including the existing dice sounds."
+      ]
+    },
+    {
       "version": "1.11.0",
       "date": "2026-07-31",
       "summary": "Display settings at last — windowed mode, resolution and V-Sync — plus a main menu with the buttons where you can see them.",

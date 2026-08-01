@@ -295,6 +295,11 @@ var _pre_pan_offset: Vector2 = Vector2.ZERO
 var _pre_pan_zoom: float = 1.0
 
 func _ready() -> void:
+	# Start the in-game music bed (explicit call — see MainMenu._ready note).
+	var _mm := get_node_or_null("/root/MusicManager")
+	if _mm:
+		_mm.play_battle_music()
+
 	# Design-guidelines overlays / panels (T01-T45). Factored into a helper
 	# so this _ready stays scannable.
 	_install_design_guidelines_overlays()

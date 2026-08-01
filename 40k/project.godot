@@ -78,6 +78,7 @@ AIBenchmarkRunner="*res://autoloads/AIBenchmarkRunner.gd"
 TutorialOverlay="*res://scripts/tutorial/TutorialOverlay.gd"
 TutorialManager="*res://autoloads/TutorialManager.gd"
 HandoffManager="*res://autoloads/HandoffManager.gd"
+MusicManager="*res://autoloads/MusicManager.gd"
 
 [display]
 

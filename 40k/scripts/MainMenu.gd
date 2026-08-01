@@ -125,6 +125,13 @@ var _cloud_fetch_count: int = 0  # How many cloud armies still need fetching
 func _ready() -> void:
 	print("MainMenu: Initializing main menu")
 
+	# Start the menu music bed. Called explicitly here rather than relying on
+	# MusicManager's scene-add heuristic, which races the autoload/scene boot
+	# order (current_scene is null when autoloads run _ready).
+	var _mm := get_node_or_null("/root/MusicManager")
+	if _mm:
+		_mm.play_menu_music()
+
 	# Ensure network state is clean when returning to menu (e.g. after leaving a multiplayer game)
 	if NetworkManager.is_networked():
 		print("MainMenu: Cleaning up stale network state")
@@ -1354,6 +1361,13 @@ func _connect_signals() -> void:
 	replay_button.pressed.connect(_on_replay_button_pressed)
 	settings_button.pressed.connect(_on_settings_button_pressed)
 	quit_button.pressed.connect(_on_quit_button_pressed)
+
+	# UI sound cues on the menu buttons (routed to the SFX bus).
+	var mm = get_node_or_null("/root/MusicManager")
+	if mm:
+		for b in [start_button, multiplayer_button, load_button, replay_button, settings_button, quit_button]:
+			b.pressed.connect(func(): mm.play_sfx("click"))
+			b.mouse_entered.connect(func(): mm.play_sfx("hover"))
 
 	# Hide quit button on web platform (not applicable)
 	if OS.has_feature("web"):
