@@ -1295,8 +1295,19 @@ func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> vo
 	if not _reactive_stratagem_overlay:
 		return
 	_reactive_stratagem_pending = true
-	_reactive_stratagem_overlay_label.text = "Waiting for opponent's %s decision..." % stratagem_name
-	_reactive_stratagem_overlay_timer_label.text = "Your opponent is deciding — the game continues when they respond."
+	# Every reactive window (saves, Overwatch, Heroic Intervention,
+	# Counter-Offensive, Rapid Ingress) belongs to the NON-active player. In
+	# play-and-pass both players share the screen, so "opponent" is wrong —
+	# name the person whose decision it is.
+	var handoff_mgr = get_node_or_null("/root/HandoffManager")
+	if handoff_mgr and handoff_mgr.is_local_hotseat():
+		var decider: int = 3 - GameState.get_active_player()
+		_reactive_stratagem_overlay_label.text = "Player %d (%s) — %s decision" % [
+			decider, GameState.get_faction_name(decider), stratagem_name]
+		_reactive_stratagem_overlay_timer_label.text = "Player %d decides in the dialog — the game continues when they respond." % decider
+	else:
+		_reactive_stratagem_overlay_label.text = "Waiting for opponent's %s decision..." % stratagem_name
+		_reactive_stratagem_overlay_timer_label.text = "Your opponent is deciding — the game continues when they respond."
 	_reactive_stratagem_overlay.visible = true
 
 	# (Re)arm the safety-net auto-dismiss so a lost hide-callback can never leave

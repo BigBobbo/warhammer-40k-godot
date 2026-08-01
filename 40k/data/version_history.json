@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.11.0",
+      "date": "2026-07-31",
+      "summary": "Display settings at last — windowed mode, resolution and V-Sync — plus a main menu with the buttons where you can see them.",
+      "changes": [
+        "New Display section under Settings > Visual: Fullscreen / Exclusive Fullscreen / Windowed, window size presets from 1280x720 to 4K, and a V-Sync toggle. The game no longer traps multi-monitor players in fullscreen.",
+        "Main menu reorganised: Start Game sits right under the title with Tutorial, Multiplayer, Load, Replays, Settings and Quit in a compact grid beneath it. Previously Load Game was clipped by the screen edge and four buttons were hidden below the fold until you scrolled.",
+        "The dataset credit at the bottom of the menu no longer overlaps the last row of the setup form.",
+        "In local two-player games, the blocking overlay during saves, Overwatch, Heroic Intervention and Counter-Offensive now names the player whose decision it is (\"Player 2 (Adeptus Custodes) — Fire Overwatch decision\") instead of calling them \"opponent\"."
+      ]
+    },
+    {
       "version": "1.10.1",
       "date": "2026-07-31",
       "summary": "Stratagems now obey the core once-per-phase rule, and you can quit to desktop from the pause menu.",

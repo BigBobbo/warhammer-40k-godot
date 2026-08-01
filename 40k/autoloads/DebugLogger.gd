@@ -39,6 +39,17 @@ var buffer_size: int = 20  # Write every 20 messages
 var auto_flush_timer: Timer = null
 
 func _ready() -> void:
+	# Release logging profile: exported release builds (players) keep only
+	# WARNING+ in a 5 MB rolling file with one old session, and stay off the
+	# console. Debug/editor builds keep the full-firehose defaults — the
+	# project's validation gates (read_debug_log, verify_delivery) depend on
+	# them. GODOT_VERBOSE_LOGS=1 restores full logging in a shipped build for
+	# player-side troubleshooting.
+	if not OS.is_debug_build() and OS.get_environment("GODOT_VERBOSE_LOGS") != "1":
+		min_log_level = LogLevel.WARNING
+		log_to_console = false
+		max_log_size = 5 * 1024 * 1024
+		_max_old_log_files = 1
 	_initialize_logger()
 	_setup_auto_flush()
 

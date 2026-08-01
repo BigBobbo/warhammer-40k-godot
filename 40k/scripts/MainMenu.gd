@@ -159,6 +159,7 @@ func _ready() -> void:
 	_create_version_display()
 	_create_controller_status()
 	_create_tutorial_ui()
+	_promote_buttons_above_fold()
 
 	# M0 controller foundations: the menu must be drivable without a mouse —
 	# something has to own focus for D-pad/stick navigation to work at all,
@@ -241,6 +242,12 @@ func _create_data_attribution_credit() -> void:
 		idm.device_changed.connect(func(_mode): _position_attribution_credit(credit))
 	credit.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(credit)
+	# Reserve the credit's strip: without this the ScrollContainer's last row
+	# (Secondary Missions dropdown / Load Game before the button move) rendered
+	# underneath the credit — two interactive controls in the same pixels.
+	var scroll = get_node_or_null("ScrollContainer")
+	if scroll != null:
+		scroll.offset_bottom = -36
 	print("MainMenu: 40kdc data attribution credit added")
 
 func _position_attribution_credit(credit: Control) -> void:
@@ -366,6 +373,39 @@ func _on_tutorial_button_pressed() -> void:
 	print("MainMenu: Tutorial button pressed")
 	if _tutorial_picker:
 		_tutorial_picker.open()
+
+func _promote_buttons_above_fold() -> void:
+	"""Move the action buttons to directly under the title. They used to sit
+	BELOW the whole 14-dropdown config form: at 1080p 'Load Game' was clipped
+	by the screen edge and Tutorial/Replays/Settings/Quit were entirely below
+	the fold inside the ScrollContainer. Start Game stays a full-width primary
+	button; the six secondary actions become a 3-column grid so the config
+	form is still visible without scrolling."""
+	var menu = $ScrollContainer/MenuContainer
+	var buttons = $ScrollContainer/MenuContainer/ButtonSection
+	if menu == null or buttons == null:
+		return
+	# Index 0 = TitleLabel, 1 = HSeparator — buttons land at 2.
+	menu.move_child(buttons, 2)
+
+	var grid := GridContainer.new()
+	grid.name = "SecondaryButtonGrid"
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for btn_name in ["TutorialButton", "MultiplayerButton", "LoadButton", "ReplayButton", "SettingsButton", "QuitButton"]:
+		var b = buttons.get_node_or_null(NodePath(btn_name))
+		if b != null:
+			buttons.remove_child(b)
+			b.custom_minimum_size = Vector2(185, 38)
+			grid.add_child(b)
+	buttons.add_child(grid)
+
+	var fold_sep := HSeparator.new()
+	fold_sep.name = "ButtonsFoldSeparator"
+	buttons.add_child(fold_sep)
+	print("MainMenu: action buttons promoted above the fold")
 
 func _create_controller_status() -> void:
 	"""Top-right always-visible controller diagnostic (M4). Steam Deck field

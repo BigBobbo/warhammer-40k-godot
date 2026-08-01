@@ -150,6 +150,14 @@ var hotseat_handoff_enabled: bool = true
 # only (the 10e data/code paths survive solely for the legacy regression
 # suite and are pinned by the harness carve-out in _ready).
 
+# Display settings. The project launches fullscreen (project.godot
+# window/size/mode=3); before these existed there was NO way to windowed-mode
+# the game — a top negative-review generator on multi-monitor setups.
+# window_mode: "fullscreen" (borderless, default) | "exclusive" | "windowed"
+var window_mode: String = "fullscreen"
+var window_resolution: Vector2i = Vector2i(1920, 1080)
+var vsync_enabled: bool = true
+
 # Board texture style: "grass", "mud", "desert", "stone", "felt", "tilepack", "none"
 var board_style: String = "grass"
 
@@ -236,6 +244,11 @@ func _ready() -> void:
 	# P3-111: Set up audio buses and apply saved audio settings
 	_setup_audio_buses()
 	_apply_audio_settings()
+
+	# Apply the persisted window mode/resolution/vsync. Deferred so the main
+	# window exists and the harness carve-out (headless/scenario runs must
+	# keep the 1920x1080 baseline) can no-op cleanly.
+	call_deferred("_apply_display_settings")
 
 	# M0 controller foundations: the persisted UI Scale finally has a consumer.
 	_apply_ui_scale()
@@ -538,6 +551,58 @@ func set_shooting_show_all_units(show_all: bool) -> void:
 	_save_settings()
 	print("[SettingsService] shooting_show_all_units set to %s" % str(show_all))
 
+func get_window_mode() -> String:
+	return window_mode
+
+func set_window_mode(mode: String) -> void:
+	if mode not in ["fullscreen", "exclusive", "windowed"]:
+		mode = "fullscreen"
+	window_mode = mode
+	_save_settings()
+	_apply_display_settings()
+	print("[SettingsService] window_mode set to %s" % mode)
+
+func get_window_resolution() -> Vector2i:
+	return window_resolution
+
+func set_window_resolution(res: Vector2i) -> void:
+	window_resolution = res
+	_save_settings()
+	_apply_display_settings()
+	print("[SettingsService] window_resolution set to %s" % str(res))
+
+func get_vsync_enabled() -> bool:
+	return vsync_enabled
+
+func set_vsync_enabled(enabled: bool) -> void:
+	vsync_enabled = enabled
+	_save_settings()
+	_apply_display_settings()
+	print("[SettingsService] vsync_enabled set to %s" % str(enabled))
+
+func _apply_display_settings() -> void:
+	# Never fight the automated harness (scenario runner screenshots assume
+	# the 1920x1080 project baseline), a headless server, or the browser
+	# (the canvas owns the window there).
+	if _is_automated_harness() or OS.has_feature("web") or DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_vsync_mode(
+		DisplayServer.VSYNC_ENABLED if vsync_enabled else DisplayServer.VSYNC_DISABLED)
+	match window_mode:
+		"windowed":
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			DisplayServer.window_set_size(window_resolution)
+			# Centre on the current screen so a shrink doesn't strand the
+			# title bar off-screen.
+			var screen := DisplayServer.window_get_current_screen()
+			var screen_pos := DisplayServer.screen_get_position(screen)
+			var screen_size := DisplayServer.screen_get_size(screen)
+			DisplayServer.window_set_position(screen_pos + (screen_size - window_resolution) / 2)
+		"exclusive":
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+		_:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
 func get_hotseat_handoff_enabled() -> bool:
 	return hotseat_handoff_enabled
 
@@ -631,6 +696,11 @@ func _save_settings() -> void:
 	config.set_value("gameplay", "shooting_pause_policy", shooting_pause_policy)
 	config.set_value("gameplay", "shooting_show_all_units", shooting_show_all_units)
 	config.set_value("gameplay", "hotseat_handoff_enabled", hotseat_handoff_enabled)
+
+	# Display
+	config.set_value("display", "window_mode", window_mode)
+	config.set_value("display", "window_resolution", "%dx%d" % [window_resolution.x, window_resolution.y])
+	config.set_value("display", "vsync_enabled", vsync_enabled)
 	config.set_value("gameplay", AUTO_ALLOCATE_MIGRATION_KEY, true)
 
 	# Controls
@@ -699,6 +769,16 @@ func _load_settings() -> void:
 	shooting_pause_policy = str(config.get_value("gameplay", "shooting_pause_policy", "every_step"))
 	shooting_show_all_units = config.get_value("gameplay", "shooting_show_all_units", false)
 	hotseat_handoff_enabled = bool(config.get_value("gameplay", "hotseat_handoff_enabled", true))
+
+	# Display
+	window_mode = str(config.get_value("display", "window_mode", "fullscreen"))
+	if window_mode not in ["fullscreen", "exclusive", "windowed"]:
+		window_mode = "fullscreen"
+	var res_str := str(config.get_value("display", "window_resolution", "1920x1080"))
+	var res_parts := res_str.split("x")
+	if res_parts.size() == 2 and res_parts[0].is_valid_int() and res_parts[1].is_valid_int():
+		window_resolution = Vector2i(maxi(640, int(res_parts[0])), maxi(480, int(res_parts[1])))
+	vsync_enabled = bool(config.get_value("display", "vsync_enabled", true))
 
 	# Controls
 	menu_scroll_speed = clampf(config.get_value("controls", "menu_scroll_speed", 0.4), 0.1, 1.0)
