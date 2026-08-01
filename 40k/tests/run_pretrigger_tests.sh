@@ -44,6 +44,7 @@ cp -n tests/saves/*.meta saves/ 2>/dev/null || true
 
 TESTS=(
     "tests/test_tutorial_checklist.gd"
+    "tests/test_tutorial_confirm_prompt.gd"
     "tests/test_input_mode_policy.gd"
     "tests/test_controller_controls_doc_sync.gd"
     "tests/test_hi_pretrigger.gd"

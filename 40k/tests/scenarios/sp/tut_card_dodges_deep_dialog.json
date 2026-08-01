@@ -20,7 +20,7 @@
     },
     {
       "act": "execute_script",
-      "script": "var sc = tree.root.get_node_or_null(\"/root/MainMenu/ScrollContainer\")\nvar b = tree.root.get_node_or_null(\"/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton\")\nif sc == null or b == null:\n\treturn false\nsc.ensure_control_visible(b)\nreturn true",
+      "script": "var sc = tree.root.get_node_or_null(\"/root/MainMenu/ScrollContainer\")\nvar b = tree.root.get_node_or_null(\"/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton\")\nif sc == null or b == null:\n\treturn false\nsc.ensure_control_visible(b)\nreturn true",
       "multiline": true,
       "equals": true,
       "comment": "ButtonSection sits below the menu's scroll fold at 1080p, and a click at an unscrolled control's coordinates lands on whatever is actually drawn there"
@@ -31,7 +31,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton"
     },
     {
       "act": "expect_node_visible",
