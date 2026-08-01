@@ -122,6 +122,42 @@ above rather than pretended.
 
 ---
 
+## Progress log (updated 2026-08-01, same branch)
+
+Shipped on `claude/40k-godot-audit-azjslb` since this audit was written:
+
+- **Phase A (play-and-pass):** A1 HandoffManager privacy screen ✔, A2 turn-boundary
+  triggers incl. Formations secrecy ✔, A3 settings toggle ✔, A4 reactive overlays name
+  the deciding player ✔, A6 seat names ✔, A7 windowed scenario (13/13) ✔.
+  A5 (roll-off: P1 rolls both dice) assessed as acceptable-by-design — both dice are
+  shown side by side and rolls are random regardless of who clicks; left as is.
+- **Phase B:** B1 dev tooling gated out of player builds ✔ (MCP socket opt-in,
+  TestModeHandler inert in templates, macOS/all preset exclude filters),
+  B2 Windows preset + CI preset-name/template fixes ✔, B3 display settings ✔
+  (windowed/exclusive/fullscreen, resolution, vsync — verified live),
+  B4 custom app icon ✔ (Steam capsule art still needed), B5 menu buttons above the
+  fold + attribution overlap fix ✔ (controller diagnostic labels kept — explicit owner
+  request 2026-07-27), B6 release logging profile ✔, B8 cheat/debug keys gated ✔,
+  B9 Quit to Desktop ✔, B10 HUD top-bar overlap — verified already fixed live, no change.
+- **Phase C:** C1 15.01 once-per-phase cap ✔ (+ phase-instance fix, new pin test 8/8),
+  C2 battle-shock via diff pipeline ✔, G7 overwatch no-hit-rerolls verified honored ✔.
+- **Extra:** shooting eligibility cache now invalidates on terrain change (real bug),
+  383 scenario fixture repaired (embarked-target drift) — suite sample 11/11 green,
+  online multiplayer labeled "(Beta)" in menu + lobby.
+
+### Stale-issue triage (code evidence; recommend owner spot-check then close)
+
+| Issue | Evidence | Verdict |
+|---|---|---|
+| #319 game never ends | verified live this session (GameOverDialog) | **close** |
+| #45 END_FIGHT broken | `FightPhase.gd` handles END_FIGHT (3 sites) | close after spot-check |
+| #37 consolidation / #34 skip pile-in | 11e global pile-in/consolidate steps implemented | close after spot-check |
+| #8 mark shot models before removal | `TokenVisual.gd` marked-for-death indicator (3 sites) | close after spot-check |
+| #56 per-weapon range circles | `ShootingController.gd:1911` weapon-named range circles | close after spot-check |
+| #92 disembark movement types | movement disembark fully reworked (127 refs, 3 modes) | close after spot-check |
+| #82 formation rotation, #41 click-model-select | no clear evidence | keep open |
+| #89 multiplayer, #94 master bug list, #93 testing audit | umbrella issues | keep open |
+
 ## Flags (things you should know)
 
 - **Issue #319 is fixed in code and verified live this session** — close it.
