@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.1",
+      "date": "2026-07-31",
+      "summary": "A unit is now offered only the weapons its army list actually bought — no more Power klaw on a mob that never took one — and a weapon swap carries its whole bundle.",
+      "changes": [
+        "Melee already stopped a whole mob swinging one model's weapon. This goes further: the attack panel no longer lists weapons the unit does not own at all. A Boyz mob is 9 choppas and a Boss Nob's big choppa, so those are the only two lines — the Power klaw and Close combat weapon it never bought are gone.",
+        "Army lists rarely record melee. Where the list is silent, the game now reads the datasheet's own \"equipped with\" line per model role instead of falling back to every option on the sheet.",
+        "A swap usually trades two weapons for two: \"any number of Boyz can each have their slugga AND choppa replaced with 1 shoota AND 1 close combat weapon\". Lists record the gun and not the blade, so shoota Boyz were being handed the choppa they traded away — they now get the close combat weapon they actually hold. Partial swaps work too: 3 shootas gives 3 close combat weapons and 6 choppas.",
+        "When a list names a weapon but not how many — \"Guardian Spear, Sentinel blade, Praesidium Shield\" with no numbers — the game says so in the log and leaves the unit alone, rather than picking one and silently dropping the sentinel blade.",
+        "Saved games pick all of this up on load rather than keeping whatever an older version worked out."
+      ]
+    },
+    {
       "version": "1.12.0",
       "date": "2026-07-31",
       "summary": "The game has sound now — an atmospheric music bed on the menu and in battle, plus UI click cues. The Music and SFX volume sliders finally do something.",
