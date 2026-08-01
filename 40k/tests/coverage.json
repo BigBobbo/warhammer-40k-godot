@@ -3107,6 +3107,24 @@
       "status": "covered"
     },
     {
+      "id": "tutorial.t6.boss_swings.dpad",
+      "description": "T6 (Krumpin') step 6 of 8 teaches the Warboss pick as D-pad work, not a stick glide. The fight panel's UNITS THAT CAN FIGHT rows are a VBox of Buttons (not an ItemList), so they sit on PadRouter's HUD_Right focus chain; when the step opens the D-pad is parked on the dice dock's primary button, so two ▲ presses land on the Warboss row and A activates him (Epic Challenge offer follows). The prompt names the ✚ glyph and no longer names LS.",
+      "scenarios": [
+        "tut_t6_boss_row_dpad"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.pad_prompts.dpad_first",
+      "description": "Pad prompts must name the D-pad wherever the D-pad reaches the target — a Steam Deck player reported T6 step 6 telling them to glide the left stick at a row the D-pad walks onto. T6 step 7 is the same fix from the other direction: AllocationGroupOverlay confines pad focus to itself and grabs its own Roll Saves button, so the prompt says 'press A' rather than 'glide LS'. The remaining {ls} prompts are genuinely off the route: HUD_Left (T4's Dice Log tab) is never visited by PadRouter._enter_panel_focus, T7's bottom-bar Stratagems button cannot be reached from the command-phase focus chain, and the rest are board work (placing models, aiming at tokens).",
+      "scenarios": [
+        "tut_t6_boss_row_dpad"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "controller.end_phase.discoverability",
       "description": "A controller player can discover how to end a phase without the touchscreen: the button they reach for names the Menu (☰) button bound to pad_phase_action, matching the '☰ End Phase' hint-bar chip, and pressing Menu (Start) pops the confirm dialog whose OK ends the phase.",
       "scenarios": [
